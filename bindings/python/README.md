@@ -1,42 +1,38 @@
 # blinkless (Python)
 
-In-process Python bindings for the blinkless HTML-to-PDF engine. The
+In-process Python bindings for the blinkless HTML layout engine. The
 package loads `libblinkless` (a Go `-buildmode=c-shared` library) with
 stdlib `ctypes`; there is no subprocess and no compiled Python extension.
 
-Requires Python 3.8+. Linux is the first-supported platform; macOS and
-Windows builds follow the wheel matrix.
+The engine lays out HTML and returns a drawing list. It writes no PDF and
+encodes no image, so every conversion entry point
+(`convert_html_to_pdf`, `convert_file_to_pdf`, `convert_url_to_pdf`,
+`convert_html_to_image`, `Document.pdf`, `ImageDocument.image`) raises
+`RuntimeError` with the removal reason.
 
-## Document style
-
-Mirrors the Go `Document` API:
-
-```python
-from blinkless import Document, Page, Content
-
-doc = Document(
-    pages=[Page(source=Content(html=b"<html><body><h1>Invoice</h1></body></html>"))],
-    page_size="A4",
-)
-pdf_bytes: bytes = doc.pdf()  # or doc.pdf(timeout=30)
-```
-
-## Helper style
+## What works today
 
 ```python
-from blinkless import convert_html_to_pdf, PDFOptions
+from blinkless import abi_version, library_version_string
 
-pdf_bytes = convert_html_to_pdf(
-    html=b"<html><body><h1>Invoice #42</h1><p>Total: $19.00</p></body></html>",
-    options=PDFOptions(page_size="A4", orientation="portrait"),
-)
-
-with open("invoice.pdf", "wb") as f:
-    f.write(pdf_bytes)
+assert abi_version() == 1
+print(library_version_string())
 ```
 
-Images work the same way via `ImageDocument` or
-`convert_html_to_image(html, options=ImageOptions(width=1024))`.
+The ctypes loader, the version and ABI queries, the error taxonomy, and
+the document models (validation included) remain in place. The WASM
+adapter is the first binding that returns a drawing-list payload; a
+drawing-list entry point for the C ABI is the next step for this package.
 
-The full build, install, security (ACL / NetworkPolicy), and ABI
-stability guide lives in [documentation/python.md](../../documentation/python.md).
+## Build and install
+
+Requires Go with cgo and a C toolchain:
+
+```sh
+CGO_ENABLED=1 make c-shared
+pip install -e ./bindings/python
+```
+
+`make c-shared` writes `dist/libblinkless.so`, which the loader finds
+automatically. Set `BLINKLESS_LIBRARY_PATH` when the library lives
+elsewhere.

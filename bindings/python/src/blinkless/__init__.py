@@ -1,25 +1,16 @@
 """blinkless: in-process Python bindings for the blinkless engine.
 
-Two usage styles, both backed by a ctypes-loaded c-shared library:
+The engine lays out HTML and returns a drawing list. It writes no PDF and
+encodes no image, so the conversion helpers raise ``RuntimeError`` with
+the removal reason. What remains is the ctypes loader, the ABI and
+version queries, the error taxonomy, and the document models:
 
-    from blinkless import Document, Page, Content
+    from blinkless import abi_version, library_version_string
 
-    doc = Document(
-        pages=[Page(source=Content(html=b"<html><body><h1>Invoice</h1></body></html>"))],
-        page_size="A4",
-    )
-    pdf_bytes = doc.pdf()
+    assert abi_version() == 1
+    print(library_version_string())
 
-Or the flat helper:
-
-    from blinkless import convert_html_to_pdf, PDFOptions
-
-    pdf_bytes = convert_html_to_pdf(
-        b"<html><body><h1>Invoice #42</h1></body></html>",
-        options=PDFOptions(page_size="A4"),
-    )
-
-The shared library is located and loaded only when a conversion runs;
+The shared library is located and loaded only when an ABI query runs;
 building model objects never touches it.
 """
 
@@ -67,8 +58,8 @@ from .api import (
 
 __version__ = "0.2.6"
 
-#: Upstream settings-surface identifier (api.go LibraryVersion), distinct
-#: from the project release in __version__.
+#: Historical upstream settings-surface identifier, kept for import
+#: compatibility. The Go constant was removed with the PDF writer.
 library_version = "0.12.7-dev"
 
 

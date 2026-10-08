@@ -7,25 +7,24 @@
  * emitted next to the shared library is a build artifact, never a source
  * of truth.
  *
- * All functions are one-shot: they take an HTML buffer plus one options
- * struct and return either encoded bytes or an error message. There is no
- * document handle and no global renderer state to release.
+ * The engine returns a drawing list. It writes no PDF and encodes no
+ * image, so blinkless_html_to_image validates its arguments and reports
+ * RENDER_ERROR with a removal diagnostic. There is no document handle and
+ * no global renderer state to release.
  *
- * Status codes returned by blinkless_html_to_pdf and
- * blinkless_html_to_image:
+ * Status codes returned by blinkless_html_to_image:
  *
  *   0  OK            conversion succeeded, out_data/out_len are valid
  *   1  INVALID_ARG   nil or empty HTML, bad abi_version/struct_size, a nil
  *                    out pointer, an allow array longer than 1024 entries,
- *                    or an option value rejected by validation (page size,
- *                    orientation, PDF version/profile, copies range)
+ *                    or an image option value rejected by validation
  *   2  LOAD_DENIED   a local-file ACL or network policy rule denied a
  *                    resource needed by the document
- *   3  RENDER_ERROR  layout, paint, pagination, or encoding failed
+ *   3  RENDER_ERROR  layout failed, or the requested output encoding was
+ *                    removed (blinkless_html_to_image always reports this)
  *   4  TIMEOUT       the caller timeout elapsed or the operation was
  *                    cancelled before completion
- *   5  RESOURCE_LIMIT  an engine ceiling was exceeded (for example the
- *                    copies limit enforced inside the converter)
+ *   5  RESOURCE_LIMIT  an engine ceiling was exceeded
  *   6  INTERNAL      unexpected internal failure; also returned by every
  *                    function when the library was built without cgo
  *
@@ -52,9 +51,10 @@
  *
  * Options structs:
  *
- *   - Every struct starts with abi_version followed by struct_size. Callers
- *     must set abi_version to BLINKLESS_ABI_VERSION and struct_size to
- *     sizeof of the struct they compiled against. A zero struct_size skips
+ *   - GwkImageOptions starts with abi_version followed by struct_size.
+ *     Callers must set abi_version to BLINKLESS_ABI_VERSION and
+ *     struct_size to sizeof of the struct they compiled against. A zero
+ *     struct_size skips
  *     the size gate; any other mismatched size is rejected with
  *     INVALID_ARG so layout drift cannot corrupt reads.
  *   - Passing opts == NULL selects defaults for every field.
@@ -71,8 +71,6 @@
  *     1 allows the document to reference local files.
  *   - timeout_ms: values <= 0 disable the deadline; positive values cancel
  *     the conversion after that many milliseconds (status TIMEOUT).
- *   - copies: 0 selects the engine default; 1 through 1000 is accepted;
- *     anything else is INVALID_ARG.
  *   - Image options: quality 0 selects the engine default (94); width and
  *     height 0 keep auto sizing; smart_width -1 means unset (engine
  *     default true), 0 disables, 1 enables; crop_left, crop_top,
@@ -113,30 +111,6 @@ extern "C" {
 typedef struct {
     int32_t abi_version;
     int32_t struct_size;
-    const char* page_size;
-    const char* orientation;
-    const char* title;
-    const char* pdf_version;
-    const char* pdf_profile;
-    const char* base_url;
-    const char* const* allow;
-    size_t allow_len;
-    double width_mm;
-    double height_mm;
-    double margin_top;
-    double margin_right;
-    double margin_bottom;
-    double margin_left;
-    int32_t copies;
-    int32_t grayscale;
-    int32_t enable_local_file_access;
-    int32_t network_policy;
-    int32_t timeout_ms;
-} GwkPdfOptions;
-
-typedef struct {
-    int32_t abi_version;
-    int32_t struct_size;
     const char* format;
     const char* base_url;
     const char* const* allow;
@@ -163,21 +137,10 @@ int32_t blinkless_abi_version(void);
 const char* blinkless_version(void);
 
 /*
- * Converts html_len bytes of HTML into a PDF document.
- *
- * opts may be NULL for defaults. On success stores 0 in the return value,
- * a heap allocation in *out_data (release with blinkless_free), its
- * byte length in *out_len, and NULL in *out_err. On failure stores a
- * non-zero status code, NULL in *out_data, 0 in *out_len, and an allocated
- * diagnostic in *out_err (release with blinkless_free_string).
- */
-int blinkless_html_to_pdf(const char* html, size_t html_len, const GwkPdfOptions* opts, unsigned char** out_data, size_t* out_len, char** out_err);
-
-/*
- * Converts html_len bytes of HTML into an encoded image (PNG by default,
- * JPEG when format says so).
- *
- * Ownership and return conventions match blinkless_html_to_pdf.
+ * Image encoding was removed. The call validates its arguments, then
+ * stores RENDER_ERROR, NULL in *out_data, 0 in *out_len, and an allocated
+ * diagnostic in *out_err (release with blinkless_free_string). The engine
+ * returns a drawing list instead.
  */
 int blinkless_html_to_image(const char* html, size_t html_len, const GwkImageOptions* opts, unsigned char** out_data, size_t* out_len, char** out_err);
 

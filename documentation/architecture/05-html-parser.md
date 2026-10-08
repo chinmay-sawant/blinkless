@@ -227,7 +227,7 @@ are interleaved in a single pass.
 
 - **Standard library only**: `errors`, `strings` (`html.go:11-13`) and
   `html` (aliased `stdhtml`) + `strings` in `entities.go:4-6`.
-- **Zero internal imports, zero third-party imports.** This makes the package a
+- **No internal imports, no third-party imports.** This makes the package a
   dependency leaf — nothing in the repo can depend on the HTML parser
   depending on anything else, and the import graph cannot cycle through it.
 

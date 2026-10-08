@@ -5,22 +5,26 @@ green on machines that have not built bindings/c yet. Build it with:
 
     CGO_ENABLED=1 go build -buildmode=c-shared \
         -o dist/libblinkless.so ./bindings/c
+
+The engine returns a drawing list. It writes no PDF and encodes no image,
+so the binding loads, reports the ABI and version, and raises a removal
+error from every conversion entry point. These tests pin that contract.
 """
 
-import re
+import ctypes
 import unittest
-from pathlib import Path
 
 import blinkless
-from blinkless import Content, Document, ImageOptions, PDFOptions, Page
 from blinkless import (
+    Content,
+    Document,
+    ImageDocument,
+    Page,
     convert_file_to_pdf,
     convert_html_to_image,
     convert_html_to_pdf,
 )
 from blinkless import _lib
-from blinkless.exceptions import ErrInvalidPageSize
-from blinkless.exceptions import ErrNoPageObjects, InvalidArgumentError
 
 
 def _find_library():
@@ -39,92 +43,63 @@ _REASON = (
     " BLINKLESS_LIBRARY_PATH"
 )
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-_FIXTURE = (
-    _REPO_ROOT / "testdata" / "golden" / "fixture-01-simple-invoice.html"
-)
-
 _INLINE_HTML = (
     b"<html><body><h1>Invoice #42</h1><p>Total: $19.00</p></body></html>"
 )
 
-# The engine pins dates per call (Request.now falls back to time.Now in
-# internal/convert/convert.go), so two conversions of the same input can
-# differ inside these fields only.
-_DATE_RE = re.compile(rb"/(Creation|Mod)Date \(D:[0-9]{14}Z\)")
-
-
-def _normalize_dates(data):
-    return _DATE_RE.sub(b"DATE", data)
+# Status 3 from the header table: layout or encoding failed. The image
+# entry point reports every call this way because encoding was removed.
+_STATUS_RENDER_ERROR = 3
 
 
 @unittest.skipUnless(_LIB_PATH is not None, _REASON)
 class BindingTest(unittest.TestCase):
-    def test_inline_pdf_structure(self):
-        pdf_bytes = convert_html_to_pdf(_INLINE_HTML)
-        self.assertGreater(len(pdf_bytes), 1024)
-        self.assertTrue(pdf_bytes.startswith(b"%PDF-"))
-        self.assertIn(b"%%EOF", pdf_bytes[-1024:])
-        self.assertIn(b"/FontFile2", pdf_bytes)
-
-    def test_fixture_invoice_converts(self):
-        self.assertTrue(_FIXTURE.is_file(), "missing {0}".format(_FIXTURE))
-        pdf_bytes = convert_file_to_pdf(str(_FIXTURE))
-        self.assertGreater(len(pdf_bytes), 1024)
-        self.assertTrue(pdf_bytes.startswith(b"%PDF-"))
-        self.assertIn(b"/FontFile2", pdf_bytes)
-        self.assertGreaterEqual(pdf_bytes.count(b"/Type /Page"), 1)
-
-    def test_document_parity_with_helper(self):
-        document_bytes = Document(
-            pages=[Page(source=Content(html=_INLINE_HTML))],
-            page_size="A4",
-            orientation="portrait",
-        ).pdf()
-        helper_bytes = convert_html_to_pdf(
-            _INLINE_HTML,
-            options=PDFOptions(page_size="A4", orientation="portrait"),
-        )
-        # Byte equality holds apart from embedded creation timestamps.
-        self.assertEqual(
-            _normalize_dates(document_bytes),
-            _normalize_dates(helper_bytes),
-        )
-
-    def test_invalid_page_size_maps_to_sentinel(self):
-        opts = _lib.GwkPdfOptions.create()
-        opts.page_size = b"Bogus"
-        try:
-            with self.assertRaises(InvalidArgumentError) as ctx:
-                _lib.convert_html_to_pdf(_INLINE_HTML, opts)
-            self.assertIs(ctx.exception.sentinel, ErrInvalidPageSize)
-        finally:
-            opts.page_size = None
-
-    def test_empty_document_model_rejected_without_library_call(self):
-        with self.assertRaises(ErrNoPageObjects):
-            Document(pages=[]).validate()
-
-    def test_html_to_image_png_magic(self):
-        png_bytes = convert_html_to_image(
-            b"<html><body><h1>Badge</h1></body></html>",
-            options=ImageOptions(width=256, format="png"),
-        )
-        self.assertTrue(png_bytes.startswith(b"\x89PNG\r\n\x1a\n"))
-
-    def test_version_and_abi_reported(self):
-        self.assertEqual(blinkless.__version__, "0.2.6")
-        self.assertEqual(blinkless.library_version, "0.12.7-dev")
+    def test_library_reports_abi_and_version(self):
+        lib = _lib.load_library()
+        self.assertIsNotNone(lib)
         self.assertEqual(blinkless.abi_version(), 1)
         reported = blinkless.library_version_string()
         self.assertIsInstance(reported, str)
         self.assertGreater(len(reported), 0)
 
-    def test_repeated_conversion_is_stable_and_frees_cleanly(self):
-        first = _normalize_dates(convert_html_to_pdf(_INLINE_HTML))
-        for _ in range(25):
-            again = _normalize_dates(convert_html_to_pdf(_INLINE_HTML))
-            self.assertEqual(first, again)
+    def test_pdf_entry_points_report_removed(self):
+        with self.assertRaisesRegex(RuntimeError, "removed"):
+            convert_html_to_pdf(_INLINE_HTML)
+        with self.assertRaisesRegex(RuntimeError, "removed"):
+            convert_file_to_pdf("invoice.html")
+        with self.assertRaisesRegex(RuntimeError, "removed"):
+            Document(
+                pages=[Page(source=Content(html=_INLINE_HTML))],
+                page_size="A4",
+            ).pdf()
+
+    def test_image_entry_points_report_removed(self):
+        with self.assertRaisesRegex(RuntimeError, "removed"):
+            convert_html_to_image(_INLINE_HTML)
+        with self.assertRaisesRegex(RuntimeError, "removed"):
+            ImageDocument(source=Content(html=_INLINE_HTML)).image()
+
+    def test_image_abi_call_reports_removed(self):
+        lib = _lib.load_library()
+        opts = _lib.GwkImageOptions.create()
+        out_data = ctypes.POINTER(ctypes.c_ubyte)()
+        out_len = ctypes.c_size_t(0)
+        out_err = ctypes.c_char_p()
+        status = lib.blinkless_html_to_image(
+            _INLINE_HTML,
+            len(_INLINE_HTML),
+            ctypes.byref(opts),
+            ctypes.byref(out_data),
+            ctypes.byref(out_len),
+            ctypes.byref(out_err),
+        )
+        try:
+            self.assertEqual(status, _STATUS_RENDER_ERROR)
+            self.assertIn(b"removed", out_err.value)
+            self.assertEqual(out_len.value, 0)
+            self.assertFalse(out_data)
+        finally:
+            lib.blinkless_free_string(out_err)
 
 
 if __name__ == "__main__":

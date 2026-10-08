@@ -8,7 +8,7 @@ const (
 	// cropUnset marks "no crop on this axis" per the header contract.
 	cropUnset = -1
 	// maxAllowEntries caps caller-controlled allow array lengths before an
-	// unsafe slice is formed. Shared by PDF and image paths.
+	// unsafe slice is formed.
 	maxAllowEntries = 1024
 )
 

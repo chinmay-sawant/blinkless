@@ -11,7 +11,7 @@ import (
 )
 
 // libVersion is reported by blinkless_version. Release builds stamp it
-// via -ldflags "-X main.libVersion=$(cat VERSION)"
+// via -ldflags "-X main.libVersion=$(BINDINGS_VERSION)"
 // (the Makefile BINDINGS_VERSION_LDFLAGS value; bindings/c is package main).
 //
 //nolint:gochecknoglobals // ldflags injection target shared by both build modes

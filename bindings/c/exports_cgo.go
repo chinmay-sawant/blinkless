@@ -87,7 +87,6 @@ func blinkless_version() *C.char {
 	return C.CString(libVersion)
 }
 
-
 //export blinkless_html_to_image
 func blinkless_html_to_image(
 	cHTML *C.char,
@@ -136,7 +135,6 @@ func blinkless_last_error(buf *C.char, bufLen C.int32_t) C.int32_t {
 	return C.int32_t(copyLastErrorInto(sink))
 }
 
-
 // runImageWithContext rejects image encoding. The engine returns a drawing
 // list from the Go layout package. This ABI entry no longer writes PNG or JPEG.
 func runImageWithContext(ctx context.Context, html []byte, opts imageOptions) (int32, []byte, string) {
@@ -161,8 +159,7 @@ func requestContext(timeoutMS int64) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), time.Duration(timeoutMS)*time.Millisecond)
 }
 
-
-// parseImageRequest mirrors parsePDFRequest for GwkImageOptions.
+// parseImageRequest validates the borrowed HTML buffer and GwkImageOptions.
 func parseImageRequest(
 	cHTML *C.char,
 	cLen C.size_t,
@@ -192,11 +189,8 @@ func parseImageRequest(
 	return C.GoBytes(unsafe.Pointer(cHTML), C.int(cLen)), opts, false
 }
 
-
-
-
-// convertImageOptions maps a GwkImageOptions pointer onto imageOptions using
-// the same gates as convertPDFOptions.
+// convertImageOptions maps a GwkImageOptions pointer onto imageOptions and
+// applies the ABI gate.
 func convertImageOptions(cOpts *C.GwkImageOptions, cErr **C.char) (imageOptions, bool) {
 	opts := defaultImageOptions()
 	if cOpts == nil {
@@ -432,10 +426,6 @@ func exportedVersion() string {
 
 	return C.GoString(version)
 }
-
-
-
-
 
 // readLastErrorViaExport copies the process-wide diagnostic through
 // blinkless_last_error into C memory and back as a Go string.

@@ -1,4 +1,4 @@
-"""ctypes loader for libblinkless and the frozen C ABI structs.
+"""ctypes loader for libblinkless and the C ABI structs.
 
 Search order for the shared library:
 
@@ -9,16 +9,19 @@ Search order for the shared library:
 The first existing candidate wins; when none exists ``find_library_path``
 raises ``FileNotFoundError`` listing every path tried.
 
+The engine returns a drawing list and no longer writes PDF or encodes
+images. ``convert_html_to_pdf`` and ``convert_html_to_image`` raise
+``RuntimeError`` with the removal reason before any foreign call.
+
 Memory ownership follows the committed header
-``bindings/c/include/blinkless.h``: output bytes and error strings are
+``bindings/c/include/blinkless.h``: strings returned by the library are
 allocated by the library and must be released through
-``blinkless_free`` / ``blinkless_free_string`` after Python copies
-them. Input buffers are borrowed for the duration of a call only.
+``blinkless_free_string`` after Python copies them. Input buffers are
+borrowed for the duration of a call only.
 
 Engine calls are not documented as thread-affine, so every foreign call is
 serialized through a module-wide lock. ctypes releases the GIL around each
-CDLL call, which lets other Python threads progress while a long render
-runs.
+CDLL call.
 """
 
 import ctypes
@@ -27,57 +30,13 @@ import sys
 import threading
 from pathlib import Path
 
-from .exceptions import error_from_status
-
 #: ABI revision this binding is compiled against. Must match the header.
 ABI_VERSION = 1
-
-_STATUS_OK = 0
 
 _LOAD_LOCK = threading.Lock()
 _CALL_LOCK = threading.Lock()
 
 _LOADED_LIBRARY = None  # type: ctypes.CDLL
-
-
-class GwkPdfOptions(ctypes.Structure):
-    """Mirror of GwkPdfOptions from include/blinkless.h.
-
-    Field order is pinned by the ABI contract; do not reorder or insert.
-    """
-
-    _fields_ = [
-        ("abi_version", ctypes.c_int32),
-        ("struct_size", ctypes.c_int32),
-        ("page_size", ctypes.c_char_p),
-        ("orientation", ctypes.c_char_p),
-        ("title", ctypes.c_char_p),
-        ("pdf_version", ctypes.c_char_p),
-        ("pdf_profile", ctypes.c_char_p),
-        ("base_url", ctypes.c_char_p),
-        ("allow", ctypes.POINTER(ctypes.c_char_p)),
-        ("allow_len", ctypes.c_size_t),
-        ("width_mm", ctypes.c_double),
-        ("height_mm", ctypes.c_double),
-        ("margin_top", ctypes.c_double),
-        ("margin_right", ctypes.c_double),
-        ("margin_bottom", ctypes.c_double),
-        ("margin_left", ctypes.c_double),
-        ("copies", ctypes.c_int32),
-        ("grayscale", ctypes.c_int32),
-        ("enable_local_file_access", ctypes.c_int32),
-        ("network_policy", ctypes.c_int32),
-        ("timeout_ms", ctypes.c_int32),
-    ]
-
-    @classmethod
-    def create(cls):
-        # type: () -> GwkPdfOptions
-        """Return a zeroed struct with the size gate fields filled."""
-        instance = cls()
-        instance.abi_version = ABI_VERSION
-        instance.struct_size = ctypes.sizeof(cls)
-        return instance
 
 
 class GwkImageOptions(ctypes.Structure):
@@ -171,17 +130,6 @@ def _bind_prototypes(lib):
     size_p = ctypes.POINTER(ctypes.c_size_t)
     char_pp = ctypes.POINTER(ctypes.c_char_p)
 
-    fn = lib.blinkless_html_to_pdf
-    fn.restype = ctypes.c_int
-    fn.argtypes = [
-        ctypes.c_char_p,
-        ctypes.c_size_t,
-        ctypes.POINTER(GwkPdfOptions),
-        ubyte_pp,
-        size_p,
-        char_pp,
-    ]
-
     fn = lib.blinkless_html_to_image
     fn.restype = ctypes.c_int
     fn.argtypes = [
@@ -270,53 +218,12 @@ def library_version_string():
             lib.blinkless_free_string(ctypes.cast(ptr, ctypes.c_char_p))
 
 
-def _take_error_message(lib, err_ptr, status):
-    # type: (ctypes.CDLL, ctypes.POINTER(ctypes.c_char_p), int) -> str
-    """Copy and free the out_err string, falling back to the last-error slot."""
-    text = b""
-    if err_ptr:
-        text = err_ptr.value or b""
-        lib.blinkless_free_string(err_ptr)
-    if not text:
-        length = int(lib.blinkless_last_error_length())
-        if length > 0:
-            buf = ctypes.create_string_buffer(length + 1)
-            lib.blinkless_last_error(buf, length + 1)
-            text = buf.value
-    message = text.decode("utf-8", "replace")
-    return message or "conversion failed with status {0}".format(status)
-
-
 def convert_html_to_pdf(html, opts=None):
-    # type: (bytes, GwkPdfOptions) -> bytes
-    """Run one PDF conversion and return owned bytes.
-
-    Raises the mapped ConversionError subclass on any non-zero status.
-    """
-    if not isinstance(html, (bytes, bytearray)):
-        raise TypeError("html must be bytes")
-    html = bytes(html)
-    lib = load_library()
-    out_data = ctypes.POINTER(ctypes.c_ubyte)()
-    out_len = ctypes.c_size_t(0)
-    out_err = ctypes.c_char_p()
-    with _CALL_LOCK:
-        opts_ptr = ctypes.byref(opts) if opts is not None else None
-        status = lib.blinkless_html_to_pdf(
-            html, len(html), opts_ptr, ctypes.byref(out_data),
-            ctypes.byref(out_len), ctypes.byref(out_err),
-        )
-        # Copy the message while the lock still holds: the last-error slot is
-        # process-wide and another thread may overwrite it before we raise.
-        message = None
-        if status != _STATUS_OK:
-            message = _take_error_message(lib, out_err, status)
-    if status != _STATUS_OK:
-        raise error_from_status(status, message)
-    try:
-        return ctypes.string_at(out_data, out_len.value)
-    finally:
-        lib.blinkless_free(ctypes.cast(out_data, ctypes.c_void_p))
+    # type: (bytes, object) -> bytes
+    """PDF writing was removed. The engine returns a drawing list."""
+    raise RuntimeError(
+        "PDF writing was removed; the engine returns a drawing list"
+    )
 
 
 def convert_html_to_image(html, opts=None):

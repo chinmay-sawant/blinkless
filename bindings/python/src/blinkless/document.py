@@ -1,16 +1,10 @@
-"""Python models mirroring the Go Document / ImageDocument API.
+"""Python models for the historical Document / ImageDocument API.
 
-Field names follow snake_case parity with ``document.go`` at the repo
-root: ``PageSize`` -> ``page_size``, ``AllowLocalFiles`` ->
-``allow_local_files``, and so on. Validation mirrors
-``document_validate.go`` and raises the same sentinels.
-
-Note on the v1 one-shot C ABI: ``GwkPdfOptions`` carries page geometry,
-margins, title, PDF version/profile, copies, grayscale, ACL, network
-policy, and timeout fields only. Model fields outside that subset (cover,
-toc, header/footer, collate, outline controls, font paths) are accepted
-for API parity and validated where cheap, but currently keep engine
-defaults until a handle-based ABI transmits them.
+Field names use snake_case parity with the Go types they mirrored
+(``PageSize`` -> ``page_size``, ``AllowLocalFiles`` ->
+``allow_local_files``, and so on). The models and their validation stay
+for API compatibility; the engine returns a drawing list, so the render
+methods report that PDF writing and image encoding were removed.
 """
 
 import ctypes
@@ -234,7 +228,7 @@ class Page:
 
 @dataclasses.dataclass
 class PDFOptions:
-    """Flat option bag behind convert_html_to_pdf."""
+    """Flat option bag for the historical convert_html_to_pdf helper."""
 
     page_size: str = "A4"
     orientation: str = "portrait"
@@ -297,10 +291,10 @@ class ImageOptions:
 
 @dataclasses.dataclass
 class Document:
-    """Multi-field document model mirroring the Go blinkless.Document.
+    """Multi-field document model kept for API compatibility.
 
-    Fields without a GwkPdfOptions counterpart keep engine defaults until
-    the handle-based ABI lands; see the module docstring.
+    The engine returns a drawing list; ``pdf`` reports that PDF writing
+    was removed.
     """
 
     pages: List[Page] = dataclasses.field(default_factory=list)
@@ -377,55 +371,20 @@ class Document:
 
     def pdf(self, timeout=None):
         # type: (Optional[float]) -> bytes
-        """Render the document and return the owned PDF bytes.
-
-        ``timeout`` is a whole-conversion deadline in seconds.
-        """
-        self.validate()
-        from . import _lib
-
-        html = self._inline_html()
-        opts, keepalive = _serialize_pdf_options(self, timeout)
-        result = _lib.convert_html_to_pdf(html, opts)
-        _ = keepalive
-        return result
+        """PDF writing was removed. The engine returns a drawing list."""
+        raise RuntimeError(
+            "PDF writing was removed; the engine returns a drawing list"
+        )
 
     def write_pdf(self, fileobj, timeout=None):
         # type: (object, Optional[float]) -> None
-        """Render and write the PDF into a binary file object."""
+        """PDF writing was removed. The engine returns a drawing list."""
         fileobj.write(self.pdf(timeout=timeout))
-
-    def _inline_html(self):
-        # type: () -> bytes
-        """Concatenate every page's inline HTML for the one-shot call."""
-        ordered = ([self.cover] if self.cover is not None else []) + list(
-            self.pages
-        )
-        parts = []
-        for entry in ordered:
-            if entry.source.kind != "html":
-                raise NotImplementedError(
-                    "the v1 one-shot ABI supports inline HTML sources only;"
-                    " use the blinkless CLI for file or URL sources"
-                )
-            parts.append(entry.source.html_bytes)
-        return b"\n".join(parts)
-
-    def effective_base_url(self):
-        # type: () -> Optional[str]
-        """The first HTML source's base, since Document carries none."""
-        ordered = ([self.cover] if self.cover is not None else []) + list(
-            self.pages
-        )
-        for entry in ordered:
-            if entry.source.kind == "html" and (entry.source.base or "").strip():
-                return entry.source.base
-        return None
 
 
 @dataclasses.dataclass
 class ImageDocument:
-    """Single-source image rasterization model mirroring ImageDocument."""
+    """Single-source image model kept for API compatibility."""
 
     source: Content = None  # type: ignore
     width: int = 0
@@ -482,7 +441,7 @@ class ImageDocument:
 
     def write_image(self, fileobj, timeout=None):
         # type: (object, Optional[float]) -> None
-        """Rasterize and write the image into a binary file object."""
+        """Image encoding was removed. The engine returns a drawing list."""
         fileobj.write(self.image(timeout=timeout))
 
 
@@ -523,42 +482,6 @@ def _deadline_ms(timeout):
     if not timeout or timeout <= 0:
         return 0
     return max(1, int(round(float(timeout) * 1000)))
-
-
-def _serialize_pdf_options(doc, timeout):
-    # type: (Document, Optional[float]) -> tuple
-    """Fill every pinned GwkPdfOptions field from a Document.
-
-    Returns ``(struct, keepalive)``. The caller must hold the keepalive
-    list alive across the foreign call so encoded buffers cannot be
-    collected while the struct points into them.
-    """
-    from . import _lib
-
-    keepalive = []  # type: list
-    opts = _lib.GwkPdfOptions.create()
-    opts.page_size = _encode_optional(doc.page_size or "", keepalive)
-    opts.orientation = _encode_optional(doc.orientation or "", keepalive)
-    opts.title = _encode_optional(doc.title or "", keepalive)
-    opts.pdf_version = _encode_optional(doc.pdf_version or "", keepalive)
-    opts.pdf_profile = _encode_optional(doc.pdf_profile or "", keepalive)
-    base_url = doc.effective_base_url()
-    opts.base_url = _encode_optional(base_url or "", keepalive)
-    opts.allow = _allow_array(doc.allow, keepalive)
-    opts.allow_len = len(doc.allow or [])
-    opts.width_mm = doc.width_mm or 0.0
-    opts.height_mm = doc.height_mm or 0.0
-    margin = doc.margin or Margin()
-    opts.margin_top = margin.top
-    opts.margin_right = margin.right
-    opts.margin_bottom = margin.bottom
-    opts.margin_left = margin.left
-    opts.copies = doc.copies
-    opts.grayscale = 1 if doc.grayscale else 0
-    opts.enable_local_file_access = 1 if doc.allow_local_files else 0
-    opts.network_policy = _network_policy_flag(doc.network)
-    opts.timeout_ms = _deadline_ms(timeout)
-    return opts, keepalive
 
 
 def _serialize_image_options(image_doc, timeout):

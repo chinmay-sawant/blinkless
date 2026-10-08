@@ -8,10 +8,10 @@ import (
 )
 
 // classifyError maps an engine failure onto the ABI status table documented
-// in include/blinkless.h. It stays free of C types so the PDF and image
-// entry points share it in both the cgo and pure-Go stub builds. A done
-// context always wins: when cancellation raced with another failure, callers
-// observe TIMEOUT instead of a generic render error.
+// in include/blinkless.h. It stays free of C types so tests can drive it
+// under both the cgo and pure-Go build modes. A done context always wins:
+// when cancellation raced with another failure, callers observe TIMEOUT
+// instead of a generic render error.
 func classifyError(err error, ctx context.Context) int32 {
 	if err == nil {
 		return statusOK
@@ -33,4 +33,3 @@ func classifyError(err error, ctx context.Context) int32 {
 func ctxDone(ctx context.Context) bool {
 	return ctx != nil && ctx.Err() != nil
 }
-
