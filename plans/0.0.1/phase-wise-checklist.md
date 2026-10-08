@@ -6,6 +6,10 @@
 
 ---
 
+## Follow-up checklist
+
+[HTML, CSS, and JSON compatibility](html-css-json-compatibility-checklist.md) owns the findings from the 2026-10-08 repository review. It stays under 0.0.1 and has its own implementation gates. Use its final behavior and coverage evidence when closing related documentation rows here.
+
 ## Overview
 
 Blinkless keeps the code that turns HTML into a drawing list. That list is `layout.Op` in `internal/layout/layout.go`. One op is a filled rectangle, a line of text, an image, or a link box. Coordinates are canvas points, y down. `Op.Font` is `*pdf.Font` (`internal/layout/layout.go`, field on `Op`).
@@ -172,7 +176,7 @@ Do not delete `bindings/c/`, `bindings/python/`, or `bindings/wasm/`. Each bindi
 
 - [ ] C: delete `bindings/c/options_pdf.go`, `blinkless_html_to_pdf`, and `GwkPdfOptions` in `bindings/c/include/blinkless.h`. Keep `blinkless_html_to_image`, `options_image.go`, and the free/last-error helpers. The symbol rename is phase 10.
 - [ ] Python: delete `Document`, `PDFOptions`, `convert_html_to_pdf`, `convert_file_to_pdf`, `convert_url_to_pdf`. Keep `ImageDocument`, `convert_html_to_image`.
-- [ ] WASM: delete the default `"pdf"` mode and `browserPDFDocument` in `bindings/wasm/contract.go`. Keep `"png"` and `"jpeg"`. Update `frontend/src/workers/wasmWorker.js` so the demo does not request PDF bytes.
+- [~] WASM request modes and output: moved to [the compatibility checklist, Phase 5](html-css-json-compatibility-checklist.md#phase-5-usable-drawing-list-json-from-wasm). The current adapter returns JSON, and frontend/ is absent. That phase owns drawing-list mode, serialization, fixtures, and consumer proof; this historical PNG/JPEG instruction is superseded.
 
 ## Phase 8: Delete the writer package, profiles, and PDF settings
 
