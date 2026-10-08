@@ -1,4 +1,8 @@
-# blinkless
+<p align="center">
+  <img src="assets/01-flat-cartoon.png" alt="Blue Blinkless gopher arranging page content" width="160">
+</p>
+
+<h1 align="center">blinkless</h1>
 
 blinkless is a layout engine for HTML and CSS. Both are inputs. HTML alone is not enough: the tree has no placement until the stylesheets are applied.
 
