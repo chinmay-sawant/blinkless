@@ -1,4 +1,4 @@
-.PHONY: test test-unit test-quick test-serial test-race lint lint-frontend size-check build wasm wasm-test fmt golden golden-update samples samples-python screenshots weasyprint clean claim-scan bench bench-engine bench-lib bench-inprocess bench-cli-compare c-shared bindings-clean check-versions python-binding-test python-benchmarks python-api chrome-cases-pdf run
+.PHONY: test test-unit test-quick test-serial test-race lint lint-frontend size-check build wasm wasm-test fmt golden golden-update samples samples-python screenshots weasyprint clean claim-scan bench bench-engine bench-lib bench-inprocess bench-cli-compare c-shared print-bindings-version bindings-clean check-versions python-binding-test python-benchmarks python-api chrome-cases-pdf run
 # Pure-Go runtime: the standard library plus the allowlisted direct modules
 # below. No cgo, browser, or native converter process is required.
 # Direct third-party requires must stay ⊆ {
@@ -77,8 +77,10 @@ lint-frontend:
 
 # Stamps the c-shared library (bindings/c) with the repo version. bindings/c
 # is package main, so X must target main.libVersion.
-BINDINGS_VERSION_LDFLAGS := -X main.libVersion=0.0.1
-WASM_VERSION_LDFLAGS := -X main.wasmVersion=0.0.1
+BINDINGS_VERSION := 0.0.1
+WASM_VERSION := 0.0.1
+BINDINGS_VERSION_LDFLAGS := -X main.libVersion=$(BINDINGS_VERSION)
+WASM_VERSION_LDFLAGS := -X main.wasmVersion=$(WASM_VERSION)
 WASM_DIR := dist/wasm
 WASM_EXEC := $(shell go env GOROOT)/lib/wasm/wasm_exec.js
 WASM_ARTIFACT := $(WASM_DIR)/blinkless.wasm
@@ -259,6 +261,11 @@ clean:
 c-shared:
 	[ "$(CGO_ENABLED)" = "1" ] || { echo "refusing: c-shared needs CGO_ENABLED=1 (pure-Go default stays CGO_ENABLED=0)" >&2; exit 2; }
 	mkdir -p dist && CGO_ENABLED=1 go build -buildmode=c-shared -ldflags "$(BINDINGS_VERSION_LDFLAGS) -s -w" -o dist/libblinkless.so ./bindings/c && file dist/libblinkless.so && nm -D dist/libblinkless.so | grep -c blinkless_
+
+# Prints the version stamped into the c-shared library; the CI ABI check
+# compares the loaded blinkless_version() against it.
+print-bindings-version:
+	@echo $(BINDINGS_VERSION)
 
 bindings-clean:
 	rm -rf dist

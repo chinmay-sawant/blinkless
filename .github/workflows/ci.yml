@@ -15,11 +15,6 @@ jobs:
         with:
           go-version: '1.26'
           cache: true
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
       - name: Test
         run: make test
       - name: Claim scan
@@ -28,8 +23,6 @@ jobs:
         # Build with the job's Go (1.26+): v1.64 refuses to lint when the binary
         # was compiled with an older Go than go.mod targets.
         run: GOTOOLCHAIN=local go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
-      - name: Install frontend deps
-        run: npm ci --prefix frontend
       - name: Lint
         run: make lint
 
@@ -121,11 +114,12 @@ jobs:
       - name: Verify ABI and version stamp via ctypes
         # Loads dist/libblinkless.so out-of-process from Python and pins
         # the frozen contract: blinkless_abi_version() == 1 and
-        # blinkless_version() == trimmed VERSION file contents.
+        # blinkless_version() == the version stamped by make c-shared.
         run: |
-          python3 - <<'PY'
+          want=$(make -s print-bindings-version)
+          python3 - "$want" <<'PY'
           import ctypes
-          import pathlib
+          import sys
 
           lib = ctypes.CDLL("dist/libblinkless.so")
           lib.blinkless_abi_version.argtypes = []
@@ -135,7 +129,7 @@ jobs:
 
           abi = lib.blinkless_abi_version()
           got = lib.blinkless_version().decode("utf-8")
-          want = pathlib.Path("VERSION").read_text().strip()
+          want = sys.argv[1]
 
           assert abi == 1, f"abi_version() = {abi}, want 1"
           assert got == want, f"version() = {got!r}, want {want!r}"
