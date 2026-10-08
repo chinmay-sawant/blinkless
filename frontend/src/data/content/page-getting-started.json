@@ -1,0 +1,171 @@
+{
+ "id": "getting-started",
+ "nav": "Getting Started",
+ "content": [
+  {
+   "type": "hero",
+   "title": "Your first PDF in five minutes",
+   "lede": "Install the two CLIs with go install, or build them from a checkout. No cgo or browser process. Then turn a local HTML file into a PDF with a single opt-in flag."
+  },
+  {
+   "type": "bullets",
+   "heading": "Requirements",
+   "items": [
+    "Go 1.26 or newer (go.mod declares go 1.26 and pins toolchain go1.26.4). The first build may download the two allowlisted direct modules and their transitive Go module graph; later builds can run offline with the cache populated.",
+    "No cgo and no native libraries. Build with CGO_ENABLED=0 to get statically linked ELF/Mach-O binaries with no runtime library requirements.",
+    "Native conversion uses no browser process, WebKit, or third-party HTML-to-PDF service. The optional browser route uses the same pipeline through WebAssembly.",
+    "The two allowlisted direct pure-Go modules are github.com/go-text/typesetting for OpenType shaping and github.com/tdewolff/canvas for SVG rasterization; there is no browser or native converter dependency."
+   ]
+  },
+  {
+   "type": "code",
+   "heading": "Install with Go",
+   "language": "sh",
+   "code": "go install github.com/chinmay-sawant/gowkhtmltopdf/cmd/gowkhtmltopdf@v0.2.6\ngo install github.com/chinmay-sawant/gowkhtmltopdf/cmd/gowkhtmltoimage@v0.2.6\ngowkhtmltopdf --version   # Name: gowkhtmltopdf / Version: 0.2.6"
+  },
+  {
+   "type": "code",
+   "heading": "Build",
+   "language": "sh",
+   "code": "# stamps VERSION into bin/gowkhtmltopdf and bin/gowkhtmltoimage\n# export CGO_ENABLED=0 first for the static release link; make build\n# does not set that variable itself\nmake build\n\n# equivalent, explicit:\nCGO_ENABLED=0 go build -ldflags \"-X github.com/chinmay-sawant/gowkhtmltopdf/internal/cli.Version=$(cat VERSION)\" \\\n  -o bin/gowkhtmltopdf ./cmd/gowkhtmltopdf\nCGO_ENABLED=0 go build -ldflags \"-X github.com/chinmay-sawant/gowkhtmltopdf/internal/cli.Version=$(cat VERSION)\" \\\n  -o bin/gowkhtmltoimage ./cmd/gowkhtmltoimage\n\n./bin/gowkhtmltopdf --version   # Name: gowkhtmltopdf / Version: 0.2.6\n# VERSION is the project release. LibraryVersion (0.12.7-dev) is the\n# wkhtmltopdf settings-surface id, not the release number."
+  },
+  {
+   "type": "callout",
+   "variant": "tip",
+   "title": "Prebuilt binaries",
+   "body": "Tagged releases publish static gowkhtmltopdf and gowkhtmltoimage builds for Linux, Windows, and macOS (amd64 and arm64) plus SHA256SUMS. Download from the GitHub Releases page. Ordinary CI on pull requests does not upload platform archives."
+  },
+  {
+   "type": "code",
+   "heading": "First local PDF",
+   "language": "sh",
+   "code": "./bin/gowkhtmltopdf --allow-local-files -o /tmp/invoice.pdf \\\n  testdata/golden/fixture-01-simple-invoice.html"
+  },
+  {
+   "type": "code",
+   "heading": "Opt-in PDF version or profile",
+   "language": "sh",
+   "code": "# Default is unclaimed PDF 1.4. --pdf-version is not a PDF/A or PDF/UA claim.\n./bin/gowkhtmltopdf --pdf-version 1.7 --allow-local-files -o /tmp/invoice-1.7.pdf \\\n  testdata/golden/fixture-01-simple-invoice.html\n./bin/gowkhtmltopdf --pdf-version 2.0 --allow-local-files -o /tmp/invoice-2.0.pdf \\\n  testdata/golden/fixture-01-simple-invoice.html\n\n# Dual PDF/A-3a + PDF/UA-1 (implies PDF 1.7)\n./bin/gowkhtmltopdf --pdf-profile a3a-ua1 --allow-local-files -o /tmp/invoice-a3a-ua1.pdf \\\n  testdata/golden/fixture-01-simple-invoice.html\n\n# Dual PDF/A-4 + PDF/UA-2 (implies PDF 2.0)\n./bin/gowkhtmltopdf --pdf-profile a4-ua2 --allow-local-files -o /tmp/invoice-a4-ua2.pdf \\\n  testdata/golden/fixture-01-simple-invoice.html"
+  },
+  {
+   "type": "code",
+   "heading": "First image",
+   "language": "sh",
+   "code": "./bin/gowkhtmltoimage --allow-local-files --width 1024 -o /tmp/invoice.png \\\n  testdata/golden/fixture-01-simple-invoice.html"
+  },
+  {
+   "type": "callout",
+   "variant": "warn",
+   "title": "Local files are blocked by default",
+   "body": "Every local file read goes through a security ACL, so you must opt in with --allow-local-files on the CLI (or Document.AllowLocalFiles in the library API). Remote URLs are fetched with timeouts, redirect limits, and size caps, but never hand untrusted user URLs straight to the renderer: that is the classic SSRF pattern here and in upstream wkhtmltopdf."
+  },
+  {
+   "type": "prose",
+   "heading": "After the conversion",
+   "sections": [
+    {
+     "heading": "Open the result",
+     "body": "Open /tmp/invoice.pdf in any PDF viewer. Committed sample outputs live in output/ and are regenerated with make samples."
+    },
+    {
+     "heading": "PDF bytes to stdout",
+     "body": "Pass - as the output path to write the raw PDF bytes to stdout instead of a file. Pair it with --quiet so progress messages do not pollute the stream.",
+     "bullets": [
+      "gowkhtmltopdf --allow-local-files --quiet -o - report.html > report.pdf",
+      "The clean byte stream pipes directly into an HTTP response or a downstream tool."
+     ]
+    },
+    {
+     "heading": "Repeatable output",
+     "body": "The same HTML, settings, and metadata time produce a repeatable PDF structure. Default CLI conversions use the wall clock for PDF dates and [date]/[time] placeholders, so bytes are not hash-stable unless you inject Now on the typed library API."
+    }
+   ]
+  },
+  {
+   "type": "table",
+   "heading": "Makefile targets",
+   "headers": [
+    "Target",
+    "What it runs"
+   ],
+   "rows": [
+    [
+     "test",
+     "Full suite with capped concurrency: go test -p 2 -parallel 2 ./...; override the caps with TEST_P / TEST_PARALLEL and pass extra flags with GO_TEST_FLAGS"
+    ],
+    [
+     "test-quick / test-unit",
+     "test-quick adds -short (skips long perf-budget tests); test-unit skips internal/convert; both keep the -p 2 -parallel 2 caps"
+    ],
+    [
+     "test-serial / test-race",
+     "test-serial runs -p 1 -parallel 1 for very low RAM; test-race runs -race -count=1 on internal/convert, layout, pdf, imageout, and load"
+    ],
+    [
+     "lint",
+     "golangci-lint (pinned v1.64.8), then size-check, then frontend npm run lint"
+    ],
+    [
+     "size-check / lint-frontend",
+     "size-check enforces the file-size soft limit (scripts/check-file-size.sh); lint-frontend runs ESLint plus the src/data content and config checks"
+    ],
+    [
+     "build",
+     "Builds both static binaries (gowkhtmltopdf, gowkhtmltoimage) into bin/, version stamped from VERSION"
+    ],
+    [
+     "wasm / wasm-test",
+     "wasm builds the browser artifact into frontend/public/wasm/ (GOOS=js GOARCH=wasm); wasm-test runs the adapter contract, frontend lint/build/tests, and the Chrome live-demo harness"
+    ],
+    [
+     "golden",
+     "Walks every testdata/golden/*.html fixture and asserts PDF structure, embedded fonts, page envelopes, and feature flags"
+    ],
+    [
+     "golden-update GOLDEN_FIXTURE=... GOLDEN_APPROVE=1",
+     "Generates one explicitly approved fixture PDF under ignored testdata/golden/out/; never rewrites fixture sources"
+    ],
+    [
+     "samples / samples-python / screenshots",
+     "samples rewrites output/ (fixture PDFs/PNGs, showcase TOC/header/footer/outline, 1.7/2.0 and profile smokes, soft-fail wiki fetch); samples-python writes output/python/ and needs CGO_ENABLED=1; screenshots regenerates the frontend showcase images"
+    ],
+    [
+     "weasyprint",
+     "Regenerates the WeasyPrint comparison PDFs under output/weasyprint/ (requires the weasyprint CLI)"
+    ],
+    [
+     "bench / bench-engine / bench-lib",
+     "bench runs the external CLI comparisons via scripts/bench-external.sh; bench-engine is the internal engine matrix (bench-inprocess is its alias); bench-lib times the public Document/ImageDocument API"
+    ],
+    [
+     "bench-cli-compare",
+     "Process-level comparison against installed wkhtmltopdf (make build first)"
+    ],
+    [
+     "c-shared / bindings-clean",
+     "c-shared builds dist/libgowkhtmltopdf.so plus the generated header with CGO_ENABLED=1; bindings-clean removes dist/"
+    ],
+    [
+     "python-binding-test / python-benchmarks / python-api",
+     "Builds the shared library and runs the Python unittest suite, the in-process Python benchmark matrix, or the Python sample generators"
+    ],
+    [
+     "claim-scan / check-versions",
+     "claim-scan fails on forbidden over-claim phrases; check-versions gates VERSION against bindings/python"
+    ],
+    [
+     "fmt / clean",
+     "gofmt -w .; clean removes testdata/golden/out and dist"
+    ],
+    [
+     "run",
+     "Builds the PDF CLI and converts RUN_HTML (default testdata/golden/fixture-01-simple-invoice.html) with a wall-time cap of RUN_MAX_MS (default 400)"
+    ],
+    [
+     "chrome-cases-pdf",
+     "Writes one PDF per test/chrome/cases/case-*.html into test/chrome/cases/pdf/ for visual inspection. The layout tests under test/chrome own the assertions"
+    ]
+   ]
+  }
+ ]
+}

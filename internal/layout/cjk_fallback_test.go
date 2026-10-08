@@ -1,0 +1,65 @@
+package layout
+
+import (
+	"path/filepath"
+	"testing"
+
+	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
+	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
+)
+
+func TestCJKFontFamilyFallback(t *testing.T) { //nolint:cyclop
+	t.Parallel()
+
+	notoPath := filepath.Join("..", "..", "testdata", "fonts")
+	droidPath := filepath.Join("..", "..", "testdata", "fixture-27-fonts")
+	reg := pdf.ScanFontDirs([]string{notoPath, droidPath})
+	cssSheet := sheet(t, `body { font-family: "Droid Sans Fallback", "Noto Sans KR", sans-serif; font-size: 14pt }`)
+	src := `<html><body>
+<p>汉字与假名：東京都、上海、深圳。</p>
+<p>안녕하세요. 한글 테스트.</p>
+</body></html>`
+
+	root, err := html.Parse(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := Layout(root, Options{
+		Width: testViewport, Height: 800,
+		Sheets: []*css.Stylesheet{cssSheet}, Background: true, Registry: reg,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var sawHan, sawHangul bool
+
+	for _, paintOp := range res.Ops {
+		if paintOp.Kind != OpText || paintOp.Font == nil {
+			continue
+		}
+
+		for _, runic := range paintOp.Text {
+			switch runic {
+			case '汉', '圳':
+				sawHan = true
+
+				if paintOp.Font.GlyphID(runic) == 0 {
+					t.Fatalf("rune %c drawn with face lacking glyph (%s)", runic, paintOp.Font.PostScriptName)
+				}
+			case '테', '안':
+				sawHangul = true
+
+				if paintOp.Font.GlyphID(runic) == 0 {
+					t.Fatalf("rune %c drawn with face lacking glyph (%s)", runic, paintOp.Font.PostScriptName)
+				}
+			}
+		}
+	}
+
+	if !sawHan || !sawHangul {
+		t.Fatalf("missing runs sawHan=%v sawHangul=%v", sawHan, sawHangul)
+	}
+}

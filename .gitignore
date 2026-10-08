@@ -1,0 +1,90 @@
+wkhtmltopdf
+
+# binaries
+/bin/
+/gowkhtmltopdf
+/gowkhtmltoimage
+cmd/gowkhtmltopdf/gowkhtmltopdf
+cmd/gowkhtmltoimage/gowkhtmltoimage
+
+# test artifacts
+/coverage.out
+/coverage.html
+*.test
+testdata/golden/out/
+
+# profiling harness output: heap/stack pprof files, benchmark text dumps, and
+# per-mode summaries. Reports derived from these live under plans/.
+output/profiles/
+
+# c-shared / python binding build artifacts (Phase 40.4). The committed
+# vendored header include/gowkhtmltopdf.h stays trackable: no include/*.h
+# rule is added here.
+/dist/
+bindings/c/libgowkhtmltopdf.h
+bindings/**/*.so
+bindings/**/*.dylib
+bindings/**/*.dll
+
+# Python packaging / editable-install noise (pip install -e bindings/python)
+bindings/python/**/*.egg-info/
+*.egg-info/
+
+# make samples-python regenerates corpus PDFs under output/python/. Ignore the
+# bulk fixture-*.pdf set; keep top-level fixture-55 / fixture-56 as committed
+# smoke exceptions (plus architecture-diagram.pdf / invoice-inline.pdf).
+output/python/fixture-*.pdf
+!output/python/fixture-55-*.pdf
+!output/python/fixture-56-*.pdf
+output/python/pdf-*/fixture-*.pdf
+
+# editor / OS noise
+.DS_Store
+*.swp
+.pi-subagents
+.pi*
+
+# compliance tools
+compliance/
+verapdf/
+.pdf-validators/
+temps/
+
+# bench tooling
+scripts/puppeteer/node_modules/
+# bench-external normally uses mktemp and removes its inputs/outputs, but keep
+# accidental local copies out of the worktree. Result MD/CSV snapshots remain
+# intentionally trackable under testdata/golden/benchmarks/.
+scripts/bench-external-*.html
+scripts/bench-external-*.pdf
+testdata/golden/benchmarks/.bench-external/
+knowledge-base
+
+# Local Chromium source used for browser-reference test research.
+/chromium/
+
+# Local PDFs generated from the Chrome Flex case fixtures.
+/test/chrome/pdf/
+/test/chrome/cases/pdf/
+
+# Local decision trail for long-running investigations.
+/.audit/
+
+__pycache__/
+bindings/python/**/__pycache__/
+
+.vscode
+# local python package build trees
+bindings/python/build/
+bindings/python/dist/
+pen/
+
+
+plans/0.2.6/perf-review/results/*
+/plans/0.2.6/perf-improve/profiles/*
+/plans/0.2.6/perf-improve/results/*
+plans/0.2.6/perf-time/profiles/raw/*
+/plans/0.2.6/perf-time/results/*
+
+# Agent batch proof notes (local only; not committed)
+plans/**/phases/_proof-*.md

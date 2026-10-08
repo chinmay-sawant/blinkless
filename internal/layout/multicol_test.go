@@ -1,0 +1,576 @@
+//nolint:all
+package layout
+
+import (
+	"math"
+	"testing"
+
+	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
+	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
+)
+
+func TestMulticolParseProps(t *testing.T) { //nolint:cyclop
+	t.Parallel()
+
+	cssSheet := sheet(t, `
+.a { column-count: 3; column-gap: 12pt; column-fill: auto }
+.b { columns: 100pt 2; column-span: all; column-fill: balance }
+.c { column-gap: normal; column-width: 80pt }
+.d { break-before: column; break-inside: avoid-column }
+`)
+	root := mustParse(t, `<html><body>
+<div class="a">A</div>
+<div class="b">B</div>
+<div class="c">C</div>
+<div class="d">D</div>
+</body></html>`)
+	styles := resolveStyles(root, []*css.Stylesheet{cssSheet}, "print", 500, 800)
+
+	var nodes []*html.Node
+
+	var walk func(*html.Node)
+	walk = func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Name == "div" {
+			nodes = append(nodes, n)
+		}
+
+		for _, c := range n.Children {
+			walk(c)
+		}
+	}
+	walk(root)
+
+	if len(nodes) < 4 {
+		t.Fatalf("expected 4 divs, got %d", len(nodes))
+	}
+
+	a := styles[nodes[0]]
+	if a.ColumnCount != 3 || a.ColumnGap != 12 || a.ColumnGapNormal || a.ColumnFill != overflowAuto {
+		t.Fatalf("a: count=%d gap=%.1f normal=%v fill=%q", a.ColumnCount, a.ColumnGap, a.ColumnGapNormal, a.ColumnFill)
+	}
+
+	b := styles[nodes[1]]
+	if b.ColumnCount != 2 || b.ColumnWidth < 99 || b.ColumnWidth > 101 ||
+		b.ColumnSpan != "all" || b.ColumnFill != "balance" {
+		t.Fatalf("b: count=%d width=%.1f span=%q fill=%q", b.ColumnCount, b.ColumnWidth, b.ColumnSpan, b.ColumnFill)
+	}
+
+	c := styles[nodes[2]]
+	if !c.ColumnGapNormal || c.ColumnWidth < 79 || c.ColumnWidth > 81 || c.ColumnCount != 0 {
+		t.Fatalf("c: normal=%v width=%.1f count=%d", c.ColumnGapNormal, c.ColumnWidth, c.ColumnCount)
+	}
+
+	decl := styles[nodes[3]]
+	// break-before:column ≈ page always; break-inside:avoid-column is
+	// column-only and must not set page-break-inside:avoid.
+	if decl.PageBreakBefore != pageBreakAlways {
+		t.Fatalf("d break-before: got %q, want always", decl.PageBreakBefore)
+	}
+
+	if decl.PageBreakInside == avoidKeyword {
+		t.Fatalf("d break-inside:avoid-column must not map to page avoid (got %q)", decl.PageBreakInside)
+	}
+}
+
+func TestUsedColumnCountWidth(t *testing.T) {
+	t.Parallel()
+
+	nodeN, width := usedColumnCountWidth(200, 10, -1, 2)
+	if nodeN != 2 || math.Abs(width-95) > 0.01 {
+		t.Fatalf("count-only: n=%d w=%.2f want 2 / 95", nodeN, width)
+	}
+
+	nodeN, width = usedColumnCountWidth(200, 10, 60, 0)
+	if nodeN != 3 || math.Abs(width-60) > 0.01 {
+		t.Fatalf("width-only: n=%d w=%.2f want 3 / 60", nodeN, width)
+	}
+
+	nodeN, width = usedColumnCountWidth(100, 10, -1, 0)
+	if nodeN != 1 || math.Abs(width-100) > 0.01 {
+		t.Fatalf("both auto: n=%d w=%.2f", nodeN, width)
+	}
+}
+
+func TestMulticolTwoColumnEqualWidths(t *testing.T) {
+	t.Parallel()
+
+	cssSheet := sheet(t, `
+.mc {
+  column-count: 2;
+  column-gap: 20pt;
+  width: 220pt;
+  column-fill: balance;
+}
+.mc p { margin: 0 0 4pt 0; font-size: 10pt; }
+`)
+	res := layoutHTML(t, `<html><body>
+<div class="mc">
+  <p>Alpha left column line one.</p>
+  <p>Bravo more text for height.</p>
+  <p>Charlie right column start.</p>
+  <p>Delta trailing paragraph.</p>
+</div>
+</body></html>`, cssSheet)
+	pos := map[string]float64{}
+
+	for _, op := range res.Ops {
+		if op.Kind == OpText {
+			for _, key := range []string{"Alpha", "Bravo", "Charlie", "Delta"} {
+				if len(op.Text) >= len(key) && op.Text[:len(key)] == key {
+					pos[key] = op.X
+				}
+			}
+		}
+	}
+
+	for _, k := range []string{"Alpha", "Bravo", "Charlie", "Delta"} {
+		if _, ok := pos[k]; !ok {
+			t.Fatalf("missing text %s in ops", k)
+		}
+	}
+
+	left := math.Min(math.Min(pos["Alpha"], pos["Bravo"]), math.Min(pos["Charlie"], pos["Delta"]))
+	right := math.Max(math.Max(pos["Alpha"], pos["Bravo"]), math.Max(pos["Charlie"], pos["Delta"]))
+	dx := right - left
+
+	if dx < 90 || dx > 130 {
+		t.Fatalf("column dx=%.1f (left=%.1f right=%.1f), want ~100–120", dx, left, right)
+	}
+}
+
+func TestMulticolColumnSpanAll(t *testing.T) { //nolint:cyclop
+	t.Parallel()
+
+	cssSheet := sheet(t, `
+.mc { column-count: 2; column-gap: 10pt; width: 210pt; column-fill: balance }
+.mc p { margin: 0 0 2pt 0; font-size: 9pt }
+.mc h2 { column-span: all; font-size: 12pt; margin: 4pt 0 }
+`)
+	res := layoutHTML(t,
+		"<html><body>\n<div class=\"mc\">\n  <p>Before span AAA AAA.</p>\n  <p>Before span BBB BBB.</p>\n"+
+			"  <h2>Spanner Heading</h2>\n  <p>After span CCC CCC.</p>"+
+			"  <p>After span DDD DDD.</p>\n</div>\n</body></html>", cssSheet)
+
+	var spanX, beforeX, afterX float64
+
+	var gotSpan, gotBefore, gotAfter bool
+
+	for _, paintOp := range res.Ops {
+		if paintOp.Kind != OpText {
+			continue
+		}
+
+		if len(paintOp.Text) >= 7 && paintOp.Text[:7] == "Spanner" {
+			spanX = paintOp.X
+			gotSpan = true
+		}
+
+		if len(paintOp.Text) >= 6 && paintOp.Text[:6] == "Before" {
+			beforeX = paintOp.X
+			gotBefore = true
+		}
+
+		if len(paintOp.Text) >= 5 && paintOp.Text[:5] == "After" {
+			afterX = paintOp.X
+			gotAfter = true
+		}
+	}
+
+	if !gotSpan || !gotBefore || !gotAfter {
+		t.Fatalf("missing texts span=%v before=%v after=%v", gotSpan, gotBefore, gotAfter)
+	}
+
+	if spanX > beforeX+40 && spanX > afterX+40 {
+		t.Fatalf("spanner x=%.1f looks column-shifted (before=%.1f after=%.1f)", spanX, beforeX, afterX)
+	}
+}
+
+func TestMulticolLinesDoNotStraddlePages(t *testing.T) {
+	t.Parallel()
+
+	cssSheet := sheet(t, `
+body { margin: 0 }
+.mc { column-count: 2; column-gap: 8pt; width: 200pt; column-fill: balance; font-size: 10pt }
+.mc p { margin: 0 0 6pt 0 }
+`)
+	root := mustParse(t, `<html><body>
+<div class="mc">
+  <p>P01 line of multicol article text filler words here.</p>
+  <p>P02 line of multicol article text filler words here.</p>
+  <p>P03 line of multicol article text filler words here.</p>
+  <p>P04 line of multicol article text filler words here.</p>
+  <p>P05 line of multicol article text filler words here.</p>
+  <p>P06 line of multicol article text filler words here.</p>
+  <p>P07 line of multicol article text filler words here.</p>
+  <p>P08 line of multicol article text filler words here.</p>
+  <p>P09 line of multicol article text filler words here.</p>
+  <p>P10 line of multicol article text filler words here.</p>
+  <p>P11 line of multicol article text filler words here.</p>
+  <p>P12 line of multicol article text filler words here.</p>
+</div>
+</body></html>`)
+	pageH := 120.0
+
+	res, err := Layout(root, Options{
+		Width: 220, Height: pageH, Sheets: []*css.Stylesheet{cssSheet}, Background: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, paintOp := range res.Ops {
+		if paintOp.Kind != OpText {
+			continue
+		}
+
+		opH := paintOp.Size * 1.2
+		lo := int(paintOp.Y / pageH)
+		hi := int((paintOp.Y + opH) / pageH)
+
+		if hi > lo {
+			t.Fatalf("text %q straddles page at y=%.1f h=%.1f (pages %d-%d)", paintOp.Text, paintOp.Y, opH, lo, hi)
+		}
+	}
+
+	pages := map[int]bool{}
+
+	for _, op := range res.Ops {
+		if op.Kind == OpText {
+			pages[int(op.Y/pageH)] = true
+		}
+	}
+
+	if len(pages) < 2 {
+		t.Fatalf("expected multi-page multicol, got pages %v", pages)
+	}
+}
+
+//nolint:cyclop,funlen // table-driven CSS shorthand proof
+func TestColumnRuleParse(t *testing.T) {
+	t.Parallel()
+
+	cssSheet := sheet(t, `
+.a { column-rule: 4pt dashed red }
+.outer { color: blue }
+.b { column-rule-width: medium; column-rule-style: solid; column-rule-color: currentColor }
+.c { column-rule-width: thin }
+.d { column-rule-width: thick }
+.e { column-rule-style: none }
+.f { column-rule: dotted }
+.g { column-rule: 1px solid #666 }
+`)
+	root := mustParse(t, `<html><body>
+<div class="a">A</div>
+<div class="outer"><div class="b">B</div></div>
+<div class="c">C</div>
+<div class="d">D</div>
+<div class="e">E</div>
+<div class="f">F</div>
+<div class="g">G</div>
+</body></html>`)
+	styles := resolveStyles(root, []*css.Stylesheet{cssSheet}, "print", 500, 800)
+
+	styleA := styleByClass(t, styles, "a")
+	if !near(styleA.ColumnRuleWidth, 4) {
+		t.Fatalf("a width=%.3f, want 4pt", styleA.ColumnRuleWidth)
+	}
+
+	if styleA.ColumnRuleStyle != borderStyleDashed {
+		t.Fatalf("a style=%q, want dashed", styleA.ColumnRuleStyle)
+	}
+
+	if styleA.ColumnRuleColor != ([3]float64{1, 0, 0}) {
+		t.Fatalf("a color=%v, want red", styleA.ColumnRuleColor)
+	}
+
+	styleB := styleByClass(t, styles, "b")
+	if !near(styleB.ColumnRuleWidth, borderWidth(mediumKeyword, 12)) {
+		t.Fatalf("b width:medium = %.3f", styleB.ColumnRuleWidth)
+	}
+
+	if styleB.ColumnRuleStyle != solidKeyword {
+		t.Fatalf("b style=%q, want solid", styleB.ColumnRuleStyle)
+	}
+
+	if styleB.ColumnRuleColor != ([3]float64{0, 0, 1}) {
+		t.Fatalf("b currentColor=%v, want blue", styleB.ColumnRuleColor)
+	}
+
+	if !near(styleByClass(t, styles, "c").ColumnRuleWidth, borderWidth(thinKeyword, 12)) {
+		t.Fatalf("c thin width=%.3f", styleByClass(t, styles, "c").ColumnRuleWidth)
+	}
+
+	if !near(styleByClass(t, styles, "d").ColumnRuleWidth, borderWidth(thickKeyword, 12)) {
+		t.Fatalf("d thick width=%.3f", styleByClass(t, styles, "d").ColumnRuleWidth)
+	}
+
+	if styleByClass(t, styles, "e").ColumnRuleStyle != cssDisplayNone {
+		t.Fatalf("e style=%q, want none", styleByClass(t, styles, "e").ColumnRuleStyle)
+	}
+
+	styleF := styleByClass(t, styles, "f")
+	if styleF.ColumnRuleStyle != borderStyleDotted {
+		t.Fatalf("f shorthand style=%q, want dotted", styleF.ColumnRuleStyle)
+	}
+
+	if !near(styleF.ColumnRuleWidth, borderWidth(mediumKeyword, 12)) {
+		t.Fatalf("f shorthand width=%.3f, want medium", styleF.ColumnRuleWidth)
+	}
+
+	styleG := styleByClass(t, styles, "g")
+	if !near(styleG.ColumnRuleWidth, borderPaintWidth("1px", 12)) {
+		t.Fatalf("g 1px width=%.3f, want %.3fpt", styleG.ColumnRuleWidth, borderPaintWidth("1px", 12))
+	}
+
+	if styleG.ColumnRuleStyle != solidKeyword {
+		t.Fatalf("g style=%q, want solid", styleG.ColumnRuleStyle)
+	}
+
+	if styleG.ColumnRuleColor != ([3]float64{0.4, 0.4, 0.4}) {
+		t.Fatalf("g color=%v, want #666", styleG.ColumnRuleColor)
+	}
+}
+
+// TestColumnRulePaints proves a vertical gap rule is emitted between columns.
+func TestColumnRulePaints(t *testing.T) {
+	t.Parallel()
+
+	cssSheet := sheet(t, `
+.mc {
+  column-count: 2;
+  column-gap: 20pt;
+  column-rule: 4pt solid #c00;
+  width: 220pt;
+  font-size: 10pt;
+}
+`)
+	res := layoutHTML(t, `<html><body>
+<div class="mc">Multi-column sample text repeated. Multi-column sample text repeated. Multi-column sample text repeated.</div>
+</body></html>`, cssSheet)
+
+	box := findMulticolBoxByCount(res.root, 2)
+	if box == nil {
+		t.Fatal("no multicol box")
+	}
+
+	var rule *Op
+
+	for i := range res.Ops {
+		op := &res.Ops[i]
+		if op.Kind != OpLine || op.W >= 0.5 || op.H < 4 {
+			continue
+		}
+
+		if near(op.R, 0.8) && near(op.G, 0) && near(op.B, 0) && near(op.Width, 4) {
+			rule = op
+
+			break
+		}
+	}
+
+	if rule == nil {
+		t.Fatal("missing red column-rule OpLine between columns")
+	}
+
+	mid := box.x + box.w/2
+	if rule.X < mid-40 || rule.X > mid+40 {
+		t.Fatalf("rule x=%.1f not near column gap mid≈%.1f", rule.X, mid)
+	}
+}
+
+func TestMulticolAnonymousTextPaints(t *testing.T) {
+	t.Parallel()
+
+	cssSheet := sheet(t, `
+.mc {
+  column-count: 2;
+  column-gap: 12pt;
+  width: 200pt;
+  font-size: 10pt;
+}
+`)
+	res := layoutHTML(t, `<html><body>
+<div class="mc">Multi-column sample text repeated. Multi-column sample text repeated. Multi-column sample text repeated.</div>
+</body></html>`, cssSheet)
+
+	var xs []float64
+	for _, op := range res.Ops {
+		if op.Kind != OpText {
+			continue
+		}
+		if len(op.Text) >= 12 && op.Text[:12] == "Multi-column" {
+			xs = append(xs, op.X)
+		}
+	}
+	if len(xs) == 0 {
+		t.Fatal("anonymous multicol text produced no OpText")
+	}
+	minX, maxX := xs[0], xs[0]
+	for _, x := range xs[1:] {
+		if x < minX {
+			minX = x
+		}
+		if x > maxX {
+			maxX = x
+		}
+	}
+	if maxX-minX < 40 {
+		t.Fatalf("expected two-column x spread for anonymous multicol text, got dx=%.1f xs=%v", maxX-minX, xs)
+	}
+}
+
+func TestMulticolDefiniteHeightCapsAnonymousStrip(t *testing.T) {
+	t.Parallel()
+
+	cssSheet := sheet(t, `
+.mc {
+  column-count: 2;
+  column-gap: 8pt;
+  width: 200pt;
+  height: 48pt;
+  font-size: 10pt;
+  border: 1pt solid #888;
+}
+`)
+	res := layoutHTML(t, `<html><body>
+<div class="mc">Multi-column sample text repeated. Multi-column sample text repeated. Multi-column sample text repeated. Multi-column sample text repeated. Multi-column sample text repeated.</div>
+</body></html>`, cssSheet)
+
+	var mcBox *box
+	var walk func(*box)
+	walk = func(b *box) {
+		if b == nil {
+			return
+		}
+		if b.node != nil && b.node.Name == "div" {
+			st := res // find by class via style width
+			_ = st
+			if b.w > 150 && b.w < 220 {
+				mcBox = b
+			}
+		}
+		for _, c := range b.children {
+			walk(c)
+		}
+	}
+	walk(res.root)
+	if mcBox == nil {
+		// fallback: tallest short box
+		var best *box
+		var find func(*box)
+		find = func(b *box) {
+			if b == nil {
+				return
+			}
+			if b.node != nil && b.node.Name == "div" && (best == nil || b.w > best.w) {
+				best = b
+			}
+			for _, c := range b.children {
+				find(c)
+			}
+		}
+		find(res.root)
+		mcBox = best
+	}
+	if mcBox == nil {
+		t.Fatal("multicol box not found")
+	}
+	if mcBox.height > 80 {
+		t.Fatalf("definite-height multicol box height=%.1f, want ~48pt (blank-page regression)", mcBox.height)
+	}
+	var hits int
+	for _, op := range res.Ops {
+		if op.Kind == OpText && len(op.Text) >= 12 && op.Text[:12] == "Multi-column" {
+			hits++
+		}
+	}
+	if hits == 0 {
+		t.Fatal("expected multicol text ops")
+	}
+}
+
+// Flex stretch rebuilds items with Height forced to the line cross-size.
+// Under column-fill:balance that forced Height must not shrink maxColH, or a
+// short column-count:2 probe page-snaps when content-box height is a hair
+// under the child measure (fixture-57: itemH 16.25 > definiteH 15.75 ->
+// repeated snaps to ~1270pt and 37 PDF pages). clampMulticolHeight then
+// hides the blow-up in box.height, so assert on paint extent instead.
+func TestMulticolFlexStretchBalanceNoPageSnap(t *testing.T) {
+	t.Parallel()
+
+	cssSheet := sheet(t, `
+.row {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: stretch;
+  gap: 4pt;
+  width: 200pt;
+}
+.sib {
+  flex: 0 0 auto;
+  width: 88pt;
+  height: 22.75pt;
+  box-sizing: border-box;
+  padding: 3pt 4pt;
+  border: 0.5pt solid #888;
+  font-size: 6.5pt;
+}
+.probe {
+  flex: 0 0 auto;
+  width: 88pt;
+  box-sizing: border-box;
+  padding: 3pt 4pt;
+  border: 0.5pt solid #888;
+  font-size: 6.5pt;
+  line-height: 1.25;
+  column-count: 2;
+}
+`)
+	res := layoutHTML(t, `<html><body>
+<div class="row">
+  <div class="sib">sib</div>
+  <div class="probe" data-prop="column-count"><code>column-count</code><span>implemented</span></div>
+</div>
+</body></html>`, cssSheet)
+
+	const pageH = 800.0
+	maxY := 0.0
+	for _, op := range res.Ops {
+		if op.Kind != OpText || op.Text == "" {
+			continue
+		}
+		bottom := op.Y + op.H
+		if bottom > maxY {
+			maxY = bottom
+		}
+	}
+	if pages := int(maxY/pageH) + 1; pages > 2 {
+		t.Fatalf("flex-stretched column-count probe spanned %d pages (maxY=%.1f); page-snap loop regresses fixture-57", pages, maxY)
+	}
+}
+
+// TestMulticolPageHeightMustMatchPaint: multicol snapped column lines to the
+// layout page height (Options.Height, 800 in layoutHTML), so Paint must use
+// the same content height. Painting the same result at 842 would split
+// column rules and text at a boundary the layout never snapped to.
+func TestMulticolPageHeightMustMatchPaint(t *testing.T) {
+	t.Parallel()
+
+	s := sheet(t, `.mc { column-count: 2; column-gap: 12pt } .mc p { margin: 0 }`)
+	res := layoutHTML(t, `<html><body><div class="mc"><p>alpha</p><p>beta</p></div></body></html>`, s)
+
+	if res.pageSnapHeight <= 0 {
+		t.Fatalf("layout did not record a multicol snap height: %g", res.pageSnapHeight)
+	}
+
+	if err := Paint(pdf.NewDocument(), res, paintOpts()); err == nil {
+		t.Fatal("Paint accepted a multicol result painted at content height 842 after snapping at 800")
+	}
+
+	if err := Paint(pdf.NewDocument(), res, PaintOptions{PageWidth: testViewport, PageHeight: 800}); err != nil {
+		t.Fatalf("matching paint height rejected: %v", err)
+	}
+}
+
+// paint operation proof covers rule variants

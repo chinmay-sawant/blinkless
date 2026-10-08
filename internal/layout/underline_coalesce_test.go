@@ -1,0 +1,355 @@
+package layout
+
+import (
+	"math"
+	"strings"
+	"testing"
+
+	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
+	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+)
+
+// countHorizUnderlines returns OpLine strokes that look like text underlines
+// (horizontal, non-zero width, zero height).
+func countHorizUnderlines(ops []Op) int {
+	node := 0
+
+	for _, op := range ops {
+		if op.Kind == OpLine && op.H == 0 && op.W > 0.5 {
+			node++
+		}
+	}
+
+	return node
+}
+
+// TestUnderlineCoalesceMultiFaceSameHref: bold + normal chunks inside one
+// <a href> on a single line must produce ONE underline OpLine, not one per
+// nested style item / face run.
+func TestUnderlineCoalesceMultiFaceSameHref(t *testing.T) { //nolint:cyclop
+	t.Parallel()
+
+	cssSheet := sheet(t, `
+body { margin: 0; font-size: 12pt; }
+a { color: #0645ad; text-decoration: underline; }
+b { font-weight: 700; }
+`)
+	// Nested <b> + following text share href but not sameInlineStyle, so
+	// coalesceTextItems leaves two items — underline coalescing must still
+	// emit a single stroke for the logical link run.
+	root, err := html.Parse(`<html><body><p>` +
+		`<a href="https://example.com/page"><b>Bold</b> title text here</a></p></body></html>`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := Layout(root, Options{
+		Width: 500, Height: 200, Sheets: []*css.Stylesheet{cssSheet}, Media: "print",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var textOps int
+
+	for _, op := range res.Ops {
+		if op.Kind == OpText && strings.TrimSpace(op.Text) != "" {
+			textOps++
+		}
+	}
+
+	if textOps < 2 {
+		t.Fatalf("expected ≥2 non-empty text ops (bold+normal), got %d", textOps)
+	}
+
+	n := countHorizUnderlines(res.Ops)
+	if n != 1 {
+		t.Fatalf("same-href multi-chunk line: want 1 underline OpLine, got %d (textOps=%d)", n, textOps)
+	}
+	// Stroke must be capped for print density.
+	for _, op := range res.Ops {
+		if op.Kind == OpLine && op.H == 0 && op.W > 0.5 {
+			if op.Width < 0.25-1e-6 || op.Width > 0.45+1e-6 {
+				t.Errorf("underline Width=%.3f outside [0.25, 0.45]", op.Width)
+			}
+		}
+	}
+}
+
+// TestUnderlineCoalesceHrefAcrossChunks: CSS underlines on multi-chunk
+// same-href runs (italic + plain text) coalesce to one stroke per line.
+func TestUnderlineCoalesceHrefAcrossChunks(t *testing.T) {
+	t.Parallel()
+
+	cssSheet := sheet(t, `
+body { margin: 0; font-size: 11pt; }
+a { color: #0645ad; text-decoration: underline; }
+i { font-style: italic; }
+`)
+
+	root, err := html.Parse(`<html><body><p><a href="https://web.archive.org/web/2020/https://example.com/long-path">` +
+		`<i>Archive</i> https://web.archive.org/web/2020/https://example.com/long-path</a></p></body></html>`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := Layout(root, Options{
+		Width: 600, Height: 200, Sheets: []*css.Stylesheet{cssSheet}, Media: "print",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Single line (wide viewport): expect one underline for the whole link.
+	n := countHorizUnderlines(res.Ops)
+	if n != 1 {
+		t.Fatalf("href multi-chunk one line: want 1 underline, got %d", n)
+	}
+}
+
+// TestLinkTextDecorationNoneHonored: author text-decoration:none must not
+// paint underlines; clickable href remains without forced PDF affordance.
+func TestLinkTextDecorationNoneHonored(t *testing.T) {
+	t.Parallel()
+
+	cssSheet := sheet(t, `
+body { margin: 0; font-size: 12pt; }
+a { color: #1a3a6b; text-decoration: none; }
+`)
+
+	root, err := html.Parse(`<html><body><p>Contact <a href="mailto:x@y.com">x@y.com</a> and ` +
+		`<a href="https://github.com/chinmay-sawant">github.com/chinmay-sawant</a></p></body></html>`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := Layout(root, Options{
+		Width: 500, Height: 200, Sheets: []*css.Stylesheet{cssSheet}, Media: "print",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if n := countHorizUnderlines(res.Ops); n != 0 {
+		t.Fatalf("text-decoration:none links: want 0 underlines, got %d", n)
+	}
+}
+
+// TestUnderlineSkipWhitespaceOnly: a lone space item must not invent its own
+// underline stroke; spaces inside a link extend the active run instead.
+func TestUnderlineSkipWhitespaceOnly(t *testing.T) {
+	t.Parallel()
+
+	cssSheet := sheet(t, `
+body { margin: 0; font-size: 12pt; }
+a { color: blue; text-decoration: underline; }
+`)
+	// Pretty-printed: text nodes "Hello", whitespace, "World" inside one <a>.
+	root, err := html.Parse(`<html><body><p><a href="https://example.com/x">Hello
+World</a></p></body></html>`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := Layout(root, Options{
+		Width: 400, Height: 100, Sheets: []*css.Stylesheet{cssSheet}, Media: "print",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	n := countHorizUnderlines(res.Ops)
+	if n != 1 {
+		t.Fatalf("link with internal whitespace: want 1 underline, got %d", n)
+	}
+}
+
+// TestUnderlineStrokeWidthClamp: large and small font sizes stay in [0.25, 0.45].
+func TestUnderlineStrokeWidthClamp(t *testing.T) { //nolint:cyclop
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		css  string
+	}{
+		{"small", `a { text-decoration: underline; font-size: 8pt; }`},
+		{"large", `a { text-decoration: underline; font-size: 24pt; }`},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cssSheet := sheet(t, tc.css)
+
+			root, err := html.Parse(`<html><body><a href="https://example.com">gyp</a></body></html>`)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			res, err := Layout(root, Options{
+				Width: 200, Height: 80, Sheets: []*css.Stylesheet{cssSheet}, Media: "print",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			found := false
+
+			for _, op := range res.Ops {
+				if op.Kind == OpLine && op.H == 0 && op.W > 0 {
+					found = true
+
+					if op.Width < 0.25-1e-9 || op.Width > 0.45+1e-9 {
+						t.Fatalf("Width=%.4f outside clamp", op.Width)
+					}
+				}
+			}
+
+			if !found {
+				t.Fatal("no underline")
+			}
+		})
+	}
+}
+
+// TestUnderlineStrokeWidthUnit matches helper directly.
+func TestUnderlineStrokeWidthUnit(t *testing.T) {
+	t.Parallel()
+
+	if g := underlineStrokeWidth(4); math.Abs(g-0.25) > 1e-9 {
+		t.Errorf("small em: got %.3f want 0.25", g)
+	}
+
+	if g := underlineStrokeWidth(20); math.Abs(g-0.45) > 1e-9 {
+		// 20*0.05=1.0 → clamp 0.45
+		t.Errorf("large em: got %.3f want 0.45", g)
+	}
+
+	if g := underlineStrokeWidth(8); math.Abs(g-0.4) > 1e-9 {
+		// 8*0.05=0.4
+		t.Errorf("mid em: got %.3f want 0.40", g)
+	}
+}
+
+// TestUnderlineWrappedURLOnePerLine: a long bare URL that wraps still gets
+// at most one underline per line (not per soft-break fragment stacked).
+func TestUnderlineWrappedURLOnePerLine(t *testing.T) {
+	t.Parallel()
+
+	url := "https://web.archive.org/web/20200316084639/https://www.example.com/path/to/article-title-extra"
+	cssSheet := sheet(t, `body { margin: 0; font-size: 10pt; } `+
+		`a { overflow-wrap: break-word; text-decoration: underline; color: #0645ad; }`)
+	src := `<html><body><p><a href="` + url + `">` + url + `</a></p></body></html>`
+
+	root, err := html.Parse(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const contentW = 220.0
+
+	res, err := Layout(root, Options{
+		Width: contentW, Height: 800, Sheets: []*css.Stylesheet{cssSheet}, Media: "print",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Group text ops by baseline Y → number of wrapped lines.
+	type ykey int
+
+	lines := map[ykey]bool{}
+
+	for _, op := range res.Ops {
+		if op.Kind == OpText && strings.TrimSpace(op.Text) != "" {
+			lines[ykey(math.Round(op.Y*10))] = true
+		}
+	}
+
+	nTextLines := len(lines)
+	if nTextLines < 2 {
+		t.Fatalf("expected wrapped URL (≥2 lines), got %d", nTextLines)
+	}
+
+	nUnder := countHorizUnderlines(res.Ops)
+	// One underline per text line for a single bare URL link.
+	if nUnder > nTextLines {
+		t.Fatalf("underlines=%d > text lines=%d (face/chunk fragmentation)", nUnder, nTextLines)
+	}
+
+	if nUnder < 1 {
+		t.Fatal("expected at least one underline")
+	}
+
+	t.Logf("wrapped URL: textLines=%d underlines=%d", nTextLines, nUnder)
+}
+
+// Wiki print CSS uses border-bottom on body links and text-decoration:none.
+// The href force-underline must not stack a second stroke on that border.
+func TestLinkBorderBottomNotDoubleUnderlined(t *testing.T) { //nolint:cyclop,funlen,gocognit
+	t.Parallel()
+
+	cssSheet := sheet(t, `
+body { margin: 0; font-size: 10pt; }
+a { color: #36c; text-decoration: none; }
+.mw-body a:not(.image) { border-bottom: 1px solid #aaa; }
+`)
+
+	root, err := html.Parse(`<html><body class="mw-body"><p>See the ` +
+		`<a href="https://en.wikipedia.org/wiki/Toronto_International_Film_Festival">` +
+		`Toronto International Film Festival</a> in 2024</p></body></html>`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := Layout(root, Options{
+		Width: 200, Height: 400, Sheets: []*css.Stylesheet{cssSheet}, Media: "print",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	type band struct{ y, x0, x1 float64 }
+
+	bands := []band{}
+
+	for _, paintOp := range res.Ops {
+		if paintOp.Kind != OpLine || paintOp.H != 0 || paintOp.W < 4 {
+			continue
+		}
+
+		merged := false
+
+		for idx := range bands {
+			if math.Abs(bands[idx].y-paintOp.Y) < 1 && paintOp.X <= bands[idx].x1+2 && paintOp.X+paintOp.W >= bands[idx].x0-2 {
+				if paintOp.X < bands[idx].x0 {
+					bands[idx].x0 = paintOp.X
+				}
+
+				if paintOp.X+paintOp.W > bands[idx].x1 {
+					bands[idx].x1 = paintOp.X + paintOp.W
+				}
+
+				merged = true
+
+				break
+			}
+		}
+
+		if !merged {
+			bands = append(bands, band{y: paintOp.Y, x0: paintOp.X, x1: paintOp.X + paintOp.W})
+		}
+	}
+
+	for i := range bands {
+		for j := i + 1; j < len(bands); j++ {
+			overlap := bands[i].x0 < bands[j].x1 && bands[j].x0 < bands[i].x1
+			if overlap && math.Abs(bands[i].y-bands[j].y) < 1.5 {
+				t.Fatalf("double underline at y=%.2f and y=%.2f", bands[i].y, bands[j].y)
+			}
+		}
+	}
+
+	if len(bands) == 0 {
+		t.Fatal("expected a border-bottom link rule")
+	}
+}

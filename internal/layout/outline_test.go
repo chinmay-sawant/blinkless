@@ -1,0 +1,277 @@
+//nolint:wsl,varnamelen,paralleltest,cyclop // outline stroke probes
+package layout
+
+import (
+	"testing"
+
+	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
+)
+
+func TestOutlineStroke(t *testing.T) {
+	t.Parallel()
+
+	t.Run("outside-border-edge", testOutlineOutsideBorder)
+	t.Run("dashed-dotted", testOutlineDashedDotted)
+	t.Run("offset-gap", testOutlineOffsetGap)
+	t.Run("layout-size-unchanged", testOutlineLayoutSizeUnchanged)
+	t.Run("prepend-chrome", testOutlinePrependChrome)
+}
+
+func testOutlineOutsideBorder(t *testing.T) {
+	t.Parallel()
+
+	const boxW, boxH, width = 100.0, 40.0, 10.0
+
+	ops := appendOutlineOps(nil, 0, 0, boxW, boxH, width, 0, solidKeyword, 1, 0, 0)
+	if len(ops) != 4 {
+		t.Fatalf("solid outline ops = %d, want 4", len(ops))
+	}
+
+	inflate := outlineInflate(width, 0)
+	assertOutlineOnInflatedRect(t, ops, -inflate, -inflate, boxW+2*inflate, boxH+2*inflate, width)
+
+	for _, op := range ops {
+		if op.Kind != OpLine {
+			t.Fatalf("outline op kind = %v, want OpLine", op.Kind)
+		}
+
+		if op.Width != width {
+			t.Fatalf("outline width = %v, want %v", op.Width, width)
+		}
+
+		inside := op.X > 0 && op.X+op.W < boxW && op.Y > 0 && op.Y+op.H < boxH
+		if inside {
+			t.Fatalf("outline segment %+v sits inside the border box", op)
+		}
+	}
+}
+
+func testOutlineDashedDotted(t *testing.T) {
+	t.Parallel()
+
+	dashed := appendOutlineOps(nil, 0, 0, 100, 40, 2, 0, borderStyleDashed, 0, 0, 1)
+	if len(dashed) <= 4 {
+		t.Fatalf("dashed outline ops = %d, want dashed segments (>4)", len(dashed))
+	}
+
+	dotted := appendOutlineOps(nil, 0, 0, 100, 40, 2, 0, borderStyleDotted, 0, 0, 1)
+	if len(dotted) <= 4 {
+		t.Fatalf("dotted outline ops = %d, want dotted segments (>4)", len(dotted))
+	}
+
+	none := appendOutlineOps(nil, 0, 0, 100, 40, 10, 0, cssDisplayNone, 1, 0, 0)
+	if len(none) != 0 {
+		t.Fatalf("none outline ops = %d, want 0", len(none))
+	}
+}
+
+func testOutlineOffsetGap(t *testing.T) {
+	t.Parallel()
+
+	const width, offset = 8.0, 5.0
+
+	ops := appendOutlineOps(nil, 10, 20, 100, 40, width, offset, solidKeyword, 0, 1, 0)
+	inflate := outlineInflate(width, offset)
+	zeroOff := outlineInflate(width, 0)
+	if inflate <= zeroOff {
+		t.Fatalf("offset inflate %v should exceed zero-offset %v", inflate, zeroOff)
+	}
+
+	assertOutlineOnInflatedRect(t, ops, 10-inflate, 20-inflate, 100+2*inflate, 40+2*inflate, width)
+}
+
+func testOutlineLayoutSizeUnchanged(t *testing.T) {
+	t.Parallel()
+
+	cssSheet := sheet(t, `
+body { margin: 0 }
+.box { width: 100pt; outline: 10pt solid #f00; outline-offset: 4pt }
+`)
+	res := layoutHTML(t, `<html><body><div class="box">x</div></body></html>`, cssSheet)
+	boxNode := findBoxByClass(t, res, "box")
+	if !near(boxNode.w, 100) {
+		t.Fatalf("box width = %.3f, want 100 (outline must not grow layout)", boxNode.w)
+	}
+}
+
+func testOutlinePrependChrome(t *testing.T) {
+	t.Parallel()
+
+	eng := &engine{scale: 1, opts: Options{Background: true}}
+	sty := ResolvedStyle{
+		OutlineWidth:    10,
+		OutlineStyle:    solidKeyword,
+		OutlineColor:    [3]float64{1, 0, 0},
+		OutlineColorSet: true,
+		OutlineOffset:   4,
+	}
+	boxNode := &box{style: &sty, w: 100, height: 50}
+	eng.prependChrome(0, boxNode, sty, 0, 0, 100, 50)
+
+	if len(eng.deferredChrome) != 1 {
+		t.Fatalf("deferred chrome entries = %d, want 1", len(eng.deferredChrome))
+	}
+
+	ops := eng.deferredChrome[0].ops
+	inflate := outlineInflate(10, 4)
+	assertOutlineOnInflatedRect(t, ops, -inflate, -inflate, 100+2*inflate, 50+2*inflate, 10)
+}
+
+// TestOutlineDoesNotStretchOwnedChrome: chrome repair must classify outline
+// ops as box-owned chrome. Before opOwnedBy, an outline counted as content
+// ink, so stretchPaginatedChrome grew the border box and stretched the
+// background and side rails down to the outline edge.
+func TestOutlineDoesNotStretchOwnedChrome(t *testing.T) {
+	t.Parallel()
+
+	s := sheet(t, `
+body { margin: 0 }
+.box {
+  width: 120pt; padding: 6pt; border: 2pt solid #123456; background: #eeeeee;
+  outline: 6pt solid #ff0000; outline-offset: 4pt; font-size: 10pt; line-height: 1
+}
+`)
+	res := layoutHTML(t, `<html><body><div class="box">x</div></body></html>`, s)
+	boxNode := findBoxByClass(t, res, "box")
+	heightBefore := boxNode.height
+
+	fillBefore := backgroundFillOf(t, res, boxNode)
+
+	if err := Paint(pdf.NewDocument(), res, paintOpts()); err != nil {
+		t.Fatal(err)
+	}
+
+	if !near(boxNode.height, heightBefore) {
+		t.Fatalf("outline stretched box height: before %.3f after %.3f", heightBefore, boxNode.height)
+	}
+
+	fillAfter := backgroundFillOf(t, res, boxNode)
+	if !near(fillAfter.H, heightBefore) || !near(fillAfter.H, fillBefore.H) {
+		t.Fatalf("background fill stretched by outline: before H=%.3f after H=%.3f, box H=%.3f",
+			fillBefore.H, fillAfter.H, boxNode.height)
+	}
+}
+
+// TestChromeFixtureCase26OutlineBelowTextInk: the case's dashed outline bottom
+// edge sits below the label ink. The orphan-row strip mistook that authored
+// stroke for an empty-row horizontal rule and zeroed its width, so the PDF
+// painted a 1pt hairline for the bottom edge while the other sides kept 3pt.
+func TestChromeFixtureCase26OutlineBelowTextInk(t *testing.T) {
+	t.Parallel()
+
+	res := layoutChromeCase(t, readChromeCase(t, "case-26-wpt-definite-sizes-002.html"))
+	item := fixtureBox(t, res, "item-26")
+
+	bottomY := item.y + item.height + outlineInflate(3, 2)
+
+	if err := Paint(pdf.NewDocument(), res, paintOpts()); err != nil {
+		t.Fatal(err)
+	}
+
+	bottom := 0
+	for i := range res.Ops {
+		op := &res.Ops[i]
+		if !op.isOutline() || op.Kind != OpLine || op.H != 0 || !near(op.Y, bottomY) {
+			continue
+		}
+
+		bottom++
+		if !near(op.Width, 3) {
+			t.Fatalf("case 26 outline bottom dash width = %.2f at x=%.2f, want 3", op.Width, op.X)
+		}
+	}
+
+	if bottom == 0 {
+		t.Fatalf("case 26 outline bottom edge not found at y=%.2f", bottomY)
+	}
+}
+
+// TestOutlineSurvivesRowChromeTighten: an outline bottom edge can sit in the
+// band the trailing-rule tighten pass rewrites (lastInkBot+8 to +40). Once the
+// strip leaves outline strokes alone, tighten must not pull the authored edge
+// up into its own box just because a real orphan row was stripped on the page.
+func TestOutlineSurvivesRowChromeTighten(t *testing.T) {
+	t.Parallel()
+
+	s := sheet(t, `
+body { margin: 0 }
+.box {
+  width: 100pt; height: 30pt; font-size: 8pt; line-height: 1;
+  outline: 3pt solid #2563eb; outline-offset: 2pt;
+}
+.trailer { width: 300pt; height: 20pt; background: #dddddd }
+`)
+	res := layoutHTML(t, `<html><body><div class="box">x</div><div class="trailer"></div></body></html>`, s)
+	boxNode := findBoxByClass(t, res, "box")
+
+	bottomY := boxNode.y + boxNode.height + outlineInflate(3, 2)
+
+	if err := Paint(pdf.NewDocument(), res, paintOpts()); err != nil {
+		t.Fatal(err)
+	}
+
+	bottom := 0
+	for i := range res.Ops {
+		op := &res.Ops[i]
+		if !op.isOutline() || op.Kind != OpLine || op.H != 0 || !near(op.Y, bottomY) {
+			continue
+		}
+
+		bottom++
+		if !near(op.Width, 3) {
+			t.Fatalf("outline bottom edge width = %.2f at x=%.2f, want 3", op.Width, op.X)
+		}
+	}
+
+	if bottom == 0 {
+		t.Fatalf("outline bottom edge not found at y=%.2f (authored chrome was moved or dropped)", bottomY)
+	}
+}
+
+// backgroundFillOf returns the box's background fill op (X/W match the border
+// box, light grey).
+func backgroundFillOf(t *testing.T, res *Result, boxNode *box) Op {
+	t.Helper()
+
+	for _, op := range res.Ops {
+		if op.Kind != OpFillRect || op.R < 0.85 || op.G < 0.85 || op.B < 0.85 {
+			continue
+		}
+
+		if near(op.X, boxNode.x) && near(op.W, boxNode.w) {
+			return op
+		}
+	}
+
+	t.Fatal("box background fill not found")
+
+	return Op{}
+}
+
+func assertOutlineOnInflatedRect(t *testing.T, ops []Op, x, y, w, h, width float64) {
+	t.Helper()
+
+	var top, right, bottom, left bool
+
+	for _, op := range ops {
+		if op.Kind != OpLine || !near(op.Width, width) {
+			continue
+		}
+
+		switch {
+		case op.H == 0 && near(op.Y, y) && near(op.X, x):
+			top = true
+		case op.H == 0 && near(op.Y, y+h) && near(op.X, x):
+			bottom = true
+		case op.W == 0 && near(op.X, x) && near(op.Y, y):
+			left = true
+		case op.W == 0 && near(op.X, x+w) && near(op.Y, y):
+			right = true
+		}
+	}
+
+	if !top || !right || !bottom || !left {
+		t.Fatalf("missing outline sides top=%v right=%v bottom=%v left=%v (ops=%d)",
+			top, right, bottom, left, len(ops))
+	}
+}

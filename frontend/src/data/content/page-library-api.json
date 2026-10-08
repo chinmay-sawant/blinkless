@@ -1,0 +1,41 @@
+{
+  "id": "library-api",
+  "nav": "Library API",
+  "content": [
+    {
+      "type": "hero",
+      "title": "Typed HTML-to-PDF and image conversion",
+      "lede": "Build a Document or ImageDocument with explicit Content sources, validate it, and write the result without exposing engine settings or shelling out to a browser."
+    },
+    {
+      "type": "code",
+      "heading": "PDF in Go",
+      "language": "go",
+      "code": "doc := gowkhtmltopdf.Document{\n\tPageSize: \"A4\",\n\tPages: []gowkhtmltopdf.Page{{\n\t\tSource: gowkhtmltopdf.File(\"invoice.html\"),\n\t}},\n\tAllowLocalFiles: true,\n}\n\nfile, err := os.Create(\"invoice.pdf\")\nif err != nil {\n\treturn err\n}\ndefer file.Close()\n\nreturn doc.WritePDF(ctx, file)"
+    },
+    {
+      "type": "code",
+      "heading": "Image in Go",
+      "language": "go",
+      "code": "image := gowkhtmltopdf.ImageDocument{\n\tSource: gowkhtmltopdf.HTML([]byte(\"<h1>Preview</h1>\")),\n\tWidth: 1024,\n\tFormat: \"png\",\n}\n\nbytes, err := image.Image(ctx)\nif err != nil {\n\treturn err\n}\nreturn os.WriteFile(\"preview.png\", bytes, 0o644)"
+    },
+    {
+      "type": "table",
+      "heading": "Public surface",
+      "headers": ["Type", "Role", "Key methods"],
+      "rows": [
+        ["Document", "HTML sources and PDF options", "Validate, WritePDF, WritePDFOutline, PDF; options are struct fields such as PDFVersion, PDFProfile, Copies, and Network"],
+        ["ImageDocument", "One HTML source and image options", "Validate, WriteImage, Image"],
+        ["Content", "Exactly one HTML, File, or URL source", "HTML(html, base...), File(path), URL(rawURL), Validate"],
+        ["NetworkPolicy", "HTTP(S) loading policy", "CompatibleNetworkPolicy (default), RestrictedNetworkPolicy (blocks private destinations and cross-host redirects)"],
+        ["Package helpers", "Version banner and constructors", "Version, LibraryVersion (0.12.7-dev), NewDocument(pages...), MaxDocumentCopies (1000)"]
+      ]
+    },
+    {
+      "type": "callout",
+      "variant": "info",
+      "title": "Ownership and validation",
+      "body": "HTML bytes and option slices are copied at the public boundary. Validate reports invalid sources, formats, page geometry, profiles, and empty documents before the renderer opens output. AllowLocalFiles is opt-in; Network config remains explicit. The public API is v0.2.6 (VERSION); LibraryVersion = 0.12.7-dev is the upstream wkhtmltopdf compatibility identifier, not the release number (api.go:24). PDFVersion and PDFProfile are Document fields; the 0.2.6 root package has no With... option functions."
+    }
+  ]
+}

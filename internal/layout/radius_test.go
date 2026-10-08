@@ -1,0 +1,209 @@
+//nolint:wsl // radius slash / elliptical longhand proofs
+package layout
+
+import (
+	"testing"
+
+	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
+)
+
+func TestRadiusSlash(t *testing.T) {
+	t.Parallel()
+
+	root := mustParse(t, `<html><body>
+		<div class="slash">x</div>
+		<div class="circle">x</div>
+	</body></html>`)
+	styles := resolveStyles(root, []*css.Stylesheet{sheet(t, `
+		.slash { border-radius: 10pt / 5pt }
+		.circle { border-radius: 8pt }
+	`)}, "print", testViewport, 800)
+
+	slash := styleByClass(t, styles, "slash")
+	assertCornerRadiusXY(t, slash.BorderRadiusTopLeft, slash.BorderRadiusTopLeftY, 10, 5, "slash TL")
+	assertCornerRadiusXY(t, slash.BorderRadiusTopRight, slash.BorderRadiusTopRightY, 10, 5, "slash TR")
+	assertCornerRadiusXY(t, slash.BorderRadiusBottomRight, slash.BorderRadiusBottomRightY, 10, 5, "slash BR")
+	assertCornerRadiusXY(t, slash.BorderRadiusBottomLeft, slash.BorderRadiusBottomLeftY, 10, 5, "slash BL")
+
+	circle := styleByClass(t, styles, "circle")
+	if !near(circle.BorderRadius, 8) {
+		t.Fatalf("circular shorthand BorderRadius = %.3f, want 8", circle.BorderRadius)
+	}
+
+	if !near(circle.BorderRadiusTopLeftY, 0) {
+		t.Fatalf("circular shorthand Y = %.3f, want 0 (same as X at paint)", circle.BorderRadiusTopLeftY)
+	}
+
+	cssSheet := sheet(t, `
+body { margin: 0 }
+.slash { width: 40pt; height: 20pt; background: #f00; border-radius: 10pt / 5pt }
+`)
+	res := layoutHTML(t, `<html><body><div class="slash">x</div></body></html>`, cssSheet)
+	fill := redFillOp(t, res.Ops)
+	if !near(fill.RadiusTopLeft, 10) || !near(fill.RadiusTopLeftY, 5) {
+		t.Fatalf("slash fill radii X=%.3f Y=%.3f, want 10 / 5", fill.RadiusTopLeft, fill.RadiusTopLeftY)
+	}
+}
+
+func TestRadiusEllipticalLonghand(t *testing.T) {
+	t.Parallel()
+
+	root := mustParse(t, `<html><body>
+		<div class="slash">x</div>
+		<div class="space">x</div>
+		<div class="round">x</div>
+	</body></html>`)
+	styles := resolveStyles(root, []*css.Stylesheet{sheet(t, `
+		.slash { border-top-left-radius: 10pt / 5pt }
+		.space { border-top-right-radius: 8pt 4pt }
+		.round { border-bottom-right-radius: 6pt }
+	`)}, "print", testViewport, 800)
+
+	slash := styleByClass(t, styles, "slash")
+	assertCornerRadiusXY(t, slash.BorderRadiusTopLeft, slash.BorderRadiusTopLeftY, 10, 5, "longhand slash")
+
+	space := styleByClass(t, styles, "space")
+	assertCornerRadiusXY(t, space.BorderRadiusTopRight, space.BorderRadiusTopRightY, 8, 4, "longhand space")
+
+	round := styleByClass(t, styles, "round")
+	if !near(round.BorderRadiusBottomRight, 6) {
+		t.Fatalf("circular longhand X = %.3f, want 6", round.BorderRadiusBottomRight)
+	}
+
+	if !near(round.BorderRadiusBottomRightY, 0) {
+		t.Fatalf("circular longhand Y = %.3f, want 0", round.BorderRadiusBottomRightY)
+	}
+
+	res := layoutHTML(t, `<html><body><div class="slash">x</div></body></html>`, sheet(t, `
+body { margin: 0 }
+.slash { width: 40pt; height: 20pt; background: #f00; border-top-left-radius: 10pt / 5pt }
+`))
+	fill := redFillOp(t, res.Ops)
+	if !near(fill.RadiusTopLeft, 10) || !near(fill.RadiusTopLeftY, 5) {
+		t.Fatalf("longhand fill radii X=%.3f Y=%.3f, want 10 / 5", fill.RadiusTopLeft, fill.RadiusTopLeftY)
+	}
+}
+
+func TestRadiusPercentAxes(t *testing.T) {
+	t.Parallel()
+
+	res := layoutHTML(t, `<html><body><div class="pill">x</div></body></html>`, sheet(t, `
+body { margin: 0 }
+.pill { width: 100pt; height: 40pt; background: #f00; border-radius: 50% }
+`))
+	fill := redFillOp(t, res.Ops)
+	if !near(fill.RadiusTopLeft, 50) || !near(fill.RadiusTopLeftY, 20) {
+		t.Fatalf("percent radius X=%.3f Y=%.3f, want 50 / 20", fill.RadiusTopLeft, fill.RadiusTopLeftY)
+	}
+}
+
+// TestRadiusPillClampsCircularShorthand: border-radius:999px on a wide short
+// box must become half-height circular ends (fixture-56 .hero-badge), not
+// half-width ellipses from width-only X clamping with Y copied later.
+func TestRadiusPillClampsCircularShorthand(t *testing.T) {
+	t.Parallel()
+
+	res := layoutHTML(t, `<html><body><div class="pill">badge</div></body></html>`, sheet(t, `
+body { margin: 0 }
+.pill {
+  display: inline-block;
+  width: 220pt;
+  height: 15pt;
+  background: #f00;
+  border-radius: 999px;
+}
+`))
+	fill := redFillOp(t, res.Ops)
+	want := 7.5 // height/2
+
+	if !near(fill.RadiusTopLeft, want) || !near(fill.RadiusTopLeftY, want) {
+		t.Fatalf("pill radii X=%.3f Y=%.3f, want %.3f / %.3f (circular half-height)",
+			fill.RadiusTopLeft, fill.RadiusTopLeftY, want, want)
+	}
+
+	if !near(fill.RadiusTopRight, want) || !near(fill.RadiusBottomRight, want) ||
+		!near(fill.RadiusBottomLeft, want) {
+		t.Fatalf("pill corner X radii = TL %.3f TR %.3f BR %.3f BL %.3f, want all %.3f",
+			fill.RadiusTopLeft, fill.RadiusTopRight, fill.RadiusBottomRight, fill.RadiusBottomLeft, want)
+	}
+}
+
+// TestOpRadiiXYParity pins the exported op-radius resolver that imageout
+// consumes: uniform shorthand, per-corner longhands, a uniform Y-only radius,
+// and a stale corner Y with no matching X.
+func TestOpRadiiXYParity(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		op           Op
+		wantX, wantY [4]float64
+	}{
+		{
+			name:  "uniform shorthand copies X to Y",
+			op:    Op{Radius: 8},
+			wantX: [4]float64{8, 8, 8, 8},
+			wantY: [4]float64{8, 8, 8, 8},
+		},
+		{
+			name: "corner longhands keep both axes",
+			op: Op{
+				RadiusTopLeft: 10, RadiusTopLeftY: 5,
+				RadiusTopRight: 10, RadiusTopRightY: 5,
+				RadiusBottomRight: 10, RadiusBottomRightY: 5,
+				RadiusBottomLeft: 10, RadiusBottomLeftY: 5,
+			},
+			wantX: [4]float64{10, 10, 10, 10},
+			wantY: [4]float64{5, 5, 5, 5},
+		},
+		{
+			name:  "uniform Y only pairs with X",
+			op:    Op{Radius: 8, RadiusY: 4},
+			wantX: [4]float64{8, 8, 8, 8},
+			wantY: [4]float64{4, 4, 4, 4},
+		},
+		{
+			name:  "stale corner Y without X resolves to zero",
+			op:    Op{RadiusTopLeftY: 5},
+			wantX: [4]float64{},
+			wantY: [4]float64{},
+		},
+	}
+
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			gotX, gotY := OpRadiiXY(&testCase.op)
+
+			for corner := range testCase.wantX {
+				if !near(gotX[corner], testCase.wantX[corner]) || !near(gotY[corner], testCase.wantY[corner]) {
+					t.Fatalf("corner %d radii = %.3f/%.3f, want %.3f/%.3f",
+						corner, gotX[corner], gotY[corner], testCase.wantX[corner], testCase.wantY[corner])
+				}
+			}
+		})
+	}
+}
+
+func assertCornerRadiusXY(t *testing.T, radiusX, radiusY, wantX, wantY float64, label string) {
+	t.Helper()
+
+	if !near(radiusX, wantX) || !near(radiusY, wantY) {
+		t.Fatalf("%s radius = %.3f / %.3f, want %.3f / %.3f", label, radiusX, radiusY, wantX, wantY)
+	}
+}
+
+func redFillOp(t *testing.T, ops []Op) Op {
+	t.Helper()
+
+	for _, op := range ops {
+		if op.Kind == OpFillRect && op.R > 0.9 {
+			return op
+		}
+	}
+
+	t.Fatal("missing red fill op")
+
+	return Op{}
+}
