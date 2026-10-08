@@ -14,31 +14,40 @@ import (
 )
 
 const (
-	defaultMode       = "png"
-	maxHTMLBytes      = 4 << 20
-	maxOutputBytes    = 32 << 20
-	maxImageDimension = 4096
+	// displayMode is the only output mode: the versioned drawing-list JSON.
+	displayMode = "display"
+	// defaultMode is what a request with no mode gets.
+	defaultMode     = displayMode
+	maxHTMLBytes    = 4 << 20
+	maxViewportSide = 4096
+	// fallbackViewportPx matches the bitmap viewport the display list grew
+	// from: an unset width lays out at 1024 CSS pixels.
+	fallbackViewportPx = 1024
 )
 
+// maxOutputBytes caps one serialized result. It is a variable so a test can
+// lower the cap instead of building a document large enough to cross 32 MiB;
+// nothing mutates it at runtime.
+var maxOutputBytes = 32 << 20
+
 var (
-	errInvalidRequest  = errors.New("invalid request")
-	errUnsupportedMode = errors.New("unsupported output mode")
-	errInputTooLarge   = errors.New("HTML input exceeds browser limit")
-	errOutputTooLarge  = errors.New("output exceeds browser limit")
-	errImageTooLarge   = errors.New("image dimensions exceed browser limit")
+	errInvalidRequest   = errors.New("invalid request")
+	errUnsupportedMode  = errors.New("unsupported output mode")
+	errInputTooLarge    = errors.New("HTML input exceeds browser limit")
+	errOutputTooLarge   = errors.New("output exceeds browser limit")
+	errViewportTooLarge = errors.New("viewport dimensions exceed browser limit")
 )
 
 // Request is the JSON boundary used by the browser adapter. It deliberately
 // contains no native file or URL fields: browser input is inline HTML only.
+// Width and Height are the viewport in CSS pixels. Obsolete writer fields
+// (pageSize, orientation, padding, quality) are not part of the contract and
+// are rejected as unknown fields.
 type Request struct {
-	HTML        string `json:"html"`
-	Mode        string `json:"mode"`
-	PageSize    string `json:"pageSize"`
-	Orientation string `json:"orientation"`
-	Width       int    `json:"width"`
-	Height      int    `json:"height"`
-	Padding     int    `json:"padding"`
-	Quality     int    `json:"quality"`
+	HTML   string `json:"html"`
+	Mode   string `json:"mode"`
+	Width  int    `json:"width"`
+	Height int    `json:"height"`
 }
 
 // Result is the owned output returned by one browser conversion.
@@ -71,6 +80,7 @@ func DecodeRequest(raw string) (Request, error) {
 		if err == nil {
 			return Request{}, fmt.Errorf("%w: multiple JSON values", errInvalidRequest)
 		}
+
 		return Request{}, fmt.Errorf("%w: %v", errInvalidRequest, err)
 	}
 
@@ -86,10 +96,11 @@ func (r *Request) validate() error {
 		return fmt.Errorf("%w: request is nil", errInvalidRequest)
 	}
 
-	if len([]byte(r.HTML)) == 0 {
+	if len(r.HTML) == 0 {
 		return fmt.Errorf("%w: HTML is empty", errInvalidRequest)
 	}
-	if len([]byte(r.HTML)) > maxHTMLBytes {
+
+	if len(r.HTML) > maxHTMLBytes {
 		return fmt.Errorf("%w: %w", errInvalidRequest, errInputTooLarge)
 	}
 
@@ -98,28 +109,27 @@ func (r *Request) validate() error {
 		r.Mode = defaultMode
 	}
 
-	switch r.Mode {
-	case "png", "jpeg":
-		if r.Width < 0 || r.Height < 0 || r.Padding < 0 || r.Width > maxImageDimension || r.Height > maxImageDimension {
-			return fmt.Errorf("%w: %w", errInvalidRequest, errImageTooLarge)
-		}
-		if r.Quality < 0 || r.Quality > 100 {
-			return fmt.Errorf("%w: image quality must be between 0 and 100", errInvalidRequest)
-		}
-	default:
+	if r.Mode != displayMode {
 		return fmt.Errorf("%w: %q", errUnsupportedMode, r.Mode)
+	}
+
+	if r.Width < 0 || r.Height < 0 || r.Width > maxViewportSide || r.Height > maxViewportSide {
+		return fmt.Errorf("%w: %w", errInvalidRequest, errViewportTooLarge)
 	}
 
 	return nil
 }
 
-// Convert lays the HTML out and returns the drawing list as JSON. It does
-// not encode a PNG or JPEG. Width and height use the bitmap viewport
-// fallback: an unset width is 1024, and an unset height uses that width.
+// Convert lays the HTML out and returns the versioned drawing-list JSON. It
+// does not encode a PNG or JPEG. Width and height use the bitmap viewport
+// fallback: an unset width is 1024 CSS pixels, and an unset height uses that
+// width. Images resolve from data: URLs only; browser input has no base URL
+// and no IO.
 func Convert(ctx context.Context, request Request, onProgress func(string, int)) (Result, error) {
 	if err := request.validate(); err != nil {
 		return Result{}, err
 	}
+
 	if ctx == nil {
 		return Result{}, layout.ErrNilContext
 	}
@@ -130,7 +140,7 @@ func Convert(ctx context.Context, request Request, onProgress func(string, int))
 
 	width := request.Width
 	if width <= 0 {
-		width = 1024
+		width = fallbackViewportPx
 	}
 
 	height := request.Height
@@ -152,21 +162,16 @@ func Convert(ctx context.Context, request Request, onProgress func(string, int))
 		return Result{}, err
 	}
 
-	display, err := layout.DisplayList(ctx, styled)
-	if err != nil {
-		return Result{}, err
-	}
-
-	payload, err := json.Marshal(map[string]int{
-		"ops":    len(display.Ops),
-		"width":  display.Width,
-		"height": display.Height,
+	display, err := layout.DisplayListOptions(ctx, styled, layout.Options{
+		Images: inlineImageResolver(ctx),
 	})
 	if err != nil {
 		return Result{}, err
 	}
-	if len(payload) > maxOutputBytes {
-		return Result{}, errOutputTooLarge
+
+	payload, err := serializeDisplay(display)
+	if err != nil {
+		return Result{}, err
 	}
 
 	if onProgress != nil {
@@ -174,7 +179,7 @@ func Convert(ctx context.Context, request Request, onProgress func(string, int))
 	}
 
 	return Result{
-		Mode:   "display",
+		Mode:   displayMode,
 		MIME:   "application/json",
 		Bytes:  payload,
 		Width:  display.Width,
@@ -190,7 +195,7 @@ func errorResponse(err error) ErrorResponse {
 	code := "render_error"
 	switch {
 	case errors.Is(err, errInputTooLarge), errors.Is(err, errOutputTooLarge),
-		errors.Is(err, errImageTooLarge):
+		errors.Is(err, errViewportTooLarge):
 		code = "resource_limit"
 	case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
 		code = "timeout"

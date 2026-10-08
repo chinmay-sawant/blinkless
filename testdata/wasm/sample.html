@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <!--
   wasm-sample
-  Proves: inline HTML, print CSS, table layout, forced page breaks, and a
-  self-contained data-URL image for PDF, PNG, and JPEG browser output.
+  Proves: inline HTML, table layout, a data-URL image, and text shaping for
+  the versioned JSON drawing-list contract. It needs no file or network
+  request.
 -->
 <html>
 <head>
@@ -28,18 +29,18 @@
     src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
   >
   <h1>Browser WASM conversion</h1>
-  <p class="note">This sample is rendered by the same Go document engine in PDF and image modes.</p>
+  <p class="note">This sample is laid out by the same Go document engine and returned as a JSON drawing list.</p>
   <table>
     <thead><tr><th>Output</th><th>Format</th><th>Browser action</th></tr></thead>
     <tbody>
-      <tr><td>Document</td><td>PDF</td><td>Preview pages and download</td></tr>
-      <tr><td>ImageDocument</td><td>PNG or JPEG</td><td>Preview pixels and download</td></tr>
+      <tr><td>Drawing list</td><td>JSON</td><td>Replay operations on a canvas</td></tr>
+      <tr><td>Resources</td><td>Fonts and images</td><td>Decode referenced payloads</td></tr>
     </tbody>
   </table>
 
   <section class="page-two">
     <h2>Second page</h2>
-    <p>The forced break keeps this heading on a separate PDF page.</p>
+    <p>The forced break keeps this heading on a separate native page.</p>
     <p>Inline resources remain available without filesystem access or a network request.</p>
   </section>
 </body>

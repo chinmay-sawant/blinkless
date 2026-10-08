@@ -1,0 +1,46 @@
+{
+  "schema": "blinkless-css-catalog-schema",
+  "version": 1,
+  "catalog_file": "properties.json",
+  "description": "Versioned schema for the engine CSS property catalog. One row per property; every row is checked against internal/layout handler discovery and the pinned upstream inventory by scripts/css-catalog-map.py.",
+  "statuses": {
+    "implemented": "A handler exists, a consumer outside the style layer reads the value, and at least one resolvable behavior test covers the property. tests must be non-empty.",
+    "partial": "A handler and a consumer exist, but at least one named behavior is missing or unverified. limitations names the gap; tests may be empty.",
+    "unsupported": "No consumer and no observable behavior. The declaration may be parsed and stored or dropped entirely; either way it degrades gracefully. limitations names the missing behavior.",
+    "intentionally ignored": "The engine deliberately ignores the property (print-noop UI chrome or similar). limitations names the reason."
+  },
+  "row_fields": {
+    "name": "Canonical property name, lowercase, optional vendor prefix (for example display or -webkit-line-clamp).",
+    "aliases": "Alternate names the dispatcher folds onto this property (vendor aliases from normalizeVendorPrefix plus direct legacy case-arm aliases).",
+    "values": "Value forms the engine is recorded as accepting. Non-empty for implemented and partial rows. Seeded from the pinned upstream syntax where present; CAT-05 audits each form against its handler.",
+    "upstream_syntax": "Optional verbatim value syntax from the pinned upstream inventory for cross-checking. Not an engine claim by itself.",
+    "upstream_class": "Optional provenance class from the pinned inventory: draft, vendor, svg, or browser-ui.",
+    "limitations": "Named missing or unverified behaviors. Non-empty for partial, unsupported, and intentionally ignored rows.",
+    "source": "Repo-relative code paths that contain the handler, or the pinned upstream file for rows with no handler. Every path must exist.",
+    "handlers": "Informational list of discovered handler functions for this property. Checked only for existence, not for status promotion.",
+    "tests": "Behavior-test references as {file, name}. Each file must define func name. Non-empty for implemented rows.",
+    "status": "One of the status keys above."
+  },
+  "summary_fields": {
+    "properties": "Number of rows.",
+    "by_status": "Row count per status; recomputed and compared on every check.",
+    "aliases": "Total alias entries across rows.",
+    "engine_registered": "Rows whose name or an alias has a discovered handler.",
+    "upstream_only": "Rows with no discovered handler (pinned upstream properties, unsupported or intentionally ignored).",
+    "upstream": "Pin reference: inventory name, revision, property count, cataloged count, and class counts. cataloged must equal properties for the check to pass."
+  },
+  "checks": {
+    "tool": "scripts/css-catalog-map.py --check (make catalog-check)",
+    "enforced": [
+      "duplicate names or aliases",
+      "handler not cataloged (a discovered handler name has no row or alias)",
+      "missing handler for an implemented or partial row",
+      "invalid statuses and malformed rows",
+      "missing or unresolvable source and behavior-test references",
+      "rows neither in the pinned upstream inventory nor a discovered handler",
+      "pinned upstream properties not cataloged",
+      "summary-count drift"
+    ],
+    "promotion_rule": "Handler presence never promotes a status. Status changes are catalog edits with evidence, reviewed like code."
+  }
+}

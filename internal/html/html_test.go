@@ -225,13 +225,24 @@ func TestTokenizeDeclarationsAndPI(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(toks) != 3 {
-		t.Fatalf("got %d tokens, want 3: %+v", len(toks), toks)
+	// "<?...>" and "<!bogus...>" are bogus comments per the tokenizer spec.
+	want := []struct {
+		kind tokenKind
+		data string
+	}{
+		{tokComment, `?xml version="1.0"?`},
+		{tokComment, "bogus stuff"},
+		{tokStart, "p"},
+		{tokText, "x"},
+		{tokEnd, "p"},
+	}
+	if len(toks) != len(want) {
+		t.Fatalf("got %d tokens, want %d: %+v", len(toks), len(want), toks)
 	}
 
-	for i, wantKind := range []tokenKind{tokStart, tokText, tokEnd} {
-		if toks[i].kind != wantKind {
-			t.Errorf("token %d kind = %v, want %v", i, toks[i].kind, wantKind)
+	for i, wantTok := range want {
+		if toks[i].kind != wantTok.kind || toks[i].data != wantTok.data {
+			t.Errorf("token %d = %+v, want kind %v data %q", i, toks[i], wantTok.kind, wantTok.data)
 		}
 	}
 }
@@ -250,6 +261,15 @@ func TestTokenizeRawText(t *testing.T) {
 		{`<script src="x.js"></script>`, ""},
 		{`<script>a</SCRIPT>b`, "ab"},
 		{`<script>var x = 1;`, "var x = 1;"},
+		// RAWTEXT and script data keep character references literal.
+		{`<script>var x = "&amp;";</script>`, `var x = "&amp;";`},
+		{`<style>a{content:"&amp;"}</style>`, `a{content:"&amp;"}`},
+		{`<xmp>a &amp; b</xmp>`, "a &amp; b"},
+		// RCDATA decodes character references.
+		{`<title>Tom &amp; Jerry</title>`, "Tom & Jerry"},
+		{`<textarea>&lt;b&gt;not bold&lt;/b&gt;</textarea>`, "<b>not bold</b>"},
+		// A trailing solidus still closes a raw-text element.
+		{`<script>a</script/>b`, "ab"},
 	}
 	for _, testCase := range cases {
 		toks, err := tokenize(testCase.src)
@@ -274,21 +294,204 @@ func TestTokenizeRawText(t *testing.T) {
 func TestTokenizeRawTextClosesOnlyRealEndTag(t *testing.T) {
 	t.Parallel()
 
-	toks, err := tokenize(`<script>a</scriptx>b</script>`)
+	cases := []struct{ src, want string }{
+		{`<script>a</scriptx>b</script>`, "a</scriptx>b"},
+		{`<script>a</script/>b`, "ab"},
+		{`<script>a</script b>c`, "ac"},
+		{`<script>a</script `, "a"},
+		{`<script>a</script`, "a</script"},
+		{`<script>a</scr`, "a</scr"},
+	}
+	for _, testCase := range cases {
+		toks, err := tokenize(testCase.src)
+		if err != nil {
+			t.Fatalf("tokenize(%q): %v", testCase.src, err)
+		}
+
+		var text string
+
+		for _, tk := range toks {
+			if tk.kind == tokText {
+				text += tk.data
+			}
+		}
+
+		if text != testCase.want {
+			t.Errorf("tokenize(%q): raw text = %q, want %q (tokens %+v)", testCase.src, text, testCase.want, toks)
+		}
+	}
+}
+
+func TestTokenizeNormalizesNewlines(t *testing.T) {
+	t.Parallel()
+
+	toks, err := tokenize("a\r\nb\rc\r\rd\n\re")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	var text string
+	if len(toks) != 1 || toks[0].kind != tokText || toks[0].data != "a\nb\nc\n\nd\n\ne" {
+		t.Fatalf("tokens = %+v, want one text token with normalized newlines", toks)
+	}
 
-	for _, tk := range toks {
-		if tk.kind == tokText {
-			text += tk.data
+	toks, err = tokenize("<p title=\"x\r\ny\">")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(toks) != 1 || len(toks[0].attrs) != 2 || toks[0].attrs[1] != "x\ny" {
+		t.Fatalf("tokens = %+v, want attribute value with normalized newline", toks)
+	}
+}
+
+//nolint:cyclop // sequential scenario assertions, not branch logic
+func TestTokenizeNullHandling(t *testing.T) {
+	t.Parallel()
+
+	// Data-state NUL is kept in the token stream; the tree drops it.
+	toks, err := tokenize("a\x00b")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(toks) != 1 || toks[0].kind != tokText || toks[0].data != "a\x00b" {
+		t.Fatalf("data tokens = %+v, want text with U+0000 preserved", toks)
+	}
+
+	if got := mustParse(t, "a\x00b").TextContent(); got != "ab" {
+		t.Errorf("tree text = %q, want %q (U+0000 dropped)", got, "ab")
+	}
+
+	// Comment, tag name, attribute, and raw-text states substitute U+FFFD.
+	cases := []struct {
+		src       string
+		wantIndex int
+		wantKind  tokenKind
+		wantData  string
+	}{
+		{"<!--a\x00b-->", 0, tokComment, "a\ufffdb"},
+		{"<p\x00 a\x00b=\"c\x00d\">", 0, tokStart, "p\ufffd"},
+		{"<style>a\x00b</style>", 1, tokText, "a\ufffdb"},
+		{"<title>a\x00b</title>", 1, tokText, "a\ufffdb"},
+	}
+	for _, testCase := range cases {
+		toks, err := tokenize(testCase.src)
+		if err != nil {
+			t.Fatalf("tokenize(%q): %v", testCase.src, err)
+		}
+
+		if len(toks) <= testCase.wantIndex {
+			t.Errorf("tokenize(%q): got %d tokens %+v, want token %d", testCase.src, len(toks), toks, testCase.wantIndex)
+
+			continue
+		}
+
+		got := toks[testCase.wantIndex]
+		if got.kind != testCase.wantKind || got.data != testCase.wantData {
+			t.Errorf("tokenize(%q): token %d = %+v, want kind %v data %q",
+				testCase.src, testCase.wantIndex, got, testCase.wantKind, testCase.wantData)
 		}
 	}
 
-	if text != "a</scriptx>b" {
-		t.Errorf("raw text = %q, want %q (tokens %+v)", text, "a</scriptx>b", toks)
+	toks, err = tokenize("<p a\x00b=\"c\x00d\">")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(toks) != 1 || len(toks[0].attrs) != 2 || toks[0].attrs[0] != "a\ufffdb" || toks[0].attrs[1] != "c\ufffdd" {
+		t.Fatalf("attribute tokens = %+v, want NUL replaced with U+FFFD in name and value", toks)
+	}
+}
+
+func TestParseReplacesInvalidUTF8(t *testing.T) {
+	t.Parallel()
+
+	if got := mustParse(t, "a\xffb").TextContent(); got != "a\ufffdb" {
+		t.Errorf("TextContent = %q, want %q", got, "a\ufffdb")
+	}
+}
+
+func TestTokenizeAttributeCharacterReferences(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct{ src, want string }{
+		{`<h a="&noti;">`, "&noti;"},
+		{`<h a='&noti'>`, "&noti"},
+		{`<h a='&notx'>`, "&notx"},
+		{`<h a='&not1'>`, "&not1"},
+		{`<h a='&COPY'>`, "\u00a9"},
+		{`<h a="&notin;">`, "\u2209"},
+		{`<h a="&not=">`, "&not="},
+		{`<h a="&lang=">`, "&lang="},
+		{`<h a="&amp;">`, "&"},
+		{`<h a="&amp">`, "&"},
+		{`<h a="&ampx">`, "&ampx"},
+		{`<h a="&semi;">`, ";"},
+		{`<h a="&nGt;">`, "\u226B\u20D2"},
+		{`<h a="&#x3f;">`, "?"},
+		{`<h a="&#38">`, "&"},
+		{`<h a="&#0;">`, "\uFFFD"},
+		{`<s o=& t>`, "&"},
+		{`<a a=a&>foo`, "a&"},
+	}
+	for _, testCase := range cases {
+		toks, err := tokenize(testCase.src)
+		if err != nil {
+			t.Fatalf("tokenize(%q): %v", testCase.src, err)
+		}
+
+		if len(toks) == 0 || toks[0].kind != tokStart {
+			t.Fatalf("tokenize(%q): first token = %+v, want start tag", testCase.src, toks)
+		}
+
+		if len(toks[0].attrs) < 2 || toks[0].attrs[1] != testCase.want {
+			t.Errorf("tokenize(%q): first attribute = %v, want value %q", testCase.src, toks[0].attrs, testCase.want)
+		}
+	}
+}
+
+func TestUnescapeEntitiesNumericEdgeCases(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct{ src, want string }{
+		{"&#0", "\uFFFD"},
+		{"&#x0", "\uFFFD"},
+		{"&#x100000041;", "\uFFFD"},
+		{"&#4294967361;", "\uFFFD"},
+		{"&#xD800;", "\uFFFD"},
+		{"&#x41;", "A"},
+		{"&#97a", "aa"},
+		{"&nGt;", "\u226B\u20D2"},
+		{"&noti;", "\u00ACi;"},
+	}
+	for _, testCase := range cases {
+		if got := mustParse(t, testCase.src).TextContent(); got != testCase.want {
+			t.Errorf("Parse(%q) text = %q, want %q", testCase.src, got, testCase.want)
+		}
+	}
+}
+
+func TestParseTextContexts(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct{ src, elem, want string }{
+		{`<style>a{content:"&amp;"}</style>`, "style", `a{content:"&amp;"}`},
+		{`<script>var x = "&amp;";</script>`, "script", `var x = "&amp;";`},
+		{`<title>Tom &amp; Jerry</title>`, "title", "Tom & Jerry"},
+		{`<textarea>&lt;b&gt;not bold&lt;/b&gt;</textarea>`, "textarea", "<b>not bold</b>"},
+		{`<p>Tom &amp; Jerry</p>`, "p", "Tom & Jerry"},
+	}
+	for _, testCase := range cases {
+		root := mustParse(t, testCase.src)
+
+		elem := root.FirstChild(testCase.elem)
+		if elem == nil {
+			t.Fatalf("Parse(%q): no <%s>:\n%s", testCase.src, testCase.elem, treeString(root))
+		}
+
+		if got := elem.TextContent(); got != testCase.want {
+			t.Errorf("Parse(%q): <%s> text = %q, want %q", testCase.src, testCase.elem, got, testCase.want)
+		}
 	}
 }
 
@@ -326,26 +529,50 @@ func TestTokenizeBareLessThanIsText(t *testing.T) {
 	}
 }
 
-func TestTokenizeUnterminated(t *testing.T) {
+func TestTokenizeRecoversUnterminated(t *testing.T) {
 	t.Parallel()
 
+	// The spec's recovery rules: unfinished comments become comment tokens,
+	// EOF inside a tag drops the tag, stray "</" stays text, and unfinished
+	// declarations and processing instructions become bogus comments.
 	cases := []struct {
-		src, wantErr string
+		src       string
+		wantKind  tokenKind
+		wantData  string
+		wantCount int
 	}{
-		{"<!-- unterminated", "unterminated comment"},
-		{"</div", "unterminated end tag"},
-		{`<div a="x`, "unterminated attribute value"},
-		{`<div a='x`, "unterminated attribute value"},
-		{`<div a="x>`, "unterminated attribute value"},
-		{"<!DOCTYPE", "unterminated doctype"},
-		{"<!bogus", "unterminated declaration"},
-		{"<?pi", "unterminated processing instruction"},
+		{"<!-- unterminated", tokComment, " unterminated", 1},
+		{"</div", 0, "", 0},
+		{`<div a="x`, 0, "", 0},
+		{`<div a='x`, 0, "", 0},
+		{`<div a="x>`, 0, "", 0},
+		{"<!DOCTYPE", tokDoctype, "DOCTYPE", 1},
+		{"<!bogus", tokComment, "bogus", 1},
+		{"<?pi", tokComment, "?pi", 1},
 	}
 	for _, testCase := range cases {
-		if _, err := Parse(testCase.src); err == nil {
-			t.Errorf("Parse(%q): want error %q, got nil", testCase.src, testCase.wantErr)
-		} else if !strings.Contains(err.Error(), testCase.wantErr) {
-			t.Errorf("Parse(%q): got error %q, want it to contain %q", testCase.src, err, testCase.wantErr)
+		if _, err := Parse(testCase.src); err != nil {
+			t.Errorf("Parse(%q): unexpected error %v", testCase.src, err)
+		}
+
+		toks, err := tokenize(testCase.src)
+		if err != nil {
+			t.Fatalf("tokenize(%q): %v", testCase.src, err)
+		}
+
+		if len(toks) != testCase.wantCount {
+			t.Errorf("tokenize(%q): got %d tokens %+v, want %d", testCase.src, len(toks), toks, testCase.wantCount)
+
+			continue
+		}
+
+		if testCase.wantCount == 0 {
+			continue
+		}
+
+		if toks[0].kind != testCase.wantKind || toks[0].data != testCase.wantData {
+			t.Errorf("tokenize(%q): token 0 = %+v, want kind %v data %q",
+				testCase.src, toks[0], testCase.wantKind, testCase.wantData)
 		}
 	}
 }
@@ -817,6 +1044,36 @@ func TestParseMalformed(t *testing.T) {
 				t.Helper()
 
 				assertChildren(t, root.FirstChild("ul"), "li", "li")
+			},
+		},
+		{
+			src: `<!--comment`,
+			check: func(t *testing.T, root *Node) {
+				t.Helper()
+
+				if len(root.Children) != 1 || root.Children[0].Type != CommentNode || root.Children[0].Text != "comment" {
+					t.Errorf("unfinished comment tree:\n%s", treeString(root))
+				}
+			},
+		},
+		{
+			src: `<!bogus`,
+			check: func(t *testing.T, root *Node) {
+				t.Helper()
+
+				if len(root.Children) != 1 || root.Children[0].Type != CommentNode || root.Children[0].Text != "bogus" {
+					t.Errorf("bogus declaration tree:\n%s", treeString(root))
+				}
+			},
+		},
+		{
+			src: `</div`,
+			check: func(t *testing.T, root *Node) {
+				t.Helper()
+
+				if len(root.Children) != 0 {
+					t.Errorf("EOF end tag produced children:\n%s", treeString(root))
+				}
 			},
 		},
 	}

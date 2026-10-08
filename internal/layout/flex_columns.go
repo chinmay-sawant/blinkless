@@ -84,7 +84,7 @@ func (e *engine) flowFlexColumnWrapped(
 			gaps = 0
 		}
 		startY, justifyGap := justifyColumnStart(
-			flexMainJustify(style), contentH, curY, sumH+gaps, sumH, gap, len(heights),
+			flexMainJustify(style), contentH, curY, sumH+gaps, sumH, gaps, gap, len(heights),
 		)
 		if style.FlexDirection == fxColRev && flexStartJustify(flexMainJustify(style)) &&
 			!flexColumnHasAutoMargins(line.items, e) {
@@ -398,7 +398,9 @@ func (e *engine) flexClampColumnHeights(items []flexColMeas, heights []float64, 
 
 // justifyColumnStart resolves the main-axis start offset and gap for a column
 // from justify-content, returning (startY, justifyGap).
-func justifyColumnStart(justify string, contentH, curY, totalH, sumH, gap float64, count int) (float64, float64) {
+func justifyColumnStart(
+	justify string, contentH, curY, totalH, sumH, gaps, gap float64, count int,
+) (float64, float64) {
 	if contentH >= 0 {
 		switch justify {
 		case fxFlexEnd, fxEnd:
@@ -406,7 +408,7 @@ func justifyColumnStart(justify string, contentH, curY, totalH, sumH, gap float6
 		case fxCenter:
 			return curY + (contentH-totalH)/2, gap
 		case fxBetween, fxAround, fxEvenly:
-			return justifyDistributed(justify, curY, contentH, sumH, gap, count)
+			return justifyDistributed(justify, curY, contentH, sumH, gaps, gap, count)
 		}
 	}
 

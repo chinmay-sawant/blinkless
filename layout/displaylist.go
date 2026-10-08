@@ -117,7 +117,9 @@ type Display struct {
 	Width, Height int
 
 	// PointsPerPixel and PixelPerPoint convert between the op coordinate space
-	// (points) and the canvas size above (CSS pixels).
+	// (points) and the canvas size above (CSS pixels). PointsPerPixel is
+	// points per CSS pixel (72/96); PixelPerPoint is CSS pixels per point
+	// (96/72). They are reciprocals.
 	PointsPerPixel, PixelPerPoint float64
 }
 
@@ -197,8 +199,8 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 		Boxes:          boxesFrom(ilayout.PlacedElements(res)),
 		Width:          int(res.Width * ptToPx),
 		Height:         int(canvasPt * ptToPx),
-		PointsPerPixel: ptToPx,
-		PixelPerPoint:  1 / ptToPx,
+		PointsPerPixel: 1 / ptToPx,
+		PixelPerPoint:  ptToPx,
 	}, nil
 }
 

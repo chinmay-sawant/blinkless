@@ -297,7 +297,7 @@ func verticalWritingColumnWidth(eng *engine, style *ResolvedStyle) float64 {
 		return 0
 	}
 
-	col := lineHeightOf(style) * eng.scale
+	col := eng.lineHeightOf(style) * eng.scale
 	if font := eng.scalePt(style.FontSize); font > col {
 		col = font
 	}

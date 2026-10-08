@@ -644,7 +644,7 @@ func cascadeRaw( //nolint:funlen // cascade tiers are deliberately visible in on
 	// author sheets in source order (shared matchedRules walk)
 	for _, hit := range hits {
 		for _, d := range hit.rule.Decls {
-			if !supportedDeclaration(d.Value) {
+			if !supportedDeclaration(d.Prop, d.Value) {
 				continue
 			}
 
@@ -655,7 +655,7 @@ func cascadeRaw( //nolint:funlen // cascade tiers are deliberately visible in on
 	// inline style attribute: outranks all normal declarations and all sheet
 	// important declarations (spec 1<<maxIntShift).
 	for _, d := range css.ParseInline(node.Attribute("style")) {
-		if !supportedDeclaration(d.Value) {
+		if !supportedDeclaration(d.Prop, d.Value) {
 			continue
 		}
 
@@ -709,7 +709,7 @@ func cascadePseudoRaw(ctx *styleContext, node *html.Node, pseudoElem string) map
 
 	for _, hit := range ctx.matchedRules(node, pseudoElem) {
 		for _, d := range hit.rule.Decls {
-			if !supportedDeclaration(d.Value) {
+			if !supportedDeclaration(d.Prop, d.Value) {
 				continue
 			}
 
@@ -1189,13 +1189,6 @@ func expandBoxShorthand(prop, value string) ([4]string, bool) {
 	return values, true
 }
 
-// supportedDeclaration reports whether a declaration value can be computed.
-// The modern color functions (oklch, oklab, color-mix, light-dark) resolve
-// through ParseColor now, so nothing is rejected here.
-func supportedDeclaration(string) bool {
-	return true
-}
-
 // applyCascadeWin folds one declaration into the winner map when its layer,
 // specificity, or source order beats the current winner.
 func applyCascadeWin(
@@ -1618,12 +1611,22 @@ func applyStyleProp(
 	applyIgnoredGroup(style, prop, value)
 }
 
-// engineSupportsProperty reports whether the engine has an apply arm for the
-// property: the @supports probe runs the same dispatch table as applyStyleProp
-// on a scratch style. Unknown properties are claimed by no group and report
-// false. The value participates because some groups gate on it before
-// claiming the property.
+// engineSupportsProperty reports whether the engine supports prop: value for
+// @supports. The property must have an apply arm in the dispatch table AND the
+// value must pass the same acceptance rule as the cascade gate
+// (supportedDeclaration). Ownership alone is not support: setDisplayKeyword
+// owns display but ignores display:bogus, so that declaration must not
+// satisfy the query. Custom properties are supported by definition; their
+// values resolve in mergeCustomProps.
 func engineSupportsProperty(prop, value string) bool {
+	if strings.HasPrefix(prop, "--") {
+		return true
+	}
+
+	if !supportedDeclaration(prop, value) {
+		return false
+	}
+
 	effectiveProp := normalizeVendorPrefix(prop)
 
 	effectiveValue := value

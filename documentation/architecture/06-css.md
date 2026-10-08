@@ -89,14 +89,14 @@ The two complementary roles are worth distinguishing early:
 
 | Type | Location | Purpose |
 |------|----------|---------|
-| `Stylesheet` | css.go:49 | Parsed sheet: `Rules []Rule`, `FontFaces []FontFace`, `Page *PageStyle`. Rules keep source order |
-| `Rule` | css.go:72 | Selector list + declaration block + raw `Media` prelude + `Order` (source-order tiebreak, rebased by callers across sheets) + optional `Container *ContainerQuery` |
+| `Stylesheet` | css.go:66 | Parsed sheet: `Rules []Rule`, `FontFaces []FontFace`, `Page *PageStyle`, `Properties []PropertyRule`, `Layers []string`. Rules keep source order |
+| `Rule` | css.go:121 | Selector list + declaration block + raw `Media` prelude + `Order` (source-order tiebreak, rebased by callers across sheets) + optional `Container *ContainerQuery`, `Supports *SupportsCondition`, and `Layer` cascade rank |
 | `Selector` | css.go:83 | Chain of `SelectorPart` linked by combinators; carries a cached specificity triple (`spec`/`specValid`, computed at parse time) |
 | `SelectorPart` | css.go:95 | One compound: `Tag`, `Classes`, `ID`, `Attrs []AttrSelector`, `Pseudos []PseudoClass`, `PseudoElement` ("before"/"after"/""), `Combinator` ("" first part, ">" "+" "~" " ") |
 | `AttrSelector` | css.go:108 | `[name]`, `[name=value]`, `~=`, `*=`, `^=`, `$=`, `|=` forms |
 | `RelativeSelector` | css.go:116 | Selectors-4 relative selector (`>`, `+`, `~`, descendant) used inside `:has()` |
 | `PseudoClass` | css.go:123 | Named pseudo with optional `Arg` (`:nth-child`), `Has []RelativeSelector`, `Not []Selector`, and a pre-parsed integer `nth nthForm` |
-| `Declaration` | css.go:134 | `Prop`, `Value`, `Important` — the raw wire form of a `prop: value[!important]` pair |
+| `Declaration` | css.go:134 | `Prop`, `Value`, `Important`: the raw wire form of a `prop: value[!important]` pair |
 | `PageStyle` | css.go:59 | `@page` margin/size declarations kept as raw strings, resolved at the PDF boundary |
 | `FontFace` | css.go:66 | `@font-face` local subset: `Family` + raw `Src` (consumed by `prepare.ResourceContext.MergeFontFaces`) |
 
@@ -122,12 +122,13 @@ The two complementary roles are worth distinguishing early:
 | `ParseContainerShorthand(value string) (name, ctype string)` | container.go:189 | `container: <name> [ / <type> ]?` |
 | `HasContainerRules(sheets []*Stylesheet) bool` | container.go:709 | Fast gate: does any sheet contain `@container` rules? (layout skips its second style pass when false, internal/layout/layout.go:831) |
 | `FontFaceURLs(src string) []string` | css.go:392 | Extract `url(...)` from an `@font-face src` (case-preserving) |
+| `SupportsMatches(cond *SupportsCondition, supported func(prop, value string) bool) bool` | at_supports.go:238 | Evaluate one parsed `@supports` condition; layout passes `engineSupportsProperty` as the predicate |
 
 ### 3.3 Interesting non-exported machinery
 
 | Symbol | Location | Why it exists |
 |--------|----------|---------------|
-| `parseAtRule` | css.go:200 | Dispatch: `@media`/`@container`/`@page`/`@font-face`/`@import` parsed; `@keyframes` and anything unknown **parse-ignored** (static cascade only; there is no animation) |
+| `parseAtRule` | css.go:262 | Dispatch: `@media`/`@container`/`@supports`/`@layer` parsed into rules; `@property`/`@page`/`@font-face`/`@import` side channels; `@keyframes` and anything unknown **parse-ignored** (static cascade only; there is no animation) |
 | `stripComments` | css.go:537 | Removes `/* */`, preserving `\n` so line numbers stay stable |
 | `findBlock`/`takeBlock` | css.go:572/614 | Brace finding with quote/paren tracking; the only source of real parse errors (`errUnbalanced`, `errNoBlock` at css.go:526) |
 | `splitTopLevel` | css.go:668 | Splits selector lists and declaration blocks on top-level `,`/`;` outside parens/brackets/quotes |
@@ -161,32 +162,50 @@ The two complementary roles are worth distinguishing early:
 
 The css package reports *matches and specificity*; layout performs the cascade:
 
-1. `matchedRules(node, pseudoElem)` (style_cascade.go:207) iterates every sheet
-   in order and calls `css.MediaMatches(rule.Media, ctx.media, ctx.viewportW,
-   ctx.viewportH)` (style_cascade.go:231) and `containerGateMatches`
-   (style_cascade.go:273, using `runic.Container.Cond.Matches(info.inlineSize,
-   info.fontSize)`) before selector matching — so media/container filtering is
-   layered *on top of* the css package.
-2. `appendRuleSelectorHits` (style_cascade.go:247) loops selectors, calls
+1. `matchedRules(node, pseudoElem)` (style_cascade.go:498) iterates every sheet
+   in order through `appendSheetRuleHits` (style_cascade.go:522), which calls
+   `css.MediaMatches(rule.Media, ctx.media, ctx.viewportW, ctx.viewportH)`
+   (style_cascade.go:535), `containerGateMatches` (style_cascade.go:539, using
+   `runic.Container.Cond.Matches(info.inlineSize, info.fontSize)`,
+   style_cascade.go:597), and the `@supports` gate
+   `css.SupportsMatches(rule.Supports, engineSupportsProperty)`
+   (style_cascade.go:543) before selector matching. Media, container, and
+   feature-query filtering is layered *on top of* the css package.
+2. `appendRuleSelectorHits` (style_cascade.go:556) loops selectors, calls
    `css.Match`/`css.MatchPseudo` and records `css.Specificity` as the
    `ruleHit` triple.
-3. `cascadeRaw` (style_cascade.go:297) merges three tiers into one winner map:
+3. `cascadeRaw` (style_cascade.go:623) merges three tiers into one winner map:
    - UA sheet rules (hard-coded `uaRules`, priority `(0,0,0)` order `-1`);
-   - author-sheet hits with `(a,b,c)` `r.Order` `d.Important`;
+   - author-sheet hits with `(a,b,c)` `r.Order` `r.Layer` `d.Important`;
    - inline style via `css.ParseInline(node.Attribute("style"))` with a
      sentinel specificity `1<<maxIntShift` described as "outranks all normal
-     declarations and all sheet important declarations" (style_cascade.go:337).
-4. `applyCascadeWin` compares `(important ⇒ ids/classes/types ⇒ order)` — the
-   canonical CSS cascade ordering. Any `!important` beats any normal value; the
-   important layer is a separate tier.
-5. Custom properties: `mergeCustomProps` (style.go:8) extracts `--*`
-   declarations and calls `css.ResolveCustomProps(declared, parentProps)`;
-   `resolveRawVars` (style.go:18) then expands `var()` in ordinary values via
-   `css.ResolveVar` with a lookup into the resolved custom-prop map.
-6. Typed conversion happens later in `internal/layout/style_properties.go`
-   using `css.ParseLength`/`css.ParseColor`/`css.ParseFontFamily`/
-   `css.ParseContainerNameValue`/`css.ParseContainerShorthand` (e.g.
-   style_properties.go:350, 809, 1192).
+     declarations and all sheet important declarations" (style_cascade.go:655).
+4. Every declaration passes the shared acceptance gate before it can win:
+   `supportedDeclaration` (`style_value_accept.go:55`) checks the value
+   against a per-property table (`declarationValueAccepted`,
+   `style_value_accept.go:95`). The gate filters sheet declarations at
+   `style_cascade.go:647`, inline declarations at `style_cascade.go:658`, and
+   pseudo-element declarations at `style_cascade.go:712`, so an invalid later
+   declaration cannot replace an earlier valid one. The same predicate decides
+   `@supports` value support in `engineSupportsProperty`
+   (style_cascade.go:1621): the property must have an apply arm in the
+   style-group dispatch and its value must pass `supportedDeclaration`
+   (style_cascade.go:1626). The table is partial today; see §10 item 9.
+5. `applyCascadeWin` (style_cascade.go:1194) compares
+   `(important ⇒ @layer rank ⇒ ids/classes/types ⇒ order)`: any `!important`
+   beats any normal value, then `layerBeats` (style_cascade.go:1247) ranks
+   layers before specificity. Rank 0 is unlayered and beats every ranked
+   layer; among ranked layers, later-declared wins.
+6. Custom properties: `mergeCustomProps` (style_cascade.go:68) inherits parent
+   values, extracts `--*` declarations, calls
+   `css.ResolveCustomProps(declared, parentProps)`, and folds in `@property`
+   registrations (`applyRegisteredProps`, style_cascade.go:121);
+   `resolveRawVars` (style_cascade.go:170) then expands `var()` in ordinary
+   values via `css.ResolveVar` with a lookup into the resolved custom-prop map.
+7. Typed conversion happens later in `internal/layout` using `css.ParseLength`/
+   `css.ParseColor` (style_properties.go:401, 1245), `css.ParseFontFamily`
+   (style_values.go:83), and `css.ParseContainerNameValue`/
+   `css.ParseContainerShorthand` (style_container_props.go:31, 84).
 
 ### 4.3 Matching walk (inside css, selector → bool)
 
@@ -259,12 +278,12 @@ convert, or pdf, and it makes the package independently testable.
 
 | Consumer | What it uses |
 |----------|--------------|
-| `internal/layout` (style_cascade.go, style.go, style_properties.go, transform.go, pseudo_content.go, layout.go) | `Parse`, `Match`, `MatchPseudo`, `Specificity`, `MediaMatches`, `ParseInline`, `ParseLength`, `LengthToPt`, `ParseColor`, `ParseFontFamily`, `ParseNumber`, `ResolveVar`, `ResolveCustomProps`, `ParseContainerNameValue`, `ParseContainerShorthand`, `HasContainerRules` |
+| `internal/layout` (style_cascade.go, style.go, style_properties.go, transform.go, pseudo_content.go, layout.go) | `Parse`, `Match`, `MatchPseudo`, `Specificity`, `MediaMatches`, `SupportsMatches`, `ParseInline`, `ParseLength`, `LengthToPt`, `ParseColor`, `ParseFontFamily`, `ParseNumber`, `ResolveVar`, `ResolveCustomProps`, `ParseContainerNameValue`, `ParseContainerShorthand`, `HasContainerRules` |
 | `internal/convert/prepare` (styles.go, simplify.go, prepare.go) | `Parse` for `<style>`/`<link>`/helper sheets; `MediaMatches` for link media gating; `FontFaces`/`FontFaceURLs` for font merging |
 | `internal/convert` (outline.go, toc.go) | `ParseSelectors` for `--exclude-from-outline`; `ParseLength` in TOC geometry |
 | `internal/outline` (outline.go) | `css.Selector` matching for outline exclusion |
 | `internal/imageout` (imageout.go) | Same pipeline in image mode (load → parse → css → layout → raster) |
-| `api.go` / `internal/cli` / `internal/settings` | *None directly* — settings inject sheets/media via layout options |
+| `api.go` / `internal/cli` / `internal/settings` | *None directly*: settings inject sheets/media via layout options |
 
 **Import-direction rule**: nothing below css (html) knows css exists; css never
 imports layout, convert, pdf, load, or settings. All viewport/media/container
@@ -287,7 +306,7 @@ imports layout, convert, pdf, load, or settings. All viewport/media/container
 1. **Zero third-party CSS dependencies.** The project rule is pure Go, no cgo,
    no third-party HTML/CSS/PDF APIs. Unlike the layout package's one narrow
    exception (OpenType shaping via `github.com/go-text/typesetting`), the CSS
-   layer is 100% handwritten — parser, selector engine, cascade helpers, unit
+   layer is 100% handwritten: parser, selector engine, cascade helpers, unit
    math. This keeps `CGO_ENABLED=0` trivially satisfiable and the security
    surface small.
 
@@ -322,7 +341,7 @@ imports layout, convert, pdf, load, or settings. All viewport/media/container
 4. **Parse early, evaluate late.** Media preludes stay raw strings; container
    queries and `:nth-child` arguments are eagerly compiled (integer `nthForm`,
    css.go:1566). The former exists because the viewport is only known at
-   conversion; the latter exists because matching is then pure integer math —
+   conversion; the latter exists because matching is then pure integer math,
    a measurable hot path in the per-element cascade.
 
 5. **Selectors-4 specificity for functional pseudos.** `:has()`/`:not()`
@@ -334,7 +353,7 @@ imports layout, convert, pdf, load, or settings. All viewport/media/container
    (values.go:448) is documented as "the single place custom-property policy
    lives": inherited overlay + declared values, memoized expansion, cycle stack
    (cycles → empty → invalid). Layout drives it; css defines it. `ParseColor`
-   handles `var()` only at the fallback level (values.go:182) — a deliberate
+   handles `var()` only at the fallback level (values.go:182), a deliberate
    simplification flagged with a `ponytail:` note.
 
 7. **Caller-supplied context keeps css pure.** Matching needs the viewport
@@ -365,28 +384,31 @@ imports layout, convert, pdf, load, or settings. All viewport/media/container
 
 - **Parse-order stability**: `Rule.Order` is a per-sheet monotonic counter
   owned by `Parse` (parseOneRule, css.go:328); across sheets, callers preserve
-  document order and use sheet order as the final tiebreak — the CSS "later
+  document order and use sheet order as the final tiebreak: the CSS "later
   wins" rule is reproduced exactly by `applyCascadeWin`'s order comparison.
-- **At-rules taxonomy**: `@media`/`@container` (flattened into rules),
-  `@page`/`@font-face` (side-channel structs), `@import` (recorded in
-  `Stylesheet.Imports` for the collection layer to fetch), `@keyframes`/unknown
-  (skipped). There is **no `@supports`, `@layer`, `@charset`, or nesting**;
-  any of these is silently skipped by `skipAtRule` (css.go:532).
+- **At-rules taxonomy**: `@media`/`@container`/`@supports` flatten into the
+  rule list with a gate (`Rule.Media`, `Rule.Container`, `Rule.Supports`;
+  dispatch css.go:264-270); `@layer` stamps a cascade rank on each rule
+  (`Rule.Layer`, at_layer.go:22); `@page`/`@font-face`/`@property` are
+  side-channel structs (`PageStyle`, `FontFace`, `Stylesheet.Properties`,
+  at_property.go:19); `@import` is recorded in `Stylesheet.Imports` for the
+  collection layer to fetch; `@keyframes`, `@charset`, CSS nesting, and unknown
+  at-rules are skipped.
 - **Inline is strongest**: layout gives `style=""` the sentinel specificity
-  `1<<maxIntShift` — stronger than any sheet rule including `!important`
-  (style_cascade.go:337). `!important` in inline style is parsed by
+  `1<<maxIntShift`, stronger than any sheet rule including `!important`
+  (style_cascade.go:655). `!important` in inline style is parsed by
   `isImportant` but the sentinel already dominates.
 - **Pseudo-element shapes**: `::before/::after` never match the host
   element (css.go:1266 checks `part.PseudoElement != ""`), only through
   `MatchPseudo` used by layout's pseudo-content path (`pseudo_content.go`,
-  style_cascade.go:265).
+  style_cascade.go:578).
 - **Never-match sets**: interactive pseudos (`hover/active/focus/target`) are
-  *kept on the compound* but `matchPseudo` returns `false` for them (css.go:1410)
-  — a static PDF has no pointer/focus state.
+  *kept on the compound* but `matchPseudo` returns `false` for them (css.go:1410),
+  because a static PDF has no pointer/focus state.
 - **Link semantics**: `:link` and `:visited` both mean "an `<a>` with a
   non-empty `href`" (any scheme incl. `#fragments`), since print has no history.
 - **Root definition**: `:root` matches the document element while excluding
-  the synthetic `#document` wrapper (`isRootElement`, css.go:1463 — the HTML
+  the synthetic `#document` wrapper (`isRootElement`, css.go:1463; the HTML
   tree wraps everything under an element named `#document`).
 - **Container condition grammar**: `or < and < not < paren/feature` precedence
   with top-level keyword splitting (`splitCondKeyword`, container.go:390),
@@ -399,7 +421,7 @@ imports layout, convert, pdf, load, or settings. All viewport/media/container
   and container conditions, honoring backslash escapes.
 - **Identifier allowlist**: compound tags, ids, classes, attribute names and
   property names all route through `validIdent`/`validPropName`
-  (css.go:1190, values.go:56) — lowercase `[a-z0-9-]`, no leading digit.
+  (css.go:1190, values.go:56): lowercase `[a-z0-9-]`, no leading digit.
   Property names that fail are dropped with their declaration.
 
 ## 8. Security considerations
@@ -414,7 +436,7 @@ attack path for hostile HTML, so its posture matters:
 - **Resource amplification is capped outside css**: linked-stylesheet and
   `@font-face` fetches are governed by `internal/load`'s ACL and by
   `ResourceContext.CollectSheets`'s rule limits (soft warn 25k, hard cap 1M,
-  styles.go:21/33/63) — see `documentation/THREAT-MODEL.md`.
+  styles.go:21/33/63); see `documentation/THREAT-MODEL.md`.
 - **No CSS-triggered exfiltration**: `url()` is only honored in
   `@font-face src` via `FontFaceURLs` (and only through the loader's policy);
   `background: url(...)` etc. are inert raw strings. Media queries cannot
@@ -422,7 +444,7 @@ attack path for hostile HTML, so its posture matters:
 - **The `--allow-local-files` / `--allow` story applies at load, not
   css**; css just consumes whatever sheets the loader delivers.
 - Fuzz-relevant surface: `Parse`, `ParseSelectors`, `ParseInline`,
-  `ParseLength`, `ParseColor`, `LengthToPt`, `MediaMatches` — all pure string
+  `ParseLength`, `ParseColor`, `LengthToPt`, `MediaMatches`: all pure string
   → value functions ideal for fuzzing harnesses (see §9).
 
 ## 9. Testing & verification
@@ -465,13 +487,15 @@ and documentation/deferred.md. Confirmed gaps in css itself:
    (import.go:10) and fetched by `prepare` under the same loader ACL as
    `<link>`, with media gating and an 8-deep nesting cap (maxImportDepth,
    prepare/styles.go:21; collector at :203, cap check at :215). `@supports`,
-   `@layer`, nesting, `@keyframes` and all unknown at-rules are skip-parsed.
-   Animations/transitions are explicitly out of scope (static cascaded values
-   only; `@keyframes` is skip-parsed at css.go:268; deferred.md §4).
+   `@layer`, and `@property` are parsed (`at_supports.go`, `at_layer.go`,
+   `at_property.go`); CSS nesting, `@charset`, `@keyframes`, and unknown
+   at-rules are skipped. Animations/transitions are explicitly out of scope
+   (static cascaded values only; `@keyframes` is skip-parsed at css.go:285;
+   deferred.md §4).
 3. **Values**: `%` and viewport units (`vw`/`vh`) parse but `LengthToPt`
-   returns `false` for them (container.go:113) — layout decides policy; a
+   returns `false` for them (container.go:113): layout decides policy; a
    curated named-color subset, not CSS Color 4 (values.go:594, ponytail note);
-   `var()` inside `ParseColor` resolves fallback only (no prop map — layout's
+   `var()` inside `ParseColor` resolves fallback only (no prop map; layout's
    `ResolveCustomProps` fills that gap, values.go:182 comment).
 4. **Media queries**: unknown features → `false` (media.go:158); only
    width/height/inline-size/block-size + orientation; no `resolution`,
@@ -486,14 +510,26 @@ and documentation/deferred.md. Confirmed gaps in css itself:
    selectors recompute specificity, but mutating a *parsed* selector's parts
    after `setSpec` leaves the stale cache (css.go:86 comment; no current
    caller does this).
-7. **No cascade layers / important-layer scoping**: `!important` is a single
-   global tier over all normal declarations (style_cascade.go:297); UA sheet
-   is a fixed lowest tier. `@layer` sheets would be flattened today.
+7. **Layer rank scope and important ordering**: `!important` is resolved as a
+   single global tier over all normal declarations (style_cascade.go:1210); UA
+   rules are a fixed lowest tier. `@layer` ranks are numbered per sheet
+   (`Stylesheet.layerRank`, at_layer.go:64) and compared as integers before
+   specificity (`layerBeats`, style_cascade.go:1247), so layer names that
+   appear in multiple sheets rank independently.
 8. **Performance ceilings**: selector matching is O(selector parts × related
    nodes) per element with no index (no class/id dispatch table); acceptable
    for report documents, warned at 25k rules in preparation
    (styles.go:63). The `ponytail:` notes (e.g. ContainerCond tree
    simplification, container-name wire form) flag future internal cleanups.
+9. **Declaration acceptance is partial (CSS-01b)**: `declarationValueAccepted`
+   models about 40 property names (`style_value_accept.go:95`); a property
+   without an entry hits the default arm and is accepted
+   (`style_value_accept.go:158`), because its applier either takes the value as
+   written or drops an invalid one. An invalid higher-priority value for an
+   unmodeled property can still win the cascade, and an
+   `@supports (prop: bogus)` query reports true whenever the property has an
+   apply arm. Extending the table to the advertised property list is the next
+   gate for CSS-01b.
 
 Open questions an architect should keep an eye on:
 
@@ -502,24 +538,24 @@ Open questions an architect should keep an eye on:
 
 ## 11. Related documents
 
-- `../architecture.md` — package map overview (`internal/css` row).
-- `../compatibility-matrix.md` — normative allowlist: supported properties
+- `../architecture.md`: package map overview (`internal/css` row).
+- `../compatibility-matrix.md`: normative allowlist: supported properties
   (§2), selectors, media, flex/grid stages, pagination evidence fixtures.
-- `../fidelity.md` — tiers (Tier 1/2 shipped; Tier 3 arbitrary-web banned),
+- `../fidelity.md`: tiers (Tier 1/2 shipped; Tier 3 arbitrary-web banned),
   "print CSS subset" framing, `:nth-child`/attr/siblings shipped note (16.1).
-- `../THREAT-MODEL.md` — ACL and network-request policy around stylesheet and
+- `../THREAT-MODEL.md`: ACL and network-request policy around stylesheet and
   font-face fetching.
-- `../deferred.md` — deferred CSS/JS/SPA items to keep the matrix honest.
-- `../fonts.md` — `@font-face`/`font-family` interplay with `FontFaces` and
+- `../deferred.md`: deferred CSS/JS/SPA items to keep the matrix honest.
+- `../fonts.md`: `@font-face`/`font-family` interplay with `FontFaces` and
   `ParseFontFamily`.
 - Sibling architecture docs in this directory:
-  - `05-html-parser.md` — the `internal/html` tree and tokenizer css matches
+  - `05-html-parser.md`: the `internal/html` tree and tokenizer css matches
     against.
-  - `07-layout.md` — style resolution/cascade consumption of this package
+  - `07-layout.md`: style resolution/cascade consumption of this package
     (style_cascade.go, style.go, style_properties.go, transform.go,
     pseudo_content.go).
-  - `04-load.md` — the loader whose ACL governs stylesheet/font fetches that
+  - `04-load.md`: the loader whose ACL governs stylesheet/font fetches that
     `ResourceContext.CollectSheets` triggers.
-  - `08-convert-pipeline.md` — prepare/simplify/outline consumers
+  - `08-convert-pipeline.md`: prepare/simplify/outline consumers
     (`.Sheets`, `FontFaces`, `ParseSelectors`).
-  - `10-imageout-svg.md` — image-mode reuse of the same css→layout path.
+  - `10-imageout-svg.md`: image-mode reuse of the same css→layout path.

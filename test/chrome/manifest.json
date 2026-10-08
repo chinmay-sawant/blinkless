@@ -4,6 +4,11 @@
     {
       "category": "flex-sizing",
       "combination": "flex-sizing",
+      "evidence": {
+        "file": "internal/layout/flex_chrome_cases_01_02_test.go",
+        "kind": "go-test",
+        "test": "TestChromeFlexCase01LegacyAlgorithm"
+      },
       "expected": "A 600px row redistributes positive and negative free space using flex basis, grow, and shrink factors.",
       "fixture": "cases/case-01-legacy-flex-algorithm.html",
       "goTarget": "layout-unit",
@@ -16,6 +21,11 @@
     {
       "category": "flex-sizing",
       "combination": "min-max-freeze",
+      "evidence": {
+        "file": "internal/layout/flex_chrome_cases_01_02_test.go",
+        "kind": "go-test",
+        "test": "TestChromeFlexCase02LegacyAlgorithmMinmax"
+      },
       "expected": "Clamped items freeze and the remaining free space is redistributed to the other items.",
       "fixture": "cases/case-02-legacy-flex-algorithm-minmax.html",
       "goTarget": "layout-unit",
@@ -33,8 +43,9 @@
       "goTarget": "layout-unit",
       "id": "legacy-flex-algorithm-margins",
       "kind": "margins",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/css3/flexbox/flex-algorithm-with-margins.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Flex sizing with fixed and auto margins"
     },
     {
@@ -45,8 +56,9 @@
       "goTarget": "layout-unit",
       "id": "legacy-columns-auto-size",
       "kind": "column",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/css3/flexbox/columns-auto-size.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Intrinsic column sizing"
     },
     {
@@ -57,8 +69,9 @@
       "goTarget": "layout-unit",
       "id": "legacy-definite-main-size",
       "kind": "column",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/css3/flexbox/definite-main-size.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Definite main size and percentage children"
     },
     {
@@ -69,8 +82,9 @@
       "goTarget": "layout-unit",
       "id": "legacy-justify-content",
       "kind": "justify",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/css3/flexbox/flex-justify-content.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Main-axis distribution"
     },
     {
@@ -81,8 +95,9 @@
       "goTarget": "layout-unit",
       "id": "legacy-flex-align",
       "kind": "column-align",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/css3/flexbox/flex-align.html::adapted-column-centering",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Column cross-axis centering"
     },
     {
@@ -93,8 +108,9 @@
       "goTarget": "chrome-reference",
       "id": "legacy-flex-align-vertical-writing",
       "kind": "writing",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/css3/flexbox/flex-align-vertical-writing-mode.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Alignment under vertical writing modes"
     },
     {
@@ -105,8 +121,9 @@
       "goTarget": "chrome-reference",
       "id": "legacy-flex-flow-orientations",
       "kind": "writing",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/css3/flexbox/flex-flow-orientations.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Direction and flow orientations"
     },
     {
@@ -117,8 +134,9 @@
       "goTarget": "chrome-reference",
       "id": "legacy-flex-flow",
       "kind": "writing",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/css3/flexbox/flex-flow.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Flow, direction, padding, and constraints"
     },
     {
@@ -129,8 +147,9 @@
       "goTarget": "layout-unit",
       "id": "legacy-multiline",
       "kind": "wrap",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/css3/flexbox/multiline.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Wrapping across axes and directions"
     },
     {
@@ -141,20 +160,29 @@
       "goTarget": "layout-unit",
       "id": "legacy-multiline-align-content-column",
       "kind": "wrap",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/css3/flexbox/multiline-align-content-horizontal-column.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Align-content across wrapped columns"
     },
     {
       "category": "direction",
       "combination": "auto-margins",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "logical-flex-auto-margins",
+        "file": "temps/css-review/geometry-report.md",
+        "kind": "browser",
+        "verdict": "fail"
+      },
       "expected": "Logical auto margins consume free space correctly through direction, writing mode, and column-reverse.",
       "fixture": "cases/case-13-legacy-flex-flow-auto-margins.html",
       "goTarget": "chrome-reference",
       "id": "legacy-flex-flow-auto-margins",
       "kind": "margins",
+      "reason": "Chrome 143 geometry run fails on html/body root accounting (C4); item geometry matches.",
       "source": "third_party/blink/web_tests/css3/flexbox/flex-flow-auto-margins.html",
-      "status": "completed",
+      "status": "blocked",
       "title": "Logical auto margins in reverse flow"
     },
     {
@@ -165,8 +193,9 @@
       "goTarget": "chrome-reference",
       "id": "legacy-flex-align-baseline",
       "kind": "baseline",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/css3/flexbox/flex-align-baseline.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Baseline alignment across axes"
     },
     {
@@ -177,13 +206,21 @@
       "goTarget": "layout-unit",
       "id": "legacy-multiline-align-self",
       "kind": "wrap",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/css3/flexbox/multiline-align-self.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Per-item alignment on multiple lines"
     },
     {
       "category": "alignment",
       "combination": "cross-axis-alignment",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "flex-align-items-stretch",
+        "file": "temps/css-review/geometry-report.md",
+        "kind": "browser",
+        "verdict": "pass"
+      },
       "expected": "Stretch does not incorrectly override a flex item margin or explicit flex sizing.",
       "fixture": "cases/case-16-wpt-align-items-stretch.html",
       "goTarget": "layout-unit",
@@ -201,8 +238,9 @@
       "goTarget": "layout-unit",
       "id": "wpt-flex-basis-011",
       "kind": "column",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-basis-011.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Percentage flex basis in an indefinite column"
     },
     {
@@ -213,8 +251,9 @@
       "goTarget": "chrome-reference",
       "id": "wpt-rtl-flow-reverse",
       "kind": "writing",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flexbox_rtl-flow-reverse.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "RTL column wrap reverse"
     },
     {
@@ -225,8 +264,9 @@
       "goTarget": "layout-unit",
       "id": "wpt-flexbox-margin-auto",
       "kind": "margins",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flexbox_margin-auto.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Row auto margins"
     },
     {
@@ -237,25 +277,41 @@
       "goTarget": "chrome-reference",
       "id": "wpt-min-size-auto-overflow-clip",
       "kind": "minmax",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/min-size-auto-overflow-clip.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Automatic minimum size with overflow clip"
     },
     {
       "category": "wrapping",
       "combination": "wrapping",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "flex-flow-row-wrap",
+        "file": "temps/css-review/geometry-report.md",
+        "kind": "browser",
+        "verdict": "fail"
+      },
       "expected": "Fixed item widths and margins create two rows with stable line assignments.",
       "fixture": "cases/case-21-wpt-flow-row-wrap.html",
       "goTarget": "layout-unit",
       "id": "wpt-flow-row-wrap",
       "kind": "wrap",
+      "reason": "Chrome 143 geometry run fails on html/body root accounting (C4).",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flexbox_flow-row-wrap.html",
-      "status": "completed",
+      "status": "blocked",
       "title": "Row wrapping with margins"
     },
     {
       "category": "wrapping",
       "combination": "gap",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "flex-gap-002-ltr",
+        "file": "temps/css-review/geometry-report.md",
+        "kind": "browser",
+        "verdict": "pass"
+      },
       "expected": "Column gap is counted between items and not added before the first or after the last item.",
       "fixture": "cases/case-22-wpt-gap-002-ltr.html",
       "goTarget": "layout-unit",
@@ -273,20 +329,29 @@
       "goTarget": "chrome-reference",
       "id": "wpt-aspect-ratio-cross-size-002",
       "kind": "aspect",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-aspect-ratio-cross-size-002.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Nested aspect ratio and cross-size feedback"
     },
     {
       "category": "direction",
       "combination": "writing-modes",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "logical-writing-mode-006",
+        "file": "temps/css-review/geometry-report.md",
+        "kind": "browser",
+        "verdict": "fail"
+      },
       "expected": "Row, column, reverse, and wrap-reverse combinations preserve logical block ordering in vertical writing modes.",
       "fixture": "cases/case-24-wpt-writing-mode-006.html",
       "goTarget": "chrome-reference",
       "id": "wpt-writing-mode-006",
       "kind": "writing",
+      "reason": "Chrome 143 geometry run fails on html/body root accounting (C4); item geometry matches.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flexbox-writing-mode-006.html",
-      "status": "completed",
+      "status": "blocked",
       "title": "Writing mode matrix"
     },
     {
@@ -297,8 +362,9 @@
       "goTarget": "chrome-reference",
       "id": "wpt-flex-item-percentage-abspos",
       "kind": "abspos",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-item-and-percentage-abspos.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Percentage absolute child inside a flex item"
     },
     {
@@ -309,8 +375,9 @@
       "goTarget": "layout-unit",
       "id": "wpt-definite-sizes-002",
       "kind": "column",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flexbox-definite-sizes-002.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Definite size from min-height"
     },
     {
@@ -321,8 +388,9 @@
       "goTarget": "layout-unit",
       "id": "wpt-percentage-heights-005",
       "kind": "column",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/percentage-heights-005.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Percentage height in a column flex item"
     },
     {
@@ -333,20 +401,29 @@
       "goTarget": "chrome-reference",
       "id": "wpt-flex-minimum-width-aspect",
       "kind": "aspect",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-minimum-width-flex-items-010.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Automatic minimum width from aspect ratio"
     },
     {
       "category": "pagination",
       "combination": "fragmentation",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "print-nested-float",
+        "file": "temps/css-review/geometry-report.md",
+        "kind": "browser",
+        "verdict": "fail"
+      },
       "expected": "A tall nested flex child fragments across three pages while preserving its width and offsets.",
       "fixture": "cases/case-29-wpt-break-nested-float-print.html",
       "goTarget": "golden-fixture",
       "id": "wpt-break-nested-float-print",
       "kind": "print",
+      "reason": "Chrome 143 geometry run of the golden derivative fails on float containment (C5); the case fixture itself was not measured.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/break-nested-float-in-flex-item-001-print.html",
-      "status": "completed",
+      "status": "blocked",
       "title": "Flex content fragmentation in print"
     },
     {
@@ -357,8 +434,9 @@
       "goTarget": "layout-unit",
       "id": "wpt-auto-margins-column",
       "kind": "margins",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/auto-margins-003.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Auto margins and align-self in a column"
     },
     {
@@ -369,8 +447,9 @@
       "goTarget": "layout-unit",
       "id": "wpt-column-reverse-multiline",
       "kind": "wrap",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-column-reverse-multiline-item-position.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Column-reverse multiline item positions"
     },
     {
@@ -381,8 +460,9 @@
       "goTarget": "layout-unit",
       "id": "wpt-flex-factor-less-than-one",
       "kind": "grow",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-factor-less-than-one.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Fractional flex grow and shrink factors"
     },
     {
@@ -393,8 +473,9 @@
       "goTarget": "chrome-reference",
       "id": "wpt-flex-item-compressible",
       "kind": "replaced",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-item-compressible-001.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Replaced flex item automatic minimum"
     },
     {
@@ -405,8 +486,9 @@
       "goTarget": "chrome-reference",
       "id": "wpt-flex-container-max-content",
       "kind": "intrinsic",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-container-max-content-001.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Flex container max-content contribution"
     },
     {
@@ -417,8 +499,9 @@
       "goTarget": "layout-unit",
       "id": "wpt-flex-cross-size-border-box",
       "kind": "align",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-cross-size-border-box-001.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Border-box cross-size for stretched items"
     },
     {
@@ -429,8 +512,9 @@
       "goTarget": "layout-unit",
       "id": "wpt-flex-base-size-max-width",
       "kind": "minmax-small",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-base-size-ignores-max-width.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Flex base size before max-width clamp"
     },
     {
@@ -441,8 +525,9 @@
       "goTarget": "layout-unit",
       "id": "blink-replaced-aspect-ratio-precision",
       "kind": "replaced",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/renderer/core/layout/flex/flex_layout_algorithm_test.cc",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Intrinsic replaced-element ratio precision"
     },
     {
@@ -453,8 +538,9 @@
       "goTarget": "layout-unit",
       "id": "blink-gap-decorations-basic",
       "kind": "gap",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/renderer/core/layout/flex/flex_layout_algorithm_test.cc",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Gap geometry with wrapping"
     },
     {
@@ -465,8 +551,9 @@
       "goTarget": "chrome-reference",
       "id": "blink-scrollbars-row-reverse-vrl",
       "kind": "writing",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/renderer/core/layout/layout_flexible_box_test.cc",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Reverse flow with vertical writing and overflow"
     },
     {
@@ -477,12 +564,13 @@
       "goTarget": "chrome-reference",
       "id": "wpt-flex-container-min-content",
       "kind": "intrinsic",
+      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-container-min-content-001.html",
-      "status": "completed",
+      "status": "scaffold",
       "title": "Flex container min-content contribution"
     }
   ],
   "purpose": "Chromium Flexbox behavior map and Go porting cases",
-  "schema": 1,
+  "schema": 2,
   "source_root": "chromium/"
 }

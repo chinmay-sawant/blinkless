@@ -84,12 +84,11 @@ func applyDisplayFlowProps(style *ResolvedStyle, prop, value string) bool {
 }
 
 func setDisplayKeyword(style *ResolvedStyle, value string) {
+	if !displayValueAccepted(value) {
+		return
+	}
+
 	switch value {
-	case displayBlock, "inline", cssDisplayNone, displayListItem, displayTable, displayTableRow, displayTableCell,
-		displayRowGroup, displayHeaderGroup, displayFooterGroup,
-		cssDisplayInlineBlock, displayTableCaption, "table-column", "table-column-group",
-		displayFlex, displayInlineFlex, displayGrid, displayInlineGrid, displaySubgrid, displayFlowRoot:
-		style.Display = value
 	case "-webkit-box":
 		// Legacy 2009 flexible box. Map to modern flex so remapped
 		// -webkit-box-align/orient/pack/flex participate in layout.
@@ -100,6 +99,8 @@ func setDisplayKeyword(style *ResolvedStyle, value string) {
 		style.Display = displayInlineFlex
 		style.IsWebkitBox = true
 		style.WhiteSpace = cssWhiteSpaceNowrap
+	default:
+		style.Display = value
 	}
 }
 

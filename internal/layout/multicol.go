@@ -401,6 +401,7 @@ func (e *engine) flowMulticolSegment(
 			continue
 		}
 
+		startIdx := idx
 		batch, nextIdx, totalH := collectMulticolBatch(items, idx, maxColH, maxColH*float64(nCols))
 		idx = nextIdx
 
@@ -409,12 +410,17 @@ func (e *engine) flowMulticolSegment(
 		}
 
 		lineTop := yPos + curY
-		lineH := e.placeMulticolLine(
+		lineH, placed := e.placeMulticolLine(
 			parent, batch, style, nCols, colW, gap, contentX, yPos, curY, maxColH, balance, totalH,
 		)
 		lineH = e.finalizeMulticolLineHeight(style, lineH, maxColH)
 		e.emitColumnRules(style, contentX, colW, gap, nCols, lineTop, lineH)
 		curY += lineH
+
+		if placed < len(batch) {
+			// Items that did not fit this line continue on the next page.
+			idx = startIdx + placed
+		}
 
 		// column-wrap:nowrap: one row only; remaining items are not packed
 		// into further block-direction rows (overflow columns unsupported).
@@ -686,11 +692,13 @@ func collectMulticolBatch(items []multicolItem, idx int, maxColH, capacity float
 }
 
 // placeMulticolLine assigns items into columns (balance or auto fill) and
-// builds them. Returns the line's used height (max column stack).
+// builds them. Returns the line's used height (max column stack) and the
+// number of items placed; items that do not fit the last column continue on
+// the next multicol line.
 func (e *engine) placeMulticolLine(
 	parent *box, items []multicolItem, style ResolvedStyle, nCols int, colW, gap, contentX, yPos, curY, maxColH float64,
 	balance bool, totalH float64,
-) float64 {
+) (float64, int) {
 	colX := func(c int) float64 {
 		return contentX + float64(c)*(colW+gap)
 	}
@@ -699,13 +707,27 @@ func (e *engine) placeMulticolLine(
 	target := 0.0
 	if balance && nCols > 0 {
 		target = totalH / float64(nCols)
+		if target > maxColH {
+			target = maxColH
+		}
 	}
 
 	col := 0
 
-	for _, item := range items {
+	for i, item := range items {
 		if advanceMulticolColumn(col, colHeights, item, nCols, maxColH, target, balance) {
 			col++
+		}
+
+		if col >= nCols {
+			return multicolStackHeight(colHeights), i
+		}
+		// The last column cannot overflow the page remainder: an item that
+		// does not fit starts the next multicol line (next page), except an
+		// oversized item that must be placed alone.
+		if col == nCols-1 && colHeights[col] > 0 && item.h <= maxColH+1e-6 &&
+			colHeights[col]+item.h > maxColH+1e-6 {
+			return multicolStackHeight(colHeights), i
 		}
 
 		cblock := e.build(item.n, colW, colX(col), yPos+curY+colHeights[col])
@@ -720,7 +742,13 @@ func (e *engine) placeMulticolLine(
 		}
 	}
 
+	return multicolStackHeight(colHeights), len(items)
+}
+
+// multicolStackHeight returns the tallest column stack.
+func multicolStackHeight(colHeights []float64) float64 {
 	lineH := 0.0
+
 	for _, h := range colHeights {
 		if h > lineH {
 			lineH = h
@@ -740,6 +768,10 @@ func advanceMulticolColumn(
 	}
 
 	if balance {
+		if colHeights[col]+item.h > maxColH+1e-6 {
+			return true
+		}
+
 		return colHeights[col]+item.h/2 > target && colHeights[col] >= target*0.85
 	}
 

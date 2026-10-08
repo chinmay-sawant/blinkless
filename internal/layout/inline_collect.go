@@ -814,7 +814,7 @@ func availWForInline() float64 { return inlineMeasureWidth }
 
 func (e *engine) textItem(text string, style *ResolvedStyle) inlineItem {
 	textWidth := e.measureTextFace(transformInlineText(text, style.TextTransform), style)
-	lineHeight := lineHeightOf(style) * e.scale
+	lineHeight := e.lineHeightOf(style) * e.scale
 
 	if isVerticalWritingMode(style.WritingMode) {
 		// In a vertical writing context the text advance runs along the
@@ -1198,14 +1198,6 @@ func sameInlineStyle(acc, boxN *ResolvedStyle) bool {
 		acc.TextDecorationSkipInk == boxN.TextDecorationSkipInk &&
 		acc.VerticalAlign == boxN.VerticalAlign &&
 		acc.VerticalAlignShift == boxN.VerticalAlignShift
-}
-
-func lineHeightOf(st *ResolvedStyle) float64 {
-	if st.LineHeight > 0 {
-		return st.LineHeight
-	}
-
-	return defaultLineHeightRatio * st.FontSize
 }
 
 func borderPaint(side border) float64 {

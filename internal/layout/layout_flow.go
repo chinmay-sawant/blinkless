@@ -788,7 +788,14 @@ func (e *engine) blockFitContentMarginBox(node *html.Node, style ResolvedStyle) 
 //
 // Pair every push with popBFCFloats(enclose). No per-call closure is allocated.
 func (e *engine) pushBFCFloats(style ResolvedStyle, contentX, contentW float64) bool {
-	if e.bfcFloats != nil && !establishesBFC(style) && !containsLayout(style) {
+	return e.pushBFCFloatsForce(style, contentX, contentW, false)
+}
+
+// pushBFCFloatsForce is pushBFCFloats with an explicit BFC override. force is
+// set for boxes that establish a formatting context by their position rather
+// than their own style, such as flex items (CSS Flexbox L1 §4).
+func (e *engine) pushBFCFloatsForce(style ResolvedStyle, contentX, contentW float64, force bool) bool {
+	if e.bfcFloats != nil && !force && !establishesBFC(style) && !containsLayout(style) {
 		return false
 	}
 

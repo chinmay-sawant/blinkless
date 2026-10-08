@@ -68,7 +68,7 @@ func (e *engine) sizeInitialLetterRun(letter []inlineItem, blockStyle, letterSty
 		return
 	}
 
-	parentLH := surroundingLineHeight(blockStyle, letterStyle) * e.scale
+	parentLH := e.surroundingLineHeight(blockStyle, letterStyle) * e.scale
 	size := letterStyle.InitialLetterSize
 
 	if size < 1 {
@@ -105,13 +105,13 @@ func (e *engine) sizeInitialLetterRun(letter []inlineItem, blockStyle, letterSty
 }
 
 //nolint:mnd // CSS initial-letter fallback uses the engine's default line size
-func surroundingLineHeight(blockStyle, letterStyle *ResolvedStyle) float64 {
+func (e *engine) surroundingLineHeight(blockStyle, letterStyle *ResolvedStyle) float64 {
 	if blockStyle != nil {
-		return lineHeightOf(blockStyle)
+		return e.lineHeightOf(blockStyle)
 	}
 
 	if letterStyle != nil {
-		return lineHeightOf(letterStyle)
+		return e.lineHeightOf(letterStyle)
 	}
 
 	return 12 * defaultLineHeightRatio
@@ -212,7 +212,7 @@ func (e *engine) placeInitialLetter(
 	}
 
 	if parentLH <= 0 {
-		parentLH = surroundingLineHeight(nil, sty) * e.scale
+		parentLH = e.surroundingLineHeight(nil, sty) * e.scale
 	}
 
 	align := initialLetterAlignAlpha

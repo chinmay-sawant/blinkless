@@ -19,6 +19,8 @@ jobs:
         run: make test
       - name: Claim scan
         run: make claim-scan
+      - name: Catalog check
+        run: make catalog-check
       - name: Install golangci-lint
         # Build with the job's Go (1.26+): v1.64 refuses to lint when the binary
         # was compiled with an older Go than go.mod targets.

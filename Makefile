@@ -1,4 +1,4 @@
-.PHONY: test test-unit test-quick test-serial test-race lint lint-frontend size-check build wasm wasm-test fmt golden golden-update samples samples-python screenshots weasyprint clean claim-scan bench bench-engine bench-lib bench-inprocess bench-cli-compare c-shared print-bindings-version bindings-clean check-versions python-binding-test python-benchmarks python-api chrome-cases-pdf run
+.PHONY: test test-unit test-quick test-serial test-race lint lint-frontend size-check build wasm wasm-test fmt golden golden-update samples samples-python screenshots weasyprint clean claim-scan catalog-check bench bench-engine bench-lib bench-inprocess bench-cli-compare c-shared print-bindings-version bindings-clean check-versions python-binding-test python-benchmarks python-api chrome-cases-pdf run
 # Pure-Go runtime: the standard library plus the allowlisted direct modules
 # below. No cgo, browser, or native converter process is required.
 # Direct third-party requires must stay ⊆ {
@@ -115,6 +115,14 @@ claim-scan:
 		echo "claim-scan: forbidden phrase found" >&2; exit 1; \
 	fi
 	@echo "claim-scan: clean"
+
+# Read-only CSS property catalog gate (plans/0.0.1 Phase 4, CAT-01..CAT-04).
+# Checks testdata/css/catalog/properties.json against handler discovery in
+# internal/layout and the pinned webref inventory: duplicate names, missing
+# handlers, invalid statuses, missing source/test references, and summary
+# drift. Never rewrites statuses; exits non-zero with a short diff.
+catalog-check:
+	python3 scripts/css-catalog-map.py --check
 
 fmt:
 	gofmt -w .

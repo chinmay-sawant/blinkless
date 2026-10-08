@@ -3,6 +3,7 @@ package layout_test
 import (
 	"bytes"
 	"errors"
+	"math"
 	"testing"
 
 	"github.com/chinmay-sawant/blinkless/css"
@@ -78,6 +79,31 @@ func TestDisplayReturnsOpsAndCanvas(t *testing.T) {
 
 	if display.PointsPerPixel <= 0 || display.PixelPerPoint <= 0 {
 		t.Fatal("point conversions must be positive")
+	}
+}
+
+// TestDisplayUnitFactorsMatchTheirNames pins the point/pixel conversion
+// fields to their names and the 96/72 ratio. PointsPerPixel is points per CSS
+// pixel (72/96), PixelPerPoint is CSS pixels per point (96/72), and the two
+// are reciprocals; they were assigned the other way around once.
+func TestDisplayUnitFactorsMatchTheirNames(t *testing.T) {
+	t.Parallel()
+
+	display := displayOf(t, `<p>units</p>`)
+
+	const pointsPerPixel = 72.0 / 96.0
+
+	if math.Abs(display.PointsPerPixel-pointsPerPixel) > 1e-12 {
+		t.Errorf("PointsPerPixel = %v, want %v (72/96)", display.PointsPerPixel, pointsPerPixel)
+	}
+
+	if math.Abs(display.PixelPerPoint-1/pointsPerPixel) > 1e-12 {
+		t.Errorf("PixelPerPoint = %v, want %v (96/72)", display.PixelPerPoint, 1/pointsPerPixel)
+	}
+
+	if math.Abs(display.PointsPerPixel*display.PixelPerPoint-1) > 1e-12 {
+		t.Errorf("unit factors are not reciprocals: %v * %v",
+			display.PointsPerPixel, display.PixelPerPoint)
 	}
 }
 

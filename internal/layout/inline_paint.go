@@ -228,7 +228,7 @@ func (e *engine) emitInlineFaceRuns(
 func (e *engine) paintInlineChrome(style *ResolvedStyle, leftX, baseline, ascent, descent, contentWidth float64) {
 	top := e.inlineChromeTop(style)
 	bottom := e.inlineChromeBottom(style)
-	lh := lineHeightOf(style) * e.scale
+	lh := e.lineHeightOf(style) * e.scale
 	extra := (lh - ascent - descent) / two
 	boxY := baseline - ascent - extra - top
 	boxH := ascent + extra + top + descent + extra + bottom

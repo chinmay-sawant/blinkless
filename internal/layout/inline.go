@@ -197,7 +197,7 @@ func (e *engine) layoutInlineFloats(
 			floats = &localFloats
 		}
 
-		parentLH := surroundingLineHeight(blockStyle, letter[0].style) * e.scale
+		parentLH := e.surroundingLineHeight(blockStyle, letter[0].style) * e.scale
 		e.placeInitialLetter(boxNode, letter, contentX, leftY, parentLH, floats)
 		items = rest
 		if len(items) == 0 {
@@ -1195,7 +1195,7 @@ func (e *engine) lineMetrics( //nolint:funlen
 		}
 
 		ascent, descent := e.inlineFontMetrics(item.text, item.style)
-		lh := lineHeightOf(item.style) * e.scale
+		lh := e.lineHeightOf(item.style) * e.scale
 
 		extra := (lh - ascent - descent) / inlineHalfDivisor
 		if extra < 0 {

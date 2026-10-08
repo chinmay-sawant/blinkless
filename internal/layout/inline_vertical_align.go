@@ -53,7 +53,7 @@ func (e *engine) effectiveVerticalAlignShift(style *ResolvedStyle) float64 {
 	// line-height per CSS spec.
 	if pct := strings.TrimSpace(style.VerticalAlign); strings.HasSuffix(pct, "%") {
 		if percent, ok := parsePercent(pct); ok {
-			lineH := lineHeightOf(style)
+			lineH := e.lineHeightOf(style)
 
 			return lineH * percent / oneHundred
 		}

@@ -64,6 +64,7 @@ func jsResult(result Result) js.Value {
 	response.Set("ok", true)
 	response.Set("mode", result.Mode)
 	response.Set("mime", result.MIME)
+	response.Set("schema", drawingListSchema)
 	response.Set("version", wasmVersion)
 	response.Set("width", result.Width)
 	response.Set("height", result.Height)

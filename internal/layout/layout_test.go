@@ -278,9 +278,11 @@ func TestMarginCollapse(t *testing.T) {
 	if len(texts) != 2 {
 		t.Fatalf("texts = %+v", texts)
 	}
-	// collapsed gap = max(20, 30) = 30; no body margin in this sheet
+	// collapsed gap = max(20, 30) = 30; no body margin in this sheet.
+	// The normal line height for the default 16px face is 18px (face
+	// ascent + descent + line gap, matching Chrome).
 	dy := texts[1].Y - texts[0].Y
-	want := lineHeightOf(&ResolvedStyle{FontSize: 12}) + 30
+	want := pxToPt(18) + 30
 
 	if !near(dy, want) {
 		t.Errorf("gap between lines = %v, want %v (collapsed)", dy, want)

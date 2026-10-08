@@ -610,6 +610,9 @@ type engine struct {
 	// (only glyphs missing from the primary face). Key uses a family hash so
 	// lookups allocate no joined family string.
 	faceByRune map[faceRuneKey]*pdf.Font
+	// lineGapByFace caches each face's hhea line gap ratio (lineGap/upem) for
+	// line-height: normal. The font package does not expose the gap.
+	lineGapByFace map[*pdf.Font]float64
 	// needsXformStamp is set when any built box has transform≠none or
 	// opacity<1 so stampBoxTransforms can skip the full tree walk.
 	needsXformStamp bool
@@ -1645,7 +1648,7 @@ func (e *engine) buildBlock(node *html.Node, style ResolvedStyle, availW, posX, 
 	contentStart := len(e.ops)
 
 	curY := e.scalePt(boxStyle.PaddingTop) + e.scalePt(borderLayoutWidth(boxStyle, boxStyle.BorderTop))
-	enclose := e.pushBFCFloats(style, contentX, contentW)
+	enclose := e.pushBFCFloatsForce(style, contentX, contentW, e.isFlexItemNode(node))
 	widget := node.Name == htmlMeter || node.Name == "progress"
 	chkWidget := isInputCheckbox(node)
 	children := blockFlowChildren(node, widget || chkWidget)
@@ -1671,6 +1674,8 @@ func (e *engine) buildBlock(node *html.Node, style ResolvedStyle, availW, posX, 
 
 	e.popBFCFloats(enclose)
 
+	curY = e.applyRootBoxMargins(node, boxNode, style, curY)
+
 	if isVerticalWritingMode(style.WritingMode) && style.Height < 0 && style.HeightPercent < 0 {
 		curY = e.verticalWritingHeight(curY, style)
 	}
@@ -1692,64 +1697,9 @@ func (e *engine) buildBlock(node *html.Node, style ResolvedStyle, availW, posX, 
 	e.paintPositionedPseudo(node, style, boxNode, pseudoBefore)
 	e.paintPositionedPseudo(node, style, boxNode, pseudoAfter)
 
-	e.prependChrome(contentStart, boxNode, style, boxNode.x, posY, boxNode.w, boxNode.height)
+	e.prependChrome(contentStart, boxNode, style, boxNode.x, boxNode.y, boxNode.w, boxNode.height)
 
 	return boxNode
-}
-
-// nativeWidgetAutoContentBottom returns the content-flow endpoint for an
-// auto-sized native value control whose border-box height is one scaled font
-// size. Padding and the top border are already part of the flow coordinate;
-// the caller adds bottom padding after this endpoint.
-func (e *engine) nativeWidgetAutoContentBottom(style ResolvedStyle) float64 {
-	targetHeight := e.scalePt(style.FontSize)
-	topChrome := e.scalePt(style.BorderTop.Width + style.PaddingTop)
-	contentHeight := targetHeight - topChrome - e.scalePt(style.PaddingBottom)
-
-	if contentHeight < 0 {
-		contentHeight = 0
-	}
-
-	return topChrome + contentHeight
-}
-
-// maxTextareaRows caps the rows attribute so malformed HTML cannot size a
-// textarea into a huge page.
-const maxTextareaRows = 30
-
-// textareaAutoContentBottom returns the content-flow endpoint for an
-// auto-sized textarea whose intrinsic height is rows * line-height. The caller
-// has already added top padding/border to curY and will add bottom padding
-// after this call.
-func (e *engine) textareaAutoContentBottom(
-	style ResolvedStyle, node *html.Node, boxStyle *ResolvedStyle, curY float64,
-) float64 {
-	rowsStr := strings.TrimSpace(node.Attribute("rows"))
-	rows := 2
-
-	if n, err := strconv.Atoi(rowsStr); err == nil && n > 0 {
-		rows = n
-		// Cap absurd rows to avoid huge pages from malformed HTML.
-		if rows > maxTextareaRows {
-			rows = maxTextareaRows
-		}
-	}
-
-	lineH := lineHeightOf(&style)
-	if lineH <= 0 {
-		lineH = defaultLineHeightRatio * style.FontSize
-	}
-
-	scaledLineH := e.scalePt(lineH)
-	contentH := scaledLineH * float64(rows)
-	topChrome := e.scalePt(boxStyle.PaddingTop) + e.scalePt(borderLayoutWidth(boxStyle, boxStyle.BorderTop))
-	desired := topChrome + contentH
-
-	if curY < desired {
-		return desired
-	}
-
-	return curY
 }
 
 // paintPositionedPseudo paints generated content whose used position takes it

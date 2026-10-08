@@ -1,0 +1,35 @@
+{
+  "upstream": {
+    "repo": "html5lib/html5lib-tests",
+    "revision": "9329e64694e7835d0dcff9811e22856ef6ad16f9",
+    "license": "MIT",
+    "licenseFile": "LICENSE"
+  },
+  "scripting": false,
+  "categories": [
+    {
+      "id": "tokenizer",
+      "format": "html5lib-tokenizer-json",
+      "files": ["tokenizer/*.test"]
+    },
+    {
+      "id": "tokenizer-local",
+      "format": "html5lib-tokenizer-json",
+      "files": ["local/*.test"]
+    },
+    {
+      "id": "tree-construction",
+      "format": "html5lib-tree-dat",
+      "files": ["tree-construction/*.dat"]
+    }
+  ],
+  "unsupported": [
+    "tree-construction/* cases with a #document-fragment section (192): fragment parsing needs a context element that html.Parse and html.ParseDocument do not accept",
+    "tree-construction/* expected trees using svg/ or math/ element namespace designators (236): html.Node has no namespace field",
+    "tree-construction/* expected trees using xlink/, xml/, or xmlns/ attribute designators (10): html.Node.Attrs is a flat string map",
+    "tree-construction/template.dat cases whose expected tree contains a content node (111): template contents are not modeled",
+    "tokenizer/* cases with non-default initialStates (166 cases, 392 runs): tokenization always starts in Data state",
+    "tokenizer/* cases with a lastStartTag (32): no API to seed the last start tag",
+    "tokenizer/xmlViolation.test (4): expects the infoset-coercion variant; the engine implements the ordinary HTML rules"
+  ]
+}

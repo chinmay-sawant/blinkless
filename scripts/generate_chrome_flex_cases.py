@@ -524,10 +524,13 @@ TEMPLATES = {
     ),
 }
 
-def make_fixture(case, number):
+def make_fixture(case, number, status="scaffold", reason=""):
     style, body = TEMPLATES[case["kind"]]
     source = case["source"]
     fixture_id = f"case-{number:02d}-{case['id']}"
+    marker = f"Port status: {status}."
+    if reason:
+        marker += f" {reason}"
     return f"""<!doctype html>
 <meta charset="utf-8">
 <title>{case["title"]}</title>
@@ -537,30 +540,41 @@ html, body {{ margin: 0; padding: 0; font: 12px sans-serif; }}
 </style>
 <!-- Source: {source} -->
 <!-- Fixture: {fixture_id} -->
-<!-- Port status: scaffold. The next phase replaces this minimal case with a verified Go fixture. -->
+<!-- {marker} -->
 <!-- Expected: {case["expected"]} -->
 {body}
 """
 
 
-def read_existing_statuses():
+DEFAULT_REASONS = {
+    "scaffold": "No behavior test or browser measurement is linked yet.",
+    "blocked": "Blocked; no recorded failure or dependency is linked yet.",
+    "unsupported": "Unsupported by the current engine; no behavior test is linked.",
+}
+
+def read_existing_cases():
     manifest_path = OUT / "manifest.json"
     if not manifest_path.exists():
         return {}
 
     existing = json.loads(manifest_path.read_text(encoding="utf-8"))
-    return {
-        case["id"]: case.get("status", "scaffold")
-        for case in existing.get("cases", [])
-    }
+    carried = {}
+    for case in existing.get("cases", []):
+        entry = {"status": case.get("status", "scaffold")}
+        if "evidence" in case:
+            entry["evidence"] = case["evidence"]
+        if "reason" in case:
+            entry["reason"] = case["reason"]
+        carried[case["id"]] = entry
+    return carried
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "cases").mkdir(parents=True, exist_ok=True)
     fields = ("id", "title", "source", "combination", "category", "goTarget", "expected", "kind")
-    existing_statuses = read_existing_statuses()
+    existing_cases = read_existing_cases()
     manifest = {
-        "schema": 1,
+        "schema": 2,
         "purpose": "Chromium Flexbox behavior map and Go porting cases",
         "source_root": "chromium/",
         "caseCount": len(CASES),
@@ -568,14 +582,28 @@ def main():
     }
     for number, row in enumerate(CASES, 1):
         case = dict(zip(fields, row, strict=True))
+        carried = existing_cases.get(case["id"], {})
         entry = dict(case)
         fixture_id = f"case-{number:02d}-{case['id']}"
         entry["fixture"] = f"cases/{fixture_id}.html"
-        entry["status"] = existing_statuses.get(case["id"], "scaffold")
+        entry["status"] = carried.get("status", "scaffold")
+        if entry["status"] == "completed":
+            if "evidence" not in carried:
+                raise SystemExit(
+                    f"case {case['id']}: completed without evidence; refusing to regenerate"
+                )
+            entry["evidence"] = carried["evidence"]
+        else:
+            entry["reason"] = carried.get("reason") or DEFAULT_REASONS.get(
+                entry["status"], f"No recorded reason for status {entry['status']}."
+            )
         manifest["cases"].append(entry)
         fixture_path = OUT / entry["fixture"]
         if entry["status"] == "scaffold" or not fixture_path.exists():
-            fixture_path.write_text(make_fixture(case, number), encoding="utf-8")
+            fixture_path.write_text(
+                make_fixture(case, number, entry["status"], entry.get("reason", "")),
+                encoding="utf-8",
+            )
     (OUT / "manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
