@@ -1,10 +1,6 @@
 package main
 
-import (
-	"fmt"
-
-	"github.com/chinmay-sawant/blinkless"
-)
+import "fmt"
 
 const (
 	// smartWidthUnset leaves SmartWidth at the engine default (enabled).
@@ -18,7 +14,7 @@ const (
 
 // imageOptions mirrors GwkImageOptions with Go-native types. The C adapter
 // converts zero-initialized structs to the explicit unset markers below before
-// this value reaches the public ImageDocument API.
+// this value is checked before the call is rejected. Image encoding is gone.
 type imageOptions struct {
 	format      string
 	baseURL     string
@@ -46,61 +42,6 @@ func defaultImageOptions() imageOptions {
 		cropWidth:  cropUnset,
 		cropHeight: cropUnset,
 	}
-}
-
-// buildImageDocument maps opts onto a root ImageDocument holding one inline
-// HTML source. Optional fields stay zero so the engine defaults apply,
-// matching the header contract for a NULL options pointer.
-//
-//nolint:exhaustruct // optional ImageDocument fields stay zero to inherit engine defaults.
-func buildImageDocument(html []byte, opts imageOptions) *blinkless.ImageDocument {
-	doc := &blinkless.ImageDocument{Source: blinkless.Content{HTML: html}}
-
-	if opts.format != "" {
-		doc.Format = opts.format
-	}
-	if opts.width != 0 {
-		doc.Width = opts.width
-	}
-	if opts.height != 0 {
-		doc.Height = opts.height
-	}
-	if opts.quality != 0 {
-		doc.Quality = opts.quality
-	}
-	if opts.smartWidth != smartWidthUnset {
-		enabled := opts.smartWidth != 0
-		doc.SmartWidth = &enabled
-	}
-	if opts.transparent {
-		doc.Transparent = true
-	}
-	if anyCropSet(opts) {
-		doc.Crop = &blinkless.Crop{
-			Left:   opts.cropLeft,
-			Top:    opts.cropTop,
-			Width:  opts.cropWidth,
-			Height: opts.cropHeight,
-		}
-	}
-	if opts.zoom != 0 {
-		doc.Zoom = opts.zoom
-	}
-	if opts.baseURL != "" {
-		doc.Source.Base = opts.baseURL
-	}
-	if opts.localFiles {
-		doc.AllowLocalFiles = true
-	}
-	if len(opts.allow) > 0 {
-		doc.Allow = opts.allow
-	}
-	if opts.restricted {
-		policy := blinkless.RestrictedNetworkPolicy()
-		doc.Network = &policy
-	}
-
-	return doc
 }
 
 // anyCropSet reports whether at least one crop axis overrides the unset

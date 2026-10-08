@@ -66,7 +66,6 @@ typedef struct {
 import "C"
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"math"
@@ -138,19 +137,18 @@ func blinkless_last_error(buf *C.char, bufLen C.int32_t) C.int32_t {
 }
 
 
-// runImageWithContext renders one inline HTML page to encoded image bytes
-// using the same conventions as runPDFWithContext.
+// runImageWithContext rejects image encoding. The engine returns a drawing
+// list from the Go layout package. This ABI entry no longer writes PNG or JPEG.
 func runImageWithContext(ctx context.Context, html []byte, opts imageOptions) (int32, []byte, string) {
 	if message, ok := validateImageRange(opts); !ok {
 		return statusInvalidArg, nil, message
 	}
 
-	var output bytes.Buffer
-	if err := buildImageDocument(html, opts).WriteImage(ctx, &output); err != nil {
-		return classifyError(err, ctx), nil, err.Error()
+	if ctx == nil || len(html) == 0 {
+		return statusInvalidArg, nil, "html is required"
 	}
 
-	return statusOK, output.Bytes(), ""
+	return statusRenderError, nil, "image encoding was removed; the engine returns a drawing list"
 }
 
 // requestContext builds the conversion context. Positive timeout values

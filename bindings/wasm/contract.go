@@ -1,18 +1,16 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"image"
-	_ "image/jpeg"
-	_ "image/png"
 	"io"
 	"strings"
 
-	"github.com/chinmay-sawant/blinkless"
+	"github.com/chinmay-sawant/blinkless/css"
+	"github.com/chinmay-sawant/blinkless/html"
+	"github.com/chinmay-sawant/blinkless/layout"
 )
 
 const (
@@ -115,86 +113,73 @@ func (r *Request) validate() error {
 	return nil
 }
 
-// Convert runs the existing public engine APIs with browser-safe settings.
+// Convert lays the HTML out and returns the drawing list as JSON. It does
+// not encode a PNG or JPEG. Width and height use the bitmap viewport
+// fallback: an unset width is 1024, and an unset height uses that width.
 func Convert(ctx context.Context, request Request, onProgress func(string, int)) (Result, error) {
 	if err := request.validate(); err != nil {
 		return Result{}, err
 	}
 	if ctx == nil {
-		return Result{}, blinkless.ErrNilContext
+		return Result{}, layout.ErrNilContext
 	}
 
-	document := browserImageDocument(request, onProgress)
-	output, err := document.Image(ctx)
+	if onProgress != nil {
+		onProgress("layout", 0)
+	}
+
+	width := request.Width
+	if width <= 0 {
+		width = 1024
+	}
+
+	height := request.Height
+	if height <= 0 {
+		height = width
+	}
+
+	tree, err := html.Parse([]byte(request.HTML))
 	if err != nil {
 		return Result{}, err
 	}
-	if len(output) > maxOutputBytes {
+
+	styled, err := css.Apply(ctx, tree, css.Options{
+		WidthPx:  width,
+		HeightPx: height,
+		Media:    "screen",
+	})
+	if err != nil {
+		return Result{}, err
+	}
+
+	display, err := layout.DisplayList(ctx, styled)
+	if err != nil {
+		return Result{}, err
+	}
+
+	payload, err := json.Marshal(map[string]int{
+		"ops":    len(display.Ops),
+		"width":  display.Width,
+		"height": display.Height,
+	})
+	if err != nil {
+		return Result{}, err
+	}
+	if len(payload) > maxOutputBytes {
 		return Result{}, errOutputTooLarge
 	}
 
-	width, height, err := imageDimensions(output)
-	if err != nil {
-		return Result{}, fmt.Errorf("decode image output: %w", err)
-	}
-	if width > maxImageDimension || height > maxImageDimension {
-		return Result{}, errImageTooLarge
-	}
-
-	mime := "image/png"
-	if request.Mode == "jpeg" {
-		mime = "image/jpeg"
+	if onProgress != nil {
+		onProgress("layout", 100)
 	}
 
 	return Result{
-		Mode:   request.Mode,
-		MIME:   mime,
-		Bytes:  output,
-		Width:  width,
-		Height: height,
+		Mode:   "display",
+		MIME:   "application/json",
+		Bytes:  payload,
+		Width:  display.Width,
+		Height: display.Height,
 	}, nil
-}
-
-func browserImageDocument(request Request, onProgress func(string, int)) *blinkless.ImageDocument {
-	onPhase, onValue := progressHooks(onProgress)
-	document := &blinkless.ImageDocument{
-		Source:      blinkless.HTML([]byte(request.HTML)),
-		Width:       request.Width,
-		Height:      request.Height,
-		Padding:     request.Padding,
-		Format:      request.Mode,
-		Quality:     request.Quality,
-		Transparent: true,
-		Network:     &blinkless.NetworkPolicy{},
-		OnPhase:     onPhase,
-		OnProgress:  onValue,
-	}
-
-	return document
-}
-
-func progressHooks(onProgress func(string, int)) (func(string), func(int)) {
-	if onProgress == nil {
-		return nil, nil
-	}
-
-	phase := ""
-	onPhase := func(next string) {
-		phase = next
-		onProgress(phase, 0)
-	}
-	onValue := func(percent int) { onProgress(phase, percent) }
-
-	return onPhase, onValue
-}
-
-func imageDimensions(output []byte) (int, int, error) {
-	config, _, err := image.DecodeConfig(bytes.NewReader(output))
-	if err != nil {
-		return 0, 0, err
-	}
-
-	return config.Width, config.Height, nil
 }
 
 func errorResponse(err error) ErrorResponse {
@@ -210,8 +195,7 @@ func errorResponse(err error) ErrorResponse {
 	case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
 		code = "timeout"
 	case errors.Is(err, errInvalidRequest), errors.Is(err, errUnsupportedMode),
-		errors.Is(err, blinkless.ErrInvalidContent),
-		errors.Is(err, blinkless.ErrEmptyHTML):
+		errors.Is(err, css.ErrBadSize), errors.Is(err, layout.ErrNilDocument):
 		code = "invalid_request"
 	}
 

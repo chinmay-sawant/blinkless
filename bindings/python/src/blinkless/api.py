@@ -100,15 +100,7 @@ def convert_html_to_image(
     **overrides  # type: object
 ):
     # type: (...) -> bytes
-    """Convert inline HTML to an encoded image (PNG by default)."""
-    timeout = overrides.pop("timeout", None)
-    resolved = (options if options is not None else ImageOptions()).update(
-        **overrides
+    """Image encoding was removed. The engine returns a drawing list."""
+    raise RuntimeError(
+        "image encoding was removed; the engine returns a drawing list"
     )
-    content = Content.from_html(_as_html_bytes(html))
-    image_doc = ImageDocument(source=content, **{
-        field.name: getattr(resolved, field.name)
-        for field in dataclasses.fields(resolved)
-        if field.name != "timeout_ms"
-    })
-    return image_doc.image(timeout=timeout)

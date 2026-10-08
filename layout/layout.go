@@ -1,14 +1,7 @@
 package layout
 
 import (
-	"context"
-	"fmt"
-	"image"
-
-	"github.com/chinmay-sawant/blinkless/css"
-	"github.com/chinmay-sawant/blinkless/internal/imageout"
 	ilayout "github.com/chinmay-sawant/blinkless/internal/layout"
-	"github.com/chinmay-sawant/blinkless/internal/pubstate"
 )
 
 // ptToPx converts a layout point to one CSS pixel at zoom 1.
@@ -27,99 +20,16 @@ type Box struct {
 	H      float64
 }
 
-// Result is one placement and the picture painted from it.
-type Result struct {
-	img    image.Image
-	boxes  []Box
-	width  int
-	height int
-}
-
 // Options carries the optional inputs a placement can use beyond the styled
 // document itself.
 type Options struct {
 	// Images returns encoded image bytes (PNG, JPEG, or SVG) for one source,
 	// such as an <img src> value or a CSS background-image url(...) target.
-	// Nil means no source resolves, so image paint is skipped.
+	// Nil means no source resolves, so image paint is skipped. A transform
+	// that cannot stay in those source bytes is re-encoded as a PNG on the
+	// image operation. That payload is the bitmap fallback. It is not a
+	// picture of the page.
 	Images func(src string) ([]byte, error)
-}
-
-// Lay places doc and paints the picture from that same placement.
-func Lay(ctx context.Context, doc *css.Document) (*Result, error) {
-	return LayOptions(ctx, doc, Options{Images: nil})
-}
-
-// LayOptions is Lay with the optional image resolver.
-func LayOptions(ctx context.Context, doc *css.Document, options Options) (*Result, error) {
-	if ctx == nil {
-		return nil, ErrNilContext
-	}
-
-	if err := ctx.Err(); err != nil {
-		return nil, fmt.Errorf("layout: context: %w", err)
-	}
-
-	styled, ok := pubstate.StyledOf(doc)
-	if !ok {
-		return nil, ErrNilDocument
-	}
-
-	//nolint:exhaustruct // fixed viewport, backgrounds on, no crop, no smart width
-	opts := imageout.RenderOptions{
-		Width:      styled.WidthPx,
-		Height:     styled.HeightPx,
-		Sheets:     styled.Sheets,
-		Media:      styled.Media,
-		Background: true,
-		Registry:   styled.Registry,
-		State:      styled.State,
-		Images:     options.Images,
-	}
-
-	img, res, err := imageout.RenderLayout(ctx, styled.Root, opts)
-	if err != nil {
-		return nil, fmt.Errorf("layout: place: %w", err)
-	}
-
-	if img == nil {
-		return nil, errNoImage
-	}
-
-	bounds := img.Bounds()
-
-	return &Result{
-		img:    img,
-		boxes:  boxesFrom(ilayout.PlacedElements(res)),
-		width:  bounds.Dx(),
-		height: bounds.Dy(),
-	}, nil
-}
-
-// Image returns the painted picture.
-func (r *Result) Image() image.Image {
-	if r == nil {
-		return nil
-	}
-
-	return r.img
-}
-
-// Boxes returns the element boxes. The slice is the one Lay built.
-func (r *Result) Boxes() []Box {
-	if r == nil {
-		return nil
-	}
-
-	return r.boxes
-}
-
-// Size returns the picture size in pixels.
-func (r *Result) Size() (int, int) {
-	if r == nil {
-		return 0, 0
-	}
-
-	return r.width, r.height
 }
 
 func boxesFrom(placed []ilayout.PlacedElement) []Box {

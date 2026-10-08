@@ -91,7 +91,7 @@ func Parse(source string) (*Sheet, error) {
 }
 
 // Apply collects the document's style elements and the extra sheets.
-// The returned document is what layout.Lay places. The HTML tree is the
+// The returned document is what layout.DisplayList places. The HTML tree is the
 // one html.Parse produced.
 func Apply(ctx context.Context, doc *html.Document, opts Options) (*Document, error) {
 	registerStyled()

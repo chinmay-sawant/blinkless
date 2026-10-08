@@ -9,21 +9,19 @@
 
 ## Project
 
-Pure-Go HTML renderer named blinkless. It builds a drawing list and can
-encode that list as PNG or JPEG. It does not write PDF. One image binary
-(`cmd/blinkless`, built as `bin/blinkless`) and a Go library
-(`ImageDocument`, plus `html`, `css`, `layout`, `screen`). No JavaScript.
-No CGO on the default build.
+Pure-Go HTML and CSS layout engine. The output is `layout.DisplayList`.
+There is no PDF writer, no page PNG or JPEG encoder, and no `bin/blinkless`.
+An image operation keeps its encoded bytes and re-encodes that one payload
+as a PNG when orientation or a clip requires it. No JavaScript. No CGO on
+the default build.
 
 Module path: `github.com/chinmay-sawant/blinkless`.
 GitHub repo: `https://github.com/chinmay-sawant/blinkless`.
-Default branch: `master`. There is no `VERSION` file. The image binary
-stamps `internal/cli.Version` as `0.0.1` from the Makefile.
+Default branch: `master`. There is no `VERSION` file.
 
-Pipeline order: load -> html parse -> css cascade -> layout (drawing list)
--> PNG/JPEG. Font faces live in `internal/fonts`. `internal/imageout`
-rasterizes the list. `internal/convert/prepare` loads documents for that
-path. The PDF writer package is gone.
+Pipeline order: load -> html parse -> css cascade -> layout drawing list.
+Font faces live in `internal/fonts`. `internal/convert/prepare` loads style
+sheets for `css.Apply`. The PDF writer and the page rasterizer are gone.
 
 ## Todo protocol - response-only (mandatory)
 
@@ -144,7 +142,7 @@ The real gates, in order of cost:
 | Unit + integration | `make test` | Full suite green (`-p 2 -parallel 2` by default; see Makefile) |
 | Claims | `make claim-scan` | No forbidden claims (stdlib-only, Qt WebKit, byte-identical determinism, etc.) in doc.go, README, documentation/, frontend content, cli help |
 | Lint | `make lint` | golangci-lint (pinned v1.64.8) clean; chains `size-check` (file-size ledger) and `lint-frontend` (npm) |
-| Golden corpus | `make golden` | Every `testdata/golden/fixture-*.html` body renders to a PNG |
+| Golden corpus | `make golden` | Public drawing-list tests in `./layout` (`TestDisplay`) |
 | Release | `RELEASE.md` checklist | Hard gates for any release: `make check-versions`, `make test`, `make golden`, `make claim-scan`, `make lint`, plus `make build` with version-stamp check; Python and frontend extras when touched |
 
 Release work always starts at `RELEASE.md`. It holds the version-source
@@ -220,9 +218,8 @@ that fails if `docs/` goes dirty.
 
 ## Engine specifics
 
-- **Golden tests check that each body fixture renders**: `make golden` runs
-  `TestGoldenFixturesRenderPNG` and expects a PNG header. It does not compare
-  pixels and it does not write a PDF.
+- **Golden tests check the drawing list**: `make golden` runs `TestDisplay`
+  in `./layout`. It does not rasterize a page and it does not write a PDF.
 - **Regeneration is guarded.** `make golden-update GOLDEN_FIXTURE=<name>
   GOLDEN_APPROVE=1` writes only `testdata/golden/out/` and never touches
   committed fixtures. Treat an approved golden output like a reviewed

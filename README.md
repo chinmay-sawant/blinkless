@@ -1,38 +1,28 @@
 # blinkless
 
-blinkless turns HTML into a drawing list and, when you ask for a picture, a PNG or JPEG.
+blinkless is a layout engine for HTML and CSS. Both are inputs. HTML alone is not enough: the tree has no placement until the stylesheets are applied.
 
-The list is the product. Each entry is a rectangle, a line of text, an image, or a link box, in canvas points with y pointing down. `layout.DisplayList` returns that list. `layout.Lay`, `screen.Render`, and `ImageDocument` draw the same list into an image.
+`html.Parse` reads the document. `css.Apply` applies its `<style>` blocks and any extra sheets you pass. `layout.DisplayList` places that styled document and returns a drawing list. The list is the output.
+
+A browser engine such as Blink does this too, and then it keeps going. It runs script and it paints pixels. This engine does not run script. The drawing list is where the layout stops.
+
+Each entry is one drawing operation: a filled rectangle, a stroked rectangle, a line, a text run, an image, or a link box. Operation coordinates are canvas points, y down. Text Y is the baseline. Element boxes on the same result are CSS pixels, y down, origin at the top left.
 
 ```text
-load -> parse -> style -> layout -> drawing list -> PNG or JPEG
+HTML + CSS -> parse -> style -> layout -> drawing list
 ```
-
-There is no PDF writer. Page boxes, xref, embedded font programs, and PDF profiles are gone. Font loading and glyph positioning stay, because the picture path needs them.
-
-## Library
 
 ```go
-import "github.com/chinmay-sawant/blinkless/screen"
+tree, err := html.Parse([]byte("<h1>Hello</h1>"))
+styled, err := css.Apply(ctx, tree, css.Options{WidthPx: 800, HeightPx: 600})
+display, err := layout.DisplayList(ctx, styled)
 
-frame, err := screen.Render(ctx, html, 800, 600)
+for _, index := range display.Order {
+    op := display.Ops[index]
+    // draw op on your own canvas
+}
 ```
 
-`ImageDocument` is the root image API. `html.Parse`, `css.Apply`, and `layout.DisplayList` are the pieces underneath.
+`display.Order` is paint order. `display.Ops` is source order.
 
-The module path is `github.com/chinmay-sawant/blinkless`. The root package clause is `package blinkless`.
-
-## Command
-
-```bash
-make build
-./bin/blinkless --html '<h1>Hello</h1>' -o hello.png
-```
-
-## Tests
-
-```bash
-make test-quick
-```
-
-`make golden` renders every golden HTML fixture to a PNG and checks the file header. `make samples` writes those PNGs under `output/`.
+The module path is `github.com/chinmay-sawant/blinkless`. The root package clause is `package blinkless`. The layout call is `github.com/chinmay-sawant/blinkless/layout`.

@@ -321,28 +321,7 @@ def convert_html_to_pdf(html, opts=None):
 
 def convert_html_to_image(html, opts=None):
     # type: (bytes, GwkImageOptions) -> bytes
-    """Run one image conversion and return owned bytes."""
-    if not isinstance(html, (bytes, bytearray)):
-        raise TypeError("html must be bytes")
-    html = bytes(html)
-    lib = load_library()
-    out_data = ctypes.POINTER(ctypes.c_ubyte)()
-    out_len = ctypes.c_size_t(0)
-    out_err = ctypes.c_char_p()
-    with _CALL_LOCK:
-        opts_ptr = ctypes.byref(opts) if opts is not None else None
-        status = lib.blinkless_html_to_image(
-            html, len(html), opts_ptr, ctypes.byref(out_data),
-            ctypes.byref(out_len), ctypes.byref(out_err),
-        )
-        # Copy the message while the lock still holds: the last-error slot is
-        # process-wide and another thread may overwrite it before we raise.
-        message = None
-        if status != _STATUS_OK:
-            message = _take_error_message(lib, out_err, status)
-    if status != _STATUS_OK:
-        raise error_from_status(status, message)
-    try:
-        return ctypes.string_at(out_data, out_len.value)
-    finally:
-        lib.blinkless_free(ctypes.cast(out_data, ctypes.c_void_p))
+    """Image encoding was removed. The engine returns a drawing list."""
+    raise RuntimeError(
+        "image encoding was removed; the engine returns a drawing list"
+    )

@@ -9,15 +9,18 @@ import (
 	"github.com/chinmay-sawant/blinkless/layout"
 )
 
-func TestLayUsesParsedHTMLAndCSS(t *testing.T) {
+func TestDisplayUsesParsedHTMLAndCSS(t *testing.T) {
 	t.Parallel()
 
-	placed := mustLay(t)
-	requirePicture(t, placed)
-	requireBox(t, findBox(t, placed.Boxes(), "box"))
+	placed := mustDisplay(t)
+	if placed.Width != 200 || placed.Height < 100 {
+		t.Fatalf("size = %d x %d", placed.Width, placed.Height)
+	}
+
+	requireBox(t, findBox(t, placed.Boxes, "box"))
 }
 
-func mustLay(t *testing.T) *layout.Result {
+func mustDisplay(t *testing.T) *layout.Display {
 	t.Helper()
 
 	const page = `<!DOCTYPE html><html><head></head><body>` +
@@ -43,25 +46,12 @@ func mustLay(t *testing.T) *layout.Result {
 		t.Fatal(err)
 	}
 
-	placed, err := layout.Lay(t.Context(), styled)
+	placed, err := layout.DisplayList(t.Context(), styled)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	return placed
-}
-
-func requirePicture(t *testing.T, placed *layout.Result) {
-	t.Helper()
-
-	if placed.Image() == nil {
-		t.Fatal("image is nil")
-	}
-
-	width, height := placed.Size()
-	if width != 200 || height < 100 {
-		t.Fatalf("size = %d x %d", width, height)
-	}
 }
 
 func requireBox(t *testing.T, box layout.Box) {
@@ -76,10 +66,10 @@ func requireBox(t *testing.T, box layout.Box) {
 	}
 }
 
-func TestLayRejectsNilDocument(t *testing.T) {
+func TestDisplayRejectsNilDocument(t *testing.T) {
 	t.Parallel()
 
-	_, err := layout.Lay(t.Context(), nil)
+	_, err := layout.DisplayList(t.Context(), nil)
 	if err == nil {
 		t.Fatal("expected an error")
 	}

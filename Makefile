@@ -29,7 +29,7 @@ GO_TEST_FLAGS ?=
 TEST_PKGS ?= ./...
 
 # Hot packages used by the race job (matches .github/workflows/ci.yml).
-RACE_PKGS ?= ./internal/layout ./internal/imageout ./internal/load ./internal/fonts
+RACE_PKGS ?= ./internal/layout ./internal/load ./internal/fonts
 
 test:
 	go test -p $(TEST_P) -parallel $(TEST_PARALLEL) $(GO_TEST_FLAGS) $(TEST_PKGS)
@@ -75,11 +75,8 @@ size-check:
 lint-frontend:
 	@echo "frontend/ is not in this tree; lint-frontend is a no-op"
 
-CLI_VERSION_LDFLAGS := -X github.com/chinmay-sawant/blinkless/internal/cli.Version=0.0.1
-
-# Stamps the c-shared library (bindings/c) with the repo VERSION. Kept separate
-# from CLI_VERSION_LDFLAGS so the opt-in cgo build never touches the pure-Go
-# default targets. bindings/c is package main, so X must target main.libVersion.
+# Stamps the c-shared library (bindings/c) with the repo version. bindings/c
+# is package main, so X must target main.libVersion.
 BINDINGS_VERSION_LDFLAGS := -X main.libVersion=0.0.1
 WASM_VERSION_LDFLAGS := -X main.wasmVersion=0.0.1
 WASM_DIR := dist/wasm
@@ -87,8 +84,7 @@ WASM_EXEC := $(shell go env GOROOT)/lib/wasm/wasm_exec.js
 WASM_ARTIFACT := $(WASM_DIR)/blinkless.wasm
 
 build:
-	mkdir -p bin
-	go build -ldflags "$(CLI_VERSION_LDFLAGS)" -o bin/blinkless ./cmd/blinkless
+	CGO_ENABLED=0 go build ./...
 
 # Browser artifact for the inline HTML WASM adapter. The runtime script comes
 # from the same Go toolchain used for the build; the fixture is copied from its
@@ -113,8 +109,7 @@ claim-scan:
 		-e 'zero third-party' \
 		-e 'Qt WebKit engine' \
 		-e 'identical input bytes produce identical PDF bytes' \
-		doc.go README.md documentation/*.md documentation/architecture/*.md \
-		internal/cli/help.go; then \
+		doc.go README.md documentation/*.md documentation/architecture/*.md; then \
 		echo "claim-scan: forbidden phrase found" >&2; exit 1; \
 	fi
 	@echo "claim-scan: clean"
@@ -122,69 +117,26 @@ claim-scan:
 fmt:
 	gofmt -w .
 
-# Render every body fixture under testdata/golden to a PNG and check the
-# header. Header and footer companion HTML files are skipped. The test lives
-# in internal/imageout (TestGoldenFixturesRenderPNG).
+# Place the public drawing-list tests. The page PNG encoder is gone, so this
+# no longer rasterizes testdata/golden.
 golden:
-	go test -p 1 -parallel $(TEST_PARALLEL) ./internal/imageout/ -run 'TestGoldenFixturesRenderPNG' -v
+	go test -p 2 -parallel $(TEST_PARALLEL) ./layout/ -count=1 -run 'TestDisplay' -timeout 180s
 
 golden-update:
-	@set -eu; \
-	if [ "$(GOLDEN_APPROVE)" != "1" ]; then \
-		echo "Refusing golden-update: set GOLDEN_APPROVE=1 after reviewing the fixture" >&2; \
-		exit 2; \
-	fi; \
-	fixture="$(GOLDEN_FIXTURE)"; \
-	case "$$fixture" in \
-		""|*/*|*-header.html|*-footer.html|*.html.html) \
-			echo "Usage: make golden-update GOLDEN_FIXTURE=fixture-NN-name.html GOLDEN_APPROVE=1" >&2; \
-			exit 2;; \
-		*.html) ;; \
-		*) \
-			echo "GOLDEN_FIXTURE must be a body .html fixture basename" >&2; \
-			exit 2;; \
-	esac; \
-	if [ ! -f "testdata/golden/$$fixture" ]; then \
-		echo "Golden fixture not found: testdata/golden/$$fixture" >&2; \
-		exit 2; \
-	fi; \
-	mkdir -p testdata/golden/out bin; \
-	output="testdata/golden/out/$${fixture%.html}.png"; \
-	echo "Generating $$output from testdata/golden/$$fixture"; \
-	$(MAKE) build; \
-	./bin/blinkless --allow-local-files --zoom 0.4 --font-path testdata/fonts \
-		-o "$$output" "testdata/golden/$$fixture"; \
-	echo "Review $$output manually; this target never rewrites committed fixtures."
+	@echo "golden-update wrote PNG files from bin/blinkless. That encoder is gone." >&2
+	@exit 2
 
-# Write one PNG per golden body fixture into output/. Companion header and
-# footer HTML files are skipped. Requires the image binary from make build.
-samples: build
-	mkdir -p output
-	rm -f output/fixture-*.png
-	FONT_FLAGS="--font-path testdata/fonts"; \
-	if [ -e /usr/share/fonts/truetype/droid ]; then FONT_FLAGS="$$FONT_FLAGS --font-path /usr/share/fonts/truetype/droid"; fi; \
-	for f in testdata/golden/fixture-*.html; do \
-		case "$$f" in *-header.html|*-footer.html) continue;; esac; \
-		name=$$(basename "$$f" .html); \
-		./bin/blinkless --allow-local-files --zoom 0.4 $$FONT_FLAGS -o "output/$$name.png" "$$f"; \
-	done
-	ls -la output/*.png | awk '{print $$5, $$9}' | tail -30
+# The drawing list is the sample. There is no page PNG to write.
+samples: golden
 
 # Render every Chrome flex interaction case under test/chrome/cases/ into
 # test/chrome/cases/pdf/ for visual inspection. Artifacts only; the focused
 # layout tests under test/chrome own the assertions. Depends on `make build`
 # and is meant to run after `make golden` (or `make samples`), so the visual
 # pass starts from a green, freshly built tree.
-chrome-cases-pdf: build
-	mkdir -p test/chrome/cases/pdf
-	rm -f test/chrome/cases/pdf/*.pdf
-	@for f in test/chrome/cases/case-*.html; do \
-		name=$$(basename "$$f" .html); \
-		title=$$(printf '%s\n' "$$name" | sed -n 's/^case-[0-9][0-9]*-//p'); \
-		./bin/blinkless --allow-local-files --title "$$title" \
-			-o "test/chrome/cases/pdf/$$name.pdf" "$$f" || exit 1; \
-	done
-	@echo "chrome cases: $$(ls test/chrome/cases/pdf/*.pdf | wc -l) PDFs written to test/chrome/cases/pdf/"
+chrome-cases-pdf:
+	@echo "chrome-cases-pdf wrote PDFs with bin/blinkless. That command is gone." >&2
+	@exit 2
 
 # Wall-time smoke from skills/PR/PR_TEMPLATE.md: convert fixture-01 through
 # the built CLI and fail at or above 400ms. Soft ±50ms of a stored
@@ -193,8 +145,9 @@ chrome-cases-pdf: build
 # number; fixture-01 is a 1-page invoice and sits far under it.
 RUN_HTML ?= testdata/golden/fixture-01-simple-invoice.html
 RUN_MAX_MS ?= 400
-run: build
-	bash scripts/run-walltime.sh "$(RUN_HTML)" "$(RUN_MAX_MS)" ./bin/blinkless
+run:
+	@echo "run timed bin/blinkless. That command is gone." >&2
+	@exit 2
 
 # Regenerate the committed frontend showcase screenshots and WebP thumbnails
 # from the PDFs currently present in output/. Use `make samples` first when the

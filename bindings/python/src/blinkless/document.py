@@ -475,19 +475,10 @@ class ImageDocument:
 
     def image(self, timeout=None):
         # type: (Optional[float]) -> bytes
-        """Rasterize the document and return the owned encoded bytes."""
-        self.validate()
-        from . import _lib
-
-        if self.source.kind != "html":
-            raise NotImplementedError(
-                "the v1 one-shot ABI supports inline HTML sources only;"
-                " use the blinkless CLI for file or URL sources"
-            )
-        opts, keepalive = _serialize_image_options(self, timeout)
-        result = _lib.convert_html_to_image(self.source.html_bytes, opts)
-        _ = keepalive
-        return result
+        """Image encoding was removed. The engine returns a drawing list."""
+        raise RuntimeError(
+            "image encoding was removed; the engine returns a drawing list"
+        )
 
     def write_image(self, fileobj, timeout=None):
         # type: (object, Optional[float]) -> None

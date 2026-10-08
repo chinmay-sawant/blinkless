@@ -42,16 +42,8 @@ jobs:
         with:
           go-version: '1.26'
           cache: true
-      - name: Build blinkless
-        run: |
-          CGO_ENABLED=0 go build -ldflags "-X github.com/chinmay-sawant/blinkless/internal/cli.Version=0.0.1" \
-            -o blinkless ./cmd/blinkless
-      - name: Version stamp
-        run: |
-          set -euo pipefail
-          got=$(./blinkless --version | sed -n 's/^Version:[[:space:]]*//p' | tr -d '[:space:]')
-          echo "binary: ${got}"
-          test "${got}" = "0.0.1"
+      - name: Build packages
+        run: CGO_ENABLED=0 go build ./...
       - name: Purity guard (cgo only allowed in bindings/c)
         # Phase 40.4 drift guard: under CGO_ENABLED=0 no package may carry
         # CgoFiles except the opt-in bindings/c facade.

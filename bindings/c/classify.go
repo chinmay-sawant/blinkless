@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/chinmay-sawant/blinkless"
 	"github.com/chinmay-sawant/blinkless/internal/load"
 )
 
@@ -25,8 +24,6 @@ func classifyError(err error, ctx context.Context) int32 {
 		errors.Is(err, load.ErrNetworkPolicy),
 		errors.Is(err, load.ErrInvalidProxy):
 		return statusLoadDenied
-	case invalidArgument(err):
-		return statusInvalidArg
 	default:
 		return statusRenderError
 	}
@@ -37,30 +34,3 @@ func ctxDone(ctx context.Context) bool {
 	return ctx != nil && ctx.Err() != nil
 }
 
-// invalidArgSentinels is the fixed set of caller-input errors that classify
-// as statusInvalidArg. It lives at package scope so classification does not
-// allocate a fresh slice per error.
-//
-//nolint:gochecknoglobals // fixed sentinel set for ABI classification
-var invalidArgSentinels = []error{
-	blinkless.ErrEmptyHTML,
-	blinkless.ErrInvalidContent,
-	blinkless.ErrInvalidImageFormat,
-	blinkless.ErrInvalidImageQuality,
-	blinkless.ErrInvalidCrop,
-	blinkless.ErrInvalidDimensions,
-	blinkless.ErrInvalidZoom,
-	blinkless.ErrNilContext,
-}
-
-// invalidArgument reports whether err originates from caller-supplied
-// document or option validation rather than the rendering pipeline.
-func invalidArgument(err error) bool {
-	for _, sentinel := range invalidArgSentinels {
-		if errors.Is(err, sentinel) {
-			return true
-		}
-	}
-
-	return false
-}

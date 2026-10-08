@@ -7,23 +7,20 @@ The module path is `github.com/chinmay-sawant/blinkless`. Direct dependencies ar
 ## Pipeline
 
 ```text
-file or URL or inline HTML
-        -> internal/load
-        -> internal/html
-        -> internal/css
-        -> internal/layout   (boxes and a drawing list)
-        -> internal/imageout (one PNG or JPEG)
+HTML + CSS
+        -> html.Parse
+        -> css.Apply
+        -> layout.DisplayList
 ```
 
-`layout.DisplayList` stops at the drawing list. Each operation is a rectangle, a line of text, an image, or a link box. Coordinates are canvas points, y down.
+`layout.DisplayList` returns the drawing list. Each operation is a rectangle, a line of text, an image, or a link box. Coordinates are canvas points, y down. The engine does not encode that list as a page PNG or JPEG.
 
-`screen.Render` parses inline HTML, applies style sheets passed by the caller, and returns a PNG. It does not fetch linked style sheets or images. `ImageDocument` and `bin/blinkless` do, under the local-file and network rules.
+An image operation keeps the source bytes. When orientation or a clip cannot stay in those bytes, that one operation is re-encoded as a PNG. That bitmap fallback is part of the list. It is not a picture of the page.
 
 ## What it is for
 
-- HTML templates that should become a picture: invoices, receipts, posters, simple pages
-- A drawing list a host program can inspect
-- A static image binary with no browser process
+- A drawing list a host program can replay
+- HTML and CSS placement for invoices, receipts, and simple pages
 
 ## What it is not
 

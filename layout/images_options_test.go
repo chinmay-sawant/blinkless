@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"image"
-	"image/color"
 	"image/png"
 	"testing"
 
@@ -91,24 +90,4 @@ func TestDisplayListSkipsImagesWithoutResolver(t *testing.T) {
 	}
 }
 
-func TestLayOptionsPaintsResolvedImage(t *testing.T) {
-	t.Parallel()
 
-	placed, err := layout.LayOptions(
-		t.Context(), styledOf(t, backgroundSource), layout.Options{Images: imageResolver(t)},
-	)
-	if err != nil {
-		t.Fatalf("lay: %v", err)
-	}
-
-	image := color.NRGBAModel.Convert(placed.Image().At(20, 20))
-
-	got, ok := image.(color.NRGBA)
-	if !ok {
-		t.Fatal("center pixel is not NRGBA")
-	}
-
-	if got.R < 200 || got.G > 60 || got.B > 60 {
-		t.Fatalf("center pixel %+v, want red", got)
-	}
-}

@@ -5,10 +5,19 @@ import (
 	"fmt"
 
 	"github.com/chinmay-sawant/blinkless/css"
-	"github.com/chinmay-sawant/blinkless/internal/imageout"
+	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
 	ilayout "github.com/chinmay-sawant/blinkless/internal/layout"
 	"github.com/chinmay-sawant/blinkless/internal/pubstate"
 )
+
+// cssPxToPt matches css.Apply and the old bitmap viewport: 1 CSS pixel is
+// 0.75 points at 96 dpi.
+const cssPxToPt = 72.0 / 96.0
+
+// fallbackViewportPx is the bitmap path's width when the caller left the
+// viewport unset. Percentage heights then use that same width as their
+// containing block, which is the fallback the bitmap renderer used.
+const fallbackViewportPx = 1024
 
 // DisplayOp is one display-list operation. It is the internal Op under an
 // exported name so a caller outside this module can read the retained
@@ -98,14 +107,13 @@ type Display struct {
 	Order []int
 
 	// Boxes are the element border boxes from the same placement, in document
-	// order, in CSS pixels. They match the boxes Lay returns, so a replaying
-	// caller gets hit testing without rasterizing.
+	// order, in CSS pixels. A caller uses them for hit testing.
 	Boxes []Box
 
-	// Width and Height are the canvas size in CSS pixels, taken from the same
-	// placement Lay builds, and Height applies the same requested minimum.
-	// Height is converted straight from points while Lay reads the size back
-	// off the painted picture, so the two can differ by one pixel.
+	// Width and Height are the canvas size in CSS pixels. Height is the
+	// taller of the laid-out content and the requested minimum, converted
+	// straight from points. An unset requested height does not raise the
+	// canvas; it only supplies the percentage-height containing block.
 	Width, Height int
 
 	// PointsPerPixel and PixelPerPoint convert between the op coordinate space
@@ -113,19 +121,14 @@ type Display struct {
 	PointsPerPixel, PixelPerPoint float64
 }
 
-// DisplayList lays doc out and returns its display list without rasterizing
-// it. Lay does the same placement and then paints it to an image; DisplayList
-// stops before the paint, so a caller can replay the vector operations onto
-// its own canvas (a GPU, a PDF, a display list of its own) and keep text as
-// glyphs rather than as pixels.
+// DisplayList lays doc out and returns its display list. It does not paint
+// a page bitmap. A caller replays the operations onto its own canvas and
+// keeps text as glyphs. Images on the list stay encoded payloads: an
+// orientation or clip that cannot stay in the source bytes is re-encoded
+// as a PNG on that one operation, which is the bitmap fallback.
 //
-// DisplayList returns no image. Callers that still want a bitmap should keep
-// calling Lay; the two share one placement path, so boxes and geometry agree.
-//
-// One deliberate difference: Lay also applies the raster budget, so a canvas
-// taller or wider than the engine's pixel limit makes Lay fail with a resource
-// error. DisplayList never rasterizes, so it returns that canvas instead. A
-// caller that hands the result to a GPU should apply its own size limit.
+// DisplayList does not apply a raster pixel budget. A caller that paints
+// the list should apply its own size limit.
 func DisplayList(ctx context.Context, doc *css.Document) (*Display, error) {
 	return DisplayListOptions(ctx, doc, Options{Images: nil})
 }
@@ -145,33 +148,51 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 		return nil, ErrNilDocument
 	}
 
-	//nolint:exhaustruct // fixed viewport, backgrounds on, no crop, no smart width
-	opts := imageout.RenderOptions{
-		Width:      styled.WidthPx,
-		Height:     styled.HeightPx,
-		Sheets:     styled.Sheets,
-		Media:      styled.Media,
-		Background: true,
-		Registry:   styled.Registry,
-		State:      styled.State,
-		Images:     options.Images,
+	widthPx := float64(styled.WidthPx)
+	if widthPx <= 0 {
+		widthPx = fallbackViewportPx
 	}
 
-	res, err := imageout.LayoutResult(ctx, styled.Root, opts)
+	// Unset height uses the viewport width, in points. That is the bitmap
+	// renderer's containing-block fallback for percentage heights.
+	heightPt := float64(styled.HeightPx) * cssPxToPt
+	if heightPt <= 0 {
+		heightPt = widthPx * cssPxToPt
+	}
+
+	font, err := pdf.DefaultFont()
+	if err != nil {
+		return nil, fmt.Errorf("layout: default font: %w", err)
+	}
+
+	res, err := ilayout.LayoutContext(ctx, styled.Root, ilayout.Options{ //nolint:exhaustruct // fixed viewport, backgrounds on
+		Width:      widthPx * cssPxToPt,
+		Height:     heightPt,
+		Font:       font,
+		Registry:   styled.Registry,
+		Sheets:     styled.Sheets,
+		Media:      styled.Media,
+		State:      styled.State,
+		Images:     options.Images,
+		Background: true,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("layout: display: %w", err)
 	}
 
-	// The canvas is as tall as the taller of the content and the requested
-	// minimum, matching what RenderLayout would have produced for Lay.
-	heightPt := imageout.CanvasHeight(res, opts)
+	// Canvas height is the taller of the content and the requested minimum.
+	// A zero request does not raise the canvas.
+	canvasPt := res.Height
+	if minPt := float64(styled.HeightPx) * cssPxToPt; minPt > canvasPt {
+		canvasPt = minPt
+	}
 
 	return &Display{
 		Ops:            res.Ops,
 		Order:          ilayout.PaintOrder(res.Ops),
 		Boxes:          boxesFrom(ilayout.PlacedElements(res)),
 		Width:          int(res.Width * ptToPx),
-		Height:         int(heightPt * ptToPx),
+		Height:         int(canvasPt * ptToPx),
 		PointsPerPixel: ptToPx,
 		PixelPerPoint:  1 / ptToPx,
 	}, nil

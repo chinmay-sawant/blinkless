@@ -2,7 +2,7 @@
 
 blinkless 0.0.1 is the renderer cut. The PDF writer is not part of this tree.
 
-`VERSION` is not used. The image binary stamps `internal/cli.Version` from the Makefile as `0.0.1`.
+`VERSION` is not used. There is no image binary and no `internal/cli` package.
 
 ## Gates
 
@@ -18,7 +18,7 @@ Do not run `make golden`, veraPDF, or a PDF byte compare. Those checks measured 
 ## What ships
 
 - Drawing list from HTML and CSS (`layout.DisplayList`)
-- PNG and JPEG through `ImageDocument`, `screen.Render`, and `bin/blinkless`
+- Bitmap fallback on a single image operation when orientation or a clip must re-encode that payload as PNG
 
 ## What does not ship
 
