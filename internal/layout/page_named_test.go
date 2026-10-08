@@ -33,4 +33,3 @@ func TestPageNameInherits(t *testing.T) {
 		t.Fatalf("outer PageName = %q, want chapter", outer.PageName)
 	}
 }
-

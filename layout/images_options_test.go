@@ -89,5 +89,3 @@ func TestDisplayListSkipsImagesWithoutResolver(t *testing.T) {
 		}
 	}
 }
-
-

@@ -23,8 +23,8 @@ import (
 	"strings"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
-	"github.com/chinmay-sawant/blinkless/internal/html"
 	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 const (
@@ -164,28 +164,12 @@ type Result struct {
 	// pagination is settling. It is rebuilt when the display list is rewritten
 	// and updated in place by shiftFlowY so flow shifts do not rescan operations
 	// that are before the affected page.
-	flowPages    [][]int
-	flowPageOf   []int
-	flowPos      []int
-	flowPageSize float64
-	flowBoxes    [][]int
-	flowBoxPage  []int
-	flowBoxPos   []int
-
-	// flowStore, flowBoxStore and flowScratch retain the flow-index backing
-	// arrays across rebuilds. The live flow* fields are cleared on
-	// invalidation (callers detect a missing index by length) while these
-	// stores keep the capacity for the next rebuild. releaseFlowIndex clears
-	// the stores at the PDF-05 release point.
-	flowStore    flowIndexStorage
-	flowBoxStore flowIndexStorage
-	flowScratch  flowIndexStorage
-
-	// hasAvoidInside and hasAfterBreak are style-only census facts rebuilt at
-	// the top of each pagination pass. The fixpoint skips a policy walk when
-	// its fact is false.
-	hasAvoidInside bool
-	hasAfterBreak  bool
+	flowPages   [][]int
+	flowPageOf  []int
+	flowPos     []int
+	flowBoxes   [][]int
+	flowBoxPage []int
+	flowBoxPos  []int
 
 	// pageSnapHeight records the page content height that multicol column
 	// snapping used during Layout (Options.Height). Paint compares it with
@@ -237,12 +221,6 @@ func CloneResult(res *Result) *Result {
 	clone.flowBoxes = cloneIndexPages(res.flowBoxes)
 	clone.flowBoxPage = append([]int(nil), res.flowBoxPage...)
 	clone.flowBoxPos = append([]int(nil), res.flowBoxPos...)
-	// The retained stores are scratch capacity: a clone must not reset arrays
-	// the source still uses, so it starts with empty stores.
-	clone.flowStore.reset()
-	clone.flowBoxStore.reset()
-	clone.flowScratch.reset()
-
 	boxes := make(map[*box]*box, len(res.boxes))
 	clone.root = cloneBoxGraph(res.root, boxes)
 	clone.boxes = make([]*box, len(res.boxes))
@@ -347,9 +325,6 @@ func (w *Workspace) Release(res *Result) {
 	res.flowBoxes = nil
 	res.flowBoxPage = nil
 	res.flowBoxPos = nil
-	res.flowStore.reset()
-	res.flowBoxStore.reset()
-	res.flowScratch.reset()
 	res.Pages = nil
 	res.Locations = nil
 }
@@ -1244,18 +1219,6 @@ func censusOps(ops []Op, width float64) (float64, bool) {
 	return maxX, hasFrag
 }
 
-// resolveStylesForLayout runs the cascade, re-cascading once when @container
-// rules match measured size containers (a nested remount covers container-type
-// changes). Returns the final styles and the container map used (nil when no
-// size containers matched).
-func resolveStylesForLayout(
-	root *html.Node, opts Options,
-) (map[*html.Node]*ResolvedStyle, map[*html.Node]sizeContainer) {
-	styles, containers, _ := resolveStylesForLayoutContext(context.Background(), root, opts)
-
-	return styles, containers
-}
-
 //nolint:wsl // container remount gates are intentionally kept in lifecycle order.
 func resolveStylesForLayoutContext(
 	ctx context.Context, root *html.Node, opts Options,
@@ -1465,19 +1428,17 @@ type box struct {
 	outlineInflate float64
 	kind           boxKind
 	// packed flags — keep together to avoid padding.
-	paginationShifted bool // row was moved by a table pagination fixpoint
-	hasInk            bool // cell has non-whitespace ink (see nodeHasTableInk)
-	sticky            bool
-	stickyTopSet      bool
-	stickyRightSet    bool
-	stickyBottomSet   bool
-	stickyLeftSet     bool
+	hasInk          bool // cell has non-whitespace ink (see nodeHasTableInk)
+	sticky          bool
+	stickyTopSet    bool
+	stickyRightSet  bool
+	stickyBottomSet bool
+	stickyLeftSet   bool
 	// opStart/opEnd bound the inclusive range of e.ops indices that this
 	// box's subtree emitted. opEnd < opStart means the box emitted nothing
 	// (e.g. boxes built during a noEmit measure pass).
 	opStart, opEnd int
 	children       []*box
-	flowIndex      int // transient index in Result.boxes during pagination
 	firstBaseline  float64
 	// table cells
 	col, span int
@@ -1498,14 +1459,12 @@ type box struct {
 	// table-header-group (for repeating headers across pages).
 	headerRows int
 	// sticky: print-scoped position:sticky (see sticky.go). Insets are scaled
-	// points; cb* is filled at pagination time from the parent box.
-	// stickyPort is the nearest overflow:auto|scroll|hidden|clip ancestor
-	// (scrollport at offset 0); nil means page content box is the scrollport.
+	// points. stickyPort is carried through cloneBoxGraph; the page-renderer
+	// clamp that consumed it is gone.
 	stickyID                 int
 	stickyTop, stickyRight   float64
 	stickyBottom, stickyLeft float64
 	stickyPort               *box
-	cbX, cbY, cbW, cbH       float64
 	// replaced image (nil when missing/failed); shared decode via resolveImage.
 	img *imageRef
 }

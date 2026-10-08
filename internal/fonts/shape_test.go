@@ -364,4 +364,3 @@ func TestShapeTextFontWithFeaturesKernOff(t *testing.T) {
 		t.Fatalf("ShapeRunWithFeaturesLanguage = %+v", run)
 	}
 }
-

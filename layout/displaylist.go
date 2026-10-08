@@ -165,17 +165,21 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 		return nil, fmt.Errorf("layout: default font: %w", err)
 	}
 
-	res, err := ilayout.LayoutContext(ctx, styled.Root, ilayout.Options{ //nolint:exhaustruct // fixed viewport, backgrounds on
-		Width:      widthPx * cssPxToPt,
-		Height:     heightPt,
-		Font:       font,
-		Registry:   styled.Registry,
-		Sheets:     styled.Sheets,
-		Media:      styled.Media,
-		State:      styled.State,
-		Images:     options.Images,
-		Background: true,
-	})
+	res, err := ilayout.LayoutContext(
+		ctx,
+		styled.Root,
+		ilayout.Options{ //nolint:exhaustruct // fixed viewport, backgrounds on
+			Width:      widthPx * cssPxToPt,
+			Height:     heightPt,
+			Font:       font,
+			Registry:   styled.Registry,
+			Sheets:     styled.Sheets,
+			Media:      styled.Media,
+			State:      styled.State,
+			Images:     options.Images,
+			Background: true,
+		},
+	)
 	if err != nil {
 		return nil, fmt.Errorf("layout: display: %w", err)
 	}

@@ -9,11 +9,10 @@ import (
 	"strings"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
-	"github.com/chinmay-sawant/blinkless/internal/fonts"
+	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
 	"github.com/chinmay-sawant/blinkless/internal/html"
 	"github.com/chinmay-sawant/blinkless/internal/line"
 	"github.com/chinmay-sawant/blinkless/internal/load"
-	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
 )
 
 const (
@@ -522,7 +521,7 @@ func fetchFontFace(ctx context.Context, resources load.ResourceContext, uri stri
 		return nil, false
 	}
 
-	body, err := fonts.Decode(resource.Body)
+	body, err := pdf.Decode(resource.Body)
 	if err != nil {
 		line.Emit(log, line.Warn, "object %d: @font-face src %q: %v", idx, uri, err)
 		return nil, false

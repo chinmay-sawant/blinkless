@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/chinmay-sawant/blinkless/internal/convert/prepare"
-	"github.com/chinmay-sawant/blinkless/internal/load"
 	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
+	"github.com/chinmay-sawant/blinkless/internal/load"
 	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 

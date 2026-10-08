@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
-	"github.com/chinmay-sawant/blinkless/internal/html"
 	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 func TestCJKFontFamilyFallback(t *testing.T) { //nolint:cyclop

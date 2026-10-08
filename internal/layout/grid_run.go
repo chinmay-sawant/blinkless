@@ -61,70 +61,6 @@ func visitLineOps(ops []Op, visit func(line Op)) {
 	}
 }
 
-// forEachLineIndex visits (op index, segment index) for every line in
-// [from,to]; segment index is -1 for a plain line op.
-func forEachLineIndex(ops []Op, from, last int, visit func(opIdx, segIdx int)) {
-	if from < 0 {
-		from = 0
-	}
-
-	if last >= len(ops) {
-		last = len(ops) - 1
-	}
-
-	for idx := from; idx <= last; idx++ {
-		if ops[idx].Kind == OpGridRun && ops[idx].Grid != nil {
-			for segIdx := range ops[idx].Grid.Segs {
-				visit(idx, segIdx)
-			}
-
-			continue
-		}
-
-		visit(idx, -1)
-	}
-}
-
-// lineViewAt returns the line at (opIdx, segIdx) as a standalone Op copy.
-func lineViewAt(ops []Op, opIdx, segIdx int) Op {
-	if segIdx < 0 || ops[opIdx].Grid == nil {
-		return ops[opIdx]
-	}
-
-	return ops[opIdx].Grid.asLine(&ops[opIdx], segIdx)
-}
-
-// addLineAtY shifts one line inside its op by deltaY. Plain ops move the op;
-// grid runs move the addressed segment and the run bounding box.
-func addLineAtY(ops []Op, opIdx, segIdx int, deltaY float64) {
-	if segIdx < 0 || ops[opIdx].Grid == nil {
-		ops[opIdx].Y += deltaY
-
-		return
-	}
-
-	ops[opIdx].Grid.Segs[segIdx].Y += deltaY
-	recomputeGridRunBounds(&ops[opIdx])
-}
-
-// extendLineBottom grows the addressed line so its bottom reaches bottom.
-func extendLineBottom(ops []Op, opIdx, segIdx int, bottom float64) {
-	if segIdx < 0 || ops[opIdx].Grid == nil {
-		if lineBottom := ops[opIdx].Y + ops[opIdx].H; lineBottom < bottom {
-			ops[opIdx].H += bottom - lineBottom
-		}
-
-		return
-	}
-
-	seg := &ops[opIdx].Grid.Segs[segIdx]
-	if lineBottom := seg.Y + seg.H; lineBottom < bottom {
-		seg.H += bottom - lineBottom
-	}
-
-	recomputeGridRunBounds(&ops[opIdx])
-}
-
 // recomputeGridRunBounds rebuilds a run's bounding box after segment edits.
 func recomputeGridRunBounds(paintOp *Op) {
 	if paintOp.Grid == nil || len(paintOp.Grid.Segs) == 0 {
@@ -231,4 +167,3 @@ func shiftOpX(paintOp *Op, deltaX float64) {
 		paintOp.Grid.Segs[idx].X += deltaX
 	}
 }
-

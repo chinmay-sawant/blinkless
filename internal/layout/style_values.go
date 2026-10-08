@@ -689,18 +689,6 @@ func nextQuotedCSSString(value string, start int) (string, int, bool) {
 	return decodeCSSString(value[start+1 : end]), end + 1, true
 }
 
-// overflowCreatesStickyScrollport reports whether overflow establishes a sticky
-// scrollport (CSS Position 3 / Overflow 3). PDF has no user scroll, so sticky
-// inside these boxes clamps at scroll offset 0 against the box edges.
-func overflowCreatesStickyScrollport(overflow string) bool {
-	switch overflow {
-	case overflowAuto, "scroll", overflowHidden, "clip":
-		return true
-	}
-
-	return false
-}
-
 // vminVmaxPt parses Nvmin / Nvmax as a percent of min/max(viewportW, viewportH).
 func vminVmaxPt(value string, viewportW, viewportH float64) (float64, bool) {
 	value = strings.TrimSpace(value)

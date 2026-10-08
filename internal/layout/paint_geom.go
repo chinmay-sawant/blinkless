@@ -23,32 +23,29 @@ func isDashedOrDottedStyle(style string) bool {
 	return style == borderStyleDashed || style == borderStyleDotted
 }
 
+// Dash-segment length heuristic tuning: a dash segment is at most
+// dashSegWidthFactor stroke widths long, floored at dashSegMinLen points, and
+// gets dashSegSlack points of allowance.
+const (
+	dashSegWidthFactor = 3
+	dashSegMinLen      = 0.5
+	dashSegSlack       = 0.5
+)
+
 func looksLikeDashSegmentLength(segLen, strokeWidth float64) bool {
 	if segLen <= 0 {
 		return false
 	}
 
-	maxSeg := strokeWidth * 3
-	if maxSeg < 0.5 {
-		maxSeg = 0.5
+	maxSeg := strokeWidth * dashSegWidthFactor
+	if maxSeg < dashSegMinLen {
+		maxSeg = dashSegMinLen
 	}
 
-	maxSeg += 0.5
+	maxSeg += dashSegSlack
 	if strokeWidth <= 0 {
-		maxSeg = 3.5
+		maxSeg = dashSegWidthFactor + dashSegSlack
 	}
 
 	return segLen <= maxSeg
-}
-
-func nearLayout(a, b float64) bool {
-	return absFloat(a-b) < layoutCoordEpsilon
-}
-
-func absFloat(v float64) float64 {
-	if v < 0 {
-		return -v
-	}
-
-	return v
 }

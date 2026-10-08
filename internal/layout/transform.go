@@ -985,33 +985,6 @@ func stampBoxTransforms(boxNode *box, parentAccum Matrix2D, ops []Op) {
 	stampBoxTransformsRec(boxNode, parentAccum, ops, covered)
 }
 
-// restampBoxTransforms rebases already-stamped transforms after pagination or
-// another flow pass has moved the owning boxes. The transform origin is stored
-// in document coordinates, so retaining the old matrix would move transformed
-// inline chrome away from its box when that box crosses a page boundary.
-func restampBoxTransforms(boxNode *box, ops []Op) {
-	needsStamp := false
-
-	for idx := range ops {
-		if !ops[idx].XformSet {
-			continue
-		}
-
-		needsStamp = true
-
-		ops[idx].setXform(IdentityMatrix())
-		ops[idx].XformSet = false
-	}
-
-	if needsStamp {
-		for idx := range ops {
-			ops[idx].setPaintOpacity(0)
-		}
-
-		stampBoxTransforms(boxNode, IdentityMatrix(), ops)
-	}
-}
-
 // withPercentTranslate folds deferred translate percents into the box transform.
 func withPercentTranslate(sty *ResolvedStyle, boxNode *box) Matrix2D {
 	tform := sty.Transform
@@ -1169,4 +1142,3 @@ func stampCoveredOpacityOps(boxNode *box, ops []Op, covered []bool) {
 		}
 	}
 }
-

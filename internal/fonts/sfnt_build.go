@@ -28,14 +28,6 @@ func padOutlines(outlines [][]byte, loca []uint32) [][]byte {
 	return padded
 }
 
-func cloneTable(f *Font, tag string) []byte {
-	if t, ok := f.tables[tag]; ok {
-		return bytes.Clone(t)
-	}
-
-	return nil
-}
-
 func encodeUint32Slice(v []uint32) []byte {
 	b := make([]byte, len(v)*uint32Bytes)
 	for i, x := range v {

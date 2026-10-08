@@ -9,9 +9,9 @@ import (
 	"github.com/chinmay-sawant/blinkless/html"
 	"github.com/chinmay-sawant/blinkless/internal/convert/prepare"
 	icss "github.com/chinmay-sawant/blinkless/internal/css"
+	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
 	ihtml "github.com/chinmay-sawant/blinkless/internal/html"
 	"github.com/chinmay-sawant/blinkless/internal/load"
-	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
 	"github.com/chinmay-sawant/blinkless/internal/pubstate"
 	"github.com/chinmay-sawant/blinkless/internal/settings"
 )

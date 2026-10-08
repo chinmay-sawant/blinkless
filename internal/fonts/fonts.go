@@ -836,55 +836,6 @@ func (f *Font) glyphOutline(glob uint16) []byte {
 	return found[off:next]
 }
 
-// compositeGlyphIDs returns the glyph ids referenced by a composite glyph.
-func (f *Font) compositeGlyphIDs(g uint16) []uint16 {
-	out := []uint16{}
-	buf := f.glyphOutline(g)
-
-	if len(buf) < glyfHeaderSize {
-		return out
-	}
-
-	numContours := int16(binary.BigEndian.Uint16(buf[0:2])) //nolint:gosec // numContours is int16 per glyf spec
-	if numContours >= 0 {
-		return out // simple glyph
-	}
-
-	pos := 10
-
-	for {
-		if pos+4 > len(buf) {
-			break
-		}
-
-		flags := binary.BigEndian.Uint16(buf[pos : pos+2])
-		child := binary.BigEndian.Uint16(buf[pos+2 : pos+4])
-		out = append(out, child)
-
-		pos += 4
-		if flags&0x0001 != 0 { // ARG_1_AND_2_ARE_WORDS
-			pos += 4
-		} else {
-			pos += 2
-		}
-
-		switch {
-		case flags&0x0008 != 0: // WE_HAVE_A_SCALE
-			pos += 2
-		case flags&0x0040 != 0: // WE_HAVE_AN_X_AND_Y_SCALE
-			pos += 4
-		case flags&0x0080 != 0: // WE_HAVE_A_TWO_BY_TWO
-			pos += 8
-		}
-
-		if flags&0x0020 == 0 { // MORE_COMPONENTS
-			break
-		}
-	}
-
-	return out
-}
-
 // Runes returns all runes mapped by the font, sorted.
 func (f *Font) Runes() []rune {
 	f.ensureParsed()

@@ -1,7 +1,7 @@
 package fonts
 
-// Shared numeric constants for PDF content streams, TrueType/OpenType parsing,
-// and image codecs. Named to satisfy mnd without scattering unexplained literals.
+// Shared numeric constants for TrueType/OpenType parsing and font metrics.
+// Named to satisfy mnd without scattering unexplained literals.
 const (
 	// Byte / codepoint bounds.
 	maxLatin1Code = 0xFF
@@ -15,11 +15,6 @@ const (
 	defaultItalicAngle = -12
 	fixed14Divisor     = 64 // TrueType F2DOT14 / fixed-point style scales often /64 for degrees-ish
 	f2dot14Scale       = 16384.0
-
-	// Rec.601 luma coefficients (grayscale conversion).
-	lumaR = 0.299
-	lumaG = 0.587
-	lumaB = 0.114
 
 	// TrueType / sfnt directory.
 	sfntOffsetTableSize = 12
@@ -69,35 +64,9 @@ const (
 	cmapPlatformWin      = 3
 	cmapWinUnicodeBMP    = 1
 
-	// hhea / maxp / head minimum sizes.
-	hheaMinSize = 36
-	maxpMinSize = 6
-	headMinSize = 52
-
-	// Content stream / operators.
-	pdfFloatPrec     = 3
-	pdfNumBase       = 10
-	float64Bits      = 64
-	rgbComponents    = 3
-	pointComponents  = 2
-	rectComponents   = 4
-	curveComponents  = 6
-	matrixComponents = 6
-	numArgsMin3      = 3
-	numArgsMin4      = 4
-	numArgsMin5      = 5
-
-	// JPEG markers / scan.
-	jpegMarkerPrefix = 0xFF
-	jpegTEM          = 0x01
-	jpegSOI          = 0xD8
-	jpegEOI          = 0xD9
-	bitsPerByte      = 8
-	rgbChannels      = 3
-
 	// WOFF / OTTO.
-	tagSize    = 4
-	padMask3   = 3 // (n+3)&^3 four-byte pad
+	tagSize  = 4
+	padMask3 = 3 // (n+3)&^3 four-byte pad
 
 	// Composite glyph component scale sizes (bytes): F2DOT14 values.
 	scaleBytes        = 2 // one F2DOT14 value
@@ -109,15 +78,6 @@ const (
 	arabicFormsB  = 3
 	arabicFormsA  = 2
 	arabicTatweel = 0x0640
-
-	// CID / Type0.
-	cidBytesPerEntry  = 2
-	cidGlyphHighShift = 8
-	toUnicodeTwoByte  = 2
-
-	// Font PDF encoding chunking.
-	cidToGIDChunk = 100
-	codeBytesTwo  = 2
 
 	// Shape feature parsing.
 	featureTagLen    = 4

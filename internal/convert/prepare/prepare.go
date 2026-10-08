@@ -12,10 +12,10 @@ import (
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
 	"github.com/chinmay-sawant/blinkless/internal/errs"
+	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
 	"github.com/chinmay-sawant/blinkless/internal/html"
 	"github.com/chinmay-sawant/blinkless/internal/line"
 	"github.com/chinmay-sawant/blinkless/internal/load"
-	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
 	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 

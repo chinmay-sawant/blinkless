@@ -7,8 +7,8 @@ import (
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
 	"github.com/chinmay-sawant/blinkless/internal/errs"
-	"github.com/chinmay-sawant/blinkless/internal/html"
 	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 // ContextWithStyles renders the document with a caller-provided cascade.

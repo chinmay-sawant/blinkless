@@ -3,7 +3,6 @@ package layout
 import (
 	"math"
 	"testing"
-
 )
 
 func TestOptionsValidate(t *testing.T) {
@@ -61,4 +60,3 @@ func TestLayoutContextRejectsNegativeZoom(t *testing.T) {
 		t.Fatal("Layout accepted a negative zoom")
 	}
 }
-

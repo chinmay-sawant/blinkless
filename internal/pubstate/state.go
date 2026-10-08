@@ -6,8 +6,8 @@ package pubstate
 
 import (
 	"github.com/chinmay-sawant/blinkless/internal/css"
-	"github.com/chinmay-sawant/blinkless/internal/html"
 	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 // Styled is the cascade result the layout package reads.

@@ -1937,7 +1937,8 @@ func (e *engine) flowFlexColumn(
 
 // applyRelativeOffset shifts a position:relative box and its ops by top/left
 // (right/bottom when the corresponding auto flags are set). position:sticky
-// uses tagSticky + applyStickyPrint instead (print scrollport clamp).
+// boxes are tagged by tagSticky (see sticky.go) and get their StickyID
+// reapplied during chrome repaint.
 func (e *engine) applyRelativeOffset(boxNode *box) {
 	if boxNode == nil || boxNode.style.Position != "relative" {
 		return

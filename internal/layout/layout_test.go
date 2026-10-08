@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
-	"github.com/chinmay-sawant/blinkless/internal/html"
 	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 const testViewport = 500.0
@@ -225,16 +225,6 @@ func TestTableRowRanges(t *testing.T) {
 	if !(r0e < r1s) {
 		t.Errorf("row 0 ends at op %d, row 1 starts at op %d; want row0 end < row1 start", r0e, r1s)
 	}
-}
-
-func indexOf(seq []string, s string) int {
-	for i, v := range seq {
-		if v == s {
-			return i
-		}
-	}
-
-	return -1
 }
 
 func TestBlockStacking(t *testing.T) {
@@ -979,41 +969,3 @@ func TestPageBreakParsing(t *testing.T) {
 		}
 	}
 }
-
-// paintOpts is a full-page-content geometry for pagination tests.
-func pageOf(t *testing.T, res *Result, want string) int {
-	t.Helper()
-
-	for i, op := range res.Ops {
-		if op.Kind == OpText && strings.Contains(op.Text, want) {
-			for p, idxs := range res.Pages {
-				for _, idx := range idxs {
-					if idx == i {
-						return p
-					}
-				}
-			}
-		}
-	}
-
-	t.Fatalf("op %q not found in any page", want)
-
-	return -1
-}
-
-func pageOfIdx(t *testing.T, res *Result, idx int) int {
-	t.Helper()
-
-	for p, idxs := range res.Pages {
-		for _, opIdx := range idxs {
-			if opIdx == idx {
-				return p
-			}
-		}
-	}
-
-	t.Fatalf("op %d not found in any page", idx)
-
-	return -1
-}
-

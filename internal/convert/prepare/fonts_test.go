@@ -12,8 +12,8 @@ import (
 
 	"github.com/andybalholm/brotli"
 	"github.com/chinmay-sawant/blinkless/internal/css"
-	"github.com/chinmay-sawant/blinkless/internal/load"
 	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
+	"github.com/chinmay-sawant/blinkless/internal/load"
 	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 

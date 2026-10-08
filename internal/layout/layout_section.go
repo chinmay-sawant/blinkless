@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"github.com/chinmay-sawant/blinkless/internal/errs"
-	"github.com/chinmay-sawant/blinkless/internal/html"
 	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 // ResolveStyles runs the same cascade LayoutContext uses. Convert uses it
