@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/css"
-	"github.com/chinmay-sawant/gowkhtmltopdf/html"
-	"github.com/chinmay-sawant/gowkhtmltopdf/layout"
+	"github.com/chinmay-sawant/blinkless/css"
+	"github.com/chinmay-sawant/blinkless/html"
+	"github.com/chinmay-sawant/blinkless/layout"
 )
 
 func displayOf(t *testing.T, source string) *layout.Display {

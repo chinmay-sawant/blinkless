@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/screen"
+	"github.com/chinmay-sawant/blinkless/screen"
 )
 
 const pngSignature = "\x89PNG\r\n\x1a\n"

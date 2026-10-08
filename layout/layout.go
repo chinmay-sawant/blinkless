@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/css"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/imageout"
-	ilayout "github.com/chinmay-sawant/gowkhtmltopdf/internal/layout"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pubstate"
+	"github.com/chinmay-sawant/blinkless/css"
+	"github.com/chinmay-sawant/blinkless/internal/imageout"
+	ilayout "github.com/chinmay-sawant/blinkless/internal/layout"
+	"github.com/chinmay-sawant/blinkless/internal/pubstate"
 )
 
 // ptToPx converts a layout point to one CSS pixel at zoom 1.

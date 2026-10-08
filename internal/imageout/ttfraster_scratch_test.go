@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
+	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
 )
 
 // TestRasterGlyphAlphaReusesScratch proves that one scratch can serve glyphs

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 type cancelAfterStyleChecks struct {

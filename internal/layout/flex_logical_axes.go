@@ -3,7 +3,7 @@ package layout
 import (
 	"slices"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 // flowFlexVerticalRow maps a row flex container's logical inline axis onto

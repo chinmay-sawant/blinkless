@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/load"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/settings"
+	"github.com/chinmay-sawant/blinkless/internal/load"
+	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 
 func TestImageLoadGlobalUsesOneEffectivePolicy(t *testing.T) {

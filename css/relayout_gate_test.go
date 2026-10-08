@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/css"
+	"github.com/chinmay-sawant/blinkless/css"
 )
 
 // TestRelayoutRegatesLinkedSheets pins the collection-time viewport gate: a

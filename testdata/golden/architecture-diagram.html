@@ -466,9 +466,9 @@
       </section>
     </div>
 
-    <div class="code"><span class="accent-text">converter</span> := gowkhtmltopdf.NewConverter()<br>
+    <div class="code"><span class="accent-text">converter</span> := blinkless.NewConverter()<br>
       converter.Global().Set("enablelocalfileaccess", "true")<br>
-      <span class="accent-text">page</span> := gowkhtmltopdf.NewObjectSettings().SetPage(inputPath)<br>
+      <span class="accent-text">page</span> := blinkless.NewObjectSettings().SetPage(inputPath)<br>
       page.Set("load.blocklocalfileaccess", "false")<br>
       converter.AddObject(page)<br>
       <span class="accent-text">err</span> := converter.Convert(ctx)</div>

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
+	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
 )
 
 // glyphInkBottom scans the columns in [x0, x1) for the lowest dark pixel row

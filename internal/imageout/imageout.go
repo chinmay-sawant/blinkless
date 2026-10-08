@@ -17,16 +17,16 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/convert/prepare"
-	renderpipeline "github.com/chinmay-sawant/gowkhtmltopdf/internal/convert/render"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/errs"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/layout"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/line"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/load"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/settings"
+	"github.com/chinmay-sawant/blinkless/internal/convert/prepare"
+	renderpipeline "github.com/chinmay-sawant/blinkless/internal/convert/render"
+	"github.com/chinmay-sawant/blinkless/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/errs"
+	"github.com/chinmay-sawant/blinkless/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/layout"
+	"github.com/chinmay-sawant/blinkless/internal/line"
+	"github.com/chinmay-sawant/blinkless/internal/load"
+	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
+	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 
 const (
@@ -58,9 +58,9 @@ var (
 	errNilRoot         = errors.New("imageout: nil root")
 	errNilContext      = errs.ErrNilContext
 	errCropNoIntersect = errors.New("imageout: crop rectangle does not intersect the canvas")
-	errNilRequest      = errors.New("gowkhtmltopdf: nil request")
+	errNilRequest      = errors.New("blinkless: nil request")
 	errNothingToRender = errors.New("load-error policy is skip; nothing to render")
-	errImagesDisabled  = errors.New("gowkhtmltopdf: images disabled")
+	errImagesDisabled  = errors.New("blinkless: images disabled")
 	errNilOutput       = ErrMissingOutput
 	errUnsupportedFmt  = errors.New("unsupported format")
 	errRasterTooLarge  = errors.New("imageout: raster exceeds resource budget")

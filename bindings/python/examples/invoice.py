@@ -14,7 +14,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from gowkhtmltopdf import (  # noqa: E402
+from blinkless import (  # noqa: E402
     Content,
     Document,
     PDFOptions,

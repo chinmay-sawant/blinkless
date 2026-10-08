@@ -4,7 +4,7 @@ import (
 	"slices"
 	"sort"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 // flexColumnLine is one wrapped column. Its cross size is the width reserved

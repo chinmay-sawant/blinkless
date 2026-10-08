@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 func TestTableColumnWidthPercent(t *testing.T) { //nolint:cyclop

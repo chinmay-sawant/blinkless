@@ -5,11 +5,10 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/settings"
+	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 
 const (
@@ -331,13 +330,8 @@ func TestExitCodeAndOutputWriter(t *testing.T) {
 func TestCLIVersionMatchesVERSIONFile(t *testing.T) {
 	t.Parallel()
 
-	raw, err := os.ReadFile("../../VERSION")
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := strings.TrimSpace(string(raw))
-	if Version != want && !strings.HasPrefix(Version, want+"-") {
-		t.Fatalf("cli.Version = %q, want VERSION %q or stamped suffix", Version, want)
+	if Version != "0.0.1" {
+		t.Fatalf("cli.Version = %q, want 0.0.1", Version)
 	}
 }
 

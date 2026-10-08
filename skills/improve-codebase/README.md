@@ -17,7 +17,7 @@ ledger that is already canonical unless the user asks.
 | [go-practices](go-practices/SKILL.md) | `/improve-codebase-practices` | Where do errors, context, tests, or ownership lie? |
 
 Shared finding shape: [references/finding-schema.md](references/finding-schema.md).
-When the target is this repo: [references/gowkhtmltopdf.md](references/gowkhtmltopdf.md).
+When the target is this repo: [references/blinkless.md](references/blinkless.md).
 
 ## Relation to other skills
 

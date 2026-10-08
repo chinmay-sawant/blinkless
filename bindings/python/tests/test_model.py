@@ -3,7 +3,7 @@
 import dataclasses
 import unittest
 
-from gowkhtmltopdf import (
+from blinkless import (
     Content,
     Crop,
     Document,
@@ -23,7 +23,7 @@ from gowkhtmltopdf import (
     compatible_network_policy,
     restricted_network_policy,
 )
-from gowkhtmltopdf.exceptions import (
+from blinkless.exceptions import (
     ConversionError,
     error_from_status,
     sniff_sentinel,
@@ -149,18 +149,18 @@ class ImageDocumentValidationTest(unittest.TestCase):
 
 class SentinelSniffingTest(unittest.TestCase):
     def test_each_substring_maps_to_its_sentinel(self):
-        from gowkhtmltopdf import exceptions as exc_module
+        from blinkless import exceptions as exc_module
 
         expectations = [
-            ("gowkhtmltopdf: empty HTML", exc_module.ErrEmptyContent),
+            ("blinkless: empty HTML", exc_module.ErrEmptyContent),
             (
                 "exactly one of HTML, File, or URL is required",
                 exc_module.ErrInvalidContent,
             ),
-            ("gowkhtmltopdf: no page objects added",
+            ("blinkless: no page objects added",
              exc_module.ErrNoPageObjects),
             ("no renderable PDF objects", exc_module.ErrNoPageObjects),
-            ('gowkhtmltopdf: invalid page size: "Bogus"',
+            ('blinkless: invalid page size: "Bogus"',
              exc_module.ErrInvalidPageSize),
             ('invalid orientation "diagonal"',
              exc_module.ErrInvalidOrientation),

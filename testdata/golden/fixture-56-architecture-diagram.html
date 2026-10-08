@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   fixture-56-architecture-diagram
-  Pure HTML+CSS architecture diagram for gowkhtmltopdf (pure-Go, no-cgo
+  Pure HTML+CSS architecture diagram for blinkless (pure-Go, no-cgo
   HTML→PDF/PNG converter), derived from the deep-dive documents in
   documentation/architecture/ (commit ef526f9). All styling lives in the
   linked stylesheet fixture-56-architecture-diagram.css.
@@ -18,7 +18,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>gowkhtmltopdf — Architecture Diagram</title>
+  <title>blinkless — Architecture Diagram</title>
   <meta name="description" content="Architecture diagram of the pure-Go HTML→PDF/PNG converter: pipeline, package map, dependency DAG, security.">
   <link rel="stylesheet" href="fixture-56-architecture-diagram.css">
 </head>
@@ -26,7 +26,7 @@
 
   <header class="hero" id="top">
     <div class="hero-badge">pure Go · no cgo · no browser · MIT</div>
-    <h1 class="hero-title">gowkhtmltopdf <span class="hero-amp">&mdash;</span> Architecture</h1>
+    <h1 class="hero-title">blinkless <span class="hero-amp">&mdash;</span> Architecture</h1>
     <p class="hero-sub">A work-alike for <dfn title="wkhtmltopdf">wkhtmltopdf</dfn> built for controlled
     reports: invoices, statements, tables, multi-page documents with headers/footers, TOCs and PDF
     outlines. Everything from <mark>load</mark> to <mark>write</mark> runs inside the Go binary.</p>
@@ -109,7 +109,7 @@
       <figcaption class="d01-term-cap">One parser, two binaries &mdash; argv in, Request out</figcaption>
       <!-- New tag: kbd = user input keys/commands; forced inline by CSS. -->
       <!-- New tag: samp = program output sample; forced inline by CSS. -->
-      <pre class="d01-pre"><samp class="d01-prompt">$ </samp><kbd class="d01-cmd">gowkhtmltopdf --page-size A4 cover cover.html toc page ch1.html out.pdf</kbd>
+      <pre class="d01-pre"><samp class="d01-prompt">$ </samp><kbd class="d01-cmd">blinkless --page-size A4 cover cover.html toc page ch1.html out.pdf</kbd>
 <samp class="d01-out">write PDF: 3 pages &middot; outline depth 2 &middot; exit 0</samp></pre>
     </figure>
 
@@ -130,7 +130,7 @@
     <!-- New tag: var = variable name; wbr = line-break opportunity (void element, safe here). -->
     <p class="d01-inline">Flags land in settings through dotted names: <kbd>--page-size</kbd>
     writes <var>size.pagesize</var>; free positionals become <var>Command.Objects</var> and the last
-    one becomes <var>Output</var>. Errors surface as <samp>gowkhtmltopdf: unknown option --dpi</samp>
+    one becomes <var>Output</var>. Errors surface as <samp>blinkless: unknown option --dpi</samp>
     on stderr with exit code 1, while HTTP failures report <output>2</output> or <output>3</output>.
     Long option names may split at <wbr /> word boundaries when printed.</p>
 
@@ -143,9 +143,9 @@
     </div>
 
     <dl class="dom-pkgs">
-      <dt>cmd/gowkhtmltopdf</dt>
+      <dt>cmd/blinkless</dt>
       <dd>PDF binary main &mdash; parse (ModePDF), doc-flag dispatch, signals, exit code; 83 thin lines</dd>
-      <dt>cmd/gowkhtmltoimage</dt>
+      <dt>cmd/blinkless</dt>
       <dd>Image binary main &mdash; parse (ModeImage), no TOC-XSL dump, exit code; 53 thin lines</dd>
       <dt>internal/cli</dt>
       <dd>Parser core: Command, Parse, Mode bitmask, ~71 registered flags, ExitCode mapping</dd>
@@ -183,7 +183,7 @@
     <p class="dom-role">Converter / ImageConverter public API: typed and dotted dialects, deep-copy ownership, in-memory output.</p>
   </header>
   <div class="dom-body">
-    <p class="dom-lead">The root package <code>gowkhtmltopdf</code> is the idiomatic,
+    <p class="dom-lead">The root package <code>blinkless</code> is the idiomatic,
     stdlib-only Go surface for the engine. It <dfn>configures</dfn> a conversion with
     either wkhtmltopdf-compatible dotted strings or compile-time-discoverable typed
     builders, and it <dfn>drives</dfn> the pipeline: <code>Converter.Convert(ctx)</code>
@@ -227,7 +227,7 @@
       <li><code>GlobalSettings</code> / <code>ObjectSettings</code> &mdash; dotted <code>Set</code>/<code>Get</code> via the reflect key tables</li>
       <li><code>PDFRequest</code> / <code>ImageRequest</code> + <code>RunPDF</code> / <code>RunImage</code> &mdash; typed one-shot; <code>Now func() time.Time</code> gives byte-stable output</li>
       <li><code>ConvertHTML</code> &mdash; one-shot helper: clone global, <code>SetBody(html, base)</code>, convert, output</li>
-      <li><code>Version()</code> &mdash; banner <code>0.12.7-dev (gowkhtmltopdf pure-go)</code>, tracking <data value="0.12.7-dev">LibraryVersion 0.12.7-dev</data></li>
+      <li><code>Version()</code> &mdash; banner <code>0.12.7-dev (blinkless pure-go)</code>, tracking <data value="0.12.7-dev">LibraryVersion 0.12.7-dev</data></li>
       <li>Sentinels &mdash; <code>ErrNoPageObjectsAdded</code>, <code>ErrEmptyHTML</code>, <code>ErrNilContext</code>, matchable with <code>errors.Is</code></li>
       <li><code>convertHooks</code> + <code>lineLog</code> &mdash; engine log lines classified by <code>line.SeverityOf</code> into <code>OnInfo</code>/<code>OnWarn</code>/<code>OnError</code></li>
     </ul>
@@ -362,7 +362,7 @@
 
   <!-- ===== section 04 (author: subagent s04) ===== -->
 <!--
-  Section 04 of the gowkhtmltopdf architecture diagram (fixture-56).
+  Section 04 of the blinkless architecture diagram (fixture-56).
   Domain: Load layer - URLs, I/O & ACL. Grounded in documentation/architecture/04-load.md.
   New tags showcased: address, bdi, bdo, time, wbr.
   Lite-engine notes:
@@ -959,7 +959,7 @@ trailer &lt;&lt; /Size 3 /Root 1 0 R &gt;&gt;</samp></pre>
 
     <ul class="dom-syms">
       <li><code>RenderContext(ctx, root, opts)</code> — the core library render: layout result → rasterize → crop</li>
-      <li><code>RunRequest(ctx, req, log)</code> — engine seam shared by the <code>gowkhtmltoimage</code> CLI and <code>ImageConverter</code></li>
+      <li><code>RunRequest(ctx, req, log)</code> — engine seam shared by the <code>blinkless</code> CLI and <code>ImageConverter</code></li>
       <li><code>rasterizeContext</code> — paints <code>layout.Op</code> ops in <code>PaintOrder</code>, box-filters <code>rasterSS</code> supersample down</li>
       <li><code>ttfDrawString</code> — TTF outline → bitmap glyphs (no FreeType, no hinting); fractional baseline, fake-bold pass</li>
       <li><code>svg.Rasterize(data, maxSide)</code> — SVG → PNG bytes at intrinsic size; failure is a clean "no image"</li>
@@ -993,7 +993,7 @@ trailer &lt;&lt; /Size 3 /Root 1 0 R &gt;&gt;</samp></pre>
     every subresource crosses the same two seams and inherits the same ACL, timeout and size caps.</p>
 
     <div class="dag-stage" aria-label="entry points">
-      <span class="dag-box">cmd/gowkhtmltopdf</span>
+      <span class="dag-box">cmd/blinkless</span>
       <span class="dag-arrow" aria-hidden="true">&rarr;</span>
       <span class="dag-box">internal/cli</span>
       <span class="dag-arrow" aria-hidden="true">&rarr;</span>

@@ -8,7 +8,7 @@ import (
 	"image/png"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/layout"
+	"github.com/chinmay-sawant/blinkless/layout"
 )
 
 // backgroundSource paints a 40x40 box whose background asks for the image

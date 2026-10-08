@@ -1,12 +1,12 @@
-# gowkhtmltopdf - HTML/CSS Compatibility Matrix (MVP Allowlist)
+# blinkless - HTML/CSS Compatibility Matrix (MVP Allowlist)
 
 > **Parent:** `plans/0.1.0/00-canonical-pure-go-rewrite.md` (Phase 0.1); post-MVP updates under `plans/0.2.0/10-canonical-post-mvp-roadmap.md`  
 > **Status:** living contract - amendments go through plan review  
-> **Target:** authored HTML templates → PDF. **Not** a browser.  
+> **Target:** authored HTML templates to a drawing list and a PNG or JPEG. **Not** a browser. **Not** a PDF writer.  
 > **Last honesty audit:** 2026-09-21 · catalog 407 Implemented / 0 Partial / 411 Unsupported of 818 (`plans/0.2.6/catalog/mapping.json`) · fidelity guide: [fidelity.md](fidelity.md)
 > **Phase 21 note:** arbitrary-website / "decent print" work does **not** expand this matrix. CSS remains a **print CSS subset** (Partial flex/grid/position; many properties Not implemented). No new Implemented rows until code + tests ship - see [fidelity.md § Arbitrary websites](fidelity.md#arbitrary-websites-phase-21).
 
-This document is the **contract** the layout engine is allowed to implement.
+This document is the contract for the layout engine. Rows that mention a PDF content stream, an ExtGState, or a page fragment describe the writer that was removed. The property is still parsed onto the drawing list, and the PNG path paints that list.
 Anything not listed here is *unsupported*; unsupported input must degrade
 gracefully (ignored declaration / skipped node / documented error), never
 crash. Product framing: [fidelity.md](fidelity.md). **Still not full CSS.**
@@ -211,7 +211,7 @@ Status legend (verified against `applyRestProps` in
 | `colspan` | Yes | `colSpan`; test `TestTableColspan` |
 | `rowspan` | Yes / Implemented | column occupancy + height growth (`placeTableCells`, `growRowspanRows`); tests `TestTableRowspan*` |
 | `border-collapse` | Implemented | see §2.5 |
-| Pagination | Fragment + whole-op + phase-18 polish | rect-type ops (fill/stroke/line) split at page boundaries; text/images/links move wholly (line-level) (`paint_flow_*`); `page-break-before/after: always`, `page-break-inside: avoid`, table rows never split; **`<thead>` / `table-header-group` repeat** on continuation pages (`repeatTableHeaders`, fixture-23); CSS `orphans`/`widows` parsed + Rule 3 when line boxes exist (heuristic fallback; fixtures 30/37); `--zoom` forwarded; smart-shrinking re-layouts. `Result.Locations` for outlines/links. Break aliases in §2.6. See "Pagination" note below. |
+| Pagination | Not a PDF page splitter | `page-break-*` and `break-*` are parsed onto the style. The renderer paints one canvas. It does not split operations across PDF pages, repeat `<thead>` on later pages, or write outlines. |
 | Floats / absolute positioning | Float lite + absolute/fixed/sticky lite | float/`clear` lite (§2.2); relative/absolute/fixed lite; sticky = print page scrollport + overflow@0 (§2.2; fixture-31) |
 | Flexbox / Grid | Partial | Stage A flex + Stage B grid (areas/dense/`minmax`) + Stage C lite (§2.7 / §2.8). Paths: `flex.go`, `grid.go`, `style.go`; fixtures 25/28/32-35; plan `plans/0.2.0/phases/subplans-tier-2/flex-grid-full.md`. **Not** Bootstrap/Tailwind / Chrome layout-test parity |
 | Multicol | Partial | Report lite: `column-count`/`column-width`/`columns`, `column-height`, `column-wrap` (wrap/auto rows), `column-gap` (normal to 1em), `column-span:none\|all`, `column-fill:balance\|auto`; column boxes do not straddle pages (§2.9; `multicol.go`; fixture-39) |
@@ -219,7 +219,7 @@ Status legend (verified against `applyRestProps` in
 | JavaScript | No | `<script>` stripped at load; no engine. `--enable-javascript` is an **unknown option** (Policy A) |
 | Image-mode text | TTF outline raster | same Liberation faces as PDF; pure-Go coverage AA (`internal/imageout/ttfraster.go`); 5×7 bitmap only if an op has no font |
 
-**Pagination (phases 5 + 18).** Box-aware fragmentation: rect-type ops crossing a page boundary are split; text, images and links move wholly (line-level). `page-break-before/after: always` and `page-break-inside: avoid` via canvas-Y flow shifts (`paint_flow_*`); table rows never split. **Table headers repeat** across pages (`repeatTableHeaders`; fixture-23). **`--zoom`** is forwarded to `layout.Options.Zoom` (`convert.go`; `TestZoom`). **Smart-shrinking** detects over-wide content and **re-layouts** with an effective zoom (`TestRunPDFSmartShrinking`). CSS `orphans`/`widows` are parsed (initial 2) and Fragmentation Rule 3 is applied when line boxes are available; the geometric short-block heuristic remains for edge cases (fixtures 30/37). Break value aliases (`left`/`right`/`page`/`column` -> `always`, `avoid-column` ignored) are in §2.6; they do not create even/odd pages. `Result.Locations` carries element boxes for outlines/links.
+**Pages.** Break values are stored (`style_properties.go`, `applyPageBreakProps`). The layout engine does not fragment the drawing list into PDF pages. `--zoom` scales the canvas. Orphans and widows are parsed. They do not move lines onto a next PDF page.
 
 ### 2.7 Flexbox (Stage A - print CSS subset)
 
@@ -756,7 +756,7 @@ They fail parse with `unknown option` (`TestStubFlagsRemoved`,
 | `--toc-forward-links` | PDF | Supported (`TestTOC`) |
 | `--toc-back-links` | PDF | Supported (`TestTOC`) |
 
-### 7.9 Image mode (`gowkhtmltoimage`)
+### 7.9 Image mode (`blinkless`)
 
 | Flag | Mode | Status |
 |------|------|--------|

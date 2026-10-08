@@ -1,7 +1,7 @@
 ---
 name: release-note
 description: >
-  Cut a gowkhtmltopdf release: bump VERSION, write CHANGELOG and GitHub
+  Cut a blinkless release: bump VERSION, write CHANGELOG and GitHub
   release notes from the previous tag, drop “unreleased” language from
   the generic user docs and site, stamp cli.Version, open the chore
   release PR. Use when the user says “release notes”, “draft release”,

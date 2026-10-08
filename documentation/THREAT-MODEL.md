@@ -1,13 +1,10 @@
 # Threat Model
 
-Scope: security-relevant behaviour of the pure-Go HTML→PDF engine, centred
-on `internal/load` (resource fetching) and the pipeline that consumes
-fetched bytes. Written for Phase 9.2 (security).
+Scope: what the renderer fetches. The product encodes a drawing list as a PNG or JPEG. It does not write a PDF.
 
 ## 1. Trust boundary
 
-The engine converts HTML into a PDF. The HTML document is the primary
-attack surface:
+The HTML document is the primary attack surface:
 
 - A document can name arbitrary network resources (`http`, `https`,
   `data:`, and - subject to the ACL - `file:`).
@@ -177,7 +174,7 @@ allowlists and network isolation.
 
 **Same for upstream wkhtmltopdf:** the same SSRF / local-file classes apply
 if the app design is “user URL → convert.” wkhtmltopdf also runs a real
-JS engine (additional surface); gowkhtmltopdf does not. Neither tool is a
+JS engine (additional surface); blinkless does not. Neither tool is a
 substitute for not letting strangers drive server-side fetches.
 
 ## 8. Controls inventory

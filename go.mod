@@ -1,4 +1,4 @@
-module github.com/chinmay-sawant/gowkhtmltopdf
+module github.com/chinmay-sawant/blinkless
 
 go 1.26
 

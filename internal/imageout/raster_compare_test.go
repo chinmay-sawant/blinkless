@@ -11,10 +11,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/layout"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
+	"github.com/chinmay-sawant/blinkless/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/layout"
+	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
 )
 
 // raster_compare_test.go is the IMG-03 decoded-image comparison: the public

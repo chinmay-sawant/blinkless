@@ -4,8 +4,8 @@ import (
 	"math"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf/assets"
+	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
+	"github.com/chinmay-sawant/blinkless/internal/fonts/assets"
 )
 
 func TestFontPaletteCPALFillDiffersFromNormal(t *testing.T) {

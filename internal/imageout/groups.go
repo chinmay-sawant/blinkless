@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/layout"
+	"github.com/chinmay-sawant/blinkless/internal/layout"
 )
 
 // hasElementGroups reports whether any op belongs to a CSS element group.

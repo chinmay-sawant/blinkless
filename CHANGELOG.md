@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to gowkhtmltopdf are recorded here. This project follows
+All notable changes to blinkless are recorded here. This project follows
 semantic versioning; `VERSION` holds the current release and is stamped into
 binaries at build time (see README "Versioning").
 
@@ -46,14 +46,14 @@ binaries at build time (see README "Versioning").
 
 ### Added
 
-- **Python bindings (in-process, [#35](https://github.com/chinmay-sawant/gowkhtmltopdf/issues/35)):** new `bindings/c` frozen C ABI v1 (`GOWKHTMLTOPDF_VERSION 0.2.5`, `GOWKHTMLTOPDF_ABI_VERSION 1`, 7 status codes, `abi_version`+`struct_size` gate, borrowed inputs, `malloc`/`free` ownership) and `bindings/c/include/gowkhtmltopdf.h` as committed header. `CGO_ENABLED=1 -buildmode=c-shared` exports `gowkhtmltopdf_html_to_pdf` / `html_to_image` over `Document.WritePDF` / `ImageDocument.WriteImage` with timeout/context.
-- **Python package `gowkhtmltopdf` on PyPI:** `bindings/python` (`pyproject.toml`, `src` layout, `setup.py` `VERSION` shim, `py.typed`, zero runtime deps, `requires-python >=3.8`) with `ctypes` loader (`_lib.py` search `GOWKHTMLTOPDF_LIBRARY_PATH` then wheel then `dist/`, `RTLD_LOCAL`, pinned `argtypes`, `ABI_VERSION` check, keepalive, `GIL` released during render), `Document`/`ImageDocument` snake_case parity plus `PDFOptions`/`ImageOptions`, `convert_html_to_pdf` / `convert_file_to_pdf` (file parent `file://` base for linked CSS) / `convert_html_to_image`, and typed errors with sentinels. `make c-shared`, `make python-binding-test`, and `scripts/build_cshared_for_wheel.sh` for wheels.
+- **Python bindings (in-process, [#35](https://github.com/chinmay-sawant/blinkless/issues/35)):** new `bindings/c` frozen C ABI v1 (`BLINKLESS_VERSION 0.2.5`, `BLINKLESS_ABI_VERSION 1`, 7 status codes, `abi_version`+`struct_size` gate, borrowed inputs, `malloc`/`free` ownership) and `bindings/c/include/blinkless.h` as committed header. `CGO_ENABLED=1 -buildmode=c-shared` exports `blinkless_html_to_pdf` / `html_to_image` over `Document.WritePDF` / `ImageDocument.WriteImage` with timeout/context.
+- **Python package `blinkless` on PyPI:** `bindings/python` (`pyproject.toml`, `src` layout, `setup.py` `VERSION` shim, `py.typed`, zero runtime deps, `requires-python >=3.8`) with `ctypes` loader (`_lib.py` search `BLINKLESS_LIBRARY_PATH` then wheel then `dist/`, `RTLD_LOCAL`, pinned `argtypes`, `ABI_VERSION` check, keepalive, `GIL` released during render), `Document`/`ImageDocument` snake_case parity plus `PDFOptions`/`ImageOptions`, `convert_html_to_pdf` / `convert_file_to_pdf` (file parent `file://` base for linked CSS) / `convert_html_to_image`, and typed errors with sentinels. `make c-shared`, `make python-binding-test`, and `scripts/build_cshared_for_wheel.sh` for wheels.
 - **Wheels and publish:** `tool.cibuildwheel` `manylinux_2_28` `x86_64`+`aarch64`, single `macos-latest` (arm64), and `windows-latest` in `.github/workflows/publish-pypi.yml` (tag `v*` + `workflow_dispatch`, `id-token: write` Trusted Publishing, `check` with `scripts/check_versions.sh` + `twine check --strict` before `pypa/gh-action-pypi-publish`).
 - **Docs:** new `documentation/python.md` (install, both snippet styles, options/mapping, errors 0-6, timeouts, security, ABI stability, self-build, platforms) plus `README.md` teaser and `documentation/README.md` / `getting-started.md` / `deferred.md` updates.
 
 ### Changed
 
-- Bumped `VERSION` / `internal/cli.Version` / `bindings/python` / `bindings/c/include/gowkhtmltopdf.h` to `0.2.5` and aligned `scripts/check_versions.sh` single source.
+- Bumped `VERSION` / `internal/cli.Version` / `bindings/python` / `bindings/c/include/blinkless.h` to `0.2.5` and aligned `scripts/check_versions.sh` single source.
 - `Makefile` now has `BINDINGS_VERSION_LDFLAGS`, guarded `c-shared` / `bindings-clean` / `check-versions` / `python-binding-test` targets; `.golangci.yml` excludes `bindings` (cgo glue via `go vet`); `.gitignore` ignores `dist/` and `bindings/**/*.so/.dylib/.dll`; `ci.yml` adds purity guard and `build-shared` + `python-binding` jobs.
 
 ## 0.2.4 (2026-08-18)
@@ -78,22 +78,22 @@ binaries at build time (see README "Versioning").
 ## 0.2.3 (2026-08-15)
 
 Same engine as [0.2.2](#022-2026-08-15). Module path is
-`github.com/chinmay-sawant/gowkhtmltopdf` so `go install` works.
+`github.com/chinmay-sawant/blinkless` so `go install` works.
 
 ```sh
-go install github.com/chinmay-sawant/gowkhtmltopdf/cmd/gowkhtmltopdf@v0.2.3
-go install github.com/chinmay-sawant/gowkhtmltopdf/cmd/gowkhtmltoimage@v0.2.3
+go install github.com/chinmay-sawant/blinkless/cmd/blinkless@v0.2.3
+go install github.com/chinmay-sawant/blinkless/cmd/blinkless@v0.2.3
 ```
 
-PRs: [#50](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/50),
-[#51](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/51).
+PRs: [#50](https://github.com/chinmay-sawant/blinkless/pull/50),
+[#51](https://github.com/chinmay-sawant/blinkless/pull/51).
 Compare:
-[v0.2.2...v0.2.3](https://github.com/chinmay-sawant/gowkhtmltopdf/compare/v0.2.2...v0.2.3).
+[v0.2.2...v0.2.3](https://github.com/chinmay-sawant/blinkless/compare/v0.2.2...v0.2.3).
 
 ### Changed
 
-- **Module path ([#51](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/51)):**
-  `go.mod` is `github.com/chinmay-sawant/gowkhtmltopdf`. Library import and
+- **Module path ([#51](https://github.com/chinmay-sawant/blinkless/pull/51)):**
+  `go.mod` is `github.com/chinmay-sawant/blinkless`. Library import and
   `go install` / `go get` use that path. Nested stub modules keep `frontend/`,
   `output/`, and `docs/` out of the parent module zip.
 
@@ -105,24 +105,24 @@ Default output remains **unclaimed PDF 1.4**. `--pdf-version` `1.4` / `1.7` /
 `--pdf-profile` / `WithPDFProfile`. Encryption, AcroForm, and JavaScript
 remain out of scope.
 
-PRs: [#44](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/44),
-[#45](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/45),
-[#46](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/46),
-[#47](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/47),
-[#48](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/48),
-[#49](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/49).
+PRs: [#44](https://github.com/chinmay-sawant/blinkless/pull/44),
+[#45](https://github.com/chinmay-sawant/blinkless/pull/45),
+[#46](https://github.com/chinmay-sawant/blinkless/pull/46),
+[#47](https://github.com/chinmay-sawant/blinkless/pull/47),
+[#48](https://github.com/chinmay-sawant/blinkless/pull/48),
+[#49](https://github.com/chinmay-sawant/blinkless/pull/49).
 Compare:
-[v0.2.1...v0.2.2](https://github.com/chinmay-sawant/gowkhtmltopdf/compare/v0.2.1...v0.2.2).
+[v0.2.1...v0.2.2](https://github.com/chinmay-sawant/blinkless/compare/v0.2.1...v0.2.2).
 
 ### Added
 
-- **PDF 1.7 profiles ([#45](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/45)):**
+- **PDF 1.7 profiles ([#45](https://github.com/chinmay-sawant/blinkless/pull/45)):**
   Opt-in PDF/A-3a, PDF/UA-1, and dual `a3a-ua1` via `--pdf-profile` /
   `WithPDFProfile` (implies PDF 1.7). Claiming XMP (`pdfaid:part=3`,
   `pdfaid:conformance=A`, `pdfuaid:part=1`), sRGB OutputIntent, `/DefaultRGB`,
   MarkInfo, and a logical structure tree. Multi-page structure elements emit
   MCR dictionaries; CIDFontType2 `/FontName` matches parent `/BaseFont`.
-- **PDF 2.0 and 2.0 profiles ([#46](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/46)):**
+- **PDF 2.0 and 2.0 profiles ([#46](https://github.com/chinmay-sawant/blinkless/pull/46)):**
   Opt-in `%PDF-2.0` via `--pdf-version 2.0` / `WithPDFVersion("2.0")`
   (trailer `/ID`, UTF-8 document strings, non-claiming XMP). Opt-in PDF/A-4,
   PDF/UA-2, and dual `a4-ua2` via `--pdf-profile` / `WithPDFProfile` (implies
@@ -132,7 +132,7 @@ Compare:
 
 ### Changed
 
-- **Profile Get and sentinels ([#47](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/47)):**
+- **Profile Get and sentinels ([#47](https://github.com/chinmay-sawant/blinkless/pull/47)):**
   `Get("pdfprofile")` returns the canonical token (`a3a-ua1` →
   `PDF/A-3a+PDF/UA-1`; `ua1` → `PDF/UA-1`; `a4-ua2` → `PDF/A-4+PDF/UA-2`;
   and so on). Profile + wrong-version conflicts use unified
@@ -143,8 +143,8 @@ Compare:
 
 ### Fixed
 
-- **Tagged PDF wiring ([#45](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/45),
-  [#47](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/47)):**
+- **Tagged PDF wiring ([#45](https://github.com/chinmay-sawant/blinkless/pull/45),
+  [#47](https://github.com/chinmay-sawant/blinkless/pull/47)):**
   Structure-tree and Arlington CIDFontType2 FontName issues on the 1.7 path;
   cloned-page MCIDs, link/outline `/SD` identity, single `/Document`, and
   header/footer isolation from the body tree. List tags nest
@@ -181,12 +181,12 @@ footers, TOC, and PDF outlines. **Tier 1** (template quality) and **Tier 2**
 (leave wkhtmltopdf for most template jobs) are closed. This is **not** Chrome
 print parity.
 
-PRs: [#7](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/7)–[#34](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/34)
-(engine, docs, samples), [#36](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/36)
-(release prep), [#37](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/37)
-(docs site), [#38](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/38)
+PRs: [#7](https://github.com/chinmay-sawant/blinkless/pull/7)–[#34](https://github.com/chinmay-sawant/blinkless/pull/34)
+(engine, docs, samples), [#36](https://github.com/chinmay-sawant/blinkless/pull/36)
+(release prep), [#37](https://github.com/chinmay-sawant/blinkless/pull/37)
+(docs site), [#38](https://github.com/chinmay-sawant/blinkless/pull/38)
 (CONTRIBUTING). Compare:
-[v0.1.0...v0.2.0](https://github.com/chinmay-sawant/gowkhtmltopdf/compare/v0.1.0...v0.2.0).
+[v0.1.0...v0.2.0](https://github.com/chinmay-sawant/blinkless/compare/v0.1.0...v0.2.0).
 
 ### Added
 
@@ -216,7 +216,7 @@ PRs: [#7](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/7)–[#34](https:
 - **CLI / ops:** mode-invalid flags fail at parse; Restricted dial pinning;
   opt-in `--simplify-dom` chrome-strip (default off); `v*` tag workflow
   publishes linux/windows/darwin × amd64/arm64 binaries + `SHA256SUMS`.
-- **Documentation site:** https://chinmay-sawant.github.io/gowkhtmltopdf/
+- **Documentation site:** https://chinmay-sawant.github.io/blinkless/
   - Overview, Getting Started, sidebar docs, Issue Dossier (1,329 open
   wkhtmltopdf issues classified), Showcase gallery, Benchmarks tab.
 - **Docs:** fidelity guide, fonts guide, performance snapshots,
@@ -301,9 +301,9 @@ modules recorded in `go.mod`.
 - **Headers/footers, TOC, outline, links (phase 6):** text headers/footers
   with `[page]`/`[frompage]`/`[title]`/… placeholders, table of contents,
   PDF outline, internal/external links.
-- **Image converter (phase 7):** `gowkhtmltoimage` PNG/JPEG raster output
+- **Image converter (phase 7):** `blinkless` PNG/JPEG raster output
   (bitmap-font text, no anti-aliasing - see limits).
-- **Library API (phase 8):** `gowkhtmltopdf` root package  - 
+- **Library API (phase 8):** `blinkless` root package  - 
   `NewConverter`/`AddObject`/`Convert`/`Output`,
   `NewImageConverter`, settings `Set`/`Get`.
 - **Release gates (phase 9):** 10-page table-report performance budget

@@ -3,9 +3,9 @@ package css_test
 import (
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/layout"
+	"github.com/chinmay-sawant/blinkless/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/layout"
 )
 
 // Property names repeated across the @supports fixtures.

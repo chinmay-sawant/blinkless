@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 func loadChromeFlexCase0102(t *testing.T, name string) (*html.Node, []*css.Stylesheet) {

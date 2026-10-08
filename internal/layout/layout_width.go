@@ -1,6 +1,6 @@
 package layout
 
-import "github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+import "github.com/chinmay-sawant/blinkless/internal/html"
 
 // resolveDefiniteWidth applies the width/width% to *w. Returns false when the
 // width resolves to auto (cyclic % honesty: indefinite containing block).

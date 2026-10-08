@@ -1,4 +1,4 @@
-// Package errs provides canonical domain and operational sentinel errors for gowkhtmltopdf.
+// Package errs provides canonical domain and operational sentinel errors for blinkless.
 package errs
 
 import "errors"
@@ -20,8 +20,8 @@ import "errors"
 //   - ErrNilCommand (primary in app; imageout/compat_test cannot import app due to app -> imageout cycle)
 var (
 	// ErrNilContext is returned when a cancellation-aware operation receives a nil context.
-	ErrNilContext = errors.New("gowkhtmltopdf: nil context")
+	ErrNilContext = errors.New("blinkless: nil context")
 	// ErrNilCommand is returned when an app pipeline is executed with a nil CLI command.
 	// Deprecated: use app.ErrNilCommand which is now the primary definition.
-	ErrNilCommand = errors.New("gowkhtmltopdf: nil command")
+	ErrNilCommand = errors.New("blinkless: nil command")
 )

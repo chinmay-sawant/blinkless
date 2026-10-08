@@ -3,7 +3,7 @@ package css
 import (
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 // :target must not degrade to the host selector. Wikipedia paints

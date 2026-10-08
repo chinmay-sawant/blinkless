@@ -12,7 +12,7 @@ const conversionTimeout = 60 * time.Second
 
 func main() {
 	convert := js.FuncOf(convertJS)
-	js.Global().Set("gowkhtmltopdfWASM", convert)
+	js.Global().Set("blinklessWASM", convert)
 	select {}
 }
 

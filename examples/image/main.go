@@ -20,7 +20,7 @@ import (
 	"os"
 	"strconv"
 
-	gowkhtmltopdf "github.com/chinmay-sawant/gowkhtmltopdf"
+	blinkless "github.com/chinmay-sawant/blinkless"
 )
 
 const imageArgumentCount = 2
@@ -83,7 +83,7 @@ func run(argv []string) error {
 		width = parsed
 	}
 
-	var doc gowkhtmltopdf.ImageDocument
+	var doc blinkless.ImageDocument
 	doc.Source.File = flags.Arg(0)
 	doc.Width = width
 	doc.Format = *format

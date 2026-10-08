@@ -1,5 +1,5 @@
 // Package html implements a tokenizer and tree builder for the HTML subset
-// gowkhtmltopdf accepts: tags, attributes, text, comments, doctype, CDATA,
+// blinkless accepts: tags, attributes, text, comments, doctype, CDATA,
 // self-closing and void elements. Script/style contents are kept as raw text
 // and stripped at the layout stage. No browser-grade error recovery: common
 // malformed nesting degrades to a usable tree, not a crash.

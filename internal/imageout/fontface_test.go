@@ -9,13 +9,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/cli"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/convert/prepare"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/layout"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/load"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/settings"
+	"github.com/chinmay-sawant/blinkless/internal/cli"
+	"github.com/chinmay-sawant/blinkless/internal/convert/prepare"
+	"github.com/chinmay-sawant/blinkless/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/layout"
+	"github.com/chinmay-sawant/blinkless/internal/load"
+	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
+	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 
 // copyTestdataTTF copies a known TTF into dir as Custom.ttf for @font-face fixtures.

@@ -3,7 +3,7 @@ package layout_test
 import (
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/html"
+	"github.com/chinmay-sawant/blinkless/html"
 )
 
 // TestLayoutResolvesStylesPerDocument proves the tree carries no memoized

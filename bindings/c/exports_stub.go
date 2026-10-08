@@ -10,11 +10,6 @@ import (
 	"context"
 )
 
-// runPDFWithContext mirrors the cgo build mode entry point signature.
-func runPDFWithContext(_ context.Context, _ []byte, _ pdfOptions) (int32, []byte, string) {
-	return statusInternal, nil, stubRequiredCGOError
-}
-
 // runImageWithContext mirrors the cgo build mode entry point signature.
 func runImageWithContext(_ context.Context, _ []byte, _ imageOptions) (int32, []byte, string) {
 	return statusInternal, nil, stubRequiredCGOError

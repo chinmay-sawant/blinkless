@@ -1,13 +1,13 @@
 //go:build cgo
 
-// cgo facade for libgowkhtmltopdf. This file owns every C pointer
+// cgo facade for libblinkless. This file owns every C pointer
 // interaction: it validates the ABI gate, copies borrowed buffers into Go
 // memory, drives the shared run hooks, and hands results back under the
-// ownership rules of include/gowkhtmltopdf.h.
+// ownership rules of include/blinkless.h.
 package main
 
 /*
-// The struct layouts below mirror include/gowkhtmltopdf.h. Including the
+// The struct layouts below mirror include/blinkless.h. Including the
 // committed header directly is not possible here: cgo regenerates
 // prototypes for exported functions without const qualifiers, which
 // conflicts with the header's const declarations. The runtime abi_version
@@ -74,44 +74,23 @@ import (
 	"unsafe"
 )
 
-// networkPolicyRestricted selects gowkhtmltopdf.RestrictedNetworkPolicy when
+// networkPolicyRestricted selects blinkless.RestrictedNetworkPolicy when
 // set in either options struct; 0 keeps the compatible default policy.
 const networkPolicyRestricted = 1
 
-//export gowkhtmltopdf_abi_version
-func gowkhtmltopdf_abi_version() C.int32_t {
+//export blinkless_abi_version
+func blinkless_abi_version() C.int32_t {
 	return C.int32_t(abiVersionValue)
 }
 
-//export gowkhtmltopdf_version
-func gowkhtmltopdf_version() *C.char {
+//export blinkless_version
+func blinkless_version() *C.char {
 	return C.CString(libVersion)
 }
 
-//export gowkhtmltopdf_html_to_pdf
-func gowkhtmltopdf_html_to_pdf(
-	cHTML *C.char,
-	cLen C.size_t,
-	cOpts *C.GwkPdfOptions,
-	cOutData **C.uchar,
-	cOutLen *C.size_t,
-	cErr **C.char,
-) C.int {
-	html, opts, rejected := parsePDFRequest(cHTML, cLen, cOpts, cErr)
-	if rejected {
-		return C.int(statusInvalidArg)
-	}
 
-	ctx, cancel := requestContext(opts.timeoutMS)
-	defer cancel()
-
-	status, data, message := runPDFWithContext(ctx, html, opts)
-
-	return finishResult(status, data, message, cOutData, cOutLen, cErr)
-}
-
-//export gowkhtmltopdf_html_to_image
-func gowkhtmltopdf_html_to_image(
+//export blinkless_html_to_image
+func blinkless_html_to_image(
 	cHTML *C.char,
 	cLen C.size_t,
 	cOpts *C.GwkImageOptions,
@@ -132,23 +111,23 @@ func gowkhtmltopdf_html_to_image(
 	return finishResult(status, data, message, cOutData, cOutLen, cErr)
 }
 
-//export gowkhtmltopdf_free
-func gowkhtmltopdf_free(p unsafe.Pointer) {
+//export blinkless_free
+func blinkless_free(p unsafe.Pointer) {
 	C.free(p)
 }
 
-//export gowkhtmltopdf_free_string
-func gowkhtmltopdf_free_string(s *C.char) {
+//export blinkless_free_string
+func blinkless_free_string(s *C.char) {
 	C.free(unsafe.Pointer(s))
 }
 
-//export gowkhtmltopdf_last_error_length
-func gowkhtmltopdf_last_error_length() C.int32_t {
+//export blinkless_last_error_length
+func blinkless_last_error_length() C.int32_t {
 	return C.int32_t(lastErrorLength())
 }
 
-//export gowkhtmltopdf_last_error
-func gowkhtmltopdf_last_error(buf *C.char, bufLen C.int32_t) C.int32_t {
+//export blinkless_last_error
+func blinkless_last_error(buf *C.char, bufLen C.int32_t) C.int32_t {
 	if buf == nil || bufLen <= 0 {
 		return 0
 	}
@@ -158,22 +137,6 @@ func gowkhtmltopdf_last_error(buf *C.char, bufLen C.int32_t) C.int32_t {
 	return C.int32_t(copyLastErrorInto(sink))
 }
 
-// runPDFWithContext renders one inline HTML page to PDF bytes and returns
-// the ABI status, the payload bytes, and a diagnostic message that is empty
-// on success. It exists as a hook so tests can drive the exact export path
-// with their own contexts.
-func runPDFWithContext(ctx context.Context, html []byte, opts pdfOptions) (int32, []byte, string) {
-	if message, ok := validatePDFRange(opts); !ok {
-		return statusInvalidArg, nil, message
-	}
-
-	var output bytes.Buffer
-	if err := buildPDFDocument(html, opts).WritePDF(ctx, &output); err != nil {
-		return classifyError(err, ctx), nil, err.Error()
-	}
-
-	return statusOK, output.Bytes(), ""
-}
 
 // runImageWithContext renders one inline HTML page to encoded image bytes
 // using the same conventions as runPDFWithContext.
@@ -200,37 +163,6 @@ func requestContext(timeoutMS int64) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), time.Duration(timeoutMS)*time.Millisecond)
 }
 
-// parsePDFRequest copies the borrowed HTML buffer and converts the options
-// struct. A true third result means the request was rejected and both the
-// out_err parameter and the last-error slot already carry the diagnostic.
-func parsePDFRequest(
-	cHTML *C.char,
-	cLen C.size_t,
-	cOpts *C.GwkPdfOptions,
-	cErr **C.char,
-) ([]byte, pdfOptions, bool) {
-	var empty pdfOptions
-
-	if cHTML == nil || cLen == 0 {
-		rejectRequest("html buffer is nil or empty", cErr)
-
-		return nil, empty, true
-	}
-	if int64(cLen) > int64(math.MaxInt32) {
-		message := fmt.Sprintf("html length %d exceeds the %d byte limit",
-			int64(cLen), int64(math.MaxInt32))
-		rejectRequest(message, cErr)
-
-		return nil, empty, true
-	}
-
-	opts, ok := convertPDFOptions(cOpts, cErr)
-	if !ok {
-		return nil, empty, true
-	}
-
-	return C.GoBytes(unsafe.Pointer(cHTML), C.int(cLen)), opts, false
-}
 
 // parseImageRequest mirrors parsePDFRequest for GwkImageOptions.
 func parseImageRequest(
@@ -262,83 +194,8 @@ func parseImageRequest(
 	return C.GoBytes(unsafe.Pointer(cHTML), C.int(cLen)), opts, false
 }
 
-// convertPDFOptions maps a GwkPdfOptions pointer onto pdfOptions. A nil
-// pointer selects defaults for every field. Unknown abi_version values and
-// mismatched struct sizes are rejected so layout drift cannot corrupt reads.
-func convertPDFOptions(cOpts *C.GwkPdfOptions, cErr **C.char) (pdfOptions, bool) {
-	var opts pdfOptions
-	if cOpts == nil {
-		return opts, true
-	}
 
-	if int32(cOpts.abi_version) != abiVersionValue {
-		rejectRequest(abiGateMessage(int64(cOpts.abi_version)), cErr)
 
-		return opts, false
-	}
-	if cOpts.struct_size != 0 && int64(cOpts.struct_size) != int64(C.sizeof_GwkPdfOptions) {
-		rejectRequest(structSizeMessage("GwkPdfOptions",
-			int64(cOpts.struct_size), int64(C.sizeof_GwkPdfOptions)), cErr)
-
-		return opts, false
-	}
-
-	if !convertPDFStrings(cOpts, &opts) {
-		rejectRequest(allowListMessage(int64(cOpts.allow_len)), cErr)
-
-		return opts, false
-	}
-	convertPDFNumbers(cOpts, &opts)
-
-	return opts, true
-}
-
-// convertPDFStrings copies the borrowed string and array fields of a PDF
-// options struct. Nil strings behave like empty ones per the header contract.
-// The bool is false when the allow array length exceeds the cap.
-func convertPDFStrings(cOpts *C.GwkPdfOptions, opts *pdfOptions) bool {
-	if cOpts.page_size != nil {
-		opts.pageSize = C.GoString(cOpts.page_size)
-	}
-	if cOpts.orientation != nil {
-		opts.orientation = C.GoString(cOpts.orientation)
-	}
-	if cOpts.title != nil {
-		opts.title = C.GoString(cOpts.title)
-	}
-	if cOpts.pdf_version != nil {
-		opts.pdfVersion = C.GoString(cOpts.pdf_version)
-	}
-	if cOpts.pdf_profile != nil {
-		opts.pdfProfile = C.GoString(cOpts.pdf_profile)
-	}
-	if cOpts.base_url != nil {
-		opts.baseURL = C.GoString(cOpts.base_url)
-	}
-
-	allow, ok := convertAllowList(cOpts.allow, cOpts.allow_len)
-	if !ok {
-		return false
-	}
-	opts.allow = allow
-
-	return true
-}
-
-// convertPDFNumbers copies the scalar fields of a PDF options struct.
-func convertPDFNumbers(cOpts *C.GwkPdfOptions, opts *pdfOptions) {
-	opts.widthMM = float64(cOpts.width_mm)
-	opts.heightMM = float64(cOpts.height_mm)
-	opts.marginTop = float64(cOpts.margin_top)
-	opts.marginRight = float64(cOpts.margin_right)
-	opts.marginBottom = float64(cOpts.margin_bottom)
-	opts.marginLeft = float64(cOpts.margin_left)
-	opts.copies = int(cOpts.copies)
-	opts.grayscale = cOpts.grayscale != 0
-	opts.localFiles = cOpts.enable_local_file_access != 0
-	opts.restricted = int(cOpts.network_policy) == networkPolicyRestricted
-	opts.timeoutMS = int64(cOpts.timeout_ms)
-}
 
 // convertImageOptions maps a GwkImageOptions pointer onto imageOptions using
 // the same gates as convertPDFOptions.
@@ -488,23 +345,23 @@ func probeFinishResult(
 	got := finishResult(status, data, message, outDataP, outLenP, errP)
 
 	if out != nil {
-		gowkhtmltopdf_free(unsafe.Pointer(out))
+		blinkless_free(unsafe.Pointer(out))
 	}
 	if cErr == nil {
 		return int32(got), int(outLen), ""
 	}
 
 	msg := C.GoString(cErr)
-	gowkhtmltopdf_free_string(cErr)
+	blinkless_free_string(cErr)
 
 	return int32(got), int(outLen), msg
 }
 
 // finishResult writes the success payload or the failure diagnostic into the
 // caller-owned out parameters and records diagnostics in the last-error
-// slot. Memory conventions follow include/gowkhtmltopdf.h: success stores an
-// allocation for gowkhtmltopdf_free with NULL out_err; failure stores NULL
-// data, zero length, and an allocation for gowkhtmltopdf_free_string.
+// slot. Memory conventions follow include/blinkless.h: success stores an
+// allocation for blinkless_free with NULL out_err; failure stores NULL
+// data, zero length, and an allocation for blinkless_free_string.
 func finishResult(
 	status int32,
 	data []byte,
@@ -562,95 +419,30 @@ func structSizeMessage(kind string, got, want int64) string {
 	return fmt.Sprintf("%s struct_size %d does not match expected %d", kind, got, want)
 }
 
-// exportedABI returns the result of gowkhtmltopdf_abi_version. It and the
+// exportedABI returns the result of blinkless_abi_version. It and the
 // helpers below let Go-side tests drive the real export signatures; go vet
 // rejects cgo inside test files, so every C pointer interaction lives here.
 func exportedABI() int32 {
-	return int32(gowkhtmltopdf_abi_version())
+	return int32(blinkless_abi_version())
 }
 
 // exportedVersion returns the version string allocated by
-// gowkhtmltopdf_version, releasing it through gowkhtmltopdf_free_string.
+// blinkless_version, releasing it through blinkless_free_string.
 func exportedVersion() string {
-	version := gowkhtmltopdf_version()
-	defer gowkhtmltopdf_free_string(version)
+	version := blinkless_version()
+	defer blinkless_free_string(version)
 
 	return C.GoString(version)
 }
 
-// invokePDFExport calls gowkhtmltopdf_html_to_pdf with the supplied options
-// pointer, converts the out parameters back to Go values, and releases both
-// allocations through the documented free functions.
-func invokePDFExport(html []byte, opts *C.GwkPdfOptions) (int32, []byte, string) {
-	cHTML := C.CString(string(html))
-	defer C.free(unsafe.Pointer(cHTML))
 
-	var out *C.uchar
-	var outLen C.size_t
-	var cErr *C.char
 
-	status := gowkhtmltopdf_html_to_pdf(
-		cHTML, C.size_t(len(html)), opts, &out, &outLen, &cErr)
-	if cErr != nil {
-		message := C.GoString(cErr)
-		gowkhtmltopdf_free_string(cErr)
 
-		return int32(status), nil, message
-	}
-	if out == nil {
-		return int32(status), nil, ""
-	}
-
-	data := C.GoBytes(unsafe.Pointer(out), C.int(outLen))
-	gowkhtmltopdf_free(unsafe.Pointer(out))
-
-	return int32(status), data, ""
-}
-
-// probePDFExport drives the export with a hand-built options struct carrying
-// an explicit abiVersion value and structSize stamp (a negative structSize
-// skips the stamp). It exists to exercise ABI gate rejections from tests.
-func probePDFExport(html []byte, abiVersion int32, structSize int64) (int32, []byte, string) {
-	var opts C.GwkPdfOptions
-	opts.abi_version = C.int32_t(abiVersion)
-
-	if structSize >= 0 {
-		opts.struct_size = C.int32_t(structSize)
-	}
-
-	return invokePDFExport(html, &opts)
-}
-
-// probeStampedPDFExport drives the export with a correctly stamped options
-// struct: supported abi_version plus the real sizeof(GwkPdfOptions).
-func probeStampedPDFExport(html []byte) (int32, []byte, string) {
-	var opts C.GwkPdfOptions
-	opts.abi_version = C.int32_t(abiVersionValue)
-	opts.struct_size = C.int32_t(C.sizeof_GwkPdfOptions)
-
-	return invokePDFExport(html, &opts)
-}
-
-// smokeFreePairingLoop runs the PDF export through the real C ABI n times,
-// releasing each payload with gowkhtmltopdf_free, then frees NULL. The
-// returned string describes the first failure and is empty on success.
-func smokeFreePairingLoop(html []byte, iterations int) string {
-	for range iterations {
-		status, data, message := invokePDFExport(html, nil)
-		if status != statusOK || len(data) == 0 || message != "" {
-			return message
-		}
-	}
-
-	gowkhtmltopdf_free(nil)
-
-	return ""
-}
 
 // readLastErrorViaExport copies the process-wide diagnostic through
-// gowkhtmltopdf_last_error into C memory and back as a Go string.
+// blinkless_last_error into C memory and back as a Go string.
 func readLastErrorViaExport() string {
-	length := gowkhtmltopdf_last_error_length()
+	length := blinkless_last_error_length()
 	if length <= 0 {
 		return ""
 	}
@@ -661,7 +453,7 @@ func readLastErrorViaExport() string {
 	}
 	defer C.free(unsafe.Pointer(sink))
 
-	written := gowkhtmltopdf_last_error(sink, length+1)
+	written := blinkless_last_error(sink, length+1)
 	if written <= 0 {
 		return ""
 	}

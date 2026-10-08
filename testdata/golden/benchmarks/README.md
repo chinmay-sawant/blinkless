@@ -70,7 +70,7 @@ npm ci --prefix scripts/puppeteer
 Puppeteer uses `/usr/bin/google-chrome` by default. Set
 `PUPPETEER_EXECUTABLE_PATH=/path/to/chrome` to use another Chrome binary.
 Puppeteer RSS is the peak sum of the Node driver and its headless-Chrome
-descendants sampled from `ps`; WeasyPrint and gowkhtmltopdf RSS are each the
+descendants sampled from `ps`; WeasyPrint and blinkless RSS are each the
 peak of the measured process reported by GNU `/usr/bin/time` `%M`. These are
 different collection methods and must not be read as identical RSS semantics.
 
@@ -116,7 +116,7 @@ The deterministic local benchmark remains the baseline for CI.
 Run the live API fetch benchmark:
 
 ```sh
-GOWKHTMLTOPDF_LIVE_BENCHMARK=1 \
+BLINKLESS_LIVE_BENCHMARK=1 \
   go test ./internal/convert -run '^$' \
   -bench '^BenchmarkLiveMovieData$' -benchmem -benchtime=1x -count=1
 ```
@@ -125,7 +125,7 @@ Run selected live listing sizes (the full matrix is available by removing the
 sub-benchmark filter):
 
 ```sh
-GOWKHTMLTOPDF_LIVE_BENCHMARK=1 \
+BLINKLESS_LIVE_BENCHMARK=1 \
   go test ./internal/convert -run '^$' \
   -bench '^BenchmarkLiveMovieListing/(2Images|5Images|10Images)$' \
   -benchmem -benchtime=1x -count=1
@@ -134,8 +134,8 @@ GOWKHTMLTOPDF_LIVE_BENCHMARK=1 \
 Generate a viewable live-data sample in the ignored `output/` directory:
 
 ```sh
-GOWKHTMLTOPDF_LIVE_BENCHMARK=1 \
-GOWKHTMLTOPDF_GENERATE_BENCHMARK_OUTPUTS=1 \
+BLINKLESS_LIVE_BENCHMARK=1 \
+BLINKLESS_GENERATE_BENCHMARK_OUTPUTS=1 \
   go test ./internal/convert -run '^TestGenerateLiveMovieOutput$' -count=1
 ```
 
@@ -146,7 +146,7 @@ This writes `live-movie-listing-010.pdf` and
 
 Host: Linux 6.6.87.2-microsoft-standard-WSL2 x86_64, 13th Gen Intel Core
 i7-13700HX (WSL2, 24 CPUs, 7.6 GiB RAM). Toolchain: go1.26.4. Engine: generic
-`bin/gowkhtmltopdf`, `VERSION` **0.2.6** (release tree `8aab63a`,
+`bin/blinkless`, `VERSION` **0.2.6** (release tree `8aab63a`,
 `chore/review-026`), built with `make build`. wkhtmltopdf **0.12.6.1 (with
 patched qt)** at `/usr/local/bin/wkhtmltopdf`.
 
@@ -175,7 +175,7 @@ previous 2026-09-12 capture (18.50x at 2 pages, 3.13x at 500 pages) remains in
 ### Direct CLI vs wkhtmltopdf (2026-09-13, cold full-process runs)
 
 Same generated report fixture (`report.html.tmpl`, 20 invoice rows per
-requested page). gowkhtmltopdf uses `--quiet --allow-local-files -o OUTPUT
+requested page). blinkless uses `--quiet --allow-local-files -o OUTPUT
 INPUT`; wkhtmltopdf 0.12.6.1 (patched Qt) uses `--quiet
 --enable-local-file-access INPUT OUTPUT`. Each cell is the **median of three
 timed process runs after one warmup**. Wall time is Go `time.Since` around
@@ -198,7 +198,7 @@ make bench-cli-compare
 | 250 | 279 ms | 973 ms | 3.49x | 52,032 KiB | 81,632 KiB | 722,322 | 1,019,315 |
 | 500 | 573 ms | 1.718 s | 3.00x | 80,448 KiB | 123,068 KiB | 1,420,537 | 2,036,776 |
 
-gowkhtmltopdf is faster and uses less peak RSS at every tested size, including
+blinkless is faster and uses less peak RSS at every tested size, including
 500 pages. Raw rows: [`cli-compare-results.csv`](cli-compare-results.csv),
 [`cli-compare.md`](cli-compare.md).
 
@@ -350,7 +350,7 @@ independent `1x` samples per workload, one fresh process per sample
 (`--benchtime=1x --count=1`), all captured with
 `scripts/bench-performance-recovery.sh`. Each reported time is the median of
 the three raw values; `B/op` is one of the raw values and is never averaged.
-The CLI row is this capture's `cli-rss` mode (gowkhtmltopdf only), the median
+The CLI row is this capture's `cli-rss` mode (blinkless only), the median
 of three timed runs after one warmup. `B/op` is cumulative allocation traffic,
 not peak RSS. Cold rows are the first conversion in a fresh process and are
 labeled where they appear.
@@ -420,7 +420,7 @@ workload, one fresh process per sample (`--benchtime=1x --count=1`), captured
 with `scripts/bench-performance-recovery.sh`; the warm matrix runs the full
 ascending size list in one process. Each reported time is the median of the
 three raw samples; `B/op` is one of the raw values and is never averaged. The
-CLI row is this capture's `cli-rss` mode (gowkhtmltopdf only), the median of
+CLI row is this capture's `cli-rss` mode (blinkless only), the median of
 three timed runs after one warmup. `B/op` is cumulative allocation traffic,
 not peak RSS. Cold rows are the first conversion in a fresh process and are
 labeled where they appear.
@@ -468,7 +468,7 @@ The same rows are recorded as Snapshot L in
 [`benchmark-results.txt`](benchmark-results.txt).
 
 The CLI rows above are this capture's `cli-rss` mode, which runs
-gowkhtmltopdf only, so they are not the `make bench-cli-compare` boundary; the
+blinkless only, so they are not the `make bench-cli-compare` boundary; the
 2026-09-11 wkhtmltopdf comparison table remains in the historical 2026-09-11
 recovery section below. The 2-page and 250-tile rows are fresh-process `1x` samples, so
 the one-time default-font work is charged to the single operation; they are
@@ -531,7 +531,7 @@ recovered because the direct final-resolution branch paints large canvases
 ### Direct CLI vs wkhtmltopdf (2026-09-11)
 
 Same generated report fixture (`report.html.tmpl`, 20 invoice rows per
-requested page). gowkhtmltopdf uses `--quiet --allow-local-files -o OUTPUT INPUT`; wkhtmltopdf uses its native local-file flags.
+requested page). blinkless uses `--quiet --allow-local-files -o OUTPUT INPUT`; wkhtmltopdf uses its native local-file flags.
 Each cell is the **median of three timed process runs after one warmup**.
 Wall time is Go `time.Since` around `/usr/bin/time`; peak RSS is `%M` in
 KiB. Requested page counts matched rendered page counts.
@@ -552,7 +552,7 @@ make bench-cli-compare
 | 250 | 599 ms | 988 ms | 1.65x | 139,584 KiB | 81,884 KiB | 721,739 | 1,019,315 |
 | 500 | **1.288 s** | **1.753 s** | **1.36x** | **240,960 KiB** | **123,172 KiB** | **1,419,234** | **2,036,776** |
 
-gowkhtmltopdf is faster at every tested size. Peak RSS was lower through 50
+blinkless is faster at every tested size. Peak RSS was lower through 50
 pages and higher from 100 pages on this generic path in this capture; the
 2026-09-13 capture above shows less peak RSS at every size, including 500
 pages. Raw rows:
@@ -588,7 +588,7 @@ Raw rows: [`weasyprint-compare.md`](weasyprint-compare.md),
 ## Historical snapshot (2026-08-19, 0.2.4 generic)
 
 Host: Linux amd64, 13th Gen Intel Core i7-13700HX (WSL2, 24 CPUs).
-Toolchain: go1.26.4. Freshly built `gowkhtmltopdf` **0.2.4** on the
+Toolchain: go1.26.4. Freshly built `blinkless` **0.2.4** on the
 **generic** convert path. wkhtmltopdf **0.12.6.1 (with patched qt)** at
 `/usr/local/bin/wkhtmltopdf`.
 
@@ -600,7 +600,7 @@ comparison. Older snapshots below stay for history.
 ### Direct CLI vs wkhtmltopdf
 
 Same generated report fixture (`report.html.tmpl`, 20 invoice rows per
- requested page). gowkhtmltopdf uses `--quiet --allow-local-files -o OUTPUT INPUT`; wkhtmltopdf uses its native local-file flags.
+ requested page). blinkless uses `--quiet --allow-local-files -o OUTPUT INPUT`; wkhtmltopdf uses its native local-file flags.
 Each cell is the **median of three timed process runs after one warmup**.
 Wall time is Go `time.Since` around `/usr/bin/time`; peak RSS is `%M` in
 KiB. Requested page counts matched rendered page counts.
@@ -621,7 +621,7 @@ make bench
 | 250 | 480 ms | 964 ms | 2.01x | 116,736 KiB | 81,740 KiB | 707,011 | 1,019,315 |
 | 500 | **1.042 s** | **1.671 s** | **1.60x** | **208,128 KiB** | **123,080 KiB** | **1,390,014** | **2,036,776** |
 
-gowkhtmltopdf was **faster at every tested size**. The largest gap is on
+blinkless was **faster at every tested size**. The largest gap is on
 short documents (about **16x** at 2 pages) because wkhtmltopdf pays a
 ~250 ms WebKit/process start. At 500 pages it is still about **1.6x**
 faster.
@@ -632,11 +632,11 @@ this generic path. PDF bytes are larger at 2–20 pages and smaller from
 
 | Use case | Preferred engine | Reason |
 |---|---|---|
-| High-volume short reports (2–50 pages) | gowkhtmltopdf | 4–16x faster and lower RSS |
-| Large reports where wall time matters | gowkhtmltopdf | Still faster at 100–500 pages |
+| High-volume short reports (2–50 pages) | blinkless | 4–16x faster and lower RSS |
+| Large reports where wall time matters | blinkless | Still faster at 100–500 pages |
 | Lowest peak RSS at 200–500 pages | wkhtmltopdf | Lower RSS on this fixture at those sizes |
 | Legacy Qt/WebKit print compatibility | wkhtmltopdf | Preserves the established renderer |
-| General default for this workload | gowkhtmltopdf | Faster at every size; smaller PDFs from 50 pages |
+| General default for this workload | blinkless | Faster at every size; smaller PDFs from 50 pages |
 
 This is a process comparison of the **generic CLI**. It is not the
 benchmark-only page-island path. Do not conflate peak RSS with Go
@@ -745,7 +745,7 @@ Fresh `make bench-lib` sample (`-benchtime=10x -count=1`, 2026-08-19):
 | Public PDF | 3.77ms / 1.5MB / 5.7K | 16.0ms / 5.4MB / 24.1K | 161ms / 48.5MB / 230.5K | **1.105s / 236.8MB / 1.15M** |
 | Public image | 11.1ms / 4.2MB / 444 | 14.6ms / 6.8MB / 1.0K | 30.1ms / 8.3MB / 4.1K | **143ms / 52.0MB / 17.6K** |
 
-These are gowkhtmltopdf-only API measurements, not comparisons against
+These are blinkless-only API measurements, not comparisons against
 wkhtmltopdf, WeasyPrint, Puppeteer, or another library. They therefore do not
 support a public `16x` or `20x` comparative claim.
 
@@ -753,7 +753,7 @@ support a public `16x` or `20x` comparative claim.
 
 This uses the same ratio, `wkhtmltopdf CLI time / public library PDF time`.
 The public library path calls `Document.WritePDF` directly and does not launch
-the gowkhtmltopdf CLI.
+the blinkless CLI.
 
 | Pages | wkhtmltopdf CLI | Public library PDF | Indicative multiplier |
 |---:|---:|---:|---:|
@@ -951,7 +951,7 @@ The separate locked-gate result is the more stable count-3 median shown
 above; the comparison table intentionally uses one iteration on both
 snapshots.
 
-### Historical direct CLI comparison: gowkhtmltopdf vs wkhtmltopdf (2026-08-09, island-era)
+### Historical direct CLI comparison: blinkless vs wkhtmltopdf (2026-08-09, island-era)
 
 This matrix is **historical pre-CR-02 / island-era CLI**. Ordinary CLI
 documents no longer take the page-island path. Use the 2026-09-13 table
@@ -959,10 +959,10 @@ above for current generic-CLI claims.
 
 This matrix was re-measured on 2026-08-09 using the same generated report
 fixtures for both command-line engines. The Go binary was freshly built from
-the then-current source (`go build ./cmd/gowkhtmltopdf`); wkhtmltopdf was
+the then-current source (`go build ./cmd/blinkless`); wkhtmltopdf was
 0.12.6.1. Each cell is the median of three process runs. Timing is wall time
 in milliseconds; RSS is peak resident set size from `/usr/bin/time -f '%M'` in
-KiB. gowkhtmltopdf used `--quiet --allow-local-files -o OUTPUT INPUT`; every output
+KiB. blinkless used `--quiet --allow-local-files -o OUTPUT INPUT`; every output
 passed the expected page-count check.
 
 | Pages | Gowk time | wkhtmltopdf time | Gowk RSS | wkhtmltopdf RSS | Gowk PDF bytes | wkhtmltopdf PDF bytes |
@@ -983,11 +983,11 @@ smaller from 5 pages onward; wkhtmltopdf produced the smaller 2-page PDF.
 
 | Use case | Preferred engine | Reason |
 |---|---|---|
-| Memory-constrained server/container | gowkhtmltopdf | Lower RSS across the full matrix |
-| High-volume or large PDF generation | gowkhtmltopdf | Faster and lower RSS at 50–500 pages |
+| Memory-constrained server/container | blinkless | Lower RSS across the full matrix |
+| High-volume or large PDF generation | blinkless | Faster and lower RSS at 50–500 pages |
 | Smallest PDF at exactly 2 pages | wkhtmltopdf | 18,486 bytes versus 21,626 bytes |
 | Legacy Qt/WebKit rendering compatibility | wkhtmltopdf | Preserves the established renderer |
-| General default for this workload | gowkhtmltopdf | Faster, lower RSS, and smaller PDFs from 5 pages onward |
+| General default for this workload | blinkless | Faster, lower RSS, and smaller PDFs from 5 pages onward |
 
 This is a direct process comparison. It should not be conflated with Go's
 Go `B/op` metric: `B/op` is cumulative allocation traffic, not peak
@@ -1005,7 +1005,7 @@ To save viewable PDF and PNG artifacts for every matrix size into
 `output/`, run (needs network for TVmaze poster CDN tiles):
 
 ```sh
-GOWKHTMLTOPDF_GENERATE_BENCHMARK_OUTPUTS=1 \
+BLINKLESS_GENERATE_BENCHMARK_OUTPUTS=1 \
   go test ./internal/convert -run '^TestGenerateBenchmarkOutputs$' -count=1
 ```
 
@@ -1022,7 +1022,7 @@ CI remains offline and the recorded timing matrix stays reproducible. Artifact
 generation intentionally hits the public CDN so samples match real-world fetch.
 
 Full-process benchmark against the actual binary (builds the CLI, then
-times `bin/gowkhtmltopdf` against the installed WeasyPrint and Puppeteer
+times `bin/blinkless` against the installed WeasyPrint and Puppeteer
 engines via their print scripts; median of three after warmup):
 
 ```sh

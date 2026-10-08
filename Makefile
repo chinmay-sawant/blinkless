@@ -5,7 +5,7 @@
 #   github.com/go-text/typesetting,  # OpenType shaping
 #   github.com/tdewolff/canvas,      # SVG-as-image rasterization
 # }
-# (enforced by internal/pdf.TestDirectModuleAllowlist).
+# (enforced by internal/fonts.TestDirectModuleAllowlist).
 
 # Pin golangci-lint for local + CI reproducibility. Override: make lint GOLANGCI_LINT_VERSION=vX.Y.Z
 # Build with the local toolchain (go1.26.4): golangci-lint refuses to run when the
@@ -29,7 +29,7 @@ GO_TEST_FLAGS ?=
 TEST_PKGS ?= ./...
 
 # Hot packages used by the race job (matches .github/workflows/ci.yml).
-RACE_PKGS ?= ./internal/convert ./internal/layout ./internal/pdf ./internal/imageout ./internal/load
+RACE_PKGS ?= ./internal/layout ./internal/imageout ./internal/load ./internal/fonts
 
 test:
 	go test -p $(TEST_P) -parallel $(TEST_PARALLEL) $(GO_TEST_FLAGS) $(TEST_PKGS)
@@ -65,7 +65,6 @@ lint:
 	golangci-lint version
 	golangci-lint run ./...
 	$(MAKE) size-check
-	$(MAKE) lint-frontend
 
 # File-size soft-limit gate (AGENTS.md "Code structure"). Scans .go files and
 # verifies the over-limit files recorded in scripts/file-size-allowlist.txt.
@@ -74,28 +73,22 @@ size-check:
 	bash scripts/check-file-size.sh
 
 lint-frontend:
-	@command -v npm >/dev/null 2>&1 || { echo "npm is required for frontend lint" >&2; exit 1; }
-	@if [ ! -d frontend/node_modules ]; then \
-		echo "frontend/node_modules missing; running npm ci..."; \
-		npm ci --prefix frontend; \
-	fi
-	npm --prefix frontend run lint
+	@echo "frontend/ is not in this tree; lint-frontend is a no-op"
 
-CLI_VERSION_LDFLAGS := -X github.com/chinmay-sawant/gowkhtmltopdf/internal/cli.Version=$(shell cat VERSION)
+CLI_VERSION_LDFLAGS := -X github.com/chinmay-sawant/blinkless/internal/cli.Version=0.0.1
 
 # Stamps the c-shared library (bindings/c) with the repo VERSION. Kept separate
 # from CLI_VERSION_LDFLAGS so the opt-in cgo build never touches the pure-Go
 # default targets. bindings/c is package main, so X must target main.libVersion.
-BINDINGS_VERSION_LDFLAGS := -X main.libVersion=$(shell cat VERSION)
-WASM_VERSION_LDFLAGS := -X main.wasmVersion=$(shell cat VERSION)
-WASM_DIR := frontend/public/wasm
+BINDINGS_VERSION_LDFLAGS := -X main.libVersion=0.0.1
+WASM_VERSION_LDFLAGS := -X main.wasmVersion=0.0.1
+WASM_DIR := dist/wasm
 WASM_EXEC := $(shell go env GOROOT)/lib/wasm/wasm_exec.js
-WASM_ARTIFACT := $(WASM_DIR)/gowkhtmltopdf.wasm
+WASM_ARTIFACT := $(WASM_DIR)/blinkless.wasm
 
 build:
 	mkdir -p bin
-	go build -ldflags "$(CLI_VERSION_LDFLAGS)" -o bin/gowkhtmltopdf ./cmd/gowkhtmltopdf
-	go build -ldflags "$(CLI_VERSION_LDFLAGS)" -o bin/gowkhtmltoimage ./cmd/gowkhtmltoimage
+	go build -ldflags "$(CLI_VERSION_LDFLAGS)" -o bin/blinkless ./cmd/blinkless
 
 # Browser artifact for the inline HTML WASM adapter. The runtime script comes
 # from the same Go toolchain used for the build; the fixture is copied from its
@@ -111,12 +104,6 @@ wasm:
 wasm-test:
 	bash scripts/check-wasm-contract.sh
 	$(MAKE) wasm
-	@test -d frontend/node_modules || npm ci --prefix frontend
-	@test -d scripts/puppeteer/node_modules/puppeteer-core || npm ci --prefix scripts/puppeteer
-	npm --prefix frontend run lint
-	npm --prefix frontend run build
-	npm --prefix frontend test
-	npm --prefix frontend run test:live-demo
 
 # Scan live user-facing surfaces for stale product claims.
 claim-scan:
@@ -126,8 +113,8 @@ claim-scan:
 		-e 'zero third-party' \
 		-e 'Qt WebKit engine' \
 		-e 'identical input bytes produce identical PDF bytes' \
-		doc.go README.md documentation/*.md \
-		frontend/src/data/content internal/cli/help.go; then \
+		doc.go README.md documentation/*.md documentation/architecture/*.md \
+		internal/cli/help.go; then \
 		echo "claim-scan: forbidden phrase found" >&2; exit 1; \
 	fi
 	@echo "claim-scan: clean"
@@ -135,15 +122,11 @@ claim-scan:
 fmt:
 	gofmt -w .
 
-# Phase 9.1: golden corpus. TestGoldenCorpusAllFixtures walks every
-# testdata/golden/*.html fixture, converts it through the full pipeline
-# (load -> parse -> style -> layout -> paint -> write) and asserts the PDF
-# structure (%PDF-, %%EOF, xref offset), the embedded font, the per-fixture
-# page envelope and the feature expectations (images, URI annotations).
-# TestGoldenCorpus covers the first three fixtures plus the fixture-03
-# layout+paint performance budget.
+# Render every body fixture under testdata/golden to a PNG and check the
+# header. Header and footer companion HTML files are skipped. The test lives
+# in internal/imageout (TestGoldenFixturesRenderPNG).
 golden:
-	go test -p 1 -parallel $(TEST_PARALLEL) ./internal/convert/ -run 'TestGoldenCorpus' -v
+	go test -p 1 -parallel $(TEST_PARALLEL) ./internal/imageout/ -run 'TestGoldenFixturesRenderPNG' -v
 
 golden-update:
 	@set -eu; \
@@ -165,65 +148,27 @@ golden-update:
 		echo "Golden fixture not found: testdata/golden/$$fixture" >&2; \
 		exit 2; \
 	fi; \
-	mkdir -p testdata/golden/out; \
-	output="testdata/golden/out/$${fixture%.html}.pdf"; \
+	mkdir -p testdata/golden/out bin; \
+	output="testdata/golden/out/$${fixture%.html}.png"; \
 	echo "Generating $$output from testdata/golden/$$fixture"; \
-	go run ./cmd/gowkhtmltopdf --allow-local-files \
+	$(MAKE) build; \
+	./bin/blinkless --allow-local-files --zoom 0.4 --font-path testdata/fonts \
 		-o "$$output" "testdata/golden/$$fixture"; \
 	echo "Review $$output manually; this target never rewrites committed fixtures."
 
-# Regenerate the sample outputs in output/: one PDF per golden fixture, a
-# showcase PDF (TOC + headers/footers + outline), the library-API architecture
-# diagram PDF (output/architecture-diagram.pdf only; does not rewrite testdata/golden HTML),
-# image PNGs, version/compliance smokes under output/pdf-{1.7,2.0}{,-compliance}/
-# (fixture-21 and fixture-56), and the optional live Wikipedia smoke (needs
-# network; failure does not fail the target).
-samples:
-	# Wipe regenerable fixture samples only (wiki-*.pdf is rewritten below).
-	rm -f output/fixture-*.pdf output/fixture-*.png output/showcase-*.pdf output/architecture-diagram.pdf
-	# Opt-in CJK/system faces when present (fixture-27 and font-family lists).
-	FONT_FLAGS=""; \
+# Write one PNG per golden body fixture into output/. Companion header and
+# footer HTML files are skipped. Requires the image binary from make build.
+samples: build
+	mkdir -p output
+	rm -f output/fixture-*.png
+	FONT_FLAGS="--font-path testdata/fonts"; \
 	if [ -e /usr/share/fonts/truetype/droid ]; then FONT_FLAGS="$$FONT_FLAGS --font-path /usr/share/fonts/truetype/droid"; fi; \
-	if [ -e testdata/fonts ]; then FONT_FLAGS="$$FONT_FLAGS --font-path testdata/fonts"; fi; \
 	for f in testdata/golden/fixture-*.html; do \
 		case "$$f" in *-header.html|*-footer.html) continue;; esac; \
 		name=$$(basename "$$f" .html); \
-		id=$$(printf '%s\n' "$$name" | sed -n 's/^\(fixture-[0-9][0-9]*\).*/\1/p'); \
-		HF_FLAGS=""; \
-		if [ -n "$$id" ] && [ -f "testdata/golden/$$id-header.html" ]; then \
-			HF_FLAGS="$$HF_FLAGS --header-html testdata/golden/$$id-header.html --margin-top -1"; \
-		fi; \
-		if [ -n "$$id" ] && [ -f "testdata/golden/$$id-footer.html" ]; then \
-			HF_FLAGS="$$HF_FLAGS --footer-html testdata/golden/$$id-footer.html --margin-bottom -1"; \
-		fi; \
-		go run ./cmd/gowkhtmltopdf --allow-local-files $$FONT_FLAGS $$HF_FLAGS -o "output/$$name.pdf" "$$f"; \
+		./bin/blinkless --allow-local-files --zoom 0.4 $$FONT_FLAGS -o "output/$$name.png" "$$f"; \
 	done
-	# Version / compliance smokes (unreleased 0.2.2): same two fixtures in four dirs.
-	mkdir -p output/pdf-1.7 output/pdf-1.7-compliance output/pdf-2.0 output/pdf-2.0-compliance
-	rm -f output/pdf-1.7/*.pdf output/pdf-1.7-compliance/*.pdf output/pdf-2.0/*.pdf output/pdf-2.0-compliance/*.pdf
-	for f in testdata/golden/fixture-21-detailed-report.html testdata/golden/fixture-56-architecture-diagram.html; do \
-		name=$$(basename "$$f" .html); \
-		go run ./cmd/gowkhtmltopdf --pdf-version 1.7 --allow-local-files -o "output/pdf-1.7/$$name.pdf" "$$f"; \
-		go run ./cmd/gowkhtmltopdf --pdf-profile a3a-ua1 --allow-local-files -o "output/pdf-1.7-compliance/$$name.pdf" "$$f"; \
-		go run ./cmd/gowkhtmltopdf --pdf-version 2.0 --allow-local-files -o "output/pdf-2.0/$$name.pdf" "$$f"; \
-		go run ./cmd/gowkhtmltopdf --pdf-profile a4-ua2 --allow-local-files -o "output/pdf-2.0-compliance/$$name.pdf" "$$f"; \
-	done
-	go run ./cmd/gowkhtmltopdf --allow-local-files --outline --outline-depth 2 --header-left "gowkhtmltopdf demo - [title]" --header-right "page [page]/[topage]" --footer-center "[section]" --toc -o output/showcase-toc-hf-outline.pdf testdata/golden/fixture-16-invoice-with-css.html
-	# Library-API architecture diagram → output/architecture-diagram.pdf only.
-	# testdata/golden HTML (corpus fixture and api/ template) is not rewritten.
-	go run ./testdata/golden/api
-	go run ./cmd/gowkhtmltoimage --allow-local-files -o output/fixture-01-simple-invoice.png testdata/golden/fixture-01-simple-invoice.html
-	go run ./cmd/gowkhtmltoimage --allow-local-files -o output/fixture-57-vanguard-telemetry-audit.png testdata/golden/fixture-57-vanguard-telemetry-audit.html
-	go run ./cmd/gowkhtmltoimage --allow-local-files -o output/fixture-57.png testdata/golden/fixture-57-vanguard-telemetry-audit.html
-	go run ./examples/image --allow-local-files --width 1024 testdata/golden/fixture-21-detailed-report.html output/fixture-21-detailed-report.png
-	# Live Wikipedia smoke (network, raw — no --simplify-dom). Soft-fail so offline/CI hosts still get fixture samples.
-	# Operator recipe (not CSS fidelity): --use-system-fonts for IPA fallback; optional --zoom 2/3 densifies
-	# author p{font-size:12pt} toward ~8pt; optional --print-link-underline / --simplify-dom-profile=mediawiki.
-	go run ./cmd/gowkhtmltopdf --use-system-fonts --zoom 0.666667 \
-		'https://en.wikipedia.org/wiki/Ana_de_Armas' \
-		-o output/wiki-ana-de-armas.pdf \
-		|| echo "warning: wiki-ana-de-armas.pdf live smoke skipped (network/fetch failed)"
-	ls -la output/ | awk '{print $$5, $$9}' | tail -30
+	ls -la output/*.png | awk '{print $$5, $$9}' | tail -30
 
 # Render every Chrome flex interaction case under test/chrome/cases/ into
 # test/chrome/cases/pdf/ for visual inspection. Artifacts only; the focused
@@ -236,7 +181,7 @@ chrome-cases-pdf: build
 	@for f in test/chrome/cases/case-*.html; do \
 		name=$$(basename "$$f" .html); \
 		title=$$(printf '%s\n' "$$name" | sed -n 's/^case-[0-9][0-9]*-//p'); \
-		./bin/gowkhtmltopdf --allow-local-files --title "$$title" \
+		./bin/blinkless --allow-local-files --title "$$title" \
 			-o "test/chrome/cases/pdf/$$name.pdf" "$$f" || exit 1; \
 	done
 	@echo "chrome cases: $$(ls test/chrome/cases/pdf/*.pdf | wc -l) PDFs written to test/chrome/cases/pdf/"
@@ -249,7 +194,7 @@ chrome-cases-pdf: build
 RUN_HTML ?= testdata/golden/fixture-01-simple-invoice.html
 RUN_MAX_MS ?= 400
 run: build
-	bash scripts/run-walltime.sh "$(RUN_HTML)" "$(RUN_MAX_MS)" ./bin/gowkhtmltopdf
+	bash scripts/run-walltime.sh "$(RUN_HTML)" "$(RUN_MAX_MS)" ./bin/blinkless
 
 # Regenerate the committed frontend showcase screenshots and WebP thumbnails
 # from the PDFs currently present in output/. Use `make samples` first when the
@@ -300,7 +245,7 @@ weasyprint:
 
 # External process benchmarks against the actual binary. `make bench` builds
 # the CLI, runs the dedicated wkhtmltopdf comparison first, then feeds its
-# gowkhtmltopdf column to scripts/bench-external.sh as the shared gowk
+# blinkless column to scripts/bench-external.sh as the shared gowk
 # baseline for the WeasyPrint and Puppeteer tables, so all three engine
 # tables report the same gowk CLI series. When wkhtmltopdf is not installed
 # the comparison is skipped and the external tables fall back to session-local
@@ -345,7 +290,7 @@ bench-lib:
 # testdata/golden/benchmarks/cli-compare*; a missing wkhtmltopdf is documented
 # as a skipped Go test.
 bench-cli-compare: build
-	GOWKHTMLTOPDF_CLI_COMPARE=1 go test ./internal/convert \
+	BLINKLESS_CLI_COMPARE=1 go test ./internal/convert \
 		-run '^TestCompareWithWkhtmltopdfBinary$$' -count=1 -timeout 20m -v
 
 clean:
@@ -356,11 +301,11 @@ clean:
 
 # Builds the C ABI shared library for the Python bindings. Requires an
 # explicit CGO_ENABLED=1; the guard refuses to run otherwise so the default
-# pure-Go targets can never drift into a cgo build. Emits dist/libgowkhtmltopdf.so
+# pure-Go targets can never drift into a cgo build. Emits dist/libblinkless.so
 # plus the generated header, then smokes exports via nm (grep -c fails on 0).
 c-shared:
 	[ "$(CGO_ENABLED)" = "1" ] || { echo "refusing: c-shared needs CGO_ENABLED=1 (pure-Go default stays CGO_ENABLED=0)" >&2; exit 2; }
-	mkdir -p dist && CGO_ENABLED=1 go build -buildmode=c-shared -ldflags "$(BINDINGS_VERSION_LDFLAGS) -s -w" -o dist/libgowkhtmltopdf.so ./bindings/c && file dist/libgowkhtmltopdf.so && nm -D dist/libgowkhtmltopdf.so | grep -c gowkhtmltopdf_
+	mkdir -p dist && CGO_ENABLED=1 go build -buildmode=c-shared -ldflags "$(BINDINGS_VERSION_LDFLAGS) -s -w" -o dist/libblinkless.so ./bindings/c && file dist/libblinkless.so && nm -D dist/libblinkless.so | grep -c blinkless_
 
 bindings-clean:
 	rm -rf dist
@@ -371,7 +316,7 @@ check-versions:
 
 # Convenience: rebuild the shared library, then run the Python stdlib unittest
 # suite against it. Needs a working C toolchain (CGO_ENABLED=1) and python3;
-# the tests load the dist/libgowkhtmltopdf.* artifact produced by c-shared.
+# the tests load the dist/libblinkless.* artifact produced by c-shared.
 python-binding-test:
 	CGO_ENABLED=1 $(MAKE) c-shared
 	python3 -m unittest discover -s bindings/python/tests -t . -v
@@ -380,7 +325,7 @@ python-binding-test:
 # `make bench-lib` (20 invoice rows per requested page). Template expansion
 # happens before the timer; Document.pdf / ImageDocument.image stay inside
 # the timed calls. Rebuilds the c-shared library first. Optional overrides:
-# GOWKHTMLTOPDF_BENCH_SIZES=2,10,50 GOWKHTMLTOPDF_BENCH_RUNS=10
+# BLINKLESS_BENCH_SIZES=2,10,50 BLINKLESS_BENCH_RUNS=10
 python-benchmarks:
 	CGO_ENABLED=1 $(MAKE) c-shared
 	PYTHONPATH=bindings/python/src \

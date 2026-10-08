@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
+	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
 )
 
 // applyFontSizeAdjustProps owns font-size-adjust (ex-height number form).

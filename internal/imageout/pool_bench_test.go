@@ -3,7 +3,7 @@ package imageout
 import (
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/layout"
+	"github.com/chinmay-sawant/blinkless/internal/layout"
 )
 
 func BenchmarkSupersamplePool(b *testing.B) {

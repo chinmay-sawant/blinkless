@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/convert/prepare"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/load"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/settings"
+	"github.com/chinmay-sawant/blinkless/internal/convert/prepare"
+	"github.com/chinmay-sawant/blinkless/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/load"
+	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 
 func TestCollectSheetsImportAppliesImportedRules(t *testing.T) {

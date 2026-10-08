@@ -5,7 +5,7 @@ import (
 	"math"
 	"strings"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/css"
 )
 
 // CSS Shapes apply group (css-shapes-1 lite):

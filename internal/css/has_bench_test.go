@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 // deepHasHTML builds a chain of depth nested <div> elements ending in a single

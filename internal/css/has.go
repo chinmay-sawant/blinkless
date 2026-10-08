@@ -4,7 +4,7 @@ import (
 	"iter"
 	"strings"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 // matchingParen returns the index of the ')' that matches str[open]=='('.

@@ -7,7 +7,7 @@ import (
 	"image/png"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/css"
 )
 
 // decodeNRGBA decodes PNG bytes into an NRGBA copy so tests can sample pixels

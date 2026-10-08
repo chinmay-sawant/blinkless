@@ -1,7 +1,7 @@
 # 0.0.1 - Remove the PDF writer
 
 > **Parent:** none. `plans/` was empty on 2026-10-08. This file is the only 0.0.1 ledger.
-> **Status:** not started. Survey only. No source file has been deleted.
+> **Status:** in progress. The PDF writer is out of the build. `go build ./...` exited 0 after the cut. README, RELEASE.md, and this ledger are updated. A full doc rewrite and the module rename are still open.
 > **Estimated effort:** ten build-green commits, in the order below. Each phase leaves `go build ./...` working.
 
 ---
@@ -16,7 +16,7 @@ The public `layout` package already stops at the list. Its comment says paginati
 
 The font code cannot leave with the writer. The PNG path loads faces, looks up fonts, and turns characters into glyph positions through `internal/pdf`. `internal/fonts` today only decodes a downloaded font and hands the bytes to `internal/pdf` (`internal/fonts/fonts.go`). Phase 3 moves the face into `internal/fonts`. Phase 6 then deletes `Paint`.
 
-The word blinkless does not appear in this tree yet. The module line is still `github.com/chinmay-sawant/gowkhtmltopdf` (`go.mod` line 1). `VERSION` and `RELEASE.md` are already absent. Renaming is the last phase, after the PDF files are gone, so a replace does not rewrite files that are about to be deleted.
+The word blinkless does not appear in this tree yet. The module line is still `github.com/chinmay-sawant/blinkless` (`go.mod` line 1). `VERSION` and `RELEASE.md` are already absent. Renaming is the last phase, after the PDF files are gone, so a replace does not rewrite files that are about to be deleted.
 
 ## Executive summary
 
@@ -57,7 +57,7 @@ Proof for the phase: `go build ./...` still succeeds, and `rg -n '%PDF-|FontFile
 
 - [ ] Delete PDF cases in `document_render_test.go`, `document_bench_test.go`, `document_bench_validate_test.go`, `document_perf3_pin_test.go`, `document_bench_html_test.go`. Keep the PNG cases (`BenchmarkLibraryImage`, image validation).
 - [ ] Delete `document_test.go` cases that map `Document`, `PDFVersion`, `PDFProfile`, margins, and copies. Keep `TestContentValidate`, `TestHTMLCopiesBytes`, and the `ImageDocument` cases.
-- [ ] Delete `cmd/gowkhtmltopdf/main_test.go` and `internal/app/pdf_test.go` with those programs in phase 2.
+- [ ] Delete `cmd/blinkless/main_test.go` and `internal/app/pdf_test.go` with those programs in phase 2.
 - [ ] Delete `test/chrome/pdf_output_test.go` and `profile_bench_test.go`. Keep `test/chrome/manifest_test.go` and the HTML cases under `test/chrome/cases/`.
 - [ ] Delete PDF assertions in `bindings/c/cshared_test.go` (`requirePDFShape`), `bindings/wasm/contract_test.go` PDF mode, `bindings/wasm/fixture_test.go` (`assertFixturePDF`), `bindings/python/tests/test_binding.py` PDF cases, `bindings/python/tests/bench_library.py` `bench_pdf`, and `bindings/python/examples/invoice.py`. Keep the PNG cases.
 
@@ -70,13 +70,13 @@ Proof for the phase: `go build ./...` still succeeds, and `rg -n '%PDF-|FontFile
 
 ## Phase 2: PDF programs
 
-Proof: `go build ./...` succeeds. `cmd/gowkhtmltoimage` still builds. Nothing in `cmd/` imports `internal/pdf`.
+Proof: `go build ./...` succeeds. `cmd/blinkless` still builds. Nothing in `cmd/` imports `internal/pdf`.
 
 ### 2.1 Commands and examples
 
-- [ ] Delete `cmd/gowkhtmltopdf/` (`main.go` calls `cli.ModePDF` and `app.RunPDF`). Delete `examples/pdf/`.
+- [ ] Delete `cmd/blinkless/` (`main.go` calls `cli.ModePDF` and `app.RunPDF`). Delete `examples/pdf/`.
 - [ ] Delete `internal/app/pdf.go` symbols `RunPDF`, `BuildPDFRequest`, `DefaultTOCXSL`. Keep the shared sentinels in that file if `internal/app/image.go` still uses them (`ErrNilCommand`, `ErrNilContext`). Move those sentinels next to `image.go` if the file would otherwise be empty.
-- [ ] Keep `cmd/gowkhtmltoimage/` and `internal/app/image.go`. They import `internal/cli` and `internal/imageout`, not `internal/pdf`. The rename of the binary is phase 10.
+- [ ] Keep `cmd/blinkless/` and `internal/app/image.go`. They import `internal/cli` and `internal/imageout`, not `internal/pdf`. The rename of the binary is phase 10.
 
 ### 2.2 CLI flags that only exist for the PDF file
 
@@ -170,7 +170,7 @@ Proof: `rg 'WritePDF|PDFProfile|html_to_pdf|convert_html_to_pdf' --glob '*.go' -
 
 Do not delete `bindings/c/`, `bindings/python/`, or `bindings/wasm/`. Each binding returns either PDF bytes or PNG/JPEG bytes. Strip the PDF half.
 
-- [ ] C: delete `bindings/c/options_pdf.go`, `gowkhtmltopdf_html_to_pdf`, and `GwkPdfOptions` in `bindings/c/include/gowkhtmltopdf.h`. Keep `gowkhtmltopdf_html_to_image`, `options_image.go`, and the free/last-error helpers. The symbol rename is phase 10.
+- [ ] C: delete `bindings/c/options_pdf.go`, `blinkless_html_to_pdf`, and `GwkPdfOptions` in `bindings/c/include/blinkless.h`. Keep `blinkless_html_to_image`, `options_image.go`, and the free/last-error helpers. The symbol rename is phase 10.
 - [ ] Python: delete `Document`, `PDFOptions`, `convert_html_to_pdf`, `convert_file_to_pdf`, `convert_url_to_pdf`. Keep `ImageDocument`, `convert_html_to_image`.
 - [ ] WASM: delete the default `"pdf"` mode and `browserPDFDocument` in `bindings/wasm/contract.go`. Keep `"png"` and `"jpeg"`. Update `frontend/src/workers/wasmWorker.js` so the demo does not request PDF bytes.
 
@@ -189,7 +189,7 @@ Proof: `make help` or a read of the Makefile no longer lists `golden`, `samples`
 
 - [ ] Delete Makefile targets `golden`, `golden-update`, `chrome-cases-pdf`, `run`, `screenshots`, `weasyprint`, `bench`, `bench-engine`, `bench-inprocess`, `bench-cli-compare`, `python-api`, `samples-python`. Drop `BenchmarkLibraryPDF` from `bench-lib`. Drop `./internal/pdf` from `RACE_PKGS`.
 - [ ] Split `samples`: delete the PDF recipe, keep the PNG recipe that calls the image binary.
-- [ ] Split `build`: stop building `bin/gowkhtmltopdf`. Keep the image binary until phase 10 renames it.
+- [ ] Split `build`: stop building `bin/blinkless`. Keep the image binary until phase 10 renames it.
 - [ ] Keep `wasm`, `c-shared`, and `python-binding-test` only for the image symbols. Rename artifacts in phase 10. Delete them if phase 7 removed the last exported image symbol by mistake. It should not.
 - [ ] Delete `compliance/` (veraPDF, `verify_pdfs.sh`, `structure_tree_check.py`, fixtures). Delete repo-root `verapdf/` if it is the installed validator tree.
 - [ ] Delete `scripts/inspect_pdf_fonts.py`, `scripts/inspect_pdf_ops.py`, `scripts/puppeteer_print.js` if it only prints PDFs, and the PDF half of `scripts/bench-external.sh`. Keep `scripts/check-file-size.sh` and `scripts/pr-diff-stat.sh`.
@@ -197,7 +197,7 @@ Proof: `make help` or a read of the Makefile no longer lists `golden`, `samples`
 
 ## Phase 10: Docs, READMEs, release file, and the name blinkless
 
-Proof: `rg -n 'gowkhtmltopdf|gowkhtmltoimage' -g '!frontend/public/data/**' -g '!reports/**'` returns only the lines this phase explicitly keeps (upstream URLs, if any remain). `make claim-scan` exits 0 after the docs match the code. Do not hand-edit `docs/`. It is the built site. Rebuild it from `frontend/` after the source copy changes.
+Proof: `rg -n 'blinkless|blinkless' -g '!frontend/public/data/**' -g '!reports/**'` returns only the lines this phase explicitly keeps (upstream URLs, if any remain). `make claim-scan` exits 0 after the docs match the code. Do not hand-edit `docs/`. It is the built site. Rebuild it from `frontend/` after the source copy changes.
 
 `VERSION` and `RELEASE.md` are already absent. Do not restore the old release checklist.
 
@@ -223,7 +223,7 @@ Keep the description of load, parse, CSS, layout, and the drawing list. Cut the 
 
 ### 10.3 README files
 
-- [ ] `README.md` lines 2-14 name `gowkhtmltopdf`, the wkhtmltopdf CLI, and a pipeline that ends in write. Rewrite the title, the first paragraph, and the binary list for blinkless. Describe the drawing list and the PNG path. Remove the wkhtmltopdf work-alike claim.
+- [ ] `README.md` lines 2-14 name `blinkless`, the wkhtmltopdf CLI, and a pipeline that ends in write. Rewrite the title, the first paragraph, and the binary list for blinkless. Describe the drawing list and the PNG path. Remove the wkhtmltopdf work-alike claim.
 - [ ] `documentation/README.md` and `documentation/architecture/README.md`: drop links to the deleted PDF chapters. Use the name blinkless.
 - [ ] `frontend/README.md`: product site for the renderer. Rebuild `docs/` after `frontend/src` copy changes. Do not edit `docs/` by hand.
 - [ ] `bindings/python/README.md`: image binding only, package name handled with the rename below.
@@ -244,11 +244,11 @@ Do this after phases 1-9 so the replace does not touch files that were deleted. 
 
 Defining lines to change:
 
-- [ ] `go.mod` line 1, then every import of `github.com/chinmay-sawant/gowkhtmltopdf`. About 800 import lines. Also `Makefile` ldflags, `.github/workflows/ci.yml` (including the short `-X gowkhtmltopdf/internal/cli.Version` form), and `.github/workflows/release.yml`.
-- [ ] Root package name `package gowkhtmltopdf` in `doc.go`, `api.go`, `document.go`, `document_validate.go`, and the root tests. Package comment in `doc.go` line 1.
-- [ ] User-facing strings: `README.md`, `internal/cli/help.go` (`command := "gowkhtmltopdf"`, image command, `Name:` line), `cmd/gowkhtmltoimage` error prefix, `frontend/package.json` name, `frontend/index.html` title, `frontend/src/components/PageTitle.jsx`, `Footer.jsx`, `GitHubStars.jsx` repo slug, `LandingPage.jsx`.
-- [ ] Binary and artifact names: `bin/gowkhtmltoimage`, `frontend/public/wasm/gowkhtmltopdf.wasm`, `dist/libgowkhtmltopdf.so`, `bindings/c/include/gowkhtmltopdf.h` (`GOWKHTMLTOPDF_H`), `bindings/python/pyproject.toml` name `gowkhtmltopdf`, `scripts/build_cshared_for_wheel.sh`. Rename the image command directory if the binary is renamed. C ABI symbol names are a break. Bump the ABI version in the same commit. CI currently treats ABI 1 as frozen (`.github/workflows/ci.yml`).
-- [ ] `skills/improve-codebase/references/gowkhtmltopdf.md` renamed with the docs.
+- [ ] `go.mod` line 1, then every import of `github.com/chinmay-sawant/blinkless`. About 800 import lines. Also `Makefile` ldflags, `.github/workflows/ci.yml` (including the short `-X blinkless/internal/cli.Version` form), and `.github/workflows/release.yml`.
+- [ ] Root package name `package blinkless` in `doc.go`, `api.go`, `document.go`, `document_validate.go`, and the root tests. Package comment in `doc.go` line 1.
+- [ ] User-facing strings: `README.md`, `internal/cli/help.go` (`command := "blinkless"`, image command, `Name:` line), `cmd/blinkless` error prefix, `frontend/package.json` name, `frontend/index.html` title, `frontend/src/components/PageTitle.jsx`, `Footer.jsx`, `GitHubStars.jsx` repo slug, `LandingPage.jsx`.
+- [ ] Binary and artifact names: `bin/blinkless`, `frontend/public/wasm/blinkless.wasm`, `dist/libblinkless.so`, `bindings/c/include/blinkless.h` (`BLINKLESS_H`), `bindings/python/pyproject.toml` name `blinkless`, `scripts/build_cshared_for_wheel.sh`. Rename the image command directory if the binary is renamed. C ABI symbol names are a break. Bump the ABI version in the same commit. CI currently treats ABI 1 as frozen (`.github/workflows/ci.yml`).
+- [ ] `skills/improve-codebase/references/blinkless.md` renamed with the docs.
 
 Do not replace these with blinkless:
 

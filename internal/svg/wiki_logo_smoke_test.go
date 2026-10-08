@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/svg"
+	"github.com/chinmay-sawant/blinkless/internal/svg"
 )
 
 func TestRasterizeWikiWordmark(t *testing.T) {

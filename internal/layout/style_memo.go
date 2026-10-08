@@ -4,7 +4,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 // styleResolutionMemo caches resolved element styles for repeated declaration

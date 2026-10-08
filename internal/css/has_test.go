@@ -3,7 +3,7 @@ package css
 import (
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 func byID(root *html.Node, idVal string) *html.Node {

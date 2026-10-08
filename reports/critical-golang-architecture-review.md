@@ -1,4 +1,4 @@
-# Critical Golang Architecture Review — gowkhtmltopdf
+# Critical Golang Architecture Review — blinkless
 
 **Current score: 8.6 / 10** · Pure-Go, zero-CGO wkhtmltopdf-compatible HTML→PDF/PNG renderer · Go 1.26 (toolchain 1.26.4)
 
@@ -32,7 +32,7 @@
 
 ## 2. Executive Summary
 
-gowkhtmltopdf is now a **strong mid-8 codebase**: the plumbing was already excellent and the API, package boundaries, and performance evidence now match it. Context threading is thorough (per-object `ctx.Err()` checks, a watcher goroutine that force-closes a blocked `os.File` on cancellation), ownership cloning at the public boundary is exemplary, the layout engine is single-goroutine with zero locks by design, `%w` wrapping discipline has exactly one `nolint:wrapcheck` repo-wide (test-only), and the internal package DAG keeps command translation at the application edge.
+blinkless is now a **strong mid-8 codebase**: the plumbing was already excellent and the API, package boundaries, and performance evidence now match it. Context threading is thorough (per-object `ctx.Err()` checks, a watcher goroutine that force-closes a blocked `os.File` on cancellation), ownership cloning at the public boundary is exemplary, the layout engine is single-goroutine with zero locks by design, `%w` wrapping discipline has exactly one `nolint:wrapcheck` repo-wide (test-only), and the internal package DAG keeps command translation at the application edge.
 
 The remaining engineering tradeoffs are bounded rather than unmeasured blockers:
 
@@ -83,10 +83,10 @@ All conversion, load, prepare, image, layout, render, and application guards now
 
 ```go
 // errs.go:6-15 — the "canonical" package
-var ErrNilContext = errors.New("gowkhtmltopdf: nil context")   // used: api.go:65, app/pdf.go:21
-var ErrNilLoader  = errors.New("gowkhtmltopdf: nil loader")    // used: nowhere
-var ErrNilCommand = errors.New("gowkhtmltopdf: nil command")   // used: nowhere
-var ErrNilRequest = errors.New("gowkhtmltopdf: nil request")   // used: nowhere
+var ErrNilContext = errors.New("blinkless: nil context")   // used: api.go:65, app/pdf.go:21
+var ErrNilLoader  = errors.New("blinkless: nil loader")    // used: nowhere
+var ErrNilCommand = errors.New("blinkless: nil command")   // used: nowhere
+var ErrNilRequest = errors.New("blinkless: nil request")   // used: nowhere
 ```
 ```go
 // convert.go:110 — a different value, same condition

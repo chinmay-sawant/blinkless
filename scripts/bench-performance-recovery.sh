@@ -43,7 +43,7 @@ ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT"
 
 TEMPLATE="$ROOT/testdata/golden/benchmarks/templates/report.html.tmpl"
-GOWK_BIN="$ROOT/bin/gowkhtmltopdf"
+GOWK_BIN="$ROOT/bin/blinkless"
 
 MODE= SIZES= BENCHTIME=1x COUNT=1 RUNS=3 DRY_RUN=0 OUT_DIR= WORK_DIR=
 WARM_MATRIX_SIZES="2,5,10,20,50,100,200,250,500"
@@ -260,7 +260,7 @@ run_cli_rss() {
     trap 'if [ -n "$WORK_DIR" ]; then rm -rf "$WORK_DIR"; fi' EXIT
   fi
 
-  execute env "GOWKHTMLTOPDF_BENCH_HTML_DIR=$WORK_DIR" "GOWKHTMLTOPDF_BENCH_HTML_SIZES=$SIZES" \
+  execute env "BLINKLESS_BENCH_HTML_DIR=$WORK_DIR" "BLINKLESS_BENCH_HTML_SIZES=$SIZES" \
     go test . -run '^TestWriteBenchmarkHTML$' -count=1
 
   for pages in "${SIZE_LIST[@]}"; do

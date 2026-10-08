@@ -12,11 +12,11 @@ import (
 	"io"
 	"strings"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf"
+	"github.com/chinmay-sawant/blinkless"
 )
 
 const (
-	defaultMode       = "pdf"
+	defaultMode       = "png"
 	maxHTMLBytes      = 4 << 20
 	maxOutputBytes    = 32 << 20
 	maxImageDimension = 4096
@@ -101,14 +101,7 @@ func (r *Request) validate() error {
 	}
 
 	switch r.Mode {
-	case "pdf":
-		if r.Width != 0 || r.Height != 0 || r.Padding != 0 || r.Quality != 0 {
-			return fmt.Errorf("%w: image options require png or jpeg mode", errInvalidRequest)
-		}
 	case "png", "jpeg":
-		if r.PageSize != "" || r.Orientation != "" {
-			return fmt.Errorf("%w: PDF options require pdf mode", errInvalidRequest)
-		}
 		if r.Width < 0 || r.Height < 0 || r.Padding < 0 || r.Width > maxImageDimension || r.Height > maxImageDimension {
 			return fmt.Errorf("%w: %w", errInvalidRequest, errImageTooLarge)
 		}
@@ -128,20 +121,7 @@ func Convert(ctx context.Context, request Request, onProgress func(string, int))
 		return Result{}, err
 	}
 	if ctx == nil {
-		return Result{}, gowkhtmltopdf.ErrNilContext
-	}
-
-	if request.Mode == "pdf" {
-		document := browserPDFDocument(request, onProgress)
-		output, err := document.PDF(ctx)
-		if err != nil {
-			return Result{}, err
-		}
-		if len(output) > maxOutputBytes {
-			return Result{}, errOutputTooLarge
-		}
-
-		return Result{Mode: request.Mode, MIME: "application/pdf", Bytes: output}, nil
+		return Result{}, blinkless.ErrNilContext
 	}
 
 	document := browserImageDocument(request, onProgress)
@@ -175,31 +155,17 @@ func Convert(ctx context.Context, request Request, onProgress func(string, int))
 	}, nil
 }
 
-func browserPDFDocument(request Request, onProgress func(string, int)) *gowkhtmltopdf.Document {
+func browserImageDocument(request Request, onProgress func(string, int)) *blinkless.ImageDocument {
 	onPhase, onValue := progressHooks(onProgress)
-	document := gowkhtmltopdf.NewDocument(gowkhtmltopdf.Page{
-		Source: gowkhtmltopdf.HTML([]byte(request.HTML)),
-	})
-	document.PageSize = request.PageSize
-	document.Orientation = request.Orientation
-	document.Network = &gowkhtmltopdf.NetworkPolicy{}
-	document.OnPhase = onPhase
-	document.OnProgress = onValue
-
-	return document
-}
-
-func browserImageDocument(request Request, onProgress func(string, int)) *gowkhtmltopdf.ImageDocument {
-	onPhase, onValue := progressHooks(onProgress)
-	document := &gowkhtmltopdf.ImageDocument{
-		Source:      gowkhtmltopdf.HTML([]byte(request.HTML)),
+	document := &blinkless.ImageDocument{
+		Source:      blinkless.HTML([]byte(request.HTML)),
 		Width:       request.Width,
 		Height:      request.Height,
 		Padding:     request.Padding,
 		Format:      request.Mode,
 		Quality:     request.Quality,
 		Transparent: true,
-		Network:     &gowkhtmltopdf.NetworkPolicy{},
+		Network:     &blinkless.NetworkPolicy{},
 		OnPhase:     onPhase,
 		OnProgress:  onValue,
 	}
@@ -244,8 +210,8 @@ func errorResponse(err error) ErrorResponse {
 	case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
 		code = "timeout"
 	case errors.Is(err, errInvalidRequest), errors.Is(err, errUnsupportedMode),
-		errors.Is(err, gowkhtmltopdf.ErrInvalidContent),
-		errors.Is(err, gowkhtmltopdf.ErrEmptyHTML):
+		errors.Is(err, blinkless.ErrInvalidContent),
+		errors.Is(err, blinkless.ErrEmptyHTML):
 		code = "invalid_request"
 	}
 

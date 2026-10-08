@@ -4,9 +4,9 @@ import (
 	"math"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/layout"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
+	"github.com/chinmay-sawant/blinkless/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/layout"
+	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
 )
 
 // TestRenderZoom proves RenderOptions.Zoom reaches layout.Options.Zoom: the

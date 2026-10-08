@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/imageout"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/settings"
+	"github.com/chinmay-sawant/blinkless/internal/imageout"
+	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 
 func TestRequestValidateRejectsMultipleInputs(t *testing.T) {

@@ -31,7 +31,7 @@ directory with the same fixture and font settings used by the test helper
 01 candidate command is:
 
 ```sh
-go run ./cmd/gowkhtmltopdf --allow-local-files \
+go run ./cmd/blinkless --allow-local-files \
   --font-path /usr/share/fonts/truetype/droid \
   --font-path testdata/fonts \
   -o output/fixture-01-simple-invoice-candidate.pdf \
@@ -51,25 +51,25 @@ channel difference, and diff path
 Run the full fixture comparison with the pinned Ghostscript binary:
 
 ```sh
-GOWKHTMLTOPDF_VISUAL_GS=/path/to/gs \
+BLINKLESS_VISUAL_GS=/path/to/gs \
   go test ./internal/convert/fixturetests \
   -run '^TestVisualGoldenFixtureCorpus$' -count=1
 ```
 
 The full comparison converts each fixture unless you run the separate fixture
-01 saved-candidate check. Set `GOWKHTMLTOPDF_VISUAL_CANDIDATE` to compare a
+01 saved-candidate check. Set `BLINKLESS_VISUAL_CANDIDATE` to compare a
 saved candidate with the fixture 01 reference:
 
 ```sh
-GOWKHTMLTOPDF_VISUAL_GS=/path/to/gs \
-  GOWKHTMLTOPDF_VISUAL_CANDIDATE=output/fixture-01-simple-invoice-candidate.pdf \
+BLINKLESS_VISUAL_GS=/path/to/gs \
+  BLINKLESS_VISUAL_CANDIDATE=output/fixture-01-simple-invoice-candidate.pdf \
   go test ./internal/convert/fixturetests \
   -run '^TestVisualGoldenFixture01SavedCandidate$' -count=1
 ```
 
 The full visual comparison and candidate checks skip in ordinary `make test`
-runs unless `GOWKHTMLTOPDF_VISUAL_GS` is set. The inventory check always runs.
-Set `GOWKHTMLTOPDF_VISUAL_DIFF_DIR` to keep the mutation diff for inspection
+runs unless `BLINKLESS_VISUAL_GS` is set. The inventory check always runs.
+Set `BLINKLESS_VISUAL_DIFF_DIR` to keep the mutation diff for inspection
 after the test exits
 (`internal/convert/fixturetests/pixel_regression_cases_test.go:141-192`).
 
@@ -158,7 +158,7 @@ files are skipped as bodies; fixture-36 attaches them as HTML header/footer.
 
 | File | How it is produced |
 |------|--------------------|
-| `fixture-01-simple-invoice.png` | `gowkhtmltoimage` on fixture-01 |
+| `fixture-01-simple-invoice.png` | `blinkless` on fixture-01 |
 | `fixture-21-detailed-report.png` | `examples/image` on fixture-21 (`--width 1024`) |
 
 ## Showcase and live URL

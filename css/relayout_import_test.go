@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/css"
+	"github.com/chinmay-sawant/blinkless/css"
 )
 
 // TestRelayoutRegatesImportedSheets is the @import half of the collection

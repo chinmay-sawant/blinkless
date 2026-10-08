@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# bench-external.sh - process-level CLI comparison of bin/gowkhtmltopdf
+# bench-external.sh - process-level CLI comparison of bin/blinkless
 # against the installed WeasyPrint and Puppeteer engines.
 #
 # The bench never invokes engine commands itself: each engine is run through
@@ -11,13 +11,13 @@
 #                             [--sizes=2,10,50,100] [--runs=3]
 #                             [--gowk-baseline=cli-compare-results.csv]
 #
-# --gowk-baseline makes every engine table report the same gowkhtmltopdf CLI
+# --gowk-baseline makes every engine table report the same blinkless CLI
 # series (the dedicated `make bench-cli-compare` capture) instead of timing
 # gowk again per engine session, so the CLI-vs-engine tables never disagree
 # about the gowk column. Without it, gowk is measured once per size and reused
 # by every engine section in this run.
 #
-# Requires: bin/gowkhtmltopdf (make build), /usr/bin/time, gs.
+# Requires: bin/blinkless (make build), /usr/bin/time, gs.
 # Puppeteer additionally requires node and scripts/puppeteer/node_modules
 # (npm ci --prefix scripts/puppeteer); WeasyPrint requires the weasyprint CLI.
 # Engines that are not installed are skipped.
@@ -34,7 +34,7 @@
 set -euo pipefail
 
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-GOWK_BIN="$ROOT/bin/gowkhtmltopdf"
+GOWK_BIN="$ROOT/bin/blinkless"
 ARTIFACT_DIR="${BENCH_ARTIFACT_DIR:-$ROOT/testdata/golden/benchmarks}"
 TEMPLATE="$ROOT/testdata/golden/benchmarks/templates/report.html.tmpl"
 POLL_INTERVAL=0.02
@@ -149,7 +149,7 @@ TIMEOUT_CMD=$(command -v timeout || true)
 }
 
 # Shared gowk baseline. With --gowk-baseline, every engine table reports the
-# same gowkhtmltopdf CLI series (the dedicated make bench-cli-compare capture)
+# same blinkless CLI series (the dedicated make bench-cli-compare capture)
 # instead of re-timing gowk per engine session. Without it, gowk is measured
 # once per size and reused by every engine section in this run.
 declare -A BASELINE_ELAPSED BASELINE_RSS BASELINE_BYTES
@@ -534,11 +534,11 @@ for engine in "${engines[@]}"; do
 
   echo
   echo "================================================================================================"
-  echo "PROCESS CLI COMPARISON: gowkhtmltopdf vs $display"
+  echo "PROCESS CLI COMPARISON: blinkless vs $display"
   echo "gowk:    $GOWK_BIN"
   echo "engine:  $script ($version)"
-  echo "flags:   gowkhtmltopdf used \`--quiet --allow-local-files -o OUTPUT INPUT\`; $(engine_flags_note "$engine")."
-  echo "rss:     $(engine_rss_note "$engine"); gowkhtmltopdf RSS is \`%M\`."
+  echo "flags:   blinkless used \`--quiet --allow-local-files -o OUTPUT INPUT\`; $(engine_flags_note "$engine")."
+  echo "rss:     $(engine_rss_note "$engine"); blinkless RSS is \`%M\`."
   echo "runs:    warmup + $runs timed (median)"
   echo "gowk:    $gowk_source"
   echo "================================================================================================"
@@ -573,10 +573,10 @@ for engine in "${engines[@]}"; do
       : >"$gowk_log"
       echo "page size $pages: timing gowk..."
       RUN_LOG="$gowk_log"
-      time_command 0 "$gowk_out" "gowkhtmltopdf" "$GOWK_BIN" --quiet --allow-local-files -o "$gowk_out" "$html"
+      time_command 0 "$gowk_out" "blinkless" "$GOWK_BIN" --quiet --allow-local-files -o "$gowk_out" "$html"
       echo "  warmup: $(format_ms "$(awk 'NR == 1 {print $1}' "$gowk_log")") ($(awk 'NR == 1 {print $3}' "$gowk_log") pages)"
       for ((i = 1; i <= runs; i++)); do
-        time_command 0 "$gowk_out" "gowkhtmltopdf" "$GOWK_BIN" --quiet --allow-local-files -o "$gowk_out" "$html"
+        time_command 0 "$gowk_out" "blinkless" "$GOWK_BIN" --quiet --allow-local-files -o "$gowk_out" "$html"
         echo "  run $i/$runs: $(format_ms "$(awk 'NR == '"$((i + 1))"' {print $1}' "$gowk_log")")"
       done
       gowk_pages=$(awk 'NR == 1 {print $3}' "$gowk_log")
@@ -656,18 +656,18 @@ for engine in "${engines[@]}"; do
   } >"$csv"
 
   {
-    printf '# Direct CLI comparison: gowkhtmltopdf vs %s\n\n' "$display"
+    printf '# Direct CLI comparison: blinkless vs %s\n\n' "$display"
     echo 'Process-level measurement. Each cell is the median of' \
       "$runs" 'timed runs after one warmup.'
     echo 'Wall time is measured around `/usr/bin/time`; RSS is peak resident set from `%M` (KiB).'
     printf 'Fixture: `%s` (20 invoice rows per requested page).\n' "$TEMPLATE"
-    printf 'Host: %s (%s CPUs); toolchain: %s; gowkhtmltopdf: %s.\n' \
+    printf 'Host: %s (%s CPUs); toolchain: %s; blinkless: %s.\n' \
       "$host" "$cpu_count" "$toolchain" "$gowk_version"
     printf '%s\n' "$page_count_note"
-    printf 'gowkhtmltopdf used `--quiet --allow-local-files -o OUTPUT INPUT`; %s.\n' "$(engine_flags_note "$engine")"
+    printf 'blinkless used `--quiet --allow-local-files -o OUTPUT INPUT`; %s.\n' "$(engine_flags_note "$engine")"
     printf 'Gowk source: %s.\n' "$gowk_source"
-    printf '%s; gowkhtmltopdf RSS is `%%M`.\n\n' "$(engine_rss_note "$engine")"
-    printf -- '- gowkhtmltopdf: `%s` (generic CLI)\n' "$GOWK_BIN"
+    printf '%s; blinkless RSS is `%%M`.\n\n' "$(engine_rss_note "$engine")"
+    printf -- '- blinkless: `%s` (generic CLI)\n' "$GOWK_BIN"
     printf -- '- %s: `%s` (%s)\n' "$display" "$script" "$version"
     printf -- '- Reproduce: `./scripts/bench-external.sh --engines=%s` (or `make bench`)\n\n' "$engine"
     printf '| Pages | Gowk time | %s time | Speedup | Gowk RSS |' "$display"

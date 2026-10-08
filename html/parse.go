@@ -3,8 +3,8 @@ package html
 import (
 	"fmt"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pubstate"
+	"github.com/chinmay-sawant/blinkless/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/pubstate"
 )
 
 func registerRoot() {

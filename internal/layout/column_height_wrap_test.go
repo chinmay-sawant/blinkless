@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/css"
 )
 
 //nolint:cyclop,funlen // this regression test checks several independent column invariants

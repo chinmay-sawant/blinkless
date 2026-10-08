@@ -18,8 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/load"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/settings"
+	"github.com/chinmay-sawant/blinkless/internal/load"
+	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 
 func defaultLP() settings.LoadPage {
@@ -258,7 +258,7 @@ func TestLoadHTTPCustomHeadersAndAuth(t *testing.T) {
 		t.Errorf("headers/auth = %v", got)
 	}
 
-	if !strings.HasPrefix(got["ua"], "github.com/chinmay-sawant/gowkhtmltopdf") {
+	if !strings.HasPrefix(got["ua"], "github.com/chinmay-sawant/blinkless") {
 		t.Errorf("ua = %q", got["ua"])
 	}
 }

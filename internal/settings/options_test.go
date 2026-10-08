@@ -3,7 +3,7 @@ package settings_test
 import (
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/settings"
+	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 
 func TestPdfGlobalFieldSnapshotViaClone(t *testing.T) {

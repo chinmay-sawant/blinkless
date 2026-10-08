@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Path-resolution tests for the Python API architecture generator.
 
-These tests do not require libgowkhtmltopdf; they only exercise the
+These tests do not require libblinkless; they only exercise the
 resolver helpers in generate.py.
 """
 

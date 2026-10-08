@@ -7,7 +7,7 @@ set -euo pipefail
 
 html=${1:?html path}
 max_ms=${2:?max milliseconds}
-bin=${3:?gowkhtmltopdf binary}
+bin=${3:?blinkless binary}
 
 if [[ ! -f $html ]]; then
 	echo "run-walltime: missing html $html" >&2

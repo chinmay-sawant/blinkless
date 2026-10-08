@@ -3,15 +3,15 @@ package main
 import (
 	"testing"
 
-	gowkhtmltopdf "github.com/chinmay-sawant/gowkhtmltopdf"
+	blinkless "github.com/chinmay-sawant/blinkless"
 )
 
 func TestImageValidationErrorsAreInvalidArguments(t *testing.T) {
 	t.Parallel()
 
 	for _, err := range []error{
-		gowkhtmltopdf.ErrInvalidImageQuality,
-		gowkhtmltopdf.ErrInvalidCrop,
+		blinkless.ErrInvalidImageQuality,
+		blinkless.ErrInvalidCrop,
 	} {
 		if got := classifyError(err, t.Context()); got != statusInvalidArg {
 			t.Errorf("classifyError(%v) = %d, want %d", err, got, statusInvalidArg)

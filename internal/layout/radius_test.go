@@ -4,7 +4,7 @@ package layout
 import (
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/css"
 )
 
 func TestRadiusSlash(t *testing.T) {

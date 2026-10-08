@@ -9,9 +9,7 @@ Leftover print CSS is tracked in
 [fidelity.md](fidelity.md). The normative per-property contract is
 [compatibility-matrix.md](compatibility-matrix.md).
 
-Status here is checked against current code (CLI flag registration, load,
-layout, and PDF write). Stale “accepted + warning” wording elsewhere loses
-to this table when they disagree.
+Status here is about layout and CSS. PDF writing, PDF/A, and PDF/UA are not deferred. They are not in the product.
 
 ---
 
@@ -42,7 +40,7 @@ element, with React constructing the document in JavaScript, is a
 lower-frequency browser-rendering workload and is not representative of the
 core invoice or report path.
 
-Highest-impact order for gowkhtmltopdf:
+Highest-impact order for blinkless:
 
 1. **HTML strings** (in-memory / library `InlineHTML` and similar)
 2. **Local HTML template files**
@@ -79,11 +77,11 @@ arbitrary network, or Chrome-parity behavior. See [wasm.md](wasm.md).
 | SVG image **output** (`--format svg`) | Image mode encodes PNG/JPEG only. | Not planned |
 | BMP output | No demand; PNG/JPEG cover `image/*`. | Not planned |
 | SOCKS5 proxy | `parseProxy` accepts `http` / `https` only. | Not planned |
-| PDF 1.7 + PDF/A-3a / PDF/UA-1 | **Shipped in 0.2.2** (#31, [#45](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/45)/[#47](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/47)): opt-in `--pdf-version 1.7` / `Document.PDFVersion = "1.7"` is a version, not a claim. Profiles `--pdf-profile a3a-ua1` / `a3a` / `ua1` (or `Document.PDFProfile`) imply 1.7. Tagged lists nest `L` → `LI` → `LBody` → `Link`. | #31 done |
-| PDF 2.0 (ISO 32000-2) | **Shipped in 0.2.2** (#32, [#46](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/46)): opt-in version via `--pdf-version 2.0` / `Document.PDFVersion = "2.0"` - header, trailer `/ID`, UTF-8 document strings, non-claiming XMP. Version alone is **not** a PDF/A or PDF/UA claim. | #32 done |
-| PDF/A-4 / PDF/UA-2 (PDF 2.0 conformance profiles) | **Shipped in 0.2.2** (#33, [#46](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/46)/[#47](https://github.com/chinmay-sawant/gowkhtmltopdf/pull/47)): opt-in via `--pdf-profile a4-ua2` / `Document.PDFProfile` (also `a4`, `ua2`). Implies PDF 2.0. Emits claiming XMP (`pdfaid:part=4`, `pdfuaid:part=2`), OutputIntent, structure namespaces, and full tagging. | #33 done |
+| PDF 1.7 + PDF/A-3a / PDF/UA-1 | **Shipped in 0.2.2** (#31, [#45](https://github.com/chinmay-sawant/blinkless/pull/45)/[#47](https://github.com/chinmay-sawant/blinkless/pull/47)): opt-in `--pdf-version 1.7` / `Document.PDFVersion = "1.7"` is a version, not a claim. Profiles `--pdf-profile a3a-ua1` / `a3a` / `ua1` (or `Document.PDFProfile`) imply 1.7. Tagged lists nest `L` → `LI` → `LBody` → `Link`. | #31 done |
+| PDF 2.0 (ISO 32000-2) | **Shipped in 0.2.2** (#32, [#46](https://github.com/chinmay-sawant/blinkless/pull/46)): opt-in version via `--pdf-version 2.0` / `Document.PDFVersion = "2.0"` - header, trailer `/ID`, UTF-8 document strings, non-claiming XMP. Version alone is **not** a PDF/A or PDF/UA claim. | #32 done |
+| PDF/A-4 / PDF/UA-2 (PDF 2.0 conformance profiles) | **Shipped in 0.2.2** (#33, [#46](https://github.com/chinmay-sawant/blinkless/pull/46)/[#47](https://github.com/chinmay-sawant/blinkless/pull/47)): opt-in via `--pdf-profile a4-ua2` / `Document.PDFProfile` (also `a4`, `ua2`). Implies PDF 2.0. Emits claiming XMP (`pdfaid:part=4`, `pdfuaid:part=2`), OutputIntent, structure namespaces, and full tagging. | #33 done |
 | PDF encryption / AcroForm / signatures | Out of scope; no writer support (rejected on every version, incl. 2.0). | Not planned |
-| C ABI (`gowkhtmltopdf_*` c-shared exports) | **Shipped in 0.2.5**: opt-in c-shared exports under `bindings/c` (`-buildmode=c-shared`) power the Python bindings; see [python.md](python.md). Default Go builds stay `CGO_ENABLED=0`; cgo lives only in the isolated shared-library target. | Python bindings track, `plans/0.2.5/` |
+| C ABI (`blinkless_*` c-shared exports) | **Shipped in 0.2.5**: opt-in c-shared exports under `bindings/c` (`-buildmode=c-shared`) power the Python bindings; see [python.md](python.md). Default Go builds stay `CGO_ENABLED=0`; cgo lives only in the isolated shared-library target. | Python bindings track, `plans/0.2.5/` |
 | Browser WASM preview | **Shipped in 0.2.6**: opt-in `make wasm` build and `/live-demo` frontend route for inline HTML PDF, PNG, and JPEG output. The adapter runs in a worker with bounded input, output, image dimensions, and request lifetime. | Future resource bridge with explicit origin, CORS, size, timeout, and cancellation rules |
 | `--read-args-from-stdin` | **Not implemented.** The flag is not a working batch loop (rejected / unused). | Not planned |
 | Stdin HTML input (`-`) | **Not implemented.** CLI parse stores `Page: "-"`, but `load.GuessURL("-")` falls through to **`http://-`**. Library callers should pass inline HTML; do not document CLI `-` as stdin. | Document honestly; not a hidden feature |

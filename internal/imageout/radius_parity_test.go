@@ -3,7 +3,7 @@ package imageout
 import (
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/layout"
+	"github.com/chinmay-sawant/blinkless/internal/layout"
 )
 
 // TestScaledRadiiXYParity pins imageout's raster radii to layout.OpRadiiXY

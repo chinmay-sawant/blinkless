@@ -1,7 +1,5 @@
 package layout
 
-import "github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
-
 // emptyExtra is the shared zero extra for ops that never set a rare payload.
 // Writers must detach before mutating so the singleton stays zero.
 var emptyExtra = &opExtra{} //nolint:exhaustruct,gochecknoglobals // immutable zero singleton shared by all ops
@@ -18,7 +16,6 @@ type opExtra struct {
 	Xform         Matrix2D
 	BlendMode     string
 	PaintOpacity  float64
-	StructElem    *pdf.StructElem
 	TextTransform string
 	TextLanguage  string
 	TextAutospace string
@@ -239,20 +236,6 @@ func (op *Op) setXform(matrix Matrix2D) {
 	op.detachExtra().Xform = matrix
 }
 
-func (op *Op) setStructElem(elem *pdf.StructElem) {
-	if elem == nil {
-		if op.opExtra == nil || op.opExtra == emptyExtra {
-			return
-		}
-
-		op.detachExtra().StructElem = nil
-
-		return
-	}
-
-	op.detachExtra().StructElem = elem
-}
-
 func (op Op) withImage(data []byte, width, height int, alt string) Op {
 	extra := op.detachedExtraCopy()
 	extra.Image = data
@@ -372,7 +355,6 @@ func cloneOpExtra(src *opExtra) *opExtra {
 
 	cp := *src
 	cp.Image = append([]byte(nil), src.Image...)
-	cp.StructElem = nil
 
 	return &cp
 }

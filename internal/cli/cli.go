@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/settings"
+	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 
 // ErrHelp / ErrVersion / ErrLicense / ErrExtHelp are returned for doc flags

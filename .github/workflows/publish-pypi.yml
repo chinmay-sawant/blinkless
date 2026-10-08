@@ -51,7 +51,7 @@ jobs:
       # BEFORE-BUILD SPLIT:
       # Linux uses [tool.cibuildwheel.linux] before-build in
       # bindings/python/pyproject.toml: downloads Go inside the manylinux
-      # image and builds libgowkhtmltopdf.so with {project} as the repo root,
+      # image and builds libblinkless.so with {project} as the repo root,
       # then auditwheel repair vendors it. macOS/Windows have no container
       # step, so those jobs set CIBW_BEFORE_BUILD to
       # scripts/build_cshared_for_wheel.sh (host Go from setup-go). Empty
@@ -131,9 +131,9 @@ jobs:
     environment: pypi
     # ONE-TIME OPERATOR STEP before the first tag push (Trusted Publishing):
     # register the project at https://pypi.org/manage/account/publishing -
-    #   PyPI project name: gowkhtmltopdf
+    #   PyPI project name: blinkless
     #   owner:             chinmay-sawant
-    #   repository:        gowkhtmltopdf
+    #   repository:        blinkless
     #   workflow:          publish-pypi.yml
     #   environment:       pypi
     # Without that entry PyPI rejects the OIDC token minted by this job.

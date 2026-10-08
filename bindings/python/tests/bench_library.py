@@ -17,10 +17,10 @@ Or directly after ``CGO_ENABLED=1 make c-shared``:
 
 Optional env:
 
-- ``GOWKHTMLTOPDF_BENCH_SIZES`` comma list of page/tile counts
+- ``BLINKLESS_BENCH_SIZES`` comma list of page/tile counts
   (default: 2,5,10,20,50,100,200,250,500)
-- ``GOWKHTMLTOPDF_BENCH_RUNS`` timed iterations per size (default: 10)
-- ``GOWKHTMLTOPDF_BENCH_WARMUP`` warmup iterations per size (default: 1)
+- ``BLINKLESS_BENCH_RUNS`` timed iterations per size (default: 10)
+- ``BLINKLESS_BENCH_WARMUP`` warmup iterations per size (default: 1)
 """
 
 from __future__ import annotations
@@ -36,13 +36,13 @@ _SRC = _REPO_ROOT / "bindings" / "python" / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from gowkhtmltopdf import (  # noqa: E402
+from blinkless import (  # noqa: E402
     Content,
     Document,
     ImageDocument,
     Page,
 )
-from gowkhtmltopdf import _lib  # noqa: E402
+from blinkless import _lib  # noqa: E402
 
 _TEMPLATE = (
     _REPO_ROOT
@@ -67,7 +67,7 @@ def _parse_sizes(raw: str | None) -> tuple[int, ...]:
             continue
         values.append(int(part))
     if not values:
-        raise ValueError("GOWKHTMLTOPDF_BENCH_SIZES produced no sizes")
+        raise ValueError("BLINKLESS_BENCH_SIZES produced no sizes")
     return tuple(values)
 
 
@@ -235,9 +235,9 @@ def main() -> int:
         print("bench_library: missing template {0}".format(_TEMPLATE), file=sys.stderr)
         return 2
 
-    sizes = _parse_sizes(os.environ.get("GOWKHTMLTOPDF_BENCH_SIZES"))
-    warmup = _env_int("GOWKHTMLTOPDF_BENCH_WARMUP", 1)
-    runs = _env_int("GOWKHTMLTOPDF_BENCH_RUNS", 10)
+    sizes = _parse_sizes(os.environ.get("BLINKLESS_BENCH_SIZES"))
+    warmup = _env_int("BLINKLESS_BENCH_WARMUP", 1)
+    runs = _env_int("BLINKLESS_BENCH_RUNS", 10)
     if warmup < 0 or runs < 1:
         print("bench_library: warmup must be >= 0 and runs >= 1", file=sys.stderr)
         return 2

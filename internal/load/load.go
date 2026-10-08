@@ -23,8 +23,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/errs"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/settings"
+	"github.com/chinmay-sawant/blinkless/internal/errs"
+	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 
 const (
@@ -57,7 +57,7 @@ var ErrInvalidProxy = errors.New("invalid proxy configuration")
 
 // ErrNilLoader is returned when a load operation is attempted with a nil Loader.
 // Primary definition (migrated from internal/errs, PT-GO-28).
-var ErrNilLoader = errors.New("gowkhtmltopdf: nil loader")
+var ErrNilLoader = errors.New("blinkless: nil loader")
 
 // Package-level sentinels for the loader's internal failure modes, so
 // dynamic messages wrap a static error and stay matchable with errors.Is.
@@ -1402,7 +1402,7 @@ func buildHTTPRequest(ctx context.Context, parsed *url.URL, pageLoad settings.Lo
 		return nil, fmt.Errorf("build request for %s: %w", parsed.String(), err)
 	}
 
-	req.Header.Set("User-Agent", "github.com/chinmay-sawant/gowkhtmltopdf/0.1 (pure-Go wkhtmltopdf reimplementation)")
+	req.Header.Set("User-Agent", "github.com/chinmay-sawant/blinkless/0.1 (pure-Go wkhtmltopdf reimplementation)")
 
 	if method == http.MethodPost {
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")

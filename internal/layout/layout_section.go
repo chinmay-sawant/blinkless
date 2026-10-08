@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/errs"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
+	"github.com/chinmay-sawant/blinkless/internal/errs"
+	"github.com/chinmay-sawant/blinkless/internal/html"
+	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
 )
 
 // ResolveStyles runs the same cascade LayoutContext uses. Convert uses it

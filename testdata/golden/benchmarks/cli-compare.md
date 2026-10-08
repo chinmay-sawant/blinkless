@@ -1,10 +1,10 @@
-# Direct CLI comparison: gowkhtmltopdf vs wkhtmltopdf
+# Direct CLI comparison: blinkless vs wkhtmltopdf
 
 Process-level measurement. Each cell is the median of three timed runs after one warmup.
 Wall time is Go `time.Since` around `/usr/bin/time`; RSS is peak resident set from `%M` (KiB).
-gowkhtmltopdf used `--quiet --allow-local-files -o OUTPUT INPUT`; wkhtmltopdf used its native local-file flags. on the same generated report fixture.
+blinkless used `--quiet --allow-local-files -o OUTPUT INPUT`; wkhtmltopdf used its native local-file flags. on the same generated report fixture.
 
-- gowkhtmltopdf: `../../bin/gowkhtmltopdf` (generic CLI)
+- blinkless: `../../bin/blinkless` (generic CLI)
 - wkhtmltopdf: `/usr/local/bin/wkhtmltopdf` (wkhtmltopdf 0.12.6.1 (with patched qt))
 - Reproduce: `make bench-cli-compare`
 

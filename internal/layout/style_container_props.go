@@ -3,7 +3,7 @@ package layout
 import (
 	"strings"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/css"
 )
 
 // applyContainerProps owns container-type, container-name, and the container

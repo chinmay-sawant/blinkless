@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/css"
 )
 
 const (
@@ -1170,21 +1170,3 @@ func stampCoveredOpacityOps(boxNode *box, ops []Op, covered []bool) {
 	}
 }
 
-// pdfCTMFromCSS returns the PDF cm matrix equivalent to applying cssXform in
-// canvas space (y-down) given canvas→PDF map C(x,y)=(ml+x, K-y).
-//
-//	CTM = C ∘ cssXform ∘ C⁻¹
-func pdfCTMFromCSS(
-	matrix Matrix2D, pageIdx int, contentH float64, opts PaintOptions, pageH float64,
-) (float64, float64, float64, float64, float64, float64) {
-	margL := opts.MarginLeft
-	keyK := pageH - opts.MarginTop + float64(pageIdx)*contentH
-	coeffA := matrix.A
-	coeffB := -matrix.B
-	coeffC := -matrix.C
-	coeffD := matrix.D
-	offsetE := (1-matrix.A)*margL + matrix.C*keyK + matrix.E
-	offsetF := keyK*(1-matrix.D) + matrix.B*margL - matrix.F
-
-	return coeffA, coeffB, coeffC, coeffD, offsetE, offsetF
-}

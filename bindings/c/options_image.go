@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf"
+	"github.com/chinmay-sawant/blinkless"
 )
 
 const (
@@ -53,8 +53,8 @@ func defaultImageOptions() imageOptions {
 // matching the header contract for a NULL options pointer.
 //
 //nolint:exhaustruct // optional ImageDocument fields stay zero to inherit engine defaults.
-func buildImageDocument(html []byte, opts imageOptions) *gowkhtmltopdf.ImageDocument {
-	doc := &gowkhtmltopdf.ImageDocument{Source: gowkhtmltopdf.Content{HTML: html}}
+func buildImageDocument(html []byte, opts imageOptions) *blinkless.ImageDocument {
+	doc := &blinkless.ImageDocument{Source: blinkless.Content{HTML: html}}
 
 	if opts.format != "" {
 		doc.Format = opts.format
@@ -76,7 +76,7 @@ func buildImageDocument(html []byte, opts imageOptions) *gowkhtmltopdf.ImageDocu
 		doc.Transparent = true
 	}
 	if anyCropSet(opts) {
-		doc.Crop = &gowkhtmltopdf.Crop{
+		doc.Crop = &blinkless.Crop{
 			Left:   opts.cropLeft,
 			Top:    opts.cropTop,
 			Width:  opts.cropWidth,
@@ -96,7 +96,7 @@ func buildImageDocument(html []byte, opts imageOptions) *gowkhtmltopdf.ImageDocu
 		doc.Allow = opts.allow
 	}
 	if opts.restricted {
-		policy := gowkhtmltopdf.RestrictedNetworkPolicy()
+		policy := blinkless.RestrictedNetworkPolicy()
 		doc.Network = &policy
 	}
 

@@ -5,7 +5,7 @@ import (
 	"math"
 	"strings"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/css"
 )
 
 // shapeExclusion is one float's shape-outside contour in canvas coordinates.

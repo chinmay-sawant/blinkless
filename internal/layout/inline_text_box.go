@@ -1,6 +1,6 @@
 package layout
 
-import "github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
+import pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
 
 // textBoxTrimFlags reports whether the block's first/last line should drop
 // over/under half-leading (and optionally retarget edges via text-box-edge).

@@ -26,7 +26,7 @@ import (
 	"runtime"
 	"strings"
 
-	gowkhtmltopdf "github.com/chinmay-sawant/gowkhtmltopdf"
+	blinkless "github.com/chinmay-sawant/blinkless"
 )
 
 const (
@@ -76,10 +76,10 @@ func run(args []string) error { //nolint:cyclop,funlen // generator phases
 	zero := 0.0
 	background := true
 	smartShrinking := false
-	document := gowkhtmltopdf.Document{
-		Pages:    []gowkhtmltopdf.Page{{Source: gowkhtmltopdf.File(input)}},
+	document := blinkless.Document{
+		Pages:    []blinkless.Page{{Source: blinkless.File(input)}},
 		PageSize: "A4",
-		Margin: gowkhtmltopdf.Margin{
+		Margin: blinkless.Margin{
 			Top: zero, Right: zero, Bottom: zero, Left: zero,
 		},
 		Background:      &background,

@@ -3,7 +3,7 @@ package layout_test
 import (
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/layout"
+	"github.com/chinmay-sawant/blinkless/layout"
 )
 
 // The zero DisplayOp has no embedded opExtra. Reading a promoted field

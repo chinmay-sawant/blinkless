@@ -1,7 +1,7 @@
 ---
 name: generate-fixture-test
 description: >
-  Create a PDF-operation regression test for an existing gowkhtmltopdf
+  Create a PDF-operation regression test for an existing blinkless
   fixture. Use when a user asks to test a fixture PDF, pin PDF locations,
   compare a committed sample with a fresh conversion, or generate fixture
   test cases from the output corpus. Measure every reference PDF directly;
@@ -255,7 +255,7 @@ For a single fixture, run the focused proofs with a writable temporary Go
 cache:
 
 ```bash
-review_cache=/tmp/gowkhtmltopdf-fixture-test-cache
+review_cache=/tmp/blinkless-fixture-test-cache
 GOCACHE="$review_cache" go test ./internal/pdf -run 'TestPageOps' -count=1
 GOCACHE="$review_cache" go test ./internal/convert -run 'TestOutputFixtureNN<Slug>$' -count=1
 ```

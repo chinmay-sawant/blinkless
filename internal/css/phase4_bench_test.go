@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 // manyMediaSheet builds a stylesheet with count @media blocks, the shape that

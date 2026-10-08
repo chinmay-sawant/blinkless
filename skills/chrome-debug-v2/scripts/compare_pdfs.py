@@ -254,7 +254,7 @@ def compare_page(index, page_a, page_b, dpi, outdir, max_rows, threshold):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("pdf_a", help="reference PDF (Chromium)")
-    parser.add_argument("pdf_b", help="candidate PDF (gowkhtmltopdf)")
+    parser.add_argument("pdf_b", help="candidate PDF (blinkless)")
     parser.add_argument(
         "--dpi", type=int, default=150, help="DPI for ink bbox, pixels, and PNGs"
     )

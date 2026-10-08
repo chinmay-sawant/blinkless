@@ -1,6 +1,6 @@
 package layout
 
-import "github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
+import pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
 
 // fontPaletteFill is the lite font-palette paint consumer: when the face has
 // COLR+CPAL and the CSS value is light, dark, or a palette index, the first

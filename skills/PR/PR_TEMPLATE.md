@@ -1,6 +1,6 @@
-# gowkhtmltopdf - Pull Request Template
+# blinkless - Pull Request Template
 
-Use this document when authoring GitHub pull requests for [chinmay-sawant/gowkhtmltopdf](https://github.com/chinmay-sawant/gowkhtmltopdf). Copy the sections below into the PR description and fill in each section. Delete guidance comments before submitting.
+Use this document when authoring GitHub pull requests for [chinmay-sawant/blinkless](https://github.com/chinmay-sawant/blinkless). Copy the sections below into the PR description and fill in each section. Delete guidance comments before submitting.
 
 ---
 
@@ -236,7 +236,7 @@ make run
 
 ---
 
-## Example titles (gowkhtmltopdf)
+## Example titles (blinkless)
 
 ```
 feat(wasm): add browser conversion support

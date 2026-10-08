@@ -3,7 +3,7 @@ package css
 import (
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 // ofTypeFixture is mixed-tag siblings so of-type index differs from nth-child.

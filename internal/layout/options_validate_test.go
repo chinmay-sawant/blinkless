@@ -4,7 +4,6 @@ import (
 	"math"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
 )
 
 func TestOptionsValidate(t *testing.T) {
@@ -50,48 +49,6 @@ func TestOptionsValidateAcceptsDefaults(t *testing.T) {
 	}
 }
 
-func TestPaintOptionsValidate(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name string
-		opts PaintOptions
-	}{
-		{name: "zero page", opts: PaintOptions{PageWidth: 0, PageHeight: 842}},
-		{name: "negative height", opts: PaintOptions{PageWidth: 595, PageHeight: -842}},
-		{name: "negative margin", opts: PaintOptions{PageWidth: 595, PageHeight: 842, MarginTop: -10}},
-		{name: "nan margin", opts: PaintOptions{PageWidth: 595, PageHeight: 842, MarginLeft: math.NaN()}},
-	}
-
-	for _, testCase := range cases {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			if err := testCase.opts.validate(); err == nil {
-				t.Fatal("validate accepted invalid paint options")
-			}
-		})
-	}
-}
-
-func TestPaintOptionsValidateAcceptsDefaults(t *testing.T) {
-	t.Parallel()
-
-	opts := []PaintOptions{
-		{PageWidth: 595, PageHeight: 842},
-		{PageWidth: 595, PageHeight: 842, MarginTop: 28.35, MarginBottom: 28.35, MarginLeft: 28.35, MarginRight: 28.35},
-	}
-
-	for _, option := range opts {
-		if err := option.validate(); err != nil {
-			t.Fatalf("validate(%+v) = %v, want nil", option, err)
-		}
-	}
-}
-
-// TestLayoutContextRejectsNegativeZoom proves the fail-fast path at the
-// entry point: the old zoomScale clamp would have silently treated a
-// negative zoom as no zoom.
 func TestLayoutContextRejectsNegativeZoom(t *testing.T) {
 	t.Parallel()
 
@@ -105,22 +62,3 @@ func TestLayoutContextRejectsNegativeZoom(t *testing.T) {
 	}
 }
 
-func TestPaintContextRejectsMarginsThatSwallowPage(t *testing.T) {
-	t.Parallel()
-
-	doc := pdf.NewDocument()
-	res := &Result{
-		Ops: []Op{},
-	}
-
-	// Margins that swallow the page are not a validation error: header/footer
-	// auto margins can legitimately produce this shape (tall HTML header) and
-	// the engine clips such headers while the body fallback (contentH =
-	// PageHeight) keeps conversion alive. Paint must not reject it.
-	err := Paint(doc, res, PaintOptions{
-		PageWidth: 595, PageHeight: 842, MarginTop: 500, MarginBottom: 500,
-	})
-	if err != nil {
-		t.Fatalf("Paint rejected margins that swallow the page: %v", err)
-	}
-}

@@ -1,5 +1,5 @@
 {
-  "name": "gowkhtmltopdf-puppeteer-bench",
+  "name": "blinkless-puppeteer-bench",
   "private": true,
   "version": "0.0.0",
   "description": "puppeteer-core install for the bench-external process comparison",

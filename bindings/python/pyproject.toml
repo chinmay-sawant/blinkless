@@ -3,9 +3,9 @@ requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "gowkhtmltopdf"
+name = "blinkless"
 version = "0.2.6"
-description = "In-process Python bindings for the gowkhtmltopdf HTML-to-PDF engine via a ctypes-loaded c-shared library"
+description = "In-process Python bindings for the blinkless HTML-to-PDF engine via a ctypes-loaded c-shared library"
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }
@@ -30,8 +30,8 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/chinmay-sawant/gowkhtmltopdf"
-Issues = "https://github.com/chinmay-sawant/gowkhtmltopdf/issues"
+Homepage = "https://github.com/chinmay-sawant/blinkless"
+Issues = "https://github.com/chinmay-sawant/blinkless/issues"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
@@ -41,7 +41,7 @@ zip-safe = false
 where = ["src"]
 
 [tool.setuptools.package-data]
-gowkhtmltopdf = ["libgowkhtmltopdf.*", "py.typed"]
+blinkless = ["libblinkless.*", "py.typed"]
 
 # cibuildwheel (Phase 43). Archs are per-platform: never set a global archs
 # list (macOS rejects Linux's aarch64 name). Linux builds the c-shared library
@@ -76,7 +76,7 @@ ROOT="{project}"
 test -f "$ROOT/VERSION"
 test -f "$ROOT/go.mod"
 test -d "$ROOT/bindings/c"
-OUT="$ROOT/bindings/python/src/gowkhtmltopdf/libgowkhtmltopdf.so"
+OUT="$ROOT/bindings/python/src/blinkless/libblinkless.so"
 mkdir -p "$(dirname "$OUT")"
 (
   cd "$ROOT" && CGO_ENABLED=1 go build -buildmode=c-shared \

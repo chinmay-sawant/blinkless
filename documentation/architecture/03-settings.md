@@ -1,13 +1,11 @@
-# Settings system & errors
+# Settings system and errors
 
-> This deep-dive documents the internal engine settings vocabulary. In v0.2.4
-> the root package exposes named `Document` / `ImageDocument` fields; callers
-> do not use the dotted `Set` / `Get` tables directly.
+The image command and `ImageDocument` read load, font, and image settings from this package. PDF version, PDF profile, copies, outlines, headers, footers, and TOC keys may still exist on the struct. Nothing writes a PDF from them.
 
 ## 1. Responsibility & position in the pipeline
 
 The `internal/settings` package is the **single source of truth for every
-user-facing knob** in gowkhtmltopdf: page geometry, margins, headers/footers,
+user-facing knob** in blinkless: page geometry, margins, headers/footers,
 TOC behaviour, load policy (proxy, ACL), web behaviour, image output, and the
 inert-but-accepted wkhtmltopdf keys. It is the *settings half* of the
 `cli → settings → convert/load/layout/imageout` data path, and it is the only
@@ -165,7 +163,7 @@ library `WithPDFVersion` / `PdfGlobalOptions` builder.
 
 ### 4.1 CLI path (dotted strings)
 
-1. `cmd/gowkhtmltopdf/main.go` parses argv via `internal/cli`.
+1. `cmd/blinkless/main.go` parses argv via `internal/cli`.
 2. `cli.Parse` builds a `cli.Command` whose struct **is** the settings payload:
    `Global settings.PdfGlobal`, `Image settings.ImageGlobal`,
    `Objects []settings.PdfObject` (`internal/cli/cli.go:45-47`), initialized

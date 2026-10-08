@@ -1,6 +1,6 @@
 ---
 name: chrome-debug
-description: Compare an installed Chromium PDF with a gowkhtmltopdf PDF for one HTML fixture, measure visual and geometry differences, coordinate bounded diagnosis and picture-review subagents, apply a minimal verified fix when authorized, and refresh artifacts. Use for Chrome-versus-Go PDF mismatches, not generic golden failures or unrelated browser automation.
+description: Compare an installed Chromium PDF with a blinkless PDF for one HTML fixture, measure visual and geometry differences, coordinate bounded diagnosis and picture-review subagents, apply a minimal verified fix when authorized, and refresh artifacts. Use for Chrome-versus-Go PDF mismatches, not generic golden failures or unrelated browser automation.
 ---
 
 # Chrome Debug
@@ -19,7 +19,7 @@ can diagnose only, or diagnose and fix when the user authorizes source edits.
   changing renderer scale before proving that scale is the cause.
 - Never call a Go PDF a Chrome PDF. Keep the artifacts separate:
   - Chromium reference: `/tmp/chrome-debug/<fixture>/chromium.pdf`
-  - Go output: `/tmp/chrome-debug/<fixture>/gowkhtmltopdf.pdf`
+  - Go output: `/tmp/chrome-debug/<fixture>/blinkless.pdf`
   - Repository Go artifact, only when explicitly requested:
     `test/chrome/pdf/<fixture>.pdf`
 - Use the same HTML input for both renderers. Do not compare different source
@@ -59,8 +59,8 @@ PDFs are recorded.
 5. Generate the Go PDF from the same HTML and freshly built binary:
 
    ```sh
-   ./bin/gowkhtmltopdf --allow-local-files \
-     -o "$run_dir/gowkhtmltopdf.pdf" "$html"
+   ./bin/blinkless --allow-local-files \
+     -o "$run_dir/blinkless.pdf" "$html"
    ```
 
    If the user asks to refresh the repository artifact, generate the Go PDF
@@ -78,7 +78,7 @@ Render every page at the same DPI:
 python3 skills/diagnose-fixture-picture/scripts/render_fixture_pages.py \
   "$run_dir/chromium.pdf" "$run_dir/chromium-pages" 150
 python3 skills/diagnose-fixture-picture/scripts/render_fixture_pages.py \
-  "$run_dir/gowkhtmltopdf.pdf" "$run_dir/gowkhtmltopdf-pages" 150
+  "$run_dir/blinkless.pdf" "$run_dir/blinkless-pages" 150
 ```
 
 Inspect the actual PNGs with the image viewer. Use PyMuPDF (`fitz`) for page

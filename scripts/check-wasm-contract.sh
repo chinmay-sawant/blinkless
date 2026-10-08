@@ -9,7 +9,7 @@ trap 'rm -rf "$artifact_dir"' EXIT
 cd "$repo_root"
 
 go test ./bindings/wasm
-GOOS=js GOARCH=wasm go build -o "$artifact_dir/gowkhtmltopdf.wasm" ./bindings/wasm
-test -s "$artifact_dir/gowkhtmltopdf.wasm"
+GOOS=js GOARCH=wasm go build -o "$artifact_dir/blinkless.wasm" ./bindings/wasm
+test -s "$artifact_dir/blinkless.wasm"
 
 echo "WASM contract tests and JS/WASM build passed."

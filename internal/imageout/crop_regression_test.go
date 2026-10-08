@@ -5,7 +5,7 @@ import (
 	"image/color"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 // TestCropWindowsStayInkful is the visual gate for representative headers.

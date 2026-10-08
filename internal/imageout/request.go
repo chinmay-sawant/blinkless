@@ -6,7 +6,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/settings"
+	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 
 // ErrMultipleInputs reports an image request that carries more than one

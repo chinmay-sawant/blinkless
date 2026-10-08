@@ -1,4 +1,4 @@
-# Contributing to gowkhtmltopdf
+# Contributing to blinkless
 
 Thanks for helping improve this pure-Go HTML→PDF / HTML→image engine.
 
@@ -29,8 +29,8 @@ Product design, fidelity tiers, and the support matrix live under
 ## Development setup
 
 ```sh
-git clone https://github.com/chinmay-sawant/gowkhtmltopdf.git
-cd gowkhtmltopdf
+git clone https://github.com/chinmay-sawant/blinkless.git
+cd blinkless
 make test
 make build
 ```
@@ -43,7 +43,7 @@ make build
 | `make test-serial` | `-p 1 -parallel 1` when even capped runs freeze the desktop |
 | `make test-race` | `-race` on hot packages, same concurrency caps |
 | `make lint` | `golangci-lint run` (all linters via `.golangci.yml`), `make size-check` (file-size ledger), then `npm run lint` in `frontend/` |
-| `make build` | `bin/gowkhtmltopdf`, `bin/gowkhtmltoimage` |
+| `make build` | `bin/blinkless`, `bin/blinkless` |
 | `make golden` | Golden fixture corpus (`internal/convert`), capped parallelism |
 | `make samples` | Regenerate `output/` fixtures + optional live wiki smoke |
 | `make fmt` | `gofmt -w .` |
@@ -86,7 +86,7 @@ Issue templates: [`skills/PR/ISSUE_TEMPLATE.md`](skills/PR/ISSUE_TEMPLATE.md).
 
 | Concern | Package |
 |---------|---------|
-| CLI / flags | `internal/cli`, `cmd/gowkhtmltopdf` |
+| CLI / flags | `internal/cli`, `cmd/blinkless` |
 | Load / HTTP / ACL | `internal/load` |
 | HTML parse | `internal/html` |
 | CSS cascade | `internal/css` |
@@ -94,7 +94,7 @@ Issue templates: [`skills/PR/ISSUE_TEMPLATE.md`](skills/PR/ISSUE_TEMPLATE.md).
 | PDF write / fonts / images | `internal/pdf` |
 | Image mode | `internal/imageout` |
 | End-to-end convert | `internal/convert` |
-| Public library API | root `gowkhtmltopdf` (`api.go`) |
+| Public library API | root `blinkless` (`api.go`) |
 | Public HTML, CSS, layout | `html`, `css`, `layout` (no PDF write) |
 
 Pipeline: **load → parse → style → layout → paginate/paint → PDF write**.
@@ -131,7 +131,7 @@ table chrome. For print/layout work:
 Optional live smoke (also part of `make samples`):
 
 ```sh
-./bin/gowkhtmltopdf --use-system-fonts --zoom 0.666667 \
+./bin/blinkless --use-system-fonts --zoom 0.666667 \
   'https://en.wikipedia.org/wiki/Ana_de_Armas' \
   output/wiki-ana-de-armas.pdf
 ```
@@ -169,7 +169,7 @@ git push origin v0.2.1
 The release workflow then:
 
 - Refuses to publish if `VERSION` ≠ tag without the `v` (guards accidental tags)
-- Cross-compiles `gowkhtmltopdf` and `gowkhtmltoimage` with `CGO_ENABLED=0` for
+- Cross-compiles `blinkless` and `blinkless` with `CGO_ENABLED=0` for
   **linux / windows / darwin** × **amd64 / arm64**
 - Stamps `internal/cli.Version` from the tag
 - Creates or updates the GitHub Release for that tag and attaches the binaries
@@ -215,7 +215,7 @@ sync only when you close a phase item.
 
 Include:
 
-- gowkhtmltopdf version / commit
+- blinkless version / commit
 - Minimal HTML (or fixture path) and exact CLI / library call
 - Expected vs actual (screenshot of PDF page helps for layout bugs)
 - OS and Go version

@@ -1,11 +1,11 @@
 ---
 name: perf-patterns
-description: Concrete, measured Go performance patterns proved in gowkhtmltopdf - before/after code, when each applies, detector greps, the warm/cold measurement protocol, and the traps already falsified in this repo. Use when optimizing hot paths, reviewing a perf change, or planning a perf pass. Companion to perf-review, which runs the parallel review-and-fix wave.
+description: Concrete, measured Go performance patterns proved in blinkless - before/after code, when each applies, detector greps, the warm/cold measurement protocol, and the traps already falsified in this repo. Use when optimizing hot paths, reviewing a perf change, or planning a perf pass. Companion to perf-review, which runs the parallel review-and-fix wave.
 ---
 
 # Perf Patterns (proven in this repo)
 
-Every pattern here was shipped in gowkhtmltopdf and is backed by a commit, a plan ledger row, or a review transcript. Nothing in this file is speculation dressed as advice. The catalog was mined on 2026-09-21 from HEAD `7496277` (VERSION 0.2.6), the commit range `c103141..84a5b68`, the `plans/0.2.6/` perf ledgers, and 30+ OpenCode agent sessions.
+Every pattern here was shipped in blinkless and is backed by a commit, a plan ledger row, or a review transcript. Nothing in this file is speculation dressed as advice. The catalog was mined on 2026-09-21 from HEAD `7496277` (VERSION 0.2.6), the commit range `c103141..84a5b68`, the `plans/0.2.6/` perf ledgers, and 30+ OpenCode agent sessions.
 
 Two things this skill does not do: it does not replace `skills/perf-review/SKILLS.md` (that file runs the 5-agent review wave), and it does not license refactors. A pattern only counts when you apply it to a measured waste and prove the output did not change.
 
@@ -644,13 +644,13 @@ Three fresh-process samples per row; report the median and take `B/op`/`allocs` 
 pprof recipe (profiles are diagnostics, not benchmarks):
 
 ```sh
-profile_root=/tmp/gowkhtmltopdf-pprof
-GOCACHE=/tmp/gowkhtmltopdf-go-cache go test -c -o "$profile_root/document.test" .
-GOCACHE=/tmp/gowkhtmltopdf-go-cache "$profile_root/document.test" \
+profile_root=/tmp/blinkless-pprof
+GOCACHE=/tmp/blinkless-go-cache go test -c -o "$profile_root/document.test" .
+GOCACHE=/tmp/blinkless-go-cache "$profile_root/document.test" \
   -test.run '^$' -test.bench '^BenchmarkLibraryPDF/500Pages$' \
   -test.benchmem -test.benchtime=5s -test.count=1 \
   -test.cpuprofile="$profile_root/cpu.pprof"
-GOCACHE=/tmp/gowkhtmltopdf-go-cache "$profile_root/document.test" \
+GOCACHE=/tmp/blinkless-go-cache "$profile_root/document.test" \
   -test.run '^$' -test.bench '^BenchmarkLibraryPDF/500Pages$' \
   -test.benchmem -test.benchtime=1x -test.count=1 \
   -test.memprofilerate=1 -test.memprofile="$profile_root/heap.pprof"

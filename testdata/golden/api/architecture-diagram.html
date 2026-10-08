@@ -466,8 +466,8 @@
       </section>
     </div>
 
-    <div class="code"><span class="accent-text">doc</span> := gowkhtmltopdf.Document{<br>
-      &nbsp;&nbsp;Pages: []gowkhtmltopdf.Page{{Source: gowkhtmltopdf.File(inputPath)}},<br>
+    <div class="code"><span class="accent-text">doc</span> := blinkless.Document{<br>
+      &nbsp;&nbsp;Pages: []blinkless.Page{{Source: blinkless.File(inputPath)}},<br>
       &nbsp;&nbsp;AllowLocalFiles: true,<br>
       }<br>
       <span class="accent-text">err</span> := doc.WritePDF(ctx, output)</div>

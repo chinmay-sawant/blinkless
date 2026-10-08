@@ -18,7 +18,7 @@ style pass (`gofmt` already ran) and not a performance pass.
 Do not implement.
 
 Read first: `../references/finding-schema.md`. If the module path is
-`gowkhtmltopdf`, also read `../references/gowkhtmltopdf.md`. Calibrate
+`blinkless`, also read `../references/blinkless.md`. Calibrate
 to `.golangci.yml`, `Makefile`, and existing tests before filing.
 
 ## 1. Law vs taste
@@ -45,7 +45,7 @@ Walk exported functions and the engine entries they call.
 | Pattern | Finding when |
 |---|---|
 | Sentinel | Same condition, different `errors.New` text/value |
-| Prefix | Public errors lose the `gowkhtmltopdf:` prefix; internal wrap drops `%w` |
+| Prefix | Public errors lose the `blinkless:` prefix; internal wrap drops `%w` |
 | `OnError` / hooks | Preflight fails and the hook is skipped, or the hook swallows the return |
 | Panic vs error | Fluent programmer-error panics are policy; `Set`/`Convert`/`Run*` must not panic on user input |
 | Distinct nils | `ErrNilConverter` and `ErrNilPDFRequest` (etc.) collapsed into one value |
@@ -96,8 +96,8 @@ framework.
 
 ## 6. Refuse list (do not nag)
 
-If this is `gowkhtmltopdf`, the refuse list is
-`../references/gowkhtmltopdf.md` § Do not nag — do not restate it.
+If this is `blinkless`, the refuse list is
+`../references/blinkless.md` § Do not nag — do not restate it.
 
 In any other repo, refuse: a second settings system, pixel-diff merge
 gates, mutexes on a documented single-goroutine engine, context on

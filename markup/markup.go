@@ -3,7 +3,7 @@ package markup
 import (
 	"fmt"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 // Type classifies a parsed node.

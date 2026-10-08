@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/layout"
+	"github.com/chinmay-sawant/blinkless/internal/layout"
 )
 
 // TestRasterDimensionBudgetErrorIsActionable checks the enriched dimension

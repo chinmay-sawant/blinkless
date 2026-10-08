@@ -1,7 +1,7 @@
 ---
 name: diagnose-golden-fixture
 description: >
-  Diagnose a failing gowkhtmltopdf golden corpus fixture (wrong page count,
+  Diagnose a failing blinkless golden corpus fixture (wrong page count,
   missing needles, structural envelope) by building a tight red loop, bisecting
   to the first bad commit, ranking falsifiable hypotheses, instrumenting one
   variable at a time, and fixing the interaction without undoing intentional

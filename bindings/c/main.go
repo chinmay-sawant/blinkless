@@ -1,5 +1,5 @@
-// Package main builds libgowkhtmltopdf, the c-shared library exposing the
-// frozen C ABI in include/gowkhtmltopdf.h. main.go stays free of build tags
+// Package main builds libblinkless, the c-shared library exposing the
+// frozen C ABI in include/blinkless.h. main.go stays free of build tags
 // and of any import "C" so the package compiles under CGO_ENABLED=0 (stub
 // exports) and CGO_ENABLED=1 (real exports) alike. The pieces both modes
 // need live here: the runtime version string, the ABI/status constants, and
@@ -10,18 +10,18 @@ import (
 	"sync"
 )
 
-// libVersion is reported by gowkhtmltopdf_version. Release builds stamp it
+// libVersion is reported by blinkless_version. Release builds stamp it
 // via -ldflags "-X main.libVersion=$(cat VERSION)"
 // (the Makefile BINDINGS_VERSION_LDFLAGS value; bindings/c is package main).
 //
 //nolint:gochecknoglobals // ldflags injection target shared by both build modes
 var libVersion = "dev"
 
-// abiVersionValue mirrors GOWKHTMLTOPDF_ABI_VERSION in the committed header.
+// abiVersionValue mirrors BLINKLESS_ABI_VERSION in the committed header.
 const abiVersionValue = int32(1)
 
 // Status codes returned through the C ABI. Keep in sync with the table
-// documented in include/gowkhtmltopdf.h.
+// documented in include/blinkless.h.
 const (
 	statusOK             = int32(0)
 	statusInvalidArg     = int32(1)
@@ -30,7 +30,7 @@ const (
 	statusTimeout        = int32(4)
 	statusResourceLimit  = int32(5)
 	statusInternal       = int32(6)
-	stubRequiredCGOError = "gowkhtmltopdf shared library requires CGO_ENABLED=1 (-buildmode=cshared)"
+	stubRequiredCGOError = "blinkless shared library requires CGO_ENABLED=1 (-buildmode=cshared)"
 )
 
 // The last-error slot records the most recent failure message from any

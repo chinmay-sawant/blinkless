@@ -8,33 +8,19 @@ import (
 )
 
 // Version is the project release stamped by the build
-// (ldflags -X github.com/chinmay-sawant/gowkhtmltopdf/internal/cli.Version=$(cat VERSION)).
-// The unstamped default matches the VERSION file so tests and local
-// `go test`/`go run` agree with the release number. It is not
-// LibraryVersion, which is the upstream wkhtmltopdf compatibility id.
-var Version = "0.2.6" //nolint:gochecknoglobals // ldflags-stamped build variable
+// (ldflags -X github.com/chinmay-sawant/blinkless/internal/cli.Version=0.0.1).
+var Version = "0.0.1" //nolint:gochecknoglobals // ldflags-stamped build variable
 
 // PrintHelp writes usage text for the given Mode.
 func PrintHelp(writer io.Writer, mode Mode) {
-	output := "PDF"
-	command := "gowkhtmltopdf"
+	output := "PNG/JPEG image"
+	command := "blinkless"
 	examples := fmt.Sprintf(
-		"  %s --page-size A4 --orientation Landscape -o report.pdf report.html\n"+
-			"  %s -o book.pdf --cover cover.html --toc chapter1.html chapter2.html\n"+
-			"  %s --html '<html><body><h1>Report</h1></body></html>' -o report.pdf",
+		"  %s --width 800 --format png -o report.png report.html\n"+
+			"  %s --url https://example.test/preview -o preview.png\n"+
+			"  %s --html '<html><body><h1>Preview</h1></body></html>' -o preview.png",
 		command, command, command,
 	)
-
-	if mode == ModeImage {
-		output = "PNG/JPEG image"
-		command = "gowkhtmltoimage"
-		examples = fmt.Sprintf(
-			"  %s --width 800 --format png -o report.png report.html\n"+
-				"  %s --url https://example.test/preview -o preview.png\n"+
-				"  %s --html '<html><body><h1>Preview</h1></body></html>' -o preview.png",
-			command, command, command,
-		)
-	}
 
 	fmt.Fprintf(writer, `Name:
   %s - Convert HTML to %s with the pure-Go report renderer
@@ -58,20 +44,18 @@ Description:
 
 // PrintVersion writes the version banner.
 func PrintVersion(w io.Writer) {
-	fmt.Fprintf(w, "Name: gowkhtmltopdf\nVersion: %s\n", Version)
+	fmt.Fprintf(w, "Name: blinkless\nVersion: %s\n", Version)
 }
 
 // PrintLicense writes the license banner.
 func PrintLicense(w io.Writer) {
-	fmt.Fprintf(w, `gowkhtmltopdf %s
-Copyright (C) 2026 gowkhtmltopdf contributors
+	fmt.Fprintf(w, `blinkless %s
+Copyright (C) 2026 blinkless contributors
 
-This program is an independent, clean-room reimplementation of the
-wkhtmltopdf command-line interface and is licensed under the MIT License.
-The original wkhtmltopdf is Copyright (C) 2010-2020 wkhtmltopdf authors and
-is licensed under the LGPL.
+This program lays out HTML and can encode that layout as a PNG or JPEG.
+It is licensed under the MIT License.
 
-See LICENSE for the full text of the MIT License.
+See LICENSE for the full text.
 `, Version)
 }
 

@@ -15,11 +15,7 @@ Every default conversion can use:
 | **Liberation Mono** | Regular / Bold / Italic / BoldItalic | `monospace`, Courier, Consolas, … |
 | **DejaVu Sans** | Regular + Bold | Unicode fallback (`system-ui`, last-resort glyphs) |
 
-This is **not** Liberation Sans only. Faces live in `internal/pdf/assets/`
-and are parsed by `pdf.LoadDefaultFaces`.
-
-Latin-1 text embeds as a simple TrueType subset with WinAnsi-style
-single-byte codes. Runes above U+00FF take the Type0 path below.
+Faces live in `internal/fonts/assets` and are loaded by `fonts.LoadDefaultFaces`. The PNG path uses the same faces for glyph positions. It does not embed a font program in a PDF.
 
 ## CSS generic / common-name mapping
 
@@ -56,7 +52,7 @@ rejected** (TrueType outlines only). A file that fails `ParseTTF` is skipped.
 Example (CJK / Hangul):
 
 ```sh
-gowkhtmltopdf --font-path /usr/share/fonts/truetype/droid \
+blinkless --font-path /usr/share/fonts/truetype/droid \
   --font-path testdata/fonts \
   fixture-27-cjk-fontpath.html out.pdf
 # Production Hangul: any Hangul-capable TTF on --font-path

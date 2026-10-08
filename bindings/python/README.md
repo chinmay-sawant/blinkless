@@ -1,7 +1,7 @@
-# gowkhtmltopdf (Python)
+# blinkless (Python)
 
-In-process Python bindings for the gowkhtmltopdf HTML-to-PDF engine. The
-package loads `libgowkhtmltopdf` (a Go `-buildmode=c-shared` library) with
+In-process Python bindings for the blinkless HTML-to-PDF engine. The
+package loads `libblinkless` (a Go `-buildmode=c-shared` library) with
 stdlib `ctypes`; there is no subprocess and no compiled Python extension.
 
 Requires Python 3.8+. Linux is the first-supported platform; macOS and
@@ -12,7 +12,7 @@ Windows builds follow the wheel matrix.
 Mirrors the Go `Document` API:
 
 ```python
-from gowkhtmltopdf import Document, Page, Content
+from blinkless import Document, Page, Content
 
 doc = Document(
     pages=[Page(source=Content(html=b"<html><body><h1>Invoice</h1></body></html>"))],
@@ -24,7 +24,7 @@ pdf_bytes: bytes = doc.pdf()  # or doc.pdf(timeout=30)
 ## Helper style
 
 ```python
-from gowkhtmltopdf import convert_html_to_pdf, PDFOptions
+from blinkless import convert_html_to_pdf, PDFOptions
 
 pdf_bytes = convert_html_to_pdf(
     html=b"<html><body><h1>Invoice #42</h1><p>Total: $19.00</p></body></html>",

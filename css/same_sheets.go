@@ -1,6 +1,6 @@
 package css
 
-import icss "github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
+import icss "github.com/chinmay-sawant/blinkless/internal/css"
 
 // sameSheets reports whether two collections hold the same parsed sheets in
 // the same order, which lets a relayout keep the font registry it already

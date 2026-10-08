@@ -3,7 +3,7 @@ package layout_test
 import (
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/layout"
+	"github.com/chinmay-sawant/blinkless/layout"
 )
 
 // compareDisplays pins that Relayout is a placement-for-placement replacement

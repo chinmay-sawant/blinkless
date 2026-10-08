@@ -3,8 +3,8 @@ package css_test
 import (
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/css"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pubstate"
+	"github.com/chinmay-sawant/blinkless/css"
+	"github.com/chinmay-sawant/blinkless/internal/pubstate"
 )
 
 func TestRelayoutReusesParsedSheets(t *testing.T) {

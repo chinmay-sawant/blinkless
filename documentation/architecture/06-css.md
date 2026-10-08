@@ -2,8 +2,7 @@
 
 ## 1. Responsibility & position in the pipeline
 
-`internal/css` implements the **CSS subset** that gowkhtmltopdf accepts, and nothing
-more. Its package doc (internal/css/css.go, lines 1-13) states the contract
+`internal/css` implements the CSS subset blinkless accepts. Its package doc (`internal/css/css.go`) states the contract
 precisely:
 
 > Scope: `*`, type, `.class`, `#id`, attribute selectors (`[attr]`, `=`, `~=`,
@@ -249,7 +248,7 @@ pseudo-elements inside `:has()` are rejected at parse time (has.go's
 
 | Import | Why |
 |--------|-----|
-| `gowkhtmltopdf/internal/html` | `Match`, `MatchPseudo` and all matching walkers operate on `*html.Node` (custom allowlisted tree, internal/html/html.go:36). This is the only intra-repo dependency |
+| `blinkless/internal/html` | `Match`, `MatchPseudo` and all matching walkers operate on `*html.Node` (custom allowlisted tree, internal/html/html.go:36). This is the only intra-repo dependency |
 | stdlib: `errors`, `strconv`, `strings`, `unicode`, `unicode/utf8` | Parsing, identifier/class scanning, number/color conversion |
 
 The import graph is a **strict lower layer**: `internal/css → internal/html →

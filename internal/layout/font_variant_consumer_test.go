@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf/assets"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/settings"
+	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
+	"github.com/chinmay-sawant/blinkless/internal/fonts/assets"
+	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 
 // TestDejaVuSansFamilyResolvesFallback proves font-family:'DejaVu Sans'

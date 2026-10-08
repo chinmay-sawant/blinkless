@@ -11,10 +11,10 @@ import (
 	"testing"
 
 	"github.com/andybalholm/brotli"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/load"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/settings"
+	"github.com/chinmay-sawant/blinkless/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/load"
+	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
+	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 
 // testResources builds the same resource seam Document uses, with a real
@@ -33,7 +33,7 @@ func testResources(t *testing.T) ResourceContext {
 func readFontAsset(t *testing.T) []byte {
 	t.Helper()
 
-	data, err := os.ReadFile(filepath.Join("..", "..", "pdf", "assets", "LiberationSans-Regular.ttf"))
+	data, err := os.ReadFile(filepath.Join("..", "..", "fonts", "assets", "LiberationSans-Regular.ttf"))
 	if err != nil {
 		t.Fatalf("read font asset: %v", err)
 	}

@@ -3,7 +3,7 @@ package prepare
 import (
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 // TestLinkStylesheetMediaMatches is the white-box test for the stylesheet

@@ -4,7 +4,7 @@ import (
 	"math"
 	"strings"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 // Grid auto-flow keywords (grid-auto-flow longhand values).

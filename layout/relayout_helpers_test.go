@@ -3,9 +3,9 @@ package layout_test
 import (
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/css"
-	"github.com/chinmay-sawant/gowkhtmltopdf/html"
-	"github.com/chinmay-sawant/gowkhtmltopdf/layout"
+	"github.com/chinmay-sawant/blinkless/css"
+	"github.com/chinmay-sawant/blinkless/html"
+	"github.com/chinmay-sawant/blinkless/layout"
 )
 
 // applyAt parses source and applies it at one viewport and state.

@@ -14,7 +14,7 @@ description: >
 One review wave. Three lenses. One ledger. No code changes.
 
 Read `references/finding-schema.md` now. If the module path is
-`gowkhtmltopdf`, also read `references/gowkhtmltopdf.md`. Ledger
+`blinkless`, also read `references/blinkless.md`. Ledger
 rules come from `skills/phase-wise-checklist/SKILLS.md` — do not
 restate them.
 

@@ -3,7 +3,7 @@ package html_test
 import (
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/html"
+	"github.com/chinmay-sawant/blinkless/html"
 )
 
 func TestParseFindsElementText(t *testing.T) {

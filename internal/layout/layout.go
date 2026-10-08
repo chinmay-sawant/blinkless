@@ -22,9 +22,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
+	"github.com/chinmay-sawant/blinkless/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/html"
+	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
 )
 
 const (
@@ -187,10 +187,6 @@ type Result struct {
 	hasAvoidInside bool
 	hasAfterBreak  bool
 
-	// hasStructElems records that buildStructureTree assigned structure
-	// elements. A later non-UA repaint must still clear them.
-	hasStructElems bool
-
 	// pageSnapHeight records the page content height that multicol column
 	// snapping used during Layout (Options.Height). Paint compares it with
 	// its own content height so columns cannot snap to one boundary while
@@ -246,9 +242,6 @@ func CloneResult(res *Result) *Result {
 	clone.flowStore.reset()
 	clone.flowBoxStore.reset()
 	clone.flowScratch.reset()
-	// cloneOps nils StructElem on every op, so the clone has no assigned
-	// structure elements even when the source did.
-	clone.hasStructElems = false
 
 	boxes := make(map[*box]*box, len(res.boxes))
 	clone.root = cloneBoxGraph(res.root, boxes)

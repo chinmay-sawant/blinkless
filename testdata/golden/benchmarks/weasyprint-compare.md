@@ -1,16 +1,16 @@
-# Direct CLI comparison: gowkhtmltopdf vs WeasyPrint
+# Direct CLI comparison: blinkless vs WeasyPrint
 
 Process-level measurement. Each cell is the median of 3 timed runs after one warmup.
 Wall time is measured around `/usr/bin/time`; RSS is peak resident set from `%M` (KiB).
-Fixture: `/home/chinmay/ChinmayPersonalProjects/gowkhtmltopdf/testdata/golden/benchmarks/templates/report.html.tmpl` (20 invoice rows per requested page).
-Host: Linux 6.6.87.2-microsoft-standard-WSL2 x86_64 (24 CPUs); toolchain: go version go1.26.4 linux/amd64; gowkhtmltopdf: 0.2.6.
+Fixture: `/home/chinmay/ChinmayPersonalProjects/blinkless/testdata/golden/benchmarks/templates/report.html.tmpl` (20 invoice rows per requested page).
+Host: Linux 6.6.87.2-microsoft-standard-WSL2 x86_64 (24 CPUs); toolchain: go version go1.26.4 linux/amd64; blinkless: 0.2.6.
 Ghostscript `gs` was present; rendered page counts were checked against the requested size.
-gowkhtmltopdf used `--quiet --allow-local-files -o OUTPUT INPUT`; weasyprint used `-q` (quiet).
+blinkless used `--quiet --allow-local-files -o OUTPUT INPUT`; weasyprint used `-q` (quiet).
 Gowk source: baseline rows from testdata/golden/benchmarks/cli-compare-results.csv (the same session's make bench-cli-compare run); engine rows are measured in this session.
-weasyprint RSS is the peak of the weasyprint CLI process from `%M`; gowkhtmltopdf RSS is `%M`.
+weasyprint RSS is the peak of the weasyprint CLI process from `%M`; blinkless RSS is `%M`.
 
-- gowkhtmltopdf: `/home/chinmay/ChinmayPersonalProjects/gowkhtmltopdf/bin/gowkhtmltopdf` (generic CLI)
-- WeasyPrint: `/home/chinmay/ChinmayPersonalProjects/gowkhtmltopdf/scripts/weasyprint/print.sh` (WeasyPrint version 69.0)
+- blinkless: `/home/chinmay/ChinmayPersonalProjects/blinkless/bin/blinkless` (generic CLI)
+- WeasyPrint: `/home/chinmay/ChinmayPersonalProjects/blinkless/scripts/weasyprint/print.sh` (WeasyPrint version 69.0)
 - Reproduce: `./scripts/bench-external.sh --engines=weasyprint` (or `make bench`)
 
 | Pages | Gowk time | WeasyPrint time | Speedup | Gowk RSS | WeasyPrint RSS | Gowk PDF bytes | WeasyPrint PDF bytes |

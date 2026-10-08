@@ -4,7 +4,7 @@ import (
 	"image"
 	"math"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/layout"
+	"github.com/chinmay-sawant/blinkless/internal/layout"
 )
 
 const (

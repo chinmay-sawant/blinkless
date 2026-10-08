@@ -3,7 +3,7 @@ package layout
 import (
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/css"
 )
 
 // TestMathLengthCalcRecursive covers the general calc() grammar: more than

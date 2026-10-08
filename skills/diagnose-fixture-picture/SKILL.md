@@ -1,7 +1,7 @@
 ---
 name: diagnose-fixture-picture
 description: >
-  Diagnose gowkhtmltopdf fixture PDFs by screenshot and Effect-cell geometry
+  Diagnose blinkless fixture PDFs by screenshot and Effect-cell geometry
   (implemented-props 60/61/62 or any golden output PDF that looks wrong). Classifies
   placeholder authorship vs wrong-element demos vs invalid/initial values vs engine
   bugs, runs a 3-agent analysis council, fixes with exclusive ownership, then verifies
@@ -54,7 +54,7 @@ stacked geometry for every row means the named property is not demonstrated.
 
 ```bash
 make build
-./bin/gowkhtmltopdf --allow-local-files --font-path testdata/fonts/implemented-audit \
+./bin/blinkless --allow-local-files --font-path testdata/fonts/implemented-audit \
   -o output/<fixture>.pdf testdata/golden/<fixture>.html
 ```
 

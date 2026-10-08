@@ -1,8 +1,8 @@
 package prepare
 
 import (
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 // SheetCache reuses stylesheets parsed by an earlier collection of the same

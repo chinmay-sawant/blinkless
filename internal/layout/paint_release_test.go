@@ -3,7 +3,6 @@ package layout
 import (
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
 )
 
 // TestPaintReleasesPaginationIndexesAfterReaders pins the PDF-05 release
@@ -21,45 +20,6 @@ import (
 // output would still be correct but the paint pipeline would rebuild mid-pass.
 // normalizeTableRowGaps reads res.flowPages directly, before the release
 // point; the table pagination tests in this package protect that path.
-func TestPaintReleasesPaginationIndexesAfterReaders(t *testing.T) {
-	t.Parallel()
-
-	cssSheet := sheet(t, `
-		.cover { page: cover }
-		p { margin: 0 }
-	`)
-	res := layoutHTML(t, `<html><body>
-		<div class="cover"><p>COVER</p></div>
-		<div class="body"><p>BODYONE</p><p>BODYTWO</p></div>
-	</body></html>`, cssSheet)
-	doc := pdf.NewDocument()
-
-	if err := Paint(doc, res, paintOpts()); err != nil {
-		t.Fatal(err)
-	}
-
-	assertPaginationIndexesReleased(t, res)
-	assertConversionInputsRetained(t, res)
-
-	const contentH = 842.0
-
-	names := PageNames(res, contentH)
-	if len(names) == 0 || names[0] != "cover" {
-		t.Fatalf("PageNames after release = %v, want first page cover", names)
-	}
-
-	ensureFlowIndex(res, contentH)
-
-	if len(res.flowPageOf) != len(res.Ops) || len(res.flowPages) == 0 {
-		t.Fatalf(
-			"pagination index did not rebuild on demand: flowPageOf=%d ops=%d",
-			len(res.flowPageOf), len(res.Ops),
-		)
-	}
-}
-
-// assertPaginationIndexesReleased requires all six pagination-only indexes to
-// be nil after Paint, so PDF finalization cannot retain them.
 func assertPaginationIndexesReleased(t *testing.T, res *Result) {
 	t.Helper()
 

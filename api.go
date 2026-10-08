@@ -1,6 +1,6 @@
-// Package gowkhtmltopdf exposes the Go-native Document and ImageDocument
+// Package blinkless exposes the Go-native Document and ImageDocument
 // models over the pure-Go conversion engines.
-package gowkhtmltopdf
+package blinkless
 
 import (
 	"bytes"
@@ -10,23 +10,11 @@ import (
 	"io"
 	"strings"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/convert"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/errs"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/imageout"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/line"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/load"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/settings"
+	"github.com/chinmay-sawant/blinkless/internal/errs"
+	"github.com/chinmay-sawant/blinkless/internal/imageout"
+	"github.com/chinmay-sawant/blinkless/internal/line"
+	"github.com/chinmay-sawant/blinkless/internal/load"
 )
-
-// LibraryVersion is the upstream wkhtmltopdf settings-surface identifier. It
-// is distinct from the project release in VERSION.
-const LibraryVersion = "0.12.7-dev"
-
-// Version returns the compatibility identifier banner.
-func Version() string {
-	return LibraryVersion + " (gowkhtmltopdf pure-go)"
-}
 
 // NetworkPolicy controls HTTP(S) document and subresource loading.
 type NetworkPolicy = load.NetworkPolicy
@@ -42,31 +30,12 @@ func RestrictedNetworkPolicy() NetworkPolicy {
 	return load.RestrictedNetworkPolicy()
 }
 
-// MaxDocumentCopies is the Document.Copies upper bound. It matches the
-// convert engine ceiling (maxConversionCopies).
-const MaxDocumentCopies = 1000
-
-// Static errors are stable errors.Is targets for the native Document API.
+// Static errors are stable errors.Is targets for the image API.
 var (
-	ErrNoPageObjects            = errors.New("gowkhtmltopdf: no page objects added")
-	ErrNoRenderablePDFObjects   = ErrNoPageObjects
-	ErrEmptyHTML                = errors.New("gowkhtmltopdf: empty HTML")
-	ErrInvalidPageSize          = errors.New("gowkhtmltopdf: invalid page size")
-	ErrMissingPDFOutput         = convert.ErrMissingOutput
-	ErrInvalidPDFCopies         = convert.ErrInvalidCopies
-	ErrMissingPDFOutlineOutput  = convert.ErrMissingOutlineOutput
-	ErrMissingImageOutput       = imageout.ErrMissingOutput
-	ErrNilContext               = errs.ErrNilContext
-	ErrInvalidPDFVersion        = settings.ErrInvalidPDFVersion
-	ErrInvalidPDFProfile        = settings.ErrInvalidPDFProfile
-	ErrProfilePDF20Unsupported  = settings.ErrProfilePDF20Unsupported
-	ErrProfilePDFA1Unsupported  = settings.ErrProfilePDFA1Unsupported
-	ErrConformanceRequiresPDF17 = pdf.ErrConformanceRequiresPDF17
-	ErrProfileRequiresPDF17     = pdf.ErrConformanceRequiresPDF17
-	ErrConformanceRequiresPDF20 = pdf.ErrConformanceRequiresPDF20
-	ErrTitleRequired            = pdf.ErrTitleRequired
-	ErrPDFUAMissingAlt          = pdf.ErrPDFUAMissingAlt
-	errNilLogWriter             = errors.New("gowkhtmltopdf: nil log writer")
+	ErrEmptyHTML          = errors.New("blinkless: empty HTML")
+	ErrMissingImageOutput = imageout.ErrMissingOutput
+	ErrNilContext         = errs.ErrNilContext
+	errNilLogWriter       = errors.New("blinkless: nil log writer")
 )
 
 // convertHooks translates engine log/progress streams into native Document
@@ -100,18 +69,6 @@ func (h convertHooks) progress() func(string, int) {
 			h.OnProgress(percent)
 		}
 	}
-}
-
-func (h convertHooks) executePDFTo(ctx context.Context, req *convert.Request) error {
-	if ctx == nil {
-		return reportPreflight(h.OnError, ErrNilContext)
-	}
-
-	if err := convert.Run(ctx, req, h.lineLog(), h.progress()); err != nil {
-		return reportPreflight(h.OnError, fmt.Errorf("convert: %w", err))
-	}
-
-	return nil
 }
 
 func (h convertHooks) executeImageTo(ctx context.Context, req *imageout.Request) error {

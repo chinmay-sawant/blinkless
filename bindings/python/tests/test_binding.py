@@ -1,26 +1,26 @@
-"""Integration tests against libgowkhtmltopdf.
+"""Integration tests against libblinkless.
 
 Every test skips when the shared library is absent so the suite stays
 green on machines that have not built bindings/c yet. Build it with:
 
     CGO_ENABLED=1 go build -buildmode=c-shared \
-        -o dist/libgowkhtmltopdf.so ./bindings/c
+        -o dist/libblinkless.so ./bindings/c
 """
 
 import re
 import unittest
 from pathlib import Path
 
-import gowkhtmltopdf
-from gowkhtmltopdf import Content, Document, ImageOptions, PDFOptions, Page
-from gowkhtmltopdf import (
+import blinkless
+from blinkless import Content, Document, ImageOptions, PDFOptions, Page
+from blinkless import (
     convert_file_to_pdf,
     convert_html_to_image,
     convert_html_to_pdf,
 )
-from gowkhtmltopdf import _lib
-from gowkhtmltopdf.exceptions import ErrInvalidPageSize
-from gowkhtmltopdf.exceptions import ErrNoPageObjects, InvalidArgumentError
+from blinkless import _lib
+from blinkless.exceptions import ErrInvalidPageSize
+from blinkless.exceptions import ErrNoPageObjects, InvalidArgumentError
 
 
 def _find_library():
@@ -33,10 +33,10 @@ def _find_library():
 _LIB_PATH = _find_library()
 
 _REASON = (
-    "libgowkhtmltopdf not found; build with"
+    "libblinkless not found; build with"
     " 'CGO_ENABLED=1 go build -buildmode=c-shared"
-    " -o dist/libgowkhtmltopdf.so ./bindings/c' or set"
-    " GOWKHTMLTOPDF_LIBRARY_PATH"
+    " -o dist/libblinkless.so ./bindings/c' or set"
+    " BLINKLESS_LIBRARY_PATH"
 )
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -113,10 +113,10 @@ class BindingTest(unittest.TestCase):
         self.assertTrue(png_bytes.startswith(b"\x89PNG\r\n\x1a\n"))
 
     def test_version_and_abi_reported(self):
-        self.assertEqual(gowkhtmltopdf.__version__, "0.2.6")
-        self.assertEqual(gowkhtmltopdf.library_version, "0.12.7-dev")
-        self.assertEqual(gowkhtmltopdf.abi_version(), 1)
-        reported = gowkhtmltopdf.library_version_string()
+        self.assertEqual(blinkless.__version__, "0.2.6")
+        self.assertEqual(blinkless.library_version, "0.12.7-dev")
+        self.assertEqual(blinkless.abi_version(), 1)
+        reported = blinkless.library_version_string()
         self.assertIsInstance(reported, str)
         self.assertGreater(len(reported), 0)
 

@@ -1,6 +1,6 @@
 package layout
 
-import "github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+import "github.com/chinmay-sawant/blinkless/internal/html"
 
 // PlacedElement is one element border box in canvas points. Y grows downward
 // from the top of the layout canvas. Layout fills these boxes before pagination.

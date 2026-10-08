@@ -16,8 +16,8 @@ Find places where **behavior should sit behind a smaller interface**.
 Do not implement. Do not invent plugins.
 
 Read first: `codebase-design` (vocabulary), then
-`../references/finding-schema.md`. If the module path is `gowkhtmltopdf`,
-also read `../references/gowkhtmltopdf.md`.
+`../references/finding-schema.md`. If the module path is `blinkless`,
+also read `../references/blinkless.md`.
 
 ## 1. Freeze scope
 

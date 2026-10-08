@@ -2,8 +2,7 @@
 
 ## 1. Responsibility & position in the pipeline
 
-`internal/html` is the **parse** stage of the `load → parse → style → layout →
-paginate → paint → write` pipeline. It turns the decoded bytes of one document
+`internal/html` is the parse stage. The pipeline is load, parse, style, layout, then a PNG or JPEG. It turns the decoded bytes of one document
 (`<body>` string, or raw UTF-8 document bytes) into an in-memory DOM tree that
 every downstream stage walks:
 
@@ -19,7 +18,7 @@ every downstream stage walks:
   HTML**, and **relative-link resolution**.
 
 The package is deliberately *not* a full HTML5 parser and *not* a browser DOM.
-It implements the **HTML subset gowkhtmltopdf accepts** — tags, attributes,
+It implements the **HTML subset blinkless accepts** — tags, attributes,
 text, comments, doctype, self-closing and void elements — with a hand-rolled
 stack-based tree builder, and makes **no attempt at browser-grade error
 recovery** (package doc, `internal/html/html.go:1-10`):

@@ -9,7 +9,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/settings"
+	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 
 // TestRunRequestObjectWebImagesFalseDisablesFetch proves RenderObjects feeds

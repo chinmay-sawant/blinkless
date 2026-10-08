@@ -4,9 +4,8 @@ package layout
 import (
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
+	"github.com/chinmay-sawant/blinkless/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 func TestParseGridTracksSubtractsGap(t *testing.T) {
@@ -423,73 +422,6 @@ func TestGridRowGapVsColumnGap(t *testing.T) { //nolint:cyclop
 	// A and C share the same column (similar X) and C is below A.
 	if curY <= absY {
 		t.Fatalf("C should be below A: ay=%.1f cy=%.1f", absY, curY)
-	}
-}
-
-func TestGridGapSurvivesPaint(t *testing.T) { //nolint:cyclop,funlen
-	t.Parallel()
-
-	cssSheet := sheet(t, `
-.dense {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  grid-auto-flow: dense;
-  width: 240pt;
-  gap: 4pt;
-  padding: 4pt;
-  border: 1pt solid #6a1b9a;
-  box-sizing: border-box;
-}
-.dense > div {
-  padding: 4pt;
-  background: #fff;
-  border: 1pt solid #ce93d8;
-  box-sizing: border-box;
-}
-.wide { grid-column: 2 / span 2; background: #e1bee7; }
-`)
-	res := layoutHTML(t, `<html><body>
-<div class="dense">
-  <div class="wide">Wide</div>
-  <div>B</div>
-  <div>C</div>
-  <div>D</div>
-</div>
-</body></html>`, cssSheet)
-
-	if err := Paint(pdf.NewDocument(), res, PaintOptions{
-		PageWidth: 400, PageHeight: 400,
-	}); err != nil {
-		t.Fatal(err)
-	}
-
-	var hole, nextRow *Op
-
-	for i := range res.Ops {
-		paintOp := &res.Ops[i]
-		if paintOp.Kind != OpFillRect || paintOp.W < 70 || paintOp.H < 10 || paintOp.H > 40 || paintOp.R < 0.99 {
-			continue
-		}
-
-		if hole == nil || paintOp.Y < hole.Y {
-			nextRow = hole
-			hole = paintOp
-
-			continue
-		}
-
-		if paintOp.Y > hole.Y+1 && (nextRow == nil || paintOp.Y < nextRow.Y) {
-			nextRow = paintOp
-		}
-	}
-
-	if hole == nil || nextRow == nil {
-		t.Fatalf("missing dense row fills hole=%v next=%v", hole, nextRow)
-	}
-
-	gap := nextRow.Y - (hole.Y + hole.H)
-	if gap < 3.5 || gap > 5 {
-		t.Fatalf("dense row-gap after paint = %.2fpt, want 4pt: first=%+v second=%+v", gap, hole, nextRow)
 	}
 }
 

@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/css"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/imageout"
-	ilayout "github.com/chinmay-sawant/gowkhtmltopdf/internal/layout"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pubstate"
+	"github.com/chinmay-sawant/blinkless/css"
+	"github.com/chinmay-sawant/blinkless/internal/imageout"
+	ilayout "github.com/chinmay-sawant/blinkless/internal/layout"
+	"github.com/chinmay-sawant/blinkless/internal/pubstate"
 )
 
 // DisplayOp is one display-list operation. It is the internal Op under an

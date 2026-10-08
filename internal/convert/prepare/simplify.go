@@ -3,8 +3,8 @@ package prepare
 import (
 	"strings"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/settings"
+	"github.com/chinmay-sawant/blinkless/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 
 const profileMediaWiki = "mediawiki"

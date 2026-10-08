@@ -1,6 +1,6 @@
 ---
 name: chrome-debug-v2
-description: Budgeted Chrome-versus-Go PDF debugging for one fixture. Use when one test/chrome case looks different in Chrome and gowkhtmltopdf and you want the shortest path to a verified fix. Runs one compare, one bounded diagnostic agent, one fixer, one criticizer, then one gate pass. Not for golden-corpus failures or multi-case sweeps.
+description: Budgeted Chrome-versus-Go PDF debugging for one fixture. Use when one test/chrome case looks different in Chrome and blinkless and you want the shortest path to a verified fix. Runs one compare, one bounded diagnostic agent, one fixer, one criticizer, then one gate pass. Not for golden-corpus failures or multi-case sweeps.
 ---
 
 # Chrome debug v2
@@ -57,9 +57,9 @@ run="/tmp/chrome-debug/${slug}"
 make build
 mkdir -p "$run"
 node scripts/puppeteer_print.js "$html" "$run/chromium.pdf"
-./bin/gowkhtmltopdf --allow-local-files -o "$run/gowkhtmltopdf.pdf" "$html"
+./bin/blinkless --allow-local-files -o "$run/blinkless.pdf" "$html"
 python3 skills/chrome-debug-v2/scripts/compare_pdfs.py \
-  "$run/chromium.pdf" "$run/gowkhtmltopdf.pdf" --outdir "$run/pages" \
+  "$run/chromium.pdf" "$run/blinkless.pdf" --outdir "$run/pages" \
   --max-rows 40 | tee "$run/compare-before.txt"
 ```
 

@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/app"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/cli"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/settings"
+	"github.com/chinmay-sawant/blinkless/internal/app"
+	"github.com/chinmay-sawant/blinkless/internal/cli"
+	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 
 func TestRunImageResolvesFormatPerExecution(t *testing.T) {

@@ -6,13 +6,7 @@
 
 ## 1. Responsibility & position in the pipeline
 
-`internal/imageout` is the **image-mode engine** behind the `gowkhtmltoimage`
-binary and the `ImageDocument` library API. Where `internal/convert` +
-`internal/pdf` write a multi-page PDF, `imageout` renders the **same shared
-upstream pipeline** — load → parse → style → layout — and then **paints the
-layout display list into an in-memory `image.NRGBA` canvas** and encodes it as
-a single PNG or JPEG image. It exists because wkhtmltopdf ships a sibling
-`wkhtmltoimage` tool and this project mirrors that surface.
+`internal/imageout` is the rasterizer. It runs load, parse, style, and layout, then draws the display list into one `image.NRGBA` and encodes a PNG or JPEG. There is no second mode that writes a PDF.
 
 `internal/svg` is a small (450-line) satellite package that converts **SVG
 images referenced by `<img src="*.svg">`** into raster PNG bytes so the
@@ -22,19 +16,14 @@ the one place the project calls into a third-party rasterizer
 
 Positioning:
 
-```
-HTML (file | URL | inline SetBody)
-  │
-  ├─ cmd/gowkhtmltopdf ──► internal/convert ──► internal/pdf   (PDF output: 1.4 default / 1.7 & 2.0 opt-in)
-  │
-  └─ cmd/gowkhtmltoimage ──► internal/app.RunImage
-                              └─► internal/imageout.RunRequest         (PNG/JPEG output)
-                                    │  shared phases: load → parse (html) → style (css) → layout
-                                    ▼
-                              layout.Result (display list of Op)
-                                    │  imageout.rasterizeContext
-                                    ▼
-                              image.NRGBA → encode → req.Output
+```text
+HTML (file, URL, or inline)
+        -> cmd/blinkless
+        -> internal/app.RunImage
+        -> internal/imageout.RunRequest
+        -> layout drawing list
+        -> image.NRGBA
+        -> PNG or JPEG
 ```
 
 The two modes share: `internal/load` (fetch/ACL), `internal/html` (parser),
@@ -167,9 +156,9 @@ resolution), `internal/layout/mnd_const.go:62` (`svgRasterMax = 1024`),
 
 ## 4. Data & control flow
 
-### 4.1 CLI path (gowkhtmltoimage)
+### 4.1 CLI path (blinkless)
 
-1. `cmd/gowkhtmltoimage/main.go` → `cli.Parse(argv, cli.ModeImage)`; handles
+1. `cmd/blinkless/main.go` → `cli.Parse(argv, cli.ModeImage)`; handles
    `ErrHelp` / `ErrVersion` / `ErrLicense`, then `app.RunImage` with a signal
    context (`os.Interrupt`, `SIGTERM`).
 2. `internal/app/image.go` `RunImage` resolves format, validates first with
@@ -280,7 +269,7 @@ imports svg, making svg the lower layer.
 ### Import direction rule
 
 ```
-gowkhtmltopdf (root api.go)
+blinkless (root api.go)
    └─► internal/app ──► internal/imageout ──► internal/convert/render
                        │      └─► internal/convert ──► internal/convert/prepare
                        │              └─► internal/layout ──► internal/svg
@@ -433,7 +422,7 @@ contract (the P1-1 engine-seam goal).
 ### Integration / golden
 
 - `make samples` (`Makefile`) generates committed `output/fixture-01-simple-invoice.png`
-  and `output/fixture-21-detailed-report.png` via `gowkhtmltoimage`; the docs
+  and `output/fixture-21-detailed-report.png` via `blinkless`; the docs
   site showcase (`docs/assets/*.png`, `frontend/`) is built from these and the
   `docs/assets/` fixtures compare image-mode screenshots against Chrome/WK
   thumbnails (per `documentation/samples.md`).
@@ -497,7 +486,7 @@ contract (the P1-1 engine-seam goal).
   doc expands the `internal/imageout` row).
 - `documentation/fidelity.md` — tier-1 claim "image mode not blocky 5×7 text";
   shipped TTF outline AA + 2× supersample; DPI/quality matrix honesty.
-- `documentation/cli.md` — `gowkhtmltoimage` flags: `--width/--height/--format/
+- `documentation/cli.md` — `blinkless` flags: `--width/--height/--format/
   --quality/--transparent/--crop-x/y/w/h`, smart width behavior.
 - `documentation/library-api.md` — `ImageDocument` usage.
 - `documentation/samples.md` — committed `output/*.png` and showcase fixtures.

@@ -1,9 +1,6 @@
 # Fidelity guide
 
-**gowkhtmltopdf** is a **PDF engine based on HTML templates** — without any
-wrappers — that converts **authored HTML** to PDF and raster images. It is
-**not** a browser and does **not** target full WebKit or Chrome print parity
-under a pure-Go, no-cgo design.
+blinkless lays out authored HTML and can encode the drawing list as a PNG or JPEG. It is not a browser and it does not write PDF files.
 
 This guide is the product-facing fidelity story. The normative per-feature
 contract is the [compatibility matrix](compatibility-matrix.md). Post-MVP work
@@ -18,23 +15,15 @@ Print CSS coverage (phases 48-56) lives in
 
 | You need… | Expectation |
 |-----------|-------------|
-| Invoices, certificates, storybooks, posters, statements, tables, headers/footers, TOC, outlines | **In scope** (PDF engine based on HTML templates — without any wrappers) |
+| HTML templates laid out into a drawing list or a PNG/JPEG | **In scope** |
 | Repeatable layout, static binary, no browser process | **In scope** |
 | Pixel-perfect clone of an arbitrary website | **Out of scope** |
 | Wikipedia / marketing “decent print” (readable title + body) | **Progressive goal** (Phase 21) — not MVP acceptance yet |
-| Full CSS (flex/grid as layout, absolute/fixed/sticky positioning) | **Partial** — flex (grow/shrink/basis/order/wrap), grid lite, relative/absolute/fixed; sticky print-scoped (page = scrollport); static 2D transforms (paint CTM); not full CSS3 |
+| Full CSS (flex, grid, absolute, fixed, sticky) | **Partial.** Flex, grid lite, and relative/absolute/fixed are placed on one canvas. Sticky is tagged during layout. There is no page scrollport |
 | JavaScript-driven pages | **Out of scope** (`<script>` stripped; JS CLI flags are unknown options) |
-| Archival / tagged PDF (PDF/A, PDF/UA) | **Shipped in 0.2.2.** Opt-in via `--pdf-profile` / `Document.PDFProfile`. Default is unclaimed PDF 1.4. `--pdf-version` / `Document.PDFVersion` is a version, not a claim |
+| PDF, PDF/A, PDF/UA, encryption, forms | **Not produced.** The writer was removed |
 | Encryption / AcroForm / signatures | **Out of scope** (rejected on every version) |
 | Full Unicode / CJK typesetting | **Partial** — Type0/CID + `--font-path`; Arabic OT via `go-text/typesetting` (GSUB) + presentation-form fallback; Indic Partial; no CGO HarfBuzz; `writing-mode` vertical is parsed but lays out horizontal |
-
-**PDF claims (0.2.2):** empty version + empty profile is still unclaimed PDF 1.4.
-`--pdf-version 1.7` / `2.0` sets the header (and related writer details);
-it does **not** claim PDF/A or PDF/UA. `--pdf-profile a3a-ua1` / `a3a` /
-`ua1` implies PDF 1.7 and emits claiming XMP, sRGB OutputIntent, and a
-tagged structure tree. `--pdf-profile a4-ua2` / `a4` / `ua2` implies PDF 2.0
-and does the same for PDF/A-4 / PDF/UA-2. Encryption and forms stay out of
-scope. Details: [cli.md](cli.md), [library-api.md](library-api.md).
 
 **Explicit non-milestone:** full WebKit parity under this no-cgo design is
 **not** a dated goal. For open-web screenshot quality, use a headless browser

@@ -10,7 +10,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/settings"
+	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 
 type reviewShortWriter struct {

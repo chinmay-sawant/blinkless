@@ -347,7 +347,7 @@ Report rules:
   same prompt blindly. Run that group solo if needed.
 - If `git` is missing or the folder is not a repository, stop and say so.
 
-## Repo notes (gowkhtmltopdf)
+## Repo notes (blinkless)
 
 Where intent is recorded: read the commit bodies first. They are short in
 this repo, so also check:

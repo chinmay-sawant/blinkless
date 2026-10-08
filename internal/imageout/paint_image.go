@@ -4,7 +4,7 @@ import (
 	"image"
 	"image/draw"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/layout"
+	"github.com/chinmay-sawant/blinkless/internal/layout"
 )
 
 // paintImage draws a decoded paintOp image, scaled via the per-run cache.

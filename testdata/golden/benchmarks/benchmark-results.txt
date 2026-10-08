@@ -26,7 +26,7 @@
 
 goos: linux
 goarch: amd64
-pkg: gowkhtmltopdf/internal/convert
+pkg: blinkless/internal/convert
 cpu: 13th Gen Intel(R) Core(TM) i7-13700HX
 # Snapshot A raw workload rows: PDF/Template after the perf-review wave
 # (2026-08-09; command and count are documented above).
@@ -69,7 +69,7 @@ BenchmarkImageAssets/500Images-24     	       1	 192132565 ns/op	   1.51 MB/s	12
 
 # Snapshot A command output footer:
 PASS
-ok  	gowkhtmltopdf/internal/convert	5.4s
+ok  	blinkless/internal/convert	5.4s
 
 # Snapshot C: locked-gate count-3 sample, 3 iterations of the 500-page PDF
 # and Template workloads only. These rows are not part of Snapshot A or B.
@@ -93,7 +93,7 @@ ok  	gowkhtmltopdf/internal/convert	5.4s
 
 goos: linux
 goarch: amd64
-pkg: gowkhtmltopdf/internal/convert
+pkg: blinkless/internal/convert
 cpu: 13th Gen Intel(R) Core(TM) i7-13700HX
 BenchmarkImageAssets/2Images-24                 1    23234509 ns/op    0.39 MB/s  55123728 B/op    6756 allocs/op
 BenchmarkImageAssets/5Images-24                 1    26868592 ns/op    0.38 MB/s  51101768 B/op    6648 allocs/op
@@ -132,7 +132,7 @@ BenchmarkWebFetchImage/200Images-24             1   115461983 ns/op    0.93 MB/s
 BenchmarkWebFetchImage/250Images-24             1   149016083 ns/op    0.88 MB/s 106528488 B/op   19309 allocs/op
 BenchmarkWebFetchImage/500Images-24             1   254810392 ns/op    1.00 MB/s 148807336 B/op   29736 allocs/op
 PASS
-ok      gowkhtmltopdf/internal/convert  7.141s
+ok      blinkless/internal/convert  7.141s
 
 # Snapshot D direct CLI process rows: one freshly built pre-CR-02 binary
 # run per generated report (2, 5, 10, 20, 50, 100, 200, 250, and 500 pages).
@@ -172,14 +172,14 @@ CLIReport/500Pages    elapsed=960ms  peak_rss_kib=54632  pdf_bytes=1385450 rende
 # Snapshot F: current generic CLI + in-process matrix, captured 2026-08-14
 # after release-prep on the generic convert path (no CLI page islands).
 # Host: Linux amd64 · WSL2 24 CPUs · 13th Gen Intel Core i7-13700HX
-# Toolchain: go1.26.4 linux/amd64 · gowkhtmltopdf 0.2.1 freshly built
+# Toolchain: go1.26.4 linux/amd64 · blinkless 0.2.1 freshly built
 # In-process command:
 #   go test ./internal/convert -run '^$' \
 #     -bench 'Benchmark(PDFPages|TemplatePages|WebFetchImage|ImageAssets)$' \
 #     -benchmem -benchtime=1x -count=1
 # CLI comparison command:
 #   make bench-cli-compare
-#   (GOWKHTMLTOPDF_CLI_COMPARE=1 go test ./internal/convert \
+#   (BLINKLESS_CLI_COMPARE=1 go test ./internal/convert \
 #     -run '^TestCompareWithWkhtmltopdfBinary$' -count=1)
 # wkhtmltopdf 0.12.6.1 (with patched qt) at /usr/local/bin/wkhtmltopdf.
 # Process comparison is documented in cli-compare.md / cli-compare-results.csv.
@@ -187,7 +187,7 @@ CLIReport/500Pages    elapsed=960ms  peak_rss_kib=54632  pdf_bytes=1385450 rende
 
 goos: linux
 goarch: amd64
-pkg: gowkhtmltopdf/internal/convert
+pkg: blinkless/internal/convert
 cpu: 13th Gen Intel(R) Core(TM) i7-13700HX
 BenchmarkImageAssets/2Images-24         	       1	  14609998 ns/op	   0.63 MB/s	13949496 B/op	    2120 allocs/op
 BenchmarkImageAssets/5Images-24         	       1	  10186560 ns/op	   1.00 MB/s	 7246216 B/op	    1661 allocs/op
@@ -244,7 +244,7 @@ BenchmarkWebFetchImage/200Images-24     	       1	  73192404 ns/op	   1.46 MB/s	
 BenchmarkWebFetchImage/250Images-24     	       1	  84810968 ns/op	   1.54 MB/s	49103312 B/op	   13885 allocs/op
 BenchmarkWebFetchImage/500Images-24     	       1	 166029016 ns/op	   1.53 MB/s	91775656 B/op	   25544 allocs/op
 PASS
-ok  	gowkhtmltopdf/internal/convert	9.638s
+ok  	blinkless/internal/convert	9.638s
 
 # Snapshot F direct CLI process rows: median of 3 timed runs after 1 warmup.
 # Both binaries: --quiet --enable-local-file-access. RSS is /usr/bin/time %M.
@@ -343,7 +343,7 @@ BenchmarkWebFetchImage/200Images-24                   	       1	  76911889 ns/op
 BenchmarkWebFetchImage/250Images-24                   	       1	  88393005 ns/op	   1.48 MB/s	49442464 B/op	   13880 allocs/op
 BenchmarkWebFetchImage/500Images-24                   	       1	 180780331 ns/op	   1.41 MB/s	92476400 B/op	   25539 allocs/op
 PASS
-ok  	github.com/chinmay-sawant/gowkhtmltopdf/internal/convert	12.258s
+ok  	github.com/chinmay-sawant/blinkless/internal/convert	12.258s
 
 # Snapshot I: fresh requested `make bench-inprocess` compatibility alias,
 # one iteration per workload (-benchtime=1x -count=1), 2026-08-19.
@@ -402,7 +402,7 @@ BenchmarkWebFetchImage/200Images-24                   	       1	  78723254 ns/op
 BenchmarkWebFetchImage/250Images-24                   	       1	  90656281 ns/op	   1.44 MB/s	49441008 B/op	   13885 allocs/op
 BenchmarkWebFetchImage/500Images-24                   	       1	 171251185 ns/op	   1.49 MB/s	92478952 B/op	   25548 allocs/op
 PASS
-ok  	github.com/chinmay-sawant/gowkhtmltopdf/internal/convert	10.377s
+ok  	github.com/chinmay-sawant/blinkless/internal/convert	10.377s
 
 # Snapshot J: fresh requested `make bench-lib` public API matrix, ten
 # iterations per workload (-benchtime=10x -count=1), 2026-08-19.
@@ -427,7 +427,7 @@ BenchmarkLibraryImage/200Tiles-24     	      10	  63027803 ns/op	   1.40 MB/s	19
 BenchmarkLibraryImage/250Tiles-24     	      10	  73062562 ns/op	   1.53 MB/s	20663032 B/op	    9159 allocs/op
 BenchmarkLibraryImage/500Tiles-24     	      10	 142592306 ns/op	   1.58 MB/s	51995067 B/op	   17607 allocs/op
 PASS
-ok  	github.com/chinmay-sawant/gowkhtmltopdf	28.288s
+ok  	github.com/chinmay-sawant/blinkless	28.288s
 
 # =====================================================================
 # Snapshot K: 2026-09-11 performance-recovery capture on the uncommitted
@@ -612,7 +612,7 @@ ok  	github.com/chinmay-sawant/gowkhtmltopdf	28.288s
 # Warm matrix single-process rows are separate from these medians and are the
 # values quoted for the same-tree Snapshot I comparison.
 
-# Snapshot L CLI process rows (gowkhtmltopdf only; no wkhtmltopdf comparison
+# Snapshot L CLI process rows (blinkless only; no wkhtmltopdf comparison
 # in this capture). One warmup plus three timed runs per size, medians of the
 # timed runs, RSS is /usr/bin/time %M in KiB and is not B/op:
 #   2 pages:   0.01 s / 17,472 KiB median (runs 17,280 / 17,472 / 17,664); 34,209 PDF bytes, 2 rendered pages
@@ -777,7 +777,7 @@ ok  	github.com/chinmay-sawant/gowkhtmltopdf	28.288s
 # replaced image/png adaptive filtering; it is a lossless, documented size
 # trade, and decoded pixels stay bit-identical.
 
-# Snapshot M CLI process rows (gowkhtmltopdf only; no wkhtmltopdf comparison
+# Snapshot M CLI process rows (blinkless only; no wkhtmltopdf comparison
 # in this capture). One warmup plus three timed runs per size, medians of the
 # timed runs, RSS is /usr/bin/time %M in KiB and is not B/op:
 #   2 pages:   0.01 s / 19,584 KiB median (runs 19,392 / 19,584 / 19,584); 34,209 PDF bytes, 2 rendered pages

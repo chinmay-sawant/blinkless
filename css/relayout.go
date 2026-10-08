@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	icss "github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
+	icss "github.com/chinmay-sawant/blinkless/internal/css"
 )
 
 // Relayout restyles doc for a new viewport and pointer state without

@@ -15,8 +15,8 @@ import sys
 import tempfile
 
 
-START_MARKER = "__GOWKHTMLTOPDF_CHROME_RECTS_START__"
-END_MARKER = "__GOWKHTMLTOPDF_CHROME_RECTS_END__"
+START_MARKER = "__BLINKLESS_CHROME_RECTS_START__"
+END_MARKER = "__BLINKLESS_CHROME_RECTS_END__"
 
 
 def parse_args() -> argparse.Namespace:
@@ -68,7 +68,7 @@ def instrument_html(source: str, selectors: list[str]) -> str:
     }}
   }}
   const output = document.createElement('pre');
-  output.id = 'gowkhtmltopdf-chrome-rects';
+  output.id = 'blinkless-chrome-rects';
   output.style.cssText = 'position:fixed;left:-10000px;top:-10000px;width:1px;height:1px;overflow:hidden;';
   output.textContent = {json.dumps(START_MARKER)} + JSON.stringify(rows) + {json.dumps(END_MARKER)};
   (document.body || document.documentElement).appendChild(output);
@@ -86,7 +86,7 @@ def instrument_html(source: str, selectors: list[str]) -> str:
 def capture(fixture: Path, selectors: list[str], wait_ms: int) -> list[dict[str, object]]:
     source = fixture.read_text(encoding="utf-8")
 
-    with tempfile.TemporaryDirectory(prefix="gowkhtmltopdf-chrome-rects-") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="blinkless-chrome-rects-") as temp_dir:
         instrumented = Path(temp_dir) / fixture.name
         instrumented.write_text(instrument_html(source, selectors), encoding="utf-8")
 

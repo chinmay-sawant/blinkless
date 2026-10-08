@@ -3,7 +3,7 @@ package markup_test
 import (
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/markup"
+	"github.com/chinmay-sawant/blinkless/markup"
 )
 
 func TestParseDivAndScript(t *testing.T) {

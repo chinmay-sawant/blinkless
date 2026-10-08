@@ -3,7 +3,7 @@ package layout_test
 import (
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/layout"
+	"github.com/chinmay-sawant/blinkless/layout"
 )
 
 // publicKinds is every kind the layout package names for a consumer. A kind

@@ -42,27 +42,16 @@ jobs:
         with:
           go-version: '1.26'
           cache: true
-      - name: Build gowkhtmltopdf
+      - name: Build blinkless
         run: |
-          ver=$(tr -d '[:space:]' < VERSION)
-          CGO_ENABLED=0 go build -ldflags "-X gowkhtmltopdf/internal/cli.Version=${ver}" \
-            -o gowkhtmltopdf ./cmd/gowkhtmltopdf
-      - name: Build gowkhtmltoimage
-        run: |
-          ver=$(tr -d '[:space:]' < VERSION)
-          CGO_ENABLED=0 go build -ldflags "-X gowkhtmltopdf/internal/cli.Version=${ver}" \
-            -o gowkhtmltoimage ./cmd/gowkhtmltoimage
+          CGO_ENABLED=0 go build -ldflags "-X github.com/chinmay-sawant/blinkless/internal/cli.Version=0.0.1" \
+            -o blinkless ./cmd/blinkless
       - name: Version stamp
-        # Avoid awk $N / $$ escaping pitfalls in Actions; compare the Version:
-        # banner line to the trimmed VERSION file.
         run: |
           set -euo pipefail
-          want=$(tr -d '[:space:]' < VERSION)
-          got=$(./gowkhtmltopdf --version | sed -n 's/^Version:[[:space:]]*//p' | tr -d '[:space:]')
-          echo "VERSION file: ${want}"
-          echo "binary:       ${got}"
-          test -n "${got}"
-          test "${got}" = "${want}"
+          got=$(./blinkless --version | sed -n 's/^Version:[[:space:]]*//p' | tr -d '[:space:]')
+          echo "binary: ${got}"
+          test "${got}" = "0.0.1"
       - name: Purity guard (cgo only allowed in bindings/c)
         # Phase 40.4 drift guard: under CGO_ENABLED=0 no package may carry
         # CgoFiles except the opt-in bindings/c facade.
@@ -74,7 +63,7 @@ jobs:
           while IFS= read -r pkg; do
             [ -z "${pkg}" ] && continue
             case "${pkg}" in
-              github.com/chinmay-sawant/gowkhtmltopdf/bindings/c) ;;
+              github.com/chinmay-sawant/blinkless/bindings/c) ;;
               *)
                 echo "purity guard: cgo files outside bindings/c: ${pkg}" >&2
                 status=1
@@ -100,27 +89,6 @@ jobs:
         # uncapped parallel fixtures thrash ~7 GiB runners.
         run: make test-race
 
-  frontend:
-    name: frontend production build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Build docs site
-        working-directory: frontend
-        run: npm ci && npm run build
-      - name: Fail if generated docs are dirty
-        run: |
-          if [ -n "$(git status --porcelain -- docs frontend/dist)" ]; then
-            echo "generated docs/dist are dirty" >&2
-            git status --porcelain -- docs frontend/dist
-            exit 1
-          fi
-
   wasm:
     name: WASM adapter and browser smoke test
     runs-on: ubuntu-latest
@@ -134,11 +102,7 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: |
-            frontend/package-lock.json
-            scripts/puppeteer/package-lock.json
-      - name: Install frontend deps
-        run: npm ci --prefix frontend
+          cache-dependency-path: scripts/puppeteer/package-lock.json
       - name: Install browser test deps
         run: npm ci --prefix scripts/puppeteer
       - name: Run WASM contract, build, and browser tests
@@ -163,22 +127,22 @@ jobs:
         with:
           python-version: '3.11'
       - name: Verify ABI and version stamp via ctypes
-        # Loads dist/libgowkhtmltopdf.so out-of-process from Python and pins
-        # the frozen contract: gowkhtmltopdf_abi_version() == 1 and
-        # gowkhtmltopdf_version() == trimmed VERSION file contents.
+        # Loads dist/libblinkless.so out-of-process from Python and pins
+        # the frozen contract: blinkless_abi_version() == 1 and
+        # blinkless_version() == trimmed VERSION file contents.
         run: |
           python3 - <<'PY'
           import ctypes
           import pathlib
 
-          lib = ctypes.CDLL("dist/libgowkhtmltopdf.so")
-          lib.gowkhtmltopdf_abi_version.argtypes = []
-          lib.gowkhtmltopdf_abi_version.restype = ctypes.c_int32
-          lib.gowkhtmltopdf_version.argtypes = []
-          lib.gowkhtmltopdf_version.restype = ctypes.c_char_p
+          lib = ctypes.CDLL("dist/libblinkless.so")
+          lib.blinkless_abi_version.argtypes = []
+          lib.blinkless_abi_version.restype = ctypes.c_int32
+          lib.blinkless_version.argtypes = []
+          lib.blinkless_version.restype = ctypes.c_char_p
 
-          abi = lib.gowkhtmltopdf_abi_version()
-          got = lib.gowkhtmltopdf_version().decode("utf-8")
+          abi = lib.blinkless_abi_version()
+          got = lib.blinkless_version().decode("utf-8")
           want = pathlib.Path("VERSION").read_text().strip()
 
           assert abi == 1, f"abi_version() = {abi}, want 1"

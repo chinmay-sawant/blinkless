@@ -3,7 +3,7 @@ package layout
 import (
 	"strings"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 // isInputCheckbox reports whether node is an input checkbox or radio control.

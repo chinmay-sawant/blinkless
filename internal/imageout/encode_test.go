@@ -9,7 +9,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/settings"
+	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 
 // Compile-time check that the encode scratch takes image/jpeg's direct-write

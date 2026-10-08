@@ -3,8 +3,8 @@ package css_test
 import (
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/css"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pubstate"
+	"github.com/chinmay-sawant/blinkless/css"
+	"github.com/chinmay-sawant/blinkless/internal/pubstate"
 )
 
 func sheetCount(t *testing.T, doc *css.Document) int {

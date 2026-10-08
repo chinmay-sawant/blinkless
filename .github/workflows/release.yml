@@ -65,7 +65,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          ldflags="-s -w -X github.com/chinmay-sawant/gowkhtmltopdf/internal/cli.Version=${VERSION}"
+          ldflags="-s -w -X github.com/chinmay-sawant/blinkless/internal/cli.Version=${VERSION}"
           targets=(
             "linux amd64"
             "linux arm64"
@@ -74,7 +74,7 @@ jobs:
             "windows amd64"
             "windows arm64"
           )
-          cmds=(gowkhtmltopdf gowkhtmltoimage)
+          cmds=(blinkless blinkless)
           for t in "${targets[@]}"; do
             set -- ${t}
             goos="$1"
@@ -91,7 +91,7 @@ jobs:
                 -o "${out}" "./cmd/${cmd}"
             done
           done
-          wasm_out="dist/gowkhtmltopdf_${VERSION}_wasm.wasm"
+          wasm_out="dist/blinkless_${VERSION}_wasm.wasm"
           wasm_ldflags="-s -w -X main.wasmVersion=${VERSION}"
           GOOS=js GOARCH=wasm go build -trimpath -ldflags "${wasm_ldflags}" \
             -o "${wasm_out}" ./bindings/wasm
@@ -105,7 +105,7 @@ jobs:
           )
           ls -la dist
           # Smoke the host binary stamp (linux/amd64 on the runner).
-          bin="dist/gowkhtmltopdf_${VERSION}_linux_amd64"
+          bin="dist/blinkless_${VERSION}_linux_amd64"
           got=$("${bin}" --version | sed -n 's/^Version:[[:space:]]*//p' | tr -d '[:space:]')
           echo "linux/amd64 --version → ${got}"
           test "${got}" = "${VERSION}"

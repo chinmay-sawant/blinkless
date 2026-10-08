@@ -1,4 +1,4 @@
-# golangci-lint configuration for gowkhtmltopdf.
+# golangci-lint configuration for blinkless.
 # All available linters are enabled except those listed under disable.
 # Docs: https://golangci-lint.run/usage/configuration/
 #
@@ -21,7 +21,7 @@ linters:
     - gofumpt
     # Import allow-list is TestDirectModuleAllowlist (internal/pdf). Default
     # depguard only allows $gostd and then accidentally matched the old module
-    # path gowkhtmltopdf* via the stdlib prefix "go". Not worth //nolint noise.
+    # path blinkless* via the stdlib prefix "go". Not worth //nolint noise.
     - depguard
 
 issues:

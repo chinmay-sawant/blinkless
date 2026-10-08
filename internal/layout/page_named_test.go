@@ -3,8 +3,7 @@ package layout
 import (
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
+	"github.com/chinmay-sawant/blinkless/internal/css"
 )
 
 // chapterPageName is the named page the inheritance tests reuse.
@@ -35,34 +34,3 @@ func TestPageNameInherits(t *testing.T) {
 	}
 }
 
-func TestPageNameBreak(t *testing.T) {
-	t.Parallel()
-
-	cssSheet := sheet(t, `p { margin: 0 } .ch { page: chapter }`)
-	res := layoutHTML(t, `<html><body><p>PAGEONE</p><div class="ch"><p>PAGETWO</p></div></body></html>`, cssSheet)
-	doc := pdf.NewDocument()
-
-	if err := Paint(doc, res, paintOpts()); err != nil {
-		t.Fatal(err)
-	}
-
-	if pageOf(t, res, "PAGEONE") == pageOf(t, res, "PAGETWO") {
-		t.Fatal("page:chapter sibling stayed on the same page")
-	}
-}
-
-func TestPageNameNoBreakOnBody(t *testing.T) {
-	t.Parallel()
-
-	cssSheet := sheet(t, `body { page: chapter } p { margin: 0 }`)
-	res := layoutHTML(t, `<html><body><p>ONLY</p></body></html>`, cssSheet)
-	doc := pdf.NewDocument()
-
-	if err := Paint(doc, res, paintOpts()); err != nil {
-		t.Fatal(err)
-	}
-
-	if n := doc.PageCount(); n != 1 {
-		t.Fatalf("body { page: chapter } pages = %d, want 1 (no blank first page)", n)
-	}
-}

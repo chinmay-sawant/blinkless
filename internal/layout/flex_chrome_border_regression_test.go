@@ -5,8 +5,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
+	"github.com/chinmay-sawant/blinkless/internal/css"
 )
 
 // flexStraddleContentH is the A4 landscape Chrome Flex content height
@@ -226,45 +225,6 @@ func assertFrameRailSpan(t *testing.T, where, side string, railTop, railBottom, 
 // avoid-inside tile whose frame deskews from its box. Layout alone is
 // contiguous; paginateOps introduces the box/chrome Y mismatch and
 // stretchPaginatedChrome then stretches the rails along the stale box rect.
-func TestFlexContainerBordersStayContiguousAcrossPagination(t *testing.T) {
-	t.Parallel()
-
-	res := flexStraddleFixture(t)
-
-	rows := classBoxes(res.root, "case")
-	if len(rows) != 4 {
-		t.Fatalf("flex rows = %d, want 4", len(rows))
-	}
-
-	center := rows[1]
-	if !(center.y < flexStraddleContentH && center.y+center.height > flexStraddleContentH) {
-		t.Fatalf("center row at y=%.2f..%.2f must straddle the page boundary %.2f for this repro",
-			center.y, center.y+center.height, flexStraddleContentH)
-	}
-
-	err := Paint(pdf.NewDocument(), res, PaintOptions{
-		PageWidth: 841.89, PageHeight: 595.28,
-		MarginTop: 34.02, MarginBottom: 34.02, MarginLeft: 34.02, MarginRight: 34.02,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	tiles := classBoxes(res.root, "ex")
-	if len(tiles) != 2 {
-		t.Fatalf("tiles = %d, want 2", len(tiles))
-	}
-
-	assertContiguousFlexFrame(t, res, "section 4 tile", tiles[0])
-	assertContiguousFlexFrame(t, res, "section 4 justify-content:center row", center)
-	assertContiguousFlexFrame(t, res, "section 10 tile", tiles[1])
-}
-
-// flexSnapTileFixture builds the section 10 shape at a spacer
-// height that makes its 200x200 SVG (constrained to a 100x100 replaced item)
-// cross the first page boundary while the avoid-inside tile only straddles
-// it. The tile cannot be kept together (preferSplitOverBlank rejects the
-// move), so the image snap path runs while the frame stays behind.
 func flexSnapTileFixture(t *testing.T, spacerPt string) *Result {
 	t.Helper()
 
@@ -306,48 +266,6 @@ html, body { margin: 0; padding: 0; font: 11pt/1.4 sans-serif }
 // next page whole, but the tile frame must stay one rect around its box. The
 // pre-fix defect leaves the top rule below the box top and the bottom rule
 // above the box bottom, with the rails stretched past both.
-func TestAvoidTileFrameStaysContiguousWhenImageSnaps(t *testing.T) {
-	t.Parallel()
-
-	// 527.24 - 87 puts the image (tile top + 61) at boundary - 26: the image
-	// crosses while the tile's remaining space (87pt) is over the
-	// preferSplitOverBlank blank-band guard, so avoidInside keeps it split.
-	res := flexSnapTileFixture(t, "440.24pt")
-
-	tiles := classBoxes(res.root, "ex")
-	if len(tiles) != 1 {
-		t.Fatalf("tiles = %d, want 1", len(tiles))
-	}
-
-	tile := tiles[0]
-	if !(tile.y < flexStraddleContentH && tile.y+tile.height > flexStraddleContentH) {
-		t.Fatalf("tile at y=%.2f..%.2f must straddle the page boundary %.2f for this repro",
-			tile.y, tile.y+tile.height, flexStraddleContentH)
-	}
-
-	image := firstImageOp(t, res, tile)
-	if image.Y >= flexStraddleContentH || image.Y+image.H <= flexStraddleContentH {
-		t.Fatalf("image at y=%.2f..%.2f must cross the page boundary %.2f for this repro",
-			image.Y, image.Y+image.H, flexStraddleContentH)
-	}
-
-	err := Paint(pdf.NewDocument(), res, PaintOptions{
-		PageWidth: 841.89, PageHeight: 595.28,
-		MarginTop: 34.02, MarginBottom: 34.02, MarginLeft: 34.02, MarginRight: 34.02,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	assertContiguousFlexFrame(t, res, "snap tile", tile)
-
-	if image.Y < tile.y || image.Y+image.H > tile.y+tile.height {
-		t.Errorf("image at y=%.2f..%.2f sits outside tile y=%.2f..%.2f",
-			image.Y, image.Y+image.H, tile.y, tile.y+tile.height)
-	}
-}
-
-// firstImageOp returns the tile's replaced image op.
 func firstImageOp(t *testing.T, res *Result, tile *box) Op {
 	t.Helper()
 
@@ -367,38 +285,6 @@ func firstImageOp(t *testing.T, res *Result, tile *box) Op {
 // inside the page. CSS Flexbox 10.1 (multi-line row container) moves a line
 // that does not fit wholly to the next page; the engine must not split the
 // item backgrounds at the boundary while their text stays behind.
-func TestFlexWrapCrossingLineMovesWhole(t *testing.T) {
-	t.Parallel()
-
-	// Spacer 1541.84 - 62 puts row 2 at 1541.84: 39.88pt above the 1581.72
-	// boundary, over the 25pt orphans/widows heuristic blank limit, and its
-	// text does not cross, so only splitCrossingRects touches the fills.
-	res := flexWrapFixture(t, "1479.84pt")
-	items := classBoxes(res.root, "item")
-	rowOf := flexRowGroups(t, items)
-
-	row2Top := items[3].y
-	boundary := math.Floor(row2Top/flexStraddleContentH+1) * flexStraddleContentH
-
-	if !(row2Top < boundary && row2Top+items[3].height > boundary) {
-		t.Fatalf("row 2 at y=%.2f..%.2f must straddle the page boundary %.2f for this repro",
-			row2Top, row2Top+items[3].height, boundary)
-	}
-
-	if err := Paint(pdf.NewDocument(), res, PaintOptions{
-		PageWidth: 841.89, PageHeight: 595.28,
-		MarginTop: 34.02, MarginBottom: 34.02, MarginLeft: 34.02, MarginRight: 34.02,
-	}); err != nil {
-		t.Fatal(err)
-	}
-
-	assertWholeFlexLineFills(t, res, items, rowOf)
-	assertLineTextsInsideItems(t, res, items)
-}
-
-// assertWholeFlexLineFills requires every same-line item fill to survive as
-// one unsplit rect at the item box, so a line that moved wholly reads whole
-// and a split line reports its fragments.
 func assertWholeFlexLineFills(t *testing.T, res *Result, items []*box, rowOf []int) {
 	t.Helper()
 

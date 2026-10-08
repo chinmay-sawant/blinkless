@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/css"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pubstate"
+	"github.com/chinmay-sawant/blinkless/css"
+	"github.com/chinmay-sawant/blinkless/internal/pubstate"
 )
 
 func TestRelayoutRejectsBadInput(t *testing.T) {

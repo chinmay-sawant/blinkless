@@ -1,4 +1,4 @@
-# Integrating gowkhtmltopdf safely (Gin and other HTTP apps)
+# Embedding blinkless in an HTTP app
 
 This guide is for **library users** who call the converter from a web service
 (Gin, Echo, net/http, etc.). It expands the formal [threat model](THREAT-MODEL.md)
@@ -7,9 +7,8 @@ with concrete scenarios and a **preferred** integration pattern.
 ## What is *not* the risk
 
 - There is **no JavaScript engine** and no shell/`os/exec`. Hostile HTML cannot
-  “run code” in the browser sense inside gowkhtmltopdf.
-- Returning a PDF to the client is not, by itself, a special malware path
-  beyond normal “serve a file” handling.
+  “run code” in the browser sense inside blinkless.
+- Returning a PNG or JPEG to the client is ordinary file serving.
 - **MIT licensing** is unrelated to these runtime risks.
 
 ## What *is* the risk (attack surface)
@@ -30,7 +29,7 @@ So the attack surface is: **primary input + every URL the document references**.
 
 This is the same *class* of risk as **upstream wkhtmltopdf** (Qt network stack):
 it will also follow remote URLs and (with local access enabled) file URLs.
-gowkhtmltopdf documents and partially hardens local ACL + timeouts; neither
+blinkless documents and partially hardens local ACL + timeouts; neither
 tool is a full “SSRF firewall.”
 
 ---
@@ -52,7 +51,7 @@ r.GET("/pdf", func(c *gin.Context) {
 ```text
 User → Gin → render YOUR template (html/template) with YOUR data
            → write temp file under a dedicated dir OR pass controlled path
-           → gowkhtmltopdf (local ACL only for that dir, if needed)
+           → blinkless (local ACL only for that dir, if needed)
            → return PDF bytes
 ```
 
@@ -167,8 +166,8 @@ func invoicePDF(c *gin.Context) {
 
     ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
     defer cancel()
-    doc := gowkhtmltopdf.Document{
-        Pages: []gowkhtmltopdf.Page{{Source: gowkhtmltopdf.File(path)}},
+    doc := blinkless.Document{
+        Pages: []blinkless.Page{{Source: blinkless.File(path)}},
         AllowLocalFiles: true,
     }
     pdf, err := doc.PDF(ctx)
@@ -186,7 +185,7 @@ func invoicePDF(c *gin.Context) {
 
 **Yes - same problem class.**
 
-| Concern | wkhtmltopdf | gowkhtmltopdf |
+| Concern | wkhtmltopdf | blinkless |
 |---------|-------------|----------------|
 | Fetch user-controlled URL from server | SSRF / internal reachability | Same |
 | HTML pulls more URLs (img/css) | Additional fetches | Same |

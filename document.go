@@ -1,18 +1,15 @@
-package gowkhtmltopdf
+package blinkless
 
 import (
 	"bytes"
 	"context"
 	"io"
-	"maps"
 	"slices"
-	"strings"
 	"time"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/convert"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/imageout"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/load"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/settings"
+	"github.com/chinmay-sawant/blinkless/internal/imageout"
+	"github.com/chinmay-sawant/blinkless/internal/load"
+	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 
 // Content identifies exactly one document source. HTML is an in-memory
@@ -49,98 +46,12 @@ func URL(rawURL string) Content {
 	return Content{HTML: nil, Base: "", File: "", URL: rawURL}
 }
 
-// Margin holds page margins in millimetres.
-type Margin struct {
-	Top    float64
-	Right  float64
-	Bottom float64
-	Left   float64
-}
-
-// HeaderFooter holds text or HTML header/footer settings.
-type HeaderFooter struct {
-	Left     string
-	Center   string
-	Right    string
-	FontSize float64
-	FontName string
-	Line     bool
-	Spacing  float64
-	HTMLURL  string
-	Replace  map[string]string
-}
-
-// Page is one cover or body page in a Document.
-type Page struct {
-	Source           Content
-	Header           *HeaderFooter
-	Footer           *HeaderFooter
-	IncludeInOutline *bool
-	ExternalLinks    *bool
-	LocalLinks       *bool
-	Zoom             float64
-}
-
-// TOC configures the generated table-of-contents object.
-type TOC struct {
-	Caption      string
-	DottedLines  *bool
-	FontScale    float64
-	Indentation  string
-	ForwardLinks *bool
-	BackLinks    *bool
-}
-
 // Crop identifies an image crop rectangle in pixels.
 type Crop struct {
 	Left   int
 	Top    int
 	Width  int
 	Height int
-}
-
-// Document is the preferred HTML-to-PDF API. Its zero-valued options retain
-// the engine defaults; a document must contain a valid Cover or body Page.
-type Document struct {
-	Cover *Page
-	TOC   *TOC
-	Pages []Page
-
-	PageSize    string
-	WidthMM     float64
-	HeightMM    float64
-	Orientation string
-	Margin      Margin
-	Title       string
-	PDFVersion  string
-	PDFProfile  string
-
-	Copies             int
-	Collate            *bool
-	Outline            *bool
-	OutlineDepth       int
-	Background         *bool
-	SmartShrinking     *bool
-	Compression        *bool
-	ResolveRelLinks    *bool
-	Grayscale          bool
-	PageOffset         int
-	ExcludeFromOutline []string
-	Header             *HeaderFooter
-	Footer             *HeaderFooter
-
-	Allow           []string
-	AllowLocalFiles bool
-	FontPaths       []string
-	UseSystemFonts  bool
-	Network         *NetworkPolicy
-
-	Now        func() time.Time
-	OnInfo     func(string)
-	OnWarn     func(string)
-	OnError    func(string)
-	OnPhase    func(string)
-	OnProgress func(int)
 }
 
 // ImageDocument is the preferred HTML-to-image API.
@@ -170,94 +81,6 @@ type ImageDocument struct {
 	OnError    func(string)
 	OnPhase    func(string)
 	OnProgress func(int)
-}
-
-const documentObjectCapacity = 2
-
-// NewDocument returns a document containing the supplied body pages. Page
-// source bytes are copied so the helper does not retain caller-owned HTML.
-//
-//nolint:exhaustruct // zero-valued options intentionally inherit engine defaults.
-func NewDocument(pages ...Page) *Document {
-	owned := make([]Page, len(pages))
-	for index, page := range pages {
-		owned[index] = clonePage(page)
-	}
-
-	return &Document{
-		Cover: nil,
-		TOC:   nil,
-		Pages: owned,
-	}
-}
-
-// WritePDF validates d, maps it to the PDF engine request, and writes a PDF
-// to w. The public and internal settings are cloned at this boundary.
-func (d *Document) WritePDF(ctx context.Context, w io.Writer) error {
-	return d.writePDF(ctx, w, nil, false)
-}
-
-// WritePDFOutline writes the PDF and its outline XML to separate sinks.
-func (d *Document) WritePDFOutline(ctx context.Context, pdfWriter, outlineWriter io.Writer) error {
-	if d == nil {
-		return ErrNilDocument
-	}
-
-	if outlineWriter == nil {
-		return reportPreflight(d.OnError, ErrMissingPDFOutlineOutput)
-	}
-
-	return d.writePDF(ctx, pdfWriter, outlineWriter, true)
-}
-
-func (d *Document) writePDF(
-	ctx context.Context,
-	pdfWriter io.Writer,
-	outlineWriter io.Writer,
-	dumpOutline bool,
-) error {
-	if d == nil {
-		return ErrNilDocument
-	}
-
-	if err := d.Validate(); err != nil {
-		return reportPreflight(d.OnError, err)
-	}
-
-	if pdfWriter == nil {
-		return reportPreflight(d.OnError, ErrMissingPDFOutput)
-	}
-
-	req := d.toPDFRequest(pdfWriter, outlineWriter, dumpOutline)
-	hooks := convertHooks{
-		OnInfo:     d.OnInfo,
-		OnWarn:     d.OnWarn,
-		OnError:    d.OnError,
-		OnPhase:    d.OnPhase,
-		OnProgress: d.OnProgress,
-	}
-
-	return hooks.executePDFTo(ctx, req)
-}
-
-// PDF returns the PDF bytes produced by the document.
-//
-// It buffers the entire PDF in memory and then returns an owned copy, so peak
-// memory is about twice the PDF size (the staging buffer plus the returned
-// slice). For large documents prefer WritePDF, which streams directly to the
-// supplied io.Writer without retaining a second copy. The returned slice is
-// owned by the caller and the staging buffer is not retained after return.
-func (d *Document) PDF(ctx context.Context) ([]byte, error) {
-	if d == nil {
-		return nil, ErrNilDocument
-	}
-
-	var output bytes.Buffer
-	if err := d.WritePDF(ctx, &output); err != nil {
-		return nil, err
-	}
-
-	return append([]byte(nil), output.Bytes()...), nil
 }
 
 // WriteImage validates d, maps it to the image engine request, and writes
@@ -328,161 +151,6 @@ func (d *ImageDocument) Image(ctx context.Context) ([]byte, error) {
 	return append([]byte(nil), output.Bytes()...), nil
 }
 
-func (d *Document) toPDFRequest(output, outline io.Writer, dumpOutline bool) *convert.Request {
-	global := d.pdfGlobal(dumpOutline)
-	objects := make([]settings.PdfObject, 0, len(d.Pages)+documentObjectCapacity)
-
-	if d.Cover != nil {
-		objects = append(objects, d.mapPage(*d.Cover, true))
-	}
-
-	if d.TOC != nil {
-		objects = append(objects, d.mapTOC(*d.TOC))
-	}
-
-	for _, page := range d.Pages {
-		objects = append(objects, d.mapPage(page, false))
-	}
-
-	req := convert.NewPDFRequest(global, objects, output, outline)
-	req.Now = d.Now
-
-	return req
-}
-
-//nolint:cyclop,funlen,wsl // one adapter mirrors the documented global options.
-func (d *Document) pdfGlobal(dumpOutline bool) settings.PdfGlobal {
-	global := settings.DefaultPdfGlobal()
-
-	if d.PageSize != "" {
-		global.PageSize = d.PageSize
-	}
-	if d.WidthMM != 0 || d.HeightMM != 0 {
-		global.Size = settings.Size{Width: d.WidthMM, Height: d.HeightMM}
-	}
-	if orientationValue := strings.TrimSpace(d.Orientation); orientationValue != "" {
-		if orientation, err := settings.ParseOrientation(orientationValue); err == nil {
-			global.Orientation = orientation
-		}
-	}
-	if d.Margin != (Margin{Top: 0, Right: 0, Bottom: 0, Left: 0}) {
-		global.Margin = settings.Margin{
-			Top:    d.Margin.Top,
-			Right:  d.Margin.Right,
-			Bottom: d.Margin.Bottom,
-			Left:   d.Margin.Left,
-		}
-	}
-	if d.Title != "" {
-		global.Title = d.Title
-	}
-	if d.PDFVersion != "" {
-		if v, err := settings.ParsePDFVersion(d.PDFVersion); err == nil {
-			global.PdfVersion = v
-		}
-	}
-	if d.PDFProfile != "" {
-		if p, err := settings.ParsePDFProfile(d.PDFProfile); err == nil {
-			global.PdfProfile = p
-		}
-	}
-	if d.Copies != 0 {
-		global.Copies = d.Copies
-	}
-	if d.Collate != nil {
-		global.Collate = *d.Collate
-	}
-	if d.Outline != nil {
-		global.Outline = *d.Outline
-	}
-	if d.OutlineDepth != 0 {
-		global.OutlineDepth = d.OutlineDepth
-	}
-	if d.Background != nil {
-		global.Background = *d.Background
-	}
-	if d.SmartShrinking != nil {
-		global.SmartShrinking = *d.SmartShrinking
-	}
-	if d.Compression != nil {
-		global.UseCompression = *d.Compression
-	}
-	if d.ResolveRelLinks != nil {
-		global.ResolveRelativeLinks = *d.ResolveRelLinks
-	}
-	global.Grayscale = d.Grayscale
-	global.PageOffset = d.PageOffset
-	global.ExcludeFromOutline = slices.Clone(d.ExcludeFromOutline)
-	if d.Header != nil {
-		global.Header = mapHeaderFooter(*d.Header)
-	}
-	if d.Footer != nil {
-		global.Footer = mapHeaderFooter(*d.Footer)
-	}
-	if d.AllowLocalFiles {
-		global.Load.EnableLocalFileAccess = true
-	}
-	global.Load.Allow = slices.Clone(d.Allow)
-	global.FontPaths = slices.Clone(d.FontPaths)
-	global.UseSystemFonts = d.UseSystemFonts
-	if d.Network != nil {
-		load.ApplyNetworkPolicy(&global.Load, *d.Network)
-	}
-	global.DumpOutline = dumpOutline
-
-	if d.TOC != nil {
-		global.TOC = mapTOCSettings(*d.TOC)
-	}
-
-	return global
-}
-
-//nolint:wsl // page mapping follows the public option groups in order.
-func (d *Document) mapPage(page Page, cover bool) settings.PdfObject {
-	object := settings.DefaultPdfObject()
-	mapContent(&object, page.Source)
-	object.ExternalLinks = boolValue(page.ExternalLinks, object.ExternalLinks)
-	object.LocalLinks = boolValue(page.LocalLinks, object.LocalLinks)
-	object.IncludeInOutline = boolValue(page.IncludeInOutline, object.IncludeInOutline)
-	if page.Zoom != 0 {
-		object.Load.ZoomFactor = page.Zoom
-	}
-
-	if cover {
-		// StampCover also stamps empty HF overrides (no document HF inherit).
-		settings.StampCover(&object)
-		if page.IncludeInOutline != nil {
-			object.IncludeInOutline = *page.IncludeInOutline
-		}
-	}
-	if page.Header != nil {
-		object.Header = mapHeaderFooter(*page.Header)
-		object.HeaderSet = true
-	}
-	if page.Footer != nil {
-		object.Footer = mapHeaderFooter(*page.Footer)
-		object.FooterSet = true
-	}
-	if d.AllowLocalFiles {
-		object.Load.BlockLocalFileAccess = false
-	}
-
-	return object
-}
-
-//nolint:wsl // TOC mapping follows the public option groups in order.
-func (d *Document) mapTOC(toc TOC) settings.PdfObject {
-	object := settings.DefaultPdfObject()
-	settings.StampTOC(&object)
-	object.TOC = mapTOCSettings(toc)
-	if d.AllowLocalFiles {
-		object.Load.BlockLocalFileAccess = false
-	}
-
-	return object
-}
-
-//nolint:cyclop,wsl // image mapping mirrors the public image option groups.
 func (d *ImageDocument) toImageRequest(output io.Writer) *imageout.Request {
 	global := settings.DefaultPdfGlobal()
 	image := settings.DefaultImageGlobal()
@@ -554,82 +222,4 @@ func mapContent(object *settings.PdfObject, content Content) {
 	case content.URL != "":
 		object.Page = content.URL
 	}
-}
-
-//nolint:wsl // defaults are resolved before the complete internal value is built.
-func mapHeaderFooter(header HeaderFooter) settings.HeaderFooter {
-	defaults := settings.DefaultHeaderFooter()
-	fontName := header.FontName
-	if fontName == "" {
-		fontName = defaults.FontName
-	}
-	fontSize := header.FontSize
-	if fontSize == 0 {
-		fontSize = defaults.FontSize
-	}
-
-	return settings.HeaderFooter{
-		FontSize: fontSize,
-		FontName: fontName,
-		Left:     header.Left,
-		Right:    header.Right,
-		Center:   header.Center,
-		Line:     header.Line,
-		Spacing:  header.Spacing,
-		HTMLURL:  header.HTMLURL,
-		Replace:  maps.Clone(header.Replace),
-	}
-}
-
-//nolint:wsl // optional public fields selectively override engine defaults.
-func mapTOCSettings(toc TOC) settings.TableOfContent {
-	defaults := settings.DefaultTableOfContent()
-	result := defaults
-	if toc.Caption != "" {
-		result.CaptionText = toc.Caption
-	}
-	if toc.DottedLines != nil {
-		result.DottedLines = *toc.DottedLines
-	}
-	if toc.FontScale != 0 {
-		result.FontScale = toc.FontScale
-	}
-	if toc.Indentation != "" {
-		result.Indentation = toc.Indentation
-	}
-	if toc.ForwardLinks != nil {
-		result.ForwardLinks = *toc.ForwardLinks
-	}
-	if toc.BackLinks != nil {
-		result.BackLinks = *toc.BackLinks
-	}
-
-	return result
-}
-
-func boolValue(value *bool, fallback bool) bool {
-	if value == nil {
-		return fallback
-	}
-
-	return *value
-}
-
-func clonePage(page Page) Page {
-	page.Source.HTML = slices.Clone(page.Source.HTML)
-	page.Header = cloneHeaderFooter(page.Header)
-	page.Footer = cloneHeaderFooter(page.Footer)
-
-	return page
-}
-
-func cloneHeaderFooter(header *HeaderFooter) *HeaderFooter {
-	if header == nil {
-		return nil
-	}
-
-	clone := *header
-	clone.Replace = maps.Clone(header.Replace)
-
-	return &clone
 }

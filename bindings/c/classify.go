@@ -4,13 +4,12 @@ import (
 	"context"
 	"errors"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/convert"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/load"
+	"github.com/chinmay-sawant/blinkless"
+	"github.com/chinmay-sawant/blinkless/internal/load"
 )
 
 // classifyError maps an engine failure onto the ABI status table documented
-// in include/gowkhtmltopdf.h. It stays free of C types so the PDF and image
+// in include/blinkless.h. It stays free of C types so the PDF and image
 // entry points share it in both the cgo and pure-Go stub builds. A done
 // context always wins: when cancellation raced with another failure, callers
 // observe TIMEOUT instead of a generic render error.
@@ -26,8 +25,6 @@ func classifyError(err error, ctx context.Context) int32 {
 		errors.Is(err, load.ErrNetworkPolicy),
 		errors.Is(err, load.ErrInvalidProxy):
 		return statusLoadDenied
-	case errors.Is(err, convert.ErrInvalidCopies):
-		return statusResourceLimit
 	case invalidArgument(err):
 		return statusInvalidArg
 	default:
@@ -46,21 +43,14 @@ func ctxDone(ctx context.Context) bool {
 //
 //nolint:gochecknoglobals // fixed sentinel set for ABI classification
 var invalidArgSentinels = []error{
-	gowkhtmltopdf.ErrNoPageObjects,
-	gowkhtmltopdf.ErrEmptyHTML,
-	gowkhtmltopdf.ErrInvalidContent,
-	gowkhtmltopdf.ErrInvalidPageSize,
-	gowkhtmltopdf.ErrInvalidOrientation,
-	gowkhtmltopdf.ErrInvalidPDFVersion,
-	gowkhtmltopdf.ErrInvalidPDFProfile,
-	gowkhtmltopdf.ErrInvalidImageFormat,
-	gowkhtmltopdf.ErrInvalidImageQuality,
-	gowkhtmltopdf.ErrInvalidCrop,
-	gowkhtmltopdf.ErrInvalidDimensions,
-	gowkhtmltopdf.ErrInvalidMargin,
-	gowkhtmltopdf.ErrInvalidZoom,
-	gowkhtmltopdf.ErrNilContext,
-	gowkhtmltopdf.ErrMissingPDFOutput,
+	blinkless.ErrEmptyHTML,
+	blinkless.ErrInvalidContent,
+	blinkless.ErrInvalidImageFormat,
+	blinkless.ErrInvalidImageQuality,
+	blinkless.ErrInvalidCrop,
+	blinkless.ErrInvalidDimensions,
+	blinkless.ErrInvalidZoom,
+	blinkless.ErrNilContext,
 }
 
 // invalidArgument reports whether err originates from caller-supplied

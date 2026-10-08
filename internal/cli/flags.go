@@ -3,7 +3,7 @@ package cli
 import (
 	"strconv"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/settings"
+	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 
 // flagApplier receives (cmd, cur, vals) and mutates settings. Bool flags get

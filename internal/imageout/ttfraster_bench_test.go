@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
+	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
 )
 
 //nolint:wsl // benchmark timing boundaries intentionally surround the loop.

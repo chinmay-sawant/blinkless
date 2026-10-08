@@ -38,7 +38,7 @@ for _root in _REPO_CANDIDATES:
         sys.path.insert(0, str(_src))
         break
 
-from gowkhtmltopdf import Content, Document, Margin, Page  # noqa: E402
+from blinkless import Content, Document, Margin, Page  # noqa: E402
 
 import generate  # noqa: E402
 

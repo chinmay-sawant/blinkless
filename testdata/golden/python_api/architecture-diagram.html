@@ -372,7 +372,7 @@
         <h3>Ownership rules</h3>
         <ul>
           <li><code>Document.pdf()</code> copies public data at the ctypes boundary.</li>
-          <li><code>convert_html_to_pdf</code> returns owned PDF bytes after <code>gowkhtmltopdf_free</code>.</li>
+          <li><code>convert_html_to_pdf</code> returns owned PDF bytes after <code>blinkless_free</code>.</li>
           <li>A document is used by one conversion flow at a time.</li>
           <li>Failures return as errors before partial output is published.</li>
         </ul>

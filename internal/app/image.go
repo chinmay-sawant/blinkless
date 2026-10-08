@@ -6,9 +6,16 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/cli"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/imageout"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/settings"
+	"github.com/chinmay-sawant/blinkless/internal/cli"
+	"github.com/chinmay-sawant/blinkless/internal/errs"
+	"github.com/chinmay-sawant/blinkless/internal/imageout"
+	"github.com/chinmay-sawant/blinkless/internal/settings"
+)
+
+var (
+	ErrNilCommand    = errs.ErrNilCommand
+	ErrNoPageObjects = settings.ErrNoRenderableObjects
+	ErrNilContext    = errs.ErrNilContext
 )
 
 // ErrMultipleImageObjects reports an image command with more than one input

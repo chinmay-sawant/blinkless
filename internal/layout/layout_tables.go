@@ -4,7 +4,7 @@ package layout
 import (
 	"strings"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 func (e *engine) buildTable(node *html.Node, style ResolvedStyle, availW, posX, posY float64) *box {

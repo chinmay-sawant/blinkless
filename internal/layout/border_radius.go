@@ -3,7 +3,7 @@ package layout
 import (
 	"strings"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/css"
 )
 
 // splitRadiusSlash splits CSS border-radius slash syntax into the horizontal

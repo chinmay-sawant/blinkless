@@ -1,30 +1,29 @@
-# AGENTS.md - gowkhtmltopdf
+# AGENTS.md - blinkless
 
 > This file is the conventions ledger for every coding agent working in this
 > repo (opencode, grok, gemini, codex, antigravity/agy, claude). Read it at
 > session start. It encodes lessons from a 490-session audit of our sibling
-> projects plus everything learned shipping gowkhtmltopdf itself through
+> projects plus everything learned shipping blinkless itself through
 > v0.2.x: the mistakes, repeat work, and avoidable waste we already paid for,
 > so we do not repeat them here.
 
 ## Project
 
-Pure-Go HTML-to-PDF engine and wkhtmltopdf-style work-alike, plus an
-HTML-to-image rasterizer. Two static binaries (`cmd/gowkhtmltopdf`,
-`cmd/gowkhtmltoimage`) and a Go library (`Document` / `ImageDocument` at
-the repo root). The product is print-oriented structured documents
-(invoices, receipts, certificates), not Chrome visual parity. No JavaScript.
-No CGO.
+Pure-Go HTML renderer named blinkless. It builds a drawing list and can
+encode that list as PNG or JPEG. It does not write PDF. One image binary
+(`cmd/blinkless`, built as `bin/blinkless`) and a Go library
+(`ImageDocument`, plus `html`, `css`, `layout`, `screen`). No JavaScript.
+No CGO on the default build.
 
-Module: `github.com/chinmay-sawant/gowkhtmltopdf`.
-GitHub repo: `https://github.com/chinmay-sawant/gowkhtmltopdf`.
-Default branch: `master`. Current version: `VERSION` (single line, injected
-into both binaries via ldflags).
+Module path: `github.com/chinmay-sawant/blinkless`.
+GitHub repo: `https://github.com/chinmay-sawant/blinkless`.
+Default branch: `master`. There is no `VERSION` file. The image binary
+stamps `internal/cli.Version` as `0.0.1` from the Makefile.
 
-Pipeline order, owned by `internal/`: load -> html parse -> css cascade ->
-layout -> paginate -> paint -> pdf write. `internal/convert/` orchestrates;
-`internal/pdf/` is the version-aware writer; `internal/imageout/` shares the
-pipeline for PNG/JPEG.
+Pipeline order: load -> html parse -> css cascade -> layout (drawing list)
+-> PNG/JPEG. Font faces live in `internal/fonts`. `internal/imageout`
+rasterizes the list. `internal/convert/prepare` loads documents for that
+path. The PDF writer package is gone.
 
 ## Todo protocol - response-only (mandatory)
 
@@ -145,7 +144,7 @@ The real gates, in order of cost:
 | Unit + integration | `make test` | Full suite green (`-p 2 -parallel 2` by default; see Makefile) |
 | Claims | `make claim-scan` | No forbidden claims (stdlib-only, Qt WebKit, byte-identical determinism, etc.) in doc.go, README, documentation/, frontend content, cli help |
 | Lint | `make lint` | golangci-lint (pinned v1.64.8) clean; chains `size-check` (file-size ledger) and `lint-frontend` (npm) |
-| Golden corpus | `make golden` | All 63 fixtures convert with correct structure, page-count envelopes, embedded fonts, ordered text needles |
+| Golden corpus | `make golden` | Every `testdata/golden/fixture-*.html` body renders to a PNG |
 | Release | `RELEASE.md` checklist | Hard gates for any release: `make check-versions`, `make test`, `make golden`, `make claim-scan`, `make lint`, plus `make build` with version-stamp check; Python and frontend extras when touched |
 
 Release work always starts at `RELEASE.md`. It holds the version-source
@@ -176,8 +175,7 @@ that fails if `docs/` goes dirty.
    reason. Never auto-rename or bulk-fix; each mechanical rename is followed
    by `go build ./...` + targeted tests.
 2. **Verifying against stale artifacts.** Rebuild before verifying CLI
-   behavior: `make build` produces `bin/gowkhtmltopdf` and
-   `bin/gowkhtmltoimage`. Committed `output/*.pdf` files are regenerated
+   behavior: `make build` produces `bin/blinkless`. Committed `output/*.png` files are regenerated
    samples, not behavior baselines ("not golden byte baselines" per
    `output/README.md`). Regenerate with `make samples` when needed.
 3. **Claiming completion without the gate output.** Read the final exit code.
@@ -222,10 +220,9 @@ that fails if `docs/` goes dirty.
 
 ## Engine specifics
 
-- **Golden tests are a structural contract, not pixel diffs**: `%PDF-`
-  header, `/FontFile2` subset presence, xref/EOF integrity, per-fixture page
-  envelope, feature flags (`images`, `uris`), and ordered text needles via
-  `pdf.ParseSemantic`. See `testdata/golden/README.md`.
+- **Golden tests check that each body fixture renders**: `make golden` runs
+  `TestGoldenFixturesRenderPNG` and expects a PNG header. It does not compare
+  pixels and it does not write a PDF.
 - **Regeneration is guarded.** `make golden-update GOLDEN_FIXTURE=<name>
   GOLDEN_APPROVE=1` writes only `testdata/golden/out/` and never touches
   committed fixtures. Treat an approved golden output like a reviewed

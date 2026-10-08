@@ -1,6 +1,6 @@
 ---
 name: chrome-flex-pdf-closure
-description: Close the complete 40-case Chromium Flexbox interaction inventory in gowkhtmltopdf by converting static inputs, proving the right engine and output behavior for each case, and recording coverage evidence. Use when agents are assigned individual Chrome Flexbox cases, case groups, or the whole inventory.
+description: Close the complete 40-case Chromium Flexbox interaction inventory in blinkless by converting static inputs, proving the right engine and output behavior for each case, and recording coverage evidence. Use when agents are assigned individual Chrome Flexbox cases, case groups, or the whole inventory.
 ---
 
 # Close the Chrome Flexbox interaction inventory

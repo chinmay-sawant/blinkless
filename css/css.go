@@ -6,14 +6,14 @@ import (
 	"io"
 	"strings"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/html"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/convert/prepare"
-	icss "github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
-	ihtml "github.com/chinmay-sawant/gowkhtmltopdf/internal/html"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/load"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pdf"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/pubstate"
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/settings"
+	"github.com/chinmay-sawant/blinkless/html"
+	"github.com/chinmay-sawant/blinkless/internal/convert/prepare"
+	icss "github.com/chinmay-sawant/blinkless/internal/css"
+	ihtml "github.com/chinmay-sawant/blinkless/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/load"
+	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
+	"github.com/chinmay-sawant/blinkless/internal/pubstate"
+	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 
 // cssPxToPt matches the screen path: 1 CSS pixel is 0.75 points at 96 dpi.

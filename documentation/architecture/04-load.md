@@ -2,7 +2,7 @@
 
 ## 1. Responsibility & position in the pipeline
 
-`internal/load` is the **resource-fetching seam** of gowkhtmltopdf. Its own
+`internal/load` fetches resources for the blinkless renderer. Its own
 package doc (`internal/load/doc.go`) states it plainly: it "reimplements the
 MultiPageLoader orchestration layer: URL guessing, HTTP(S)/file fetching,
 cookies, proxy, auth, local ACL, and POST bodies. Not a browser: it hands raw
@@ -101,7 +101,7 @@ door, not a computational engine.
 | `parseProxy(raw)` | `load.go:876` | Validates proxy config: absolute URL with scheme and host, `http`/`https` only. |
 | `loadFile` | `load.go:1249` | ACL-checked, context-aware file read with the body cap (probe byte + overflow check). Sets `Base` to the file's directory. |
 | `loadHTTP` | `load.go:1335` | HTTP fetch: request build, per-page timeout, `>= 400` policy routing (`loadErrorResponse`), Content-Length short-circuit and read-side body cap, final URL after redirects as `Resource.URL`/`Base`. |
-| `buildHTTPRequest` | `load.go:1429` | Assembles method (GET vs POST with url-encoded form), User-Agent `gowkhtmltopdf/0.1`, basic auth, custom headers, and per-page cookies. |
+| `buildHTTPRequest` | `load.go:1429` | Assembles method (GET vs POST with url-encoded form), User-Agent `blinkless/0.1`, basic auth, custom headers, and per-page cookies. |
 | `loadErrorResponse` | `load.go:1478` | Implements `--load-error-handling`: `abort` → `settings.HttpStatusError`; `skip` → `Resource{Skip:true}` (no body); `ignore` → `Resource` with empty body. |
 | `fileAccessAllowed` | `load.go:1326` | The frozen security policy: allow-prefix match wins; otherwise `EnableLocalFileAccess && !BlockLocalFileAccess`. |
 | `AccessController.Allowed` | `load.go:265` | Real-path (symlink-resolved) prefix comparison with a directory-separator boundary. |
@@ -301,7 +301,7 @@ reconciliation pass.
   `LoadErrorHandling: LoadErrorAbort`).
 
 The divergence from wkhtmltopdf is deliberate and product-shaped: wkhtmltopdf
-runs a real JS engine and reads arbitrary encodings; gowkhtmltopdf refuses
+runs a real JS engine and reads arbitrary encodings; blinkless refuses
 non-UTF-8/ASCII documents at the load seam and never executes JS. The
 controlled-report scope (invoices, statements, tables, TOCs) makes this
 acceptable — see `documentation/fidelity.md` for the claims language.

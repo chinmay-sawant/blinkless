@@ -4,7 +4,7 @@ import (
 	"image"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/layout"
+	"github.com/chinmay-sawant/blinkless/internal/layout"
 )
 
 // TestPaintLineDiagonalStrokesCenterline pins the checkbox-tick fix: a

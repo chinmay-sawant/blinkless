@@ -1,4 +1,4 @@
-// Package css implements the CSS subset gowkhtmltopdf accepts: a
+// Package css implements the CSS subset blinkless accepts: a
 // declarations-and-rules parser, selector matching against the html tree,
 // specificity ordering, and value helpers (lengths, colors, font families).
 //

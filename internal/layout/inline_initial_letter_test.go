@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chinmay-sawant/gowkhtmltopdf/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/css"
 )
 
 //nolint:cyclop,funlen // drop-cap regression test checks source, geometry, and wrapping
