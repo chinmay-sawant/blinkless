@@ -233,16 +233,15 @@
         "case": "legacy-flex-flow-auto-margins",
         "file": "temps/chrome-cases/geometry-report.md",
         "kind": "browser",
-        "verdict": "fail"
+        "verdict": "pass"
       },
       "expected": "Logical auto margins consume free space correctly through direction, writing mode, and column-reverse.",
       "fixture": "cases/case-13-legacy-flex-flow-auto-margins.html",
       "goTarget": "chrome-reference",
       "id": "legacy-flex-flow-auto-margins",
       "kind": "margins",
-      "reason": "Chrome 143 geometry run: html/body heights are 51.8 px short; the five inline-block containers stack 9.16 px closer across the first three gaps and 12.16 px across the last, because the inline-block bottom margin is missing from the line box; per-container item geometry matches.",
       "source": "third_party/blink/web_tests/css3/flexbox/flex-flow-auto-margins.html",
-      "status": "blocked",
+      "status": "completed",
       "title": "Logical auto margins in reverse flow"
     },
     {
@@ -253,16 +252,15 @@
         "case": "legacy-flex-align-baseline",
         "file": "temps/chrome-cases/geometry-report.md",
         "kind": "browser",
-        "verdict": "fail"
+        "verdict": "pass"
       },
       "expected": "Items with different margins share the expected baseline across flows and writing modes.",
       "fixture": "cases/case-14-legacy-flex-align-baseline.html",
       "goTarget": "chrome-reference",
       "id": "legacy-flex-align-baseline",
       "kind": "baseline",
-      "reason": "Chrome 143 geometry run: empty inline-block children are 1.333 px wide where Chrome reports 0 px (the engine floors them at 1 pt) and the block strut is missing; item order is correct when compared by id, so the earlier row-reverse claim was a join artifact.",
       "source": "third_party/blink/web_tests/css3/flexbox/flex-align-baseline.html",
-      "status": "blocked",
+      "status": "completed",
       "title": "Baseline alignment across axes"
     },
     {
@@ -290,7 +288,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "flex-align-items-stretch",
-        "file": "temps/css-review/geometry-report.md",
+        "file": "temps/css-review/recheck/geometry-report.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -311,16 +309,15 @@
         "case": "wpt-flex-basis-011",
         "file": "temps/chrome-cases/geometry-report.md",
         "kind": "browser",
-        "verdict": "fail"
+        "verdict": "pass"
       },
       "expected": "A percentage flex basis in an indefinite nested column resolves against the column's stretched used height.",
       "fixture": "cases/case-17-wpt-flex-basis-011.html",
       "goTarget": "layout-unit",
       "id": "wpt-flex-basis-011",
       "kind": "column",
-      "reason": "Chrome 143 geometry run: the root is +1.333 px and the nested column items are +0.667 px wide and +2.0 px tall; a 1 px border is stored as 1 pt instead of 0.75 pt. The absolute panel matches Chrome at (16,16) after the C6 fix.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-basis-011.html",
-      "status": "blocked",
+      "status": "completed",
       "title": "Percentage flex basis in an indefinite column"
     },
     {
@@ -331,16 +328,15 @@
         "case": "wpt-rtl-flow-reverse",
         "file": "temps/chrome-cases/geometry-report.md",
         "kind": "browser",
-        "verdict": "fail"
+        "verdict": "pass"
       },
       "expected": "RTL plus column wrap-reverse reverses logical column order without losing item order within a column.",
       "fixture": "cases/case-18-wpt-rtl-flow-reverse.html",
       "goTarget": "chrome-reference",
       "id": "wpt-rtl-flow-reverse",
       "kind": "writing",
-      "reason": "Chrome 143 geometry run: body y is 8 vs Chrome 16 and 16.67 px taller because the first child margin does not collapse through the nonzero body margin; the description panel is +8 px; the flex items match.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flexbox_rtl-flow-reverse.html",
-      "status": "blocked",
+      "status": "completed",
       "title": "RTL column wrap reverse"
     },
     {
@@ -351,16 +347,15 @@
         "case": "wpt-flexbox-margin-auto",
         "file": "temps/chrome-cases/geometry-report.md",
         "kind": "browser",
-        "verdict": "fail"
+        "verdict": "pass"
       },
       "expected": "Fixed children with auto margins split positive free space and remain vertically centered.",
       "fixture": "cases/case-19-wpt-flexbox-margin-auto.html",
       "goTarget": "layout-unit",
       "id": "wpt-flexbox-margin-auto",
       "kind": "margins",
-      "reason": "Chrome 143 geometry run: body y is 8 vs Chrome 16 and 16.67 px taller because the first child margin does not collapse through the nonzero body margin; the description panel is +8 px; the flex items match.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flexbox_margin-auto.html",
-      "status": "blocked",
+      "status": "completed",
       "title": "Row auto margins"
     },
     {
@@ -524,16 +519,15 @@
         "case": "wpt-flex-minimum-width-aspect",
         "file": "temps/chrome-cases/geometry-report.md",
         "kind": "browser",
-        "verdict": "fail"
+        "verdict": "pass"
       },
       "expected": "The automatic main-axis minimum uses the transferred aspect-ratio size.",
       "fixture": "cases/case-28-wpt-flex-minimum-width-aspect.html",
       "goTarget": "chrome-reference",
       "id": "wpt-flex-minimum-width-aspect",
       "kind": "aspect",
-      "reason": "Chrome 143 geometry run: the 200 px image is 133.33 px wide; max-height is transferred to width instead of keeping the specified width.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-minimum-width-flex-items-010.html",
-      "status": "blocked",
+      "status": "completed",
       "title": "Automatic minimum width from aspect ratio"
     },
     {
@@ -570,7 +564,7 @@
       "goTarget": "layout-unit",
       "id": "wpt-auto-margins-column",
       "kind": "margins",
-      "reason": "Chrome 143 geometry run: the vertical-lr wrapper is 1024 px wide vs Chrome 402 px (auto block size is not fit-content) and line-height:1 items are 21.41 px tall vs 20 px; the vertical branch items match.",
+      "reason": "Chrome 143 geometry run: the vertical-lr wrapper (402 px) and the line-height:1 items (20 px) now match Chrome; the remaining 1.33 px is the 1 pt border on .case, which Chrome draws as 1 px (device-pixel snap pending).",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/auto-margins-003.html",
       "status": "blocked",
       "title": "Auto margins and align-self in a column"
@@ -649,7 +643,7 @@
       "goTarget": "chrome-reference",
       "id": "wpt-flex-container-max-content",
       "kind": "intrinsic",
-      "reason": "Chrome 143 geometry run: the row frame is 152x50 vs Chrome 147.95x47.31 and inline-block ink boxes are 18 px tall vs Chrome 13.33 px (specified 10 pt); item outer sizes differ by border and padding rounding.",
+      "reason": "Chrome 143 geometry run: the inline-block ink boxes now match Chrome (13.33 px for the 10 pt height); the row frame is 152x50 vs Chrome 147.95x47.31 and the items are +1.33 px because 2 pt borders draw 2.67 px where Chrome draws 2 px (device-pixel snap pending), plus a 1.2 px last-line baseline approximation for text overflowing a definite height.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-container-max-content-001.html",
       "status": "blocked",
       "title": "Flex container max-content contribution"
@@ -766,7 +760,7 @@
       "goTarget": "chrome-reference",
       "id": "wpt-flex-container-min-content",
       "kind": "intrinsic",
-      "reason": "Chrome 143 geometry run: the height:0 wrapper reports 62.67 px vs Chrome 0 and the min-content frame is 146.67x62.67 vs Chrome 143.95x61.31; items differ by border and padding rounding.",
+      "reason": "Chrome 143 geometry run: the height:0 wrapper now matches Chrome at 0x0; the min-content frame is 146.67x62.67 vs Chrome 143.95x61.31 and the items are +1.33 px because 2 pt borders draw 2.67 px where Chrome draws 2 px (device-pixel snap pending).",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-container-min-content-001.html",
       "status": "blocked",
       "title": "Flex container min-content contribution"

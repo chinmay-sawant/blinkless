@@ -23,7 +23,7 @@ Every case carries a `status`:
 - `unsupported`: the engine does not support the behavior and the case is not
   planned.
 
-The manifest records 26 `completed` and 14 `blocked` cases; no case is
+The manifest records 32 `completed` and 8 `blocked` cases; no case is
 `scaffold` or `unsupported`.
 
 `manifest_test.go` enforces the rule:
@@ -65,9 +65,10 @@ Browser measurement:
 `file` is repository-relative. For a browser measurement, `case` is the case
 id used inside the evidence document and `browser` is the measured version.
 The browser evidence lives under the gitignored `temps/` directory:
-`temps/chrome-cases/geometry-report.md` is the 2026-10-09 run, and
-`temps/css-review/geometry-report.md` is the earlier 2026-10-08 run that the
-`wpt-align-items-stretch` and `wpt-gap-002-ltr` cases still cite. The browser
+`temps/chrome-cases/geometry-report.md` is the 2026-10-09 run,
+`temps/css-review/recheck/geometry-report.md` is the 2026-10-09 recheck that
+`wpt-align-items-stretch` cites, and `temps/css-review/geometry-report.md` is
+the earlier 2026-10-08 run that `wpt-gap-002-ltr` still cites. The browser
 check skips when `temps/` is absent (for example on CI); the go-test check
 always runs.
 

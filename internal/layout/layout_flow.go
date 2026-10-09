@@ -207,6 +207,13 @@ func (e *engine) flowChildren(
 	parent *box, children []*html.Node, sty ResolvedStyle,
 	contentW, contentX, posY, curY float64,
 ) float64 {
+	// Children resolve an auto inline size against this containing block's
+	// writing mode: an orthogonal child shrink-wraps (CSS Writing Modes).
+	previousWM := e.flowWritingMode
+	e.flowWritingMode = sty.WritingMode
+
+	defer func() { e.flowWritingMode = previousWM }()
+
 	// CSS Containment: content-visibility: hidden skips descendant layout and
 	// paint entirely. The box keeps its own chrome and uses the
 	// contain-intrinsic height (0 when unset) as its content size.

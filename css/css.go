@@ -16,7 +16,8 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/settings"
 )
 
-// cssPxToPt matches the screen path: 1 CSS pixel is 0.75 points at 96 dpi.
+// cssPxToPt matches the layout conversion: 1 CSS pixel is 0.75 points at
+// 96 dpi.
 const cssPxToPt = 0.75
 
 func registerStyled() {

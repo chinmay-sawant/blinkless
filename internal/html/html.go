@@ -164,7 +164,7 @@ func (n *Node) appendText(buf *strings.Builder) {
 func Parse(source string) (*Node, error) {
 	builder := newTreeBuilder()
 
-	scanTokens(source, builder.appendToken)
+	scanTokens(source, builder.appendToken, builder.foreignCDATAAllowed)
 	builder.finish()
 	applySelectedContent(builder.root)
 
@@ -209,7 +209,7 @@ func tokenize(src string) ([]token, error) {
 
 	scanTokens(src, func(tok token) {
 		toks = append(toks, tok)
-	})
+	}, nil)
 
 	return toks, nil
 }
@@ -274,11 +274,17 @@ func replaceNUL(s string) string {
 	return strings.ReplaceAll(s, "\x00", nulReplacement)
 }
 
+// cdataPolicy reports whether the tokenizer may enter the CDATA section state
+// at the current position. The tree builder answers from the adjusted current
+// node: CDATA is allowed only when it is a non-HTML element. A nil policy
+// disables CDATA handling, which is the tokenizer-level default.
+type cdataPolicy func() bool
+
 // scanTokens preprocesses raw HTML and emits each token as soon as it is
 // recognized. Malformed input follows the spec's recovery rules: unfinished
 // comments, tags, declarations, and quoted attribute values produce tokens
 // or drop cleanly instead of failing the parse.
-func scanTokens(src string, emit tokenSink) {
+func scanTokens(src string, emit tokenSink, allowCDATA cdataPolicy) {
 	src = preprocessInput(src)
 
 	pos := 0
@@ -307,7 +313,7 @@ func scanTokens(src string, emit tokenSink) {
 
 		switch {
 		case src[pos+1] == '!':
-			next = scanBang(src, pos, emit)
+			next = scanBang(src, pos, emit, allowCDATA)
 		case src[pos+1] == '/':
 			next = scanEndTag(src, pos, emit)
 		case src[pos+1] == '?':
@@ -324,11 +330,18 @@ func scanTokens(src string, emit tokenSink) {
 	}
 }
 
-// scanBang tokenizes a '!' construct at pos: comment, doctype, or a bogus
-// declaration that becomes a comment.
-func scanBang(src string, pos int, emit tokenSink) int {
+// cdataOpen is the exact, case-sensitive opener of a CDATA section.
+const cdataOpen = "<![CDATA["
+
+// scanBang tokenizes a '!' construct at pos: comment, CDATA section in
+// foreign content, doctype, or a bogus declaration that becomes a comment.
+func scanBang(src string, pos int, emit tokenSink, allowCDATA cdataPolicy) int {
 	if strings.HasPrefix(src[pos:], "<!--") {
 		return scanComment(src, pos, emit)
+	}
+
+	if strings.HasPrefix(src[pos:], cdataOpen) && allowCDATA != nil && allowCDATA() {
+		return scanCDATA(src, pos, emit)
 	}
 
 	if len(src)-pos >= len("<!doctype") && strings.EqualFold(src[pos:pos+len("<!doctype")], "<!doctype") {
@@ -336,6 +349,44 @@ func scanBang(src string, pos int, emit tokenSink) int {
 	}
 
 	return scanBogusComment(src, pos+2, "", emit)
+}
+
+// scanCDATA consumes a CDATA section starting at the '<![CDATA[' opener and
+// emits its content as one text token. A run of ']' characters shorter than
+// the ']]>' terminator stays in the content; at EOF the gathered content is
+// emitted (eof-in-cdata recovery). NUL bytes stay in the stream; the tree
+// builder substitutes U+FFFD in foreign text.
+func scanCDATA(src string, pos int, emit tokenSink) int {
+	start := pos + len(cdataOpen)
+
+	for i := start; i < len(src); {
+		if src[i] != ']' {
+			i++
+
+			continue
+		}
+
+		j := i
+		for j < len(src) && src[j] == ']' {
+			j++
+		}
+
+		if j < len(src) && src[j] == '>' && j-i >= 2 {
+			if text := src[start : j-2]; text != "" {
+				emit(token{kind: tokText, data: text}) //nolint:exhaustruct
+			}
+
+			return j + 1
+		}
+
+		i = j
+	}
+
+	if text := src[start:]; text != "" {
+		emit(token{kind: tokText, data: text}) //nolint:exhaustruct
+	}
+
+	return len(src)
 }
 
 // scanBogusComment consumes a bogus comment from src[from:] up to '>' or EOF,
@@ -786,7 +837,17 @@ func scanStartTag(src string, pos int, emit tokenSink) int {
 	// flag: the flag is a parse error that the tree builder ignores for HTML
 	// elements.
 	if mode, raw := rawTextMode(name); raw {
-		text, after, closed := scanRawText(src, next, name)
+		var (
+			text   string
+			after  int
+			closed bool
+		)
+
+		if mode == textScript {
+			text, after, closed = scanScriptData(src, next, name)
+		} else {
+			text, after, closed = scanRawText(src, next, name)
+		}
 
 		if mode == textRCDATA {
 			text = UnescapeEntities(replaceNUL(text))
@@ -830,14 +891,15 @@ const (
 	textData
 )
 
-// rawTextMode reports the raw-text content mode for name. noscript and
-// noembed are deliberately absent: they are raw text only with scripting
-// enabled, and this engine parses with scripting disabled.
+// rawTextMode reports the raw-text content mode for name. noscript is
+// deliberately absent: it is raw text only with scripting enabled, and this
+// engine parses with scripting disabled. noembed is RAWTEXT, matching the
+// corpus (upstream tests16 expects its content consumed as raw text).
 func rawTextMode(name string) (textMode, bool) {
 	switch name {
 	case "title", "textarea":
 		return textRCDATA, true
-	case "style", "xmp", "iframe", "noframes":
+	case "style", "xmp", "iframe", "noframes", "noembed":
 		return textRAWTEXT, true
 	case "script":
 		return textScript, true
@@ -924,6 +986,409 @@ func scanRawText(src string, from int, name string) (string, int, bool) {
 	text.WriteString(src[pos:])
 
 	return text.String(), len(src), false
+}
+
+// scriptDataState is one of the WHATWG tokenizer's script data states. The
+// escaped and double-escaped states keep "<!--" comments and nested
+// "<script>" wrappers inside the script text instead of ending the element
+// at the first "</script>".
+type scriptDataState int
+
+const (
+	scriptDataData scriptDataState = iota
+	scriptDataLessThan
+	scriptDataEndTagOpen
+	scriptDataEndTagName
+	scriptDataEscapeStart
+	scriptDataEscapeStartDash
+	scriptDataEscaped
+	scriptDataEscapedDash
+	scriptDataEscapedDashDash
+	scriptDataEscapedLessThan
+	scriptDataEscapedEndTagOpen
+	scriptDataEscapedEndTagName
+	scriptDataDoubleEscapeStart
+	scriptDataDoubleEscaped
+	scriptDataDoubleEscapedDash
+	scriptDataDoubleEscapedDashDash
+	scriptDataDoubleEscapedLessThan
+	scriptDataDoubleEscapeEnd
+)
+
+// scanScriptData consumes script element content from src[from:] using the
+// WHATWG script data states, including the escaped and double-escaped
+// variants. It returns the script text, the position after the closing end
+// tag, and whether that end tag was found. Only an appropriate end tag for
+// name closes the element; every other "</" construct becomes text. NUL
+// bytes become U+FFFD. At EOF a partially scanned end tag is flushed as text
+// (eof-in-script-html-comment-like-text recovery).
+func scanScriptData(src string, from int, name string) (string, int, bool) {
+	var (
+		text strings.Builder
+		buf  strings.Builder // temporary buffer for double-escape detection
+		tag  strings.Builder // end tag name being accumulated
+	)
+
+	pos := from
+	state := scriptDataData
+
+	// flushEndTag emits the withheld "</" and the end-tag name so far.
+	flushEndTag := func() {
+		text.WriteString("</")
+		text.WriteString(tag.String())
+	}
+
+	// endTagHandled checks an appropriate end tag at pos: '>' completes it,
+	// whitespace or '/' consumes the remaining attributes. It reports
+	// whether the script element ends here.
+	endTagHandled := func() (int, bool, bool) {
+		if !strings.EqualFold(tag.String(), name) {
+			return 0, false, false
+		}
+
+		switch {
+		case src[pos] == '>':
+			return pos + 1, true, true
+		case isWhitespace(src[pos]) || src[pos] == '/':
+			_, _, after, ok := scanTagAttributes(src, pos)
+			if !ok {
+				// EOF inside the end tag: the partial tag is dropped and the
+				// script element stays open (eof-in-tag recovery).
+				return len(src), false, true
+			}
+
+			return after, true, true
+		default:
+			return 0, false, false
+		}
+	}
+
+	for pos < len(src) {
+		c := src[pos]
+
+		switch state {
+		case scriptDataData:
+			switch {
+			case c == '<':
+				state = scriptDataLessThan
+				pos++
+			case c == 0:
+				text.WriteString(nulReplacement)
+
+				pos++
+			default:
+				text.WriteByte(c)
+
+				pos++
+			}
+		case scriptDataLessThan:
+			switch c {
+			case '/':
+				tag.Reset()
+				state = scriptDataEndTagOpen
+
+				pos++
+			case '!':
+				text.WriteString("<!")
+				state = scriptDataEscapeStart
+
+				pos++
+			default:
+				text.WriteByte('<')
+				state = scriptDataData // reconsume
+			}
+		case scriptDataEndTagOpen:
+			if isASCIILetter(c) {
+				tag.Reset()
+				state = scriptDataEndTagName
+			} else {
+				text.WriteString("</")
+				state = scriptDataData // reconsume
+			}
+		case scriptDataEndTagName:
+			if isASCIILetter(c) {
+				// The buffer keeps the source case: a rejected or unfinished
+				// end tag is flushed back into the text verbatim. The
+				// appropriate-end-tag check folds case.
+				tag.WriteByte(c)
+
+				pos++
+			} else if next, closed, handled := endTagHandled(); handled {
+				return text.String(), next, closed
+			} else {
+				flushEndTag()
+				state = scriptDataData // reconsume
+			}
+		case scriptDataEscapeStart:
+			if c == '-' {
+				text.WriteByte('-')
+				state = scriptDataEscapeStartDash
+
+				pos++
+			} else {
+				state = scriptDataData // reconsume
+			}
+		case scriptDataEscapeStartDash:
+			if c == '-' {
+				text.WriteByte('-')
+				state = scriptDataEscapedDashDash
+
+				pos++
+			} else {
+				state = scriptDataData // reconsume
+			}
+		case scriptDataEscaped:
+			switch {
+			case c == '-':
+				text.WriteByte('-')
+				state = scriptDataEscapedDash
+
+				pos++
+			case c == '<':
+				state = scriptDataEscapedLessThan
+
+				pos++
+			case c == 0:
+				text.WriteString(nulReplacement)
+
+				pos++
+			default:
+				text.WriteByte(c)
+
+				pos++
+			}
+		case scriptDataEscapedDash:
+			switch {
+			case c == '-':
+				text.WriteByte('-')
+				state = scriptDataEscapedDashDash
+
+				pos++
+			case c == '<':
+				state = scriptDataEscapedLessThan
+
+				pos++
+			case c == 0:
+				text.WriteString(nulReplacement)
+
+				state = scriptDataEscaped
+
+				pos++
+			default:
+				text.WriteByte(c)
+				state = scriptDataEscaped
+
+				pos++
+			}
+		case scriptDataEscapedDashDash:
+			switch {
+			case c == '-':
+				text.WriteByte('-')
+
+				pos++
+			case c == '<':
+				state = scriptDataEscapedLessThan
+
+				pos++
+			case c == '>':
+				text.WriteByte('>')
+				state = scriptDataData
+
+				pos++
+			case c == 0:
+				text.WriteString(nulReplacement)
+
+				state = scriptDataEscaped
+
+				pos++
+			default:
+				text.WriteByte(c)
+				state = scriptDataEscaped
+
+				pos++
+			}
+		case scriptDataEscapedLessThan:
+			switch {
+			case c == '/':
+				tag.Reset()
+				state = scriptDataEscapedEndTagOpen
+
+				pos++
+			case isASCIILetter(c):
+				buf.Reset()
+
+				text.WriteByte('<')
+				state = scriptDataDoubleEscapeStart // reconsume
+			default:
+				text.WriteByte('<')
+				state = scriptDataEscaped // reconsume
+			}
+		case scriptDataEscapedEndTagOpen:
+			if isASCIILetter(c) {
+				tag.Reset()
+				state = scriptDataEscapedEndTagName
+			} else {
+				text.WriteString("</")
+				state = scriptDataEscaped // reconsume
+			}
+		case scriptDataEscapedEndTagName:
+			if isASCIILetter(c) {
+				tag.WriteByte(c)
+
+				pos++
+			} else if next, closed, handled := endTagHandled(); handled {
+				return text.String(), next, closed
+			} else {
+				flushEndTag()
+				state = scriptDataEscaped // reconsume
+			}
+		case scriptDataDoubleEscapeStart:
+			switch {
+			case isWhitespace(c) || c == '/' || c == '>':
+				if buf.String() == "script" {
+					state = scriptDataDoubleEscaped
+				} else {
+					state = scriptDataEscaped
+				}
+
+				text.WriteByte(c)
+
+				pos++
+			case isASCIILetter(c):
+				buf.WriteByte(lowerASCII(c))
+				text.WriteByte(c)
+
+				pos++
+			default:
+				state = scriptDataEscaped // reconsume
+			}
+		case scriptDataDoubleEscaped:
+			switch {
+			case c == '-':
+				text.WriteByte('-')
+				state = scriptDataDoubleEscapedDash
+
+				pos++
+			case c == '<':
+				text.WriteByte('<')
+				state = scriptDataDoubleEscapedLessThan
+
+				pos++
+			case c == 0:
+				text.WriteString(nulReplacement)
+
+				pos++
+			default:
+				text.WriteByte(c)
+
+				pos++
+			}
+		case scriptDataDoubleEscapedDash:
+			switch {
+			case c == '-':
+				text.WriteByte('-')
+				state = scriptDataDoubleEscapedDashDash
+
+				pos++
+			case c == '<':
+				text.WriteByte('<')
+				state = scriptDataDoubleEscapedLessThan
+
+				pos++
+			case c == 0:
+				text.WriteString(nulReplacement)
+
+				state = scriptDataDoubleEscaped
+
+				pos++
+			default:
+				text.WriteByte(c)
+				state = scriptDataDoubleEscaped
+
+				pos++
+			}
+		case scriptDataDoubleEscapedDashDash:
+			switch {
+			case c == '-':
+				text.WriteByte('-')
+
+				pos++
+			case c == '<':
+				text.WriteByte('<')
+				state = scriptDataDoubleEscapedLessThan
+
+				pos++
+			case c == '>':
+				text.WriteByte('>')
+				state = scriptDataData
+
+				pos++
+			case c == 0:
+				text.WriteString(nulReplacement)
+
+				state = scriptDataDoubleEscaped
+
+				pos++
+			default:
+				text.WriteByte(c)
+				state = scriptDataDoubleEscaped
+
+				pos++
+			}
+		case scriptDataDoubleEscapedLessThan:
+			if c == '/' {
+				buf.Reset()
+
+				text.WriteByte('/')
+				state = scriptDataDoubleEscapeEnd
+
+				pos++
+			} else {
+				state = scriptDataDoubleEscaped // reconsume
+			}
+		case scriptDataDoubleEscapeEnd:
+			switch {
+			case isWhitespace(c) || c == '/' || c == '>':
+				if buf.String() == "script" {
+					state = scriptDataEscaped
+				} else {
+					state = scriptDataDoubleEscaped
+				}
+
+				text.WriteByte(c)
+
+				pos++
+			case isASCIILetter(c):
+				buf.WriteByte(lowerASCII(c))
+				text.WriteByte(c)
+
+				pos++
+			default:
+				state = scriptDataDoubleEscaped // reconsume
+			}
+		}
+	}
+
+	// EOF recovery: a withheld "<" is emitted, and a partially scanned end
+	// tag flushes its "<", "/", and name characters as text.
+	switch state {
+	case scriptDataLessThan, scriptDataEscapedLessThan:
+		text.WriteByte('<')
+	case scriptDataEndTagOpen, scriptDataEndTagName,
+		scriptDataEscapedEndTagOpen, scriptDataEscapedEndTagName:
+		flushEndTag()
+	}
+
+	return text.String(), len(src), false
+}
+
+// lowerASCII lowercases one ASCII letter byte.
+func lowerASCII(c byte) byte {
+	if c >= 'A' && c <= 'Z' {
+		return c + ('a' - 'A')
+	}
+
+	return c
 }
 
 func isWhitespace(b byte) bool {

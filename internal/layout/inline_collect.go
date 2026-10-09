@@ -600,6 +600,10 @@ func (e *engine) collectImageItem(node *html.Node, sty ResolvedStyle, out *[]inl
 		style:    e.stylePtr(node),
 		marginL:  e.scalePt(sty.MarginLeft),
 		marginR:  e.scalePt(sty.MarginRight),
+		marginT:  e.scalePt(sty.MarginTop),
+		marginB:  e.scalePt(sty.MarginBottom),
+		// Replaced elements rest their bottom margin edge on the baseline.
+		marginBaseline: true,
 	})
 }
 
@@ -612,10 +616,31 @@ func (e *engine) collectInlineBlockItem(node *html.Node, sty ResolvedStyle, out 
 	opEnd := len(e.ops)
 
 	if cblock != nil {
+		// An inline-block with no in-flow line boxes and no block children,
+		// or one that clips its overflow, has its bottom margin edge as the
+		// baseline; otherwise the bottom border edge approximates the last
+		// in-flow baseline. A last in-flow child in a vertical writing mode
+		// has no horizontal baseline to inherit, so Chrome also falls back to
+		// the bottom margin edge (Chrome 143: case 13's vertical-lr/rl
+		// containers).
+		marginBaseline := cblock.firstBaseline == 0 && len(cblock.children) == 0
+		if sty.Overflow != "" && sty.Overflow != visibleKeyword {
+			marginBaseline = true
+		}
+
+		if !marginBaseline && cblock.firstBaseline == 0 {
+			if last := e.lastInFlowBlockChild(node); last != nil &&
+				isVerticalWritingMode(e.styleVal(last).WritingMode) {
+				marginBaseline = true
+			}
+		}
+
 		*out = append(*out, inlineItem{ //nolint:exhaustruct // intentional zero fields
 			img: true, w: cblock.w, h: cblock.height, style: e.stylePtr(node),
 			blockBox: cblock, opStart: opStart, opEnd: opEnd,
 			marginL: e.scalePt(sty.MarginLeft), marginR: e.scalePt(sty.MarginRight),
+			marginT: e.scalePt(sty.MarginTop), marginB: e.scalePt(sty.MarginBottom),
+			marginBaseline: marginBaseline,
 		})
 	}
 }
@@ -737,13 +762,10 @@ func (e *engine) inlineBlockAvail(nodeN *html.Node, sty ResolvedStyle, cbW float
 	// including horizontal padding and borders. Add only the outer margins;
 	// adding the chrome again makes inline-block pills grow by a second set of
 	// padding/border widths and leaves misleading empty space on the right.
+	// An empty box measures 0 and stays 0 wide, matching Chrome.
 	intr := e.measureCellContent(nodeN, sty) +
 		e.scalePt(sty.MarginLeft) + e.scalePt(sty.MarginRight) +
 		e.nestedBlockHChrome(nodeN)
-
-	if intr < 1 {
-		intr = 1
-	}
 
 	return intr
 }
@@ -755,7 +777,7 @@ func (e *engine) inlineBlockAvail(nodeN *html.Node, sty ResolvedStyle, cbW float
 // consumer (flowChildren) and the float path (floatIntrinsicAvail), which both
 // add padding and border around the intrinsic content size. Without an
 // intrinsic width the box keeps its as-if-empty chrome-only size. Outer margins
-// and the 1pt floor apply in every case.
+// apply in every case; an empty box is 0 wide, matching Chrome.
 func (e *engine) containmentInlineBlockAvail(sty ResolvedStyle) float64 {
 	chrome := e.scalePt(sty.PaddingLeft) + e.scalePt(sty.PaddingRight) +
 		e.scalePt(sty.BorderLeft.Width) + e.scalePt(sty.BorderRight.Width)
@@ -766,9 +788,6 @@ func (e *engine) containmentInlineBlockAvail(sty ResolvedStyle) float64 {
 	}
 
 	intr += e.scalePt(sty.MarginLeft) + e.scalePt(sty.MarginRight)
-	if intr < 1 {
-		intr = 1
-	}
 
 	return intr
 }

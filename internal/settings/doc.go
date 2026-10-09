@@ -1,22 +1,23 @@
 // Package settings implements the wkhtmltopdf-compatible settings model and
-// the dotted-name Set/Get surface used by the CLI and engine adapters.
+// its dotted-name Set/Get surface.
 //
-// The root library API is the typed Document / ImageDocument overlay in the
-// parent module; public callers do not use dotted Set. Document mappers build
-// PdfGlobal / PdfObject values for a single-goroutine Write*; selected slices
-// and maps are cloned at that boundary rather than deep-cloning every field.
+// Engine callers use the typed structs directly: css.Apply builds a
+// DefaultPdfGlobal for sheet collection and maps its media option onto
+// MediaType; load reads LoadGlobal and LoadPage; convert.prepare reads the
+// page and web fields; bindings/wasm reads the load policy for inline data:
+// URLs. ClonePdfGlobal, ClonePdfObject, and CloneImageGlobal return
+// independent snapshots when a caller needs one.
 //
 // # Policy A (settings honesty)
 //
-// Only options with an engine consumer (convert, load, imageout, or layout)
-// get typed fields and dedicated setters. Inert wkhtml keys (dpi, javascript,
-// plugins, log-level, js-delay, user-style-sheet, produce-forms, …) may be
-// accepted into Ignored map[string]string for script compatibility, but must
-// not reappear as typed stubs without a convert/load consumer.
+// Only options with a live engine consumer (convert, load, or css) get typed
+// fields and dedicated setters. Inert wkhtml keys (dpi, javascript, plugins,
+// log-level, js-delay, user-style-sheet, produce-forms, …) may be accepted
+// into Ignored map[string]string for script compatibility, but must not
+// reappear as typed stubs without a live consumer.
 //
 // Dual storage is collapsed where possible: Grayscale is the sole color bit
-// convert reads; page geometry is PageSize name + Size width/height (mm);
-// DumpOutline / DumpDefaultTOCXSL live on PdfGlobal.
-//
-// See plans/0.2.0/reviews/ponytail/ponytail-2026-08-06/ponytail-ultra-2026-08-06.md Phase 1.
+// (Set("colormode") and Set("grayscale") both write it); page geometry is
+// PageSize name + Size width/height (mm); DumpOutline / DumpDefaultTOCXSL
+// live on PdfGlobal.
 package settings

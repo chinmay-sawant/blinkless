@@ -230,11 +230,27 @@ func isHTMLIntegrationPoint(n *Node) bool {
 		}
 	case NamespaceMathML:
 		if n.Name == "annotation-xml" {
-			encoding := strings.ToLower(strings.TrimSpace(n.Attribute("encoding")))
+			// The encoding value must match exactly (ASCII case-insensitive):
+			// " text/html " with spaces is not an HTML integration point.
+			encoding := strings.ToLower(n.Attribute("encoding"))
 
 			return encoding == "text/html" || encoding == "application/xhtml+xml"
 		}
 	case NamespaceHTML:
+	}
+
+	return false
+}
+
+// foreignTextUnsetsFrameset reports whether a foreign-content text run holds
+// a character that clears the frameset-ok flag: NUL bytes and whitespace do
+// not, any other character does.
+func foreignTextUnsetsFrameset(data string) bool {
+	for i := 0; i < len(data); i++ {
+		c := data[i]
+		if c != 0 && !isWhitespace(c) {
+			return true
+		}
 	}
 
 	return false
@@ -287,6 +303,12 @@ func (b *treeBuilder) foreignToken(tokItem *token) bool {
 		}
 
 		b.appendTextToken(tokItem.data)
+
+		// The foreign-content character rule clears frameset-ok for any
+		// non-whitespace character; NUL is replaced with U+FFFD and does not.
+		if foreignTextUnsetsFrameset(tokItem.data) {
+			b.framesetOK = false
+		}
 
 		return true
 	case tokDoctype:
@@ -350,6 +372,17 @@ func (b *treeBuilder) inForeignStartContext(tokItem *token) bool {
 
 func (b *treeBuilder) currentIsForeign() bool {
 	return b.adjustedCurrent().Namespace != NamespaceHTML
+}
+
+// foreignCDATAAllowed reports whether the tokenizer may treat "<![CDATA[" as
+// a CDATA section at the current point: the standard requires an adjusted
+// current node that is not an element in the HTML namespace. The tokenizer
+// consults this policy synchronously, after every earlier token has been
+// processed, so the tree state is the same one the standard's tokenizer sees.
+func (b *treeBuilder) foreignCDATAAllowed() bool {
+	node := b.adjustedCurrent()
+
+	return node != nil && node.Namespace != NamespaceHTML
 }
 
 func (b *treeBuilder) currentIsForeignText() bool {

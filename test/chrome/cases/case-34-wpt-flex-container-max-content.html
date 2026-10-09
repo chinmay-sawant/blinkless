@@ -24,7 +24,7 @@
 <body>
   <!-- Source: third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-container-max-content-001.html -->
   <!-- Fixture: case-34-wpt-flex-container-max-content -->
-  <!-- Port status: blocked. Chrome 143 geometry run: the row frame is 152x50 vs Chrome 147.95x47.31 and inline-block ink boxes are 18 px tall vs Chrome 13.33 px (specified 10 pt); item outer sizes differ by border and padding rounding. -->
+  <!-- Port status: blocked. Chrome 143 geometry run: the inline-block ink boxes now match Chrome (13.33 px for the 10 pt height); the row frame is 152x50 vs Chrome 147.95x47.31 and the items are +1.33 px because 2 pt borders draw 2.67 px where Chrome draws 2 px (device-pixel snap pending), plus a 1.2 px last-line baseline approximation for text overflowing a definite height. -->
   <!-- Expected: max-content includes item margins, padding, and borders. -->
   <p class="case-description" style="position:absolute;top:12pt;left:12pt;margin:0;padding:6pt;border:1pt solid #64748b;background:#fff;color:#111827;font-size:9pt;line-height:12pt;width:550pt;">
     <strong>Case 34 expected behavior:</strong> max-content sizing includes each item's margin, padding, and border, giving 110pt and 88.01pt contributions.

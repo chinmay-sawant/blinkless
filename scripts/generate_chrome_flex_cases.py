@@ -587,13 +587,13 @@ def main():
         fixture_id = f"case-{number:02d}-{case['id']}"
         entry["fixture"] = f"cases/{fixture_id}.html"
         entry["status"] = carried.get("status", "scaffold")
-        if entry["status"] == "completed":
-            if "evidence" not in carried:
-                raise SystemExit(
-                    f"case {case['id']}: completed without evidence; refusing to regenerate"
-                )
+        if entry["status"] == "completed" and "evidence" not in carried:
+            raise SystemExit(
+                f"case {case['id']}: completed without evidence; refusing to regenerate"
+            )
+        if "evidence" in carried:
             entry["evidence"] = carried["evidence"]
-        else:
+        if entry["status"] != "completed":
             entry["reason"] = carried.get("reason") or DEFAULT_REASONS.get(
                 entry["status"], f"No recorded reason for status {entry['status']}."
             )

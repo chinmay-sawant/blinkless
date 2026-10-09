@@ -61,8 +61,8 @@ func (b *treeBuilder) processInTemplate(tokItem *token) bool {
 func (b *treeBuilder) processInFrameset(tokItem *token) bool {
 	switch tokItem.kind {
 	case tokText:
-		if isAllWhitespace(tokItem.data) {
-			b.appendTextToken(tokItem.data)
+		if ws := keepWhitespace(tokItem.data); ws != "" {
+			b.appendTextToken(ws)
 		}
 
 		return false
@@ -120,8 +120,8 @@ func (b *treeBuilder) processInFrameset(tokItem *token) bool {
 func (b *treeBuilder) processAfterFrameset(tokItem *token) bool {
 	switch tokItem.kind {
 	case tokText:
-		if isAllWhitespace(tokItem.data) {
-			b.appendTextToken(tokItem.data)
+		if ws := keepWhitespace(tokItem.data); ws != "" {
+			b.appendTextToken(ws)
 		}
 
 		return false

@@ -1,7 +1,7 @@
 // Package layout turns the parsed HTML tree plus resolved styles into a
 // display list: absolute-positioned drawing operations in a continuous
-// canvas (y grows downward from the top of the page content area). Painting
-// into a pdf.Document is done by Paint (paint.go).
+// canvas (y grows downward from the top of the page content area). The
+// display list is the final output; consumers render or serialize it.
 //
 // Report-engine scope: block and inline flow, margin collapsing between
 // siblings, tables (separate borders, colspan), images, lists, text wrapping
@@ -594,6 +594,10 @@ type engine struct {
 	// basis for the root element. flowCBHeight points at it for that element.
 	initialCBHeight float64
 	flowCBHeight    *float64 // nil means the in-flow containing-block height is indefinite
+	// flowWritingMode is the containing block's writing mode while its
+	// in-flow children build. An auto inline size resolves as fit-content
+	// when a child's writing mode is orthogonal to it (CSS Writing Modes).
+	flowWritingMode string
 	// inlineItemPool recycles temporary inline-item backing arrays. The pool is
 	// engine-local because layout is single-threaded and nested inline layout
 	// must retain each active caller's slice.
@@ -1367,6 +1371,16 @@ func (e *engine) popStyleOverride() {
 	e.styleOverrides = e.styleOverrides[:len(e.styleOverrides)-1]
 }
 
+// popStyleOverrides removes the last n transient style overrides pushed by one
+// caller (root margin absorption pushes a variable-length chain).
+func (e *engine) popStyleOverrides(n int) {
+	if n <= 0 {
+		return
+	}
+
+	e.styleOverrides = e.styleOverrides[:len(e.styleOverrides)-n]
+}
+
 func flattenBoxes(boxNode *box, out *[]*box) {
 	if boxNode == nil {
 		return
@@ -1664,7 +1678,13 @@ func (e *engine) buildBlock(node *html.Node, style ResolvedStyle, availW, posX, 
 		e.seedInitialContainingBlock()
 	}
 
+	// Root body: place the body and its first-child margin chain on the
+	// collapsed top margin before the children flow, so descendants,
+	// positioned boxes, and floats all share the final edge.
+	posY, marginOverrides := e.absorbRootBodyTopMargin(node, boxNode, style, posY)
+
 	curY = e.flowChildren(boxNode, children, style, contentW, contentX, posY, curY)
+	e.popStyleOverrides(marginOverrides)
 	e.flowCBHeight = previousCB
 	curY = e.autoSizedControlContentBottom(node, boxStyle, widget, curY)
 
@@ -1674,7 +1694,7 @@ func (e *engine) buildBlock(node *html.Node, style ResolvedStyle, availW, posX, 
 
 	e.popBFCFloats(enclose)
 
-	curY = e.applyRootBoxMargins(node, boxNode, style, curY)
+	curY = e.applyRootBoxMargins(node, boxNode, curY)
 
 	if isVerticalWritingMode(style.WritingMode) && style.Height < 0 && style.HeightPercent < 0 {
 		curY = e.verticalWritingHeight(curY, style)
@@ -1958,13 +1978,12 @@ func (e *engine) borderBoxBottom(style ResolvedStyle, contentBottom float64) flo
 }
 
 // applyHeightConstraintsWithCB is the definite-CB form for min/max percent.
+// A definite height (length or resolvable percentage) sets the used height
+// outright: taller content overflows visibly instead of growing the box
+// (CSS 2.1 §10.6.3; Chrome 143 on cases 34 and 40).
 func (e *engine) applyHeightConstraintsWithCB(style *ResolvedStyle, curY float64, cbH float64) float64 {
 	if h, ok := resolveUsedHeight(style, cbH, e); ok {
-		if style.HeightPercent >= 0 {
-			curY = h
-		} else if curY < h {
-			curY = h
-		}
+		curY = h
 	}
 
 	vChrome := 0.0
@@ -1975,129 +1994,6 @@ func (e *engine) applyHeightConstraintsWithCB(style *ResolvedStyle, curY float64
 	curY = e.clampBlockMaxHeight(style, curY, cbH, vChrome)
 
 	return e.clampBlockMinHeight(style, curY, cbH, vChrome)
-}
-
-// resolveBlockWidth computes a block's used border-box width and the scaled
-// left margin. Horizontal auto margins center (or push) a definite-width box.
-func resolveBlockWidth(eng *engine, node *html.Node, style *ResolvedStyle, availW float64) (float64, float64) {
-	margR := eng.scalePt(style.MarginRight)
-	margL := eng.scalePt(style.MarginLeft)
-	// Default: fill remaining width after horizontal margins.
-	width := availW - margL - margR
-	if width < 0 {
-		width = 0
-	}
-
-	definiteW, intrinsicW := resolveDefiniteWidth(eng, node, style, availW, &width)
-	// content-box (default): specified width is the content width, so the
-	// border box grows by horizontal padding + border. border-box: specified
-	// width already is the border-box size.
-	if definiteW && !intrinsicW && style.BoxSizing != borderBox {
-		width += style.horizontalChrome(eng)
-	}
-
-	width = clampBlockMinMax(eng, style, availW, width)
-	margL = resolveAutoMargins(style, definiteW, width, availW, margL, margR)
-
-	return width, margL
-}
-
-// resolveAutoMargins centers (or pushes) a definite-width block via auto
-// horizontal margins (CSS2.1 §10.3.3).
-func resolveAutoMargins(style *ResolvedStyle, definiteW bool, width, availW, margL, margR float64) float64 {
-	if definiteW && (style.MarginLeftAuto || style.MarginRightAuto) {
-		free := availW - width
-		if free < 0 {
-			free = 0
-		}
-
-		switch {
-		case style.MarginLeftAuto && style.MarginRightAuto:
-			margL = free / two
-		case style.MarginLeftAuto:
-			margL = free - margR
-			if margL < 0 {
-				margL = 0
-			}
-		}
-	}
-
-	return margL
-}
-
-// clampBlockMinMax applies the min/max-width constraints to w.
-func clampBlockMinMax(eng *engine, style *ResolvedStyle, availW, width float64) float64 {
-	width = clampBlockMaxWidth(eng, style, availW, width)
-
-	return clampBlockMinWidth(eng, style, availW, width)
-}
-
-func clampBlockMinWidth(eng *engine, style *ResolvedStyle, availW, width float64) float64 {
-	hChrome := 0.0
-	if style.BoxSizing != borderBox {
-		hChrome = style.horizontalChrome(eng)
-	}
-
-	if style.MinWidthPercent >= 0 && availW > 0 && availW < 1e12 {
-		minW := availW * style.MinWidthPercent / oneHundred
-
-		if style.BoxSizing != borderBox {
-			minW += hChrome
-		}
-
-		if width < minW {
-			return minW
-		}
-
-		return width
-	}
-
-	if style.MinWidth > 0 {
-		minW := eng.scalePt(style.MinWidth)
-		if style.BoxSizing != borderBox {
-			minW += hChrome
-		}
-
-		if width < minW {
-			return minW
-		}
-	}
-
-	return width
-}
-
-func clampBlockMaxWidth(eng *engine, style *ResolvedStyle, availW, width float64) float64 {
-	hChrome := 0.0
-	if style.BoxSizing != borderBox {
-		hChrome = style.horizontalChrome(eng)
-	}
-
-	if style.MaxWidthPercent >= 0 && availW > 0 && availW < 1e12 {
-		maxW := availW * style.MaxWidthPercent / oneHundred
-
-		if style.BoxSizing != borderBox {
-			maxW += hChrome
-		}
-
-		if width > maxW {
-			return maxW
-		}
-
-		return width
-	}
-
-	if style.MaxWidth >= 0 {
-		maxW := eng.scalePt(style.MaxWidth)
-		if style.BoxSizing != borderBox {
-			maxW += hChrome
-		}
-
-		if width > maxW {
-			return maxW
-		}
-	}
-
-	return width
 }
 
 // resolveUsedHeight returns a definite border-box height when the style has a

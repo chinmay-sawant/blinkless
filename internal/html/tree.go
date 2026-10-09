@@ -22,6 +22,7 @@ const (
 	modeBeforeHTML
 	modeBeforeHead
 	modeInHead
+	modeInHeadNoscript
 	modeAfterHead
 	modeInBody
 	modeInText
@@ -104,7 +105,7 @@ func (b *treeBuilder) appendToken(tokItem token) {
 		b.reparseRawText = false
 
 		if tokItem.kind == tokText {
-			scanTokens(tokItem.data, b.appendToken)
+			scanTokens(tokItem.data, b.appendToken, b.foreignCDATAAllowed)
 
 			return
 		}
@@ -162,6 +163,11 @@ func (b *treeBuilder) finish() {
 		case modeInHead:
 			b.popCurrentIfName("head")
 			b.mode = modeAfterHead
+		case modeInHeadNoscript:
+			// EOF inside noscript closes it and returns to "in head", whose
+			// own EOF chain then builds the body.
+			b.popCurrentIfName("noscript")
+			b.mode = modeInHead
 		case modeAfterHead:
 			b.insertHTMLElement("body", nil)
 			b.mode = modeInBody
@@ -214,6 +220,8 @@ func (b *treeBuilder) processToken(tokItem *token) bool {
 		return b.processBeforeHead(tokItem)
 	case modeInHead:
 		return b.processInHead(tokItem)
+	case modeInHeadNoscript:
+		return b.processInHeadNoscript(tokItem)
 	case modeAfterHead:
 		return b.processAfterHead(tokItem)
 	case modeInBody:
@@ -409,7 +417,15 @@ func (b *treeBuilder) processInHead(tokItem *token) bool {
 			b.pushTemplateMode(modeInTemplate)
 
 			return false
-		case "title", "style", "noframes", "script", "noscript":
+		case "noscript":
+			// With scripting disabled (this engine's pinned mode) noscript is
+			// an ordinary head element and switches to "in head noscript";
+			// with scripting enabled it would be raw text.
+			b.insertHTMLElement(tokItem.data, tokItem.attrs)
+			b.mode = modeInHeadNoscript
+
+			return false
+		case "title", "style", "noframes", "script":
 			b.insertHTMLElement(tokItem.data, tokItem.attrs)
 			if textModeElement(tokItem.data) {
 				b.textReturn = b.mode
@@ -445,6 +461,60 @@ func (b *treeBuilder) processInHead(tokItem *token) bool {
 	return true
 }
 
+// processInHeadNoscript implements the "in head noscript" insertion mode:
+// noscript in head with scripting disabled. Comments and whitespace stay
+// inside the noscript; head-content tags run the "in head" rules; anything
+// else closes the noscript and is reprocessed in "in head". Any other end
+// tag is ignored.
+func (b *treeBuilder) processInHeadNoscript(tokItem *token) bool {
+	switch tokItem.kind {
+	case tokDoctype:
+		return false
+	case tokComment:
+		b.appendCommentTo(b.top(), tokItem.data)
+
+		return false
+	case tokText:
+		prefix, rest := splitLeadingWhitespace(tokItem.data)
+		if prefix != "" {
+			b.appendTextToken(prefix)
+		}
+
+		if rest == "" {
+			return false
+		}
+
+		tokItem.data = rest
+	case tokStart:
+		switch tokItem.data {
+		case "html":
+			return b.processInBody(tokItem)
+		case "basefont", "bgsound", "link", "meta", "noframes", "style":
+			return b.processInHead(tokItem)
+		case "head", "noscript":
+			return false
+		}
+	case tokEnd:
+		switch tokItem.data {
+		case "noscript":
+			b.popCurrentIfName("noscript")
+			b.mode = modeInHead
+
+			return false
+		case "br":
+			// Act as described in "anything else".
+		default:
+			// Any other end tag is a parse error and is ignored.
+			return false
+		}
+	}
+
+	b.popCurrentIfName("noscript")
+	b.mode = modeInHead
+
+	return true
+}
+
 func (b *treeBuilder) processAfterHead(tokItem *token) bool {
 	switch tokItem.kind {
 	case tokDoctype:
@@ -467,6 +537,7 @@ func (b *treeBuilder) processAfterHead(tokItem *token) bool {
 
 		tokItem.data = rest
 		b.insertHTMLElement("body", nil)
+		b.framesetOK = true
 		b.mode = modeInBody
 
 		return true
@@ -508,6 +579,7 @@ func (b *treeBuilder) processAfterHead(tokItem *token) bool {
 	}
 
 	b.insertHTMLElement("body", nil)
+	b.framesetOK = true
 	b.mode = modeInBody
 
 	return true
@@ -516,8 +588,22 @@ func (b *treeBuilder) processAfterHead(tokItem *token) bool {
 func (b *treeBuilder) processInText(tokItem *token) bool {
 	switch tokItem.kind {
 	case tokText:
-		b.appendTextToken(tokItem.data)
+		// A textarea drops one leading LF: the spec ignores it as an
+		// authoring convenience. pre/listing share the flag but consume it
+		// in the in-body text rule.
+		data := tokItem.data
+		if b.ignoreNextLF {
+			b.ignoreNextLF = false
+
+			data = strings.TrimPrefix(data, "\n")
+		}
+
+		if data != "" {
+			b.appendTextToken(data)
+		}
 	case tokEnd:
+		b.ignoreNextLF = false
+
 		if len(b.stack) > 1 {
 			b.stack = b.stack[:len(b.stack)-1]
 		}
@@ -525,6 +611,7 @@ func (b *treeBuilder) processInText(tokItem *token) bool {
 		b.mode = b.textReturn
 	case tokStart, tokComment, tokDoctype:
 		// Raw text is consumed by the tokenizer; these cannot occur here.
+		b.ignoreNextLF = false
 	}
 
 	return false
@@ -543,6 +630,12 @@ func (b *treeBuilder) processInBody(tokItem *token) bool {
 		if b.ignoreNextLF {
 			b.ignoreNextLF = false
 			data = strings.TrimPrefix(data, "\n")
+		}
+
+		// U+0000 character tokens are ignored in body: they neither insert
+		// text nor unset the frameset-ok flag.
+		if strings.IndexByte(data, 0) >= 0 {
+			data = strings.ReplaceAll(data, "\x00", "")
 		}
 
 		if data != "" {
@@ -583,6 +676,7 @@ func (b *treeBuilder) processInBodyStart(tokItem *token) bool {
 	case "body":
 		if body := b.findInScope("body", defaultScopeStops); body != nil {
 			applyAttributes(body, tokItem.attrs)
+			b.framesetOK = false
 		}
 
 		return false
@@ -618,7 +712,6 @@ func (b *treeBuilder) processInBodyStart(tokItem *token) bool {
 
 		b.closePElementIfOpen()
 		b.form = b.insertHTMLElement(name, tokItem.attrs)
-		b.framesetOK = false
 
 		return false
 	case "li":
@@ -717,8 +810,9 @@ func (b *treeBuilder) processInBodyStart(tokItem *token) bool {
 
 		return false
 	case "param", "source", "track":
+		// Unlike the current standard, the pinned corpus keeps frameset-ok
+		// set here: <param>/<source>/<track> do not block a later <frameset>.
 		b.insertHTMLElement(name, tokItem.attrs)
-		b.framesetOK = false
 
 		return false
 	case "hr":
@@ -806,12 +900,30 @@ func (b *treeBuilder) processInBodyStart(tokItem *token) bool {
 		return false
 	case "math":
 		b.insertForeignElement(name, NamespaceMathML, tokItem)
-		b.framesetOK = false
 
 		return false
 	case "svg":
 		b.insertForeignElement(name, NamespaceSVG, tokItem)
-		b.framesetOK = false
+
+		return false
+	case "rb", "rtc":
+		// The ruby base/annotation-container rules: close implied end tags
+		// (including any open rb/rt/rp/rtc) when a ruby element is in scope.
+		if b.hasInScope("ruby", defaultScopeStops) {
+			b.generateImpliedEndTags("")
+		}
+
+		b.insertHTMLElement(name, tokItem.attrs)
+
+		return false
+	case "rp", "rt":
+		// Ruby annotation rules: close implied end tags except an open rtc,
+		// so annotations stay inside their annotation container.
+		if b.hasInScope("ruby", defaultScopeStops) {
+			b.generateImpliedEndTags("rtc")
+		}
+
+		b.insertHTMLElement(name, tokItem.attrs)
 
 		return false
 	case "table":
@@ -825,9 +937,12 @@ func (b *treeBuilder) processInBodyStart(tokItem *token) bool {
 
 		return false
 	case "frameset":
-		// A frameset start tag replaces body only when body is the open
-		// element and no content has made the frameset-ok flag fail.
-		if len(b.stack) < 2 || b.stack[1].Namespace != NamespaceHTML || b.stack[1].Name != "body" {
+		// A frameset start tag replaces body only when body is the second
+		// element on the stack and no content has made the frameset-ok flag
+		// fail. stack[0] is the synthetic document root, so body is stack[2];
+		// a fragment has no body and ignores the token.
+		if b.fragment || len(b.stack) < 3 ||
+			b.stack[2].Namespace != NamespaceHTML || b.stack[2].Name != "body" {
 			return false
 		}
 
@@ -835,7 +950,7 @@ func (b *treeBuilder) processInBodyStart(tokItem *token) bool {
 			return false
 		}
 
-		detachNode(b.stack[1])
+		detachNode(b.stack[2])
 		b.stack = b.stack[:2]
 		b.insertHTMLElement(name, tokItem.attrs)
 		b.mode = modeInFrameset
@@ -879,9 +994,12 @@ func (b *treeBuilder) processInBodyEnd(tokItem *token) bool {
 			return false
 		}
 
+		// Reprocess in "after body" so a document advances to "after after
+		// body": comments there belong to the Document, and the corpus pins
+		// that placement.
 		b.mode = modeAfterBody
 
-		return false
+		return true
 	case "p":
 		if !b.hasInButtonScope("p") {
 			b.insertHTMLElement("p", nil)
@@ -1655,6 +1773,27 @@ func isAllWhitespace(data string) bool {
 	return true
 }
 
+// keepWhitespace returns data with every non-whitespace byte removed. The
+// frameset insertion modes insert whitespace characters and ignore all other
+// characters individually; text arrives coalesced, so the run is filtered.
+func keepWhitespace(data string) string {
+	if isAllWhitespace(data) {
+		return data
+	}
+
+	var b strings.Builder
+
+	b.Grow(len(data))
+
+	for i := 0; i < len(data); i++ {
+		if isWhitespace(data[i]) {
+			b.WriteByte(data[i])
+		}
+	}
+
+	return b.String()
+}
+
 // splitLeadingWhitespace splits data into its leading ASCII whitespace and the
 // rest, so modes that ignore or relocate leading whitespace can process the
 // remainder correctly.
@@ -1701,11 +1840,14 @@ func openInStack(stack []*Node, name string) bool {
 	return false
 }
 
-// isVoidElement reports whether name never takes content.
+// isVoidElement reports whether name never takes content. basefont and
+// bgsound join the true void elements because the in-head and in-body rules
+// insert them and immediately pop them.
 func isVoidElement(name string) bool {
 	switch name {
-	case "area", "base", "br", "col", "embed", "hr", "img", "input",
-		"keygen", "link", "meta", "param", "source", "track", "wbr":
+	case "area", "base", "basefont", "bgsound", "br", "col", "embed", "hr",
+		"img", "input", "keygen", "link", "meta", "param", "source", "track",
+		"wbr":
 		return true
 	}
 

@@ -8,10 +8,10 @@ import (
 
 // Root margin accounting. Chrome places the body's border edge at the
 // collapsed top margin shared by body and its first in-flow block child, and
-// lets the last child's collapsed bottom margin extend the html element. The
-// engine keeps in-flow positions stable by including those margins inside the
-// body's content flow, so the root boxes are adjusted after the body flow to
-// report the browser's geometry. Children do not move.
+// lets the last child's collapsed bottom margin extend the html element.
+// absorbRootBodyTopMargin applies the top collapse before the body flows its
+// children, so the body box and every descendant share the collapsed edge.
+// extendRootHTMLHeight applies the bottom escape after the body flow.
 
 // marginCollapsesThrough reports whether a box's margin can collapse through
 // one edge: the edge has no padding or border, and the box is not a BFC root
@@ -28,17 +28,12 @@ func (e *engine) marginCollapsesThrough(style ResolvedStyle, top bool) bool {
 	return style.PaddingBottom == 0 && style.BorderBottom.Width == 0
 }
 
-// applyRootBoxMargins applies the root html/body margin-collapse reporting
-// adjustments: a collapsed first-child top margin offsets the body box and a
-// collapsed last-child bottom margin extends the html height (Chrome root
-// geometry).
-func (e *engine) applyRootBoxMargins(
-	node *html.Node, boxNode *box, style ResolvedStyle, curY float64,
-) float64 {
-	switch node.Name {
-	case htmlBodyName:
-		return e.applyRootBodyMargins(boxNode, style, curY)
-	case htmlRootName:
+// applyRootBoxMargins applies the root html margin-collapse reporting
+// adjustments: a collapsed last-child bottom margin extends the html height
+// (Chrome root geometry). The top side is handled before the body flows its
+// children by absorbRootBodyTopMargin.
+func (e *engine) applyRootBoxMargins(node *html.Node, boxNode *box, curY float64) float64 {
+	if node.Name == htmlRootName {
 		return e.extendRootHTMLHeight(boxNode, curY)
 	}
 
@@ -160,31 +155,67 @@ func (e *engine) collapsedBottomThrough(node *html.Node, style ResolvedStyle) fl
 	return margin
 }
 
-// applyRootBodyMargins shifts the body box to the collapsed top margin that
-// escapes it and removes that margin from its content height. In-flow child
-// positions are unchanged. The shift is limited to bodies with no top margin
-// of their own: with a nonzero body margin the engine stacks the two margins
-// and moving the body without moving its content would break that alignment,
-// so those documents keep their previous (pre-C4) root geometry.
-func (e *engine) applyRootBodyMargins(boxNode *box, style ResolvedStyle, curY float64) float64 {
-	if style.MarginTop != 0 || !e.marginCollapsesThrough(style, true) {
-		return curY
+// absorbRootBodyTopMargin is the layout-time half of the root top-margin
+// collapse. Chrome places the body border edge and its first in-flow block
+// child chain on the collapsed margin max(body margin, first-child chain).
+// The engine lays the body at its own margin and stacks the chain margins
+// inside it, so this moves the body box down by the uncollapsed remainder and
+// zeroes the chain's top margins through style overrides. Children then flow
+// at the final position, which keeps positioned and floated descendants
+// aligned with the moved body. It returns the adjusted flow origin and the
+// number of overrides the caller must pop.
+func (e *engine) absorbRootBodyTopMargin(
+	node *html.Node, boxNode *box, style ResolvedStyle, posY float64,
+) (float64, int) {
+	if node == nil || node.Name != htmlBodyName || !e.marginCollapsesThrough(style, true) {
+		return posY, 0
 	}
 
-	child := e.firstInFlowBlockChild(boxNode.node)
+	child := e.firstInFlowBlockChild(node)
 	if child == nil {
-		return curY
+		return posY, 0
 	}
 
 	childTop := e.collapsedTopThrough(child, *e.stylePtr(child))
 	if childTop <= 0 {
-		return curY
+		return posY, 0
 	}
 
-	curY -= childTop
-	boxNode.y += childTop
+	if bodyMargin := e.scalePt(style.MarginTop); childTop > bodyMargin {
+		delta := childTop - bodyMargin
+		boxNode.y += delta
+		posY += delta
+	}
 
-	return curY
+	return posY, e.pushCollapsedTopOverrides(child)
+}
+
+// pushCollapsedTopOverrides zeroes the top margin of every element in the
+// first-child collapse chain and returns the number of overrides pushed. A
+// non-collapsing element still contributes its own margin to the chain, so it
+// is zeroed before the walk stops.
+func (e *engine) pushCollapsedTopOverrides(child *html.Node) int {
+	pushed := 0
+
+	for chainNode := child; chainNode != nil; chainNode = e.firstInFlowBlockChild(chainNode) {
+		cst := e.stylePtr(chainNode)
+		if cst == nil {
+			break
+		}
+
+		if cst.MarginTop != 0 {
+			zeroed := *cst
+			zeroed.MarginTop = 0
+			e.styleOverrides = append(e.styleOverrides, styleOverride{node: chainNode, style: &zeroed})
+			pushed++
+		}
+
+		if !e.marginCollapsesThrough(*cst, true) {
+			break
+		}
+	}
+
+	return pushed
 }
 
 // extendRootHTMLHeight lets the collapsed bottom margin that escapes the body
@@ -195,42 +226,18 @@ func (e *engine) extendRootHTMLHeight(boxNode *box, curY float64) float64 {
 		return curY
 	}
 
-	// Chrome's body bottom edge is the engine's body bottom minus the top
-	// margin part Chrome reports outside the body. The escaped bottom margin
-	// then extends the html height.
-	topCorr := e.rootBodyTopCorrection(body)
+	// The body box already carries Chrome's collapsed top edge and excludes
+	// the absorbed child margins (absorbRootBodyTopMargin ran before the body
+	// flowed its children), so the escaped bottom margin is all that remains
+	// to extend the html height.
 	escaped := e.collapsedBottomThrough(body.node, *body.style)
-	bodyBottom := body.y + body.height - topCorr - boxNode.y + escaped
+	bodyBottom := body.y + body.height - boxNode.y + escaped
 
-	if adjusted := curY - topCorr; bodyBottom > adjusted {
+	if bodyBottom > curY {
 		return bodyBottom
 	}
 
-	return curY - topCorr
-}
-
-// rootBodyTopCorrection returns the collapsed top margin that Chrome reports
-// outside the body but the engine keeps inside the body's content height. It
-// is zero when the body's own top margin is zero (applyRootBodyMargins
-// already moved the box) or when no first-child margin collapses.
-func (e *engine) rootBodyTopCorrection(body *box) float64 {
-	if body == nil || body.style == nil || body.node == nil || body.style.MarginTop == 0 {
-		return 0
-	}
-
-	child := e.firstInFlowBlockChild(body.node)
-	if child == nil || !e.marginCollapsesThrough(*body.style, true) {
-		return 0
-	}
-
-	childTop := e.collapsedTopThrough(child, *e.stylePtr(child))
-	bodyMargin := e.scalePt(body.style.MarginTop)
-
-	if bodyMargin < childTop {
-		return bodyMargin
-	}
-
-	return childTop
+	return curY
 }
 
 // rootBodyBox returns the body element box that is a direct child of an html

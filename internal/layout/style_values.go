@@ -393,9 +393,11 @@ func parseBorder(value string, fsize float64, current [3]float64) (border, bool)
 				boxNode.Color = [3]float64{float64(r) / 255, float64(g) / 255, float64(bb) / 255}
 				boxNode.Transparent = a <= 0
 			} else if v, unit, ok := css.ParseLength(face); ok {
-				boxNode.Width = v
 				if pt, converted := lengthToPt(v, unit, fsize); converted {
+					boxNode.Width = pt
 					boxNode.PaintWidth = pt
+				} else {
+					boxNode.Width = v
 				}
 			}
 		}
@@ -470,7 +472,7 @@ func isCSSSpace(value byte) bool {
 	return value == ' ' || value == '\t' || value == '\n' || value == '\v' || value == '\f' || value == '\r'
 }
 
-func borderWidth(value string, _ float64) float64 {
+func borderWidth(value string, fsize float64) float64 {
 	switch value {
 	case thinKeyword:
 		return pxToPt(1)
@@ -480,19 +482,6 @@ func borderWidth(value string, _ float64) float64 {
 		return pxToPt(5)
 	}
 
-	if v, _, ok := css.ParseLength(value); ok {
-		return v
-	}
-
-	return 0
-}
-
-func borderPaintWidth(value string, fsize float64) float64 {
-	switch value {
-	case thinKeyword, mediumKeyword, thickKeyword:
-		return borderWidth(value, fsize)
-	}
-
 	if v, unit, ok := css.ParseLength(value); ok {
 		if pt, converted := lengthToPt(v, unit, fsize); converted {
 			return pt
@@ -500,6 +489,13 @@ func borderPaintWidth(value string, fsize float64) float64 {
 	}
 
 	return 0
+}
+
+// borderPaintWidth is the device paint width for a border. It matches the
+// layout width today; the seam stays so a future device-pixel snap or
+// print-versus-screen policy can diverge paint from layout.
+func borderPaintWidth(value string, fsize float64) float64 {
+	return borderWidth(value, fsize)
 }
 
 func setFontLineHeight(style *ResolvedStyle, page string, lineH float64) {
@@ -635,9 +631,8 @@ func parseOutlineWidth(value string, fsize float64) (float64, bool) {
 		return borderPaintWidth(value, fsize), true
 	}
 
-	// Lengths must go through unit conversion (1px → 0.75pt). borderWidth
-	// returns the raw number and would treat 1px as 1pt for column-rule /
-	// outline (fixture-61 #26).
+	// Lengths must go through unit conversion (1px → 0.75pt), or 1px would be
+	// treated as 1pt for column-rule / outline (fixture-61 #26).
 	if _, _, ok := css.ParseLength(value); ok {
 		return borderPaintWidth(value, fsize), true
 	}

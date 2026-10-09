@@ -41,15 +41,23 @@ const (
 
 // inlineItem is one atomic piece of inline content.
 type inlineItem struct {
-	text     string
-	style    *ResolvedStyle
-	w, h     float64 // text: run width + line height; image: placed size
-	marginL  float64 // leading horizontal margin (e.g. span margin-left)
-	marginR  float64 // trailing horizontal margin
-	img      bool
-	thumbImg bool // img inside a collapsed wiki figure; outer frame owns L/R/T
-	chrome   bool // text belongs to an inline element with its own decoration
-	noSplit  bool // vertical writing-mode run must remain one rotated line
+	text    string
+	style   *ResolvedStyle
+	w, h    float64 // text: run width + line height; image: placed size
+	marginL float64 // leading horizontal margin (e.g. span margin-left)
+	marginR float64 // trailing horizontal margin
+	marginT float64 // leading vertical margin (atomic margin box)
+	marginB float64 // trailing vertical margin (atomic margin box)
+	// marginBaseline marks an atomic whose baseline is its bottom margin edge
+	// (replaced elements and empty or overflow-clipping inline-blocks): the
+	// margin box then sits entirely above the baseline. When false the
+	// baseline is approximated by the bottom border edge, so the bottom
+	// margin hangs below it (CSS 2.1 §10.8.1).
+	marginBaseline bool
+	img            bool
+	thumbImg       bool // img inside a collapsed wiki figure; outer frame owns L/R/T
+	chrome         bool // text belongs to an inline element with its own decoration
+	noSplit        bool // vertical writing-mode run must remain one rotated line
 	// bidiScoped marks an item owned by a unicode-bidi scope (embed, isolate,
 	// override, plaintext). The run-order heuristic and reverseInlineRange
 	// leave scoped runs alone; the scope owner already ordered them.
@@ -1203,6 +1211,14 @@ func (e *engine) lineMetrics( //nolint:funlen
 	maxAscent, maxDescent := 0.0, 0.0
 	edgeStyle := block
 
+	// Every line box carries the block's strut: a zero-width inline box with
+	// the block's font and line-height (CSS 2.1 §10.8.1). It is what keeps an
+	// empty inline-block on the baseline and what gives an atomic-only line
+	// its descent below the atomic margin box.
+	if block != nil {
+		maxAscent, maxDescent = e.strutMetrics(block, trimStart, trimEnd)
+	}
+
 	for i := range line {
 		item := &line[i]
 		if item.forceBreak || item.style == nil {
@@ -1225,10 +1241,10 @@ func (e *engine) lineMetrics( //nolint:funlen
 		ascent, descent := e.inlineFontMetrics(item.text, item.style)
 		lh := e.lineHeightOf(item.style) * e.scale
 
+		// Negative half-leading is legal: an explicit line-height smaller
+		// than the glyphs shrinks the line box and lets them overflow
+		// (Chrome 143 on case-30's line-height:1 items).
 		extra := (lh - ascent - descent) / inlineHalfDivisor
-		if extra < 0 {
-			extra = 0
-		}
 
 		face := e.faceFor(item.style)
 		metricStyle := item.style
@@ -1266,15 +1282,41 @@ func (e *engine) lineMetrics( //nolint:funlen
 	return lineH, lineY + maxAscent
 }
 
+// strutMetrics is the block's line strut (ascent, descent): a zero-width
+// inline box with the block's own font and line-height that participates in
+// every line box (CSS 2.1 §10.8.1). text-box-trim applies to it like any
+// inline box, and negative half-leading is legal for an explicit line-height
+// smaller than the glyphs.
+func (e *engine) strutMetrics(block *ResolvedStyle, trimStart, trimEnd bool) (float64, float64) {
+	ascent, descent := e.inlineFontMetrics("", block)
+	lh := e.lineHeightOf(block) * e.scale
+	extra := (lh - ascent - descent) / inlineHalfDivisor
+
+	return e.adjustTextBoxMetrics(block, e.faceFor(block), block.FontSize*e.scale,
+		ascent, descent, extra, trimStart, trimEnd)
+}
+
 // atomicInlineAlign is the ascent/descent a replaced or inline-block item
-// contributes to the line. A length vertical-align raises (positive) or
-// lowers (negative) the box relative to the baseline.
+// contributes to the line. The item's margin box is what sits on the line
+// (CSS 2.1 §10.8.1). A bottom-margin-edge baseline (replaced elements and
+// empty or overflow-clipping inline-blocks) puts the whole margin box above
+// the baseline; otherwise the baseline is approximated by the bottom border
+// edge and the bottom margin hangs below. A length vertical-align raises
+// (positive) or lowers (negative) the box relative to the baseline.
 func (e *engine) atomicInlineAlign(item *inlineItem) (float64, float64) {
 	if item.style != nil {
 		switch item.style.VerticalAlign {
 		case cssVerticalAlignTop, cssVerticalAlignMiddle, cssVerticalAlignBottom:
-			return item.h, 0
+			return item.marginT + item.h + item.marginB, 0
 		}
+	}
+
+	ascent := item.marginT + item.h
+	descent := item.marginB
+
+	if item.marginBaseline {
+		ascent += item.marginB
+		descent = 0
 	}
 
 	shift := 0.0
@@ -1282,8 +1324,8 @@ func (e *engine) atomicInlineAlign(item *inlineItem) (float64, float64) {
 		shift = e.scalePt(item.style.VerticalAlignShift)
 	}
 
-	ascent := item.h + shift
-	descent := -shift
+	ascent += shift
+	descent -= shift
 
 	if ascent < 0 {
 		descent -= ascent

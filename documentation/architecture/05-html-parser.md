@@ -699,9 +699,9 @@ rows); re-run the command for the current numbers.
 | Category | Total | Passed | Failed | Skipped | Unsupported |
 |----------|-------|--------|--------|---------|-------------|
 | `tokenizer` | 7036 | 6686 | 0 | 0 | 350 |
-| `tokenizer-local` | 6 | 6 | 0 | 0 | 0 |
-| `tree-construction` | 1792 | 1631 | 153 | 8 | 0 |
-| `tree-construction-local` | 26 | 26 | 0 | 0 | 0 |
+| `tokenizer-local` | 15 | 15 | 0 | 0 | 0 |
+| `tree-construction` | 1792 | 1784 | 0 | 8 | 0 |
+| `tree-construction-local` | 35 | 35 | 0 | 0 | 0 |
 
 Tokenizer: zero failures. The 350 unsupported cases are non-Data initial
 states (342 runs: CDATA 56, PLAINTEXT 52, RAWTEXT 71, RCDATA 74, script data
@@ -709,30 +709,13 @@ states (342 runs: CDATA 56, PLAINTEXT 52, RAWTEXT 71, RCDATA 74, script data
 
 Tree construction: the plan ledger's HTML-02a row recorded 841 cases passing
 when the insertion modes landed. The table modes (HTML-05a), the adoption
-agency (HTML-FORMAT-01), and then the select/template states
-(HTML-CONTEXT-01), internal fragment parsing (HTML-FRAGMENT-01), and
-integration (HTML-INTEGRATION-01) bring it to 1631 of 1792 with 0 unsupported.
-`adoption01.dat`, `adoption02.dat`, `tricky01.dat`, and `tables01.dat` have
-no failed cases, and all 26 local cases pass. The remaining 153 failures
-break down as:
-
-- **script-data handling** (`tests16.dat`, 40; 36 are `<!--<script` escaped
-  sequences and the rest are `noscript`/`noembed` edges; related records in
-  `scriptdata01.dat` 9, `plain-text-unsafe.dat` 9, and `noscript01.dat` 8):
-  the tokenizer closes at the first `</script` even inside a `<!--<script`
-  sequence; the standard's script-data escaped and double-escaped states are
-  not implemented.
-- **CDATA in foreign content** (`tests21.dat`, 21; also part of
-  `domjs-unsafe.dat` 11): `<![CDATA[...]]>` becomes a bogus comment
-  everywhere (`html.go:329-339`); in SVG/MathML the standard wants a text
-  node.
-- **ruby** (`tests19.dat` 17, `ruby.dat` 16): `rp`/`rt`/`rb`/`rtc` implied
-  end tags are incomplete.
-- **frameset** (`tests6.dat`, 6): remaining frameset recovery cases.
-- **scattered records**: `tests3.dat` 3, `tests15.dat` 2, `tests2.dat` 2,
-  `tests25.dat` 2, `tests7.dat` 2, `webkit01.dat` 2,
-  `pending-spec-changes.dat` 1, `tests18.dat` 1, and the MathML
-  `annotation-xml` integration-point case `tests20.dat#59`.
+agency (HTML-FORMAT-01), the select and template states (HTML-CONTEXT-01),
+internal fragment parsing (HTML-FRAGMENT-01), integration
+(HTML-INTEGRATION-01), and then the script-data, CDATA, ruby, noscript, and
+frameset clusters bring it to 1784 of 1792 with 0 failures and 0 unsupported.
+`adoption01.dat`, `adoption02.dat`, `tricky01.dat`, `tables01.dat`,
+`tests16.dat`, `tests19.dat`, `tests21.dat`, `scriptdata01.dat`, and
+`noscript01.dat` have no failed cases, and all 35 local cases pass.
 
 The 8 skipped cases are records with only a scripting-on expected document.
 There are no unsupported tree cases: the 192 upstream `#document-fragment`
@@ -757,12 +740,13 @@ check drawing-list output (for example `layout/displaylist_test.go`, run by
 
 ## 10. Known limitations, deferred items & open questions
 
-- **Partial tree construction.** The parser implements the tokenizer states,
-  the insertion-mode skeleton, the adoption agency, the select and template
-  states, and internal fragment parsing, but not the full standard:
-  script-data escaped states, parts of ruby and frameset recovery, and CDATA
-  handling in foreign content are missing. The measured gaps and counts are
-  in §9.3. These are recorded gaps, not hidden regressions.
+- **Tree construction is complete against the pinned corpus.** The tokenizer
+  states (including script-data escaped and double-escaped states and CDATA),
+  the insertion modes, the adoption agency, select and template, ruby and
+  frameset recovery, and internal fragment parsing all pass: 1784 of 1792
+  tree cases with 8 script-on-only skips. The pinned corpus is the gate
+  authority; one judgment call is recorded in GATE-03 (param/source/track
+  frameset-ok follows the corpus and html5lib, not the current spec text).
 - **Quirks mode is exposed but not applied.** `root.Mode` carries
   no-quirks / limited-quirks / quirks (`doctype.go:143-179`) to
   `pubstate.Styled.Mode`; quirks-mode layout effects are not implemented.
@@ -773,9 +757,6 @@ check drawing-list output (for example `layout/displaylist_test.go`, run by
   and four lone-surrogate inputs are counted unsupported: Go strings cannot
   carry lone surrogates, and the infoset-coercion variant is not
   implemented.
-- **CDATA in foreign content.** `<![CDATA[...]]>` is a bogus comment
-  everywhere (`html.go:329-339`); in HTML content that matches the standard,
-  in SVG/MathML it does not (21 measured failures).
 - **Fragment parsing is internal-only.** `parseFragment` (`fragment.go:55`)
   takes a context element and is exercised by the corpus runner; the public
   `Parse` and `ParseDocument` signatures stay unchanged until the fragment

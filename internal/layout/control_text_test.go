@@ -196,7 +196,7 @@ func TestButtonUADefaultFace(t *testing.T) {
 		t.Fatalf("button padding = T %.2f L %.2f, want 1px/6px", sty.PaddingTop, sty.PaddingLeft)
 	}
 
-	if !near(sty.BorderTop.Width, 1) {
+	if !near(sty.BorderTop.Width, pxToPt(1)) {
 		t.Fatalf("button border width = %.2f, want 1px", sty.BorderTop.Width)
 	}
 
@@ -264,7 +264,7 @@ func TestAuthorBackgroundShorthandOverridesButtonUA(t *testing.T) {
 }
 
 // assertControlUAInlineBlockFace checks the shared UA face of a native
-// control box: inline-block display, padding, a 1pt border, and background.
+// control box: inline-block display, padding, a 1px border, and background.
 func assertControlUAInlineBlockFace(
 	t *testing.T, res *Result, element string, padT, padL, bg0 float64,
 ) {
@@ -280,7 +280,7 @@ func assertControlUAInlineBlockFace(
 			element, box.style.PaddingTop, box.style.PaddingLeft, padT, padL)
 	}
 
-	if !near(box.style.BorderTop.Width, 1) || !near(box.style.BGColor[0], bg0) {
+	if !near(box.style.BorderTop.Width, pxToPt(1)) || !near(box.style.BGColor[0], bg0) {
 		t.Fatalf("%s face = border %.2f bg %v", element, box.style.BorderTop.Width, box.style.BGColor)
 	}
 }

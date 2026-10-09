@@ -30,8 +30,7 @@ testdata/golden/
   fixture-56-architecture-diagram.css       # linked stylesheet for fixture-56
   architecture-diagram.html                 # corpus fixture (5-page library-API diagram)
   api/                                      # leftover from the removed library-API PDF generator
-    architecture-diagram.html               # source template for the generator (5 pages)
-    generate.go                             # targets the removed blinkless.Document PDF API; does not build
+    architecture-diagram.html               # source template for the removed generator (5 pages)
   python_api/                               # leftover from the removed Python PDF generators
     architecture-diagram.html               # Python-syntax variant of the api/ template (5 pages)
     generate*.py                            # target the removed convert_*_to_pdf helpers, which raise RuntimeError

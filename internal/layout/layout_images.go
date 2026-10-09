@@ -80,6 +80,9 @@ func (e *engine) usedImageSize(
 	ref = orientedImageRatioRef(ref, style)
 
 	attrW, attrH := e.imageAttrDims(node)
+	widthDefinite := attrW > 0
+	heightDefinite := attrH > 0
+
 	if attrW > 0 {
 		size.w = attrW
 	}
@@ -105,6 +108,9 @@ func (e *engine) usedImageSize(
 		size.h = e.scalePt(style.Height)
 	}
 
+	widthDefinite = widthDefinite || cssW
+	heightDefinite = heightDefinite || cssH
+
 	size = applyImageCSSRatio(size, cssW, cssH, ref)
 
 	if style.AspectRatio > 0 {
@@ -116,8 +122,8 @@ func (e *engine) usedImageSize(
 		}
 	}
 
-	size = clampImageWidth(size, e.imageMaxWidth(style, cssW))
-	size = clampImageHeight(e, size, style)
+	size = clampImageWidth(size, e.imageMaxWidth(style, cssW), heightDefinite)
+	size = clampImageHeight(e, size, style, widthDefinite)
 
 	return size
 }
@@ -181,27 +187,40 @@ func applyImageCSSRatio(size imageUsedSize, cssW, cssH bool, ref *imageRef) imag
 }
 
 // clampImageWidth scales the size down to maxW preserving the aspect ratio.
-func clampImageWidth(size imageUsedSize, maxW float64) imageUsedSize {
+// When the height is definite, only the width is clamped: a specified height
+// is not back-propagated through the ratio (CSS 2.1 §10.4 replaced elements).
+func clampImageWidth(size imageUsedSize, maxW float64, heightDefinite bool) imageUsedSize {
 	if maxW >= 0 && size.w > maxW && size.w > 0 {
-		factor := maxW / size.w
-		size.w = maxW
-		size.h *= factor
+		if heightDefinite {
+			size.w = maxW
+		} else {
+			factor := maxW / size.w
+			size.w = maxW
+			size.h *= factor
+		}
 	}
 
 	return size
 }
 
 // clampImageHeight scales the size down to max-height preserving the ratio.
-func clampImageHeight(e *engine, size imageUsedSize, style ResolvedStyle) imageUsedSize {
+// When the width is definite, only the height is clamped: a specified width
+// is not back-propagated through the ratio (CSS 2.1 §10.4 replaced elements),
+// which is Chrome's behavior on test/chrome/cases/case-28-wpt-flex-minimum-width-aspect.html.
+func clampImageHeight(e *engine, size imageUsedSize, style ResolvedStyle, widthDefinite bool) imageUsedSize {
 	if style.MaxHeight < 0 {
 		return size
 	}
 
 	maxH := e.scalePt(style.MaxHeight)
 	if maxH >= 0 && size.h > maxH && size.h > 0 {
-		factor := maxH / size.h
-		size.w *= factor
-		size.h = maxH
+		if widthDefinite {
+			size.h = maxH
+		} else {
+			factor := maxH / size.h
+			size.w *= factor
+			size.h = maxH
+		}
 	}
 
 	return size

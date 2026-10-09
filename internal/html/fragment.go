@@ -64,7 +64,7 @@ func parseFragment(contextName string, contextNS Namespace, contextAttrs []strin
 
 	builder.resetInsertionMode()
 
-	scanFragmentTokens(src, context, builder.appendToken)
+	scanFragmentTokens(src, context, builder)
 	builder.finish()
 	applySelectedContent(builder.root)
 
@@ -72,11 +72,15 @@ func parseFragment(contextName string, contextNS Namespace, contextAttrs []strin
 }
 
 // scanFragmentTokens tokenizes fragment input under the context's tokenizer
-// state. preprocessInput runs once up front for the raw-text paths.
-func scanFragmentTokens(src string, context *Node, emit tokenSink) {
+// state. preprocessInput runs once up front for the raw-text paths. The
+// builder answers the CDATA policy so an SVG or MathML context element
+// accepts CDATA sections, mirroring the adjusted-current-node rule.
+func scanFragmentTokens(src string, context *Node, builder *treeBuilder) {
+	emit := builder.appendToken
+
 	switch fragmentContextMode(context) {
 	case textData:
-		scanTokens(src, emit)
+		scanTokens(src, emit, builder.foreignCDATAAllowed)
 	case textRCDATA:
 		text, _, _ := scanRawText(preprocessInput(src), 0, "")
 		if text != "" {

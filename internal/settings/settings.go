@@ -230,7 +230,8 @@ func ParseLoadErrorHandling(value string) (LoadErrorHandling, error) {
 }
 
 // MediaType mirrors wkhtmltopdf --print-media-type (screen|print) and the
-// --media-type override. Consumed by image mode (imageout.mediaFor).
+// --media-type override. The web and load key setters read and write it, and
+// css.Apply maps its Options.Media onto it.
 type MediaType int
 
 const (
@@ -261,10 +262,10 @@ func (m MediaType) String() string {
 
 // ResolveMedia computes the effective CSS media type: the print-media-type
 // override (either home) wins, then the object media-type, then the global
-// media-type, falling back to base (the mode default: "print" for PDF,
-// "screen" for image). MediaUnset (the zero value) means "not set" and lets
-// resolution fall through to the next source; it is never an explicit
-// ignore. obj may be nil.
+// media-type, falling back to base (ResolvePDFMedia passes "print",
+// ResolveImageMedia passes "screen"). MediaUnset (the zero value) means
+// "not set" and lets resolution fall through to the next source; it is never
+// an explicit ignore. obj may be nil.
 func ResolveMedia(base string, global Web, obj *Web) string {
 	if global.PrintMediaType || obj != nil && obj.PrintMediaType {
 		return sPrint
@@ -287,8 +288,8 @@ func ResolveMedia(base string, global Web, obj *Web) string {
 	return base
 }
 
-// ResolvePDFMedia resolves layout CSS media for PDF mode via ResolveMedia.
-// PDF default is "print".
+// ResolvePDFMedia resolves the effective CSS media string from PdfGlobal and
+// an optional PdfObject via ResolveMedia. The base default is "print".
 func ResolvePDFMedia(glob PdfGlobal, obj *PdfObject) string {
 	var objWeb *Web
 
@@ -307,8 +308,9 @@ func ResolvePDFMedia(glob PdfGlobal, obj *PdfObject) string {
 	return ResolveMedia(sPrint, glob.Web, objWeb)
 }
 
-// ResolveImageMedia resolves layout CSS media for Image mode via ResolveMedia.
-// Image default is "screen".
+// ResolveImageMedia resolves the effective CSS media string from ImageGlobal
+// plus the PdfGlobal and optional PdfObject layers via ResolveMedia. The base
+// default is "screen".
 func ResolveImageMedia(global PdfGlobal, image ImageGlobal, obj *PdfObject) string {
 	web := image.Web
 	if global.Web.PrintMediaType {
@@ -366,11 +368,10 @@ type Margin struct {
 	Right  float64
 }
 
-// ValidMargins reports whether m follows the engine margin contract. Every
-// value must be finite and left/right must be non-negative. Top and bottom
-// accept any finite negative value as the engine's auto-margin sentinel:
-// internal/convert/hf.go measures the header/footer band and reserves it,
-// which is the same contract the CLI and root Document already expose.
+// ValidMargins reports whether m follows the settings model's margin
+// contract. Every value must be finite and left/right must be non-negative.
+// Top and bottom accept any finite negative value as the auto-margin
+// sentinel. The dotted-key margin setter calls this before storing a value.
 func ValidMargins(m Margin) bool {
 	if !finite(m.Top) || !finite(m.Right) || !finite(m.Bottom) || !finite(m.Left) {
 		return false
@@ -396,8 +397,8 @@ type Size struct {
 // via Set into Ignored maps — not typed fields (Policy A).
 type Web struct {
 	Images bool
-	// PrintMediaType / MediaType: image mode media selection (imageout.mediaFor).
-	// PDF convert uses mediaFor with object/global load+web fields.
+	// PrintMediaType / MediaType: CSS media selection inputs. ResolveMedia
+	// folds them across the global, object, and load-page layers.
 	PrintMediaType bool
 	MediaType      MediaType
 	// SimplifyDOM opts into chrome-strip heuristics for URL/print mode
@@ -496,31 +497,34 @@ func DefaultTableOfContent() TableOfContent {
 	}
 }
 
-// PdfGlobal is the PDF-mode global settings struct.
+// PdfGlobal is the global settings struct, named after the wkhtmltopdf
+// PDF-mode model it mirrors.
 //
-// Policy A: only fields with convert/load/imageout consumers (or CLI homes that
-// convert still reads) are typed. Inert wkhtml keys may land in Ignored.
+// Policy A: only fields with a live engine consumer (convert, load, or css)
+// are typed. Inert wkhtml keys may land in Ignored.
 type PdfGlobal struct {
 	// Page geometry: named size plus optional custom Size width/height (mm).
 	// Custom Size.Width/Height overrides the named size when both are > 0.
 	PageSize    string
 	Size        Size
 	Orientation Orientation
-	// PdfVersion is the PDF version to emit: "1.4" (default), "1.7", or "2.0" (--pdf-version).
+	// PdfVersion is the wkhtmltopdf --pdf-version value: "1.4" (default),
+	// "1.7", or "2.0". ParsePDFVersion validates and normalizes it.
 	PdfVersion string
-	// PdfProfile is the PDF conformance profile to emit (e.g. "a3a-ua1", "PDF/A-3a+PDF/UA-1", "a3a", "ua1").
-	// Empty string indicates standard unconstrained (unclaimed) PDF.
+	// PdfProfile is the wkhtmltopdf --pdf-profile value (e.g. "a3a-ua1",
+	// "PDF/A-3a+PDF/UA-1", "a3a", "ua1"). Empty means no profile.
+	// ParsePDFProfile validates and normalizes it.
 	PdfProfile string
-	// Grayscale is the sole color control convert reads (doc.SetGrayscale).
-	// Set("colormode") / Set("grayscale") both write this field.
+	// Grayscale is the sole color bit; Set("colormode") / Set("grayscale")
+	// both write this field.
 	Grayscale    bool
 	PageOffset   int
 	Copies       int
 	Collate      bool
 	Outline      bool
 	OutlineDepth int
-	// DumpOutline / DumpDefaultTOCXSL: one home is Global settings (CLI and
-	// library both write it); the engine reads it only.
+	// DumpOutline / DumpDefaultTOCXSL live on PdfGlobal; the dotted-key
+	// Set/Get surface reads and writes them.
 	DumpOutline        bool
 	DumpDefaultTOCXSL  bool
 	UseCompression     bool
@@ -530,7 +534,7 @@ type PdfGlobal struct {
 	Footer             HeaderFooter
 	Header             HeaderFooter
 	TOC                TableOfContent
-	Background         bool // sole paint switch for PDF + image body backgrounds
+	Background         bool // sole home for the body background bit (no Web.Background mirror)
 	ExcludeFromOutline []string
 	Quiet              bool
 	Web                Web
@@ -654,7 +658,7 @@ func DefaultLoadPage() LoadPage {
 }
 
 // ImageGlobal is the image-mode global settings struct (wkhtmltoimage).
-// Quiet lives on PdfGlobal (Command.Global.Quiet); imageout uses that bit.
+// Quiet lives on PdfGlobal; fonts.LogFontRegistryScan reads that bit.
 type ImageGlobal struct {
 	Width       int
 	Height      int
