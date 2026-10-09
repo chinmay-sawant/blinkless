@@ -257,3 +257,41 @@ func TestFlexItemAutoHeightEnclosesFloats(t *testing.T) {
 		t.Errorf("float height = %.4fpt, want 100px", floating.height)
 	}
 }
+
+// TestAbsPositionedRootBodyAnchorsToICB is CSS-REVIEW-02-C6: an absolutely
+// positioned box with no positioned ancestor anchors to the initial
+// containing block, not the body content box. Reference: Chrome 143.0.7499.40
+// on test/chrome/cases/case-16-wpt-align-items-stretch.html, where the
+// description paragraph's 12pt inset lands at (16, 16) CSS px despite the
+// default 8px body margin. A positioned body is the containing block, so its
+// padding box stays the origin there.
+func TestAbsPositionedRootBodyAnchorsToICB(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name      string
+		bodyStyle string
+		wantPx    float64
+	}{
+		{"no positioned ancestor", "", 16},
+		{"relative body", "position:relative", 24},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			res := layoutHTML(t, `<html><body style="`+testCase.bodyStyle+`">`+
+				`<p id="abs" style="position:absolute;top:12pt;left:12pt;margin:0">x</p>`+
+				`</body></html>`)
+
+			abs := boxByID(t, res, "abs")
+
+			if !near(abs.x, pxToPt(testCase.wantPx)) || !near(abs.y, pxToPt(testCase.wantPx)) {
+				t.Errorf("abs p = (%.4fpt, %.4fpt) = (%.2fpx, %.2fpx), want (%.0fpx, %.0fpx)",
+					abs.x, abs.y, abs.x/ptPerCSSPx, abs.y/ptPerCSSPx,
+					testCase.wantPx, testCase.wantPx)
+			}
+		})
+	}
+}

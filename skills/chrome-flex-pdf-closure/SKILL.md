@@ -7,14 +7,15 @@ description: Close the complete 40-case Chromium Flexbox interaction inventory i
 
 Use this skill to move every case in the 40-case Chrome Flexbox inventory from
 scaffold to evidence-backed completion. The proof target depends on the
-manifest's `goTarget`. PDF is required for print cases, but it is not the only
-valid proof boundary. A passing direct layout test does not prove that a PDF,
-PNG, or Chromium-reference path preserves the result.
+manifest's `goTarget`. The engine emits a drawing list, not a PDF or page PNG,
+so the proof boundaries are direct layout tests and Chromium-reference
+measurements. A passing direct layout test does not prove that the drawing
+list preserves the result.
 
 Read these files before editing:
 
 - `knowledge-base/wiki/index.md`
-- `plans/0.2.7/chrome-flex-interactions/00-canonical-chrome-flex-interaction-plan.md`
+- `plans/0.0.1/html-css-json-compatibility-checklist.md`
 - `test/chrome/README.md`
 - `test/chrome/manifest.json`
 - the Chromium source file named by the case
@@ -28,8 +29,8 @@ assignment includes it. If a shared fix is needed, report the failing input,
 the expected geometry, and the owning package instead of taking that file.
 
 Agents may work in parallel only when their write sets are disjoint. Keep
-fixture files, layout tests, PDF tests, and coverage metadata in separate
-ownership groups.
+fixture files, layout tests, drawing-list tests, and coverage metadata in
+separate ownership groups.
 
 Do not run Git commands. Do not build Chromium. Do not copy Blink C++ test
 assertions into Go. Reuse the HTML and CSS behavior, then write an assertion
@@ -82,9 +83,8 @@ Use these boundaries:
 
 - `layout-unit`: focused `internal/layout` geometry assertions;
 - `chrome-reference`: a named Chromium result compared with the Go result;
-- `golden-fixture`: PDF page and semantic assertions in `internal/convert`;
-- image regressions: decoded PNG pixels or a reviewed raster crop in
-  `internal/imageout`.
+- `golden-fixture`: drawing-list assertions against a `testdata/golden` fixture
+  (public `layout.DisplayList` or a focused `internal/layout` test).
 
 The assertion should cover the layout decision named by the case:
 
@@ -112,36 +112,34 @@ names the case or interaction it proves.
 
 ### 3. Product output
 
-Run the same static HTML through the product output path required by the case.
-Use `internal/convert` for PDF, `internal/imageout` for PNG or JPEG, and the
-Chromium runner for reference cases.
+Run the same static HTML through the product output path required by the case:
+the public drawing list (`layout.DisplayList`, or its JSON projection from
+`bindings/wasm`) and the Chromium runner for reference cases. There is no PDF
+writer and no page rasterizer.
 
 Every output case must prove the checks that apply:
 
-- PDF: valid structure, embedded font, expected page envelope, ordered
-  semantic text where relevant, and geometry or a reviewed raster crop;
-- PNG or JPEG: decoded dimensions, visible geometry, and pixels that prove
-  the case's expected placement or sizing;
+- drawing list: op kinds, ordered geometry, text content, fonts, and image
+  payloads that prove the case's expected placement or sizing;
 - Chromium reference: the same static input, matching selected geometry or
   pixels, and an explicit tolerance or unsupported-feature decision.
 
 Do not treat a successful conversion as proof of the interaction. Do not
 treat `make golden` as proof of centering, item width, or line placement by
-itself. Existing golden checks cover structure, page envelopes, selected text
-needles, and selected features. Add a geometry assertion or crop check for the
-behavior under test.
+itself; it runs the public `TestDisplay` suite in `./layout`. Add a geometry
+assertion for the behavior under test.
 
-For the print-fragmentation case, use a golden fixture and pin page count,
-ordered text, and the location of repeated content. Add a raster crop only
-when structural and semantic checks cannot detect the regression.
+For the print-fragmentation case, use a golden fixture and pin the op geometry
+that must survive a break. Add a reviewed Chromium reference crop only when
+op checks cannot detect the regression.
 
 Run the focused output test before the full gates:
 
 ```sh
-go test ./internal/convert -run '<test name>' -count=1
+go test ./layout/ -run '<test name>' -count=1
 ```
 
-Use the equivalent focused command for `internal/imageout` or the reference
+Use the equivalent focused command in `internal/layout` or the reference
 runner when the case has another output target.
 
 Completion condition: the selected product output proves the case's expected
@@ -149,15 +147,15 @@ behavior, not merely that conversion completed successfully.
 
 ### 4. Coverage record
 
-Record the evidence for every assigned case in the canonical v0.2.7 plan and
-update the matching knowledge-base page in the same work session.
+Record the evidence for every assigned case in the canonical 0.0.1 checklist
+and update the matching knowledge-base page in the same work session.
 
 Use the case allocation already defined by the plan:
 
 - `layout-unit`: direct box geometry;
 - `chrome-reference`: the same static input compared with Chromium geometry
   or pixels;
-- `golden-fixture`: page bounds and semantic PDF checks.
+- `golden-fixture`: drawing-list geometry and semantic checks.
 
 Do not create a pairwise matrix of every CSS property. The inventory is the
 40 named cases in `test/chrome/manifest.json`. Close each case individually.
@@ -185,7 +183,7 @@ may share files.
 | --- | --- | --- |
 | Static input | one or more assigned HTML cases and their generator entries | case IDs, source paths, expected behavior, validator output |
 | Layout unit | assigned `internal/layout` tests and only the required production fix | test names, expected geometry, red/green commands, changed files |
-| PDF integration | assigned `internal/convert` test or golden fixture | page count, semantic text, geometry proof, focused test output |
+| Drawing-list integration | assigned `layout`/`internal/layout` test or golden fixture | op count, semantic text, geometry proof, focused test output |
 | Reference comparison | assigned Chromium-reference cases and comparison notes | browser result, Go result, tolerance, unsupported-feature decision |
 | Coverage record | assigned plan and knowledge-base rows | closed rows, evidence links, and remaining interaction families |
 
@@ -230,7 +228,7 @@ The final report must distinguish:
 - the 40 case IDs and their outcomes;
 - static inputs completed;
 - direct layout cases completed;
-- PDF, image, or Chromium-reference cases completed;
+- drawing-list or Chromium-reference cases completed;
 - print-fragmentation coverage completed;
 - interaction families still missing.
 

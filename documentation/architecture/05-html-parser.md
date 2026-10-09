@@ -20,7 +20,7 @@ document bytes) into an in-memory DOM tree that the downstream stages walk:
   boundary** (`Styled`, `internal/pubstate/state.go:13-23`);
 - the public packages wrap or copy it: `html.Parse`
   (`html/parse.go:36-48`), `css.Apply` (`css/css.go:97`), `markup.Parse`
-  (`markup/markup.go:59-65`).
+  (`markup/markup.go:116-123`).
 
 The package doc (`html.go:1-6`) describes the scope:
 
@@ -33,16 +33,16 @@ The package doc (`html.go:1-6`) describes the scope:
 
 The parser implements the WHATWG tokenizer state machines and the
 insertion-mode tree-construction skeleton, but it is **not a full browser
-parser**: select and template states, fragment parsing, script-data escaped
-states, and quirks-mode layout effects are not implemented. The measured gaps
+parser**: script-data escaped states, parts of ruby and frameset recovery,
+and CDATA handling in foreign content are not implemented. The measured gaps
 are listed in §10.
 
 Two entry points cover the internal callers:
 
-- `Parse(source string) (*Node, error)` (`html.go:154-161`) - parse a Go
-  string; used by `markup.Parse` (`markup/markup.go:60`) and the public `html`
+- `Parse(source string) (*Node, error)` (`html.go:164-172`) - parse a Go
+  string; used by `markup.Parse` (`markup/markup.go:116`) and the public `html`
   wrapper (`html/parse.go:39`).
-- `ParseDocument(body []byte) (*Node, error)` (`html.go:166-170`) - raw
+- `ParseDocument(body []byte) (*Node, error)` (`html.go:177-181`) - raw
   document bytes; strips a leading UTF-8 BOM (mirroring `load.IsHTML`,
   `internal/load/load.go:303`).
 
@@ -51,34 +51,39 @@ is recovered (§3.8) and over-deep nesting is capped (`tree.go:11`), never
 reported.
 
 The package holds the **shared DOM representation in the codebase**;
-`markup.Node` (`markup/markup.go:47-55`) is a detached public copy, not a
+`markup.Node` (`markup/markup.go:101-114`) is a detached public copy, not a
 second parser. The `Node` shape is a de-facto cross-cutting contract.
 
 ## 2. Package / file map
 
 | File | Responsibility | Lines |
 |------|----------------|-------|
-| `internal/html/html.go` | Node model; input preprocessing; comment, tag, attribute, and raw-text tokenizer state machines; `Parse` / `ParseDocument` | 922 |
+| `internal/html/html.go` | Node model; input preprocessing; comment, tag, attribute, and raw-text tokenizer state machines; `Parse` / `ParseDocument` | 935 |
 | `internal/html/doctype.go` | Structured `Doctype` token; WHATWG doctype tokenizer states; quirks / limited-quirks / no-quirks classification | 564 |
-| `internal/html/foreign.go` | `Namespace` and `Attr`; SVG element and attribute adjustment tables; foreign attribute namespaces; MathML/SVG integration points; breakout tags | 274 |
-| `internal/html/tree.go` | Insertion-mode tree builder; implicit html/head/body; scope rules; implied end tags; foreign-content dispatch; resource caps | 1566 |
+| `internal/html/foreign.go` | `Namespace` and `Attr`; SVG element and attribute adjustment tables; foreign attribute namespaces; MathML/SVG integration points; breakout tags; foreign-content dispatch | 373 |
+| `internal/html/tree.go` | Insertion-mode tree builder; implicit html/head/body; scope rules; implied end tags; resource caps | 1713 |
+| `internal/html/select.go` | Customizable select: selected-content mirroring and select scope helpers | 133 |
+| `internal/html/template.go` | Template and frameset insertion modes; template mode stack | 260 |
+| `internal/html/fragment.go` | Internal context-aware fragment parsing (`parseFragment`) | 111 |
 | `internal/html/formatting.go` | Active formatting list, Noah's Ark clause, reconstruction, adoption agency | 451 |
-| `internal/html/tables.go` | Table insertion modes (in table, caption, column group, table body, row, cell) and foster parenting | 603 |
+| `internal/html/tables.go` | Table insertion modes (in table, caption, column group, table body, row, cell) and foster parenting | 636 |
 | `internal/html/entities.go` | Context-aware character-reference decoder (text and attribute rules) | 252 |
 | `internal/html/doc.go` | Package doc indirection | 2 |
 | `internal/html/html_test.go` | Unit tests (same package, so tokenizer internals are tested directly) | 1938 |
-| `internal/html/conformance_test.go` | Corpus runner: manifest, category planning, report, baseline evidence | 791 |
+| `internal/html/fragment_test.go` | Fragment-context tests | 118 |
+| `internal/html/template_select_test.go` | Template and select tree tests | 181 |
+| `internal/html/conformance_test.go` | Corpus runner: manifest, category planning, report, baseline evidence | 792 |
 | `internal/html/conformance_tokenizer_test.go` | Tokenizer category: expected-stream parsing and comparison | 589 |
-| `internal/html/conformance_tree_test.go` | Tree-construction category: `.dat` parsing and tree-dump comparison | 806 |
+| `internal/html/conformance_tree_test.go` | Tree-construction category: `.dat` parsing and tree-dump comparison | 868 |
 | `internal/html/fuzz_test.go` | `FuzzParseHTML`: no-panic fuzzing | 31 |
 
-Total: 8,789 lines (roughly half test code). The package is split by
+Total: 9,947 lines (roughly half test code). The package is split by
 responsibility, not length, and every file stays under the ~2,000-line soft
 limit (see `AGENTS.md`, "Code structure").
 
 ## 3. Key types, functions & entry points
 
-### 3.1 Node model (`html.go:19-133`)
+### 3.1 Node model (`html.go:19-53`)
 
 ```go
 type NodeType int          // html.go:19
@@ -101,6 +106,7 @@ type Node struct {         // html.go:32
     Doctype   Doctype            // structured doctype fields
     Mode      DocumentMode       // document mode; only meaningful on the root
     Children  []*Node
+    Contents  []*Node            // template content; skipped by Walk/TextContent
     Parent    *Node
 }
 ```
@@ -109,51 +115,53 @@ Key methods:
 
 | Member | Line | Purpose |
 |--------|------|---------|
-| `(*Node) Attribute(name string) string` | 49 | Case-insensitive attribute lookup: exact key first, lowercased fallback for HTML-style callers. Missing attr -> `""`. |
-| `(*Node) FirstChild(name string) *Node` | 64 | First **element** child with the given name, or nil. |
-| `(*Node) TextContent() string` | 75 | Concatenated descendant text (comments/doctype contribute nothing). |
-| `(*Node) Walk(f func(*Node))` | 84 | Pre-order (document-order) recursive walk. The main iteration primitive used by every consumer. |
-| `(*Node) WalkUntil(f func(*Node) bool) bool` | 94 | Pre-order walk with early stop; reports whether the full tree was visited. |
-| `(*Node) FindFirst(pred func(*Node) bool) *Node` | 109 | First pre-order match, or nil (used by the public `html.Document.Find`, `html/parse.go:58`). |
-| `(*Node) TextContentOf(name string) string` | 127 | Text content of the *first* element descendant with that name. |
+| `(*Node) Attribute(name string) string` | 55 | Case-insensitive attribute lookup: exact key first, lowercased fallback for HTML-style callers. Missing attr -> `""`. |
+| `(*Node) FirstChild(name string) *Node` | 70 | First **element** child with the given name, or nil. |
+| `(*Node) TextContent() string` | 82 | Concatenated descendant text (comments/doctype contribute nothing; template `Contents` is skipped). |
+| `(*Node) Walk(f func(*Node))` | 93 | Pre-order (document-order) recursive walk. The main iteration primitive used by every consumer. |
+| `(*Node) WalkUntil(f func(*Node) bool) bool` | 103 | Pre-order walk with early stop; reports whether the full tree was visited. |
+| `(*Node) FindFirst(pred func(*Node) bool) *Node` | 119 | First pre-order match, or nil (used by the public `html.Document.Find`, `html/parse.go:58`). |
+| `(*Node) TextContentOf(name string) string` | 137 | Text content of the *first* element descendant with that name. |
 
 Foreign attributes keep their adjusted names (`viewBox`) or qualified names
 (`xlink:href`) as map keys, and the namespace is preserved in `AttrList`
-(§3.5).
+(§3.5). A `template` element keeps its content in `Contents`, outside
+`Children`; `Walk`, `TextContent`, and `FindFirst` skip it so template content
+is never rendered or collected as active style.
 
 ### 3.2 Public entry points
 
 | Function | Line | Purpose |
 |----------|------|---------|
-| `Parse(source string) (*Node, error)` | 154 | Preprocess, scan, and build a tree with a synthetic root named `#document`. Streaming: `scanTokens` emits tokens to `builder.appendToken`, so no whole-token slice is retained. |
-| `ParseDocument(body []byte) (*Node, error)` | 166 | Bytes -> tree; strips a leading UTF-8 BOM (`html.go:167`). |
+| `Parse(source string) (*Node, error)` | 164 | Preprocess, scan, and build a tree with a synthetic root named `#document`, then apply the select selected-content mirroring (`applySelectedContent`, select.go:14). Streaming: `scanTokens` emits tokens to `builder.appendToken`, so no whole-token slice is retained. |
+| `ParseDocument(body []byte) (*Node, error)` | 177 | Bytes -> tree; strips a leading UTF-8 BOM (`html.go:178`). |
 
 ### 3.3 Tokenizer internals
 
-Input preprocessing (`preprocessInput`, `html.go:209-250`) applies the WHATWG
+Input preprocessing (`preprocessInput`, `html.go:220-261`) applies the WHATWG
 input-stream rules: CRLF and CR become LF, and invalid UTF-8 byte sequences
 become U+FFFD. NUL bytes stay in the stream and are handled per state.
-`scanTokens` runs preprocessing once before the scan loop (`html.go:271`).
+`scanTokens` runs preprocessing once before the scan loop (`html.go:282`).
 When the source has no CR and is valid UTF-8, the original string is returned
-unchanged (`html.go:210-212`).
+unchanged (`html.go:221-223`).
 
 | Symbol | Line | Purpose |
 |--------|------|---------|
-| `type tokenKind` / `tokDoctype, tokStart, tokEnd, tokText, tokComment` | 175-181 | Token classification. |
-| `type token struct { kind; data; attrs []string; selfClosing bool; doctype Doctype }` | 183-189 | Token payload. `attrs` is an **interleaved name,value slice** (not a map) to avoid per-token map allocation. |
-| `type tokenSink func(token)` | 192 | Push-style token consumer (streaming). |
-| `tokenize(src) ([]token, error)` | 196-204 | Test-only collector: buffers all tokens via the sink. The error return is always nil. |
-| `scanTokens(src, emit)` | 270-314 | Main scanner loop. Dispatches on `<`; a bare `<` becomes text. |
-| `scanBang(src, pos, emit)` | 318-328 | `<!-- comment -->`, case-insensitive `<!doctype ...>`, or a bogus comment. |
-| `scanBogusComment(src, from, initial, emit)` | 332-343 | Consumes to `>` or EOF as comment data; used for `<!bogus` and `<?...?>` (the latter via `scanTokens`, 302-303). |
-| `scanComment(src, pos, emit)` | 360-465 | Comment state machine (states at 346-355) with unfinished-comment recovery. |
-| `scanEndTag(src, pos, emit)` | 470-518 | `</name>`; attributes on end tags are parsed and ignored (509-517); non-letter names become bogus comments. |
-| `scanTagAttributes(src, i)` | 539-725 | Attribute state machine (states at 521-533). Returns interleaved attrs, the self-closing flag, and the index after `>`. |
-| `decodeAttributeReference(src, i)` | 742-748 | Attribute-context character reference; an ambiguous or historically flushed reference decodes to a bare `&`. |
-| `scanStartTag(src, pos, emit)` | 753-808 | Start tags plus raw-text content capture; `plaintext` swallows the rest (799-805). |
-| `rawTextMode(name)` | 823-834 | Content mode by element: RCDATA (`title`, `textarea`), RAWTEXT (`style`, `xmp`, `iframe`, `noframes`), script data (`script`). `noscript`/`noembed` are deliberately absent (scripting disabled). |
-| `scanRawText(src, from, name)` | 841-914 | Raw content up to the real closing tag; a partial end tag at EOF is dropped or re-emitted as text per the eof-in-tag rules (881-889). |
-| `replaceNUL(s)` | 258-264 | Maps literal NUL to U+FFFD in names, values, comments, and raw text. |
+| `type tokenKind` / `tokDoctype, tokStart, tokEnd, tokText, tokComment` | 184-192 | Token classification. |
+| `type token struct { kind; data; attrs []string; selfClosing bool; doctype Doctype }` | 194-202 | Token payload. `attrs` is an **interleaved name,value slice** (not a map) to avoid per-token map allocation. |
+| `type tokenSink func(token)` | 203 | Push-style token consumer (streaming). |
+| `tokenize(src) ([]token, error)` | 207-215 | Test-only collector: buffers all tokens via the sink. The error return is always nil. |
+| `scanTokens(src, emit)` | 281-325 | Main scanner loop. Dispatches on `<`; a bare `<` becomes text. |
+| `scanBang(src, pos, emit)` | 329-339 | `<!-- comment -->`, case-insensitive `<!doctype ...>`, or a bogus comment. |
+| `scanBogusComment(src, from, initial, emit)` | 343-354 | Consumes to `>` or EOF as comment data; used for `<!bogus` and `<?...?>` (the latter via `scanTokens`, 313-314). |
+| `scanComment(src, pos, emit)` | 371-476 | Comment state machine (states at 356-369) with unfinished-comment recovery. |
+| `scanEndTag(src, pos, emit)` | 481-529 | `</name>`; attributes on end tags are parsed and ignored (520-528); non-letter names become bogus comments. |
+| `scanTagAttributes(src, i)` | 550-736 | Attribute state machine (states at 531-548). Returns interleaved attrs, the self-closing flag, and the index after `>`. |
+| `decodeAttributeReference(src, i)` | 753-759 | Attribute-context character reference; an ambiguous or historically flushed reference decodes to a bare `&`. |
+| `scanStartTag(src, pos, emit)` | 764-819 | Start tags plus raw-text content capture; `plaintext` swallows the rest (810-816). |
+| `rawTextMode(name)` | 836-847 | Content mode by element: RCDATA (`title`, `textarea`), RAWTEXT (`style`, `xmp`, `iframe`, `noframes`), script data (`script`). `noscript`/`noembed` are deliberately absent (scripting disabled). |
+| `scanRawText(src, from, name)` | 854-927 | Raw content up to the real closing tag; a partial end tag at EOF is dropped or re-emitted as text per the eof-in-tag rules (894-902, 909-914). |
+| `replaceNUL(s)` | 269-275 | Maps literal NUL to U+FFFD in names, values, comments, and raw text. |
 
 Character references live in `entities.go`: `UnescapeEntities` for text
 context (`entities.go:25-58`), `decodeCharRefAt` with the attribute rules
@@ -180,9 +188,10 @@ state but bogus forces quirks (`doctype.go:544-548`).
 "initial" insertion-mode tables: force-quirks or a non-`html` name means
 quirks; exact and prefix public/system identifier tables (`doctype.go:52-138`)
 decide the rest; the HTML 4.01 frameset/transitional identifiers depend on
-whether the system identifier is missing or empty (`doctype.go:165-176`). The mode is set
-in `processInitial` (`tree.go:193-198`), defaulted to quirks at EOF
-(`finish`, `tree.go:107-111`), and copied to `root.Mode` (`tree.go:135`).
+whether the system identifier is missing or empty (`doctype.go:165-176`). The
+mode is set in `processInitial` (`tree.go:260-268`), defaulted to quirks at
+EOF (`finish`, `tree.go:149-155`), and copied to `root.Mode`
+(`tree.go:194`).
 
 The mode crosses the public boundary as `pubstate.Styled.Mode`
 (`internal/pubstate/state.go:16`), populated by `css.Apply`
@@ -191,92 +200,102 @@ is exposed as data (plan row HTML-MODE-01).
 
 ### 3.5 Foreign content: namespaces and adjustments (`foreign.go`)
 
-`Namespace` (`foreign.go:8-19`) and `Attr` (`foreign.go:21-28`) are the
+`Namespace` (`foreign.go:10-22`) and `Attr` (`foreign.go:24-30`) are the
 representation added by HTML-FOREIGN-01. The standard's tables are
 transcribed in full:
 
-- SVG element-name adjustments (`foreign.go:32-70`), e.g. `clippath` ->
+- SVG element-name adjustments (`foreign.go:32-72`), e.g. `clippath` ->
   `clipPath`;
-- SVG attribute-name adjustments (`foreign.go:74-133`), e.g. `viewbox` ->
+- SVG attribute-name adjustments (`foreign.go:74-135`), e.g. `viewbox` ->
   `viewBox`;
-- foreign attribute namespaces (`foreign.go:144-156`): `xlink:*`, `xml:*`,
+- foreign attribute namespaces (`foreign.go:144-158`): `xlink:*`, `xml:*`,
   `xmlns`, `xmlns:xlink`.
 
-`adjustForeignElementName` (`foreign.go:160-168`) and `adjustAttributeName`
-(`foreign.go:174-200`, including MathML `definitionurl` -> `definitionURL`)
+`adjustForeignElementName` (`foreign.go:160-172`) and `adjustAttributeName`
+(`foreign.go:174-202`, including MathML `definitionurl` -> `definitionURL`)
 apply them during insertion.
 
-Integration points: `isMathMLTextIntegrationPoint` (`foreign.go:204-215`),
-`isHTMLIntegrationPoint` (`foreign.go:220-241`). Breakout tags:
-`foreignBreakoutTags` (`foreign.go:245-254`) and `isForeignBreakout`
-(`foreign.go:259-274`; `font` breaks out only with `color`, `face`, or
+Integration points: `isMathMLTextIntegrationPoint` (`foreign.go:204-218`),
+`isHTMLIntegrationPoint` (`foreign.go:220-243`). Breakout tags:
+`foreignBreakoutTags` (`foreign.go:245-257`) and `isForeignBreakout`
+(`foreign.go:259-280`; `font` breaks out only with `color`, `face`, or
 `size`).
 
-The tree side is `foreignToken` (`tree.go:843-886`), `inForeignStartContext`
-(`tree.go:888-903`), `currentIsForeignText` (`tree.go:909-916`),
-`popForeignBreakout` (`tree.go:918-927`), and `closeForeignElement`
-(`tree.go:1213-1238`).
+The tree side lives in the same file: `foreignToken` (`foreign.go:282-332`),
+`inForeignStartContext` (`foreign.go:334-349`), `currentIsForeign`
+(`foreign.go:351-353`), `currentIsForeignText` (`foreign.go:355-362`),
+`popForeignBreakout` (`foreign.go:364-372`), and `closeForeignElement`
+(`tree.go:1377-1417`).
 
 ### 3.6 Tree builder internals (`tree.go`)
 
-`insertionMode` (`tree.go:20-36`): initial, before html, before head, in
+`insertionMode` (`tree.go:18-41`): initial, before html, before head, in
 head, after head, in body, in text, in table, in caption, in column group,
-in table body, in row, in cell, after body, after after body.
+in table body, in row, in cell, in template, after body, in frameset, after
+frameset, after after body, after after frameset.
 
-`treeBuilder` (`tree.go:39-52`) carries the root, the open-element stack, the
+`treeBuilder` (`tree.go:43-61`) carries the root, the open-element stack, the
 current mode, `textReturn` (mode to restore after a raw-text element), the
 `head` and `form` pointers, the document mode, `ignoreNextLF`,
-`fosterParenting`, pending table text, and the active-formatting list.
+`fosterParenting`, pending table text, the active-formatting list, the
+template-mode stack, `framesetOK`, the fragment context, and the raw-text
+reparse flag.
 
 Dispatch and flow:
 
 | Symbol | Line | Purpose |
 |--------|------|---------|
-| `appendToken(tok)` | 88-98 | Flushes pending table text for non-text tokens, then reprocesses a token up to `maxReprocess` (15) times across mode switches. |
-| `finish()` | 102-140 | The EOF mode chain: initial -> before html -> before head -> in head -> after head, inserting omitted `html`, `head`, and `body`; EOF in a raw-text element pops it and reprocesses under `textReturn` (126-133). |
-| `processToken(tok)` | 144-183 | Foreign-content check (`foreignToken`, 843) then mode dispatch. |
-| `processInitial` | 187-221 | Doctype classification; leading whitespace dropped; non-whitespace starts the body chain. |
-| `processBeforeHTML` / `processBeforeHead` / `processInHead` / `processAfterHead` | 223 / 259 / 300 / 375 | Implicit `html`/`head`/`body`; head-content routing (335-343); the in-head `template` end tag pops through the open template (352-360); `html`/`body` attribute merging (1151-1160); head content seen after `</head>` is pushed back through `processHeadContent` (1135-1148). |
-| `processInText` | 430-445 | Raw-text element content; end tag pops and restores `textReturn`. |
-| `processInBody` / `processInBodyStart` / `processInBodyEnd` | 447 / 477 / 671 | Paragraph, list, and definition closing (697-722); headings (502-511, 723-731); `pre`/`listing`/`textarea` LF swallow (457-460, 512-518, 610-616); button-in-scope closing (545-554); formatting start tags reconstruct and push (555-591); void elements reconstruct (592-600); `<image>` -> `img` (606-609); `select`/`option` legacy closing (634-638); `template` end tag (763-766); `table` enters the table modes (647-655); formatting end tags go to the adoption agency (674-678). |
-| `processAfterBody` / `processAfterAfterBody` | 785 / 814 | Post-body comments and whitespace; stray content re-enters the body. |
+| `appendToken(tok)` | 98-124 | Flushes pending table text for non-text tokens, then reprocesses a token up to `maxReprocess` (8) times across mode switches. |
+| `finish()` | 126-201 | The EOF mode chain: initial -> before html -> before head -> in head -> after head, inserting omitted `html`, `head`, and `body`; EOF in a raw-text element pops it and reprocesses under `textReturn`. |
+| `processToken(tok)` | 203-252 | Foreign-content check (`foreignToken`) then mode dispatch. |
+| `processInitial` | 254-288 | Doctype classification; leading whitespace dropped; non-whitespace starts the body chain. |
+| `processBeforeHTML` / `processBeforeHead` / `processInHead` / `processAfterHead` | 290 / 326 / 367 / 448 | Implicit `html`/`head`/`body`; head-content routing; the in-head `template` end tag pops through the open template; `html`/`body` attribute merging (`mergeIntoHTMLElement`, 1310); head content seen after `</head>` is pushed back through `processHeadContent` (1294). |
+| `processInText` | 516-531 | Raw-text element content; end tag pops and restores `textReturn`. |
+| `processInBody` / `processInBodyStart` / `processInBodyEnd` | 533 / 567 / 859 | Paragraph, list, and definition closing; headings; `pre`/`listing`/`textarea` LF swallow (606, 739); button-in-scope closing (644); formatting start tags reconstruct and push; void elements reconstruct; `<image>` -> `img` (735); `select`/`option`/`optgroup` closing (766, 785, 796); `template` start tag (951); `table` enters the table modes (817); formatting end tags go to the adoption agency. |
+| `processAfterBody` / `processAfterAfterBody` | 973 / 1007 | Post-body comments and whitespace; stray content re-enters the body. |
 
-Insertion helpers: `insertHTMLElement` (932), `insertNode` (994),
-`insertForeignElement` (1039), `insertChildAt` (1021), `appropriatePlace`
-(947), `appropriatePlaceFor` (953, the adoption agency's adjusted location),
-`isFosterTarget` (978), `applyAttributes` (1110), `appendTextToken`
-(1052), `appendCommentTo` (1044).
+Insertion helpers: `insertHTMLElement` (1034), `insertNode` (1134),
+`insertForeignElement` (1184), `insertChildAt` (1161), `appropriatePlace`
+(1051), `appropriatePlaceFor` (1057, the adoption agency's adjusted location),
+`isFosterTarget` (1118), `applyAttributes` (1269), `appendTextToken`
+(1206), `appendCommentTo` (1190).
 
-**Self-closing rules by namespace** (`insertNode`, `tree.go:994-1017`): the
+**Self-closing rules by namespace** (`insertNode`, `tree.go:1134-1157`): the
 self-closing flag is a parse error that is ignored on ordinary HTML elements;
 void HTML elements never take content; foreign elements honor the flag
 (`(ns == NamespaceHTML && isVoidElement(name)) || (ns != NamespaceHTML && selfClosing)`,
-1010). `isVoidElement` is at `tree.go:1558-1566`.
+1150). `isVoidElement` is at `tree.go:1705-1711`.
 
 Scope and implied end tags: the default, button, and list-item scope maps end
 at MathML text integration points and HTML integration points through the
-`integrationPointStops` sentinel (`tree.go:1242-1247`); table scope omits it.
-Maps: `tree.go:1249-1305` (`select` is now a scope stop). Helpers:
-`findInScope` (1307), `hasInScope` (1322), `hasInScopeAny` (1326),
-`isScopeBoundary` (1345), `generateImpliedEndTags` (1362), `popUntilName`
-(1373), `popUntilAnyName` (1384), `closePElement` (1403),
-`closeOpenListItem` (1418), `closeOpenDefinitionItem` (1435).
-`closeHTMLElement` (1192) applies the in-body "any other end tag" rule: a
+`integrationPointStops` sentinel (`tree.go:1419`); table scope omits it.
+Maps: `tree.go:1421-1477` (`select` is a scope stop). Helpers:
+`findInScope` (1479), `hasInScope` (1494), `hasInScopeAny` (1498),
+`isScopeBoundary` (1517), `generateImpliedEndTags` (1534), `popUntilName`
+(1545), `popUntilAnyName` (1556), `closePElement` (1575),
+`closeOpenListItem` (1590), `closeOpenDefinitionItem` (1607).
+`closeHTMLElement` (1356) applies the in-body "any other end tag" rule: a
 matching element is popped with implied end tags, but a special non-matching
-element makes the end tag a no-op. `closeForeignElement` (1213).
+element makes the end tag a no-op. `closeForeignElement` (1377).
 
 **Formatting elements and the adoption agency** live in `formatting.go`:
 `formattingTags` (`formatting.go:12-16`), the Noah's Ark clause
 (`pushActiveFormatting`, 49-69), list helpers (35-114), reconstruction
 (`reconstructActiveFormatting`, 185-214), the adoption agency algorithm
 (`adoptionAgency`, 235-366), and the stack/tree surgery helpers (368-451).
-Markers are pushed and cleared in `tree.go` (`insertMarker`, 64-66;
-`clearActiveFormattingToMarker`, 70-80) and by caption and cell close
-(`tables.go:235-240`, `477-491`). The plan row HTML-FORMAT-01 is closed.
+Markers are pushed and cleared in `tree.go` (`insertMarker`, 74-78;
+`clearActiveFormattingToMarker`, 80-90) and by caption and cell close
+(`tables.go:234-240`, `476-491`). The plan row HTML-FORMAT-01 is closed.
 
-Select: `legacyOptionAutoClose` (`tree.go:1478-1497`) closes `option` and
-`optgroup`; the full select insertion modes are still owned by
-HTML-CONTEXT-01 (comment at `tree.go:1474`).
+**Select and template.** Select scope helpers and selected-content mirroring
+live in `select.go` (`selectInScope`, 116; `popUntilSelectPopped`, 121;
+`mirrorSelectedContent`, 25). Template and frameset modes live in
+`template.go` (`processInTemplate`, 9; `processInFrameset`, 61;
+`processAfterFrameset`, 120; `processAfterAfterFrameset`, 152; template mode
+stack at 206-242). A `template` element keeps its content on `Node.Contents`,
+outside `Children`. Internal fragment parsing lives in `fragment.go`
+(`parseFragment`, 55). Plan rows HTML-CONTEXT-01, HTML-FRAGMENT-01, and
+HTML-INTEGRATION-01 are closed.
 
 ### 3.7 Table insertion modes (`tables.go`)
 
@@ -284,25 +303,25 @@ Table scope is `html`, `table`, `template` (`tables.go:13`). The modes:
 
 | Symbol | Line | Purpose |
 |--------|------|---------|
-| `processInTable` | 17-56 | Text is collected (`pendingTableText`); structure tags dispatch to `processInTableStart` (61-116); anything else goes through `fosterInBody` (120-126). |
-| `flushPendingTableText` | 131-160 | Pure whitespace is inserted in place; text mixed with non-whitespace is foster-parented around the table. |
-| `processInCaption` / `closeCaption` | 194 / 235 | Caption content uses the in-body rules; close clears formatting to the caption marker. |
-| `processInColumnGroup` | 244-304 | `col` insertion, whitespace handling, and leaving the column group. |
-| `processInTableBody` | 308-363 | Row and section transitions. |
-| `processInRow` | 367-431 | Cells and row transitions. |
-| `processInCell` / `closeCell` | 435 / 477 | Cell content uses the in-body rules; close clears formatting to the cell marker. |
+| `processInTable` | 17-59 | Text is collected (`pendingTableText`); structure tags dispatch to `processInTableStart` (61-118); anything else goes through `fosterInBody` (120-129). |
+| `flushPendingTableText` | 131-165 | Pure whitespace is inserted in place; text mixed with non-whitespace is foster-parented around the table. |
+| `processInCaption` / `closeCaption` | 193 / 234 | Caption content uses the in-body rules; close clears formatting to the caption marker. |
+| `processInColumnGroup` | 243-305 | `col` insertion, whitespace handling, and leaving the column group. |
+| `processInTableBody` | 307-364 | Row and section transitions. |
+| `processInRow` | 366-432 | Cells and row transitions. |
+| `processInCell` / `closeCell` | 434 / 476 | Cell content uses the in-body rules; close clears formatting to the cell marker. |
 
-Stack and scope helpers: `clearStackToTableContext` (497),
-`clearStackToTableBodyContext` (511), `clearStackToTableRowContext` (526),
-`hasTableBodyInScope` (540), `hasCellInTableScope` (551).
-`resetInsertionMode` (558-606) resets the mode after a table closes; the
-template and fragment branches are omitted until those features exist
-(`tables.go:555-556`).
+Stack and scope helpers: `clearStackToTableContext` (496),
+`clearStackToTableBodyContext` (510), `clearStackToTableRowContext` (525),
+`hasTableBodyInScope` (539), `hasCellInTableScope` (550).
+`resetInsertionMode` (557-625) resets the mode after a table closes, including
+the template and frameset branches and the fragment-context substitution
+(`tables.go:554-556`).
 
 Foster parenting reuses the in-body rules: `appropriatePlace`
-(`tree.go:947-974`) inserts before the open table when `fosterParenting` is
+(`tree.go:1051-1053`) inserts before the open table when `fosterParenting` is
 set and the current node is a foster target (`table`, `tbody`, `tfoot`,
-`thead`, `tr`; `tree.go:978-989`).
+`thead`, `tr`; `tree.go:1118-1129`).
 
 ### 3.8 Recovery model (no sentinel errors)
 
@@ -324,9 +343,9 @@ the WHATWG ones:
 - EOF while a raw-text element is open pops it and reprocesses under
   `textReturn` (`finish`, `tree.go:126-133`);
 - NUL bytes become U+FFFD in names, values, comments, and raw text
-  (`replaceNUL`, `html.go:258-264`); in body text, NUL is dropped for HTML
+  (`replaceNUL`, `html.go:269-279`); in body text, NUL is dropped for HTML
   content and replaced for foreign text (`appendTextToken`,
-  `tree.go:1052-1057`).
+  `tree.go:1206-1211`).
 
 Resource caps replace error returns: `maxElementDepth = 1024` drops elements
 deeper than the cap so recursive walks stay bounded (`tree.go:8-11`,
@@ -351,25 +370,26 @@ internal/convert/prepare/prepare.go:210
 - **Charset seam:** `internal/load` enforces UTF-8/ASCII before the parser
   sees bytes (`checkDocumentCharset`, `internal/load/load.go:968-984`; the
   `<meta charset>` fallback scan is `metaCharset`, `load.go:1016`).
-- **BOM mirror:** `ParseDocument` strips `\ufeff` (`html.go:167`), the same
+- **BOM mirror:** `ParseDocument` strips `\ufeff` (`html.go:178`), the same
   way `load.IsHTML` recognizes inline HTML (`load.go:303`).
 
 ### 4.2 Tokenizer -> tree flow (inside `Parse`)
 
 ```text
-Parse(source)                                 html.go:154
-  -> preprocessInput(source)                  html.go:209 (CRLF/CR -> LF, bad UTF-8 -> U+FFFD)
-  -> scanTokens(source, builder.appendToken)  html.go:270
+Parse(source)                                 html.go:164
+  -> preprocessInput(source)                  html.go:220 (CRLF/CR -> LF, bad UTF-8 -> U+FFFD)
+  -> scanTokens(source, builder.appendToken)  html.go:281
        text runs / comments / doctype / bogus declarations / PI-as-comment /
        end tags / start tags (raw-text content captured here)
-  -> builder.finish()                         tree.go:102 (EOF mode chain)
+  -> builder.finish()                         tree.go:126 (EOF mode chain)
+  -> applySelectedContent(root)               select.go:14 (selected-content mirroring)
   -> root Node "#document"
 ```
 
-`appendToken` (`tree.go:88`) feeds each token through `processToken`
-(`tree.go:136`); a handler can ask for reprocessing when it switches modes.
+`appendToken` (`tree.go:98`) feeds each token through `processToken`
+(`tree.go:203`); a handler can ask for reprocessing when it switches modes.
 Tree building and scanning are interleaved in one pass: no production path
-materializes a token slice (`tokenize`, `html.go:196`, exists for tests
+materializes a token slice (`tokenize`, `html.go:207`, exists for tests
 only).
 
 ### 4.3 Consumer flows (how the tree is walked downstream)
@@ -387,7 +407,7 @@ only).
   (`internal/pubstate/state.go:31-49`) hand the internal tree to the public
   packages without leaking internal types in exported signatures.
 - **Detached copies** - `markup.Parse` copies the tree and drops parent
-  pointers (`markup/markup.go:44-55`, `68-96`).
+  pointers (`markup/markup.go:116-123`, `125-151`).
 
 ## 5. Cross-package dependencies
 
@@ -409,7 +429,7 @@ import graph cannot cycle through it.
 | `internal/pubstate` | Public/internal bridge types and readers (`state.go:13-49`). |
 | root `css` | Public cascade over a public `html.Document` (`css/css.go:97`). |
 | root `html` | Public `Document` and `Find` over the engine node (`html/parse.go:36-70`). |
-| `markup` | Detached copy for callers that want an owned tree (`markup/markup.go:59-96`). |
+| `markup` | Detached copy for callers that want an owned tree (`markup/markup.go:116-151`). |
 
 ### 5.3 Import-direction rule
 
@@ -442,16 +462,16 @@ consumers, not a local swap.
   arbitrary websites. Implementing the standard's tokenizer states and
   insertion-mode skeleton buys recovery behavior and a conformance corpus
   without a new dependency.
-- **Cost:** the tree-construction coverage is partial. Select/template
-  states, fragment parsing, script-data escaped states, and some ruby and
-  frameset recovery rules are missing; §10 lists the measured gaps.
+- **Cost:** the tree-construction coverage is partial. Script-data escaped
+  states, some ruby and frameset recovery rules, and CDATA handling in
+  foreign content are missing; §10 lists the measured gaps.
 - **Migration note:** the ponytail note at `html.go:8` still applies.
 
 ### 6.2 Streaming single pass (sink callback)
 
 `scanTokens` emits tokens through `tokenSink` as they are recognized, and
 `appendToken` builds the tree in the same loop. Production documents never
-materialize a token slice (the `tokenize` collector at `html.go:196` is
+materialize a token slice (the `tokenize` collector at `html.go:207` is
 test-only), so memory stays bounded by tree size, not token count.
 
 ### 6.3 Recovery plus resource caps, not error returns
@@ -473,9 +493,9 @@ implemented.
 
 SVG and MathML are represented with `Namespace`, adjusted names, and
 namespaced attributes (`foreign.go`), and foreign content can break back
-into HTML (`tree.go:753-837`). The self-closing flag is honored only for
+into HTML (`foreign.go:282-332`). The self-closing flag is honored only for
 foreign elements; on ordinary HTML elements it is a parse error that is
-ignored, and void elements never take content (`tree.go:994-1017`). The
+ignored, and void elements never take content (`tree.go:1134-1157`). The
 conformance harness compares the flag directly at the tokenizer level
 (`conformance_tokenizer_test.go:482-484`); the tree level validates its
 effect.
@@ -496,13 +516,13 @@ code never re-decodes.
 ### 6.7 Performance micro-decisions
 
 - `preprocessInput` returns the original string when it contains no CR and
-  is valid UTF-8 (`html.go:210-212`), avoiding a copy for the common case.
+  is valid UTF-8 (`html.go:221-223`), avoiding a copy for the common case.
 - Token attrs use an interleaved `[]string` (two slots per pair) instead of a
-  map; the map is built only in `applyAttributes` (`tree.go:1016-1036`).
+  map; the map is built only in `applyAttributes` (`tree.go:1269-1291`).
 - `scanRawText` searches byte-wise for `<` and only builds the text it keeps
-  (`html.go:841-914`).
+  (`html.go:854-927`).
 - `appendTextToken` merges adjacent text nodes with a single pre-sized
-  builder (`tree.go:958-1010`).
+  builder (`tree.go:1206-1267`).
 
 ## 7. Notable patterns & invariants
 
@@ -515,11 +535,11 @@ code never re-decodes.
    list in production paths; `tokenize` exists purely for tests.
 
 3. **Adjacent text merging.** Consecutive text tokens merge into one
-   `TextNode` (`tree.go:1052-1104`), keeping the tree small and `TextContent`
+   `TextNode` (`tree.go:1206-1267`), keeping the tree small and `TextContent`
    deterministic.
 
 4. **First-wins duplicate attributes.** `applyAttributes` keeps the first
-   value of a duplicated attribute (`tree.go:1121-1129`).
+   value of a duplicated attribute (`tree.go:1281-1287`).
 
 5. **Lowercasing at the boundary.** HTML element and attribute names are
    lowercased once by the tokenizer; foreign names are case-adjusted per the
@@ -537,8 +557,8 @@ code never re-decodes.
 8. **Document mode is root data.** `root.Mode` is the only place the mode
    lives in the tree; `Node.Mode` on other nodes is meaningless.
 
-9. **Extension points.** The mode handlers (`tree.go:144-183`), the scope
-   maps (`tree.go:1249-1305`), `impliedEndTags` (`tree.go:1270-1273`), and
+9. **Extension points.** The mode handlers (`tree.go:203-252`), the scope
+   maps (`tree.go:1421-1477`), `impliedEndTags` (`tree.go:1442`), and
    the foreign tables (`foreign.go`) are the vocabularies a new construct
    touches.
 
@@ -548,13 +568,12 @@ The parser is the first trust boundary for *markup*, and the design leans on
 **structural inertness plus downstream rendering gating**:
 
 - **No script execution by construction.** Script content is raw text
-  (`html.go:823-834`) and the layout UA sheet sets `display: none`
-  (`internal/layout/style_values.go:1837-1839`). JavaScript-related flags are
-  unknown options and no code path evaluates scripts
-  (`documentation/compatibility-matrix.md:921`, `documentation/deferred.md:72`;
-  `documentation/THREAT-MODEL.md:14-17`).
-- **No form submission path.** POST only via explicit `--post` flags, and no
-  cookies are auto-forwarded (`documentation/compatibility-matrix.md:1179`).
+  (`html.go:836-852`) and the layout UA sheet sets `display: none`
+  (`internal/layout/style_values.go:1837-1839`). No code path evaluates
+  scripts (`documentation/compatibility-matrix.md:921`).
+- **No form submission path.** POST happens only when the caller configures
+  `settings.Load.Post`, and no cookies are forwarded
+  (`documentation/compatibility-matrix.md:1175`).
 - **Deterministic, non-crashing parsing.** Recovery replaces fatal errors;
   `maxElementDepth` bounds recursion; `TestParseUsableTreeNoPanic`
   (`html_test.go:1781`) and `FuzzParseHTML` (`fuzz_test.go:9-30`) lock in the
@@ -562,10 +581,10 @@ The parser is the first trust boundary for *markup*, and the design leans on
 - **Charset is enforced before parse.** Only UTF-8/ASCII reaches the parser
   (`load.checkDocumentCharset`, `internal/load/load.go:968-984`).
 - **Attribute values are decoded, not executed.** Entity decoding happens at
-  parse time (`tree.go:1110-1130`); there is no mechanism to turn attribute
+  parse time (`tree.go:1269-1291`); there is no mechanism to turn attribute
   content into behavior.
 - **CDATA is inert.** `<![CDATA[...]]>` is consumed as a bogus comment
-  (`html.go:318-328`), so it cannot inject markup.
+  (`html.go:329-341`), so it cannot inject markup.
 
 The model: the parser produces a *safe, inert data structure*; dangerous
 HTML features are structurally impossible to execute, not filtered late.
@@ -574,7 +593,7 @@ HTML features are structurally impossible to execute, not filtered late.
 
 ### 9.1 Unit tests
 
-All unit tests are **same-package** (`//nolint:all` at `html_test.go:1`), so
+All unit tests are **same-package** (`package html` at `html_test.go:1`), so
 tokenizer internals (`tokenize`, `tokenKind`, `scanDoctype`) are tested
 directly. Helpers: `mustParse` (`html_test.go:13`), `treeString` (25),
 `assertChildren` (56).
@@ -618,9 +637,18 @@ invariant (1781), pre-order walk (1802), `TextContentOf` (1826),
 `FuzzParseHTML` (`fuzz_test.go:9-30`) parses arbitrary strings up to 64 KiB
 and requires that `html.Parse` never panics.
 
+Fragment, template, and select tests: `fragment_test.go` covers the internal
+fragment contexts (`TestParseFragmentContexts`, 8;
+`TestParseFragmentContextAttributes`, 74; `TestParseFragmentForeignRawText`,
+100), and `template_select_test.go` covers template contents
+(`TestParseTemplateContentsAreSeparate`, 5), select states
+(`TestParseSelectStates`, 59), selected-content mirroring
+(`TestParseSelectedContentMirror`, 96), and template insertion modes
+(`TestParseTemplateInsertionModes`, 139).
+
 ### 9.2 Corpus conformance harness
 
-`TestHTMLConformance` (`internal/html/conformance_test.go:54-78`) runs the
+`TestHTMLConformance` (`internal/html/conformance_test.go:57-81`) runs the
 pinned `html5lib/html5lib-tests` corpus vendored under
 `testdata/html-conformance/`. The manifest
 (`testdata/html-conformance/manifest.json`) fixes the contract: upstream
@@ -628,11 +656,11 @@ revision `9329e64694e7835d0dcff9811e22856ef6ad16f9`, MIT license,
 `scripting: false`, the `tokenizer`, `tokenizer-local`, `tree-construction`,
 and `tree-construction-local` categories, and the unsupported buckets. The
 local categories hold repo-authored cases: `local/rawtext-entities.test` (6
-tokenizer cases) and `local/tables-local.dat` (12 tree cases pinning the
-table wrappers, adjacent cells, foster-parented content, and the table
-end-tag chain).
+tokenizer cases), `local/tables-local.dat` (12 tree cases pinning the table
+wrappers, adjacent cells, foster-parented content, and the table end-tag
+chain), and `local/fragment-local.dat` (14 fragment cases).
 
-Comparison rules (from the runner doc comment, `conformance_test.go:15-53`):
+Comparison rules (runner doc comment, `conformance_test.go:15-56`):
 
 - tokenizer cases compare the full token stream (coalesced character runs):
   kind, tag names, attribute maps, self-closing flag, doctype
@@ -640,88 +668,82 @@ Comparison rules (from the runner doc comment, `conformance_test.go:15-53`):
   (`conformance_tokenizer_test.go:440-459`);
 - tree cases compare node kinds, parent/child order, namespaces, exact text
   and comment data, attribute name/value pairs (with foreign namespaces), and
-  the doctype node (`conformance_tree_test.go:593-632`);
-- fields the engine cannot represent are never silently skipped: a case
-  whose only remaining difference is a missing engine field is counted
-  `unsupported` with a reason (template contents, processing instructions,
-  document fragments, tokenizer initial states other than the Data state,
-  XML-violation coercions, lone surrogates); a case that also differs in
-  representable behavior is counted `failed`.
+  the doctype node (`conformance_tree_test.go:660-699`);
+- template contents are compared structurally: the engine keeps them in
+  `Node.Contents` and the runner emits a `content` node
+  (`conformance_tree_test.go`);
+- the remaining unsupported reasons are tokenizer initial states other than
+  Data, lone-surrogate inputs, and XML-violation coercions
+  (`conformance_test.go:102-106`); a case that differs in representable
+  behavior is counted `failed`.
 
 Parser mismatches are baseline evidence, not test failures. The test fails
 only on harness problems. `HTML_CONFORMANCE_STRICT=1` turns any failed case
-into a test failure (`conformance_test.go:73-77`). Detail depth for the
+into a test failure (`conformance_test.go:76-80`). Detail depth for the
 failure log is `HTML_CONFORMANCE_DETAIL` (default 10,
-`conformance_test.go:779-791`).
+`conformance_test.go:780-792`).
 
 Evidence is written under the gitignored `temps/html-conformance/`:
 `engine-baseline.json` (counts, non-passed case ids, reasons;
-`conformance_test.go:662-733`) and `failures.txt` (capped detailed diffs).
+`conformance_test.go:663-734`) and `failures.txt` (capped detailed diffs).
 An absent corpus or manifest skips with an explicit zero-count message
-instead of failing the package (`conformance_test.go:57-65`).
+instead of failing the package (`conformance_test.go:60-68`).
 
-### 9.3 Measured corpus status (2026-10-09 20:33)
+### 9.3 Measured corpus status (2026-10-09)
 
 Command: `go test ./internal/html -run TestHTMLConformance -count=1`.
-Baseline: `temps/html-conformance/engine-baseline.json`, byte-identical
-across two consecutive runs (`cmp` exit 0). The plan ledger records the same
-counts (GATE-02, wave D update); re-run the command for the current numbers.
+Baseline: `temps/html-conformance/engine-baseline.json`. The plan ledger rows
+carry the per-feature evidence (GATE-02 and the select/template/fragment
+rows); re-run the command for the current numbers.
 
 | Category | Total | Passed | Failed | Skipped | Unsupported |
 |----------|-------|--------|--------|---------|-------------|
 | `tokenizer` | 7036 | 6686 | 0 | 0 | 350 |
 | `tokenizer-local` | 6 | 6 | 0 | 0 | 0 |
-| `tree-construction` | 1792 | 1225 | 331 | 8 | 228 |
-| `tree-construction-local` | 12 | 12 | 0 | 0 | 0 |
+| `tree-construction` | 1792 | 1631 | 153 | 8 | 0 |
+| `tree-construction-local` | 26 | 26 | 0 | 0 | 0 |
 
 Tokenizer: zero failures. The 350 unsupported cases are non-Data initial
 states (342 runs: CDATA 56, PLAINTEXT 52, RAWTEXT 71, RCDATA 74, script data
 89), lone-surrogate inputs (4), and XML-violation coercions (4).
 
 Tree construction: the plan ledger's HTML-02a row recorded 841 cases passing
-when the insertion modes landed; the table modes (HTML-05a) and the adoption
-agency (HTML-FORMAT-01) then measure 1225 of 1792. `adoption01.dat`,
-`adoption02.dat`, `tricky01.dat`, and `tables01.dat` are fully passing. The
-remaining non-passes break down as:
+when the insertion modes landed. The table modes (HTML-05a), the adoption
+agency (HTML-FORMAT-01), and then the select/template states
+(HTML-CONTEXT-01), internal fragment parsing (HTML-FRAGMENT-01), and
+integration (HTML-INTEGRATION-01) bring it to 1631 of 1792 with 0 unsupported.
+`adoption01.dat`, `adoption02.dat`, `tricky01.dat`, and `tables01.dat` have
+no failed cases, and all 26 local cases pass. The remaining 153 failures
+break down as:
 
 - **script-data handling** (`tests16.dat`, 40; 36 are `<!--<script` escaped
   sequences and the rest are `noscript`/`noembed` edges; related records in
-  `scriptdata01.dat` 9, `plain-text-unsafe.dat` 11, and `noscript01.dat` 8):
+  `scriptdata01.dat` 9, `plain-text-unsafe.dat` 9, and `noscript01.dat` 8):
   the tokenizer closes at the first `</script` even inside a `<!--<script`
   sequence; the standard's script-data escaped and double-escaped states are
   not implemented.
-- **template** (`template.dat`, 74 failed plus 36 unsupported): template
-  contents are not modeled; `template` is routed as head content
-  (`tree.go:335-343`) but has no separate content tree.
-- **ruby** (`tests19.dat` 53, `ruby.dat` 16): `rp`/`rt`/`rb`/`rtc` implied
-  end tags are incomplete.
 - **CDATA in foreign content** (`tests21.dat`, 21; also part of
-  `domjs-unsafe.dat` 14): `<![CDATA[...]]>` becomes a bogus comment
-  everywhere (`html.go:318-328`); in SVG/MathML the standard wants a text
+  `domjs-unsafe.dat` 11): `<![CDATA[...]]>` becomes a bogus comment
+  everywhere (`html.go:329-339`); in SVG/MathML the standard wants a text
   node.
-- **select** (24 failed inputs contain `<select`, mostly `webkit02.dat`):
-  the select insertion modes are not implemented
-  (`tree.go:1474-1497`, HTML-CONTEXT-01).
-- **frameset** (`tests6.dat`, 14): `frameset` is not in the vocabulary, so
-  frameset documents do not build the expected trees.
-- **tables/foster parenting**: closed. `tables01.dat` is fully passing, the
-  12 local table cases pass, and plan row HTML-05a is closed. One MathML
-  `annotation-xml` integration-point case (`tests20.dat#59`) is the only
-  remaining tests20 failure.
-- **fragments**: all 192 `#document-fragment` records are unsupported
-  because `Parse` has no context element (`conformance_tree_test.go:49-50`);
-  plan row HTML-FRAGMENT-01 is open.
+- **ruby** (`tests19.dat` 17, `ruby.dat` 16): `rp`/`rt`/`rb`/`rtc` implied
+  end tags are incomplete.
+- **frameset** (`tests6.dat`, 6): remaining frameset recovery cases.
+- **scattered records**: `tests3.dat` 3, `tests15.dat` 2, `tests2.dat` 2,
+  `tests25.dat` 2, `tests7.dat` 2, `webkit01.dat` 2,
+  `pending-spec-changes.dat` 1, `tests18.dat` 1, and the MathML
+  `annotation-xml` integration-point case `tests20.dat#59`.
 
-The 8 skipped cases are records with only a scripting-on expected document,
-and the 228 unsupported cases are the 192 fragments plus 36
-template-contents-only records. The full per-case list is in
-`temps/html-conformance/engine-baseline.json`.
+The 8 skipped cases are records with only a scripting-on expected document.
+There are no unsupported tree cases: the 192 upstream `#document-fragment`
+records and the 36 template-contents-only records now run through the
+internal fragment entry and `Node.Contents` comparison. The full per-case
+list is in `temps/html-conformance/engine-baseline.json`.
 
 Traceability: tokenizer rows HTML-03a, HTML-03b, HTML-04a, and HTML-INPUT-01
-are closed; tree rows HTML-02a, HTML-MODE-01, HTML-FOREIGN-01, HTML-05a, and
-HTML-FORMAT-01 are closed; HTML-CONTEXT-01 (select/template) and
-HTML-FRAGMENT-01 remain open in
-`plans/0.0.1/html-css-json-compatibility-checklist.md`.
+are closed; tree rows HTML-02a, HTML-MODE-01, HTML-FOREIGN-01, HTML-05a,
+HTML-FORMAT-01, HTML-CONTEXT-01, HTML-FRAGMENT-01, and HTML-INTEGRATION-01
+are closed in `plans/0.0.1/html-css-json-compatibility-checklist.md`.
 
 ### 9.4 Cross-package validation
 
@@ -736,15 +758,14 @@ check drawing-list output (for example `layout/displaylist_test.go`, run by
 ## 10. Known limitations, deferred items & open questions
 
 - **Partial tree construction.** The parser implements the tokenizer states,
-  the insertion-mode skeleton, and the adoption agency, but not the full
-  standard: select and template states, fragment parsing, script-data
-  escaped states, and parts of ruby and frameset recovery are missing. The
-  measured gaps and counts are in §9.3. This is tracked work
-  (HTML-CONTEXT-01, HTML-FRAGMENT-01), not a hidden regression.
+  the insertion-mode skeleton, the adoption agency, the select and template
+  states, and internal fragment parsing, but not the full standard:
+  script-data escaped states, parts of ruby and frameset recovery, and CDATA
+  handling in foreign content are missing. The measured gaps and counts are
+  in §9.3. These are recorded gaps, not hidden regressions.
 - **Quirks mode is exposed but not applied.** `root.Mode` carries
   no-quirks / limited-quirks / quirks (`doctype.go:143-179`) to
-  `pubstate.Styled.Mode`; quirks-mode layout effects are not implemented
-  (HTML-MODE-01).
+  `pubstate.Styled.Mode`; quirks-mode layout effects are not implemented.
 - **Tokenizer initial states.** Only the Data state is implemented;
   non-Data initial states (342 corpus runs) are counted unsupported rather
   than approximated.
@@ -753,10 +774,12 @@ check drawing-list output (for example `layout/displaylist_test.go`, run by
   carry lone surrogates, and the infoset-coercion variant is not
   implemented.
 - **CDATA in foreign content.** `<![CDATA[...]]>` is a bogus comment
-  everywhere (`html.go:318-328`); in HTML content that matches the standard,
+  everywhere (`html.go:329-339`); in HTML content that matches the standard,
   in SVG/MathML it does not (21 measured failures).
-- **No fragment parsing API.** `Parse` and `ParseDocument` take no context
-  element, so 192 `#document-fragment` corpus records are unsupported.
+- **Fragment parsing is internal-only.** `parseFragment` (`fragment.go:55`)
+  takes a context element and is exercised by the corpus runner; the public
+  `Parse` and `ParseDocument` signatures stay unchanged until the fragment
+  contract proves out.
 - **Entity scope.** The decoder covers the standard's named table through
   the standard library plus two post-snapshot names; unknown named
   references pass through as literal text rather than being flagged.
@@ -784,11 +807,11 @@ check drawing-list output (for example `layout/displaylist_test.go`, run by
 
 Sibling architecture deep-dives (same directory):
 
-- [01-entrypoints-cli.md](01-entrypoints-cli.md) - `cmd/*` entrypoints
+- [01-entrypoints-cli.md](01-entrypoints-cli.md) - CLI entrypoint notes from an earlier revision
 - [02-library-api.md](02-library-api.md) - public API
 - [03-settings.md](03-settings.md) - `internal/settings` dotted config
 - [04-load.md](04-load.md) - `internal/load` (the seam that feeds this parser)
 - [06-css.md](06-css.md) - selector matching *against this tree*
 - [07-layout.md](07-layout.md) - style resolution + box building over this tree
-- [08-convert-pipeline.md](08-convert-pipeline.md) - prepare and the image pipeline
-- [10-imageout-svg.md](10-imageout-svg.md) - raster output and SVG images
+- [08-convert-pipeline.md](08-convert-pipeline.md) - the load, parse, and prepare pipeline
+- [10-imageout-svg.md](10-imageout-svg.md) - raster-output notes from an earlier revision

@@ -22,9 +22,9 @@ final verification gate run by the orchestrator (never by subagents).
    - A: `internal/css` + `internal/html` (tokenizer, selector matching, cascade)
    - B: `internal/layout/inline.go` + text measurement hot loops
    - C: `internal/layout/layout.go` + `style.go` + `transform.go`
-   - D: `internal/layout/paint.go` + display-list/page-splitting paths
-   - E: `internal/pdf` (fonts, subsetting, content streams) + `internal/convert`
-     + `internal/load` orchestration
+   - D: `internal/layout/paint_*.go` + display-list/page-splitting paths
+   - E: `internal/fonts` (shaping, face cache) + `internal/svg` (SVG rasterization)
+     + `internal/convert` + `internal/load` orchestration
 
    Each agent must ONLY read source and search (rg/grep/read). **Subagents
    must never run `go test`, `go build`, `go run`, `go vet`, benchmarks, or

@@ -1,7 +1,8 @@
-# testdata/golden - Golden Fixture Corpus
+# testdata/golden - Fixture Corpus
 
-> **Parent:** `plans/00-canonical-pure-go-rewrite.md` (Phase 0.3, extended 9.1)
-> **Purpose:** deterministic HTML in → PDF out, measured against pass criteria.
+> **Parent:** `plans/0.0.1/phase-wise-checklist.md` (removal of the PDF pipeline).
+> **Purpose:** HTML and CSS inputs for the layout engine. The output is
+> `layout.DisplayList`; there is no PDF writer and no stored golden bytes.
 
 ## Layout
 
@@ -27,34 +28,34 @@ testdata/golden/
   fixture-55-lantern-cooperative-report.html # self-contained pure HTML/CSS operations brief
   fixture-56-architecture-diagram.html      # 21-page architecture diagram, linked CSS
   fixture-56-architecture-diagram.css       # linked stylesheet for fixture-56
-  architecture-diagram.html                 # corpus fixture (5-page library-API diagram); not written by api/generate.go
-  api/                                      # library-API generator (go run ./testdata/golden/api; also make samples)
+  architecture-diagram.html                 # corpus fixture (5-page library-API diagram)
+  api/                                      # leftover from the removed library-API PDF generator
     architecture-diagram.html               # source template for the generator (5 pages)
-    generate.go                             # writes output/architecture-diagram.pdf only
-  python_api/                               # Python-API generators (make python-api)
+    generate.go                             # targets the removed blinkless.Document PDF API; does not build
+  python_api/                               # leftover from the removed Python PDF generators
     architecture-diagram.html               # Python-syntax variant of the api/ template (5 pages)
-    generate.py                             # file HTML -> output/python/architecture-diagram.pdf
-    generate_inline.py                      # inline HTML Document sample -> output/python/invoice-inline.pdf
-    generate_compliance.py                  # architecture -> output/python/pdf-{1.7,2.0}{,-compliance}/
-    generate_samples.py                     # all fixture-*.html bodies -> output/python/ (+ 21/56 compliance)
+    generate*.py                            # target the removed convert_*_to_pdf helpers, which raise RuntimeError
     test_generate.py                        # path-resolution tests (no shared library required)
   font-examples.html                        # 13 Google Fonts showcase (inline style; fonts not bundled; --font-path driven)
-  out/                  # generated PDFs (gitignored)
+  out/                                      # leftover PDFs from before the writer was removed (gitignored)
 ```
 
-Golden comparison is **structural + content**, not pixel-diff (Phase 0.3
-decision; revisit image diffing in Phase 4 closure if cheap).
+There is no stored golden comparison. `make golden` runs the public
+drawing-list tests (`TestDisplay*` in `./layout`) and never reads this
+directory. Focused regression tests under `internal/layout` load individual
+fixtures, and the external comparison targets (`make weasyprint`,
+`make bench`) use the corpus as inputs.
 
 When `fixture-NN-header.html` and/or `fixture-NN-footer.html` exist beside a
-body fixture, `attachHFCompanions` sets `Header.HTMLURL` / `Footer.HTMLURL`
-(auto margins). Companion files are not converted as body fixtures.
+body fixture, they are companions, not standalone body fixtures. They were
+inputs for the removed HTML header/footer feature.
 
 ## Fixture inventory
 
 Every fixture carries a comment header naming it and stating what it
-proves. Page envelopes are pinned in `internal/convert/golden_test.go`
-(`fixturePageBounds`); a fixture that moves out of its envelope fails
-`make golden`.
+proves. The `Expected:` line in a header records the author's intent; no
+table pins it and no stored output enforces it. There is no committed
+golden output.
 
 | Fixture | What it exercises | Pages |
 |---------|-------------------|-------|
@@ -63,7 +64,7 @@ proves. Page envelopes are pinned in `internal/convert/golden_test.go`
 | 03 | Multi-page statement: `page-break-before/after/inside`, outline headings | ≥2 |
 | 04 | Two-column layout via fixed table cells (float lite also available; see fixture-22) | 1 |
 | 05 | Linked relative stylesheet (`style-05.css`) driving all styling | 1 |
-| 06 | External `<a href>` → PDF URI annotations + linked stylesheet | 1 |
+| 06 | External `<a href>` → link URI ops + linked stylesheet | 1 |
 | 07 | Relative `logo.png` + data: URI PNG, intrinsic sizes | 1 |
 | 08 | Forced page breaks: before/inside/after + margin-gap convergence | 5 |
 | 09 | Long multi-section report, natural pagination, outline fodder | ≥2 |
@@ -81,7 +82,7 @@ proves. Page envelopes are pinned in `internal/convert/golden_test.go`
 | 21 | Detailed multi-section ops report (KPIs, WPs, invoice extract, REQs) | ≥3 |
 | 22 | Float lite invoice chrome: float left/right + clear, inline-block badge, border-box | 1 |
 | 23 | Multi-page table with repeating `<thead>` on continuation pages (phase 18) | ≥2 |
-| 24 | Same-document `<a href="#id">` → PDF GoTo annotations (phase 20) | 2 |
+| 24 | Same-document `<a href="#id">` → link URI ops (phase 20) | 2 |
 | 25 | Partial flex row: justify-content, gap, flex-grow (phase 17) | 1 |
 | 26 | Position lite: relative offsets + absolute overlay (phase 17) | 1 |
 | 27 | CJK/Unicode sample (pair with `--font-path` for real glyphs; phase 19) | 1 |
@@ -116,54 +117,46 @@ proves. Page envelopes are pinned in `internal/convert/golden_test.go`
 | 56 | Architecture diagram: hero, pipeline strip, TOC, 10 domain sections (modern semantic tags: `dialog`, `details/summary`, `mark`, `meter`, `progress`, `output`, `time`, `data`, `kbd`, `samp`, `var`, `dfn`, `cite`, `ruby`, `rt`, `rp`, `bdi`, `bdo`, `wbr`, `ins`, `del`, `sub`, `sup`, `aside`, `address`, `fieldset`, `legend`, `picture`, `search`; modern CSS: `oklch()`/`color-mix()`/`clamp()`/logical properties with graceful-degrade fallbacks), linked `fixture-56-architecture-diagram.css`, dependency DAG, PDF-vs-image, security; derived from `documentation/architecture/` (commit ef526f9) | 21 |
 | 57 | Vanguard telemetry audit narrative plus browser-print probe gallery for 356 CSS properties; each probe carries its current catalog status from `testdata/css/catalog/properties.json` and representative print styling (`text-wrap-style` is partial with balance only; `box-decoration-break` is partial and storage-only; the GCPM `bookmark-*`, `footnote-*`, and `string-set` probes are unsupported); needle `VANGUARD-CSS-356-IMPLEMENTED`. | 9 |
 | 58 | Unsupported CSS worklist audit: safe parsing, cascade degrade, and crash resilience verification gallery for 462 CSS properties; each probe carries its current catalog status from `testdata/css/catalog/properties.json` (unsupported, partial, intentionally ignored, or implemented); needle `UNSUPPORTED-WORKLIST-AUDIT`. | 9 |
+| 59 | Apex Digital landing template: hero grid, auto-fit features/pricing/gallery grids, CSS variables, local asset images, print pagination (Chrome-parity target) | multi-page |
 | 60 | Implemented CSS props audit slice A (~1/3): property/description/effect gallery; Liberation via `--font-path testdata/fonts/implemented-audit`; needle `IMPLEMENTED-PROPS-A`. | 8 |
 | 61 | Implemented CSS props audit slice B (~1/3): same pattern; needle `IMPLEMENTED-PROPS-B`. | 8 |
 | 62 | Implemented CSS props audit slice C (~1/3): same pattern; needle `IMPLEMENTED-PROPS-C`. | 8 |
+| 63 | Page-level demos: `break-before`/`break-after`, `break-inside: avoid`, inert footnote properties, root `color-scheme: dark` | multi-page |
 | 64 | Next 72 CSS props target audit for v0.2.7 (`plans/0.2.7/next-72-properties.json`); property/description/effect gallery; needle `NEXT-72-PROPS`. | 5–8 |
 | font-examples | Font showcase: 1,125 free Google Fonts (fonts.google.com Feeling/Calligraphy filters + top-trending modern/display/script/handwriting) - randomized sampler: every font appears exactly once, each line in a random text style (regular, bold, italic, bold-italic, underline, strikethrough, underline+strikethrough, bold+underline, bold-italic+underline+strikethrough, letter-spaced, uppercase), rows span 100% width in a single column; inline `<style>`; fonts intentionally NOT bundled - render with `--font-path <dir>` or `Global().Set("fontpath", dir)`; falls back to Liberation Sans without font flags | 25 (with fonts, single column, number+name inline, overflow-wrap) |
 
-## Pass criteria
+## How the fixtures are used now
 
-A fixture passes `TestGoldenCorpusAllFixtures` when the generated PDF:
+The output is `layout.DisplayList`, so there is no generated PDF to parse and
+no pass/fail contract on fixture bytes. The corpus serves:
 
-1. **Structure:** `%PDF-` / `%%EOF` / xref, embedded `/FontFile2`, and the
-   per-fixture page envelope in `fixturePageBounds` (missing key = fail).
-2. **Needles:** listed fixtures assert ordered extracted text via
-   `pdf.ParseSemantic` (01 Invoice/total, 06 Partner Handbook, 07 Nordwind,
-   24 Internal link report, 54 Ember Harbor, 55 Northline).
-3. **Features:** `images` / `uris` flags require `/Subtype /Image` or `/S /URI`.
-4. **Geometry / visual:** layout unit tests and crop checks - not byte-identical
-   PDFs and not a +-1 px golden for every box.
+1. **Focused regression tests:** `internal/layout` tests load individual
+   fixtures (for example `TestFixture16HeaderBG` in `fixture_bugs_test.go`).
+2. **External comparisons:** `make weasyprint` and `make bench` convert the
+   whole corpus with other engines.
+3. **Manual inspection:** each header states what the fixture is meant to
+   prove, and the `Expected:` line records the author's intent.
 
-### Visual inspection (2026-08-12)
-
-| Fixture | Proof | Verdict |
-|---|---|---|
-| 21 | `TestFixture21ParagraphAfterForcedBreakStaysContiguous` | contiguous paragraph |
-| 23 | `TestFixture23RepeatedHeaderHasNoVisualGap` | thead band, no gap |
-| 28 | `TestFixture28FlexWrapGridItemsStayInFirstPageLayout` | labels on page 1 |
-| 43 | `TestFixture43CardsAndTheadDoNotOverlap` | cards + thead |
-| 55 | semantic needle `Northline` + crop test | masthead text present |
+`make golden` gates the public drawing-list tests in `./layout`; it does not
+walk this directory. If a layout change moves a fixture, add or update the
+focused test that covers the behavior.
 
 ## How to run
 
 ```sh
-make golden    # runs TestGoldenCorpus + TestGoldenCorpusAllFixtures
-make golden-update GOLDEN_FIXTURE=fixture-01-simple-invoice.html GOLDEN_APPROVE=1
-# writes one reviewed PDF to testdata/golden/out/; never rewrites fixtures
+make golden    # public drawing-list tests (TestDisplay*) in ./layout
 ```
 
-`golden-update` is deliberately narrow: it accepts one body-fixture basename,
-requires the explicit `GOLDEN_APPROVE=1` acknowledgement, and writes only to
-the ignored `testdata/golden/out/` directory. It does not update committed
-HTML/CSS fixtures or silently replace any checked-in artifact.
+`make golden-update` is a tombstone: it exits 2 and points at the removed
+page encoder. There is no golden output to update. The old writer filled
+`testdata/golden/out/` with PDFs; that directory is gitignored and now holds
+leftovers.
 
-Golden *source* (HTML/CSS/PNG) is committed; golden *output* (PDF) is
-generated and reviewed at each phase gate, then archived on release only.
+The fixtures (HTML/CSS/PNG) are committed as renderer inputs. Nothing under
+this directory is a stored baseline.
 
 ## Tolerance policy
 
-- Text content: exact string match.
-- Geometry: ±1 px @ 96 dpi; documented in each layout test.
-- PDF bytes: deterministic per build (no timestamps by default; `--dpi`-ish
-  metadata kept stable).
+Focused layout tests document their own tolerances. There is no byte-level
+comparison, no stored PDF baseline, and no page-envelope table: the drawing
+list is the output.

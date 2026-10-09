@@ -14,9 +14,8 @@ import (
 // lay out in.
 const acceptanceViewportPx = 200
 
-// renderBoxID lays one page out at a 200px viewport and returns the border-box
-// width of the element with id "box", in CSS pixels.
-func renderBoxID(t *testing.T, page, sheetText string) float64 {
+// renderDisplay lays one page out at a 200px viewport.
+func renderDisplay(t *testing.T, page, sheetText string) *layout.Display {
 	t.Helper()
 
 	doc, err := html.Parse([]byte(page))
@@ -45,7 +44,15 @@ func renderBoxID(t *testing.T, page, sheetText string) float64 {
 		t.Fatal(err)
 	}
 
-	for _, box := range display.Boxes {
+	return display
+}
+
+// renderBoxID returns the border-box width of the element with id "box", in
+// CSS pixels.
+func renderBoxID(t *testing.T, page, sheetText string) float64 {
+	t.Helper()
+
+	for _, box := range renderDisplay(t, page, sheetText).Boxes {
 		if box.ID == "box" {
 			return box.W
 		}
@@ -124,6 +131,10 @@ func TestDisplaySupportsQueryValueAcceptance(t *testing.T) {
 		{"invalid flex-flow blocked", `@supports (flex-flow: row bogus) { #box { width: 120px } }`, 11},
 		{"valid grid-row applies", `@supports (grid-row: span 2) { #box { width: 120px } }`, 120},
 		{"invalid grid-row blocked", `@supports (grid-row: span bogus) { #box { width: 120px } }`, 11},
+		{"valid grid applies", `@supports (grid: auto-flow dense / 1fr 2fr) { #box { width: 120px } }`, 120},
+		{"invalid grid blocked", `@supports (grid: bogus) { #box { width: 120px } }`, 11},
+		{"valid grid-template applies", `@supports (grid-template: repeat(2, 1fr)) { #box { width: 120px } }`, 120},
+		{"invalid grid-template blocked", `@supports (grid-template: 1fr bogus) { #box { width: 120px } }`, 11},
 		{"valid counter-reset applies", `@supports (counter-reset: item 1) { #box { width: 120px } }`, 120},
 		{"invalid counter-reset blocked", `@supports (counter-reset: 5 item) { #box { width: 120px } }`, 11},
 		{"valid quotes applies", `@supports (quotes: "a" "b") { #box { width: 120px } }`, 120},
@@ -139,6 +150,44 @@ func TestDisplaySupportsQueryValueAcceptance(t *testing.T) {
 			got := renderBoxID(t, page, `#box { width: 11px } `+testCase.query)
 			if math.Abs(got-testCase.want) > 1 {
 				t.Fatalf("box width = %.2fpx, want %.2fpx", got, testCase.want)
+			}
+		})
+	}
+}
+
+// TestDisplayGridTemplateRejectsInvalidDeclaration (CSS-01b): an invalid
+// grid-template or grid declaration after a valid one must not reset the
+// template. The valid 40px first column keeps #a at 40px wide and #b one
+// 40px column to its right; if the invalid value won the cascade, the
+// template would fall back to a single auto track and both items would stack.
+func TestDisplayGridTemplateRejectsInvalidDeclaration(t *testing.T) {
+	t.Parallel()
+
+	const page = `<!DOCTYPE html><html><head></head><body>` +
+		`<div id="g"><div id="a">A</div><div id="b">B</div></div></body></html>`
+
+	cases := []struct {
+		name  string
+		sheet string
+	}{
+		{"grid-template", `#g { display: grid; grid-template: auto / 40px 1fr } #g { grid-template: bogus }`},
+		{"grid", `#g { display: grid; grid: auto / 40px 1fr } #g { grid: bogus }`},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			display := renderDisplay(t, page, testCase.sheet)
+			first := boxByID(t, display, "a")
+			second := boxByID(t, display, "b")
+
+			if math.Abs(first.W-40) > 1 {
+				t.Errorf("#a width = %.2fpx, want 40px", first.W)
+			}
+
+			if math.Abs(second.X-first.X-40) > 1 {
+				t.Errorf("#b.x - #a.x = %.2fpx, want 40px", second.X-first.X)
 			}
 		})
 	}

@@ -47,8 +47,8 @@ Walk exported functions and the engine entries they call.
 | Sentinel | Same condition, different `errors.New` text/value |
 | Prefix | Public errors lose the `blinkless:` prefix; internal wrap drops `%w` |
 | `OnError` / hooks | Preflight fails and the hook is skipped, or the hook swallows the return |
-| Panic vs error | Fluent programmer-error panics are policy; `Set`/`Convert`/`Run*` must not panic on user input |
-| Distinct nils | `ErrNilConverter` and `ErrNilPDFRequest` (etc.) collapsed into one value |
+| Panic vs error | Programmer-error panics are policy; public entry points must not panic on user input |
+| Distinct nils | `errs.ErrNilContext` and a second hand-rolled nil-context error collapsed into one value |
 | Validate-before-write | `Validate*` / `Run*` writes bytes, then fails |
 
 Do not demand a sealed option interface. A compatibility dotted `Set`
@@ -68,23 +68,23 @@ plus a typed overlay is a product, not a smell.
 ## 4. Ownership and concurrency
 
 - Clone at the public boundary. Prove with a test that mutates the
-  caller's buffer after `AddObject` / `SetBody` / `Convert`.
+  caller's buffer after the call.
 - Single-goroutine engines do **not** get a "just in case" mutex.
   File the mutex as `defect` if someone added one on `Document` or
   layout without a second goroutine that actually writes.
 - `sync.Pool`: no `&slice` escape; copy-on-put when the buffer is
   retained. `sync.Once` for lazy immutable tables is correct.
-- `Converter` is not concurrent. Do not add internal locking to make
-  `Convert` re-entrant; the docs already say one converter per run.
+- The layout engine is single-goroutine. Do not add internal locking to
+  make it re-entrant.
 
 ## 5. Tests that lie
 
 File `defect` or `friction` when a test claims a contract it does not
 exercise:
 
-- Golden / structural walker treated as a pixel or overlap oracle.
-- Semantic oracle that builds a `pdf.Document` by hand and is sold as
-  HTML→PDF proof.
+- Drawing-list golden tests treated as a pixel or overlap oracle.
+- Semantic oracle that builds ops by hand and is sold as an end-to-end
+  layout proof.
 - Byte-identical PDF assertions (forbidden product claim here).
 - Performance budgets run under `-race` and treated as release numbers.
 - Live network inside `make test`.
@@ -115,7 +115,7 @@ If invoked **by** `/improve-codebase`, return the finding list only.
 If invoked **alone**, continue to
 `skills/phase-wise-checklist/SKILLS.md` and write:
 
-`plans/reviews/improve-codebase/practices-<YYYY-MM-DD>/phase-wise-checklist.md`
+`plans/<version>/improve-codebase/practices-<YYYY-MM-DD>/phase-wise-checklist.md`
 
 Phase order for this lens: security/ACL and output integrity → public
 sentinel/clone contracts → context → tests that lie → lint

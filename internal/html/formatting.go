@@ -19,7 +19,7 @@ var formattingTags = map[string]bool{
 // insert without reconstructing active formatting elements. The engine routes
 // them through the default start-tag branch until their dedicated rules land.
 var defaultNoReconstruct = map[string]bool{
-	"rb": true, "rtc": true, "rp": true, "rt": true, "frame": true, "head": true,
+	"rb": true, "rtc": true, "rp": true, "rt": true,
 }
 
 // isFormattingTag reports whether name is tracked in the active formatting

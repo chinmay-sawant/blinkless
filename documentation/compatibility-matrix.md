@@ -29,14 +29,14 @@ as its inline text (per the note column).
 | `p` | Block, default margins |
 | `br` | Forced line break |
 | `hr` | Block-level horizontal rule |
-| `h1`–`h6` | Heading levels; outline source (Phase 6) |
+| `h1`-`h6` | Heading levels; UA size and weight rules |
 | `ul`, `ol`, `li` | Lists. UA stylesheet: `ul`/`menu` → `disc`, `ol` → `decimal`. `markerText` implements `disc` / `circle` / `square` / `decimal` / `decimal-leading-zero` / `lower-alpha` / `upper-alpha` / `lower-roman` / `upper-roman` |
 | `table`, `thead`, `tbody`, `tfoot`, `tr`, `th`, `td`, `caption` | Table subset; see §4 and the table rows in §2 (`colspan` and `rowspan` Implemented; `<caption>` / `table-caption` rendered above the table) |
-| `img` | Replaced element; **PNG/JPEG/SVG subset**. JPEG is DCTDecode pass-through. PNG decoded to DeviceRGB; alpha soft-mask when present. **SVG** rasterized via `internal/svg` (rect/circle/path subset → PNG). Layout uses a fixed 96 dpi CSS px→pt map. `web.images=false` skips fetch/paint. |
-| `a` | Hyperlink (`href`) for `http/https/mailto` external URI annotations; body `#id` / `#name` **GoTo** via `applyInternalLinks` (fixture-24). HTML header/footer **external URI** and **fragment GoTo** (`#id` → body destinations via `AddLinkDest`, copies-aware) are carried onto body pages |
+| `img` | Replaced element; **PNG/JPEG/SVG subset**. The image op keeps the encoded bytes and re-encodes them as PNG only when EXIF orientation or a clip needs new pixels (`layout_images.go:365`, `image_exif.go:497`). SVG images and inline `<svg>` are rasterized through `internal/svg` (`layout_svg.go:23`). Layout maps CSS px to points at 0.75 (96 px/in). `web.images=false` skips fetch and paint (`settings.ResolveImages`). |
+| `a` | Link box in the drawing list (`OpLinkURI`): external `http/https/mailto` URIs (`isExternalHref`, `inline_paint.go:1876`) and same-document `#id` fragments (`isInternalHref`, `inline_paint.go:1906`). Relative references are retained for the caller to resolve. `layout.Result.HasFragmentLinks` reports whether any link targets a fragment (`layout.go:197`). |
 | `strong`, `em`, `b`, `i`, `u`, `small` | `b`/`strong` → bold face; `em`/`i` → italic face (Liberation family; see the `font-family` row in §2); `u` underline; `small` smaller; fake stroke bold only if a bold face is missing |
 | `pre`, `code` | `pre` honors `white-space: pre`; `code` follows the author’s `font-family` (generic `monospace` → bundled Liberation Mono; see [fonts.md](fonts.md)) |
-| `blockquote` | Block-level only - no indent margins (UA rule `style.go:714-717`) |
+| `blockquote` | Block-level only, no indent margins (UA rule `style_values.go:1628-1630`) |
 | `header`, `footer`, `main`, `section`, `article`, `aside`, `nav` | Treated as `div` (semantic aliases) |
 
 ## 2. Supported CSS properties
@@ -860,103 +860,99 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 ## 3. Supported units
 
 Status legend: Implemented and Partial as in §2; Not implemented means the unit is rejected or ignored. Resolution sites: `LengthToPt`
-`internal/css/container.go:113` (`ex`/`ch` as 0.5em at lines 133-134),
-`lengthBox` `style_values.go:598` (width/height/min/max), `marginLen`
-`style_values.go:564` (margins/padding/letter-spacing), parse gate
-`ParseLength` `values.go:108`.
+`internal/css/container.go:116` (`ex`/`ch` as 0.5em, `exChToEmFactor` at
+container.go:103), `lengthBox` `style_values.go:734` (width/height/min/max),
+`marginLen` `style_values.go:819` (margins/padding/letter-spacing), parse gate
+`ParseLength` `values.go:110`.
 
 | Unit | Status | Notes |
 |------|--------|-------|
-| `px` | Implemented | 1 px = 0.75 pt (96 dpi reference) |
+| `px` | Implemented | 1 px = 0.75 pt (96 px/in reference) |
 | `pt` | Implemented | |
 | `mm`, `cm`, `in` | Implemented | |
-| `pc` | Implemented | `style.go:654, 689` |
+| `pc` | Implemented | `internal/css/container.go:152` |
 | `em` | Implemented | relative to element font-size (font-size, margins, lengths) |
-| `rem` | Implemented | 16 px reference (`style.go:593, 657, 694`) |
+| `rem` | Implemented | 16 px reference (`internal/css/container.go:102,127`; layout margin path at `style_values.go:903`) |
 | `%` | Implemented | containing block for box/margins; parent font-size for `font-size` |
-| `vw`, `vh` | Partial | resolved for width/height/min/max (`lengthBox` `style.go:662-663`) only; ignored for margins/padding/font-size |
-| `ex` | Partial | Resolved as 0.5em (`LengthToPt` `internal/css/container.go:133-134`, `exChToEmFactor`). Not font-metric x-height. |
-| `ch` | Partial | Layout uses the default Liberation face U+0030 DIGIT ZERO advance at the element's font-size (`lengthToPt` / `GlyphAdvancePoints`). Falls back to 0.5em when the face is missing or the advance is 0. Media/container queries still use `LengthToPt` 0.5em (`TestLengthToPt` covers that fallback; no behavior test resolves for the layout glyph-advance path). |
-| `calc()` | Partial | Three-token subset only: `calc(A + B)`, `calc(A - B)`, `calc(A * N)` (`calcLength` `style_values.go:763`), used from `lengthBox` / `marginLen`. Longer or nested calc stays invalid so a fallback can win. |
-| `clamp()` | Partial | `clamp(min, pref, max)` via `clampLength`; no longer dropped from cascade. Nested calc inside clamp out. Test `TestMathLengthMinMaxClamp`. `color-mix(` / `light-dark(` / `oklch(` still excluded. |
-| `vmin`, `vmax` | Partial | Layout `vminVmaxPt` (`style_values.go:668`) on `lengthBox` / `marginLen`. `css.ParseLength` still rejects them; used values are parsed in layout. Test `TestVminVmax`. |
+| `vw`, `vh` | Partial | resolved from the containing block in box, margin, and padding lengths (`lengthBoxFromUnit`, `style_values.go:767-770`; `marginLenFromUnit`, `style_values.go:901-902`); not resolved for `font-size` |
+| `dvh`, `svh`, `lvh` | Partial | viewport-height variants in box lengths (`viewportHeightUnitPt`, `style_values.go:789-802`) |
+| `ex` | Partial | Resolved as 0.5em (`internal/css/container.go:126-129`, `exChToEmFactor` at `container.go:103`). Not font-metric x-height. |
+| `ch` | Partial | Resolved as 0.5em (`chLengthPt`, `style_ch.go:26-28`), the same fallback `css.LengthToPt` uses. Not the font's digit-zero advance. |
+| `calc()`, `min()`, `max()`, `clamp()` | Partial | Evaluated by `css.EvalMath` (`internal/css/math_expr.go:29`) from `calcLength` (`style_values.go:914`, call at `:929`): `+ - * /`, parentheses, comma arguments, nesting, and mixed units. Other functions stay invalid so a fallback can win. Test `TestMathLengthMinMaxClamp`. |
+| `vmin`, `vmax` | Partial | Layout `vminVmaxPt` (`style_values.go:693`) on box and margin lengths (`style_properties.go:598,651`). `css.ParseLength` rejects them; used values are parsed in layout. Test `TestVminVmax`. |
 | `dpi`-style | Not implemented | rejected at parse |
 
 ## 4. Supported selector syntax (cascade)
 
-Status legend: Implemented and Partial as in §2; Not implemented means the selector or at-rule is parsed without a matching or rendering consumer. Evidence in `internal/css/css.go`.
+Status legend: Implemented and Partial as in §2; Not implemented means the selector or at-rule is parsed without a matching or rendering consumer. Evidence in `internal/css/`.
 
 | Selector | Status | Notes / verified by |
 |----------|--------|---------------------|
-| Element (`h1`, `p`, …), class (`.foo`), ID (`#bar`) | Implemented | `parseCompound` `css.go:444`; matching `Match` `css.go:518`; test `css_test.go::TestMatch` |
-| Universal (`*`) | Implemented | `css.go:456-459` |
-| Descendant (`div p`), child (`ul > li`) | Implemented | combinators `css.go:356-362`; matching `css.go:528-543` |
+| Element (`h1`, `p`, …), class (`.foo`), ID (`#bar`) | Implemented | `parseCompoundCtx` `selector_parser.go:165`; matching `Match` `match.go:95`; test `css_test.go::TestMatch` |
+| Universal (`*`) | Implemented | `writeStarPrefix` `selector_parser.go:116` |
+| Descendant (`div p`), child (`ul > li`) | Implemented | combinators `combinatorFor` `has.go:147`; matching `leftmostStep` `match.go:185` |
 | Sibling (`a + b`, `a ~ b`) | Implemented | next-sibling `+` and subsequent-sibling `~` (`css.Match`); test `TestSiblingCombinators` |
 | Attribute (`[href]`, `[href="…"]`) | Partial | presence, exact `=`, word `~=`, substring `*=`, prefix `^=`, suffix `$=`, dash `|=`; ASCII `i` flag on valued selectors (`[attr=value i]`); no `s` flag. Tests `TestAttrWordAndSubstring`, `TestAttrPrefixSuffixDash`, `TestAttrIFlag` |
 | `:first-child`, `:last-child`, `:nth-child(n)` | Implemented | `odd`/`even`/`an+b`/integer; tests `TestMatch`, `TestNthChildZebraSheet` |
-| `:first-of-type`, `:last-of-type`, `:nth-of-type()`, `:nth-last-of-type()` | Implemented | 1-based index among same-tag siblings; `odd`/`even`/`an+b`/integer via `parseNthArg`/`matchNth`; invalid an+b never matches. Tests `TestFirstOfType`, `TestLastOfType`, `TestNthOfType`, `TestNthLastOfType` |
-| `:link`, `:visited` | Partial | Print semantics: match any `a` with non-empty `href` (no visit history; `:visited` ≡ `:link`). Specificity counts as a class-level pseudo. Proof: `TestLinkVisitedPseudos`, `TestLinkPseudoColor` |
-| `:hover`, `:active`, `:focus` | Not implemented (accepted, never match) | Parsed onto the compound but `matchPseudo` returns false so `a:hover` does not degrade to bare `a` |
+| `:first-of-type`, `:last-of-type`, `:nth-of-type()`, `:nth-last-of-type()` | Implemented | 1-based index among same-tag siblings; `odd`/`even`/`an+b`/integer via `parseNthArg`/`matchNth` (`match.go:632/664`); invalid an+b never matches. Tests `TestFirstOfType`, `TestLastOfType`, `TestNthOfType`, `TestNthLastOfType` |
+| `:link`, `:visited` | Partial | Match any `a` with a non-empty `href` (no visit history; `:visited` equals `:link`). Specificity counts as a class-level pseudo. Proof: `TestLinkVisitedPseudos`, `TestLinkPseudoColor` |
+| `:hover`, `:active`, `:focus` | Partial (caller state) | Parsed onto the compound and matched only against the caller-supplied `MatchState` ids (`matchStatePseudo`, `match.go:447`), so `a:hover` never degrades to bare `a`. Test `TestMatchStateFocusHoverActive` |
 | `::before` / `::after` | Partial / Implemented | `MatchPseudo` plus generated content (`pseudo_content.go`): quoted strings and `attr()`. Host-element rules do not apply to the host |
-| `!important` | Implemented | `css.go:664-688`; separate cascade layer `style.go:221-247`; test `css_test.go::TestParseImportant` |
-| Specificity (ID > class > element), inline `style` wins, `!important` overrides | Implemented | `Specificity` `css.go:578`; inline style priority `style.go:233-239`; test `css_test.go::TestSpecificity` |
-| `@media print` / `screen` filtering | Implemented | `MediaMatches` (`css/media.go`); cascade `style.go`; convert `Media: "print"` (PDF) or `"screen"` (Image); only `print` and `screen` are evaluated (all other media types and unsupported feature queries evaluate to false); tests `TestParseMedia`, `TestMediaMatches*` |
+| `!important` | Implemented | `isImportant` `values.go:75`; separate cascade tier `style_cascade.go:1207-1211`; test `css_test.go::TestParseImportant` |
+| Specificity (ID > class > element), inline `style` wins, `!important` overrides | Implemented | `Specificity` `css.go:1009`; inline style priority `style_cascade.go:655`; test `css_test.go::TestSpecificity` |
+| `@media print` / `screen` filtering | Implemented | `MediaMatches` (`css/media.go`); the caller passes `Media` (`settings.MediaScreen` or `settings.MediaPrint`, `internal/settings/settings.go:232-264`); only `print` and `screen` are evaluated (all other media types and unsupported feature queries evaluate to false); tests `TestParseMedia`, `TestMediaMatches*` |
 | `@media` feature queries (`(min-width: …)`) | Partial | size features + orientation vs viewport; unknown features → false; `TestMediaMatchesSizeFeatures` |
 | `:has()` | Partial | Relative selectors inside `:has(...)`; descendant/child/sibling + simple compounds; no forgiving-selector list / complex chrome edge cases. `has.go`; fixture-41 |
-| `:not()` | Implemented | `appendFunctionalPseudo` (`css.go:1058`); match `matchNone` (`css.go:1459`). Argument list is strict (empty items fail). Specificity of the most specific argument (`css.go:1744`). Tests `has_test.go` |
+| `:not()` | Implemented | `appendFunctionalPseudo` (`selector_parser.go:353`); match `matchNone` (`match.go:515`). Argument list is strict (empty items fail). Specificity of the most specific argument (`has.go:343`). Tests `has_test.go` |
 | `:is()` | Implemented | Strict selector-list arguments; nested `:is` allowed; `::` in args rejected. Match any argument. Specificity of the most specific argument. Tests `TestParseIs`, `TestIsPseudo`, `TestIsSpecificity` |
 | `:where()` | Implemented | Same matching as `:is()`; specificity contribution 0. Test `TestWherePseudo` |
-| `:root` | Implemented | Matches the document element (`<html>`), not the synthetic `#document` wrapper (`matchPseudo` `css.go:1437`; `isRootElement` `css.go:1473`). Test `TestRootPseudo` |
-| `var()` / `--*` custom properties | Partial | `--*` inherit then overlay (`mergeCustomProps` `style_cascade.go:18`); `var()` expanded before apply (`resolveRawVars` `style_cascade.go:45`; `ResolveCustomProps` `values.go:514`). Cycles resolve empty. Tests `cssvar_font_test.go`, `TestResolveCustomProps*` |
+| `:root` | Implemented | Matches the document element (`<html>`), not the synthetic `#document` wrapper (`matchPseudo` `match.go:420`; `isRootElement` `match.go:539`). Test `TestRootPseudo` |
+| `var()` / `--*` custom properties | Partial | `--*` inherit then overlay (`mergeCustomProps` `style_cascade.go:68`); `var()` expanded before apply (`resolveRawVars` `style_cascade.go:170`; `ResolveCustomProps` `values.go:696`). Cycles resolve empty. Tests `cssvar_font_test.go`, `TestResolveCustomProps*` |
 | `@container` | Partial | Size queries only (`inline-size`/`width` + `and`/`or`/`not`); named containers; two-pass style after used inline size. No style/scroll-state queries; no `cq*` units. `internal/css/container.go`; fixture-42 |
-| `container-type` / `container-name` / `container` | Implemented | Parsed `applyContainerProps` (`layout/style_container_props.go`). Size containers measured in `layout/container.go:43`. `container-type` honors `normal`/`size`/`inline-size`; CSS-wide keywords resolve (`inherit` copies the parent, `initial`/`unset`/`revert` reset to `normal` / none). Fixture-42; fixture-61 rows 39-41 |
+| `container-type` / `container-name` / `container` | Implemented | Parsed `applyContainerProps` (`layout/style_container_props.go`). Size containers measured in `layout/container.go:44`. `container-type` honors `normal`/`size`/`inline-size`; CSS-wide keywords resolve (`inherit` copies the parent, `initial`/`unset`/`revert` reset to `normal` / none). Fixture-42; fixture-61 rows 39-41 |
 | `@page` | Partial | Unnamed `margin`/`size` on every page. `:first` / `:left` / `:right` override **margin** (LTR page 1 is `:right`; `:first` wins on page 1). `page: ident` used-value inherit plus sibling break; named `@page` margin on pages that overlap that name. Size unnamed-only. Margin boxes: unnamed quoted `@top-*` / `@bottom-*` parse onto the stylesheet (`internal/css/page_margin.go`) with no consumer in this tree. See the `page` and `break-*` rows in §2. |
-| `@font-face` | Partial | Parsed; `MergeFontFaces` loads TTF/OTF/WOFF1 via `FetchSub` (local **and** `https://`) under the same ACL + `NetworkPolicy` on PDF and image paths. `.woff2` / `.eot` / `data:` skipped. See §5 |
-| `@import` | Partial | Parsed onto `Stylesheet.Imports`; `CollectSheets` fetches under the same ACL as `<link>`, depth cap 8, cycle skip, failed fetch skipped. Media prelude uses `MediaMatches`. Tests `TestParseImport`, `TestCollectSheetsImportAppliesImportedRules` |
+| `@font-face` | Partial | Parsed; `MergeFontFaces` loads TTF/OTF/WOFF1 via `FetchSub` (local **and** `https://`) under the same load ACL and network policy as other subresources. `.woff2` / `.eot` / `data:` skipped. See §5 |
+| `@import` | Partial | Parsed onto `Stylesheet.Imports`; `CollectSheets` fetches under the same load policy as `<link>`, depth cap 8, cycle skip, failed fetch skipped. Media prelude uses `MediaMatches`. Tests `TestParseImport`, `TestCollectSheetsImportAppliesImportedRules` |
 
 ## 5. Explicitly unsupported (MVP)
 
 | Feature | Handling |
 |---------|----------|
-| JavaScript / `<script>` / DOM APIs | **Stripped at load.** No JS engine. `--enable-javascript` and other JS flags are **unknown options** (Policy A) |
-| Full CSS Grid / full Flexbox | Stage A/B print CSS subset **shipped** (see the `flex-*` and `grid-*` rows in §2); Stage C lite + flex min-size polish + Partial subgrid/masonry span. **Not** Bootstrap/Tailwind / Chrome layout-test parity |
-| `transform`, `filter`, `animation`, `transition` | Partial / out of scope | **Static 2D** `transform` + `transform-origin` Implemented (translate/scale/rotate/matrix/skew*; paint CTM; stacking + abs/fixed CB). Sibling flow unchanged. **`filter`:** 2D image filter (opacity, blur, grayscale, invert, adjustments) on raster images (`filter.go`) + CSS `opacity()` on elements; no CSS shader/SVG filter composition. **`animation`/`transition`/`@keyframes`:** parse-ignored (static cascaded value only; no timelines). **3D / perspective:** permanent non-goal. Fixture-40; `transform.go` / `transform_test.go`, `filter.go` |
+| JavaScript / `<script>` / DOM APIs | **Not executed.** `<script>` content is captured as raw text and hidden by the UA sheet (`display: none`); no code path evaluates scripts |
+| Full CSS Grid / full Flexbox | Stage A/B layout subset **shipped** (see the `flex-*` and `grid-*` rows in §2); Stage C lite + flex min-size polish + Partial subgrid/masonry span. **Not** Bootstrap/Tailwind / Chrome layout-test parity |
+| `transform`, `filter`, `animation`, `transition` | **Static 2D** `transform` + `transform-origin` Implemented (translate/scale/rotate/matrix/skew*; paint transform; stacking + abs/fixed containing block). Sibling flow unchanged. **`filter`:** 2D image filter (opacity, blur, grayscale, invert, adjustments) on raster images (`filter.go`) + CSS `opacity()` on elements; no CSS shader/SVG filter composition. **`animation`/`transition`/`@keyframes`:** parse-ignored (static cascaded value only; no timelines). **3D / perspective:** permanent non-goal. Fixture-40; `transform.go`, `filter.go` |
 | `background-image` / gradients | **Implemented** multi-layer `url(...)` and pure-Go linear/radial gradient rasterization (`background_image.go`, `gradient.go`) |
-| `@font-face` (remote / WOFF2) | **Partial:** local **and `https://`** TTF/OTF/WOFF1 via `FetchSub` (same ACL + `NetworkPolicy` as other subresources) on PDF/image paths. **`.woff2` / `.eot` / `data:`** skipped. Missing faces fall back to registry / Liberation |
-| Custom XSLT TOC (`--xsl-style-sheet`) | Not implemented (no XSLT in stdlib); Go templates instead (Phase 6) |
-| SVG-as-`<img>` / SVG presentation | **Implemented** SVG-as-`<img>` rasterization via `internal/svg`; 5 CSS properties (`fill`, `stroke`, `stroke-width`, `fill-opacity`, `stroke-opacity`) parsed in style; remaining 53 SVG presentation properties are unsupported |
-| Masking / clipping | **Implemented** `overflow-clip` for descendant box clipping (`overflow_clip.go`); `clip-path` and CSS `mask-*` properties are unsupported |
-| CSS Regions & Exclusions | **Not implemented** (`flow-from`, `flow-into`, `flow-tolerance`, `region-fragment`, `wrap-after`, `wrap-before`, `wrap-flow`, `wrap-inside`, `wrap-through` are permanent non-goals for print PDF) |
+| `@font-face` (remote / WOFF2) | **Partial:** local **and `https://`** TTF/OTF/WOFF1 via `FetchSub` (same load ACL and network policy as other subresources). **`.woff2` / `.eot` / `data:`** skipped. Missing faces fall back to registry / Liberation |
+| Custom XSLT TOC (`--xsl-style-sheet`) | Not implemented (no XSLT in the standard library); this tree has no TOC pipeline |
+| SVG-as-`<img>` / SVG presentation | **Implemented** SVG-as-`<img>` and inline `<svg>` rasterization via `internal/svg`; 5 CSS properties (`fill`, `stroke`, `stroke-width`, `fill-opacity`, `stroke-opacity`) parsed in style; the remaining SVG presentation properties are unsupported (§2.3) |
+| Masking / clipping | **Implemented** `overflow-clip` for descendant box clipping (`overflow_clip.go`); `clip-path` is parsed and stored but its behavior is unverified (§2.2); CSS `mask-*` properties are unsupported |
+| CSS Regions & Exclusions | **Not implemented** (`flow-from`, `flow-into`, `flow-tolerance`, `region-fragment`, `wrap-after`, `wrap-before`, `wrap-flow`, `wrap-inside`, `wrap-through` are permanent non-goals for this engine) |
 | WebP, AVIF | Not implemented; broken-image placeholder or skip |
-| Fixed CSS headers/footers via `position: fixed` alone | Prefer CLI `--header-*` / `--footer-*` for repeating chrome; CSS `fixed` lite paints on every page but is not a full running-element model |
-| Complex-script shaping (Indic, Arabic, CJK) | **Type0/CID Identity-H** for BMP Unicode (CJK with a capable face); **Arabic OT** via `go-text/typesetting` when the face has GSUB (+ presentation-form `ShapeText` fallback); Hangul needs a Hangul face. `writing-mode` vertical keywords inherit and rotate glyphs (`RotateDeg == -90`); block/line layout stays horizontal. **Indic Partial** (OT when face/cmap allow; not production-claimed). Optional OT **`halt`/`palt`** for CJK punctuation via `ShapeTextFont` FontFeatures |
-| PDF version (1.4 / 1.7 / 2.0) | **Supported:** PDF 1.4 is default; PDF 1.7 and PDF 2.0 are opt-in via `--pdf-version 1.7` / `--pdf-version 2.0` or library field `Document.PDFVersion`. Emits `%PDF-1.7` (trailer `/ID`, Info with UTF-16BE + BOM strings, non-claiming XMP Metadata stream) or `%PDF-2.0` (trailer `/ID`, UTF-8 document strings, non-claiming XMP with `dc:format`, `pdf:Producer`, dates). PDF 2.0 output is a **version**, not a conformance claim |
-| PDF/A-3a, PDF/UA-1 (ISO 19005-3 / ISO 14289-1) | **Supported:** Opt-in via `--pdf-profile a3a-ua1` / library field `Document.PDFProfile` (`"a3a-ua1"`, `"a3a"`, `"ua1"`). Implies PDF 1.7. Emits claiming XMP metadata (`pdfaid:part=3`, `pdfaid:conformance=A`, `pdfuaid:part=1`), sRGB OutputIntent, `/DefaultRGB`, and full logical structure tree (`H1`..`H6`, `P`, `Table` > `TR` > `TH`/`TD`, `L` > `LI` > `LBody` > `Link`, `Figure` + `alt`, `/Artifact /Pagination`) |
-| PDF 2.0 (ISO 32000-2) | **Shipped as opt-in version** (#32): `--pdf-version 2.0` / `Document.PDFVersion = "2.0"`. Version alone is **not** a PDF/A or PDF/UA claim |
-| PDF/A-4, PDF/UA-2 (PDF 2.0 conformance profiles) | **Supported** (#33): Opt-in via `--pdf-profile a4-ua2` / `Document.PDFProfile` (`"a4-ua2"`, `"a4"`, `"ua2"`). Implies PDF 2.0. Emits claiming XMP (`pdfaid:part=4`, `pdfaid:rev=2020`, `pdfuaid:part=2`, `pdfuaid:rev=2024`), sRGB+Gray OutputIntent / Default* ICCBased, structure `/Namespace`, `ListNumbering` on lists, structure destinations on internal links, and full logical structure tree (`L` > `LI` > `LBody` > `Link`) |
-| PDF encryption, duplex, AcroForm | Out of scope (not in original wkhtmltopdf either) |
+| Fixed CSS headers/footers via `position: fixed` alone | `position: fixed` is marked viewport-fixed (`markOpsFixed`, `layout_chrome.go:12`) when not under a transformed ancestor; not a full running-element model. There are no header/footer flags in this tree |
+| Complex-script shaping (Indic, Arabic, CJK) | **Arabic OT** via `go-text/typesetting` when the face has GSUB (+ presentation-form `ShapeText` fallback); Hangul needs a Hangul face. `writing-mode` vertical keywords inherit and rotate glyphs (`RotateDeg == -90`); block/line layout stays horizontal. **Indic Partial** (OT when face/cmap allow; not production-claimed). Optional OT **`halt`/`palt`** for CJK punctuation via `ShapeTextFont` FontFeatures |
+| PDF output (versions, profiles) | **Not part of this tree.** The engine returns a drawing list; PDF emission is out of scope. There are no `--pdf-version` / `--pdf-profile` flags, no `Document.PDFVersion` / `Document.PDFProfile` fields, and no PDF/A or PDF/UA claims |
 
 ### 5.1 Deferred niche and draft families (94 properties - Not implemented)
 
-The following 94 properties are intentionally left **unsupported** (Not implemented). They have no print PDF consumer and are out of scope for the print PDF engine. Declarations are parsed as valid property names where recognized and then ignored with graceful degrade, never claimed as Implemented. No Implemented claims are made for any of the 94.
+The following 94 properties are intentionally left **unsupported** (Not implemented). They have no layout or paint consumer and are out of scope for this engine. Declarations are parsed as valid property names where recognized and then ignored with graceful degrade, never claimed as Implemented. No Implemented claims are made for any of the 94.
 
 | Family | Count | Status | Note | Examples (not exhaustive) |
 |--------|-------|--------|------|---------------------------|
-| Draft corner-shape CSS (34 properties: corner, corner-block-*, corner-inline-*, etc.) | 34 | Not implemented | Draft corner-shape CSS; not in print PDF engine. Left unsupported. `corner-*` is not `border-radius` (see the `border-radius` row in §2). | `corner`, `corner-shape`, `corner-block-start-shape`, `corner-inline-end-shape`, `corner-top-left-shape`, `corner-bottom-right-shape`, etc. |
-| Ruby/MathML/rhythmic niche (33 properties: block-ellipsis, block-step-*, box-snap, ruby-*, math-*, etc.) | 33 | Not implemented | Ruby/MathML/rhythmic niche; not implemented for print PDF. Left unsupported. | `block-ellipsis`, `block-step-*`, `box-snap`, `ruby-align`, `ruby-position`, `math-depth`, `math-style`, `line-snap`, etc. |
-| Draft gap/row-rule decorations (27 properties: row-rule*, rule*) | 27 | Not implemented | Draft gap/row-rule decorations; no print consumer. Left unsupported. `row-rule*` and `rule*` are not `column-rule` (see the `column-rule*` rows in §2). | `row-rule`, `row-rule-break`, `row-rule-color`, `row-rule-style`, `row-rule-width`, `rule`, `rule-break`, `rule-color`, `rule-style`, `rule-width`, etc. |
+| Draft corner-shape CSS (34 properties: corner, corner-block-*, corner-inline-*, etc.) | 34 | Not implemented | Draft corner-shape CSS; no layout consumer. Left unsupported. `corner-*` is not `border-radius` (see the `border-radius` row in §2). | `corner`, `corner-shape`, `corner-block-start-shape`, `corner-inline-end-shape`, `corner-top-left-shape`, `corner-bottom-right-shape`, etc. |
+| Ruby/MathML/rhythmic niche (33 properties: block-ellipsis, block-step-*, box-snap, ruby-*, math-*, etc.) | 33 | Not implemented | Ruby/MathML/rhythmic niche; not implemented here. Left unsupported. | `block-ellipsis`, `block-step-*`, `box-snap`, `ruby-align`, `ruby-position`, `math-depth`, `math-style`, `line-snap`, etc. |
+| Draft gap/row-rule decorations (27 properties: row-rule*, rule*) | 27 | Not implemented | Draft gap/row-rule decorations; no layout consumer. Left unsupported. `row-rule*` and `rule*` are not `column-rule` (see the `column-rule*` rows in §2). | `row-rule`, `row-rule-break`, `row-rule-color`, `row-rule-style`, `row-rule-width`, `rule`, `rule-break`, `rule-color`, `rule-style`, `rule-width`, etc. |
 
-Total: 94 properties across three families. All are Not implemented and left unsupported with no print PDF consumer.
+Total: 94 properties across three families. All are Not implemented and left unsupported with no layout consumer.
 
 ### 5.2 Phase 83 hard-defer categories (87 properties - Not implemented)
 
-The following 87 properties across three categories are intentionally left **unsupported** (Not implemented) as hard-deferred or permanent non-goals for print PDF:
+The following 87 properties across three categories are intentionally left **unsupported** (Not implemented) as hard-deferred or permanent non-goals for this engine:
 
 | Category | Count | Status | Description and scope |
 |----------|-------|--------|-----------------------|
 | SVG presentation & geometry (`B_svg_presentation`) | 53 | Not implemented | Remaining SVG presentation and geometry properties. SVG-as-`<img>` is implemented via `internal/svg` rasterizer; 5 CSS properties (`fill`, `stroke`, `stroke-width`, `fill-opacity`, `stroke-opacity`) are parsed in style; remaining 53 SVG presentation properties are unsupported (`alignment-baseline`, `baseline-shift`, `color-interpolation`, `cx`, `cy`, `d`, `dominant-baseline`, `fill-break`, `fill-color`, `fill-image`, `fill-origin`, `fill-position`, `fill-repeat`, `fill-rule`, `fill-size`, `glyph-orientation-vertical`, `image-rendering`, `marker`, `marker-end`, `marker-mid`, `marker-side`, `marker-start`, `paint-order`, `path-length`, `r`, `rx`, `ry`, `shape-rendering`, `stop-color`, `stop-opacity`, `stroke-align`, `stroke-alignment`, `stroke-break`, `stroke-color`, `stroke-dash-corner`, `stroke-dash-justify`, `stroke-dashadjust`, `stroke-dasharray`, `stroke-dashcorner`, `stroke-dashoffset`, `stroke-image`, `stroke-linecap`, `stroke-linejoin`, `stroke-miterlimit`, `stroke-origin`, `stroke-position`, `stroke-repeat`, `stroke-size`, `text-anchor`, `text-rendering`, `vector-effect`, `x`, `y`). |
 | Mask, clip, and filter effects (`B_mask_clip_filter_effects`) | 25 | Not implemented | Masking, clipping, and filter primitives. `overflow-clip` is implemented for descendant box clipping (`overflow_clip.go`); 2D image filter (opacity, blur, grayscale, invert, adjustments) on raster images + CSS `opacity()` on elements are implemented (`filter.go`); `clip-path`, CSS `mask-*` properties, `backdrop-filter`, and CSS shader/SVG filter composition are unsupported (`backdrop-filter`, `clip`, `clip-path`, `clip-rule`, `color-interpolation-filters`, `flood-color`, `flood-opacity`, `lighting-color`, `mask`, `mask-border`, `mask-border-mode`, `mask-border-outset`, `mask-border-repeat`, `mask-border-slice`, `mask-border-source`, `mask-border-width`, `mask-clip`, `mask-composite`, `mask-image`, `mask-mode`, `mask-origin`, `mask-position`, `mask-repeat`, `mask-size`, `mask-type`). |
-| CSS Regions & Exclusions (`B_regions_exclusions`) | 9 | Not implemented | CSS Regions and Exclusions are permanent non-goals for print PDF (`flow-from`, `flow-into`, `flow-tolerance`, `region-fragment`, `wrap-after`, `wrap-before`, `wrap-flow`, `wrap-inside`, `wrap-through`). |
+| CSS Regions & Exclusions (`B_regions_exclusions`) | 9 | Not implemented | CSS Regions and Exclusions are permanent non-goals for this engine (`flow-from`, `flow-into`, `flow-tolerance`, `region-fragment`, `wrap-after`, `wrap-before`, `wrap-flow`, `wrap-inside`, `wrap-through`). |
 
 Total: 87 properties across three hard-defer categories. All remain Not implemented.
 
@@ -965,8 +961,8 @@ consumer as unsupported, but several are parsed and stored in the style layer
 and therefore appear as Partial in the catalog with unverified behavior:
 `alignment-baseline`, `color-interpolation`, `dominant-baseline`, `fill-rule`,
 `shape-rendering`, `stroke-dasharray`, `stroke-dashoffset`, `stroke-linecap`,
-`stroke-linejoin`, `stroke-miterlimit`, and `text-anchor`. The five SVG
-properties consumed by SVG-as-img (`fill`, `stroke`, `stroke-width`,
+`stroke-linejoin`, `stroke-miterlimit`, `text-anchor`, and `clip-path`. The
+five SVG properties consumed by SVG-as-img (`fill`, `stroke`, `stroke-width`,
 `fill-opacity`, `stroke-opacity`) are Partial as well. The catalog in section 2
 is authoritative for status; this table remains the phase-83 family record.
 
@@ -1075,9 +1071,9 @@ Implemented.
 | `-webkit-mask-box-image-outset` | `mask-border-outset` | wait Phase 83 hard defer |
 | `-webkit-mask-box-image-repeat` | `mask-border-repeat` | wait Phase 83 hard defer |
 
-**Group D - 20 animation / transition / 3D / UI print-noop:** bases have no print
-PDF consumer and stay skipped. Aliases stay Unsupported (permanent non-goal for
-print).
+**Group D - 20 animation / transition / 3D / UI print-noop:** bases have no
+layout consumer and stay skipped. Aliases stay Unsupported (permanent
+non-goal).
 
 | Vendor alias | Blocking base | Reason |
 |--------------|---------------|--------|
@@ -1103,7 +1099,7 @@ print).
 | `-webkit-user-select` | `user-select` | print-noop (UI) |
 
 **Group E - 5 WebKit-native with no print consumer:** bases are WebKit extensions
-with no consumer in the print engine. Left Unsupported unless a base plus consumer
+with no consumer in this engine. Left Unsupported unless a base plus consumer
 lands.
 
 | Vendor alias | Blocking base | Reason |
@@ -1116,16 +1112,16 @@ lands.
 
 ### 5.4 Phase 84 print-noop categories (155 properties - Not implemented)
 
-The following 155 properties across six categories are intentionally left **unsupported** (Not implemented) as print-noop non-goals. Static print PDF has no animation time loop, no interactive scroll viewport, no pointer/caret chrome, no motion or anchor timelines, no aural speech synthesis, and no 3D scene graph. Declarations are recognized where valid CSS syntax appears and dropped without error; none are claimed as Implemented.
+The following 155 properties across six categories are intentionally left **unsupported** (Not implemented) as print-noop non-goals. This engine has no animation time loop, no interactive scroll viewport, no pointer/caret chrome, no motion or anchor timelines, no aural speech synthesis, and no 3D scene graph. Declarations are recognized where valid CSS syntax appears and dropped without error; none are claimed as Implemented.
 
 | Category | Count | Status | Description and scope |
 |----------|-------|--------|-----------------------|
-| Time, animation, and transition (`A_time_animation_transition`) | 45 | Not implemented | Static print PDF has no animation time loop, transition timeline, trigger activation, or view-transition engine (`animation`, `animation-composition`, `animation-delay`, `animation-delay-end`, `animation-delay-start`, `animation-direction`, `animation-duration`, `animation-fill-mode`, `animation-iteration-count`, `animation-name`, `animation-play-state`, `animation-range`, `animation-range-center`, `animation-range-end`, `animation-range-start`, `animation-timeline`, `animation-timing-function`, `animation-trigger`, `event-trigger`, `event-trigger-name`, `event-trigger-source`, `image-animation`, `pointer-timeline`, `pointer-timeline-axis`, `pointer-timeline-name`, `timeline-trigger`, `timeline-trigger-activation-range`, `timeline-trigger-activation-range-end`, `timeline-trigger-activation-range-start`, `timeline-trigger-active-range`, `timeline-trigger-active-range-end`, `timeline-trigger-active-range-start`, `timeline-trigger-name`, `timeline-trigger-source`, `transition`, `transition-behavior`, `transition-delay`, `transition-duration`, `transition-property`, `transition-timing-function`, `trigger-scope`, `view-transition-class`, `view-transition-group`, `view-transition-name`, `view-transition-scope`). |
-| Scroll snap, overscroll, and scrollbar (`A_scroll_snap_overscroll`) | 41 | Not implemented | Static print PDF has no scroll viewport, scroll snapping, scroll margin/padding offsets, scroll timeline drivers, or scrollbar gutter/color/width chrome (`overscroll-behavior`, `overscroll-behavior-block`, `overscroll-behavior-inline`, `overscroll-behavior-x`, `overscroll-behavior-y`, `scroll-axis-lock`, `scroll-behavior`, `scroll-initial-target`, `scroll-margin`, `scroll-margin-block`, `scroll-margin-block-end`, `scroll-margin-block-start`, `scroll-margin-bottom`, `scroll-margin-inline`, `scroll-margin-inline-end`, `scroll-margin-inline-start`, `scroll-margin-left`, `scroll-margin-right`, `scroll-margin-top`, `scroll-marker-group`, `scroll-padding`, `scroll-padding-block`, `scroll-padding-block-end`, `scroll-padding-block-start`, `scroll-padding-bottom`, `scroll-padding-inline`, `scroll-padding-inline-end`, `scroll-padding-inline-start`, `scroll-padding-left`, `scroll-padding-right`, `scroll-padding-top`, `scroll-snap-align`, `scroll-snap-stop`, `scroll-snap-type`, `scroll-target-group`, `scroll-timeline`, `scroll-timeline-axis`, `scroll-timeline-name`, `scrollbar-color`, `scrollbar-gutter`, `scrollbar-width`). |
-| Pointer, caret, and form UI (`A_pointer_form_ui`) | 25 | Not implemented | Static print PDF has no mouse pointer, cursor styling, caret animation/color/shape, spatial navigation, dynamic field sizing, input security masking, touch gestures, user text selection, or window dragging (`appearance`, `caret`, `caret-animation`, `caret-color`, `caret-shape`, `cursor`, `field-sizing`, `input-security`, `interactivity`, `interest-delay`, `interest-delay-end`, `interest-delay-start`, `nav-down`, `nav-left`, `nav-right`, `nav-up`, `pointer-events`, `resize`, `slider-orientation`, `spatial-navigation-action`, `spatial-navigation-contain`, `spatial-navigation-function`, `touch-action`, `user-select`, `window-drag`). |
-| Anchor positioning, offset motion, and view timelines (`A_anchor_timeline_motion`) | 21 | Not implemented | Interactive anchor positioning, motion path offset rotations/distances, view timelines, scroll anchoring, and paint invalidation hints have no print PDF consumer (`anchor-name`, `anchor-scope`, `offset`, `offset-anchor`, `offset-distance`, `offset-path`, `offset-position`, `offset-rotate`, `overflow-anchor`, `position-anchor`, `position-area`, `position-try`, `position-try-fallbacks`, `position-try-order`, `position-visibility`, `timeline-scope`, `view-timeline`, `view-timeline-axis`, `view-timeline-inset`, `view-timeline-name`, `will-change`). |
-| Speech and aural (`A_speech_aural`) | 19 | Not implemented | Visual print PDF has no aural speech synthesis, sound cues, pauses, rests, or speech voice properties (`cue`, `cue-after`, `cue-before`, `pause`, `pause-after`, `pause-before`, `rest`, `rest-after`, `rest-before`, `speak`, `speak-as`, `voice-balance`, `voice-duration`, `voice-family`, `voice-pitch`, `voice-range`, `voice-rate`, `voice-stress`, `voice-volume`). |
-| 3D transforms (`A_3d_transforms`) | 4 | Not implemented | Static 2D affine transforms (`transform`, `transform-origin`) are Implemented for paint CTM; 3D transform matrices, perspective projection, perspective origins, and backface culling are permanent non-goals for print PDF (`backface-visibility`, `perspective`, `perspective-origin`, `transform-style`). |
+| Time, animation, and transition (`A_time_animation_transition`) | 45 | Not implemented | This engine has no animation time loop, transition timeline, trigger activation, or view-transition engine (`animation`, `animation-composition`, `animation-delay`, `animation-delay-end`, `animation-delay-start`, `animation-direction`, `animation-duration`, `animation-fill-mode`, `animation-iteration-count`, `animation-name`, `animation-play-state`, `animation-range`, `animation-range-center`, `animation-range-end`, `animation-range-start`, `animation-timeline`, `animation-timing-function`, `animation-trigger`, `event-trigger`, `event-trigger-name`, `event-trigger-source`, `image-animation`, `pointer-timeline`, `pointer-timeline-axis`, `pointer-timeline-name`, `timeline-trigger`, `timeline-trigger-activation-range`, `timeline-trigger-activation-range-end`, `timeline-trigger-activation-range-start`, `timeline-trigger-active-range`, `timeline-trigger-active-range-end`, `timeline-trigger-active-range-start`, `timeline-trigger-name`, `timeline-trigger-source`, `transition`, `transition-behavior`, `transition-delay`, `transition-duration`, `transition-property`, `transition-timing-function`, `trigger-scope`, `view-transition-class`, `view-transition-group`, `view-transition-name`, `view-transition-scope`). |
+| Scroll snap, overscroll, and scrollbar (`A_scroll_snap_overscroll`) | 41 | Not implemented | This engine has no scroll viewport, scroll snapping, scroll margin/padding offsets, scroll timeline drivers, or scrollbar gutter/color/width chrome (`overscroll-behavior`, `overscroll-behavior-block`, `overscroll-behavior-inline`, `overscroll-behavior-x`, `overscroll-behavior-y`, `scroll-axis-lock`, `scroll-behavior`, `scroll-initial-target`, `scroll-margin`, `scroll-margin-block`, `scroll-margin-block-end`, `scroll-margin-block-start`, `scroll-margin-bottom`, `scroll-margin-inline`, `scroll-margin-inline-end`, `scroll-margin-inline-start`, `scroll-margin-left`, `scroll-margin-right`, `scroll-margin-top`, `scroll-marker-group`, `scroll-padding`, `scroll-padding-block`, `scroll-padding-block-end`, `scroll-padding-block-start`, `scroll-padding-bottom`, `scroll-padding-inline`, `scroll-padding-inline-end`, `scroll-padding-inline-start`, `scroll-padding-left`, `scroll-padding-right`, `scroll-padding-top`, `scroll-snap-align`, `scroll-snap-stop`, `scroll-snap-type`, `scroll-target-group`, `scroll-timeline`, `scroll-timeline-axis`, `scroll-timeline-name`, `scrollbar-color`, `scrollbar-gutter`, `scrollbar-width`). |
+| Pointer, caret, and form UI (`A_pointer_form_ui`) | 25 | Not implemented | This engine has no mouse pointer, cursor styling, caret animation/color/shape, spatial navigation, dynamic field sizing, input security masking, touch gestures, user text selection, or window dragging (`appearance`, `caret`, `caret-animation`, `caret-color`, `caret-shape`, `cursor`, `field-sizing`, `input-security`, `interactivity`, `interest-delay`, `interest-delay-end`, `interest-delay-start`, `nav-down`, `nav-left`, `nav-right`, `nav-up`, `pointer-events`, `resize`, `slider-orientation`, `spatial-navigation-action`, `spatial-navigation-contain`, `spatial-navigation-function`, `touch-action`, `user-select`, `window-drag`). |
+| Anchor positioning, offset motion, and view timelines (`A_anchor_timeline_motion`) | 21 | Not implemented | Interactive anchor positioning, motion path offset rotations/distances, view timelines, scroll anchoring, and paint invalidation hints have no layout consumer (`anchor-name`, `anchor-scope`, `offset`, `offset-anchor`, `offset-distance`, `offset-path`, `offset-position`, `offset-rotate`, `overflow-anchor`, `position-anchor`, `position-area`, `position-try`, `position-try-fallbacks`, `position-try-order`, `position-visibility`, `timeline-scope`, `view-timeline`, `view-timeline-axis`, `view-timeline-inset`, `view-timeline-name`, `will-change`). |
+| Speech and aural (`A_speech_aural`) | 19 | Not implemented | This engine has no aural speech synthesis, sound cues, pauses, rests, or speech voice properties (`cue`, `cue-after`, `cue-before`, `pause`, `pause-after`, `pause-before`, `rest`, `rest-after`, `rest-before`, `speak`, `speak-as`, `voice-balance`, `voice-duration`, `voice-family`, `voice-pitch`, `voice-range`, `voice-rate`, `voice-stress`, `voice-volume`). |
+| 3D transforms (`A_3d_transforms`) | 4 | Not implemented | Static 2D affine transforms (`transform`, `transform-origin`) are Implemented for paint; 3D transform matrices, perspective projection, perspective origins, and backface culling are permanent non-goals for this engine (`backface-visibility`, `perspective`, `perspective-origin`, `transform-style`). |
 
 Total: 155 properties across six categories. All remain Not implemented.
 
@@ -1162,7 +1158,7 @@ for parse-only stubs. Catalog rows stay `unsupported` in
 | `border-left-clip` | css-borders-4 | Unsupported / draft-not-ready | No apply/paint; v0.2.7 defer |
 | `border-limit` | css-borders-4 | Unsupported / draft-not-ready | No apply/paint; v0.2.7 defer |
 | `border-right-clip` | css-borders-4 | Unsupported / draft-not-ready | No apply/paint; v0.2.7 defer |
-| `border-shape` | css-borders-4 | Unsupported / draft-not-ready | Chrome BCD yes since 147; still no gowk consumer; v0.2.7 defer |
+| `border-shape` | css-borders-4 | Unsupported / draft-not-ready | Chrome BCD yes since 147; still no consumer in this tree; v0.2.7 defer |
 | `border-top-clip` | css-borders-4 | Unsupported / draft-not-ready | No apply/paint; v0.2.7 defer |
 
 Total: 14 properties. All remain Unsupported / draft-not-ready for v0.2.7. The
@@ -1173,10 +1169,10 @@ current record.
 
 | Rule | Value |
 |------|-------|
-| Local file access | **Blocked by default** (`--allow-local-files` opt-in; `--allow` path allowlist walk) |
-| Untrusted HTML | **Not supported** - same warning as upstream `docs/status.md`; use with HTML you control only |
-| Remote URL fetch | `net/http` defaults: connect + response timeouts, redirect limit. Compatible mode allows `http://localhost` / RFC1918; Restricted (`--restrict-network`) does not. `file://` is gated by the local-file ACL |
-| SSRF posture | No automatic form submission; POST only via explicit `--post` flags; no cookies auto-forwarded from site contexts |
+| Local file access | **Blocked by default**; `settings.Load.Allow` is the path allowlist, enforced by the `internal/load` ACL (`ErrAccessDenied`, load.go:47) |
+| Untrusted HTML | **Not supported**; use HTML you control only |
+| Remote URL fetch | `net/http` defaults: connect + response timeouts, redirect limit. `CompatibleNetworkPolicy` allows `http://localhost` and RFC1918; `RestrictedNetworkPolicy` does not (load.go:135-152). `file://` is gated by the local-file ACL |
+| SSRF posture | No automatic form submission; POST only when the caller configures `settings.Load.Post`; no cookies are forwarded |
 
 ## 7. CLI flags
 

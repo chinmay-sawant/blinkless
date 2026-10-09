@@ -1,6 +1,6 @@
 # Overview
 
-blinkless is a pure-Go HTML renderer. It does not write PDF files and it does not start a browser.
+blinkless is a pure-Go HTML and CSS layout engine. It returns a drawing list. It does not write PDF files, it does not encode a page bitmap, and it does not start a browser.
 
 The module path is `github.com/chinmay-sawant/blinkless`. Direct dependencies are `go-text/typesetting` (glyph positioning) and `tdewolff/canvas` (SVG images). Default builds use `CGO_ENABLED=0`.
 
@@ -13,7 +13,7 @@ HTML + CSS
         -> layout.DisplayList
 ```
 
-`layout.DisplayList` returns the drawing list. Each operation is a rectangle, a line of text, an image, or a link box. Coordinates are canvas points, y down. The engine does not encode that list as a page PNG or JPEG.
+`layout.DisplayList` returns the drawing list. Each operation is a filled or stroked rectangle, a line, a text run, an image, a link target, a list marker, or collapsed table border segments. Coordinates are canvas points, y down. The engine does not encode that list as a page PNG or JPEG.
 
 An image operation keeps the source bytes. When orientation or a clip cannot stay in those bytes, that one operation is re-encoded as a PNG. That bitmap fallback is part of the list. It is not a picture of the page.
 
@@ -30,4 +30,4 @@ An image operation keeps the source bytes. When orientation or a clip cannot sta
 
 ## Fonts
 
-Faces live in `internal/fonts/assets`. `LoadDefaultFaces` supplies Liberation and DejaVu. Extra faces come from `--font-path` and `@font-face`.
+Faces live in `internal/fonts/assets`. `LoadDefaultFaces` supplies Liberation and DejaVu. Extra faces come from configured font directories and `@font-face`.

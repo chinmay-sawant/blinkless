@@ -65,6 +65,8 @@ const (
 	propFont               = "font"
 	propGridRow            = "grid-row"
 	propGridRowEnd         = "grid-row-end"
+	propGridTemplate       = "grid-template"
+	propGrid               = "grid"
 	propQuotes             = "quotes"
 	propHyphenateCharacter = "hyphenate-character"
 
@@ -514,6 +516,10 @@ func layoutDeclarationValueAccepted(prop, value string) bool {
 		return gridRowStartValueAccepted(value)
 	case propGridRowEnd:
 		return gridRowEndValueAccepted(value)
+	case propGridTemplate:
+		return gridTemplateShorthandValueAccepted(value)
+	case propGrid:
+		return gridShorthandValueAccepted(value)
 	case cssPropMarginBlock, cssPropMarginInline:
 		return logicalPairValueAccepted(value, marginLengthValueAccepted)
 	case propMarginBlockStart, propMarginBlockEnd, propMarginInlineStart, propMarginInlineEnd:
@@ -1053,6 +1059,374 @@ func gridLineEndTokenAccepted(token string) bool {
 	n, err := strconv.Atoi(token)
 
 	return err == nil && n != 0
+}
+
+// maxGridTrackNesting caps repeat() recursion in the acceptance grammar so a
+// pathological nested value cannot recurse without bound.
+const maxGridTrackNesting = 8
+
+// gridTemplateShorthandValueAccepted mirrors parseGridTemplateShorthand:
+// none, a masonry value the setter skips, the areas form, or a rows
+// [/ columns] pair of track lists.
+func gridTemplateShorthandValueAccepted(value string) bool {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return false
+	}
+
+	if strings.EqualFold(trimmed, cssDisplayNone) || gridValueHasMasonry(trimmed) {
+		return true
+	}
+
+	before, after, hasSlash := splitGridTemplateSlash(trimmed)
+	if before == "" || (hasSlash && after == "") {
+		return false
+	}
+
+	if gridPartHasAreaString(before) {
+		return gridAreaTemplateAccepted(before) && gridTrackListAfterSlashAccepted(after, hasSlash)
+	}
+
+	return gridTrackListAccepted(before) && gridTrackListAfterSlashAccepted(after, hasSlash)
+}
+
+// gridShorthandValueAccepted mirrors parseGridShorthand: none, a masonry value
+// the setter skips, the grid-template form, or an auto-flow form.
+func gridShorthandValueAccepted(value string) bool {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return false
+	}
+
+	if strings.EqualFold(trimmed, cssDisplayNone) || gridValueHasMasonry(trimmed) {
+		return true
+	}
+
+	before, after, hasSlash := splitGridTemplateSlash(trimmed)
+	if before == "" || (hasSlash && after == "") {
+		return false
+	}
+
+	beforeFlow := gridPartHasAutoFlow(before)
+	afterFlow := gridPartHasAutoFlow(after)
+
+	if !beforeFlow && !afterFlow {
+		return gridTemplateShorthandValueAccepted(trimmed)
+	}
+
+	return gridAutoFlowShorthandAccepted(before, after, hasSlash, beforeFlow, afterFlow)
+}
+
+// gridAutoFlowShorthandAccepted validates the auto-flow forms of the grid
+// shorthand: exactly one side carries auto-flow, the slash is required, and
+// the other side is a track list.
+func gridAutoFlowShorthandAccepted(before, after string, hasSlash, beforeFlow, afterFlow bool) bool {
+	if !hasSlash || (beforeFlow && afterFlow) {
+		return false
+	}
+
+	if beforeFlow {
+		return gridAutoFlowSideAccepted(before) && gridTrackListAccepted(after)
+	}
+
+	return gridTrackListAccepted(before) && gridAutoFlowSideAccepted(after)
+}
+
+// gridAutoFlowSideAccepted validates the auto-flow side of the grid shorthand:
+// the auto-flow keyword, an optional dense, and the optional auto track sizes
+// the engine stores as ignored but CSS allows.
+func gridAutoFlowSideAccepted(part string) bool {
+	seenFlow, seenDense := false, false
+
+	for _, token := range splitGridTrackTokens(part) {
+		switch strings.ToLower(token) {
+		case "auto-flow":
+			if seenFlow {
+				return false
+			}
+
+			seenFlow = true
+		case gridFlowDense:
+			if seenDense {
+				return false
+			}
+
+			seenDense = true
+		default:
+			if !gridTrackSizeAccepted(token, 0) {
+				return false
+			}
+		}
+	}
+
+	return seenFlow
+}
+
+// gridTrackListAfterSlashAccepted validates the optional columns side of the
+// template shorthands.
+func gridTrackListAfterSlashAccepted(after string, hasSlash bool) bool {
+	if !hasSlash {
+		return true
+	}
+
+	return gridTrackListAccepted(after)
+}
+
+// gridAreaTemplateAccepted validates the areas side of grid-template: quoted
+// area rows, each optionally followed by a track size, with [line names]
+// allowed between them. A track size before the first area row is rejected.
+func gridAreaTemplateAccepted(part string) bool {
+	sawArea := false
+
+	for idx := 0; idx < len(part); {
+		for idx < len(part) && isCSSSpace(part[idx]) {
+			idx++
+		}
+
+		if idx >= len(part) {
+			break
+		}
+
+		next, area, ok := scanGridAreaTemplateToken(part, idx, sawArea)
+		if !ok {
+			return false
+		}
+
+		sawArea = sawArea || area
+		idx = next
+	}
+
+	return sawArea
+}
+
+// scanGridAreaTemplateToken consumes one areas-form token: a quoted area row,
+// a [line names] group, or a track size after the first area row. It returns
+// the next index, whether the token was an area row, and whether it is valid.
+func scanGridAreaTemplateToken(part string, idx int, sawArea bool) (int, bool, bool) {
+	switch part[idx] {
+	case '"', '\'':
+		end := scanQuotedGridToken(part, idx)
+		if end <= idx+1 || part[end-1] != part[idx] {
+			return idx, false, false
+		}
+
+		return end, true, true
+	case '[':
+		end := skipGridLineNames(part, idx)
+		if end <= idx+1 || part[end-1] != ']' {
+			return idx, false, false
+		}
+
+		return end, false, true
+	default:
+		end := scanGridTemplateToken(part, idx)
+		if !sawArea || !gridTrackSizeAccepted(part[idx:end], 0) {
+			return idx, false, false
+		}
+
+		return end, false, true
+	}
+}
+
+// scanGridTemplateToken returns the end of one unquoted grid-template token.
+func scanGridTemplateToken(part string, pos int) int {
+	end := pos
+	for end < len(part) && !isCSSSpace(part[end]) &&
+		part[end] != '"' && part[end] != '\'' && part[end] != '[' {
+		end++
+	}
+
+	return end
+}
+
+// gridTrackListAccepted validates one <track-list>: whitespace-separated track
+// sizes with optional [line names], or the lone none keyword. The forms mirror
+// parseGridTrackDefs: auto, min-content, max-content, fr, non-negative lengths
+// and percentages, minmax(), and repeat().
+func gridTrackListAccepted(value string) bool {
+	return gridTrackListAcceptedDepth(value, 0)
+}
+
+// gridTrackListAcceptedDepth is gridTrackListAccepted carrying the current
+// repeat() nesting depth.
+func gridTrackListAcceptedDepth(value string, depth int) bool {
+	tokens := splitGridTrackTokens(value)
+	if len(tokens) == 0 {
+		return false
+	}
+
+	if len(tokens) == 1 && strings.EqualFold(tokens[0], cssDisplayNone) {
+		return true
+	}
+
+	for _, token := range tokens {
+		if isGridLineNamesToken(token) {
+			continue
+		}
+
+		if !gridTrackSizeAccepted(token, depth) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// gridTrackSizeAccepted mirrors parseTrackSize/parseOneTrackDef for one track
+// token: keywords, fr, non-negative lengths and percentages, minmax(), and
+// repeat().
+func gridTrackSizeAccepted(token string, depth int) bool {
+	if depth > maxGridTrackNesting {
+		return false
+	}
+
+	tok := strings.TrimSpace(token)
+	lower := strings.ToLower(tok)
+
+	switch lower {
+	case overflowAuto, sizeMinContent, sizeMaxContent:
+		return true
+	}
+
+	if strings.HasPrefix(lower, "minmax(") && strings.HasSuffix(tok, ")") {
+		return gridMinmaxTrackAccepted(tok)
+	}
+
+	if strings.HasPrefix(lower, "repeat(") && strings.HasSuffix(tok, ")") {
+		return gridRepeatTrackAccepted(tok, depth)
+	}
+
+	return gridBareTrackSizeAccepted(lower)
+}
+
+// gridMinmaxTrackAccepted validates minmax(<size>, <size>) with exactly two
+// top-level arguments.
+func gridMinmaxTrackAccepted(tok string) bool {
+	inner := tok[len("minmax(") : len(tok)-1]
+
+	parts := splitTopLevelComma(inner)
+	if len(parts) != two {
+		return false
+	}
+
+	return gridBareTrackSizeAccepted(strings.ToLower(parts[0])) &&
+		gridBareTrackSizeAccepted(strings.ToLower(parts[1]))
+}
+
+// gridRepeatTrackAccepted validates repeat(<count>, <track-list>): a positive
+// integer or auto-fill/auto-fit, then a nested track list.
+func gridRepeatTrackAccepted(tok string, depth int) bool {
+	inner := tok[len("repeat(") : len(tok)-1]
+
+	parts := splitTopLevelComma(inner)
+	if len(parts) != two || !gridRepeatCountAccepted(parts[0]) {
+		return false
+	}
+
+	return gridTrackListAcceptedDepth(parts[1], depth+1)
+}
+
+// gridRepeatCountAccepted mirrors expandRepeatFunctions' integer count and
+// parseAutoFitDefs' auto-fit/auto-fill forms.
+func gridRepeatCountAccepted(part string) bool {
+	count := strings.TrimSpace(strings.ToLower(part))
+	if count == "auto-fit" || count == "auto-fill" {
+		return true
+	}
+
+	number, err := strconv.Atoi(count)
+
+	return err == nil && number > 0
+}
+
+// gridBareTrackSizeAccepted accepts one leaf track size: a keyword, a
+// non-negative fr coefficient, or a non-negative length or percentage. The
+// token is already lowercased by the caller.
+func gridBareTrackSizeAccepted(token string) bool {
+	switch token {
+	case overflowAuto, sizeMinContent, sizeMaxContent:
+		return true
+	}
+
+	if strings.HasPrefix(token, "-") {
+		return false
+	}
+
+	if factor, ok := strings.CutSuffix(token, "fr"); ok {
+		number, err := strconv.ParseFloat(strings.TrimSpace(factor), 64)
+
+		return err == nil && number >= 0
+	}
+
+	length, ok := lengthBox(token, 0, 0, "")
+
+	return ok && length >= 0
+}
+
+// splitGridTrackTokens splits a track list on whitespace outside parentheses
+// and brackets, so minmax()/repeat() arguments and [line names] stay intact.
+func splitGridTrackTokens(value string) []string {
+	var tokens []string
+
+	var current strings.Builder
+
+	depth := 0
+
+	flush := func() {
+		if current.Len() == 0 {
+			return
+		}
+
+		tokens = append(tokens, current.String())
+		current.Reset()
+	}
+
+	for idx := range len(value) {
+		char := value[idx]
+
+		switch {
+		case char == '(' || char == '[':
+			depth++
+
+			current.WriteByte(char)
+		case char == ')' || char == ']':
+			depth = max(depth-1, 0)
+
+			current.WriteByte(char)
+		case isTrackWhitespace(char) && depth == 0:
+			flush()
+		default:
+			current.WriteByte(char)
+		}
+	}
+
+	flush()
+
+	return tokens
+}
+
+// isGridLineNamesToken reports whether token is one or more bracketed line
+// names, such as [main] or [content start].
+func isGridLineNamesToken(token string) bool {
+	if !strings.HasPrefix(token, "[") || !strings.HasSuffix(token, "]") {
+		return false
+	}
+
+	depth := 0
+
+	for idx := range len(token) {
+		switch token[idx] {
+		case '[':
+			depth++
+		case ']':
+			depth--
+			if depth < 0 {
+				return false
+			}
+		}
+	}
+
+	return depth == 0
 }
 
 // gapValueAccepted mirrors the gap appliers: normal where accepted, or a

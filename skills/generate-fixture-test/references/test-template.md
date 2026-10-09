@@ -1,79 +1,71 @@
 # Fixture test template
 
-Use this reference after measuring the exact PDF. Replace every placeholder
-with values from that fixture's inspector output. Do not reuse a coordinate or
-page number from another test.
+Use this reference after dumping the exact fixture's drawing list. Replace
+every placeholder with values from that dump. Do not reuse a coordinate or
+count from another test.
 
 ```go
-package convert
+package layout_test
 
-import "testing"
+import (
+	"testing"
 
-func TestOutputFixtureNNSlug(t *testing.T) {
+	"github.com/chinmay-sawant/blinkless/layout"
+)
+
+func TestDisplayFixtureNNSlug(t *testing.T) {
 	t.Parallel()
 
-	committed := readCommittedOps(t, "fixture-NN-slug.pdf")
-	fresh := freshOps(t, "fixture-NN-slug.html")
+	// displayOf parses HTML and applies CSS; see layout/displaylist_test.go.
+	// Read the fixture with os.ReadFile when it is large.
+	display := displayOf(t, `<fixture markup or file contents>`)
 
-	assertPageOpsMatch(t, committed, fresh)
-
-	// Values below came from scripts/inspect_pdf_ops.py for this PDF.
-	assertOpsTextRun(
-		t, committed, 1, "Unique title", measuredX, measuredY, measuredSize,
-		"MeasuredBaseFont", [3]float64{red / 255, green / 255, blue / 255},
-	)
-	assertOpsStrokeSegment(
-		t, committed, 1,
-		measuredX1, measuredY1, measuredX2, measuredY2,
-		[3]float64{red / 255, green / 255, blue / 255}, measuredWidth,
-	)
-
-	if committed.Pages != measuredPages {
-		t.Errorf("pages = %d, want %d", committed.Pages, measuredPages)
+	if display.Width != measuredWidth || display.Height != measuredHeight {
+		t.Errorf("canvas = %dx%d, want %dx%d",
+			display.Width, display.Height, measuredWidth, measuredHeight)
 	}
 
-	if len(committed.MediaBoxes) != measuredPages ||
-		!opsBoxClose(committed.MediaBoxes[0], [4]float64{minX, minY, maxX, maxY}) {
-		t.Errorf("mediaboxes = %v, want the measured boxes", committed.MediaBoxes)
+	// Values below came from
+	// go run ./bindings/wasm -fixture testdata/golden/fixture-NN-slug.html -out /tmp/dump.json
+	op := findTextOp(t, display, "Unique title")
+	assertOpGeometry(t, op, measuredX, measuredY, measuredW, measuredH)
+	assertOpColor(t, op, measuredR, measuredG, measuredB)
+
+	if got := countKind(display, layout.DisplayOpFillRect); got != measuredFills {
+		t.Errorf("fill ops = %d, want %d", got, measuredFills)
 	}
 
-	if len(committed.Texts) != measuredTextRuns {
-		t.Errorf("text runs = %d, want %d", len(committed.Texts), measuredTextRuns)
+	if got := countKind(display, layout.DisplayOpLine); got != measuredLines {
+		t.Errorf("line ops = %d, want %d", got, measuredLines)
 	}
 
-	if len(committed.Strokes) != measuredStrokes {
-		t.Errorf("strokes = %d, want %d", len(committed.Strokes), measuredStrokes)
-	}
-
-	if len(committed.Fills) != measuredFills {
-		t.Errorf("fills = %d, want %d", len(committed.Fills), measuredFills)
-	}
-
-	if len(committed.Images) != measuredImages {
-		t.Errorf("images = %d, want %d", len(committed.Images), measuredImages)
+	if got := countKind(display, layout.DisplayOpImage); got != measuredImages {
+		t.Errorf("image ops = %d, want %d", got, measuredImages)
 	}
 }
 ```
 
+The helper names above are illustrative. Use the existing helpers in the
+package you add the test to (`displayOf`, `styledOf` in
+`layout/displaylist_test.go`), or write the smallest local ones. If you need
+the rare payload of an op, use its nil-safe accessor (`LinkURI`,
+`ImageBytes`, `Opacity`, `Transform`, ...) instead of the promoted fields.
+
 ## Choosing assertions
 
-Use only assertions that match the HTML and the measured PDF.
+Use only assertions that match the HTML and the measured drawing list.
 
-- Text: choose unique strings. Include page, origin, size, BaseFont, and fill
-  color.
-- Rule or border: choose a measured stroked segment. Include endpoints, width,
-  and stroke color.
-- Fill: choose a measured filled rectangle. Include page box and fill color.
+- Text: choose unique strings. Include origin, size, and fill color.
+- Rule or border: choose a measured line op. Include endpoints, width, and
+  stroke color.
+- Fill: choose a measured fillRect. Include the box and fill color.
 - Image: choose the measured placement box. Confirm the HTML really authors
   the image.
-- Page: pin the measured page count and MediaBox.
-- Counts: pin them when the PDF is simple enough that an unexpected operation
+- Canvas: pin the measured width and height.
+- Counts: pin them when the fixture is simple enough that an unexpected op
   should be a failure. Counts are supporting evidence, not a replacement for
   authored anchors.
-
-For a multi-page PDF, repeat text or drawing assertions with the measured page
-number. Put at least one assertion on the last page when the fixture has a
-stable last-page feature.
+- Paint order: assert the relative order of anchors when layering matters.
 
 ## Measurement record
 
@@ -81,18 +73,13 @@ Before writing the test, keep a short working record in the response or local
 notes allowed by the user's scope:
 
 ```text
-PDF: output/fixture-NN-slug.pdf
 HTML: testdata/golden/fixture-NN-slug.html
-Pages: N
-MediaBoxes: ...
-Text runs: N
-Strokes: N
-Fills: N
-Images: N
+Canvas: WxH
+Ops: text=N lines=N fills=N images=N
 Anchors:
-  page 1 | text | "..." | x=... y=... size=... font=... color=#......
-  page N | rule | x1=... y1=... x2=... y2=... width=... color=#......
+  text | "..." | x=... y=... w=... h=... size=... color=#......
+  line | x1=... y1=... x2=... y2=... width=... color=#......
 ```
 
 The working record is evidence for the test values. It is not a substitute for
-the test or for the independent PDF inspection.
+the test or for the engine dump.

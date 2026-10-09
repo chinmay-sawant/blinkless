@@ -164,14 +164,13 @@ func (b *treeBuilder) flushPendingTableText() {
 
 // currentIsTableSection reports whether the current node is one of the
 // elements whose character tokens are collected by the in-table-text rules.
-// Template is deliberately absent until template contents are modeled.
 func (b *treeBuilder) currentIsTableSection() bool {
 	if b.top().Namespace != NamespaceHTML {
 		return false
 	}
 
 	switch b.top().Name {
-	case "table", "tbody", "tfoot", "thead", "tr":
+	case "table", "tbody", "template", "tfoot", "thead", "tr":
 		return true
 	default:
 		return false
@@ -553,50 +552,81 @@ func (b *treeBuilder) hasCellInTableScope() bool {
 }
 
 // resetInsertionMode implements the standard's "reset the insertion mode
-// appropriately" for the modes this parser has. Template and fragment
-// branches are omitted until those features exist.
+// appropriately", including the template and frameset branches. A fragment
+// parse substitutes its context element at the bottom of the stack.
 func (b *treeBuilder) resetInsertionMode() {
-	for i := len(b.stack) - 1; i > 0; i-- {
+	last := false
+	first := 1 // stack[0] is the synthetic #document root for documents
+
+	if b.fragment {
+		first = 0 // stack[0] is the synthetic html root for fragments
+	}
+
+	for i := len(b.stack) - 1; i >= first; i-- {
 		node := b.stack[i]
-		if node.Namespace != NamespaceHTML {
-			continue
+		if i == first {
+			last = true
+
+			if b.fragmentContext != nil {
+				node = b.fragmentContext
+			}
 		}
 
-		switch node.Name {
-		case "td", "th":
-			b.mode = modeInCell
+		if node.Namespace == NamespaceHTML {
+			switch {
+			case (node.Name == "td" || node.Name == "th") && !last:
+				b.mode = modeInCell
 
-			return
-		case "tr":
-			b.mode = modeInRow
+				return
+			case node.Name == "tr":
+				b.mode = modeInRow
 
-			return
-		case "tbody", "thead", "tfoot":
-			b.mode = modeInTableBody
+				return
+			case node.Name == "tbody" || node.Name == "thead" || node.Name == "tfoot":
+				b.mode = modeInTableBody
 
-			return
-		case "caption":
-			b.mode = modeInCaption
+				return
+			case node.Name == "caption":
+				b.mode = modeInCaption
 
-			return
-		case "colgroup":
-			b.mode = modeInColumnGroup
+				return
+			case node.Name == "colgroup":
+				b.mode = modeInColumnGroup
 
-			return
-		case "table":
-			b.mode = modeInTable
+				return
+			case node.Name == "table":
+				b.mode = modeInTable
 
-			return
-		case "head":
-			b.mode = modeInHead
+				return
+			case node.Name == "template":
+				b.mode = b.currentTemplateMode()
 
-			return
-		case "body":
+				return
+			case node.Name == "head" && !last:
+				b.mode = modeInHead
+
+				return
+			case node.Name == "body":
+				b.mode = modeInBody
+
+				return
+			case node.Name == "frameset":
+				b.mode = modeInFrameset
+
+				return
+			case node.Name == "html":
+				if b.head == nil {
+					b.mode = modeBeforeHead
+				} else {
+					b.mode = modeAfterHead
+				}
+
+				return
+			}
+		}
+
+		if last {
 			b.mode = modeInBody
-
-			return
-		case "html":
-			b.mode = modeAfterHead
 
 			return
 		}

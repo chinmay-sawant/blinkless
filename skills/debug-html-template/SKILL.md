@@ -1,21 +1,23 @@
 ---
 name: debug-html-template
 description: >
-  Debug an HTML-to-PDF template when the rendered page wraps, misaligns,
+  Debug an HTML template when the rendered output wraps, misaligns,
   overlaps, or ignores CSS. Diagnose only: walk the symptom to the CSS,
   split measure vs paint and parse vs apply, then table the possible
   fixes and wait for the user to pick one. Engine only when measure or
   parse/apply actually lied; look-only gaps belong in the template.
   Alert if a template change is required. Use when the user says a
   template "looks wrong", "wrapped", "not aligned", "CSS not applied",
-  "debug this HTML/PDF", or runs /debug-html-template. Do not use for
+  "debug this template", or runs /debug-html-template. Do not use for
   API, CLI, or non-visual converter failures.
 ---
 
 # Debug an HTML template
 
-Visual PDF bug. **Diagnose, then stop.** Do not implement until the user
-picks a row from the solutions table.
+Visual template bug. **Diagnose, then stop.** Do not implement until the user
+picks a row from the solutions table. The Go engine emits a drawing list, not
+a PDF; use a Chromium reference PDF (or a user screenshot) for pictures and
+the drawing list for Go geometry.
 
 The template CSS is valid until a dump proves otherwise. Do not start
 by rewriting the HTML. Engine work is for a lied measure/parse/apply
@@ -25,9 +27,10 @@ path — not to invent spacing a browser would not draw.
 
 - **Open the HTML** (the `.html` file, plus any linked `.css`). Read the
   markup and the `<style>` / stylesheet that apply to the fragment. Do
-  not guess structure from the PDF alone.
-- **Open the PDF** on the page the user named, then the pages around it.
-- Prefer **Python** to get coordinates, not just a screenshot:
+  not guess structure from a picture alone.
+- **Open the reference** on the page the user named, then the pages around
+  it. That is the Chromium PDF for the same HTML when one exists.
+- Prefer **Python** to get coordinates from the reference, not just a screenshot:
   `pdfplumber` (`page.chars`, `extract_words`, `extract_text`) or
   `pypdf` for page count/boxes. Record each token's `x0`, `x1`, `top`,
   `bottom`. Wrap = same phrase, different `top`. Align = box/`rect`
@@ -73,7 +76,7 @@ template bug.
 Copy the fragment into the smallest `layoutHTML` + `sheet` case that
 still shows the symptom. Dump display-list ops (`OpText`, `OpFillRect`):
 `Text`, `X`, `Y`, `W`, `H`. Cross-check those numbers against the
-Python PDF word/char boxes from step 1 when a rendered file exists.
+reference word/char boxes from step 1 when a reference exists.
 
 Pass/fail on geometry, not screenshots:
 
@@ -86,7 +89,7 @@ into a committed fix, and do **not** edit engine or template yet.
 
 ## 5. Report solutions — then wait
 
-This skill ends at the table. No patches, no HTML edits, no PDF regen.
+This skill ends at the table. No patches, no HTML edits, no artifact regen.
 
 Lead with: used CSS, which path lied (measure, parse, or apply).
 
@@ -134,5 +137,5 @@ explicit go-ahead on a named row.
 - Template row: edit only what the row named, after the alert was shown.
 - Keep a layout-ops regression test. Do not assert internals.
 - Re-run the layout package (or the files you touched).
-- Regenerate the PDF after the test is green. Confirm the original page,
-  then nearby pages that share the same CSS pattern.
+- Regenerate the drawing list after the test is green. Confirm the original
+  page in the reference, then nearby pages that share the same CSS pattern.

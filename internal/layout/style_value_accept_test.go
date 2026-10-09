@@ -137,3 +137,69 @@ func TestSupportedDeclarationFlexGridGeneratedGrammar(t *testing.T) {
 		})
 	}
 }
+
+// TestSupportedDeclarationGridTemplateGrammar (CSS-01b): this table covers the
+// grid and grid-template shorthands, the last two advertised implemented
+// properties without an acceptance arm. The grammar mirrors
+// parseGridTemplateShorthand and parseGridShorthand: none, masonry, the areas
+// form, track lists with line names / minmax() / repeat(), and the grid
+// auto-flow form. Invalid ordinary values must not win the cascade.
+func TestSupportedDeclarationGridTemplateGrammar(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		prop  string
+		value string
+		want  bool
+	}{
+		// grid-template: none, track lists, rows / columns, and areas.
+		{"grid-template", "none", true},
+		{"grid-template", "100px 1fr / 50px 2fr", true},
+		{"grid-template", "auto / 1fr 1fr", true},
+		{"grid-template", `"a a" 40px "b c" 1fr / 1fr 2fr`, true},
+		{"grid-template", `"a" "b"`, true},
+		{"grid-template", "masonry / 1fr", true},
+		{"grid-template", "minmax(0, 1.2fr) minmax(0, .8fr)", true},
+		{"grid-template", "repeat(3, minmax(0, 1fr))", true},
+		{"grid-template", "repeat(auto-fit, minmax(130px, 1fr))", true},
+		{"grid-template", "[main] 1fr [side] 2fr", true},
+		{"grid-template", "40% 1fr", true},
+		{"grid-template", "none / 1fr", true},
+		{"grid-template", "bogus", false},
+		{"grid-template", "1fr bogus", false},
+		{"grid-template", "1fr / bogus", false},
+		{"grid-template", "1fr /", false},
+		{"grid-template", `40px "a"`, false},
+		{"grid-template", `"a" bogus`, false},
+		{"grid-template", "minmax(1fr)", false},
+		{"grid-template", "minmax(1fr, bogus)", false},
+		{"grid-template", "repeat(0, 1fr)", false},
+		{"grid-template", "repeat(2, bogus)", false},
+		{"grid-template", "-10px 1fr", false},
+
+		// grid: template form, auto-flow form, none, and masonry.
+		{"grid", "none", true},
+		{"grid", "80px / 1fr 2fr", true},
+		{"grid", "auto-flow dense / 1fr 2fr", true},
+		{"grid", "100px / auto-flow dense", true},
+		{"grid", "auto-flow 100px / 1fr", true},
+		{"grid", "masonry", true},
+		{"grid", "bogus", false},
+		{"grid", "auto-flow", false},
+		{"grid", "auto-flow bogus / 1fr", false},
+		{"grid", "100px / auto-flow bogus", false},
+		{"grid", "auto-flow / auto-flow", false},
+		{"grid", "100px /", false},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.prop+"/"+testCase.value, func(t *testing.T) {
+			t.Parallel()
+
+			if got := supportedDeclaration(testCase.prop, testCase.value); got != testCase.want {
+				t.Errorf("supportedDeclaration(%q, %q) = %v, want %v",
+					testCase.prop, testCase.value, got, testCase.want)
+			}
+		})
+	}
+}

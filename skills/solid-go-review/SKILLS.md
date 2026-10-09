@@ -28,7 +28,7 @@ The goal is useful reuse. A finding must explain what can be reused, what is cou
 
 2. Build a package ownership map.
 
-   Assign each package to one worker. Split a packet when it contains a large stateful package, more than one major pipeline stage, or enough files that a worker cannot cite the relevant code. Keep `internal/convert`, `internal/layout`, `internal/pdf`, and `internal/imageout` separate in this repository because each owns a substantial stage or output path. Group only small, cohesive packages.
+   Assign each package to one worker. Split a packet when it contains a large stateful package, more than one major pipeline stage, or enough files that a worker cannot cite the relevant code. Keep `internal/convert`, `internal/layout`, `internal/svg`, and `internal/fonts` separate in this repository because each owns a substantial stage or shared resource. Group only small, cohesive packages.
 
    Use one bounded wave with no more workers than packets. Four workers are not a requirement. Keep enough context and memory for the orchestrator to inspect seams afterward. If delegation is unavailable, inspect the same packets sequentially and say so. Never claim that a parallel wave ran when it did not.
 

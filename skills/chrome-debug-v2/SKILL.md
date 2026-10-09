@@ -1,11 +1,11 @@
 ---
 name: chrome-debug-v2
-description: Budgeted Chrome-versus-Go PDF debugging for one fixture. Use when one test/chrome case looks different in Chrome and blinkless and you want the shortest path to a verified fix. Runs one compare, one bounded diagnostic agent, one fixer, one criticizer, then one gate pass. Not for golden-corpus failures or multi-case sweeps.
+description: Budgeted Chrome-versus-Go drawing-list debugging for one fixture. Use when one test/chrome case looks different in Chrome and blinkless and you want the shortest path to a verified fix. Runs one compare, one bounded diagnostic agent, one fixer, one criticizer, then one gate pass. Not for golden-corpus failures or multi-case sweeps.
 ---
 
 # Chrome debug v2
 
-Fix one Chrome-versus-Go PDF difference with as few loops as possible.
+Fix one Chrome-versus-Go rendering difference with as few loops as possible.
 
 This skill supersedes `skills/chrome-debug/SKILL.md`; keep the old file as
 long-form reference, do not edit it.
@@ -35,7 +35,7 @@ fixtures. The budgets below are the fix; treat them as caps.
   packages and only with explicit user sign-off; the 2026-09-20 collision in
   `internal/layout` forced a 12x lint loop and a worktree verification pass.
 - Gates once, at the end, on the frozen tree: `make test`, `make golden`,
-  `make lint`. Add `make claim-scan` only when docs or frontend changed.
+  `make lint`. Add `make claim-scan` only when docs or user-facing claims changed.
 - Stop when the pictures match, when the user says it looks good, or after 3
   fixer edits without a match. Stop means stop: no extra render, no extra gate.
   If the user approves after at least one source edit, run the Step 6 gates once
@@ -58,17 +58,18 @@ run="/tmp/chrome-debug/${slug}"
 make build
 mkdir -p "$run"
 node scripts/puppeteer_print.js "$html" "$run/chromium.pdf"
-./bin/blinkless --allow-local-files -o "$run/blinkless.pdf" "$html"
-python3 skills/chrome-debug-v2/scripts/compare_pdfs.py \
-  "$run/chromium.pdf" "$run/blinkless.pdf" --outdir "$run/pages" \
-  --max-rows 40 | tee "$run/compare-before.txt"
+go run ./bindings/wasm -fixture "$html" -out "$run/blinkless.json"
+python3 scripts/chrome_rects.py "$html" --selector .case > "$run/chrome-rects.txt"
 ```
 
-The script prints per page: page size, ink bbox with pixel count, pixel delta,
-font lists, and matched/unmatched drawing, text, and image rows. Page images
-land in `$run/pages` with `--outdir`. The RESULT line separates page count
-delta, size mismatches (over 0.1pt), unmatched rows per kind, and pages over
-the threshold; `pixel-only` means only pixels failed.
+The Go side is the drawing list in `$run/blinkless.json` (schema
+`blinkless.drawinglist/1`): operations in paint order plus element boxes in CSS
+pixels. Compare its `boxes` against the Chrome rects in
+`$run/chrome-rects.txt`, and match the operations against the rendered
+`$run/chromium.pdf` page. `skills/chrome-debug-v2/scripts/compare_pdfs.py`
+still takes two PDFs, so it stays available for Chromium against another
+reference PDF (for example the `output/wkhtmltopdf/` snapshots); it has no
+drawing-list input.
 
 Concurrent-run hint, not a guarantee: `ls -lt /tmp/chrome-debug/ | head -6`.
 If another fixture's directory changed in the last 30 minutes, stop and ask
@@ -99,7 +100,7 @@ Most mismatches classify themselves. Pick one row, then move.
 | drawing present, wrong order or clipped | paint | diagnostic agent |
 | drawing count much higher on one side | paint or pagination | diagnostic agent |
 | page size or global placement differs | setup or scale | run `chrome_rects.py`, then diagnostic agent |
-| pixel delta over threshold, signatures sample-equal | image handling, color, or PDF writer | open `$run/pages` crops, then diagnostic agent |
+| pixel delta over threshold, signatures sample-equal | image handling, color, or paint | open `$run/pages` crops, then diagnostic agent |
 | text only, matching known font differences | font substitution | out of scope, report |
 | nothing differs | done | report |
 
@@ -123,12 +124,12 @@ the bbox delta is under 0.5 pt; otherwise it is a layout text difference.
 One read-only agent, 12 tool calls. Give it the compare output and paths.
 
 ```text
-You are the diagnostic agent for one Chrome-versus-Go PDF mismatch.
+You are the diagnostic agent for one Chrome-versus-Go rendering mismatch.
 
 Run dir: <path>
 Fixture: <slug> (<path>)
 Chromium PDF: <path>
-Go PDF: <path>
+Go drawing list: <path>
 Compare table: read <run-dir>/compare-before.txt (do not re-run it)
 Chrome DOM numbers: <paste chrome_rects.py JSON, or "not run">
 
@@ -137,7 +138,7 @@ not re-measure the table. Budget 12 tool calls, one pass. If the todo API is
 missing, say so.
 
 Return exactly:
-1. Classification: fixture/CSS authoring, placement or scale, layout geometry, paint order or clipping, PDF writer, or scope difference.
+1. Classification: fixture/CSS authoring, placement or scale, layout geometry, paint order or clipping, drawing-list output, or scope difference.
 2. Owning package and function, or "not visible".
 3. One hypothesis that explains every measured row.
 4. One prediction naming the row or value that will change.
@@ -174,10 +175,10 @@ Rules:
 - Max 3 edits; on the fourth attempt, stop and report the diff and
   measurements instead of editing again.
 - After the last edit, once: make build; go test ./internal/<pkg> -count=1
-  -short; regenerate the Go PDF; re-render Chromium only if the fixture HTML
-  changed since Step 1; run compare_pdfs.py once with `set -o pipefail` before
-  `| tee "<run-dir>/compare-after.txt"` (pipefail is required when piping to
-  tee).
+  -short; regenerate the Go drawing list; re-render Chromium only if the
+  fixture HTML changed since Step 1; run compare_pdfs.py once with
+  `set -o pipefail` before `| tee "<run-dir>/compare-after.txt"` (pipefail
+  is required when piping to tee).
 - Do not run make test, make golden, or make lint. Do not touch
   knowledge-base, plans, or docs.
 
@@ -224,7 +225,7 @@ Then report, stating whether the fixture matches and which differences remain:
 
 ```text
 Fixture and revision:
-Chromium PDF:            Go PDF:
+Chromium PDF:            Go drawing list:
 Compare result:          (drawings X unmatched, text Y unmatched, images Z unmatched, pixel deltas, page-size delta)
 Classification, owner, hypothesis, prediction:
 Fix:                     (files, one line per edit)

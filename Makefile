@@ -1,4 +1,4 @@
-.PHONY: test test-unit test-quick test-serial test-race lint lint-frontend size-check build wasm wasm-test fmt golden golden-update samples samples-python screenshots weasyprint clean claim-scan catalog-check matrix-check bench bench-engine bench-lib bench-inprocess bench-cli-compare c-shared print-bindings-version bindings-clean check-versions python-binding-test python-benchmarks python-api chrome-cases-pdf run
+.PHONY: test test-unit test-quick test-serial test-race lint lint-frontend size-check build wasm wasm-test fmt golden golden-update samples samples-python screenshots weasyprint clean claim-scan catalog-check matrix-check final-evidence bench bench-engine bench-lib bench-inprocess bench-cli-compare c-shared print-bindings-version bindings-clean check-versions python-binding-test python-benchmarks python-api chrome-cases-pdf run
 # Pure-Go runtime: the standard library plus the allowlisted direct modules
 # below. No cgo, browser, or native converter process is required.
 # Direct third-party requires must stay ⊆ {
@@ -130,6 +130,16 @@ catalog-check:
 # separator before `## 3.` is allowed). Exits non-zero with a short diff.
 matrix-check:
 	bash scripts/check-matrix-sync.sh
+
+# Canonical final-evidence runner (GATE-06a/GATE-06b): pinned parser corpus
+# twice with a byte-compare, catalog/matrix/claim gates, browser comparison,
+# WASM contract and node consumer check. Per-step logs plus summary.md land
+# under temps/final-evidence/<UTC timestamp>/. Fast by default; set
+# FINAL_EVIDENCE_FLAGS=--full to add make build/test/golden/lint.
+FINAL_EVIDENCE_FLAGS ?=
+
+final-evidence:
+	bash scripts/final-evidence.sh $(FINAL_EVIDENCE_FLAGS)
 
 fmt:
 	gofmt -w .

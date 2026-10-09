@@ -97,6 +97,27 @@ jobs:
       - name: Run WASM contract, build, and browser tests
         run: make wasm-test
 
+  # GATE-06a/GATE-06b fast evidence bundle: parser corpus twice with a
+  # byte-compare, catalog/matrix/claim gates, browser comparison, WASM
+  # contract, and node consumer check. A browser the runner lacks is recorded
+  # as a skipped comparison, not a failure. The heavy gates (make test /
+  # golden / lint) stay in the test job; use `make final-evidence
+  # FINAL_EVIDENCE_FLAGS=--full` locally to run the whole GATE-06a list.
+  final-evidence:
+    name: final evidence (fast)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run fast final-evidence bundle
+        run: make final-evidence
+
   # --- Phases 40.5 / 44.4: opt-in cgo CI. These jobs never feed back into
   # the pure-Go default targets above; CGO_ENABLED=1 is set per step only.
   build-shared:

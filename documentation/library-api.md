@@ -22,10 +22,10 @@ An image on the list keeps its encoded bytes. Orientation or a clip that cannot 
 
 ## WASM drawing-list JSON
 
-`bindings/wasm` wraps the same `layout.DisplayList` call for browsers. The
-browser build exports `blinklessWASM(requestJSON, progressFn)`. The native
-build of the same package produces the identical payload, which the tests and
-the consumer check use as the reference:
+`bindings/wasm` wraps the same display-list call (`layout.DisplayListOptions`)
+for browsers. The browser build exports `blinklessWASM(requestJSON, progressFn)`.
+The native build of the same package produces the identical payload, which the
+tests and the consumer check use as the reference:
 
 ```sh
 go run ./bindings/wasm -fixture testdata/wasm/sample.html -width 640 -height 480
@@ -33,9 +33,9 @@ go run ./bindings/wasm -fixture testdata/wasm/sample.html -width 640 -height 480
 
 One request returns one versioned JSON document. This section is the schema.
 The executable form is `bindings/wasm/drawing_list.go`; the fixture contract
-is `testdata/wasm/manifest.json`, and `scripts/wasm-consumer-check.mjs` decodes
-a real browser result and compares it operation by operation with the native
-one for the same fixture.
+is `testdata/wasm/manifest.json`, and `scripts/wasm-consumer-check.mjs` runs
+the browser build under Node and compares its result operation by operation
+with the native one for the same fixture.
 
 ### Request
 

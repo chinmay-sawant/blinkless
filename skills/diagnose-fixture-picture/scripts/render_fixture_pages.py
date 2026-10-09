@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Render every page of a fixture PDF to PNG for picture diagnosis.
+"""Render every page of a reference PDF to PNG for picture diagnosis.
+
+The Go engine emits a drawing list and no page bitmap, so the input is a
+Chromium (or other external) reference PDF for the same HTML.
 
 Usage:
   python3 skills/diagnose-fixture-picture/scripts/render_fixture_pages.py \\
-    output/fixture-61-implemented-props-b.pdf /tmp/fixture_pics [dpi]
+    /tmp/fixture_pics/fixture-61.pdf /tmp/fixture_pics [dpi]
 """
 
 from __future__ import annotations

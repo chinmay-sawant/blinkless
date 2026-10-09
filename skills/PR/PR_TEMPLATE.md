@@ -169,15 +169,15 @@ Copy everything below this line into the GitHub PR body (and into `plans/PR/pr-<
 
 - [ ] `make test`
 - [ ] `make lint` / `go vet`
-- [ ] `make build` (when binary output is part of the change)
-- [ ] `make run` wall time vs baseline (hard &lt; 400ms; soft ±50ms of reference)
-- [ ] `make reference-metrics` / gopdfsuit hard metrics if detector surface changed
+- [ ] `make build` (when a build surface is part of the change)
+- [ ] `make golden` when layout, paint, or fixture behavior changed
+- [ ] `make claim-scan` when documentation or user-facing claims changed
 
 ### Commands
 
 ```sh
 make test
-make run
+make golden
 ```
 
 ---
@@ -185,7 +185,7 @@ make run
 ## Screenshots / sample output
 
 ```
-(paste make run summary)
+(paste drawing-list test summary, or write "no visual surface changed")
 ```
 
 ---
@@ -241,7 +241,7 @@ make run
 ```
 feat(wasm): add browser conversion support
 fix(layout): preserve mixed-border geometry
-perf(imageout): reuse raster buffers
+perf(layout): reuse paint buffers
 docs: document image padding
 chore: refresh generated site assets
 ```

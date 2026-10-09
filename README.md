@@ -10,7 +10,7 @@ blinkless is a layout engine for HTML and CSS. Both are inputs. HTML alone is no
 
 A browser engine such as Blink does this too, and then it keeps going. It runs script and it paints pixels. This engine does not run script. The drawing list is where the layout stops.
 
-Each entry is one drawing operation: a filled rectangle, a stroked rectangle, a line, a text run, an image, or a link box. Operation coordinates are canvas points, y down. Text Y is the baseline. Element boxes on the same result are CSS pixels, y down, origin at the top left.
+Each entry is one drawing operation: a filled or stroked rectangle, a line, a text run, an image, a link target, a list marker, or collapsed table border segments. A deactivated operation and a group boundary carry no paint. Operation coordinates are canvas points, y down. Text Y is the baseline. Element boxes on the same result are CSS pixels, y down, origin at the top left.
 
 ```text
 HTML + CSS -> parse -> style -> layout -> drawing list

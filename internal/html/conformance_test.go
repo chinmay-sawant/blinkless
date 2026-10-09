@@ -33,12 +33,15 @@ import (
 //     attribute namespaces), and the doctype node.
 //   - Fields the engine cannot represent are never silently skipped. A case
 //     whose only remaining difference is a missing engine field is counted
-//     unsupported with a reason (template contents, processing instructions,
-//     document fragments, tokenizer initial states other than Data state,
-//     XML-violation coercions, lone surrogates that Go strings cannot carry).
-//     A case that also differs in representable behavior is counted failed.
-//   - #document-fragment records are unsupported until Phase 3 and counted
-//     separately with the reason "document-fragment".
+//     unsupported with a reason (processing instructions, document fragments,
+//     tokenizer initial states other than Data state, XML-violation
+//     coercions, lone surrogates that Go strings cannot carry). A case that
+//     also differs in representable behavior is counted failed.
+//   - Template contents are compared structurally: the engine keeps them in
+//     Node.Contents and the runner emits them as a "content" node.
+//   - #document-fragment records are unsupported until context-aware fragment
+//     parsing lands; they are counted separately with the reason
+//     "document-fragment".
 //   - Parser mismatches are baseline evidence, not test failures. The test
 //     fails only on harness problems (missing manifest fields, unreadable
 //     corpus files, malformed records). Set HTML_CONFORMANCE_STRICT=1 to
@@ -95,15 +98,13 @@ const (
 
 	dataStateName = "Data state"
 
-	reasonDocumentFragment = "document-fragment"
-	reasonTemplateContents = "template-contents-field-missing"
-	reasonProcessingInstr  = "processing-instruction-unsupported"
-	reasonInitialState     = "initial-state:"
-	reasonLoneSurrogate    = "lone-surrogate-input"
-	reasonEngineError      = "engine-error: "
-	reasonScriptingOnOnly  = "scripting-on-only"
-	reasonXMLViolation     = "xml-violation-coercion"
-	reasonManifestEntry    = "manifest-unsupported: "
+	reasonProcessingInstr = "processing-instruction-unsupported"
+	reasonInitialState    = "initial-state:"
+	reasonLoneSurrogate   = "lone-surrogate-input"
+	reasonEngineError     = "engine-error: "
+	reasonScriptingOnOnly = "scripting-on-only"
+	reasonXMLViolation    = "xml-violation-coercion"
+	reasonManifestEntry   = "manifest-unsupported: "
 
 	kindDocument = "document"
 	kindElement  = "element"

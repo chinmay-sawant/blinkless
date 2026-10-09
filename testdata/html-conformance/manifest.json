@@ -29,10 +29,8 @@
     }
   ],
   "unsupported": [
-    "tree-construction/* cases with a #document-fragment section (192): fragment parsing needs a context element that html.Parse and html.ParseDocument do not accept",
-    "tree-construction/template.dat cases whose expected tree contains a content node (111): template contents are not modeled",
-    "tokenizer/* cases with non-default initialStates (166 cases, 392 runs): tokenization always starts in Data state",
-    "tokenizer/* cases with a lastStartTag (32): no API to seed the last start tag",
+    "tokenizer/* cases with non-default initialStates (166 cases, 342 unsupported runs): tokenization always starts in Data state",
+    "tokenizer/* cases with a lastStartTag (32): the runner does not seed the last start tag; the cases pass unchanged today",
     "tokenizer/xmlViolation.test (4): expects the infoset-coercion variant; the engine implements the ordinary HTML rules"
   ]
 }

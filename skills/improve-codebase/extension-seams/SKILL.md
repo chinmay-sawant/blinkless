@@ -48,7 +48,7 @@ For each recent or incomplete feature, walk the full path. File
 | Flag / dotted key | a consumed field (not an ignore-list-only name) |
 | Parsed property / enum | apply/dispatch **and** a consumer |
 | Compatibility matrix **Implemented** | a code path **and** a test or fixture |
-| Display-list opcode | every write-out adapter + shared paint policy |
+| Display-list opcode | every consumer (paint order, WASM JSON, callers) + shared paint policy |
 | Selector / pseudo | parse **and** match; unknown tokens must not degrade to the host |
 | Allowlisted input token | UA/default box and/or builder consumer |
 | Typed `With*` / constructor | thin public wrapper + invalid-input test |
@@ -69,8 +69,8 @@ Two adapters that share a front half must share:
 - display-list ops
 - paint policy (`PaintOrder`, style-of, fake-bold)
 
-They may fork at write-out (PDF objects vs raster encode) and at
-mode-only knobs (crop, JPEG quality, TOC).
+They may fork only at the public boundary (the retained drawing list vs a
+caller-owned canvas).
 
 File `friction` when a helper is copy-pasted per adapter
 (`mediaFor`, font-registry construction, `Op` switch). File `defect`
@@ -88,12 +88,12 @@ demand a heavier class than the change warrants.
 | Selector / pseudo | match **and** non-degrade unit |
 | Flag / dotted key | Set/Get parity + parse + engine assertion |
 | Typed API | builder snapshot + `errors.Is` + one run that honors it |
-| Writer object (PDF annot, font, image) | writer unit + convert needle, not byte-identity |
+| Image operation re-encode (orientation or clip) | layout unit + drawing-list assertion |
 | Mode-only sink behavior | that sink's unit (pixels, magic bytes) |
 | Trust / ACL | allow **and** deny unit; never a golden output file |
 
-On `blinkless`, goldens are structural; new fixtures need a
-`fixturePageBounds` row; overlap is `make samples`. See the
+On `blinkless`, goldens check the drawing list; a new fixture needs a
+focused test in the owning package and a green `make golden`. See the
 calibration file § Proof that is law here.
 
 ## 5. Wrong-place detector
@@ -133,7 +133,7 @@ If invoked **by** `/improve-codebase`, return the finding list only.
 If invoked **alone**, continue to
 `skills/phase-wise-checklist/SKILLS.md` and write:
 
-`plans/reviews/improve-codebase/extension-<YYYY-MM-DD>/phase-wise-checklist.md`
+`plans/<version>/improve-codebase/extension-<YYYY-MM-DD>/phase-wise-checklist.md`
 
 Phase order for this lens: trust/security → half-wired public surface →
 shared paint/prepare forks → used-value/layout honesty → matrix/docs.

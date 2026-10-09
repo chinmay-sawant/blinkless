@@ -51,6 +51,7 @@ comparable:
 |------|----------|------|
 | `local/rawtext-entities.test` | `tokenizer-local` | RAWTEXT/RCDATA character-reference handling (HTML-03) |
 | `local/tables-local.dat` | `tree-construction-local` | tbody/colgroup/caption wrappers, cell adjacency, foster parenting, table end tags (HTML-05a) |
+| `local/fragment-local.dat` | `tree-construction-local` | context-aware fragment parsing: select ignores, RCDATA/RAWTEXT/PLAINTEXT contexts, SVG/MathML contexts, template/html/table/frameset seeds (HTML-FRAGMENT-01) |
 
 ## Selection rules
 
@@ -80,27 +81,23 @@ Tree construction, counted by exact `#data` line starts:
 
 - 57 files, 1792 cases.
 - 1784 run with scripting disabled (the selection above).
-- 192 cases carry a `#document-fragment` section.
+- 192 cases carry a `#document-fragment` section and run through the
+  internal context-aware fragment parser.
 
 ## What the engine cannot express yet
 
-`manifest.json` lists these as `unsupported`. Counts overlap (a fragment
-case can also need namespaces), so the numbers are not a partition.
+`manifest.json` lists these as `unsupported`; the runner classifies cases in
+code, and the manifest list is documentation. Counts overlap, so the numbers
+are not a partition.
 
-- 192 fragment cases: `html.Parse` and `html.ParseDocument` take no context
-  element.
-- 236 cases whose expected tree uses `svg ` or `math ` element namespace
-  designators: `html.Node` has no namespace field.
-- 10 cases whose expected tree uses `xlink `, `xml `, or `xmlns ` attribute
-  designators: `html.Node.Attrs` is a flat `map[string]string`.
-- 111 cases in `template.dat` whose expected tree contains a `content`
-  node: template contents are not modeled.
-- 166 tokenizer cases with non-default `initialStates` (392 runs): the
-  tokenizer always starts in Data state.
-- 32 tokenizer cases with `lastStartTag`: no way to seed the last start
-  tag.
+- 166 tokenizer cases with non-default `initialStates` (342 unsupported
+  runs): the tokenizer always starts in Data state.
+- 32 tokenizer cases with `lastStartTag`: the runner does not seed the last
+  start tag; the cases pass unchanged today.
 - 4 `xmlViolationTests` cases: they expect the spec's infoset-coercion
   tweaks, which the engine does not implement.
+- 4 tokenizer runs with lone-surrogate input: Go strings cannot carry lone
+  surrogates, so the double-escaped input cannot be represented.
 
 ## How the corpus is measured
 

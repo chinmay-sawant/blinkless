@@ -31,8 +31,12 @@ const (
 	modeInTableBody
 	modeInRow
 	modeInCell
+	modeInTemplate
 	modeAfterBody
+	modeInFrameset
+	modeAfterFrameset
 	modeAfterAfterBody
+	modeAfterAfterFrameset
 )
 
 // treeBuilder accumulates parsed tokens into a node tree.
@@ -48,15 +52,21 @@ type treeBuilder struct {
 	ignoreNextLF     bool // swallow the LF after <pre>, <listing>, <textarea>
 	fosterParenting  bool // route insertions around the open table
 	pendingTableText []string
-	activeFormatting []*Node // nil entries are scope markers
+	activeFormatting []*Node         // nil entries are scope markers
+	templateModes    []insertionMode // stack of template insertion modes
+	framesetOK       bool            // whether a frameset start tag may replace body
+	fragment         bool            // fragment parsing: the synthetic root holds the context
+	fragmentContext  *Node           // context element for a fragment parse (nil for documents)
+	reparseRawText   bool            // next text token holds foreign raw-text content; re-tokenize in Data state
 }
 
 func newTreeBuilder() *treeBuilder {
 	root := &Node{Type: ElementNode, Name: "#document"} //nolint:exhaustruct
 
 	return &treeBuilder{
-		root:  root,
-		stack: []*Node{root},
+		root:       root,
+		stack:      []*Node{root},
+		framesetOK: true,
 	}
 }
 
@@ -86,6 +96,20 @@ func (b *treeBuilder) top() *Node {
 // appendToken applies one scanned token, reprocessing it through insertion
 // modes as the standard requires.
 func (b *treeBuilder) appendToken(tokItem token) {
+	// A raw-text element inserted in foreign content is not raw text there:
+	// the tokenizer consumed its content by tag name, so re-tokenize the
+	// captured run in the Data state. The flag clears on the next token
+	// whatever its kind, so ordinary text is never reparsed.
+	if b.reparseRawText {
+		b.reparseRawText = false
+
+		if tokItem.kind == tokText {
+			scanTokens(tokItem.data, b.appendToken)
+
+			return
+		}
+	}
+
 	if tokItem.kind != tokText {
 		b.flushPendingTableText()
 	}
@@ -103,6 +127,24 @@ func (b *treeBuilder) finish() {
 	b.flushPendingTableText()
 
 	for {
+		// The in-body end-of-file rule defers to the in-template rules
+		// whenever a template insertion mode is open, whatever the current
+		// insertion mode is.
+		if len(b.templateModes) > 0 {
+			if !b.hasOpenHTMLTemplate() {
+				b.root.Mode = b.docMode
+
+				return
+			}
+
+			b.popUntilHTMLTemplate()
+			b.clearActiveFormattingToMarker()
+			b.popTemplateMode()
+			b.resetInsertionMode()
+
+			continue
+		}
+
 		switch b.mode {
 		case modeInitial:
 			if !b.docModeSet {
@@ -131,6 +173,23 @@ func (b *treeBuilder) finish() {
 			}
 
 			b.mode = b.textReturn
+		case modeInTemplate:
+			if !b.hasOpenHTMLTemplate() {
+				// No open template: the standard stops parsing (fragment
+				// case). Nothing left to pop.
+				b.root.Mode = b.docMode
+
+				return
+			}
+
+			b.popUntilHTMLTemplate()
+			b.clearActiveFormattingToMarker()
+			b.popTemplateMode()
+			b.resetInsertionMode()
+		case modeInFrameset, modeAfterFrameset, modeAfterAfterFrameset:
+			b.root.Mode = b.docMode
+
+			return
 		default:
 			b.root.Mode = b.docMode
 
@@ -173,10 +232,18 @@ func (b *treeBuilder) processToken(tokItem *token) bool {
 		return b.processInRow(tokItem)
 	case modeInCell:
 		return b.processInCell(tokItem)
+	case modeInTemplate:
+		return b.processInTemplate(tokItem)
 	case modeAfterBody:
 		return b.processAfterBody(tokItem)
+	case modeInFrameset:
+		return b.processInFrameset(tokItem)
+	case modeAfterFrameset:
+		return b.processAfterFrameset(tokItem)
 	case modeAfterAfterBody:
 		return b.processAfterAfterBody(tokItem)
+	case modeAfterAfterFrameset:
+		return b.processAfterAfterFrameset(tokItem)
 	default:
 		return false
 	}
@@ -332,7 +399,17 @@ func (b *treeBuilder) processInHead(tokItem *token) bool {
 			b.insertHTMLElement(tokItem.data, tokItem.attrs)
 
 			return false
-		case "title", "style", "noframes", "script", "template", "noscript":
+		case "template":
+			// The in-head template rule: insert, mark the active formatting
+			// list, and push the template insertion mode.
+			b.insertHTMLElement(tokItem.data, tokItem.attrs)
+			b.insertMarker()
+			b.framesetOK = false
+			b.mode = modeInTemplate
+			b.pushTemplateMode(modeInTemplate)
+
+			return false
+		case "title", "style", "noframes", "script", "noscript":
 			b.insertHTMLElement(tokItem.data, tokItem.attrs)
 			if textModeElement(tokItem.data) {
 				b.textReturn = b.mode
@@ -350,11 +427,7 @@ func (b *treeBuilder) processInHead(tokItem *token) bool {
 		}
 
 		if tokItem.data == "template" {
-			// The in-head template end tag pops through the open template.
-			// The template contents model and its marker stay out of scope.
-			if openInStack(b.stack, "template") {
-				b.popUntilName("template")
-			}
+			b.closeTemplate()
 
 			return false
 		}
@@ -405,16 +478,29 @@ func (b *treeBuilder) processAfterHead(tokItem *token) bool {
 			return false
 		case "body":
 			b.insertHTMLElement("body", tokItem.attrs)
+			b.framesetOK = false
 			b.mode = modeInBody
+
+			return false
+		case "frameset":
+			b.insertHTMLElement("frameset", tokItem.attrs)
+			b.mode = modeInFrameset
 
 			return false
 		case "base", "basefont", "bgsound", "link", "meta", "noframes", "script", "style", "template", "title":
 			b.processHeadContent(tokItem)
 
 			return false
+		case "head":
+			// A second head start tag after head is a parse error; ignore it.
+			return false
 		}
 	case tokEnd:
 		switch tokItem.data {
+		case "template":
+			b.processInHead(tokItem)
+
+			return false
 		case "body", "html", "br":
 		default:
 			return false
@@ -462,6 +548,10 @@ func (b *treeBuilder) processInBody(tokItem *token) bool {
 		if data != "" {
 			b.reconstructActiveFormatting()
 			b.appendTextToken(data)
+
+			if !isAllWhitespace(data) {
+				b.framesetOK = false
+			}
 		}
 
 		return false
@@ -479,6 +569,10 @@ func (b *treeBuilder) processInBodyStart(tokItem *token) bool {
 
 	switch name {
 	case "html":
+		if b.hasOpenHTMLTemplate() {
+			return false
+		}
+
 		b.mergeIntoHTMLElement(tokItem.attrs)
 
 		return false
@@ -514,6 +608,7 @@ func (b *treeBuilder) processInBodyStart(tokItem *token) bool {
 		b.insertHTMLElement(name, tokItem.attrs)
 
 		b.ignoreNextLF = true
+		b.framesetOK = false
 
 		return false
 	case "form":
@@ -523,23 +618,27 @@ func (b *treeBuilder) processInBodyStart(tokItem *token) bool {
 
 		b.closePElementIfOpen()
 		b.form = b.insertHTMLElement(name, tokItem.attrs)
+		b.framesetOK = false
 
 		return false
 	case "li":
 		b.closeOpenListItem()
 		b.closePElementIfOpen()
 		b.insertHTMLElement(name, tokItem.attrs)
+		b.framesetOK = false
 
 		return false
 	case "dd", "dt":
 		b.closeOpenDefinitionItem()
 		b.closePElementIfOpen()
 		b.insertHTMLElement(name, tokItem.attrs)
+		b.framesetOK = false
 
 		return false
 	case "plaintext":
 		b.closePElementIfOpen()
 		b.insertHTMLElement(name, tokItem.attrs)
+		b.framesetOK = false
 
 		return false
 	case "button":
@@ -550,6 +649,7 @@ func (b *treeBuilder) processInBodyStart(tokItem *token) bool {
 
 		b.reconstructActiveFormatting()
 		b.insertHTMLElement(name, tokItem.attrs)
+		b.framesetOK = false
 
 		return false
 	case "a":
@@ -587,20 +687,49 @@ func (b *treeBuilder) processInBodyStart(tokItem *token) bool {
 		b.reconstructActiveFormatting()
 		b.insertHTMLElement(name, tokItem.attrs)
 		b.insertMarker()
+		b.framesetOK = false
 
 		return false
-	case "area", "br", "embed", "img", "keygen", "wbr", "input":
+	case "area", "br", "embed", "img", "keygen", "wbr":
 		b.reconstructActiveFormatting()
 		b.insertHTMLElement(name, tokItem.attrs)
+		b.framesetOK = false
+
+		return false
+	case "input":
+		// A fragment whose context is select ignores input start tags.
+		if b.fragmentContextIsSelect() {
+			return false
+		}
+
+		// A select element in scope is closed before the input is inserted;
+		// the input then lands outside the select, per the current standard.
+		if b.selectInScope() {
+			b.popUntilSelectPopped()
+		}
+
+		b.reconstructActiveFormatting()
+		b.insertHTMLElement(name, tokItem.attrs)
+
+		if !inputIsHidden(tokItem) {
+			b.framesetOK = false
+		}
 
 		return false
 	case "param", "source", "track":
 		b.insertHTMLElement(name, tokItem.attrs)
+		b.framesetOK = false
 
 		return false
 	case "hr":
 		b.closePElementIfOpen()
+
+		if b.selectInScope() {
+			b.generateImpliedEndTags("")
+		}
+
 		b.insertHTMLElement(name, tokItem.attrs)
+		b.framesetOK = false
 
 		return false
 	case "image":
@@ -611,6 +740,7 @@ func (b *treeBuilder) processInBodyStart(tokItem *token) bool {
 		b.insertHTMLElement(name, tokItem.attrs)
 
 		b.ignoreNextLF = true
+		b.framesetOK = false
 		b.textReturn = b.mode
 		b.mode = modeInText
 
@@ -620,6 +750,7 @@ func (b *treeBuilder) processInBodyStart(tokItem *token) bool {
 		b.reconstructActiveFormatting()
 		b.insertHTMLElement(name, tokItem.attrs)
 
+		b.framesetOK = false
 		b.textReturn = b.mode
 		b.mode = modeInText
 
@@ -627,21 +758,60 @@ func (b *treeBuilder) processInBodyStart(tokItem *token) bool {
 	case "iframe", "noembed":
 		b.insertHTMLElement(name, tokItem.attrs)
 
+		b.framesetOK = false
 		b.textReturn = b.mode
 		b.mode = modeInText
 
 		return false
-	case "select", "option", "optgroup":
-		b.legacyOptionAutoClose(name)
+	case "select":
+		// A fragment whose context is select ignores select start tags
+		// without closing anything.
+		if b.fragmentContextIsSelect() {
+			return false
+		}
+
+		// A nested select start tag closes the outer select and is ignored.
+		if b.selectInScope() {
+			b.popUntilSelectPopped()
+
+			return false
+		}
+
+		b.reconstructActiveFormatting()
+		b.insertHTMLElement(name, tokItem.attrs)
+		b.framesetOK = false
+
+		return false
+	case "option":
+		if b.selectInScope() {
+			b.generateImpliedEndTags("optgroup")
+		} else if b.top().Namespace == NamespaceHTML && b.top().Name == "option" {
+			b.stack = b.stack[:len(b.stack)-1]
+		}
+
+		b.reconstructActiveFormatting()
+		b.insertHTMLElement(name, tokItem.attrs)
+
+		return false
+	case "optgroup":
+		if b.selectInScope() {
+			b.generateImpliedEndTags("")
+		} else if b.top().Namespace == NamespaceHTML && b.top().Name == "option" {
+			b.stack = b.stack[:len(b.stack)-1]
+		}
+
+		b.reconstructActiveFormatting()
 		b.insertHTMLElement(name, tokItem.attrs)
 
 		return false
 	case "math":
 		b.insertForeignElement(name, NamespaceMathML, tokItem)
+		b.framesetOK = false
 
 		return false
 	case "svg":
 		b.insertForeignElement(name, NamespaceSVG, tokItem)
+		b.framesetOK = false
 
 		return false
 	case "table":
@@ -650,12 +820,30 @@ func (b *treeBuilder) processInBodyStart(tokItem *token) bool {
 		}
 
 		b.insertHTMLElement(name, tokItem.attrs)
+		b.framesetOK = false
 		b.mode = modeInTable
 
 		return false
-	case "caption", "col", "colgroup", "tbody", "td", "tfoot", "th", "thead", "tr":
-		// A table-structure tag outside its table is a parse error; the
-		// table insertion modes own these tags.
+	case "frameset":
+		// A frameset start tag replaces body only when body is the open
+		// element and no content has made the frameset-ok flag fail.
+		if len(b.stack) < 2 || b.stack[1].Namespace != NamespaceHTML || b.stack[1].Name != "body" {
+			return false
+		}
+
+		if !b.framesetOK {
+			return false
+		}
+
+		detachNode(b.stack[1])
+		b.stack = b.stack[:2]
+		b.insertHTMLElement(name, tokItem.attrs)
+		b.mode = modeInFrameset
+
+		return false
+	case "caption", "col", "colgroup", "frame", "head", "tbody", "td", "tfoot", "th", "thead", "tr":
+		// A table-structure tag outside its table, frame, and head are parse
+		// errors in body; the table insertion modes own the table tags.
 		return false
 	default:
 		if !defaultNoReconstruct[name] {
@@ -800,6 +988,11 @@ func (b *treeBuilder) processAfterBody(tokItem *token) bool {
 		}
 	case tokEnd:
 		if tokItem.data == "html" {
+			// A fragment never leaves through the document root: ignore.
+			if b.fragment {
+				return false
+			}
+
 			b.mode = modeAfterAfterBody
 
 			return false
@@ -834,98 +1027,7 @@ func (b *treeBuilder) processAfterAfterBody(tokItem *token) bool {
 	return true
 }
 
-// --- foreign content dispatch ---
-
-// foreignToken applies the foreign-content rules when the current node is in
-// a foreign namespace. It reports whether the token was consumed. A breakout
-// token is popped back to HTML or integration-point content and reprocessed
-// under the current HTML mode.
-func (b *treeBuilder) foreignToken(tokItem *token) bool {
-	switch tokItem.kind {
-	case tokText:
-		if !b.currentIsForeignText() {
-			return false
-		}
-
-		b.appendTextToken(tokItem.data)
-
-		return true
-	case tokDoctype:
-		return b.currentIsForeign()
-	case tokStart:
-		if !b.inForeignStartContext(tokItem) {
-			return false
-		}
-
-		if isForeignBreakout(tokItem) {
-			b.popForeignBreakout()
-
-			return false
-		}
-
-		b.insertForeignElement(tokItem.data, b.top().Namespace, tokItem)
-
-		return true
-	case tokEnd:
-		if !b.currentIsForeign() {
-			return false
-		}
-
-		if tokItem.data == "br" || tokItem.data == "p" {
-			b.popForeignBreakout()
-
-			return false
-		}
-
-		return b.closeForeignElement(tokItem.data)
-	case tokComment:
-		return false
-	}
-
-	return false
-}
-
-func (b *treeBuilder) inForeignStartContext(tokItem *token) bool {
-	top := b.top()
-	if top.Namespace == NamespaceHTML {
-		return false
-	}
-
-	if isMathMLTextIntegrationPoint(top) && tokItem.data != "mglyph" && tokItem.data != "malignmark" {
-		return false
-	}
-
-	if top.Namespace == NamespaceMathML && top.Name == "annotation-xml" && tokItem.data == "svg" {
-		return false
-	}
-
-	return !isHTMLIntegrationPoint(top)
-}
-
-func (b *treeBuilder) currentIsForeign() bool {
-	return b.top().Namespace != NamespaceHTML
-}
-
-func (b *treeBuilder) currentIsForeignText() bool {
-	top := b.top()
-	if top.Namespace == NamespaceHTML {
-		return false
-	}
-
-	return !isMathMLTextIntegrationPoint(top) && !isHTMLIntegrationPoint(top)
-}
-
-func (b *treeBuilder) popForeignBreakout() {
-	for len(b.stack) > 1 {
-		top := b.top()
-		if top.Namespace == NamespaceHTML || isMathMLTextIntegrationPoint(top) || isHTMLIntegrationPoint(top) {
-			return
-		}
-
-		b.stack = b.stack[:len(b.stack)-1]
-	}
-}
-
+// processInTemplate implements the "in template" insertion mode.
 // --- insertion helpers ---
 
 // insertHTMLElement inserts an HTML element at the current position.
@@ -934,16 +1036,18 @@ func (b *treeBuilder) insertHTMLElement(name string, attrs []string) *Node {
 }
 
 // insertionPoint is where the next node goes: a parent plus an optional
-// reference child to insert before (nil appends at the end).
+// reference child to insert before (nil appends at the end). contents routes
+// the insertion into the parent template's Contents instead of its Children.
 type insertionPoint struct {
-	parent *Node
-	before *Node
+	parent   *Node
+	before   *Node
+	contents bool
 }
 
 // appropriatePlace implements the standard's "appropriate place for inserting
 // a node" for the current node: the top of the open-element stack, or, with
 // foster parenting enabled over a table section, the position just before the
-// open table.
+// open table (or the open template's contents when no table is open).
 func (b *treeBuilder) appropriatePlace() insertionPoint {
 	return b.appropriatePlaceFor(b.top())
 }
@@ -952,25 +1056,61 @@ func (b *treeBuilder) appropriatePlace() insertionPoint {
 // adoption agency's adjusted insertion location.
 func (b *treeBuilder) appropriatePlaceFor(target *Node) insertionPoint {
 	if !b.fosterParenting || !isFosterTarget(target) {
-		return insertionPoint{parent: target}
+		return templateRedirect(insertionPoint{parent: target})
 	}
 
-	for i := len(b.stack) - 1; i >= 0; i-- {
-		table := b.stack[i]
-		if table.Namespace == NamespaceHTML && table.Name == "table" {
-			if table.Parent != nil {
-				return insertionPoint{parent: table.Parent, before: table}
-			}
+	lastTemplateIdx, lastTableIdx := -1, -1
 
-			if i > 0 {
-				return insertionPoint{parent: b.stack[i-1]}
-			}
+	for i := len(b.stack) - 1; i > 0; i-- {
+		node := b.stack[i]
 
+		if lastTemplateIdx < 0 && isTemplateElement(node) {
+			lastTemplateIdx = i
+		}
+
+		if lastTableIdx < 0 && node.Namespace == NamespaceHTML && node.Name == "table" {
+			lastTableIdx = i
+		}
+
+		if lastTemplateIdx >= 0 && lastTableIdx >= 0 {
 			break
 		}
 	}
 
+	// A template opened after the table (or with no table open) owns the
+	// foster-parented content.
+	if lastTemplateIdx >= 0 && (lastTableIdx < 0 || lastTemplateIdx > lastTableIdx) {
+		return insertionPoint{parent: b.stack[lastTemplateIdx], contents: true}
+	}
+
+	if lastTableIdx >= 0 {
+		table := b.stack[lastTableIdx]
+		if table.Parent != nil {
+			return templateRedirect(insertionPoint{parent: table.Parent, before: table})
+		}
+
+		if lastTableIdx > 0 {
+			return templateRedirect(insertionPoint{parent: b.stack[lastTableIdx-1]})
+		}
+	}
+
+	// No table: the standard inserts into the first element in the stack.
+	if len(b.stack) > 1 {
+		return templateRedirect(insertionPoint{parent: b.stack[1]})
+	}
+
 	return insertionPoint{parent: b.stack[0]}
+}
+
+// templateRedirect routes an insertion whose parent is a template element into
+// that template's Contents, per the standard's adjusted-insertion-location
+// step.
+func templateRedirect(point insertionPoint) insertionPoint {
+	if isTemplateElement(point.parent) {
+		point.contents = true
+	}
+
+	return point
 }
 
 // isFosterTarget reports whether inserting into n must be rerouted around the
@@ -1016,22 +1156,27 @@ func (b *treeBuilder) insertNode(name string, ns Namespace, attrs []string, self
 	return node
 }
 
-// insertChildAt places node at point, either before the reference child or at
-// the end of the parent's children.
+// insertChildAt places node at point, either before the reference child, at
+// the end of the parent's children, or in the parent template's contents.
 func insertChildAt(point insertionPoint, node *Node) {
+	children := &point.parent.Children
+	if point.contents {
+		children = &point.parent.Contents
+	}
+
 	if point.before != nil {
-		for i, child := range point.parent.Children {
+		for i, child := range *children {
 			if child == point.before {
-				point.parent.Children = append(point.parent.Children, nil)
-				copy(point.parent.Children[i+1:], point.parent.Children[i:])
-				point.parent.Children[i] = node
+				*children = append(*children, nil)
+				copy((*children)[i+1:], (*children)[i:])
+				(*children)[i] = node
 
 				return
 			}
 		}
 	}
 
-	point.parent.Children = append(point.parent.Children, node)
+	*children = append(*children, node)
 }
 
 // insertForeignElement inserts an element in ns, applying the namespace's
@@ -1040,9 +1185,18 @@ func (b *treeBuilder) insertForeignElement(name string, ns Namespace, tokItem *t
 	b.insertNode(adjustForeignElementName(ns, name), ns, tokItem.attrs, tokItem.selfClosing)
 }
 
-// appendCommentTo attaches a comment node to parent.
+// appendCommentTo attaches a comment node to parent. A comment targeting a
+// template element goes into its Contents, like any other insertion.
 func (b *treeBuilder) appendCommentTo(parent *Node, data string) {
-	parent.Children = append(parent.Children, &Node{Type: CommentNode, Text: data}) //nolint:exhaustruct
+	node := &Node{Type: CommentNode, Text: data} //nolint:exhaustruct
+
+	if isTemplateElement(parent) {
+		parent.Contents = append(parent.Contents, node)
+
+		return
+	}
+
+	parent.Children = append(parent.Children, node)
 }
 
 // appendTextToken attaches text at the appropriate place, merging into an
@@ -1062,14 +1216,19 @@ func (b *treeBuilder) appendTextToken(data string) {
 
 	point := b.appropriatePlace()
 
+	children := &point.parent.Children
+	if point.contents {
+		children = &point.parent.Contents
+	}
+
 	if point.before != nil {
-		for i, child := range point.parent.Children {
+		for i, child := range *children {
 			if child != point.before {
 				continue
 			}
 
 			if i > 0 {
-				if prev := point.parent.Children[i-1]; prev.Type == TextNode {
+				if prev := (*children)[i-1]; prev.Type == TextNode {
 					prev.Text += data
 
 					return
@@ -1085,8 +1244,8 @@ func (b *treeBuilder) appendTextToken(data string) {
 
 	top := point.parent
 
-	if len(top.Children) > 0 {
-		last := top.Children[len(top.Children)-1]
+	if len(*children) > 0 {
+		last := (*children)[len(*children)-1]
 		if last.Type == TextNode {
 			var merged strings.Builder
 			merged.Grow(len(last.Text) + len(data))
@@ -1100,7 +1259,7 @@ func (b *treeBuilder) appendTextToken(data string) {
 
 	node := &Node{Type: TextNode, Text: data} //nolint:exhaustruct
 	node.Parent = top
-	top.Children = append(top.Children, node)
+	*children = append(*children, node)
 }
 
 // applyAttributes stores the interleaved name/value pairs on node, keeping
@@ -1176,6 +1335,11 @@ func (b *treeBuilder) popCurrentIfName(name string) {
 }
 
 func (b *treeBuilder) firstStackElement() *Node {
+	if b.fragment {
+		// The synthetic root is the html element in a fragment parse.
+		return b.root
+	}
+
 	for _, node := range b.stack {
 		if node != b.root && node.Type == ElementNode {
 			return node
@@ -1217,9 +1381,17 @@ func (b *treeBuilder) closeForeignElement(data string) bool {
 		return true
 	}
 
+	// The topmost element is stack[1] for documents (stack[0] is the
+	// synthetic #document root) and stack[0] for fragments (the synthetic
+	// html root).
+	floor := 1
+	if b.fragment {
+		floor = 0
+	}
+
 	i := len(b.stack) - 1
 	for {
-		if i <= 1 {
+		if i <= floor {
 			return true // topmost element reached: ignore the stray end tag
 		}
 
@@ -1471,31 +1643,6 @@ func isListContinuationElement(node *Node) bool {
 	}
 }
 
-// --- legacy option closing (HTML-CONTEXT-01 owns the select insertion modes) ---
-
-// legacyOptionAutoClose closes an open option before a new option or
-// optgroup, and an open optgroup before a new optgroup.
-func (b *treeBuilder) legacyOptionAutoClose(name string) {
-	if b.top().Namespace != NamespaceHTML {
-		return
-	}
-
-	switch name {
-	case "option":
-		if b.top().Name == "option" {
-			b.stack = b.stack[:len(b.stack)-1]
-		}
-	case "optgroup":
-		if b.top().Name == "option" {
-			b.stack = b.stack[:len(b.stack)-1]
-		}
-
-		if b.top().Namespace == NamespaceHTML && b.top().Name == "optgroup" {
-			b.stack = b.stack[:len(b.stack)-1]
-		}
-	}
-}
-
 // --- small predicates ---
 
 func isAllWhitespace(data string) bool {
@@ -1558,7 +1705,7 @@ func openInStack(stack []*Node, name string) bool {
 func isVoidElement(name string) bool {
 	switch name {
 	case "area", "base", "br", "col", "embed", "hr", "img", "input",
-		"link", "meta", "param", "source", "track", "wbr":
+		"keygen", "link", "meta", "param", "source", "track", "wbr":
 		return true
 	}
 

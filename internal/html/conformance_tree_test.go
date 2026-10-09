@@ -47,7 +47,7 @@ func runTreeCategory(t *testing.T, plan conformanceCategoryPlan, report *conform
 			case fileReason != "":
 				report.addCase(plan.category.ID, id, statusUnsupported, fileReason, "")
 			case record.fragment != "":
-				report.addCase(plan.category.ID, id, statusUnsupported, reasonDocumentFragment, "")
+				classifyFragmentRecord(t, record, id, plan.category.ID, scripting, report)
 			default:
 				classifyTreeRecord(t, record, id, plan.category.ID, scripting, report)
 			}
@@ -246,12 +246,67 @@ func classifyTreeRecord(t *testing.T, record datRecord, id, category string, scr
 	}
 
 	switch {
-	case flags.templateContents:
-		report.addCase(category, id, statusUnsupported, reasonTemplateContents, "")
 	case flags.pi:
 		report.addCase(category, id, statusUnsupported, reasonProcessingInstr, "")
 	default:
 		report.addCase(category, id, statusPassed, "", "")
+	}
+}
+
+// classifyFragmentRecord runs a #document-fragment record through the internal
+// context-aware fragment parser and compares the resulting tree.
+func classifyFragmentRecord(t *testing.T, record datRecord, id, category string, scripting bool, report *conformanceReport) {
+	t.Helper()
+
+	doc, ok := selectDatDocument(record, scripting)
+	if !ok {
+		report.addCase(category, id, statusSkipped, reasonScriptingOnOnly, "")
+		return
+	}
+
+	if doc == nil {
+		t.Fatalf("conformance harness: %s: fragment record has no #document section", id)
+	}
+
+	name, ns := fragmentContext(t, id, record.fragment)
+	root := parseFragment(name, ns, nil, record.input)
+
+	want := parseTreeDump(t, id, doc.lines)
+	got := engineTree(root)
+	flags := &cfFlags{}
+
+	if mismatch := compareTree(want, got, kindDocument, flags); mismatch != nil {
+		report.addCase(category, id, statusFailed, "tree-mismatch", mismatchDetail(mismatch))
+		return
+	}
+
+	switch {
+	case flags.pi:
+		report.addCase(category, id, statusUnsupported, reasonProcessingInstr, "")
+	default:
+		report.addCase(category, id, statusPassed, "", "")
+	}
+}
+
+// fragmentContext splits a #document-fragment context line into a local name
+// and a namespace. Foreign contexts carry an "svg " or "math " designator.
+func fragmentContext(t *testing.T, id, line string) (string, Namespace) {
+	t.Helper()
+
+	designator, name, found := strings.Cut(line, " ")
+	if !found {
+		return line, NamespaceHTML
+	}
+
+	switch designator {
+	case "svg":
+		return name, NamespaceSVG
+	case "math":
+		return name, NamespaceMathML
+	default:
+		t.Fatalf("conformance harness: %s: unknown fragment context designator %q", id, line)
+
+		return "", NamespaceHTML
 	}
 }
 
@@ -514,6 +569,19 @@ func engineNode(node *Node) *cfNode {
 			out.children = append(out.children, engineNode(child))
 		}
 
+		if isTemplateElement(node) {
+			// The engine keeps template content in Node.Contents, mirroring
+			// the DOM's separate DocumentFragment; the dump renders it as a
+			// "content" child.
+			content := &cfNode{kind: kindContent}
+
+			for _, child := range node.Contents {
+				content.children = append(content.children, engineNode(child))
+			}
+
+			out.children = append(out.children, content)
+		}
+
 		return out
 	case TextNode:
 		return &cfNode{kind: kindText, data: node.Text}
@@ -580,8 +648,7 @@ func sortCFAttrs(attrs []cfAttr) {
 // --- tree comparison ---
 
 type cfFlags struct {
-	templateContents bool
-	pi               bool
+	pi bool
 }
 
 type cfMismatch struct {
@@ -625,7 +692,7 @@ func compareTree(want, got *cfNode, path string, flags *cfFlags) *cfMismatch {
 	case kindPI:
 		flags.pi = true
 	case kindContent:
-		flags.templateContents = true
+		return compareTreeChildren(want, got, path, flags)
 	}
 
 	return nil
@@ -649,18 +716,13 @@ func compareTreeChildren(want, got *cfNode, path string, flags *cfFlags) *cfMism
 	return nil
 }
 
-// flattenWantChildren unwraps template "content" nodes (flagging the missing
-// engine field) and drops expected processing instructions, which the HTML
+// flattenWantChildren drops expected processing instructions, which the HTML
 // parser cannot emit and the engine therefore cannot represent.
 func flattenWantChildren(children []*cfNode, flags *cfFlags) []*cfNode {
 	out := make([]*cfNode, 0, len(children))
 
 	for _, child := range children {
 		switch child.kind {
-		case kindContent:
-			flags.templateContents = true
-
-			out = append(out, flattenWantChildren(child.children, flags)...)
 		case kindPI:
 			flags.pi = true
 		default:

@@ -39,7 +39,13 @@ type Node struct {
 	Doctype   Doctype
 	Mode      DocumentMode // document mode; only meaningful on the root
 	Children  []*Node
-	Parent    *Node
+	// Contents holds a template element's content, mirroring the DOM's
+	// separate DocumentFragment for template.content. It stays out of
+	// Children, Walk, TextContent, and FindFirst so template content is
+	// never rendered or collected as active style; consumers that need it
+	// read Contents directly.
+	Contents []*Node
+	Parent   *Node
 }
 
 // Attribute returns an attribute value, or "". Attribute keys are stored
@@ -71,7 +77,8 @@ func (n *Node) FirstChild(name string) *Node {
 	return nil
 }
 
-// TextContent concatenates all descendant text.
+// TextContent concatenates all descendant text. Template contents are a
+// separate fragment and contribute nothing, matching DOM textContent.
 func (n *Node) TextContent() string {
 	var b strings.Builder
 
@@ -80,7 +87,9 @@ func (n *Node) TextContent() string {
 	return b.String()
 }
 
-// Walk visits n and every descendant in pre-order (document order).
+// Walk visits n and every descendant in pre-order (document order). Template
+// contents are not visited: they live in Node.Contents, not Children, and are
+// inert until a consumer instantiates them.
 func (n *Node) Walk(f func(*Node)) {
 	n.WalkUntil(func(node *Node) bool {
 		f(node)
@@ -106,6 +115,7 @@ func (n *Node) WalkUntil(f func(*Node) bool) bool {
 }
 
 // FindFirst returns the first node in pre-order for which pred returns true, or nil.
+// Template contents are not searched; see Walk.
 func (n *Node) FindFirst(pred func(*Node) bool) *Node {
 	var found *Node
 
@@ -156,6 +166,7 @@ func Parse(source string) (*Node, error) {
 
 	scanTokens(source, builder.appendToken)
 	builder.finish()
+	applySelectedContent(builder.root)
 
 	return builder.root, nil
 }
@@ -808,13 +819,15 @@ func scanStartTag(src string, pos int, emit tokenSink) int {
 }
 
 // textMode distinguishes the tokenizer states an element's content is parsed
-// in: RCDATA decodes character references, RAWTEXT and script data do not.
+// in: RCDATA decodes character references, RAWTEXT and script data do not,
+// and Data is the ordinary tokenizer.
 type textMode int
 
 const (
 	textRCDATA textMode = iota
 	textRAWTEXT
 	textScript
+	textData
 )
 
 // rawTextMode reports the raw-text content mode for name. noscript and

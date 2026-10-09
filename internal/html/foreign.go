@@ -272,3 +272,102 @@ func isForeignBreakout(tokItem *token) bool {
 
 	return false
 }
+
+// --- foreign content dispatch ---
+
+// foreignToken applies the foreign-content rules when the current node is in
+// a foreign namespace. It reports whether the token was consumed. A breakout
+// token is popped back to HTML or integration-point content and reprocessed
+// under the current HTML mode.
+func (b *treeBuilder) foreignToken(tokItem *token) bool {
+	switch tokItem.kind {
+	case tokText:
+		if !b.currentIsForeignText() {
+			return false
+		}
+
+		b.appendTextToken(tokItem.data)
+
+		return true
+	case tokDoctype:
+		return b.currentIsForeign()
+	case tokStart:
+		if !b.inForeignStartContext(tokItem) {
+			return false
+		}
+
+		if isForeignBreakout(tokItem) {
+			b.popForeignBreakout()
+
+			return false
+		}
+
+		b.insertForeignElement(tokItem.data, b.adjustedCurrent().Namespace, tokItem)
+
+		// The tokenizer consumes raw-text content by tag name. In foreign
+		// content these elements are ordinary, so the captured run must be
+		// re-tokenized in the Data state.
+		if _, raw := rawTextMode(tokItem.data); raw || tokItem.data == "plaintext" {
+			b.reparseRawText = true
+		}
+
+		return true
+	case tokEnd:
+		if !b.currentIsForeign() {
+			return false
+		}
+
+		if tokItem.data == "br" || tokItem.data == "p" {
+			b.popForeignBreakout()
+
+			return false
+		}
+
+		return b.closeForeignElement(tokItem.data)
+	case tokComment:
+		return false
+	}
+
+	return false
+}
+
+func (b *treeBuilder) inForeignStartContext(tokItem *token) bool {
+	top := b.adjustedCurrent()
+	if top.Namespace == NamespaceHTML {
+		return false
+	}
+
+	if isMathMLTextIntegrationPoint(top) && tokItem.data != "mglyph" && tokItem.data != "malignmark" {
+		return false
+	}
+
+	if top.Namespace == NamespaceMathML && top.Name == "annotation-xml" && tokItem.data == "svg" {
+		return false
+	}
+
+	return !isHTMLIntegrationPoint(top)
+}
+
+func (b *treeBuilder) currentIsForeign() bool {
+	return b.adjustedCurrent().Namespace != NamespaceHTML
+}
+
+func (b *treeBuilder) currentIsForeignText() bool {
+	top := b.adjustedCurrent()
+	if top.Namespace == NamespaceHTML {
+		return false
+	}
+
+	return !isMathMLTextIntegrationPoint(top) && !isHTMLIntegrationPoint(top)
+}
+
+func (b *treeBuilder) popForeignBreakout() {
+	for len(b.stack) > 1 {
+		top := b.top()
+		if top.Namespace == NamespaceHTML || isMathMLTextIntegrationPoint(top) || isHTMLIntegrationPoint(top) {
+			return
+		}
+
+		b.stack = b.stack[:len(b.stack)-1]
+	}
+}

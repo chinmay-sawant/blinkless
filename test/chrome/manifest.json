@@ -260,7 +260,7 @@
       "goTarget": "chrome-reference",
       "id": "legacy-flex-align-baseline",
       "kind": "baseline",
-      "reason": "Chrome 143 geometry run: empty inline-block children are 1.33 px wide where Chrome reports 0 px, and the vertical-rl row-reverse branch does not reverse item order; the 110 px baseline items match.",
+      "reason": "Chrome 143 geometry run: empty inline-block children are 1.333 px wide where Chrome reports 0 px (the engine floors them at 1 pt) and the block strut is missing; item order is correct when compared by id, so the earlier row-reverse claim was a join artifact.",
       "source": "third_party/blink/web_tests/css3/flexbox/flex-align-baseline.html",
       "status": "blocked",
       "title": "Baseline alignment across axes"
@@ -318,7 +318,7 @@
       "goTarget": "layout-unit",
       "id": "wpt-flex-basis-011",
       "kind": "column",
-      "reason": "Chrome 143 geometry run: nested column items are 34.68x44 vs Chrome 34.02x42, the absolute description panel is +8 px on both axes, and html/body heights are +1.33 px.",
+      "reason": "Chrome 143 geometry run: the root is +1.333 px and the nested column items are +0.667 px wide and +2.0 px tall; a 1 px border is stored as 1 pt instead of 0.75 pt. The absolute panel matches Chrome at (16,16) after the C6 fix.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-basis-011.html",
       "status": "blocked",
       "title": "Percentage flex basis in an indefinite column"
