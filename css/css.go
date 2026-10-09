@@ -28,6 +28,7 @@ func registerStyled() {
 
 		return pubstate.Styled{
 			Root:     styled.root,
+			Mode:     styled.root.Mode,
 			Sheets:   styled.sheets,
 			Registry: styled.registry,
 			Media:    styled.media,

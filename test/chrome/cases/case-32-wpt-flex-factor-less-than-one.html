@@ -23,7 +23,7 @@
 <body>
   <!-- Source: third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-factor-less-than-one.html -->
   <!-- Fixture: case-32-wpt-flex-factor-less-than-one -->
-  <!-- Port status: scaffold. No behavior test or browser measurement is linked yet. -->
+  <!-- Port status: blocked. Chrome 143 geometry run: 1 pt borders contribute 1.33 px where Chrome computes 1 px, so the six containers are 0.67 px taller each and html/body heights are +4 px; item geometry matches. -->
   <!-- Expected: fractional factors preserve proportional free-space behavior. -->
   <p class="case-description" style="position:absolute;top:12pt;left:12pt;margin:0;padding:6pt;border:1pt solid #64748b;background:#fff;color:#111827;font-size:9pt;line-height:12pt;width:550pt;">
     <strong>Case 32 expected behavior:</strong> fractional grow and shrink factors preserve proportional free space across the row, column, and vertical branches.

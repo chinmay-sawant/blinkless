@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <!--
   fixture-58-unsupported-worklist-audit
-  Proves: safe parsing, cascade degrade, and crash resilience for all 462
-  unsupported CSS properties in blinkless (animations, scroll snap,
+  Proves: safe parsing, cascade degrade, and crash resilience across the 462
+  CSS properties this gallery probes, each annotated with its current catalog
+  status from testdata/css/catalog/properties.json (animations, scroll snap,
   pointer UI, speech, 3D, and experimental drafts).
-  Expected: multi-page; envelope in fixturePageBounds.
+  Expected: multi-page.
 -->
 <html>
 <head>
@@ -1971,7 +1972,7 @@
         <div class="probe p--webkit-background-clip" data-prop="-webkit-background-clip" data-status="unsupported"><code>-webkit-background-clip</code><span class="badge todo">unsupported</span></div>
         <div class="probe p--webkit-background-origin" data-prop="-webkit-background-origin" data-status="unsupported"><code>-webkit-background-origin</code><span class="badge todo">unsupported</span></div>
         <div class="probe p--webkit-background-size" data-prop="-webkit-background-size" data-status="unsupported"><code>-webkit-background-size</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p--webkit-line-clamp" data-prop="-webkit-line-clamp" data-status="unsupported"><code>-webkit-line-clamp</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p--webkit-line-clamp" data-prop="-webkit-line-clamp" data-status="partial"><code>-webkit-line-clamp</code><span class="badge todo">unsupported</span></div>
         <div class="probe p--webkit-mask" data-prop="-webkit-mask" data-status="unsupported"><code>-webkit-mask</code><span class="badge todo">unsupported</span></div>
         <div class="probe p--webkit-mask-box-image" data-prop="-webkit-mask-box-image" data-status="unsupported"><code>-webkit-mask-box-image</code><span class="badge todo">unsupported</span></div>
         <div class="probe p--webkit-mask-box-image-outset" data-prop="-webkit-mask-box-image-outset" data-status="unsupported"><code>-webkit-mask-box-image-outset</code><span class="badge todo">unsupported</span></div>
@@ -1999,7 +2000,7 @@
         <div class="probe p--webkit-transition-property" data-prop="-webkit-transition-property" data-status="unsupported"><code>-webkit-transition-property</code><span class="badge todo">unsupported</span></div>
         <div class="probe p--webkit-transition-timing-function" data-prop="-webkit-transition-timing-function" data-status="unsupported"><code>-webkit-transition-timing-function</code><span class="badge todo">unsupported</span></div>
         <div class="probe p--webkit-user-select" data-prop="-webkit-user-select" data-status="unsupported"><code>-webkit-user-select</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-alignment-baseline" data-prop="alignment-baseline" data-status="unsupported"><code>alignment-baseline</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-alignment-baseline" data-prop="alignment-baseline" data-status="partial"><code>alignment-baseline</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-all" data-prop="all" data-status="unsupported"><code>all</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-anchor-name" data-prop="anchor-name" data-status="unsupported"><code>anchor-name</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-anchor-scope" data-prop="anchor-scope" data-status="unsupported"><code>anchor-scope</code><span class="badge todo">unsupported</span></div>
@@ -2028,10 +2029,10 @@
         <div class="probe p-animation-timeline" data-prop="animation-timeline" data-status="unsupported"><code>animation-timeline</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-animation-timing-function" data-prop="animation-timing-function" data-status="unsupported"><code>animation-timing-function</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-animation-trigger" data-prop="animation-trigger" data-status="unsupported"><code>animation-trigger</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-appearance" data-prop="appearance" data-status="unsupported"><code>appearance</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-aspect-ratio" data-prop="aspect-ratio" data-status="unsupported"><code>aspect-ratio</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-appearance" data-prop="appearance" data-status="intentionally ignored"><code>appearance</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-aspect-ratio" data-prop="aspect-ratio" data-status="partial"><code>aspect-ratio</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-backdrop-filter" data-prop="backdrop-filter" data-status="unsupported"><code>backdrop-filter</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-backface-visibility" data-prop="backface-visibility" data-status="unsupported"><code>backface-visibility</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-backface-visibility" data-prop="backface-visibility" data-status="partial"><code>backface-visibility</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-background-tbd" data-prop="background-tbd" data-status="unsupported"><code>background-tbd</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-baseline-shift" data-prop="baseline-shift" data-status="unsupported"><code>baseline-shift</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-baseline-source" data-prop="baseline-source" data-status="unsupported"><code>baseline-source</code><span class="badge todo">unsupported</span></div>
@@ -2058,14 +2059,14 @@
         <div class="probe p-box-snap" data-prop="box-snap" data-status="unsupported"><code>box-snap</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-caret" data-prop="caret" data-status="unsupported"><code>caret</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-caret-animation" data-prop="caret-animation" data-status="unsupported"><code>caret-animation</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-caret-color" data-prop="caret-color" data-status="unsupported"><code>caret-color</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-caret-color" data-prop="caret-color" data-status="intentionally ignored"><code>caret-color</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-caret-shape" data-prop="caret-shape" data-status="unsupported"><code>caret-shape</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-clip" data-prop="clip" data-status="unsupported"><code>clip</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-clip-path" data-prop="clip-path" data-status="unsupported"><code>clip-path</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-clip-rule" data-prop="clip-rule" data-status="unsupported"><code>clip-rule</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-color-interpolation" data-prop="color-interpolation" data-status="unsupported"><code>color-interpolation</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-color-interpolation-filters" data-prop="color-interpolation-filters" data-status="unsupported"><code>color-interpolation-filters</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-column-height" data-prop="column-height" data-status="unsupported"><code>column-height</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-clip" data-prop="clip" data-status="partial"><code>clip</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-clip-path" data-prop="clip-path" data-status="partial"><code>clip-path</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-clip-rule" data-prop="clip-rule" data-status="partial"><code>clip-rule</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-color-interpolation" data-prop="color-interpolation" data-status="partial"><code>color-interpolation</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-color-interpolation-filters" data-prop="color-interpolation-filters" data-status="partial"><code>color-interpolation-filters</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-column-height" data-prop="column-height" data-status="partial"><code>column-height</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-column-rule-break" data-prop="column-rule-break" data-status="unsupported"><code>column-rule-break</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-column-rule-inset" data-prop="column-rule-inset" data-status="unsupported"><code>column-rule-inset</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-column-rule-inset-cap" data-prop="column-rule-inset-cap" data-status="unsupported"><code>column-rule-inset-cap</code><span class="badge todo">unsupported</span></div>
@@ -2077,7 +2078,7 @@
         <div class="probe p-column-rule-inset-junction-start" data-prop="column-rule-inset-junction-start" data-status="unsupported"><code>column-rule-inset-junction-start</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-column-rule-inset-start" data-prop="column-rule-inset-start" data-status="unsupported"><code>column-rule-inset-start</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-column-rule-visibility-items" data-prop="column-rule-visibility-items" data-status="unsupported"><code>column-rule-visibility-items</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-column-wrap" data-prop="column-wrap" data-status="unsupported"><code>column-wrap</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-column-wrap" data-prop="column-wrap" data-status="partial"><code>column-wrap</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-continue" data-prop="continue" data-status="unsupported"><code>continue</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-copy-into" data-prop="copy-into" data-status="unsupported"><code>copy-into</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-corner" data-prop="corner" data-status="unsupported"><code>corner</code><span class="badge todo">unsupported</span></div>
@@ -2121,16 +2122,16 @@
         <div class="probe p-corner-top-right" data-prop="corner-top-right" data-status="unsupported"><code>corner-top-right</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-corner-top-right-shape" data-prop="corner-top-right-shape" data-status="unsupported"><code>corner-top-right-shape</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-corner-top-shape" data-prop="corner-top-shape" data-status="unsupported"><code>corner-top-shape</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-counter-set" data-prop="counter-set" data-status="unsupported"><code>counter-set</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-counter-set" data-prop="counter-set" data-status="implemented"><code>counter-set</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-cue" data-prop="cue" data-status="unsupported"><code>cue</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-cue-after" data-prop="cue-after" data-status="unsupported"><code>cue-after</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-cue-before" data-prop="cue-before" data-status="unsupported"><code>cue-before</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-cursor" data-prop="cursor" data-status="unsupported"><code>cursor</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-cursor" data-prop="cursor" data-status="intentionally ignored"><code>cursor</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-cx" data-prop="cx" data-status="unsupported"><code>cx</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-cy" data-prop="cy" data-status="unsupported"><code>cy</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-d" data-prop="d" data-status="unsupported"><code>d</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-dominant-baseline" data-prop="dominant-baseline" data-status="unsupported"><code>dominant-baseline</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-empty-cells" data-prop="empty-cells" data-status="unsupported"><code>empty-cells</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-dominant-baseline" data-prop="dominant-baseline" data-status="partial"><code>dominant-baseline</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-empty-cells" data-prop="empty-cells" data-status="partial"><code>empty-cells</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-event-trigger" data-prop="event-trigger" data-status="unsupported"><code>event-trigger</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-event-trigger-name" data-prop="event-trigger-name" data-status="unsupported"><code>event-trigger-name</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-event-trigger-source" data-prop="event-trigger-source" data-status="unsupported"><code>event-trigger-source</code><span class="badge todo">unsupported</span></div>
@@ -2141,12 +2142,12 @@
         <div class="probe p-fill-origin" data-prop="fill-origin" data-status="unsupported"><code>fill-origin</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-fill-position" data-prop="fill-position" data-status="unsupported"><code>fill-position</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-fill-repeat" data-prop="fill-repeat" data-status="unsupported"><code>fill-repeat</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-fill-rule" data-prop="fill-rule" data-status="unsupported"><code>fill-rule</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-fill-rule" data-prop="fill-rule" data-status="partial"><code>fill-rule</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-fill-size" data-prop="fill-size" data-status="unsupported"><code>fill-size</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-flex-line-count" data-prop="flex-line-count" data-status="unsupported"><code>flex-line-count</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-float-defer" data-prop="float-defer" data-status="unsupported"><code>float-defer</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-float-offset" data-prop="float-offset" data-status="unsupported"><code>float-offset</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-float-reference" data-prop="float-reference" data-status="unsupported"><code>float-reference</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-float-offset" data-prop="float-offset" data-status="partial"><code>float-offset</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-float-reference" data-prop="float-reference" data-status="partial"><code>float-reference</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-flood-color" data-prop="flood-color" data-status="unsupported"><code>flood-color</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-flood-opacity" data-prop="flood-opacity" data-status="unsupported"><code>flood-opacity</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-flow-from" data-prop="flow-from" data-status="unsupported"><code>flow-from</code><span class="badge todo">unsupported</span></div>
@@ -2159,41 +2160,41 @@
     <p class="probe-note">Each chip sets one unsupported property to verify safe cascade ignore and layout crash resilience.</p>
     <div class="probe-grid">
         <div class="probe p-flow-tolerance" data-prop="flow-tolerance" data-status="unsupported"><code>flow-tolerance</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-font-feature-settings" data-prop="font-feature-settings" data-status="unsupported"><code>font-feature-settings</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-font-kerning" data-prop="font-kerning" data-status="unsupported"><code>font-kerning</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-font-size-adjust" data-prop="font-size-adjust" data-status="unsupported"><code>font-size-adjust</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-font-stretch" data-prop="font-stretch" data-status="unsupported"><code>font-stretch</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-font-synthesis" data-prop="font-synthesis" data-status="unsupported"><code>font-synthesis</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-font-synthesis-position" data-prop="font-synthesis-position" data-status="unsupported"><code>font-synthesis-position</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-font-synthesis-small-caps" data-prop="font-synthesis-small-caps" data-status="unsupported"><code>font-synthesis-small-caps</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-font-synthesis-style" data-prop="font-synthesis-style" data-status="unsupported"><code>font-synthesis-style</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-font-synthesis-weight" data-prop="font-synthesis-weight" data-status="unsupported"><code>font-synthesis-weight</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-font-variant" data-prop="font-variant" data-status="unsupported"><code>font-variant</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-font-variant-alternates" data-prop="font-variant-alternates" data-status="unsupported"><code>font-variant-alternates</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-font-variant-caps" data-prop="font-variant-caps" data-status="unsupported"><code>font-variant-caps</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-font-variant-east-asian" data-prop="font-variant-east-asian" data-status="unsupported"><code>font-variant-east-asian</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-font-variant-emoji" data-prop="font-variant-emoji" data-status="unsupported"><code>font-variant-emoji</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-font-variant-ligatures" data-prop="font-variant-ligatures" data-status="unsupported"><code>font-variant-ligatures</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-font-variant-numeric" data-prop="font-variant-numeric" data-status="unsupported"><code>font-variant-numeric</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-font-variant-position" data-prop="font-variant-position" data-status="unsupported"><code>font-variant-position</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-font-width" data-prop="font-width" data-status="unsupported"><code>font-width</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-font-feature-settings" data-prop="font-feature-settings" data-status="partial"><code>font-feature-settings</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-font-kerning" data-prop="font-kerning" data-status="partial"><code>font-kerning</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-font-size-adjust" data-prop="font-size-adjust" data-status="partial"><code>font-size-adjust</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-font-stretch" data-prop="font-stretch" data-status="partial"><code>font-stretch</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-font-synthesis" data-prop="font-synthesis" data-status="partial"><code>font-synthesis</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-font-synthesis-position" data-prop="font-synthesis-position" data-status="partial"><code>font-synthesis-position</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-font-synthesis-small-caps" data-prop="font-synthesis-small-caps" data-status="partial"><code>font-synthesis-small-caps</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-font-synthesis-style" data-prop="font-synthesis-style" data-status="partial"><code>font-synthesis-style</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-font-synthesis-weight" data-prop="font-synthesis-weight" data-status="partial"><code>font-synthesis-weight</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-font-variant" data-prop="font-variant" data-status="partial"><code>font-variant</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-font-variant-alternates" data-prop="font-variant-alternates" data-status="partial"><code>font-variant-alternates</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-font-variant-caps" data-prop="font-variant-caps" data-status="partial"><code>font-variant-caps</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-font-variant-east-asian" data-prop="font-variant-east-asian" data-status="partial"><code>font-variant-east-asian</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-font-variant-emoji" data-prop="font-variant-emoji" data-status="partial"><code>font-variant-emoji</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-font-variant-ligatures" data-prop="font-variant-ligatures" data-status="partial"><code>font-variant-ligatures</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-font-variant-numeric" data-prop="font-variant-numeric" data-status="partial"><code>font-variant-numeric</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-font-variant-position" data-prop="font-variant-position" data-status="partial"><code>font-variant-position</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-font-width" data-prop="font-width" data-status="partial"><code>font-width</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-frame-sizing" data-prop="frame-sizing" data-status="unsupported"><code>frame-sizing</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-glyph-orientation-vertical" data-prop="glyph-orientation-vertical" data-status="unsupported"><code>glyph-orientation-vertical</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-grid-auto-columns" data-prop="grid-auto-columns" data-status="unsupported"><code>grid-auto-columns</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-grid-auto-rows" data-prop="grid-auto-rows" data-status="unsupported"><code>grid-auto-rows</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-grid-column-gap" data-prop="grid-column-gap" data-status="unsupported"><code>grid-column-gap</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-grid-gap" data-prop="grid-gap" data-status="unsupported"><code>grid-gap</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-grid-row-gap" data-prop="grid-row-gap" data-status="unsupported"><code>grid-row-gap</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-hanging-punctuation" data-prop="hanging-punctuation" data-status="unsupported"><code>hanging-punctuation</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-hyphenate-limit-chars" data-prop="hyphenate-limit-chars" data-status="unsupported"><code>hyphenate-limit-chars</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-hyphenate-limit-last" data-prop="hyphenate-limit-last" data-status="unsupported"><code>hyphenate-limit-last</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-hyphenate-limit-lines" data-prop="hyphenate-limit-lines" data-status="unsupported"><code>hyphenate-limit-lines</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-hyphenate-limit-zone" data-prop="hyphenate-limit-zone" data-status="unsupported"><code>hyphenate-limit-zone</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-grid-auto-columns" data-prop="grid-auto-columns" data-status="partial"><code>grid-auto-columns</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-grid-auto-rows" data-prop="grid-auto-rows" data-status="partial"><code>grid-auto-rows</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-grid-column-gap" data-prop="grid-column-gap" data-status="implemented"><code>grid-column-gap</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-grid-gap" data-prop="grid-gap" data-status="implemented"><code>grid-gap</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-grid-row-gap" data-prop="grid-row-gap" data-status="implemented"><code>grid-row-gap</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-hanging-punctuation" data-prop="hanging-punctuation" data-status="partial"><code>hanging-punctuation</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-hyphenate-limit-chars" data-prop="hyphenate-limit-chars" data-status="implemented"><code>hyphenate-limit-chars</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-hyphenate-limit-last" data-prop="hyphenate-limit-last" data-status="implemented"><code>hyphenate-limit-last</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-hyphenate-limit-lines" data-prop="hyphenate-limit-lines" data-status="implemented"><code>hyphenate-limit-lines</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-hyphenate-limit-zone" data-prop="hyphenate-limit-zone" data-status="implemented"><code>hyphenate-limit-zone</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-image-animation" data-prop="image-animation" data-status="unsupported"><code>image-animation</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-image-rendering" data-prop="image-rendering" data-status="unsupported"><code>image-rendering</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-initial-letter" data-prop="initial-letter" data-status="unsupported"><code>initial-letter</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-initial-letter-align" data-prop="initial-letter-align" data-status="unsupported"><code>initial-letter-align</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-initial-letter-wrap" data-prop="initial-letter-wrap" data-status="unsupported"><code>initial-letter-wrap</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-initial-letter" data-prop="initial-letter" data-status="partial"><code>initial-letter</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-initial-letter-align" data-prop="initial-letter-align" data-status="partial"><code>initial-letter-align</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-initial-letter-wrap" data-prop="initial-letter-wrap" data-status="partial"><code>initial-letter-wrap</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-inline-sizing" data-prop="inline-sizing" data-status="unsupported"><code>inline-sizing</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-input-security" data-prop="input-security" data-status="unsupported"><code>input-security</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-interactivity" data-prop="interactivity" data-status="unsupported"><code>interactivity</code><span class="badge todo">unsupported</span></div>
@@ -2245,8 +2246,8 @@
         <div class="probe p-nav-left" data-prop="nav-left" data-status="unsupported"><code>nav-left</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-nav-right" data-prop="nav-right" data-status="unsupported"><code>nav-right</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-nav-up" data-prop="nav-up" data-status="unsupported"><code>nav-up</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-object-fit" data-prop="object-fit" data-status="unsupported"><code>object-fit</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-object-position" data-prop="object-position" data-status="unsupported"><code>object-position</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-object-fit" data-prop="object-fit" data-status="partial"><code>object-fit</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-object-position" data-prop="object-position" data-status="partial"><code>object-position</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-offset" data-prop="offset" data-status="unsupported"><code>offset</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-offset-anchor" data-prop="offset-anchor" data-status="unsupported"><code>offset-anchor</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-offset-distance" data-prop="offset-distance" data-status="unsupported"><code>offset-distance</code><span class="badge todo">unsupported</span></div>
@@ -2254,8 +2255,8 @@
         <div class="probe p-offset-position" data-prop="offset-position" data-status="unsupported"><code>offset-position</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-offset-rotate" data-prop="offset-rotate" data-status="unsupported"><code>offset-rotate</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-overflow-anchor" data-prop="overflow-anchor" data-status="unsupported"><code>overflow-anchor</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-overflow-block" data-prop="overflow-block" data-status="unsupported"><code>overflow-block</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-overflow-inline" data-prop="overflow-inline" data-status="unsupported"><code>overflow-inline</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-overflow-block" data-prop="overflow-block" data-status="partial"><code>overflow-block</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-overflow-inline" data-prop="overflow-inline" data-status="partial"><code>overflow-inline</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-overlay" data-prop="overlay" data-status="unsupported"><code>overlay</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-overscroll-behavior" data-prop="overscroll-behavior" data-status="unsupported"><code>overscroll-behavior</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-overscroll-behavior-block" data-prop="overscroll-behavior-block" data-status="unsupported"><code>overscroll-behavior-block</code><span class="badge todo">unsupported</span></div>
@@ -2267,9 +2268,9 @@
         <div class="probe p-pause" data-prop="pause" data-status="unsupported"><code>pause</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-pause-after" data-prop="pause-after" data-status="unsupported"><code>pause-after</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-pause-before" data-prop="pause-before" data-status="unsupported"><code>pause-before</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-perspective" data-prop="perspective" data-status="unsupported"><code>perspective</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-perspective-origin" data-prop="perspective-origin" data-status="unsupported"><code>perspective-origin</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-pointer-events" data-prop="pointer-events" data-status="unsupported"><code>pointer-events</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-perspective" data-prop="perspective" data-status="partial"><code>perspective</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-perspective-origin" data-prop="perspective-origin" data-status="partial"><code>perspective-origin</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-pointer-events" data-prop="pointer-events" data-status="intentionally ignored"><code>pointer-events</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-pointer-timeline" data-prop="pointer-timeline" data-status="unsupported"><code>pointer-timeline</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-pointer-timeline-axis" data-prop="pointer-timeline-axis" data-status="unsupported"><code>pointer-timeline-axis</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-pointer-timeline-name" data-prop="pointer-timeline-name" data-status="unsupported"><code>pointer-timeline-name</code><span class="badge todo">unsupported</span></div>
@@ -2283,7 +2284,7 @@
         <div class="probe p-reading-flow" data-prop="reading-flow" data-status="unsupported"><code>reading-flow</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-reading-order" data-prop="reading-order" data-status="unsupported"><code>reading-order</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-region-fragment" data-prop="region-fragment" data-status="unsupported"><code>region-fragment</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-resize" data-prop="resize" data-status="unsupported"><code>resize</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-resize" data-prop="resize" data-status="intentionally ignored"><code>resize</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-rest" data-prop="rest" data-status="unsupported"><code>rest</code><span class="badge todo">unsupported</span></div>
     </div>
   </div>
@@ -2309,10 +2310,10 @@
         <div class="probe p-row-rule-style" data-prop="row-rule-style" data-status="unsupported"><code>row-rule-style</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-row-rule-visibility-items" data-prop="row-rule-visibility-items" data-status="unsupported"><code>row-rule-visibility-items</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-row-rule-width" data-prop="row-rule-width" data-status="unsupported"><code>row-rule-width</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-ruby-align" data-prop="ruby-align" data-status="unsupported"><code>ruby-align</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-ruby-merge" data-prop="ruby-merge" data-status="unsupported"><code>ruby-merge</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-ruby-overhang" data-prop="ruby-overhang" data-status="unsupported"><code>ruby-overhang</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-ruby-position" data-prop="ruby-position" data-status="unsupported"><code>ruby-position</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-ruby-align" data-prop="ruby-align" data-status="partial"><code>ruby-align</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-ruby-merge" data-prop="ruby-merge" data-status="partial"><code>ruby-merge</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-ruby-overhang" data-prop="ruby-overhang" data-status="partial"><code>ruby-overhang</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-ruby-position" data-prop="ruby-position" data-status="partial"><code>ruby-position</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-rule" data-prop="rule" data-status="unsupported"><code>rule</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-rule-break" data-prop="rule-break" data-status="unsupported"><code>rule-break</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-rule-color" data-prop="rule-color" data-status="unsupported"><code>rule-color</code><span class="badge todo">unsupported</span></div>
@@ -2330,17 +2331,17 @@
         <div class="probe p-scroll-axis-lock" data-prop="scroll-axis-lock" data-status="unsupported"><code>scroll-axis-lock</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-scroll-behavior" data-prop="scroll-behavior" data-status="unsupported"><code>scroll-behavior</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-scroll-initial-target" data-prop="scroll-initial-target" data-status="unsupported"><code>scroll-initial-target</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-scroll-margin" data-prop="scroll-margin" data-status="unsupported"><code>scroll-margin</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-scroll-margin" data-prop="scroll-margin" data-status="partial"><code>scroll-margin</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-scroll-margin-block" data-prop="scroll-margin-block" data-status="unsupported"><code>scroll-margin-block</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-scroll-margin-block-end" data-prop="scroll-margin-block-end" data-status="unsupported"><code>scroll-margin-block-end</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-scroll-margin-block-start" data-prop="scroll-margin-block-start" data-status="unsupported"><code>scroll-margin-block-start</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-scroll-margin-bottom" data-prop="scroll-margin-bottom" data-status="unsupported"><code>scroll-margin-bottom</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-scroll-margin-bottom" data-prop="scroll-margin-bottom" data-status="partial"><code>scroll-margin-bottom</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-scroll-margin-inline" data-prop="scroll-margin-inline" data-status="unsupported"><code>scroll-margin-inline</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-scroll-margin-inline-end" data-prop="scroll-margin-inline-end" data-status="unsupported"><code>scroll-margin-inline-end</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-scroll-margin-inline-start" data-prop="scroll-margin-inline-start" data-status="unsupported"><code>scroll-margin-inline-start</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-scroll-margin-left" data-prop="scroll-margin-left" data-status="unsupported"><code>scroll-margin-left</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-scroll-margin-right" data-prop="scroll-margin-right" data-status="unsupported"><code>scroll-margin-right</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-scroll-margin-top" data-prop="scroll-margin-top" data-status="unsupported"><code>scroll-margin-top</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-scroll-margin-left" data-prop="scroll-margin-left" data-status="partial"><code>scroll-margin-left</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-scroll-margin-right" data-prop="scroll-margin-right" data-status="partial"><code>scroll-margin-right</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-scroll-margin-top" data-prop="scroll-margin-top" data-status="partial"><code>scroll-margin-top</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-scroll-marker-group" data-prop="scroll-marker-group" data-status="unsupported"><code>scroll-marker-group</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-scroll-padding" data-prop="scroll-padding" data-status="unsupported"><code>scroll-padding</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-scroll-padding-block" data-prop="scroll-padding-block" data-status="unsupported"><code>scroll-padding-block</code><span class="badge todo">unsupported</span></div>
@@ -2372,10 +2373,10 @@
         <div class="probe p-scrollbar-width" data-prop="scrollbar-width" data-status="unsupported"><code>scrollbar-width</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-shape-image-threshold" data-prop="shape-image-threshold" data-status="unsupported"><code>shape-image-threshold</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-shape-inside" data-prop="shape-inside" data-status="unsupported"><code>shape-inside</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-shape-margin" data-prop="shape-margin" data-status="unsupported"><code>shape-margin</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-shape-outside" data-prop="shape-outside" data-status="unsupported"><code>shape-outside</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-shape-margin" data-prop="shape-margin" data-status="partial"><code>shape-margin</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-shape-outside" data-prop="shape-outside" data-status="partial"><code>shape-outside</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-shape-padding" data-prop="shape-padding" data-status="unsupported"><code>shape-padding</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-shape-rendering" data-prop="shape-rendering" data-status="unsupported"><code>shape-rendering</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-shape-rendering" data-prop="shape-rendering" data-status="partial"><code>shape-rendering</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-slider-orientation" data-prop="slider-orientation" data-status="unsupported"><code>slider-orientation</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-spatial-navigation-action" data-prop="spatial-navigation-action" data-status="unsupported"><code>spatial-navigation-action</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-spatial-navigation-contain" data-prop="spatial-navigation-contain" data-status="unsupported"><code>spatial-navigation-contain</code><span class="badge todo">unsupported</span></div>
@@ -2391,28 +2392,28 @@
         <div class="probe p-stroke-dash-corner" data-prop="stroke-dash-corner" data-status="unsupported"><code>stroke-dash-corner</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-stroke-dash-justify" data-prop="stroke-dash-justify" data-status="unsupported"><code>stroke-dash-justify</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-stroke-dashadjust" data-prop="stroke-dashadjust" data-status="unsupported"><code>stroke-dashadjust</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-stroke-dasharray" data-prop="stroke-dasharray" data-status="unsupported"><code>stroke-dasharray</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-stroke-dasharray" data-prop="stroke-dasharray" data-status="partial"><code>stroke-dasharray</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-stroke-dashcorner" data-prop="stroke-dashcorner" data-status="unsupported"><code>stroke-dashcorner</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-stroke-dashoffset" data-prop="stroke-dashoffset" data-status="unsupported"><code>stroke-dashoffset</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-stroke-dashoffset" data-prop="stroke-dashoffset" data-status="partial"><code>stroke-dashoffset</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-stroke-image" data-prop="stroke-image" data-status="unsupported"><code>stroke-image</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-stroke-linecap" data-prop="stroke-linecap" data-status="unsupported"><code>stroke-linecap</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-stroke-linejoin" data-prop="stroke-linejoin" data-status="unsupported"><code>stroke-linejoin</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-stroke-miterlimit" data-prop="stroke-miterlimit" data-status="unsupported"><code>stroke-miterlimit</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-stroke-linecap" data-prop="stroke-linecap" data-status="partial"><code>stroke-linecap</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-stroke-linejoin" data-prop="stroke-linejoin" data-status="partial"><code>stroke-linejoin</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-stroke-miterlimit" data-prop="stroke-miterlimit" data-status="partial"><code>stroke-miterlimit</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-stroke-origin" data-prop="stroke-origin" data-status="unsupported"><code>stroke-origin</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-stroke-position" data-prop="stroke-position" data-status="unsupported"><code>stroke-position</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-stroke-repeat" data-prop="stroke-repeat" data-status="unsupported"><code>stroke-repeat</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-stroke-size" data-prop="stroke-size" data-status="unsupported"><code>stroke-size</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-text-anchor" data-prop="text-anchor" data-status="unsupported"><code>text-anchor</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-text-autospace" data-prop="text-autospace" data-status="unsupported"><code>text-autospace</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-text-box" data-prop="text-box" data-status="unsupported"><code>text-box</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-text-box-edge" data-prop="text-box-edge" data-status="unsupported"><code>text-box-edge</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-text-box-trim" data-prop="text-box-trim" data-status="unsupported"><code>text-box-trim</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-text-anchor" data-prop="text-anchor" data-status="partial"><code>text-anchor</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-text-autospace" data-prop="text-autospace" data-status="partial"><code>text-autospace</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-text-box" data-prop="text-box" data-status="partial"><code>text-box</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-text-box-edge" data-prop="text-box-edge" data-status="partial"><code>text-box-edge</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-text-box-trim" data-prop="text-box-trim" data-status="partial"><code>text-box-trim</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-text-fit" data-prop="text-fit" data-status="unsupported"><code>text-fit</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-text-group-align" data-prop="text-group-align" data-status="unsupported"><code>text-group-align</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-text-group-align" data-prop="text-group-align" data-status="partial"><code>text-group-align</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-text-rendering" data-prop="text-rendering" data-status="unsupported"><code>text-rendering</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-text-size-adjust" data-prop="text-size-adjust" data-status="unsupported"><code>text-size-adjust</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-text-spacing" data-prop="text-spacing" data-status="unsupported"><code>text-spacing</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-text-spacing-trim" data-prop="text-spacing-trim" data-status="unsupported"><code>text-spacing-trim</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-text-spacing" data-prop="text-spacing" data-status="partial"><code>text-spacing</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-text-spacing-trim" data-prop="text-spacing-trim" data-status="partial"><code>text-spacing-trim</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-timeline-scope" data-prop="timeline-scope" data-status="unsupported"><code>timeline-scope</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-timeline-trigger" data-prop="timeline-trigger" data-status="unsupported"><code>timeline-trigger</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-timeline-trigger-activation-range" data-prop="timeline-trigger-activation-range" data-status="unsupported"><code>timeline-trigger-activation-range</code><span class="badge todo">unsupported</span></div>
@@ -2430,8 +2431,8 @@
         <div class="probe p-timeline-trigger-active-range-start" data-prop="timeline-trigger-active-range-start" data-status="unsupported"><code>timeline-trigger-active-range-start</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-timeline-trigger-name" data-prop="timeline-trigger-name" data-status="unsupported"><code>timeline-trigger-name</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-timeline-trigger-source" data-prop="timeline-trigger-source" data-status="unsupported"><code>timeline-trigger-source</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-touch-action" data-prop="touch-action" data-status="unsupported"><code>touch-action</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-transform-style" data-prop="transform-style" data-status="unsupported"><code>transform-style</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-touch-action" data-prop="touch-action" data-status="intentionally ignored"><code>touch-action</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-transform-style" data-prop="transform-style" data-status="partial"><code>transform-style</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-transition" data-prop="transition" data-status="unsupported"><code>transition</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-transition-behavior" data-prop="transition-behavior" data-status="unsupported"><code>transition-behavior</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-transition-delay" data-prop="transition-delay" data-status="unsupported"><code>transition-delay</code><span class="badge todo">unsupported</span></div>
@@ -2439,7 +2440,7 @@
         <div class="probe p-transition-property" data-prop="transition-property" data-status="unsupported"><code>transition-property</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-transition-timing-function" data-prop="transition-timing-function" data-status="unsupported"><code>transition-timing-function</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-trigger-scope" data-prop="trigger-scope" data-status="unsupported"><code>trigger-scope</code><span class="badge todo">unsupported</span></div>
-        <div class="probe p-user-select" data-prop="user-select" data-status="unsupported"><code>user-select</code><span class="badge todo">unsupported</span></div>
+        <div class="probe p-user-select" data-prop="user-select" data-status="intentionally ignored"><code>user-select</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-vector-effect" data-prop="vector-effect" data-status="unsupported"><code>vector-effect</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-view-timeline" data-prop="view-timeline" data-status="unsupported"><code>view-timeline</code><span class="badge todo">unsupported</span></div>
         <div class="probe p-view-timeline-axis" data-prop="view-timeline-axis" data-status="unsupported"><code>view-timeline-axis</code><span class="badge todo">unsupported</span></div>

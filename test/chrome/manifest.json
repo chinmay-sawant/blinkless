@@ -38,131 +38,191 @@
     {
       "category": "flex-sizing",
       "combination": "auto-margins",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "legacy-flex-algorithm-margins",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "pass"
+      },
       "expected": "Auto margins consume positive main-axis free space without creating negative flex space.",
       "fixture": "cases/case-03-legacy-flex-algorithm-margins.html",
       "goTarget": "layout-unit",
       "id": "legacy-flex-algorithm-margins",
       "kind": "margins",
-      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/css3/flexbox/flex-algorithm-with-margins.html",
-      "status": "scaffold",
+      "status": "completed",
       "title": "Flex sizing with fixed and auto margins"
     },
     {
       "category": "column-sizing",
       "combination": "intrinsic-sizing",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "legacy-columns-auto-size",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "pass"
+      },
       "expected": "Automatic column sizes include content, margins, padding, and min or max constraints.",
       "fixture": "cases/case-04-legacy-columns-auto-size.html",
       "goTarget": "layout-unit",
       "id": "legacy-columns-auto-size",
       "kind": "column",
-      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/css3/flexbox/columns-auto-size.html",
-      "status": "scaffold",
+      "status": "completed",
       "title": "Intrinsic column sizing"
     },
     {
       "category": "column-sizing",
       "combination": "definite-percentages",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "legacy-definite-main-size",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "pass"
+      },
       "expected": "A definite flex container size resolves a percentage child against the correct axis.",
       "fixture": "cases/case-05-legacy-definite-main-size.html",
       "goTarget": "layout-unit",
       "id": "legacy-definite-main-size",
       "kind": "column",
-      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/css3/flexbox/definite-main-size.html",
-      "status": "scaffold",
+      "status": "completed",
       "title": "Definite main size and percentage children"
     },
     {
       "category": "alignment",
       "combination": "main-axis-alignment",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "legacy-justify-content",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "pass"
+      },
       "expected": "Flex-end, center, and space distribution place fixed children at the expected main-axis offsets.",
       "fixture": "cases/case-06-legacy-justify-content.html",
       "goTarget": "layout-unit",
       "id": "legacy-justify-content",
       "kind": "justify",
-      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/css3/flexbox/flex-justify-content.html",
-      "status": "scaffold",
+      "status": "completed",
       "title": "Main-axis distribution"
     },
     {
       "category": "alignment",
       "combination": "column-cross-axis-center",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "legacy-flex-align",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "pass"
+      },
       "expected": "Auto-width children are centered on the cross axis of a column flex container.",
       "fixture": "cases/case-07-legacy-flex-align.html",
       "goTarget": "layout-unit",
       "id": "legacy-flex-align",
       "kind": "column-align",
-      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/css3/flexbox/flex-align.html::adapted-column-centering",
-      "status": "scaffold",
+      "status": "completed",
       "title": "Column cross-axis centering"
     },
     {
       "category": "alignment",
       "combination": "writing-modes",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "legacy-flex-align-vertical-writing",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "pass"
+      },
       "expected": "Vertical writing modes remap physical positions while preserving logical alignment.",
       "fixture": "cases/case-08-legacy-flex-align-vertical-writing.html",
       "goTarget": "chrome-reference",
       "id": "legacy-flex-align-vertical-writing",
       "kind": "writing",
-      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/css3/flexbox/flex-align-vertical-writing-mode.html",
-      "status": "scaffold",
+      "status": "completed",
       "title": "Alignment under vertical writing modes"
     },
     {
       "category": "direction",
       "combination": "direction-reversal",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "legacy-flex-flow-orientations",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "pass"
+      },
       "expected": "Direction, writing mode, row or column, and reverse flow change logical start and end positions.",
       "fixture": "cases/case-09-legacy-flex-flow-orientations.html",
       "goTarget": "chrome-reference",
       "id": "legacy-flex-flow-orientations",
       "kind": "writing",
-      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/css3/flexbox/flex-flow-orientations.html",
-      "status": "scaffold",
+      "status": "completed",
       "title": "Direction and flow orientations"
     },
     {
       "category": "direction",
       "combination": "direction-reversal",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "legacy-flex-flow",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "pass"
+      },
       "expected": "Logical padding and margins remain attached to logical edges across reverse directions and axes.",
       "fixture": "cases/case-10-legacy-flex-flow.html",
       "goTarget": "chrome-reference",
       "id": "legacy-flex-flow",
       "kind": "writing",
-      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/css3/flexbox/flex-flow.html",
-      "status": "scaffold",
+      "status": "completed",
       "title": "Flow, direction, padding, and constraints"
     },
     {
       "category": "wrapping",
       "combination": "wrapping",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "legacy-multiline",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "pass"
+      },
       "expected": "Wrapping creates lines with independent cross sizes, including wrap-reverse and direction changes.",
       "fixture": "cases/case-11-legacy-multiline.html",
       "goTarget": "layout-unit",
       "id": "legacy-multiline",
       "kind": "wrap",
-      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/css3/flexbox/multiline.html",
-      "status": "scaffold",
+      "status": "completed",
       "title": "Wrapping across axes and directions"
     },
     {
       "category": "wrapping",
       "combination": "multi-line-alignment",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "legacy-multiline-align-content-column",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "pass"
+      },
       "expected": "Align-content modes place wrapped column lines at distinct cross-axis offsets.",
       "fixture": "cases/case-12-legacy-multiline-align-content-column.html",
       "goTarget": "layout-unit",
       "id": "legacy-multiline-align-content-column",
       "kind": "wrap",
-      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/css3/flexbox/multiline-align-content-horizontal-column.html",
-      "status": "scaffold",
+      "status": "completed",
       "title": "Align-content across wrapped columns"
     },
     {
@@ -170,8 +230,8 @@
       "combination": "auto-margins",
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
-        "case": "logical-flex-auto-margins",
-        "file": "temps/css-review/geometry-report.md",
+        "case": "legacy-flex-flow-auto-margins",
+        "file": "temps/chrome-cases/geometry-report.md",
         "kind": "browser",
         "verdict": "fail"
       },
@@ -180,7 +240,7 @@
       "goTarget": "chrome-reference",
       "id": "legacy-flex-flow-auto-margins",
       "kind": "margins",
-      "reason": "Chrome 143 geometry run fails on html/body root accounting (C4); item geometry matches.",
+      "reason": "Chrome 143 geometry run: html/body heights are 51.8 px short; the five inline-block containers stack 9.16 px closer across the first three gaps and 12.16 px across the last, because the inline-block bottom margin is missing from the line box; per-container item geometry matches.",
       "source": "third_party/blink/web_tests/css3/flexbox/flex-flow-auto-margins.html",
       "status": "blocked",
       "title": "Logical auto margins in reverse flow"
@@ -188,27 +248,40 @@
     {
       "category": "alignment",
       "combination": "baseline",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "legacy-flex-align-baseline",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "fail"
+      },
       "expected": "Items with different margins share the expected baseline across flows and writing modes.",
       "fixture": "cases/case-14-legacy-flex-align-baseline.html",
       "goTarget": "chrome-reference",
       "id": "legacy-flex-align-baseline",
       "kind": "baseline",
-      "reason": "No behavior test or browser measurement is linked yet.",
+      "reason": "Chrome 143 geometry run: empty inline-block children are 1.33 px wide where Chrome reports 0 px, and the vertical-rl row-reverse branch does not reverse item order; the 110 px baseline items match.",
       "source": "third_party/blink/web_tests/css3/flexbox/flex-align-baseline.html",
-      "status": "scaffold",
+      "status": "blocked",
       "title": "Baseline alignment across axes"
     },
     {
       "category": "alignment",
       "combination": "multi-line-alignment",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "legacy-multiline-align-self",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "pass"
+      },
       "expected": "Each line gets its own cross size before align-self applies start, center, end, baseline, or stretch.",
       "fixture": "cases/case-15-legacy-multiline-align-self.html",
       "goTarget": "layout-unit",
       "id": "legacy-multiline-align-self",
       "kind": "wrap",
-      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/css3/flexbox/multiline-align-self.html",
-      "status": "scaffold",
+      "status": "completed",
       "title": "Per-item alignment on multiple lines"
     },
     {
@@ -233,53 +306,80 @@
     {
       "category": "flex-sizing",
       "combination": "flex-basis",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "wpt-flex-basis-011",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "fail"
+      },
       "expected": "A percentage flex basis in an indefinite nested column resolves against the column's stretched used height.",
       "fixture": "cases/case-17-wpt-flex-basis-011.html",
       "goTarget": "layout-unit",
       "id": "wpt-flex-basis-011",
       "kind": "column",
-      "reason": "No behavior test or browser measurement is linked yet.",
+      "reason": "Chrome 143 geometry run: nested column items are 34.68x44 vs Chrome 34.02x42, the absolute description panel is +8 px on both axes, and html/body heights are +1.33 px.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-basis-011.html",
-      "status": "scaffold",
+      "status": "blocked",
       "title": "Percentage flex basis in an indefinite column"
     },
     {
       "category": "direction",
       "combination": "direction-reversal",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "wpt-rtl-flow-reverse",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "fail"
+      },
       "expected": "RTL plus column wrap-reverse reverses logical column order without losing item order within a column.",
       "fixture": "cases/case-18-wpt-rtl-flow-reverse.html",
       "goTarget": "chrome-reference",
       "id": "wpt-rtl-flow-reverse",
       "kind": "writing",
-      "reason": "No behavior test or browser measurement is linked yet.",
+      "reason": "Chrome 143 geometry run: body y is 8 vs Chrome 16 and 16.67 px taller because the first child margin does not collapse through the nonzero body margin; the description panel is +8 px; the flex items match.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flexbox_rtl-flow-reverse.html",
-      "status": "scaffold",
+      "status": "blocked",
       "title": "RTL column wrap reverse"
     },
     {
       "category": "flex-sizing",
       "combination": "auto-margins",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "wpt-flexbox-margin-auto",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "fail"
+      },
       "expected": "Fixed children with auto margins split positive free space and remain vertically centered.",
       "fixture": "cases/case-19-wpt-flexbox-margin-auto.html",
       "goTarget": "layout-unit",
       "id": "wpt-flexbox-margin-auto",
       "kind": "margins",
-      "reason": "No behavior test or browser measurement is linked yet.",
+      "reason": "Chrome 143 geometry run: body y is 8 vs Chrome 16 and 16.67 px taller because the first child margin does not collapse through the nonzero body margin; the description panel is +8 px; the flex items match.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flexbox_margin-auto.html",
-      "status": "scaffold",
+      "status": "blocked",
       "title": "Row auto margins"
     },
     {
       "category": "min-size",
       "combination": "minimum-size",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "wpt-min-size-auto-overflow-clip",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "pass"
+      },
       "expected": "The automatic minimum size preserves the content width even when the flex container is narrower.",
       "fixture": "cases/case-20-wpt-min-size-auto-overflow-clip.html",
       "goTarget": "chrome-reference",
       "id": "wpt-min-size-auto-overflow-clip",
       "kind": "minmax",
-      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/min-size-auto-overflow-clip.html",
-      "status": "scaffold",
+      "status": "completed",
       "title": "Automatic minimum size with overflow clip"
     },
     {
@@ -287,19 +387,18 @@
       "combination": "wrapping",
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
-        "case": "flex-flow-row-wrap",
-        "file": "temps/css-review/geometry-report.md",
+        "case": "wpt-flow-row-wrap",
+        "file": "temps/chrome-cases/geometry-report.md",
         "kind": "browser",
-        "verdict": "fail"
+        "verdict": "pass"
       },
       "expected": "Fixed item widths and margins create two rows with stable line assignments.",
       "fixture": "cases/case-21-wpt-flow-row-wrap.html",
       "goTarget": "layout-unit",
       "id": "wpt-flow-row-wrap",
       "kind": "wrap",
-      "reason": "Chrome 143 geometry run fails on html/body root accounting (C4).",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flexbox_flow-row-wrap.html",
-      "status": "blocked",
+      "status": "completed",
       "title": "Row wrapping with margins"
     },
     {
@@ -324,14 +423,20 @@
     {
       "category": "intrinsic-sizing",
       "combination": "aspect-ratio",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "wpt-aspect-ratio-cross-size-002",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "pass"
+      },
       "expected": "Nested flex sizing preserves the expected width and height instead of inflating the cross size.",
       "fixture": "cases/case-23-wpt-aspect-ratio-cross-size-002.html",
       "goTarget": "chrome-reference",
       "id": "wpt-aspect-ratio-cross-size-002",
       "kind": "aspect",
-      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-aspect-ratio-cross-size-002.html",
-      "status": "scaffold",
+      "status": "completed",
       "title": "Nested aspect ratio and cross-size feedback"
     },
     {
@@ -339,8 +444,8 @@
       "combination": "writing-modes",
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
-        "case": "logical-writing-mode-006",
-        "file": "temps/css-review/geometry-report.md",
+        "case": "wpt-writing-mode-006",
+        "file": "temps/chrome-cases/geometry-report.md",
         "kind": "browser",
         "verdict": "fail"
       },
@@ -349,7 +454,7 @@
       "goTarget": "chrome-reference",
       "id": "wpt-writing-mode-006",
       "kind": "writing",
-      "reason": "Chrome 143 geometry run fails on html/body root accounting (C4); item geometry matches.",
+      "reason": "Chrome 143 geometry run: 1 pt borders contribute 1.33 px where Chrome computes 1 px, so each of the eight vertical-lr containers is 0.67 px taller and html/body heights are +5.42 px; item geometry matches.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flexbox-writing-mode-006.html",
       "status": "blocked",
       "title": "Writing mode matrix"
@@ -357,53 +462,78 @@
     {
       "category": "positioning",
       "combination": "absolute-positioning",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "wpt-flex-item-percentage-abspos",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "pass"
+      },
       "expected": "A percentage-sized absolute child fills its flex item without corrupting the item size.",
       "fixture": "cases/case-25-wpt-flex-item-percentage-abspos.html",
       "goTarget": "chrome-reference",
       "id": "wpt-flex-item-percentage-abspos",
       "kind": "abspos",
-      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-item-and-percentage-abspos.html",
-      "status": "scaffold",
+      "status": "completed",
       "title": "Percentage absolute child inside a flex item"
     },
     {
       "category": "column-sizing",
       "combination": "definite-percentages",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "wpt-definite-sizes-002",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "pass"
+      },
       "expected": "A minimum height establishes a definite percentage basis for a nested child.",
       "fixture": "cases/case-26-wpt-definite-sizes-002.html",
       "goTarget": "layout-unit",
       "id": "wpt-definite-sizes-002",
       "kind": "column",
-      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flexbox-definite-sizes-002.html",
-      "status": "scaffold",
+      "status": "completed",
       "title": "Definite size from min-height"
     },
     {
       "category": "column-sizing",
       "combination": "definite-percentages",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "wpt-percentage-heights-005",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "pass"
+      },
       "expected": "A height percentage fills the definite column flex item without leaving the parent visible.",
       "fixture": "cases/case-27-wpt-percentage-heights-005.html",
       "goTarget": "layout-unit",
       "id": "wpt-percentage-heights-005",
       "kind": "column",
-      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/percentage-heights-005.html",
-      "status": "scaffold",
+      "status": "completed",
       "title": "Percentage height in a column flex item"
     },
     {
       "category": "min-size",
       "combination": "minimum-size",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "wpt-flex-minimum-width-aspect",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "fail"
+      },
       "expected": "The automatic main-axis minimum uses the transferred aspect-ratio size.",
       "fixture": "cases/case-28-wpt-flex-minimum-width-aspect.html",
       "goTarget": "chrome-reference",
       "id": "wpt-flex-minimum-width-aspect",
       "kind": "aspect",
-      "reason": "No behavior test or browser measurement is linked yet.",
+      "reason": "Chrome 143 geometry run: the 200 px image is 133.33 px wide; max-height is transferred to width instead of keeping the specified width.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-minimum-width-flex-items-010.html",
-      "status": "scaffold",
+      "status": "blocked",
       "title": "Automatic minimum width from aspect ratio"
     },
     {
@@ -411,162 +541,234 @@
       "combination": "fragmentation",
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
-        "case": "print-nested-float",
-        "file": "temps/css-review/geometry-report.md",
+        "case": "wpt-break-nested-float-print",
+        "file": "temps/chrome-cases/geometry-report.md",
         "kind": "browser",
-        "verdict": "fail"
+        "verdict": "pass"
       },
       "expected": "A tall nested flex child fragments across three pages while preserving its width and offsets.",
       "fixture": "cases/case-29-wpt-break-nested-float-print.html",
       "goTarget": "golden-fixture",
       "id": "wpt-break-nested-float-print",
       "kind": "print",
-      "reason": "Chrome 143 geometry run of the golden derivative fails on float containment (C5); the case fixture itself was not measured.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/break-nested-float-in-flex-item-001-print.html",
-      "status": "blocked",
+      "status": "completed",
       "title": "Flex content fragmentation in print"
     },
     {
       "category": "alignment",
       "combination": "auto-margins",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "wpt-auto-margins-column",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "fail"
+      },
       "expected": "Column auto margins and align-self center both center their items across the cross-axis.",
       "fixture": "cases/case-30-wpt-auto-margins-column.html",
       "goTarget": "layout-unit",
       "id": "wpt-auto-margins-column",
       "kind": "margins",
-      "reason": "No behavior test or browser measurement is linked yet.",
+      "reason": "Chrome 143 geometry run: the vertical-lr wrapper is 1024 px wide vs Chrome 402 px (auto block size is not fit-content) and line-height:1 items are 21.41 px tall vs 20 px; the vertical branch items match.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/auto-margins-003.html",
-      "status": "scaffold",
+      "status": "blocked",
       "title": "Auto margins and align-self in a column"
     },
     {
       "category": "wrapping",
       "combination": "direction-reversal",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "wpt-column-reverse-multiline",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "pass"
+      },
       "expected": "Column-reverse lines pack from the main-start after wrapping and finalized line height.",
       "fixture": "cases/case-31-wpt-column-reverse-multiline.html",
       "goTarget": "layout-unit",
       "id": "wpt-column-reverse-multiline",
       "kind": "wrap",
-      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-column-reverse-multiline-item-position.html",
-      "status": "scaffold",
+      "status": "completed",
       "title": "Column-reverse multiline item positions"
     },
     {
       "category": "flex-sizing",
       "combination": "flex-sizing",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "wpt-flex-factor-less-than-one",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "fail"
+      },
       "expected": "Fractional grow and shrink factors distribute space proportionally in both row and column axes.",
       "fixture": "cases/case-32-wpt-flex-factor-less-than-one.html",
       "goTarget": "layout-unit",
       "id": "wpt-flex-factor-less-than-one",
       "kind": "grow",
-      "reason": "No behavior test or browser measurement is linked yet.",
+      "reason": "Chrome 143 geometry run: 1 pt borders contribute 1.33 px where Chrome computes 1 px, so the six containers are 0.67 px taller each and html/body heights are +4 px; item geometry matches.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-factor-less-than-one.html",
-      "status": "scaffold",
+      "status": "blocked",
       "title": "Fractional flex grow and shrink factors"
     },
     {
       "category": "min-size",
       "combination": "minimum-size",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "wpt-flex-item-compressible",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "fail"
+      },
       "expected": "An input flex item uses its specified-size suggestion correctly when the row must shrink it.",
       "fixture": "cases/case-33-wpt-flex-item-compressible.html",
       "goTarget": "chrome-reference",
       "id": "wpt-flex-item-compressible",
       "kind": "replaced",
-      "reason": "No behavior test or browser measurement is linked yet.",
+      "reason": "Chrome 143 geometry run: 1 pt borders contribute 1.33 px where Chrome computes 1 px across the five cases and html/body heights are +3.39 px; input geometry matches.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-item-compressible-001.html",
-      "status": "scaffold",
+      "status": "blocked",
       "title": "Replaced flex item automatic minimum"
     },
     {
       "category": "intrinsic-sizing",
       "combination": "intrinsic-sizing",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "wpt-flex-container-max-content",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "fail"
+      },
       "expected": "The flex container measures outer item contributions including margins, padding, and borders.",
       "fixture": "cases/case-34-wpt-flex-container-max-content.html",
       "goTarget": "chrome-reference",
       "id": "wpt-flex-container-max-content",
       "kind": "intrinsic",
-      "reason": "No behavior test or browser measurement is linked yet.",
+      "reason": "Chrome 143 geometry run: the row frame is 152x50 vs Chrome 147.95x47.31 and inline-block ink boxes are 18 px tall vs Chrome 13.33 px (specified 10 pt); item outer sizes differ by border and padding rounding.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-container-max-content-001.html",
-      "status": "scaffold",
+      "status": "blocked",
       "title": "Flex container max-content contribution"
     },
     {
       "category": "alignment",
       "combination": "cross-axis-sizing",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "wpt-flex-cross-size-border-box",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "fail"
+      },
       "expected": "Border-box and content-box containers provide equivalent content cross sizes to stretched children.",
       "fixture": "cases/case-35-wpt-flex-cross-size-border-box.html",
       "goTarget": "layout-unit",
       "id": "wpt-flex-cross-size-border-box",
       "kind": "align",
-      "reason": "No behavior test or browser measurement is linked yet.",
+      "reason": "Chrome 143 geometry run: 8 pt transparent borders contribute 10.67 px where Chrome computes 10 px, so the content-box frame is 421.33x200 vs Chrome 420x198.66; the 1 px images match.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-cross-size-border-box-001.html",
-      "status": "scaffold",
+      "status": "blocked",
       "title": "Border-box cross-size for stretched items"
     },
     {
       "category": "flex-sizing",
       "combination": "min-max-freeze",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "wpt-flex-base-size-max-width",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "pass"
+      },
       "expected": "The flex base size uses content before the max-width clamp freezes the item and redistributes space.",
       "fixture": "cases/case-36-wpt-flex-base-size-max-width.html",
       "goTarget": "layout-unit",
       "id": "wpt-flex-base-size-max-width",
       "kind": "minmax-small",
-      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-base-size-ignores-max-width.html",
-      "status": "scaffold",
+      "status": "completed",
       "title": "Flex base size before max-width clamp"
     },
     {
       "category": "replaced",
       "combination": "intrinsic-sizing",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "blink-replaced-aspect-ratio-precision",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "pass"
+      },
       "expected": "An auto-sized SVG keeps its intrinsic 29 by 22 size inside a 50px column item.",
       "fixture": "cases/case-37-blink-replaced-aspect-ratio-precision.html",
       "goTarget": "layout-unit",
       "id": "blink-replaced-aspect-ratio-precision",
       "kind": "replaced",
-      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/renderer/core/layout/flex/flex_layout_algorithm_test.cc",
-      "status": "scaffold",
+      "status": "completed",
       "title": "Intrinsic replaced-element ratio precision"
     },
     {
       "category": "wrapping",
       "combination": "gap",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "blink-gap-decorations-basic",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "fail"
+      },
       "expected": "Six fixed items wrap into two rows with main and cross gaps at known intersections.",
       "fixture": "cases/case-38-blink-gap-decorations-basic.html",
       "goTarget": "layout-unit",
       "id": "blink-gap-decorations-basic",
       "kind": "gap",
-      "reason": "No behavior test or browser measurement is linked yet.",
+      "reason": "Chrome 143 geometry run: 2 pt dotted borders contribute 2.67 px where Chrome computes 2 px, so the frame is 232x152 vs Chrome 230.66x150.64; the six gapped items match.",
       "source": "third_party/blink/renderer/core/layout/flex/flex_layout_algorithm_test.cc",
-      "status": "scaffold",
+      "status": "blocked",
       "title": "Gap geometry with wrapping"
     },
     {
       "category": "overflow",
       "combination": "direction-reversal",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "blink-scrollbars-row-reverse-vrl",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "pass"
+      },
       "expected": "Row-reverse with vertical-rl maps content and overflow into negative physical coordinates.",
       "fixture": "cases/case-39-blink-scrollbars-row-reverse-vrl.html",
       "goTarget": "chrome-reference",
       "id": "blink-scrollbars-row-reverse-vrl",
       "kind": "writing",
-      "reason": "No behavior test or browser measurement is linked yet.",
       "source": "third_party/blink/renderer/core/layout/layout_flexible_box_test.cc",
-      "status": "scaffold",
+      "status": "completed",
       "title": "Reverse flow with vertical writing and overflow"
     },
     {
       "category": "intrinsic-sizing",
       "combination": "intrinsic-sizing",
+      "evidence": {
+        "browser": "Chrome/143.0.7499.40",
+        "case": "wpt-flex-container-min-content",
+        "file": "temps/chrome-cases/geometry-report.md",
+        "kind": "browser",
+        "verdict": "fail"
+      },
       "expected": "The flex container's min-content contribution reflects the largest constrained item contribution.",
       "fixture": "cases/case-40-wpt-flex-container-min-content.html",
       "goTarget": "chrome-reference",
       "id": "wpt-flex-container-min-content",
       "kind": "intrinsic",
-      "reason": "No behavior test or browser measurement is linked yet.",
+      "reason": "Chrome 143 geometry run: the height:0 wrapper reports 62.67 px vs Chrome 0 and the min-content frame is 146.67x62.67 vs Chrome 143.95x61.31; items differ by border and padding rounding.",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-container-min-content-001.html",
-      "status": "scaffold",
+      "status": "blocked",
       "title": "Flex container min-content contribution"
     }
   ],

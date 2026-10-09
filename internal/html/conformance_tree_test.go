@@ -246,8 +246,6 @@ func classifyTreeRecord(t *testing.T, record datRecord, id, category string, scr
 	}
 
 	switch {
-	case flags.namespace:
-		report.addCase(category, id, statusUnsupported, reasonNamespace, "")
 	case flags.templateContents:
 		report.addCase(category, id, statusUnsupported, reasonTemplateContents, "")
 	case flags.pi:
@@ -510,7 +508,7 @@ func engineTree(root *Node) *cfNode {
 func engineNode(node *Node) *cfNode {
 	switch node.Type {
 	case ElementNode:
-		out := &cfNode{kind: kindElement, name: node.Name, attrs: engineAttrs(node.Attrs)}
+		out := &cfNode{kind: kindElement, name: node.Name, ns: namespaceDesignator(node.Namespace), attrs: engineAttrs(node)}
 
 		for _, child := range node.Children {
 			out.children = append(out.children, engineNode(child))
@@ -522,9 +520,13 @@ func engineNode(node *Node) *cfNode {
 	case CommentNode:
 		return &cfNode{kind: kindComment, data: node.Text}
 	case DoctypeNode:
-		doctype, ok := parseEngineDoctype(node.Text)
-
-		return &cfNode{kind: kindDoctype, data: node.Text, doctype: doctype, doctypeOK: ok}
+		return &cfNode{kind: kindDoctype, data: node.Text, doctypeOK: true, doctype: cfDoctype{
+			name:      node.Doctype.Name,
+			public:    node.Doctype.PublicID,
+			publicSet: node.Doctype.HasPublicID,
+			system:    node.Doctype.SystemID,
+			systemSet: node.Doctype.HasSystemID,
+		}}
 	case NodeUnknown:
 		return &cfNode{kind: "unknown", data: node.Text}
 	}
@@ -532,11 +534,32 @@ func engineNode(node *Node) *cfNode {
 	return &cfNode{kind: "unknown", data: node.Text}
 }
 
-func engineAttrs(attrs map[string]string) []cfAttr {
-	out := make([]cfAttr, 0, len(attrs))
+// namespaceDesignator maps an engine namespace to the html5lib dump
+// designator ("svg", "math") and HTML to the empty string.
+func namespaceDesignator(ns Namespace) string {
+	switch ns {
+	case NamespaceSVG:
+		return "svg"
+	case NamespaceMathML:
+		return "math"
+	case NamespaceHTML:
+		return ""
+	default:
+		return ""
+	}
+}
 
-	for name, value := range attrs {
-		out = append(out, cfAttr{name: name, value: value})
+func engineAttrs(node *Node) []cfAttr {
+	out := make([]cfAttr, 0, len(node.AttrList))
+	for _, attr := range node.AttrList {
+		out = append(out, cfAttr{ns: attr.Namespace, name: attr.Name, value: attr.Value})
+	}
+
+	if len(out) == 0 && len(node.Attrs) > 0 {
+		// Synthetic nodes built without AttrList: fall back to the flat map.
+		for name, value := range node.Attrs {
+			out = append(out, cfAttr{name: name, value: value})
+		}
 	}
 
 	sortCFAttrs(out)
@@ -545,13 +568,18 @@ func engineAttrs(attrs map[string]string) []cfAttr {
 }
 
 func sortCFAttrs(attrs []cfAttr) {
-	sort.Slice(attrs, func(i, j int) bool { return attrs[i].name < attrs[j].name })
+	sort.Slice(attrs, func(i, j int) bool {
+		if attrs[i].ns != attrs[j].ns {
+			return attrs[i].ns < attrs[j].ns
+		}
+
+		return attrs[i].name < attrs[j].name
+	})
 }
 
 // --- tree comparison ---
 
 type cfFlags struct {
-	namespace        bool
 	templateContents bool
 	pi               bool
 }
@@ -571,15 +599,19 @@ func compareTree(want, got *cfNode, path string, flags *cfFlags) *cfMismatch {
 	case kindDocument:
 		return compareTreeChildren(want, got, path, flags)
 	case kindElement:
-		if want.ns != "" {
-			flags.namespace = true
+		if want.ns != got.ns {
+			return &cfMismatch{
+				path: path + " namespace",
+				want: []string{namespacePrefix(want.ns) + want.name},
+				got:  []string{namespacePrefix(got.ns) + got.name},
+			}
 		}
 
 		if want.name != got.name {
 			return &cfMismatch{path: path + " name", want: []string{want.name}, got: []string{got.name}}
 		}
 
-		if mismatch := compareTreeAttrs(want.attrs, got.attrs, path, flags); mismatch != nil {
+		if mismatch := compareTreeAttrs(want.attrs, got.attrs, path); mismatch != nil {
 			return mismatch
 		}
 
@@ -639,20 +671,16 @@ func flattenWantChildren(children []*cfNode, flags *cfFlags) []*cfNode {
 	return out
 }
 
-func compareTreeAttrs(want, got []cfAttr, path string, flags *cfFlags) *cfMismatch {
+func compareTreeAttrs(want, got []cfAttr, path string) *cfMismatch {
 	if len(want) != len(got) {
 		return &cfMismatch{path: path + " attributes", want: renderAttrs(want), got: renderAttrs(got)}
 	}
 
 	for _, wantAttr := range want {
-		if wantAttr.ns != "" {
-			flags.namespace = true
-		}
-
-		gotAttr, ok := findCFAttr(got, wantAttr.name)
+		gotAttr, ok := findCFAttr(got, wantAttr.ns, wantAttr.name)
 		if !ok || gotAttr.value != wantAttr.value {
 			return &cfMismatch{
-				path: path + " attribute " + wantAttr.name,
+				path: path + " attribute " + namespacePrefix(wantAttr.ns) + wantAttr.name,
 				want: []string{quoteDump(wantAttr.value)},
 				got:  []string{quoteDump(attrValueOrMissing(gotAttr, ok))},
 			}
@@ -667,16 +695,25 @@ func compareDoctypes(want, got *cfNode, path string) *cfMismatch {
 		return &cfMismatch{path: path, want: []string{renderDoctype(want.doctype)}, got: []string{got.data}}
 	}
 
-	if !sameDoctype(want.doctype, got.doctype) {
+	if !sameTreeDoctype(want.doctype, got.doctype) {
 		return &cfMismatch{path: path, want: []string{renderDoctype(want.doctype)}, got: []string{renderDoctype(got.doctype)}}
 	}
 
 	return nil
 }
 
-func findCFAttr(attrs []cfAttr, name string) (cfAttr, bool) {
+// sameTreeDoctype compares dump-derived doctypes. The .dat format prints a
+// missing identifier as an empty quoted string once the other identifier is
+// present, so the missing/empty distinction is not comparable here; names and
+// identifier values are.
+func sameTreeDoctype(want, got cfDoctype) bool {
+	return strings.EqualFold(want.name, got.name) &&
+		want.public == got.public && want.system == got.system
+}
+
+func findCFAttr(attrs []cfAttr, ns, name string) (cfAttr, bool) {
 	for _, attr := range attrs {
-		if attr.name == name {
+		if attr.ns == ns && attr.name == name {
 			return attr, true
 		}
 	}

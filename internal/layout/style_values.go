@@ -1722,8 +1722,8 @@ var uaDecls = map[string][]css.Declaration{ //nolint:gochecknoglobals // static 
 		{Prop: "display", Value: "list-item"}, //nolint:exhaustruct // intentional zero fields
 	},
 	"table": {
-		{Prop: "display", Value: "table"},      //nolint:exhaustruct // intentional zero fields
-		{Prop: "border-spacing", Value: "2px"}, //nolint:exhaustruct // intentional zero fields
+		{Prop: "display", Value: "table"},       //nolint:exhaustruct // intentional zero fields
+		{Prop: propBorderSpacing, Value: "2px"}, //nolint:exhaustruct // intentional zero fields
 	},
 	"thead": {
 		{Prop: "display", Value: "table-header-group"}, //nolint:exhaustruct // intentional zero fields

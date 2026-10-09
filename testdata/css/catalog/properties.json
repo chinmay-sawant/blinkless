@@ -11,9 +11,9 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 93,
-      "partial": 297,
-      "unsupported": 388,
+      "implemented": 90,
+      "partial": 301,
+      "unsupported": 387,
       "intentionally ignored": 7
     },
     "aliases": 38,
@@ -703,7 +703,9 @@
       "values": [
         "normal | stretch | <baseline-position> | <overflow-position>? <self-position>"
       ],
-      "limitations": [],
+      "limitations": [
+        "Handler and consumer exist (flex.go:1615, grid.go:538), but no test proves cross-axis item geometry. Missing behavior: a layout regression that sets align-items to center, stretch, or flex-start and asserts item positions; TestWebkitPrefixAliases only proves the alias mapping."
+      ],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -717,7 +719,7 @@
           "name": "TestWebkitPrefixAliases"
         }
       ],
-      "status": "implemented",
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "normal | stretch | <baseline-position> | <overflow-position>? <self-position>"
     },
@@ -6201,6 +6203,10 @@
           "name": "TestWebkitBoxFlexGrows"
         },
         {
+          "file": "internal/layout/flex_chrome_cases_01_02_test.go",
+          "name": "TestChromeFlexCase01LegacyAlgorithm"
+        },
+        {
           "file": "internal/layout/style_cascade_test.go",
           "name": "TestWebkitPrefixAliases"
         }
@@ -6257,6 +6263,10 @@
         {
           "file": "internal/layout/style_cascade_test.go",
           "name": "TestWebkitPrefixAliases"
+        },
+        {
+          "file": "internal/layout/webkit_box_flex_test.go",
+          "name": "TestWebkitBoxOrientVerticalStacks"
         }
       ],
       "status": "implemented",
@@ -6310,6 +6320,10 @@
         {
           "file": "internal/layout/style_cascade_test.go",
           "name": "TestWebkitPrefixAliases"
+        },
+        {
+          "file": "internal/layout/flex_chrome_cases_01_02_test.go",
+          "name": "TestChromeFlexCase01LegacyAlgorithm"
         }
       ],
       "status": "implemented",
@@ -8359,6 +8373,10 @@
         {
           "file": "internal/layout/style_cascade_test.go",
           "name": "TestWebkitPrefixAliases"
+        },
+        {
+          "file": "internal/layout/css_review_02_test.go",
+          "name": "TestFlexDistributedJustifyKeepsGap"
         }
       ],
       "status": "implemented",
@@ -9717,7 +9735,9 @@
       "values": [
         "<length> | <percentage> | inherit"
       ],
-      "limitations": [],
+      "limitations": [
+        "Handler and consumer exist (container.go:118 and flex.go:876 clamp to MinWidth), but no test proves the clamp from a min-width declaration. Missing behavior: a layout regression that sets min-width and asserts the box is clamped to the floor; TestCascadeEngineSupportsPropertyValues only checks value acceptance."
+      ],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -9731,7 +9751,7 @@
           "name": "TestCascadeEngineSupportsPropertyValues"
         }
       ],
-      "status": "implemented",
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<length> | <percentage> | inherit"
     },
@@ -10009,7 +10029,9 @@
       "values": [
         "<integer>"
       ],
-      "limitations": [],
+      "limitations": [
+        "Handler and consumer exist (flex.go:337 and flex_columns.go:298 sort items by FlexOrder), but no test proves reordering. Missing behavior: a layout regression that sets order and asserts painted item order; TestWebkitPrefixAliases only proves the alias mapping."
+      ],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -10023,7 +10045,7 @@
           "name": "TestWebkitPrefixAliases"
         }
       ],
-      "status": "implemented",
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<integer>"
     },
@@ -11215,6 +11237,10 @@
         {
           "file": "internal/layout/style_cascade_test.go",
           "name": "TestCascadeEngineSupportsPropertyValues"
+        },
+        {
+          "file": "internal/layout/spacing_fix_test.go",
+          "name": "TestPositionLiteFixtureReservesOverlaySpace"
         }
       ],
       "status": "implemented",
@@ -14444,10 +14470,10 @@
       "name": "text-wrap",
       "aliases": [],
       "values": [
-        "<'text-wrap-mode'> || <'text-wrap-style'>"
+        "wrap | nowrap | auto | balance | stable (at most one mode and one style)"
       ],
       "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
+        "The shorthand splits into text-wrap-mode and text-wrap-style; the mode folds onto white-space and the style drives balance line placement (inline_balance.go). Values outside wrap, nowrap, auto, balance, and stable are rejected by the acceptance gate. No shorthand-only behavior beyond the longhands."
       ],
       "source": [
         "internal/layout/style_properties.go",
@@ -14457,7 +14483,16 @@
         "applyTextGroup",
         "applyTextPropsWave3"
       ],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/inline_balance_test.go",
+          "name": "TestTextWrapBalanceMatchesChromeLineBreaks"
+        },
+        {
+          "file": "layout/text_wrap_acceptance_test.go",
+          "name": "TestDisplaySupportsTextWrapStyleAcceptance"
+        }
+      ],
       "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'text-wrap-mode'> || <'text-wrap-style'>"
@@ -14493,14 +14528,15 @@
       "name": "text-wrap-style",
       "aliases": [],
       "values": [
-        "auto | balance | stable | pretty | avoid-short-last-line"
+        "auto | balance | stable"
       ],
       "limitations": [
-        "Parsed and stored (TextWrapStyle, style_text_props.go:26 and :160) but no layout, inline, or paint consumer reads it. Missing behavior: balance/pretty/stable line placement (CSS-03a/b/c). Only test is a stored-string assertion (TestTextPropsWave3)."
+        "`balance` re-breaks each forced-break segment with the Blink ParagraphLineBreaker bisection: max 6 lines, minimum candidate width 0.8 * average normal line width, 1 px epsilon (inline_balance.go). `stable` wraps greedily like `auto`, matching Chrome. `pretty` and `avoid-short-last-line` are rejected by the acceptance gate and fall back to normal wrapping; Chrome breaks `pretty` with a score-based algorithm that avoids short last lines. `balance` is skipped for floats, line clamp, and text-indent, and its greedy dry run can pick different break sets than Chrome's ScoreLineBreaker when uneven word widths leave several valid sets. Browser reference: Chrome 143.0.7499.40 under temps/css-review/wrap/."
       ],
       "source": [
         "internal/layout/style_properties.go",
-        "internal/layout/style_text_props.go"
+        "internal/layout/style_text_props.go",
+        "internal/layout/inline_balance.go"
       ],
       "handlers": [
         "applyTextGroup",
@@ -14508,11 +14544,39 @@
       ],
       "tests": [
         {
-          "file": "internal/layout/style_text_props_test.go",
-          "name": "TestTextPropsWave3"
+          "file": "internal/layout/inline_balance_test.go",
+          "name": "TestTextWrapBalanceMatchesChromeLineBreaks"
+        },
+        {
+          "file": "internal/layout/inline_balance_test.go",
+          "name": "TestTextWrapBalanceMatchesChromeWideWidths"
+        },
+        {
+          "file": "internal/layout/inline_balance_test.go",
+          "name": "TestTextWrapBalanceMatchesChromeEdgeCases"
+        },
+        {
+          "file": "internal/layout/inline_balance_test.go",
+          "name": "TestTextWrapBalanceLeavesLongParagraphAlone"
+        },
+        {
+          "file": "internal/layout/inline_balance_test.go",
+          "name": "TestTextWrapBalanceLeavesNowrapAlone"
+        },
+        {
+          "file": "internal/layout/inline_balance_test.go",
+          "name": "TestTextWrapBalanceCenterAlignmentUsesFullWidth"
+        },
+        {
+          "file": "internal/layout/inline_balance_test.go",
+          "name": "TestTextWrapStyleAcceptanceGate"
+        },
+        {
+          "file": "layout/text_wrap_acceptance_test.go",
+          "name": "TestDisplaySupportsTextWrapStyleAcceptance"
         }
       ],
-      "status": "unsupported",
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "auto | balance | stable | pretty | avoid-short-last-line"
     },
@@ -15425,6 +15489,10 @@
         {
           "file": "internal/settings/settings_test.go",
           "name": "TestApplyImageKeyBackgroundAlias"
+        },
+        {
+          "file": "internal/layout/invoice_css_test.go",
+          "name": "TestBoxSizingBorderBox"
         },
         {
           "file": "internal/layout/style_cascade_test.go",

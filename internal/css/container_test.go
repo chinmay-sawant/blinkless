@@ -137,6 +137,184 @@ func TestContainerCondMatches(t *testing.T) {
 	}
 }
 
+// TestSplitCondKeywordTokenBoundary pins the token boundary rule for and/or
+// from the CSS Conditional 3 changes note: whitespace is not required before
+// the keyword, but an opening parenthesis directly after it makes a function
+// token, so `and(` and `or(` are not operators. @supports applies the same
+// rule in supportsBoundary.
+func TestSplitCondKeywordTokenBoundary(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		cond string
+		kw   string
+		want int
+	}{
+		{name: "spaced and", cond: "(width > 10px) and (height > 10px)", kw: condKindAnd, want: 2},
+		{name: "space before keyword is optional", cond: "(width > 10px)and (height > 10px)", kw: condKindAnd, want: 2},
+		{name: "three ands", cond: "(a) and (b) and (c)", kw: condKindAnd, want: 3},
+		{name: "and function token", cond: "(width > 10px) and(height > 10px)", kw: condKindAnd, want: 1},
+		{name: "or function token", cond: "(width > 10px) or(height > 10px)", kw: condKindOr, want: 1},
+		{name: "uppercase keyword", cond: "(width > 10px) AND (height > 10px)", kw: condKindAnd, want: 2},
+		{
+			name: "nested and stays intact",
+			cond: "((width > 10px) and (height > 10px)) or (width < 1px)",
+			kw:   condKindAnd,
+			want: 1,
+		},
+		{name: "outer or splits", cond: "((width > 10px) and (height > 10px)) or (width < 1px)", kw: condKindOr, want: 2},
+		{name: "keyword inside ident", cond: "(width > 10px) brandy (height > 10px)", kw: condKindAnd, want: 1},
+		{name: "quoted keyword", cond: `"a and b" and (width > 10px)`, kw: condKindAnd, want: 2},
+	}
+
+	for _, testCase := range cases {
+		parts, ok := splitCondKeyword(testCase.cond, testCase.kw)
+		if !ok {
+			t.Fatalf("%s: split failed for %q", testCase.name, testCase.cond)
+		}
+
+		if len(parts) != testCase.want {
+			t.Fatalf("%s: parts=%q, want %d", testCase.name, parts, testCase.want)
+		}
+	}
+
+	if _, ok := splitCondKeyword("and (width > 10px)", condKindAnd); ok {
+		t.Fatal("leading keyword must fail (empty first part)")
+	}
+
+	if _, ok := splitCondKeyword("(width > 10px) and", condKindAnd); ok {
+		t.Fatal("trailing keyword must fail (empty last part)")
+	}
+}
+
+// TestContainerCondFunctionTokensRejected covers the CSS Conditional 5
+// @container grammar: `not(...)`, `and(...)`, `or(...)`, and `style(...)`
+// written without a space are function tokens, not operators or size
+// conditions. The engine rejects the unsupported function forms; a browser
+// evaluates them as unknown, which also never applies the rule.
+func TestContainerCondFunctionTokensRejected(t *testing.T) {
+	t.Parallel()
+
+	preludes := []string{
+		"(width > 10px) and(inline-size > 20px)",
+		"(width > 10px) or(inline-size > 20px)",
+		"(width > 10px) AND(inline-size > 20px)",
+		"(width > 10px) and((inline-size > 20px))",
+		"not(width > 10px)",
+		"NOT(width > 10px)",
+		"and(width > 10px)",
+		"or(width > 10px)",
+		"style(--foo: bar)",
+		"style(width > 10px)",
+		"scroll-state(width > 10px)",
+		"(width > 10px) and style(--foo: bar)",
+		"style(--foo: bar) or (width > 10px)",
+	}
+
+	for _, prelude := range preludes {
+		if _, ok := parseContainerPrelude(prelude); ok {
+			t.Errorf("prelude %q must be rejected", prelude)
+		}
+	}
+}
+
+// TestContainerCondKeywordForms covers ASCII case-insensitive keywords, the
+// optional space before a keyword, and parenthesized operator mixing, which
+// the grammar allows across nesting levels (same-level mixing is rejected by
+// TestContainerCondMixedOperatorsRejected).
+func TestContainerCondKeywordForms(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		prelude string
+		qname   string
+		kind    string
+		kids    int
+		kidKind string
+	}{
+		{name: "lowercase and", qname: "", kind: condKindAnd, kids: 2, kidKind: "",
+			prelude: "(width > 10px) and (inline-size > 20px)"},
+		{name: "no space before and", qname: "", kind: condKindAnd, kids: 2, kidKind: "",
+			prelude: "(width > 10px)and (inline-size > 20px)"},
+		{name: "uppercase and", qname: "", kind: condKindAnd, kids: 2, kidKind: "",
+			prelude: "(width > 10px) AND (inline-size > 20px)"},
+		{name: "uppercase or", qname: "", kind: condKindOr, kids: 2, kidKind: "",
+			prelude: "(width > 10px) OR (inline-size > 20px)"},
+		{name: "uppercase not", qname: "", kind: condKindNot, kids: 1, kidKind: "",
+			prelude: "NOT (width > 10px)"},
+		{name: "spaced style is a name", qname: "style", kind: condKindFeat, kids: 0, kidKind: "",
+			prelude: "style (width > 10px)"},
+		{name: "nested and under or", qname: "", kind: condKindOr, kids: 2, kidKind: condKindAnd,
+			prelude: "((width > 10px) and (inline-size > 20px)) or (width < 1px)"},
+		{name: "nested or under and", qname: "", kind: condKindAnd, kids: 2, kidKind: "",
+			prelude: "(width > 10px) and ((inline-size > 20px) or (width < 1px))"},
+		{name: "not wraps nested or", qname: "", kind: condKindNot, kids: 1, kidKind: "",
+			prelude: "not ((width > 10px) or (inline-size > 20px))"},
+	}
+
+	for _, testCase := range cases {
+		query, ok := parseContainerPrelude(testCase.prelude)
+		if !ok {
+			t.Fatalf("%s: prelude %q rejected", testCase.name, testCase.prelude)
+		}
+
+		if query.Name != testCase.qname {
+			t.Fatalf("%s: name=%q, want %q", testCase.name, query.Name, testCase.qname)
+		}
+
+		if query.Cond.Kind != testCase.kind || len(query.Cond.Kids) != testCase.kids {
+			t.Fatalf("%s: kind=%q kids=%d, want %q/%d",
+				testCase.name, query.Cond.Kind, len(query.Cond.Kids), testCase.kind, testCase.kids)
+		}
+
+		if testCase.kidKind != "" && query.Cond.Kids[0].Kind != testCase.kidKind {
+			t.Fatalf("%s: kids[0].kind=%q, want %q", testCase.name, query.Cond.Kids[0].Kind, testCase.kidKind)
+		}
+	}
+}
+
+// TestContainerCondMixedOperatorsRejected covers CSS Conditional 3 section 6:
+// mixing and/or at one level without parentheses is invalid.
+func TestContainerCondMixedOperatorsRejected(t *testing.T) {
+	t.Parallel()
+
+	preludes := []string{
+		"(width > 10px) and (inline-size > 20px) or (width < 1px)",
+		"(width > 10px) or (inline-size > 20px) and (width < 1px)",
+		"(width > 10px) AND (inline-size > 20px) OR (width < 1px)",
+		"(width > 10px) or (inline-size > 20px) or (width < 1px) and (inline-size < 1px)",
+	}
+
+	for _, prelude := range preludes {
+		if _, ok := parseContainerPrelude(prelude); ok {
+			t.Errorf("prelude %q must be rejected: and/or cannot mix at one level", prelude)
+		}
+	}
+}
+
+// TestInvalidContainerCondDropsRule proves the rejected keyword forms drop the
+// whole @container block through Parse, the real entry point.
+func TestInvalidContainerCondDropsRule(t *testing.T) {
+	t.Parallel()
+
+	sty := mustSheet(t, `
+		@container (width > 10px) and(inline-size > 20px) { .a { color: red } }
+		@container not(width > 10px) { .b { color: red } }
+		@container (width > 10px) and (inline-size > 20px) or (width < 1px) { .c { color: red } }
+		p { color: green }
+	`)
+	if len(sty.Rules) != 1 {
+		t.Fatalf("rules = %d, want only the p rule: %+v", len(sty.Rules), sty.Rules)
+	}
+
+	survivor := sty.Rules[0]
+	if survivor.Container != nil || len(survivor.Selectors) != 1 || survivor.Selectors[0].Parts[0].Tag != "p" {
+		t.Fatalf("survivor = %+v", survivor)
+	}
+}
+
 func TestContainerWithoutSizeRejectedAtEval(t *testing.T) {
 	t.Parallel()
 	// Parsing succeeds; layout refuses to treat non-size-containers as

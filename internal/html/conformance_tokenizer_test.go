@@ -110,7 +110,7 @@ func classifyTokenizerCase(t *testing.T, tc tokenizerCase, id, category string, 
 		input = unescaped
 	}
 
-	expected, forceQuirks, hasPI := parseExpectedTokenStream(t, tc.Output, tc.DoubleEscaped)
+	expected, hasPI := parseExpectedTokenStream(t, tc.Output, tc.DoubleEscaped)
 	if hasPI {
 		report.addCase(category, id, statusUnsupported, reasonProcessingInstr, "")
 		return
@@ -129,11 +129,6 @@ func classifyTokenizerCase(t *testing.T, tc tokenizerCase, id, category string, 
 		return
 	}
 
-	if forceQuirks {
-		report.addCase(category, id, statusUnsupported, reasonForceQuirks, "")
-		return
-	}
-
 	report.addCase(category, id, statusPassed, "", "")
 }
 
@@ -143,19 +138,14 @@ func stateSlug(state string) string {
 
 // --- tokenizer expectations ---
 
-func parseExpectedTokenStream(t *testing.T, raws []json.RawMessage, doubleEscaped bool) ([]cfToken, bool, bool) {
+func parseExpectedTokenStream(t *testing.T, raws []json.RawMessage, doubleEscaped bool) ([]cfToken, bool) {
 	t.Helper()
 
 	tokens := make([]cfToken, 0, len(raws))
-	forceQuirks := false
 	hasPI := false
 
 	for i, raw := range raws {
-		tok, quirks, pi := parseExpectedToken(t, i, raw, doubleEscaped)
-
-		if quirks {
-			forceQuirks = true
-		}
+		tok, pi := parseExpectedToken(t, i, raw, doubleEscaped)
 
 		if pi {
 			hasPI = true
@@ -165,10 +155,10 @@ func parseExpectedTokenStream(t *testing.T, raws []json.RawMessage, doubleEscape
 		tokens = append(tokens, tok)
 	}
 
-	return tokens, forceQuirks, hasPI
+	return tokens, hasPI
 }
 
-func parseExpectedToken(t *testing.T, index int, raw json.RawMessage, doubleEscaped bool) (cfToken, bool, bool) {
+func parseExpectedToken(t *testing.T, index int, raw json.RawMessage, doubleEscaped bool) (cfToken, bool) {
 	t.Helper()
 
 	var parts []json.RawMessage
@@ -188,13 +178,13 @@ func parseExpectedToken(t *testing.T, index int, raw json.RawMessage, doubleEsca
 
 		data := unescapeTokenString(t, jsonString(t, parts[1]), doubleEscaped)
 
-		return cfToken{kind: typ, data: data}, false, false
+		return cfToken{kind: typ, data: data}, false
 	case tokenEndTag:
 		requireTokenParts(t, index, typ, parts, 2)
 
 		name := unescapeTokenString(t, jsonString(t, parts[1]), doubleEscaped)
 
-		return cfToken{kind: typ, name: name}, false, false
+		return cfToken{kind: typ, name: name}, false
 	case tokenStartTag:
 		if len(parts) < 3 {
 			t.Fatalf("conformance harness: token %d: StartTag needs a name and attributes", index)
@@ -204,7 +194,7 @@ func parseExpectedToken(t *testing.T, index int, raw json.RawMessage, doubleEsca
 		attrs := parseExpectedAttrs(t, index, parts[2], doubleEscaped)
 		selfClosing := len(parts) >= 4 && jsonBool(t, parts[3])
 
-		return cfToken{kind: typ, name: name, attrs: attrs, selfClosing: selfClosing}, false, false
+		return cfToken{kind: typ, name: name, attrs: attrs, selfClosing: selfClosing}, false
 	case tokenDoctype:
 		requireTokenParts(t, index, typ, parts, 5)
 
@@ -216,19 +206,20 @@ func parseExpectedToken(t *testing.T, index int, raw json.RawMessage, doubleEsca
 		correct := jsonBool(t, parts[4])
 
 		return cfToken{kind: typ, doctype: cfDoctype{
-			name:      name,
-			public:    public,
-			publicSet: publicSet,
-			system:    system,
-			systemSet: systemSet,
-		}}, !correct, false
+			name:        name,
+			public:      public,
+			publicSet:   publicSet,
+			system:      system,
+			systemSet:   systemSet,
+			forceQuirks: !correct,
+		}}, false
 	case "ProcessingInstruction":
-		return cfToken{}, false, true
+		return cfToken{}, true
 	default:
 		t.Fatalf("conformance harness: token %d has unknown type %q", index, typ)
 	}
 
-	return cfToken{}, false, false
+	return cfToken{}, false
 }
 
 func requireTokenParts(t *testing.T, index int, typ string, parts []json.RawMessage, want int) {
@@ -398,7 +389,14 @@ func engineTokenStream(toks []token) []cfToken {
 	for _, tok := range toks {
 		switch tok.kind {
 		case tokDoctype:
-			out = append(out, cfToken{kind: tokenDoctype, data: tok.data})
+			out = append(out, cfToken{kind: tokenDoctype, doctype: cfDoctype{
+				name:        tok.doctype.Name,
+				public:      tok.doctype.PublicID,
+				publicSet:   tok.doctype.HasPublicID,
+				system:      tok.doctype.SystemID,
+				systemSet:   tok.doctype.HasSystemID,
+				forceQuirks: tok.doctype.ForceQuirks,
+			}})
 		case tokStart:
 			out = append(out, cfToken{kind: tokenStartTag, name: tok.data, attrs: pairAttrs(tok.attrs), selfClosing: tok.selfClosing})
 		case tokEnd:
@@ -501,7 +499,7 @@ func compareTokenAttrs(want, got []cfAttr, path string) *cfMismatch {
 	}
 
 	for _, wantAttr := range want {
-		gotAttr, ok := findCFAttr(got, wantAttr.name)
+		gotAttr, ok := findCFAttr(got, wantAttr.ns, wantAttr.name)
 		if !ok || gotAttr.value != wantAttr.value {
 			return &cfMismatch{
 				path: path + " attribute " + wantAttr.name,
@@ -515,13 +513,12 @@ func compareTokenAttrs(want, got []cfAttr, path string) *cfMismatch {
 }
 
 func compareTokenDoctype(want, got cfToken, path string) *cfMismatch {
-	gotDoctype, ok := parseEngineDoctype(got.data)
-	if !ok {
-		return &cfMismatch{path: path, want: []string{renderDoctype(want.doctype)}, got: []string{got.data}}
+	if want.doctype.forceQuirks != got.doctype.forceQuirks {
+		return &cfMismatch{path: path + " force-quirks", want: []string{renderDoctype(want.doctype)}, got: []string{renderDoctype(got.doctype)}}
 	}
 
-	if !sameDoctype(want.doctype, gotDoctype) {
-		return &cfMismatch{path: path, want: []string{renderDoctype(want.doctype)}, got: []string{renderDoctype(gotDoctype)}}
+	if !sameDoctype(want.doctype, got.doctype) {
+		return &cfMismatch{path: path, want: []string{renderDoctype(want.doctype)}, got: []string{renderDoctype(got.doctype)}}
 	}
 
 	return nil
@@ -581,8 +578,8 @@ func renderToken(tok cfToken) string {
 
 		return b.String()
 	case tokenDoctype:
-		if tok.data != "" {
-			return tokenDoctype + " " + tok.data
+		if tok.doctype.forceQuirks {
+			return renderDoctype(tok.doctype) + " force-quirks"
 		}
 
 		return renderDoctype(tok.doctype)

@@ -181,9 +181,9 @@ The css package reports *matches and specificity*; layout performs the cascade:
      sentinel specificity `1<<maxIntShift` described as "outranks all normal
      declarations and all sheet important declarations" (style_cascade.go:655).
 4. Every declaration passes the shared acceptance gate before it can win:
-   `supportedDeclaration` (`style_value_accept.go:55`) checks the value
+   `supportedDeclaration` (`style_value_accept.go:57`) checks the value
    against a per-property table (`declarationValueAccepted`,
-   `style_value_accept.go:95`). The gate filters sheet declarations at
+   `style_value_accept.go:97`). The gate filters sheet declarations at
    `style_cascade.go:647`, inline declarations at `style_cascade.go:658`, and
    pseudo-element declarations at `style_cascade.go:712`, so an invalid later
    declaration cannot replace an earlier valid one. The same predicate decides
@@ -260,6 +260,74 @@ pseudo-elements inside `:has()` are rejected at parse time (has.go's
 - Unnamed `@page` declarations keep raw `margin`/`size` strings in
   `PageStyle` (css.go:59, parsePageRule css.go:192) so physical units resolve
   at the PDF boundary.
+
+### 4.6 text-wrap-style line placement (wave C)
+
+`text-wrap-style` shows the full handoff from a declaration to line breaking.
+The css package parses the value like any other property; layout decides
+whether it wins and what it does to line placement.
+
+1. **Acceptance.** `declarationValueAccepted` accepts `auto`, `balance`, and
+   `stable` for `text-wrap-style` (style_value_accept.go:145-146), and routes
+   `text-wrap` through `textWrapShorthandValueAccepted`
+   (style_value_accept.go:147-148). The shorthand takes one or two
+   whitespace-separated tokens: at most one mode (`wrap`/`nowrap`) and at most
+   one style (`auto`/`balance`/`stable`). A repeated mode, a repeated style,
+   and any other token are rejected (style_value_accept.go:293-323). `pretty`
+   and `avoid-short-last-line` are rejected too (style_value_accept.go:291-292),
+   so a paragraph that asks for either keeps greedy wrapping. The same
+   predicate answers `@supports (text-wrap-style: ...)`
+   (style_cascade.go:1621-1626).
+2. **Storage.** `applyTextGroup` routes the three text-wrap properties to
+   `applyTextPropsWave3` (style_properties.go:1362-1369). `setTextWrap` splits
+   the shorthand: `wrap`/`nowrap` go to `TextWrapMode`, every other token goes
+   to `TextWrapStyle` (style_text_props.go:153-163). The longhand stores its
+   lowercase value (style_text_props.go:25-26). The fields live on
+   `ResolvedStyle` (style.go:240-242) and inherit (style_cascade.go:279-281).
+3. **Line placement.** `balanceCanApply` decides per paragraph whether
+   balancing runs: the style must be `balance`, and the block must have no
+   line clamp, no first-line indent, and no active left or right float
+   (inline_balance.go:94-101; the clamp is computed at inline.go:184-190).
+   When it applies, `inline.go` computes the balanced width lazily at the
+   start of each forced-break segment, meaning the items between two `<br>`s
+   (inline.go:240-242), using `balanceSegmentWidth` (inline_balance.go:105-107)
+   and `inlineSegmentEnd` (inline_balance.go:113-121).
+4. **Bisection.** `balanceLineWidth` packs a trial copy of the segment at the
+   full content width with `countInlineLines` (inline_balance.go:128-164). It
+   gives up when the trial packs to fewer than two or more than six lines
+   (inline_balance.go:84; `minBalanceLines` and `maxBalanceLines` at
+   inline_balance.go:16-17), when the width or epsilon is unusable or the block
+   has a first-line indent (inline_balance.go:79), when the trial meets a
+   forced break, or when an item cannot fit whole (inline_balance.go:143,
+   151-153). The search mirrors Blink's ParagraphLineBreaker: the low end
+   starts at 80% of the average normal line width (`balanceMinWidthFactor`,
+   inline_balance.go:18,50), the high end is the content width
+   (inline_balance.go:55), and the loop halves the range until it finds the
+   widest width that keeps the same line count, with a one CSS pixel epsilon
+   (inline_balance.go:57-65; `pxToPt(1)*e.scale` at inline_balance.go:106). A
+   return of 0 means no narrower width kept the count, so normal wrapping
+   stands (inline_balance.go:67-69). The packer then breaks at
+   `min(lineW, balanceW)` (inline.go:244-250), while alignment still uses the
+   full line width, matching Chrome, which narrows only the breaker
+   (inline.go:276-281).
+
+Balance does not apply in these cases:
+
+- `stable` is accepted and wraps greedily like `auto`, so it has no separate
+  code path (inline_balance.go:3-5).
+- `pretty` and `avoid-short-last-line` never reach line breaking because the
+  acceptance gate rejects them (style_value_accept.go:291-292). Chrome breaks
+  `pretty` with a score-based algorithm instead (compatibility-matrix.md:444).
+- Active floats, line clamp, and text-indent opt out
+  (inline_balance.go:94-101). The indent opt-out avoids copying a Chrome
+  quirk: Chrome applies the balanced width without subtracting the indent
+  (inline_balance.go:40-43).
+- A paragraph outside the two-to-six line window is left alone
+  (inline_balance.go:84), which covers very long paragraphs.
+- The bisection is Blink's fallback path. Blink tries its score-based
+  `ScoreLineBreaker` first; the two agree when the greedy re-break balances
+  the lines, which covers the pinned cases, but can pick different break sets
+  when uneven word widths leave several valid sets (inline_balance.go:31-35).
 
 ## 5. Cross-package dependencies
 
@@ -469,6 +537,14 @@ Cross-package validation:
   gating (`layout.go:831` + `containerGateMatches`), and pseudo-content via
   `MatchPseudo`. Fixtures 22/29/38 (float), 25/28/32–35 (flex/grid),
   30/37 (orphans/widows) are cited by the compatibility matrix as evidence.
+- `internal/layout/inline_balance_test.go` covers the wave C text-wrap path:
+  the bisection arithmetic on synthetic items (inline_balance_test.go:95),
+  Chrome 143 line-break comparisons for balance, the shorthand, `stable`, and
+  forced-break segments (inline_balance_test.go:160, 202, 227), the six-line
+  and `nowrap` opt-outs (inline_balance_test.go:271, 303), the full-width
+  alignment invariant (inline_balance_test.go:322), and the acceptance gate
+  through both `supportedDeclaration` and `engineSupportsProperty`
+  (inline_balance_test.go:356).
 - `internal/convert/outline.go` `--exclude-from-outline` selectors parse via
   `css.ParseSelectors` and are exercised by outline tests.
 - Run via `make test` / `go test ./internal/css/...` (standard repo flow;
@@ -522,11 +598,15 @@ and documentation/deferred.md. Confirmed gaps in css itself:
    (styles.go:63). The `ponytail:` notes (e.g. ContainerCond tree
    simplification, container-name wire form) flag future internal cleanups.
 9. **Declaration acceptance is partial (CSS-01b)**: `declarationValueAccepted`
-   models about 40 property names (`style_value_accept.go:95`); a property
+   models about 40 property names (`style_value_accept.go:97`); a property
    without an entry hits the default arm and is accepted
-   (`style_value_accept.go:158`), because its applier either takes the value as
-   written or drops an invalid one. An invalid higher-priority value for an
-   unmodeled property can still win the cascade, and an
+   (`style_value_accept.go:164`), because its applier either takes the value as
+   written or drops an invalid one. Wave C added the text-wrap pair:
+   `text-wrap-style` accepts `auto`/`balance`/`stable`
+   (style_value_accept.go:145-146), and `text-wrap` accepts one or two tokens
+   from the mode and style sets, at most one of each
+   (style_value_accept.go:147-148, 289-323). An invalid higher-priority value
+   for an unmodeled property can still win the cascade, and an
    `@supports (prop: bogus)` query reports true whenever the property has an
    apply arm. Extending the table to the advertised property list is the next
    gate for CSS-01b.

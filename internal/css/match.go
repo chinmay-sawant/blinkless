@@ -52,7 +52,7 @@ func getSiblingInfo(node *html.Node) siblingInfo {
 
 		elemCount++
 
-		if strings.EqualFold(child.Name, node.Name) {
+		if sameElementType(child, node) {
 			typeCount++
 		}
 
@@ -250,7 +250,7 @@ func matchPart(state MatchState, part SelectorPart, node *html.Node) bool {
 		return false
 	}
 
-	if part.Tag != "*" && !strings.EqualFold(part.Tag, node.Name) {
+	if part.Tag != "*" && !tagNameMatches(part.Tag, node) {
 		return false
 	}
 
@@ -267,6 +267,31 @@ func matchPart(state MatchState, part SelectorPart, node *html.Node) bool {
 	}
 
 	return matchPseudos(state, part.Pseudos, node)
+}
+
+// tagNameMatches applies the CSS type-selector case rules: HTML element names
+// match ASCII case-insensitively, foreign (SVG/MathML) element names match
+// exactly, since their adjusted names are case-sensitive.
+func tagNameMatches(selectorName string, node *html.Node) bool {
+	if node.Namespace == html.NamespaceHTML {
+		return strings.EqualFold(selectorName, node.Name)
+	}
+
+	return selectorName == node.Name
+}
+
+// sameElementType reports whether two element siblings share a namespace and
+// a type name under the same case rules as tagNameMatches.
+func sameElementType(left, right *html.Node) bool {
+	if left.Namespace != right.Namespace {
+		return false
+	}
+
+	if left.Namespace == html.NamespaceHTML {
+		return strings.EqualFold(left.Name, right.Name)
+	}
+
+	return left.Name == right.Name
 }
 
 // matchPseudos reports whether every pseudo-class of the part matches node.
@@ -772,7 +797,7 @@ func isNthArgPseudo(name string) bool {
 
 // matchOfTypePseudo handles :first-of-type, :last-of-type, :nth-of-type(),
 // and :nth-last-of-type(). Index is 1-based among element siblings with the
-// same tag (HTML tag names compare case-insensitively).
+// same tag (HTML names compare case-insensitively, foreign names exactly).
 func matchOfTypePseudo(pseudo PseudoClass, node *html.Node) bool {
 	info := getSiblingInfo(node)
 

@@ -17,7 +17,7 @@
 <body>
   <!-- Source: third_party/blink/renderer/core/layout/flex/flex_layout_algorithm_test.cc -->
   <!-- Fixture: case-38-blink-gap-decorations-basic -->
-  <!-- Port status: scaffold. No behavior test or browser measurement is linked yet. -->
+  <!-- Port status: blocked. Chrome 143 geometry run: 2 pt dotted borders contribute 2.67 px where Chrome computes 2 px, so the frame is 232x152 vs Chrome 230.66x150.64; the six gapped items match. -->
   <!-- Expected: six fixed items form two rows with 10pt main and cross gaps. -->
   <p class="case-description" style="position:absolute;top:12pt;left:12pt;margin:0;padding:6pt;border:1pt solid #64748b;background:#fff;color:#111827;font-size:9pt;line-height:12pt;width:550pt;">
     <strong>Case 38 expected behavior:</strong> the six 50pt items wrap into two rows of three with 10pt row and column gaps inside the 174pt frame.

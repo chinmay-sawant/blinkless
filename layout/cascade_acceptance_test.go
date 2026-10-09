@@ -100,6 +100,8 @@ func TestDisplayRejectsInvalidDeclarations(t *testing.T) {
 // TestDisplaySupportsQueryValueAcceptance (CSS-02c): @supports must not apply
 // its block when the engine owns the property but rejects the value. The base
 // 11px width stays for display:bogus; a valid supported query overrides it.
+// The background, flex-flow, grid, counter, quotes, and hyphenate-character
+// rows cover the CSS-01b acceptance table through the public DisplayList.
 func TestDisplaySupportsQueryValueAcceptance(t *testing.T) {
 	t.Parallel()
 
@@ -114,6 +116,20 @@ func TestDisplaySupportsQueryValueAcceptance(t *testing.T) {
 		{"unknown property blocked", `@supports (unknown-prop: 1) { #box { width: 120px } }`, 11},
 		{"valid value applies", `@supports (display: grid) { #box { width: 120px } }`, 120},
 		{"negated invalid value applies", `@supports not (display: bogus) { #box { width: 120px } }`, 120},
+		{"valid background applies", `@supports (background: red) { #box { width: 120px } }`, 120},
+		{"invalid background blocked", `@supports (background: no-repeat center) { #box { width: 120px } }`, 11},
+		{"valid background-image applies", `@supports (background-image: url(x.png)) { #box { width: 120px } }`, 120},
+		{"invalid background-image blocked", `@supports (background-image: bogus) { #box { width: 120px } }`, 11},
+		{"valid flex-flow applies", `@supports (flex-flow: row wrap) { #box { width: 120px } }`, 120},
+		{"invalid flex-flow blocked", `@supports (flex-flow: row bogus) { #box { width: 120px } }`, 11},
+		{"valid grid-row applies", `@supports (grid-row: span 2) { #box { width: 120px } }`, 120},
+		{"invalid grid-row blocked", `@supports (grid-row: span bogus) { #box { width: 120px } }`, 11},
+		{"valid counter-reset applies", `@supports (counter-reset: item 1) { #box { width: 120px } }`, 120},
+		{"invalid counter-reset blocked", `@supports (counter-reset: 5 item) { #box { width: 120px } }`, 11},
+		{"valid quotes applies", `@supports (quotes: "a" "b") { #box { width: 120px } }`, 120},
+		{"invalid quotes blocked", `@supports (quotes: "a") { #box { width: 120px } }`, 11},
+		{"valid hyphenate-character applies", `@supports (hyphenate-character: auto) { #box { width: 120px } }`, 120},
+		{"invalid hyphenate-character blocked", `@supports (hyphenate-character: two tokens) { #box { width: 120px } }`, 11},
 	}
 
 	for _, testCase := range cases {

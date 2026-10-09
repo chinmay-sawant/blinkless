@@ -27,17 +27,16 @@ import (
 // Comparison rules:
 //   - Tokenizer cases compare the full token stream (coalesced Character
 //     runs): token kind, tag names, attribute maps, self-closing flag,
-//     DOCTYPE name/public/system, and exact text data.
-//   - Tree cases compare node kinds, parent/child order, exact text and
-//     comment data, attribute name/value pairs, and the doctype node (the
-//     observable document-mode signal in .dat dumps).
+//     DOCTYPE name/public/system/force-quirks, and exact text data.
+//   - Tree cases compare node kinds, parent/child order, namespaces, exact
+//     text and comment data, attribute name/value pairs (with foreign
+//     attribute namespaces), and the doctype node.
 //   - Fields the engine cannot represent are never silently skipped. A case
 //     whose only remaining difference is a missing engine field is counted
-//     unsupported with a reason (namespaces, template contents, doctype
-//     force-quirks, processing instructions, document fragments, tokenizer
-//     initial states other than Data state, XML-violation coercions, lone
-//     surrogates that Go strings cannot carry). A case that also differs in
-//     representable behavior is counted failed.
+//     unsupported with a reason (template contents, processing instructions,
+//     document fragments, tokenizer initial states other than Data state,
+//     XML-violation coercions, lone surrogates that Go strings cannot carry).
+//     A case that also differs in representable behavior is counted failed.
 //   - #document-fragment records are unsupported until Phase 3 and counted
 //     separately with the reason "document-fragment".
 //   - Parser mismatches are baseline evidence, not test failures. The test
@@ -95,12 +94,9 @@ const (
 	formatTreeDAT       = "html5lib-tree-dat"
 
 	dataStateName = "Data state"
-	doctypeWord   = "DOCTYPE"
 
 	reasonDocumentFragment = "document-fragment"
-	reasonNamespace        = "namespace-field-missing"
 	reasonTemplateContents = "template-contents-field-missing"
-	reasonForceQuirks      = "doctype-force-quirks-flag-unrepresentable"
 	reasonProcessingInstr  = "processing-instruction-unsupported"
 	reasonInitialState     = "initial-state:"
 	reasonLoneSurrogate    = "lone-surrogate-input"
@@ -140,11 +136,12 @@ type cfAttr struct {
 }
 
 type cfDoctype struct {
-	name      string
-	public    string
-	publicSet bool
-	system    string
-	systemSet bool
+	name        string
+	public      string
+	publicSet   bool
+	system      string
+	systemSet   bool
+	forceQuirks bool
 }
 
 // cfNode is the neutral tree form shared by parsed .dat dumps and engine
@@ -441,47 +438,6 @@ func relativeSlash(dir, path string) string {
 	}
 
 	return filepath.ToSlash(rel)
-}
-
-// --- doctype parsing ---
-
-func parseEngineDoctype(raw string) (cfDoctype, bool) {
-	s := strings.Trim(raw, " \t\n\r\f")
-	if len(s) < len(doctypeWord) || !strings.EqualFold(s[:len(doctypeWord)], doctypeWord) {
-		return cfDoctype{}, false
-	}
-
-	rest := strings.TrimLeft(s[len(doctypeWord):], " \t\n\r\f")
-
-	doctype := cfDoctype{}
-	doctype.name, rest = cutWord(rest)
-	rest = strings.TrimLeft(rest, " \t\n\r\f")
-
-	switch {
-	case keywordAt(rest, "PUBLIC"):
-		doctype.publicSet = true
-		rest = strings.TrimLeft(rest[len("PUBLIC"):], " \t\n\r\f")
-		doctype.public, rest, _ = cutQuoted(rest)
-		rest = strings.TrimLeft(rest, " \t\n\r\f")
-
-		// A system identifier is present only when a quoted string follows
-		// the public identifier; otherwise it stays missing (null), matching
-		// the spec's after-DOCTYPE-public-identifier state.
-		if rest != "" && (rest[0] == '"' || rest[0] == '\'') {
-			doctype.systemSet = true
-			doctype.system, rest, _ = cutQuoted(rest)
-		}
-	case keywordAt(rest, "SYSTEM"):
-		doctype.systemSet = true
-		rest = strings.TrimLeft(rest[len("SYSTEM"):], " \t\n\r\f")
-		doctype.system, rest, _ = cutQuoted(rest)
-	}
-
-	return doctype, true
-}
-
-func keywordAt(s, keyword string) bool {
-	return len(s) >= len(keyword) && strings.EqualFold(s[:len(keyword)], keyword)
 }
 
 func cutWord(s string) (string, string) {

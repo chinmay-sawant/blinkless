@@ -276,11 +276,11 @@ var inheritableProps = []inheritCopy{ //nolint:gochecknoglobals // static inheri
 	{[]string{"white-space"}, func(dst, src *ResolvedStyle) { dst.WhiteSpace = src.WhiteSpace }},
 	{[]string{"white-space-collapse"}, func(dst, src *ResolvedStyle) { dst.WhiteSpaceCollapse = src.WhiteSpaceCollapse }},
 	{[]string{"white-space-trim"}, func(dst, src *ResolvedStyle) { dst.WhiteSpaceTrim = src.WhiteSpaceTrim }},
-	{[]string{"text-wrap"}, func(dst, src *ResolvedStyle) { dst.TextWrap = src.TextWrap }},
+	{[]string{propTextWrap}, func(dst, src *ResolvedStyle) { dst.TextWrap = src.TextWrap }},
 	{[]string{"text-wrap-mode"}, func(dst, src *ResolvedStyle) { dst.TextWrapMode = src.TextWrapMode }},
-	{[]string{"text-wrap-style"}, func(dst, src *ResolvedStyle) { dst.TextWrapStyle = src.TextWrapStyle }},
+	{[]string{propTextWrapStyle}, func(dst, src *ResolvedStyle) { dst.TextWrapStyle = src.TextWrapStyle }},
 	{[]string{tabSizeProperty}, func(dst, src *ResolvedStyle) { dst.TabSize = src.TabSize }},
-	{[]string{"hyphens"}, func(dst, src *ResolvedStyle) { dst.Hyphens = src.Hyphens }},
+	{[]string{propHyphens}, func(dst, src *ResolvedStyle) { dst.Hyphens = src.Hyphens }},
 	{[]string{"hyphenate-character"}, func(dst, src *ResolvedStyle) { dst.HyphenateCharacter = src.HyphenateCharacter }},
 	{[]string{"text-justify"}, func(dst, src *ResolvedStyle) { dst.TextJustify = src.TextJustify }},
 	{[]string{"line-break"}, func(dst, src *ResolvedStyle) { dst.LineBreak = src.LineBreak }},
@@ -332,7 +332,7 @@ var inheritableProps = []inheritCopy{ //nolint:gochecknoglobals // static inheri
 		func(dst, src *ResolvedStyle) { dst.BorderCollapse = src.BorderCollapse },
 	},
 	{
-		[]string{"border-spacing"},
+		[]string{propBorderSpacing},
 		func(dst, src *ResolvedStyle) {
 			dst.BorderSpacing = src.BorderSpacing
 			dst.BorderSpacingV = src.BorderSpacingV
@@ -1111,41 +1111,41 @@ func expandLogicalBorder(prop, value string) ([]logicalPropDecl, bool) {
 	case cssPropBorderInlineEnd:
 		return []logicalPropDecl{{"border-right", value}}, true
 	case cssPropBorderBlockColor:
-		return []logicalPropDecl{{"border-top-color", value}, {"border-bottom-color", value}}, true
+		return []logicalPropDecl{{propBorderTopColor, value}, {propBorderBottomColor, value}}, true
 	case cssPropBorderInlineColor:
-		return []logicalPropDecl{{"border-left-color", value}, {"border-right-color", value}}, true
+		return []logicalPropDecl{{propBorderLeftColor, value}, {propBorderRightColor, value}}, true
 	case cssPropBorderBlockStartColor:
-		return []logicalPropDecl{{"border-top-color", value}}, true
+		return []logicalPropDecl{{propBorderTopColor, value}}, true
 	case cssPropBorderBlockEndColor:
-		return []logicalPropDecl{{"border-bottom-color", value}}, true
+		return []logicalPropDecl{{propBorderBottomColor, value}}, true
 	case cssPropBorderInlineStartColor:
-		return []logicalPropDecl{{"border-left-color", value}}, true
+		return []logicalPropDecl{{propBorderLeftColor, value}}, true
 	case cssPropBorderInlineEndColor:
-		return []logicalPropDecl{{"border-right-color", value}}, true
+		return []logicalPropDecl{{propBorderRightColor, value}}, true
 	case cssPropBorderBlockStyle:
-		return []logicalPropDecl{{"border-top-style", value}, {"border-bottom-style", value}}, true
+		return []logicalPropDecl{{propBorderTopStyle, value}, {propBorderBottomStyle, value}}, true
 	case cssPropBorderInlineStyle:
-		return []logicalPropDecl{{"border-left-style", value}, {"border-right-style", value}}, true
+		return []logicalPropDecl{{propBorderLeftStyle, value}, {propBorderRightStyle, value}}, true
 	case cssPropBorderBlockStartStyle:
-		return []logicalPropDecl{{"border-top-style", value}}, true
+		return []logicalPropDecl{{propBorderTopStyle, value}}, true
 	case cssPropBorderBlockEndStyle:
-		return []logicalPropDecl{{"border-bottom-style", value}}, true
+		return []logicalPropDecl{{propBorderBottomStyle, value}}, true
 	case cssPropBorderInlineStartStyle:
-		return []logicalPropDecl{{"border-left-style", value}}, true
+		return []logicalPropDecl{{propBorderLeftStyle, value}}, true
 	case cssPropBorderInlineEndStyle:
-		return []logicalPropDecl{{"border-right-style", value}}, true
+		return []logicalPropDecl{{propBorderRightStyle, value}}, true
 	case cssPropBorderBlockWidth:
-		return []logicalPropDecl{{"border-top-width", value}, {"border-bottom-width", value}}, true
+		return []logicalPropDecl{{propBorderTopWidth, value}, {propBorderBottomWidth, value}}, true
 	case cssPropBorderInlineWidth:
-		return []logicalPropDecl{{"border-left-width", value}, {"border-right-width", value}}, true
+		return []logicalPropDecl{{propBorderLeftWidth, value}, {propBorderRightWidth, value}}, true
 	case cssPropBorderBlockStartWidth:
-		return []logicalPropDecl{{"border-top-width", value}}, true
+		return []logicalPropDecl{{propBorderTopWidth, value}}, true
 	case cssPropBorderBlockEndWidth:
-		return []logicalPropDecl{{"border-bottom-width", value}}, true
+		return []logicalPropDecl{{propBorderBottomWidth, value}}, true
 	case cssPropBorderInlineStartWidth:
-		return []logicalPropDecl{{"border-left-width", value}}, true
+		return []logicalPropDecl{{propBorderLeftWidth, value}}, true
 	case cssPropBorderInlineEndWidth:
-		return []logicalPropDecl{{"border-right-width", value}}, true
+		return []logicalPropDecl{{propBorderRightWidth, value}}, true
 	default:
 		return nil, false
 	}

@@ -33,7 +33,7 @@
 </head>
 <body>
   <!-- Source: third_party/blink/web_tests/css3/flexbox/flex-align-baseline.html -->
-  <!-- Port status: scaffold. No behavior test or browser measurement is linked yet. -->
+  <!-- Port status: blocked. Chrome 143 geometry run: empty inline-block children are 1.33 px wide where Chrome reports 0 px, and the vertical-rl row-reverse branch does not reverse item order; the 110 px baseline items match. -->
   <!-- Expected: the two flex items share the cross-axis baseline edge in every named flow. -->
   <p class="case-description" style="position:absolute;top:12pt;left:12pt;margin:0;padding:6pt;border:1pt solid #64748b;background:#fff;color:#111827;font-size:9pt;line-height:12pt;width:560pt;">
     <strong>Case 14 expected behavior:</strong> baseline-aligned items should share the cross-axis baseline edge across horizontal and vertical-writing flows. The six colored branches are reference geometry; the current engine does not yet provide a strict baseline guide for every branch.

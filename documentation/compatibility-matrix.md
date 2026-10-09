@@ -3,7 +3,7 @@
 > **Parent:** [plans/0.0.1/phase-wise-checklist.md](../plans/0.0.1/phase-wise-checklist.md) and [plans/0.0.1/html-css-json-compatibility-checklist.md](../plans/0.0.1/html-css-json-compatibility-checklist.md)  
 > **Status:** living contract - amendments go through plan review  
 > **Target:** authored HTML and CSS to a `layout.DisplayList` (the drawing list). **Not** a browser. **Not** a PDF writer. **Not** a page rasterizer.  
-> **Catalog:** `testdata/css/catalog/properties.json` (schema v1), measured 2026-10-09: 785 rows - 93 Implemented / 297 Partial / 388 Unsupported / 7 intentionally ignored. Upstream pin: webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties). Fidelity guide: [fidelity.md](fidelity.md).
+> **Catalog:** `testdata/css/catalog/properties.json` (schema v1), measured 2026-10-09: 785 rows - 90 Implemented / 301 Partial / 387 Unsupported / 7 intentionally ignored. Upstream pin: webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties). Fidelity guide: [fidelity.md](fidelity.md).
 > **Limitations:** Implemented means a handler, a consumer outside the style layer, and a resolvable behavior test. Browser rendering parity, HTML parser conformance, and this property catalog are separate claims with separate evidence. Section 1 is a rendering allowlist for HTML tags, not a parser conformance claim.
 
 This document is the contract for the layout engine. Its output is a drawing
@@ -41,7 +41,7 @@ as its inline text (per the note column).
 
 ## 2. Supported CSS properties
 
-The catalog in `testdata/css/catalog/properties.json` (schema v1) is the authoritative property record. Measured 2026-10-09: 785 rows - 93 implemented, 297 partial, 388 unsupported, 7 intentionally ignored. The pinned upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties: 671 draft, 70 vendor, 52 svg, 28 browser-ui). Regenerate the tables below with `python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails on drift between the catalog and the code.
+The catalog in `testdata/css/catalog/properties.json` (schema v1) is the authoritative property record. Measured 2026-10-09: 785 rows - 90 implemented, 301 partial, 387 unsupported, 7 intentionally ignored. The pinned upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties: 671 draft, 70 vendor, 52 svg, 28 browser-ui). Regenerate the tables below with `python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails on drift between the catalog and the code.
 
 Statuses describe the layout pipeline, not browsers:
 
@@ -52,11 +52,10 @@ Statuses describe the layout pipeline, not browsers:
 
 An implemented status is not a browser-parity or parser-conformance claim. Rendering comparisons and HTML parsing carry separate evidence in `plans/0.0.1/html-css-json-compatibility-checklist.md`.
 
-### 2.1 Implemented (93)
+### 2.1 Implemented (90)
 
 | Property | Accepted values | Source | Behavior tests |
 |---|---|---|---|
-| `align-items` | normal \| stretch \| <baseline-position> \| <overflow-position>? <self-position> | `internal/layout/style_properties.go` | `TestWebkitPrefixAliases` |
 | `background` | [<'background-color'> \|\| <'background-image'> \|\| <'background-repeat'> \|\| <'background-attachment'> \|\| <'background-position'>] \| inherit | `internal/layout/style_properties.go` | `TestApplyImageKeyBackgroundAlias`, `TestAuthorBackgroundShorthandOverridesButtonUA`, `TestBackgroundImageParse`, `TestBackgroundSingleFieldNoWebMirror`, `TestGlobalGetSetRoundTripAndIgnored` |
 | `background-color` | <color> \| transparent \| inherit | `internal/layout/style_properties.go` | `TestBackgroundFill` |
 | `background-image` | <uri> \| none \| inherit | `internal/layout/style_properties.go` | `TestBackgroundImageLayoutPaints`, `TestBackgroundLonghands` |
@@ -81,10 +80,10 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `counter-reset` | [ <identifier> <integer>? ]+ \| none \| inherit | `internal/layout/style_paint_props.go` | `TestCounterInBefore`, `TestCounterResetIncrementLayout`, `TestQuotes` |
 | `counter-set` | [ <counter-name> <integer>? ]+ \| none | `internal/layout/style_paint_props.go` | `TestCounterInBefore`, `TestCounterResetIncrementLayout`, `TestQuotes` |
 | `display` | inline \| block \| list-item \| inline-block \| table \| inline-table \| table-row-group \| table-header-group \| table-footer-group \| table-row \| table-column-group \| table-column \| table-cell \| table-caption \| none \| inherit | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestDisplayNone`, `TestTableLayout` |
-| `flex` | none \| [ <'flex-grow'> <'flex-shrink'>? \|\| <'flex-basis'> ] | `internal/layout/style_properties.go` | `TestWebkitBoxFlexGrows`, `TestWebkitPrefixAliases` |
-| `flex-direction` | row \| row-reverse \| column \| column-reverse | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestWebkitPrefixAliases` |
+| `flex` | none \| [ <'flex-grow'> <'flex-shrink'>? \|\| <'flex-basis'> ] | `internal/layout/style_properties.go` | `TestWebkitBoxFlexGrows`, `TestChromeFlexCase01LegacyAlgorithm`, `TestWebkitPrefixAliases` |
+| `flex-direction` | row \| row-reverse \| column \| column-reverse | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestWebkitPrefixAliases`, `TestWebkitBoxOrientVerticalStacks` |
 | `flex-flow` | <'flex-direction'> \|\| <'flex-wrap'> | `internal/layout/style_properties.go` | `TestFlexFlowShorthand` |
-| `flex-grow` | <number [0,∞]> | `internal/layout/style_properties.go` | `TestWebkitPrefixAliases` |
+| `flex-grow` | <number [0,∞]> | `internal/layout/style_properties.go` | `TestWebkitPrefixAliases`, `TestChromeFlexCase01LegacyAlgorithm` |
 | `font` | [ [ <'font-style'> \|\| <'font-variant'> \|\| <'font-weight'> ]? <'font-size'> [ / <'line-height'> ]? <'font-family'> ] \| caption \| icon \| menu \| message-box \| small-caption \| status-bar \| inherit | `internal/layout/style.go`, `internal/layout/style_cascade.go` | `TestFontShorthand` |
 | `font-size` | <absolute-size> \| <relative-size> \| <length> \| <percentage> \| inherit | `internal/layout/style_cascade.go` | `TestApplyTextSupportPropsUnicodeBidi`, `TestFontSizeEmInherit`, `TestParseBasic`, `TestParseInline` |
 | `font-style` | normal \| italic \| oblique \| inherit | `internal/layout/style_cascade.go` | `TestRealBoldFaceOps` |
@@ -105,7 +104,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `inset` | <'top'>{1,4} | `internal/layout/style_properties.go` | `TestLogicalInset` |
 | `inset-block` | <'top'>{1,2} | `internal/layout/style_properties.go` | `TestLogicalInset` |
 | `inset-inline` | <'top'>{1,2} | `internal/layout/style_properties.go` | `TestLogicalInset` |
-| `justify-content` | normal \| <content-distribution> \| <overflow-position>? [ <content-position> \| left \| right ] | `internal/layout/style_properties.go` | `TestWebkitPrefixAliases` |
+| `justify-content` | normal \| <content-distribution> \| <overflow-position>? [ <content-position> \| left \| right ] | `internal/layout/style_properties.go` | `TestWebkitPrefixAliases`, `TestFlexDistributedJustifyKeepsGap` |
 | `line-height` | normal \| <number> \| <length> \| <percentage> \| inherit | `internal/layout/style.go`, `internal/layout/style_properties.go` | `TestMarginCollapse` |
 | `margin` | <margin-width>{1,4} \| inherit | `internal/layout/style_properties.go` | `TestBlockWidthsAndMargins`, `TestMarginCollapse` |
 | `margin-block` | <'margin-top'>{1,2} | `internal/layout/style_logical_box.go`, `internal/layout/style_properties.go` | `TestLogicalMargin` |
@@ -118,8 +117,6 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `max-inline-size` | <'max-width'> | `internal/layout/style_properties.go` | `TestLogicalSize` |
 | `min-block-size` | <'min-width'> | `internal/layout/style_properties.go` | `TestLogicalSize` |
 | `min-inline-size` | <'min-width'> | `internal/layout/style_properties.go` | `TestLogicalSize` |
-| `min-width` | <length> \| <percentage> \| inherit | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues` |
-| `order` | <integer> | `internal/layout/style_properties.go` | `TestWebkitPrefixAliases` |
 | `outline` | [ <'outline-color'> \|\| <'outline-style'> \|\| <'outline-width'> ] \| inherit | `internal/layout/style_paint_props.go` | `TestCurrentColor`, `TestOutlineParse` |
 | `outline-color` | <color> \| invert \| inherit | `internal/layout/style_paint_props.go` | `TestOutlineParse` |
 | `outline-offset` | <length> | `internal/layout/style_paint_props.go` | `TestOutlineParse` |
@@ -135,7 +132,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `place-content` | <'align-content'> <'justify-content'>? | `internal/layout/style_properties.go` | `TestPlaceShorthands` |
 | `place-items` | <'align-items'> <'justify-items'>? | `internal/layout/style_properties.go` | `TestPlaceShorthands` |
 | `place-self` | <'align-self'> <'justify-self'>? | `internal/layout/style_properties.go` | `TestPlaceShorthands` |
-| `position` | static \| relative \| absolute \| fixed \| inherit | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues` |
+| `position` | static \| relative \| absolute \| fixed \| inherit | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestPositionLiteFixtureReservesOverlaySpace` |
 | `print-color-adjust` | economy \| exact | `internal/layout/style_color_adjust_props.go` | `TestColorAdjustPropsAcceptLegalKeywords`, `TestColorAdjustPropsReachRestPass`, `TestColorAdjustPropsRejectIllegalKeywords` |
 | `quotes` | [<string> <string>]+ \| none \| inherit | `internal/layout/style_paint_props.go` | `TestQuotes` |
 | `row-gap` | normal \| <length-percentage [0,∞]> \| <line-width> | `internal/layout/style_gap_props.go`, `internal/layout/style_properties.go` | `TestGridRowGapVsColumnGap` |
@@ -146,16 +143,17 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `vertical-align` | baseline \| sub \| super \| top \| text-top \| middle \| bottom \| text-bottom \| <percentage> \| <length> \| inherit | `internal/layout/style_properties.go` | `TestTableCellVerticalAlignMiddle` |
 | `visibility` | visible \| hidden \| collapse \| inherit | `internal/layout/style_properties.go` | `TestVisibilityHidden` |
 | `white-space` | normal \| pre \| nowrap \| pre-wrap \| pre-line \| inherit | `internal/layout/style_properties.go` | `TestWhiteSpacePre`, `TestWhiteSpacePreWrap` |
-| `width` | <length> \| <percentage> \| auto \| inherit | `internal/layout/style_properties.go` | `TestApplyImageKeyBackgroundAlias`, `TestCascadeEngineSupportsPropertyValues`, `TestImageSet`, `TestOutlineParse`, `TestPseudoElementSelectorDoesNotApplyToHost` |
+| `width` | <length> \| <percentage> \| auto \| inherit | `internal/layout/style_properties.go` | `TestApplyImageKeyBackgroundAlias`, `TestBoxSizingBorderBox`, `TestCascadeEngineSupportsPropertyValues`, `TestImageSet`, `TestOutlineParse`, `TestPseudoElementSelectorDoesNotApplyToHost` |
 | `word-spacing` | normal \| <length> \| inherit | `internal/layout/style_properties.go` | `TestWordSpacingInherits`, `TestWordSpacingWidensRuns` |
 | `writing-mode` | horizontal-tb \| vertical-rl \| vertical-lr \| sideways-rl \| sideways-lr | `internal/layout/style_properties.go` | `TestWritingModeInherits` |
 
-### 2.2 Partial (297)
+### 2.2 Partial (301)
 
 | Property | Accepted values | Source | Named missing behavior |
 |---|---|---|---|
 | `accent-color` | auto \| <color> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `align-content` | normal \| <baseline-position> \| <content-distribution> \| <overflow-position>? <content-position> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `align-items` | normal \| stretch \| <baseline-position> \| <overflow-position>? <self-position> | `internal/layout/style_properties.go` | Handler and consumer exist (flex.go:1615, grid.go:538), but no test proves cross-axis item geometry. Missing behavior: a layout regression that sets align-items to center, stretch, or flex-start and asserts item positions; TestWebkitPrefixAliases only proves the alias mapping. |
 | `align-self` | auto \| <overflow-position>? [ normal \| <self-position> ]\| stretch \| <baseline-position> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `alignment-baseline` | baseline \| <baseline-metric> | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `aspect-ratio` | auto \|\| <ratio> | `internal/layout/style_aspect_ratio_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
@@ -352,11 +350,13 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `max-lines` | auto \|\| <integer [1,∞]> | `internal/layout/style_advanced_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `max-width` | <length> \| <percentage> \| none \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `min-height` | <length> \| <percentage> \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `min-width` | <length> \| <percentage> \| inherit | `internal/layout/style_properties.go` | Handler and consumer exist (container.go:118 and flex.go:876 clamp to MinWidth), but no test proves the clamp from a min-width declaration. Missing behavior: a layout regression that sets min-width and asserts the box is clamped to the floor; TestCascadeEngineSupportsPropertyValues only checks value acceptance. |
 | `mix-blend-mode` | <blend-mode> \| plus-lighter | `internal/layout/style_advanced_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `object-fit` | fill \| none \| [contain \| cover] \|\| scale-down | `internal/layout/style_image_adjust_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `object-position` | <position> | `internal/layout/style_image_adjust_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `object-view-box` | none \| <basic-shape-rect> | `internal/layout/style_image_adjust_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `opacity` | <opacity-value> | `internal/layout/style_properties.go` | Parsed and consumed: opacity creates a stacking context (layout.go:1002-1014) and the transform/blend path reads it (transform.go:1094 and :1122). Missing behavior: a paint regression for the opacity value and its stacking-context effect. TestCascadeEngineSupportsPropertyValues covers @supports acceptance only. |
+| `order` | <integer> | `internal/layout/style_properties.go` | Handler and consumer exist (flex.go:337 and flex_columns.go:298 sort items by FlexOrder), but no test proves reordering. Missing behavior: a layout regression that sets order and asserts painted item order; TestWebkitPrefixAliases only proves the alias mapping. |
 | `orphans` | <integer> \| inherit | `internal/layout/style_properties.go` | Parsed and stored (Orphans, style_properties.go:1749) but no fragmentation consumer reads it. Missing behavior: fragmentation rule 3, keeping at least N lines at the start of a fragment. No behavior test resolves. |
 | `overflow` | visible \| hidden \| scroll \| auto \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `overflow-block` | visible \| hidden \| clip \| scroll \| auto | `internal/layout/style_overflow_logical.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
@@ -439,8 +439,9 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `text-transform` | capitalize \| uppercase \| lowercase \| none \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `text-underline-offset` | auto \| <length-percentage> | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `text-underline-position` | auto \| [ from-font \| under ] \|\| [ left \| right ] | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
-| `text-wrap` | <'text-wrap-mode'> \|\| <'text-wrap-style'> | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `text-wrap` | wrap \| nowrap \| auto \| balance \| stable (at most one mode and one style) | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | The shorthand splits into text-wrap-mode and text-wrap-style; the mode folds onto white-space and the style drives balance line placement (inline_balance.go). Values outside wrap, nowrap, auto, balance, and stable are rejected by the acceptance gate. No shorthand-only behavior beyond the longhands. |
 | `text-wrap-mode` | wrap \| nowrap | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | Parsed and stored (TextWrapMode, style_text_props.go:167); wrap/nowrap fold onto WhiteSpace, so the value is observable only through white-space. Missing behavior: a direct text-wrap-mode consumer and a dedicated behavior test. |
+| `text-wrap-style` | auto \| balance \| stable | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go`, `internal/layout/inline_balance.go` | `balance` re-breaks each forced-break segment with the Blink ParagraphLineBreaker bisection: max 6 lines, minimum candidate width 0.8 * average normal line width, 1 px epsilon (inline_balance.go). `stable` wraps greedily like `auto`, matching Chrome. `pretty` and `avoid-short-last-line` are rejected by the acceptance gate and fall back to normal wrapping; Chrome breaks `pretty` with a score-based algorithm that avoids short last lines. `balance` is skipped for floats, line clamp, and text-indent, and its greedy dry run can pick different break sets than Chrome's ScoreLineBreaker when uneven word widths leave several valid sets. Browser reference: Chrome 143.0.7499.40 under temps/css-review/wrap/. |
 | `top` | <length> \| <percentage> \| auto \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `transform` | none \| <transform-list> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `transform-box` | content-box \| border-box \| fill-box \| stroke-box \| view-box | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
@@ -452,7 +453,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `word-break` | normal \| break-all \| keep-all \| manual \| auto-phrase \| break-word | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `z-index` | auto \| <integer> \| inherit | `internal/layout/style_properties.go` | Integer or `auto` (`setZIndexValue` `style_properties.go:114`). |
 
-### 2.3 Unsupported (388)
+### 2.3 Unsupported (387)
 
 | Property | Named missing behavior |
 |---|---|
@@ -797,7 +798,6 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `text-justify` | Parsed and stored (TextJustify, style_text_props.go:36) but no justification consumer reads it. Missing behavior: inter-word/inter-character/ruby justification algorithms. Only test is a stored-string assertion (TestTextPropsWave3). |
 | `text-rendering` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `text-size-adjust` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `text-wrap-style` | Parsed and stored (TextWrapStyle, style_text_props.go:26 and :160) but no layout, inline, or paint consumer reads it. Missing behavior: balance/pretty/stable line placement (CSS-03a/b/c). Only test is a stored-string assertion (TestTextPropsWave3). |
 | `timeline-scope` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `timeline-trigger` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `timeline-trigger-activation-range` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |

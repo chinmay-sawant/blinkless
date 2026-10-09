@@ -45,7 +45,8 @@ fixtures. The budgets below are the fix; treat them as caps.
   cap. When the cap is reached, report the defect and ask. Never reopen a
   closed run.
 - No git unless asked. No bare `go test ./...`. No PDF sha256 comparisons:
-  the writer embeds `time.Now()`. If the todo API is missing, say so and go on.
+  the PDF writer is gone and the engine emits a drawing list, so compare
+  drawing-list rows, not bytes. If the todo API is missing, say so and go on.
 
 ## Step 1: artifacts and one compare
 
@@ -79,9 +80,14 @@ For authored CSS, Chrome's own numbers:
 Never normalize page scale or margins; case 26 hid a Chrome page shrink that
 way and its first "match" failed the user check.
 
-Refresh `test/chrome/pdf/<slug>.pdf` only when asked, and only after the last
-edit: `go test ./test/chrome -run TestChromeCasePDFOutputs -count=1` rewrites
-every case PDF, so keep only the slug's file.
+`test/chrome/pdf/*.pdf` files are stale inspection artifacts from the removed
+writer pipeline; no test regenerates them (`make chrome-cases-pdf` is a
+disabled stub). Current evidence lives in `test/chrome/manifest.json`: a
+`go-test` pointer names a function that exists in the cited file, or a
+`browser` pointer names the measured comparison in
+`temps/css-review/geometry-report.md`. `go test ./test/chrome -count=1`
+resolves both (`TestManifestGoTestEvidenceResolves`,
+`TestManifestBrowserEvidenceResolves`).
 
 ## Step 2: read the table
 

@@ -210,6 +210,12 @@ func (e *engine) layoutInlineFloats(
 		}
 	}
 
+	// text-wrap-style: balance narrows the break width per forced-break
+	// segment (Blink ParagraphLineBreaker bisection), computed lazily when a
+	// segment starts.
+	balanceEligible := balanceCanApply(floats, clampLimit, blockStyle)
+	balanceW := 0.0
+
 	idx := 0
 	consecHyphenLines := 0
 
@@ -230,10 +236,23 @@ func (e *engine) layoutInlineFloats(
 		// line under the float, drop there instead of leaving an orphan in
 		// the narrow column (e.g. wiki "big time."[71] left of a thumb).
 		leftY, lineX, lineW = e.preferClearForTail(items, idx, lineX, lineW, contentX, contentW, leftY, floats)
+
+		if balanceEligible && (idx == 0 || items[idx-1].forceBreak) {
+			balanceW = e.balanceSegmentWidth(items, idx, contentW)
+		}
+
+		// Pack width: a balanced segment re-breaks at the bisected width,
+		// while alignment keeps the full line width (Chrome overrides only
+		// the line breaker's available width).
+		breakW := lineW
+		if balanceW > 0 && breakW > balanceW {
+			breakW = balanceW
+		}
+
 		// Pack one line under current exclusion width.
 		start := idx
 		tailW, _ := tailRemaining(items, start)
-		lastLikely := tailW <= lineW+1e-6
+		lastLikely := tailW <= breakW+1e-6
 
 		blockHyphen := true
 
@@ -248,9 +267,18 @@ func (e *engine) layoutInlineFloats(
 			}
 		}
 
-		idx, lineX, lineW, leftY = e.packInlineLine(
-			&items, start, lineX, lineW, leftY, contentX, contentW, floats, blockHyphen,
+		nextIdx, packedX, packedW, packedY := e.packInlineLine(
+			&items, start, lineX, breakW, leftY, contentX, contentW, floats, blockHyphen,
 		)
+		idx = nextIdx
+		leftY = packedY
+
+		// A balanced segment keeps the full line width for alignment; the
+		// packer can only narrow lineW for active floats, which balancing
+		// already opted out of.
+		if balanceW == 0 {
+			lineX, lineW = packedX, packedW
+		}
 
 		end := idx
 

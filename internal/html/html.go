@@ -30,18 +30,27 @@ const (
 
 // Node is one DOM node.
 type Node struct {
-	Type     NodeType
-	Name     string // element name (lowercased) for elements
-	Attrs    map[string]string
-	Text     string // text/comment/doctype content
-	Children []*Node
-	Parent   *Node
+	Type      NodeType
+	Name      string // element name (adjusted case for foreign elements)
+	Namespace Namespace
+	Attrs     map[string]string
+	AttrList  []Attr
+	Text      string // text/comment/doctype content
+	Doctype   Doctype
+	Mode      DocumentMode // document mode; only meaningful on the root
+	Children  []*Node
+	Parent    *Node
 }
 
 // Attribute returns an attribute value, or "". Attribute keys are stored
-// lowercased by the tokenizer, so lookups of already-lowercase names skip the
-// ToLower copy; uppercase lookups (e.g. CSS attr(NAME)) keep the fallback.
+// lowercased for HTML elements and adjusted for foreign elements, so lookups
+// try the exact name first and fall back to the lowercased key for HTML-style
+// callers.
 func (n *Node) Attribute(name string) string {
+	if value, ok := n.Attrs[name]; ok {
+		return value
+	}
+
 	for i := range len(name) {
 		if name[i] >= 'A' && name[i] <= 'Z' {
 			return n.Attrs[strings.ToLower(name)]
@@ -137,25 +146,6 @@ func (n *Node) appendText(buf *strings.Builder) {
 	}
 }
 
-// treeBuilder accumulates parsed tokens into a node tree.
-type treeBuilder struct {
-	root  *Node
-	stack []*Node
-}
-
-func newTreeBuilder() *treeBuilder {
-	root := &Node{Type: ElementNode, Name: "#document"} //nolint:exhaustruct
-
-	return &treeBuilder{
-		root:  root,
-		stack: []*Node{root},
-	}
-}
-
-func (b *treeBuilder) top() *Node {
-	return b.stack[len(b.stack)-1]
-}
-
 // Parse turns HTML source into a tree with a synthetic root. The source is
 // preprocessed before tokenizing: CRLF and CR become LF, and invalid UTF-8
 // bytes become U+FFFD. Charset detection happens at the load seam
@@ -165,179 +155,9 @@ func Parse(source string) (*Node, error) {
 	builder := newTreeBuilder()
 
 	scanTokens(source, builder.appendToken)
+	builder.finish()
 
 	return builder.root, nil
-}
-
-// appendToken applies one scanned token to the tree builder stack.
-func (b *treeBuilder) appendToken(tokItem token) {
-	switch tokItem.kind {
-	case tokDoctype:
-		b.appendDoctypeToken(tokItem.data)
-	case tokComment:
-		b.appendCommentToken(tokItem.data)
-	case tokText:
-		b.appendTextToken(tokItem.data)
-	case tokStart:
-		b.openElement(tokItem)
-	case tokEnd:
-		b.closeElement(tokItem.data)
-	}
-}
-
-// appendDoctypeToken attaches a doctype node to the current top of stack.
-func (b *treeBuilder) appendDoctypeToken(data string) {
-	top := b.top()
-	top.Children = append(top.Children, &Node{Type: DoctypeNode, Text: data}) //nolint:exhaustruct
-}
-
-// appendCommentToken attaches a comment node to the current top of stack.
-func (b *treeBuilder) appendCommentToken(data string) {
-	top := b.top()
-	top.Children = append(top.Children, &Node{Type: CommentNode, Text: data}) //nolint:exhaustruct
-}
-
-// appendTextToken attaches text to the current top of stack, merging into an
-// adjacent text node when present. Token data is already decoded by the
-// tokenizer; U+0000 characters are dropped here, matching the "in body"
-// insertion mode's null handling.
-func (b *treeBuilder) appendTextToken(data string) {
-	data = strings.ReplaceAll(data, "\x00", "")
-	if data == "" {
-		return
-	}
-
-	top := b.top()
-
-	if len(top.Children) > 0 {
-		last := top.Children[len(top.Children)-1]
-		if last.Type == TextNode {
-			var merged strings.Builder
-			merged.Grow(len(last.Text) + len(data))
-			merged.WriteString(last.Text)
-			merged.WriteString(data)
-			last.Text = merged.String()
-
-			return
-		}
-	}
-
-	node := &Node{Type: TextNode, Text: data} //nolint:exhaustruct
-	node.Parent = top
-	top.Children = append(top.Children, node)
-}
-
-// maxElementDepth caps element nesting. Elements that would nest deeper are
-// dropped by openElement, so recursive walks (Walk, appendText) stay bounded
-// on adversarial input instead of exhausting the stack.
-const maxElementDepth = 1024
-
-// openElement applies one start tag to the open-element stack. Token data is
-// already lowercased by the tokenizer.
-func (b *treeBuilder) openElement(tokItem token) {
-	name := tokItem.data
-	if b.mergeRootElement(name) {
-		return
-	}
-
-	b.autoCloseOpen(name)
-
-	if len(b.stack)-1 >= maxElementDepth {
-		return // deeper than the cap: drop the element, content flattens up
-	}
-
-	top := b.top()
-
-	node := &Node{Type: ElementNode, Name: name} //nolint:exhaustruct
-
-	if len(tokItem.attrs) > 0 {
-		const attrPairSize = 2 // attrs slice interleaves name and value
-
-		node.Attrs = make(map[string]string, len(tokItem.attrs)/attrPairSize)
-		applyAttributes(node, tokItem.attrs)
-	}
-
-	top.Children = append(top.Children, node)
-	node.Parent = top
-
-	if tokItem.selfClosing || isVoidElement(name) {
-		return // no child content
-	}
-
-	b.stack = append(b.stack, node)
-}
-
-// mergeRootElement handles html/head/body duplicates, which merge into the
-// existing element instead of nesting: the token is dropped when one is
-// already open, otherwise a closed same-level sibling is re-opened. It
-// reports whether the token was consumed.
-func (b *treeBuilder) mergeRootElement(name string) bool {
-	if name != "html" && name != "head" && name != "body" {
-		return false
-	}
-
-	if openInStack(b.stack, name) {
-		return true
-	}
-
-	if existing := findImplicit(b.top(), name); existing != nil {
-		b.stack = append(b.stack, existing)
-
-		return true
-	}
-
-	return false
-}
-
-// autoCloseOpen pops every open element that the start tag closes, and ends
-// the row when a new <td>/<th> follows an open cell.
-func (b *treeBuilder) autoCloseOpen(name string) {
-	closedCell := false
-
-	for len(b.stack) > 1 {
-		openName := b.top().Name
-		if !shouldAutoClose(openName, name) {
-			break
-		}
-
-		if openName == "td" || openName == "th" {
-			closedCell = true
-		}
-
-		b.stack = b.stack[:len(b.stack)-1]
-	}
-	// close-a-cell: a new <td>/<th> after an open cell ends the row too
-	if closedCell && (name == "td" || name == "th") && len(b.stack) > 1 {
-		if b.top().Name == "tr" {
-			b.stack = b.stack[:len(b.stack)-1]
-		}
-	}
-}
-
-// applyAttributes stores the interleaved name/value pairs on node, keeping
-// the first value of a duplicated attribute. Names are already lowercased
-// and values already character-reference decoded by the tokenizer.
-func applyAttributes(node *Node, attrs []string) {
-	for i := 0; i+1 < len(attrs); i += 2 {
-		if _, dup := node.Attrs[attrs[i]]; !dup {
-			node.Attrs[attrs[i]] = attrs[i+1]
-		}
-	}
-}
-
-// closeElement pops the open-element stack back to (and including) the
-// first element with name; a stray end tag is a no-op. Token data is already
-// lowercased by the tokenizer.
-func (b *treeBuilder) closeElement(data string) {
-	name := data
-
-	for i := len(b.stack) - 1; i > 0; i-- {
-		if b.stack[i].Name == name {
-			b.stack = b.stack[:i]
-
-			break
-		}
-	}
 }
 
 // ParseDocument turns raw document bytes into a tree with a synthetic root,
@@ -347,69 +167,6 @@ func ParseDocument(body []byte) (*Node, error) {
 	s := strings.TrimPrefix(string(body), "\ufeff") // BOM, mirroring load.IsHTML
 
 	return Parse(s)
-}
-
-// isVoidElement reports whether name never takes content.
-func isVoidElement(name string) bool {
-	switch name {
-	case "area", "base", "br", "col", "embed", "hr", "img", "input",
-		"link", "meta", "param", "source", "track", "wbr":
-		return true
-	}
-
-	return false
-}
-
-// openInStack reports whether an element with name is currently open.
-func openInStack(stack []*Node, name string) bool {
-	for i := len(stack) - 1; i > 0; i-- {
-		if stack[i].Name == name {
-			return true
-		}
-	}
-
-	return false
-}
-
-// findImplicit looks for an existing same-name element child of top
-// (browser-style html/head/body merging).
-func findImplicit(top *Node, name string) *Node {
-	for _, c := range top.Children {
-		if c.Type == ElementNode && c.Name == name {
-			return c
-		}
-	}
-
-	return nil
-}
-
-// shouldAutoClose reports whether a start tag next closes the open element
-// open.
-func shouldAutoClose(open, next string) bool {
-	switch next {
-	case "li":
-		return open == "li"
-	case "p":
-		return open == "p"
-	case "tr":
-		return open == "tr" || open == "td" || open == "th"
-	case "td", "th":
-		return open == "td" || open == "th"
-	case "option":
-		return open == "option"
-	case "dd", "dt":
-		return open == "dd" || open == "dt"
-	case "thead", "tbody", "tfoot":
-		return open == "thead" || open == "tbody" || open == "tfoot"
-	case "head":
-		return open == "body" || open == "head"
-	case "body":
-		return open == "head" || open == "body"
-	case "html":
-		return open == "html" || open == "head" || open == "body"
-	default:
-		return false
-	}
 }
 
 // tokenKind discriminates token types.
@@ -428,6 +185,7 @@ type token struct {
 	data        string
 	attrs       []string // interleaved name, value
 	selfClosing bool
+	doctype     Doctype
 }
 
 // tokenSink consumes one scanned HTML token.
@@ -567,22 +325,6 @@ func scanBang(src string, pos int, emit tokenSink) int {
 	}
 
 	return scanBogusComment(src, pos+2, "", emit)
-}
-
-// scanDoctype emits a doctype token carrying the raw declaration text. The
-// first '>' always ends the token, even inside quoted identifiers, following
-// the abrupt-doctype-identifier rules.
-func scanDoctype(src string, pos int, emit tokenSink) int {
-	end := strings.IndexByte(src[pos:], '>')
-	if end < 0 {
-		emit(token{kind: tokDoctype, data: replaceNUL(src[pos+2:])}) //nolint:exhaustruct
-
-		return len(src)
-	}
-
-	emit(token{kind: tokDoctype, data: replaceNUL(src[pos+2 : pos+end])}) //nolint:exhaustruct
-
-	return pos + end + 1
 }
 
 // scanBogusComment consumes a bogus comment from src[from:] up to '>' or EOF,
@@ -1029,7 +771,10 @@ func scanStartTag(src string, pos int, emit tokenSink) int {
 
 	emit(token{kind: tokStart, data: name, attrs: attrs, selfClosing: selfClosing})
 
-	if mode, raw := rawTextMode(name); raw && !selfClosing {
+	// A raw-text element starts its raw content even with a self-closing
+	// flag: the flag is a parse error that the tree builder ignores for HTML
+	// elements.
+	if mode, raw := rawTextMode(name); raw {
 		text, after, closed := scanRawText(src, next, name)
 
 		if mode == textRCDATA {

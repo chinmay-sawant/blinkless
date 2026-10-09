@@ -40,6 +40,18 @@ includes tokenizer tests for processing instructions added on 2026-10-01.
 Not vendored, on purpose: `encoding/`, `serializer/`, `lint/`, `lint_lib/`,
 the upstream `README.md` files, and `tree-construction/scripted/*.dat`.
 
+## Local additions
+
+`local/` holds project-written cases for behaviors the pinned upstream corpus
+does not pin directly. They run as their own manifest categories
+(`tokenizer-local`, `tree-construction-local`) so the upstream counts stay
+comparable:
+
+| File | Category | Pins |
+|------|----------|------|
+| `local/rawtext-entities.test` | `tokenizer-local` | RAWTEXT/RCDATA character-reference handling (HTML-03) |
+| `local/tables-local.dat` | `tree-construction-local` | tbody/colgroup/caption wrappers, cell adjacency, foster parenting, table end tags (HTML-05a) |
+
 ## Selection rules
 
 `manifest.json` sets `"scripting": false`. The `.dat` format marks script

@@ -21,7 +21,7 @@
 <body>
   <!-- Source: third_party/blink/web_tests/external/wpt/css/css-flexbox/auto-margins-003.html -->
   <!-- Fixture: case-30-wpt-auto-margins-column -->
-  <!-- Port status: scaffold. No behavior test or browser measurement is linked yet. -->
+  <!-- Port status: blocked. Chrome 143 geometry run: the vertical-lr wrapper is 1024 px wide vs Chrome 402 px (auto block size is not fit-content) and line-height:1 items are 21.41 px tall vs 20 px; the vertical branch items match. -->
   <!-- Expected: content-sized items are centered by auto margins and align-self. -->
   <p class="case-description" style="position:absolute;top:12pt;left:12pt;margin:0;padding:6pt;border:1pt solid #64748b;background:#fff;color:#111827;font-size:9pt;line-height:12pt;width:550pt;">
     <strong>Case 30 expected behavior:</strong> auto margins center the content-sized items on the cross axis in both horizontal and vertical-writing columns.
