@@ -11,8 +11,8 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 327,
-      "partial": 61,
+      "implemented": 339,
+      "partial": 49,
       "unsupported": 389,
       "intentionally ignored": 8
     },
@@ -1277,17 +1277,20 @@
       "values": [
         "<'mix-blend-mode'>#"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_advanced_props.go"
       ],
       "handlers": [
         "applyAdvancedProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_final_test.go",
+          "name": "TestBehaviorBackgroundBlendModeMultiplyBlends"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'mix-blend-mode'>#"
     },
@@ -4592,7 +4595,8 @@
         "normal | [ light | dark | <custom-ident> ]+ && only?"
       ],
       "limitations": [
-        "Parsed, stored, and inherited (ColorScheme, style_color_adjust_props.go:63) but no canvas or text consumer reads it. Missing behavior: dark canvas with light default text. Existing tests cover parsing, rejection, and inheritance only."
+        "Parsed, stored, and inherited (ColorScheme, style_color_adjust_props.go:63) but no canvas or text consumer reads it. Missing behavior: dark canvas with light default text. Existing tests cover parsing, rejection, and inheritance only.",
+        "No-op behavior pinned by TestBehaviorColorSchemeDarkNoCanvasEffect; full behavior needs engine work."
       ],
       "source": [
         "internal/layout/style_color_adjust_props.go"
@@ -4616,6 +4620,10 @@
         {
           "file": "internal/layout/style_color_adjust_props_test.go",
           "name": "TestColorAdjustPropsRejectIllegalKeywords"
+        },
+        {
+          "file": "internal/layout/css_behavior_final_test.go",
+          "name": "TestBehaviorColorSchemeDarkNoCanvasEffect"
         }
       ],
       "status": "partial",
@@ -6253,7 +6261,8 @@
         "auto | <baseline-metric>"
       ],
       "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
+        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
+        "No-op behavior pinned by TestBehaviorDominantBaselineNoPaintEffect; full behavior needs engine work."
       ],
       "source": [
         "internal/layout/style_paint_props.go"
@@ -6261,7 +6270,12 @@
       "handlers": [
         "applySVGPresentationProps"
       ],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_remaining_test.go",
+          "name": "TestBehaviorDominantBaselineNoPaintEffect"
+        }
+      ],
       "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "auto | <baseline-metric>"
@@ -6273,7 +6287,8 @@
         "standard | no-limit | constrained | <dynamic-range-limit-mix()>"
       ],
       "limitations": [
-        "Parsed and stored (DynamicRangeLimit, style_color_adjust_props.go:72) but no sRGB clamp consumer reads it. Missing behavior: sRGB channel clamp. Existing tests cover parsing and rejection only."
+        "Parsed and stored (DynamicRangeLimit, style_color_adjust_props.go:72) but no sRGB clamp consumer reads it. Missing behavior: sRGB channel clamp. Existing tests cover parsing and rejection only.",
+        "No-op behavior pinned by TestBehaviorDynamicRangeLimitStandardNoClampEffect; full behavior needs engine work."
       ],
       "source": [
         "internal/layout/style_color_adjust_props.go"
@@ -6297,6 +6312,10 @@
         {
           "file": "internal/layout/style_color_adjust_props_test.go",
           "name": "TestColorAdjustPropsRejectIllegalKeywords"
+        },
+        {
+          "file": "internal/layout/css_behavior_final_test.go",
+          "name": "TestBehaviorDynamicRangeLimitStandardNoClampEffect"
         }
       ],
       "status": "partial",
@@ -7782,7 +7801,8 @@
         "auto | none | preserve-parent-color"
       ],
       "limitations": [
-        "Parsed, stored, and inherited (ForcedColorAdjust, style_color_adjust_props.go:54) but no forced-colors consumer reads it. Missing behavior: forced-colors opt-out. Existing tests cover parsing, rejection, and inheritance only."
+        "Parsed, stored, and inherited (ForcedColorAdjust, style_color_adjust_props.go:54) but no forced-colors consumer reads it. Missing behavior: forced-colors opt-out. Existing tests cover parsing, rejection, and inheritance only.",
+        "No-op behavior pinned by TestBehaviorForcedColorAdjustNoneNoPaintEffect; full behavior needs engine work."
       ],
       "source": [
         "internal/layout/style_color_adjust_props.go"
@@ -7802,6 +7822,10 @@
         {
           "file": "internal/layout/style_color_adjust_props_test.go",
           "name": "TestColorAdjustPropsRejectIllegalKeywords"
+        },
+        {
+          "file": "internal/layout/css_behavior_final_test.go",
+          "name": "TestBehaviorForcedColorAdjustNoneNoPaintEffect"
         }
       ],
       "status": "partial",
@@ -8545,9 +8569,7 @@
       "values": [
         "normal | <number [1,∞]> <integer [1,∞]> | <number [1,∞]> && [ drop | raise ]?"
       ],
-      "limitations": [
-        "Drop/raise on a real leading element (for example `<span>`); `:first-letter` is rejected by the selector parser; no synthesized first-letter box. Sizes the glyph to N lines and excludes following lines (float-like)."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_initial_letter_props.go"
       ],
@@ -8558,9 +8580,13 @@
         {
           "file": "internal/layout/inline_initial_letter_test.go",
           "name": "TestInitialLetterSpansThreeLines"
+        },
+        {
+          "file": "internal/layout/css_behavior_final_test.go",
+          "name": "TestBehaviorInitialLetterExclusionWidth"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | <number [1,∞]> <integer [1,∞]> | <number [1,∞]> && [ drop | raise ]?"
     },
@@ -8570,9 +8596,7 @@
       "values": [
         "[ border-box? [ alphabetic | ideographic | hanging | leading ]? ]!"
       ],
-      "limitations": [
-        "alphabetic / hanging / leading / ideographic use distinct Y offsets."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_initial_letter_props.go"
       ],
@@ -8583,9 +8607,13 @@
         {
           "file": "internal/layout/inline_initial_letter_test.go",
           "name": "TestInitialLetterAlignHangingShiftsY"
+        },
+        {
+          "file": "internal/layout/css_behavior_remaining_test.go",
+          "name": "TestBehaviorInitialLetterAlignHangingRaisesLetter"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ border-box? [ alphabetic | ideographic | hanging | leading ]? ]!"
     },
@@ -8595,9 +8623,7 @@
       "values": [
         "none | first | all | grid | <length-percentage>"
       ],
-      "limitations": [
-        "Rectangular exclusion: `none` no side wrap, `first` first line, `all`/`grid` full sink band."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_initial_letter_props.go"
       ],
@@ -8608,9 +8634,13 @@
         {
           "file": "internal/layout/inline_initial_letter_test.go",
           "name": "TestInitialLetterWrapNoneDoesNotExclude"
+        },
+        {
+          "file": "internal/layout/css_behavior_remaining_test.go",
+          "name": "TestBehaviorInitialLetterWrapAllExcludesLaterLines"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | first | all | grid | <length-percentage>"
     },
@@ -9117,9 +9147,7 @@
       "values": [
         "auto | loose | normal | strict | anywhere"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go",
         "internal/layout/style_text_props.go"
@@ -9132,9 +9160,13 @@
         {
           "file": "internal/layout/style_text_props_test.go",
           "name": "TestTextPropsWave3"
+        },
+        {
+          "file": "internal/layout/css_behavior_remaining_test.go",
+          "name": "TestBehaviorLineBreakAnywhereWrapsToken"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | loose | normal | strict | anywhere"
     },
@@ -9146,9 +9178,7 @@
       "values": [
         "none | [<'max-lines'> || <'block-ellipsis'>] -webkit-legacy?"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_advanced_props.go"
       ],
@@ -9163,9 +9193,13 @@
         {
           "file": "internal/layout/style_advanced_props_test.go",
           "name": "TestWaveBTextTruncationAndClamping"
+        },
+        {
+          "file": "internal/layout/css_behavior_remaining_test.go",
+          "name": "TestBehaviorLineClampTwoLimitsLines"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | [<'max-lines'> || <'block-ellipsis'>] -webkit-legacy?"
     },
@@ -9308,17 +9342,20 @@
       "values": [
         "[ <'list-style-type'> || <'list-style-position'> || <'list-style-image'> ] | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
       "handlers": [
         "applyListProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_remaining_test.go",
+          "name": "TestBehaviorListStyleNoneHidesMarker"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ <'list-style-type'> || <'list-style-position'> || <'list-style-image'> ] | inherit"
     },
@@ -10247,9 +10284,7 @@
       "values": [
         "auto || <integer [1,∞]>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_advanced_props.go"
       ],
@@ -10260,9 +10295,13 @@
         {
           "file": "internal/layout/style_advanced_props_test.go",
           "name": "TestWaveBTextTruncationAndClamping"
+        },
+        {
+          "file": "internal/layout/css_behavior_remaining_test.go",
+          "name": "TestBehaviorMaxLinesTwoLimitsLines"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto || <integer [1,∞]>"
     },
@@ -10591,17 +10630,20 @@
       "values": [
         "none | <basic-shape-rect>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_image_adjust_props.go"
       ],
       "handlers": [
         "applyImageAdjustProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_remaining_test.go",
+          "name": "TestBehaviorObjectViewBoxXywhCropsImage"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | <basic-shape-rect>"
     },
@@ -11894,7 +11936,8 @@
         "none | <length [0,∞]>"
       ],
       "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
+        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
+        "No-op behavior pinned by TestBehaviorPerspectiveNoLayoutEffect; full behavior needs engine work."
       ],
       "source": [
         "internal/layout/style_properties.go"
@@ -11902,7 +11945,12 @@
       "handlers": [
         "applyTransformGroup"
       ],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_remaining_test.go",
+          "name": "TestBehaviorPerspectiveNoLayoutEffect"
+        }
+      ],
       "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "none | <length [0,∞]>"
@@ -11914,7 +11962,8 @@
         "<position>"
       ],
       "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
+        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
+        "No-op behavior pinned by TestBehaviorPerspectiveOriginNoLayoutEffect; full behavior needs engine work."
       ],
       "source": [
         "internal/layout/style_properties.go"
@@ -11922,7 +11971,12 @@
       "handlers": [
         "applyTransformGroup"
       ],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_remaining_test.go",
+          "name": "TestBehaviorPerspectiveOriginNoLayoutEffect"
+        }
+      ],
       "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<position>"
@@ -14630,9 +14684,7 @@
       "values": [
         "normal | <'text-box-trim'> || <'text-box-edge'>"
       ],
-      "limitations": [
-        "Shorthand + longhands in `style_text_box_props.go`."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_text_box_props.go"
       ],
@@ -14643,9 +14695,13 @@
         {
           "file": "internal/layout/text_box_spacing_hyphen_test.go",
           "name": "TestTextBoxTrimBothShrinksHalfLeading"
+        },
+        {
+          "file": "internal/layout/css_behavior_final_test.go",
+          "name": "TestBehaviorTextBoxShorthandMatchesLonghands"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | <'text-box-trim'> || <'text-box-edge'>"
     },
@@ -15410,9 +15466,7 @@
       "values": [
         "none | auto | <spacing-trim> || <autospace>"
       ],
-      "limitations": [
-        "Shorthand parsed and stored (TextSpacing, style_text_spacing_props.go:46); only the trim tokens it mirrors onto TextSpacingTrim (style_text_spacing_props.go:50) are consumed (inline_text_spacing.go:101). Missing behavior: autospace handling from the shorthand and a dedicated behavior test. TestTextAutospaceIdeographAlpha covers text-autospace and the shorthand storage, not the shorthand geometry."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_text_spacing_props.go"
       ],
@@ -15423,9 +15477,13 @@
         {
           "file": "internal/layout/text_box_spacing_hyphen_test.go",
           "name": "TestTextAutospaceIdeographAlpha"
+        },
+        {
+          "file": "internal/layout/css_behavior_final_test.go",
+          "name": "TestBehaviorTextSpacingShorthandMirrorsTrim"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | auto | <spacing-trim> || <autospace>"
     },
@@ -15583,9 +15641,7 @@
       "values": [
         "wrap | nowrap"
       ],
-      "limitations": [
-        "Parsed and stored (TextWrapMode, style_text_props.go:167); wrap/nowrap fold onto WhiteSpace, so the value is observable only through white-space. Missing behavior: a direct text-wrap-mode consumer and a dedicated behavior test."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go",
         "internal/layout/style_text_props.go"
@@ -15598,9 +15654,13 @@
         {
           "file": "internal/layout/style_text_props_test.go",
           "name": "TestTextPropsWave3"
+        },
+        {
+          "file": "internal/layout/css_behavior_final_test.go",
+          "name": "TestBehaviorTextWrapModeNowrapFoldsOntoWhiteSpace"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "wrap | nowrap"
     },
@@ -15911,7 +15971,8 @@
         "content-box | border-box | fill-box | stroke-box | view-box"
       ],
       "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
+        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
+        "No-op behavior pinned by TestBehaviorTransformBoxFillBoxNoPaintEffect; full behavior needs engine work."
       ],
       "source": [
         "internal/layout/style_properties.go"
@@ -15919,7 +15980,12 @@
       "handlers": [
         "applyTransformGroup"
       ],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_final_test.go",
+          "name": "TestBehaviorTransformBoxFillBoxNoPaintEffect"
+        }
+      ],
       "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "content-box | border-box | fill-box | stroke-box | view-box"
@@ -15956,7 +16022,8 @@
         "flat | preserve-3d"
       ],
       "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
+        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
+        "No-op behavior pinned by TestBehaviorTransformStylePreserve3DNoPaintEffect; full behavior needs engine work."
       ],
       "source": [
         "internal/layout/style_properties.go"
@@ -15964,7 +16031,12 @@
       "handlers": [
         "applyTransformGroup"
       ],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_final_test.go",
+          "name": "TestBehaviorTransformStylePreserve3DNoPaintEffect"
+        }
+      ],
       "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "flat | preserve-3d"
