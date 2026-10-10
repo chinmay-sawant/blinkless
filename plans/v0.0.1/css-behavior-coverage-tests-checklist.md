@@ -1,7 +1,7 @@
 # 0.0.1 - CSS behavior coverage tests for the 428 fixture cells
 
 > **Parent:** `html-css-json-compatibility-checklist.md` (CAT-05/CAT-06 audit rows) and `phase-wise-checklist.md`. The audit demoted rows whose only proof was a stored-string assertion; this plan writes the missing behavior tests.
-> **Status:** open. Wave D landed 2026-10-10: 40 more behavior tests across 4 new files plus a harness smoke test, catalog 190 implemented / 198 partial / 389 unsupported / 8 intentionally ignored. Remaining: phase 8 full gates (make test, make lint).
+> **Status:** complete 2026-10-10. Waves A-D landed 164 behavior tests across 14 files, catalog 90/301/387/7 to 190/198/389/8. All phase 8 gates green. Remaining: none on this plan; the 28 phase-7 engine-work rows (shape-inside, bookmarks, footnotes, string-set) and untested remainder belong to a follow-up.
 > **Estimated effort:** seven waves. No engine redesign. Roughly 300 test cases across ~40 new test files, all in existing packages.
 
 ---
@@ -149,12 +149,12 @@ Text fitting (2): `text-fit`, `text-justify`. `text-justify` has a fixture cell 
 
 ## Phase 8: Closeout gates
 
-- [x] `make test` exit 0. Full suite, once, at the end. (done 2026-10-10: exit 0, 17 packages ok, no failures.)
-- [x] `make lint` exit 0. (done 2026-10-10: exit 0. The 10 new test files needed one lint pass: helpers extracted for dupl and cyclop, loop vars renamed, stored-string-free; harness main.go split into parseFlags, newReport, joinBoxes, resolveBoxPos, scanByTag, emitReport, newMatcher. No `//nolint` added, no allowlist change; size-check clean with the 1 pre-existing allowlisted file.)
+- [x] `make test` exit 0. Full suite, once, at the end. (done 2026-10-10: exit 0, 18 packages ok, no failures, on the final tree with wave D.)
+- [x] `make lint` exit 0. (done 2026-10-10: exit 0, second pass for wave D. The 14 test files needed helper extraction for dupl and cyclop, loop var renames, one duplicate-test removal; harness main.go split into parseFlags, newReport, joinBoxes, resolveBoxPos, scanByTag, emitReport, newMatcher. No `//nolint` added, no allowlist change; size-check clean with the 1 pre-existing allowlisted file.)
 - [x] `make golden` exit 0 with no fixture movement. (done 2026-10-10.)
 - [x] `make claim-scan` exit 0. (done 2026-10-10: clean.)
-- [x] `make catalog-check` exit 0 and `make matrix-check` exit 0, with the final implemented count recorded in this ledger. (done 2026-10-10: 156 implemented.)
-- [x] Update the compatibility matrix header totals and the `Last honesty audit` line in `documentation/compatibility-matrix.md`. (done 2026-10-10: header reads 156/232/389/8 measured 2026-10-10; no separate honesty-audit line exists in this file.)
+- [x] `make catalog-check` exit 0 and `make matrix-check` exit 0, with the final implemented count recorded in this ledger. (done 2026-10-10: 190 implemented.)
+- [x] Update the compatibility matrix header totals and the `Last honesty audit` line in `documentation/compatibility-matrix.md`. (done 2026-10-10: header reads 190/198/389/8 measured 2026-10-10; no separate honesty-audit line exists in this file.)
 - [x] Update `knowledge-base/wiki/concepts/html-css-json-compatibility.md` and append one line to `knowledge-base/wiki/log.md`. (done 2026-10-10, local only.)
 
 ## Dependencies
