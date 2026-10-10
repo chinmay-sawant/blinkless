@@ -12,9 +12,9 @@
     "properties": 785,
     "by_status": {
       "implemented": 156,
-      "partial": 235,
-      "unsupported": 387,
-      "intentionally ignored": 7
+      "partial": 232,
+      "unsupported": 389,
+      "intentionally ignored": 8
     },
     "aliases": 38,
     "engine_registered": 395,
@@ -1236,7 +1236,7 @@
         "scroll | fixed | inherit"
       ],
       "limitations": [
-        "Parsed and stored (BackgroundAttachment, style_properties.go:1297) but no layout or paint consumer reads it. Missing behavior: fixed/local versus scroll distinction. Only test is a stored-string assertion (TestBackgroundLonghands)."
+        "Parsed and stored (BackgroundAttachment, style_properties.go:1297) but no layout or paint consumer reads it: background_image.go:343 documents fixed as intentionally painting as scroll. The engine has no scrolling viewport, so fixed/local versus scroll is unobservable. Only test is a stored-string assertion (TestBackgroundLonghands)."
       ],
       "source": [
         "internal/layout/style_properties.go"
@@ -1250,7 +1250,7 @@
           "name": "TestBackgroundLonghands"
         }
       ],
-      "status": "partial",
+      "status": "unsupported",
       "upstream_class": "draft",
       "upstream_syntax": "scroll | fixed | inherit"
     },
@@ -3721,7 +3721,7 @@
         "slice | clone"
       ],
       "limitations": [
-        "Parsed and stored (BoxDecorationBreak, style_advanced_props.go:64) but no layout or paint consumer reads it. Missing behavior: clone repeats border and background per fragment. Only test is a stored-string assertion (TestWaveCBoxDecorationBreak)."
+        "Parsed and stored (BoxDecorationBreak, style_advanced_props.go:64) but no fragmenter exists in the engine: single display list, multicol snaps whole lines, page-break props are no-ops, so slice versus clone is unobservable. Requires block splitting plus per-fragment chrome in prependChrome before this value can mean anything. Only test is a stored-string assertion (TestWaveCBoxDecorationBreak)."
       ],
       "source": [
         "internal/layout/style_advanced_props.go"
@@ -3735,7 +3735,7 @@
           "name": "TestWaveCBoxDecorationBreak"
         }
       ],
-      "status": "partial",
+      "status": "unsupported",
       "upstream_class": "draft",
       "upstream_syntax": "slice | clone"
     },
@@ -9125,7 +9125,7 @@
         "auto | keep | discard"
       ],
       "limitations": [
-        "Parsed and stored (MarginBreak, style_properties.go:1658) but no page-break consumer reads it. Missing behavior: keep/discard of margins at page breaks. Only test is a stored-string assertion (TestMarginBreakProperty)."
+        "Parsed and stored (MarginBreak, style_properties.go:1658) but no page-break consumer reads it. Implement path: honor keep/discard on adjoining margins at fragment breaks in the break logic beside BreakInside (independent_blocks.go:112). Only test is a stored-string assertion (TestMarginBreakProperty)."
       ],
       "source": [
         "internal/layout/style_properties.go"
@@ -11315,7 +11315,7 @@
         "auto | <custom-ident>"
       ],
       "limitations": [
-        "Parsed and inherited as a used value (PageName, style_properties.go:1667) but no consumer outside the style layer reads it. Missing behavior: a name change forcing a page break, and named @page margin application. TestPageNameInherits covers used-value inheritance only."
+        "Engine returns a continuous display list with no paged renderer; named pages only select among @page rules at page breaks, so the declaration is ignored by design (paged-media noop)."
       ],
       "source": [
         "internal/layout/style_properties.go"
@@ -11330,7 +11330,7 @@
           "name": "TestPageNameInherits"
         }
       ],
-      "status": "partial",
+      "status": "intentionally ignored",
       "upstream_class": "draft",
       "upstream_syntax": "auto | <custom-ident>"
     },
@@ -14644,7 +14644,7 @@
         "[ auto | none | inter-word | inter-character | ruby ] || no-compress"
       ],
       "limitations": [
-        "Parsed and stored (TextJustify, style_text_props.go:36) but no justification consumer reads it. Missing behavior: inter-word/inter-character/ruby justification algorithms. Only test is a stored-string assertion (TestTextPropsWave3)."
+        "Parsed and stored (TextJustify, style_text_props.go:36) but no justification consumer reads it. Implement path: inter-word and inter-character spacing on OpText beside TextAlign handling (inline.go:1002-1009,1370, inline_paint.go:384). Only test is a stored-string assertion (TestTextPropsWave3)."
       ],
       "source": [
         "internal/layout/style_properties.go",
@@ -15901,7 +15901,7 @@
         "none | discard-before || discard-after || discard-inner"
       ],
       "limitations": [
-        "Parsed and stored (WhiteSpaceTrim, style_text_props.go:30) but no consumer reads it. Missing behavior: discard-before/discard-after/discard-inner whitespace removal. Only test is a stored-string assertion (TestTextPropsWave3)."
+        "Parsed and stored (WhiteSpaceTrim, style_text_props.go:30) but no consumer reads it. Implement path: discard-before/discard-after/discard-inner trimming in the white-space collapse pass (style_text_props.go:28,169). Only test is a stored-string assertion (TestTextPropsWave3)."
       ],
       "source": [
         "internal/layout/style_properties.go",

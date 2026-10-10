@@ -3,7 +3,7 @@
 > **Parent:** [plans/v0.0.1/phase-wise-checklist.md](../plans/v0.0.1/phase-wise-checklist.md) and [plans/v0.0.1/html-css-json-compatibility-checklist.md](../plans/v0.0.1/html-css-json-compatibility-checklist.md)  
 > **Status:** living contract - amendments go through plan review  
 > **Target:** authored HTML and CSS to a `layout.DisplayList` (the drawing list). **Not** a browser. **Not** a PDF writer. **Not** a page rasterizer.  
-> **Catalog:** `testdata/css/catalog/properties.json` (schema v1), measured 2026-10-10: 785 rows - 156 Implemented / 235 Partial / 387 Unsupported / 7 intentionally ignored. Upstream pin: webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties). Fidelity guide: [fidelity.md](fidelity.md).
+> **Catalog:** `testdata/css/catalog/properties.json` (schema v1), measured 2026-10-10: 785 rows - 156 Implemented / 232 Partial / 389 Unsupported / 8 intentionally ignored. Upstream pin: webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties). Fidelity guide: [fidelity.md](fidelity.md).
 > **Limitations:** Implemented means a handler, a consumer outside the style layer, and a resolvable behavior test. Browser rendering parity, HTML parser conformance, and this property catalog are separate claims with separate evidence. Section 1 is a rendering allowlist for HTML tags, not a parser conformance claim.
 
 This document is the contract for the layout engine. Its output is a drawing
@@ -41,7 +41,7 @@ as its inline text (per the note column).
 
 ## 2. Supported CSS properties
 
-The catalog in `testdata/css/catalog/properties.json` (schema v1) is the authoritative property record. Measured 2026-10-10: 785 rows - 156 implemented, 235 partial, 387 unsupported, 7 intentionally ignored. The pinned upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties: 671 draft, 70 vendor, 52 svg, 28 browser-ui). Regenerate the tables below with `python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails on drift between the catalog and the code.
+The catalog in `testdata/css/catalog/properties.json` (schema v1) is the authoritative property record. Measured 2026-10-10: 785 rows - 156 implemented, 232 partial, 389 unsupported, 8 intentionally ignored. The pinned upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties: 671 draft, 70 vendor, 52 svg, 28 browser-ui). Regenerate the tables below with `python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails on drift between the catalog and the code.
 
 Statuses describe the layout pipeline, not browsers:
 
@@ -213,14 +213,13 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `writing-mode` | horizontal-tb \| vertical-rl \| vertical-lr \| sideways-rl \| sideways-lr | `internal/layout/style_properties.go` | `TestWritingModeInherits`, `TestBehaviorWritingModeVerticalRotatesRun` |
 | `z-index` | auto \| <integer> \| inherit | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestBehaviorZIndexOrdersOverlappingPaint` |
 
-### 2.2 Partial (235)
+### 2.2 Partial (232)
 
 | Property | Accepted values | Source | Named missing behavior |
 |---|---|---|---|
 | `align-content` | normal \| <baseline-position> \| <content-distribution> \| <overflow-position>? <content-position> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `alignment-baseline` | baseline \| <baseline-metric> | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `backface-visibility` | visible \| hidden | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
-| `background-attachment` | scroll \| fixed \| inherit | `internal/layout/style_properties.go` | Parsed and stored (BackgroundAttachment, style_properties.go:1297) but no layout or paint consumer reads it. Missing behavior: fixed/local versus scroll distinction. Only test is a stored-string assertion (TestBackgroundLonghands). |
 | `background-blend-mode` | <'mix-blend-mode'># | `internal/layout/style_advanced_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `background-clip` | <bg-clip># | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `background-origin` | <visual-box># | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
@@ -288,7 +287,6 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `border-top-radius` | <length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]? | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `border-top-right-radius` | <length-percentage [0,∞]>{1,2} | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `bottom` | <length> \| <percentage> \| auto \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
-| `box-decoration-break` | slice \| clone | `internal/layout/style_advanced_props.go` | Parsed and stored (BoxDecorationBreak, style_advanced_props.go:64) but no layout or paint consumer reads it. Missing behavior: clone repeats border and background per fragment. Only test is a stored-string assertion (TestWaveCBoxDecorationBreak). |
 | `box-shadow-blur` | <length [0,∞]># | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `box-shadow-color` | <color># | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `box-shadow-inset` | inset | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
@@ -393,7 +391,6 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `padding-block-start` | <'padding-top'> | `internal/layout/style_logical_axes.go`, `internal/layout/style_logical_box.go`, `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `padding-inline-end` | <'padding-top'> | `internal/layout/style_logical_axes.go`, `internal/layout/style_logical_box.go`, `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `padding-inline-start` | <'padding-top'> | `internal/layout/style_logical_axes.go`, `internal/layout/style_logical_box.go`, `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
-| `page` | auto \| <custom-ident> | `internal/layout/style_properties.go` | Parsed and inherited as a used value (PageName, style_properties.go:1667) but no consumer outside the style layer reads it. Missing behavior: a name change forcing a page break, and named @page margin application. TestPageNameInherits covers used-value inheritance only. |
 | `perspective` | none \| <length [0,∞]> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `perspective-origin` | <position> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 | `right` | <length> \| <percentage> \| auto \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
@@ -453,7 +450,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `widows` | <integer> \| inherit | `internal/layout/style_properties.go` | Parsed and stored (Widows, style_properties.go:1753) but no fragmentation consumer reads it. Missing behavior: keeping at least N lines at the end of a fragment. No behavior test resolves. |
 | `word-break` | normal \| break-all \| keep-all \| manual \| auto-phrase \| break-word | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
 
-### 2.3 Unsupported (387)
+### 2.3 Unsupported (389)
 
 | Property | Named missing behavior |
 |---|---|
@@ -520,6 +517,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `animation-timing-function` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `animation-trigger` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `backdrop-filter` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `background-attachment` | Parsed and stored (BackgroundAttachment, style_properties.go:1297) but no layout or paint consumer reads it: background_image.go:343 documents fixed as intentionally painting as scroll. The engine has no scrolling viewport, so fixed/local versus scroll is unobservable. Only test is a stored-string assertion (TestBackgroundLonghands). |
 | `background-tbd` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `baseline-shift` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `baseline-source` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -546,6 +544,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `border-right-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `border-shape` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `border-top-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `box-decoration-break` | Parsed and stored (BoxDecorationBreak, style_advanced_props.go:64) but no fragmenter exists in the engine: single display list, multicol snaps whole lines, page-break props are no-ops, so slice versus clone is unobservable. Requires block splitting plus per-fragment chrome in prependChrome before this value can mean anything. Only test is a stored-string assertion (TestWaveCBoxDecorationBreak). |
 | `box-snap` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `caret` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `caret-animation` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -641,7 +640,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `line-padding` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `line-snap` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `link-parameters` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `margin-break` | Parsed and stored (MarginBreak, style_properties.go:1658) but no page-break consumer reads it. Missing behavior: keep/discard of margins at page breaks. Only test is a stored-string assertion (TestMarginBreakProperty). |
+| `margin-break` | Parsed and stored (MarginBreak, style_properties.go:1658) but no page-break consumer reads it. Implement path: honor keep/discard on adjoining margins at fragment breaks in the break logic beside BreakInside (independent_blocks.go:112). Only test is a stored-string assertion (TestMarginBreakProperty). |
 | `marker` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `marker-end` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `marker-mid` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -795,7 +794,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `stroke-repeat` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `stroke-size` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `text-fit` | Parsed and stored (TextFit, style_text_spacing_props.go:36) but no scale-search consumer reads it; the apply arm records the same gap. Missing behavior: grow/shrink scale-to-fit. TestTextSpacingTrimApply asserts the stored string only. |
-| `text-justify` | Parsed and stored (TextJustify, style_text_props.go:36) but no justification consumer reads it. Missing behavior: inter-word/inter-character/ruby justification algorithms. Only test is a stored-string assertion (TestTextPropsWave3). |
+| `text-justify` | Parsed and stored (TextJustify, style_text_props.go:36) but no justification consumer reads it. Implement path: inter-word and inter-character spacing on OpText beside TextAlign handling (inline.go:1002-1009,1370, inline_paint.go:384). Only test is a stored-string assertion (TestTextPropsWave3). |
 | `text-rendering` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `text-size-adjust` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `timeline-scope` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -832,7 +831,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `voice-rate` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `voice-stress` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `voice-volume` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `white-space-trim` | Parsed and stored (WhiteSpaceTrim, style_text_props.go:30) but no consumer reads it. Missing behavior: discard-before/discard-after/discard-inner whitespace removal. Only test is a stored-string assertion (TestTextPropsWave3). |
+| `white-space-trim` | Parsed and stored (WhiteSpaceTrim, style_text_props.go:30) but no consumer reads it. Implement path: discard-before/discard-after/discard-inner trimming in the white-space collapse pass (style_text_props.go:28,169). Only test is a stored-string assertion (TestTextPropsWave3). |
 | `will-change` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `window-drag` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `word-space-transform` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -845,13 +844,14 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `y` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `zoom` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 
-### 2.4 Intentionally ignored (7)
+### 2.4 Intentionally ignored (8)
 
 | Property | Reason |
 |---|---|
 | `appearance` | Print engine has no pointer, caret, or form chrome; declaration is ignored by design (print-noop). |
 | `caret-color` | Print engine has no pointer, caret, or form chrome; declaration is ignored by design (print-noop). |
 | `cursor` | Print engine has no pointer, caret, or form chrome; declaration is ignored by design (print-noop). |
+| `page` | Engine returns a continuous display list with no paged renderer; named pages only select among @page rules at page breaks, so the declaration is ignored by design (paged-media noop). |
 | `pointer-events` | Print engine has no pointer, caret, or form chrome; declaration is ignored by design (print-noop). |
 | `resize` | Print engine has no pointer, caret, or form chrome; declaration is ignored by design (print-noop). |
 | `touch-action` | Print engine has no pointer, caret, or form chrome; declaration is ignored by design (print-noop). |

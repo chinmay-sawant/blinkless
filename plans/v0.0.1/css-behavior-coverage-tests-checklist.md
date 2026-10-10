@@ -1,7 +1,7 @@
 # 0.0.1 - CSS behavior coverage tests for the 428 fixture cells
 
 > **Parent:** `html-css-json-compatibility-checklist.md` (CAT-05/CAT-06 audit rows) and `phase-wise-checklist.md`. The audit demoted rows whose only proof was a stored-string assertion; this plan writes the missing behavior tests.
-> **Status:** open. Wave B landed 2026-10-10: 50 more behavior tests across 4 new files, catalog 156 implemented / 235 partial / 387 unsupported / 7 intentionally ignored. Remaining: phase 6 engine work, phase 7 decisions, phase 8 gates.
+> **Status:** open. Wave C landed 2026-10-10: phase 6 and 7 decisions applied, catalog 156 implemented / 232 partial / 389 unsupported / 8 intentionally ignored. Remaining: phase 8 full gates (make test, make lint).
 > **Estimated effort:** seven waves. No engine redesign. Roughly 300 test cases across ~40 new test files, all in existing packages.
 
 ---
@@ -126,9 +126,9 @@ Proof: each row has a consumer in the engine and a test that fails without it.
 
 These three are partial for a different reason. No layout or paint code reads them, so a test cannot be written until the consumer exists.
 
-- [ ] `background-attachment`: currently parsed and stored. Decide whether fixed attachment paints. If yes, implement the consumer in the paint path and assert the background does not scroll. If no, reclassify as unsupported with the reason. Expected: one of the two outcomes recorded in the catalog, with a test if the first.
-- [ ] `box-decoration-break`: parsed and stored at `style_advanced_props.go:62`. Either implement slice behavior at fragment boundaries or reclassify. The fixture shows a live cell, so treat "renders" as expected and implement. Expected: a fragment test asserting the box is split, or a recorded unsupported decision.
-- [ ] `page` (named pages): parsed and stored, no consumer. Named pages only matter to a paged renderer, which this tree does not have. Recommend reclassifying as intentionally ignored with that reason. Expected: catalog row updated and `make catalog-check` exit 0.
+- [x] `background-attachment`: decided 2026-10-10. A read-only probe found the value stored at `style_properties.go:1297` with zero behavioral readers; `background_image.go:343` already documents fixed as painting as scroll, and the engine has no scrolling viewport for fixed to differ against. Reclassified as unsupported with that reason cited. No code change. (`make catalog-check` exit 0.)
+- [x] `box-decoration-break`: decided 2026-10-10. A read-only probe found the value stored at `style_advanced_props.go:64` with zero consumers, and no block fragmenter exists (single display list, multicol snaps whole lines), so slice versus clone is unobservable. Reclassified as unsupported. Correction: the fixture cells use `auto`, which the setter drops, so they never exercised break behavior. No code change. (`make catalog-check` exit 0.)
+- [x] `page` (named pages): decided 2026-10-10. A read-only probe confirmed zero readers outside the style layer and no paged renderer (continuous `Display` canvas). Reclassified as intentionally ignored as a deliberate non-goal, matching the print-noop class. (`make catalog-check` exit 0.)
 
 ## Phase 7: The 28 unreachable rows
 
@@ -144,8 +144,8 @@ GCPM and generated content (7): `bookmark-label`, `bookmark-level`, `bookmark-st
 
 Text fitting (2): `text-fit`, `text-justify`. `text-justify` has a fixture cell but no handler. Recommend: reclassify, or implement if `inter-character` justification is wanted.
 
-- [ ] Write one decision row per property in this phase, each naming implement-or-reclassify and the evidence. Expected: 28 rows closed with a decision, no row left ambiguous.
-- [ ] Apply the decisions to `testdata/css/catalog/properties.json` and regenerate the matrix. Expected: `make catalog-check` and `make matrix-check` exit 0.
+- [x] Write one decision row per property in this phase, each naming implement-or-reclassify and the evidence. Decided 2026-10-10 by a read-only audit of all 28 rows against the tree. Three have clear implement paths and kept unsupported status with the insertion point recorded in their limitations: `margin-break` (break logic beside BreakInside, independent_blocks.go:112), `text-justify` (justify expansion beside TextAlign, inline.go:1002-1009), `white-space-trim` (whitespace collapse pass, style_text_props.go:28,169). Eighteen stay unsupported, confirmed zero Go references and no shipping browser: the 12 `border-clip` family names plus `border-boundary`, `border-limit`, `shape-padding`, `shape-image-threshold`, `float-defer`, `text-fit`. Seven need engine work beyond a test and stay unsupported with current limitations: `shape-inside` (exclusion layout), `bookmark-label`, `bookmark-level`, `bookmark-state` (outline model), `footnote-display`, `footnote-policy` (footnote placement), `string-set` (named-string table). Note: `border-clip-path` is not a real CSS property and is not in the catalog; its fixture cell should be removed or retargeted in a follow-up.
+- [x] Apply the decisions to `testdata/css/catalog/properties.json` and regenerate the matrix. Applied 2026-10-10: 6 rows touched (3 status changes, 3 insertion-path notes), other 22 already correct. `make catalog-check` and `make matrix-check` exit 0.
 
 ## Phase 8: Closeout gates
 
