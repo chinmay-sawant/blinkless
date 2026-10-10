@@ -191,6 +191,81 @@ func (e *engine) writeSVGPresentationAttrs(b *strings.Builder, node *html.Node, 
 	if st.StrokeOpacity >= 0 && st.StrokeOpacity < 1 && !written["stroke-opacity"] {
 		fmt.Fprintf(b, ` stroke-opacity="%g"`, st.StrokeOpacity)
 	}
+	if len(st.StrokeDashArray) > 0 && !written["stroke-dasharray"] {
+		parts := make([]string, 0, len(st.StrokeDashArray))
+		for _, d := range st.StrokeDashArray {
+			parts = append(parts, strconv.FormatFloat(d, 'g', -1, 64))
+		}
+		b.WriteString(` stroke-dasharray="`)
+		b.WriteString(escapeXML(strings.Join(parts, " ")))
+		b.WriteByte('"')
+	}
+	if st.StrokeDashOffset != 0 && !written["stroke-dashoffset"] {
+		fmt.Fprintf(b, ` stroke-dashoffset="%g"`, st.StrokeDashOffset)
+	}
+	if st.StrokeLineCap != "" && !written["stroke-linecap"] {
+		switch st.StrokeLineCap {
+		case "butt", "round", "square":
+			fmt.Fprintf(b, ` stroke-linecap="%s"`, st.StrokeLineCap)
+		}
+	}
+	// stroke-miterlimit is baked before stroke-linejoin on purpose: the
+	// pinned canvas parser keeps the limit in its state and only reads it
+	// when a later linejoin value builds the miter joiner, so the reverse
+	// order would leave a bare miterlimit with no observable effect.
+	if st.StrokeMiterLimit >= 1 && !written["stroke-miterlimit"] {
+		fmt.Fprintf(b, ` stroke-miterlimit="%g"`, st.StrokeMiterLimit)
+	}
+	if st.StrokeLineJoin != "" && !written["stroke-linejoin"] {
+		switch st.StrokeLineJoin {
+		case "miter", "miter-clip", "round", "bevel", "arcs":
+			fmt.Fprintf(b, ` stroke-linejoin="%s"`, st.StrokeLineJoin)
+		}
+	}
+	// fill-rule and shape-rendering have no ResolvedStyle field, so they are
+	// recovered from the element's inline style attribute here. A matching
+	// presentation attribute already passed through above (written map) and
+	// wins by the no-duplicate guard. Stylesheet rules for these two need a
+	// stored field owned elsewhere and stay unbaked.
+	if !written["fill-rule"] {
+		if rule := svgInlineStyleProp(node.Attribute("style"), "fill-rule"); rule != "" {
+			switch strings.ToLower(rule) {
+			case "nonzero", "evenodd":
+				fmt.Fprintf(b, ` fill-rule="%s"`, strings.ToLower(rule))
+			}
+		}
+	}
+	if !written["shape-rendering"] {
+		if hint := svgInlineStyleProp(node.Attribute("style"), "shape-rendering"); hint != "" {
+			switch strings.ToLower(hint) {
+			case "auto":
+				b.WriteString(` shape-rendering="auto"`)
+			case "optimizespeed":
+				b.WriteString(` shape-rendering="optimizeSpeed"`)
+			case "crispedges":
+				b.WriteString(` shape-rendering="crispEdges"`)
+			case "geometricprecision":
+				b.WriteString(` shape-rendering="geometricPrecision"`)
+			}
+		}
+	}
+}
+
+// svgInlineStyleProp returns the trimmed value of one CSS property from a raw
+// inline style attribute, or "" when absent. It splits on the first colon so
+// values holding URLs keep working.
+func svgInlineStyleProp(styleAttr, prop string) string {
+	for _, decl := range strings.Split(styleAttr, ";") {
+		name, value, ok := strings.Cut(decl, ":")
+		if !ok {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(name), prop) {
+			return strings.TrimSpace(value)
+		}
+	}
+
+	return ""
 }
 
 func cssColorHex(c [3]float64) string {

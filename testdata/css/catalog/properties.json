@@ -11,8 +11,8 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 344,
-      "partial": 46,
+      "implemented": 353,
+      "partial": 37,
       "unsupported": 387,
       "intentionally ignored": 8
     },
@@ -4448,7 +4448,9 @@
       "limitations": [
         "clip-rule is dropped entirely with no paint consumer (TestBehaviorClipRuleEvenOddNoPaintEffect).",
         "No-op behavior pinned by TestBehaviorWaveGClipRuleInlineFillRuleMasksStar; full behavior needs engine work.",
-        "No-op behavior pinned by TestBehaviorWaveGClipRulePropertyNoPaintEffect; full behavior needs engine work."
+        "No-op behavior pinned by TestBehaviorWaveGClipRulePropertyNoPaintEffect; full behavior needs engine work.",
+        "No-op behavior pinned by TestBehaviorClipRuleInlineFillRuleMasksStar; full behavior needs engine work.",
+        "No-op behavior pinned by TestBehaviorClipRulePropertyNoPaintEffect; full behavior needs engine work."
       ],
       "source": [
         "internal/layout/style_paint_props.go"
@@ -4622,7 +4624,8 @@
       ],
       "limitations": [
         "Parsed, stored, and inherited (ColorScheme, style_color_adjust_props.go:63) but no canvas or text consumer reads it. Missing behavior: dark canvas with light default text. Existing tests cover parsing, rejection, and inheritance only.",
-        "No-op behavior pinned by TestBehaviorColorSchemeDarkNoCanvasEffect; full behavior needs engine work."
+        "No-op behavior pinned by TestBehaviorColorSchemeDarkNoCanvasEffect; full behavior needs engine work.",
+        "No-op behavior pinned by TestBehaviorColorSchemeDarkDefaults; full behavior needs engine work."
       ],
       "source": [
         "internal/layout/style_color_adjust_props.go"
@@ -4650,6 +4653,10 @@
         {
           "file": "internal/layout/css_behavior_final_test.go",
           "name": "TestBehaviorColorSchemeDarkNoCanvasEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_color_adjust_test.go",
+          "name": "TestBehaviorColorSchemeDarkDefaults"
         }
       ],
       "status": "partial",
@@ -5296,10 +5303,7 @@
       "values": [
         "<'container-name'> [ / <'container-type'> ]?"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorContainerShorthandNoLayoutEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_container_props.go",
         "internal/layout/style_properties.go"
@@ -5312,9 +5316,13 @@
         {
           "file": "internal/layout/css_behavior_misc_layout_test.go",
           "name": "TestBehaviorContainerShorthandNoLayoutEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_container_test.go",
+          "name": "TestBehaviorContainerShorthandNamedQuerySwitch"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'container-name'> [ / <'container-type'> ]?"
     },
@@ -5324,10 +5332,7 @@
       "values": [
         "none | <custom-ident>+"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorContainerNameNoLayoutEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_container_props.go",
         "internal/layout/style_properties.go"
@@ -5340,9 +5345,13 @@
         {
           "file": "internal/layout/css_behavior_misc_layout_test.go",
           "name": "TestBehaviorContainerNameNoLayoutEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_container_test.go",
+          "name": "TestBehaviorContainerNameLonghandQuerySwitch"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | <custom-ident>+"
     },
@@ -5352,10 +5361,7 @@
       "values": [
         "normal | [ [ size | inline-size ] || scroll-state ]"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorContainerTypeNoSizeQueryEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_container_props.go",
         "internal/layout/style_properties.go"
@@ -5368,9 +5374,13 @@
         {
           "file": "internal/layout/css_behavior_misc_layout_test.go",
           "name": "TestBehaviorContainerTypeNoSizeQueryEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_container_test.go",
+          "name": "TestBehaviorContainerTypeInlineSizeQuerySwitch"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | [ [ size | inline-size ] || scroll-state ]"
     },
@@ -6314,7 +6324,8 @@
       ],
       "limitations": [
         "Parsed and stored (DynamicRangeLimit, style_color_adjust_props.go:72) but no sRGB clamp consumer reads it. Missing behavior: sRGB channel clamp. Existing tests cover parsing and rejection only.",
-        "No-op behavior pinned by TestBehaviorDynamicRangeLimitStandardNoClampEffect; full behavior needs engine work."
+        "No-op behavior pinned by TestBehaviorDynamicRangeLimitStandardNoClampEffect; full behavior needs engine work.",
+        "No-op behavior pinned by TestBehaviorDynamicRangeLimitClampsBrightColors; full behavior needs engine work."
       ],
       "source": [
         "internal/layout/style_color_adjust_props.go"
@@ -6342,6 +6353,10 @@
         {
           "file": "internal/layout/css_behavior_final_test.go",
           "name": "TestBehaviorDynamicRangeLimitStandardNoClampEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_color_adjust_test.go",
+          "name": "TestBehaviorDynamicRangeLimitClampsBrightColors"
         }
       ],
       "status": "partial",
@@ -6585,7 +6600,8 @@
       ],
       "limitations": [
         "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorFillRuleNoPaintEffect; full behavior needs engine work."
+        "No-op behavior pinned by TestBehaviorFillRuleNoPaintEffect; full behavior needs engine work.",
+        "No-op behavior pinned by TestBehaviorSvgBakeFillRuleGap; full behavior needs engine work."
       ],
       "source": [
         "internal/layout/style_paint_props.go"
@@ -6597,6 +6613,10 @@
         {
           "file": "internal/layout/css_behavior_svg_paint_test.go",
           "name": "TestBehaviorFillRuleNoPaintEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_svg_bake_test.go",
+          "name": "TestBehaviorSvgBakeFillRuleGap"
         }
       ],
       "status": "partial",
@@ -7828,7 +7848,8 @@
       ],
       "limitations": [
         "Parsed, stored, and inherited (ForcedColorAdjust, style_color_adjust_props.go:54) but no forced-colors consumer reads it. Missing behavior: forced-colors opt-out. Existing tests cover parsing, rejection, and inheritance only.",
-        "No-op behavior pinned by TestBehaviorForcedColorAdjustNoneNoPaintEffect; full behavior needs engine work."
+        "No-op behavior pinned by TestBehaviorForcedColorAdjustNoneNoPaintEffect; full behavior needs engine work.",
+        "No-op behavior pinned by TestBehaviorForcedColorAdjustNonePreservesAuthor; full behavior needs engine work."
       ],
       "source": [
         "internal/layout/style_color_adjust_props.go"
@@ -7852,6 +7873,10 @@
         {
           "file": "internal/layout/css_behavior_final_test.go",
           "name": "TestBehaviorForcedColorAdjustNoneNoPaintEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_color_adjust_test.go",
+          "name": "TestBehaviorForcedColorAdjustNonePreservesAuthor"
         }
       ],
       "status": "partial",
@@ -9379,6 +9404,10 @@
         {
           "file": "internal/layout/css_behavior_remaining_test.go",
           "name": "TestBehaviorListStyleNoneHidesMarker"
+        },
+        {
+          "file": "internal/layout/css_behavior_list_shape_test.go",
+          "name": "TestBehaviorListStyleShorthandImageEmitsImageMarker"
         }
       ],
       "status": "implemented",
@@ -9391,9 +9420,7 @@
       "values": [
         "<uri> | none | inherit"
       ],
-      "limitations": [
-        "list-style-image with an unresolvable URL falls back to the type marker; the resolved-image payload path is unverified (TestBehaviorListStyleImageBadURLFallsBackToMarker)."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_paint_props.go"
       ],
@@ -9404,9 +9431,13 @@
         {
           "file": "internal/layout/css_behavior_text_remaining_test.go",
           "name": "TestBehaviorListStyleImageBadURLFallsBackToMarker"
+        },
+        {
+          "file": "internal/layout/css_behavior_list_shape_test.go",
+          "name": "TestBehaviorListStyleImageResolvedEmitsImageMarker"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<uri> | none | inherit"
     },
@@ -13831,7 +13862,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_list_shape_test.go",
+          "name": "TestBehaviorShapeInsideNoLayoutEffect"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "draft",
       "upstream_syntax": "auto | outside-shape | [ <basic-shape> || shape-box ] | <image> | display"
@@ -13906,7 +13942,8 @@
       ],
       "limitations": [
         "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorShapeRenderingNoPaintEffect; full behavior needs engine work."
+        "No-op behavior pinned by TestBehaviorShapeRenderingNoPaintEffect; full behavior needs engine work.",
+        "No-op behavior pinned by TestBehaviorSvgBakeShapeRenderingGap; full behavior needs engine work."
       ],
       "source": [
         "internal/layout/style_paint_props.go"
@@ -13918,6 +13955,10 @@
         {
           "file": "internal/layout/css_behavior_svg_paint_test.go",
           "name": "TestBehaviorShapeRenderingNoPaintEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_svg_bake_test.go",
+          "name": "TestBehaviorSvgBakeShapeRenderingGap"
         }
       ],
       "status": "partial",
@@ -14223,10 +14264,7 @@
       "values": [
         "none | <dasharray>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorStrokeDasharrayNoPaintEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_leftovers.go",
         "internal/layout/style_paint_props.go"
@@ -14241,11 +14279,11 @@
           "name": "TestLeftoversPropsWave5"
         },
         {
-          "file": "internal/layout/css_behavior_svg_paint_test.go",
-          "name": "TestBehaviorStrokeDasharrayNoPaintEffect"
+          "file": "internal/layout/css_behavior_svg_bake_test.go",
+          "name": "TestBehaviorSvgBakeDasharrayDashesStroke"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "none | <dasharray>"
     },
@@ -14271,10 +14309,7 @@
       "values": [
         "<length-percentage> | <number>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorStrokeDashoffsetNoPaintEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_leftovers.go",
         "internal/layout/style_paint_props.go"
@@ -14289,11 +14324,11 @@
           "name": "TestLeftoversPropsWave5"
         },
         {
-          "file": "internal/layout/css_behavior_svg_paint_test.go",
-          "name": "TestBehaviorStrokeDashoffsetNoPaintEffect"
+          "file": "internal/layout/css_behavior_svg_bake_test.go",
+          "name": "TestBehaviorSvgBakeDashoffsetShiftsPhase"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "<length-percentage> | <number>"
     },
@@ -14319,10 +14354,7 @@
       "values": [
         "butt | round | square"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorStrokeLinecapNoPaintEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_leftovers.go",
         "internal/layout/style_paint_props.go"
@@ -14337,11 +14369,11 @@
           "name": "TestLeftoversPropsWave5"
         },
         {
-          "file": "internal/layout/css_behavior_svg_paint_test.go",
-          "name": "TestBehaviorStrokeLinecapNoPaintEffect"
+          "file": "internal/layout/css_behavior_svg_bake_test.go",
+          "name": "TestBehaviorSvgBakeLinecapRoundsEnds"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "butt | round | square"
     },
@@ -14351,10 +14383,7 @@
       "values": [
         "miter | round | bevel"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorStrokeLinejoinNoPaintEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_leftovers.go",
         "internal/layout/style_paint_props.go"
@@ -14369,11 +14398,11 @@
           "name": "TestLeftoversPropsWave5"
         },
         {
-          "file": "internal/layout/css_behavior_svg_paint_test.go",
-          "name": "TestBehaviorStrokeLinejoinNoPaintEffect"
+          "file": "internal/layout/css_behavior_svg_bake_test.go",
+          "name": "TestBehaviorSvgBakeLinejoinRoundsCorners"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "miter | round | bevel"
     },
@@ -14383,10 +14412,7 @@
       "values": [
         "<number>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorStrokeMiterlimitNoPaintEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_leftovers.go",
         "internal/layout/style_paint_props.go"
@@ -14401,11 +14427,11 @@
           "name": "TestLeftoversPropsWave5"
         },
         {
-          "file": "internal/layout/css_behavior_svg_paint_test.go",
-          "name": "TestBehaviorStrokeMiterlimitNoPaintEffect"
+          "file": "internal/layout/css_behavior_svg_bake_test.go",
+          "name": "TestBehaviorSvgBakeMiterlimitClipsSpike"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "<number>"
     },

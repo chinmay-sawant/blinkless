@@ -320,6 +320,10 @@ var inheritableProps = []inheritCopy{ //nolint:gochecknoglobals // static inheri
 		func(dst, src *ResolvedStyle) { dst.ListStylePosition = src.ListStylePosition },
 	},
 	{
+		[]string{"list-style-image", "list-style"},
+		func(dst, src *ResolvedStyle) { dst.ListStyleImage = src.ListStyleImage },
+	},
+	{
 		[]string{"quotes"},
 		func(dst, src *ResolvedStyle) {
 			dst.QuotesRaw = src.QuotesRaw

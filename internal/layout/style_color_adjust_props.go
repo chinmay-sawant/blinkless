@@ -159,3 +159,102 @@ func normalizeDynamicRangeLimit(value string) (string, bool) {
 		return "", false
 	}
 }
+
+// darkSchemeCanvasByte and darkSchemeTextByte are the used paint bytes for a
+// dark color-scheme root: #121212 canvas with #e8e8e8 default text, matching
+// the fixture-63 prose and Chrome 143.0.7499.40 dark defaults.
+const (
+	darkSchemeCanvasByte = 0x12
+	darkSchemeTextByte   = 0xe8
+	// srgbChannelMax scales a paint byte into the 0..1 channel range.
+	srgbChannelMax = 255
+)
+
+// colorSchemeHasDark reports whether a normalized color-scheme value lets the
+// element use a dark scheme: "dark", "light dark", "dark light", "only dark".
+// "normal", "light", and "only light" return false. Custom idents never reach
+// here because normalizeColorScheme drops them.
+func colorSchemeHasDark(scheme string) bool {
+	for _, token := range strings.Fields(strings.ToLower(scheme)) {
+		if token == colorSchemeDark {
+			return true
+		}
+	}
+
+	return false
+}
+
+// defaultCanvasForScheme returns the used canvas fill for a color-scheme
+// value. A dark scheme paints an opaque #121212 fill; any other scheme keeps
+// the paper itself (transparent, no fill op). Only the html root's value is
+// consumed by the paint path; nested values stay parsed and inherited.
+func defaultCanvasForScheme(scheme string) [4]float64 {
+	if !colorSchemeHasDark(scheme) {
+		return [4]float64{}
+	}
+
+	channel := float64(darkSchemeCanvasByte) / srgbChannelMax
+
+	return [4]float64{channel, channel, channel, 1}
+}
+
+// defaultTextForScheme returns the used default text color for a color-scheme
+// value: #e8e8e8 under a dark scheme, black otherwise. Elements with an
+// author color keep it; this only replaces the initial black.
+func defaultTextForScheme(scheme string) [3]float64 {
+	if !colorSchemeHasDark(scheme) {
+		return [3]float64{}
+	}
+
+	channel := float64(darkSchemeTextByte) / srgbChannelMax
+
+	return [3]float64{channel, channel, channel}
+}
+
+// clampDynamicRangeColor clamps one used sRGB color to the output range of a
+// dynamic-range-limit value. "standard" and "constrained-high" target sRGB
+// output, so channels fold into [0, 1]; "no-limit" and "high" preserve
+// headroom and return the input unchanged. The color parser only produces
+// 0..1 channels, so every parseable author color passes through untouched;
+// the clamp only bites on out-of-range computed values.
+func clampDynamicRangeColor(color [3]float64, limit string) [3]float64 {
+	switch limit {
+	case dynamicRangeLimitStandard, dynamicRangeLimitConstrainedHigh:
+		return [3]float64{
+			clampDynamicRangeChannel(color[0]),
+			clampDynamicRangeChannel(color[1]),
+			clampDynamicRangeChannel(color[2]),
+		}
+	default:
+		return color
+	}
+}
+
+// clampDynamicRangeChannel folds one color channel into [0, 1].
+func clampDynamicRangeChannel(channel float64) float64 {
+	if channel < 0 {
+		return 0
+	}
+
+	if channel > 1 {
+		return 1
+	}
+
+	return channel
+}
+
+// forcedColorsPaintColor resolves one used paint color for forced-colors
+// mode. When forced mode is off (print has none), the author color always
+// wins. When forced mode is on, "auto" and "preserve-parent-color" map to the
+// system color while "none" preserves the author color per css-color-adjust-1.
+func forcedColorsPaintColor(forcedActive bool, adjust string, author, system [3]float64) [3]float64 {
+	if !forcedActive {
+		return author
+	}
+
+	if adjust == forcedColorAdjustNone {
+		return author
+	}
+
+	return system
+}
