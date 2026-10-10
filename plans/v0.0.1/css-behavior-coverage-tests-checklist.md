@@ -1,7 +1,7 @@
 # 0.0.1 - CSS behavior coverage tests for the 428 fixture cells
 
 > **Parent:** `html-css-json-compatibility-checklist.md` (CAT-05/CAT-06 audit rows) and `phase-wise-checklist.md`. The audit demoted rows whose only proof was a stored-string assertion; this plan writes the missing behavior tests.
-> **Status:** complete 2026-10-10. Waves A-H landed 388 behavior tests across 35 files, catalog 90/301/387/7 to 353/37/389/8. All phase 8 gates green on the final tree. Remaining: none on this plan; the phase-7 engine-work rows (shape-inside, bookmarks, footnotes, string-set) belong to a follow-up.
+> **Status:** complete 2026-10-10. Waves A-I landed 415 behavior tests across 43 files, catalog 90/301/387/7 to 358/32/389/8. All phase 8 gates green on the final tree. Remaining: none on this plan; bookmarks, footnotes, and string-set run as standalone systems pending cascade integration, and break pagination stays a non-goal.
 > **Estimated effort:** seven waves. No engine redesign. Roughly 300 test cases across ~40 new test files, all in existing packages.
 
 ---

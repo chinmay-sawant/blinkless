@@ -329,7 +329,11 @@ type ResolvedStyle struct {
 	BackgroundAttachment   string
 	// ClipPath is the canonical clip-path value: inset() | circle() | ellipse()
 	// | polygon(). Empty means no clip (none / unsupported / invalid).
-	ClipPath          string
+	ClipPath string
+	// ClipRule is the standalone clip-rule fill rule ("nonzero" | "evenodd").
+	// Empty means nonzero (the CSS initial). A polygon() with its own inline
+	// fill rule keeps that rule; the mask sites use this value otherwise.
+	ClipRule          string
 	BorderImageSource string
 	BorderImageSlice  string
 	BorderImageWidth  string

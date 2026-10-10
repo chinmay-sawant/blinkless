@@ -11,8 +11,8 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 353,
-      "partial": 37,
+      "implemented": 358,
+      "partial": 32,
       "unsupported": 387,
       "intentionally ignored": 8
     },
@@ -1875,13 +1875,26 @@
       "aliases": [],
       "values": [],
       "limitations": [
-        "No handler and no ResolvedStyle field; the declaration is ignored. Missing behavior: outline title collection. This row makes no storage claim."
+        "Standalone outline model in bookmark_outline.go builds used labels (BuildBookmarkOutline); no cascade handler feeds it yet."
       ],
       "source": [
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_bookmark_test.go",
+          "name": "TestBehaviorBookmarkLabelContentUsesElementText"
+        },
+        {
+          "file": "internal/layout/css_behavior_bookmark_test.go",
+          "name": "TestBehaviorBookmarkLabelNoneSkipsEntry"
+        },
+        {
+          "file": "internal/layout/css_behavior_bookmark_test.go",
+          "name": "TestBehaviorBookmarkStylesheetCascade"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "draft",
       "upstream_syntax": "<content-list>"
@@ -1891,13 +1904,26 @@
       "aliases": [],
       "values": [],
       "limitations": [
-        "No handler and no ResolvedStyle field; the declaration is ignored. Missing behavior: outline nesting levels. This row makes no storage claim."
+        "Standalone outline model in bookmark_outline.go builds used nesting depths; no cascade handler feeds it yet."
       ],
       "source": [
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_bookmark_test.go",
+          "name": "TestBehaviorBookmarkOutlineNesting"
+        },
+        {
+          "file": "internal/layout/css_behavior_bookmark_test.go",
+          "name": "TestBehaviorBookmarkLevelNoneSkipsEntry"
+        },
+        {
+          "file": "internal/layout/css_behavior_bookmark_test.go",
+          "name": "TestBehaviorBookmarkSkippedLevelNestsUnderNearestAncestor"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "draft",
       "upstream_syntax": "none | <integer [1,∞]>"
@@ -1907,13 +1933,18 @@
       "aliases": [],
       "values": [],
       "limitations": [
-        "No handler and no ResolvedStyle field; the declaration is ignored. Missing behavior: outline open/closed state. This row makes no storage claim."
+        "Standalone outline model in bookmark_outline.go carries used open/closed flags; no cascade handler feeds it yet."
       ],
       "source": [
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_bookmark_test.go",
+          "name": "TestBehaviorBookmarkStateOpenClosed"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "draft",
       "upstream_syntax": "open | closed"
@@ -4445,13 +4476,7 @@
       "values": [
         "nonzero | evenodd"
       ],
-      "limitations": [
-        "clip-rule is dropped entirely with no paint consumer (TestBehaviorClipRuleEvenOddNoPaintEffect).",
-        "No-op behavior pinned by TestBehaviorWaveGClipRuleInlineFillRuleMasksStar; full behavior needs engine work.",
-        "No-op behavior pinned by TestBehaviorWaveGClipRulePropertyNoPaintEffect; full behavior needs engine work.",
-        "No-op behavior pinned by TestBehaviorClipRuleInlineFillRuleMasksStar; full behavior needs engine work.",
-        "No-op behavior pinned by TestBehaviorClipRulePropertyNoPaintEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_paint_props.go"
       ],
@@ -4468,11 +4493,31 @@
           "name": "TestBehaviorClipRuleInlineFillRuleMasksStar"
         },
         {
-          "file": "internal/layout/css_behavior_clip_rule_test.go",
-          "name": "TestBehaviorClipRulePropertyNoPaintEffect"
+          "file": "internal/layout/css_behavior_clip_rule_wire_test.go",
+          "name": "TestBehaviorClipRuleWireEvenOddMasksStarCenter"
+        },
+        {
+          "file": "internal/layout/css_behavior_clip_rule_wire_test.go",
+          "name": "TestBehaviorClipRuleWireNonzeroKeepsStarCenter"
+        },
+        {
+          "file": "internal/layout/css_behavior_clip_rule_wire_test.go",
+          "name": "TestBehaviorClipRuleWireInlineFillRuleWins"
+        },
+        {
+          "file": "internal/layout/css_behavior_clip_rule_wire_test.go",
+          "name": "TestBehaviorClipRuleWireInheritsFromParent"
+        },
+        {
+          "file": "internal/layout/css_behavior_clip_rule_wire_test.go",
+          "name": "TestBehaviorClipRuleWireInvalidKeepsDefault"
+        },
+        {
+          "file": "internal/layout/css_behavior_clip_rule_wire_test.go",
+          "name": "TestBehaviorClipRuleWireBackgroundMasksStarCenter"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "nonzero | evenodd"
     },
@@ -7813,13 +7858,34 @@
       "aliases": [],
       "values": [],
       "limitations": [
-        "No handler and no ResolvedStyle field; the declaration is ignored. Missing behavior: footnote area collection. This row makes no storage claim."
+        "Standalone collection in footnote.go numbers and groups footnotes; no footnote area exists yet so values move no box."
       ],
       "source": [
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_footnote_test.go",
+          "name": "TestBehaviorFootnoteCollectsInDocumentOrder"
+        },
+        {
+          "file": "internal/layout/css_behavior_footnote_test.go",
+          "name": "TestBehaviorFootnoteInvalidValuesFallBackToInitial"
+        },
+        {
+          "file": "internal/layout/css_behavior_footnote_test.go",
+          "name": "TestBehaviorFootnoteCounterResetAndIncrement"
+        },
+        {
+          "file": "internal/layout/css_behavior_footnote_test.go",
+          "name": "TestBehaviorFootnoteFallbackGeometryKeepsContentInFlow"
+        },
+        {
+          "file": "internal/layout/css_behavior_footnote_test.go",
+          "name": "TestBehaviorFootnoteDisplayNoneSkipped"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "draft",
       "upstream_syntax": "block | inline | compact"
@@ -7829,13 +7895,18 @@
       "aliases": [],
       "values": [],
       "limitations": [
-        "No handler and no ResolvedStyle field; the declaration is ignored. Missing behavior: footnote continuation policy across page breaks. This row makes no storage claim."
+        "Standalone grouping in footnote.go (GroupFootnotesByPolicy); no page splitter exists yet so no forced break is emitted."
       ],
       "source": [
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_footnote_test.go",
+          "name": "TestBehaviorFootnotePolicyGrouping"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "draft",
       "upstream_syntax": "auto | line | block"
@@ -12395,7 +12466,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_ruby_test.go",
+          "name": "TestBehaviorRubyParsersAcceptSpecValues"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "svg",
       "upstream_syntax": "<length-percentage>"
@@ -12858,10 +12934,7 @@
       "values": [
         "start | center | space-between | space-around"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorRubyAlignNoPaintEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_paint_props.go"
       ],
@@ -12872,9 +12945,21 @@
         {
           "file": "internal/layout/css_behavior_font2_test.go",
           "name": "TestBehaviorRubyAlignNoPaintEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_ruby_layout_test.go",
+          "name": "TestBehaviorRubyLayoutAlignStartVsCenter"
+        },
+        {
+          "file": "internal/layout/css_behavior_ruby_test.go",
+          "name": "TestBehaviorRubyAlignCentersNarrowAnnotation"
+        },
+        {
+          "file": "internal/layout/css_behavior_ruby_test.go",
+          "name": "TestBehaviorRubyAlignWideAnnotationFillsColumn"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "start | center | space-between | space-around"
     },
@@ -12884,10 +12969,7 @@
       "values": [
         "separate | merge | auto"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorRubyMergeNoPaintEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_paint_props.go"
       ],
@@ -12898,9 +12980,17 @@
         {
           "file": "internal/layout/css_behavior_font2_test.go",
           "name": "TestBehaviorRubyMergeNoPaintEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_ruby_layout_test.go",
+          "name": "TestBehaviorRubyLayoutMergeNarrowsSharedSpace"
+        },
+        {
+          "file": "internal/layout/css_behavior_ruby_test.go",
+          "name": "TestBehaviorRubyMergeSharesAnnotationSpace"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "separate | merge | auto"
     },
@@ -12910,10 +13000,7 @@
       "values": [
         "auto | spaces"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorRubyOverhangNoPaintEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_paint_props.go"
       ],
@@ -12924,9 +13011,17 @@
         {
           "file": "internal/layout/css_behavior_font2_test.go",
           "name": "TestBehaviorRubyOverhangNoPaintEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_ruby_layout_test.go",
+          "name": "TestBehaviorRubyLayoutOverhangSpacesWidensSegment"
+        },
+        {
+          "file": "internal/layout/css_behavior_ruby_test.go",
+          "name": "TestBehaviorRubyOverhangGrowsBaseWhenForbidden"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | spaces"
     },
@@ -12936,10 +13031,7 @@
       "values": [
         "[ alternate || [ over | under ] ] | inter-character"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorRubyPositionNoPaintEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_paint_props.go"
       ],
@@ -12950,9 +13042,21 @@
         {
           "file": "internal/layout/css_behavior_font2_test.go",
           "name": "TestBehaviorRubyPositionNoPaintEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_ruby_layout_test.go",
+          "name": "TestBehaviorRubyLayoutStacksAnnotationOverBase"
+        },
+        {
+          "file": "internal/layout/css_behavior_ruby_layout_test.go",
+          "name": "TestBehaviorRubyLayoutPositionUnderStacksBelow"
+        },
+        {
+          "file": "internal/layout/css_behavior_ruby_test.go",
+          "name": "TestBehaviorRubyPositionStacksOverAndUnder"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ alternate || [ over | under ] ] | inter-character"
     },
@@ -14112,13 +14216,34 @@
       "aliases": [],
       "values": [],
       "limitations": [
-        "No handler and no ResolvedStyle field; the declaration is ignored. Missing behavior: content: string() named strings for running headers. This row makes no storage claim."
+        "Standalone named-string table in string_set.go with set-then-read semantics; no page-margin pipeline consumes it yet."
       ],
       "source": [
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_string_set_test.go",
+          "name": "TestBehaviorStringSetFirstAssignmentWins"
+        },
+        {
+          "file": "internal/layout/css_behavior_string_set_test.go",
+          "name": "TestBehaviorStringSetMultipleNames"
+        },
+        {
+          "file": "internal/layout/css_behavior_string_set_test.go",
+          "name": "TestBehaviorStringSetNoneAndInvalidIgnored"
+        },
+        {
+          "file": "internal/layout/css_behavior_string_set_test.go",
+          "name": "TestBehaviorStringSetEscapesDecode"
+        },
+        {
+          "file": "internal/layout/css_behavior_string_set_test.go",
+          "name": "TestBehaviorStringSetNoPaintEffect"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "draft",
       "upstream_syntax": "none | [ <custom-ident> <string>+ ]#"

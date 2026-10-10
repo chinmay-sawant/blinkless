@@ -24,6 +24,8 @@ func applyLeftoversProps(style *ResolvedStyle, prop, value string, fsize float64
 		if n, err := strconv.ParseFloat(strings.TrimSpace(value), 64); err == nil && n >= 1 {
 			style.StrokeMiterLimit = n
 		}
+	case "clip-rule":
+		applyClipRuleProperty(style, value)
 	case "rotate":
 		applyRotateProperty(style, value)
 	case "scale":
@@ -51,6 +53,16 @@ func applyStrokeDashArray(style *ResolvedStyle, value string, fsize float64) {
 		} else if n, err := strconv.ParseFloat(tok, 64); err == nil && n >= 0 {
 			style.StrokeDashArray = append(style.StrokeDashArray, n)
 		}
+	}
+}
+
+// applyClipRuleProperty owns the standalone clip-rule property. Only the
+// nonzero and evenodd fill rules are stored canonically; anything else leaves
+// the previous declaration intact so the mask keeps its current rule.
+func applyClipRuleProperty(style *ResolvedStyle, value string) {
+	normalized := normalizeCSSValue(value)
+	if normalized == clipPathEvenOdd || normalized == clipPathNonZero {
+		style.ClipRule = normalized
 	}
 }
 

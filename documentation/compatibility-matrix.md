@@ -41,7 +41,7 @@ as its inline text (per the note column).
 
 ## 2. Supported CSS properties
 
-The catalog in `testdata/css/catalog/properties.json` (schema v1) is the authoritative property record. Measured 2026-10-10: 785 rows - 353 implemented, 37 partial, 387 unsupported, 8 intentionally ignored. The pinned upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties: 671 draft, 70 vendor, 52 svg, 28 browser-ui). Regenerate the tables below with `python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails on drift between the catalog and the code.
+The catalog in `testdata/css/catalog/properties.json` (schema v1) is the authoritative property record. Measured 2026-10-10: 785 rows - 358 implemented, 32 partial, 387 unsupported, 8 intentionally ignored. The pinned upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties: 671 draft, 70 vendor, 52 svg, 28 browser-ui). Regenerate the tables below with `python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails on drift between the catalog and the code.
 
 Statuses describe the layout pipeline, not browsers:
 
@@ -52,7 +52,7 @@ Statuses describe the layout pipeline, not browsers:
 
 An implemented status is not a browser-parity or parser-conformance claim. Rendering comparisons and HTML parsing carry separate evidence in `plans/v0.0.1/html-css-json-compatibility-checklist.md`.
 
-### 2.1 Implemented (353)
+### 2.1 Implemented (358)
 
 | Property | Accepted values | Source | Behavior tests |
 |---|---|---|---|
@@ -160,6 +160,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `caption-side` | top \| bottom \| inherit | `internal/layout/style_properties.go` | `TestCaptionSideParse`, `TestBehaviorCaptionSideBottomBelowTable` |
 | `clear` | none \| left \| right \| both \| inherit | `internal/layout/style_properties.go` | `TestBackgroundImageParse`, `TestFloatInsideTableCell`, `TestFloatLeftRightClear`, `TestBehaviorClearDropsBelowFloats` |
 | `clip-path` | <clip-source> \| [ <basic-shape> \|\| <geometry-box> ] \| none | `internal/layout/clip_path.go`, `internal/layout/style_paint_props.go` | `TestBehaviorClipPathEllipseMasksImage` |
+| `clip-rule` | nonzero \| evenodd | `internal/layout/style_paint_props.go` | `TestBehaviorClipRuleEvenOddNoPaintEffect`, `TestBehaviorClipRuleInlineFillRuleMasksStar`, `TestBehaviorClipRuleWireEvenOddMasksStarCenter`, `TestBehaviorClipRuleWireNonzeroKeepsStarCenter`, `TestBehaviorClipRuleWireInlineFillRuleWins`, `TestBehaviorClipRuleWireInheritsFromParent`, `TestBehaviorClipRuleWireInvalidKeepsDefault`, `TestBehaviorClipRuleWireBackgroundMasksStarCenter` |
 | `color` | <color> \| inherit | `internal/layout/style_properties.go` | `TestCascadeAndInline`, `TestCascadeEngineSupportsPropertyValues`, `TestColorAdjustPropsForeignProperty`, `TestColorModeSetGrayscale`, `TestOutlineParse`, `TestParseBasic`, `TestParseColorHsl`, `TestParseInline`, `TestWebkitPrefixAliases` |
 | `color-adjust` | <'print-color-adjust'> | `internal/layout/style_color_adjust_props.go` | `TestColorAdjustPropsAcceptLegalKeywords`, `TestColorAdjustPropsCSSWideKeywords`, `TestColorAdjustPropsRejectIllegalKeywords` |
 | `column-count` | auto \| <integer [1,∞]> | `internal/layout/style_multicol_props.go` | `TestMulticolFlexStretchBalanceNoPageSnap`, `TestBehaviorColumnCountUsedWidths` |
@@ -346,6 +347,10 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `right` | <length> \| <percentage> \| auto \| inherit | `internal/layout/style_properties.go` | `TestAuthorOverridesButtonUADefaults`, `TestBackgroundPositionUsesCSSPxIntrinsicSize`, `TestCaptionSideParse`, `TestTableCellClipsTransformedContent`, `TestBehaviorRightShiftsRelativeBox` |
 | `rotate` | none \| <angle> \| [ x \| y \| z \| <number>{3} ] && <angle> | `internal/layout/style_leftovers.go`, `internal/layout/style_properties.go` | `TestBehaviorRotatePropertyBakesMatrix` |
 | `row-gap` | normal \| <length-percentage [0,∞]> \| <line-width> | `internal/layout/style_gap_props.go`, `internal/layout/style_properties.go` | `TestGridRowGapVsColumnGap`, `TestBehaviorRowGapGridUsedSpacing` |
+| `ruby-align` | start \| center \| space-between \| space-around | `internal/layout/style_paint_props.go` | `TestBehaviorRubyAlignNoPaintEffect`, `TestBehaviorRubyLayoutAlignStartVsCenter`, `TestBehaviorRubyAlignCentersNarrowAnnotation`, `TestBehaviorRubyAlignWideAnnotationFillsColumn` |
+| `ruby-merge` | separate \| merge \| auto | `internal/layout/style_paint_props.go` | `TestBehaviorRubyMergeNoPaintEffect`, `TestBehaviorRubyLayoutMergeNarrowsSharedSpace`, `TestBehaviorRubyMergeSharesAnnotationSpace` |
+| `ruby-overhang` | auto \| spaces | `internal/layout/style_paint_props.go` | `TestBehaviorRubyOverhangNoPaintEffect`, `TestBehaviorRubyLayoutOverhangSpacesWidensSegment`, `TestBehaviorRubyOverhangGrowsBaseWhenForbidden` |
+| `ruby-position` | [ alternate \|\| [ over \| under ] ] \| inter-character | `internal/layout/style_paint_props.go` | `TestBehaviorRubyPositionNoPaintEffect`, `TestBehaviorRubyLayoutStacksAnnotationOverBase`, `TestBehaviorRubyLayoutPositionUnderStacksBelow`, `TestBehaviorRubyPositionStacksOverAndUnder` |
 | `scale` | none \| [ <number> \| <percentage> ]{1,3} | `internal/layout/style_leftovers.go`, `internal/layout/style_properties.go` | `TestTextSpacingTrimApply`, `TestBehaviorScalePropertyScalesPaint` |
 | `shape-margin` | <length-percentage [0,∞]> | `internal/layout/style_shape_props.go` | `TestBehaviorShapeMarginExpandsExclusion` |
 | `shape-outside` | none \| [ <basic-shape> \|\| <shape-box> ] \| <image> | `internal/layout/style_shape_props.go` | `TestBehaviorShapeOutsideNarrowsWrap` |
@@ -410,7 +415,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `writing-mode` | horizontal-tb \| vertical-rl \| vertical-lr \| sideways-rl \| sideways-lr | `internal/layout/style_properties.go` | `TestWritingModeInherits`, `TestBehaviorWritingModeVerticalRotatesRun` |
 | `z-index` | auto \| <integer> \| inherit | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestBehaviorZIndexOrdersOverlappingPaint` |
 
-### 2.2 Partial (37)
+### 2.2 Partial (32)
 
 | Property | Accepted values | Source | Named missing behavior |
 |---|---|---|---|
@@ -420,7 +425,6 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `break-before` | auto \| avoid \| always \| all \| avoid-page \| page \| left \| right \| recto \| verso \| avoid-column \| column \| avoid-region \| region | `internal/layout/style_properties.go` | break-before parses to page-break-before:always but layout emits no forced break; the engine does not paginate (TestBehaviorBreakBeforeColumnNoPageEffect). |
 | `break-inside` | auto \| avoid \| avoid-page \| avoid-column \| avoid-region | `internal/layout/style_properties.go` | break-inside keywords parse but no layout or paint pass reads them; the engine returns a drawing list without paginating, so avoidance has no observable effect (TestBehaviorBreakInsideAvoidColumnNoPageEffect). |
 | `clip` | <shape> \| auto \| inherit | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. No-op behavior pinned by TestBehaviorClipNoPaintEffect; full behavior needs engine work. |
-| `clip-rule` | nonzero \| evenodd | `internal/layout/style_paint_props.go` | clip-rule is dropped entirely with no paint consumer (TestBehaviorClipRuleEvenOddNoPaintEffect). No-op behavior pinned by TestBehaviorWaveGClipRuleInlineFillRuleMasksStar; full behavior needs engine work. No-op behavior pinned by TestBehaviorWaveGClipRulePropertyNoPaintEffect; full behavior needs engine work. No-op behavior pinned by TestBehaviorClipRuleInlineFillRuleMasksStar; full behavior needs engine work. No-op behavior pinned by TestBehaviorClipRulePropertyNoPaintEffect; full behavior needs engine work. |
 | `color-interpolation` | auto \| sRGB \| linearRGB | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. No-op behavior pinned by TestBehaviorColorInterpolationNoPaintEffect; full behavior needs engine work. |
 | `color-interpolation-filters` | auto \| sRGB \| linearRGB | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. No-op behavior pinned by TestBehaviorColorInterpolationFiltersNoPaintEffect; full behavior needs engine work. |
 | `color-scheme` | normal \| [ light \| dark \| <custom-ident> ]+ && only? | `internal/layout/style_color_adjust_props.go` | Parsed, stored, and inherited (ColorScheme, style_color_adjust_props.go:63) but no canvas or text consumer reads it. Missing behavior: dark canvas with light default text. Existing tests cover parsing, rejection, and inheritance only. No-op behavior pinned by TestBehaviorColorSchemeDarkNoCanvasEffect; full behavior needs engine work. No-op behavior pinned by TestBehaviorColorSchemeDarkDefaults; full behavior needs engine work. |
@@ -434,10 +438,6 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `orphans` | <integer> \| inherit | `internal/layout/style_properties.go` | orphans parses (initial 2) but paint moves whole ops across page boundaries without splitting lines, so orphans cannot take effect (TestBehaviorOrphansNoFragmentationEffect). |
 | `perspective` | none \| <length [0,∞]> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. No-op behavior pinned by TestBehaviorPerspectiveNoLayoutEffect; full behavior needs engine work. |
 | `perspective-origin` | <position> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. No-op behavior pinned by TestBehaviorPerspectiveOriginNoLayoutEffect; full behavior needs engine work. |
-| `ruby-align` | start \| center \| space-between \| space-around | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. No-op behavior pinned by TestBehaviorRubyAlignNoPaintEffect; full behavior needs engine work. |
-| `ruby-merge` | separate \| merge \| auto | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. No-op behavior pinned by TestBehaviorRubyMergeNoPaintEffect; full behavior needs engine work. |
-| `ruby-overhang` | auto \| spaces | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. No-op behavior pinned by TestBehaviorRubyOverhangNoPaintEffect; full behavior needs engine work. |
-| `ruby-position` | [ alternate \|\| [ over \| under ] ] \| inter-character | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. No-op behavior pinned by TestBehaviorRubyPositionNoPaintEffect; full behavior needs engine work. |
 | `scroll-margin` | <length>{1,4} | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. No-op behavior pinned by TestBehaviorScrollMarginNoPaintEffect; full behavior needs engine work. |
 | `scroll-margin-bottom` | <length> | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. No-op behavior pinned by TestBehaviorScrollMarginBottomNoPaintEffect; full behavior needs engine work. |
 | `scroll-margin-left` | <length> | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. No-op behavior pinned by TestBehaviorScrollMarginLeftNoPaintEffect; full behavior needs engine work. |
@@ -529,9 +529,9 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `block-step-insert` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `block-step-round` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `block-step-size` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `bookmark-label` | No handler and no ResolvedStyle field; the declaration is ignored. Missing behavior: outline title collection. This row makes no storage claim. |
-| `bookmark-level` | No handler and no ResolvedStyle field; the declaration is ignored. Missing behavior: outline nesting levels. This row makes no storage claim. |
-| `bookmark-state` | No handler and no ResolvedStyle field; the declaration is ignored. Missing behavior: outline open/closed state. This row makes no storage claim. |
+| `bookmark-label` | Standalone outline model in bookmark_outline.go builds used labels (BuildBookmarkOutline); no cascade handler feeds it yet. |
+| `bookmark-level` | Standalone outline model in bookmark_outline.go builds used nesting depths; no cascade handler feeds it yet. |
+| `bookmark-state` | Standalone outline model in bookmark_outline.go carries used open/closed flags; no cascade handler feeds it yet. |
 | `border-block-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `border-block-end-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `border-block-start-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -622,8 +622,8 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `flow-from` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `flow-into` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `flow-tolerance` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `footnote-display` | No handler and no ResolvedStyle field; the declaration is ignored. Missing behavior: footnote area collection. This row makes no storage claim. |
-| `footnote-policy` | No handler and no ResolvedStyle field; the declaration is ignored. Missing behavior: footnote continuation policy across page breaks. This row makes no storage claim. |
+| `footnote-display` | Standalone collection in footnote.go numbers and groups footnotes; no footnote area exists yet so values move no box. |
+| `footnote-policy` | Standalone grouping in footnote.go (GroupFootnotesByPolicy); no page splitter exists yet so no forced break is emitted. |
 | `frame-sizing` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `glyph-orientation-vertical` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `image-animation` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -781,7 +781,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `speak-as` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `stop-color` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `stop-opacity` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `string-set` | No handler and no ResolvedStyle field; the declaration is ignored. Missing behavior: content: string() named strings for running headers. This row makes no storage claim. |
+| `string-set` | Standalone named-string table in string_set.go with set-then-read semantics; no page-margin pipeline consumes it yet. |
 | `stroke-align` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `stroke-alignment` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `stroke-break` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |

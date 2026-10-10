@@ -512,6 +512,17 @@ func (e *engine) paintReplacedImage(
 	e.prependChrome(len(e.ops)-1, boxNode, sty, posX, posY, boxNode.w, boxNode.height)
 }
 
+// withClipRule folds the standalone clip-rule property into a parsed
+// clip-path shape. A polygon() with its own inline fill rule keeps that
+// rule; every other shape ignores the rule at containment time.
+func withClipRule(shape clipPathShape, rule string) clipPathShape {
+	if shape.fillRule == "" {
+		shape.fillRule = rule
+	}
+
+	return shape
+}
+
 // applyPaintClipPathMask masks paint bytes with sty's clip-path shape when one
 // parses and the mask succeeds. Unsupported or invalid values and mask
 // failures return the bytes unchanged.
@@ -523,6 +534,8 @@ func applyPaintClipPathMask(
 	if !ok {
 		return imgData, isJPEG
 	}
+
+	clipShape = withClipRule(clipShape, sty.ClipRule)
 
 	masked := maskImageWithClipPath(
 		imgData, clipShape, fitX, fitY, fitW, fitH, refX, refY, refW, refH,

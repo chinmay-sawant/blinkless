@@ -73,6 +73,12 @@ type inlineItem struct {
 	blockBox *box
 	opStart  int
 	opEnd    int
+	// rubyAnnot marks a ruby annotation run stacked above (rubyUnder false)
+	// or below (rubyUnder true) its base at half size. The run paints on a
+	// stacked baseline (see rubyAnnotBaseline) and reserves its height in
+	// lineMetrics instead of joining the baseline row.
+	rubyAnnot bool
+	rubyUnder bool
 }
 
 func (e *engine) collectAndPrepareInlineItems(
@@ -1221,7 +1227,16 @@ func (e *engine) emitLineItems(boxNode *box, line []inlineItem, leftX, baseline,
 		case item.img:
 			leftX = e.emitInlineImage(item, leftX, lineY, lineH, baseline, justifyGap, idx < len(line)-1, &und)
 		default:
-			leftX = e.emitInlineText(item, leftX, baseline, justifyGap, idx < len(line)-1, &und)
+			// Ruby annotations paint on their stacked baseline (top of the
+			// line box when over, bottom when under) instead of the base
+			// baseline. Horizontal overlay already rode in on the collector
+			// margins, so only the baseline changes here.
+			paintBaseline := baseline
+			if item.rubyAnnot {
+				paintBaseline = e.rubyAnnotBaseline(item, lineY, lineH)
+			}
+
+			leftX = e.emitInlineText(item, leftX, paintBaseline, justifyGap, idx < len(line)-1, &und)
 		}
 		e.popInlineBlend(&blendScope)
 
@@ -1333,6 +1348,7 @@ func (e *engine) lineMetrics( //nolint:funlen
 	line []inlineItem, lineY float64, block *ResolvedStyle, trimStart, trimEnd bool,
 ) (float64, float64) {
 	maxAscent, maxDescent := 0.0, 0.0
+	rubyOverH, rubyUnderH := 0.0, 0.0
 	edgeStyle := block
 
 	// Every line box carries the block's strut: a zero-width inline box with
@@ -1359,6 +1375,13 @@ func (e *engine) lineMetrics( //nolint:funlen
 				maxDescent = descent
 			}
 
+			continue
+		}
+
+		// Ruby annotations stack outside the base row: reserve their height
+		// above or below instead of joining the baseline max. Inter-character
+		// runs never carry the flag and keep the normal path.
+		if rubyStackReserve(item, &rubyOverH, &rubyUnderH) {
 			continue
 		}
 
@@ -1398,12 +1421,32 @@ func (e *engine) lineMetrics( //nolint:funlen
 		}
 	}
 
-	lineH := maxAscent + maxDescent
+	lineH := maxAscent + maxDescent + rubyOverH + rubyUnderH
 	if lineH <= 0 {
 		lineH = 1
 	}
 
-	return lineH, lineY + maxAscent
+	return lineH, lineY + maxAscent + rubyOverH
+}
+
+// rubyStackReserve accumulates a stacked ruby annotation item's height above
+// or below the base row. It reports whether the item was a stacked
+// annotation; normal items (including inter-character runs, which never carry
+// the flag) return false so the caller joins the baseline max.
+func rubyStackReserve(item *inlineItem, overH, underH *float64) bool {
+	if !item.rubyAnnot {
+		return false
+	}
+
+	if item.rubyUnder {
+		if item.h > *underH {
+			*underH = item.h
+		}
+	} else if item.h > *overH {
+		*overH = item.h
+	}
+
+	return true
 }
 
 // strutMetrics is the block's line strut (ascent, descent): a zero-width

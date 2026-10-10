@@ -52,7 +52,8 @@ func internalCustomPropWriters(raw map[string]string) bool {
 		switch prop {
 		case textEmphasisProperty, textEmphasisStyleProperty, textEmphasisColorProperty,
 			textEmphasisPositionProperty, textEmphasisSkipProperty,
-			textShadowProperty, tabSizeProperty:
+			textShadowProperty, tabSizeProperty,
+			rubyAlignPropName, rubyMergePropName, rubyOverhangPropName, rubyPositionPropName:
 			return true
 		}
 	}
@@ -428,6 +429,9 @@ var inheritableProps = []inheritCopy{ //nolint:gochecknoglobals // static inheri
 		dst.InitialLetterWrap = src.InitialLetterWrap
 	}},
 	{[]string{"text-orientation"}, func(dst, src *ResolvedStyle) { dst.TextOrientation = src.TextOrientation }},
+	// clip-rule is inherited (SVG 1.1 §14.5): an undeclared element uses its
+	// parent's rule at the clip-path mask sites.
+	{[]string{"clip-rule"}, func(dst, src *ResolvedStyle) { dst.ClipRule = src.ClipRule }},
 }
 
 // inheritablePropBits maps an inheritable property name to the bit set of its
@@ -1523,6 +1527,7 @@ var styleGroups = [...]styleGroupFn{ //nolint:gochecknoglobals // static dispatc
 	applyShapeProps,
 	applyFloatPageProps,
 	applyClipPathProps,
+	applyRubyProps,
 }
 
 //nolint:cyclop,goconst,funlen // vendor prefix lookup map

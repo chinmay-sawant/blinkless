@@ -1,7 +1,6 @@
 package layout
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -16,10 +15,10 @@ import (
 // the cascade and inline seams land, matching Layout-level tests through
 // layoutHTML should replace the helper calls without changing the numbers.
 
-// TestRubyAlignCentersNarrowAnnotation: a narrow annotation centers in a wide
+// TestBehaviorRubyAlignCentersNarrowAnnotation: a narrow annotation centers in a wide
 // base column under center and the initial space-around, but pins to the
 // start edge under start. Chrome centers short kana over kanji by default.
-func TestRubyAlignCentersNarrowAnnotation(t *testing.T) {
+func TestBehaviorRubyAlignCentersNarrowAnnotation(t *testing.T) {
 	t.Parallel()
 
 	const baseW, annotW = 40.0, 20.0
@@ -49,10 +48,10 @@ func TestRubyAlignCentersNarrowAnnotation(t *testing.T) {
 	}
 }
 
-// TestRubyAlignWideAnnotationFillsColumn: when the annotation is wider than
+// TestBehaviorRubyAlignWideAnnotationFillsColumn: when the annotation is wider than
 // the base there is no extra space, so every value offsets 0 and the column
 // grows to the annotation width instead.
-func TestRubyAlignWideAnnotationFillsColumn(t *testing.T) {
+func TestBehaviorRubyAlignWideAnnotationFillsColumn(t *testing.T) {
 	t.Parallel()
 
 	const baseW, annotW = 20.0, 30.0
@@ -64,11 +63,11 @@ func TestRubyAlignWideAnnotationFillsColumn(t *testing.T) {
 	}
 }
 
-// TestRubyPositionStacksOverAndUnder: over/alternate stack the annotation
+// TestBehaviorRubyPositionStacksOverAndUnder: over/alternate stack the annotation
 // directly above the base (-annotH) while under stacks it directly below
 // (+baseH). Chrome paints <rt> above the base by default and below for
 // ruby-position:under.
-func TestRubyPositionStacksOverAndUnder(t *testing.T) {
+func TestBehaviorRubyPositionStacksOverAndUnder(t *testing.T) {
 	t.Parallel()
 
 	const baseH, annotH = 13.5, 6.75
@@ -119,11 +118,11 @@ func assertRubyStackSigns(t *testing.T, over, alternate, under, side, baseH, ann
 	}
 }
 
-// TestRubyMergeSharesAnnotationSpace: with two columns whose first annotation
+// TestBehaviorRubyMergeSharesAnnotationSpace: with two columns whose first annotation
 // is wider than its base, separate keeps per-column maxima while merge fits
 // the wider of the summed runs, so merged is narrower. Auto matches separate
 // when everything fits and merge otherwise (the spec jukugo rule).
-func TestRubyMergeSharesAnnotationSpace(t *testing.T) {
+func TestBehaviorRubyMergeSharesAnnotationSpace(t *testing.T) {
 	t.Parallel()
 
 	baseWs := []float64{20, 20}
@@ -158,11 +157,11 @@ func TestRubyMergeSharesAnnotationSpace(t *testing.T) {
 	}
 }
 
-// TestRubyOverhangGrowsBaseWhenForbidden: auto allows a wider annotation to
+// TestBehaviorRubyOverhangGrowsBaseWhenForbidden: auto allows a wider annotation to
 // overlap neighbors (no growth) while spaces forces the segment wider to fit
 // it. Chrome lets long kana spill over neighbors by default and contains it
 // under ruby-overhang:spaces (legacy none).
-func TestRubyOverhangGrowsBaseWhenForbidden(t *testing.T) {
+func TestBehaviorRubyOverhangGrowsBaseWhenForbidden(t *testing.T) {
 	t.Parallel()
 
 	const baseW, annotW = 20.0, 30.0
@@ -196,10 +195,10 @@ func TestRubyOverhangGrowsBaseWhenForbidden(t *testing.T) {
 	}
 }
 
-// TestRubyParsersAcceptSpecValues: the four grammars accept their spec
+// TestBehaviorRubyParsersAcceptSpecValues: the four grammars accept their spec
 // keywords and reject neighbors. This stays geometry-adjacent: every accepted
 // value feeds one helper above, every rejected value keeps its initial.
-func TestRubyParsersAcceptSpecValues(t *testing.T) {
+func TestBehaviorRubyParsersAcceptSpecValues(t *testing.T) {
 	t.Parallel()
 
 	if got, ok := parseRubyAlign(" center "); !ok || got != "center" {
@@ -239,47 +238,5 @@ func assertRubyPositionParses(t *testing.T) {
 
 	if _, ok := parseRubyPosition("over under"); ok {
 		t.Errorf("ruby-position:over under accepted, want reject (at most one side)")
-	}
-}
-
-// TestRubyLayoutGapFlattensAnnotation: pins the missing machinery. The engine
-// lays <rt> inline at full size on the base baseline instead of stacking a
-// half-size annotation above. When the ruby formatting context lands this
-// test must be replaced by Layout tests through layoutHTML that assert the
-// stacked geometry above. Reference: Chrome 143.0.7499.40 stacks a smaller
-// annotation over the base and reserves line height for it.
-func TestRubyLayoutGapFlattensAnnotation(t *testing.T) {
-	t.Parallel()
-
-	res := layoutHTML(t, `<html><body style="margin:0">`+
-		`<p style="margin:0;font-size:12pt"><ruby>base<rt>anno</rt></ruby></p></body></html>`)
-
-	texts := opsOfKind(res, OpText)
-	if len(texts) == 0 {
-		t.Fatalf("no text ops for ruby markup")
-	}
-
-	joined := ""
-	for _, op := range texts {
-		joined += op.Text
-	}
-
-	if !strings.Contains(joined, "base") || !strings.Contains(joined, "anno") {
-		t.Fatalf("ruby text %q missing base or annotation", joined)
-	}
-
-	// Gap: base and annotation share one run and one baseline today. A real
-	// ruby layout emits two runs with distinct Y (see
-	// rubyAnnotationStackOffset) and a smaller annotation size.
-	sameBaseline := true
-
-	for i := 1; i < len(texts); i++ {
-		if !near(texts[i].Y, texts[0].Y) {
-			sameBaseline = false
-		}
-	}
-
-	if !sameBaseline {
-		t.Fatalf("expected flattened ruby baselines while the formatting context is missing")
 	}
 }
