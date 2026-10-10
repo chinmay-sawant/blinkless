@@ -4,17 +4,17 @@ import (
 	"testing"
 )
 
-// Gap-close underline and emphasis-skip behavior, asserted through USED
+// Underline and emphasis-skip behavior, asserted through USED
 // drawing-list geometry, never stored style strings. Reference browser for
 // every case: Chrome 143.0.7499.40. Shared helpers layoutHTML,
 // underlineOps, and opsOfKind come from other files in this package and are
 // reused here, never redeclared.
 
-// TestGapUnderlinePositionUnderDropsStroke is text-underline-position:under.
+// TestUnderlinePositionUnderDropsStroke is text-underline-position:under.
 // Under drops the stroke below descenders, so it paints lower than the auto
 // baseline spot. Reference: Chrome 143.0.7499.40 places the under stroke
 // under descenders.
-func TestGapUnderlinePositionUnderDropsStroke(t *testing.T) {
+func TestUnderlinePositionUnderDropsStroke(t *testing.T) {
 	t.Parallel()
 
 	plain := layoutHTML(t, `<html><body><p style="margin:0;font-size:14pt">`+
@@ -37,13 +37,13 @@ func TestGapUnderlinePositionUnderDropsStroke(t *testing.T) {
 	}
 }
 
-// TestGapUnderlinePositionLeftRightMoveStroke is
+// TestUnderlinePositionLeftRightMoveStroke is
 // text-underline-position:left and right. In horizontal text the engine maps
 // both to a smaller under drop so the declared value stays observable in
 // the drawing list. Reference: Chrome 143.0.7499.40 treats bare left and
 // right as auto in horizontal text and reserves side placement for vertical
 // text; this subset keeps the drop so authors can see the value apply.
-func TestGapUnderlinePositionLeftRightMoveStroke(t *testing.T) {
+func TestUnderlinePositionLeftRightMoveStroke(t *testing.T) {
 	t.Parallel()
 
 	plain := layoutHTML(t, `<html><body><p style="margin:0;font-size:14pt">`+
@@ -76,11 +76,11 @@ func TestGapUnderlinePositionLeftRightMoveStroke(t *testing.T) {
 	}
 }
 
-// TestGapEmphasisSkipPunctuationSkipsComma is text-emphasis-skip: spaces
+// TestEmphasisSkipPunctuationSkipsComma is text-emphasis-skip: spaces
 // keeps the comma mark while spaces punctuation also skips it, so the second
 // run paints one fewer mark. Reference: Chrome 143.0.7499.40 skips spaces
 // and punctuation per CSS Text Decoration 4 section 3.5.
-func TestGapEmphasisSkipPunctuationSkipsComma(t *testing.T) {
+func TestEmphasisSkipPunctuationSkipsComma(t *testing.T) {
 	t.Parallel()
 
 	spaces := layoutHTML(t, `<html><body style="margin:0">`+
@@ -102,11 +102,11 @@ func TestGapEmphasisSkipPunctuationSkipsComma(t *testing.T) {
 	}
 }
 
-// TestGapEmphasisSkipNarrowSkipsNarrow is text-emphasis-skip: narrow skips
+// TestEmphasisSkipNarrowSkipsNarrow is text-emphasis-skip: narrow skips
 // narrow Latin letters on the probe text, so it paints fewer marks than
 // spaces. Reference: Chrome 143.0.7499.40 skips narrow characters per CSS
 // Text Decoration 4 section 3.5.
-func TestGapEmphasisSkipNarrowSkipsNarrow(t *testing.T) {
+func TestEmphasisSkipNarrowSkipsNarrow(t *testing.T) {
 	t.Parallel()
 
 	spaces := layoutHTML(t, `<html><body style="margin:0">`+

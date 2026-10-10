@@ -9,18 +9,18 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
-// Gap-close ABC: three properties whose prior pins live in
-// internal/layout/css_behavior_gap_close_a_test.go. Each test asserts USED
+// SVG text closes: three properties whose prior pins live in
+// internal/layout/css_behavior_svg_paint_pins_test.go. Each test asserts USED
 // drawing-list geometry (op kind plus X/Y/W/H, text, and raster bytes),
 // never stored style strings. Reference browser for every case: Chrome
 // 143.0.7499.40. Shared helpers layoutHTML, boxByID, near, pxToPt,
 // ptPerCSSPx, opsOfKind, mustParse, and sheet come from other files in this
 // package and are reused here, never redeclared.
 
-// gapABCSVGTextResult lays out one inline SVG holding a single text element
+// svgTextResult lays out one inline SVG holding a single text element
 // with the given extra text style. The SVG path (layout_svg.go) bakes
 // text-anchor into an attribute before rasterization.
-func gapABCSVGTextResult(t *testing.T, textStyle string) *Result {
+func svgTextResult(t *testing.T, textStyle string) *Result {
 	t.Helper()
 
 	return layoutHTML(t, `<html><body style="margin:0">`+
@@ -29,9 +29,9 @@ func gapABCSVGTextResult(t *testing.T, textStyle string) *Result {
 		`</svg></body></html>`)
 }
 
-// gapABCSVGTextSerialized returns the serialized SVG XML for one text style,
+// svgTextSerialized returns the serialized SVG XML for one text style,
 // which is the payload the rasterizer consumes.
-func gapABCSVGTextSerialized(t *testing.T, textStyle string) string {
+func svgTextSerialized(t *testing.T, textStyle string) string {
 	t.Helper()
 
 	root := mustParse(t, `<html><body>`+
@@ -56,26 +56,26 @@ func gapABCSVGTextSerialized(t *testing.T, textStyle string) string {
 	return string(eng.serializeInlineSVG(svgNode))
 }
 
-// TestGapABCTextAnchorMiddleAnchorsSvgText is text-anchor: middle bakes into
+// TestSvgTextTextAnchorMiddleAnchorsSvgText is text-anchor: middle bakes into
 // the serialized SVG as a text-anchor attribute on the text element, and the
 // rasterizer (which honors middle/end anchoring) paints different pixels than
 // the default start anchor. HTML text is unaffected: Chrome 143.0.7499.40
 // anchors SVG text only.
-func TestGapABCTextAnchorMiddleAnchorsSvgText(t *testing.T) {
+func TestSvgTextTextAnchorMiddleAnchorsSvgText(t *testing.T) {
 	t.Parallel()
 
-	serialized := gapABCSVGTextSerialized(t, "text-anchor:middle")
+	serialized := svgTextSerialized(t, "text-anchor:middle")
 	if !strings.Contains(serialized, `text-anchor="middle"`) {
 		t.Errorf("serialized SVG lacks text-anchor middle, got %s", serialized)
 	}
 
-	bogus := gapABCSVGTextSerialized(t, "text-anchor:bogus")
+	bogus := svgTextSerialized(t, "text-anchor:bogus")
 	if strings.Contains(bogus, "text-anchor") {
 		t.Errorf("bogus text-anchor baked, want it dropped, got %s", bogus)
 	}
 
-	startImgs := opsOfKind(gapABCSVGTextResult(t, ""), OpImage)
-	middleImgs := opsOfKind(gapABCSVGTextResult(t, "text-anchor:middle"), OpImage)
+	startImgs := opsOfKind(svgTextResult(t, ""), OpImage)
+	middleImgs := opsOfKind(svgTextResult(t, "text-anchor:middle"), OpImage)
 
 	if len(startImgs) != 1 || len(middleImgs) != 1 {
 		t.Fatalf("svg image ops = %d / %d, want 1 each", len(startImgs), len(middleImgs))
@@ -93,8 +93,8 @@ func TestGapABCTextAnchorMiddleAnchorsSvgText(t *testing.T) {
 	behaviorSvgAssertSameOps(t, plain, anchored)
 }
 
-// gapABCAlignDoc builds a paragraph carrying one baseline declaration.
-func gapABCAlignDoc(decl string) string {
+// svgTextAlignDoc builds a paragraph carrying one baseline declaration.
+func svgTextAlignDoc(decl string) string {
 	return `<html><body style="margin:0">` +
 		`<p id="p" style="margin:0;font-size:16px;` + decl + `">Ag</p></body></html>`
 }
@@ -104,11 +104,11 @@ func gapABCAlignDoc(decl string) string {
 func behaviorABCAlignUsed(t *testing.T, extra string) string {
 	t.Helper()
 
-	return boxByID(t, layoutHTML(t, gapABCAlignDoc(extra)), "p").style.AlignmentBaseline
+	return boxByID(t, layoutHTML(t, svgTextAlignDoc(extra)), "p").style.AlignmentBaseline
 }
 
-// gapABCTextY returns the baseline Y of the first text op.
-func gapABCTextY(t *testing.T, res *Result) float64 {
+// svgTextY returns the baseline Y of the first text op.
+func svgTextY(t *testing.T, res *Result) float64 {
 	t.Helper()
 
 	texts := opsOfKind(res, OpText)
@@ -119,16 +119,16 @@ func gapABCTextY(t *testing.T, res *Result) float64 {
 	return texts[0].Y
 }
 
-// TestGapABCAlignmentBaselineCentralIdeographic is alignment-baseline: the
+// TestSvgTextAlignmentBaselineCentralIdeographic is alignment-baseline: the
 // central selector raises the run above alphabetic by half the em box and
 // ideographic lowers it by the face descent, while alphabetic paints at the
 // default baseline. Reference: Chrome 143.0.7499.40 shifts the text baseline.
-func TestGapABCAlignmentBaselineCentralIdeographic(t *testing.T) {
+func TestSvgTextAlignmentBaselineCentralIdeographic(t *testing.T) {
 	t.Parallel()
 
-	plainY := gapABCTextY(t, layoutHTML(t, gapABCAlignDoc("")))
-	centralY := gapABCTextY(t, layoutHTML(t, gapABCAlignDoc("alignment-baseline:central")))
-	ideoY := gapABCTextY(t, layoutHTML(t, gapABCAlignDoc("alignment-baseline:ideographic")))
+	plainY := svgTextY(t, layoutHTML(t, svgTextAlignDoc("")))
+	centralY := svgTextY(t, layoutHTML(t, svgTextAlignDoc("alignment-baseline:central")))
+	ideoY := svgTextY(t, layoutHTML(t, svgTextAlignDoc("alignment-baseline:ideographic")))
 
 	if got := behaviorABCAlignUsed(t, "alignment-baseline:central"); got != "central" {
 		t.Errorf("alignment-baseline used = %q, want central", got)
@@ -149,20 +149,20 @@ func TestGapABCAlignmentBaselineCentralIdeographic(t *testing.T) {
 	}
 
 	behaviorSvgAssertSameOps(t,
-		layoutHTML(t, gapABCAlignDoc("")),
-		layoutHTML(t, gapABCAlignDoc("alignment-baseline:alphabetic")))
+		layoutHTML(t, svgTextAlignDoc("")),
+		layoutHTML(t, svgTextAlignDoc("alignment-baseline:alphabetic")))
 }
 
-// TestGapABCAlignmentBaselineMiddleHanging is alignment-baseline middle and
+// TestSvgTextAlignmentBaselineMiddleHanging is alignment-baseline middle and
 // hanging: middle rises by half the x-height and hanging keeps the 5px rise
 // at 16px, while a bogus value keeps the default baseline. Reference: Chrome
 // 143.0.7499.40 shifts the text baseline.
-func TestGapABCAlignmentBaselineMiddleHanging(t *testing.T) {
+func TestSvgTextAlignmentBaselineMiddleHanging(t *testing.T) {
 	t.Parallel()
 
-	plainY := gapABCTextY(t, layoutHTML(t, gapABCAlignDoc("")))
-	middleY := gapABCTextY(t, layoutHTML(t, gapABCAlignDoc("alignment-baseline:middle")))
-	hangY := gapABCTextY(t, layoutHTML(t, gapABCAlignDoc("alignment-baseline:hanging")))
+	plainY := svgTextY(t, layoutHTML(t, svgTextAlignDoc("")))
+	middleY := svgTextY(t, layoutHTML(t, svgTextAlignDoc("alignment-baseline:middle")))
+	hangY := svgTextY(t, layoutHTML(t, svgTextAlignDoc("alignment-baseline:hanging")))
 
 	if lift := plainY - middleY; lift <= 0.5 || lift > 8 {
 		t.Errorf("middle lift = %.4fpt (%.2fpx), want a rise above alphabetic",
@@ -174,13 +174,13 @@ func TestGapABCAlignmentBaselineMiddleHanging(t *testing.T) {
 	}
 
 	behaviorSvgAssertSameOps(t,
-		layoutHTML(t, gapABCAlignDoc("")),
-		layoutHTML(t, gapABCAlignDoc("alignment-baseline:bogus")))
+		layoutHTML(t, svgTextAlignDoc("")),
+		layoutHTML(t, svgTextAlignDoc("alignment-baseline:bogus")))
 }
 
-// gapABCRedFill returns the first sizable red fill op, which is the
+// svgTextRedFill returns the first sizable red fill op, which is the
 // background of the test box.
-func gapABCRedFill(t *testing.T, res *Result) Op {
+func svgTextRedFill(t *testing.T, res *Result) Op {
 	t.Helper()
 
 	for _, op := range opsOfKind(res, OpFillRect) {
@@ -194,12 +194,12 @@ func gapABCRedFill(t *testing.T, res *Result) Op {
 	return Op{}
 }
 
-// TestGapABCClipRectCutsAbsposBox is the deprecated clip: rect() cuts the
+// TestSvgTextClipRectCutsAbsposBox is the deprecated clip: rect() cuts the
 // absolutely positioned box to the rect, so the 100px by 50px box paints
 // 50px by 20px at the same top-left origin. Static boxes ignore clip and
 // clip:auto paints whole, per CSS 2.1 section 11.1.2. Reference: Chrome
 // 143.0.7499.40 cuts the absolute box to rect(0px,50px,20px,0px).
-func TestGapABCClipRectCutsAbsposBox(t *testing.T) {
+func TestSvgTextClipRectCutsAbsposBox(t *testing.T) {
 	t.Parallel()
 
 	absDiv := func(extra string) string {
@@ -216,7 +216,7 @@ func TestGapABCClipRectCutsAbsposBox(t *testing.T) {
 		t.Error("clip used = empty, want the canonical rect()")
 	}
 
-	plainFill, clipFill := gapABCRedFill(t, plain), gapABCRedFill(t, clipped)
+	plainFill, clipFill := svgTextRedFill(t, plain), svgTextRedFill(t, clipped)
 
 	if !near(clipFill.X, plainFill.X) || !near(clipFill.Y, plainFill.Y) {
 		t.Errorf("clipped origin = (%.4f, %.4f), want plain origin (%.4f, %.4f)",

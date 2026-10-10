@@ -13,7 +13,7 @@ import "testing"
 // therefore pin as no-ops there (css_behavior_columns_test.go:308-379,
 // css_behavior_text_remaining_test.go:269-310,
 // css_behavior_margin_break_test.go:68-115,
-// css_behavior_hard_gaps_test.go:127-191).
+// css_behavior_backface_breaks_test.go:127-191).
 //
 // The multicol element-item path IS a real fragmentation point: whole child
 // boxes are distributed across column breaks by placeMulticolLine

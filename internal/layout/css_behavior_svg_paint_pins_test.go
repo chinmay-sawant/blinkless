@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// Gap-close A: precise pins for six partial properties whose consumers live
+// SVG paint pins: precise pins for six partial properties whose consumers live
 // in forbidden files or a frozen bake region, so no honest paint change fits
 // the ownership rules. Each test asserts USED drawing-list geometry (op kind
 // plus X/Y/W/H and text), never stored style strings. Reference browser for
@@ -13,7 +13,7 @@ import (
 // behaviorSvgAssertSameOps come from other files in this package and are
 // reused here, never redeclared.
 
-// TestGapCloseATextAnchorMiddlePinsSvgBakeGap pins text-anchor:middle as a
+// TestSvgPaintPinTextAnchorMiddle pins text-anchor:middle as a
 // no-op for HTML and unbaked for SVG. The declaration is forwarded by
 // internal/layout/style_paint_props.go:89-96 to applyLeftoversProps in
 // internal/layout/style_leftovers.go:11-41 which has no text-anchor case and
@@ -22,7 +22,7 @@ import (
 // internal/layout/layout_svg.go:169-260 which this task must not edit.
 // Chrome 143.0.7499.40 middle-anchors SVG text only, so HTML stays identical
 // and this pin records identical SVG rect ops and moves on.
-func TestGapCloseATextAnchorMiddlePinsSvgBakeGap(t *testing.T) {
+func TestSvgPaintPinTextAnchorMiddle(t *testing.T) {
 	t.Parallel()
 
 	plain := behaviorSvgLayoutSVG(t, "fill:#ff0000")
@@ -31,7 +31,7 @@ func TestGapCloseATextAnchorMiddlePinsSvgBakeGap(t *testing.T) {
 	behaviorSvgAssertSameOps(t, plain, anchored)
 }
 
-// TestGapCloseAAlignmentBaselineMiddlePinsBaselineGap pins
+// TestSvgPaintPinAlignmentBaselineMiddle pins
 // alignment-baseline:middle as a no-op. The declaration is forwarded by
 // internal/layout/style_paint_props.go:89-96 to applyLeftoversProps in
 // internal/layout/style_leftovers.go:11-41 which has no alignment-baseline
@@ -42,7 +42,7 @@ func TestGapCloseATextAnchorMiddlePinsSvgBakeGap(t *testing.T) {
 // internal/layout/inline_paint.go:170-173. Chrome 143.0.7499.40 would shift
 // the text baseline, but that needs the forbidden paint path, so this pin
 // records identical ops and moves on.
-func TestGapCloseAAlignmentBaselineMiddlePinsBaselineGap(t *testing.T) {
+func TestSvgPaintPinAlignmentBaselineMiddle(t *testing.T) {
 	t.Parallel()
 
 	plain := behaviorSvgLayoutSVG(t, "fill:#ff0000")
@@ -51,7 +51,7 @@ func TestGapCloseAAlignmentBaselineMiddlePinsBaselineGap(t *testing.T) {
 	behaviorSvgAssertSameOps(t, plain, shifted)
 }
 
-// TestGapCloseAColorInterpolationSRGBPinsRasterGap pins color-interpolation
+// TestSvgPaintPinColorInterpolationSRGB pins color-interpolation
 // as a no-op. The declaration is forwarded by
 // internal/layout/style_paint_props.go:89-96 to applyLeftoversProps in
 // internal/layout/style_leftovers.go:11-41 which has no color-interpolation
@@ -62,7 +62,7 @@ func TestGapCloseAAlignmentBaselineMiddlePinsBaselineGap(t *testing.T) {
 // 143.0.7499.40 would interpolate SVG gradients in sRGB instead, but that
 // needs the frozen bake arms in internal/layout/layout_svg.go:169-260, so
 // this pin records identical ops and moves on.
-func TestGapCloseAColorInterpolationSRGBPinsRasterGap(t *testing.T) {
+func TestSvgPaintPinColorInterpolationSRGB(t *testing.T) {
 	t.Parallel()
 
 	plain := behaviorSvgLayoutSVG(t, "fill:#ff0000")
@@ -71,7 +71,7 @@ func TestGapCloseAColorInterpolationSRGBPinsRasterGap(t *testing.T) {
 	behaviorSvgAssertSameOps(t, plain, tuned)
 }
 
-// TestGapCloseAColorInterpolationFiltersSRGBPinsRasterGap pins
+// TestSvgPaintPinColorInterpolationFiltersSRGB pins
 // color-interpolation-filters as a no-op on the same path as
 // color-interpolation: forwarded by
 // internal/layout/style_paint_props.go:89-96 to applyLeftoversProps in
@@ -80,7 +80,7 @@ func TestGapCloseAColorInterpolationSRGBPinsRasterGap(t *testing.T) {
 // filter color space, but that needs the frozen bake arms in
 // internal/layout/layout_svg.go:169-260, so this pin records identical ops
 // and moves on.
-func TestGapCloseAColorInterpolationFiltersSRGBPinsRasterGap(t *testing.T) {
+func TestSvgPaintPinColorInterpolationFiltersSRGB(t *testing.T) {
 	t.Parallel()
 
 	plain := behaviorSvgLayoutSVG(t, "fill:#ff0000")

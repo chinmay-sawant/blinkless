@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// Gap-B behavior closes. Each test covers one named partial property and
+// Property store closes. Each test covers one named partial property and
 // asserts resolved used values or emitted display-list geometry, never stored
 // strings. Reference browser for every case: Chrome 143.0.7499.40. Shared
 // helpers boxByID, near, pxToPt, ptPerCSSPx, opsOfKind, layoutHTML,
@@ -13,13 +13,13 @@ import (
 // layout_test.go, css_review_02_test.go, css_behavior_svg_paint_test.go, and
 // css_behavior_paint_effects_test.go and are never redeclared here.
 
-// TestGapBTransformBoxContentBoxShiftsOrigin is transform-box: content-box
+// TestPropertyStoreTransformBoxContentBoxShiftsOrigin is transform-box: content-box
 // resolves transform-origin percentages against the content box while
 // border-box uses the border box, so the same 90deg rotation about 100% 100%
 // bakes a different matrix when 10pt padding insets the content box.
 // Reference: Chrome 143.0.7499.40 moves the painted box with the reference
 // box.
-func TestGapBTransformBoxContentBoxShiftsOrigin(t *testing.T) {
+func TestPropertyStoreTransformBoxContentBoxShiftsOrigin(t *testing.T) {
 	t.Parallel()
 
 	doc := func(box string) string {
@@ -57,14 +57,14 @@ func TestGapBTransformBoxContentBoxShiftsOrigin(t *testing.T) {
 	}
 }
 
-// TestGapBTransformBoxFillViewAliasPinsViewportGap is transform-box fill-box
+// TestPropertyStoreTransformBoxFillViewAlias is transform-box fill-box
 // vs view-box on a CSS layout box: both alias the border box (there is no SVG
 // viewport in the 2D box stamper), so the used values store canonically but
 // the baked geometry matches. GAP: an SVG viewport reference box needs the
 // nearest viewport carried into boxTransformAccum (transform.go). Reported
 // with used values, never failing. Reference: Chrome 143.0.7499.40 would
 // rotate about the object bounding box vs the nearest SVG viewport.
-func TestGapBTransformBoxFillViewAliasPinsViewportGap(t *testing.T) {
+func TestPropertyStoreTransformBoxFillViewAlias(t *testing.T) {
 	t.Parallel()
 
 	doc := func(box string) string {
@@ -92,13 +92,13 @@ func TestGapBTransformBoxFillViewAliasPinsViewportGap(t *testing.T) {
 	}
 }
 
-// TestGapBTransformStyleStoresFlatVsPreserve3D is transform-style: flat and
+// TestPropertyStoreTransformStyleStoresFlatVsPreserve3D is transform-style: flat and
 // preserve-3d store canonically but the 2D engine flattens both, so nested
 // rotations paint identical geometry. GAP: 3D planes are a permanent print
 // non-goal. Reported with used values, never failing. Reference: Chrome
 // 143.0.7499.40 would keep the child in the parent 3D plane under
 // preserve-3d.
-func TestGapBTransformStyleStoresFlatVsPreserve3D(t *testing.T) {
+func TestPropertyStoreTransformStyleStoresFlatVsPreserve3D(t *testing.T) {
 	t.Parallel()
 
 	doc := func(style string) string {
@@ -128,14 +128,14 @@ func TestGapBTransformStyleStoresFlatVsPreserve3D(t *testing.T) {
 	}
 }
 
-// TestGapBFillRuleStoresAndInherits is fill-rule: evenodd stores canonically,
+// TestPropertyStoreFillRuleStoresAndInherits is fill-rule: evenodd stores canonically,
 // defaults to nonzero, and inherits from the parent. The external canvas
 // rasterizer (tdewolff/canvas via internal/svg) has no fill-rule case even
 // though its core Style carries a FillRule field, so serialized SVG cannot
 // observe it and clip masks keep using ClipRule. GAP pinned with used values,
 // never failing. Reference: Chrome 143.0.7499.40 would apply evenodd winding
 // to holed paths.
-func TestGapBFillRuleStoresAndInherits(t *testing.T) {
+func TestPropertyStoreFillRuleStoresAndInherits(t *testing.T) {
 	t.Parallel()
 
 	plain := boxByID(t, layoutHTML(t, `<html><body style="margin:0">`+
@@ -163,12 +163,12 @@ func TestGapBFillRuleStoresAndInherits(t *testing.T) {
 	}
 }
 
-// TestGapBShapeRenderingStoresHint is shape-rendering: crispEdges stores
+// TestPropertyStoreShapeRenderingStoresHint is shape-rendering: crispEdges stores
 // canonically (lowercased) and defaults to auto. The external canvas
 // rasterizer has no shape-rendering case, so the hint bakes into serialized
 // SVG but cannot change raster pixels. GAP pinned with used values, never
 // failing. Reference: Chrome 143.0.7499.40 would snap edges with crispEdges.
-func TestGapBShapeRenderingStoresHint(t *testing.T) {
+func TestPropertyStoreShapeRenderingStoresHint(t *testing.T) {
 	t.Parallel()
 
 	plain := boxByID(t, layoutHTML(t, `<html><body style="margin:0">`+
@@ -196,12 +196,12 @@ func TestGapBShapeRenderingStoresHint(t *testing.T) {
 	}
 }
 
-// TestGapBBackfaceVisibilityStoresHidden is backface-visibility: hidden
+// TestPropertyStoreBackfaceVisibilityStoresHidden is backface-visibility: hidden
 // stores canonically but the 2D engine has no 3D back face to hide, so it
 // paints identical geometry to visible under the same rotation. GAP pinned
 // with used values, never failing. Reference: Chrome 143.0.7499.40 would hide
 // the back face in 3D.
-func TestGapBBackfaceVisibilityStoresHidden(t *testing.T) {
+func TestPropertyStoreBackfaceVisibilityStoresHidden(t *testing.T) {
 	t.Parallel()
 
 	doc := func(vis string) string {
@@ -229,12 +229,12 @@ func TestGapBBackfaceVisibilityStoresHidden(t *testing.T) {
 	}
 }
 
-// TestGapBDominantBaselineHangingRaisesText is dominant-baseline: hanging
+// TestPropertyStoreDominantBaselineHangingRaisesText is dominant-baseline: hanging
 // stores canonically and raises the 16px run above alphabetic by the hanging
 // ratio (about 5px in Chrome 143.0.7499.40), while auto keeps the baseline.
 // Reference: Chrome 143.0.7499.40 aligns the hanging run about 5px above
 // alphabetic at 16px.
-func TestGapBDominantBaselineHangingRaisesText(t *testing.T) {
+func TestPropertyStoreDominantBaselineHangingRaisesText(t *testing.T) {
 	t.Parallel()
 
 	doc := func(decl string) string {

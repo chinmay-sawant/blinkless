@@ -792,12 +792,12 @@
           "name": "TestBehaviorAlignmentBaselineNoPaintEffect"
         },
         {
-          "file": "internal/layout/css_behavior_gap_abc_test.go",
-          "name": "TestGapABCAlignmentBaselineCentralIdeographic"
+          "file": "internal/layout/css_behavior_svg_text_test.go",
+          "name": "TestSvgTextAlignmentBaselineCentralIdeographic"
         },
         {
-          "file": "internal/layout/css_behavior_gap_abc_test.go",
-          "name": "TestGapABCAlignmentBaselineMiddleHanging"
+          "file": "internal/layout/css_behavior_svg_text_test.go",
+          "name": "TestSvgTextAlignmentBaselineMiddleHanging"
         }
       ],
       "status": "implemented",
@@ -4477,8 +4477,8 @@
       ],
       "tests": [
         {
-          "file": "internal/layout/css_behavior_gap_abc_test.go",
-          "name": "TestGapABCClipRectCutsAbsposBox"
+          "file": "internal/layout/css_behavior_svg_text_test.go",
+          "name": "TestSvgTextClipRectCutsAbsposBox"
         }
       ],
       "status": "implemented",
@@ -4668,12 +4668,12 @@
           "name": "TestBehaviorColorInterpolationNoPaintEffect"
         },
         {
-          "file": "internal/layout/css_behavior_gap_interp_test.go",
-          "name": "TestGapInterpColorInterpolationLinearDiffersFromSRGB"
+          "file": "internal/layout/css_behavior_color_interpolation_test.go",
+          "name": "TestColorInterpolationColorInterpolationLinearDiffersFromSRGB"
         },
         {
-          "file": "internal/layout/css_behavior_gap_interp_test.go",
-          "name": "TestGapInterpColorInterpolationPropertyChangesGradientPaint"
+          "file": "internal/layout/css_behavior_color_interpolation_test.go",
+          "name": "TestColorInterpolationColorInterpolationPropertyChangesGradientPaint"
         }
       ],
       "status": "implemented",
@@ -4699,12 +4699,12 @@
           "name": "TestBehaviorColorInterpolationFiltersNoPaintEffect"
         },
         {
-          "file": "internal/layout/css_behavior_gap_interp_test.go",
-          "name": "TestGapInterpColorInterpolationFiltersLinearDiffersFromSRGB"
+          "file": "internal/layout/css_behavior_color_interpolation_test.go",
+          "name": "TestColorInterpolationColorInterpolationFiltersLinearDiffersFromSRGB"
         },
         {
-          "file": "internal/layout/css_behavior_gap_interp_test.go",
-          "name": "TestGapInterpColorInterpolationFiltersPropertyChangesFilteredPaint"
+          "file": "internal/layout/css_behavior_color_interpolation_test.go",
+          "name": "TestColorInterpolationColorInterpolationFiltersPropertyChangesFilteredPaint"
         }
       ],
       "status": "implemented",
@@ -6791,8 +6791,8 @@
           "name": "TestBehaviorSvgBakeFillRuleGap"
         },
         {
-          "file": "internal/layout/css_behavior_gap_close_c_test.go",
-          "name": "TestGapCFillRuleEvenOddHolesRaster"
+          "file": "internal/layout/css_behavior_paint_output_test.go",
+          "name": "TestPaintOutputFillRuleEvenOddHolesRaster"
         }
       ],
       "status": "implemented",
@@ -14295,8 +14295,8 @@
           "name": "TestBehaviorSvgBakeShapeRenderingGap"
         },
         {
-          "file": "internal/layout/css_behavior_gap_close_c_test.go",
-          "name": "TestGapCShapeRenderingCrispSnapsRaster"
+          "file": "internal/layout/css_behavior_paint_output_test.go",
+          "name": "TestPaintOutputShapeRenderingCrispSnapsRaster"
         }
       ],
       "status": "implemented",
@@ -15079,8 +15079,8 @@
           "name": "TestBehaviorTextAnchorNoPaintEffect"
         },
         {
-          "file": "internal/layout/css_behavior_gap_abc_test.go",
-          "name": "TestGapABCTextAnchorMiddleAnchorsSvgText"
+          "file": "internal/layout/css_behavior_svg_text_test.go",
+          "name": "TestSvgTextTextAnchorMiddleAnchorsSvgText"
         }
       ],
       "status": "implemented",
@@ -15639,12 +15639,12 @@
           "name": "TestBehaviorTextEmphasisSkipNoLayoutEffect"
         },
         {
-          "file": "internal/layout/css_behavior_gap_underline_test.go",
-          "name": "TestGapEmphasisSkipPunctuationSkipsComma"
+          "file": "internal/layout/css_behavior_underline_emphasis_test.go",
+          "name": "TestEmphasisSkipPunctuationSkipsComma"
         },
         {
-          "file": "internal/layout/css_behavior_gap_underline_test.go",
-          "name": "TestGapEmphasisSkipNarrowSkipsNarrow"
+          "file": "internal/layout/css_behavior_underline_emphasis_test.go",
+          "name": "TestEmphasisSkipNarrowSkipsNarrow"
         }
       ],
       "status": "implemented",
@@ -16047,12 +16047,12 @@
           "name": "TestTextDecorationPropsWave3"
         },
         {
-          "file": "internal/layout/css_behavior_gap_underline_test.go",
-          "name": "TestGapUnderlinePositionUnderDropsStroke"
+          "file": "internal/layout/css_behavior_underline_emphasis_test.go",
+          "name": "TestUnderlinePositionUnderDropsStroke"
         },
         {
-          "file": "internal/layout/css_behavior_gap_underline_test.go",
-          "name": "TestGapUnderlinePositionLeftRightMoveStroke"
+          "file": "internal/layout/css_behavior_underline_emphasis_test.go",
+          "name": "TestUnderlinePositionLeftRightMoveStroke"
         }
       ],
       "status": "implemented",

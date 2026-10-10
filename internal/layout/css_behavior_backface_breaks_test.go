@@ -2,7 +2,7 @@ package layout
 
 import "testing"
 
-// Hard-gap pins for backface-visibility and the break family.
+// Pinned behavior for backface-visibility and the break family.
 //
 // Reference browser for every case: Chrome 143.0.7499.40.
 //
@@ -43,11 +43,11 @@ import "testing"
 // at flex.go:223-225). Verdict: needs the full splitter. Pinned below as
 // stored-but-identical, never failing.
 
-// TestHardGapBackfaceVisibilityStoresButPaintsIdentical pins the
+// TestBackfaceBreakBackfaceVisibilityStoresButPaintsIdentical pins the
 // backface-visibility behavior: hidden stores canonically and paints
 // identical geometry to visible under the same 2D rotation, while a 3D
 // rotateY(180deg) with hidden zeroes its fill geometry and visible paints.
-func TestHardGapBackfaceVisibilityStoresButPaintsIdentical(t *testing.T) {
+func TestBackfaceBreakBackfaceVisibilityStoresButPaintsIdentical(t *testing.T) {
 	t.Parallel()
 
 	doc := func(vis string) string {
@@ -81,13 +81,13 @@ func TestHardGapBackfaceVisibilityStoresButPaintsIdentical(t *testing.T) {
 		t.Errorf("rotateY(180deg) HasTransform3D = false, want true (3D parses onto the side channel)")
 	}
 
-	hardGapAssertBackfaceCull(t)
+	assertBackfaceCull(t)
 }
 
-// hardGapAssertBackfaceCull pins the 3D truth: rotateY(180deg) turns the back
+// assertBackfaceCull pins the 3D truth: rotateY(180deg) turns the back
 // face to the viewer, so hidden zeroes the fill geometry while visible
 // paints. Reference: Chrome 143.0.7499.40.
-func hardGapAssertBackfaceCull(t *testing.T) {
+func assertBackfaceCull(t *testing.T) {
 	t.Helper()
 
 	threeDoc := func(vis string) string {
@@ -123,12 +123,12 @@ func hardGapAssertBackfaceCull(t *testing.T) {
 	}
 }
 
-// TestHardGapBreakBeforePageNoForcedBreak pins the break-before gap: the
+// TestBackfaceBreakBreakBeforePageNoForcedBreak pins the break-before gap: the
 // page value parses to PageBreakBefore always yet the block keeps its
 // in-flow position below its sibling instead of jumping past the 800pt page
 // boundary. Reference: Chrome 143.0.7499.40 would start the block on a new
 // page.
-func TestHardGapBreakBeforePageNoForcedBreak(t *testing.T) {
+func TestBackfaceBreakBreakBeforePageNoForcedBreak(t *testing.T) {
 	t.Parallel()
 
 	plain := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
@@ -159,13 +159,13 @@ func TestHardGapBreakBeforePageNoForcedBreak(t *testing.T) {
 	}
 }
 
-// TestHardGapBreakFamilyNoFragmentEffect pins the rest of the break family
+// TestBackfaceBreakBreakFamilyNoFragmentEffect pins the rest of the break family
 // as one representative gap: break-after:page, orphans:5, widows:5, and
 // margin-break:discard each paint identical geometry to the unstyled
 // document because the engine has no fragment break point to observe them
 // at. Reference: Chrome 143.0.7499.40 would break after the block, keep 5
 // lines together, and drop the adjoining margin at a real page break.
-func TestHardGapBreakFamilyNoFragmentEffect(t *testing.T) {
+func TestBackfaceBreakBreakFamilyNoFragmentEffect(t *testing.T) {
 	t.Parallel()
 
 	blocks := func(extra string) string {

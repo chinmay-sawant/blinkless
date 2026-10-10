@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// Gap-C behavior closes and pins. Each test asserts resolved used values
+// Paint output closes and pins. Each test asserts resolved used values
 // (raster pixels, baked matrices, line breaks), never stored strings.
 // Reference browser for every case: Chrome 143.0.7499.40. Shared helpers
 // layoutHTML, boxByID, behaviorPaintFxXformed, svgBakeSerialize,
@@ -15,23 +15,23 @@ import (
 // css_behavior_svg_paint_test.go, and css_behavior_svg_bake_test.go and are
 // never redeclared here.
 
-// gapCHoledPathD is one path with two same-winding nested rect subpaths:
+// paintOutputHoledPathD is one path with two same-winding nested rect subpaths:
 // an outer 44x24 rect holding an inner 20x12 hole. Under nonzero winding
 // the hole fills; under evenodd it stays empty.
-const gapCHoledPathD = "M10 10 H54 V34 H10 Z M22 16 H42 V28 H22 Z"
+const paintOutputHoledPathD = "M10 10 H54 V34 H10 Z M22 16 H42 V28 H22 Z"
 
-// TestGapCFillRuleEvenOddHolesRaster is fill-rule: evenodd on a holed path
+// TestPaintOutputFillRuleEvenOddHolesRaster is fill-rule: evenodd on a holed path
 // rasterizes the hole transparent while nonzero fills it, so used pixels
 // differ. The pinned canvas parser has no fill-rule case in its style
 // switch, so internal/svg emulates evenodd by reversing the inner subpath
 // winding before ParseSVG (raster.go). Reference: Chrome 143.0.7499.40
 // applies evenodd winding to holed paths.
-func TestGapCFillRuleEvenOddHolesRaster(t *testing.T) {
+func TestPaintOutputFillRuleEvenOddHolesRaster(t *testing.T) {
 	t.Parallel()
 	svgBakeRequireMem(t)
 
 	path := func(rule string) string {
-		return `<path d="` + gapCHoledPathD + `" style="fill:#ff0000;fill-rule:` + rule + `"/>`
+		return `<path d="` + paintOutputHoledPathD + `" style="fill:#ff0000;fill-rule:` + rule + `"/>`
 	}
 
 	serialized := svgBakeSerialize(t, path("evenodd"))
@@ -72,13 +72,13 @@ func TestGapCFillRuleEvenOddHolesRaster(t *testing.T) {
 	}
 }
 
-// TestGapCShapeRenderingCrispSnapsRaster is shape-rendering: crispEdges on a
+// TestPaintOutputShapeRenderingCrispSnapsRaster is shape-rendering: crispEdges on a
 // half-pixel rect snaps its edges to whole pixels while auto keeps the
 // fractional position, so used pixels differ. The pinned canvas parser has
 // no shape-rendering case, so internal/svg rounds crisp rect/circle/ellipse
 // geometry to whole pixels before ParseSVG (raster.go). Reference: Chrome
 // 143.0.7499.40 snaps edges with crispEdges.
-func TestGapCShapeRenderingCrispSnapsRaster(t *testing.T) {
+func TestPaintOutputShapeRenderingCrispSnapsRaster(t *testing.T) {
 	t.Parallel()
 	svgBakeRequireMem(t)
 
@@ -102,7 +102,7 @@ func TestGapCShapeRenderingCrispSnapsRaster(t *testing.T) {
 	}
 }
 
-// TestGapCTransformBoxFillViewShareBorderOrigin pins the transform-box
+// TestPaintOutputTransformBoxFillViewShareBorderOrigin pins the transform-box
 // viewport gap: fill-box and view-box on a CSS layout box bake identical
 // matrices because both fall back to the border box. Per CSS Transforms 2,
 // fill-box uses the object bounding box (the border box for CSS boxes) and
@@ -111,7 +111,7 @@ func TestGapCShapeRenderingCrispSnapsRaster(t *testing.T) {
 // them identically. Divergence would need the nearest SVG viewport carried
 // into boxTransformAccum (transform.go), which the 2D box stamper does not
 // carry. Reported with used matrices, never failing.
-func TestGapCTransformBoxFillViewShareBorderOrigin(t *testing.T) {
+func TestPaintOutputTransformBoxFillViewShareBorderOrigin(t *testing.T) {
 	t.Parallel()
 
 	doc := func(box string) string {
@@ -147,12 +147,12 @@ func TestGapCTransformBoxFillViewShareBorderOrigin(t *testing.T) {
 	}
 }
 
-// TestGapCPrettyAvoidsOrphanTail is text-wrap-style: pretty at helper
+// TestPaintOutputPrettyAvoidsOrphanTail is text-wrap-style: pretty at helper
 // level: four 40pt words in a 130pt box wrap 3+1 greedily, and pretty
 // re-breaks them 2+2 at a narrower width so the last line keeps two words.
 // Reference: Chrome 143.0.7499.40 pulls another word down instead of
 // leaving a one-word orphan.
-func TestGapCPrettyAvoidsOrphanTail(t *testing.T) {
+func TestPaintOutputPrettyAvoidsOrphanTail(t *testing.T) {
 	t.Parallel()
 
 	items := []inlineItem{
@@ -186,10 +186,10 @@ func TestGapCPrettyAvoidsOrphanTail(t *testing.T) {
 	}
 }
 
-// TestGapCPrettyKeepsGoodBreaks pins the pretty no-op sides: an already
+// TestPaintOutputPrettyKeepsGoodBreaks pins the pretty no-op sides: an already
 // even tail, a single line, an unfittable width, and a forced break all
 // return 0 so greedy stands.
-func TestGapCPrettyKeepsGoodBreaks(t *testing.T) {
+func TestPaintOutputPrettyKeepsGoodBreaks(t *testing.T) {
 	t.Parallel()
 
 	items := []inlineItem{
@@ -217,9 +217,9 @@ func TestGapCPrettyKeepsGoodBreaks(t *testing.T) {
 	}
 }
 
-// TestGapCPrettyApplyGates mirrors the balance gates: floats, line clamp,
+// TestPaintOutputPrettyApplyGates mirrors the balance gates: floats, line clamp,
 // indents, and non-pretty styles opt out.
-func TestGapCPrettyApplyGates(t *testing.T) {
+func TestPaintOutputPrettyApplyGates(t *testing.T) {
 	t.Parallel()
 
 	pretty := &ResolvedStyle{TextWrapStyle: "pretty"}
@@ -251,7 +251,7 @@ func TestGapCPrettyApplyGates(t *testing.T) {
 	}
 }
 
-// TestGapCPrettyWiringPinsCascadeGap pins the pretty end-to-end wiring gap:
+// TestPaintOutputPrettyWiringPinsCascade pins the pretty end-to-end wiring gap:
 // the cascade acceptance table still rejects pretty, so a pretty paragraph
 // lays out exactly like normal greedy text. The prettyLineWidth helper above
 // proves the break logic; reaching it from CSS needs the acceptance flip

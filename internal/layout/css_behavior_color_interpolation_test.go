@@ -1,4 +1,4 @@
-//nolint:varnamelen // gap-interp observable pixel suite
+//nolint:varnamelen // color-interp observable pixel suite
 package layout
 
 import (
@@ -16,8 +16,8 @@ import (
 // opsOfKind, and makeTestPNG come from other files in this package and are
 // reused here, never redeclared.
 
-// gapInterpDecodePNG decodes one display-list image payload into pixels.
-func gapInterpDecodePNG(t *testing.T, payload []byte) image.Image {
+// colorInterpDecodePNG decodes one display-list image payload into pixels.
+func colorInterpDecodePNG(t *testing.T, payload []byte) image.Image {
 	t.Helper()
 
 	img, err := png.Decode(bytes.NewReader(payload))
@@ -28,8 +28,8 @@ func gapInterpDecodePNG(t *testing.T, payload []byte) image.Image {
 	return img
 }
 
-// gapInterpPixelAt reads the row-0 pixel at column x as 8-bit channels.
-func gapInterpPixelAt(t *testing.T, img image.Image, x int) color.NRGBA {
+// colorInterpPixelAt reads the row-0 pixel at column x as 8-bit channels.
+func colorInterpPixelAt(t *testing.T, img image.Image, x int) color.NRGBA {
 	t.Helper()
 
 	converted, ok := color.NRGBAModel.Convert(img.At(x, 0)).(color.NRGBA)
@@ -40,8 +40,8 @@ func gapInterpPixelAt(t *testing.T, img image.Image, x int) color.NRGBA {
 	return converted
 }
 
-// gapInterpAbsDiff is the absolute channel distance between two bytes.
-func gapInterpAbsDiff(a, b uint8) int {
+// colorInterpAbsDiff is the absolute channel distance between two bytes.
+func colorInterpAbsDiff(a, b uint8) int {
 	if a > b {
 		return int(a) - int(b)
 	}
@@ -49,9 +49,9 @@ func gapInterpAbsDiff(a, b uint8) int {
 	return int(b) - int(a)
 }
 
-// gapInterpPaintedMidpoints asserts two results paint identical op geometry,
+// colorInterpPaintedMidpoints asserts two results paint identical op geometry,
 // then returns the horizontal-center used pixels of their first image ops.
-func gapInterpPaintedMidpoints(t *testing.T, first, second *Result) (color.NRGBA, color.NRGBA) {
+func colorInterpPaintedMidpoints(t *testing.T, first, second *Result) (color.NRGBA, color.NRGBA) {
 	t.Helper()
 
 	if len(first.Ops) != len(second.Ops) {
@@ -77,18 +77,18 @@ func gapInterpPaintedMidpoints(t *testing.T, first, second *Result) (color.NRGBA
 		return nil
 	}
 
-	firstImg := gapInterpDecodePNG(t, payload(first))
-	secondImg := gapInterpDecodePNG(t, payload(second))
+	firstImg := colorInterpDecodePNG(t, payload(first))
+	secondImg := colorInterpDecodePNG(t, payload(second))
 	midX := firstImg.Bounds().Dx() / 2
 
-	return gapInterpPixelAt(t, firstImg, midX), gapInterpPixelAt(t, secondImg, midX)
+	return colorInterpPixelAt(t, firstImg, midX), colorInterpPixelAt(t, secondImg, midX)
 }
 
-// TestGapInterpColorInterpolationLinearDiffersFromSRGB is color-interpolation
+// TestColorInterpolationColorInterpolationLinearDiffersFromSRGB is color-interpolation
 // on gradients: sampling a black-to-white gradient in linear light renders a
 // brighter midpoint than sampling in sRGB gamma. Reference: Chrome
 // 143.0.7499.40 interpolates the selected space instead of always gamma.
-func TestGapInterpColorInterpolationLinearDiffersFromSRGB(t *testing.T) {
+func TestColorInterpolationColorInterpolationLinearDiffersFromSRGB(t *testing.T) {
 	t.Parallel()
 
 	const gradient = "linear-gradient(to right, #000000, #ffffff)"
@@ -103,10 +103,10 @@ func TestGapInterpColorInterpolationLinearDiffersFromSRGB(t *testing.T) {
 		t.Fatal("linear gradient render failed")
 	}
 
-	srgbMid := gapInterpPixelAt(t, gapInterpDecodePNG(t, srgbBytes), 50)
-	linearMid := gapInterpPixelAt(t, gapInterpDecodePNG(t, linearBytes), 50)
+	srgbMid := colorInterpPixelAt(t, colorInterpDecodePNG(t, srgbBytes), 50)
+	linearMid := colorInterpPixelAt(t, colorInterpDecodePNG(t, linearBytes), 50)
 
-	if gapInterpAbsDiff(srgbMid.R, linearMid.R) < 30 {
+	if colorInterpAbsDiff(srgbMid.R, linearMid.R) < 30 {
 		t.Errorf("gradient midpoint R = %d (srgb) vs %d (linear), want >= 30 apart",
 			srgbMid.R, linearMid.R)
 	}
@@ -116,11 +116,11 @@ func TestGapInterpColorInterpolationLinearDiffersFromSRGB(t *testing.T) {
 	}
 }
 
-// TestGapInterpColorInterpolationPropertyChangesGradientPaint wires the
+// TestColorInterpolationColorInterpolationPropertyChangesGradientPaint wires the
 // color-interpolation declaration to gradient paint: two documents that
 // differ only in the property emit the same op geometry but different used
 // gradient pixels. Reference: Chrome 143.0.7499.40.
-func TestGapInterpColorInterpolationPropertyChangesGradientPaint(t *testing.T) {
+func TestColorInterpolationColorInterpolationPropertyChangesGradientPaint(t *testing.T) {
 	t.Parallel()
 
 	doc := func(interp string) *Result {
@@ -130,21 +130,21 @@ func TestGapInterpColorInterpolationPropertyChangesGradientPaint(t *testing.T) {
 			`color-interpolation:`+interp+`"></div></body></html>`)
 	}
 
-	srgbMid, linearMid := gapInterpPaintedMidpoints(t, doc("sRGB"), doc("linearRGB"))
+	srgbMid, linearMid := colorInterpPaintedMidpoints(t, doc("sRGB"), doc("linearRGB"))
 
-	if gapInterpAbsDiff(srgbMid.R, linearMid.R) < 30 {
+	if colorInterpAbsDiff(srgbMid.R, linearMid.R) < 30 {
 		t.Errorf("painted midpoint R = %d (sRGB) vs %d (linearRGB), want >= 30 apart",
 			srgbMid.R, linearMid.R)
 	}
 }
 
-// TestGapInterpColorInterpolationFiltersLinearDiffersFromSRGB wires
+// TestColorInterpolationColorInterpolationFiltersLinearDiffersFromSRGB wires
 // color-interpolation-filters to filter primitives: grayscale(1) over solid
 // red computes luminance in linear light instead of gamma, and invert(1)
 // over mid-gray inverts the linear value instead of the gamma value, so both
 // used pixels differ. Reference: Chrome 143.0.7499.40 runs filter primitives
 // in the selected space.
-func TestGapInterpColorInterpolationFiltersLinearDiffersFromSRGB(t *testing.T) {
+func TestColorInterpolationColorInterpolationFiltersLinearDiffersFromSRGB(t *testing.T) {
 	t.Parallel()
 
 	t.Run("grayscale", func(t *testing.T) {
@@ -153,12 +153,12 @@ func TestGapInterpColorInterpolationFiltersLinearDiffersFromSRGB(t *testing.T) {
 		raw := makeTestPNG(4, 4, color.RGBA{255, 0, 0, 255})
 		filters := parseFilterList("grayscale(1)", [3]float64{0, 0, 0}, 12)
 
-		srgbOut := gapInterpPixelAt(t, gapInterpDecodePNG(t,
+		srgbOut := colorInterpPixelAt(t, colorInterpDecodePNG(t,
 			applyImageFilterToImageWithInterp(raw, filters, "srgb")), 0)
-		linearOut := gapInterpPixelAt(t, gapInterpDecodePNG(t,
+		linearOut := colorInterpPixelAt(t, colorInterpDecodePNG(t,
 			applyImageFilterToImageWithInterp(raw, filters, "linearrgb")), 0)
 
-		if gapInterpAbsDiff(srgbOut.R, linearOut.R) < 30 {
+		if colorInterpAbsDiff(srgbOut.R, linearOut.R) < 30 {
 			t.Errorf("grayscale R = %d (srgb) vs %d (linear), want >= 30 apart",
 				srgbOut.R, linearOut.R)
 		}
@@ -170,23 +170,23 @@ func TestGapInterpColorInterpolationFiltersLinearDiffersFromSRGB(t *testing.T) {
 		raw := makeTestPNG(4, 4, color.RGBA{128, 128, 128, 255})
 		filters := parseFilterList("invert(1)", [3]float64{0, 0, 0}, 12)
 
-		srgbOut := gapInterpPixelAt(t, gapInterpDecodePNG(t,
+		srgbOut := colorInterpPixelAt(t, colorInterpDecodePNG(t,
 			applyImageFilterToImageWithInterp(raw, filters, "srgb")), 0)
-		linearOut := gapInterpPixelAt(t, gapInterpDecodePNG(t,
+		linearOut := colorInterpPixelAt(t, colorInterpDecodePNG(t,
 			applyImageFilterToImageWithInterp(raw, filters, "linearrgb")), 0)
 
-		if gapInterpAbsDiff(srgbOut.R, linearOut.R) < 50 {
+		if colorInterpAbsDiff(srgbOut.R, linearOut.R) < 50 {
 			t.Errorf("invert R = %d (srgb) vs %d (linear), want >= 50 apart",
 				srgbOut.R, linearOut.R)
 		}
 	})
 }
 
-// TestGapInterpColorInterpolationFiltersPropertyChangesFilteredPaint wires
+// TestColorInterpolationColorInterpolationFiltersPropertyChangesFilteredPaint wires
 // the color-interpolation-filters declaration to filtered paint: two
 // documents that differ only in the property emit the same op geometry but
 // different used filtered pixels. Reference: Chrome 143.0.7499.40.
-func TestGapInterpColorInterpolationFiltersPropertyChangesFilteredPaint(t *testing.T) {
+func TestColorInterpolationColorInterpolationFiltersPropertyChangesFilteredPaint(t *testing.T) {
 	t.Parallel()
 
 	doc := func(interp string) *Result {
@@ -197,9 +197,9 @@ func TestGapInterpColorInterpolationFiltersPropertyChangesFilteredPaint(t *testi
 			`color-interpolation-filters:`+interp+`"></div></body></html>`)
 	}
 
-	srgbMid, linearMid := gapInterpPaintedMidpoints(t, doc("sRGB"), doc("linearRGB"))
+	srgbMid, linearMid := colorInterpPaintedMidpoints(t, doc("sRGB"), doc("linearRGB"))
 
-	if gapInterpAbsDiff(srgbMid.R, linearMid.R) < 30 {
+	if colorInterpAbsDiff(srgbMid.R, linearMid.R) < 30 {
 		t.Errorf("filtered R = %d (sRGB) vs %d (linearRGB), want >= 30 apart",
 			srgbMid.R, linearMid.R)
 	}
