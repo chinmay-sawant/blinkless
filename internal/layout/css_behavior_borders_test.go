@@ -613,30 +613,11 @@ func TestBehaviorBorderColorPaintsTopEdge(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			res := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
-				`<div id="item" style="width:200px;height:40px;`+testCase.style+`"></div>`+
-				`</body></html>`)
-
-			item := boxByID(t, res, "item")
-
-			found := false
-
-			for _, paintOp := range behaviorBordersHorizontalLines(res.Ops) {
-				if !near(paintOp.Y, item.y) {
-					continue
-				}
-
-				found = true
-
-				if !near(paintOp.R, testCase.wantR) || !near(paintOp.G, testCase.wantG) || !near(paintOp.B, testCase.wantB) {
-					t.Errorf("top edge color = (%.2f, %.2f, %.2f), want (%.0f, %.0f, %.0f)",
-						paintOp.R, paintOp.G, paintOp.B, testCase.wantR, testCase.wantG, testCase.wantB)
-				}
-			}
-
-			if !found {
-				t.Fatalf("no top border op at y %.4fpt", item.y)
-			}
+			behaviorBordRestCheckColor(t, testCase.style, testCase.wantR, testCase.wantG, testCase.wantB,
+				behaviorBordersHorizontalLines,
+				func(item *box) float64 { return item.y },
+				func(lineOp Op) float64 { return lineOp.Y },
+				"top")
 		})
 	}
 }
