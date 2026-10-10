@@ -131,5 +131,5 @@ update `manifest.json` by hand when a case gains a measurement.
   cases use box geometry or browser measurements instead.
 - The inventory has 24 `layout-unit` targets, 15 that need a Chrome reference
   or a larger rewrite, and one print-fragmentation target.
-- CAT-07 in `plans/0.0.1/html-css-json-compatibility-checklist.md` owns the
+- CAT-07 in `plans/v0.0.1/html-css-json-compatibility-checklist.md` owns the
   evidence linkage.

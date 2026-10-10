@@ -2,7 +2,7 @@
 
 blinkless lays out authored HTML and CSS into a drawing list. The list is the output. The engine does not write PDF files and it does not encode a page PNG or JPEG. It is not a browser.
 
-This guide is the product-facing fidelity story. The normative per-property contract is the [compatibility matrix](compatibility-matrix.md). Capability work and its evidence are tracked in [`plans/0.0.1/html-css-json-compatibility-checklist.md`](../plans/0.0.1/html-css-json-compatibility-checklist.md).
+This guide is the product-facing fidelity story. The normative per-property contract is the [compatibility matrix](compatibility-matrix.md). Capability work and its evidence are tracked in [`plans/v0.0.1/html-css-json-compatibility-checklist.md`](../plans/v0.0.1/html-css-json-compatibility-checklist.md).
 
 ---
 
@@ -110,4 +110,4 @@ Banned or over-claim: pixel perfect, full CSS, browser replacement, WebKit parit
 | [library-api.md](library-api.md) | Library calls and the WASM drawing-list JSON schema |
 | [deferred.md](deferred.md) | Deferred features |
 | [getting-started.md](getting-started.md) | Build and first call |
-| [plans/0.0.1/html-css-json-compatibility-checklist.md](../plans/0.0.1/html-css-json-compatibility-checklist.md) | Active capability ledger and evidence |
+| [plans/v0.0.1/html-css-json-compatibility-checklist.md](../plans/v0.0.1/html-css-json-compatibility-checklist.md) | Active capability ledger and evidence |

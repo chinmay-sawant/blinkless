@@ -89,3 +89,7 @@ plans/0.2.6/perf-time/profiles/raw/*
 
 # Agent batch proof notes (local only; not committed)
 plans/**/phases/_proof-*.md
+
+# Generated HTML reports (local only; not committed). These are rebuilt from
+# the chat database and git history, so they are reproducible artifacts.
+plans/**/report/

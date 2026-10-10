@@ -113,7 +113,7 @@ claim-scan:
 	fi
 	@echo "claim-scan: clean"
 
-# Read-only CSS property catalog gate (plans/0.0.1 Phase 4, CAT-01..CAT-04).
+# Read-only CSS property catalog gate (plans/v0.0.1 Phase 4, CAT-01..CAT-04).
 # Checks testdata/css/catalog/properties.json against handler discovery in
 # internal/layout and the pinned webref inventory: duplicate names, missing
 # handlers, invalid statuses, missing source/test references, and summary

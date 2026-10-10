@@ -47,7 +47,7 @@ A consumer that paints a screen raster opts in at the display-list boundary: `la
 
 ## Geometry fixes from the review waves
 
-Waves B and E fixed five defects found by the wave A CSS review and one found by the wave D geometry recheck. The rows and their evidence live at `plans/0.0.1/html-css-json-compatibility-checklist.md:141-146`. All six are in the current tree.
+Waves B and E fixed five defects found by the wave A CSS review and one found by the wave D geometry recheck. The rows and their evidence live at `plans/v0.0.1/html-css-json-compatibility-checklist.md:141-146`. All six are in the current tree.
 
 **C1, distributed justify-content kept the gap.** `justifyDistributed` (`internal/layout/flex.go:1338-1367`) subtracts the fixed gaps before it shares the leftover space, then adds the shared amount on top of the gap. Row lines call it at `flex.go:1331-1332`, columns at `internal/layout/flex_columns.go:410-411`.
 
@@ -104,5 +104,5 @@ The HTML parser inserts an implicit `tbody` when it sees `tr`, `td`, or `th` dir
 
 - Drawing-list tests: `make golden` runs `TestDisplay` in `./layout`.
 - Geometry runs (2026-10-09): 11 flex, grid, logical-property, and text fixtures compared against Chrome `143.0.7499.40` at 1024x768 with a 1.0 px tolerance. The wave A baseline had 101 of 215 like-for-like units within tolerance, where a unit is one element box measured in both engines; the wave D recheck after the C1-C5 fixes had 151 of 215 (`documentation/fidelity.md:57`). These are per-case comparisons, not a parity claim.
-- Chrome cases: `test/chrome` holds 40 selected Flexbox targets. The manifest records 26 completed and 14 blocked (`test/chrome/README.md:26`). The blocked root causes are clustered in `temps/chrome-cases/blocked-dossier.md`; the CAT-07 row points there (`plans/0.0.1/html-css-json-compatibility-checklist.md:116`). The dossier notes that the C6 fix closed the panel deltas in cases 17, 18, and 19, and that everything else was still open at its date (`temps/chrome-cases/blocked-dossier.md:15-20`).
-- Defect rows and evidence: `plans/0.0.1/html-css-json-compatibility-checklist.md:141-146` for C1 through C6.
+- Chrome cases: `test/chrome` holds 40 selected Flexbox targets. The manifest records 26 completed and 14 blocked (`test/chrome/README.md:26`). The blocked root causes are clustered in `temps/chrome-cases/blocked-dossier.md`; the CAT-07 row points there (`plans/v0.0.1/html-css-json-compatibility-checklist.md:116`). The dossier notes that the C6 fix closed the panel deltas in cases 17, 18, and 19, and that everything else was still open at its date (`temps/chrome-cases/blocked-dossier.md:15-20`).
+- Defect rows and evidence: `plans/v0.0.1/html-css-json-compatibility-checklist.md:141-146` for C1 through C6.

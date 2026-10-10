@@ -821,7 +821,7 @@ def render_matrix(root: Path) -> int:
     add(
         "An implemented status is not a browser-parity or parser-conformance "
         "claim. Rendering comparisons and HTML parsing carry separate evidence in "
-        "`plans/0.0.1/html-css-json-compatibility-checklist.md`."
+        "`plans/v0.0.1/html-css-json-compatibility-checklist.md`."
     )
     add("")
 

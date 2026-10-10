@@ -8,7 +8,7 @@
 
 ## Motivation / context
 
-- Plans: `plans/0.0.1/html-css-json-compatibility-checklist.md` (all rows closed, with a decision log), `plans/0.0.1/phase-wise-checklist.md` (12 open rows remain), `plans/0.0.1/css-behavior-coverage-tests-checklist.md` (new: the 301 partial rows, of which 298 are test-only gaps), `plans/README.md`.
+- Plans: `plans/v0.0.1/html-css-json-compatibility-checklist.md` (all rows closed, with a decision log), `plans/v0.0.1/phase-wise-checklist.md` (12 open rows remain), `plans/v0.0.1/css-behavior-coverage-tests-checklist.md` (new: the 301 partial rows, of which 298 are test-only gaps), `plans/README.md`.
 - Issues: none; the program is tracked by the plan ledgers above.
 
 ## Changes
@@ -84,7 +84,7 @@ make final-evidence FINAL_EVIDENCE_FLAGS=--full
 
 ## Related issues
 
-- No tracking issue; tracked by `plans/0.0.1/html-css-json-compatibility-checklist.md` and `plans/0.0.1/phase-wise-checklist.md`.
+- No tracking issue; tracked by `plans/v0.0.1/html-css-json-compatibility-checklist.md` and `plans/v0.0.1/phase-wise-checklist.md`.
 
 ## PR metadata checklist (author)
 
@@ -122,7 +122,7 @@ make final-evidence FINAL_EVIDENCE_FLAGS=--full
 | `.js` | 1 | 0 | 58 |
 | `.json` | 6 | 23876 | 29 |
 | `.jsonl` | 1 | 28 | 0 |
-| `.md` | 67 | 5716 | 4066 |
+| `.md` | 68 | 5897 | 4247 |
 | `.mjs` | 1 | 225 | 0 |
 | `.py` | 12 | 1533 | 667 |
 | `.sh` | 8 | 597 | 41 |
@@ -130,5 +130,5 @@ make final-evidence FINAL_EVIDENCE_FLAGS=--full
 | `.toml` | 1 | 7 | 2 |
 | `.txt` | 2 | 22 | 1 |
 | `.yml` | 3 | 94 | 71 |
-| No extension | 3 | 56 | 109 |
-| **Total** | **349** | **135468** | **7168** |
+| No extension | 3 | 60 | 109 |
+| **Total** | **350** | **135653** | **7349** |

@@ -15,7 +15,7 @@ list preserves the result.
 Read these files before editing:
 
 - `knowledge-base/wiki/index.md`
-- `plans/0.0.1/html-css-json-compatibility-checklist.md`
+- `plans/v0.0.1/html-css-json-compatibility-checklist.md`
 - `test/chrome/README.md`
 - `test/chrome/manifest.json`
 - the Chromium source file named by the case

@@ -1,6 +1,6 @@
 # blinkless - HTML/CSS compatibility matrix
 
-> **Parent:** [plans/0.0.1/phase-wise-checklist.md](../plans/0.0.1/phase-wise-checklist.md) and [plans/0.0.1/html-css-json-compatibility-checklist.md](../plans/0.0.1/html-css-json-compatibility-checklist.md)  
+> **Parent:** [plans/v0.0.1/phase-wise-checklist.md](../plans/v0.0.1/phase-wise-checklist.md) and [plans/v0.0.1/html-css-json-compatibility-checklist.md](../plans/v0.0.1/html-css-json-compatibility-checklist.md)  
 > **Status:** living contract - amendments go through plan review  
 > **Target:** authored HTML and CSS to a `layout.DisplayList` (the drawing list). **Not** a browser. **Not** a PDF writer. **Not** a page rasterizer.  
 > **Catalog:** `testdata/css/catalog/properties.json` (schema v1), measured 2026-10-09: 785 rows - 90 Implemented / 301 Partial / 387 Unsupported / 7 intentionally ignored. Upstream pin: webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties). Fidelity guide: [fidelity.md](fidelity.md).
@@ -50,7 +50,7 @@ Statuses describe the layout pipeline, not browsers:
 - **Unsupported** - no consumer and no observable behavior. The declaration may be parsed and stored or dropped entirely.
 - **Intentionally ignored** - deliberately ignored print-noop UI chrome.
 
-An implemented status is not a browser-parity or parser-conformance claim. Rendering comparisons and HTML parsing carry separate evidence in `plans/0.0.1/html-css-json-compatibility-checklist.md`.
+An implemented status is not a browser-parity or parser-conformance claim. Rendering comparisons and HTML parsing carry separate evidence in `plans/v0.0.1/html-css-json-compatibility-checklist.md`.
 
 ### 2.1 Implemented (90)
 
@@ -1188,7 +1188,7 @@ own flag contract; this matrix makes no flag claims.
 ## Amendment process
 
 Any change to this matrix is a catalog edit or a plan amendment, recorded
-against [plans/0.0.1/html-css-json-compatibility-checklist.md](../plans/0.0.1/html-css-json-compatibility-checklist.md).
+against [plans/v0.0.1/html-css-json-compatibility-checklist.md](../plans/v0.0.1/html-css-json-compatibility-checklist.md).
 Regenerate section 2 with `python3 scripts/css-catalog-map.py --matrix` after a
 catalog change; `make catalog-check` fails on drift between the catalog and the
 code. The 0.0.1 compatibility work maps its rows to this matrix.

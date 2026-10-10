@@ -284,7 +284,7 @@ c-shared job that asserts the ABI and version stamp.
 
 ## Plans and ledgers
 
-`plans/` is version-partitioned (`plans/0.0.1/` onward), indexed
+`plans/` is version-partitioned (`plans/v0.0.1/` onward), indexed
 by `plans/README.md`. Each version dir holds a numbered canonical ledger plus
 per-phase checklists; audits land under `<version>/improve-codebase/<date>/`;
 PR bodies live in `plans/PR/`. Phase checklist format comes from

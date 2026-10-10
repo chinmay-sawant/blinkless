@@ -1,6 +1,6 @@
 # testdata/golden - Fixture Corpus
 
-> **Parent:** `plans/0.0.1/phase-wise-checklist.md` (removal of the PDF pipeline).
+> **Parent:** `plans/v0.0.1/phase-wise-checklist.md` (removal of the PDF pipeline).
 > **Purpose:** HTML and CSS inputs for the layout engine. The output is
 > `layout.DisplayList`; there is no PDF writer and no stored golden bytes.
 

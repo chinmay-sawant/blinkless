@@ -726,7 +726,7 @@ list is in `temps/html-conformance/engine-baseline.json`.
 Traceability: tokenizer rows HTML-03a, HTML-03b, HTML-04a, and HTML-INPUT-01
 are closed; tree rows HTML-02a, HTML-MODE-01, HTML-FOREIGN-01, HTML-05a,
 HTML-FORMAT-01, HTML-CONTEXT-01, HTML-FRAGMENT-01, and HTML-INTEGRATION-01
-are closed in `plans/0.0.1/html-css-json-compatibility-checklist.md`.
+are closed in `plans/v0.0.1/html-css-json-compatibility-checklist.md`.
 
 ### 9.4 Cross-package validation
 
@@ -784,7 +784,7 @@ check drawing-list output (for example `layout/displaylist_test.go`, run by
 - Deferred / not-planned items: [`../deferred.md`](../deferred.md)
 - Fonts & shaping (feeds text layout that consumes this tree): [`../fonts.md`](../fonts.md)
 - Library API (how callers supply HTML bytes): [`../library-api.md`](../library-api.md)
-- Live parser plan ledger: [`../../plans/0.0.1/html-css-json-compatibility-checklist.md`](../../plans/0.0.1/html-css-json-compatibility-checklist.md)
+- Live parser plan ledger: [`../../plans/v0.0.1/html-css-json-compatibility-checklist.md`](../../plans/v0.0.1/html-css-json-compatibility-checklist.md)
 
 Sibling architecture deep-dives (same directory):
 
