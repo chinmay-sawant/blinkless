@@ -42,8 +42,8 @@ testdata/golden/
 There is no stored golden comparison. `make golden` runs the public
 drawing-list tests (`TestDisplay*` in `./layout`) and never reads this
 directory. Focused regression tests under `internal/layout` load individual
-fixtures, and the external comparison targets (`make weasyprint`,
-`make bench`) use the corpus as inputs.
+fixtures; the external engine comparison (`make bench`) uses its own
+generated report template, not these fixtures.
 
 When `fixture-NN-header.html` and/or `fixture-NN-footer.html` exist beside a
 body fixture, they are companions, not standalone body fixtures. They were
@@ -131,9 +131,7 @@ no pass/fail contract on fixture bytes. The corpus serves:
 
 1. **Focused regression tests:** `internal/layout` tests load individual
    fixtures (for example `TestFixture16HeaderBG` in `fixture_bugs_test.go`).
-2. **External comparisons:** `make weasyprint` and `make bench` convert the
-   whole corpus with other engines.
-3. **Manual inspection:** each header states what the fixture is meant to
+2. **Manual inspection:** each header states what the fixture is meant to
    prove, and the `Expected:` line records the author's intent.
 
 `make golden` gates the public drawing-list tests in `./layout`; it does not

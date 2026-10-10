@@ -128,9 +128,9 @@ body { margin: 0 }
 	}
 }
 
-// TestOpRadiiXYParity pins the exported op-radius resolver that imageout
-// consumes: uniform shorthand, per-corner longhands, a uniform Y-only radius,
-// and a stale corner Y with no matching X.
+// TestOpRadiiXYParity pins the exported op-radius resolver: uniform shorthand,
+// per-corner longhands, a uniform Y-only radius, and a stale corner Y with no
+// matching X.
 func TestOpRadiiXYParity(t *testing.T) {
 	t.Parallel()
 

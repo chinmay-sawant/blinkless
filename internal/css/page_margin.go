@@ -10,8 +10,8 @@ type PageMarginBoxes struct {
 }
 
 // parsePageBlock removes nested at-rules while collecting unnamed margin-box
-// content. Named pages and page pseudos pass capture=false because convert's
-// lite header/footer consumer repeats only the unnamed page chrome.
+// content. Named pages and page pseudos pass capture=false because only the
+// unnamed page chrome is modeled.
 func parsePageBlock(block string, capture bool) (PageMarginBoxes, string) {
 	var boxes PageMarginBoxes
 

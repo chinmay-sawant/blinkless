@@ -8,7 +8,8 @@ with concrete scenarios and a **preferred** integration pattern.
 
 - There is **no JavaScript engine** and no shell/`os/exec`. Hostile HTML cannot
   “run code” in the browser sense inside blinkless.
-- Returning a PNG or JPEG to the client is ordinary file serving.
+- Returning the drawing list (or a PDF you render from it) is ordinary file
+  serving.
 - **MIT licensing** is unrelated to these runtime risks.
 
 ## What *is* the risk (attack surface)
@@ -39,10 +40,10 @@ tool is a full “SSRF firewall.”
 Assume a handler roughly like:
 
 ```go
-r.GET("/pdf", func(c *gin.Context) {
+r.GET("/document", func(c *gin.Context) {
     // How you choose `source` decides the risk.
-    pdf, err := convertToPDF(c.Request.Context(), source)
-    // ... write application/pdf ...
+    display, err := convertToDisplayList(c.Request.Context(), source)
+    // ... serialize the drawing list ...
 })
 ```
 
@@ -50,15 +51,15 @@ r.GET("/pdf", func(c *gin.Context) {
 
 ```text
 User → Gin → render YOUR template (html/template) with YOUR data
-           → write temp file under a dedicated dir OR pass controlled path
-           → blinkless (local ACL only for that dir, if needed)
-           → return PDF bytes
+           → pass the trusted HTML inline, or a path you control
+           → blinkless with its default-deny local ACL
+           → return the drawing list
 ```
 
 | Control | Recommendation |
 |---------|----------------|
 | Source | HTML **you** generate or a path **you** choose |
-| Local files | Default **deny**; if needed, `--allow /var/app/templates` (or API equivalent) only |
+| Local files | Default **deny**; keep it that way for untrusted input (allow prefixes live in the internal settings model) |
 | Remote URLs | Avoid user-supplied URLs; link only assets you host |
 | Credentials | Do not attach user cookies / API keys to the converter |
 
@@ -79,7 +80,7 @@ Your **server** then requests hosts **the attacker’s browser cannot reach**:
 | `http://127.0.0.1:6379/` | Internal Redis / admin ports |
 | `http://10.0.0.5:8080/admin` | Private VPC services |
 
-Even a “broken-looking” PDF or error can leak **status, timing, or body
+Even a “broken-looking” response or error can leak **status, timing, or body
 snippets**. Same pattern works with **upstream wkhtmltopdf** if the app
 passes user URLs through.
 
@@ -109,12 +110,13 @@ skipped.
 
 ### D - Local files enabled + user input (high risk: file read)
 
-Defaults block local files. If the app enables:
+Defaults block local files. If the app enables them:
 
-- CLI: `--allow-local-files`
-- Library: prefer `Document.Allow = []string{"/var/app/templates"}`; use
-  `AllowLocalFiles = true` only when a broad enable is unavoidable (prefer a
-  dedicated worker and narrow filesystem scope for untrusted input)
+- The public entry points (`css.Apply`, `bindings/wasm`) build their loaders
+  with local-file access denied, so a library caller runs default-deny today.
+- Widening it means changing the internal settings model
+  (`EnableLocalFileAccess` / allow prefixes); prefer a dedicated worker and a
+  narrow filesystem scope for untrusted input.
 
 …and the user can influence the path or HTML:
 
@@ -124,15 +126,16 @@ file:///app/.env
 <img src="file:///var/run/secrets/...">
 ```
 
-then content may be read as the **process user** and end up in the PDF.
-Keep local access **off** for untrusted input; if you need templates on disk,
-use a **narrow `--allow` prefix**, not a global enable on a multi-tenant API.
+then content may be read as the **process user** and end up in the rendered
+output. Keep local access **off** for untrusted input; if you need templates
+on disk, use a **narrow allow prefix**, not a global enable on a multi-tenant
+API.
 
 ### E - Resource exhaustion (DoS)
 
-Large pages, many images, concurrent conversions: CPU/memory for layout/PDF.
-Timeouts and a ~100 MiB body cap help, but Gin still needs **rate limits** and
-concurrency caps on the convert endpoint.
+Large pages, many images, concurrent conversions: CPU/memory for load and
+layout. Timeouts and a ~100 MiB body cap help, but Gin still needs **rate
+limits** and concurrency caps on the convert endpoint.
 
 ---
 
@@ -142,7 +145,7 @@ concurrency caps on the convert endpoint.
 ✅ DO
   - Generate HTML server-side from trusted templates + data
   - Convert that HTML (temp file under allowlisted dir, or fixed path)
-  - Keep enablelocalfileaccess off unless necessary and tightly allowlisted
+  - Keep local-file access off unless necessary and tightly allowlisted
   - Run convert with a context timeout
   - Isolate the worker network if any remote fetch is allowed
 
@@ -157,25 +160,32 @@ Sketch (Gin + preferred path):
 
 ```go
 // Pseudocode - preferred
-func invoicePDF(c *gin.Context) {
+func invoiceDisplayList(c *gin.Context) {
     data := loadInvoice(c) // authz checked
-    html := renderTemplate("invoice.html", data) // YOU control markup
+    page := renderTemplate("invoice.html", data) // YOU control markup
 
-    path := writeTempHTML(html) // under e.g. /tmp/gowk-invoices/...
-    defer os.Remove(path)
-
-    ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
-    defer cancel()
-    doc := blinkless.Document{
-        Pages: []blinkless.Page{{Source: blinkless.File(path)}},
-        AllowLocalFiles: true,
-    }
-    pdf, err := doc.PDF(ctx)
+    tree, err := html.Parse([]byte(page))
     if err != nil {
         c.AbortWithError(500, err)
         return
     }
-    c.Data(200, "application/pdf", pdf)
+
+    ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+    defer cancel()
+    styled, err := css.Apply(ctx, tree, css.Options{WidthPx: 794, HeightPx: 1123})
+    if err != nil {
+        c.AbortWithError(500, err)
+        return
+    }
+
+    display, err := layout.DisplayList(ctx, styled)
+    if err != nil {
+        c.AbortWithError(500, err)
+        return
+    }
+    // Replay display.Ops onto your own canvas, or serialize the list and let
+    // the client render it. The engine writes no PDF or page image bytes.
+    writeDisplayList(c, display)
 }
 ```
 
@@ -209,14 +219,14 @@ worker:
 | Control | Recommendation |
 |---|---|
 | Network | No host network. Egress deny-by-default; allow only the asset hosts you need |
-| Policy | `RestrictedNetworkPolicy()` or CLI `--restrict-network`; add `--allow-host` only for trusted internals |
+| Policy | `RestrictedNetworkPolicy()` (internal load seam); allow only trusted internal hosts |
 | Filesystem | Read-only root; no secrets mounts; local-file ACL left off |
 | Time | Per-job context timeout (30–60s typical) |
 | Size | Keep loader body cap (100 MiB default); add page/output budgets at the service layer |
-| Concurrency | Bound workers (e.g. 2–4 per container). `pdf.Document` is single-goroutine |
+| Concurrency | Bound workers (e.g. 2–4 per container); a `css.Document` tree is single-goroutine, so share nothing between workers |
 
 ## See also
 
 - [THREAT-MODEL.md](THREAT-MODEL.md) - ACL matrix, timeouts, `NetworkPolicy`
-- [library-api.md](library-api.md) - typed `Document` / `NetworkPolicy`
+- [library-api.md](library-api.md) - library calls and the drawing-list JSON schema
 - [getting-started.md](getting-started.md) - local file opt-in

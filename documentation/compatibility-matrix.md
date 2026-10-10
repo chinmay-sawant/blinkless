@@ -75,16 +75,16 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `color` | <color> \| inherit | `internal/layout/style_properties.go` | `TestCascadeAndInline`, `TestCascadeEngineSupportsPropertyValues`, `TestColorAdjustPropsForeignProperty`, `TestColorModeSetGrayscale`, `TestOutlineParse`, `TestParseBasic`, `TestParseColorHsl`, `TestParseInline`, `TestWebkitPrefixAliases` |
 | `color-adjust` | <'print-color-adjust'> | `internal/layout/style_color_adjust_props.go` | `TestColorAdjustPropsAcceptLegalKeywords`, `TestColorAdjustPropsCSSWideKeywords`, `TestColorAdjustPropsRejectIllegalKeywords` |
 | `column-gap` | normal \| <length-percentage [0,∞]> \| <line-width> | `internal/layout/style_gap_props.go`, `internal/layout/style_properties.go` | `TestGridRowGapVsColumnGap` |
-| `content-visibility` | visible \| auto \| hidden | `internal/layout/style_containment_props.go` | `TestApplyContainmentPropsParsing` |
+| `content-visibility` | visible \| auto \| hidden | `internal/layout/style_containment_props.go` | `TestApplyContainmentPropsParsing`, `TestContentVisibilityHiddenSkipsDescendantLayout` |
 | `counter-increment` | [ <identifier> <integer>? ]+ \| none \| inherit | `internal/layout/style_paint_props.go` | `TestCounterInBefore`, `TestCounterResetIncrementLayout`, `TestQuotes` |
 | `counter-reset` | [ <identifier> <integer>? ]+ \| none \| inherit | `internal/layout/style_paint_props.go` | `TestCounterInBefore`, `TestCounterResetIncrementLayout`, `TestQuotes` |
 | `counter-set` | [ <counter-name> <integer>? ]+ \| none | `internal/layout/style_paint_props.go` | `TestCounterInBefore`, `TestCounterResetIncrementLayout`, `TestQuotes` |
 | `display` | inline \| block \| list-item \| inline-block \| table \| inline-table \| table-row-group \| table-header-group \| table-footer-group \| table-row \| table-column-group \| table-column \| table-cell \| table-caption \| none \| inherit | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestDisplayNone`, `TestTableLayout` |
 | `flex` | none \| [ <'flex-grow'> <'flex-shrink'>? \|\| <'flex-basis'> ] | `internal/layout/style_properties.go` | `TestWebkitBoxFlexGrows`, `TestChromeFlexCase01LegacyAlgorithm`, `TestWebkitPrefixAliases` |
 | `flex-direction` | row \| row-reverse \| column \| column-reverse | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestWebkitPrefixAliases`, `TestWebkitBoxOrientVerticalStacks` |
-| `flex-flow` | <'flex-direction'> \|\| <'flex-wrap'> | `internal/layout/style_properties.go` | `TestFlexFlowShorthand` |
+| `flex-flow` | <'flex-direction'> \|\| <'flex-wrap'> | `internal/layout/style_properties.go` | `TestFlexFlowShorthand`, `TestFlexFlowDirectionWrapLayout` |
 | `flex-grow` | <number [0,∞]> | `internal/layout/style_properties.go` | `TestWebkitPrefixAliases`, `TestChromeFlexCase01LegacyAlgorithm` |
-| `font` | [ [ <'font-style'> \|\| <'font-variant'> \|\| <'font-weight'> ]? <'font-size'> [ / <'line-height'> ]? <'font-family'> ] \| caption \| icon \| menu \| message-box \| small-caption \| status-bar \| inherit | `internal/layout/style.go`, `internal/layout/style_cascade.go` | `TestFontShorthand` |
+| `font` | [ [ <'font-style'> \|\| <'font-variant'> \|\| <'font-weight'> ]? <'font-size'> [ / <'line-height'> ]? <'font-family'> ] \| caption \| icon \| menu \| message-box \| small-caption \| status-bar \| inherit | `internal/layout/style.go`, `internal/layout/style_cascade.go` | `TestFontShorthand`, `TestFontLonghandAfterShorthandWins` |
 | `font-size` | <absolute-size> \| <relative-size> \| <length> \| <percentage> \| inherit | `internal/layout/style_cascade.go` | `TestApplyTextSupportPropsUnicodeBidi`, `TestFontSizeEmInherit`, `TestParseBasic`, `TestParseInline` |
 | `font-style` | normal \| italic \| oblique \| inherit | `internal/layout/style_cascade.go` | `TestRealBoldFaceOps` |
 | `font-weight` | normal \| bold \| bolder \| lighter \| 100 \| 200 \| 300 \| 400 \| 500 \| 600 \| 700 \| 800 \| 900 \| inherit | `internal/layout/style_cascade.go` | `TestRealBoldFaceOps` |
@@ -93,7 +93,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `grid-row` | <grid-line> [ / <grid-line> ]? | `internal/layout/style_properties.go` | `TestGridRowSpan` |
 | `grid-row-end` | <grid-line> | `internal/layout/style_properties.go` | `TestGridRowSpan` |
 | `grid-row-start` | <grid-line> | `internal/layout/style_properties.go` | `TestGridRowSpan` |
-| `grid-template` | none \| [ <'grid-template-rows'> / <'grid-template-columns'> ] \| [ <line-names>? <string> <track-size>? <line-names>? ]+ [ / <explicit-track-list> ]? | `internal/layout/style_properties.go` | `TestGridTemplateShorthand` |
+| `grid-template` | none \| [ <'grid-template-rows'> / <'grid-template-columns'> ] \| [ <line-names>? <string> <track-size>? <line-names>? ]+ [ / <explicit-track-list> ]? | `internal/layout/style_properties.go` | `TestGridTemplateShorthand`, `TestDisplayGridTemplateRejectsInvalidDeclaration` |
 | `hyphenate-character` | auto \| <string> | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | `TestHyphenateLimitChars`, `TestSoftHyphenUsesHyphenateCharacter`, `TestTextPropsWave3` |
 | `hyphenate-limit-chars` | [ auto \| <integer [0,∞]> ]{1,3} | `internal/layout/style_hyphenation_props.go` | `TestHyphenateLimitChars` |
 | `hyphenate-limit-last` | none \| always \| column \| page \| spread | `internal/layout/style_hyphenation_props.go` | `TestHyphenateLimitChars` |
@@ -105,7 +105,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `inset-block` | <'top'>{1,2} | `internal/layout/style_properties.go` | `TestLogicalInset` |
 | `inset-inline` | <'top'>{1,2} | `internal/layout/style_properties.go` | `TestLogicalInset` |
 | `justify-content` | normal \| <content-distribution> \| <overflow-position>? [ <content-position> \| left \| right ] | `internal/layout/style_properties.go` | `TestWebkitPrefixAliases`, `TestFlexDistributedJustifyKeepsGap` |
-| `line-height` | normal \| <number> \| <length> \| <percentage> \| inherit | `internal/layout/style.go`, `internal/layout/style_properties.go` | `TestMarginCollapse` |
+| `line-height` | normal \| <number> \| <length> \| <percentage> \| inherit | `internal/layout/style.go`, `internal/layout/style_properties.go` | `TestMarginCollapse`, `TestExplicitLineHeightAllowsNegativeHalfLeading`, `TestNormalLineHeightUsesFaceMetrics` |
 | `margin` | <margin-width>{1,4} \| inherit | `internal/layout/style_properties.go` | `TestBlockWidthsAndMargins`, `TestMarginCollapse` |
 | `margin-block` | <'margin-top'>{1,2} | `internal/layout/style_logical_box.go`, `internal/layout/style_properties.go` | `TestLogicalMargin` |
 | `margin-bottom` | <margin-width> \| inherit | `internal/layout/style_properties.go` | `TestBlockWidthsAndMargins`, `TestMarginCollapse` |
@@ -117,11 +117,11 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `max-inline-size` | <'max-width'> | `internal/layout/style_properties.go` | `TestLogicalSize` |
 | `min-block-size` | <'min-width'> | `internal/layout/style_properties.go` | `TestLogicalSize` |
 | `min-inline-size` | <'min-width'> | `internal/layout/style_properties.go` | `TestLogicalSize` |
-| `outline` | [ <'outline-color'> \|\| <'outline-style'> \|\| <'outline-width'> ] \| inherit | `internal/layout/style_paint_props.go` | `TestCurrentColor`, `TestOutlineParse` |
-| `outline-color` | <color> \| invert \| inherit | `internal/layout/style_paint_props.go` | `TestOutlineParse` |
-| `outline-offset` | <length> | `internal/layout/style_paint_props.go` | `TestOutlineParse` |
-| `outline-style` | <border-style> \| inherit | `internal/layout/style_paint_props.go` | `TestOutlineParse` |
-| `outline-width` | <border-width> \| inherit | `internal/layout/style_paint_props.go` | `TestOutlineParse` |
+| `outline` | [ <'outline-color'> \|\| <'outline-style'> \|\| <'outline-width'> ] \| inherit | `internal/layout/style_paint_props.go` | `TestCurrentColor`, `TestOutlineDoesNotInherit`, `TestOutlineOmittedWidthUsesMedium`, `TestOutlineParse`, `TestOutlinePaintsInflatedRect` |
+| `outline-color` | <color> \| invert \| inherit | `internal/layout/style_paint_props.go` | `TestCurrentColor`, `TestOutlineParse`, `TestOutlinePaintsInflatedRect` |
+| `outline-offset` | <length> | `internal/layout/style_paint_props.go` | `TestOutlineParse`, `TestOutlinePaintsInflatedRect` |
+| `outline-style` | <border-style> \| inherit | `internal/layout/style_paint_props.go` | `TestOutlineParse`, `TestOutlinePaintsInflatedRect` |
+| `outline-width` | <border-width> \| inherit | `internal/layout/style_paint_props.go` | `TestOutlineParse`, `TestOutlineOmittedWidthUsesMedium`, `TestOutlinePaintsInflatedRect` |
 | `padding` | <padding-width>{1,4} \| inherit | `internal/layout/style_properties.go` | `TestPaddingBorderBox` |
 | `padding-block` | <'padding-top'>{1,2} | `internal/layout/style_logical_box.go`, `internal/layout/style_properties.go` | `TestLogicalPadding` |
 | `padding-bottom` | <padding-width> \| inherit | `internal/layout/style_properties.go` | `TestPaddingBorderBox` |
@@ -129,9 +129,9 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `padding-left` | <padding-width> \| inherit | `internal/layout/style_properties.go` | `TestPaddingBorderBox` |
 | `padding-right` | <padding-width> \| inherit | `internal/layout/style_properties.go` | `TestPaddingBorderBox` |
 | `padding-top` | <padding-width> \| inherit | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestPaddingBorderBox` |
-| `place-content` | <'align-content'> <'justify-content'>? | `internal/layout/style_properties.go` | `TestPlaceShorthands` |
-| `place-items` | <'align-items'> <'justify-items'>? | `internal/layout/style_properties.go` | `TestPlaceShorthands` |
-| `place-self` | <'align-self'> <'justify-self'>? | `internal/layout/style_properties.go` | `TestPlaceShorthands` |
+| `place-content` | <'align-content'> <'justify-content'>? | `internal/layout/style_properties.go` | `TestPlaceShorthands`, `TestFlexPlaceContentDistributes` |
+| `place-items` | <'align-items'> <'justify-items'>? | `internal/layout/style_properties.go` | `TestPlaceShorthands`, `TestGridPlaceItemsCenterShrinksItems` |
+| `place-self` | <'align-self'> <'justify-self'>? | `internal/layout/style_properties.go` | `TestPlaceShorthands`, `TestGridPlaceSelfEndShrinksItem` |
 | `position` | static \| relative \| absolute \| fixed \| inherit | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestPositionLiteFixtureReservesOverlaySpace` |
 | `print-color-adjust` | economy \| exact | `internal/layout/style_color_adjust_props.go` | `TestColorAdjustPropsAcceptLegalKeywords`, `TestColorAdjustPropsReachRestPass`, `TestColorAdjustPropsRejectIllegalKeywords` |
 | `quotes` | [<string> <string>]+ \| none \| inherit | `internal/layout/style_paint_props.go` | `TestQuotes` |

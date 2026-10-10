@@ -17,7 +17,7 @@ const (
 
 // applyEmojiVariationSelectors inserts U+FE0E (text) or U+FE0F (emoji) after
 // emoji-candidate codepoints according to font-variant-emoji. Existing
-// variation selectors are replaced. Callers that paint PDF text must drop
+// variation selectors are replaced. Callers that paint text must drop
 // selectors the face cannot cmap (bundled Liberation maps them to .notdef).
 func applyEmojiVariationSelectors(text, variant string) string {
 	if text == "" {

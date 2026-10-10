@@ -324,8 +324,8 @@ func applyImageFilterToImage(imgBytes []byte, filters []parsedFilter) []byte {
 			}
 		case filterOpacity:
 			// Handled at the display-list level via style.Opacity and
-			// PaintOpacity in both PDF and raster paths. Scaling pixel alpha
-			// here would double-multiply opacity on images.
+			// PaintOpacity. Scaling pixel alpha here would double-multiply
+			// opacity on images.
 		}
 	}
 

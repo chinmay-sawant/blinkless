@@ -1,8 +1,7 @@
 package layout
 
-// Page-break keyword shared by style resolution. The PDF page splitter that
-// consumed it is gone. The keyword still lands on the box so later passes can
-// read it.
+// Page-break keyword shared by style resolution. The keyword still lands on
+// the box so later passes can read it.
 const (
 	pageBreakAvoid  = "avoid"
 	pageBreakAlways = "always"

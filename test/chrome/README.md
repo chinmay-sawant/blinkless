@@ -125,7 +125,7 @@ update `manifest.json` by hand when a case gains a measurement.
 
 - The PDFs under `pdf/` and `cases/pdf/` are stale inspection artifacts from
   the removed writer pipeline. No test regenerates them, and
-  `make chrome-cases-pdf` is a disabled stub.
+  the `make chrome-cases-pdf` target is gone.
 - Chromium C++ assertions are not copied into Go. They inspect Blink
   fragments, constraint spaces, lifecycle state, or scroll state. The porting
   cases use box geometry or browser measurements instead.

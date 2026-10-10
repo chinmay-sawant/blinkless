@@ -227,9 +227,8 @@ func backgroundBoxForKeyword(
 	case "border-box":
 		return posX, posY, width, height
 	case "text":
-		// background-clip:text clips to glyph bounds; PDF path requires vector
-		// text clip which we approximate as content-box (conservative) since
-		// no glyph vector clipping is implemented. Treat as content-box.
+		// background-clip:text clips to glyph bounds; glyph vector clipping
+		// is not implemented, so we approximate as content-box (conservative).
 		x := posX + sty.BorderLeft.Width + sty.PaddingLeft
 		y := posY + sty.BorderTop.Width + sty.PaddingTop
 		w := width - sty.BorderLeft.Width - sty.BorderRight.Width - sty.PaddingLeft - sty.PaddingRight
@@ -341,9 +340,9 @@ func resolveBackgroundPosition(
 	return originX + offX, originY + offY
 }
 
-// background-attachment:fixed is intentionally a no-op in paginated PDF
-// output (no viewport scroll); it paints as scroll. No paint change needed
-// beyond documentation here; tileBackgroundRepeat branches remain correct.
+// background-attachment:fixed is intentionally a no-op (no viewport scroll);
+// it paints as scroll. No paint change needed beyond documentation here;
+// tileBackgroundRepeat branches remain correct.
 //
 // Tiling is anchored on the positioned tile (destX/destY, resolved against
 // the background-origin positioning area) and covers the background-clip

@@ -504,7 +504,7 @@ func TestMulticolDefiniteHeightCapsAnonymousStrip(t *testing.T) {
 // Under column-fill:balance that forced Height must not shrink maxColH, or a
 // short column-count:2 probe page-snaps when content-box height is a hair
 // under the child measure (fixture-57: itemH 16.25 > definiteH 15.75 ->
-// repeated snaps to ~1270pt and 37 PDF pages). clampMulticolHeight then
+// repeated snaps to ~1270pt and 37 pages). clampMulticolHeight then
 // hides the blow-up in box.height, so assert on paint extent instead.
 func TestMulticolFlexStretchBalanceNoPageSnap(t *testing.T) {
 	t.Parallel()

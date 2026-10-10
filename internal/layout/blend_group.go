@@ -12,8 +12,8 @@ const (
 
 // BlendGroup describes one element compositing group created by
 // mix-blend-mode or isolation: isolate. Every operation painted inside the
-// group carries a pointer to it. PDF and PNG painters buffer those operations
-// and composite the group once, which is the element-group semantics the CSS
+// group carries a pointer to it. Painters buffer those operations and
+// composite the group once, which is the element-group semantics the CSS
 // compositing model requires.
 //
 // Parent chains nested groups: an inner group's operations are buffered

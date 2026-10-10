@@ -12,6 +12,9 @@ weasyprint RSS is the peak of the weasyprint CLI process from `%M`; blinkless RS
 - blinkless: `/home/chinmay/ChinmayPersonalProjects/blinkless/bin/blinkless` (generic CLI)
 - WeasyPrint: `/home/chinmay/ChinmayPersonalProjects/blinkless/scripts/weasyprint/print.sh` (WeasyPrint version 69.0)
 - Reproduce: `./scripts/bench-external.sh --engines=weasyprint` (or `make bench`)
+- Retired: the reproduction path required the removed `bin/blinkless` CLI and
+  the deleted `scripts/weasyprint/print.sh`; this file is a historical result
+  snapshot.
 
 | Pages | Gowk time | WeasyPrint time | Speedup | Gowk RSS | WeasyPrint RSS | Gowk PDF bytes | WeasyPrint PDF bytes |
 |---:|---:|---:|---:|---:|---:|---:|---:|

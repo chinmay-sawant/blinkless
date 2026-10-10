@@ -1,3 +1,7 @@
+# Python wheels for PyPI. Version sources: bindings/python/pyproject.toml
+# (wheel version) and bindings/c/include/blinkless.h (BLINKLESS_VERSION).
+# There is no VERSION file; scripts/check_versions.sh gates the two against
+# each other and, on a tag, against the tag.
 name: publish-pypi
 
 on:
@@ -56,6 +60,8 @@ jobs:
       # step, so those jobs set CIBW_BEFORE_BUILD to
       # scripts/build_cshared_for_wheel.sh (host Go from setup-go). Empty
       # CIBW_REPAIR_WHEEL_COMMAND skips auditwheel off linux.
+      # Both before-build paths must stamp libVersion from a committed
+      # version source; the repo VERSION file they used to read is gone.
       - name: Build wheels (linux, pyproject before-build)
         if: runner.os == 'Linux'
         env:
@@ -117,7 +123,18 @@ jobs:
         run: python -m pip install twine
       - name: Version gate + twine check
         run: |
-          bash scripts/check_versions.sh
+          # On a v* tag, pin the committed version sources to the tag. On
+          # workflow_dispatch there is no tag, so the sources only need to
+          # agree with each other.
+          ver=""
+          case "${GITHUB_REF}" in
+            refs/tags/v*) ver="${GITHUB_REF_NAME#v}" ;;
+          esac
+          if [ -n "${ver}" ]; then
+            bash scripts/check_versions.sh "${ver}"
+          else
+            bash scripts/check_versions.sh
+          fi
           python3 -m twine check --strict dist/*
           ls -lh dist
 

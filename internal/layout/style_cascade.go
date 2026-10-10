@@ -255,7 +255,7 @@ type inheritCopy struct {
 
 // inheritableProps is the immutable inherit table used by inheritProps.
 // Package-level so inheritProps does not allocate a new slice, name slices,
-// and closures on every styled node (was ~40% of alloc_objects on 500-page PDF).
+// and closures on every styled node (was ~40% of alloc_objects on a 500-page document).
 var inheritableProps = []inheritCopy{ //nolint:gochecknoglobals // static inherit table
 	{[]string{"color"}, func(dst, src *ResolvedStyle) { dst.Color = src.Color }},
 	{[]string{"accent-color"}, func(dst, src *ResolvedStyle) {

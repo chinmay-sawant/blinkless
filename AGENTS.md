@@ -143,7 +143,7 @@ The real gates, in order of cost:
 | Claims | `make claim-scan` | No forbidden claims (stdlib-only, Qt WebKit, byte-identical determinism, etc.) in doc.go, README.md, documentation/*.md, documentation/architecture/*.md |
 | Lint | `make lint` | golangci-lint (pinned v1.64.8) clean; chains `size-check` (file-size ledger) |
 | Golden corpus | `make golden` | Public drawing-list tests in `./layout` (`TestDisplay`) |
-| Release | `RELEASE.md` checklist | Hard gates for any release: `go build ./...`, `make test-quick`, `make lint`, `make claim-scan`; the removed writer-era checks (veraPDF, PDF byte compares) are off the table |
+| Release | `RELEASE.md` checklist | Hard gates for any release: `go build ./...`, `make test-quick`, `make golden`, `make lint`, `make claim-scan`; the removed writer-era checks (veraPDF, PDF byte compares) are off the table |
 
 Release work always starts at `RELEASE.md`. It states that `VERSION` is not
 used, records what ships (the drawing list plus the one-image PNG fallback)
@@ -242,13 +242,13 @@ c-shared job that asserts the ABI and version stamp.
   `github.com/tdewolff/canvas` (SVG rasterization), checked by
   `TestDirectModuleAllowlist`. Everything else stays `// indirect`.
 - **Version discipline.** `VERSION` is not used: there is no `VERSION` file
-  and no `internal/cli` package. The bindings carry their own
-  `BINDINGS_VERSION` / `WASM_VERSION` stamps in the Makefile; leave them
-  alone unless the user asks. `make check-versions` and both tag workflows
-  still read the removed `VERSION` file (`release.yml` also targets
-  `internal/cli.Version` and `./cmd/blinkless`), so treat them as stale until
-  rewritten. Release records live in `CHANGELOG.md` and the ledger under
-  `plans/<ver>/`.
+  and no `internal/cli` package. The committed version sources are
+  `bindings/python/pyproject.toml` (`[project].version`) and
+  `bindings/c/include/blinkless.h` (`BLINKLESS_VERSION`); `make check-versions`
+  gates them against each other, and `release.yml` / `publish-pypi.yml` gate a
+  `v*` tag against them. The bindings carry their own `BINDINGS_VERSION` /
+  `WASM_VERSION` stamps in the Makefile; leave them alone unless the user asks.
+  Release records live in `CHANGELOG.md` and the ledger under `plans/<ver>/`.
 - **The frontend site is not in this tree.** There is no `frontend/` source
   and no built `docs/`; `make lint-frontend` is a no-op that says so, and
   `make lint` does not chain it. `claim-scan` reads only `doc.go`, `README.md`,
@@ -284,7 +284,7 @@ c-shared job that asserts the ABI and version stamp.
 
 ## Plans and ledgers
 
-`plans/` is version-partitioned (`plans/0.1.0/` ... `plans/0.2.4/`), indexed
+`plans/` is version-partitioned (`plans/0.0.1/` onward), indexed
 by `plans/README.md`. Each version dir holds a numbered canonical ledger plus
 per-phase checklists; audits land under `<version>/improve-codebase/<date>/`;
 PR bodies live in `plans/PR/`. Phase checklist format comes from

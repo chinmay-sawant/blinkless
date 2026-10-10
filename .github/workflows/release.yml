@@ -1,17 +1,29 @@
-# Multi-platform CLI binaries for GitHub Releases.
+# Tag-driven release workflow.
+#
+# History: this workflow built multi-platform CLI binaries from ./cmd/blinkless
+# and stamped internal/cli.Version. That command and package are gone from this
+# tree (there is no cmd/ and no internal/cli), and there is no VERSION file, so
+# the binary matrix and its version stamping were removed.
+#
+# What this does now: on a v* tag it checks the tag against the committed
+# version sources, runs the RELEASE.md hard gates, then creates or updates the
+# GitHub Release with generated notes. No binaries are attached.
+#
+# What replaced the binaries:
+#   - Python wheels publish from .github/workflows/publish-pypi.yml
+#   - the WASM browser artifact is built by `make wasm` and exercised by
+#     `make wasm-test` in .github/workflows/ci.yml; it is not attached here
+#   - the drawing list ships as a Go library, not as a release binary
 #
 # Trigger: push of a v* tag only (never PR / ordinary branch push).
-#   git tag v0.2.0 && git push origin v0.2.0
-#
-# Builds CGO_ENABLED=0 static binaries for Linux / Windows / macOS
-# (amd64 + arm64), stamps Version from the tag, creates/updates the
-# GitHub Release for that tag, and attaches binaries + SHA256SUMS.
+#   git tag v0.2.6 && git push origin v0.2.6
 name: release
 
 on:
-  # Intentional releases only. Ordinary branch/PR pushes never build assets.
-  # Cutting a release: bump VERSION + CHANGELOG, commit, then:
-  #   git tag v0.2.0 && git push origin v0.2.0
+  # Intentional releases only. Ordinary branch/PR pushes never run this.
+  # Cutting a release: promote CHANGELOG.md (see skills/release-note), commit,
+  # then:
+  #   git tag v0.2.6 && git push origin v0.2.6
   # Creating a GitHub Release in the UI with a new v* tag also pushes the tag
   # and runs this workflow once.
   push:
@@ -23,7 +35,7 @@ permissions:
 
 jobs:
   release:
-    name: build + attach binaries
+    name: gate + GitHub Release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +53,7 @@ jobs:
           case "${tag}" in
             v*) ver="${tag#v}" ;;
             *)
-              echo "tag must look like v0.2.0 (got ${tag})" >&2
+              echo "tag must look like v0.2.6 (got ${tag})" >&2
               exit 1
               ;;
           esac
@@ -49,68 +61,38 @@ jobs:
             echo "refusing non-semver-ish version: ${ver}" >&2
             exit 1
           fi
-          file_ver=$(tr -d '[:space:]' < VERSION)
-          if [ "${file_ver}" != "${ver}" ]; then
-            echo "VERSION file (${file_ver}) does not match tag version (${ver})" >&2
-            echo "Update VERSION (and CHANGELOG) before tagging." >&2
-            exit 1
-          fi
           echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
           echo "version=${ver}" >> "${GITHUB_OUTPUT}"
-          echo "Building release ${tag} (version ${ver})"
+          echo "Releasing ${tag} (version ${ver})"
 
-      - name: Cross-compile matrix
-        env:
-          VERSION: ${{ steps.ver.outputs.version }}
-        run: |
-          set -euo pipefail
-          mkdir -p dist
-          ldflags="-s -w -X github.com/chinmay-sawant/blinkless/internal/cli.Version=${VERSION}"
-          targets=(
-            "linux amd64"
-            "linux arm64"
-            "darwin amd64"
-            "darwin arm64"
-            "windows amd64"
-            "windows arm64"
-          )
-          cmds=(blinkless blinkless)
-          for t in "${targets[@]}"; do
-            set -- ${t}
-            goos="$1"
-            goarch="$2"
-            ext=""
-            if [ "${goos}" = "windows" ]; then
-              ext=".exe"
-            fi
-            for cmd in "${cmds[@]}"; do
-              out="dist/${cmd}_${VERSION}_${goos}_${goarch}${ext}"
-              echo "→ ${out}"
-              CGO_ENABLED=0 GOOS="${goos}" GOARCH="${goarch}" \
-              go build -trimpath -ldflags "${ldflags}" \
-                -o "${out}" "./cmd/${cmd}"
-            done
-          done
-          wasm_out="dist/blinkless_${VERSION}_wasm.wasm"
-          wasm_ldflags="-s -w -X main.wasmVersion=${VERSION}"
-          GOOS=js GOARCH=wasm go build -trimpath -ldflags "${wasm_ldflags}" \
-            -o "${wasm_out}" ./bindings/wasm
-          cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" \
-            "dist/wasm_exec_${VERSION}.js"
-          cp testdata/wasm/sample.html "dist/wasm_sample_${VERSION}.html"
-          cp testdata/wasm/manifest.json "dist/wasm_manifest_${VERSION}.json"
-          (
-            cd dist
-            sha256sum * > SHA256SUMS
-          )
-          ls -la dist
-          # Smoke the host binary stamp (linux/amd64 on the runner).
-          bin="dist/blinkless_${VERSION}_linux_amd64"
-          got=$("${bin}" --version | sed -n 's/^Version:[[:space:]]*//p' | tr -d '[:space:]')
-          echo "linux/amd64 --version → ${got}"
-          test "${got}" = "${VERSION}"
+      - name: Version gate (tag vs committed sources)
+        # No VERSION file: bindings/python/pyproject.toml and
+        # bindings/c/include/blinkless.h must both carry the tag version.
+        run: bash scripts/check_versions.sh "${{ steps.ver.outputs.version }}"
 
-      - name: Upload artifacts to GitHub Release
+      # RELEASE.md hard gates, in order. The removed writer-era checks
+      # (golden PDF compares, veraPDF) are intentionally not run.
+      - name: Build packages (CGO_ENABLED=0)
+        run: make build
+
+      - name: Test (quick)
+        run: make test-quick
+
+      - name: Golden corpus
+        run: make golden
+
+      - name: Install golangci-lint
+        # Build with the job's Go (1.26+): v1.64 refuses to lint when the
+        # binary was compiled with an older Go than go.mod targets.
+        run: GOTOOLCHAIN=local go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+
+      - name: Lint
+        run: make lint
+
+      - name: Claim scan
+        run: make claim-scan
+
+      - name: Create or update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
@@ -120,6 +102,5 @@ jobs:
           draft: false
           prerelease: ${{ contains(steps.ver.outputs.version, '-') }}
           generate_release_notes: true
-          files: dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

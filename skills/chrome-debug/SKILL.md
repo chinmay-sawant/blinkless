@@ -68,8 +68,8 @@ artifacts (Chromium PDF and Go drawing list) are recorded.
 
    The engine emits `layout.DisplayList`; there is no Go PDF writer and no
    page rasterizer. The old `test/chrome/pdf/*.pdf` files are stale
-   inspection artifacts and no test regenerates them (`make
-   chrome-cases-pdf` is a disabled stub).
+   inspection artifacts and no test regenerates them (the `make
+   chrome-cases-pdf` target is gone).
 
 ## 2. Render and measure before interpreting
 

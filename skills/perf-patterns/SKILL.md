@@ -5,7 +5,7 @@ description: Concrete, measured Go performance patterns proved in blinkless - be
 
 # Perf Patterns (proven in this repo)
 
-Every pattern here was shipped in blinkless and is backed by a commit, a plan ledger row, or a review transcript. Nothing in this file is speculation dressed as advice. The catalog was mined on 2026-09-21 from HEAD `7496277` (VERSION 0.2.6), the commit range `c103141..84a5b68`, the 0.2.6 perf ledgers (no longer in this tree), and 30+ OpenCode agent sessions.
+Every pattern here was shipped in blinkless and is backed by a commit, a plan ledger row, or a review transcript. Nothing in this file is speculation dressed as advice. The catalog was mined on 2026-09-21 from HEAD `7496277` (release 0.2.6), the commit range `c103141..84a5b68`, the 0.2.6 perf ledgers (no longer in this tree), and 30+ OpenCode agent sessions.
 
 The pipeline this catalog measured was removed in the 0.0.1 renderer cut: the PDF writer and the page rasterizer are gone, and the engine now emits a drawing list. Entries that cite `writer/...`, `rasterizer/...`, or another path that is not in the current tree are historical evidence, kept so the lessons survive; do not look for those files today. Live hot paths are `internal/layout`, `internal/css`, `internal/html`, `internal/convert`, `internal/fonts`, `internal/svg`, and `internal/load`.
 

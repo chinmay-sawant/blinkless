@@ -393,7 +393,7 @@ func (e *engine) packInlineLine(
 				// Split long unbreakable runs (URLs, paths, base64) that would
 				// overflow the line. Honors overflow-wrap / word-break; also
 				// emergency-breaks when a token is wider than the line so text
-				// does not paint past the page edge (print PDF).
+				// does not paint past the page edge (print).
 				e.spliceInlineParts(items, idx, parts)
 				item = &(*items)[idx]
 			}
@@ -1019,8 +1019,8 @@ func (e *engine) emitLine( //nolint:funlen
 		textAlign = floatRight
 	}
 
-	// Coalesce adjacent same-style text runs into one op so PDF/image paint
-	// advances match layout (avoids word-by-word Tj gaps). Skip when
+	// Coalesce adjacent same-style text runs into one op so text and image
+	// paint advances match layout (avoids word-by-word gaps). Skip when
 	// justifying — gaps are distributed between word items. Legacy
 	// -webkit-box keeps items separate so pack backgrounds stay distinct.
 	if textAlign != cssTextAlignJustify && (blockStyle == nil || !blockStyle.IsWebkitBox) {

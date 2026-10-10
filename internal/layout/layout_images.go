@@ -610,8 +610,8 @@ func imageDims(data []byte) (int, int, bool, bool) {
 }
 
 // jpegDims scans JPEG segment markers for a SOF segment carrying dimensions.
-// Layout matches pdf/images.go jpegScan SOF field order: after the marker and
-// 2-byte length, precision (1), height (2), width (2).
+// The SOF payload holds, after the marker and 2-byte length, precision (1),
+// height (2), width (2).
 func jpegDims(data []byte) (int, int, bool, bool) {
 	pos := 2
 	for pos+4 <= len(data) {

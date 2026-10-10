@@ -5008,6 +5008,10 @@
         {
           "file": "internal/layout/style_containment_props_test.go",
           "name": "TestApplyContainmentPropsParsing"
+        },
+        {
+          "file": "internal/layout/content_visibility_test.go",
+          "name": "TestContentVisibilityHiddenSkipsDescendantLayout"
         }
       ],
       "status": "implemented",
@@ -6293,6 +6297,10 @@
         {
           "file": "internal/layout/shorthand_test.go",
           "name": "TestFlexFlowShorthand"
+        },
+        {
+          "file": "internal/layout/flex_flow_test.go",
+          "name": "TestFlexFlowDirectionWrapLayout"
         }
       ],
       "status": "implemented",
@@ -6580,6 +6588,10 @@
         {
           "file": "internal/layout/css_apply_test.go",
           "name": "TestFontShorthand"
+        },
+        {
+          "file": "internal/layout/style_cascade_test.go",
+          "name": "TestFontLonghandAfterShorthandWins"
         }
       ],
       "status": "implemented",
@@ -7606,6 +7618,10 @@
         {
           "file": "internal/layout/shorthand_test.go",
           "name": "TestGridTemplateShorthand"
+        },
+        {
+          "file": "layout/cascade_acceptance_test.go",
+          "name": "TestDisplayGridTemplateRejectsInvalidDeclaration"
         }
       ],
       "status": "implemented",
@@ -8599,6 +8615,14 @@
         {
           "file": "internal/layout/layout_test.go",
           "name": "TestMarginCollapse"
+        },
+        {
+          "file": "internal/layout/cat07_blocked_cases_test.go",
+          "name": "TestExplicitLineHeightAllowsNegativeHalfLeading"
+        },
+        {
+          "file": "internal/layout/css_review_02_test.go",
+          "name": "TestNormalLineHeightUsesFaceMetrics"
         }
       ],
       "status": "implemented",
@@ -10090,7 +10114,19 @@
         },
         {
           "file": "internal/layout/css_paint_apply_test.go",
+          "name": "TestOutlineDoesNotInherit"
+        },
+        {
+          "file": "internal/layout/border_medium_default_test.go",
+          "name": "TestOutlineOmittedWidthUsesMedium"
+        },
+        {
+          "file": "internal/layout/css_paint_apply_test.go",
           "name": "TestOutlineParse"
+        },
+        {
+          "file": "internal/layout/outline_test.go",
+          "name": "TestOutlinePaintsInflatedRect"
         }
       ],
       "status": "implemented",
@@ -10113,7 +10149,15 @@
       "tests": [
         {
           "file": "internal/layout/css_paint_apply_test.go",
+          "name": "TestCurrentColor"
+        },
+        {
+          "file": "internal/layout/css_paint_apply_test.go",
           "name": "TestOutlineParse"
+        },
+        {
+          "file": "internal/layout/outline_test.go",
+          "name": "TestOutlinePaintsInflatedRect"
         }
       ],
       "status": "implemented",
@@ -10137,6 +10181,10 @@
         {
           "file": "internal/layout/css_paint_apply_test.go",
           "name": "TestOutlineParse"
+        },
+        {
+          "file": "internal/layout/outline_test.go",
+          "name": "TestOutlinePaintsInflatedRect"
         }
       ],
       "status": "implemented",
@@ -10160,6 +10208,10 @@
         {
           "file": "internal/layout/css_paint_apply_test.go",
           "name": "TestOutlineParse"
+        },
+        {
+          "file": "internal/layout/outline_test.go",
+          "name": "TestOutlinePaintsInflatedRect"
         }
       ],
       "status": "implemented",
@@ -10183,6 +10235,14 @@
         {
           "file": "internal/layout/css_paint_apply_test.go",
           "name": "TestOutlineParse"
+        },
+        {
+          "file": "internal/layout/border_medium_default_test.go",
+          "name": "TestOutlineOmittedWidthUsesMedium"
+        },
+        {
+          "file": "internal/layout/outline_test.go",
+          "name": "TestOutlinePaintsInflatedRect"
         }
       ],
       "status": "implemented",
@@ -11102,6 +11162,10 @@
         {
           "file": "internal/layout/shorthand_test.go",
           "name": "TestPlaceShorthands"
+        },
+        {
+          "file": "internal/layout/place_content_test.go",
+          "name": "TestFlexPlaceContentDistributes"
         }
       ],
       "status": "implemented",
@@ -11126,6 +11190,10 @@
         {
           "file": "internal/layout/shorthand_test.go",
           "name": "TestPlaceShorthands"
+        },
+        {
+          "file": "internal/layout/emphasis_paint_test.go",
+          "name": "TestGridPlaceItemsCenterShrinksItems"
         }
       ],
       "status": "implemented",
@@ -11150,6 +11218,10 @@
         {
           "file": "internal/layout/shorthand_test.go",
           "name": "TestPlaceShorthands"
+        },
+        {
+          "file": "internal/layout/emphasis_paint_test.go",
+          "name": "TestGridPlaceSelfEndShrinksItem"
         }
       ],
       "status": "implemented",

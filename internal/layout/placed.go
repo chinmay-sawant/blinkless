@@ -16,7 +16,7 @@ type PlacedElement struct {
 }
 
 // PlacedElements walks the laid-out element boxes in document order.
-// A nil result returns nil. Paint and PDF pagination are not required.
+// A nil result returns nil. Paint and pagination are not required.
 func PlacedElements(res *Result) []PlacedElement {
 	if res == nil || res.root == nil {
 		return nil

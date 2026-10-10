@@ -6,8 +6,8 @@ page PNGs. `make samples` no longer regenerates them: the target now runs
 `./layout`) and writes nothing.
 
 There is no `cmd/` CLI and no `bin/blinkless`, so no command in the current
-tree rebuilds these page rasters. Treat them as snapshots, not golden byte
-baselines.
+tree rebuilds these page rasters. Treat them as leftover rasters, not golden
+byte baselines.
 
 ## Files
 
@@ -21,17 +21,18 @@ baselines.
 ## Directories
 
 - `pdf-1.7/`, `pdf-1.7-compliance/`, `pdf-2.0/`, `pdf-2.0-compliance/`,
-  `python/`, and `validated/` are empty. `validated/` held the Ghostscript
-  reference PDFs for the deleted pixel-regression tests.
+  `python/` (with its empty `pdf-*` subdirs), and `validated/` hold no
+  files. `validated/` held the Ghostscript reference PDFs for the deleted
+  pixel-regression tests.
 - `profiles/` is local profiling output (gitignored). Derived reports live
   under `plans/`.
 - `wkhtmltopdf/` holds two historical benchmark snapshots
   (`benchmark-results.csv`, `benchmark-summary.md`) from the external
   comparison run. The PDFs named in them are gone.
 
-The `make python-api` and `make samples-python` targets still exist but cannot
-produce PDFs: the Python binding's `convert_*_to_pdf` helpers raise
-`RuntimeError` (`bindings/python/src/blinkless/_lib.py:221`).
+The Python binding's `convert_*_to_pdf` helpers raise `RuntimeError`
+(`bindings/python/src/blinkless/_lib.py:221`), so nothing in the current tree
+produces PDFs.
 
 The directory is its own Go module (`output/go.mod`) so these bytes stay out
 of the parent module zip.

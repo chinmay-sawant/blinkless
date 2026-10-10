@@ -1,6 +1,6 @@
 # Threat Model
 
-Scope: what the renderer fetches. The product encodes a drawing list as a PNG or JPEG. It does not write a PDF.
+Scope: what the renderer fetches. The product returns a drawing list. It does not write a PDF and does not encode a page PNG or JPEG.
 
 ## 1. Trust boundary
 
@@ -9,19 +9,18 @@ The HTML document is the primary attack surface:
 - A document can name arbitrary network resources (`http`, `https`,
   `data:`, and - subject to the ACL - `file:`).
 - A document **cannot execute code**. There is no JavaScript engine and no
-  process execution anywhere in the tree (no `os/exec` usage; grepping for
-  `exec.Command` returns nothing outside test helpers that parse the CLI).
-  JavaScript-related CLI flags (`--enable-javascript`, `--javascript-delay`,
-  `--run-script`, `--window-status`, `--debug-javascript`) are **unknown
-  options** (Policy A). `<script>` is stripped at load. No code path
-  evaluates a document's scripts.
+  process execution anywhere in the tree (no `os/exec` usage; the only
+  `exec.Command` is a module-list probe in `internal/fonts/shape_test.go:220`).
+  There is no CLI, and JavaScript-related wkhtmltopdf keys have no engine
+  consumer: `web.javascript` lands in the settings layer's ignored sink and
+  the rest are unknown (Policy A). `<script>` content is kept as raw text and
+  never executed. No code path evaluates a document's scripts.
 
 **Stance: HTML is semi-trusted.** It may cause network egress (matching
-upstream wkhtmltopdf) and may read local files only where the operator
-explicitly enabled it. Treat HTML as fully trusted whenever
-`--allow-local-files` or `--allow` is used, or when the machine
-running the conversion holds secrets reachable via arbitrary network
-fetches.
+upstream wkhtmltopdf) and may read local files only where local access was
+explicitly enabled. Treat HTML as fully trusted whenever local-file access or
+allow prefixes are enabled, or when the machine running the conversion holds
+secrets reachable via arbitrary network fetches.
 
 ## 2. Assets
 
@@ -40,13 +39,14 @@ Implemented in `internal/load`: `AccessController.Allowed` and
 - **Default: deny.** `LoadPage.BlockLocalFileAccess` defaults to `true`
   (`settings.DefaultLoadPage`) and `PdfGlobal.EnableLocalFileAccess`
   defaults to `false` (`settings.DefaultPdfGlobal`).
-- `--allow-local-files` sets the global flag and unblocks the parsed source;
-  a native `Document` uses `AllowLocalFiles`. A blocked object wins over an
-  enabled global in the internal engine seam.
-- `--allow <path>` adds allow prefixes; the library equivalent is
-  `Document.Allow` / `ImageDocument.Allow`. A path is readable when its real
-  path equals a prefix or sits below it (boundary check at the directory
-  separator, so `prefix-evil` does not match `prefix`).
+- `EnableLocalFileAccess` is the global switch; a blocked object wins over an
+  enabled global in the loader seam. The public entry points (`css.Apply`,
+  `bindings/wasm`) build their loaders from these defaults, so a library
+  caller runs default-deny today.
+- Allow prefixes (`LoadGlobal.Allow` in the settings model) widen the deny
+  default. A path is readable when its real path equals a prefix or sits
+  below it (boundary check at the directory separator, so `prefix-evil` does
+  not match `prefix`).
 - Both the requested path and each prefix are resolved to their real,
   symlink-free location (`filepath.EvalSymlinks`) before comparison, so a
   symlink planted inside an allowed directory cannot escape to a file
@@ -55,10 +55,10 @@ Implemented in `internal/load`: `AccessController.Allowed` and
   are checked before the read.
 - `file://` hosts other than the empty host and `localhost` are refused
   outright (both in the primary load and in subresource resolution).
-- The primary page, subresources (CSS/images via `FetchSub`) and
-  header/footer HTML all pass through the same ACL and the same body cap.
+- The primary page and subresources (CSS/images via `FetchSub`) pass through
+  the same ACL and the same body cap.
 
-Decision matrix for path P with no `--allow` prefixes:
+Decision matrix for path P with no allow prefixes:
 
 | Global enable | Object block | Read allowed |
 |---|---|---|
@@ -67,8 +67,8 @@ Decision matrix for path P with no `--allow` prefixes:
 | true | true | no |
 | true | false | yes |
 
-With an `--allow` prefix A, P is readable iff `realpath(P)` is under
-`realpath(A)`, independent of the two flags.
+With an allow prefix A, P is readable iff `realpath(P)` is under
+`realpath(A)`, independent of the two settings.
 
 Known limitation: the ACL check happens at read time; there is the usual
 TOCTOU window between check and open, and it cannot prevent reads by other
@@ -77,9 +77,10 @@ processes. The trust envelope of any local reader applies.
 ## 4. Network behaviour
 
 - **Connect timeout**: 30 s (`DefaultConnectTimeout`, `net.Dialer.Timeout`).
-- **Whole-request timeout**: per-page `--timeout` seconds, default 60 s
-  (`DefaultResponseTimeout`), enforced via `http.Client.Timeout` - covers
-  TLS handshake, headers and body read. `--timeout 0` selects the default.
+- **Whole-request timeout**: per-page `LoadPage.Timeout` seconds, default
+  60 s (`DefaultResponseTimeout`), enforced via `http.Client.Timeout` -
+  covers TLS handshake, headers and body read. A zero timeout selects the
+  default.
 - **Context cancellation**: `Load(ctx, ...)` and `FetchSub(ctx, ...)` thread
   the caller's context into every request
   (`http.NewRequestWithContext`); cancelling it aborts the request even
@@ -93,15 +94,16 @@ processes. The trust envelope of any local reader applies.
   before any body bytes are read; chunked/unknown-length bodies are capped
   on the read side. `data:` URLs are bounded by the size of the document
   that embeds them.
-- **TLS**: certificate verification on by default. There is no `--insecure`
-  / `InsecureSkipVerify` switch. Proxy, client certificates, cookies and
+- **TLS**: certificate verification on by default. There is no
+  `InsecureSkipVerify` option. Proxy, client certificates, cookies and
   POST bodies are operator-supplied configuration.
 - **NetworkPolicy**: `CompatibleNetworkPolicy` is the default when no
-  policy is set (CLI without `--restrict-network`). `RestrictedNetworkPolicy`
-  / `--restrict-network` blocks private destinations and cross-host
-  redirects. Restricted dials pin the resolved IP (no second DNS lookup).
-  Exact `--allow-host` entries may skip the private-IP check; wildcards do
-  not. `Document.Network` / `ImageDocument.Network` are the library seams.
+  policy is set. `RestrictedNetworkPolicy` blocks private destinations and
+  cross-host redirects. Restricted dials pin the resolved IP (no second DNS
+  lookup). Exact allow-host entries may skip the private-IP check; wildcards
+  do not. The seam is `load.NetworkPolicy` / `load.ApplyNetworkPolicy`
+  (internal); the public entry points build loaders with the compatible
+  default.
 
 ## 5. Data exfiltration channels
 
@@ -112,13 +114,14 @@ processes. The trust envelope of any local reader applies.
   wkhtmltopdf URL behavior. Restricted mode is the recommended default for
   untrusted HTML in a service.
 - Local file reads are the only sensitive channel and are gated by the ACL
-  (section 3). With default flags, no document-reachable path reads any
+  (section 3). With the defaults, no document-reachable path reads any
   local file.
 - **Fonts:** TTF/OTF/WOFF1 bytes loaded via `@font-face` `url(...)` are
   untrusted parse input under the same ACL as other subresources; WOFF1
   decompress uses size caps (table count, per-table / reconstructed SFNT
-  limits, overlap rejection) before `ParseTTF`. `--font-path` /
-  `--use-system-fonts` are operator-controlled discovery (not HTML ACL).
+  limits, overlap rejection) before `ParseTTF`. Font-directory discovery
+  (`PdfGlobal.FontPaths` / `PdfGlobal.UseSystemFonts` in the settings model)
+  is operator-controlled and separate from the HTML ACL.
   Remote `https://` `@font-face` **is fetched** via `FetchSub` (same ACL
   and `NetworkPolicy` as `img` / `link`). `.woff2`, `.eot`, and `data:`
   src are skipped. WOFF2 is rejected (Brotli not allowlisted).
@@ -130,23 +133,22 @@ processes. The trust envelope of any local reader applies.
 
 ## 6. Explicitly out of scope
 
-- **No JavaScript**: there is no JS engine (section 1). JS-related CLI
-  flags are unknown options.
+- **No JavaScript**: there is no JS engine (section 1). JS-related keys
+  have no engine consumer.
 - **No sandbox for rendering**: the document cannot execute code, but HTML
   parsing, CSS processing and layout run in-process; parser bugs are the
   residual risk. A crafted document can consume CPU/memory up to the body
   cap.
 - **Compatible mode allows localhost / RFC1918 HTTP**; Restricted mode
-  (`--restrict-network`) does not (SSRF posture, section 5).
+  does not (SSRF posture, section 5).
 - **TOCTOU** between the ACL check and the file open (section 3).
 
 ## 7. Recommendations for untrusted HTML
 
 - Convert untrusted documents in an isolated container: no access to
-  sensitive filesystems or networks, no host credentials, no
-  `--username/--password`, `--custom-header`, `--cookie` or `--proxy`
-  credentials aimed at non-public hosts.
-- Keep the defaults: `--allow-local-files` off, no `--allow`.
+  sensitive filesystems or networks, no host credentials (basic auth,
+  custom headers, cookies, proxy) aimed at non-public hosts.
+- Keep the defaults: local-file access off, no allow prefixes.
 - Rely on the built-in timeouts (30 s connect / 60 s response default) and
   the 100 MiB body cap; both are on by default.
 - Sanitise HTML before conversion, or convert only HTML you author.
@@ -155,22 +157,24 @@ processes. The trust envelope of any local reader applies.
 
 Full write-up: **[integration-security.md](integration-security.md)**.
 
-**Happy path people assume:** user hits Gin → converter fetches a URL → PDF
-returned. That is fine only when **you** control the URL/HTML. The issue is
-not “displaying PDF”; it is that the **server** becomes an HTTP client (and
-optionally a file reader) on behalf of whoever controls the input.
+**Happy path people assume:** user hits Gin → converter fetches a URL → a
+finished document is returned. That is fine only when **you** control the
+URL/HTML. The issue is not the response format; it is that the **server**
+becomes an HTTP client (and optionally a file reader) on behalf of whoever
+controls the input.
 
 | Pattern | Risk | Preferred? |
 |---------|------|------------|
 | Gin renders **your** template → convert that HTML/path | Low | **Yes** |
 | Gin passes `c.Query("url")` (arbitrary) into convert | **High (SSRF)** - server can hit localhost, cloud metadata, RFC1918 | No |
 | HTML references extra `img`/`link` URLs | Server fetches them too (second-hop SSRF) | Avoid untrusted HTML |
-| Local file access on + user-influenced path/`file:` | **High (file read)** into PDF | Keep default deny |
+| Local file access on + user-influenced path/`file:` | **High (file read)** into rendered output | Keep default deny |
 | Many concurrent converts / huge pages | DoS (CPU/RAM) | Rate-limit + timeouts |
 
 **Preferred:** generate HTML server-side → convert **trusted** bytes/path →
-return `application/pdf`. Do **not** expose “convert any URL” without host
-allowlists and network isolation.
+return the drawing list, or a PDF your own renderer produces from it. Do
+**not** expose “convert any URL” without host allowlists and network
+isolation.
 
 **Same for upstream wkhtmltopdf:** the same SSRF / local-file classes apply
 if the app design is “user URL → convert.” wkhtmltopdf also runs a real
@@ -189,5 +193,5 @@ substitute for not letting strangers drive server-side fetches.
 | Connect timeout | `internal/load/load.go` - `DefaultConnectTimeout`, `net.Dialer` |
 | Response timeout | `internal/load/load.go` - `loadHTTP` `client.Timeout`, `DefaultResponseTimeout` |
 | Context cancellation | `internal/load/load.go` - `http.NewRequestWithContext` in `loadHTTP` |
-| No JS / no exec | whole repo - no `os/exec`; JS-related CLI flags are unknown options |
-| NetworkPolicy | `internal/load` + `Document.Network`; CLI `--restrict-network` / `--allow-host` |
+| No JS / no exec | whole repo - no `os/exec`; JS-related keys have no engine consumer |
+| NetworkPolicy | `internal/load` - `NetworkPolicy`, `ApplyNetworkPolicy`; public entries use the compatible default |

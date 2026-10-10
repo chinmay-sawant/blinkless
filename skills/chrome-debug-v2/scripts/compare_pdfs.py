@@ -12,7 +12,7 @@ deltas all pass. Exit code 1 when anything differs. Exit code 2 on bad input.
 Matching is signature-based: each drawing becomes (type, fill, stroke, rect),
 each text span becomes (text, size, direction, bbox), and each image becomes
 (width_px, height_px, bbox), quantized to a quarter point. Font subset ids are
-ignored on purpose; different replays of the same drawing list can embed
+ignored on purpose; different producers of the same page can embed
 different font subsets and still produce matching signatures.
 
 Pixels: each page is rasterized once in grayscale at --dpi (default 150) and
@@ -254,7 +254,7 @@ def compare_page(index, page_a, page_b, dpi, outdir, max_rows, threshold):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("pdf_a", help="reference PDF (Chromium)")
-    parser.add_argument("pdf_b", help="candidate PDF (blinkless)")
+    parser.add_argument("pdf_b", help="candidate PDF (second engine)")
     parser.add_argument(
         "--dpi", type=int, default=150, help="DPI for ink bbox, pixels, and PNGs"
     )

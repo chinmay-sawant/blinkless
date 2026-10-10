@@ -9,7 +9,7 @@ const (
 )
 
 // PaintOrder returns operation indices in the canonical display-list paint
-// order. PDF and raster adapters consume this same policy; backend drawing
+// order. Display-list consumers share this same policy; backend drawing
 // remains responsible for interpreting each operation.
 func PaintOrder(ops []Op) []int {
 	idx := make([]int, len(ops))

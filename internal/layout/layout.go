@@ -197,7 +197,7 @@ type Result struct {
 	// HasFragmentLinks is set during Layout when any OpLinkURI starts with '#'.
 	HasFragmentLinks bool
 	// skipInitialBeforeAlways is set for independently painted body blocks.
-	// Those results already start a new PDF page, so page-break-before:always
+	// Those results already start a fresh page, so page-break-before:always
 	// on the block itself would insert a blank page.
 	skipInitialBeforeAlways bool
 }
@@ -395,8 +395,8 @@ const (
 // Rare payloads (URI, Image, Xform, BlendMode, structure tags, text-transform,
 // and text synthesis gates)
 // live on the embedded *opExtra so the hot record is 256 bytes. Promoted
-// field names stay so readers (paint, convert, imageout, tests) keep op.URI
-// and op.Image. Writers must detachExtra before mutating those fields.
+// field names stay so readers (paint, tests, bindings) keep op.URI and
+// op.Image. Writers must detachExtra before mutating those fields.
 //
 //nolint:recvcheck // paint readers take Op by value; extra writers need *Op
 type Op struct {
@@ -438,8 +438,8 @@ type Op struct {
 	StickyID int
 	// ZIndex paints later (higher) above earlier ops when non-zero or set.
 	ZIndex int
-	// RotateDeg rotates the glyph around its baseline origin (PDF text matrix).
-	// Independent of CSS transform CTM (which wraps the whole op via Xform).
+	// RotateDeg rotates the glyph around its baseline origin. Independent of
+	// CSS transform CTM (which wraps the whole op via Xform).
 	RotateDeg float32
 
 	Kind OpKind

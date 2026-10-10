@@ -57,7 +57,7 @@ func (op Op) BlendModeName() string {
 }
 
 // Opacity returns the element opacity the op was painted with, folded with the
-// op's own alpha exactly as the PDF and raster painters fold it.
+// op's own alpha exactly as the engine folds it.
 //
 // The engine stores 0 for "no opacity override" and treats only values
 // strictly between 0 and 1 as a real opacity, so this reports the same
@@ -80,7 +80,7 @@ func (op Op) Outline() bool {
 // TextTransformValue returns the CSS text-transform value the op carries, or
 // "" when it carries none. It is spelled with a Value suffix rather than
 // TextTransform because a method of that name would shadow the promoted
-// opExtra field at the in-package call site in paint.go that reads it.
+// opExtra field of the same name.
 func (op Op) TextTransformValue() string {
 	if op.opExtra == nil {
 		return ""

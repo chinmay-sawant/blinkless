@@ -26,7 +26,7 @@ import (
 //
 // The face-resolution consumer lives in layout.go (resolveFontVariants). The
 // language override reaches the shaper as OpText.TextLanguage and
-// pdf.ShapeTextFontWithFeaturesLanguage.
+// internal/fonts.ShapeTextFontWithFeaturesLanguage.
 const (
 	fontVariantNormal     = "normal"
 	fontOpticalAuto       = "auto"
@@ -370,12 +370,11 @@ func isASCIIDigit(c byte) bool {
 
 // fontShapingLanguage returns the language tag shaping must use for sty.
 // font-language-override wins over the document language for the element. The
-// document language is not available in the layout engine today (convert
-// reads <html lang> only for the PDF/UA /Lang tag), so an unset override
-// yields "".
+// document language is not available in the layout engine today, so an unset
+// override yields "".
 //
 // internal/layout attaches the result to each OpText and the shaper consumes
-// it in internal/pdf/shape_gotext.go (shapingInput).
+// it in internal/fonts/shape_gotext.go (shapingInput).
 func fontShapingLanguage(sty *ResolvedStyle) string {
 	if sty == nil || sty.FontLanguageOverride == fontVariantNormal {
 		return ""

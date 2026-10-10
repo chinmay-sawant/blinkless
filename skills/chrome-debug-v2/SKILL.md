@@ -66,10 +66,12 @@ The Go side is the drawing list in `$run/blinkless.json` (schema
 `blinkless.drawinglist/1`): operations in paint order plus element boxes in CSS
 pixels. Compare its `boxes` against the Chrome rects in
 `$run/chrome-rects.txt`, and match the operations against the rendered
-`$run/chromium.pdf` page. `skills/chrome-debug-v2/scripts/compare_pdfs.py`
+`$run/chromium.pdf` page. Write that comparison to `$run/compare-before.txt`;
+steps 3 and 5 read it instead of re-running it.
+`skills/chrome-debug-v2/scripts/compare_pdfs.py`
 still takes two PDFs, so it stays available for Chromium against another
-reference PDF (for example the `output/wkhtmltopdf/` snapshots); it has no
-drawing-list input.
+reference PDF (for example a stored Chromium PDF from an earlier run); it has
+no drawing-list input.
 
 Concurrent-run hint, not a guarantee: `ls -lt /tmp/chrome-debug/ | head -6`.
 If another fixture's directory changed in the last 30 minutes, stop and ask
@@ -82,11 +84,12 @@ Never normalize page scale or margins; case 26 hid a Chrome page shrink that
 way and its first "match" failed the user check.
 
 `test/chrome/pdf/*.pdf` files are stale inspection artifacts from the removed
-writer pipeline; no test regenerates them (`make chrome-cases-pdf` is a
-disabled stub). Current evidence lives in `test/chrome/manifest.json`: a
+writer pipeline; no test regenerates them (the `make chrome-cases-pdf`
+target is gone). Current evidence lives in `test/chrome/manifest.json`: a
 `go-test` pointer names a function that exists in the cited file, or a
 `browser` pointer names the measured comparison in
-`temps/css-review/geometry-report.md`. `go test ./test/chrome -count=1`
+`test/chrome/evidence/browser-evidence.md` (two css-review entries still
+point at the gitignored temps reports). `go test ./test/chrome -count=1`
 resolves both (`TestManifestGoTestEvidenceResolves`,
 `TestManifestBrowserEvidenceResolves`).
 
@@ -176,9 +179,9 @@ Rules:
   measurements instead of editing again.
 - After the last edit, once: make build; go test ./internal/<pkg> -count=1
   -short; regenerate the Go drawing list; re-render Chromium only if the
-  fixture HTML changed since Step 1; run compare_pdfs.py once with
-  `set -o pipefail` before `| tee "<run-dir>/compare-after.txt"` (pipefail
-  is required when piping to tee).
+  fixture HTML changed since Step 1; re-run the Step 1 comparison
+  (drawing-list boxes against the Chrome rects, operations against the
+  Chromium page) and write it to `<run-dir>/compare-after.txt`.
 - Do not run make test, make golden, or make lint. Do not touch
   knowledge-base, plans, or docs.
 
@@ -226,7 +229,7 @@ Then report, stating whether the fixture matches and which differences remain:
 ```text
 Fixture and revision:
 Chromium PDF:            Go drawing list:
-Compare result:          (drawings X unmatched, text Y unmatched, images Z unmatched, pixel deltas, page-size delta)
+Compare result:          (boxes matched X of Y, op rows unmatched, page-size delta)
 Classification, owner, hypothesis, prediction:
 Fix:                     (files, one line per edit)
 Criticizer verdict:

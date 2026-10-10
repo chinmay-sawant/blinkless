@@ -605,7 +605,7 @@ func squareSideBorderRadii(side border, radii [4]float64, left bool) [4]float64 
 // roundedBorderOps keeps the rounded outer geometry for a solid border whose
 // sides differ in width or color. The base stroke supplies the corner arcs;
 // differing sides are overlaid as masked OpStrokeRect sides so accent rails
-// keep corner arcs without a second imageout OpLine rewrite.
+// keep corner arcs without a second OpLine rewrite.
 func (e *engine) roundedBorderOps(
 	sty ResolvedStyle, posX, posY, width, height float64, radii [4]float64,
 ) []Op {

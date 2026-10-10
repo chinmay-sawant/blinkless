@@ -384,7 +384,7 @@ func isFontVariantEastAsianKeyword(v string) bool {
 }
 
 // fontShapingFeatureSettings builds the OpenType feature list string passed to
-// pdf.ParseFontFeatureSettings. Low-level font-feature-settings wins on tag
+// internal/fonts.ParseFontFeatureSettings. Low-level font-feature-settings wins on tag
 // collisions. Empty means "no CSS features" (shaper keeps CJK defaults).
 func fontShapingFeatureSettings(sty *ResolvedStyle) string {
 	if sty == nil {

@@ -4,7 +4,7 @@ package layout
 // leaves horizontal streaks, so those runs stay unstroked.
 const maxLatin1Rune = 0xFF
 
-// PaintStyle is the resolved per-op appearance shared by raster adapters:
+// PaintStyle is the resolved per-op appearance for display-list consumers:
 // raw RGB, source alpha, stroke min-width, and the Latin-only fake-bold gate.
 type PaintStyle struct {
 	FillR, FillG, FillB float64
@@ -14,7 +14,7 @@ type PaintStyle struct {
 }
 
 // StyleOf resolves paint appearance for op. Translucent fills keep their
-// source RGB and alpha. The raster adapter draws that color with draw.Over.
+// source RGB and alpha. Consumers composite that color with source-over alpha.
 func StyleOf(paintOp *Op) PaintStyle {
 	if paintOp == nil {
 		return PaintStyle{FillAlpha: 1, StrokeWidth: 1} //nolint:exhaustruct // intentional zero fields

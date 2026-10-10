@@ -132,7 +132,7 @@ func TestApplyFontVariantPropsIgnoresOtherFontProps(t *testing.T) {
 
 // TestFontShapingLanguageOverride pins the selection half of
 // font-language-override: normal means no override, a parsed tag is returned
-// unchanged. The shaper consumer lives in internal/pdf (shapingInput) and is
+// unchanged. The shaper consumer lives in internal/fonts (shapingInput) and is
 // fed from OpText.TextLanguage.
 func TestFontShapingLanguageOverride(t *testing.T) {
 	t.Parallel()

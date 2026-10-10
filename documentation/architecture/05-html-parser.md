@@ -788,7 +788,7 @@ check drawing-list output (for example `layout/displaylist_test.go`, run by
 
 Sibling architecture deep-dives (same directory):
 
-- [01-entrypoints-cli.md](01-entrypoints-cli.md) - CLI entrypoint notes from an earlier revision
+- [01-entrypoints-cli.md](01-entrypoints-cli.md) - entry points: public packages, bindings, and build targets
 - [02-library-api.md](02-library-api.md) - public API
 - [03-settings.md](03-settings.md) - `internal/settings` dotted config
 - [04-load.md](04-load.md) - `internal/load` (the seam that feeds this parser)
