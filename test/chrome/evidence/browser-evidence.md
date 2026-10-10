@@ -160,3 +160,26 @@ from `test/chrome/evidence/dsf-border-widths.md`.
 bash temps/chrome-cases/run_cases.sh   # dumps + browser captures, exit 0
 python3 temps/chrome-cases/join.py     # writes the geometry report
 ```
+
+## CSS-review cases
+
+Two completed cases were measured in the css-review recheck rather than the
+chrome-cases run. Their evidence is committed here so
+`TestManifestBrowserEvidenceResolves` resolves without the gitignored `temps/`
+tree. Chrome/143.0.7499.40, viewport 1024x768, 1.0 px tolerance.
+
+| Case | Category | Elements | Boxes | Compared | Pass | Fail | Max delta | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| flex-align-items-stretch | flex | 14 | 8 | 7 | 7 | 0 | 0.68 px | pass |
+| flex-gap-002-ltr | flex | 12 | 8 | 7 | 7 | 0 | 0.67 px | pass |
+
+- flex-align-items-stretch: fixture `cases/case-16-wpt-align-items-stretch.html`;
+  WPT flexbox_align-items-stretch-2, stretched cross size vs the first item's
+  6em cross margin; print scaffold transform `translateY(56pt)` on
+  `.stretch-case`; join method path=7.
+- flex-gap-002-ltr: fixture `cases/case-22-wpt-gap-002-ltr.html`; WPT
+  gap-002-ltr, 15pt column gap between three flexible items; print scaffold
+  transform `translateY(56pt)`; join method path=7.
+
+Raw source: `temps/css-review/recheck/geometry-report.md` (2026-10-09 recheck
+run).

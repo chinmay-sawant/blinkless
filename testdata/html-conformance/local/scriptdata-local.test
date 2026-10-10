@@ -1,0 +1,83 @@
+{
+  "tests": [
+    {
+      "description": "Escaped script data keeps an inner end tag as text (GATE-03)",
+      "input": "<script><!--<script></script></script>",
+      "output": [
+        ["StartTag", "script", {}],
+        ["Character", "<!--<script></script>"],
+        ["EndTag", "script"]
+      ]
+    },
+    {
+      "description": "Double-escaped script data exits on an uppercase matching end tag (GATE-03)",
+      "input": "<script><!--<script></SCRIPT></script>",
+      "output": [
+        ["StartTag", "script", {}],
+        ["Character", "<!--<script></SCRIPT>"],
+        ["EndTag", "script"]
+      ]
+    },
+    {
+      "description": "Escaped dash-dash returns to script data at '-->' (GATE-03)",
+      "input": "<script><!--x--></script>",
+      "output": [
+        ["StartTag", "script", {}],
+        ["Character", "<!--x-->"],
+        ["EndTag", "script"]
+      ]
+    },
+    {
+      "description": "Escaped dash-dash does not end the comment at '--!>' (GATE-03)",
+      "input": "<script><!--x--!></script>",
+      "output": [
+        ["StartTag", "script", {}],
+        ["Character", "<!--x--!>"],
+        ["EndTag", "script"]
+      ]
+    },
+    {
+      "description": "Only a double-escape run spelling script enters the double-escaped state (GATE-03)",
+      "input": "<script><!--<scr></script>",
+      "output": [
+        ["StartTag", "script", {}],
+        ["Character", "<!--<scr>"],
+        ["EndTag", "script"]
+      ]
+    },
+    {
+      "description": "NUL becomes U+FFFD in double-escaped script data (GATE-03)",
+      "input": "<script><!--<script>\u0000</script></script>",
+      "output": [
+        ["StartTag", "script", {}],
+        ["Character", "<!--<script>\uFFFD</script>"],
+        ["EndTag", "script"]
+      ]
+    },
+    {
+      "description": "EOF inside escaped script data emits the gathered text (GATE-03)",
+      "input": "<script><!--",
+      "output": [
+        ["StartTag", "script", {}],
+        ["Character", "<!--"]
+      ]
+    },
+    {
+      "description": "A less-than sign at EOF is emitted as text (GATE-03)",
+      "input": "<script><",
+      "output": [
+        ["StartTag", "script", {}],
+        ["Character", "<"]
+      ]
+    },
+    {
+      "description": "A rejected end tag name is flushed verbatim with source case (GATE-03)",
+      "input": "<script>a</ScRiPtX>b</script>",
+      "output": [
+        ["StartTag", "script", {}],
+        ["Character", "a</ScRiPtX>b"],
+        ["EndTag", "script"]
+      ]
+    }
+  ]
+}

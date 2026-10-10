@@ -88,8 +88,7 @@ writer pipeline; no test regenerates them (the `make chrome-cases-pdf`
 target is gone). Current evidence lives in `test/chrome/manifest.json`: a
 `go-test` pointer names a function that exists in the cited file, or a
 `browser` pointer names the measured comparison in
-`test/chrome/evidence/browser-evidence.md` (two css-review entries still
-point at the gitignored temps reports). `go test ./test/chrome -count=1`
+`test/chrome/evidence/browser-evidence.md`. `go test ./test/chrome -count=1`
 resolves both (`TestManifestGoTestEvidenceResolves`,
 `TestManifestBrowserEvidenceResolves`).
 

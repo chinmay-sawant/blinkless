@@ -11,6 +11,7 @@ cmd/gowkhtmltoimage/gowkhtmltoimage
 /coverage.out
 /coverage.html
 *.test
+!testdata/html-conformance/**/*.test
 testdata/golden/out/
 
 # profiling harness output: heap/stack pprof files, benchmark text dumps, and

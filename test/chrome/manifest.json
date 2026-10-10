@@ -288,7 +288,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "flex-align-items-stretch",
-        "file": "temps/css-review/recheck/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -402,7 +402,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "flex-gap-002-ltr",
-        "file": "temps/css-review/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
