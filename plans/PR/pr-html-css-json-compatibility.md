@@ -121,7 +121,7 @@ make final-evidence FINAL_EVIDENCE_FLAGS=--full
 | `.html` | 45 | 395 | 392 |
 | `.js` | 1 | 0 | 58 |
 | `.json` | 6 | 23876 | 29 |
-| `.md` | 64 | 5349 | 4066 |
+| `.md` | 64 | 5350 | 4066 |
 | `.mjs` | 1 | 225 | 0 |
 | `.py` | 12 | 1533 | 667 |
 | `.sh` | 7 | 567 | 41 |
@@ -130,4 +130,4 @@ make final-evidence FINAL_EVIDENCE_FLAGS=--full
 | `.txt` | 2 | 22 | 1 |
 | `.yml` | 3 | 94 | 71 |
 | No extension | 3 | 56 | 109 |
-| **Total** | **344** | **135043** | **7168** |
+| **Total** | **344** | **135044** | **7168** |
