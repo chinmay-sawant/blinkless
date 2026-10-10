@@ -2,6 +2,8 @@
 package layout
 
 import (
+	"strings"
+
 	"github.com/chinmay-sawant/blinkless/internal/css"
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
@@ -23,9 +25,23 @@ const (
 	floatRefPage   = "page"
 )
 
-// applyFloatPageProps owns float-offset and float-reference.
+// Cascade storage for the GCPM footnote longhands (CSS Generated Content for
+// Paged Media 3, section 2, https://drafts.csswg.org/css-gcpm-3/#footnotes):
+// canonical used values in CustomProps, following the ruby precedent in
+// ruby.go. Chrome implements no footnote area, so the GCPM draft is the
+// oracle. footnote-display stores block, inline or compact (initial block);
+// footnote-policy stores auto, line or block (initial auto). An absent or
+// invalid declaration leaves no key, which reads as the initial. The style
+// store interns the CustomProps map without regenerating style_intern_gen.go.
+const (
+	footnoteDisplayCustomKey = "__footnote_display"
+	footnotePolicyCustomKey  = "__footnote_policy"
+)
+
+// applyFloatPageProps owns float-offset, float-reference and the GCPM
+// footnote-display and footnote-policy longhands.
 func applyFloatPageProps(
-	style *ResolvedStyle, prop, value string, fsize float64, ctx *styleContext, _ *ResolvedStyle, _ bool,
+	style *ResolvedStyle, prop, value string, fsize float64, ctx *styleContext, parent *ResolvedStyle, _ bool,
 ) bool {
 	switch prop {
 	case "float-offset":
@@ -37,11 +53,70 @@ func applyFloatPageProps(
 		if ref, ok := parseFloatReference(value); ok {
 			style.FloatReference = ref
 		}
+	case footnotePropDisplay:
+		setFootnoteCustom(style, parent, footnoteDisplayCustomKey, value, parseFootnoteDisplay)
+	case footnotePropPolicy:
+		setFootnoteCustom(style, parent, footnotePolicyCustomKey, value, parseFootnotePolicy)
 	default:
 		return false
 	}
 
 	return true
+}
+
+// setFootnoteCustom validates value with parse and stores the canonical used
+// value. CSS-wide keywords resolve first: inherit keeps the already-inherited
+// map entry, everything else resets to the initial (deletes the key). An
+// invalid value drops the declaration to the initial too, so a bogus
+// footnote-display never revives an earlier valid one.
+func setFootnoteCustom(
+	style *ResolvedStyle, parent *ResolvedStyle, key, value string, parse func(string) (string, bool),
+) {
+	trimmed := strings.TrimSpace(value)
+	if cssWideKeyword(strings.ToLower(trimmed)) {
+		applyFootnoteWideKeyword(style, parent, key, strings.ToLower(trimmed))
+
+		return
+	}
+
+	used, ok := parse(value)
+	if !ok {
+		if style.CustomProps != nil {
+			delete(style.CustomProps, key)
+		}
+
+		return
+	}
+
+	ensureFootnoteMap(style)
+	style.CustomProps[key] = used
+}
+
+// applyFootnoteWideKeyword resolves a CSS-wide keyword for a footnote key.
+// Inherit keeps the parent entry that mergeCustomProps already folded in
+// (deleting only when the parent carries nothing, which is the initial
+// anyway). Initial, unset, revert, and revert-layer all reset to the initial.
+func applyFootnoteWideKeyword(style, parent *ResolvedStyle, key, keyword string) {
+	if keyword == inheritKeyword {
+		if parent == nil || parent.CustomProps[key] == "" {
+			if style.CustomProps != nil {
+				delete(style.CustomProps, key)
+			}
+		}
+
+		return
+	}
+
+	if style.CustomProps != nil {
+		delete(style.CustomProps, key)
+	}
+}
+
+// ensureFootnoteMap allocates the CustomProps map for one footnote write.
+func ensureFootnoteMap(style *ResolvedStyle) {
+	if style.CustomProps == nil {
+		style.CustomProps = make(map[string]string)
+	}
 }
 
 func parseFloatOffset(raw string, fsize float64, ctx *styleContext) (float64, float64, bool) {

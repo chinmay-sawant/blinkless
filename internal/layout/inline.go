@@ -17,6 +17,8 @@ const (
 	cssWhiteSpacePre             = "pre"
 	cssWhiteSpacePreWrap         = "pre-wrap"
 	cssWhiteSpacePreLine         = "pre-line"
+	textJustifyNone              = "none"
+	textJustifyInterCharacter    = "inter-character"
 	writingModeHorizontalTB      = "horizontal-tb"
 	cssTextAlignJustify          = "justify"
 	cssVerticalAlignBottom       = "bottom"
@@ -71,6 +73,12 @@ type inlineItem struct {
 	blockBox *box
 	opStart  int
 	opEnd    int
+	// rubyAnnot marks a ruby annotation run stacked above (rubyUnder false)
+	// or below (rubyUnder true) its base at half size. The run paints on a
+	// stacked baseline (see rubyAnnotBaseline) and reserves its height in
+	// lineMetrics instead of joining the baseline row.
+	rubyAnnot bool
+	rubyUnder bool
 }
 
 func (e *engine) collectAndPrepareInlineItems(
@@ -92,6 +100,109 @@ func (e *engine) collectAndPrepareInlineItems(
 
 	if len(items) >= minInlinePairLen {
 		items = squeezeInlineSpaces(items)
+	}
+
+	items = e.applyWhiteSpaceTrim(items, blockStyle)
+
+	return items
+}
+
+// applyWhiteSpaceTrim discards block-edge whitespace for white-space-trim.
+// discard-before trims the start, discard-after trims the end, discard-inner
+// trims both (block-container subset). Leading and trailing force breaks
+// (blank lines in pre) and whitespace-only runs are dropped; a surviving
+// edge run keeps its ink but loses its leading or trailing spaces and tabs,
+// with its measured width refreshed. Defaults ("", "none") return items
+// untouched so existing fixtures do not move.
+func (e *engine) applyWhiteSpaceTrim(items []inlineItem, blockStyle *ResolvedStyle) []inlineItem {
+	if len(items) == 0 || blockStyle == nil {
+		return items
+	}
+
+	trim := blockStyle.WhiteSpaceTrim
+	if trim == "" {
+		return items
+	}
+
+	wantBefore := whiteSpaceTrimHas(trim, "discard-before") || whiteSpaceTrimHas(trim, "discard-inner")
+	wantAfter := whiteSpaceTrimHas(trim, "discard-after") || whiteSpaceTrimHas(trim, "discard-inner")
+
+	if !wantBefore && !wantAfter {
+		return items
+	}
+
+	if wantBefore {
+		items = trimInlineLeading(items, e)
+	}
+
+	if wantAfter {
+		items = trimInlineTrailing(items, e)
+	}
+
+	return items
+}
+
+// trimInlineLeading drops leading blank breaks and whitespace-only runs, then
+// strips leading spaces and tabs from the first ink run.
+func trimInlineLeading(items []inlineItem, eng *engine) []inlineItem {
+	for len(items) > 0 {
+		first := &items[0]
+		if first.forceBreak {
+			items = items[1:]
+
+			continue
+		}
+
+		if first.img || first.blockBox != nil || first.style == nil {
+			return items
+		}
+
+		if strings.TrimSpace(first.text) == "" {
+			items = items[1:]
+
+			continue
+		}
+
+		trimmed := strings.TrimLeft(first.text, " \t")
+		if trimmed != first.text {
+			first.text = trimmed
+			first.w = eng.inlineTextWidth(trimmed, first.style, first.chrome)
+		}
+
+		return items
+	}
+
+	return items
+}
+
+// trimInlineTrailing drops trailing blank breaks and whitespace-only runs,
+// then strips trailing spaces and tabs from the last ink run.
+func trimInlineTrailing(items []inlineItem, eng *engine) []inlineItem {
+	for len(items) > 0 {
+		last := &items[len(items)-1]
+		if last.forceBreak {
+			items = items[:len(items)-1]
+
+			continue
+		}
+
+		if last.img || last.blockBox != nil || last.style == nil {
+			return items
+		}
+
+		if strings.TrimSpace(last.text) == "" {
+			items = items[:len(items)-1]
+
+			continue
+		}
+
+		trimmed := strings.TrimRight(last.text, " \t")
+		if trimmed != last.text {
+			last.text = trimmed
+			last.w = eng.inlineTextWidth(trimmed, last.style, last.chrome)
+		}
+
+		return items
 	}
 
 	return items
@@ -166,7 +277,7 @@ func (e *engine) inflowPseudoImage(
 // baseline on the box. When floats is non-nil, each line re-queries exclusion
 // at its canvas Y so text widens again after a float ends mid-paragraph.
 //
-//nolint:cyclop,gocognit,gocyclo,funlen,mnd,wsl // hot path: per-line wrap against float exclusion zones
+//nolint:cyclop,gocognit,gocyclo,funlen,mnd,wsl,maintidx // hot path: per-line wrap against float exclusion zones
 func (e *engine) layoutInlineFloats(
 	boxNode *box, nodes []*html.Node, contentW, contentX, lineY float64,
 	floats *floatState,
@@ -220,9 +331,12 @@ func (e *engine) layoutInlineFloats(
 
 	// text-wrap-style: balance narrows the break width per forced-break
 	// segment (Blink ParagraphLineBreaker bisection), computed lazily when a
-	// segment starts.
+	// segment starts. text-wrap-style: pretty narrows the break width per
+	// segment to avoid a short last line, using prettyLineWidth.
 	balanceEligible := balanceCanApply(floats, clampLimit, blockStyle)
+	prettyEligible := prettyCanApply(floats, clampLimit, blockStyle)
 	balanceW := 0.0
+	prettyW := 0.0
 
 	idx := 0
 	consecHyphenLines := 0
@@ -249,12 +363,39 @@ func (e *engine) layoutInlineFloats(
 			balanceW = e.balanceSegmentWidth(items, idx, contentW)
 		}
 
-		// Pack width: a balanced segment re-breaks at the bisected width,
-		// while alignment keeps the full line width (Chrome overrides only
-		// the line breaker's available width).
+		if prettyEligible && (idx == 0 || items[idx-1].forceBreak) {
+			prettyW = prettyLineWidth(items[idx:inlineSegmentEnd(items, idx)], contentW, pxToPt(1)*e.scale)
+		}
+
+		// Pack width: a balanced or pretty segment re-breaks at the narrowed
+		// width, while alignment keeps the full line width (Chrome overrides
+		// only the line breaker's available width).
 		breakW := lineW
 		if balanceW > 0 && breakW > balanceW {
 			breakW = balanceW
+		}
+
+		if prettyW > 0 && breakW > prettyW {
+			breakW = prettyW
+		}
+
+		// text-wrap-style: avoid-short-last-line narrows the break width per
+		// segment to pull a word down from a short orphan tail, using
+		// avoidShortLineWidth. Kept separate from the balance/pretty branches
+		// above so those widths stay untouched.
+		if avoidShortCanApply(floats, clampLimit, blockStyle) {
+			segStart := idx
+			for segStart > 0 && !items[segStart-1].forceBreak {
+				segStart--
+			}
+
+			segEnd := inlineSegmentEnd(items, segStart)
+			epsilon := pxToPt(1) * e.scale
+
+			seg := items[segStart:segEnd]
+			if w := avoidShortLineWidth(seg, contentW, epsilon); w > 0 && breakW > w {
+				breakW = w
+			}
 		}
 
 		// Pack one line under current exclusion width.
@@ -281,10 +422,10 @@ func (e *engine) layoutInlineFloats(
 		idx = nextIdx
 		leftY = packedY
 
-		// A balanced segment keeps the full line width for alignment; the
-		// packer can only narrow lineW for active floats, which balancing
-		// already opted out of.
-		if balanceW == 0 {
+		// A balanced or pretty segment keeps the full line width for
+		// alignment; the packer can only narrow lineW for active floats,
+		// which both modes already opted out of.
+		if balanceW == 0 && prettyW == 0 {
 			lineX, lineW = packedX, packedW
 		}
 
@@ -1011,6 +1152,16 @@ func (e *engine) emitLine( //nolint:funlen
 
 	textAlign = resolveTextGroupAlign(blockStyle, textAlign)
 
+	// text-justify:none disables justification even when text-align asks for
+	// it (Chrome 143 justifies nothing and start-aligns the line).
+	if textAlign == cssTextAlignJustify && textJustifyMode(blockStyle) == textJustifyNone {
+		if blockStyle != nil && blockStyle.Direction == cssDirectionRTL {
+			textAlign = floatRight
+		} else {
+			textAlign = floatLeft
+		}
+	}
+
 	// A vertical-rl block advances columns right-to-left, so a single column
 	// anchors at the content box's right edge. text-align along the vertical
 	// axis is not implemented; justify keeps the shared path.
@@ -1035,6 +1186,15 @@ func (e *engine) emitLine( //nolint:funlen
 		totalW += line[i].marginL + line[i].w + line[i].marginR
 	}
 
+	// text-justify:inter-character distributes the slack between every
+	// character as extra letter spacing (Chrome 143 fills the line even
+	// without word separators). The expansion updates the cloned item
+	// styles and widths in place; the later word-gap path then sees no
+	// remaining slack for this mode.
+	if textAlign == cssTextAlignJustify && textJustifyMode(blockStyle) == textJustifyInterCharacter {
+		totalW = e.applyInterCharJustify(line, availW, totalW, lastLine, blockStyle)
+	}
+
 	hang := 0.0
 	trimLead := 0.0
 
@@ -1048,7 +1208,7 @@ func (e *engine) emitLine( //nolint:funlen
 		alignW = 0
 	}
 
-	leftX, justifyGap := e.lineOriginAndGap(textAlign, startX, availW, alignW, line, lastLine)
+	leftX, justifyGap := e.lineOriginAndGap(textAlign, startX, availW, alignW, line, lastLine, blockStyle)
 	leftX -= hang + trimLead
 
 	e.emitLineItems(boxNode, line, leftX, baseline, lineH, lineY, justifyGap)
@@ -1097,7 +1257,16 @@ func (e *engine) emitLineItems(boxNode *box, line []inlineItem, leftX, baseline,
 		case item.img:
 			leftX = e.emitInlineImage(item, leftX, lineY, lineH, baseline, justifyGap, idx < len(line)-1, &und)
 		default:
-			leftX = e.emitInlineText(item, leftX, baseline, justifyGap, idx < len(line)-1, &und)
+			// Ruby annotations paint on their stacked baseline (top of the
+			// line box when over, bottom when under) instead of the base
+			// baseline. Horizontal overlay already rode in on the collector
+			// margins, so only the baseline changes here.
+			paintBaseline := baseline
+			if item.rubyAnnot {
+				paintBaseline = e.rubyAnnotBaseline(item, lineY, lineH)
+			}
+
+			leftX = e.emitInlineText(item, leftX, paintBaseline, justifyGap, idx < len(line)-1, &und)
 		}
 		e.popInlineBlend(&blendScope)
 
@@ -1209,6 +1378,7 @@ func (e *engine) lineMetrics( //nolint:funlen
 	line []inlineItem, lineY float64, block *ResolvedStyle, trimStart, trimEnd bool,
 ) (float64, float64) {
 	maxAscent, maxDescent := 0.0, 0.0
+	rubyOverH, rubyUnderH := 0.0, 0.0
 	edgeStyle := block
 
 	// Every line box carries the block's strut: a zero-width inline box with
@@ -1235,6 +1405,13 @@ func (e *engine) lineMetrics( //nolint:funlen
 				maxDescent = descent
 			}
 
+			continue
+		}
+
+		// Ruby annotations stack outside the base row: reserve their height
+		// above or below instead of joining the baseline max. Inter-character
+		// runs never carry the flag and keep the normal path.
+		if rubyStackReserve(item, &rubyOverH, &rubyUnderH) {
 			continue
 		}
 
@@ -1274,12 +1451,32 @@ func (e *engine) lineMetrics( //nolint:funlen
 		}
 	}
 
-	lineH := maxAscent + maxDescent
+	lineH := maxAscent + maxDescent + rubyOverH + rubyUnderH
 	if lineH <= 0 {
 		lineH = 1
 	}
 
-	return lineH, lineY + maxAscent
+	return lineH, lineY + maxAscent + rubyOverH
+}
+
+// rubyStackReserve accumulates a stacked ruby annotation item's height above
+// or below the base row. It reports whether the item was a stacked
+// annotation; normal items (including inter-character runs, which never carry
+// the flag) return false so the caller joins the baseline max.
+func rubyStackReserve(item *inlineItem, overH, underH *float64) bool {
+	if !item.rubyAnnot {
+		return false
+	}
+
+	if item.rubyUnder {
+		if item.h > *underH {
+			*underH = item.h
+		}
+	} else if item.h > *overH {
+		*overH = item.h
+	}
+
+	return true
 }
 
 // strutMetrics is the block's line strut (ascent, descent): a zero-width
@@ -1344,7 +1541,7 @@ func (e *engine) atomicInlineAlign(item *inlineItem) (float64, float64) {
 // inter-word space added by text-align:justify (0 unless justifying).
 func (e *engine) lineOriginAndGap(
 	textAlign string, originX, availW, totalW float64,
-	line []inlineItem, lastLine bool,
+	line []inlineItem, lastLine bool, blockStyle *ResolvedStyle,
 ) (float64, float64) {
 	switch textAlign {
 	case floatRight:
@@ -1352,7 +1549,7 @@ func (e *engine) lineOriginAndGap(
 	case fxCenter:
 		return originX + (availW-totalW)/2, 0
 	case cssTextAlignJustify:
-		return originX, e.justifyGapOf(line, availW, totalW, lastLine)
+		return originX, e.justifyGapOf(line, availW, totalW, lastLine, blockStyle)
 	default:
 		return originX, 0
 	}
@@ -1363,11 +1560,21 @@ func (e *engine) lineOriginAndGap(
 // CSS justify expands inter-word spaces only — not every inline box
 // boundary. Expanding after every item put rivers before commas, cites
 // ("word [1]"), and apostrophes ("Roth 's") on wiki print pages.
+// text-justify:none disables the expansion and text-justify:inter-character
+// expands inside the runs instead, so both return no word gap here.
 //
 //nolint:cyclop // text justification spacing
-func (e *engine) justifyGapOf(line []inlineItem, availW, totalW float64, lastLine bool) float64 {
+func (e *engine) justifyGapOf(
+	line []inlineItem, availW, totalW float64, lastLine bool, blockStyle *ResolvedStyle,
+) float64 {
+	mode := textJustifyMode(blockStyle)
+	if mode == textJustifyNone || mode == textJustifyInterCharacter {
+		return 0
+	}
+
 	allowLastLine := lastLine && len(line) > 0 &&
 		line[0].style != nil && line[0].style.TextAlignLast == cssTextAlignJustify
+
 	if (lastLine && !allowLastLine) || availW <= totalW || len(line) <= 1 {
 		return 0
 	}
@@ -1405,10 +1612,127 @@ func (e *engine) justifyMaxGap(line []inlineItem) float64 {
 	maxGap := 6.0 // pt
 
 	for i := range line {
+		if line[i].style == nil {
+			continue
+		}
+
 		if fs := line[i].style.FontSize * e.scale; fs > maxGap {
 			maxGap = fs // up to 1em extra between words
 		}
 	}
 
 	return maxGap
+}
+
+// applyInterCharJustify spreads the justification slack between every
+// character of a justified line as extra letter spacing and returns the
+// updated line width. The extra spacing rides on cloned item styles so the
+// emitted OpText ops carry wider advances; the word-gap path stays at zero
+// for this mode. Lines that must not justify (last line without
+// text-align-last:justify, already-full lines) and overfull expansions are
+// left untouched.
+func (e *engine) applyInterCharJustify(
+	line []inlineItem, availW, totalW float64, lastLine bool, blockStyle *ResolvedStyle,
+) float64 {
+	if !justifyLineEligible(lastLine, line, blockStyle) || availW <= totalW || len(line) == 0 {
+		return totalW
+	}
+
+	counts, totalRunes := countLineSpacingRunes(line)
+
+	if totalRunes == 0 {
+		return totalW
+	}
+
+	perChar, ok := capInterCharGap(availW-totalW, totalRunes, e.justifyMaxGap(line))
+	if !ok {
+		return totalW
+	}
+
+	delta := perChar
+	if e.scale > 0 {
+		delta = perChar / e.scale
+	}
+
+	spreadInterCharSpacing(line, counts, perChar, delta)
+
+	return totalW + perChar*float64(totalRunes)
+}
+
+// justifyLineEligible reports whether a line may justify: non-last lines
+// always, last lines only with text-align-last:justify.
+func justifyLineEligible(lastLine bool, line []inlineItem, blockStyle *ResolvedStyle) bool {
+	allowLastLine := lastLine && len(line) > 0 &&
+		line[0].style != nil && line[0].style.TextAlignLast == cssTextAlignJustify
+	if blockStyle != nil && blockStyle.TextAlignLast == cssTextAlignJustify {
+		allowLastLine = allowLastLine || lastLine
+	}
+
+	return !lastLine || allowLastLine
+}
+
+// capInterCharGap caps per-char slack at the soft gap limit and reports
+// whether justification should proceed.
+func capInterCharGap(slack float64, totalRunes int, maxGap float64) (float64, bool) {
+	perChar := slack / float64(totalRunes)
+
+	if perChar > maxGap*2 || perChar <= 0 {
+		return 0, false
+	}
+
+	if perChar > maxGap {
+		perChar = maxGap
+	}
+
+	return perChar, true
+}
+
+// countLineSpacingRunes counts the spacing runes per line item and their
+// total, skipping breaks, images, boxes, and empty text.
+func countLineSpacingRunes(line []inlineItem) ([]int, int) {
+	counts := make([]int, len(line))
+	totalRunes := 0
+
+	for idx := range line {
+		item := &line[idx]
+		if item.forceBreak || item.img || item.blockBox != nil || item.style == nil || item.text == "" {
+			continue
+		}
+
+		n := countSpacingRunes(item.text)
+		counts[idx] = n
+		totalRunes += n
+	}
+
+	return counts, totalRunes
+}
+
+// spreadInterCharSpacing adds perChar letter spacing to every counted item.
+func spreadInterCharSpacing(line []inlineItem, counts []int, perChar, delta float64) {
+	for idx := range line {
+		if counts[idx] == 0 {
+			continue
+		}
+
+		cloned := *line[idx].style
+		cloned.LetterSpacing += delta
+		line[idx].style = &cloned
+		line[idx].w += perChar * float64(counts[idx])
+	}
+}
+
+// countSpacingRunes counts the runes that carry letter spacing: every rune
+// except soft hyphens and variation selectors, matching measureTextFace.
+func countSpacingRunes(text string) int {
+	count := 0
+
+	for _, r := range text {
+		if r == softHyphenRune || isVariationSelector(r) {
+			continue
+		}
+
+		count++
+	}
+
+	return count
 }

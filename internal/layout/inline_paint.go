@@ -763,7 +763,8 @@ func (e *engine) paintDecoration(
 		uWidth = item.style.TextDecorationThickness
 	}
 
-	underY := baseline + descent + size*0.22 + item.style.TextUnderlineOffset
+	underY := baseline + descent + size*0.22 + item.style.TextUnderlineOffset +
+		underlinePositionShift(item.style, size, descent)
 
 	if wsOnly {
 		// Do not start a decoration on whitespace-only, but extend an active
@@ -1279,10 +1280,11 @@ func (e *engine) paintEmphasis(item *inlineItem, runStart, runSpan, baseline, as
 		return
 	}
 
+	skipSpaces, skipPunct, skipSymbols, skipNarrow := emphasisSkipModes(item.style)
 	curX := runStart
 
 	for _, runic := range item.text {
-		if runic == ' ' || runic == '\t' {
+		if skipEmphasisRune(runic, skipSpaces, skipPunct, skipSymbols, skipNarrow) {
 			curX += e.measureRuneFace(runic, item.style)
 
 			continue
@@ -1782,7 +1784,11 @@ func (e *engine) primaryFaceRun(cssSheet string, sty *ResolvedStyle) (faceRun, b
 	var prev rune
 
 	for _, runic := range paintText {
-		width += primary.AdvanceInPoints(runic, size)
+		if runic == '\t' {
+			width += e.tabStopAdvance(sty, primary, size)
+		} else {
+			width += primary.AdvanceInPoints(runic, size)
+		}
 		width += textAutospaceGap(sty, prev, runic, size)
 		runeCount++
 

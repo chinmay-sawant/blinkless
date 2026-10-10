@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
@@ -9,6 +10,27 @@ import (
 const (
 	currentColorKeyword = "currentcolor"
 	propContent         = "content"
+
+	// Cascade storage for string-set (CSS Content 3,
+	// https://drafts.csswg.org/css-content-3/#propdef-string-set) and the
+	// GCPM bookmark longhands (https://www.w3.org/TR/css-gcpm-3/#bookmarks
+	// with longhands in CSS Content 3): canonical used values in CustomProps,
+	// following the ruby precedent in ruby.go. Chrome has no string-set or
+	// bookmark support, so the drafts are the oracle. string-set stores the
+	// canonical assignment list (none reads as no key, the initial);
+	// bookmark-level stores the canonical integer, bookmark-state open or
+	// closed, bookmark-label the trimmed declaration (element text resolves
+	// the content keyword at read time in bookmark_outline.go). An absent or
+	// invalid declaration leaves no key, except bookmark-state where any
+	// value including bogus resolves to the used open or closed flag. The
+	// style store interns the CustomProps map without regenerating
+	// style_intern_gen.go.
+	stringSetPropName = "string-set"
+
+	stringSetCustomKey     = "__string_set"
+	bookmarkLabelCustomKey = "__bookmark_label"
+	bookmarkLevelCustomKey = "__bookmark_level"
+	bookmarkStateCustomKey = "__bookmark_state"
 )
 
 func isCurrentColor(value string) bool {
@@ -22,12 +44,21 @@ func parseUsedColorAlpha(value string, current [3]float64) ([3]float64, float64,
 		return current, 1, true
 	}
 
-	r, g, b, a, ok := css.ParseColor(value)
+	red, green, blue, alpha, ok := css.ParseColor(value)
 	if !ok {
-		return [3]float64{}, 0, false
+		// Wide-gamut spellings (color(), lab(), lch(), hwb(), wide
+		// color-mix) carry out-of-range channels for dynamic-range-limit;
+		// legacy ParseColor rejects them, so fall back to the headroom
+		// representation. Legacy results are untouched.
+		wide, wideAlpha, wideOK := css.ParseColorWide(value)
+		if !wideOK {
+			return [3]float64{}, 0, false
+		}
+
+		return wide, wideAlpha, true
 	}
 
-	return [3]float64{float64(r) / 255, float64(g) / 255, float64(b) / 255}, a, true
+	return [3]float64{float64(red) / 255, float64(green) / 255, float64(blue) / 255}, alpha, true
 }
 
 // parseUsedColor maps a CSS color token onto 0..1 RGB. currentColor uses the
@@ -387,6 +418,26 @@ func applyGeneratedContentProps(style *ResolvedStyle, prop, value string) bool {
 	case propContent:
 		style.Content = strings.TrimSpace(value)
 	default:
+		return applyGeneratedGCPMProps(style, prop, value)
+	}
+
+	return true
+}
+
+// applyGeneratedGCPMProps owns the GCPM generated-content longhands:
+// string-set and the bookmark family. Split from applyGeneratedContentProps
+// to keep the dispatch cyclomatic complexity within the lint budget.
+func applyGeneratedGCPMProps(style *ResolvedStyle, prop, value string) bool {
+	switch prop {
+	case stringSetPropName:
+		setStringSetCustom(style, value)
+	case bookmarkLabelProp:
+		setBookmarkLabelCustom(style, value)
+	case bookmarkLevelProp:
+		setBookmarkLevelCustom(style, value)
+	case bookmarkStateProp:
+		setBookmarkStateCustom(style, value)
+	default:
 		return false
 	}
 
@@ -404,6 +455,170 @@ func applyQuotesValue(style *ResolvedStyle, value string) {
 func setTrimmedStyleValue(dst *string, value string) {
 	if trimmed := strings.TrimSpace(value); trimmed != "" {
 		*dst = trimmed
+	}
+}
+
+// setStringSetCustom stores the canonical used string-set value: the
+// re-encoded assignment list from ParseStringSet, so escapes stay decoded and
+// adjacent strings stay concatenated. none and initial read as no key (the
+// initial). CSS-wide inherit keeps the already-inherited map entry;
+// initial, unset, revert, and revert-layer reset to none. An invalid value
+// drops to none too, so a bogus string-set never revives an earlier valid one.
+func setStringSetCustom(style *ResolvedStyle, value string) {
+	trimmed := strings.TrimSpace(value)
+	if cssWideKeyword(strings.ToLower(trimmed)) {
+		if style.CustomProps != nil {
+			delete(style.CustomProps, stringSetCustomKey)
+		}
+
+		return
+	}
+
+	used, ok := canonicalStringSet(value)
+	if !ok || used == "none" {
+		if style.CustomProps != nil {
+			delete(style.CustomProps, stringSetCustomKey)
+		}
+
+		return
+	}
+
+	ensureGeneratedMap(style)
+	style.CustomProps[stringSetCustomKey] = used
+}
+
+// canonicalStringSet re-encodes a declaration into its used assignment list:
+// name plus double-quoted decoded strings joined by commas, or none for the
+// empty assignment list. ok is false outside the supported syntax.
+func canonicalStringSet(raw string) (string, bool) {
+	assignments, ok := ParseStringSet(raw)
+	if !ok {
+		return "", false
+	}
+
+	if len(assignments) == 0 {
+		return "none", true
+	}
+
+	parts := make([]string, 0, len(assignments))
+
+	for _, assignment := range assignments {
+		parts = append(parts, assignment.Name+" "+quoteStringSetValue(assignment.Value))
+	}
+
+	return strings.Join(parts, ", "), true
+}
+
+// quoteGrowOverhead is the two quote bytes quoteStringSetValue adds.
+const quoteGrowOverhead = 2
+
+// quoteStringSetValue quotes one decoded used value with double quotes,
+// escaping backslashes and double quotes so ParseStringSet reads it back.
+func quoteStringSetValue(value string) string {
+	var built strings.Builder
+
+	built.Grow(len(value) + quoteGrowOverhead)
+	built.WriteByte('"')
+
+	for i := range len(value) {
+		if value[i] == '"' || value[i] == '\\' {
+			built.WriteByte('\\')
+		}
+
+		built.WriteByte(value[i])
+	}
+
+	built.WriteByte('"')
+
+	return built.String()
+}
+
+// setBookmarkLabelCustom stores the trimmed bookmark-label declaration. The
+// used title needs the element text (the content keyword resolves at read
+// time in bookmark_outline.go), so the cascade keeps the declaration and the
+// reader computes the used value. none stays stored (it means no entry, which
+// differs from the absent initial that reads as the element text). CSS-wide
+// inherit keeps the already-inherited entry; initial, unset, revert, and
+// revert-layer delete it back to the element-text initial. Anything else,
+// including an unbalanced quote the reader falls back from, stays stored for
+// the reader to resolve.
+func setBookmarkLabelCustom(style *ResolvedStyle, value string) {
+	trimmed := strings.TrimSpace(value)
+	if cssWideKeyword(strings.ToLower(trimmed)) {
+		if !strings.EqualFold(trimmed, inheritKeyword) && style.CustomProps != nil {
+			delete(style.CustomProps, bookmarkLabelCustomKey)
+		}
+
+		return
+	}
+
+	if trimmed == "" {
+		return
+	}
+
+	ensureGeneratedMap(style)
+	style.CustomProps[bookmarkLabelCustomKey] = trimmed
+}
+
+// setBookmarkLevelCustom stores the canonical used bookmark-level integer.
+// none, out-of-range integers, and unparsable values read as no key (no
+// bookmark). CSS-wide inherit keeps the already-inherited entry; every other
+// wide keyword resets to none.
+func setBookmarkLevelCustom(style *ResolvedStyle, value string) {
+	trimmed := strings.TrimSpace(value)
+	if cssWideKeyword(strings.ToLower(trimmed)) {
+		if !strings.EqualFold(trimmed, inheritKeyword) && style.CustomProps != nil {
+			delete(style.CustomProps, bookmarkLevelCustomKey)
+		}
+
+		return
+	}
+
+	level, ok := parseBookmarkLevelValue(value)
+	if !ok {
+		if style.CustomProps != nil {
+			delete(style.CustomProps, bookmarkLevelCustomKey)
+		}
+
+		return
+	}
+
+	ensureGeneratedMap(style)
+	style.CustomProps[bookmarkLevelCustomKey] = strconv.Itoa(level)
+}
+
+// setBookmarkStateCustom stores the used bookmark-state: closed only for the
+// closed keyword, open for open, absent, and anything else. CSS-wide inherit
+// keeps the already-inherited entry; every other wide keyword resets to the
+// open initial.
+func setBookmarkStateCustom(style *ResolvedStyle, value string) {
+	trimmed := strings.TrimSpace(value)
+	if cssWideKeyword(strings.ToLower(trimmed)) {
+		if !strings.EqualFold(trimmed, inheritKeyword) && style.CustomProps != nil {
+			delete(style.CustomProps, bookmarkStateCustomKey)
+		}
+
+		return
+	}
+
+	if trimmed == "" {
+		return
+	}
+
+	ensureGeneratedMap(style)
+
+	if parseBookmarkOpenValue(value) {
+		style.CustomProps[bookmarkStateCustomKey] = "open"
+	} else {
+		style.CustomProps[bookmarkStateCustomKey] = "closed"
+	}
+}
+
+// ensureGeneratedMap allocates the CustomProps map for one generated-content
+// family write.
+func ensureGeneratedMap(style *ResolvedStyle) {
+	if style.CustomProps == nil {
+		style.CustomProps = make(map[string]string)
 	}
 }
 

@@ -301,6 +301,7 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.BackgroundOrigin == b.BackgroundOrigin &&
 		a.BackgroundAttachment == b.BackgroundAttachment &&
 		a.ClipPath == b.ClipPath &&
+		a.ClipRule == b.ClipRule &&
 		a.BorderImageSource == b.BorderImageSource &&
 		a.BorderImageSlice == b.BorderImageSlice &&
 		a.BorderImageWidth == b.BorderImageWidth &&
@@ -345,6 +346,10 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.OverflowClipMarginRight == b.OverflowClipMarginRight &&
 		a.OverflowClipMarginBottom == b.OverflowClipMarginBottom &&
 		a.OverflowClipMarginLeft == b.OverflowClipMarginLeft &&
+		a.ScrollMarginTop == b.ScrollMarginTop &&
+		a.ScrollMarginRight == b.ScrollMarginRight &&
+		a.ScrollMarginBottom == b.ScrollMarginBottom &&
+		a.ScrollMarginLeft == b.ScrollMarginLeft &&
 		a.Contain == b.Contain &&
 		a.ContainIntrinsicWidth == b.ContainIntrinsicWidth &&
 		a.ContainIntrinsicHeight == b.ContainIntrinsicHeight &&
@@ -406,6 +411,25 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.TextSpacingTrim == b.TextSpacingTrim &&
 		a.TextGroupAlign == b.TextGroupAlign &&
 		a.TextFit == b.TextFit &&
+		a.TransformBox == b.TransformBox &&
+		a.TransformStyle == b.TransformStyle &&
+		a.BackfaceVisibility == b.BackfaceVisibility &&
+		a.Transform3D == b.Transform3D &&
+		a.HasTransform3D == b.HasTransform3D &&
+		a.PerspectiveDist == b.PerspectiveDist &&
+		a.HasPerspective == b.HasPerspective &&
+		a.PerspectiveOriginX == b.PerspectiveOriginX &&
+		a.PerspectiveOriginXPct == b.PerspectiveOriginXPct &&
+		a.PerspectiveOriginY == b.PerspectiveOriginY &&
+		a.PerspectiveOriginYPct == b.PerspectiveOriginYPct &&
+		a.PerspectiveOriginSet == b.PerspectiveOriginSet &&
+		a.FillRule == b.FillRule &&
+		a.ShapeRendering == b.ShapeRendering &&
+		a.DominantBaseline == b.DominantBaseline &&
+		a.AlignmentBaseline == b.AlignmentBaseline &&
+		a.Clip == b.Clip &&
+		a.ColorInterpolation == b.ColorInterpolation &&
+		a.ColorInterpolationFilters == b.ColorInterpolationFilters &&
 		maps.Equal(a.CustomProps, b.CustomProps)
 }
 
@@ -633,6 +657,7 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashString(h, s.BackgroundOrigin)
 	h = styleInternHashString(h, s.BackgroundAttachment)
 	h = styleInternHashString(h, s.ClipPath)
+	h = styleInternHashString(h, s.ClipRule)
 	h = styleInternHashString(h, s.BorderImageSource)
 	h = styleInternHashString(h, s.BorderImageSlice)
 	h = styleInternHashString(h, s.BorderImageWidth)
@@ -683,6 +708,10 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashFloat64(h, s.OverflowClipMarginRight)
 	h = styleInternHashFloat64(h, s.OverflowClipMarginBottom)
 	h = styleInternHashFloat64(h, s.OverflowClipMarginLeft)
+	h = styleInternHashFloat64(h, s.ScrollMarginTop)
+	h = styleInternHashFloat64(h, s.ScrollMarginRight)
+	h = styleInternHashFloat64(h, s.ScrollMarginBottom)
+	h = styleInternHashFloat64(h, s.ScrollMarginLeft)
 	h = styleInternHashString(h, s.Contain)
 	h = styleInternHashFloat64(h, s.ContainIntrinsicWidth)
 	h = styleInternHashFloat64(h, s.ContainIntrinsicHeight)
@@ -744,6 +773,27 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashString(h, s.TextSpacingTrim)
 	h = styleInternHashString(h, s.TextGroupAlign)
 	h = styleInternHashString(h, s.TextFit)
+	h = styleInternHashString(h, s.TransformBox)
+	h = styleInternHashString(h, s.TransformStyle)
+	h = styleInternHashString(h, s.BackfaceVisibility)
+	for _, e := range s.Transform3D {
+		h = styleInternHashFloat64(h, e)
+	}
+	h = styleInternHashBool(h, s.HasTransform3D)
+	h = styleInternHashFloat64(h, s.PerspectiveDist)
+	h = styleInternHashBool(h, s.HasPerspective)
+	h = styleInternHashFloat64(h, s.PerspectiveOriginX)
+	h = styleInternHashBool(h, s.PerspectiveOriginXPct)
+	h = styleInternHashFloat64(h, s.PerspectiveOriginY)
+	h = styleInternHashBool(h, s.PerspectiveOriginYPct)
+	h = styleInternHashBool(h, s.PerspectiveOriginSet)
+	h = styleInternHashString(h, s.FillRule)
+	h = styleInternHashString(h, s.ShapeRendering)
+	h = styleInternHashString(h, s.DominantBaseline)
+	h = styleInternHashString(h, s.AlignmentBaseline)
+	h = styleInternHashString(h, s.Clip)
+	h = styleInternHashString(h, s.ColorInterpolation)
+	h = styleInternHashString(h, s.ColorInterpolationFilters)
 	h = styleInternHashStringMap(h, s.CustomProps)
 
 	return h
@@ -959,6 +1009,7 @@ func styleInternFields() []string {
 		"BackgroundOrigin",
 		"BackgroundAttachment",
 		"ClipPath",
+		"ClipRule",
 		"BorderImageSource",
 		"BorderImageSlice",
 		"BorderImageWidth",
@@ -1003,6 +1054,10 @@ func styleInternFields() []string {
 		"OverflowClipMarginRight",
 		"OverflowClipMarginBottom",
 		"OverflowClipMarginLeft",
+		"ScrollMarginTop",
+		"ScrollMarginRight",
+		"ScrollMarginBottom",
+		"ScrollMarginLeft",
 		"Contain",
 		"ContainIntrinsicWidth",
 		"ContainIntrinsicHeight",
@@ -1064,6 +1119,25 @@ func styleInternFields() []string {
 		"TextSpacingTrim",
 		"TextGroupAlign",
 		"TextFit",
+		"TransformBox",
+		"TransformStyle",
+		"BackfaceVisibility",
+		"Transform3D",
+		"HasTransform3D",
+		"PerspectiveDist",
+		"HasPerspective",
+		"PerspectiveOriginX",
+		"PerspectiveOriginXPct",
+		"PerspectiveOriginY",
+		"PerspectiveOriginYPct",
+		"PerspectiveOriginSet",
+		"FillRule",
+		"ShapeRendering",
+		"DominantBaseline",
+		"AlignmentBaseline",
+		"Clip",
+		"ColorInterpolation",
+		"ColorInterpolationFilters",
 		"CustomProps",
 	}
 }

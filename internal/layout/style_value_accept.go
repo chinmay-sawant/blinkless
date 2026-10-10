@@ -183,7 +183,8 @@ func declarationValueAccepted(prop, value string) bool {
 	case "text-align":
 		return keywordIn(value, floatLeft, fxCenter, cssTextAlignJustify, floatRight, fxEnd, fxStart)
 	case propTextWrapStyle:
-		return keywordIn(value, textWrapStyleAuto, textWrapStyleBalance, textWrapStyleStable)
+		return keywordIn(value, textWrapStyleAuto, textWrapStyleBalance,
+			textWrapStyleStable, textWrapStylePretty, textWrapStyleAvoidShort)
 	case propTextWrap:
 		return textWrapShorthandValueAccepted(value)
 	case "white-space":
@@ -429,24 +430,19 @@ func extendedDeclarationValueAccepted(prop, value string) bool {
 	case "color", "outline-color", propTextDecorationColor:
 		return colorValueAccepted(value)
 	case "background-color":
-		_, _, _, _, ok := css.ParseColor(value)
-
-		return ok
+		return backgroundColorValueAccepted(value)
 	case propBackground:
 		return backgroundValueAccepted(value)
 	case propBackgroundImage:
 		return backgroundImageValueAccepted(value)
-	case borderProperty, borderTopProperty, borderRightProperty, borderBottomProperty, borderLeftProperty:
-		return borderShorthandValueAccepted(value)
-	case borderColorKeyword,
-		propBorderTopColor, propBorderRightColor, propBorderBottomColor, propBorderLeftColor:
-		return colorListValueAccepted(value)
-	case borderStyleKeyword,
-		propBorderTopStyle, propBorderRightStyle, propBorderBottomStyle, propBorderLeftStyle:
-		return borderStyleValueAccepted(value)
-	case borderWidthKeyword,
+	case borderProperty, borderTopProperty, borderRightProperty, borderBottomProperty, borderLeftProperty,
+		borderColorKeyword,
+		propBorderTopColor, propBorderRightColor, propBorderBottomColor, propBorderLeftColor,
+		borderStyleKeyword,
+		propBorderTopStyle, propBorderRightStyle, propBorderBottomStyle, propBorderLeftStyle,
+		borderWidthKeyword,
 		propBorderTopWidth, propBorderRightWidth, propBorderBottomWidth, propBorderLeftWidth:
-		return borderWidthValueAccepted(value)
+		return borderValueAccepted(prop, value)
 	case "border-radius":
 		return borderRadiusValueAccepted(value)
 	case "outline":
@@ -465,10 +461,32 @@ func extendedDeclarationValueAccepted(prop, value string) bool {
 		return fontShorthandValueAccepted(value)
 	case "transform":
 		return transformValueAccepted(value)
+	case "perspective":
+		return perspectiveValueAccepted(value)
+	case "perspective-origin":
+		return perspectiveOriginValueAccepted(value)
 	case "line-height":
 		return lineHeightValueAccepted(value)
 	default:
 		return layoutDeclarationValueAccepted(prop, value)
+	}
+}
+
+// borderValueAccepted mirrors the border shorthand and longhand appliers,
+// split out of extendedDeclarationValueAccepted to hold its statement count.
+func borderValueAccepted(prop, value string) bool {
+	switch prop {
+	case borderColorKeyword,
+		propBorderTopColor, propBorderRightColor, propBorderBottomColor, propBorderLeftColor:
+		return colorListValueAccepted(value)
+	case borderStyleKeyword,
+		propBorderTopStyle, propBorderRightStyle, propBorderBottomStyle, propBorderLeftStyle:
+		return borderStyleValueAccepted(value)
+	case borderWidthKeyword,
+		propBorderTopWidth, propBorderRightWidth, propBorderBottomWidth, propBorderLeftWidth:
+		return borderWidthValueAccepted(value)
+	default:
+		return borderShorthandValueAccepted(value)
 	}
 }
 
@@ -590,6 +608,19 @@ func layoutDeclarationValueAccepted(prop, value string) bool {
 // colorValueAccepted mirrors the color arms: a parsed color or currentColor.
 func colorValueAccepted(value string) bool {
 	_, ok := parseUsedColor(value, [3]float64{})
+
+	return ok
+}
+
+// backgroundColorValueAccepted mirrors the background-color store: legacy
+// colors plus wide-gamut spellings that keep headroom for
+// dynamic-range-limit.
+func backgroundColorValueAccepted(value string) bool {
+	if _, _, _, _, ok := css.ParseColor(value); ok {
+		return true
+	}
+
+	_, _, ok := css.ParseColorWide(value)
 
 	return ok
 }
@@ -873,6 +904,51 @@ func transformValueAccepted(value string) bool {
 	_, _, _, _, ok := parseTransformList(value, 0) //nolint:dogsled // the acceptance gate needs only the parse verdict
 
 	return ok
+}
+
+// perspectiveValueAccepted mirrors applyPerspectiveProperty: none or a
+// positive length.
+func perspectiveValueAccepted(value string) bool {
+	trimmed := strings.TrimSpace(strings.ToLower(value))
+	if trimmed == "" || trimmed == cssDisplayNone {
+		return true
+	}
+
+	pt, _, isPct, ok := parseTransformLength(trimmed, 0)
+
+	return ok && !isPct && pt > 0
+}
+
+// perspectiveOriginValueAccepted mirrors applyPerspectiveOriginProperty: one
+// or two tokens from percentages, lengths, and the position keywords.
+func perspectiveOriginValueAccepted(value string) bool {
+	fields := strings.Fields(strings.ToLower(value))
+	if len(fields) == 0 || len(fields) > 2 {
+		return false
+	}
+
+	for _, tok := range fields {
+		switch tok {
+		case "left", "center", "right", "top", "bottom":
+			continue
+		}
+
+		if strings.HasSuffix(tok, "%") {
+			if _, ok := parseUnitless(strings.TrimSuffix(tok, "%")); ok {
+				continue
+			}
+
+			return false
+		}
+
+		if pt, _, isPct, ok := parseTransformLength(tok, 0); !ok || isPct {
+			_ = pt
+
+			return false
+		}
+	}
+
+	return true
 }
 
 // lineHeightValueAccepted mirrors lineHeight: normal, a number, or a length

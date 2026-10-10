@@ -542,21 +542,7 @@ func (e *engine) collectInlineElement(node *html.Node, sty ResolvedStyle, out *[
 		return
 	}
 
-	if node.Name == cssTagBR {
-		*out = append(*out, inlineItem{forceBreak: true}) //nolint:exhaustruct // intentional zero fields
-
-		return
-	}
-
-	if node.Name == cssTagImg {
-		e.collectImageItem(node, sty, out)
-
-		return
-	}
-
-	if node.Name == cssTagSVG {
-		e.collectInlineSVGItem(node, sty, out)
-
+	if e.collectInlineAtomic(node, sty, out) {
 		return
 	}
 
@@ -584,6 +570,31 @@ func (e *engine) collectInlineElement(node *html.Node, sty ResolvedStyle, out *[
 			blockBox: cblock, opStart: opStart, opEnd: opEnd,
 		})
 	}
+}
+
+// collectInlineAtomic flattens void and atomic elements (br, img, svg) plus
+// ruby containers, reporting whether the node was consumed. A ruby element in
+// an inline context pairs each rt/rtc run with its base run (see
+// collectRubyElement); blockified ruby falls through to the block path.
+func (e *engine) collectInlineAtomic(node *html.Node, sty ResolvedStyle, out *[]inlineItem) bool {
+	switch node.Name {
+	case cssTagBR:
+		*out = append(*out, inlineItem{forceBreak: true}) //nolint:exhaustruct // intentional zero fields
+	case cssTagImg:
+		e.collectImageItem(node, sty, out)
+	case cssTagSVG:
+		e.collectInlineSVGItem(node, sty, out)
+	case rubyElementName:
+		if sty.Display != cssDisplayInline {
+			return false
+		}
+
+		e.collectRubyElement(node, sty, out)
+	default:
+		return false
+	}
+
+	return true
 }
 
 // collectImageItem flattens an <img> element into one inline item.
@@ -1022,6 +1033,12 @@ func noBreakBefore(prev, cur inlineItem) bool {
 		return false
 	}
 
+	// A ruby annotation never starts a line without its base: glue it to the
+	// previous item even on overflow, so the pair stays in one segment.
+	if cur.rubyAnnot {
+		return true
+	}
+
 	if isReplacedContent(prev) || isReplacedContent(cur) {
 		return false
 	}
@@ -1128,6 +1145,7 @@ func (e *engine) coalesceTextItems(line []inlineItem) []inlineItem {
 			!cur.img && !line[writeIdx-1].img && !cur.forceBreak &&
 			cur.href == line[writeIdx-1].href &&
 			cur.chrome == line[writeIdx-1].chrome &&
+			!cur.rubyAnnot && !line[writeIdx-1].rubyAnnot &&
 			sameInlineStyle(line[writeIdx-1].style, cur.style)
 
 		if mergeable {

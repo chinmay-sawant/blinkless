@@ -77,7 +77,7 @@ func (e *engine) paintInlineImageItem(item *inlineItem, leftX, top, imgX, imgY, 
 
 	if sty.Filter != "" {
 		filters := parseFilterList(sty.Filter, sty.Color, sty.FontSize)
-		imgData = applyImageFilterToImage(imgData, filters)
+		imgData = applyImageFilterToImageWithInterp(imgData, filters, sty.ColorInterpolationFilters)
 		isJPEG = false
 	}
 
@@ -86,7 +86,7 @@ func (e *engine) paintInlineImageItem(item *inlineItem, leftX, top, imgX, imgY, 
 
 	if clipShape, ok := parseClipPathShape(sty.ClipPath, sty.FontSize); ok {
 		if masked := maskImageWithClipPath(
-			imgData, clipShape, fitX, fitY, fitW, fitH, leftX, top, item.w, item.h,
+			imgData, withClipRule(clipShape, sty.ClipRule), fitX, fitY, fitW, fitH, leftX, top, item.w, item.h,
 		); masked != nil {
 			imgData = masked
 			isJPEG = false

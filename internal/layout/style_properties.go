@@ -1259,6 +1259,10 @@ func applyColorBackgroundProps(style *ResolvedStyle, prop, value string) bool {
 	case "background-color":
 		if r, g, b, a, ok := css.ParseColor(value); ok {
 			style.BGColor = [4]float64{float64(r) / 255, float64(g) / 255, float64(b) / 255, a}
+		} else if wide, wideAlpha, wideOK := css.ParseColorWide(value); wideOK {
+			// Wide-gamut author colors keep headroom in storage for
+			// dynamic-range-limit; the paint clamp folds or preserves.
+			style.BGColor = [4]float64{wide[0], wide[1], wide[2], wideAlpha}
 		}
 	case "background":
 		applyBackgroundShorthand(style, value)
@@ -1648,6 +1652,8 @@ func applyCaptionSideValue(style *ResolvedStyle, value string) {
 }
 
 func applyPageBreakProps(style *ResolvedStyle, prop, value string) bool {
+	const marginBreakDiscard = "discard"
+
 	switch prop {
 	case "page-break-before", "break-before":
 		return applyBreakBeforeProps(style, value)
@@ -1657,7 +1663,7 @@ func applyPageBreakProps(style *ResolvedStyle, prop, value string) bool {
 		return applyBreakInsideProps(style, value)
 	case "margin-break":
 		val := strings.ToLower(strings.TrimSpace(value))
-		if val == marginBreakKeep || val == "discard" || val == "auto" {
+		if val == marginBreakKeep || val == marginBreakDiscard || val == "auto" {
 			style.MarginBreak = val
 
 			return true
@@ -1801,13 +1807,15 @@ func applyTransformGroup(
 // applyTransformListValue stores a parsed transform list and its translate
 // percents. Animations/transitions are ignored: cascaded static value only.
 func applyTransformListValue(style *ResolvedStyle, value string, fsize float64) {
-	matrix, xPercent, yPercent, has, ok := parseTransformList(value, fsize)
+	matrix, xPercent, yPercent, has, ok, accum3D, has3D := parseTransformList3D(value, fsize)
 	if !ok {
 		return
 	}
 
 	style.Transform = matrix
 	style.HasTransform = has
+	style.Transform3D = accum3D
+	style.HasTransform3D = has3D
 
 	accumulateTranslateXPercent(style, xPercent)
 	accumulateTranslateYPercent(style, yPercent)
