@@ -52,7 +52,11 @@ func internalCustomPropWriters(raw map[string]string) bool {
 		switch prop {
 		case textEmphasisProperty, textEmphasisStyleProperty, textEmphasisColorProperty,
 			textEmphasisPositionProperty, textEmphasisSkipProperty,
-			textShadowProperty, tabSizeProperty:
+			textShadowProperty, tabSizeProperty,
+			rubyAlignPropName, rubyMergePropName, rubyOverhangPropName, rubyPositionPropName,
+			footnotePropDisplay, footnotePropPolicy,
+			stringSetPropName,
+			bookmarkLabelProp, bookmarkLevelProp, bookmarkStateProp:
 			return true
 		}
 	}
@@ -320,6 +324,10 @@ var inheritableProps = []inheritCopy{ //nolint:gochecknoglobals // static inheri
 		func(dst, src *ResolvedStyle) { dst.ListStylePosition = src.ListStylePosition },
 	},
 	{
+		[]string{"list-style-image", "list-style"},
+		func(dst, src *ResolvedStyle) { dst.ListStyleImage = src.ListStyleImage },
+	},
+	{
 		[]string{"quotes"},
 		func(dst, src *ResolvedStyle) {
 			dst.QuotesRaw = src.QuotesRaw
@@ -424,6 +432,9 @@ var inheritableProps = []inheritCopy{ //nolint:gochecknoglobals // static inheri
 		dst.InitialLetterWrap = src.InitialLetterWrap
 	}},
 	{[]string{"text-orientation"}, func(dst, src *ResolvedStyle) { dst.TextOrientation = src.TextOrientation }},
+	// clip-rule is inherited (SVG 1.1 §14.5): an undeclared element uses its
+	// parent's rule at the clip-path mask sites.
+	{[]string{"clip-rule"}, func(dst, src *ResolvedStyle) { dst.ClipRule = src.ClipRule }},
 }
 
 // inheritablePropBits maps an inheritable property name to the bit set of its
@@ -478,6 +489,41 @@ func inheritProps(dst *ResolvedStyle, parent *ResolvedStyle, raw map[string]stri
 		}
 
 		inheritableProps[i].copy(dst, parent)
+	}
+
+	inheritGapBProps(dst, parent, raw)
+}
+
+// inheritGapBProps copies the three inherited gap-B properties that cannot
+// join inheritableProps: the table already holds 64 entries and the uint64
+// declared mask is full, so a 65th entry would overflow. Each copies only when
+// the element does not declare it; a declared value is applied later by
+// applyRestProps and wins. TransformBox, TransformStyle, and
+// BackfaceVisibility are not inherited per CSS Transforms 2 and SVG 2, so
+// they keep their initials here.
+func inheritGapBProps(dst *ResolvedStyle, parent *ResolvedStyle, raw map[string]string) {
+	if parent == nil {
+		return
+	}
+
+	if _, ok := raw["fill-rule"]; !ok {
+		dst.FillRule = parent.FillRule
+	}
+
+	if _, ok := raw["shape-rendering"]; !ok {
+		dst.ShapeRendering = parent.ShapeRendering
+	}
+
+	if _, ok := raw["dominant-baseline"]; !ok {
+		dst.DominantBaseline = parent.DominantBaseline
+	}
+
+	if _, ok := raw["color-interpolation"]; !ok {
+		dst.ColorInterpolation = parent.ColorInterpolation
+	}
+
+	if _, ok := raw["color-interpolation-filters"]; !ok {
+		dst.ColorInterpolationFilters = parent.ColorInterpolationFilters
 	}
 }
 
@@ -1485,7 +1531,7 @@ type styleGroupFn func(
 ) bool
 
 // styleGroups is the immutable dispatch order for applyStyleProp.
-// Package-level so applyStyleProp does not rebuild the 16-entry array on
+// Package-level so applyStyleProp does not rebuild the 31-entry array on
 // every cascaded property of every element.
 var styleGroups = [...]styleGroupFn{ //nolint:gochecknoglobals // static dispatch table
 	applyDisplayGroup,
@@ -1519,6 +1565,8 @@ var styleGroups = [...]styleGroupFn{ //nolint:gochecknoglobals // static dispatc
 	applyShapeProps,
 	applyFloatPageProps,
 	applyClipPathProps,
+	applyRubyProps,
+	applyScrollProps,
 }
 
 //nolint:cyclop,goconst,funlen // vendor prefix lookup map
@@ -1647,7 +1695,7 @@ func engineSupportsProperty(prop, value string) bool {
 	return false
 }
 
-//nolint:cyclop,goconst,wsl,nlreturn,funlen // 2009 box value remaps
+//nolint:cyclop,wsl,nlreturn,funlen // 2009 box value remaps
 func remapWebkitValue(prop, value string) string {
 	trimmed := strings.TrimSpace(value)
 	low := strings.ToLower(trimmed)

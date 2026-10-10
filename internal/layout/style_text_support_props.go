@@ -172,7 +172,7 @@ func applyTextDecorationSkipShorthand(style *ResolvedStyle, val string) bool {
 		setTextDecorationSkipInitial(style)
 		style.TextDecorationSkip = val
 		style.TextDecorationSkipBox = columnSpanAll
-	case "spaces":
+	case "spaces": //nolint:goconst // coincidental match with the ruby keyword const.
 		setTextDecorationSkipInitial(style)
 		style.TextDecorationSkip = val
 		style.TextDecorationSkipSpaces = columnSpanAll

@@ -98,9 +98,10 @@ func (e *engine) layoutTableGrid(
 	tableBox.height = tableY + tableHeight - tableBox.y
 
 	if style.BGColor[3] > 0 && e.backgroundPaintEnabled(&style) {
+		usedBG := usedBGForPaintActive(style, e.forcedColorsForPaint())
 		e.add(Op{ //nolint:exhaustruct // intentional zero fields
 			Kind: OpFillRect, X: posX, Y: tableY, W: tableBox.w, H: tableHeight,
-			R: style.BGColor[0], G: style.BGColor[1], B: style.BGColor[2], Alpha: style.BGColor[3],
+			R: usedBG[0], G: usedBG[1], B: usedBG[2], Alpha: usedBG[3],
 		})
 	}
 
@@ -1275,9 +1276,12 @@ func (e *engine) emitCell(cell *box, skipBorders bool) {
 
 	if e.backgroundPaintEnabled(&sty) && !hideEmpty {
 		if r, g, bl, a, ok := e.cellBG(cell); ok {
+			rgb := forcedColorsPaintColor(e.forcedColorsForPaint(), sty.ForcedColorAdjust,
+				[3]float64{r, g, bl}, [3]float64{})
+			rgb = clampDynamicRangeColor(rgb, sty.DynamicRangeLimit)
 			e.add(Op{ //nolint:exhaustruct // intentional zero fields
 				Kind: OpFillRect, X: cell.x, Y: cell.y, W: cell.w, H: cell.height,
-				R: r, G: g, B: bl, Alpha: a,
+				R: rgb[0], G: rgb[1], B: rgb[2], Alpha: a,
 			})
 		}
 	}

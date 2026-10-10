@@ -113,7 +113,17 @@ func (e *engine) computeBoxOverflowClip(boxNode *box, current *clipRect) *clipRe
 		return current
 	}
 
-	pb := e.paddingBoxOf(boxNode)
+	// Read the clip through the scroll viewport so the rect stays offset-aware:
+	// the viewport pairs the padding box with the offset the region carries
+	// (see scroll.go and scroll_runtime.go). Production carries zero, so this
+	// matches paddingBoxOf exactly and static paint is unchanged; tests carry
+	// nonzero offsets and the clip translates with them. The zero-margin form
+	// of scrollVisibleRect is used so the scroller clip itself carries no one
+	// target's scroll-margin inset; per-target margin insets apply through
+	// scrollVisibleRect for snap-target visibility.
+	view := e.scrollRegionViewport(boxNode)
+	pb := scrollOffsetAwarePort(view)
+
 	if !clipX {
 		pb.x = unconstrainedClipOffset
 		pb.w = unconstrainedClipSpan
@@ -159,6 +169,8 @@ func (e *engine) clipOverflowTree(boxNode *box, clip *clipRect) {
 	for _, child := range boxNode.children {
 		e.clipOverflowTree(child, next)
 	}
+
+	e.clipDeprecatedRect(boxNode)
 }
 
 func (e *engine) clipBoxContents(boxNode *box, clip clipRect) {
@@ -458,4 +470,106 @@ func clipTextOp(op *Op, clip clipRect) {
 	if outside {
 		DeactivateOp(op)
 	}
+}
+
+// clipDeprecatedRect applies the deprecated CSS2 clip property to an
+// absolutely positioned box. The rect() declaration is stored canonically on
+// the style (style_leftovers.go) with lengths parsed by the clip-path length
+// parser; here it resolves against the border box and cuts the box's ops,
+// descendants included, per CSS 2.1 section 11.1.2. Static and relative boxes
+// keep their paint: Chrome 143.0.7499.40 ignores clip there, as does
+// clip:auto (stored as no Clip). Reference: Chrome 143.0.7499.40.
+func (e *engine) clipDeprecatedRect(boxNode *box) {
+	edges, ok := e.deprecatedClipEdges(boxNode)
+	if !ok {
+		return
+	}
+
+	rect, hasArea := e.deprecatedClipBounds(boxNode, edges)
+	if !hasArea {
+		e.deactivateBoxRange(boxNode)
+
+		return
+	}
+
+	clipOpsRange(e.ops, boxNode.opStart, boxNode.opEnd, rect)
+}
+
+// deprecatedClipEdges validates the box and parses its stored clip rect:
+// only absolutely positioned boxes with a well-formed range clip.
+func (e *engine) deprecatedClipEdges(boxNode *box) (clipRectEdges, bool) {
+	var empty clipRectEdges
+
+	if e == nil || boxNode == nil || boxNode.style == nil || boxNode.style.Clip == "" {
+		return empty, false
+	}
+
+	if boxNode.style.Position != positionAbsolute && boxNode.style.Position != positionFixed {
+		return empty, false
+	}
+
+	if boxNode.opEnd < boxNode.opStart || boxNode.opStart < 0 {
+		return empty, false
+	}
+
+	return parseDeprecatedClipRect(boxNode.style.Clip, boxNode.style.FontSize)
+}
+
+// deactivateBoxRange hides every op a box emitted.
+func (e *engine) deactivateBoxRange(boxNode *box) {
+	if e == nil || boxNode == nil {
+		return
+	}
+
+	for i := boxNode.opStart; i <= boxNode.opEnd && i < len(e.ops); i++ {
+		DeactivateOp(&e.ops[i])
+	}
+}
+
+// deprecatedClipBounds resolves parsed clip edges against the border box in
+// canvas points. rect() lengths measure from the border-box top-left origin;
+// auto edges read as the matching border-box edge. hasArea=false reports an
+// empty rect (nothing visible).
+func (e *engine) deprecatedClipBounds(boxNode *box, edges clipRectEdges) (clipRect, bool) {
+	bx, by, bw, bh := boxNode.x, boxNode.y, boxNode.w, boxNode.height
+	left, top := bx, by
+	right, bottom := bx+bw, by+bh
+
+	if !edges.leftAuto {
+		left = bx + resolveDeprecatedClipEdge(edges.left, bw, e)
+	}
+
+	if !edges.topAuto {
+		top = by + resolveDeprecatedClipEdge(edges.top, bh, e)
+	}
+
+	if !edges.rightAuto {
+		right = bx + resolveDeprecatedClipEdge(edges.right, bw, e)
+	}
+
+	if !edges.bottomAuto {
+		bottom = by + resolveDeprecatedClipEdge(edges.bottom, bh, e)
+	}
+
+	rect := clipRect{x: left, y: top, w: right - left, h: bottom - top}
+	if rect.w <= 0 || rect.h <= 0 {
+		return clipRect{}, false //nolint:exhaustruct // empty rect hides the box
+	}
+
+	return rect, true
+}
+
+// resolveDeprecatedClipEdge resolves one stored clip edge to canvas points:
+// percentages read against the border-box dimension (already canvas points),
+// absolute lengths scale from style points.
+func resolveDeprecatedClipEdge(length clipPathLength, base float64, e *engine) float64 {
+	if length.percent {
+		return length.value * base
+	}
+
+	if e == nil {
+		return length.value
+	}
+
+	return e.scalePt(length.value)
 }

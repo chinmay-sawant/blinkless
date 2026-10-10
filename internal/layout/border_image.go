@@ -456,10 +456,123 @@ func appendBorderImageRepeated(
 	sliceFracs [4]float64,
 	hasFill bool,
 ) []Op {
-	// Keep the same source slicing and geometry for repeat-like values until
-	// edge tiling is requested by a fixture. The visible border remains a
-	// proper eight-piece border rather than a filled full-image rectangle.
-	return appendBorderImageStretched(dst, ref, ox, oy, ow, oh, thick, sliceFracs, hasFill)
+	// Repeat-like values tile the middle slice of each edge instead of
+	// stretching one slice across the whole edge. Corners and the optional
+	// fill center keep the stretched single-cell geometry, so they stay
+	// identical to the stretch frame. Traversal stays row-major like the
+	// stretched painter.
+	slice := borderImageSlicePixels(sliceFracs, ref.w, ref.h)
+	innerW, innerH := clampBorderImageInner(ow, oh, thick)
+	srcX, srcY, srcW, srcH := borderImageSourceGrid(ref, slice)
+	dstX, dstY, dstW, dstH := borderImageDestGrid(ox, oy, ow, oh, thick, innerW, innerH)
+
+	for row := range 3 {
+		for col := range 3 {
+			switch {
+			case row == 1 && col == 1:
+				dst = appendBorderImageCell(
+					dst, ref, srcX, srcY, srcW, srcH, dstX, dstY, dstW, dstH, row, col, hasFill,
+				)
+			case row == 1 || col == 1:
+				dst = appendBorderImageTiledEdge(
+					dst, ref, borderImageEdgeSource(srcX, srcY, srcW, srcH, row, col),
+					dstX[col], dstY[row], dstW[col], dstH[row], row != 1,
+				)
+			default:
+				dst = appendBorderImageCell(
+					dst, ref, srcX, srcY, srcW, srcH, dstX, dstY, dstW, dstH, row, col, hasFill,
+				)
+			}
+		}
+	}
+
+	return dst
+}
+
+// borderImageEdgeSource returns the middle source slice for one edge cell of
+// the 3x3 grid: the middle column slice for top/bottom rows, the middle row
+// slice for left/right columns.
+func borderImageEdgeSource(
+	srcX, srcY, srcW, srcH [3]int, row, col int,
+) image.Rectangle {
+	if row != 1 {
+		return image.Rect(srcX[1], srcY[row], srcX[1]+srcW[1], srcY[row]+srcH[row])
+	}
+
+	return image.Rect(srcX[col], srcY[1], srcX[col]+srcW[col], srcY[1]+srcH[1])
+}
+
+// appendBorderImageTiledEdge paints one edge region by repeating the middle
+// source slice along the edge. horizontal selects top/bottom edges (tiles run
+// along x) versus left/right edges (tiles run along y). Each tile spans the
+// border thickness across the edge and keeps the slice aspect ratio along it,
+// and a trailing partial tile is clipped to the edge end, matching the repeat
+// tiling Chrome 143.0.7499.40 shows. Round and space share this core.
+func appendBorderImageTiledEdge(
+	dst []Op,
+	ref *imageRef,
+	src image.Rectangle,
+	x, y, w, h float64,
+	horizontal bool,
+) []Op {
+	if w <= 0 || h <= 0 || src.Dx() <= 0 || src.Dy() <= 0 {
+		return dst
+	}
+
+	along, across, cross := src.Dx(), src.Dy(), h
+	span := w
+
+	if !horizontal {
+		along, across, cross = src.Dy(), src.Dx(), w
+		span = h
+	}
+
+	tile := cross * float64(along) / float64(across)
+
+	if !(tile > 0) {
+		return appendBorderImagePart(dst, ref, src, x, y, w, h)
+	}
+
+	for pos := 0.0; pos < span; {
+		used := min(tile, span-pos)
+
+		if horizontal {
+			dst = appendBorderImageTile(dst, ref, src, x+pos, y, used, h, used/tile, true)
+		} else {
+			dst = appendBorderImageTile(dst, ref, src, x, y+pos, w, used, used/tile, false)
+		}
+
+		pos += used
+	}
+
+	return dst
+}
+
+// appendBorderImageTile paints one repeat tile of an edge, clipping the
+// source slice in proportion to a partial tile so the cut edge shows the
+// leading slice pixels rather than a squeezed full slice.
+func appendBorderImageTile(
+	dst []Op,
+	ref *imageRef,
+	src image.Rectangle,
+	x, y, w, h, frac float64,
+	horizontal bool,
+) []Op {
+	part := src
+
+	if horizontal {
+		width := int(math.Round(float64(src.Dx()) * frac))
+		part.Max.X = part.Min.X + clampBorderImagePixel(max(width, 1), src.Dx())
+	} else {
+		height := int(math.Round(float64(src.Dy()) * frac))
+		part.Max.Y = part.Min.Y + clampBorderImagePixel(max(height, 1), src.Dy())
+	}
+
+	if part.Empty() {
+		return dst
+	}
+
+	return appendBorderImagePart(dst, ref, part, x, y, w, h)
 }
 
 func appendBorderImagePart(

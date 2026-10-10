@@ -436,9 +436,10 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty ResolvedStyle, po
 	// hides them.
 	chrome = e.appendBoxShadow(chrome, sty, posX, posY, width, height, radii, radiiY, false)
 	if sty.BGColor[3] > 0 && e.backgroundPaintEnabled(&sty) {
+		usedBG := usedBGForPaintActive(sty, e.forcedColorsForPaint())
 		bgOp := Op{ //nolint:exhaustruct // intentional zero fields
 			Kind: OpFillRect, X: posX, Y: posY, W: width, H: height,
-			R: sty.BGColor[0], G: sty.BGColor[1], B: sty.BGColor[2], Alpha: sty.BGColor[3], Radius: radius,
+			R: usedBG[0], G: usedBG[1], B: usedBG[2], Alpha: usedBG[3], Radius: radius,
 			RadiusTopLeft: radii[0], RadiusTopRight: radii[1], RadiusBottomRight: radii[2], RadiusBottomLeft: radii[3],
 		}
 
@@ -454,6 +455,14 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty ResolvedStyle, po
 			}
 		} else {
 			chrome = append(chrome, bgOp)
+		}
+	} else if isColorSchemeCanvasRoot(boxNode) {
+		if fill, ok := canvasFillForRoot(&sty); ok && width > 0 && height > 0 {
+			chrome = append(chrome, Op{ //nolint:exhaustruct // intentional zero fields
+				Kind: OpFillRect, X: posX, Y: posY, W: width, H: height,
+				R: fill[0], G: fill[1], B: fill[2], Alpha: fill[3], Radius: radius,
+				RadiusTopLeft: radii[0], RadiusTopRight: radii[1], RadiusBottomRight: radii[2], RadiusBottomLeft: radii[3],
+			})
 		}
 	}
 	chrome = e.appendBackgroundImage(chrome, sty, posX, posY, width, height)
@@ -736,7 +745,76 @@ func (e *engine) finalizeChrome(root *box) {
 		restampStickyFixed(root, e.ops)
 	}
 
+	e.applyColorAdjustPaintPolicy(root)
 	e.applyOverflowClips(root)
+}
+
+// isColorSchemeCanvasRoot reports whether boxNode is the html element whose
+// color-scheme selects the root canvas fill. Only the html root is consumed;
+// nested values stay parsed and inherited.
+func isColorSchemeCanvasRoot(boxNode *box) bool {
+	return boxNode != nil && boxNode.node != nil && boxNode.node.Name == htmlRootName
+}
+
+// colorAdjustRootStyle returns the html root's resolved style for the
+// color-adjust paint policy, or nil when the tree has no html box.
+func colorAdjustRootStyle(root *box) *ResolvedStyle {
+	for _, candidate := range colorAdjustRootCandidates(root) {
+		if candidate != nil && candidate.node != nil && candidate.node.Name == htmlRootName {
+			return candidate.style
+		}
+	}
+
+	return nil
+}
+
+// colorAdjustRootCandidates lists the boxes that may hold the html root: the
+// tree root itself plus its direct children (document node wrapping html).
+func colorAdjustRootCandidates(root *box) []*box {
+	if root == nil {
+		return nil
+	}
+
+	return append([]*box{root}, root.children...)
+}
+
+// applyColorAdjustPaintPolicy rewrites text ink for the color-adjust family
+// after chrome is final: dark-scheme default substitution (initial black
+// only) plus forced-mode mapping and dynamic-range clamp. Background fills
+// already resolved through usedBGForPaintActive at emission; table and inline
+// span fills keep their own emission paths. Forced mode is on when the
+// test override or Options.ForcedColorsActive selects it; the parser only
+// yields in-gamut colors, so the clamp stage stays identity for real
+// documents. Reference: Chrome 143.0.7499.40.
+func (e *engine) applyColorAdjustPaintPolicy(root *box) {
+	if e == nil || e.noEmit {
+		return
+	}
+
+	rootStyle := colorAdjustRootStyle(root)
+	if rootStyle == nil {
+		return
+	}
+
+	rootScheme := rootStyle.ColorScheme
+	if !colorSchemeHasDark(rootScheme) {
+		rootScheme = colorSchemeNormal
+	}
+
+	rootAdjust := rootStyle.ForcedColorAdjust
+	rootLimit := rootStyle.DynamicRangeLimit
+	forced := e.forcedColorsForPaint()
+
+	for i := range e.ops {
+		kind := e.ops[i].Kind
+		if kind != OpText && kind != OpBullet {
+			continue
+		}
+
+		before := [3]float64{e.ops[i].R, e.ops[i].G, e.ops[i].B}
+		after := usedTextForPaintActive(before, rootScheme, rootAdjust, rootLimit, forced)
+		e.ops[i].R, e.ops[i].G, e.ops[i].B = after[0], after[1], after[2]
+	}
 }
 
 // chromeSpan is an inclusive op range owned by one box's chrome.

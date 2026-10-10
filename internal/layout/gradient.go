@@ -392,7 +392,93 @@ func sampleStops(stops []gradientStop, t float64) (r, g, b, a float64) {
 	return stops[n-1].r, stops[n-1].g, stops[n-1].b, stops[n-1].a
 }
 
+// srgbChannelToLinear converts one gamma-encoded sRGB channel (0..1) to
+// linear light with the IEC 61966-2-1 transfer function.
+func srgbChannelToLinear(c float64) float64 {
+	c = clamp01(c)
+	if c <= 0.04045 {
+		return c / 12.92
+	}
+
+	return math.Pow((c+0.055)/1.055, 2.4)
+}
+
+// linearChannelToSRGB converts one linear-light channel (0..1) back to
+// gamma-encoded sRGB.
+func linearChannelToSRGB(c float64) float64 {
+	c = clamp01(c)
+	if c <= 0.0031308 {
+		return 12.92 * c
+	}
+
+	return 1.055*math.Pow(c, 1.0/2.4) - 0.055
+}
+
+// gradientUsesLinearLight reports whether an interpolation selector means the
+// linear-light working space. Only the linearRGB spellings qualify; srgb,
+// auto, empty, and anything unrecognized stay in gamma space so historic
+// output is unchanged. Reference: Chrome 143.0.7499.40.
+func gradientUsesLinearLight(interp string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(interp))
+	normalized = strings.ReplaceAll(normalized, "-", "")
+	normalized = strings.ReplaceAll(normalized, " ", "")
+
+	return normalized == "linearrgb"
+}
+
+// sampleStopsWithInterp samples gradient stops at t. When linear is false the
+// stops interpolate in sRGB gamma directly (the historic path). When true the
+// stop colors convert to linear light, interpolate there, and encode back to
+// sRGB; alpha interpolates directly in both spaces.
+func sampleStopsWithInterp(stops []gradientStop, t float64, linear bool) (r, g, b, a float64) {
+	if !linear {
+		return sampleStops(stops, t)
+	}
+	if len(stops) == 0 {
+		return 0, 0, 0, 0
+	}
+	if t <= stops[0].pos {
+		return stops[0].r, stops[0].g, stops[0].b, stops[0].a
+	}
+	n := len(stops)
+	if t >= stops[n-1].pos {
+		return stops[n-1].r, stops[n-1].g, stops[n-1].b, stops[n-1].a
+	}
+
+	for i := 0; i < n-1; i++ {
+		if t >= stops[i].pos && t <= stops[i+1].pos {
+			span := stops[i+1].pos - stops[i].pos
+			if span <= 0 {
+				return stops[i+1].r, stops[i+1].g, stops[i+1].b, stops[i+1].a
+			}
+			f := (t - stops[i].pos) / span
+			lr0 := srgbChannelToLinear(stops[i].r)
+			lg0 := srgbChannelToLinear(stops[i].g)
+			lb0 := srgbChannelToLinear(stops[i].b)
+			lr1 := srgbChannelToLinear(stops[i+1].r)
+			lg1 := srgbChannelToLinear(stops[i+1].g)
+			lb1 := srgbChannelToLinear(stops[i+1].b)
+			return linearChannelToSRGB(lr0 + f*(lr1-lr0)),
+				linearChannelToSRGB(lg0 + f*(lg1-lg0)),
+				linearChannelToSRGB(lb0 + f*(lb1-lb0)),
+				stops[i].a + f*(stops[i+1].a-stops[i].a)
+		}
+	}
+
+	return stops[n-1].r, stops[n-1].g, stops[n-1].b, stops[n-1].a
+}
+
 func renderGradientPNG(raw string, width, height float64, current [3]float64) ([]byte, int, int, bool) {
+	return renderGradientPNGWithInterp(raw, width, height, current, "srgb")
+}
+
+// renderGradientPNGWithInterp renders one CSS gradient to PNG bytes in the
+// selected space: "linearrgb" samples stops in linear light with an sRGB
+// round-trip, every other value samples in sRGB gamma. Reference: Chrome
+// 143.0.7499.40.
+func renderGradientPNGWithInterp(
+	raw string, width, height float64, current [3]float64, interp string,
+) ([]byte, int, int, bool) {
 	if width <= 0 || height <= 0 {
 		return nil, 0, 0, false
 	}
@@ -419,15 +505,15 @@ func renderGradientPNG(raw string, width, height float64, current [3]float64) ([
 	}
 
 	if lin, ok := parseLinearGradient(raw, current); ok {
-		return rasterizeLinearGradient(lin, imgW, imgH)
+		return rasterizeLinearGradient(lin, imgW, imgH, gradientUsesLinearLight(interp))
 	}
 
 	if rad, ok := parseRadialGradient(raw, current); ok {
-		return rasterizeRadialGradient(rad, imgW, imgH)
+		return rasterizeRadialGradient(rad, imgW, imgH, gradientUsesLinearLight(interp))
 	}
 
 	if con, ok := parseConicGradient(raw, current); ok {
-		return rasterizeConicGradient(con, imgW, imgH)
+		return rasterizeConicGradient(con, imgW, imgH, gradientUsesLinearLight(interp))
 	}
 
 	return nil, 0, 0, false
@@ -439,7 +525,7 @@ const (
 	maxRGBFloat    = 255.0
 )
 
-func rasterizeLinearGradient(lin *linearGradientSpec, imgW, imgH int) ([]byte, int, int, bool) {
+func rasterizeLinearGradient(lin *linearGradientSpec, imgW, imgH int, linear bool) ([]byte, int, int, bool) {
 	img := image.NewNRGBA(image.Rect(0, 0, imgW, imgH))
 	rad := lin.angleDeg * math.Pi / degToRadFactor
 	sinA := math.Sin(rad)
@@ -480,7 +566,7 @@ func rasterizeLinearGradient(lin *linearGradientSpec, imgW, imgH int) ([]byte, i
 				t += firstPos
 			}
 
-			cr, cg, cb, ca := sampleStops(lin.stops, t)
+			cr, cg, cb, ca := sampleStopsWithInterp(lin.stops, t, linear)
 			img.SetNRGBA(x, y, color.NRGBA{
 				R: uint8(math.Round(clamp01(cr) * maxRGBFloat)),
 				G: uint8(math.Round(clamp01(cg) * maxRGBFloat)),
@@ -498,7 +584,7 @@ func rasterizeLinearGradient(lin *linearGradientSpec, imgW, imgH int) ([]byte, i
 	return buf.Bytes(), imgW, imgH, true
 }
 
-func rasterizeRadialGradient(rad *radialGradientSpec, imgW, imgH int) ([]byte, int, int, bool) {
+func rasterizeRadialGradient(rad *radialGradientSpec, imgW, imgH int, linear bool) ([]byte, int, int, bool) {
 	img := image.NewNRGBA(image.Rect(0, 0, imgW, imgH))
 	wF := float64(imgW)
 	hF := float64(imgH)
@@ -540,7 +626,7 @@ func rasterizeRadialGradient(rad *radialGradientSpec, imgW, imgH int) ([]byte, i
 				t += firstPos
 			}
 
-			cr, cg, cb, ca := sampleStops(rad.stops, t)
+			cr, cg, cb, ca := sampleStopsWithInterp(rad.stops, t, linear)
 			img.SetNRGBA(x, y, color.NRGBA{
 				R: uint8(math.Round(clamp01(cr) * maxRGBFloat)),
 				G: uint8(math.Round(clamp01(cg) * maxRGBFloat)),
@@ -558,7 +644,7 @@ func rasterizeRadialGradient(rad *radialGradientSpec, imgW, imgH int) ([]byte, i
 	return buf.Bytes(), imgW, imgH, true
 }
 
-func rasterizeConicGradient(con *conicGradientSpec, imgW, imgH int) ([]byte, int, int, bool) {
+func rasterizeConicGradient(con *conicGradientSpec, imgW, imgH int, linear bool) ([]byte, int, int, bool) {
 	img := image.NewNRGBA(image.Rect(0, 0, imgW, imgH))
 	wF := float64(imgW)
 	hF := float64(imgH)
@@ -595,7 +681,7 @@ func rasterizeConicGradient(con *conicGradientSpec, imgW, imgH int) ([]byte, int
 				t += firstPos
 			}
 
-			cr, cg, cb, ca := sampleStops(con.stops, t)
+			cr, cg, cb, ca := sampleStopsWithInterp(con.stops, t, linear)
 			img.SetNRGBA(x, y, color.NRGBA{
 				R: uint8(math.Round(clamp01(cr) * maxRGBFloat)),
 				G: uint8(math.Round(clamp01(cg) * maxRGBFloat)),

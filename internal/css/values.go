@@ -442,6 +442,17 @@ func parsePercentUnit(chVal string) (float64, bool) {
 }
 
 func hslToRGB(hue, sat, light float64) (int, int, int) {
+	red, green, blue := hslToRGBFloat(hue, sat, light)
+
+	return clampByte(red * maxRGBChannel),
+		clampByte(green * maxRGBChannel),
+		clampByte(blue * maxRGBChannel)
+}
+
+// hslToRGBFloat converts HSL to unclamped sRGB channels on a 0..1 scale.
+// hslToRGB folds the result into bytes; the wide-gamut parser reuses this
+// core for hue-wheel math without the fold.
+func hslToRGBFloat(hue, sat, light float64) (float64, float64, float64) {
 	hue = math.Mod(hue, hslCircleDeg)
 	if hue < 0 {
 		hue += hslCircleDeg
@@ -457,9 +468,7 @@ func hslToRGB(hue, sat, light float64) (int, int, int) {
 
 	red, green, blue := hslSectorRGB(hSector, chroma, xVal)
 
-	return clampByte((red + mVal) * maxRGBChannel),
-		clampByte((green + mVal) * maxRGBChannel),
-		clampByte((blue + mVal) * maxRGBChannel)
+	return red + mVal, green + mVal, blue + mVal
 }
 
 func hslSectorRGB(hSector, chroma, xVal float64) (float64, float64, float64) {

@@ -114,7 +114,7 @@ func (e *engine) layoutStandardGrid(
 		e, placed, cols, columnGap, rowGap, contentX, curY, posY, rows, definiteRows || lockRows,
 	)
 
-	rowYs := emitGridBoxes(e, sty, boxNode, pboxes, rows, rowGap, posY, curY)
+	rowYs := emitGridBoxes(e, sty, boxNode, pboxes, rows, rowGap, posY, curY, contentH)
 
 	usedH := curY
 	if numRows > 0 {
@@ -515,13 +515,15 @@ func growSpanningGridRows(rows []float64, pboxes []gridPlacedBox, rowGap float64
 }
 
 // emitGridBoxes builds and positions each item, returning the row y-offsets.
+// When the container height is definite, free block-axis space is distributed
+// across the tracks per align-content before items are placed.
 func emitGridBoxes(
 	eng *engine,
 	sty ResolvedStyle,
 	boxNode *box,
 	pboxes []gridPlacedBox,
 	rows []float64,
-	rowGap, posY, curY float64,
+	rowGap, posY, curY, contentH float64,
 ) []float64 {
 	rowYs := make([]float64, len(rows))
 	rowYs[0] = curY
@@ -529,6 +531,8 @@ func emitGridBoxes(
 	for r := 1; r < len(rows); r++ {
 		rowYs[r] = rowYs[r-1] + rows[r-1] + rowGap
 	}
+
+	applyGridAlignContentOffsets(rowYs, rows, rowGap, contentH, sty.AlignContent)
 
 	containerJustify := sty.JustifyItems
 	if containerJustify == "" {
@@ -552,6 +556,45 @@ func emitGridBoxes(
 	}
 
 	return rowYs
+}
+
+// applyGridAlignContentOffsets shifts row track positions in place so free
+// block-axis space follows align-content. Height:auto (contentH < 0) and
+// stretch/start pack at the start (no-op). Single-track containers only honor
+// center/end; space-between/around/evenly need at least two tracks.
+func applyGridAlignContentOffsets(rowYs, rows []float64, rowGap, contentH float64, align string) {
+	count := len(rowYs)
+	if contentH < 0 || count == 0 {
+		return
+	}
+
+	switch align {
+	case fxCenter, fxFlexEnd, fxEnd, fxBetween, fxAround, fxEvenly:
+	default:
+		return
+	}
+
+	if count == 1 {
+		switch align {
+		case fxBetween, fxAround, fxEvenly:
+			return
+		}
+	}
+
+	tracksH := rowGap * float64(count-1)
+	for _, h := range rows {
+		tracksH += h
+	}
+
+	free := contentH - tracksH
+	if free <= layoutEpsilon {
+		return
+	}
+
+	offsets := alignContentOffsets(align, free, count)
+	for i := range rowYs {
+		rowYs[i] += offsets[i]
+	}
 }
 
 // emitGridItem builds one item's box and shifts it into its cell.
