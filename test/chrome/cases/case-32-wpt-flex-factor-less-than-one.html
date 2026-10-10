@@ -23,7 +23,7 @@
 <body>
   <!-- Source: third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-factor-less-than-one.html -->
   <!-- Fixture: case-32-wpt-flex-factor-less-than-one -->
-  <!-- Port status: blocked. Chrome 143 geometry run: 1 pt borders contribute 1.33 px where Chrome computes 1 px, so the six containers are 0.67 px taller each and html/body heights are +4 px; item geometry matches. -->
+  <!-- Port status: blocked. Box deltas remain because layout is pt-exact by design: html and body +4.00 px tall and each of the six containers +0.67 px, the 1 pt border measuring 1.33 px per side in layout where Chrome computes 1 px. Screen paint at dsf 1 matches Chrome: the display-list snap turns each 1 pt (1.33 px) stroke into 1 px, Chrome's computed width (temps/chrome-cases/dsf-rerun/paint-width-validation.md). At fractional dsf the snap floors cssPx*dsf to whole device pixels, so 1 pt at dsf 1.25/1.5 paints 1/2 device px vs Chrome's 1.25/1.5 (temps/chrome-cases/dsf/report.md). -->
   <!-- Expected: fractional factors preserve proportional free-space behavior. -->
   <p class="case-description" style="position:absolute;top:12pt;left:12pt;margin:0;padding:6pt;border:1pt solid #64748b;background:#fff;color:#111827;font-size:9pt;line-height:12pt;width:550pt;">
     <strong>Case 32 expected behavior:</strong> fractional grow and shrink factors preserve proportional free space across the row, column, and vertical branches.

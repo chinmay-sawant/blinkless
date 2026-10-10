@@ -171,6 +171,39 @@ Use the capped Makefile targets for full suites. For each implementation wave, r
 
 Commit and publication remain separate actions requiring user authorization. Do not run Git commands while executing this plan unless that authorization has been given.
 
+## Decision log
+
+### 2026-10-10: Screen border quantization is display-list-only
+
+- Style computation and layout keep exact point values. No snapping enters
+  computed CSS values, `Display.Boxes`, or hit-testing.
+- Screen consumers opt in at the paint boundary:
+  `layout.SnapDisplayToDevicePixels(display, dsf)` (`layout/displaylist_snap.go`)
+  returns a copy whose positive `OpStrokeRect` and `OpLine` widths snap to
+  whole device pixels with `max(1, floor(cssPx*dsf + 1e-6)) / dsf`. Coordinates,
+  boxes, payloads, and `OpGridRun` segments stay exact, so a print consumer
+  replays the unquantized list.
+- The widthless border shorthand now resolves to Chrome's `medium`
+  (3 CSS px = 2.25 pt); explicit `0` stays zero and thin/medium/thick are
+  parsed in the shorthand (`internal/layout/style_values.go`).
+- Chrome 143.0.7499.40 ground truth at dsf 1, 1.25, 1.5, and 2: the computed
+  border width is dsf-independent `max(1, floor(cssPx))` CSS px and the painted
+  width is that value times dsf with fractional coverage. The snap matches
+  Chrome at dsf 1 and at integer device products; at fractional dsf it
+  deliberately snaps to whole device pixels, a documented deviation
+  (`temps/chrome-cases/dsf/report.md`).
+- Blocked cases 24, 30, 32, 33, 34, 35, 38, and 40 were rerun: box deltas are
+  unchanged because layout geometry is pt-exact by design, and screen paint at
+  dsf 1 matches Chrome for 38 of 38 joined bordered elements
+  (`temps/chrome-cases/dsf-rerun/paint-width-validation.md`). All eight stay
+  blocked under the box-level criterion; no case was promoted.
+- Regression tests: `layout/displaylist_snap_test.go` and
+  `internal/layout/border_medium_default_test.go`. Wave G gate (2026-10-10):
+  `make final-evidence FINAL_EVIDENCE_FLAGS=--full` exit 0 with all 11 steps
+  passing, log `temps/final-evidence/20261010T044613Z/`; `make golden`,
+  `go test -p 2 -parallel 2 ./internal/layout -count=1`, `go test ./layout
+  -count=1`, and `go test ./test/chrome -count=1` exit 0.
+
 ## Planning review
 
 The planning change passed the document structure, local-link, checklist-status, and em-dash checks on 2026-10-09. The Feynman explanation audit took two passes. Implementation rows remain open, and no implementation tests or lint ran for this documentation-only change.

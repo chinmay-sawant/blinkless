@@ -41,7 +41,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "legacy-flex-algorithm-margins",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -60,7 +60,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "legacy-columns-auto-size",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -79,7 +79,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "legacy-definite-main-size",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -98,7 +98,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "legacy-justify-content",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -117,7 +117,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "legacy-flex-align",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -136,7 +136,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "legacy-flex-align-vertical-writing",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -155,7 +155,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "legacy-flex-flow-orientations",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -174,7 +174,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "legacy-flex-flow",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -193,7 +193,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "legacy-multiline",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -212,7 +212,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "legacy-multiline-align-content-column",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -231,7 +231,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "legacy-flex-flow-auto-margins",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -250,7 +250,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "legacy-flex-align-baseline",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -269,7 +269,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "legacy-multiline-align-self",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -307,7 +307,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "wpt-flex-basis-011",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -326,7 +326,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "wpt-rtl-flow-reverse",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -345,7 +345,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "wpt-flexbox-margin-auto",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -364,7 +364,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "wpt-min-size-auto-overflow-clip",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -383,7 +383,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "wpt-flow-row-wrap",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -421,7 +421,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "wpt-aspect-ratio-cross-size-002",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -440,7 +440,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "wpt-writing-mode-006",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "fail"
       },
@@ -449,7 +449,7 @@
       "goTarget": "chrome-reference",
       "id": "wpt-writing-mode-006",
       "kind": "writing",
-      "reason": "Chrome 143 geometry run: 1 pt borders contribute 1.33 px where Chrome computes 1 px, so each of the eight vertical-lr containers is 0.67 px taller and html/body heights are +5.42 px; item geometry matches.",
+      "reason": "Box deltas remain because layout is pt-exact by design: html +5.42 px and body +5.41 px tall, each of the eight vertical-lr containers +0.67 px wide and tall, its 1 pt border measuring 1.33 px per side in layout where Chrome computes 1 px. Screen paint at dsf 1 matches Chrome: the display-list snap turns each 1 pt (1.33 px) stroke into 1 px, Chrome's computed width (temps/chrome-cases/dsf-rerun/paint-width-validation.md). At fractional dsf the snap floors cssPx*dsf to whole device pixels, so 1 pt at dsf 1.25/1.5 paints 1/2 device px vs Chrome's 1.25/1.5 (temps/chrome-cases/dsf/report.md).",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flexbox-writing-mode-006.html",
       "status": "blocked",
       "title": "Writing mode matrix"
@@ -460,7 +460,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "wpt-flex-item-percentage-abspos",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -479,7 +479,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "wpt-definite-sizes-002",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -498,7 +498,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "wpt-percentage-heights-005",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -517,7 +517,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "wpt-flex-minimum-width-aspect",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -536,7 +536,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "wpt-break-nested-float-print",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -555,7 +555,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "wpt-auto-margins-column",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "fail"
       },
@@ -564,7 +564,7 @@
       "goTarget": "layout-unit",
       "id": "wpt-auto-margins-column",
       "kind": "margins",
-      "reason": "Chrome 143 geometry run: the vertical-lr wrapper (402 px) and the line-height:1 items (20 px) now match Chrome; the remaining 1.33 px is the 1 pt border on .case, which Chrome draws as 1 px (device-pixel snap pending).",
+      "reason": "Box deltas remain because layout is pt-exact by design: html and body +1.33 px tall and each .case +0.67 px wide and tall, the 1 pt border measuring 1.33 px per side in layout where Chrome computes 1 px. Screen paint at dsf 1 matches Chrome: the display-list snap turns the 1 pt (1.33 px) strokes into 1 px, Chrome's computed width (temps/chrome-cases/dsf-rerun/paint-width-validation.md). At fractional dsf the snap floors cssPx*dsf to whole device pixels, so 1 pt at dsf 1.25/1.5 paints 1/2 device px vs Chrome's 1.25/1.5 (temps/chrome-cases/dsf/report.md).",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/auto-margins-003.html",
       "status": "blocked",
       "title": "Auto margins and align-self in a column"
@@ -575,7 +575,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "wpt-column-reverse-multiline",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -594,7 +594,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "wpt-flex-factor-less-than-one",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "fail"
       },
@@ -603,7 +603,7 @@
       "goTarget": "layout-unit",
       "id": "wpt-flex-factor-less-than-one",
       "kind": "grow",
-      "reason": "Chrome 143 geometry run: 1 pt borders contribute 1.33 px where Chrome computes 1 px, so the six containers are 0.67 px taller each and html/body heights are +4 px; item geometry matches.",
+      "reason": "Box deltas remain because layout is pt-exact by design: html and body +4.00 px tall and each of the six containers +0.67 px, the 1 pt border measuring 1.33 px per side in layout where Chrome computes 1 px. Screen paint at dsf 1 matches Chrome: the display-list snap turns each 1 pt (1.33 px) stroke into 1 px, Chrome's computed width (temps/chrome-cases/dsf-rerun/paint-width-validation.md). At fractional dsf the snap floors cssPx*dsf to whole device pixels, so 1 pt at dsf 1.25/1.5 paints 1/2 device px vs Chrome's 1.25/1.5 (temps/chrome-cases/dsf/report.md).",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-factor-less-than-one.html",
       "status": "blocked",
       "title": "Fractional flex grow and shrink factors"
@@ -614,7 +614,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "wpt-flex-item-compressible",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "fail"
       },
@@ -623,7 +623,7 @@
       "goTarget": "chrome-reference",
       "id": "wpt-flex-item-compressible",
       "kind": "replaced",
-      "reason": "Chrome 143 geometry run: 1 pt borders contribute 1.33 px where Chrome computes 1 px across the five cases and html/body heights are +3.39 px; input geometry matches.",
+      "reason": "Box deltas remain because layout is pt-exact by design: html +3.39 px and body +3.38 px tall and each of the five cases +0.67 px, the 1 pt border measuring 1.33 px per side in layout where Chrome computes 1 px. Screen paint at dsf 1 matches Chrome: the display-list snap turns each 1 pt (1.33 px) stroke into 1 px, Chrome's computed width (temps/chrome-cases/dsf-rerun/paint-width-validation.md). At fractional dsf the snap floors cssPx*dsf to whole device pixels, so 1 pt at dsf 1.25/1.5 paints 1/2 device px vs Chrome's 1.25/1.5 (temps/chrome-cases/dsf/report.md).",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-item-compressible-001.html",
       "status": "blocked",
       "title": "Replaced flex item automatic minimum"
@@ -634,7 +634,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "wpt-flex-container-max-content",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "fail"
       },
@@ -643,7 +643,7 @@
       "goTarget": "chrome-reference",
       "id": "wpt-flex-container-max-content",
       "kind": "intrinsic",
-      "reason": "Chrome 143 geometry run: the inline-block ink boxes now match Chrome (13.33 px for the 10 pt height); the row frame is 152x50 vs Chrome 147.95x47.31 and the items are +1.33 px because 2 pt borders draw 2.67 px where Chrome draws 2 px (device-pixel snap pending), plus a 1.2 px last-line baseline approximation for text overflowing a definite height.",
+      "reason": "Box deltas remain because layout is pt-exact by design: html +6.75 px and body +6.74 px tall; the row frame is 152x50 vs Chrome 147.95x47.31, the column frame +2.98/+4.04 px, and the items +1.33 px, the 2 pt border measuring 2.67 px per side in layout where Chrome computes 2 px; the ink spans also carry the known text-baseline approximation (dy +2.56 px). Screen paint at dsf 1 matches Chrome: the display-list snap turns 2 pt (2.67 px) strokes into 2 px and 1 pt (1.33 px) into 1 px, Chrome's computed widths (temps/chrome-cases/dsf-rerun/paint-width-validation.md). At fractional dsf the snap floors cssPx*dsf to whole device pixels, so 2 pt at dsf 1.25/1.5/2 paints 3/4/5 device px vs Chrome's 2.5/3/4 (temps/chrome-cases/dsf/report.md).",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-container-max-content-001.html",
       "status": "blocked",
       "title": "Flex container max-content contribution"
@@ -654,7 +654,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "wpt-flex-cross-size-border-box",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "fail"
       },
@@ -663,7 +663,7 @@
       "goTarget": "layout-unit",
       "id": "wpt-flex-cross-size-border-box",
       "kind": "align",
-      "reason": "Chrome 143 geometry run: 8 pt transparent borders contribute 10.67 px where Chrome computes 10 px, so the content-box frame is 421.33x200 vs Chrome 420x198.66; the 1 px images match.",
+      "reason": "Box deltas remain because layout is pt-exact by design: html and body +1.34 px tall and the content-box frame 421.33x200 vs Chrome 420x198.66, the 8 pt border measuring 10.67 px per side in layout where Chrome computes 10 px. Screen paint at dsf 1 matches for the 1 pt panel (snapped 1 px, Chrome's computed 1 px); the 8 pt border is solid transparent, neither side paints ink, so no stroke exists to snap (temps/chrome-cases/dsf-rerun/paint-width-validation.md). At fractional dsf the painted 1 pt border deviates as documented: dsf 1.25/1.5 paint 1/2 device px vs Chrome's 1.25/1.5 (temps/chrome-cases/dsf/report.md).",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-cross-size-border-box-001.html",
       "status": "blocked",
       "title": "Border-box cross-size for stretched items"
@@ -674,7 +674,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "wpt-flex-base-size-max-width",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -693,7 +693,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "blink-replaced-aspect-ratio-precision",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -712,7 +712,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "blink-gap-decorations-basic",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "fail"
       },
@@ -721,7 +721,7 @@
       "goTarget": "layout-unit",
       "id": "blink-gap-decorations-basic",
       "kind": "gap",
-      "reason": "Chrome 143 geometry run: 2 pt dotted borders contribute 2.67 px where Chrome computes 2 px, so the frame is 232x152 vs Chrome 230.66x150.64; the six gapped items match.",
+      "reason": "Box deltas remain because layout is pt-exact by design: html and body +1.36 px tall and the frame 232x152 vs Chrome 230.66x150.64, the 2 pt dotted border measuring 2.67 px per side in layout where Chrome computes 2 px. Screen paint at dsf 1 matches Chrome: the display-list snap turns each 2 pt (2.67 px) dotted segment into 2 px, Chrome's computed width (temps/chrome-cases/dsf-rerun/paint-width-validation.md). At fractional dsf the snap floors cssPx*dsf to whole device pixels, so 2 pt at dsf 1.25/1.5/2 paints 3/4/5 device px vs Chrome's 2.5/3/4 (temps/chrome-cases/dsf/report.md).",
       "source": "third_party/blink/renderer/core/layout/flex/flex_layout_algorithm_test.cc",
       "status": "blocked",
       "title": "Gap geometry with wrapping"
@@ -732,7 +732,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "blink-scrollbars-row-reverse-vrl",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "pass"
       },
@@ -751,7 +751,7 @@
       "evidence": {
         "browser": "Chrome/143.0.7499.40",
         "case": "wpt-flex-container-min-content",
-        "file": "temps/chrome-cases/geometry-report.md",
+        "file": "test/chrome/evidence/browser-evidence.md",
         "kind": "browser",
         "verdict": "fail"
       },
@@ -760,7 +760,7 @@
       "goTarget": "chrome-reference",
       "id": "wpt-flex-container-min-content",
       "kind": "intrinsic",
-      "reason": "Chrome 143 geometry run: the height:0 wrapper now matches Chrome at 0x0; the min-content frame is 146.67x62.67 vs Chrome 143.95x61.31 and the items are +1.33 px because 2 pt borders draw 2.67 px where Chrome draws 2 px (device-pixel snap pending).",
+      "reason": "Box deltas remain because layout is pt-exact by design: the height:0 wrapper matches Chrome at 0x0, the min-content frame is 146.67x62.67 vs Chrome 143.95x61.31, and the items are +1.33 px, the 2 pt border measuring 2.67 px per side in layout where Chrome computes 2 px. Screen paint at dsf 1 matches Chrome: the display-list snap turns 2 pt (2.67 px) strokes into 2 px and 1 pt (1.33 px) into 1 px, Chrome's computed widths (temps/chrome-cases/dsf-rerun/paint-width-validation.md). At fractional dsf the snap floors cssPx*dsf to whole device pixels, so 2 pt at dsf 1.25/1.5/2 paints 3/4/5 device px vs Chrome's 2.5/3/4 (temps/chrome-cases/dsf/report.md).",
       "source": "third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-container-min-content-001.html",
       "status": "blocked",
       "title": "Flex container min-content contribution"

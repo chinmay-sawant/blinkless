@@ -653,7 +653,7 @@ func colorListValueAccepted(value string) bool {
 
 // borderShorthandValueAccepted requires every token of border or border-<side>
 // to be a style, width, or color the parser understands. parseBorder silently
-// defaults unknown tokens to a 1px solid border, so the gate rejects them
+// defaults an unknown token to a medium solid border, so the gate rejects them
 // instead of letting the declaration reset an earlier border.
 func borderShorthandValueAccepted(value string) bool {
 	trimmed := strings.TrimSpace(value)

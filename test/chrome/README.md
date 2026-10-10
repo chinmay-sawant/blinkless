@@ -72,6 +72,27 @@ the earlier 2026-10-08 run that `wpt-gap-002-ltr` still cites. The browser
 check skips when `temps/` is absent (for example on CI); the go-test check
 always runs.
 
+## Screen paint and device-pixel snapping
+
+Layout keeps exact CSS point geometry and does not snap boxes. A screen
+consumer that paints device pixels calls `layout.SnapDisplayToDevicePixels`
+before replay (`layout/displaylist_snap.go`). The snap rewrites only the
+positive stroke widths of `DisplayOpStrokeRect` and `DisplayOpLine` to
+`max(1, floor(cssPx*dsf))/dsf` CSS px; coordinates, boxes, fills, images, and
+text stay exact, and a print consumer replays the unsnapped list. At dsf 1 a
+1 pt border paints 1 px, the width Chrome computes.
+
+Blocked cases stay blocked on the box comparison, not on paint. The blocked-case
+rerun validates screen paint at dsf 1 for the 8 blocked cases: all 38 joined
+bordered elements snap to Chrome's computed border width (the two 8 pt
+transparent borders of `wpt-flex-cross-size-border-box` paint nothing on either
+side). Those cases still fail the box comparison because layout keeps the exact
+pt border width while Chrome floors the border to whole CSS px, and paint
+snapping does not move a box. At fractional dsf the snap deviates from Chrome
+by design (whole device pixels instead of Chrome's fractional coverage).
+Evidence: `temps/chrome-cases/dsf/report.md` and
+`temps/chrome-cases/dsf-rerun/paint-width-validation.md`.
+
 ## Running the checks
 
 ```sh

@@ -375,6 +375,13 @@ func setFour(_ *ResolvedStyle, value string, top, right, bottom, left *float64, 
 func parseBorder(value string, fsize float64, current [3]float64) (border, bool) { //nolint:cyclop
 	var boxNode border
 
+	// widthSet records an explicit width token, including zero. An omitted
+	// width takes the CSS initial value medium (3 CSS px), not zero, so a
+	// widthless `border: solid red` cannot be told from an explicit zero by
+	// the Width field alone. Chrome resolves `border: solid red` to
+	// 3px = 2.25pt and `border: 0px solid red` to 0.
+	widthSet := false
+
 	for start := 0; ; {
 		face, next, ok := nextSpaceToken(value, start)
 		if !ok {
@@ -389,6 +396,10 @@ func parseBorder(value string, fsize float64, current [3]float64) (border, bool)
 		default:
 			if isCurrentColor(face) {
 				boxNode.Color = current
+			} else if keyword := strings.ToLower(strings.TrimSpace(face)); isBorderWidthKeyword(keyword) {
+				boxNode.Width = borderWidth(keyword, fsize)
+				boxNode.PaintWidth = boxNode.Width
+				widthSet = true
 			} else if r, g, bb, a, ok := css.ParseColor(face); ok {
 				boxNode.Color = [3]float64{float64(r) / 255, float64(g) / 255, float64(bb) / 255}
 				boxNode.Transparent = a <= 0
@@ -399,6 +410,8 @@ func parseBorder(value string, fsize float64, current [3]float64) (border, bool)
 				} else {
 					boxNode.Width = v
 				}
+
+				widthSet = true
 			}
 		}
 
@@ -409,12 +422,17 @@ func parseBorder(value string, fsize float64, current [3]float64) (border, bool)
 		boxNode.Style = solidKeyword
 	}
 
-	if boxNode.Width == 0 {
-		boxNode.Width = 1
-		boxNode.PaintWidth = 1
+	if !widthSet {
+		boxNode.Width = borderWidth(mediumKeyword, fsize)
+		boxNode.PaintWidth = boxNode.Width
 	}
 
 	return boxNode, boxNode.Style != cssDisplayNone
+}
+
+// isBorderWidthKeyword reports the three CSS border-width keywords.
+func isBorderWidthKeyword(value string) bool {
+	return value == thinKeyword || value == mediumKeyword || value == thickKeyword
 }
 
 // splitSpaceTokens writes up to len(tokens) CSS whitespace-separated tokens
@@ -491,9 +509,10 @@ func borderWidth(value string, fsize float64) float64 {
 	return 0
 }
 
-// borderPaintWidth is the device paint width for a border. It matches the
-// layout width today; the seam stays so a future device-pixel snap or
-// print-versus-screen policy can diverge paint from layout.
+// borderPaintWidth is the device paint width for a border. It stays equal to
+// the layout width: the opt-in device-pixel snap lives at the display-list
+// boundary (layout.SnapDisplayToDevicePixels in displaylist_snap.go), so this
+// seam keeps paint and layout geometry in agreement and print stays exact.
 func borderPaintWidth(value string, fsize float64) float64 {
 	return borderWidth(value, fsize)
 }

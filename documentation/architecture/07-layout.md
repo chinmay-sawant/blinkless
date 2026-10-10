@@ -17,6 +17,12 @@ The engine entry is `ilayout.LayoutContext` (`internal/layout/layout.go:1118`). 
 
 No page splitter and no PDF writer remain in the tree. `page-break-*` values are still parsed onto the style (`internal/layout/style_properties.go:1594-1595`), but nothing splits the list. One path still treats `Options.Height` as a page boundary. Multicol snaps its column lines there (`internal/layout/multicol.go:360-367`). `IndependentBlocks` (`internal/layout/independent_blocks.go:21`) reports body children that can be laid out one at a time; only tests consume it today.
 
+## Screen pixel alignment
+
+Layout is exact in CSS points. Border widths, table rules, text decorations, and outlines keep the value the stylesheet asked for (`internal/layout/style_values.go:493-510`, `:512-518`); nothing floors them onto a device grid in computed styles, layout geometry, boxes, or hit testing. A widthless border shorthand takes the CSS initial medium, 3 CSS px = 2.25pt (`internal/layout/style_values.go:375-432`, default at `:425-427`), and an outline with a visible style and no width takes the same medium (`internal/layout/outline.go:38-48`).
+
+A consumer that paints a screen raster opts in at the display-list boundary: `layout.SnapDisplayToDevicePixels` (`layout/displaylist_snap.go:36`) returns a copy whose positive `OpStrokeRect` and `OpLine` widths are quantized to `max(1, floor(cssPx*dsf+1e-6))/dsf` CSS pixels (`layout/displaylist_snap.go:68-81`), converting through `cssPxToPt = 0.75` (`layout/displaylist.go:15`). Coordinates, `Boxes`, `Order`, the canvas size, and payloads are untouched. `OpGridRun` segments keep their exact widths (`layout/displaylist_snap.go:50-63`), because a collapsed table row replays as one batched run. A print consumer replays the unquantized list, so print geometry stays exact. A nil display is `ErrNilDocument` and a non-finite or non-positive device scale factor is `ErrBadDeviceScale` (`layout/errors.go:9-15`).
+
 ## How a document gets there
 
 1. `html.Parse` builds the tree (`internal/html`).

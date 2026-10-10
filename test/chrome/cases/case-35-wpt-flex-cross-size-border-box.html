@@ -17,7 +17,7 @@
 <body>
   <!-- Source: third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-cross-size-border-box-001.html -->
   <!-- Fixture: case-35-wpt-flex-cross-size-border-box -->
-  <!-- Port status: blocked. Chrome 143 geometry run: 8 pt transparent borders contribute 10.67 px where Chrome computes 10 px, so the content-box frame is 421.33x200 vs Chrome 420x198.66; the 1 px images match. -->
+  <!-- Port status: blocked. Box deltas remain because layout is pt-exact by design: html and body +1.34 px tall and the content-box frame 421.33x200 vs Chrome 420x198.66, the 8 pt border measuring 10.67 px per side in layout where Chrome computes 10 px. Screen paint at dsf 1 matches for the 1 pt panel (snapped 1 px, Chrome's computed 1 px); the 8 pt border is solid transparent, neither side paints ink, so no stroke exists to snap (temps/chrome-cases/dsf-rerun/paint-width-validation.md). At fractional dsf the painted 1 pt border deviates as documented: dsf 1.25/1.5 paint 1/2 device px vs Chrome's 1.25/1.5 (temps/chrome-cases/dsf/report.md). -->
   <!-- Expected: intrinsic 1px replaced children keep the same 0.75pt cross size in both frames. -->
   <p class="case-description" style="position:absolute;top:12pt;left:12pt;margin:0;padding:6pt;border:1pt solid #64748b;background:#fff;color:#111827;font-size:9pt;line-height:12pt;width:550pt;">
     <strong>Case 35 expected behavior:</strong> the 1px replaced children keep the same 0.75pt cross size in the border-box and content-box frames.
