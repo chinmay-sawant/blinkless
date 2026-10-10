@@ -12,24 +12,6 @@ import "testing"
 // behaviorFlexGridCheckUsedSize and behaviorFlexGridCheckOffset from
 // css_behavior_flex_grid_test.go are reused directly.
 
-// TestBehaviorAlignContentCenterNoOp is align-content: the grid engine does
-// not distribute free block space between tracks (grid.go has no AlignContent
-// reader), so align-content:center is a no-op and the rows stay packed at the
-// start. GAP: Chrome 143.0.7499.40 centers the two 50px rows in the 200px
-// container (first row at y 50); the engine keeps the first row at y 0.
-func TestBehaviorAlignContentCenterNoOp(t *testing.T) {
-	t.Parallel()
-
-	res := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
-		`<div id="g" style="display:grid;width:200px;height:200px;`+
-		`grid-template-columns:200px;grid-template-rows:50px 50px;align-content:center">`+
-		`<div id="a" style="height:50px"></div><div id="b" style="height:50px"></div>`+
-		`</div></body></html>`)
-
-	behaviorFlexGridCheckOffset(t, res, "a", "g", 0, 0)
-	behaviorFlexGridCheckOffset(t, res, "b", "g", 0, 50)
-}
-
 // TestBehaviorJustifyItemsCenterUsedOffset is justify-items: the 40px items
 // center in their 100px tracks with a 30px inline offset.
 // Reference: Chrome 143.0.7499.40, tracks 100px + 100px, items at x 30, 130.

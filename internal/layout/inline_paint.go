@@ -1782,7 +1782,11 @@ func (e *engine) primaryFaceRun(cssSheet string, sty *ResolvedStyle) (faceRun, b
 	var prev rune
 
 	for _, runic := range paintText {
-		width += primary.AdvanceInPoints(runic, size)
+		if runic == '\t' {
+			width += e.tabStopAdvance(sty, primary, size)
+		} else {
+			width += primary.AdvanceInPoints(runic, size)
+		}
 		width += textAutospaceGap(sty, prev, runic, size)
 		runeCount++
 

@@ -229,33 +229,6 @@ func TestBehaviorHyphensNoneSuppressesSoftHyphenBreak(t *testing.T) {
 	}
 }
 
-// TestBehaviorTabSizeFixedAdvanceIgnoresValue is a DOCUMENTED GAP: the paint
-// fast path (primaryFaceRun in inline_paint.go) measures a tab by the font's
-// raw tab glyph advance and never consults TabSize, so tab-size 2 and tab-size
-// 8 emit equal used widths. Chrome 143.0.7499.40 would advance 2 vs 8 space
-// widths. The test pins the current behavior: equal widths, and a positive
-// used advance for the tab versus the same run without it.
-func TestBehaviorTabSizeFixedAdvanceIgnoresValue(t *testing.T) {
-	t.Parallel()
-
-	const page = "<pre class=\"%s\" style=\"margin:0;font-size:12pt;white-space:pre\">%s</pre>"
-
-	cssSheet := sheet(t, `.t2 { tab-size: 2 } .t8 { tab-size: 8 }`)
-	narrow := layoutHTML(t, `<html><body style="margin:0">`+fmt.Sprintf(page, "t2", "a\tb")+`</body></html>`, cssSheet)
-	wide := layoutHTML(t, `<html><body style="margin:0">`+fmt.Sprintf(page, "t8", "a\tb")+`</body></html>`, cssSheet)
-	untabbed := layoutHTML(t, `<html><body style="margin:0">`+fmt.Sprintf(page, "t8", "ab")+`</body></html>`, cssSheet)
-
-	if !near(behaviorTextTotalWidth(wide), behaviorTextTotalWidth(narrow)) {
-		t.Errorf("tab-size:8 width %.4f != tab-size:2 width %.4f (gap: value ignored)",
-			behaviorTextTotalWidth(wide), behaviorTextTotalWidth(narrow))
-	}
-
-	if behaviorTextTotalWidth(narrow) <= behaviorTextTotalWidth(untabbed) {
-		t.Errorf("tabbed width %.4f should exceed untabbed %.4f (tab has used advance)",
-			behaviorTextTotalWidth(narrow), behaviorTextTotalWidth(untabbed))
-	}
-}
-
 // TestBehaviorQuotesEmitGeneratedMarks: content open-quote/close-quote paints
 // the quotes pair around the element text.
 // Reference: Chrome 143.0.7499.40, quotes pair with generated content.

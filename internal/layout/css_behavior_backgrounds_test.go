@@ -452,39 +452,3 @@ func TestBehaviorBorderImageWidthThickensFrame(t *testing.T) {
 		t.Errorf("width 10pt corner = %.4fpt x %.4fpt, want 10 x 10", thickCorner.W, thickCorner.H)
 	}
 }
-
-// TestBehaviorBorderImageRepeatKeepsFrame is border-image-repeat: repeat and
-// stretch currently paint the same eight-piece frame because edge tiling is
-// not implemented yet (appendBorderImageRepeated in border_image.go
-// delegates to the stretched painter), so this pins the no-op rather than
-// the CSS tiling Chrome 143.0.7499.40 would show. GAP: implement round,
-// repeat, and space edge tiling, then expect more ops under repeat.
-func TestBehaviorBorderImageRepeatKeepsFrame(t *testing.T) {
-	t.Parallel()
-
-	img := tinyPNG(8, 8)
-	htmlSrc := func(repeat string) string {
-		return `<html style="margin:0"><body style="margin:0">` +
-			`<div id="bi" style="width:100px;height:60px;border:10px solid #000;` +
-			`border-image-source:url(border.png);border-image-slice:2;border-image-repeat:` + repeat + `"></div>` +
-			`</body></html>`
-	}
-
-	stretched := behaviorBgImages(opsOfKind(layoutHTMLWithImages(t, htmlSrc("stretch"), img, "border.png"), OpImage))
-	repeated := behaviorBgImages(opsOfKind(layoutHTMLWithImages(t, htmlSrc("repeat"), img, "border.png"), OpImage))
-
-	if len(stretched) != 8 || len(repeated) != 8 {
-		t.Fatalf("border-image cells = stretch %d repeat %d, want 8 each (tiling unimplemented)",
-			len(stretched), len(repeated))
-	}
-
-	for idx := range stretched {
-		if !near(stretched[idx].X, repeated[idx].X) || !near(stretched[idx].Y, repeated[idx].Y) ||
-			!near(stretched[idx].W, repeated[idx].W) || !near(stretched[idx].H, repeated[idx].H) {
-			t.Fatalf("cell %d differs: stretch (%.4fpt, %.4fpt %.4fpt x %.4fpt) vs "+
-				"repeat (%.4fpt, %.4fpt %.4fpt x %.4fpt), want identical until tiling lands",
-				idx, stretched[idx].X, stretched[idx].Y, stretched[idx].W, stretched[idx].H,
-				repeated[idx].X, repeated[idx].Y, repeated[idx].W, repeated[idx].H)
-		}
-	}
-}

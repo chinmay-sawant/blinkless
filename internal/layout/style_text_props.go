@@ -2,6 +2,7 @@
 package layout
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -73,6 +74,38 @@ func applyTextPropsWave3(
 	}
 
 	return true
+}
+
+// whiteSpaceTrimHas reports whether a white-space-trim value contains tok as
+// a whole token (none | discard-before || discard-after || discard-inner).
+func whiteSpaceTrimHas(trim, tok string) bool {
+	return slices.Contains(strings.Fields(strings.ToLower(trim)), tok)
+}
+
+// textJustifyMode normalizes a text-justify value to its justification
+// method (auto | none | inter-word | inter-character). The no-compress
+// modifier only forbids shrinking, which this engine never does, so it is
+// stripped. ruby has no dedicated handler and falls back to auto.
+func textJustifyMode(style *ResolvedStyle) string {
+	if style == nil {
+		return "auto"
+	}
+
+	cleaned := strings.ReplaceAll(strings.ToLower(style.TextJustify), "no-compress", " ")
+	fields := strings.Fields(cleaned)
+
+	for _, field := range fields {
+		switch field {
+		case "none":
+			return "none"
+		case "inter-character":
+			return "inter-character"
+		case "inter-word":
+			return "inter-word"
+		}
+	}
+
+	return "auto"
 }
 
 func ensureEmphasisMap(style *ResolvedStyle) {

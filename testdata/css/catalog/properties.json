@@ -11,9 +11,9 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 339,
-      "partial": 49,
-      "unsupported": 389,
+      "implemented": 344,
+      "partial": 46,
+      "unsupported": 387,
       "intentionally ignored": 8
     },
     "aliases": 38,
@@ -682,9 +682,7 @@
       "values": [
         "normal | <baseline-position> | <content-distribution> | <overflow-position>? <content-position>"
       ],
-      "limitations": [
-        "align-content has no reader in the grid path: center leaves rows at their start positions instead of centering the tracks (TestBehaviorAlignContentCenterNoOp)."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -694,11 +692,27 @@
       ],
       "tests": [
         {
-          "file": "internal/layout/css_behavior_grid_remaining_test.go",
-          "name": "TestBehaviorAlignContentCenterNoOp"
+          "file": "internal/layout/css_behavior_waveG_align_content_test.go",
+          "name": "TestBehaviorAlignContentGridStartUsedOffset"
+        },
+        {
+          "file": "internal/layout/css_behavior_waveG_align_content_test.go",
+          "name": "TestBehaviorAlignContentGridCenterUsedOffset"
+        },
+        {
+          "file": "internal/layout/css_behavior_waveG_align_content_test.go",
+          "name": "TestBehaviorAlignContentGridEndUsedOffset"
+        },
+        {
+          "file": "internal/layout/css_behavior_waveG_align_content_test.go",
+          "name": "TestBehaviorAlignContentGridBetweenUsedOffset"
+        },
+        {
+          "file": "internal/layout/css_behavior_waveG_align_content_test.go",
+          "name": "TestBehaviorAlignContentGridAroundUsedOffset"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | <baseline-position> | <content-distribution> | <overflow-position>? <content-position>"
     },
@@ -2712,9 +2726,7 @@
       "values": [
         "[ stretch | repeat | round | space ]{1,2}"
       ],
-      "limitations": [
-        "border-image-repeat delegates to the stretched painter, so repeat and stretch emit identical frames (TestBehaviorBorderImageRepeatKeepsFrame)."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/border_image.go",
         "internal/layout/style_properties.go"
@@ -2729,11 +2741,15 @@
           "name": "TestBorderImageProps"
         },
         {
-          "file": "internal/layout/css_behavior_backgrounds_test.go",
-          "name": "TestBehaviorBorderImageRepeatKeepsFrame"
+          "file": "internal/layout/css_behavior_waveG_border_repeat_test.go",
+          "name": "TestBehaviorWaveGBorderImageRepeatTilesEdges"
+        },
+        {
+          "file": "internal/layout/css_behavior_waveG_border_repeat_test.go",
+          "name": "TestBehaviorWaveGBorderImageRepeatClipsPartialTile"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ stretch | repeat | round | space ]{1,2}"
     },
@@ -4430,7 +4446,9 @@
         "nonzero | evenodd"
       ],
       "limitations": [
-        "clip-rule is dropped entirely with no paint consumer (TestBehaviorClipRuleEvenOddNoPaintEffect)."
+        "clip-rule is dropped entirely with no paint consumer (TestBehaviorClipRuleEvenOddNoPaintEffect).",
+        "No-op behavior pinned by TestBehaviorWaveGClipRuleInlineFillRuleMasksStar; full behavior needs engine work.",
+        "No-op behavior pinned by TestBehaviorWaveGClipRulePropertyNoPaintEffect; full behavior needs engine work."
       ],
       "source": [
         "internal/layout/style_paint_props.go"
@@ -4442,6 +4460,14 @@
         {
           "file": "internal/layout/css_behavior_text_remaining_test.go",
           "name": "TestBehaviorClipRuleEvenOddNoPaintEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_waveG_clip_rule_test.go",
+          "name": "TestBehaviorWaveGClipRuleInlineFillRuleMasksStar"
+        },
+        {
+          "file": "internal/layout/css_behavior_waveG_clip_rule_test.go",
+          "name": "TestBehaviorWaveGClipRulePropertyNoPaintEffect"
         }
       ],
       "status": "partial",
@@ -9586,6 +9612,14 @@
         {
           "file": "internal/layout/style_logical_border_test.go",
           "name": "TestMarginBreakProperty"
+        },
+        {
+          "file": "internal/layout/css_behavior_waveG_margin_break_test.go",
+          "name": "TestBehaviorMarginBreakKeepNoFragmentEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_waveG_margin_break_test.go",
+          "name": "TestBehaviorMarginBreakDiscardNoFragmentEffect"
         }
       ],
       "status": "unsupported",
@@ -14491,9 +14525,7 @@
       "values": [
         "<number [0,∞]> | <length [0,∞]>"
       ],
-      "limitations": [
-        "tab-size value is ignored in paint width: tab-size 2 vs 8 emit byte-equal widths (TestBehaviorTabSizeFixedAdvanceIgnoresValue). The resolved style carries TabSize but the paint fast path does not apply tab stops."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go",
         "internal/layout/style_text_props.go"
@@ -14508,11 +14540,15 @@
           "name": "TestTextPropsWave3"
         },
         {
-          "file": "internal/layout/css_behavior_text_test.go",
-          "name": "TestBehaviorTabSizeFixedAdvanceIgnoresValue"
+          "file": "internal/layout/css_behavior_waveG_tabsize_test.go",
+          "name": "TestBehaviorWaveGTabSizeValueChangesWidth"
+        },
+        {
+          "file": "internal/layout/css_behavior_waveG_tabsize_test.go",
+          "name": "TestBehaviorWaveGTabSizeSameValueDeterministic"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<number [0,∞]> | <length [0,∞]>"
     },
@@ -15324,9 +15360,7 @@
       "values": [
         "[ auto | none | inter-word | inter-character | ruby ] || no-compress"
       ],
-      "limitations": [
-        "Parsed and stored (TextJustify, style_text_props.go:36) but no justification consumer reads it. Implement path: inter-word and inter-character spacing on OpText beside TextAlign handling (inline.go:1002-1009,1370, inline_paint.go:384). Only test is a stored-string assertion (TestTextPropsWave3)."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go",
         "internal/layout/style_text_props.go"
@@ -15339,9 +15373,21 @@
         {
           "file": "internal/layout/style_text_props_test.go",
           "name": "TestTextPropsWave3"
+        },
+        {
+          "file": "internal/layout/css_behavior_waveG_justify_test.go",
+          "name": "TestBehaviorTextJustifyNoneDisablesExpansion"
+        },
+        {
+          "file": "internal/layout/css_behavior_waveG_justify_test.go",
+          "name": "TestBehaviorTextJustifyInterWordExpandsWordGaps"
+        },
+        {
+          "file": "internal/layout/css_behavior_waveG_justify_test.go",
+          "name": "TestBehaviorTextJustifyInterCharacterExpandsWithinWord"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ auto | none | inter-word | inter-character | ruby ] || no-compress"
     },
@@ -16614,9 +16660,7 @@
       "values": [
         "none | discard-before || discard-after || discard-inner"
       ],
-      "limitations": [
-        "Parsed and stored (WhiteSpaceTrim, style_text_props.go:30) but no consumer reads it. Implement path: discard-before/discard-after/discard-inner trimming in the white-space collapse pass (style_text_props.go:28,169). Only test is a stored-string assertion (TestTextPropsWave3)."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go",
         "internal/layout/style_text_props.go"
@@ -16629,9 +16673,21 @@
         {
           "file": "internal/layout/style_text_props_test.go",
           "name": "TestTextPropsWave3"
+        },
+        {
+          "file": "internal/layout/css_behavior_waveG_justify_test.go",
+          "name": "TestBehaviorWhiteSpaceTrimDiscardBeforeTrimsLeading"
+        },
+        {
+          "file": "internal/layout/css_behavior_waveG_justify_test.go",
+          "name": "TestBehaviorWhiteSpaceTrimDiscardAfterTrimsTrailing"
+        },
+        {
+          "file": "internal/layout/css_behavior_waveG_justify_test.go",
+          "name": "TestBehaviorWhiteSpaceTrimDiscardInnerTrimsBothEdges"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | discard-before || discard-after || discard-inner"
     },
