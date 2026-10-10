@@ -692,23 +692,23 @@
       ],
       "tests": [
         {
-          "file": "internal/layout/css_behavior_waveG_align_content_test.go",
+          "file": "internal/layout/css_behavior_align_content_test.go",
           "name": "TestBehaviorAlignContentGridStartUsedOffset"
         },
         {
-          "file": "internal/layout/css_behavior_waveG_align_content_test.go",
+          "file": "internal/layout/css_behavior_align_content_test.go",
           "name": "TestBehaviorAlignContentGridCenterUsedOffset"
         },
         {
-          "file": "internal/layout/css_behavior_waveG_align_content_test.go",
+          "file": "internal/layout/css_behavior_align_content_test.go",
           "name": "TestBehaviorAlignContentGridEndUsedOffset"
         },
         {
-          "file": "internal/layout/css_behavior_waveG_align_content_test.go",
+          "file": "internal/layout/css_behavior_align_content_test.go",
           "name": "TestBehaviorAlignContentGridBetweenUsedOffset"
         },
         {
-          "file": "internal/layout/css_behavior_waveG_align_content_test.go",
+          "file": "internal/layout/css_behavior_align_content_test.go",
           "name": "TestBehaviorAlignContentGridAroundUsedOffset"
         }
       ],
@@ -2741,12 +2741,12 @@
           "name": "TestBorderImageProps"
         },
         {
-          "file": "internal/layout/css_behavior_waveG_border_repeat_test.go",
-          "name": "TestBehaviorWaveGBorderImageRepeatTilesEdges"
+          "file": "internal/layout/css_behavior_border_image_repeat_test.go",
+          "name": "TestBehaviorBorderImageRepeatTilesEdges"
         },
         {
-          "file": "internal/layout/css_behavior_waveG_border_repeat_test.go",
-          "name": "TestBehaviorWaveGBorderImageRepeatClipsPartialTile"
+          "file": "internal/layout/css_behavior_border_image_repeat_test.go",
+          "name": "TestBehaviorBorderImageRepeatClipsPartialTile"
         }
       ],
       "status": "implemented",
@@ -4462,12 +4462,12 @@
           "name": "TestBehaviorClipRuleEvenOddNoPaintEffect"
         },
         {
-          "file": "internal/layout/css_behavior_waveG_clip_rule_test.go",
-          "name": "TestBehaviorWaveGClipRuleInlineFillRuleMasksStar"
+          "file": "internal/layout/css_behavior_clip_rule_test.go",
+          "name": "TestBehaviorClipRuleInlineFillRuleMasksStar"
         },
         {
-          "file": "internal/layout/css_behavior_waveG_clip_rule_test.go",
-          "name": "TestBehaviorWaveGClipRulePropertyNoPaintEffect"
+          "file": "internal/layout/css_behavior_clip_rule_test.go",
+          "name": "TestBehaviorClipRulePropertyNoPaintEffect"
         }
       ],
       "status": "partial",
@@ -9614,11 +9614,11 @@
           "name": "TestMarginBreakProperty"
         },
         {
-          "file": "internal/layout/css_behavior_waveG_margin_break_test.go",
+          "file": "internal/layout/css_behavior_margin_break_test.go",
           "name": "TestBehaviorMarginBreakKeepNoFragmentEffect"
         },
         {
-          "file": "internal/layout/css_behavior_waveG_margin_break_test.go",
+          "file": "internal/layout/css_behavior_margin_break_test.go",
           "name": "TestBehaviorMarginBreakDiscardNoFragmentEffect"
         }
       ],
@@ -14540,12 +14540,12 @@
           "name": "TestTextPropsWave3"
         },
         {
-          "file": "internal/layout/css_behavior_waveG_tabsize_test.go",
-          "name": "TestBehaviorWaveGTabSizeValueChangesWidth"
+          "file": "internal/layout/css_behavior_tabsize_test.go",
+          "name": "TestBehaviorTabSizeValueChangesWidth"
         },
         {
-          "file": "internal/layout/css_behavior_waveG_tabsize_test.go",
-          "name": "TestBehaviorWaveGTabSizeSameValueDeterministic"
+          "file": "internal/layout/css_behavior_tabsize_test.go",
+          "name": "TestBehaviorTabSizeSameValueDeterministic"
         }
       ],
       "status": "implemented",
@@ -15375,15 +15375,15 @@
           "name": "TestTextPropsWave3"
         },
         {
-          "file": "internal/layout/css_behavior_waveG_justify_test.go",
+          "file": "internal/layout/css_behavior_text_justify_test.go",
           "name": "TestBehaviorTextJustifyNoneDisablesExpansion"
         },
         {
-          "file": "internal/layout/css_behavior_waveG_justify_test.go",
+          "file": "internal/layout/css_behavior_text_justify_test.go",
           "name": "TestBehaviorTextJustifyInterWordExpandsWordGaps"
         },
         {
-          "file": "internal/layout/css_behavior_waveG_justify_test.go",
+          "file": "internal/layout/css_behavior_text_justify_test.go",
           "name": "TestBehaviorTextJustifyInterCharacterExpandsWithinWord"
         }
       ],
@@ -16675,15 +16675,15 @@
           "name": "TestTextPropsWave3"
         },
         {
-          "file": "internal/layout/css_behavior_waveG_justify_test.go",
+          "file": "internal/layout/css_behavior_text_justify_test.go",
           "name": "TestBehaviorWhiteSpaceTrimDiscardBeforeTrimsLeading"
         },
         {
-          "file": "internal/layout/css_behavior_waveG_justify_test.go",
+          "file": "internal/layout/css_behavior_text_justify_test.go",
           "name": "TestBehaviorWhiteSpaceTrimDiscardAfterTrimsTrailing"
         },
         {
-          "file": "internal/layout/css_behavior_waveG_justify_test.go",
+          "file": "internal/layout/css_behavior_text_justify_test.go",
           "name": "TestBehaviorWhiteSpaceTrimDiscardInnerTrimsBothEdges"
         }
       ],

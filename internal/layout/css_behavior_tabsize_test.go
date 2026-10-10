@@ -9,9 +9,9 @@ import (
 // matching the slow path (tabStopAdvance in inline_paint.go).
 // Reference: Chrome 143.0.7499.40, tab-size 2 vs 8 over "a\tb" in pre.
 
-// TestBehaviorWaveGTabSizeValueChangesWidth pins that tab-size 2 vs 8 emit
+// TestBehaviorTabSizeValueChangesWidth pins that tab-size 2 vs 8 emit
 // different used widths (the fast path consults TabSize).
-func TestBehaviorWaveGTabSizeValueChangesWidth(t *testing.T) {
+func TestBehaviorTabSizeValueChangesWidth(t *testing.T) {
 	t.Parallel()
 
 	const page = "<pre class=\"%s\" style=\"margin:0;font-size:12pt;white-space:pre\">%s</pre>"
@@ -37,9 +37,9 @@ func TestBehaviorWaveGTabSizeValueChangesWidth(t *testing.T) {
 	}
 }
 
-// TestBehaviorWaveGTabSizeSameValueDeterministic pins that the same tab-size
+// TestBehaviorTabSizeSameValueDeterministic pins that the same tab-size
 // value lays out identically on repeat.
-func TestBehaviorWaveGTabSizeSameValueDeterministic(t *testing.T) {
+func TestBehaviorTabSizeSameValueDeterministic(t *testing.T) {
 	t.Parallel()
 
 	const page = "<pre class=\"%s\" style=\"margin:0;font-size:12pt;white-space:pre\">%s</pre>"

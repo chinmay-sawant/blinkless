@@ -60,9 +60,9 @@ func maxWordGap(line []Op) float64 {
 	return gap
 }
 
-// behaviorWaveGJustifyDoc wraps the shared paragraph in a justified 220pt
+// behaviorJustifyDoc wraps the shared paragraph in a justified 220pt
 // box with the given extra paragraph style.
-func behaviorWaveGJustifyDoc(extra string) string {
+func behaviorJustifyDoc(extra string) string {
 	return `<html><body style="margin:0"><p style="margin:0;width:220pt;font-size:12pt;text-align:justify;` +
 		extra + `">` + justifyPara + `</p></body></html>`
 }
@@ -76,8 +76,8 @@ const justifyPara = "alpha bravo charlie delta echo foxtrot golf hotel india jul
 func TestBehaviorTextJustifyNoneDisablesExpansion(t *testing.T) {
 	t.Parallel()
 
-	base := behaviorWaveGJustifyDoc(``)
-	none := behaviorWaveGJustifyDoc(`;text-justify:none`)
+	base := behaviorJustifyDoc(``)
+	none := behaviorJustifyDoc(`;text-justify:none`)
 
 	justLine := firstLineTextOps(layoutHTML(t, base))
 	noneLine := firstLineTextOps(layoutHTML(t, none))
@@ -103,8 +103,8 @@ func TestBehaviorTextJustifyNoneDisablesExpansion(t *testing.T) {
 func TestBehaviorTextJustifyInterWordExpandsWordGaps(t *testing.T) {
 	t.Parallel()
 
-	interWord := behaviorWaveGJustifyDoc(`;text-justify:inter-word`)
-	none := behaviorWaveGJustifyDoc(`;text-justify:none`)
+	interWord := behaviorJustifyDoc(`;text-justify:inter-word`)
+	none := behaviorJustifyDoc(`;text-justify:none`)
 
 	wordLine := firstLineTextOps(layoutHTML(t, interWord))
 	noneLine := firstLineTextOps(layoutHTML(t, none))
@@ -130,8 +130,8 @@ func TestBehaviorTextJustifyInterWordExpandsWordGaps(t *testing.T) {
 func TestBehaviorTextJustifyInterCharacterExpandsWithinWord(t *testing.T) {
 	t.Parallel()
 
-	interWord := behaviorWaveGJustifyDoc(`;text-justify:inter-word`)
-	interChar := behaviorWaveGJustifyDoc(`;text-justify:inter-character`)
+	interWord := behaviorJustifyDoc(`;text-justify:inter-word`)
+	interChar := behaviorJustifyDoc(`;text-justify:inter-character`)
 
 	wordLine := firstLineTextOps(layoutHTML(t, interWord))
 	charLine := firstLineTextOps(layoutHTML(t, interChar))

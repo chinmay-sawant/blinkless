@@ -12,13 +12,13 @@ import (
 // edge middle-slice along each edge for repeat (clipping a trailing partial
 // tile) while stretch maps one slice across the whole edge.
 
-// TestBehaviorWaveGBorderImageRepeatTilesEdges is border-image-repeat: repeat on a
+// TestBehaviorBorderImageRepeatTilesEdges is border-image-repeat: repeat on a
 // 100px by 60px box with a 10px border and slice 2 of an 8px image. The edge
 // middle slice is 4px wide and 2px tall, so each top/bottom tile paints
 // 10px by 10px (7.5pt by 7.5pt aspect-kept) over the 100px (75pt) edge span:
 // 5 tiles per horizontal edge and 3 per vertical edge, 20 cells total against
 // 8 under stretch. Corners stay identical to the stretch frame.
-func TestBehaviorWaveGBorderImageRepeatTilesEdges(t *testing.T) {
+func TestBehaviorBorderImageRepeatTilesEdges(t *testing.T) {
 	t.Parallel()
 
 	img := tinyPNG(8, 8)
@@ -51,10 +51,10 @@ func TestBehaviorWaveGBorderImageRepeatTilesEdges(t *testing.T) {
 
 	borderBox := boxByID(t, repeatRes, "bi")
 	thick := pxToPt(10)
-	topBand := waveGBand(repeated, borderBox.y, thick, true)
-	bottomBand := waveGBand(repeated, borderBox.y+borderBox.height-thick, thick, true)
-	leftBand := waveGBand(repeated, borderBox.x, thick, false)
-	rightBand := waveGBand(repeated, borderBox.x+borderBox.w-thick, thick, false)
+	topBand := behaviorBordImgBand(repeated, borderBox.y, thick, true)
+	bottomBand := behaviorBordImgBand(repeated, borderBox.y+borderBox.height-thick, thick, true)
+	leftBand := behaviorBordImgBand(repeated, borderBox.x, thick, false)
+	rightBand := behaviorBordImgBand(repeated, borderBox.x+borderBox.w-thick, thick, false)
 
 	if len(topBand) != 5 || len(bottomBand) != 5 {
 		t.Fatalf("horizontal edge tiles = top %d bottom %d, want 5 each", len(topBand), len(bottomBand))
@@ -65,31 +65,31 @@ func TestBehaviorWaveGBorderImageRepeatTilesEdges(t *testing.T) {
 	}
 
 	// Tiles abut along the edge and exactly cover the span between corners.
-	waveGAssertAbutting(t, topBand, borderBox.x+thick, borderBox.x+borderBox.w-thick, true, "top")
-	waveGAssertAbutting(t, leftBand, borderBox.y+thick, borderBox.y+borderBox.height-thick, false, "left")
-	waveGAssertTileGeometry(t, topBand, leftBand, thick)
-	waveGAssertCornersKept(t, stretched, repeated, borderBox, thick)
+	behaviorBordImgAssertAbutting(t, topBand, borderBox.x+thick, borderBox.x+borderBox.w-thick, true, "top")
+	behaviorBordImgAssertAbutting(t, leftBand, borderBox.y+thick, borderBox.y+borderBox.height-thick, false, "left")
+	behaviorBordImgAssertTileGeometry(t, topBand, leftBand, thick)
+	behaviorBordImgAssertCornersKept(t, stretched, repeated, borderBox, thick)
 }
 
-// waveGAssertTileGeometry asserts full tiles carry the whole middle slice:
+// behaviorBordImgAssertTileGeometry asserts full tiles carry the whole middle slice:
 // 4px by 2px on top/bottom, 2px by 4px on the sides.
-func waveGAssertTileGeometry(t *testing.T, topBand, leftBand []Op, thick float64) {
+func behaviorBordImgAssertTileGeometry(t *testing.T, topBand, leftBand []Op, thick float64) {
 	t.Helper()
 
 	// Full tiles carry the whole middle slice: 4px by 2px on top/bottom,
 	// 2px by 4px on the sides. The 75pt span is an exact multiple of the
 	// 15pt tile, so every tile here is full.
 	for _, tile := range topBand {
-		waveGAssertTile(t, tile, pxToPt(20), thick, 4, 2, "top")
+		behaviorBordImgAssertTile(t, tile, pxToPt(20), thick, 4, 2, "top")
 	}
 
 	for _, tile := range leftBand {
-		waveGAssertTile(t, tile, thick, pxToPt(20), 2, 4, "left")
+		behaviorBordImgAssertTile(t, tile, thick, pxToPt(20), 2, 4, "left")
 	}
 }
 
-// waveGAssertTile asserts one full tile has the wanted size and payload.
-func waveGAssertTile(t *testing.T, tile Op, wantW, wantH float64, wantIw, wantIh int, tag string) {
+// behaviorBordImgAssertTile asserts one full tile has the wanted size and payload.
+func behaviorBordImgAssertTile(t *testing.T, tile Op, wantW, wantH float64, wantIw, wantIh int, tag string) {
 	t.Helper()
 
 	if !near(tile.W, wantW) || !near(tile.H, wantH) {
@@ -106,17 +106,17 @@ func waveGAssertTile(t *testing.T, tile Op, wantW, wantH float64, wantIw, wantIh
 	}
 }
 
-// waveGAssertCornersKept asserts every stretch corner survives under repeat
+// behaviorBordImgAssertCornersKept asserts every stretch corner survives under repeat
 // with identical geometry and payload bytes.
-func waveGAssertCornersKept(t *testing.T, stretched, repeated []Op, borderBox *box, thick float64) {
+func behaviorBordImgAssertCornersKept(t *testing.T, stretched, repeated []Op, borderBox *box, thick float64) {
 	t.Helper()
 
 	for _, corner := range stretched {
-		if !waveGIsCorner(corner, borderBox, thick) {
+		if !behaviorBordImgIsCorner(corner, borderBox, thick) {
 			continue
 		}
 
-		match := waveGFindCell(repeated, corner)
+		match := behaviorBordImgFindCell(repeated, corner)
 
 		if match == nil {
 			t.Errorf("stretch corner at (%.4fpt, %.4fpt) missing under repeat", corner.X, corner.Y)
@@ -132,12 +132,12 @@ func waveGAssertCornersKept(t *testing.T, stretched, repeated []Op, borderBox *b
 	}
 }
 
-// TestBehaviorWaveGBorderImageRepeatClipsPartialTile is border-image-repeat:
+// TestBehaviorBorderImageRepeatClipsPartialTile is border-image-repeat:
 // repeat on a 95px wide box: the 71.25pt edge span holds 4 full 15pt tiles
 // plus an 11.25pt trailing tile whose source is clipped to the leading 3px
 // of the 4px middle slice. Reference: Chrome 143.0.7499.40 clips rather than
 // squeezes the last tile.
-func TestBehaviorWaveGBorderImageRepeatClipsPartialTile(t *testing.T) {
+func TestBehaviorBorderImageRepeatClipsPartialTile(t *testing.T) {
 	t.Parallel()
 
 	img := tinyPNG(8, 8)
@@ -149,7 +149,7 @@ func TestBehaviorWaveGBorderImageRepeatClipsPartialTile(t *testing.T) {
 	cells := behaviorBgImages(opsOfKind(res, OpImage))
 	borderBox := boxByID(t, res, "bi")
 	thick := pxToPt(10)
-	topBand := waveGBand(cells, borderBox.y, thick, true)
+	topBand := behaviorBordImgBand(cells, borderBox.y, thick, true)
 
 	if len(topBand) != 5 {
 		t.Fatalf("top edge tiles = %d, want 5 (4 full + 1 clipped)", len(topBand))
@@ -172,10 +172,10 @@ func TestBehaviorWaveGBorderImageRepeatClipsPartialTile(t *testing.T) {
 	}
 }
 
-// waveGBand returns the edge tiles of one band sorted along the edge:
+// behaviorBordImgBand returns the edge tiles of one band sorted along the edge:
 // horizontal bands match Y and thickness H, vertical bands match X and
 // thickness W. Corner cells (which share the band origin) are excluded.
-func waveGBand(cells []Op, origin, thick float64, horizontal bool) []Op {
+func behaviorBordImgBand(cells []Op, origin, thick float64, horizontal bool) []Op {
 	band := make([]Op, 0, len(cells))
 
 	for _, cell := range cells {
@@ -196,7 +196,7 @@ func waveGBand(cells []Op, origin, thick float64, horizontal bool) []Op {
 
 	// Corners share the band row or column but span the full thickness in
 	// both axes; tiles span further along the edge than across it.
-	kept := waveGExcludeCorners(band, thick, horizontal)
+	kept := behaviorBordImgExcludeCorners(band, thick, horizontal)
 
 	sort.Slice(kept, func(i, j int) bool {
 		if horizontal {
@@ -209,9 +209,9 @@ func waveGBand(cells []Op, origin, thick float64, horizontal bool) []Op {
 	return kept
 }
 
-// waveGExcludeCorners drops corner cells from a band: corners span the full
+// behaviorBordImgExcludeCorners drops corner cells from a band: corners span the full
 // thickness in both axes while tiles span further along the edge.
-func waveGExcludeCorners(band []Op, thick float64, horizontal bool) []Op {
+func behaviorBordImgExcludeCorners(band []Op, thick float64, horizontal bool) []Op {
 	kept := make([]Op, 0, len(band))
 
 	for _, cell := range band {
@@ -229,9 +229,9 @@ func waveGExcludeCorners(band []Op, thick float64, horizontal bool) []Op {
 	return kept
 }
 
-// waveGAssertAbutting checks tiles start at spanStart, each starts where the
+// behaviorBordImgAssertAbutting checks tiles start at spanStart, each starts where the
 // previous ends, and the last ends at spanEnd.
-func waveGAssertAbutting(
+func behaviorBordImgAssertAbutting(
 	t *testing.T, tiles []Op, spanStart, spanEnd float64, horizontal bool, tag string,
 ) {
 	t.Helper()
@@ -268,8 +268,8 @@ func waveGAssertAbutting(
 	}
 }
 
-// waveGIsCorner reports whether a cell sits at one of the four frame corners.
-func waveGIsCorner(cell Op, borderBox *box, thick float64) bool {
+// behaviorBordImgIsCorner reports whether a cell sits at one of the four frame corners.
+func behaviorBordImgIsCorner(cell Op, borderBox *box, thick float64) bool {
 	atLeft := near(cell.X, borderBox.x)
 	atRight := near(cell.X+cell.W, borderBox.x+borderBox.w)
 	atTop := near(cell.Y, borderBox.y)
@@ -279,8 +279,8 @@ func waveGIsCorner(cell Op, borderBox *box, thick float64) bool {
 		near(cell.W, thick) && near(cell.H, thick)
 }
 
-// waveGFindCell returns the cell in cells with near-equal geometry, or nil.
-func waveGFindCell(cells []Op, want Op) *Op {
+// behaviorBordImgFindCell returns the cell in cells with near-equal geometry, or nil.
+func behaviorBordImgFindCell(cells []Op, want Op) *Op {
 	for _, cell := range cells {
 		candidate := cell
 

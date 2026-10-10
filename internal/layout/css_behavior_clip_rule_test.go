@@ -9,22 +9,22 @@ import (
 // opsOfKind, and behaviorSvgAssertSameOps come from layout_test.go and
 // css_behavior_svg_paint_test.go and are never redeclared here.
 
-// waveGStarPolygon is a self-intersecting pentagram (star drawn in one
+// behaviorClipStarPolygon is a self-intersecting pentagram (star drawn in one
 // stroke, not convex order) over a 100x100 reference box. Its center
 // (50%, 50%) sits deep inside the inner pentagon, which the path winds
 // twice: nonzero keeps it painted, evenodd cuts it out.
-const waveGStarPolygon = "polygon(50% 10%, 73.5% 82.4%, 12% 37.6%, 88% 37.6%, 26.5% 82.4%)"
+const behaviorClipStarPolygon = "polygon(50% 10%, 73.5% 82.4%, 12% 37.6%, 88% 37.6%, 26.5% 82.4%)"
 
-// TestBehaviorWaveGClipRuleInlineFillRuleMasksStar proves the clip model
+// TestBehaviorClipRuleInlineFillRuleMasksStar proves the clip model
 // has a working fill concept: polygonContains (clip_path.go) honors the
 // inline polygon() fill rule when masking image ops. The default (nonzero)
 // keeps the twice-wound star center opaque; inline evenodd zeroes it.
 // Reference: Chrome 143.0.7499.40 renders the same difference.
-func TestBehaviorWaveGClipRuleInlineFillRuleMasksStar(t *testing.T) {
+func TestBehaviorClipRuleInlineFillRuleMasksStar(t *testing.T) {
 	t.Parallel()
 
 	nonzero := layoutHTMLWithImages(t,
-		`<html><body><img src="x.png" style="clip-path:`+waveGStarPolygon+`"></body></html>`,
+		`<html><body><img src="x.png" style="clip-path:`+behaviorClipStarPolygon+`"></body></html>`,
 		tinyPNG(40, 40), "x.png")
 	evenodd := layoutHTMLWithImages(t,
 		`<html><body><img src="x.png" style="clip-path:polygon(evenodd, 50% 10%, 73.5% 82.4%,`+
@@ -47,7 +47,7 @@ func TestBehaviorWaveGClipRuleInlineFillRuleMasksStar(t *testing.T) {
 	}
 }
 
-// TestBehaviorWaveGClipRulePropertyNoPaintEffect pins the current gap: the
+// TestBehaviorClipRulePropertyNoPaintEffect pins the current gap: the
 // standalone clip-rule property never reaches the mask. It is forwarded by
 // applySVGPresentationProps (style_paint_props.go) to applyLeftoversProps
 // (style_leftovers.go), which has no clip-rule case and returns false, and
@@ -63,17 +63,17 @@ func TestBehaviorWaveGClipRuleInlineFillRuleMasksStar(t *testing.T) {
 // then thread the effective rule at the mask sites in layout_images.go,
 // background_image.go, and inline_image.go (or bake it in layout_svg.go).
 // When that lands, this test must flip: evenodd must cut the center out.
-func TestBehaviorWaveGClipRulePropertyNoPaintEffect(t *testing.T) {
+func TestBehaviorClipRulePropertyNoPaintEffect(t *testing.T) {
 	t.Parallel()
 
 	plain := layoutHTMLWithImages(t,
-		`<html><body><img src="x.png" style="clip-path:`+waveGStarPolygon+`"></body></html>`,
+		`<html><body><img src="x.png" style="clip-path:`+behaviorClipStarPolygon+`"></body></html>`,
 		tinyPNG(40, 40), "x.png")
 	evenodd := layoutHTMLWithImages(t,
-		`<html><body><img src="x.png" style="clip-path:`+waveGStarPolygon+`;clip-rule:evenodd"></body></html>`,
+		`<html><body><img src="x.png" style="clip-path:`+behaviorClipStarPolygon+`;clip-rule:evenodd"></body></html>`,
 		tinyPNG(40, 40), "x.png")
 	nonzero := layoutHTMLWithImages(t,
-		`<html><body><img src="x.png" style="clip-path:`+waveGStarPolygon+`;clip-rule:nonzero"></body></html>`,
+		`<html><body><img src="x.png" style="clip-path:`+behaviorClipStarPolygon+`;clip-rule:nonzero"></body></html>`,
 		tinyPNG(40, 40), "x.png")
 
 	behaviorSvgAssertSameOps(t, plain, evenodd)

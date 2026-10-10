@@ -107,7 +107,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `border-end-start-radius` | <border-radius> | `internal/layout/style_logical_border.go`, `internal/layout/style_paint_props.go` | `TestLogicalCornerRadii`, `TestBehaviorBorderEndStartRadiusMapsBottomLeft` |
 | `border-image` | <'border-image-source'> \|\| <'border-image-slice'> [ / <'border-image-width'> \| / <'border-image-width'>? / <'border-image-outset'> ]? \|\| <'border-image-repeat'> | `internal/layout/border_image.go`, `internal/layout/style_properties.go` | `TestBehaviorBorderImageShorthandPaintsFrame` |
 | `border-image-outset` | [ <length [0,∞]> \| <number [0,∞]> ]{1,4} | `internal/layout/border_image.go`, `internal/layout/style_properties.go` | `TestBorderImageProps`, `TestBehaviorBorderImageOutsetPaints` |
-| `border-image-repeat` | [ stretch \| repeat \| round \| space ]{1,2} | `internal/layout/border_image.go`, `internal/layout/style_properties.go` | `TestBorderImageProps`, `TestBehaviorWaveGBorderImageRepeatTilesEdges`, `TestBehaviorWaveGBorderImageRepeatClipsPartialTile` |
+| `border-image-repeat` | [ stretch \| repeat \| round \| space ]{1,2} | `internal/layout/border_image.go`, `internal/layout/style_properties.go` | `TestBorderImageProps`, `TestBehaviorBorderImageRepeatTilesEdges`, `TestBehaviorBorderImageRepeatClipsPartialTile` |
 | `border-image-slice` | [<number [0,∞]> \| <percentage [0,∞]>]{1,4} && fill? | `internal/layout/border_image.go`, `internal/layout/style_properties.go` | `TestBorderImageProps`, `TestBehaviorBorderImageSliceSelectsGeometry` |
 | `border-image-source` | none \| <image> | `internal/layout/border_image.go`, `internal/layout/style_properties.go` | `TestBorderImageProps`, `TestBehaviorBorderImageSourcePaintsSlices` |
 | `border-image-width` | [ <length-percentage [0,∞]> \| <number [0,∞]> \| auto ]{1,4} | `internal/layout/border_image.go`, `internal/layout/style_properties.go` | `TestBorderImageProps`, `TestBehaviorBorderImageWidthThickensFrame` |
@@ -348,7 +348,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `stroke` | <paint> | `internal/layout/style_paint_props.go` | `TestBehaviorStrokeBakesPaint` |
 | `stroke-opacity` | <'opacity'> | `internal/layout/style_paint_props.go` | `TestBehaviorStrokeOpacityBakesPaint` |
 | `stroke-width` | <length-percentage> \| <number> | `internal/layout/style_paint_props.go` | `TestBehaviorStrokeWidthBakesPaint` |
-| `tab-size` | <number [0,∞]> \| <length [0,∞]> | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | `TestTextPropsWave3`, `TestBehaviorWaveGTabSizeValueChangesWidth`, `TestBehaviorWaveGTabSizeSameValueDeterministic` |
+| `tab-size` | <number [0,∞]> \| <length [0,∞]> | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | `TestTextPropsWave3`, `TestBehaviorTabSizeValueChangesWidth`, `TestBehaviorTabSizeSameValueDeterministic` |
 | `table-layout` | auto \| fixed \| inherit | `internal/layout/style_properties.go` | `TestTableLayoutFixedIgnoresContentMax`, `TestBehaviorTableLayoutFixedEqualShare` |
 | `text-align` | left \| right \| center \| justify \| inherit | `internal/layout/style_properties.go` | `TestTextAlignJustify`, `TestBehaviorTextAlignCentersLine` |
 | `text-align-all` | start \| end \| left \| right \| center \| <string> \| justify \| match-parent | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | `TestBehaviorTextAlignAllCentersLine` |
