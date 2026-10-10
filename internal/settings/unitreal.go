@@ -57,9 +57,8 @@ func ParseUnitReal(raw string, impliedUnit string) (UnitReal, error) {
 	return UnitReal{Value: v, Unit: unit}, nil
 }
 
-// finite reports whether value is neither NaN nor an infinity. It mirrors the
-// root API predicate (document_validate.go finitePositive) so CLI and library
-// reject the same numeric inputs.
+// finite reports whether value is neither NaN nor an infinity. It is the
+// shared numeric gate for the settings parsers and validators.
 func finite(value float64) bool {
 	return !math.IsNaN(value) && !math.IsInf(value, 0)
 }

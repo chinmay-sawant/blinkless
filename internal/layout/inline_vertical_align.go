@@ -16,22 +16,30 @@ const (
 )
 
 // alignedInlineTop is the canvas Y of an atomic inline box (image or
-// inline-block). Keywords match CSS vertical-align; a length shift raises
-// (positive) or lowers (negative) a baseline-aligned box.
+// inline-block) border box. Keywords match CSS vertical-align; a length shift
+// raises (positive) or lowers (negative) a baseline-aligned box. The margin
+// box, not the border box, is what the keyword aligns (CSS 2.1 §10.8.1).
 func (e *engine) alignedInlineTop(item *inlineItem, lineY, lineH, baseline float64) float64 {
+	marginBoxH := item.marginT + item.h + item.marginB
+
 	if item.style == nil {
-		return baseline - item.h
+		return baseline - item.h - item.marginB
 	}
 
 	switch item.style.VerticalAlign {
 	case cssVerticalAlignTop:
-		return lineY
+		return lineY + item.marginT
 	case cssVerticalAlignMiddle:
-		return lineY + (lineH-item.h)/2
+		return lineY + (lineH-marginBoxH)/2 + item.marginT
 	case cssVerticalAlignBottom:
-		return lineY + lineH - item.h
+		return lineY + lineH - item.h - item.marginB
 	default:
-		return baseline - item.h - e.scalePt(e.effectiveVerticalAlignShift(item.style))
+		ascent := item.marginT + item.h
+		if item.marginBaseline {
+			ascent += item.marginB
+		}
+
+		return baseline - ascent + item.marginT - e.scalePt(e.effectiveVerticalAlignShift(item.style))
 	}
 }
 
@@ -53,7 +61,7 @@ func (e *engine) effectiveVerticalAlignShift(style *ResolvedStyle) float64 {
 	// line-height per CSS spec.
 	if pct := strings.TrimSpace(style.VerticalAlign); strings.HasSuffix(pct, "%") {
 		if percent, ok := parsePercent(pct); ok {
-			lineH := lineHeightOf(style)
+			lineH := e.lineHeightOf(style)
 
 			return lineH * percent / oneHundred
 		}

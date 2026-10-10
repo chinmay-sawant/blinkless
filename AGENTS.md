@@ -129,9 +129,9 @@ does not track it. It has three layers (`knowledge-base/README.md`,
   session as the code change
 - Any time code and KB disagree while answering a question: fix the KB
 
-`documentation/` remains the committed reference. Note the trap: `docs/` is
-NOT the markdown reference - it is the built static website generated from
-`frontend/` (Vite React app). Never hand-edit `docs/`.
+`documentation/` remains the committed reference. There is no `frontend/`
+site and no built `docs/` in this tree; the only prose surface to edit is
+the markdown under `documentation/`.
 
 ## Verification gates
 
@@ -140,15 +140,16 @@ The real gates, in order of cost:
 | Gate | Command | What it proves |
 |------|---------|----------------|
 | Unit + integration | `make test` | Full suite green (`-p 2 -parallel 2` by default; see Makefile) |
-| Claims | `make claim-scan` | No forbidden claims (stdlib-only, Qt WebKit, byte-identical determinism, etc.) in doc.go, README, documentation/, frontend content, cli help |
-| Lint | `make lint` | golangci-lint (pinned v1.64.8) clean; chains `size-check` (file-size ledger) and `lint-frontend` (npm) |
+| Claims | `make claim-scan` | No forbidden claims (stdlib-only, Qt WebKit, byte-identical determinism, etc.) in doc.go, README.md, documentation/*.md, documentation/architecture/*.md |
+| Lint | `make lint` | golangci-lint (pinned v1.64.8) clean; chains `size-check` (file-size ledger) |
 | Golden corpus | `make golden` | Public drawing-list tests in `./layout` (`TestDisplay`) |
-| Release | `RELEASE.md` checklist | Hard gates for any release: `make check-versions`, `make test`, `make golden`, `make claim-scan`, `make lint`, plus `make build` with version-stamp check; Python and frontend extras when touched |
+| Release | `RELEASE.md` checklist | Hard gates for any release: `go build ./...`, `make test-quick`, `make golden`, `make lint`, `make claim-scan`; the removed writer-era checks (veraPDF, PDF byte compares) are off the table |
 
-Release work always starts at `RELEASE.md`. It holds the version-source
-table (binary `internal/cli.Version` vs library `LibraryVersion` / C ABI /
-Python package), the Python-ships / WASM-does-not-ship status, and the
-hard-gate order. `skills/release-note/SKILL.md` remains the promote flow.
+Release work always starts at `RELEASE.md`. It states that `VERSION` is not
+used, records what ships (the drawing list plus the one-image PNG fallback)
+versus what does not (PDF files, PDF profiles, the `blinkless` command,
+veraPDF, the golden PDF corpus), and gives the hard-gate order.
+`skills/release-note/SKILL.md` remains the promote flow.
 
 Never run bare `go test ./...`: uncapped package and test concurrency
 thrashes swap and can freeze the desktop on this host. Run tests through
@@ -161,10 +162,11 @@ skip long perf tests (`make test-quick`), or fall back to single-threaded
 
 Run targeted single-package tests during a session (`go test ./internal/<pkg>`
 or `go test ./internal/<pkg> -run '<TestName>'`); run the full gate set once
-at session end before claiming done. CI additionally runs `-race` on hot
-packages (`convert`, `layout`, `pdf`, `imageout`, `load`), a CGO_ENABLED=0
-static build with version-stamp assertion, and a frontend production build
-that fails if `docs/` goes dirty.
+at session end before claiming done. CI additionally runs `make test-race`
+(`./internal/layout ./internal/load ./internal/fonts`), a CGO_ENABLED=0
+static build with a cgo purity guard, the WASM contract and browser smoke
+(`make wasm-test`), the fast `make final-evidence` bundle, and an opt-in
+c-shared job that asserts the ABI and version stamp.
 
 ## Things to AVOID (paid-for lessons)
 
@@ -172,10 +174,12 @@ that fails if `docs/` goes dirty.
    linter categories in one pass. `//nolint` is a last resort with a written
    reason. Never auto-rename or bulk-fix; each mechanical rename is followed
    by `go build ./...` + targeted tests.
-2. **Verifying against stale artifacts.** Rebuild before verifying CLI
-   behavior: `make build` produces `bin/blinkless`. Committed `output/*.png` files are regenerated
-   samples, not behavior baselines ("not golden byte baselines" per
-   `output/README.md`). Regenerate with `make samples` when needed.
+2. **Verifying against stale artifacts.** `make build` compiles the packages
+   (`CGO_ENABLED=0 go build ./...`) and writes no binary: there is no `cmd/`
+   CLI and no `bin/blinkless`. Committed `output/*.png` files are leftover
+   rasters from the removed image pipeline, not behavior baselines ("not
+   golden byte baselines" per `output/README.md`). `make samples` now runs
+   `make golden` and writes nothing, so nothing in this tree rebuilds them.
 3. **Claiming completion without the gate output.** Read the final exit code.
    A task is done when the last validation exits 0, not when you expect it
    to.
@@ -185,10 +189,13 @@ that fails if `docs/` goes dirty.
 5. **Guessing APIs and paths.** Grep the symbol, glob the file, read the
    package doc comment before writing against it. `go build` before writing
    tests.
-6. **Silent coverage gaps.** Every new golden fixture needs a page-count
-   envelope entry in `fixturePageBounds` (`internal/convert/golden_test.go`)
-   plus feature flags where relevant; a missing key hard-fails by design.
-   Fixture naming needs DOCTYPE + naming comment (`fixtureHeaderOK`).
+6. **Silent coverage gaps.** The golden corpus is input, not a stored
+   baseline: `make golden` runs the public drawing-list tests in `./layout`
+   and never walks `testdata/golden/`. Every fixture carries a comment header
+   naming it and stating what it proves; a layout change that moves a fixture
+   updates its focused `internal/layout` regression test in the same change.
+   There is no page-count envelope table and no stored output: the old
+   `fixturePageBounds` / `fixtureHeaderOK` keys died with the PDF corpus.
 7. **Scope creep.** Edit only the files in the task.
 8. **Whole-file re-reading.** View targeted ranges/diffs. Line-by-line claims
    require actual coverage.
@@ -202,15 +209,16 @@ that fails if `docs/` goes dirty.
     `scripts/bench-external.sh`, and screenshot tooling lives in
     `scripts/screenshot_showcase.py`. Keep these tools canonical instead of
     re-inlining them.
-12. **User-in-the-loop aesthetic loops.** Verify rendering yourself first:
-    `make samples` regenerates `output/` PDFs/PNGs you can inspect before
-    asking the user to look.
+12. **User-in-the-loop aesthetic loops.** Verify your own changes first:
+    `make golden` runs the public drawing-list tests and `make samples`
+    writes nothing, so there is no page raster to inspect. Check the drawing
+    list and the focused tests before asking the user to look.
 13. **Dead subagents.** Confirm spawned agents produced turns; diagnose
     before re-spawning identically; check cancelled agents for landed work
     before redoing it.
 14. **Parallel agents on one shared tree.** One agent owns one package
-    (e.g. one on `internal/layout`, another on `internal/pdf`, never both on
-    `internal/convert`). No two agents run lint on the same tree.
+    (e.g. one on `internal/layout`, another on `internal/fonts`, never both
+    on `internal/convert`). No two agents run lint on the same tree.
 15. **Bare `go test ./...`.** Uncapped concurrency thrashes swap; full-suite
     and multi-package runs go through `make test` / `make test-quick` /
     `make test-serial`, whose concurrency caps live in the Makefile (see
@@ -220,40 +228,45 @@ that fails if `docs/` goes dirty.
 
 - **Golden tests check the drawing list**: `make golden` runs `TestDisplay`
   in `./layout`. It does not rasterize a page and it does not write a PDF.
-- **Regeneration is guarded.** `make golden-update GOLDEN_FIXTURE=<name>
-  GOLDEN_APPROVE=1` writes only `testdata/golden/out/` and never touches
-  committed fixtures. Treat an approved golden output like a reviewed
-  artifact.
-- **Compliance validators live outside the Makefile.**
-  `compliance/verify_pdfs.sh` (veraPDF parse+flavour checks, structure-tree
-  check, optional avalpdf) is invoked directly; some targets named in
-  `compliance/README.md` do not exist yet. When two validators disagree,
-  both are suspect until explained.
+- **Regeneration is a tombstone.** `make golden-update` exits 2 and points
+  at the removed page encoder; there is no `GOLDEN_FIXTURE` /
+  `GOLDEN_APPROVE` path and no golden output to update. `testdata/golden/out/`
+  holds gitignored leftovers from the old writer.
+- **Compliance validators are gone with the PDF writer.** There is no
+  `compliance/` directory and no `verify_pdfs.sh`; veraPDF, avalpdf, and
+  structure-tree checks measured PDF files this tree no longer produces, and
+  `RELEASE.md` says not to run them. The old lesson stands: when two
+  validators disagree, both are suspect until explained.
 - **Dependency allowlist is mechanically enforced.** Direct third-party
   modules may only be `github.com/go-text/typesetting` (OpenType shaping) and
   `github.com/tdewolff/canvas` (SVG rasterization), checked by
   `TestDirectModuleAllowlist`. Everything else stays `// indirect`.
-- **Version discipline.** `VERSION` is injected via ldflags; the release
-  workflow hard-fails if `VERSION` does not match the pushed tag. Version
-  bumps change VERSION + CHANGELOG together and pass `make test` first.
-- **Frontend is part of the surface.** `frontend/` builds the product site
-  into `docs/`; `make lint` chains into its ESLint; CI fails on a dirty
-  `docs/`. Run frontend checks when touching `frontend/src/data/content/`
-  because `claim-scan` reads it too.
-- **CLIs are safe headless** (no TTY requirement). What bites instead is
-  environment drift: pin expectations via the Makefile rather than ad-hoc
-  invocations.
+- **Version discipline.** `VERSION` is not used: there is no `VERSION` file
+  and no `internal/cli` package. The committed version sources are
+  `bindings/python/pyproject.toml` (`[project].version`) and
+  `bindings/c/include/blinkless.h` (`BLINKLESS_VERSION`); `make check-versions`
+  gates them against each other, and `release.yml` / `publish-pypi.yml` gate a
+  `v*` tag against them. The bindings carry their own `BINDINGS_VERSION` /
+  `WASM_VERSION` stamps in the Makefile; leave them alone unless the user asks.
+  Release records live in `CHANGELOG.md` and the ledger under `plans/<ver>/`.
+- **The frontend site is not in this tree.** There is no `frontend/` source
+  and no built `docs/`; `make lint-frontend` is a no-op that says so, and
+  `make lint` does not chain it. `claim-scan` reads only `doc.go`, `README.md`,
+  and `documentation/*.md` (`documentation/architecture/*.md` included), so
+  keep product claims there honest.
+- **No CLI ships in this tree.** There is no `cmd/` package and no
+  `bin/blinkless`; the drawing-list tests are headless by construction. What
+  bites instead is environment drift: pin expectations via the Makefile
+  rather than ad-hoc invocations.
 
 ## Code structure
 
 - **File size soft limit: ~2,000 lines.** One file exceeds it today:
-  `internal/layout/layout.go` (2,365). `internal/layout/inline_paint.go`
+  `internal/layout/layout.go` (2,267). `internal/layout/inline_paint.go`
   dropped under the limit when inline image emission moved to
-  `internal/layout/inline_image.go`, and `internal/imageout/imageout.go`
-  is under the limit after `RenderContext` moved its body into
-  `internal/imageout/frame.go`. Do not grow the over-limit file
+  `internal/layout/inline_image.go`. Do not grow the over-limit file
   further; extract a cohesive piece into a same-package file whenever you
-  touch them.
+  touch it.
   No new file crosses the limit without a written reason. `make size-check`
   scans every non-pruned `.go` file, test files included, and fails when the
   tree disagrees with `scripts/file-size-allowlist.txt`, the single source of
@@ -271,7 +284,7 @@ that fails if `docs/` goes dirty.
 
 ## Plans and ledgers
 
-`plans/` is version-partitioned (`plans/0.1.0/` ... `plans/0.2.4/`), indexed
+`plans/` is version-partitioned (`plans/v0.0.1/` onward), indexed
 by `plans/README.md`. Each version dir holds a numbered canonical ledger plus
 per-phase checklists; audits land under `<version>/improve-codebase/<date>/`;
 PR bodies live in `plans/PR/`. Phase checklist format comes from
@@ -290,7 +303,8 @@ PR bodies live in `plans/PR/`. Phase checklist format comes from
   producing a phase-wise ledger
 - `skills/critical-go-review/`, `skills/perf-review/` - multi-agent review
   waves (read-only reviewers, then fix agents, then one lint+test gate)
-- `skills/release-note/` - cut a release: VERSION + CHANGELOG + notes + stamp
+- `skills/release-note/` - cut a release: promote CHANGELOG + RELEASE.md,
+  write the notes, open the chore PR; bindings stamps stay put
 - `skills/debug-html-template/` - diagnose a wrapping/misaligned template,
   propose fixes, wait for the pick
 - `skills/diagnose-golden-fixture/` - golden corpus failure loop: tight red

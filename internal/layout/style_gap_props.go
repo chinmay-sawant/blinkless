@@ -5,9 +5,9 @@ func applyGapProps(style *ResolvedStyle, prop, value string, fsize float64, ctx 
 	switch prop {
 	case gapKeyword, "grid-gap":
 		return applyGapShorthand(style, value, fsize, ctx.viewportW)
-	case "row-gap", "grid-row-gap":
+	case propRowGap, "grid-row-gap":
 		return applyRowGap(style, value, fsize, ctx.viewportW)
-	case "column-gap", "grid-column-gap":
+	case propColumnGap, "grid-column-gap":
 		return applyColumnGap(style, value, fsize, ctx.viewportW)
 	default:
 		return false

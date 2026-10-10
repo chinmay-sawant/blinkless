@@ -1,0 +1,130 @@
+Local context-aware fragment cases for HTML-FRAGMENT-01. Upstream
+(html5lib-tests @ 9329e646) covers the same contexts inside larger files;
+these pin the individual context behaviors directly: the select context
+input/select ignores, the RCDATA, RAWTEXT, and PLAINTEXT substitution
+contexts, SVG and MathML context elements, the template context mode, and the
+table, html, td, and frameset context seeds.
+#data
+<input><option>a
+#errors
+#document-fragment
+select
+#document
+| <option>
+|   "a"
+
+#data
+<select><option>b
+#errors
+#document-fragment
+select
+#document
+| <option>
+|   "b"
+
+#data
+a&amp;b
+#errors
+#document-fragment
+textarea
+#document
+| "a&b"
+
+#data
+a&amp;b
+#errors
+#document-fragment
+style
+#document
+| "a&amp;b"
+
+#data
+<div>
+#errors
+#document-fragment
+script
+#document
+| "<div>"
+
+#data
+</plaintext>x
+#errors
+#document-fragment
+plaintext
+#document
+| "</plaintext>x"
+
+#data
+<circle r="1"/>
+#errors
+#document-fragment
+svg svg
+#document
+| <svg circle>
+|   r="1"
+
+#data
+<mi>x
+#errors
+#document-fragment
+math math
+#document
+| <math mi>
+|   "x"
+
+#data
+text
+#errors
+#document-fragment
+html
+#document
+| <head>
+| <body>
+|   "text"
+
+#data
+<div>x</div>
+#errors
+#document-fragment
+template
+#document
+| <div>
+|   "x"
+
+#data
+<tr><td>x
+#errors
+#document-fragment
+table
+#document
+| <tbody>
+|   <tr>
+|     <td>
+|       "x"
+
+#data
+<frame>
+#errors
+#document-fragment
+frameset
+#document
+| <frame>
+
+#data
+<tr><td>x
+#errors
+#document-fragment
+td
+#document
+| "x"
+
+#data
+<p>a<div>b
+#errors
+#document-fragment
+div
+#document
+| <p>
+|   "a"
+| <div>
+|   "b"

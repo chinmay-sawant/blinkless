@@ -1,5 +1,5 @@
-// Package prepare owns the load, parse, stylesheet, and font-resource phase
-// shared by the PDF and image conversion pipelines.
+// Package prepare owns the shared load, parse, stylesheet, and font-resource
+// phase that css.Apply drives before layout.
 package prepare
 
 import (
@@ -52,7 +52,7 @@ type ResourceContext struct {
 	Load settings.LoadPage
 }
 
-// NewResourceContext creates the resource seam shared by PDF and image
+// NewResourceContext creates the resource seam used by document
 // preparation.
 //
 // A nil loader produces a degraded context (ready=false): Bound returns the

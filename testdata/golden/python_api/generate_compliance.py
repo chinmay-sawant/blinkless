@@ -1,20 +1,16 @@
 #!/usr/bin/env python3
 """Version / compliance smokes for the Python architecture diagram.
 
-Mirrors the four Go sample folders under ``output/pdf-{1.7,2.0}{,-compliance}/``
-but nests them under ``output/python/`` so Python API samples stay together:
+Targets four output variants under ``output/python/``: ``pdf-1.7``
+(--pdf-version 1.7), ``pdf-1.7-compliance`` (--pdf-profile a3a-ua1),
+``pdf-2.0`` (--pdf-version 2.0), and ``pdf-2.0-compliance``
+(--pdf-profile a4-ua2). Same source template as ``generate.py``
+(``testdata/golden/python_api/architecture-diagram.html``); only the
+``*-compliance/`` dirs set a profile. The binding's ``Document.pdf()``
+raises ``RuntimeError`` (PDF writing was removed), so the script exits 1
+without writing files.
 
-  output/python/pdf-1.7/architecture-diagram.pdf              (--pdf-version 1.7)
-  output/python/pdf-1.7-compliance/architecture-diagram.pdf   (--pdf-profile a3a-ua1)
-  output/python/pdf-2.0/architecture-diagram.pdf              (--pdf-version 2.0)
-  output/python/pdf-2.0-compliance/architecture-diagram.pdf   (--pdf-profile a4-ua2)
-
-Same source template as ``generate.py``
-(``testdata/golden/python_api/architecture-diagram.html``). A bare version
-flag is not a PDF/A or PDF/UA claim; only the ``*-compliance/`` dirs set a
-profile.
-
-Run from the repository root (also invoked by ``make python-api``):
+Run from the repository root:
 
     python3 testdata/golden/python_api/generate_compliance.py
 """

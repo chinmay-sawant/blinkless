@@ -54,7 +54,7 @@ func TestRelativeAnchorEmitsURIAndUnsupportedSchemesDoNot(t *testing.T) {
 }
 
 // TestLinkAnnotationHasHitHeight: URI link ops must cover the glyph box so
-// PDF viewers give a usable hover/click target (not a zero-height line).
+// consumers get a usable hover/click target (not a zero-height line).
 func TestLinkAnnotationHasHitHeight(t *testing.T) {
 	t.Parallel()
 

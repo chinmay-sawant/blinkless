@@ -20,7 +20,7 @@
 <body>
   <!-- Source: third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-item-compressible-001.html -->
   <!-- Fixture: case-33-wpt-flex-item-compressible -->
-  <!-- Port status: completed. Source-faithful replaced input variants. -->
+  <!-- Port status: blocked. Box deltas remain because layout is pt-exact by design: html +3.39 px and body +3.38 px tall and each of the five cases +0.67 px, the 1 pt border measuring 1.33 px per side in layout where Chrome computes 1 px. Screen paint at dsf 1 matches Chrome: the display-list snap turns each 1 pt (1.33 px) stroke into 1 px, Chrome's computed width (temps/chrome-cases/dsf-rerun/paint-width-validation.md). At fractional dsf the snap floors cssPx*dsf to whole device pixels, so 1 pt at dsf 1.25/1.5 paints 1/2 device px vs Chrome's 1.25/1.5 (temps/chrome-cases/dsf/report.md). -->
   <!-- Expected: specified-size suggestions are used while the row shrinks the input. -->
   <p class="case-description" style="position:absolute;top:12pt;left:12pt;margin:0;padding:6pt;border:1pt solid #64748b;background:#fff;color:#111827;font-size:9pt;line-height:12pt;width:550pt;">
     <strong>Case 33 expected behavior:</strong> the text, range, and button inputs settle at 75pt wide in the 225pt rows; calc widths follow the same rule.

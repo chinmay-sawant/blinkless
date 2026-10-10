@@ -91,10 +91,9 @@ type ImportRule struct {
 	Media string
 }
 
-// PageStyle stores the unnamed @page declarations that affect the print
-// viewport. The converter currently consumes the margin shorthand; keeping
-// the raw values here lets page geometry resolve physical units at the PDF
-// boundary instead of pretending they are element styles.
+// PageStyle stores the unnamed @page declarations parsed from a sheet.
+// Margin and Size keep the raw declaration strings; nothing in the layout
+// path consumes them today.
 type PageStyle struct {
 	Margin string
 	Size   string

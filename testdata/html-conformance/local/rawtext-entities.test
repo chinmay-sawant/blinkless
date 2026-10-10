@@ -1,0 +1,58 @@
+{
+  "tests": [
+    {
+      "description": "RAWTEXT style keeps character references literal (HTML-03)",
+      "input": "<style>a{content:\"&amp;\"}</style>",
+      "output": [
+        ["StartTag", "style", {}],
+        ["Character", "a{content:\"&amp;\"}"],
+        ["EndTag", "style"]
+      ]
+    },
+    {
+      "description": "Script data keeps character references literal (HTML-03)",
+      "input": "<script>var x = \"&amp;\";</script>",
+      "output": [
+        ["StartTag", "script", {}],
+        ["Character", "var x = \"&amp;\";"],
+        ["EndTag", "script"]
+      ]
+    },
+    {
+      "description": "RAWTEXT xmp keeps character references literal (HTML-03)",
+      "input": "<xmp>a &amp; b</xmp>",
+      "output": [
+        ["StartTag", "xmp", {}],
+        ["Character", "a &amp; b"],
+        ["EndTag", "xmp"]
+      ]
+    },
+    {
+      "description": "RCDATA title decodes character references (HTML-03)",
+      "input": "<title>Tom &amp; Jerry</title>",
+      "output": [
+        ["StartTag", "title", {}],
+        ["Character", "Tom & Jerry"],
+        ["EndTag", "title"]
+      ]
+    },
+    {
+      "description": "RCDATA textarea decodes character references (HTML-03)",
+      "input": "<textarea>&lt;b&gt;not bold&lt;/b&gt;</textarea>",
+      "output": [
+        ["StartTag", "textarea", {}],
+        ["Character", "<b>not bold</b>"],
+        ["EndTag", "textarea"]
+      ]
+    },
+    {
+      "description": "Data text decodes character references for contrast (HTML-03)",
+      "input": "<p>Tom &amp; Jerry</p>",
+      "output": [
+        ["StartTag", "p", {}],
+        ["Character", "Tom & Jerry"],
+        ["EndTag", "p"]
+      ]
+    }
+  ]
+}

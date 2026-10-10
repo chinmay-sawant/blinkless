@@ -84,12 +84,11 @@ func applyDisplayFlowProps(style *ResolvedStyle, prop, value string) bool {
 }
 
 func setDisplayKeyword(style *ResolvedStyle, value string) {
+	if !displayValueAccepted(value) {
+		return
+	}
+
 	switch value {
-	case displayBlock, "inline", cssDisplayNone, displayListItem, displayTable, displayTableRow, displayTableCell,
-		displayRowGroup, displayHeaderGroup, displayFooterGroup,
-		cssDisplayInlineBlock, displayTableCaption, "table-column", "table-column-group",
-		displayFlex, displayInlineFlex, displayGrid, displayInlineGrid, displaySubgrid, displayFlowRoot:
-		style.Display = value
 	case "-webkit-box":
 		// Legacy 2009 flexible box. Map to modern flex so remapped
 		// -webkit-box-align/orient/pack/flex participate in layout.
@@ -100,6 +99,8 @@ func setDisplayKeyword(style *ResolvedStyle, value string) {
 		style.Display = displayInlineFlex
 		style.IsWebkitBox = true
 		style.WhiteSpace = cssWhiteSpaceNowrap
+	default:
+		style.Display = value
 	}
 }
 
@@ -241,11 +242,11 @@ func applyFlexGroup(
 	style *ResolvedStyle, prop, value string, fsize float64, ctx *styleContext, _ *ResolvedStyle, _ bool,
 ) bool {
 	switch prop {
-	case gapKeyword, "row-gap", "column-gap", "grid-gap", "grid-row-gap", "grid-column-gap":
+	case gapKeyword, propRowGap, propColumnGap, "grid-gap", "grid-row-gap", "grid-column-gap":
 		return applyGapProps(style, prop, value, fsize, ctx)
 	case "flex-direction", "flex-wrap", "justify-content", "align-items",
 		"align-content", "align-self", "justify-items", "justify-self",
-		"flex-flow", "place-content", "place-items", "place-self":
+		"flex-flow", propPlaceContent, propPlaceItems, propPlaceSelf:
 		return applyFlexAlignmentProps(style, prop, value)
 	case flexKeyword, "flex-grow", "flex-shrink", "flex-basis", "order":
 		return applyFlexBasisProps(style, prop, value, fsize, ctx)
@@ -292,11 +293,11 @@ func applyPlaceAndFlowShorthands(style *ResolvedStyle, prop, value string) bool 
 	switch prop {
 	case "flex-flow":
 		parseFlexFlow(style, value)
-	case "place-content":
+	case propPlaceContent:
 		parsePlaceContent(style, value)
-	case "place-items":
+	case propPlaceItems:
 		parsePlaceItems(style, value)
-	case "place-self":
+	case propPlaceSelf:
 		parsePlaceSelf(style, value)
 	default:
 		return false
@@ -874,8 +875,8 @@ func applyLogicalSizeHorizontal(style *ResolvedStyle, prop, value string, fsize 
 func applyLogicalInset(style *ResolvedStyle, prop, value string, fsize float64, ctx *styleContext) bool {
 	switch prop {
 	case insetKeyword, cssPropInsetBlock, cssPropInsetInline,
-		"inset-block-start", "inset-block-end",
-		"inset-inline-start", "inset-inline-end":
+		cssPropInsetBlockStart, cssPropInsetBlockEnd,
+		cssPropInsetInlineStart, cssPropInsetInlineEnd:
 		if mapsLogicalToPhysical(style) {
 			assignLogicalInset(style, prop, value, fsize, ctx.viewportW, ctx.viewportH)
 		}
@@ -902,13 +903,13 @@ func assignLogicalInset(style *ResolvedStyle, prop, value string, fsize, viewpor
 			style.Left, style.LeftAuto = marginLenAuto(start, fsize, viewportW)
 			style.Right, style.RightAuto = marginLenAuto(end, fsize, viewportW)
 		}
-	case "inset-block-start":
+	case cssPropInsetBlockStart:
 		style.Top, style.TopAuto = marginLenAuto(value, fsize, viewportH)
-	case "inset-block-end":
+	case cssPropInsetBlockEnd:
 		style.Bottom, style.BottomAuto = marginLenAuto(value, fsize, viewportH)
-	case "inset-inline-start":
+	case cssPropInsetInlineStart:
 		style.Left, style.LeftAuto = marginLenAuto(value, fsize, viewportW)
-	case "inset-inline-end":
+	case cssPropInsetInlineEnd:
 		style.Right, style.RightAuto = marginLenAuto(value, fsize, viewportW)
 	}
 }
@@ -972,11 +973,11 @@ func applyBorderGroup(
 		return applyBorderAllSides(style, value, fsize)
 	case borderTopProperty, borderRightProperty, borderBottomProperty, borderLeftProperty:
 		return applyBorderOneSide(style, prop, value, fsize)
-	case borderWidthKeyword, "border-top-width", "border-right-width", "border-bottom-width", "border-left-width":
+	case borderWidthKeyword, propBorderTopWidth, propBorderRightWidth, propBorderBottomWidth, propBorderLeftWidth:
 		return applyBorderWidthProps(style, prop, value, fsize)
 	case borderStyleKeyword, borderColorKeyword,
-		"border-top-color", "border-right-color", "border-bottom-color", "border-left-color",
-		"border-top-style", "border-right-style", "border-bottom-style", "border-left-style":
+		propBorderTopColor, propBorderRightColor, propBorderBottomColor, propBorderLeftColor,
+		propBorderTopStyle, propBorderRightStyle, propBorderBottomStyle, propBorderLeftStyle:
 		return applyBorderStyleColorProps(style, prop, value)
 	case "border-block", "border-block-start", "border-block-end",
 		"border-block-width", "border-block-start-width", "border-block-end-width",
@@ -1045,16 +1046,16 @@ func applyBorderWidthProps(style *ResolvedStyle, prop, value string, fsize float
 	switch prop {
 	case borderWidthKeyword:
 		setFourBorderWidth(style, value, fsize)
-	case "border-top-width":
+	case propBorderTopWidth:
 		style.BorderTop.Width = borderWidth(value, fsize)
 		style.BorderTop.PaintWidth = borderPaintWidth(value, fsize)
-	case "border-right-width":
+	case propBorderRightWidth:
 		style.BorderRight.Width = borderWidth(value, fsize)
 		style.BorderRight.PaintWidth = borderPaintWidth(value, fsize)
-	case "border-bottom-width":
+	case propBorderBottomWidth:
 		style.BorderBottom.Width = borderWidth(value, fsize)
 		style.BorderBottom.PaintWidth = borderPaintWidth(value, fsize)
-	case "border-left-width":
+	case propBorderLeftWidth:
 		style.BorderLeft.Width = borderWidth(value, fsize)
 		style.BorderLeft.PaintWidth = borderPaintWidth(value, fsize)
 	default:
@@ -1170,21 +1171,21 @@ func applyBorderStyleColorProps(style *ResolvedStyle, prop, value string) bool {
 		setFourBorderStyle(style, value)
 	case borderColorKeyword:
 		setFourBorderColor(style, value)
-	case "border-top-color":
+	case propBorderTopColor:
 		setBorderColor(&style.BorderTop, value, style.Color)
-	case "border-right-color":
+	case propBorderRightColor:
 		setBorderColor(&style.BorderRight, value, style.Color)
-	case "border-bottom-color":
+	case propBorderBottomColor:
 		setBorderColor(&style.BorderBottom, value, style.Color)
-	case "border-left-color":
+	case propBorderLeftColor:
 		setBorderColor(&style.BorderLeft, value, style.Color)
-	case "border-top-style":
+	case propBorderTopStyle:
 		setBorderStyleSide(&style.BorderTop, value)
-	case "border-right-style":
+	case propBorderRightStyle:
 		setBorderStyleSide(&style.BorderRight, value)
-	case "border-bottom-style":
+	case propBorderBottomStyle:
 		setBorderStyleSide(&style.BorderBottom, value)
-	case "border-left-style":
+	case propBorderLeftStyle:
 		setBorderStyleSide(&style.BorderLeft, value)
 	default:
 		return false
@@ -1358,9 +1359,9 @@ func applyTextGroup(
 	parent *ResolvedStyle, hasParent bool,
 ) bool {
 	switch prop {
-	case "text-align-last", "text-align-all", tabSizeProperty, "text-wrap", "text-wrap-mode", "text-wrap-style",
-		"white-space-collapse", "white-space-trim", "hyphens", "hyphenate-character",
-		"text-justify", "line-break", "text-decoration-line", "text-decoration-color",
+	case "text-align-last", "text-align-all", tabSizeProperty, propTextWrap, "text-wrap-mode", propTextWrapStyle,
+		"white-space-collapse", "white-space-trim", propHyphens, "hyphenate-character",
+		"text-justify", "line-break", "text-decoration-line", propTextDecorationColor,
 		"text-decoration-style", "text-decoration-thickness",
 		"text-underline-offset", "text-underline-position", textShadowProperty,
 		textEmphasisProperty, textEmphasisStyleProperty, textEmphasisColorProperty,
@@ -1588,7 +1589,7 @@ func applyTableBreakGroup(
 	parent *ResolvedStyle, hasParent bool,
 ) bool {
 	switch prop {
-	case "border-collapse", "border-spacing", "table-layout", "caption-side":
+	case propBorderCollapse, propBorderSpacing, propTableLayout, "caption-side":
 		return applyTableProps(style, prop, value, fsize, ctx.viewportW)
 	case "page-break-before", "break-before", "page-break-after", "break-after",
 		"page-break-inside", "break-inside", "margin-break":
@@ -1606,13 +1607,13 @@ func applyTableBreakGroup(
 
 func applyTableProps(style *ResolvedStyle, prop, value string, fsize, viewportW float64) bool {
 	switch prop {
-	case "border-collapse":
+	case propBorderCollapse:
 		if value == borderCollapseValue || value == "separate" {
 			style.BorderCollapse = value
 		}
-	case "border-spacing":
+	case propBorderSpacing:
 		applyBorderSpacingValue(style, value, fsize, viewportW)
-	case "table-layout":
+	case propTableLayout:
 		if value == positionFixed || value == overflowAuto {
 			style.TableLayout = value
 		}

@@ -18,7 +18,7 @@
 <body>
   <!-- Source: third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-container-min-content-001.html -->
   <!-- Fixture: case-40-wpt-flex-container-min-content -->
-  <!-- Port status: completed. Reduced source-faithful min-content contribution. -->
+  <!-- Port status: blocked. Box deltas remain because layout is pt-exact by design: the height:0 wrapper matches Chrome at 0x0, the min-content frame is 146.67x62.67 vs Chrome 143.95x61.31, and the items are +1.33 px, the 2 pt border measuring 2.67 px per side in layout where Chrome computes 2 px. Screen paint at dsf 1 matches Chrome: the display-list snap turns 2 pt (2.67 px) strokes into 2 px and 1 pt (1.33 px) into 1 px, Chrome's computed widths (temps/chrome-cases/dsf-rerun/paint-width-validation.md). At fractional dsf the snap floors cssPx*dsf to whole device pixels, so 2 pt at dsf 1.25/1.5/2 paints 3/4/5 device px vs Chrome's 2.5/3/4 (temps/chrome-cases/dsf/report.md). -->
   <!-- Expected: the container uses the largest constrained outer contribution. -->
   <p class="case-description" style="position:absolute;top:12pt;left:12pt;margin:0;padding:6pt;border:1pt solid #64748b;background:#fff;color:#111827;font-size:9pt;line-height:12pt;width:550pt;">
     <strong>Case 40 expected behavior:</strong> the min-content container keeps the largest constrained outer contribution, placing the 40pt and 50pt items.

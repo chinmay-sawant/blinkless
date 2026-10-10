@@ -283,7 +283,7 @@ func setInt(target *int) setter {
 // fail at Set instead of downstream.
 const (
 	minCopies  = 1
-	maxCopies  = 1000 // mirrors the convert engine ceiling (render.MaxCopies)
+	maxCopies  = 1000 // settings-side ceiling for the copies key
 	minQuality = 0
 	maxQuality = 100
 	minTimeout = 0
@@ -309,8 +309,8 @@ func setIntRange(target *int, low, high int) setter {
 }
 
 // setFloatMin parses raw as a float and rejects non-finite values or values
-// below minimum. NaN and infinities fail here so Set matches the root API
-// predicates instead of storing a value layout later rejects.
+// below minimum. NaN and infinities fail here so Set only stores finite
+// values.
 func setFloatMin(target *float64, minimum float64) setter {
 	return func(raw string) error {
 		value, err := strconv.ParseFloat(raw, 64)
@@ -454,8 +454,7 @@ var errNegativeSideMargin = errors.New("settings: side margins must be non-negat
 
 // marginSetter writes one edge of a Margin, storing millimetres. An unknown
 // edge is rejected rather than silently targeting the right margin, and the
-// result must satisfy ValidMargins so CLI input obeys the same contract the
-// root API validates.
+// result must satisfy ValidMargins before it is stored.
 func marginSetter(margin *Margin, edge string) setter {
 	target, ok := marginEdgePtr(margin, edge)
 	if !ok {
@@ -587,7 +586,7 @@ func registerGlobalDocumentKeys(keys keyTable[PdfGlobal]) {
 		func(dst *PdfGlobal, raw string) error { return setBool(&dst.SmartShrinking)(raw) },
 		func(dst *PdfGlobal) (string, bool) { return fmtBool(dst.SmartShrinking), true },
 	)
-	// Sole paint switch for PDF + image (no Web.Background mirror).
+	// Sole home for the body background bit (no Web.Background mirror).
 	paintBG := func(dst *PdfGlobal, raw string) error { return setBool(&dst.Background)(raw) }
 	paintBGGet := func(dst *PdfGlobal) (string, bool) { return fmtBool(dst.Background), true }
 	regGlobal("background", paintBG, paintBGGet)
@@ -1027,9 +1026,8 @@ func (g *ImageGlobal) Set(name, value string) error {
 }
 
 // ApplyImageKey routes an image-mode key: "background"/"web.background" alias
-// to the shared PdfGlobal.Background paint switch (image mode has no
-// Web.Background); everything else goes to ImageGlobal.Set. ImageConverter.Set
-// delegates here.
+// to the shared PdfGlobal.Background switch (image mode has no
+// Web.Background); everything else goes to ImageGlobal.Set.
 func ApplyImageKey(global *PdfGlobal, img *ImageGlobal, name, value string) error {
 	normalized := normalizeDots(name)
 

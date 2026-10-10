@@ -1,11 +1,16 @@
 ---
 name: chrome-debug
-description: Compare an installed Chromium PDF with a blinkless PDF for one HTML fixture, measure visual and geometry differences, coordinate bounded diagnosis and picture-review subagents, apply a minimal verified fix when authorized, and refresh artifacts. Use for Chrome-versus-Go PDF mismatches, not generic golden failures or unrelated browser automation.
+description: Compare an installed Chromium PDF with the Go drawing list for one HTML fixture, measure visual and geometry differences, coordinate bounded diagnosis and picture-review subagents, apply a minimal verified fix when authorized, and refresh artifacts. Use for Chrome-versus-Go rendering mismatches, not generic golden failures or unrelated browser automation.
 ---
 
 # Chrome Debug
 
-Use this skill for a browser-backed PDF mismatch in this repository. Keep the
+Superseded by `skills/chrome-debug-v2/SKILL.md`; this file is the long-form
+reference. It predates the drawing-list migration: the Go PDF writer and page
+rasterizer are gone, so every Go-side artifact below is the drawing list, not
+a PDF.
+
+Use this skill for a browser-backed mismatch in this repository. Keep the
 comparison tied to one fixture until the cause is understood. This workflow
 can diagnose only, or diagnose and fix when the user authorizes source edits.
 
@@ -13,24 +18,23 @@ can diagnose only, or diagnose and fix when the user authorizes source edits.
 
 - Read the repository `AGENTS.md` before acting.
 - Do not edit an existing skill. This skill is the repository-local workflow
-  for Chromium-versus-Go PDF debugging.
+  for Chromium-versus-Go rendering debugging.
 - Do not use Git unless the user explicitly asks for Git work.
 - Do not change an existing scale setting or compensate for a mismatch by
   changing renderer scale before proving that scale is the cause.
-- Never call a Go PDF a Chrome PDF. Keep the artifacts separate:
+- Never call a Go drawing list a Chrome PDF. Keep the artifacts separate:
   - Chromium reference: `/tmp/chrome-debug/<fixture>/chromium.pdf`
-  - Go output: `/tmp/chrome-debug/<fixture>/blinkless.pdf`
-  - Repository Go artifact, only when explicitly requested:
-    `test/chrome/pdf/<fixture>.pdf`
+  - Go output: `/tmp/chrome-debug/<fixture>/blinkless.json`
+  - Repository Go artifact: none. The engine emits a drawing list, not a PDF.
 - Use the same HTML input for both renderers. Do not compare different source
-  revisions or stale PDFs.
+  revisions or stale artifacts.
 - Do not run bare `go test ./...`; use the repository Makefile gates for the
   full suite.
 
 ## 1. Establish the case and fresh artifacts
 
 Complete this phase when the exact fixture, renderer versions, and both fresh
-PDFs are recorded.
+artifacts (Chromium PDF and Go drawing list) are recorded.
 
 1. Identify the HTML file, normally under `test/chrome/cases/`, and record its
    basename. Read the relevant CSS and the nearby Chrome test or manifest.
@@ -56,36 +60,35 @@ PDFs are recorded.
    Set `PUPPETEER_EXECUTABLE_PATH` only when the installed Chromium binary is
    elsewhere. Do not change the helper's page format, background printing, or
    device scale for a normal comparison.
-5. Generate the Go PDF from the same HTML and freshly built binary:
+5. Dump the Go drawing list from the same HTML:
 
    ```sh
-   ./bin/blinkless --allow-local-files \
-     -o "$run_dir/blinkless.pdf" "$html"
+   go run ./bindings/wasm -fixture "$html" -out "$run_dir/blinkless.json"
    ```
 
-   If the user asks to refresh the repository artifact, generate the Go PDF
-   at `test/chrome/pdf/${case_slug}.pdf` as a separate, explicit action. The
-   repository path is lowercase `test/chrome/pdf`; it is not the Chromium
-   reference directory.
+   The engine emits `layout.DisplayList`; there is no Go PDF writer and no
+   page rasterizer. The old `test/chrome/pdf/*.pdf` files are stale
+   inspection artifacts and no test regenerates them (the `make
+   chrome-cases-pdf` target is gone).
 
 ## 2. Render and measure before interpreting
 
-Complete this phase when both PDFs have page images and a short evidence table.
+Complete this phase when the Chromium reference has page images, the Go
+drawing list is loaded, and a short evidence table exists.
 
-Render every page at the same DPI:
+Render every Chromium page at the same DPI:
 
 ```sh
 python3 skills/diagnose-fixture-picture/scripts/render_fixture_pages.py \
   "$run_dir/chromium.pdf" "$run_dir/chromium-pages" 150
-python3 skills/diagnose-fixture-picture/scripts/render_fixture_pages.py \
-  "$run_dir/blinkless.pdf" "$run_dir/blinkless-pages" 150
 ```
 
-Inspect the actual PNGs with the image viewer. Use PyMuPDF (`fitz`) for page
-count, page size, text boxes, drawings, and coordinates. Use Pillow for exact
-pixel colors, bounding boxes, edge continuity, and crops. Keep measurements
-reproducible in a command or a small `/tmp` probe rather than estimating from
-the screen.
+Inspect the Chromium PNGs with the image viewer. Use PyMuPDF (`fitz`) for page
+count, page size, text boxes, drawings, and coordinates. Read the Go side from
+`blinkless.json`: `ops` (kind, x/y/w/h, text, color), `order` (paint order),
+and `boxes`. Use Pillow for exact pixel colors, bounding boxes, edge
+continuity, and crops. Keep measurements reproducible in a command or a small
+`/tmp` probe rather than estimating from the screen.
 
 Normalize only the comparison math for page size, DPI, and global placement.
 Do not alter the renderer's scale to make the images overlap. Separate a
@@ -96,7 +99,7 @@ engine evidence, not proof that the fixture is authored incorrectly.
 For each affected branch or row, record:
 
 - Chromium coordinates and colors.
-- Go coordinates and colors.
+- Go op coordinates and colors from the drawing list.
 - Whether the difference is geometry, paint order, clipping, text shaping, or
   a global transform.
 - The CSS rule and source function that own the observed behavior.
@@ -119,12 +122,12 @@ Classify the finding as one of:
 - global scale or placement mismatch;
 - local layout or geometry defect;
 - paint order, clipping, or stacking defect;
-- PDF writer or rasterization-only defect.
+- drawing-list-only defect (op kind, payload, or ordering).
 
 Use the owning layer as the tie-breaker. For layout, inspect direct geometry
 results and add a focused geometry assertion. For paint, inspect operation
-order and layer classification. For PDF output, compare the same rasterized
-page before blaming the PDF writer.
+order and layer classification. For the Go output, compare op geometry and
+paint order before blaming the drawing-list emitter.
 
 Make one red probe before a production fix. Prefer a permanent focused
 regression test in the owning package when the behavior is clear. If a probe
@@ -143,15 +146,16 @@ change.
 Complete this phase when all assigned agents have returned evidence or have
 been explicitly marked unavailable.
 
-Launch three read-only subagents in parallel, with the same fixture, PDFs,
-page images, measurements, source revision, and probe result:
+Launch three read-only subagents in parallel, with the same fixture,
+Chromium reference, Go drawing list, page images, measurements, source
+revision, and probe result:
 
-1. **Analyst**: trace the relevant load, layout, paint, pagination, and PDF
-   paths; identify the first layer where Chromium and Go can diverge.
+1. **Analyst**: trace the relevant load, layout, paint, pagination, and
+   drawing-list paths; identify the first layer where Chromium and Go can diverge.
 2. **Interpreter**: inspect the rendered evidence and CSS semantics; decide
    whether the picture is authored, expected, or an engine defect.
 3. **Critic**: attack the leading hypothesis with alternative explanations,
-   especially scale, clipping, stale artifacts, and PDF rasterization.
+   especially scale, clipping, stale artifacts, and drawing-list serialization.
 
 Require each agent to return concrete file paths, line references, commands,
 and a falsifiable conclusion. Agents must not edit files or run Git. A stalled
@@ -178,8 +182,9 @@ make build
 go test ./internal/<owning-package> -count=1 -short
 ```
 
-Regenerate both PDFs and page PNGs after the final source edit. Never compare
-an old Go PDF against a new Chromium PDF.
+Regenerate the Go drawing list and the Chromium PDF/page PNGs after the final
+source edit. Never compare an old Go drawing list against a new Chromium
+reference.
 
 ## 6. Run the picture council
 
@@ -200,8 +205,8 @@ evidence before declaring the council complete.
 
 ## 7. Run final gates and report the result
 
-Complete this phase only after the final source tree, binary, PDFs, and images
-have all been regenerated and inspected.
+Complete this phase only after the final source tree, drawing list, and
+images have all been regenerated and inspected.
 
 Run the narrow tests first, then the repository gates:
 
@@ -212,17 +217,17 @@ make golden
 make lint
 ```
 
-If documentation or frontend content changed, also run `make claim-scan`.
-Verify the final artifacts with `file`, PyMuPDF page counts, and the rendered
-PNG inspection. The last validation must cover the exact final source tree,
-not a tree from before the last edit.
+If documentation or user-facing claims changed, also run `make claim-scan`.
+Verify the final artifacts with PyMuPDF page counts for the Chromium
+reference and op counts from the drawing-list JSON. The last validation must
+cover the exact final source tree, not a tree from before the last edit.
 
 Report the result in this order:
 
 ```text
 Fixture and source revision:
 Chromium PDF:
-Go PDF:
+Go drawing list:
 Measured difference:
 Classification:
 Diagnosis council:
@@ -232,5 +237,6 @@ Validation:
 Remaining differences:
 ```
 
-State clearly whether the PDFs match locally, whether only a global scale or
-placement difference remains, and which artifacts can be reproduced.
+State clearly whether the Go drawing list matches the Chromium reference
+locally, whether only a global scale or placement difference remains, and
+which artifacts can be reproduced.

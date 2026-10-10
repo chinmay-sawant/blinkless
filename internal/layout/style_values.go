@@ -375,6 +375,13 @@ func setFour(_ *ResolvedStyle, value string, top, right, bottom, left *float64, 
 func parseBorder(value string, fsize float64, current [3]float64) (border, bool) { //nolint:cyclop
 	var boxNode border
 
+	// widthSet records an explicit width token, including zero. An omitted
+	// width takes the CSS initial value medium (3 CSS px), not zero, so a
+	// widthless `border: solid red` cannot be told from an explicit zero by
+	// the Width field alone. Chrome resolves `border: solid red` to
+	// 3px = 2.25pt and `border: 0px solid red` to 0.
+	widthSet := false
+
 	for start := 0; ; {
 		face, next, ok := nextSpaceToken(value, start)
 		if !ok {
@@ -389,14 +396,22 @@ func parseBorder(value string, fsize float64, current [3]float64) (border, bool)
 		default:
 			if isCurrentColor(face) {
 				boxNode.Color = current
+			} else if keyword := strings.ToLower(strings.TrimSpace(face)); isBorderWidthKeyword(keyword) {
+				boxNode.Width = borderWidth(keyword, fsize)
+				boxNode.PaintWidth = boxNode.Width
+				widthSet = true
 			} else if r, g, bb, a, ok := css.ParseColor(face); ok {
 				boxNode.Color = [3]float64{float64(r) / 255, float64(g) / 255, float64(bb) / 255}
 				boxNode.Transparent = a <= 0
 			} else if v, unit, ok := css.ParseLength(face); ok {
-				boxNode.Width = v
 				if pt, converted := lengthToPt(v, unit, fsize); converted {
+					boxNode.Width = pt
 					boxNode.PaintWidth = pt
+				} else {
+					boxNode.Width = v
 				}
+
+				widthSet = true
 			}
 		}
 
@@ -407,12 +422,17 @@ func parseBorder(value string, fsize float64, current [3]float64) (border, bool)
 		boxNode.Style = solidKeyword
 	}
 
-	if boxNode.Width == 0 {
-		boxNode.Width = 1
-		boxNode.PaintWidth = 1
+	if !widthSet {
+		boxNode.Width = borderWidth(mediumKeyword, fsize)
+		boxNode.PaintWidth = boxNode.Width
 	}
 
 	return boxNode, boxNode.Style != cssDisplayNone
+}
+
+// isBorderWidthKeyword reports the three CSS border-width keywords.
+func isBorderWidthKeyword(value string) bool {
+	return value == thinKeyword || value == mediumKeyword || value == thickKeyword
 }
 
 // splitSpaceTokens writes up to len(tokens) CSS whitespace-separated tokens
@@ -470,7 +490,7 @@ func isCSSSpace(value byte) bool {
 	return value == ' ' || value == '\t' || value == '\n' || value == '\v' || value == '\f' || value == '\r'
 }
 
-func borderWidth(value string, _ float64) float64 {
+func borderWidth(value string, fsize float64) float64 {
 	switch value {
 	case thinKeyword:
 		return pxToPt(1)
@@ -480,19 +500,6 @@ func borderWidth(value string, _ float64) float64 {
 		return pxToPt(5)
 	}
 
-	if v, _, ok := css.ParseLength(value); ok {
-		return v
-	}
-
-	return 0
-}
-
-func borderPaintWidth(value string, fsize float64) float64 {
-	switch value {
-	case thinKeyword, mediumKeyword, thickKeyword:
-		return borderWidth(value, fsize)
-	}
-
 	if v, unit, ok := css.ParseLength(value); ok {
 		if pt, converted := lengthToPt(v, unit, fsize); converted {
 			return pt
@@ -500,6 +507,14 @@ func borderPaintWidth(value string, fsize float64) float64 {
 	}
 
 	return 0
+}
+
+// borderPaintWidth is the device paint width for a border. It stays equal to
+// the layout width: the opt-in device-pixel snap lives at the display-list
+// boundary (layout.SnapDisplayToDevicePixels in displaylist_snap.go), so this
+// seam keeps paint and layout geometry in agreement and print stays exact.
+func borderPaintWidth(value string, fsize float64) float64 {
+	return borderWidth(value, fsize)
 }
 
 func setFontLineHeight(style *ResolvedStyle, page string, lineH float64) {
@@ -635,9 +650,8 @@ func parseOutlineWidth(value string, fsize float64) (float64, bool) {
 		return borderPaintWidth(value, fsize), true
 	}
 
-	// Lengths must go through unit conversion (1px → 0.75pt). borderWidth
-	// returns the raw number and would treat 1px as 1pt for column-rule /
-	// outline (fixture-61 #26).
+	// Lengths must go through unit conversion (1px → 0.75pt), or 1px would be
+	// treated as 1pt for column-rule / outline (fixture-61 #26).
 	if _, _, ok := css.ParseLength(value); ok {
 		return borderPaintWidth(value, fsize), true
 	}
@@ -1722,8 +1736,8 @@ var uaDecls = map[string][]css.Declaration{ //nolint:gochecknoglobals // static 
 		{Prop: "display", Value: "list-item"}, //nolint:exhaustruct // intentional zero fields
 	},
 	"table": {
-		{Prop: "display", Value: "table"},      //nolint:exhaustruct // intentional zero fields
-		{Prop: "border-spacing", Value: "2px"}, //nolint:exhaustruct // intentional zero fields
+		{Prop: "display", Value: "table"},       //nolint:exhaustruct // intentional zero fields
+		{Prop: propBorderSpacing, Value: "2px"}, //nolint:exhaustruct // intentional zero fields
 	},
 	"thead": {
 		{Prop: "display", Value: "table-header-group"}, //nolint:exhaustruct // intentional zero fields

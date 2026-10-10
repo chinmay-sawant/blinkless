@@ -1,24 +1,15 @@
 #!/usr/bin/env python3
-"""Regenerate output/python/ fixture PDFs through the Python Document API.
+"""Python binding sample runner for the golden fixture corpus.
 
-Mirrors the body-fixture loop of ``make samples``, but writes under
-``output/python/`` via ``convert_file_to_pdf`` (inline HTML + file:// base).
+Walks every body fixture under ``testdata/golden/`` through
+``convert_file_to_pdf``, plus version / compliance smokes for fixture-21
+and fixture-56 under ``output/python/pdf-{1.7,2.0}{,-compliance}/``. The
+binding helper raises ``RuntimeError`` (PDF writing was removed), so every
+fixture is skipped with a warning and no PDFs are written.
 
-Also writes version / compliance smokes for fixture-21 and fixture-56 into
-``output/python/pdf-{1.7,2.0}{,-compliance}/``, matching the Go sample
-four-way split (nested under python/).
-
-Run from the repository root (also invoked by ``make samples-python``):
+Run from the repository root:
 
     python3 testdata/golden/python_api/generate_samples.py
-
-Notes on v1 ABI limits vs ``make samples``:
-
-- Header/footer HTML companions (fixture-36-*-html) are not transmitted by
-  the one-shot C ABI, so fixture-36 is body-only.
-- ``--font-path`` / system font flags are not on ``GwkPdfOptions``, so
-  fixture-27 and font-family stacks use engine defaults.
-- Showcase TOC/HF/outline and live Wikipedia smokes stay Go/CLI-only.
 """
 
 from __future__ import annotations
@@ -137,8 +128,7 @@ def run(argv=None):
 
     os.makedirs(output_root, exist_ok=True)
 
-    # Wipe regenerable fixture samples only (keep manual leftovers out of the wipe
-    # by matching the fixture-*.pdf pattern make samples uses).
+    # Wipe regenerable fixture samples only (keep manual leftovers out of the wipe).
     for stale in output_root.glob("fixture-*.pdf"):
         stale.unlink()
 
@@ -205,7 +195,7 @@ def run(argv=None):
                 )
 
     print(
-        "samples-python fixtures: {0} bodies under {1}".format(
+        "python sample fixtures: {0} bodies under {1}".format(
             len(fixtures), output_root
         )
     )

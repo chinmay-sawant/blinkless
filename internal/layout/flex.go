@@ -1299,6 +1299,23 @@ func flexMainJustify(style ResolvedStyle) string {
 	return jc
 }
 
+// isFlexItemNode reports a direct element child of a flex container. A flex
+// item establishes an independent formatting context (CSS Flexbox L1 §4), so
+// its auto height encloses floating descendants even when its own style does
+// not establish a BFC.
+func (e *engine) isFlexItemNode(node *html.Node) bool {
+	if node == nil || node.Parent == nil || node.Type != html.ElementNode {
+		return false
+	}
+
+	parentStyle := e.stylePtr(node.Parent)
+	if parentStyle == nil {
+		return false
+	}
+
+	return parentStyle.Display == displayFlex || parentStyle.Display == displayInlineFlex
+}
+
 func flexStartJustify(justify string) bool {
 	return justify == "" || justify == flexStartKeyword || justify == fxStart
 }
@@ -1312,14 +1329,19 @@ func justifyRowStart(justify string, contentX, contentW, sumW, gaps, gap float64
 	case fxCenter:
 		return contentX + (contentW-sumW-gaps)/2, gap
 	case fxBetween, fxAround, fxEvenly:
-		return justifyDistributed(justify, contentX, contentW, sumW, gap, count)
+		return justifyDistributed(justify, contentX, contentW, sumW, gaps, gap, count)
 	}
 
 	return contentX, gap
 }
 
-func justifyDistributed(justify string, contentX, contentW, sumW, gap float64, count int) (float64, float64) {
-	rem := contentW - sumW
+// justifyDistributed resolves the start offset and the between-item gap for
+// the distributed justify-content keywords. The free space is what remains
+// after the items and the fixed gaps, and the gap property stays as the
+// minimum between-item spacing: the distributed space is added on top of it
+// (CSS Flexbox L1 §8.2, CSS Box Alignment L3 §5.2).
+func justifyDistributed(justify string, contentX, contentW, sumW, gaps, gap float64, count int) (float64, float64) {
+	rem := contentW - sumW - gaps
 	if rem < 0 {
 		rem = 0
 	}
@@ -1327,18 +1349,18 @@ func justifyDistributed(justify string, contentX, contentW, sumW, gap float64, c
 	switch justify {
 	case fxBetween:
 		if count > 1 && rem > 0 {
-			return contentX, rem / float64(count-1)
+			return contentX, gap + rem/float64(count-1)
 		}
 
 		return contentX, gap
 	case fxAround:
 		unit := rem / float64(two*count)
 
-		return contentX + unit, two * unit
+		return contentX + unit, gap + two*unit
 	case fxEvenly:
 		unit := rem / float64(count+1)
 
-		return contentX + unit, unit
+		return contentX + unit, gap + unit
 	}
 
 	return contentX, gap
@@ -1920,7 +1942,9 @@ func (e *engine) flowFlexColumn(
 		sumH += h + flexColumnMainMargins(e, items[idx])
 	}
 
-	startY, justifyGap := justifyColumnStart(flexMainJustify(style), contentH, curY, sumH+gaps, sumH, gap, len(items))
+	startY, justifyGap := justifyColumnStart(
+		flexMainJustify(style), contentH, curY, sumH+gaps, sumH, gaps, gap, len(items),
+	)
 	if style.FlexDirection == fxColRev && flexStartJustify(flexMainJustify(style)) &&
 		contentH >= 0 && !flexColumnHasAutoMargins(items, e) {
 		startY = curY + contentH - sumH - gaps

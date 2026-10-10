@@ -12,6 +12,9 @@ Puppeteer RSS is the peak process-tree RSS (node driver + headless Chrome childr
 - blinkless: `/home/chinmay/ChinmayPersonalProjects/blinkless/bin/blinkless` (generic CLI)
 - Puppeteer: `/home/chinmay/ChinmayPersonalProjects/blinkless/scripts/puppeteer/print.sh` (puppeteer-core 24.43.1 + Google Chrome 143.0.7499.40)
 - Reproduce: `./scripts/bench-external.sh --engines=puppeteer` (or `make bench`)
+- Retired: the reproduction path required the removed `bin/blinkless` CLI and
+  the deleted `scripts/puppeteer/print.sh`; this file is a historical result
+  snapshot.
 
 | Pages | Gowk time | Puppeteer time | Speedup | Gowk RSS | Puppeteer RSS | Gowk PDF bytes | Puppeteer PDF bytes |
 |---:|---:|---:|---:|---:|---:|---:|---:|

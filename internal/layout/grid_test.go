@@ -787,13 +787,14 @@ func TestParseGridTracksMinmax(t *testing.T) {
 	if len(cols) != 2 {
 		t.Fatalf("cols=%v", cols)
 	}
-	// bases 50+100=150; free 150 → +75 each → 125, 175
-	if cols[0] < 120 || cols[0] > 130 {
-		t.Fatalf("col0=%.1f, want ~125 (50 + half of free)", cols[0])
+	// Both floors sit below the equal share, so fr divides the whole content
+	// equally: 150, 150 (Chrome: 200px each in the equivalent 400px grid).
+	if cols[0] < 145 || cols[0] > 155 {
+		t.Fatalf("col0=%.1f, want ~150 (equal fr share)", cols[0])
 	}
 
-	if cols[1] < 170 || cols[1] > 180 {
-		t.Fatalf("col1=%.1f, want ~175 (100 + half of free)", cols[1])
+	if cols[1] < 145 || cols[1] > 155 {
+		t.Fatalf("col1=%.1f, want ~150 (equal fr share)", cols[1])
 	}
 
 	sum := cols[0] + cols[1]
@@ -811,13 +812,14 @@ func TestParseGridTracksMinmaxPercent(t *testing.T) {
 	if len(cols) != 2 {
 		t.Fatalf("cols=%v", cols)
 	}
-	// min floor 20 on first; free 180 → 20+90=110, 90
-	if cols[0] < 105 || cols[0] > 115 {
-		t.Fatalf("col0=%.1f, want ~110", cols[0])
+	// The 10% floor is 20, below the equal share, so fr divides the whole
+	// content equally: 100, 100 (Chrome: 133.33px each in a 266.67px grid).
+	if cols[0] < 95 || cols[0] > 105 {
+		t.Fatalf("col0=%.1f, want ~100 (equal fr share)", cols[0])
 	}
 
-	if cols[1] < 85 || cols[1] > 95 {
-		t.Fatalf("col1=%.1f, want ~90", cols[1])
+	if cols[1] < 95 || cols[1] > 105 {
+		t.Fatalf("col1=%.1f, want ~100 (equal fr share)", cols[1])
 	}
 }
 
@@ -865,13 +867,14 @@ func TestGridMinmaxFrLayout(t *testing.T) { //nolint:cyclop
 			boxW = paintOp.W
 		}
 	}
-	// floors 80+40=120; free 180 → 170, 130
-	if availW < 160 || availW > 180 {
-		t.Fatalf("minmax col A width=%.1f, want ~170", availW)
+	// Both floors sit below the equal share, so fr divides the whole content
+	// equally: 150, 150 (Chrome: 200px each in the equivalent 400px grid).
+	if availW < 145 || availW > 155 {
+		t.Fatalf("minmax col A width=%.1f, want ~150 (equal fr share)", availW)
 	}
 
-	if boxW < 120 || boxW > 140 {
-		t.Fatalf("minmax col B width=%.1f, want ~130", boxW)
+	if boxW < 145 || boxW > 155 {
+		t.Fatalf("minmax col B width=%.1f, want ~150 (equal fr share)", boxW)
 	}
 }
 

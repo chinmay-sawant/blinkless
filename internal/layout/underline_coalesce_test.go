@@ -107,7 +107,7 @@ i { font-style: italic; }
 }
 
 // TestLinkTextDecorationNoneHonored: author text-decoration:none must not
-// paint underlines; clickable href remains without forced PDF affordance.
+// paint underlines; clickable href remains without a forced underline.
 func TestLinkTextDecorationNoneHonored(t *testing.T) {
 	t.Parallel()
 

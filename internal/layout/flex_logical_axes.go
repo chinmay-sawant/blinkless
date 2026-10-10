@@ -51,7 +51,7 @@ func (e *engine) flowFlexVerticalRow(
 	}
 
 	startY, justifyGap := justifyColumnStart(
-		flexMainJustify(style), contentH, curY, sumH+gaps, sumH, gap, len(items),
+		flexMainJustify(style), contentH, curY, sumH+gaps, sumH, gaps, gap, len(items),
 	)
 	if flexRowPhysicalReverse(style) && flexStartJustify(flexMainJustify(style)) &&
 		contentH >= 0 && !flexColumnHasAutoMargins(items, e) {

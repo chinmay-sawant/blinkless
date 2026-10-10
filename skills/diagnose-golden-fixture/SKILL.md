@@ -1,22 +1,23 @@
 ---
 name: diagnose-golden-fixture
 description: >
-  Diagnose a failing blinkless golden corpus fixture (wrong page count,
-  missing needles, structural envelope) by building a tight red loop, bisecting
-  to the first bad commit, ranking falsifiable hypotheses, instrumenting one
-  variable at a time, and fixing the interaction without undoing intentional
-  prior work. Use when TestGoldenCorpusAllFixtures fails, pages = N want [A,B],
-  a golden fixture regresses after a layout change, or the user runs
-  /diagnose-golden-fixture. Not for visual PDF side-by-side compare (that is
+  Diagnose a failing blinkless golden fixture (missing or moved drawing-list
+  operations, wrong op geometry, wrong canvas size) by building a tight red
+  loop, bisecting to the first bad commit, ranking falsifiable hypotheses,
+  instrumenting one variable at a time, and fixing the interaction without
+  undoing intentional prior work. Use when `make golden` or a fixture-backed
+  layout test regresses after a layout change, or the user runs
+  /diagnose-golden-fixture. Not for visual picture compare (that is
   diagnose-fixture-picture) and not for template look-and-feel pick lists
   (debug-html-template).
 ---
 
 # Diagnose a golden fixture
 
-Structural golden failure: page envelope, needles, images/URI flags, PDF
-integrity. Prove the mechanism before editing. Prefer a fix that keeps the
-intent of the blamed commit and only breaks the bad interaction.
+Structural golden failure: missing or moved drawing-list operations, wrong op
+geometry, image/URI flags, canvas size. Prove the mechanism before editing.
+Prefer a fix that keeps the intent of the blamed commit and only breaks the
+bad interaction.
 
 ## Phase 1 - Tight red loop
 
@@ -24,11 +25,16 @@ Completion: one command you have already run that goes red on this fixture
 and green when fixed.
 
 ```bash
-go test ./internal/convert/ -run 'TestGoldenCorpusAllFixtures/fixture-NN' -count=1
+make golden
+go test ./internal/layout/ -run '<TestName>' -count=1
 ```
 
-Record the exact symptom (`pages = 37, want [9, 9]`). Sibling fixtures that
-share the envelope are a cheap contrast set (run them too).
+`make golden` runs the public drawing-list tests in `./layout`
+(`TestDisplay`). The second command is the focused fixture test in the
+package that owns the regression. Pick the narrowest one that fails.
+
+Record the exact symptom (op count, first moved op, canvas height). Sibling
+fixtures that share a helper are a cheap contrast set (run them too).
 
 Do not open a theory before this loop exists.
 
@@ -48,16 +54,17 @@ Read the blamed commit message and diff. Name what it was trying to fix
 for Phase 5.
 
 Worktrees are fine for read-only compare against `master`. Prefer bisect over
-guessing from `git log -S` when the symptom is a number (page count).
+guessing from `git log -S` when the symptom is a number (op count or canvas
+height).
 
 ## Phase 3 - Ranked hypotheses
 
 Write 3-5 falsifiable hypotheses before testing any. Each needs a prediction:
 
-> If X is the cause, then changing Y makes the page count return to the
-> envelope / makes it worse.
+> If X is the cause, then changing Y makes the op count or canvas height
+> return to the recorded values / makes it worse.
 
-Typical buckets for page-count blow-ups:
+Typical buckets for drawing-list blow-ups:
 
 1. Forced breaks (`page-break-*` / `break-*`) firing on more boxes than intended
 2. Definite height / min-height / flex stretch writing `Height` into rebuild
@@ -80,9 +87,9 @@ Useful probes:
   re-run Phase 1
 - Prefer evidence over reverting the whole blamed commit
 
-When box height looks fine but pages are huge, assert on **paint extent**
-(`maxY` of `OpText` / paginated ops), not `box.height`. A later clamp can
-crush the box while ops still span many pages.
+When box height looks fine but the canvas is huge, assert on **paint extent**
+(`maxY` of `OpText` / flow ops), not `box.height`. A later clamp can
+crush the box while ops still span a tall canvas.
 
 ## Phase 5 - Fix the interaction, keep the intent
 
@@ -110,7 +117,7 @@ broke:
 ## Output shape
 
 ```
-Symptom: pages = N, want [A, B] (fixture-NN)
+Symptom: <test> fails: <observed>, want <expected> (fixture-NN)
 First bad: <sha> <subject>
 Intent kept: <one line>
 Causal chain: <3-6 short steps with numbers>
@@ -120,6 +127,6 @@ Proof: <test commands and pass/fail>
 
 ## Related skills
 
-- `diagnose-fixture-picture` - Effect-cell screenshots, authorship vs engine, picture council
+- `diagnose-fixture-picture` - fixture row geometry, authorship vs engine, picture council
 - `debug-html-template` - template symptom table; wait for user pick
 - diagnosing-bugs (user skill) - general red-loop discipline this skill specializes

@@ -277,7 +277,8 @@ func supportsAny(children []SupportsCondition, supported func(prop, value string
 }
 
 // supportsOperator reads a leading and/or token. The operator must be
-// followed by whitespace or '(' so `(a)orange` is not read as `or`.
+// followed by whitespace or the end of input, so `(a)orange` is not read as
+// `or` and `(a)or(b)` is not read as a disjunction.
 func supportsOperator(src string) (string, string, bool) {
 	switch {
 	case hasFoldPrefix(src, "and") && supportsBoundary(src, len("and")):
@@ -290,14 +291,16 @@ func supportsOperator(src string) (string, string, bool) {
 }
 
 // supportsBoundary reports that position end in src starts a new token: end of
-// input, whitespace, or an opening parenthesis.
+// input or whitespace. An opening parenthesis is not a boundary: `not(`,
+// `and(`, and `or(` tokenize as a function token, which is general-enclosed
+// rather than an operator (CSS Conditional 3, Syntax).
 func supportsBoundary(src string, end int) bool {
 	if end >= len(src) {
 		return true
 	}
 
 	switch src[end] {
-	case ' ', '\t', '\r', '\n', '(':
+	case ' ', '\t', '\r', '\n':
 		return true
 	default:
 		return false

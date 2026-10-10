@@ -560,6 +560,270 @@ func TestPseudoElementResolvesCustomProperties(t *testing.T) {
 	t.Fatal("::after content op not found")
 }
 
+// TestCascadeRejectsInvalidDeclarationBeforeWin (CSS-01a): a declaration the
+// engine cannot apply must not win the cascade. Before the acceptance gate,
+// `width: bogus` outranked `width: 80px` and left the box auto-sized instead
+// of keeping the valid declaration. 80px converts to 60pt at 96dpi.
+func TestCascadeRejectsInvalidDeclarationBeforeWin(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		css  string
+		want float64
+	}{
+		{"same rule later value invalid", `.box { width: 80px; width: bogus }`, 60},
+		{"invalid earlier does not block later valid", `.box { width: bogus; width: 80px }`, 60},
+		{"higher specificity invalid loses", `.box { width: 80px } .box#x { width: bogus }`, 60},
+		{"invalid important loses to valid normal", `.box { width: 80px } .box#x { width: bogus !important }`, 60},
+		{"valid later still wins", `.box { width: 80px; width: 120px }`, 90},
+		{"display block accepted", `.box { display: block }`, 0},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			root := mustParse(t, `<html><body><div id="x" class="box">x</div></body></html>`)
+			styles := resolveStyles(root, []*css.Stylesheet{sheet(t, testCase.css)}, "print", testViewport, 800)
+			div := findElementByName(root, "div")
+
+			if testCase.name == "display block accepted" {
+				if got := styles[div].Display; got != displayBlock {
+					t.Fatalf("Display = %q, want %q", got, displayBlock)
+				}
+
+				return
+			}
+
+			if got := styles[div].Width; !near(got, testCase.want) {
+				t.Fatalf("Width = %.2fpt, want %.2fpt", got, testCase.want)
+			}
+		})
+	}
+
+	// display: block stays accepted; a later invalid display must not erase it.
+	root := mustParse(t, `<html><body><div class="box">x</div></body></html>`)
+	styles := resolveStyles(root, []*css.Stylesheet{sheet(t, `.box { display: flex; display: bogus }`)},
+		"print", testViewport, 800)
+	div := findElementByName(root, "div")
+
+	if got := styles[div].Display; got != displayFlex {
+		t.Fatalf("Display = %q, want %q: invalid display outranked valid display", got, displayFlex)
+	}
+}
+
+// TestCascadeVarAcceptanceRules (CSS-01c): var() declarations are valid at
+// parse time. A missing variable with a fallback substitutes and applies; a
+// substitution that cannot be applied leaves the property unset (like no
+// declaration) and must not revive an earlier valid declaration.
+func TestCascadeVarAcceptanceRules(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		css      string
+		want     float64
+		wantAuto bool
+	}{
+		{"valid substitution", `:root { --w: 80px } .box { width: var(--w) }`, 60, false},
+		{"fallback when missing", `.box { width: var(--missing, 80px) }`, 60, false},
+		{"fallback after valid declaration", `.box { width: 120px; width: var(--missing, 80px) }`, 60, false},
+		{"missing without fallback unsets, no revival", `.box { width: 80px; width: var(--missing) }`, 0, true},
+		{"invalid fallback unsets, no revival", `.box { width: 80px; width: var(--missing, bogus) }`, 0, true},
+		{"invalid custom property unsets, no revival", `.box { --w: bogus; width: 80px; width: var(--w) }`, 0, true},
+		{"css-wide initial resets to auto", `.box { width: 80px; width: initial }`, 0, true},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			root := mustParse(t, `<html><body><div class="box">x</div></body></html>`)
+			styles := resolveStyles(root, []*css.Stylesheet{sheet(t, testCase.css)}, "print", testViewport, 800)
+			div := findElementByName(root, "div")
+			got := styles[div].Width
+
+			if testCase.wantAuto {
+				// Unset must match an element with no width declaration at all.
+				controlRoot := mustParse(t, `<html><body><div class="box">x</div></body></html>`)
+				controlStyles := resolveStyles(controlRoot, nil, "print", testViewport, 800)
+				control := findElementByName(controlRoot, "div")
+
+				if !near(got, controlStyles[control].Width) {
+					t.Fatalf("Width = %.2fpt, want unset matching control %.2fpt (no revival)",
+						got, controlStyles[control].Width)
+				}
+
+				return
+			}
+
+			if !near(got, testCase.want) {
+				t.Fatalf("Width = %.2fpt, want %.2fpt", got, testCase.want)
+			}
+		})
+	}
+}
+
+// TestCascadeKeepsOrderingAfterAcceptanceGate (CSS-01d): shorthand resets,
+// longhand order, specificity, inheritance, @layer, and vendor aliases still
+// select the same values now that the gate validates declarations.
+//
+//nolint:funlen // cascade ordering regression; splitting would hide the sequence under test
+func TestCascadeKeepsOrderingAfterAcceptanceGate(t *testing.T) {
+	t.Parallel()
+
+	longhandOrder := []struct {
+		name string
+		css  string
+		want float64
+	}{
+		{"shorthand resets earlier longhand", `.box { margin-top: 12px; margin: 0 }`, 0},
+		{"longhand after shorthand wins", `.box { margin: 0; margin-top: 12px }`, 9},
+		{"higher specificity wins among valid values", `.box { width: 80px } .box#x { width: 120px }`, 90},
+	}
+
+	for _, testCase := range longhandOrder {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			root := mustParse(t, `<html><body><div id="x" class="box">x</div></body></html>`)
+			styles := resolveStyles(root, []*css.Stylesheet{sheet(t, testCase.css)}, "print", testViewport, 800)
+			div := findElementByName(root, "div")
+
+			var got float64
+			if strings.HasPrefix(testCase.name, "shorthand resets") ||
+				strings.HasPrefix(testCase.name, "longhand after") {
+				got = styles[div].MarginTop
+			} else {
+				got = styles[div].Width
+			}
+
+			if !near(got, testCase.want) {
+				t.Fatalf("value = %.2fpt, want %.2fpt", got, testCase.want)
+			}
+		})
+	}
+
+	layerCases := []struct {
+		name string
+		css  string
+		want float64
+	}{
+		{"unlayered beats layered", `@layer base { .box { width: 80px } } .box { width: 120px }`, 90},
+		{"later layer rank wins", `@layer a, b; @layer a { .box { width: 80px } } @layer b { .box { width: 120px } }`, 90},
+	}
+
+	for _, testCase := range layerCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			root := mustParse(t, `<html><body><div class="box">x</div></body></html>`)
+			styles := resolveStyles(root, []*css.Stylesheet{sheet(t, testCase.css)}, "print", testViewport, 800)
+			div := findElementByName(root, "div")
+
+			if got := styles[div].Width; !near(got, testCase.want) {
+				t.Fatalf("Width = %.2fpt, want %.2fpt", got, testCase.want)
+			}
+		})
+	}
+
+	t.Run("inheritance still copies color", func(t *testing.T) {
+		t.Parallel()
+
+		root := mustParse(t, `<html><body><div style="color: #ff0000"><p>child</p></div></body></html>`)
+		styles := resolveStyles(root, nil, "print", testViewport, 800)
+		p := findElementByName(root, "p")
+
+		if got := styles[p].Color; got != [3]float64{1, 0, 0} {
+			t.Fatalf("p Color = %v, want red inherited", got)
+		}
+	})
+
+	t.Run("vendor alias still maps", func(t *testing.T) {
+		t.Parallel()
+
+		root := mustParse(t, `<html><body><div style="-webkit-box-sizing: border-box">x</div></body></html>`)
+		styles := resolveStyles(root, nil, "print", testViewport, 800)
+		div := findElementByName(root, "div")
+
+		if got := styles[div].BoxSizing; got != borderBox {
+			t.Fatalf("BoxSizing = %q, want %q from -webkit-box-sizing", got, borderBox)
+		}
+	})
+}
+
+// TestCascadeEngineSupportsPropertyValues (CSS-02b): @supports needs handler
+// ownership AND a value the handlers accept. Ownership alone reported true
+// for display:bogus.
+//
+//nolint:funlen // value table plus gating sequence; splitting would hide the pair under test
+func TestCascadeEngineSupportsPropertyValues(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		prop  string
+		value string
+		want  bool
+	}{
+		{"display", "block", true},
+		{"display", "grid", true},
+		{"display", "bogus", false},
+		{"width", "80px", true},
+		{"width", "auto", true},
+		{"width", "bogus", false},
+		{"min-width", "none", true},
+		{"min-width", "bogus", false},
+		{"margin-top", "auto", true},
+		{"margin-top", "bogus", false},
+		{"padding-top", "auto", false},
+		{"padding-top", "4px", true},
+		{"position", "static", true},
+		{"position", "bogus", false},
+		{"color", "#ff0000", true},
+		{"unknown-property", "1", false},
+		{"--custom", "bogus", true},
+		{"width", "var(--w)", true},
+		{"display", "inherit", true},
+		{"-webkit-box-orient", "horizontal", true},
+		{"opacity", "bogus", false},
+		{"z-index", "3", true},
+		{"z-index", "bogus", false},
+	}
+
+	for _, testCase := range cases {
+		if got := engineSupportsProperty(testCase.prop, testCase.value); got != testCase.want {
+			t.Errorf("engineSupportsProperty(%q, %q) = %v, want %v",
+				testCase.prop, testCase.value, got, testCase.want)
+		}
+	}
+
+	// The gate uses the same rule: an invalid feature query must not apply.
+	root := mustParse(t, `<html><body><div class="box">x</div></body></html>`)
+	styles := resolveStyles(root,
+		[]*css.Stylesheet{sheet(t, `
+			.box { width: 80px }
+			@supports (display: bogus) { .box { width: 120px } }
+		`)}, "print", testViewport, 800)
+	div := findElementByName(root, "div")
+
+	if got := styles[div].Width; !near(got, 60) {
+		t.Fatalf("invalid @supports applied: Width = %.2fpt, want 60", got)
+	}
+
+	root = mustParse(t, `<html><body><div class="box">x</div></body></html>`)
+	styles = resolveStyles(root,
+		[]*css.Stylesheet{sheet(t, `
+			.box { width: 80px }
+			@supports (display: grid) { .box { width: 120px } }
+		`)}, "print", testViewport, 800)
+	div = findElementByName(root, "div")
+
+	if got := styles[div].Width; !near(got, 90) {
+		t.Fatalf("valid @supports did not apply: Width = %.2fpt, want 90", got)
+	}
+}
+
 func findElementByName(root *html.Node, name string) *html.Node {
 	if root.Type == html.ElementNode && root.Name == name {
 		return root

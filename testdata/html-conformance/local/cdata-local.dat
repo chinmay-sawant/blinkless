@@ -1,0 +1,85 @@
+Local CDATA fragment cases for GATE-03. Upstream (html5lib-tests @
+9329e646) covers CDATA sections in foreign document content (tests21.dat)
+but has no foreign-fragment records with CDATA; these pin the tokenizer's
+adjusted-current-node gate through the context-aware fragment parser: SVG,
+MathML, and MathML text integration point contexts accept the section, an
+HTML context does not, an HTML integration point inside foreign content
+still does (the gate is the current node's namespace), and only "]]>" ends
+the section.
+#data
+<![CDATA[<b>&amp;]]>
+#errors
+#document-fragment
+svg svg
+#document
+| "<b>&amp;"
+
+#data
+<![CDATA[foo]]]>
+#errors
+#document-fragment
+svg svg
+#document
+| "foo]"
+
+#data
+<![CDATA[]] >]]>
+#errors
+#document-fragment
+math math
+#document
+| "]] >"
+
+#data
+<![CDATA[foo]]>
+#errors
+#document-fragment
+div
+#document
+| <!-- [CDATA[foo]] -->
+
+#data
+<svg><![CDATA[foo]]>
+#errors
+#document-fragment
+svg svg
+#document
+| <svg svg>
+|   "foo"
+
+#data
+<svg><foreignObject><![CDATA[foo]]>
+#errors
+#document-fragment
+svg svg
+#document
+| <svg svg>
+|   <svg foreignObject>
+|     "foo"
+
+#data
+<svg><foreignObject><div><![CDATA[foo]]>
+#errors
+#document-fragment
+svg svg
+#document
+| <svg svg>
+|   <svg foreignObject>
+|     <div>
+|       <!-- [CDATA[foo]] -->
+
+#data
+<![CDATA[foo
+#errors
+#document-fragment
+svg svg
+#document
+| "foo"
+
+#data
+<![CDATA[foo]]>
+#errors
+#document-fragment
+math mi
+#document
+| "foo"

@@ -1,14 +1,17 @@
-# blinkless - HTML/CSS Compatibility Matrix (MVP Allowlist)
+# blinkless - HTML/CSS compatibility matrix
 
-> **Parent:** `plans/0.1.0/00-canonical-pure-go-rewrite.md` (Phase 0.1); post-MVP updates under `plans/0.2.0/10-canonical-post-mvp-roadmap.md`  
+> **Parent:** [plans/v0.0.1/phase-wise-checklist.md](../plans/v0.0.1/phase-wise-checklist.md) and [plans/v0.0.1/html-css-json-compatibility-checklist.md](../plans/v0.0.1/html-css-json-compatibility-checklist.md)  
 > **Status:** living contract - amendments go through plan review  
-> **Target:** authored HTML templates to a drawing list and a PNG or JPEG. **Not** a browser. **Not** a PDF writer.  
-> **Last honesty audit:** 2026-09-21 · catalog 407 Implemented / 0 Partial / 411 Unsupported of 818 (`plans/0.2.6/catalog/mapping.json`) · fidelity guide: [fidelity.md](fidelity.md)
-> **Phase 21 note:** arbitrary-website / "decent print" work does **not** expand this matrix. CSS remains a **print CSS subset** (Partial flex/grid/position; many properties Not implemented). No new Implemented rows until code + tests ship - see [fidelity.md § Arbitrary websites](fidelity.md#arbitrary-websites-phase-21).
+> **Target:** authored HTML and CSS to a `layout.DisplayList` (the drawing list). **Not** a browser. **Not** a PDF writer. **Not** a page rasterizer.  
+> **Catalog:** `testdata/css/catalog/properties.json` (schema v1), measured 2026-10-09: 785 rows - 90 Implemented / 301 Partial / 387 Unsupported / 7 intentionally ignored. Upstream pin: webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties). Fidelity guide: [fidelity.md](fidelity.md).
+> **Limitations:** Implemented means a handler, a consumer outside the style layer, and a resolvable behavior test. Browser rendering parity, HTML parser conformance, and this property catalog are separate claims with separate evidence. Section 1 is a rendering allowlist for HTML tags, not a parser conformance claim.
 
-This document is the contract for the layout engine. Rows that mention a PDF content stream, an ExtGState, or a page fragment describe the writer that was removed. The property is still parsed onto the drawing list, and the PNG path paints that list.
-Anything not listed here is *unsupported*; unsupported input must degrade
-gracefully (ignored declaration / skipped node / documented error), never
+This document is the contract for the layout engine. Its output is a drawing
+list; the PDF writer, the page rasterizer, and the CLI from earlier revisions
+are not part of this tree. Property statuses come from
+`testdata/css/catalog/properties.json` and are reproduced in section 2.
+Anything not in that catalog is unsupported; unsupported input must degrade
+gracefully (ignored declaration, skipped node, or documented error), never
 crash. Product framing: [fidelity.md](fidelity.md). **Still not full CSS.**
 
 ---
@@ -26,409 +29,942 @@ as its inline text (per the note column).
 | `p` | Block, default margins |
 | `br` | Forced line break |
 | `hr` | Block-level horizontal rule |
-| `h1`–`h6` | Heading levels; outline source (Phase 6) |
+| `h1`-`h6` | Heading levels; UA size and weight rules |
 | `ul`, `ol`, `li` | Lists. UA stylesheet: `ul`/`menu` → `disc`, `ol` → `decimal`. `markerText` implements `disc` / `circle` / `square` / `decimal` / `decimal-leading-zero` / `lower-alpha` / `upper-alpha` / `lower-roman` / `upper-roman` |
-| `table`, `thead`, `tbody`, `tfoot`, `tr`, `th`, `td`, `caption` | Table subset; see §4/§2.5 (`colspan` and `rowspan` Implemented; `<caption>` / `table-caption` rendered above the table) |
-| `img` | Replaced element; **PNG/JPEG/SVG subset**. JPEG is DCTDecode pass-through. PNG decoded to DeviceRGB; alpha soft-mask when present. **SVG** rasterized via `internal/svg` (rect/circle/path subset → PNG). Layout uses a fixed 96 dpi CSS px→pt map. `web.images=false` skips fetch/paint. |
-| `a` | Hyperlink (`href`) for `http/https/mailto` external URI annotations; body `#id` / `#name` **GoTo** via `applyInternalLinks` (fixture-24). HTML header/footer **external URI** and **fragment GoTo** (`#id` → body destinations via `AddLinkDest`, copies-aware) are carried onto body pages |
-| `strong`, `em`, `b`, `i`, `u`, `small` | `b`/`strong` → bold face; `em`/`i` → italic face (Liberation family, §2.3); `u` underline; `small` smaller; fake stroke bold only if a bold face is missing |
+| `table`, `thead`, `tbody`, `tfoot`, `tr`, `th`, `td`, `caption` | Table subset; see §4 and the table rows in §2 (`colspan` and `rowspan` Implemented; `<caption>` / `table-caption` rendered above the table) |
+| `img` | Replaced element; **PNG/JPEG/SVG subset**. The image op keeps the encoded bytes and re-encodes them as PNG only when EXIF orientation or a clip needs new pixels (`layout_images.go:365`, `image_exif.go:497`). SVG images and inline `<svg>` are rasterized through `internal/svg` (`layout_svg.go:23`). Layout maps CSS px to points at 0.75 (96 px/in). `web.images=false` skips fetch and paint (`settings.ResolveImages`). |
+| `a` | Link box in the drawing list (`OpLinkURI`): external `http/https/mailto` URIs (`isExternalHref`, `inline_paint.go:1876`) and same-document `#id` fragments (`isInternalHref`, `inline_paint.go:1906`). Relative references are retained for the caller to resolve. `layout.Result.HasFragmentLinks` reports whether any link targets a fragment (`layout.go:197`). |
+| `strong`, `em`, `b`, `i`, `u`, `small` | `b`/`strong` → bold face; `em`/`i` → italic face (Liberation family; see the `font-family` row in §2); `u` underline; `small` smaller; fake stroke bold only if a bold face is missing |
 | `pre`, `code` | `pre` honors `white-space: pre`; `code` follows the author’s `font-family` (generic `monospace` → bundled Liberation Mono; see [fonts.md](fonts.md)) |
-| `blockquote` | Block-level only - no indent margins (UA rule `style.go:714-717`) |
+| `blockquote` | Block-level only, no indent margins (UA rule `style_values.go:1628-1630`) |
 | `header`, `footer`, `main`, `section`, `article`, `aside`, `nav` | Treated as `div` (semantic aliases) |
 
 ## 2. Supported CSS properties
 
-Status legend (verified against `applyRestProps` in
-`internal/layout/style_cascade.go:666` plus dispatch in
-`style_properties.go`, `uaRules` in `style_values.go`, `internal/css/css.go`,
-`internal/layout/layout.go`, `inline.go`, `paint.go`, and the tests in
-`internal/layout/layout_test.go` / `internal/convert/golden_test.go`):
+The catalog in `testdata/css/catalog/properties.json` (schema v1) is the authoritative property record. Measured 2026-10-09: 785 rows - 90 implemented, 301 partial, 387 unsupported, 7 intentionally ignored. The pinned upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties: 671 draft, 70 vendor, 52 svg, 28 browser-ui). Regenerate the tables below with `python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails on drift between the catalog and the code.
 
-- **Implemented** - parsed and consumed by layout.
-- **Partial** - parsed and used in a subset of the declared cases; the rest
-  degrades silently.
-- **Not implemented** - parsed and dropped, or not parsed at all; the
-  declaration is ignored (graceful, per the contract).
+Statuses describe the layout pipeline, not browsers:
 
-### 2.1 Box model
+- **Implemented** - a handler parses the value, a consumer outside the style layer reads it, and at least one behavior test resolves.
+- **Partial** - a handler and a consumer exist, but a named behavior is missing or unverified; the limitation column names it.
+- **Unsupported** - no consumer and no observable behavior. The declaration may be parsed and stored or dropped entirely.
+- **Intentionally ignored** - deliberately ignored print-noop UI chrome.
 
-| Property | Status | Notes / verified by |
-|----------|--------|---------------------|
-| `margin` / `margin-top|right|bottom|left` | Implemented | `setFour` / `marginLen` (`style_values.go:246`, `style_values.go:564`) via `applyRestProps` (`style_cascade.go:666`) and `style_properties.go`; sibling margin collapsing `layout.go:263`; tests `TestBlockWidthsAndMargins`, `TestMarginCollapse` |
-| `margin-block` / `margin-inline` (and start/end longhands) | Implemented | Logical margin shorthands and longhands mapping to physical top/bottom/left/right for horizontal-tb. Tests `TestLogicalMargin` |
-| `padding` / `padding-top|right|bottom|left` | Implemented | `style.go:350-359`; test `TestPaddingBorderBox` |
-| `padding-block` / `padding-inline` (and start/end longhands) | Implemented | Logical padding shorthands and longhands mapping to physical padding for horizontal-tb. Tests `TestLogicalPadding` |
-| `inset` / `inset-block` / `inset-inline` (and start/end longhands) | Implemented | Logical positioned offset shorthands and longhands mapping to top/right/bottom/left for horizontal-tb. Tests `TestLogicalInset` |
-| `inline-size` / `block-size` / `min-inline-size` / `min-block-size` / `max-inline-size` / `max-block-size` | Implemented | Logical sizing properties mapping to width/height/min-width/min-height/max-width/max-height for horizontal-tb. Tests `TestLogicalSize` |
-| `border` / `border-top|right|bottom|left` | Implemented | `style.go:360-379` (`parseBorder` `style.go:521`); styles `solid|dashed|dotted|none`, width + color; test `TestPaddingBorderBox` |
-| `border-width`, `border-style`, `border-color` | Implemented | `style.go:380-401`; `thin|medium|thick` widths `style.go:546` |
-| `border-radius` | Implemented | Shorthand including `rx / ry` slash (`setBorderRadius` `border_radius.go`). Longhands `border-top-left-radius` and siblings, including `10pt / 5pt` and `10pt 5pt`. Paint uses elliptical Bezier arcs when rx != ry (`roundedRectPathCorners` `paint.go`). Percent corners resolve per CSS against width and height axes. Tests `TestRadiusLonghand`, `TestRadiusSlash`, `TestRadiusEllipticalLonghand`, `TestRadiusPercentAxes`. |
-| `width`, `height` | Implemented | `style.go:316-323`; consumed in `layout.go:176-191` (block) and `layout.go:315-320` (images) |
-| `aspect-ratio` (`auto` \| `<ratio>`) | Implemented | Apply `style_aspect_ratio_props.go`; definite width→height (and inverse) for blocks/flex/grid/replaced via `aspect_ratio.go`, `resolveContentHeightForWidth`, `resolveUsedWidth`, `usedImageSize`. Test `TestAspectRatioOneToOne` |
-| `min-width`, `min-height`, `max-width`, `max-height` | Implemented | `style.go:324-339`; enforced `layout.go:181-186, 321-328`; `%` resolves against viewport approximation |
-| `box-sizing` (`content-box|border-box`) | Implemented | parsed `style.go`; default `content-box` (specified width is content width); `border-box` makes width include padding+border (`layout.go` `buildBlock`); test `TestBoxSizingBorderBox` |
-| `overflow` / `overflow-x` / `overflow-y` (`visible|hidden|auto|scroll|clip`) | Implemented | Sticky scrollport selection (`sticky.go`) plus paint clip of descendant fill/text/line/image to the padding box for `hidden|clip|auto|scroll` (`overflow_clip.go`). `visible` does not clip. Tests `TestOverflowClip`, `TestStickyOverflow*` |
-| `overflow-block` / `overflow-inline` | Implemented | Logical aliases mapped onto `OverflowX`/`OverflowY` by writing-mode (`style_overflow_logical.go`); `writing-mode` applies before longhands so same-rule mapping is correct. Clip via `overflow_clip.go`. Test `TestOverflowBlockInlineMapToAxes` |
-| `margin-trim` (`none|block|block-start|block-end|inline-start|inline-end`) | Implemented (lite) | Parsed, stored at `style.go:334` (`ResolvedStyle.MarginTrim`) via `style_advanced_props.go:44`; consumed in `layout_flow.go` (trims first/last child block margins at container edges). `inline` and logical sides parse but trim only block axis for horizontal-tb. Test `TestMarginTrim` (`style_advanced_props_test.go:15`). |
-| `box-decoration-break` (`slice|clone`) | Implemented (parsed, no visual effect) | Parsed, stored at `style.go:335` (`ResolvedStyle.BoxDecorationBreak`) via `style_advanced_props.go:52`; both values paint as `slice` for paginated PDF (borders/backgrounds do not clone across page breaks). `clone` is accepted then downgraded. Test `TestBoxDecorationBreak` (`style_advanced_props_test.go:35`). |
+An implemented status is not a browser-parity or parser-conformance claim. Rendering comparisons and HTML parsing carry separate evidence in `plans/v0.0.1/html-css-json-compatibility-checklist.md`.
 
-### 2.2 Display & flow
+### 2.1 Implemented (90)
 
-| Property | Status | Notes / verified by |
-|----------|--------|---------------------|
-| `display` (`block|inline|none|list-item|table|table-row|table-cell|table-row-group|table-header-group|table-footer-group|flex|inline-flex|grid|inline-grid`) | Implemented | Core display values Implemented; `flex`/`inline-flex`/`grid`/`inline-grid` accepted in `style.go` and routed to Stage A flex / Stage B grid lite (§2.7 / §2.8). `none` test `TestDisplayNone`; tables `TestTableLayout`; flex/grid fixtures 25/28/32 |
-| `display: inline-block` | Implemented (lite) | atomic inline box with width/height/margins; shrink-to-fit when width auto; test `TestInlineBlockBesideText` |
-| `display: table-caption` | Implemented | `<caption>` and `display: table-caption` render **above** the table (`buildTableCaption`) |
-| `display: table-column`, `table-column-group` | Not implemented | parsed; no column model in `buildTable` |
-| `float` (`left|right`) | Implemented (lite) | out-of-flow pack to side; stacks on same side; simple exclusion for following in-flow content; float inside `td` packs in cell BFC; in-flow `table` always clears below floats (no shrink-beside); `float` on `table-cell`/`table-row` blockifies (CSS2.1 §9.7); tests `TestFloatLeftRightClear`, `TestFloatInsideTableCell`, `TestTableClearsFloat`, fixture-22 / 29 / 38 |
-| `shape-outside` (`none` / `circle()` / `ellipse()` / `inset()`) | Implemented (lite) | Basic shapes with `float:left|right`. Per-line exclusion intervals in `shape_exclusion.go` replace the rectangular float edge when present (`float.go` exclusion / `inline.go` `lineBounds`). `polygon()` / `path()` / `url()` rejected. Apply `style_shape_props.go`. Tests `TestShapeOutsideCircleShortensLines`, `TestShapeOutsideApplyParsesBasicShapes`. |
-| `shape-margin` | Implemented (with `shape-outside`) | Expands the outside contour (circle/ellipse radius or inset edges). `%` uses the CSS Shapes reference diagonal/√2. Apply `style_shape_props.go`; consumer `buildShapeExclusion`. Test `TestShapeMarginExpandsExclusion`. |
-| `shape-inside` / `shape-padding` | Unsupported | CSS Shapes 2 interior fitting; Chrome has no BCD support. No apply arm. |
-| `shape-image-threshold` | Unsupported | No alpha-contour extraction from float images. No apply arm. |
-| `float-offset` | Implemented (lite) | Length (or `%` of float height) block-axis nudge on `placeFloat` via `nudgeFloatOffset` (`style_float_page_props.go`). Test `TestFloatOffsetNudge`. |
-| `float-reference` (`inline` / `column` / `region` / `page`) | Implemented (lite) | `inline` is the current BFC. `page` uses the page content box; `column` lite uses the parent BFC inside multicol. `region` stores and behaves as `inline`. Apply `style_float_page_props.go`; `placeFloat` in `layout_flow.go`. Tests `TestFloatReferenceInline`, `TestFloatReferencePageVsInline`. |
-| `float-defer` | Unsupported | No page-float defer model. No apply arm. |
-| `clear` (`left|right|both`) | Implemented (lite) | advances past named float bottoms (`float.go`); test `TestFloatLeftRightClear` |
-| `position` (`static|relative|absolute|fixed|sticky`) | Implemented | static in-flow; `relative`/`absolute`/`fixed` lite via `buildAbsolute` / `buildFixed` / `applyRelativeOffset` (fixtures 26/28). `sticky` = print-scoped clamp (page content box = scrollport; `sticky.go`, fixture-31, `TestSticky*`) plus overflow-box scrollport at offset 0 |
-| `position: sticky` | Implemented | Default scrollport = page content box (`contentH`); clamps `top`/`bottom`/`left`/`right` within the containing block; natural fragment only, with no fixed-style continuation-page clones. Inside `overflow:auto|scroll|hidden|clip`, that box is the scrollport at **scroll offset 0** (PDF has no scroll; no page clones). Path: `sticky.go` / `applyStickyPrint`; fixture-31; `TestSticky*` / `TestStickyOverflow*` |
-| `z-index` | Implemented (lite) | Integer or `auto` (`setZIndexValue` `style_properties.go:114`). Copied onto ops (`pushZ` `layout.go:715`) and sorted (`sortPaintIndices` `paint_order.go:32`). Not a full CSS stacking-context tree. Test `TestZIndexPaintOrder` |
-| `contain` (`none\|strict\|content` / `[size\|\|layout\|\|paint\|\|style]`) | Implemented (subset) | `size` sizes the box from the `contain-intrinsic-*` values as if empty (children still paint and may overflow); `paint` clips descendant paint to the padding box through the overflow-clip stamp. `layout` and `style` parse for cascade fidelity with no print-observable effect; `inline-size` is not implemented. Apply arm `style_containment_props.go:45`; consumers `layout_flow.go:224` and `:262`. Fixture-61 rows 33-38. |
-| `contain-intrinsic-size` / `-width` / `-height` / `-block-size` / `-inline-size` | Implemented (with `contain:size`) | Placeholder size that replaces the content-derived size under size containment. Physical `width`/`height` win over logical; logical maps through the writing mode (horizontal-tb: inline is width, block is height; vertical modes swap). Consumers `layout_flow.go:262` (`containmentIntrinsicHeight`) and `:758` (`containmentIntrinsicWidth`). Fixture-61 rows 34-38. |
-| `content-visibility` (`visible\|auto\|hidden`) | Implemented (`hidden`) | `hidden` skips descendant layout and paint entirely; the box keeps its own chrome and uses its intrinsic size (0 when unset). `visible` and `auto` are print no-ops. Apply arm `style_containment_props.go:65`; consumers `layout_flow.go:211` and `:757`. Fixture-61 row 43. |
+| Property | Accepted values | Source | Behavior tests |
+|---|---|---|---|
+| `background` | [<'background-color'> \|\| <'background-image'> \|\| <'background-repeat'> \|\| <'background-attachment'> \|\| <'background-position'>] \| inherit | `internal/layout/style_properties.go` | `TestApplyImageKeyBackgroundAlias`, `TestAuthorBackgroundShorthandOverridesButtonUA`, `TestBackgroundImageParse`, `TestBackgroundSingleFieldNoWebMirror`, `TestGlobalGetSetRoundTripAndIgnored` |
+| `background-color` | <color> \| transparent \| inherit | `internal/layout/style_properties.go` | `TestBackgroundFill` |
+| `background-image` | <uri> \| none \| inherit | `internal/layout/style_properties.go` | `TestBackgroundImageLayoutPaints`, `TestBackgroundLonghands` |
+| `block-size` | <'width'> | `internal/layout/style_properties.go` | `TestLogicalSize` |
+| `border` | [ <border-width> \|\| <border-style> \|\| <'border-top-color'> ] \| inherit | `internal/layout/style_properties.go` | `TestPaddingBorderBox`, `TestTransparentBorderPaintsNothing` |
+| `border-bottom` | [ <border-width> \|\| <border-style> \|\| <'border-top-color'> ] \| inherit | `internal/layout/style_properties.go` | `TestPaddingBorderBox` |
+| `border-collapse` | collapse \| separate \| inherit | `internal/layout/style_properties.go` | `TestBorderSpacing`, `TestTableLayout` |
+| `border-color` | [ <color> \| transparent ]{1,4} \| inherit | `internal/layout/style_properties.go` | `TestBorderColorFourValues`, `TestTransparentBorderPaintsNothing` |
+| `border-left` | [ <border-width> \|\| <border-style> \|\| <'border-top-color'> ] \| inherit | `internal/layout/style_properties.go` | `TestPaddingBorderBox` |
+| `border-radius` | <length-percentage [0,∞]>{1,4} [ / <length-percentage [0,∞]>{1,4} ]? | `internal/layout/style_properties.go` | `TestRadiusEllipticalLonghand`, `TestRadiusLonghand`, `TestRadiusPercentAxes`, `TestRadiusSlash` |
+| `border-right` | [ <border-width> \|\| <border-style> \|\| <'border-top-color'> ] \| inherit | `internal/layout/style_properties.go` | `TestPaddingBorderBox` |
+| `border-spacing` | <length> <length>? \| inherit | `internal/layout/style_properties.go` | `TestBorderSpacing` |
+| `border-style` | <border-style>{1,4} \| inherit | `internal/layout/style_properties.go` | `TestTransparentBorderPaintsNothing` |
+| `border-top` | [ <border-width> \|\| <border-style> \|\| <'border-top-color'> ] \| inherit | `internal/layout/style_properties.go` | `TestPaddingBorderBox` |
+| `border-width` | <border-width>{1,4} \| inherit | `internal/layout/style_properties.go` | `TestTransparentBorderPaintsNothing` |
+| `box-sizing` | content-box \| border-box | `internal/layout/style_properties.go` | `TestBoxSizingBorderBox`, `TestWebkitPrefixAliases` |
+| `color` | <color> \| inherit | `internal/layout/style_properties.go` | `TestCascadeAndInline`, `TestCascadeEngineSupportsPropertyValues`, `TestColorAdjustPropsForeignProperty`, `TestColorModeSetGrayscale`, `TestOutlineParse`, `TestParseBasic`, `TestParseColorHsl`, `TestParseInline`, `TestWebkitPrefixAliases` |
+| `color-adjust` | <'print-color-adjust'> | `internal/layout/style_color_adjust_props.go` | `TestColorAdjustPropsAcceptLegalKeywords`, `TestColorAdjustPropsCSSWideKeywords`, `TestColorAdjustPropsRejectIllegalKeywords` |
+| `column-gap` | normal \| <length-percentage [0,∞]> \| <line-width> | `internal/layout/style_gap_props.go`, `internal/layout/style_properties.go` | `TestGridRowGapVsColumnGap` |
+| `content-visibility` | visible \| auto \| hidden | `internal/layout/style_containment_props.go` | `TestApplyContainmentPropsParsing`, `TestContentVisibilityHiddenSkipsDescendantLayout` |
+| `counter-increment` | [ <identifier> <integer>? ]+ \| none \| inherit | `internal/layout/style_paint_props.go` | `TestCounterInBefore`, `TestCounterResetIncrementLayout`, `TestQuotes` |
+| `counter-reset` | [ <identifier> <integer>? ]+ \| none \| inherit | `internal/layout/style_paint_props.go` | `TestCounterInBefore`, `TestCounterResetIncrementLayout`, `TestQuotes` |
+| `counter-set` | [ <counter-name> <integer>? ]+ \| none | `internal/layout/style_paint_props.go` | `TestCounterInBefore`, `TestCounterResetIncrementLayout`, `TestQuotes` |
+| `display` | inline \| block \| list-item \| inline-block \| table \| inline-table \| table-row-group \| table-header-group \| table-footer-group \| table-row \| table-column-group \| table-column \| table-cell \| table-caption \| none \| inherit | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestDisplayNone`, `TestTableLayout` |
+| `flex` | none \| [ <'flex-grow'> <'flex-shrink'>? \|\| <'flex-basis'> ] | `internal/layout/style_properties.go` | `TestWebkitBoxFlexGrows`, `TestChromeFlexCase01LegacyAlgorithm`, `TestWebkitPrefixAliases` |
+| `flex-direction` | row \| row-reverse \| column \| column-reverse | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestWebkitPrefixAliases`, `TestWebkitBoxOrientVerticalStacks` |
+| `flex-flow` | <'flex-direction'> \|\| <'flex-wrap'> | `internal/layout/style_properties.go` | `TestFlexFlowShorthand`, `TestFlexFlowDirectionWrapLayout` |
+| `flex-grow` | <number [0,∞]> | `internal/layout/style_properties.go` | `TestWebkitPrefixAliases`, `TestChromeFlexCase01LegacyAlgorithm` |
+| `font` | [ [ <'font-style'> \|\| <'font-variant'> \|\| <'font-weight'> ]? <'font-size'> [ / <'line-height'> ]? <'font-family'> ] \| caption \| icon \| menu \| message-box \| small-caption \| status-bar \| inherit | `internal/layout/style.go`, `internal/layout/style_cascade.go` | `TestFontShorthand`, `TestFontLonghandAfterShorthandWins` |
+| `font-size` | <absolute-size> \| <relative-size> \| <length> \| <percentage> \| inherit | `internal/layout/style_cascade.go` | `TestApplyTextSupportPropsUnicodeBidi`, `TestFontSizeEmInherit`, `TestParseBasic`, `TestParseInline` |
+| `font-style` | normal \| italic \| oblique \| inherit | `internal/layout/style_cascade.go` | `TestRealBoldFaceOps` |
+| `font-weight` | normal \| bold \| bolder \| lighter \| 100 \| 200 \| 300 \| 400 \| 500 \| 600 \| 700 \| 800 \| 900 \| inherit | `internal/layout/style_cascade.go` | `TestRealBoldFaceOps` |
+| `gap` | <'row-gap'> <'column-gap'>? | `internal/layout/style_gap_props.go`, `internal/layout/style_properties.go` | `TestGridRowGapVsColumnGap` |
+| `grid` | <'grid-template'> \| <'grid-template-rows'> / [ auto-flow && dense? ] <'grid-auto-columns'>? \| [ auto-flow && dense? ] <'grid-auto-rows'>? / <'grid-template-columns'> | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestGridPlaceItemsCenterShrinksItems`, `TestGridPlaceSelfEndShrinksItem`, `TestGridRowSpanStretchMatchesFixture32`, `TestGridStretchKeepsSiblingStyleIndependent`, `TestGridTemplateShorthand` |
+| `grid-row` | <grid-line> [ / <grid-line> ]? | `internal/layout/style_properties.go` | `TestGridRowSpan` |
+| `grid-row-end` | <grid-line> | `internal/layout/style_properties.go` | `TestGridRowSpan` |
+| `grid-row-start` | <grid-line> | `internal/layout/style_properties.go` | `TestGridRowSpan` |
+| `grid-template` | none \| [ <'grid-template-rows'> / <'grid-template-columns'> ] \| [ <line-names>? <string> <track-size>? <line-names>? ]+ [ / <explicit-track-list> ]? | `internal/layout/style_properties.go` | `TestGridTemplateShorthand`, `TestDisplayGridTemplateRejectsInvalidDeclaration` |
+| `hyphenate-character` | auto \| <string> | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | `TestHyphenateLimitChars`, `TestSoftHyphenUsesHyphenateCharacter`, `TestTextPropsWave3` |
+| `hyphenate-limit-chars` | [ auto \| <integer [0,∞]> ]{1,3} | `internal/layout/style_hyphenation_props.go` | `TestHyphenateLimitChars` |
+| `hyphenate-limit-last` | none \| always \| column \| page \| spread | `internal/layout/style_hyphenation_props.go` | `TestHyphenateLimitChars` |
+| `hyphenate-limit-lines` | no-limit \| <integer [0,∞]> | `internal/layout/style_hyphenation_props.go` | `TestHyphenateLimitChars` |
+| `hyphenate-limit-zone` | <length-percentage> | `internal/layout/style_hyphenation_props.go` | `TestHyphenateLimitChars` |
+| `hyphens` | none \| manual \| auto | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | `TestHyphenateLimitChars`, `TestSoftHyphenUsesHyphenateCharacter`, `TestTextPropsWave3` |
+| `inline-size` | auto \| <length-percentage> | `internal/layout/style_properties.go` | `TestContainerPropsParsed`, `TestLogicalSize`, `TestParseContainerRules`, `TestParseContainerShorthand` |
+| `inset` | <'top'>{1,4} | `internal/layout/style_properties.go` | `TestLogicalInset` |
+| `inset-block` | <'top'>{1,2} | `internal/layout/style_properties.go` | `TestLogicalInset` |
+| `inset-inline` | <'top'>{1,2} | `internal/layout/style_properties.go` | `TestLogicalInset` |
+| `justify-content` | normal \| <content-distribution> \| <overflow-position>? [ <content-position> \| left \| right ] | `internal/layout/style_properties.go` | `TestWebkitPrefixAliases`, `TestFlexDistributedJustifyKeepsGap` |
+| `line-height` | normal \| <number> \| <length> \| <percentage> \| inherit | `internal/layout/style.go`, `internal/layout/style_properties.go` | `TestMarginCollapse`, `TestExplicitLineHeightAllowsNegativeHalfLeading`, `TestNormalLineHeightUsesFaceMetrics` |
+| `margin` | <margin-width>{1,4} \| inherit | `internal/layout/style_properties.go` | `TestBlockWidthsAndMargins`, `TestMarginCollapse` |
+| `margin-block` | <'margin-top'>{1,2} | `internal/layout/style_logical_box.go`, `internal/layout/style_properties.go` | `TestLogicalMargin` |
+| `margin-bottom` | <margin-width> \| inherit | `internal/layout/style_properties.go` | `TestBlockWidthsAndMargins`, `TestMarginCollapse` |
+| `margin-inline` | <'margin-top'>{1,2} | `internal/layout/style_logical_box.go`, `internal/layout/style_properties.go` | `TestLogicalMargin` |
+| `margin-left` | <margin-width> \| inherit | `internal/layout/style_properties.go` | `TestBlockWidthsAndMargins`, `TestMarginCollapse` |
+| `margin-right` | <margin-width> \| inherit | `internal/layout/style_properties.go` | `TestBlockWidthsAndMargins`, `TestMarginCollapse` |
+| `margin-top` | <margin-width> \| inherit | `internal/layout/style_properties.go` | `TestBlockWidthsAndMargins`, `TestCascadeEngineSupportsPropertyValues`, `TestMarginCollapse` |
+| `max-block-size` | <'max-width'> | `internal/layout/style_properties.go` | `TestLogicalSize` |
+| `max-inline-size` | <'max-width'> | `internal/layout/style_properties.go` | `TestLogicalSize` |
+| `min-block-size` | <'min-width'> | `internal/layout/style_properties.go` | `TestLogicalSize` |
+| `min-inline-size` | <'min-width'> | `internal/layout/style_properties.go` | `TestLogicalSize` |
+| `outline` | [ <'outline-color'> \|\| <'outline-style'> \|\| <'outline-width'> ] \| inherit | `internal/layout/style_paint_props.go` | `TestCurrentColor`, `TestOutlineDoesNotInherit`, `TestOutlineOmittedWidthUsesMedium`, `TestOutlineParse`, `TestOutlinePaintsInflatedRect` |
+| `outline-color` | <color> \| invert \| inherit | `internal/layout/style_paint_props.go` | `TestCurrentColor`, `TestOutlineParse`, `TestOutlinePaintsInflatedRect` |
+| `outline-offset` | <length> | `internal/layout/style_paint_props.go` | `TestOutlineParse`, `TestOutlinePaintsInflatedRect` |
+| `outline-style` | <border-style> \| inherit | `internal/layout/style_paint_props.go` | `TestOutlineParse`, `TestOutlinePaintsInflatedRect` |
+| `outline-width` | <border-width> \| inherit | `internal/layout/style_paint_props.go` | `TestOutlineParse`, `TestOutlineOmittedWidthUsesMedium`, `TestOutlinePaintsInflatedRect` |
+| `padding` | <padding-width>{1,4} \| inherit | `internal/layout/style_properties.go` | `TestPaddingBorderBox` |
+| `padding-block` | <'padding-top'>{1,2} | `internal/layout/style_logical_box.go`, `internal/layout/style_properties.go` | `TestLogicalPadding` |
+| `padding-bottom` | <padding-width> \| inherit | `internal/layout/style_properties.go` | `TestPaddingBorderBox` |
+| `padding-inline` | <'padding-top'>{1,2} | `internal/layout/style_logical_box.go`, `internal/layout/style_properties.go` | `TestLogicalPadding` |
+| `padding-left` | <padding-width> \| inherit | `internal/layout/style_properties.go` | `TestPaddingBorderBox` |
+| `padding-right` | <padding-width> \| inherit | `internal/layout/style_properties.go` | `TestPaddingBorderBox` |
+| `padding-top` | <padding-width> \| inherit | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestPaddingBorderBox` |
+| `place-content` | <'align-content'> <'justify-content'>? | `internal/layout/style_properties.go` | `TestPlaceShorthands`, `TestFlexPlaceContentDistributes` |
+| `place-items` | <'align-items'> <'justify-items'>? | `internal/layout/style_properties.go` | `TestPlaceShorthands`, `TestGridPlaceItemsCenterShrinksItems` |
+| `place-self` | <'align-self'> <'justify-self'>? | `internal/layout/style_properties.go` | `TestPlaceShorthands`, `TestGridPlaceSelfEndShrinksItem` |
+| `position` | static \| relative \| absolute \| fixed \| inherit | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestPositionLiteFixtureReservesOverlaySpace` |
+| `print-color-adjust` | economy \| exact | `internal/layout/style_color_adjust_props.go` | `TestColorAdjustPropsAcceptLegalKeywords`, `TestColorAdjustPropsReachRestPass`, `TestColorAdjustPropsRejectIllegalKeywords` |
+| `quotes` | [<string> <string>]+ \| none \| inherit | `internal/layout/style_paint_props.go` | `TestQuotes` |
+| `row-gap` | normal \| <length-percentage [0,∞]> \| <line-width> | `internal/layout/style_gap_props.go`, `internal/layout/style_properties.go` | `TestGridRowGapVsColumnGap` |
+| `table-layout` | auto \| fixed \| inherit | `internal/layout/style_properties.go` | `TestTableLayoutFixedIgnoresContentMax` |
+| `text-decoration` | none \| [ underline \|\| overline \|\| line-through \|\| blink ] \| inherit | `internal/layout/style_properties.go` | `TestBoldUnderline` |
+| `text-indent` | <length> \| <percentage> \| inherit | `internal/layout/style_properties.go` | `TestTextIndentInheritsAndShiftsFirstLine` |
+| `unicode-bidi` | normal \| embed \| bidi-override \| inherit | `internal/layout/style_text_support_props.go` | `TestApplyTextSupportPropsUnicodeBidi` |
+| `vertical-align` | baseline \| sub \| super \| top \| text-top \| middle \| bottom \| text-bottom \| <percentage> \| <length> \| inherit | `internal/layout/style_properties.go` | `TestTableCellVerticalAlignMiddle` |
+| `visibility` | visible \| hidden \| collapse \| inherit | `internal/layout/style_properties.go` | `TestVisibilityHidden` |
+| `white-space` | normal \| pre \| nowrap \| pre-wrap \| pre-line \| inherit | `internal/layout/style_properties.go` | `TestWhiteSpacePre`, `TestWhiteSpacePreWrap` |
+| `width` | <length> \| <percentage> \| auto \| inherit | `internal/layout/style_properties.go` | `TestApplyImageKeyBackgroundAlias`, `TestBoxSizingBorderBox`, `TestCascadeEngineSupportsPropertyValues`, `TestImageSet`, `TestOutlineParse`, `TestPseudoElementSelectorDoesNotApplyToHost` |
+| `word-spacing` | normal \| <length> \| inherit | `internal/layout/style_properties.go` | `TestWordSpacingInherits`, `TestWordSpacingWidensRuns` |
+| `writing-mode` | horizontal-tb \| vertical-rl \| vertical-lr \| sideways-rl \| sideways-lr | `internal/layout/style_properties.go` | `TestWritingModeInherits` |
 
-### 2.3 Text & fonts
+### 2.2 Partial (301)
 
-| Property | Status | Notes / verified by |
-|----------|--------|---------------------|
-| `font` (shorthand) | Implemented | Shorthand expands to font-size, line-height, font-family, font-weight, font-style (`parseFontShorthand` `style_values.go`). Test `TestFontShorthand` |
-| `font-family` (named + generic) | Implemented | parsed + inherited; embedded Liberation Sans family (R/B/I/BI) plus **font registry** (`--font-path`, optional `--use-system-fonts`) and `@font-face` TTF/OTF/WOFF1 (local and `https://` via `FetchSub`) on **PDF and image** paths (see §4 / §5). Named families resolve as named; missing faces fall through the author stack, then Liberation; only CSS generics (`serif`/`sans-serif`/`monospace`) expand to Liberation |
-| `writing-mode` (`horizontal-tb|vertical-rl|vertical-lr`) | Implemented | Parsed + inherited (`TestWritingModeInherits`). `vertical-rl` / `vertical-lr` format vertical text lines with RotateDeg == -90 and vertical writing height calculation (`inline_paint.go`, `layout.go`); `vertical-rl` columns anchor at the content box's right edge (`inline.go`), plus physical mapping of logical box properties (`style_properties.go`). |
-| `unicode-bidi` (`normal\|embed\|isolate\|bidi-override\|isolate-override\|plaintext`) | Implemented (run order) | `bidi-override` and `isolate-override` reorder inline runs when `direction:rtl`; `embed`/`isolate` reverse strong-RTL runs; `plaintext` uses a first-strong heuristic. Reorders runs, not characters; not a full Unicode bidi algorithm. Apply arm `style_text_support_props.go:30`; consumers `inline_collect.go:127` and `:143`. Fixture-62 row 108. |
-| `text-orientation` (`mixed\|upright\|sideways`) | Implemented (subset) | Vertical writing only: `upright` stacks each rune upright down the column, centered, using the rune's measured width as its vertical advance; `sideways` is treated like `mixed` (rotated run). Per-rune, not per-grapheme-cluster; no vertical font metrics. Apply arm `style_text_support_props.go:34`; consumers `inline_paint.go:373` and `inline_vertical_writing.go`. Fixture-62 row 94. |
-| `text-combine-upright` (`none\|all\|digits <n>`) | Implemented (subset) | Vertical writing only: the whole run paints as one upright cell centered in the column when `all` is set or when every character is a digit within the `digits N` cap. No scaled cell; mixed digit/letter runs stay rotated. Apply arm `style_text_support_props.go:38`; consumers `inline_paint.go:373/379` and `inline_vertical_writing.go`. Fixture-62 row 75. |
-| `font-size` | Implemented | `style.go` `fontSize` (px/pt/em/%/rem/in/cm/mm/pc + keywords); `%`/`em` resolve against parent; test `TestFontSizeEmInherit` |
-| `font-weight` (`normal|bold|100-900`) | Implemented | ≥700 selects Liberation Sans **Bold** (or BoldItalic); fake stroke bold only if a bold face is missing; tests `TestRealBoldFaceOps`, `TestBoldFaceInInvoicePDF` |
-| `font-optical-sizing` (`auto\|none`) | Implemented (lite) | On a face with `fvar`, `auto` instances `opsz` from used font-size via `Font.Instance` (`font_instance.go`). Static Liberation/DejaVu stay a spec no-op. Tests `TestOptical|TestResolveFontVariants`. |
-| `font-palette` (`normal\|light\|dark\|<dashed-ident>`) | Implemented (lite) | COLR+CPAL faces select a palette; paint uses the first CPAL color as a solid fill (`fontPaletteFill`). No layered COLR, no `palette-mix()`. Test `TestFontPalette`. |
-| `font-variation-settings` (`normal\|[ <string> <number> ]#`) | Implemented (lite) | Quoted 4-letter tags instance glyf/hmtx on `fvar` faces (`resolveFontVariants` -> `Font.Instance`). Static faces no-op. Tests `TestVariation|TestResolveFontVariants`. |
-| `font-style` (`italic|oblique`) | Implemented | selects Liberation Sans Italic / BoldItalic (`pdf.FaceSet.Resolve`); test `TestRealBoldFaceOps` |
-| `font-language-override` (`normal\|<string>`) | Implemented (subset) | OpenType language tags map to BCP47 (TRK->tr, SRB->sr, and other documented tags); the tag rides `OpText.TextLanguage` into `shaping.Input.Language` (`internal/pdf/shape_gotext.go:216`) for PDF and PNG. Observable with DejaVu Sans `SRB` `locl` substitution. Apply arm `style_font_variant_props.go:50`; fixture-61 row 62. |
-| `font-feature-settings` | Implemented (subset) | 4-letter OT tags parsed into `OpText.FontFeatures`; PDF `TextShowLanguageFeatures` and PNG `ShapeRunWithFeaturesLanguage` pass them to go-text. Apply `style_font_feature_props.go`. Tests `TestApplyFontFeatureSettings`, `TestFontFeatureSettingsReachShaper`. |
-| `font-kerning` (`auto\|normal\|none`) | Implemented (subset) | `none` emits `kern` 0 into `OpText.FontFeatures`. Test `TestFontKerningNone`. |
-| `font-variant` / `font-variant-caps` / `font-variant-ligatures` / `font-variant-numeric` / `font-variant-position` / `font-variant-east-asian` | Implemented (subset) | Keywords map to OT tags (`smcp`, `liga`, `tnum`, `subs`, `jp90`, …) on the same feature pipeline. Tests `TestFontVariantCapsMapsToSmcp`, `TestFontVariantShorthandExpands`. |
-| `font-variant-alternates` / `font-variant-emoji` | Implemented (lite) | Alternates: `historical-forms`/`stylistic()`/`swash()`/`styleset(N)` map to OT `hist`/`salt`/`swsh`/`ssNN`. Emoji: `text` vs `emoji` presentation lite (`fontVariantEmojiFill`). Tests `TestFontVariantAlternate*`, `TestFontVariantEmoji`. |
-| `font-synthesis` / `font-synthesis-weight` | Implemented (subset) | `none` / `weight` gate fake bold via `Op.NoFakeBold` / `FakeBoldFor`. Test `TestFontSynthesisWeightNoneDisablesFakeBold`. |
-| `font-synthesis-style` / `font-synthesis-small-caps` / `font-synthesis-position` | Implemented (lite) | Geometric consumers: FakeOblique on upright-only italic faces; small-caps uppercase+scale when synthesis auto; sub/super size+baseline shift when synthesis auto. Tests `TestFontSynthesisStyleFakeOblique`, `TestFontSynthesisSmallCapsUppercases`, `TestFontSynthesisPositionSubScales`. |
-| `font-width` / `font-stretch` | Implemented (lite) | Keywords/% scale glyph advances (`fontWidthScale`); `font-stretch` aliases `font-width`. No width-master face pick. Tests `TestFontStretchAliasesToWidth`, `TestFontWidthCondensesAdvance`. |
-| `font-size-adjust` (`none\|<number>`) | Implemented (subset) | ex-height number form; `usedFontSize` scales measure and `OpText.Size` from OS/2 `sxHeight`. Test `TestFontSizeAdjustScalesUsedSize`. |
-| `text-align` (`left|right|center|justify`) | Implemented (justify lite) | left/right/center; `justify` distributes leftover space between word items on non-final lines (`inline.go`); test `TestTextAlignJustify` |
-| `text-decoration` (`none|underline|line-through`) | Implemented | drawn in `inline.go`; test `TestBoldUnderline` |
-| `text-decoration-inset` | Implemented (subset) | `auto` or 1-2 lengths; the first endpoint is stored in points and trims the decoration's outer endpoints (negative values extend). Percentages are rejected. Apply arm `style_text_support_props.go:42`; consumer `inline_paint.go:841`. Fixture-62 row 78. |
-| `initial-letter` | Implemented (lite) | Drop/raise on a **real leading element** (e.g. `<span>`). `:first-letter` is rejected by the CSS selector parser; no synthesized first-letter box. Sizes glyph to N lines and excludes following lines (float-like). Apply `style_initial_letter_props.go`; consumer `inline_initial_letter.go`. Test `TestInitialLetterSpansThreeLines`. |
-| `initial-letter-align` | Implemented (lite) | alphabetic / hanging / leading / ideographic use distinct Y offsets. Requires `initial-letter: N`. Test `TestInitialLetterAlignHangingShiftsY`. |
-| `initial-letter-wrap` | Implemented (lite) | Rectangular exclusion: `none` no side wrap, `first` first line, `all`/`grid` full sink band. No glyph-contour wrap. Test `TestInitialLetterWrapNoneDoesNotExclude`. |
-| `text-decoration-skip` / `-box` / `-self` / `-spaces` | Implemented (subset) | The `none\|auto` shorthand expands onto the longhands: `skip-box:all` breaks the stroke at an item with inline padding/border, `skip-self:skip-all` suppresses the item's own decoration, `skip-spaces` trims spacer runes, `skip-ink` gaps descenders. Decorations paint per item, so ancestor decorations are not propagated. Apply arms `style_text_support_props.go:46-59`; consumers `inline_paint.go:543/550/554`. Fixture-62 rows 80/81/83/84. |
-| `text-indent` | Implemented | Inherited and applied to the first line (`inline.go`); test `TestTextIndentInheritsAndShiftsFirstLine` |
-| `text-box` / `text-box-trim` / `text-box-edge` | Implemented (subset) | Shorthand + longhands in `style_text_box_props.go`. `trim-both` (also start/end) drops half-leading on the block first/last line; `cap`/`ex`/`alphabetic` retarget edges while trimming (`inline_text_box.go`, `lineMetrics`). Test `TestTextBoxTrimBothShrinksHalfLeading`. |
-| `text-autospace` | Implemented (subset) | `ideograph-alpha` / `auto` insert 1/8em between ideograph and Latin letters in measure/paint (`inline_text_spacing.go`, `inline_paint.go`). Test `TestTextAutospaceIdeographAlpha`. |
-| `text-spacing` / `text-spacing-trim` | Implemented (lite) | Shorthand stores and mirrors trim tokens; `trim-start`/`trim-both` hang half the advance of leading fullwidth opening punctuation at line origin. Apply `style_text_spacing_props.go`. |
-| `text-group-align` | Implemented (lite) | When `text-align` is start/left, `center`/`end`/`right` remap line origin (`resolveTextGroupAlign`). Not a full multi-line group shift. Test `TestTextGroupAlignCenter`. |
-| `text-fit` | Not implemented | Apply stores `none\|auto\|scale` only; no scale-search consumer (L). Honesty: stays Unsupported. |
-| `hyphens` / `hyphenate-character` | Implemented (SHY/manual) | `none` suppresses soft hyphens; `manual` and `auto` honor authored U+00AD breaks and insert `hyphenate-character` (default `-`). No dictionary auto. Consumers `inline_hyphenation.go`, `packInlineLine`. Tests `TestSoftHyphenUsesHyphenateCharacter`, `TestHyphenateLimitChars`. |
-| `hyphenate-limit-chars` / `hyphenate-limit-zone` / `hyphenate-limit-lines` / `hyphenate-limit-last` | Implemented (SHY) | Limits apply to soft-hyphen breaks: min word/before/after, trailing zone, consecutive hyphenated lines, and last-line suppression. `style_hyphenation_props.go` + `inline_hyphenation.go`. Test `TestHyphenateLimitChars`. |
-| `hanging-punctuation` | Implemented (subset) | `first` hangs leading opening punctuation outside the line start (`emitLine`). Other keywords stored. Test `TestHangingPunctuationFirst`. |
-| `line-height` (number, length, `normal`) | Implemented | consumed in line metrics; test `TestMarginCollapse` |
-| `letter-spacing` | Implemented | consumed in run width |
-| `word-spacing` | Implemented | Inherited; extra width per ASCII space (`style_properties.go` apply + `inline_paint.go`). Tests `TestWordSpacingInherits`, `TestWordSpacingWidensRuns` |
-| `text-transform` | Implemented | `none` | `uppercase` | `lowercase` | `capitalize` (`setTextTransformValue`; applied at measure and paint) |
-| `vertical-align` (`baseline|top|middle|bottom`) | Implemented | table cells: top/middle/bottom offset within row (`emitCell`); inline replaced: top/middle/bottom vs baseline; test `TestTableCellVerticalAlignMiddle` |
-| `white-space` (`normal|nowrap|pre|pre-wrap|pre-line`) | Implemented | `pre-wrap` preserves spaces and wraps; `pre-line` collapses spaces, keeps newlines, wraps (`setWhiteSpaceValue`, `collectPreservingNewlines`). Tests `TestWhiteSpacePre`, `TestWhiteSpacePreWrap` |
-| `visibility` (`visible|hidden|collapse`) | Implemented | `hidden`/`collapse` skip paint, keep layout size (`hidesPaint`). Descendants inherit. Supports table columns, column groups, and rows (`layout_tables.go`). Test `TestVisibilityHidden`, `css_partial_remaining_test.go` |
-| `overflow-wrap` / `word-wrap` / `word-break` | Implemented | Parsed `applyTextWrapProps` (`style_properties.go`). Used by `wordBreakOf` (`layout_measure.go`). `word-wrap` is the overflow-wrap alias. `anywhere` / `break-all` mid-break; `break-word` soft wrap; `keep-all` preserves non-breaking runs. Tests `overflow_wrap_test.go`, `css_partial_remaining_test.go` |
-| `list-style` / `list-style-type` / `list-style-image` / `list-style-position` | Implemented | `inside` puts the marker in the first line; `outside` (default) hangs in the gutter; `list-style-image` paints via image resolver with fallback to type. Tests `TestListStylePositionInside`, `TestListStyleImage` |
-| `quotes` | Implemented | Two-string pair inherited; `content: open-quote` / `close-quote` with nesting depth. Test `TestQuotes` |
-| `counter-reset` / `counter-set` / `counter-increment` / `counter()` / `content` | Implemented | Decimal counters on `::before`/`::after`, nested `counters(name, ".")`, and `content` text/attr/quotes/counters. Walk order reset → set → increment (`counter.go`). Tests `TestCounterInBefore`, `TestCounterResetIncrementLayout`, `TestCounterSetBeforeIncrement`, `TestQuotes` |
+| Property | Accepted values | Source | Named missing behavior |
+|---|---|---|---|
+| `accent-color` | auto \| <color> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `align-content` | normal \| <baseline-position> \| <content-distribution> \| <overflow-position>? <content-position> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `align-items` | normal \| stretch \| <baseline-position> \| <overflow-position>? <self-position> | `internal/layout/style_properties.go` | Handler and consumer exist (flex.go:1615, grid.go:538), but no test proves cross-axis item geometry. Missing behavior: a layout regression that sets align-items to center, stretch, or flex-start and asserts item positions; TestWebkitPrefixAliases only proves the alias mapping. |
+| `align-self` | auto \| <overflow-position>? [ normal \| <self-position> ]\| stretch \| <baseline-position> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `alignment-baseline` | baseline \| <baseline-metric> | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `aspect-ratio` | auto \|\| <ratio> | `internal/layout/style_aspect_ratio_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `backface-visibility` | visible \| hidden | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `background-attachment` | scroll \| fixed \| inherit | `internal/layout/style_properties.go` | Parsed and stored (BackgroundAttachment, style_properties.go:1297) but no layout or paint consumer reads it. Missing behavior: fixed/local versus scroll distinction. Only test is a stored-string assertion (TestBackgroundLonghands). |
+| `background-blend-mode` | <'mix-blend-mode'># | `internal/layout/style_advanced_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `background-clip` | <bg-clip># | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `background-origin` | <visual-box># | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `background-position` | [ [ <percentage> \| <length> \| left \| center \| right ] [ <percentage> \| <length> \| top \| center \| bottom ]? ] \| [ [ left \| center \| right ] \|\| [ top \| center \| bottom ] ] \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `background-position-block` | [ center \| [ [ start \| end ]? <length-percentage>? ]! ]# | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `background-position-inline` | [ center \| [ [ start \| end ]? <length-percentage>? ]! ]# | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `background-position-x` | [ center \| [ [ left \| right \| x-start \| x-end ]? <length-percentage>? ]! ]# | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `background-position-y` | [ center \| [ [ top \| bottom \| y-start \| y-end ]? <length-percentage>? ]! ]# | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `background-repeat` | repeat \| repeat-x \| repeat-y \| no-repeat \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `background-repeat-block` | <repetition># | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `background-repeat-inline` | <repetition># | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `background-repeat-x` | <repetition># | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `background-repeat-y` | <repetition># | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `background-size` | <bg-size># | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-block` | <'border-block-start'> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-block-color` | <'border-top-color'>{1,2} | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-block-end` | <line-width> \|\| <line-style> \|\| <color> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-block-end-color` | <color> \| <image-1D> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-block-end-radius` | <length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]? | `internal/layout/style_logical_border.go`, `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-block-end-style` | <line-style> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-block-end-width` | <line-width> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-block-start` | <line-width> \|\| <line-style> \|\| <color> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-block-start-color` | <color> \| <image-1D> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-block-start-radius` | <length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]? | `internal/layout/style_logical_border.go`, `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-block-start-style` | <line-style> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-block-start-width` | <line-width> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-block-style` | <'border-top-style'>{1,2} | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-block-width` | <'border-top-width'>{1,2} | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-bottom-color` | <color> \| transparent \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-bottom-left-radius` | <length-percentage [0,∞]>{1,2} | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-bottom-radius` | <length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]? | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-bottom-right-radius` | <length-percentage [0,∞]>{1,2} | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-bottom-style` | <border-style> \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-bottom-width` | <border-width> \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-end-end-radius` | <border-radius> | `internal/layout/style_logical_border.go`, `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-end-start-radius` | <border-radius> | `internal/layout/style_logical_border.go`, `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-image` | <'border-image-source'> \|\| <'border-image-slice'> [ / <'border-image-width'> \| / <'border-image-width'>? / <'border-image-outset'> ]? \|\| <'border-image-repeat'> | `internal/layout/border_image.go`, `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-image-outset` | [ <length [0,∞]> \| <number [0,∞]> ]{1,4} | `internal/layout/border_image.go`, `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-image-repeat` | [ stretch \| repeat \| round \| space ]{1,2} | `internal/layout/border_image.go`, `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-image-slice` | [<number [0,∞]> \| <percentage [0,∞]>]{1,4} && fill? | `internal/layout/border_image.go`, `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-image-source` | none \| <image> | `internal/layout/border_image.go`, `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-image-width` | [ <length-percentage [0,∞]> \| <number [0,∞]> \| auto ]{1,4} | `internal/layout/border_image.go`, `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-inline` | <'border-block-start'> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-inline-color` | <'border-top-color'>{1,2} | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-inline-end` | <line-width> \|\| <line-style> \|\| <color> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-inline-end-color` | <color> \| <image-1D> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-inline-end-radius` | <length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]? | `internal/layout/style_logical_border.go`, `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-inline-end-style` | <line-style> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-inline-end-width` | <line-width> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-inline-start` | <line-width> \|\| <line-style> \|\| <color> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-inline-start-color` | <color> \| <image-1D> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-inline-start-radius` | <length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]? | `internal/layout/style_logical_border.go`, `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-inline-start-style` | <line-style> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-inline-start-width` | <line-width> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-inline-style` | <'border-top-style'>{1,2} | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-inline-width` | <'border-top-width'>{1,2} | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-left-color` | <color> \| transparent \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-left-radius` | <length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]? | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-left-style` | <border-style> \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-left-width` | <border-width> \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-right-color` | <color> \| transparent \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-right-radius` | <length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]? | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-right-style` | <border-style> \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-right-width` | <border-width> \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-start-end-radius` | <border-radius> | `internal/layout/style_logical_border.go`, `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-start-start-radius` | <border-radius> | `internal/layout/style_logical_border.go`, `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-top-color` | <color> \| transparent \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-top-left-radius` | <length-percentage [0,∞]>{1,2} | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-top-radius` | <length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]? | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-top-right-radius` | <length-percentage [0,∞]>{1,2} | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-top-style` | <border-style> \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `border-top-width` | <border-width> \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `bottom` | <length> \| <percentage> \| auto \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `box-decoration-break` | slice \| clone | `internal/layout/style_advanced_props.go` | Parsed and stored (BoxDecorationBreak, style_advanced_props.go:64) but no layout or paint consumer reads it. Missing behavior: clone repeats border and background per fragment. Only test is a stored-string assertion (TestWaveCBoxDecorationBreak). |
+| `box-shadow` | none \| <shadow># | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `box-shadow-blur` | <length [0,∞]># | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `box-shadow-color` | <color># | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `box-shadow-inset` | inset | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `box-shadow-offset` | [ none \| <length>{1,2} ]# | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `box-shadow-position` | [ outset \| inset ]# | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `box-shadow-spread` | <length># | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `break-after` | auto \| avoid \| always \| all \| avoid-page \| page \| left \| right \| recto \| verso \| avoid-column \| column \| avoid-region \| region | `internal/layout/style_properties.go` | Parsed and stored (PageBreakAfter, style_properties.go:1694 and :1696); consumed by the flex path (flex.go:224). Missing behavior: a layout regression that proves the break value moves or keeps the box. TestPageBreakParsing covers parsing only. page-break-after is an alias. |
+| `break-before` | auto \| avoid \| always \| all \| avoid-page \| page \| left \| right \| recto \| verso \| avoid-column \| column \| avoid-region \| region | `internal/layout/style_properties.go` | Parsed and stored (PageBreakBefore, style_properties.go:1681 and :1683); consumed by the independent-block and flex paths (independent_blocks.go:105, flex.go:223). Missing behavior: a layout regression that proves the break value moves or keeps the box. TestPageBreakParsing covers parsing only. page-break-before is an alias. |
+| `break-inside` | auto \| avoid \| avoid-page \| avoid-column \| avoid-region | `internal/layout/style_properties.go` | Parsed and stored (PageBreakInside, style_properties.go:1708 and :1710); consumed by the independent-block path (independent_blocks.go:109, flex.go:225). Missing behavior: a layout regression that proves the break value moves or keeps the box. TestPageBreakParsing covers parsing only. page-break-inside is an alias. |
+| `caption-side` | top \| bottom \| inherit | `internal/layout/style_properties.go` | Parsed and consumed by table caption placement (layout_tables.go:123). Missing behavior: a placement regression for bottom/left/right. TestCaptionSideParse covers parsing only. |
+| `clear` | none \| left \| right \| both \| inherit | `internal/layout/style_properties.go` | advances past named float bottoms (`float.go`); test `TestFloatLeftRightClear` |
+| `clip` | <shape> \| auto \| inherit | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `clip-path` | <clip-source> \| [ <basic-shape> \|\| <geometry-box> ] \| none | `internal/layout/clip_path.go`, `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `clip-rule` | nonzero \| evenodd | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `color-interpolation` | auto \| sRGB \| linearRGB | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `color-interpolation-filters` | auto \| sRGB \| linearRGB | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `color-scheme` | normal \| [ light \| dark \| <custom-ident> ]+ && only? | `internal/layout/style_color_adjust_props.go` | Parsed, stored, and inherited (ColorScheme, style_color_adjust_props.go:63) but no canvas or text consumer reads it. Missing behavior: dark canvas with light default text. Existing tests cover parsing, rejection, and inheritance only. |
+| `column-count` | auto \| <integer [1,∞]> | `internal/layout/style_multicol_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `column-fill` | auto \| balance \| balance-all | `internal/layout/style_multicol_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `column-height` | auto \| <length [0,∞]> | `internal/layout/style_multicol_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `column-rule` | <gap-rule-list> \| <gap-auto-rule-list> | `internal/layout/style_multicol_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `column-rule-color` | <line-color-list> \| <auto-line-color-list> | `internal/layout/style_multicol_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `column-rule-style` | <line-style-list> \| <auto-line-style-list> | `internal/layout/style_multicol_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `column-rule-width` | <line-width-list> \| <auto-line-width-list> | `internal/layout/style_multicol_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `column-span` | none \| <integer [1,∞]> \| all \| auto | `internal/layout/style_multicol_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `column-width` | auto \| <length [0,∞]> | `internal/layout/style_multicol_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `column-wrap` | auto \| nowrap \| wrap | `internal/layout/style_multicol_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `columns` | [ <'column-width'> \|\| <'column-count'> ] [ / <'column-height'> ]? | `internal/layout/style_multicol_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `contain` | none \| strict \| content \| [ [size \| inline-size] \|\| layout \|\| style \|\| paint ] | `internal/layout/style_containment_props.go` | `size` sizes the box from the `contain-intrinsic-*` values as if empty (children still paint and may overflow); `paint` clips descendant paint to the padding box through the overflow-clip stamp. |
+| `contain-intrinsic-block-size` | auto? [ none \| <length [0,∞]> ] | `internal/layout/style_containment_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `contain-intrinsic-height` | auto? [ none \| <length [0,∞]> ] | `internal/layout/style_containment_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `contain-intrinsic-inline-size` | auto? [ none \| <length [0,∞]> ] | `internal/layout/style_containment_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `contain-intrinsic-size` | [ auto? [ none \| <length [0,∞]> ] ]{1,2} | `internal/layout/style_containment_props.go` | Placeholder size that replaces the content-derived size under size containment. |
+| `contain-intrinsic-width` | auto? [ none \| <length [0,∞]> ] | `internal/layout/style_containment_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `container` | <'container-name'> [ / <'container-type'> ]? | `internal/layout/style_container_props.go`, `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `container-name` | none \| <custom-ident>+ | `internal/layout/style_container_props.go`, `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `container-type` | normal \| [ [ size \| inline-size ] \|\| scroll-state ] | `internal/layout/style_container_props.go`, `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `content` | normal \| none \| [ <string> \| <uri> \| <counter> \| attr(<identifier>) \| open-quote \| close-quote \| no-open-quote \| no-close-quote ]+ \| inherit | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `direction` | ltr \| rtl \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `dominant-baseline` | auto \| <baseline-metric> | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `dynamic-range-limit` | standard \| no-limit \| constrained \| <dynamic-range-limit-mix()> | `internal/layout/style_color_adjust_props.go` | Parsed and stored (DynamicRangeLimit, style_color_adjust_props.go:72) but no sRGB clamp consumer reads it. Missing behavior: sRGB channel clamp. Existing tests cover parsing and rejection only. |
+| `empty-cells` | show \| hide \| inherit | `internal/layout/style_advanced_props.go` | `show` (default) renders borders/background of empty cells (no visible content); `hide` suppresses `border`/`background` of empty cells. |
+| `fill` | <paint> | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `fill-opacity` | <'opacity'> | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `fill-rule` | nonzero \| evenodd | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `filter` | none \| <filter-value-list> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `flex-basis` | content \| <'width'> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `flex-shrink` | <number [0,∞]> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `flex-wrap` | nowrap \| [ wrap \| wrap-reverse ] \|\| balance | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `float` | left \| right \| none \| inherit | `internal/layout/style_properties.go` | out-of-flow pack to side; stacks on same side; simple exclusion for following in-flow content; float inside `td` packs in cell BFC; in-flow `table` always clears below floats (no shrink-beside); `float` on `table-cell`/`table-row` blockifies (CSS2.1 §9.7). |
+| `float-offset` | <length-percentage> | `internal/layout/style_float_page_props.go` | Length (or `%` of float height) block-axis nudge on `placeFloat` via `nudgeFloatOffset` (`style_float_page_props.go`). |
+| `float-reference` | inline \| column \| region \| page | `internal/layout/style_float_page_props.go` | `inline` is the current BFC. |
+| `font-family` | [ [ <family-name> \| <generic-family> ] [, <family-name> \| <generic-family>]* ] \| inherit | `internal/layout/style_cascade.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `font-feature-settings` | normal \| <feature-tag-value># | `internal/layout/style_font_feature_props.go` | 4-letter OT tags parsed into `OpText.FontFeatures` and passed to the shaper (internal/fonts/shape_gotext.go). Missing behavior: verified shaping output for each tag. |
+| `font-kerning` | auto \| normal \| none | `internal/layout/style_font_feature_props.go` | `none` emits `kern` 0 into `OpText.FontFeatures`. |
+| `font-language-override` | normal \| <string> | `internal/layout/style_font_variant_props.go` | OpenType language tags map to BCP47 (TRK->tr, SRB->sr, and other documented tags); the tag rides `OpText.TextLanguage` into the shaping input. The audit records the consumer as accessor-only, so a shaping-output regression is missing. |
+| `font-optical-sizing` | auto \| none | `internal/layout/style_font_variant_props.go` | On a face with `fvar`, `auto` instances `opsz` from used font-size via `Font.Instance` (`font_instance.go`). |
+| `font-palette` | normal \| light \| dark \| <palette-identifier> \| <palette-mix()> | `internal/layout/style_font_variant_props.go` | COLR+CPAL faces select a palette; paint uses the first CPAL color as a solid fill (`fontPaletteFill`). |
+| `font-size-adjust` | none \| [ ex-height \| cap-height \| ch-width \| ic-width \| ic-height ]? [ from-font \| <number [0,∞]> ] | `internal/layout/style_font_size_adjust_props.go` | ex-height number form; `usedFontSize` scales measure and `OpText.Size` from OS/2 `sxHeight`. |
+| `font-synthesis` | none \| [ weight \|\| style \|\| small-caps \|\| position] | `internal/layout/style_font_synthesis_props.go` | `none` / `weight` gate fake bold via `Op.NoFakeBold` / `FakeBoldFor`. |
+| `font-synthesis-position` | auto \| none | `internal/layout/style_font_synthesis_props.go` | Geometric consumers: FakeOblique on upright-only italic faces; small-caps uppercase+scale when synthesis auto; sub/super size+baseline shift when synthesis auto. |
+| `font-synthesis-small-caps` | auto \| none | `internal/layout/style_font_synthesis_props.go` | Geometric consumers: FakeOblique on upright-only italic faces; small-caps uppercase+scale when synthesis auto; sub/super size+baseline shift when synthesis auto. |
+| `font-synthesis-style` | auto \| none \| oblique-only | `internal/layout/style_font_synthesis_props.go` | Geometric consumers: FakeOblique on upright-only italic faces; small-caps uppercase+scale when synthesis auto; sub/super size+baseline shift when synthesis auto. |
+| `font-synthesis-weight` | auto \| none | `internal/layout/style_font_synthesis_props.go` | `none` / `weight` gate fake bold via `Op.NoFakeBold` / `FakeBoldFor`. |
+| `font-variant` | normal \| small-caps \| inherit | `internal/layout/style_font_feature_props.go` | Keywords map to OT tags (`smcp`, `liga`, `tnum`, `subs`, `jp90`, …) on the same feature pipeline. |
+| `font-variant-alternates` | normal \| [ stylistic(<font-feature-value-name>) \|\| historical-forms \|\| styleset(<font-feature-value-name>#) \|\| character-variant(<font-feature-value-name>#) \|\| swash(<font-feature-value-name>) \|\| ornaments(<font-feature-value-name>) \|\| annotation(<font-feature-value-name>) ] | `internal/layout/style_font_feature_props.go` | Alternates: `historical-forms`/`stylistic()`/`swash()`/`styleset(N)` map to OT `hist`/`salt`/`swsh`/`ssNN`. |
+| `font-variant-caps` | normal \| small-caps \| all-small-caps \| petite-caps \| all-petite-caps \| unicase \| titling-caps | `internal/layout/style_font_feature_props.go` | Keywords map to OT tags (`smcp`, `liga`, `tnum`, `subs`, `jp90`, …) on the same feature pipeline. |
+| `font-variant-east-asian` | normal \| [ <east-asian-variant-values> \|\| <east-asian-width-values> \|\| ruby ] | `internal/layout/style_font_feature_props.go` | Keywords map to OT tags (`smcp`, `liga`, `tnum`, `subs`, `jp90`, …) on the same feature pipeline. |
+| `font-variant-emoji` | normal \| text \| emoji \| unicode | `internal/layout/style_font_feature_props.go` | Alternates: `historical-forms`/`stylistic()`/`swash()`/`styleset(N)` map to OT `hist`/`salt`/`swsh`/`ssNN`. |
+| `font-variant-ligatures` | normal \| none \| [ <common-lig-values> \|\| <discretionary-lig-values> \|\| <historical-lig-values> \|\| <contextual-alt-values> ] | `internal/layout/style_font_feature_props.go` | Keywords map to OT tags (`smcp`, `liga`, `tnum`, `subs`, `jp90`, …) on the same feature pipeline. |
+| `font-variant-numeric` | normal \| [ <numeric-figure-values> \|\| <numeric-spacing-values> \|\| <numeric-fraction-values> \|\| ordinal \|\| slashed-zero ] | `internal/layout/style_font_feature_props.go` | Keywords map to OT tags (`smcp`, `liga`, `tnum`, `subs`, `jp90`, …) on the same feature pipeline. |
+| `font-variant-position` | normal \| sub \| super | `internal/layout/style_font_feature_props.go` | Keywords map to OT tags (`smcp`, `liga`, `tnum`, `subs`, `jp90`, …) on the same feature pipeline. |
+| `font-variation-settings` | normal \| [ <opentype-tag> <number> ]# | `internal/layout/style_font_variant_props.go` | Quoted 4-letter tags instance glyf/hmtx on `fvar` faces (`resolveFontVariants` -> `Font.Instance`). |
+| `font-width` | normal \| <percentage [0,∞]> \| ultra-condensed \| extra-condensed \| condensed \| semi-condensed \| semi-expanded \| expanded \| extra-expanded \| ultra-expanded | `internal/layout/style_font_width_props.go` | Keywords/% scale glyph advances (`fontWidthScale`); `font-stretch` aliases `font-width`. |
+| `forced-color-adjust` | auto \| none \| preserve-parent-color | `internal/layout/style_color_adjust_props.go` | Parsed, stored, and inherited (ForcedColorAdjust, style_color_adjust_props.go:54) but no forced-colors consumer reads it. Missing behavior: forced-colors opt-out. Existing tests cover parsing, rejection, and inheritance only. |
+| `grid-area` | <grid-line> [ / <grid-line> ]{0,3} | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `grid-auto-columns` | <track-size>+ | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `grid-auto-flow` | [ row \| column ] \|\| dense | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `grid-auto-rows` | <track-size>+ | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `grid-column` | <grid-line> [ / <grid-line> ]? | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `grid-column-end` | <grid-line> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `grid-column-start` | <grid-line> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `grid-template-areas` | none \| <string>+ | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `grid-template-columns` | none \| <track-list> \| <auto-track-list> \| subgrid <line-name-list>? | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `grid-template-rows` | none \| <track-list> \| <auto-track-list> \| subgrid <line-name-list>? | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `hanging-punctuation` | none \| [ first \|\| [ force-end \| allow-end ] \|\| last ] | `internal/layout/style_hyphenation_props.go` | `first` hangs leading opening punctuation outside the line start (`emitLine`). |
+| `height` | <length> \| <percentage> \| auto \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `image-orientation` | from-image \| none \| [ <angle> \|\| flip ] | `internal/layout/style_image_adjust_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `image-resolution` | [ from-image \|\| <resolution> ] && snap? | `internal/layout/style_image_adjust_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `initial-letter` | normal \| <number [1,∞]> <integer [1,∞]> \| <number [1,∞]> && [ drop \| raise ]? | `internal/layout/style_initial_letter_props.go` | Drop/raise on a real leading element (for example `<span>`); `:first-letter` is rejected by the selector parser; no synthesized first-letter box. Sizes the glyph to N lines and excludes following lines (float-like). |
+| `initial-letter-align` | [ border-box? [ alphabetic \| ideographic \| hanging \| leading ]? ]! | `internal/layout/style_initial_letter_props.go` | alphabetic / hanging / leading / ideographic use distinct Y offsets. |
+| `initial-letter-wrap` | none \| first \| all \| grid \| <length-percentage> | `internal/layout/style_initial_letter_props.go` | Rectangular exclusion: `none` no side wrap, `first` first line, `all`/`grid` full sink band. |
+| `inset-block-end` | <'top'> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `inset-block-start` | <'top'> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `inset-inline-end` | <'top'> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `inset-inline-start` | <'top'> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `isolation` | <isolation-mode> | `internal/layout/style_advanced_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `justify-items` | normal \| stretch \| <baseline-position> \| <overflow-position>? [ <self-position> \| left \| right ] \| legacy \| legacy && [ left \| right \| center ] | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `justify-self` | auto \| <overflow-position>? [ normal \| <self-position> \| left \| right ] \| stretch \| <baseline-position> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `left` | <length> \| <percentage> \| auto \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `letter-spacing` | normal \| <length> \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `line-break` | auto \| loose \| normal \| strict \| anywhere | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `line-clamp` | none \| [<'max-lines'> \|\| <'block-ellipsis'>] -webkit-legacy? | `internal/layout/style_advanced_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `list-style` | [ <'list-style-type'> \|\| <'list-style-position'> \|\| <'list-style-image'> ] \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `list-style-image` | <uri> \| none \| inherit | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `list-style-position` | inside \| outside \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `list-style-type` | disc \| circle \| square \| decimal \| decimal-leading-zero \| lower-roman \| upper-roman \| lower-greek \| lower-latin \| upper-latin \| armenian \| georgian \| lower-alpha \| upper-alpha \| none \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `margin-block-end` | <'margin-top'> | `internal/layout/style_logical_axes.go`, `internal/layout/style_logical_box.go`, `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `margin-block-start` | <'margin-top'> | `internal/layout/style_logical_axes.go`, `internal/layout/style_logical_box.go`, `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `margin-inline-end` | <'margin-top'> | `internal/layout/style_logical_axes.go`, `internal/layout/style_logical_box.go`, `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `margin-inline-start` | <'margin-top'> | `internal/layout/style_logical_axes.go`, `internal/layout/style_logical_box.go`, `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `margin-trim` | none \| block \| [ block-start \|\| block-end ] | `internal/layout/style_advanced_props.go` | Parsed and stored (MarginTrim, style_advanced_props.go:52); consumed by flowTrimBounds and flowOneChild (layout_flow.go:247) to trim first/last in-flow block child margins at container edges. Missing behavior: a geometry regression for trimmed child margins; no behavior test resolves. |
+| `max-height` | <length> \| <percentage> \| none \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `max-lines` | auto \|\| <integer [1,∞]> | `internal/layout/style_advanced_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `max-width` | <length> \| <percentage> \| none \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `min-height` | <length> \| <percentage> \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `min-width` | <length> \| <percentage> \| inherit | `internal/layout/style_properties.go` | Handler and consumer exist (container.go:118 and flex.go:876 clamp to MinWidth), but no test proves the clamp from a min-width declaration. Missing behavior: a layout regression that sets min-width and asserts the box is clamped to the floor; TestCascadeEngineSupportsPropertyValues only checks value acceptance. |
+| `mix-blend-mode` | <blend-mode> \| plus-lighter | `internal/layout/style_advanced_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `object-fit` | fill \| none \| [contain \| cover] \|\| scale-down | `internal/layout/style_image_adjust_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `object-position` | <position> | `internal/layout/style_image_adjust_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `object-view-box` | none \| <basic-shape-rect> | `internal/layout/style_image_adjust_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `opacity` | <opacity-value> | `internal/layout/style_properties.go` | Parsed and consumed: opacity creates a stacking context (layout.go:1002-1014) and the transform/blend path reads it (transform.go:1094 and :1122). Missing behavior: a paint regression for the opacity value and its stacking-context effect. TestCascadeEngineSupportsPropertyValues covers @supports acceptance only. |
+| `order` | <integer> | `internal/layout/style_properties.go` | Handler and consumer exist (flex.go:337 and flex_columns.go:298 sort items by FlexOrder), but no test proves reordering. Missing behavior: a layout regression that sets order and asserts painted item order; TestWebkitPrefixAliases only proves the alias mapping. |
+| `orphans` | <integer> \| inherit | `internal/layout/style_properties.go` | Parsed and stored (Orphans, style_properties.go:1749) but no fragmentation consumer reads it. Missing behavior: fragmentation rule 3, keeping at least N lines at the start of a fragment. No behavior test resolves. |
+| `overflow` | visible \| hidden \| scroll \| auto \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `overflow-block` | visible \| hidden \| clip \| scroll \| auto | `internal/layout/style_overflow_logical.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `overflow-clip-margin` | <visual-box> \|\| <length> | `internal/layout/style_advanced_props.go`, `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `overflow-clip-margin-block` | <visual-box> \|\| <length> | `internal/layout/style_advanced_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `overflow-clip-margin-block-end` | <visual-box> \|\| <length> | `internal/layout/style_advanced_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `overflow-clip-margin-block-start` | <visual-box> \|\| <length> | `internal/layout/style_advanced_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `overflow-clip-margin-bottom` | <visual-box> \|\| <length> | `internal/layout/style_advanced_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `overflow-clip-margin-inline` | <visual-box> \|\| <length> | `internal/layout/style_advanced_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `overflow-clip-margin-inline-end` | <visual-box> \|\| <length> | `internal/layout/style_advanced_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `overflow-clip-margin-inline-start` | <visual-box> \|\| <length> | `internal/layout/style_advanced_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `overflow-clip-margin-left` | <visual-box> \|\| <length> | `internal/layout/style_advanced_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `overflow-clip-margin-right` | <visual-box> \|\| <length> | `internal/layout/style_advanced_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `overflow-clip-margin-top` | <visual-box> \|\| <length> | `internal/layout/style_advanced_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `overflow-inline` | visible \| hidden \| clip \| scroll \| auto | `internal/layout/style_overflow_logical.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `overflow-wrap` | normal \| break-word \| anywhere | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `overflow-x` | visible \| hidden \| clip \| scroll \| auto | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `overflow-y` | visible \| hidden \| clip \| scroll \| auto | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `padding-block-end` | <'padding-top'> | `internal/layout/style_logical_axes.go`, `internal/layout/style_logical_box.go`, `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `padding-block-start` | <'padding-top'> | `internal/layout/style_logical_axes.go`, `internal/layout/style_logical_box.go`, `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `padding-inline-end` | <'padding-top'> | `internal/layout/style_logical_axes.go`, `internal/layout/style_logical_box.go`, `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `padding-inline-start` | <'padding-top'> | `internal/layout/style_logical_axes.go`, `internal/layout/style_logical_box.go`, `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `page` | auto \| <custom-ident> | `internal/layout/style_properties.go` | Parsed and inherited as a used value (PageName, style_properties.go:1667) but no consumer outside the style layer reads it. Missing behavior: a name change forcing a page break, and named @page margin application. TestPageNameInherits covers used-value inheritance only. |
+| `perspective` | none \| <length [0,∞]> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `perspective-origin` | <position> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `right` | <length> \| <percentage> \| auto \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `rotate` | none \| <angle> \| [ x \| y \| z \| <number>{3} ] && <angle> | `internal/layout/style_leftovers.go`, `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `ruby-align` | start \| center \| space-between \| space-around | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `ruby-merge` | separate \| merge \| auto | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `ruby-overhang` | auto \| spaces | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `ruby-position` | [ alternate \|\| [ over \| under ] ] \| inter-character | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `scale` | none \| [ <number> \| <percentage> ]{1,3} | `internal/layout/style_leftovers.go`, `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `scroll-margin` | <length>{1,4} | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `scroll-margin-bottom` | <length> | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `scroll-margin-left` | <length> | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `scroll-margin-right` | <length> | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `scroll-margin-top` | <length> | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `shape-margin` | <length-percentage [0,∞]> | `internal/layout/style_shape_props.go` | Expands the outside contour (circle/ellipse radius or inset edges). |
+| `shape-outside` | none \| [ <basic-shape> \|\| <shape-box> ] \| <image> | `internal/layout/style_shape_props.go` | Basic shapes with `float:left\|right`. |
+| `shape-rendering` | auto \| optimizeSpeed \| crispEdges \| geometricPrecision | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `stroke` | <paint> | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `stroke-dasharray` | none \| <dasharray> | `internal/layout/style_leftovers.go`, `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `stroke-dashoffset` | <length-percentage> \| <number> | `internal/layout/style_leftovers.go`, `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `stroke-linecap` | butt \| round \| square | `internal/layout/style_leftovers.go`, `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `stroke-linejoin` | miter \| round \| bevel | `internal/layout/style_leftovers.go`, `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `stroke-miterlimit` | <number> | `internal/layout/style_leftovers.go`, `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `stroke-opacity` | <'opacity'> | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `stroke-width` | <length-percentage> \| <number> | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `tab-size` | <number [0,∞]> \| <length [0,∞]> | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `text-align` | left \| right \| center \| justify \| inherit | `internal/layout/style_properties.go` | left/right/center; `justify` distributes leftover space between word items on non-final lines (`inline.go`); test `TestTextAlignJustify` |
+| `text-align-all` | start \| end \| left \| right \| center \| <string> \| justify \| match-parent | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `text-align-last` | auto \| start \| end \| left \| right \| center \| justify \| match-parent | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `text-anchor` | start \| middle \| end | `internal/layout/style_paint_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `text-autospace` | normal \| <autospace> \| auto | `internal/layout/style_text_spacing_props.go` | `ideograph-alpha` / `auto` insert 1/8em between ideograph and Latin letters in measure/paint (`inline_text_spacing.go`, `inline_paint.go`). |
+| `text-box` | normal \| <'text-box-trim'> \|\| <'text-box-edge'> | `internal/layout/style_text_box_props.go` | Shorthand + longhands in `style_text_box_props.go`. |
+| `text-box-edge` | auto \| <text-edge> | `internal/layout/style_text_box_props.go` | Shorthand + longhands in `style_text_box_props.go`. |
+| `text-box-trim` | none \| trim-start \| trim-end \| trim-both | `internal/layout/style_text_box_props.go` | Shorthand + longhands in `style_text_box_props.go`. |
+| `text-combine-upright` | none \| all \| [ digits <integer [2,4]>? ] | `internal/layout/style_text_support_props.go` | Vertical writing only: the whole run paints as one upright cell centered in the column when `all` is set or when every character is a digit within the `digits N` cap. |
+| `text-decoration-color` | <color> | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `text-decoration-inset` | <length-percentage>{1,2} \| auto | `internal/layout/style_text_support_props.go` | `auto` or 1-2 lengths; the first endpoint is stored in points and trims the decoration's outer endpoints (negative values extend). |
+| `text-decoration-line` | none \| [ underline \|\| overline \|\| line-through \|\| blink ] \| spelling-error \| grammar-error | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `text-decoration-skip` | none \| auto | `internal/layout/style_text_support_props.go` | The `none\|auto` shorthand expands onto the longhands: `skip-box:all` breaks the stroke at an item with inline padding/border, `skip-self:skip-all` suppresses the item's own decoration, `skip-spaces` trims spacer runes, `skip-ink` gaps descenders. Decorations paint per item, so ancestor decorations are not propagated. |
+| `text-decoration-skip-box` | none \| all | `internal/layout/style_text_support_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `text-decoration-skip-ink` | auto \| none \| all | `internal/layout/style_advanced_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `text-decoration-skip-self` | auto \| skip-all \| [ skip-underline \|\| skip-overline \|\| skip-line-through ] \| no-skip | `internal/layout/style_text_support_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `text-decoration-skip-spaces` | none \| all \| [ start \|\| end ] | `internal/layout/style_text_support_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `text-decoration-style` | solid \| double \| dotted \| dashed \| wavy | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `text-decoration-thickness` | auto \| from-font \| <length-percentage> \| <line-width> | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `text-emphasis` | <'text-emphasis-style'> \|\| <'text-emphasis-color'> | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `text-emphasis-color` | <color> | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `text-emphasis-position` | [ over \| under ] && [ right \| left ]? | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `text-emphasis-skip` | spaces \|\| punctuation \|\| symbols \|\| narrow | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `text-emphasis-style` | none \| [ [ filled \| open ] \|\| [ dot \| circle \| double-circle \| triangle \| sesame ] ] \| <string> | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `text-group-align` | none \| start \| end \| left \| right \| center | `internal/layout/style_text_spacing_props.go` | When `text-align` is start/left, `center`/`end`/`right` remap line origin (`resolveTextGroupAlign`). |
+| `text-orientation` | mixed \| upright \| sideways | `internal/layout/style_text_support_props.go` | Vertical writing only: `upright` stacks each rune upright down the column, centered, using the rune's measured width as its vertical advance; `sideways` is treated like `mixed` (rotated run). |
+| `text-overflow` | [ clip \| ellipsis \| <string> \| fade \| <fade()> ]{1,2} | `internal/layout/style_advanced_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `text-shadow` | none \| <shadow># | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `text-spacing` | none \| auto \| <spacing-trim> \|\| <autospace> | `internal/layout/style_text_spacing_props.go` | Shorthand parsed and stored (TextSpacing, style_text_spacing_props.go:46); only the trim tokens it mirrors onto TextSpacingTrim (style_text_spacing_props.go:50) are consumed (inline_text_spacing.go:101). Missing behavior: autospace handling from the shorthand and a dedicated behavior test. TestTextAutospaceIdeographAlpha covers text-autospace and the shorthand storage, not the shorthand geometry. |
+| `text-spacing-trim` | <spacing-trim> \| auto | `internal/layout/style_text_spacing_props.go` | Parsed and stored (TextSpacingTrim, style_text_spacing_props.go:27); consumed at line origin for leading fullwidth opening punctuation (inline_text_spacing.go:101). Missing behavior: a dedicated hanging-punctuation trim regression; TestTextAutospaceIdeographAlpha covers text-autospace, not trim geometry. |
+| `text-transform` | capitalize \| uppercase \| lowercase \| none \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `text-underline-offset` | auto \| <length-percentage> | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `text-underline-position` | auto \| [ from-font \| under ] \|\| [ left \| right ] | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `text-wrap` | wrap \| nowrap \| auto \| balance \| stable (at most one mode and one style) | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | The shorthand splits into text-wrap-mode and text-wrap-style; the mode folds onto white-space and the style drives balance line placement (inline_balance.go). Values outside wrap, nowrap, auto, balance, and stable are rejected by the acceptance gate. No shorthand-only behavior beyond the longhands. |
+| `text-wrap-mode` | wrap \| nowrap | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | Parsed and stored (TextWrapMode, style_text_props.go:167); wrap/nowrap fold onto WhiteSpace, so the value is observable only through white-space. Missing behavior: a direct text-wrap-mode consumer and a dedicated behavior test. |
+| `text-wrap-style` | auto \| balance \| stable | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go`, `internal/layout/inline_balance.go` | `balance` re-breaks each forced-break segment with the Blink ParagraphLineBreaker bisection: max 6 lines, minimum candidate width 0.8 * average normal line width, 1 px epsilon (inline_balance.go). `stable` wraps greedily like `auto`, matching Chrome. `pretty` and `avoid-short-last-line` are rejected by the acceptance gate and fall back to normal wrapping; Chrome breaks `pretty` with a score-based algorithm that avoids short last lines. `balance` is skipped for floats, line clamp, and text-indent, and its greedy dry run can pick different break sets than Chrome's ScoreLineBreaker when uneven word widths leave several valid sets. Browser reference: Chrome 143.0.7499.40 under temps/css-review/wrap/. |
+| `top` | <length> \| <percentage> \| auto \| inherit | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `transform` | none \| <transform-list> | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `transform-box` | content-box \| border-box \| fill-box \| stroke-box \| view-box | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `transform-origin` | [ left \| center \| right \| top \| bottom \| <length-percentage> ] \| [ left \| center \| right \| <length-percentage> ] [ top \| center \| bottom \| <length-percentage> ] <length>? \| [ [ center \| left \| right ] && [ center \| top \| bottom ] ] <length>? | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `transform-style` | flat \| preserve-3d | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `translate` | none \| <length-percentage> [ <length-percentage> <length>? ]? | `internal/layout/style_leftovers.go`, `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `white-space-collapse` | collapse \| discard \| preserve \| preserve-breaks \| preserve-spaces \| break-spaces | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `widows` | <integer> \| inherit | `internal/layout/style_properties.go` | Parsed and stored (Widows, style_properties.go:1753) but no fragmentation consumer reads it. Missing behavior: keeping at least N lines at the end of a fragment. No behavior test resolves. |
+| `word-break` | normal \| break-all \| keep-all \| manual \| auto-phrase \| break-word | `internal/layout/style_properties.go` | Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value. |
+| `z-index` | auto \| <integer> \| inherit | `internal/layout/style_properties.go` | Integer or `auto` (`setZIndexValue` `style_properties.go:114`). |
 
-### 2.4 Color & background
+### 2.3 Unsupported (387)
 
-| Property | Status | Notes / verified by |
-|----------|--------|---------------------|
-| `color` | Implemented | `style.go:402-405`; consumed `inline.go:152-155`; test `TestCascadeAndInline`. `hsl()`/`hsla()` parse in `ParseColor` (`values.go`; `TestParseColorHsl`) |
-| `background-color` | Implemented | `style.go:406-409`; painted `layout.go:234-237, 504-507, 531-534` (gated by `Background`); tests `TestBackgroundFill`, `TestRunPDFStyleTableImage` |
-| `background` (shorthand) | Implemented | Color token plus multi-layer background-image `url(...)` / gradients (`background_image.go`). Expands into `background-color` / `background-image` during the cascade (`expandBackgroundDeclaration`, `style_cascade.go:854`), so it competes with a longhand by origin, specificity, and source order. Tests `TestBackgroundImageParse`, `TestAuthorBackgroundShorthandOverridesButtonUA`, `css_partial_remaining_test.go` |
-| `background-image` | Implemented | Multi-layer background images with pure-Go linear and radial gradient rasterization and external image layers (`background_image.go`, `gradient.go`). Missing image skipped. Tests `TestBackgroundImageLayoutPaints`, `css_partial_remaining_test.go` |
-| `outline` / `outline-width` / `outline-style` / `outline-color` / `outline-offset` | Implemented | Stroke outside the border edge; does not affect layout size. solid/dashed/dotted. Tests `TestOutlineParse`, `TestOutlineStroke` |
-| `box-shadow` / `-webkit-box-shadow` | Implemented | Multi-layer box-shadows with inset layers, offset fill, spread expansion, and blur approximation (`box_shadow.go`). Does not change layout size. Tests `TestBoxShadowParse`, `TestBoxShadowPaints`, `TestBoxShadowBlurPaints`, `css_partial_remaining_test.go` |
-| `opacity` | Implemented | Parsed in `applyRestProps`; paint via PDF ExtGState (`SetOpacity`). Nested opacities multiply. Accepts `filter: opacity()`. |
-| `accent-color` | Implemented | Parsed `style_properties.go`; inherited. Fill color for form controls (`widgetValueColor` `layout.go`). Tests `widget_color_test.go`, `css_partial_remaining_test.go` |
-| `background-attachment` (`scroll|fixed|local`) | Implemented (parsed, no visual effect) | Parsed, stored at `style.go:309` (`ResolvedStyle.BackgroundAttachment`) via `style_properties.go:1608`; paginated PDF has no viewport scroll so `fixed` paints as `scroll` (see `background_image.go:322`). `local` also paints as `scroll`. Test `TestBackgroundLonghands` (`style_backgrounds_borders_test.go:56`). |
-| `background-blend-mode` | Implemented (standard modes) | Parsed into `ResolvedStyle.BackgroundBlendMode` and applied per background-image layer. PDF uses ExtGState blend modes; PNG uses shared alpha compositing (`style_advanced_props.go`, `background_image.go`, `blend.go`, `pdf/content.go`). Tests `TestBlendModeParsing`, `TestBackgroundBlendModeForLayerRepeatsLastMode`, `TestContentBlendModeUsesPDFExtGState`. |
-| `isolation` (`auto|isolate`) | Implemented | Parsed into `ResolvedStyle.Isolation` (`style_advanced_props.go:89`). `isolate` creates a stacking context and an isolated element group even when the blend mode is empty; PDF emits a Form XObject with `/Group << /S /Transparency /I true /CS /DeviceRGB >>` and no `/BM` entry, PNG composites the group from a transparent scratch backdrop. Consumers `layout.go:1024` (group creation) and `:1075` (`Isolate: true`); tests `TestIsolationClearsInheritedOperationBlendScope`, `TestIsolationOnlyGroupUsesNoBlendExtGState`. Subset: a group subtree split across pages composites as one isolated group per page fragment (nothing dropped); element opacity stays stamped per descendant op and group composite alpha is 1, so CSS once-at-group opacity is not implemented; the group composites at its last member's position in the engine's global paint order, not a full CSS stacking-context tree; form `/BBox` is the page box (conservative, never clips); PDF/UA tagging inside forms was not validated by veraPDF. Fixture 61 cell 99: auto chip multiplies to dark green, isolate chip stays blue. |
-| `mix-blend-mode` | Implemented | Standard modes parse into `ResolvedStyle.MixBlendMode` (`style_advanced_props.go:69`) and paint as element-level transparency groups. Consumers `layout.go:1024` (`pushZ` creates the element group) and `:1058` (`enterBlendIsolation` writes `BlendGroup.Mode`); PDF `content.go:377` `EndTransparencyGroup` emits the Form XObject with `/Group << /S /Transparency /I true /CS /DeviceRGB >>` and `/BM` via ExtGState; PNG `imageout/groups.go:163` composites each group buffer once; form fonts share the page subset (`pdf.go:977` `finalizeForms` after `unionFontRunes`); sibling paint routes by each op's own group chain (`paint_groups.go` `target`/`enter`/`closeReady`); group alpha per distinct value via `SetGroupOpacity`. Tests `TestBlendGroupMarkersNestAroundSubtree`, `TestBlendGroupEmitsTransparencyForm`, `TestSiblingBlendGroupsEmitSiblingForms`, `TestRasterizeSiblingOutsideBlendGroupKeepsPixels`, `TestBlendGroupKeepsPlainFlexSiblingOutOfForm`, `TestTransparencyGroupFontMatchesPageFont`. Subset: group subtree split across pages composites per page fragment (nothing dropped); element opacity stays per descendant op and group composite alpha is 1, so CSS once-at-group opacity is not implemented; the group composites at its last member's position in the engine's global paint order, not a full CSS stacking-context tree; `plus-lighter` remains unsupported; form `/BBox` is the page box (conservative, never clips); PDF/UA tagging inside forms was not validated by veraPDF. Fixture 62 cell 16: multiply chip renders dark green, normal control keeps translucent blue. |
-| `color-adjust` / `print-color-adjust` (`economy\|exact`) | Implemented | `exact` forces this element's background color and image paint past the print economy gate (`--no-background`); `economy` is the initial. Apply arm `style_color_adjust_props.go:37`; consumer `background_image.go:30` (`backgroundPaintEnabled`), called from `inline_paint.go:310`, `layout_chrome.go:425`, `layout_tables.go:100/1276`. Fixture-61 row 21 / fixture-62 row 60. |
-| `color-scheme` | Implemented (root-scoped) | Only the `html` element's used value is read. The first `light`/`dark` token picks the scheme; `dark` with no author background paints a #121212 canvas and light default text (initial-black text only), and `forced-color-adjust:none` opts text out of that default. Custom idents are dropped. Apply arm `style_color_adjust_props.go:55`; consumers `paint.go:111-117`, `:165`, `:183`, `:207`. Fixture-61 row 22. |
-| `forced-color-adjust` (`auto\|none\|preserve-parent-color`) | Implemented | Print has no forced-colors mode; `none` keeps author colors by opting out of the dark-scheme text default. `preserve-parent-color` behaves like `auto`. Apply arm `style_color_adjust_props.go:46`; consumer `paint.go:208`, read at `paint.go:115`. Fixture-61 row 71. |
-| `dynamic-range-limit` (`standard\|no-limit\|high\|constrained\|constrained-high`) | Implemented (sRGB clamp) | `standard` and `constrained-high` clamp channels to 0..1; `high` and `no-limit` pass through. The PDF writer and rasterizer emit sRGB, so all values look the same in output today; the field records the authored limit. Apply arm `style_color_adjust_props.go:64`; consumer `paint.go:223` (`sRGBRangeLimit`), used at `paint.go:1064/1099/1404/1425`. Fixture-61 row 48. |
+| Property | Named missing behavior |
+|---|---|
+| `-webkit-animation` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-animation-delay` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-animation-direction` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-animation-duration` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-animation-fill-mode` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-animation-iteration-count` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-animation-name` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-animation-play-state` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-animation-timing-function` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-appearance` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-backface-visibility` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-background-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-background-origin` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-background-size` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-mask` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-mask-box-image` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-mask-box-image-outset` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-mask-box-image-repeat` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-mask-box-image-slice` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-mask-box-image-source` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-mask-box-image-width` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-mask-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-mask-composite` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-mask-image` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-mask-origin` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-mask-position` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-mask-repeat` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-mask-size` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-perspective` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-perspective-origin` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-text-size-adjust` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-text-stroke` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-text-stroke-color` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-text-stroke-width` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-transform-style` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-transition` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-transition-delay` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-transition-duration` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-transition-property` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-transition-timing-function` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `-webkit-user-select` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `all` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `anchor-name` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `anchor-scope` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `animation` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `animation-composition` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `animation-delay` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `animation-delay-end` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `animation-delay-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `animation-direction` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `animation-duration` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `animation-fill-mode` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `animation-iteration-count` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `animation-name` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `animation-play-state` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `animation-range` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `animation-range-center` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `animation-range-end` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `animation-range-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `animation-timeline` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `animation-timing-function` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `animation-trigger` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `backdrop-filter` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `background-tbd` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `baseline-shift` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `baseline-source` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `block-ellipsis` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `block-step` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `block-step-align` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `block-step-insert` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `block-step-round` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `block-step-size` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `bookmark-label` | No handler and no ResolvedStyle field; the declaration is ignored. Missing behavior: outline title collection. This row makes no storage claim. |
+| `bookmark-level` | No handler and no ResolvedStyle field; the declaration is ignored. Missing behavior: outline nesting levels. This row makes no storage claim. |
+| `bookmark-state` | No handler and no ResolvedStyle field; the declaration is ignored. Missing behavior: outline open/closed state. This row makes no storage claim. |
+| `border-block-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `border-block-end-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `border-block-start-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `border-bottom-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `border-boundary` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `border-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `border-inline-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `border-inline-end-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `border-inline-start-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `border-left-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `border-limit` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `border-right-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `border-shape` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `border-top-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `box-snap` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `caret` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `caret-animation` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `caret-shape` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `column-rule-break` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `column-rule-inset` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `column-rule-inset-cap` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `column-rule-inset-cap-end` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `column-rule-inset-cap-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `column-rule-inset-end` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `column-rule-inset-junction` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `column-rule-inset-junction-end` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `column-rule-inset-junction-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `column-rule-inset-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `column-rule-visibility-items` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `continue` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `copy-into` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-block-end` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-block-end-shape` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-block-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-block-start-shape` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-bottom` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-bottom-left` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-bottom-left-shape` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-bottom-right` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-bottom-right-shape` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-bottom-shape` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-end-end` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-end-end-shape` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-end-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-end-start-shape` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-inline-end` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-inline-end-shape` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-inline-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-inline-start-shape` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-left` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-left-shape` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-right` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-right-shape` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-shape` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-start-end` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-start-end-shape` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-start-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-start-start-shape` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-top` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-top-left` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-top-left-shape` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-top-right` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-top-right-shape` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `corner-top-shape` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `cue` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `cue-after` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `cue-before` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `cx` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `cy` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `d` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `event-trigger` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `event-trigger-name` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `event-trigger-source` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `field-sizing` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `fill-break` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `fill-color` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `fill-image` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `fill-origin` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `fill-position` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `fill-repeat` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `fill-size` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `flex-line-count` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `float-defer` | No page-float defer model. |
+| `flood-color` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `flood-opacity` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `flow-from` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `flow-into` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `flow-tolerance` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `footnote-display` | No handler and no ResolvedStyle field; the declaration is ignored. Missing behavior: footnote area collection. This row makes no storage claim. |
+| `footnote-policy` | No handler and no ResolvedStyle field; the declaration is ignored. Missing behavior: footnote continuation policy across page breaks. This row makes no storage claim. |
+| `frame-sizing` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `glyph-orientation-vertical` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `image-animation` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `image-rendering` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `inline-sizing` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `input-security` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `interactivity` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `interest-delay` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `interest-delay-end` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `interest-delay-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `interpolate-size` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `lighting-color` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `line-fit-edge` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `line-grid` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `line-height-step` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `line-padding` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `line-snap` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `link-parameters` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `margin-break` | Parsed and stored (MarginBreak, style_properties.go:1658) but no page-break consumer reads it. Missing behavior: keep/discard of margins at page breaks. Only test is a stored-string assertion (TestMarginBreakProperty). |
+| `marker` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `marker-end` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `marker-mid` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `marker-side` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `marker-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `mask` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `mask-border` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `mask-border-mode` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `mask-border-outset` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `mask-border-repeat` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `mask-border-slice` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `mask-border-source` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `mask-border-width` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `mask-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `mask-composite` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `mask-image` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `mask-mode` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `mask-origin` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `mask-position` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `mask-repeat` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `mask-size` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `mask-type` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `math-depth` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `math-shift` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `math-style` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `max-size` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `min-intrinsic-sizing` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `min-size` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `nav-down` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `nav-left` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `nav-right` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `nav-up` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `offset` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `offset-anchor` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `offset-distance` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `offset-path` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `offset-position` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `offset-rotate` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `overflow-anchor` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `overlay` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `overscroll-behavior` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `overscroll-behavior-block` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `overscroll-behavior-inline` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `overscroll-behavior-x` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `overscroll-behavior-y` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `paint-order` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `path-length` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `pause` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `pause-after` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `pause-before` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `pointer-timeline` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `pointer-timeline-axis` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `pointer-timeline-name` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `position-anchor` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `position-area` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `position-try` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `position-try-fallbacks` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `position-try-order` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `position-visibility` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `r` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `reading-flow` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `reading-order` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `region-fragment` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `rest` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `rest-after` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `rest-before` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `row-rule` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `row-rule-break` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `row-rule-color` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `row-rule-inset` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `row-rule-inset-cap` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `row-rule-inset-cap-end` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `row-rule-inset-cap-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `row-rule-inset-end` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `row-rule-inset-junction` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `row-rule-inset-junction-end` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `row-rule-inset-junction-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `row-rule-inset-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `row-rule-style` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `row-rule-visibility-items` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `row-rule-width` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `rule` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `rule-break` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `rule-color` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `rule-inset` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `rule-inset-cap` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `rule-inset-end` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `rule-inset-junction` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `rule-inset-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `rule-overlap` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `rule-style` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `rule-visibility-items` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `rule-width` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `rx` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `ry` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-axis-lock` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-behavior` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-initial-target` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-margin-block` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-margin-block-end` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-margin-block-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-margin-inline` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-margin-inline-end` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-margin-inline-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-marker-group` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-padding` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-padding-block` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-padding-block-end` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-padding-block-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-padding-bottom` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-padding-inline` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-padding-inline-end` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-padding-inline-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-padding-left` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-padding-right` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-padding-top` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-snap-align` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-snap-stop` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-snap-type` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-target-group` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-timeline` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-timeline-axis` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scroll-timeline-name` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scrollbar-color` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scrollbar-gutter` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `scrollbar-width` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `shape-image-threshold` | No alpha-contour extraction from float images. |
+| `shape-inside` | CSS Shapes 2 interior fitting; Chrome has no BCD support. |
+| `shape-padding` | CSS Shapes 2 interior fitting; Chrome has no BCD support. |
+| `size` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `slider-orientation` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `spatial-navigation-action` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `spatial-navigation-contain` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `spatial-navigation-function` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `speak` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `speak-as` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `stop-color` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `stop-opacity` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `string-set` | No handler and no ResolvedStyle field; the declaration is ignored. Missing behavior: content: string() named strings for running headers. This row makes no storage claim. |
+| `stroke-align` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `stroke-alignment` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `stroke-break` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `stroke-color` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `stroke-dash-corner` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `stroke-dash-justify` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `stroke-dashadjust` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `stroke-dashcorner` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `stroke-image` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `stroke-origin` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `stroke-position` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `stroke-repeat` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `stroke-size` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `text-fit` | Parsed and stored (TextFit, style_text_spacing_props.go:36) but no scale-search consumer reads it; the apply arm records the same gap. Missing behavior: grow/shrink scale-to-fit. TestTextSpacingTrimApply asserts the stored string only. |
+| `text-justify` | Parsed and stored (TextJustify, style_text_props.go:36) but no justification consumer reads it. Missing behavior: inter-word/inter-character/ruby justification algorithms. Only test is a stored-string assertion (TestTextPropsWave3). |
+| `text-rendering` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `text-size-adjust` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `timeline-scope` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `timeline-trigger` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `timeline-trigger-activation-range` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `timeline-trigger-activation-range-end` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `timeline-trigger-activation-range-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `timeline-trigger-active-range` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `timeline-trigger-active-range-end` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `timeline-trigger-active-range-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `timeline-trigger-name` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `timeline-trigger-source` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `transition` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `transition-behavior` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `transition-delay` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `transition-duration` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `transition-property` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `transition-timing-function` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `trigger-scope` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `vector-effect` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `view-timeline` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `view-timeline-axis` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `view-timeline-inset` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `view-timeline-name` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `view-transition-class` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `view-transition-group` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `view-transition-name` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `view-transition-scope` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `voice-balance` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `voice-duration` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `voice-family` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `voice-pitch` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `voice-range` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `voice-rate` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `voice-stress` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `voice-volume` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `white-space-trim` | Parsed and stored (WhiteSpaceTrim, style_text_props.go:30) but no consumer reads it. Missing behavior: discard-before/discard-after/discard-inner whitespace removal. Only test is a stored-string assertion (TestTextPropsWave3). |
+| `will-change` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `window-drag` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `word-space-transform` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `wrap-after` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `wrap-before` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `wrap-flow` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `wrap-inside` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `wrap-through` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `x` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `y` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
+| `zoom` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 
-### 2.5 Table subset
+### 2.4 Intentionally ignored (7)
 
-| Property | Status | Notes / verified by |
-|----------|--------|---------------------|
-| `border-collapse` (`collapse|separate`) | Implemented | `collapse` resolves adjacent borders and suppresses border-spacing (`emitCollapsedRowGrid`). Tests `TestBorderSpacing`, `TestTableLayout` |
-| `border-spacing` | Implemented | `style.go`; used by `tableSpacing` (suppressed when collapse); test `TestBorderSpacing` |
-| `caption-side` | Implemented | `top` (default) above the grid; `bottom` below; `left`/`right` sit beside the grid (caption shrink-to-fit capped at 40% of table width, grid gets the rest). Tests `TestCaptionSideParse`, `TestCaptionSideBottom`, `TestCaptionSideLeft`, `TestCaptionSideRight` |
-| `table-layout` (`auto|fixed`) | Implemented | Consumed when `fixed` and table width is definite (`layout_tables.go:45`). Column used widths from hints, leftover split evenly; content max-content ignored (`sizeFixedTableColumns` `layout_measure.go:830`). `auto` remains the default path. Test `TestTableLayoutFixedIgnoresContentMax` |
-| `empty-cells` (`show|hide`) | Implemented (lite) | `show` (default) renders borders/background of empty cells (no visible content); `hide` suppresses `border`/`background` of empty cells. Parsed via `style_advanced_props.go`, consumed in `layout_tables.go` (grid paint skips empty-cell chrome when `hide`). Inherited. Test `TestEmptyCells` (table chrome). |
-
-### 2.6 Print / paged media
-
-| `page-break-before/after/inside` and `break-before/after/inside` | Implemented | Same apply arms (`applyPageBreakProps` `style_properties.go:1951`). Stored as `style.PageBreak*` `always` / `avoid` / unset. Paginator honors them as canvas-Y flow shifts: `avoidInside` `paint_flow_breaks.go:36`, `beforeAlways` `paint_flow_breaks.go:501`, `afterBreaks` `paint_flow_breaks.go:936`. Tests `TestPageBreakParsing`, `TestPageBreakBeforeAlways`, `TestPageBreakInsideAvoid`. Alias table below. |
-| `orphans`, `widows` | Implemented | CSS `orphans` / `widows` **parsed** (integer ≥1, inherit, initial 2) in `applyRestProps`; Fragmentation Rule 3 enforced when line boxes are countable (`paint_flow_orphans.go` `orphansWidows`). Geometric short-block **heuristic** remains as fallback when line counts are unavailable (fixture-30). See fixture-37. |
-| `@page` unnamed `margin` / `size` | Implemented | Last unnamed `@page` still fills `Stylesheet.Page`. Convert applies that box to every page (`applyCSSPageMargins`). |
-| `@page :first` | Partial | Parsed onto `Pages` with `Sel ":first"`. Page 1 can use a different **margin**. Size stays unnamed-only (one page size per document). `:first` wins over `:left`/`:right` on page 1. Proof: `TestParsePageSelectors`, `TestPageFirstMargins`, `TestPageFirstWinsOverLeftRight`. |
-| `@page :left` / `:right` | Partial | Margins applied. Honest LTR print: page 1 is `:right` (recto), even pages `:left`, odd pages `:right`. Not a duplex sheet; `break-before: left` still aliases to `always`. Size unnamed-only. Proof: `TestPageLeftRightMargins`. |
-| `page` (`auto` / ident) | Implemented | Used value stored on `ResolvedStyle.PageName`. Unspecified/`auto` keeps the parent used name. A sibling whose used name changes gets `break-before: always`. `@page ident { margin }` applies on pages that overlap a box with that name. Link and outline destinations use the same named-page, side, and first-page cascade after page names are recorded. Size unnamed-only. Proof: `TestPageNameInherits`, `TestPageNameBreak`, `TestPageNamedMargins`, `TestPageMarginsSharePaintCascade`. |
-| `@page` margin boxes (`@top-center` and friends) | Partial (lite) | Parses `@top-left/center/right` and `@bottom-left/center/right` quoted `content` strings (`css/page_margin.go`). Unnamed `@page` boxes fill empty CLI header/footer slots. Occupied CLI slots and `--header-html` win. `counter()` / `running()` drop. Proof: `TestParsePageMarginBoxes`, `TestPageMarginBoxes`, `TestPageMarginBoxesCLIWins`. |
-
-**Break aliases (54.2).** `page-break-*` and `break-*` share one store. The PDF writer has no left/right or even/odd page side (duplex is out of scope, §5). `break-before: left` does **not** force a left page; it aliases to page `always`.
-
-| Specified value | `break-before` / `page-break-before` and `*-after` | `break-inside` / `page-break-inside` |
-|-----------------|-----------------------------------------------------|--------------------------------------|
-| `always` | `always` (`style_properties.go:1981` and `:1994`) | `always` (`style_properties.go:2008`) |
-| `page` | `always` | `always` |
-| `column` | `always` (new page, which also starts a new multicol line) | ignored (not in the inside switch) |
-| `left`, `right` | `always` | ignored |
-| `avoid` | `avoid` (`style_properties.go:1983` and `:1996`) | `avoid` (`style_properties.go:2010`) |
-| `avoid-page` | `avoid` | `avoid` |
-| `avoid-column` | ignored (not mapped to page `avoid`; wiki reference lists) | ignored (`style_properties.go:2005`) |
-| `recto`, `verso`, other | ignored | ignored |
-
-### Feature checklist (page geometry, tables, pagination)
-
-| Feature | Status | Notes / verified by |
-|---------|--------|---------------------|
-| Page size (A4/Letter/…), landscape, margins (mm) | Implemented | `settings.ParsePageSize` (`settings/pagesize.go:39`), `convert.pageGeometry` (`convert.go:138`) |
-| `colspan` | Yes | `colSpan`; test `TestTableColspan` |
-| `rowspan` | Yes / Implemented | column occupancy + height growth (`placeTableCells`, `growRowspanRows`); tests `TestTableRowspan*` |
-| `border-collapse` | Implemented | see §2.5 |
-| Pagination | Not a PDF page splitter | `page-break-*` and `break-*` are parsed onto the style. The renderer paints one canvas. It does not split operations across PDF pages, repeat `<thead>` on later pages, or write outlines. |
-| Floats / absolute positioning | Float lite + absolute/fixed/sticky lite | float/`clear` lite (§2.2); relative/absolute/fixed lite; sticky = print page scrollport + overflow@0 (§2.2; fixture-31) |
-| Flexbox / Grid | Partial | Stage A flex + Stage B grid (areas/dense/`minmax`) + Stage C lite (§2.7 / §2.8). Paths: `flex.go`, `grid.go`, `style.go`; fixtures 25/28/32-35; plan `plans/0.2.0/phases/subplans-tier-2/flex-grid-full.md`. **Not** Bootstrap/Tailwind / Chrome layout-test parity |
-| Multicol | Partial | Report lite: `column-count`/`column-width`/`columns`, `column-height`, `column-wrap` (wrap/auto rows), `column-gap` (normal to 1em), `column-span:none\|all`, `column-fill:balance\|auto`; column boxes do not straddle pages (§2.9; `multicol.go`; fixture-39) |
-| Transforms (static 2D) | Implemented | `transform` + `transform-origin` paint CTM; stacking + abs/fixed CB; sibling flow unchanged. No animation timelines; no 3D; 2D image filter (opacity, blur, grayscale, invert, adjustments) on raster images + CSS `opacity()` on elements; no CSS shader/SVG filter composition. Fixture-40; `transform.go`, `filter.go` |
-| JavaScript | No | `<script>` stripped at load; no engine. `--enable-javascript` is an **unknown option** (Policy A) |
-| Image-mode text | TTF outline raster | same Liberation faces as PDF; pure-Go coverage AA (`internal/imageout/ttfraster.go`); 5×7 bitmap only if an op has no font |
-
-**Pages.** Break values are stored (`style_properties.go`, `applyPageBreakProps`). The layout engine does not fragment the drawing list into PDF pages. `--zoom` scales the canvas. Orphans and widows are parsed. They do not move lines onto a next PDF page.
-
-### 2.7 Flexbox (Stage A - print CSS subset)
-
-Evidence: `internal/layout/flex.go`, `style_cascade.go` (`applyRestProps`) and `style_properties.go` / `style_values.go` (`parseFlexShorthand`); fixtures 25/28/32/33; `flex_test.go`. Status uses the §2 legend (Implemented / Partial / Not implemented). Checklist form: **[x]** Implemented · **[~]** Partial · **[ ]** Missing.
-
-| Property | Status | Notes / verified by |
-|----------|--------|---------------------|
-| `display: flex` / `inline-flex` | [x] Implemented | Routed to `buildFlex`; fixtures 25/28/32 |
-| `flex-direction` (`row` | `column` | `row-reverse` | `column-reverse`) | [x] Implemented | `style.go`; row/column + reverse paths in `flex.go`; `TestFlexRowReverse` |
-| `flex-wrap` (`nowrap` | `wrap` | `wrap-reverse`) | [x] Implemented | Multi-line wrap; wrap-reverse reverses line order |
-| `flex-flow` | [x] Implemented | Shorthand sets `flex-direction` and `flex-wrap`. Test `TestFlexFlowShorthand` |
-| `justify-content` (`flex-start` | `flex-end` | `center` | `space-between` | `space-around` | `space-evenly`) | [x] Implemented | Row + column (definite height); `TestFlexSpaceEvenly` |
-| `align-items` (`stretch` | `flex-start` | `center` | `flex-end`) | [x] Implemented | Row cross-axis stretch sizes auto-height items to the flex line (fixture-33); start/center/end honored; `TestFlexAlignItemsStretchRow` |
-| `align-self` | [x] Implemented | Overrides container; stretch follows same rules; `TestFlexAlignSelf` |
-| `align-content` (multi-line) | [x] Implemented | Distributes free cross space when container height is definite and wrap produced ≥2 lines. `stretch` grows each line's cross size; auto-height items with `align-items`/`align-self` stretch fill the grown line. Height:auto packs at start. Row wrap only. `TestAlignContentStretch` |
-| `place-content` / `place-items` / `place-self` | [x] Implemented | Shorthands expand to align-* and justify-*. Test `TestPlaceShorthands` |
-| `gap` / `row-gap` / `column-gap` | [x] Implemented | Independent longhands; shorthand fills both when longhands unset (`flexGaps`) |
-| `flex` shorthand (`none` \| `auto` \| grow/shrink/basis) | [x] Implemented | `parseFlexShorthand` |
-| `flex-grow` / `flex-shrink` / `flex-basis` | [x] Implemented | Length/%/auto basis; post grow/shrink min/max-width clamp; column grow/shrink when height definite |
-| Content-based min-size floor | [x] Partial polish | `flexMinMainSize` / `flexClampMainWidths`: content-based `min-width:auto` + `%` min re-resolve on definite containers; overflow non-visible -> auto min 0 (Flexbox §4.5 lite). Deep multi-pass intrinsic still out |
-| `order` | [x] Implemented | Stable sort before place |
-| Percentage basis cyclic sizing | [x] Partial | Definite CB: `%` vs content main size; indefinite/cyclic -> treat as `auto` (content) (fixture-33 / `TestFlexBasisPercent*`) |
-| Nested percentage / intrinsic flex iterations | [x] Partial polish | Definite-item `%` children re-resolve against used main size; indefinite CB `%` -> auto/content; not full Flexbox intrinsic passes |
-
-### 2.8 CSS Grid (Stage B + Stage C lite - print CSS subset)
-
-Evidence: `internal/layout/grid.go`, `style.go`; fixtures 28/32/34/35; `grid_test.go`. **Not** full Grid L1 / L3 / Chrome parity.
-
-| Property | Status | Notes / verified by |
-|----------|--------|---------------------|
-| `display: grid` / `inline-grid` | [x] Implemented | Routed to `buildGrid`. `inline-grid` is inline-level (`isInlineChild`) and stays in the paragraph IFC; `display:grid` still block-breaks. `TestInlineGridIsInlineLevel` |
-| `display: subgrid` | [~] Partial | `inheritSubgridFromParent` copy-inherits parent template columns (and unspecified gaps); tracks re-resolve against the subgrid's own content box. Joint Resolve Intrinsic / full subgrid L1 out of scope |
-| `grid` / `grid-template` | [x] Implemented | Shorthands expand to areas, columns, and rows. Test `TestGridTemplateShorthand` |
-| `grid-template-columns` | [x] Implemented | Lengths, `fr`, `repeat(N, ...)`, `minmax(...)`; gap subtracted before `fr` distribute |
-| `grid-template-rows` | [x] Implemented | Consumed when height definite; fixed mins on auto-height; fixture-32 |
-| `minmax()` track sizing | [x] Implemented | Lengths / `%` (definite) / `fr` / `auto` / `min-content` / `max-content` subset; `fr` keeps min floors (fixture-35) |
-| `gap` / `row-gap` / `column-gap` | [x] Implemented | Independent (`gridGaps`); `TestGridRowGapVsColumnGap` asserts the row gap is at least 8pt while column gap stays distinct |
-| `grid-gap` / `grid-row-gap` / `grid-column-gap` | [x] Implemented | Legacy aliases of gap/row-gap/column-gap (`style_gap_props.go`). Test `TestGridGapAliasesMatchGap` |
-| `grid-auto-columns` | [x] Implemented | Implicit columns beyond the template use `gridAutoTrackDef` (fixed / auto / 1fr lite). Test `TestGridAutoColumns` |
-| `grid-auto-rows` | [x] Implemented | Implicit and auto-height rows; fixed auto-rows lock preferred-height growth (`grid_tracks.go`). Test `TestGridAutoRows` |
-| `grid-column` / `grid-column-start` / `grid-column-end` / `span N` | [x] Implemented | Line numbers + span; 2D occupancy |
-| `grid-row` / `grid-row-start` / `grid-row-end` / `span N` | [x] Implemented | Row span + stretch into spanned tracks; `TestGridRowSpan*` |
-| Auto-flow placement (row / column) | [x] Implemented | Sparse row default; column major via `grid-auto-flow: column` |
-| `grid-auto-flow: dense` | [x] Implemented | `dense` / `row dense` / `column dense` hole-fill (fixture-34) |
-| `grid-template-areas` / `grid-area` names | [x] Implemented | Named areas + lite line form; areas can extend auto tracks (fixture-34) |
-| `justify-items` / `align-items` | [x] Implemented | Default stretch; start/center/end; stretch sizes item to grid area |
-| `justify-self` / `align-self` | [x] Implemented | Overrides container; stretch fills area |
-| Masonry | [~] Partial | `grid-template-rows: masonry` packs items into the shortest column (`emitMasonryItems`). Not full CSS Grid L3 masonry / Chrome parity |
-| Intrinsic / nested % track cycles | [x] Partial | Measure-pass lite for min/max-content track mins; cyclic `%` -> auto when CB indefinite |
-
-### 2.9 CSS Multi-column (report lite)
-
-Evidence: `internal/layout/multicol.go`, `style_multicol_props.go`, `style_cascade.go`; fixture-39; `multicol_test.go`, `column_height_wrap_test.go`. **Not** full Multicol L1 / L2 / Chrome balancing with floats.
-
-| Property | Status | Notes / verified by |
-|----------|--------|---------------------|
-| `column-count` (`auto` \| integer ≥1) | [x] Implemented | Establishes multicol when ≠ auto; `TestMulticolParseProps` |
-| `column-width` (`auto` \| `<length>`) | [x] Implemented | Used count/width per Multicol §3.3; `TestUsedColumnCountWidth` |
-| `column-height` (`auto` \| `<length>`) | [x] Implemented | Caps column boxes; short rows keep authored height; establishes multicol when ≠ auto. `TestColumnHeightCapsColumn` |
-| `column-wrap` (`auto` \| `wrap` \| `nowrap`) | [x] Implemented (lite) | `wrap` and `auto` (when height set) open block-direction rows. `nowrap` stops after one row; inline overflow columns not shipped. Tests `TestColumnWrapCreatesRow`, `TestColumnWrapNowrapStopsAfterOneRow`. |
-| `columns` shorthand | [x] Implemented | `parseColumnsShorthand` including `/ <column-height>` |
-| `column-gap` (`normal` \| `<length>`) | [x] Implemented | Multicol: `normal` → 1em; flex/grid still treat unset/normal as 0 gap |
-| `column-span` (`none` \| `all`) | [x] Implemented | Mid-flow spanner; preceding columns balance - fixture-39 / `TestMulticolColumnSpanAll` |
-| Nested multicol (2 levels) | [x] Implemented | Outer / inner geometry isolated - `TestMulticolNestedTwoLevels` |
-| Column box pagination | [x] Implemented | Column boxes do not cross page boundaries; new multicol line on next page - `TestMulticolLinesDoNotStraddlePages` |
-| `break-*: column \| avoid-column` | [~] Partial | `column` on before/after aliases to page `always` (`applyBreakBeforeProps` `style_properties.go:1975`). `avoid-column` is **ignored** (not page `avoid`). See §2.6 alias table. |
-| `column-rule` / `column-rule-width` / `column-rule-style` / `column-rule-color` | [x] Implemented | Border-style subset (`solid` / `dashed` / `dotted` / `none`); width `thin` / `medium` / `thick` plus lengths; color `currentColor`. Vertical rule centered in `column-gap`; gap 0 or `none` paints nothing. No column-axis (horizontal) rule. `TestColumnRuleParse`, `TestColumnRulePaints` |
-| L2 integer spans, overflow columns | [ ] Missing | Deferred (see `plans/0.2.0/phases/tier-2-pending-3/multicol.md` out of scope) |
-
-### 2.10 Parsed, stored, no visual effect for paginated PDF (intentionally no consumer)
-
-This subsection documents CSS properties that are **parsed and stored** in `ResolvedStyle` (`internal/layout/style.go`) but have **no layout or paint consumer** for the paginated print pipeline. They are intentionally left with no visual effect so that authored HTML does not error and print output stays deterministic. Declarations validate and cascade, then paint as if not set (or with the fixed-to-scroll / clone-to-slice downgrade noted). Compositing properties with an actual consumer are documented in §2.4. This is distinct from **Not implemented** (no field, declaration dropped). The containment rows PT26-LAY-04 demoted on 2026-09-12 (`contain`, the five `contain-intrinsic-*` longhands, and `content-visibility`) were re-implemented the same day with real layout consumers and moved to §2.2.
-
-Status for this subsection:
-- **Implemented (parsed, no visual effect)** - declaration is recognized, `style_advanced_props.go` or `style_properties.go` writes a `ResolvedStyle` field, but no box, layout, or `Op` reads it for paginated PDF. Visual output is unchanged. Downgrades are noted.
-- **Not implemented** - no `ResolvedStyle` field and no consumer; the name is recognized but the declaration is dropped. Left in triage families `E_compositing`, `E_containment`, `E_paged_media`, etc.
-- **Not implemented (demoted)** - a row that was previously in the first group; the unread storage and apply arm were removed on 2026-09-12 (PT26-LAY-04/05), so the declaration is now dropped. Its catalog row is `unsupported`. No such row remains in this table: the containment rows moved to §2.2; `font-language-override` was re-implemented with a shaper consumer (§2.3); the three VF/palette rows (`font-optical-sizing`, `font-palette`, `font-variation-settings`) were re-parsed with a static default-instance consumer and are documented as Partial in §2.3 (Path A, phase 87.3).
-
-| Property | Status | Notes / file:line |
-|----------|--------|-------------------|
-| `background-attachment` | Implemented (parsed, no visual effect) | Stored at `style.go:309` via `style_properties.go:1607`. Paginated PDF has no scroll viewport, so `fixed` paints as `scroll` and `local` paints as `scroll` per `background_image.go:291`. No visual difference between `scroll`/`fixed`/`local` in print. |
-| `box-decoration-break` | Implemented (parsed, no visual effect) | Stored at `style.go:348` via `style_advanced_props.go:62`. Values `slice` (initial) and `clone` both paint as `slice` for paginated PDF - borders/backgrounds do not clone across page breaks. Accepted then downgraded; fragment boxes are always sliced. |
-| `bookmark-label` | Implemented (parsed, no visual effect) | GCPM draft (`css-content-3`/`css-gcpm-3`). Parsed, stored via `style_advanced_props.go`, no PDF outline/bookmark consumer for print - paints as if not set. String content is not emitted as an outline. |
-| `bookmark-level` | Implemented (parsed, no visual effect) | GCPM draft. Parsed, stored, no outline hierarchy consumer - heading outline remains via `h1`-`h6` tags (§1) and `--outline`, not via `bookmark-level`. Paints as `none`. |
-| `bookmark-state` | Implemented (parsed, no visual effect) | GCPM draft. Parsed, stored, no outline open/closed consumer for print. Paints as `open`. |
-| `footnote-display` | Implemented (parsed, no visual effect) | GCPM draft. Parsed, stored, no footnote area consumer - footnotes render as normal flow. Paints as `block`. |
-| `footnote-policy` | Implemented (parsed, no visual effect) | GCPM draft. Parsed, stored, no footnote placement policy across page breaks. Paints as `auto`. |
-| `string-set` | Implemented (parsed, no visual effect) | GCPM draft for running headers/footers. Parsed, stored, no named-string consumer - use `@page` margin boxes or CLI `--header-*`/`--footer-*` (§2.6) instead. Paints as `none`. |
-| `margin-trim` | Implemented (lite) - see §2.1 | Lite impl trims block margins at container edges; listed here because inline/logical sides are parsed but only block axis is consumed in `layout_flow.go`. |
-| `empty-cells` | Implemented (lite) - see §2.5 | Lite impl hides empty-cell chrome when `hide`; listed here only for cross-reference. |
-
-Notes:
-- `background-attachment: fixed -> scroll` downgrade is unconditional for paginated PDF (no viewport). Background position still uses `BackgroundPosX/Y` and `BackgroundSize`/`Repeat` but the attachment axis is fixed to scroll.
-- `box-decoration-break: clone -> slice` downgrade is unconditional; fragmented rects are always sliced at page boundaries (`paint_pagination_*` / `paint_flow_*` split path), backgrounds and borders do not repeat per fragment.
-- `contain` / `contain-intrinsic-*` / `content-visibility` were demoted by PT26-LAY-04 on 2026-09-12 and re-implemented the same day with consumers in `layout_flow.go` (size containment, `content-visibility:hidden`) and the overflow-clip stamp (paint containment); see §2.2 for the supported subset. The three CSS Fonts VF/palette rows demoted by PT26-LAY-05 were re-applied later and are Partial in §2.3 (parsed; PDF embeds default instance only). `font-language-override` threads its tag to the shaper.
-- GCPM `bookmark-*` / `footnote-*` / `string-set` are paged-media running-string and footnote collection drafts that would feed a PDF outline or footnote area; the print engine builds its outline from heading tags and CLI TOC flags (§7), not from these properties.
-
-### 2.11 Image adjustments (CSS Images)
-
-| Property | Status | Notes / verified by |
-|----------|--------|---------------------|
-| `image-orientation` (`from-image\|none\|<angle>\|\|flip`) | Implemented | `from-image` reads the JPEG EXIF orientation; `none` ignores it; an explicit angle replaces EXIF and rotates inside the original canvas (the `flip` mirror applies after rotation). Consumer `layout_images.go:219/237`, raster transform `image_exif.go:396`. Fixture-61 row 89. |
-| `image-resolution` (`from-image\|<resolution>`) | Implemented | `dpi`, `dpcm`, `dppx`, and the `x` alias convert to DPI; an explicit resolution always wins and `from-image` reads the bytes' declared resolution with a 96dpi fallback. 300dpi renders the image smaller than the 96dpi default. Consumer `layout_images.go:250/256`. Fixture-61 row 90. |
-| `object-view-box` (`none\|inset()\|xywh()\|rect()\|circle()\|ellipse()\|polygon()`) | Implemented (rect subset) | `inset()`, `xywh()`, and `rect()` crop the source before it scales into the image box; `circle()`, `ellipse()`, and `polygon()` parse and store but leave the image uncropped, as does an empty resolved rectangle. Consumer `layout_images.go:319` (`objectViewBoxRect`). Fixture-62 row 17. |
-| `object-fit` (`fill\|contain\|cover\|none\|scale-down`) | Implemented | Apply `style_image_adjust_props.go`; paint sizing in `object_fit.go` on block (`layout_images.go`) and inline (`inline_paint.go`) replaced paths. Test `TestObjectFitCover` |
-| `object-position` | Implemented | Keyword/length/% pair stored as X/Y; positions the fitted image in the content box (`object_fit.go`). Test `TestObjectPositionRightBottom` |
+| Property | Reason |
+|---|---|
+| `appearance` | Print engine has no pointer, caret, or form chrome; declaration is ignored by design (print-noop). |
+| `caret-color` | Print engine has no pointer, caret, or form chrome; declaration is ignored by design (print-noop). |
+| `cursor` | Print engine has no pointer, caret, or form chrome; declaration is ignored by design (print-noop). |
+| `pointer-events` | Print engine has no pointer, caret, or form chrome; declaration is ignored by design (print-noop). |
+| `resize` | Print engine has no pointer, caret, or form chrome; declaration is ignored by design (print-noop). |
+| `touch-action` | Print engine has no pointer, caret, or form chrome; declaration is ignored by design (print-noop). |
+| `user-select` | Print engine has no pointer, caret, or form chrome; declaration is ignored by design (print-noop). |
 
 ## 3. Supported units
 
-Status legend as in §2; resolution sites: `LengthToPt`
-`internal/css/container.go:113` (`ex`/`ch` as 0.5em at lines 133-134),
-`lengthBox` `style_values.go:598` (width/height/min/max), `marginLen`
-`style_values.go:564` (margins/padding/letter-spacing), parse gate
-`ParseLength` `values.go:108`.
+Status legend: Implemented and Partial as in §2; Not implemented means the unit is rejected or ignored. Resolution sites: `LengthToPt`
+`internal/css/container.go:116` (`ex`/`ch` as 0.5em, `exChToEmFactor` at
+container.go:103), `lengthBox` `style_values.go:734` (width/height/min/max),
+`marginLen` `style_values.go:819` (margins/padding/letter-spacing), parse gate
+`ParseLength` `values.go:110`.
 
 | Unit | Status | Notes |
 |------|--------|-------|
-| `px` | Implemented | 1 px = 0.75 pt (96 dpi reference) |
+| `px` | Implemented | 1 px = 0.75 pt (96 px/in reference) |
 | `pt` | Implemented | |
 | `mm`, `cm`, `in` | Implemented | |
-| `pc` | Implemented | `style.go:654, 689` |
+| `pc` | Implemented | `internal/css/container.go:152` |
 | `em` | Implemented | relative to element font-size (font-size, margins, lengths) |
-| `rem` | Implemented | 16 px reference (`style.go:593, 657, 694`) |
+| `rem` | Implemented | 16 px reference (`internal/css/container.go:102,127`; layout margin path at `style_values.go:903`) |
 | `%` | Implemented | containing block for box/margins; parent font-size for `font-size` |
-| `vw`, `vh` | Partial | resolved for width/height/min/max (`lengthBox` `style.go:662-663`) only; ignored for margins/padding/font-size |
-| `ex` | Partial | Resolved as 0.5em (`LengthToPt` `internal/css/container.go:133-134`, `exChToEmFactor`). Not font-metric x-height. |
-| `ch` | Partial | Layout uses the default Liberation face U+0030 DIGIT ZERO advance at the element's font-size (`lengthToPt` / `GlyphAdvancePoints`). Falls back to 0.5em when the face is missing or the advance is 0. Media/container queries still use `LengthToPt` 0.5em. Test `TestChUsesZeroGlyphAdvance`. |
-| `calc()` | Partial | Three-token subset only: `calc(A + B)`, `calc(A - B)`, `calc(A * N)` (`calcLength` `style_values.go:763`), used from `lengthBox` / `marginLen`. Longer or nested calc stays invalid so a fallback can win. |
-| `clamp()` | Partial | `clamp(min, pref, max)` via `clampLength`; no longer dropped from cascade. Nested calc inside clamp out. Test `TestClampLength`. `color-mix(` / `light-dark(` / `oklch(` still excluded. |
-| `vmin`, `vmax` | Partial | Layout `vminVmaxPt` (`style_values.go:668`) on `lengthBox` / `marginLen`. `css.ParseLength` still rejects them; used values are parsed in layout. Test `TestVminVmax`. |
+| `vw`, `vh` | Partial | resolved from the containing block in box, margin, and padding lengths (`lengthBoxFromUnit`, `style_values.go:767-770`; `marginLenFromUnit`, `style_values.go:901-902`); not resolved for `font-size` |
+| `dvh`, `svh`, `lvh` | Partial | viewport-height variants in box lengths (`viewportHeightUnitPt`, `style_values.go:789-802`) |
+| `ex` | Partial | Resolved as 0.5em (`internal/css/container.go:126-129`, `exChToEmFactor` at `container.go:103`). Not font-metric x-height. |
+| `ch` | Partial | Resolved as 0.5em (`chLengthPt`, `style_ch.go:26-28`), the same fallback `css.LengthToPt` uses. Not the font's digit-zero advance. |
+| `calc()`, `min()`, `max()`, `clamp()` | Partial | Evaluated by `css.EvalMath` (`internal/css/math_expr.go:29`) from `calcLength` (`style_values.go:914`, call at `:929`): `+ - * /`, parentheses, comma arguments, nesting, and mixed units. Other functions stay invalid so a fallback can win. Test `TestMathLengthMinMaxClamp`. |
+| `vmin`, `vmax` | Partial | Layout `vminVmaxPt` (`style_values.go:693`) on box and margin lengths (`style_properties.go:598,651`). `css.ParseLength` rejects them; used values are parsed in layout. Test `TestVminVmax`. |
 | `dpi`-style | Not implemented | rejected at parse |
 
 ## 4. Supported selector syntax (cascade)
 
-Status legend as in §2; evidence in `internal/css/css.go`.
+Status legend: Implemented and Partial as in §2; Not implemented means the selector or at-rule is parsed without a matching or rendering consumer. Evidence in `internal/css/`.
 
 | Selector | Status | Notes / verified by |
 |----------|--------|---------------------|
-| Element (`h1`, `p`, …), class (`.foo`), ID (`#bar`) | Implemented | `parseCompound` `css.go:444`; matching `Match` `css.go:518`; test `css_test.go::TestMatch` |
-| Universal (`*`) | Implemented | `css.go:456-459` |
-| Descendant (`div p`), child (`ul > li`) | Implemented | combinators `css.go:356-362`; matching `css.go:528-543` |
+| Element (`h1`, `p`, …), class (`.foo`), ID (`#bar`) | Implemented | `parseCompoundCtx` `selector_parser.go:165`; matching `Match` `match.go:95`; test `css_test.go::TestMatch` |
+| Universal (`*`) | Implemented | `writeStarPrefix` `selector_parser.go:116` |
+| Descendant (`div p`), child (`ul > li`) | Implemented | combinators `combinatorFor` `has.go:147`; matching `leftmostStep` `match.go:185` |
 | Sibling (`a + b`, `a ~ b`) | Implemented | next-sibling `+` and subsequent-sibling `~` (`css.Match`); test `TestSiblingCombinators` |
 | Attribute (`[href]`, `[href="…"]`) | Partial | presence, exact `=`, word `~=`, substring `*=`, prefix `^=`, suffix `$=`, dash `|=`; ASCII `i` flag on valued selectors (`[attr=value i]`); no `s` flag. Tests `TestAttrWordAndSubstring`, `TestAttrPrefixSuffixDash`, `TestAttrIFlag` |
 | `:first-child`, `:last-child`, `:nth-child(n)` | Implemented | `odd`/`even`/`an+b`/integer; tests `TestMatch`, `TestNthChildZebraSheet` |
-| `:first-of-type`, `:last-of-type`, `:nth-of-type()`, `:nth-last-of-type()` | Implemented | 1-based index among same-tag siblings; `odd`/`even`/`an+b`/integer via `parseNthArg`/`matchNth`; invalid an+b never matches. Tests `TestFirstOfType`, `TestLastOfType`, `TestNthOfType`, `TestNthLastOfType` |
-| `:link`, `:visited` | Partial | Print semantics: match any `a` with non-empty `href` (no visit history; `:visited` ≡ `:link`). Specificity counts as a class-level pseudo. Proof: `TestLinkVisitedPseudos`, `TestLinkPseudoColor` |
-| `:hover`, `:active`, `:focus` | Not implemented (accepted, never match) | Parsed onto the compound but `matchPseudo` returns false so `a:hover` does not degrade to bare `a` |
+| `:first-of-type`, `:last-of-type`, `:nth-of-type()`, `:nth-last-of-type()` | Implemented | 1-based index among same-tag siblings; `odd`/`even`/`an+b`/integer via `parseNthArg`/`matchNth` (`match.go:632/664`); invalid an+b never matches. Tests `TestFirstOfType`, `TestLastOfType`, `TestNthOfType`, `TestNthLastOfType` |
+| `:link`, `:visited` | Partial | Match any `a` with a non-empty `href` (no visit history; `:visited` equals `:link`). Specificity counts as a class-level pseudo. Proof: `TestLinkVisitedPseudos`, `TestLinkPseudoColor` |
+| `:hover`, `:active`, `:focus` | Partial (caller state) | Parsed onto the compound and matched only against the caller-supplied `MatchState` ids (`matchStatePseudo`, `match.go:447`), so `a:hover` never degrades to bare `a`. Test `TestMatchStateFocusHoverActive` |
 | `::before` / `::after` | Partial / Implemented | `MatchPseudo` plus generated content (`pseudo_content.go`): quoted strings and `attr()`. Host-element rules do not apply to the host |
-| `!important` | Implemented | `css.go:664-688`; separate cascade layer `style.go:221-247`; test `css_test.go::TestParseImportant` |
-| Specificity (ID > class > element), inline `style` wins, `!important` overrides | Implemented | `Specificity` `css.go:578`; inline style priority `style.go:233-239`; test `css_test.go::TestSpecificity` |
-| `@media print` / `screen` filtering | Implemented | `MediaMatches` (`css/media.go`); cascade `style.go`; convert `Media: "print"` (PDF) or `"screen"` (Image); only `print` and `screen` are evaluated (all other media types and unsupported feature queries evaluate to false); tests `TestParseMedia`, `TestMediaMatches*` |
+| `!important` | Implemented | `isImportant` `values.go:75`; separate cascade tier `style_cascade.go:1207-1211`; test `css_test.go::TestParseImportant` |
+| Specificity (ID > class > element), inline `style` wins, `!important` overrides | Implemented | `Specificity` `css.go:1009`; inline style priority `style_cascade.go:655`; test `css_test.go::TestSpecificity` |
+| `@media print` / `screen` filtering | Implemented | `MediaMatches` (`css/media.go`); the caller passes `Media` (`settings.MediaScreen` or `settings.MediaPrint`, `internal/settings/settings.go:232-264`); only `print` and `screen` are evaluated (all other media types and unsupported feature queries evaluate to false); tests `TestParseMedia`, `TestMediaMatches*` |
 | `@media` feature queries (`(min-width: …)`) | Partial | size features + orientation vs viewport; unknown features → false; `TestMediaMatchesSizeFeatures` |
 | `:has()` | Partial | Relative selectors inside `:has(...)`; descendant/child/sibling + simple compounds; no forgiving-selector list / complex chrome edge cases. `has.go`; fixture-41 |
-| `:not()` | Implemented | `appendFunctionalPseudo` (`css.go:1058`); match `matchNone` (`css.go:1459`). Argument list is strict (empty items fail). Specificity of the most specific argument (`css.go:1744`). Tests `has_test.go` |
+| `:not()` | Implemented | `appendFunctionalPseudo` (`selector_parser.go:353`); match `matchNone` (`match.go:515`). Argument list is strict (empty items fail). Specificity of the most specific argument (`has.go:343`). Tests `has_test.go` |
 | `:is()` | Implemented | Strict selector-list arguments; nested `:is` allowed; `::` in args rejected. Match any argument. Specificity of the most specific argument. Tests `TestParseIs`, `TestIsPseudo`, `TestIsSpecificity` |
 | `:where()` | Implemented | Same matching as `:is()`; specificity contribution 0. Test `TestWherePseudo` |
-| `:root` | Implemented | Matches the document element (`<html>`), not the synthetic `#document` wrapper (`matchPseudo` `css.go:1437`; `isRootElement` `css.go:1473`). Test `TestRootPseudo` |
-| `var()` / `--*` custom properties | Partial | `--*` inherit then overlay (`mergeCustomProps` `style_cascade.go:18`); `var()` expanded before apply (`resolveRawVars` `style_cascade.go:45`; `ResolveCustomProps` `values.go:514`). Cycles resolve empty. Tests `cssvar_font_test.go`, `TestResolveCustomProps*` |
+| `:root` | Implemented | Matches the document element (`<html>`), not the synthetic `#document` wrapper (`matchPseudo` `match.go:420`; `isRootElement` `match.go:539`). Test `TestRootPseudo` |
+| `var()` / `--*` custom properties | Partial | `--*` inherit then overlay (`mergeCustomProps` `style_cascade.go:68`); `var()` expanded before apply (`resolveRawVars` `style_cascade.go:170`; `ResolveCustomProps` `values.go:696`). Cycles resolve empty. Tests `cssvar_font_test.go`, `TestResolveCustomProps*` |
 | `@container` | Partial | Size queries only (`inline-size`/`width` + `and`/`or`/`not`); named containers; two-pass style after used inline size. No style/scroll-state queries; no `cq*` units. `internal/css/container.go`; fixture-42 |
-| `container-type` / `container-name` / `container` | Implemented | Parsed `applyContainerProps` (`layout/style_container_props.go`). Size containers measured in `layout/container.go:43`. `container-type` honors `normal`/`size`/`inline-size`; CSS-wide keywords resolve (`inherit` copies the parent, `initial`/`unset`/`revert` reset to `normal` / none). Fixture-42; fixture-61 rows 39-41 |
-| `@page` | Partial | Unnamed `margin`/`size` on every page. `:first` / `:left` / `:right` override **margin** (LTR page 1 is `:right`; `:first` wins on page 1). `page: ident` used-value inherit plus sibling break; named `@page` margin on pages that overlap that name. Size unnamed-only. Margin boxes: unnamed quoted `@top-*` / `@bottom-*` map to CLI HF empty slots. See §2.6. |
-| `@font-face` | Partial | Parsed; `MergeFontFaces` loads TTF/OTF/WOFF1 via `FetchSub` (local **and** `https://`) under the same ACL + `NetworkPolicy` on PDF and image paths. `.woff2` / `.eot` / `data:` skipped. See §5 |
-| `@import` | Partial | Parsed onto `Stylesheet.Imports`; `CollectSheets` fetches under the same ACL as `<link>`, depth cap 8, cycle skip, failed fetch skipped. Media prelude uses `MediaMatches`. Tests `TestParseImport`, `TestImportStylesheet` |
+| `container-type` / `container-name` / `container` | Implemented | Parsed `applyContainerProps` (`layout/style_container_props.go`). Size containers measured in `layout/container.go:44`. `container-type` honors `normal`/`size`/`inline-size`; CSS-wide keywords resolve (`inherit` copies the parent, `initial`/`unset`/`revert` reset to `normal` / none). Fixture-42; fixture-61 rows 39-41 |
+| `@page` | Partial | Unnamed `margin`/`size` on every page. `:first` / `:left` / `:right` override **margin** (LTR page 1 is `:right`; `:first` wins on page 1). `page: ident` used-value inherit plus sibling break; named `@page` margin on pages that overlap that name. Size unnamed-only. Margin boxes: unnamed quoted `@top-*` / `@bottom-*` parse onto the stylesheet (`internal/css/page_margin.go`) with no consumer in this tree. See the `page` and `break-*` rows in §2. |
+| `@font-face` | Partial | Parsed; `MergeFontFaces` loads TTF/OTF/WOFF1 via `FetchSub` (local **and** `https://`) under the same load ACL and network policy as other subresources. `.woff2` / `.eot` / `data:` skipped. See §5 |
+| `@import` | Partial | Parsed onto `Stylesheet.Imports`; `CollectSheets` fetches under the same load policy as `<link>`, depth cap 8, cycle skip, failed fetch skipped. Media prelude uses `MediaMatches`. Tests `TestParseImport`, `TestCollectSheetsImportAppliesImportedRules` |
 
 ## 5. Explicitly unsupported (MVP)
 
 | Feature | Handling |
 |---------|----------|
-| JavaScript / `<script>` / DOM APIs | **Stripped at load.** No JS engine. `--enable-javascript` and other JS flags are **unknown options** (Policy A) |
-| Full CSS Grid / full Flexbox | Stage A/B print CSS subset **shipped** (§2.7 / §2.8); Stage C lite + flex min-size polish + Partial subgrid/masonry span (`tier-2-pending-3/flex-grid-remaining.md`). **Not** Bootstrap/Tailwind / Chrome layout-test parity |
-| `transform`, `filter`, `animation`, `transition` | Partial / out of scope | **Static 2D** `transform` + `transform-origin` Implemented (translate/scale/rotate/matrix/skew*; paint CTM; stacking + abs/fixed CB). Sibling flow unchanged. **`filter`:** 2D image filter (opacity, blur, grayscale, invert, adjustments) on raster images (`filter.go`) + CSS `opacity()` on elements; no CSS shader/SVG filter composition. **`animation`/`transition`/`@keyframes`:** parse-ignored (static cascaded value only; no timelines). **3D / perspective:** permanent non-goal. Fixture-40; `transform.go` / `transform_test.go`, `filter.go` |
+| JavaScript / `<script>` / DOM APIs | **Not executed.** `<script>` content is captured as raw text and hidden by the UA sheet (`display: none`); no code path evaluates scripts |
+| Full CSS Grid / full Flexbox | Stage A/B layout subset **shipped** (see the `flex-*` and `grid-*` rows in §2); Stage C lite + flex min-size polish + Partial subgrid/masonry span. **Not** Bootstrap/Tailwind / Chrome layout-test parity |
+| `transform`, `filter`, `animation`, `transition` | **Static 2D** `transform` + `transform-origin` Implemented (translate/scale/rotate/matrix/skew*; paint transform; stacking + abs/fixed containing block). Sibling flow unchanged. **`filter`:** 2D image filter (opacity, blur, grayscale, invert, adjustments) on raster images (`filter.go`) + CSS `opacity()` on elements; no CSS shader/SVG filter composition. **`animation`/`transition`/`@keyframes`:** parse-ignored (static cascaded value only; no timelines). **3D / perspective:** permanent non-goal. Fixture-40; `transform.go`, `filter.go` |
 | `background-image` / gradients | **Implemented** multi-layer `url(...)` and pure-Go linear/radial gradient rasterization (`background_image.go`, `gradient.go`) |
-| `@font-face` (remote / WOFF2) | **Partial:** local **and `https://`** TTF/OTF/WOFF1 via `FetchSub` (same ACL + `NetworkPolicy` as other subresources) on PDF/image paths. **`.woff2` / `.eot` / `data:`** skipped. Missing faces fall back to registry / Liberation |
-| Custom XSLT TOC (`--xsl-style-sheet`) | Not implemented (no XSLT in stdlib); Go templates instead (Phase 6) |
-| SVG-as-`<img>` / SVG presentation | **Implemented** SVG-as-`<img>` rasterization via `internal/svg`; 5 CSS properties (`fill`, `stroke`, `stroke-width`, `fill-opacity`, `stroke-opacity`) parsed in style; remaining 53 SVG presentation properties are unsupported |
-| Masking / clipping | **Implemented** `overflow-clip` for descendant box clipping (`overflow_clip.go`); `clip-path` and CSS `mask-*` properties are unsupported |
-| CSS Regions & Exclusions | **Not implemented** (`flow-from`, `flow-into`, `flow-tolerance`, `region-fragment`, `wrap-after`, `wrap-before`, `wrap-flow`, `wrap-inside`, `wrap-through` are permanent non-goals for print PDF) |
+| `@font-face` (remote / WOFF2) | **Partial:** local **and `https://`** TTF/OTF/WOFF1 via `FetchSub` (same load ACL and network policy as other subresources). **`.woff2` / `.eot` / `data:`** skipped. Missing faces fall back to registry / Liberation |
+| Custom XSLT TOC (`--xsl-style-sheet`) | Not implemented (no XSLT in the standard library); this tree has no TOC pipeline |
+| SVG-as-`<img>` / SVG presentation | **Implemented** SVG-as-`<img>` and inline `<svg>` rasterization via `internal/svg`; 5 CSS properties (`fill`, `stroke`, `stroke-width`, `fill-opacity`, `stroke-opacity`) parsed in style; the remaining SVG presentation properties are unsupported (§2.3) |
+| Masking / clipping | **Implemented** `overflow-clip` for descendant box clipping (`overflow_clip.go`); `clip-path` is parsed and stored but its behavior is unverified (§2.2); CSS `mask-*` properties are unsupported |
+| CSS Regions & Exclusions | **Not implemented** (`flow-from`, `flow-into`, `flow-tolerance`, `region-fragment`, `wrap-after`, `wrap-before`, `wrap-flow`, `wrap-inside`, `wrap-through` are permanent non-goals for this engine) |
 | WebP, AVIF | Not implemented; broken-image placeholder or skip |
-| Fixed CSS headers/footers via `position: fixed` alone | Prefer CLI `--header-*` / `--footer-*` for repeating chrome; CSS `fixed` lite paints on every page but is not a full running-element model |
-| Complex-script shaping (Indic, Arabic, CJK) | **Type0/CID Identity-H** for BMP Unicode (CJK with a capable face); **Arabic OT** via `go-text/typesetting` when the face has GSUB (+ presentation-form `ShapeText` fallback); Hangul needs a Hangul face. `writing-mode` vertical keywords inherit and rotate glyphs (`RotateDeg == -90`); block/line layout stays horizontal. **Indic Partial** (OT when face/cmap allow; not production-claimed). Optional OT **`halt`/`palt`** for CJK punctuation via `ShapeTextFont` FontFeatures |
-| PDF version (1.4 / 1.7 / 2.0) | **Supported:** PDF 1.4 is default; PDF 1.7 and PDF 2.0 are opt-in via `--pdf-version 1.7` / `--pdf-version 2.0` or library field `Document.PDFVersion`. Emits `%PDF-1.7` (trailer `/ID`, Info with UTF-16BE + BOM strings, non-claiming XMP Metadata stream) or `%PDF-2.0` (trailer `/ID`, UTF-8 document strings, non-claiming XMP with `dc:format`, `pdf:Producer`, dates). PDF 2.0 output is a **version**, not a conformance claim |
-| PDF/A-3a, PDF/UA-1 (ISO 19005-3 / ISO 14289-1) | **Supported:** Opt-in via `--pdf-profile a3a-ua1` / library field `Document.PDFProfile` (`"a3a-ua1"`, `"a3a"`, `"ua1"`). Implies PDF 1.7. Emits claiming XMP metadata (`pdfaid:part=3`, `pdfaid:conformance=A`, `pdfuaid:part=1`), sRGB OutputIntent, `/DefaultRGB`, and full logical structure tree (`H1`..`H6`, `P`, `Table` > `TR` > `TH`/`TD`, `L` > `LI` > `LBody` > `Link`, `Figure` + `alt`, `/Artifact /Pagination`) |
-| PDF 2.0 (ISO 32000-2) | **Shipped as opt-in version** (#32): `--pdf-version 2.0` / `Document.PDFVersion = "2.0"`. Version alone is **not** a PDF/A or PDF/UA claim |
-| PDF/A-4, PDF/UA-2 (PDF 2.0 conformance profiles) | **Supported** (#33): Opt-in via `--pdf-profile a4-ua2` / `Document.PDFProfile` (`"a4-ua2"`, `"a4"`, `"ua2"`). Implies PDF 2.0. Emits claiming XMP (`pdfaid:part=4`, `pdfaid:rev=2020`, `pdfuaid:part=2`, `pdfuaid:rev=2024`), sRGB+Gray OutputIntent / Default* ICCBased, structure `/Namespace`, `ListNumbering` on lists, structure destinations on internal links, and full logical structure tree (`L` > `LI` > `LBody` > `Link`) |
-| PDF encryption, duplex, AcroForm | Out of scope (not in original wkhtmltopdf either) |
+| Fixed CSS headers/footers via `position: fixed` alone | `position: fixed` is marked viewport-fixed (`markOpsFixed`, `layout_chrome.go:12`) when not under a transformed ancestor; not a full running-element model. There are no header/footer flags in this tree |
+| Complex-script shaping (Indic, Arabic, CJK) | **Arabic OT** via `go-text/typesetting` when the face has GSUB (+ presentation-form `ShapeText` fallback); Hangul needs a Hangul face. `writing-mode` vertical keywords inherit and rotate glyphs (`RotateDeg == -90`); block/line layout stays horizontal. **Indic Partial** (OT when face/cmap allow; not production-claimed). Optional OT **`halt`/`palt`** for CJK punctuation via `ShapeTextFont` FontFeatures |
+| PDF output (versions, profiles) | **Not part of this tree.** The engine returns a drawing list; PDF emission is out of scope. There are no `--pdf-version` / `--pdf-profile` flags, no `Document.PDFVersion` / `Document.PDFProfile` fields, and no PDF/A or PDF/UA claims |
 
 ### 5.1 Deferred niche and draft families (94 properties - Not implemented)
 
-The following 94 properties are intentionally left **unsupported** (Not implemented). They have no print PDF consumer and are out of scope for the print PDF engine. Declarations are parsed as valid property names where recognized and then ignored with graceful degrade, never claimed as Implemented. No Implemented claims are made for any of the 94.
+The following 94 properties are intentionally left **unsupported** (Not implemented). They have no layout or paint consumer and are out of scope for this engine. Declarations are parsed as valid property names where recognized and then ignored with graceful degrade, never claimed as Implemented. No Implemented claims are made for any of the 94.
 
 | Family | Count | Status | Note | Examples (not exhaustive) |
 |--------|-------|--------|------|---------------------------|
-| Draft corner-shape CSS (34 properties: corner, corner-block-*, corner-inline-*, etc.) | 34 | Not implemented | Draft corner-shape CSS; not in print PDF engine. Left unsupported. `corner-*` is not `border-radius` (see §2.1). | `corner`, `corner-shape`, `corner-block-start-shape`, `corner-inline-end-shape`, `corner-top-left-shape`, `corner-bottom-right-shape`, etc. |
-| Ruby/MathML/rhythmic niche (33 properties: block-ellipsis, block-step-*, box-snap, ruby-*, math-*, etc.) | 33 | Not implemented | Ruby/MathML/rhythmic niche; not implemented for print PDF. Left unsupported. | `block-ellipsis`, `block-step-*`, `box-snap`, `ruby-align`, `ruby-position`, `math-depth`, `math-style`, `line-snap`, etc. |
-| Draft gap/row-rule decorations (27 properties: row-rule*, rule*) | 27 | Not implemented | Draft gap/row-rule decorations; no print consumer. Left unsupported. `row-rule*` and `rule*` are not `column-rule` (see §2.9). | `row-rule`, `row-rule-break`, `row-rule-color`, `row-rule-style`, `row-rule-width`, `rule`, `rule-break`, `rule-color`, `rule-style`, `rule-width`, etc. |
+| Draft corner-shape CSS (34 properties: corner, corner-block-*, corner-inline-*, etc.) | 34 | Not implemented | Draft corner-shape CSS; no layout consumer. Left unsupported. `corner-*` is not `border-radius` (see the `border-radius` row in §2). | `corner`, `corner-shape`, `corner-block-start-shape`, `corner-inline-end-shape`, `corner-top-left-shape`, `corner-bottom-right-shape`, etc. |
+| Ruby/MathML/rhythmic niche (33 properties: block-ellipsis, block-step-*, box-snap, ruby-*, math-*, etc.) | 33 | Not implemented | Ruby/MathML/rhythmic niche; not implemented here. Left unsupported. | `block-ellipsis`, `block-step-*`, `box-snap`, `ruby-align`, `ruby-position`, `math-depth`, `math-style`, `line-snap`, etc. |
+| Draft gap/row-rule decorations (27 properties: row-rule*, rule*) | 27 | Not implemented | Draft gap/row-rule decorations; no layout consumer. Left unsupported. `row-rule*` and `rule*` are not `column-rule` (see the `column-rule*` rows in §2). | `row-rule`, `row-rule-break`, `row-rule-color`, `row-rule-style`, `row-rule-width`, `rule`, `rule-break`, `rule-color`, `rule-style`, `rule-width`, etc. |
 
-Total: 94 properties across three families. All are Not implemented and left unsupported with no print PDF consumer.
+Total: 94 properties across three families. All are Not implemented and left unsupported with no layout consumer.
 
 ### 5.2 Phase 83 hard-defer categories (87 properties - Not implemented)
 
-The following 87 properties across three categories are intentionally left **unsupported** (Not implemented) as hard-deferred or permanent non-goals for print PDF:
+The following 87 properties across three categories are intentionally left **unsupported** (Not implemented) as hard-deferred or permanent non-goals for this engine:
 
 | Category | Count | Status | Description and scope |
 |----------|-------|--------|-----------------------|
 | SVG presentation & geometry (`B_svg_presentation`) | 53 | Not implemented | Remaining SVG presentation and geometry properties. SVG-as-`<img>` is implemented via `internal/svg` rasterizer; 5 CSS properties (`fill`, `stroke`, `stroke-width`, `fill-opacity`, `stroke-opacity`) are parsed in style; remaining 53 SVG presentation properties are unsupported (`alignment-baseline`, `baseline-shift`, `color-interpolation`, `cx`, `cy`, `d`, `dominant-baseline`, `fill-break`, `fill-color`, `fill-image`, `fill-origin`, `fill-position`, `fill-repeat`, `fill-rule`, `fill-size`, `glyph-orientation-vertical`, `image-rendering`, `marker`, `marker-end`, `marker-mid`, `marker-side`, `marker-start`, `paint-order`, `path-length`, `r`, `rx`, `ry`, `shape-rendering`, `stop-color`, `stop-opacity`, `stroke-align`, `stroke-alignment`, `stroke-break`, `stroke-color`, `stroke-dash-corner`, `stroke-dash-justify`, `stroke-dashadjust`, `stroke-dasharray`, `stroke-dashcorner`, `stroke-dashoffset`, `stroke-image`, `stroke-linecap`, `stroke-linejoin`, `stroke-miterlimit`, `stroke-origin`, `stroke-position`, `stroke-repeat`, `stroke-size`, `text-anchor`, `text-rendering`, `vector-effect`, `x`, `y`). |
 | Mask, clip, and filter effects (`B_mask_clip_filter_effects`) | 25 | Not implemented | Masking, clipping, and filter primitives. `overflow-clip` is implemented for descendant box clipping (`overflow_clip.go`); 2D image filter (opacity, blur, grayscale, invert, adjustments) on raster images + CSS `opacity()` on elements are implemented (`filter.go`); `clip-path`, CSS `mask-*` properties, `backdrop-filter`, and CSS shader/SVG filter composition are unsupported (`backdrop-filter`, `clip`, `clip-path`, `clip-rule`, `color-interpolation-filters`, `flood-color`, `flood-opacity`, `lighting-color`, `mask`, `mask-border`, `mask-border-mode`, `mask-border-outset`, `mask-border-repeat`, `mask-border-slice`, `mask-border-source`, `mask-border-width`, `mask-clip`, `mask-composite`, `mask-image`, `mask-mode`, `mask-origin`, `mask-position`, `mask-repeat`, `mask-size`, `mask-type`). |
-| CSS Regions & Exclusions (`B_regions_exclusions`) | 9 | Not implemented | CSS Regions and Exclusions are permanent non-goals for print PDF (`flow-from`, `flow-into`, `flow-tolerance`, `region-fragment`, `wrap-after`, `wrap-before`, `wrap-flow`, `wrap-inside`, `wrap-through`). |
+| CSS Regions & Exclusions (`B_regions_exclusions`) | 9 | Not implemented | CSS Regions and Exclusions are permanent non-goals for this engine (`flow-from`, `flow-into`, `flow-tolerance`, `region-fragment`, `wrap-after`, `wrap-before`, `wrap-flow`, `wrap-inside`, `wrap-through`). |
 
 Total: 87 properties across three hard-defer categories. All remain Not implemented.
+
+Catalog reconciliation: this phase-83 tally counts names with no print
+consumer as unsupported, but several are parsed and stored in the style layer
+and therefore appear as Partial in the catalog with unverified behavior:
+`alignment-baseline`, `color-interpolation`, `dominant-baseline`, `fill-rule`,
+`shape-rendering`, `stroke-dasharray`, `stroke-dashoffset`, `stroke-linecap`,
+`stroke-linejoin`, `stroke-miterlimit`, `text-anchor`, and `clip-path`. The
+five SVG properties consumed by SVG-as-img (`fill`, `stroke`, `stroke-width`,
+`fill-opacity`, `stroke-opacity`) are Partial as well. The catalog in section 2
+is authoritative for status; this table remains the phase-83 family record.
 
 ### 5.3 Vendor-prefix aliases (-webkit-) - Phase 69 and Phase 82
 
@@ -438,17 +974,26 @@ This section is the contract for vendor-prefixed alias handling. Alias mechanism
 and value remaps in `remapWebkitValue` at `internal/layout/style_cascade.go:1000`.
 
 - **Total tracked:** 70 `-webkit-` alias names.
-- **Implemented:** 28 aliases that map to an already Implemented unprefixed base.
+- **Registered:** 28 aliases that map to an unprefixed base the engine consumes. The catalog records an alias as Partial when its base is Partial; see the reconciliation note below.
 - **Unsupported:** 42 aliases whose bases are not Implemented or are print-noop. These are
   not Implemented and degrade gracefully (ignored declaration).
 
 Do not treat Unsupported aliases as Implemented. Tests for Implemented aliases live in
 `internal/layout/style_cascade_test.go:188` (`TestWebkitPrefixAliases`).
 
+Catalog reconciliation: alias status follows the base property's status in
+`testdata/css/catalog/properties.json`. Bases that are Partial make their
+aliases Partial, so the catalog records `-webkit-box-shadow`, `-webkit-filter`,
+`-webkit-transform`, `-webkit-transform-origin`, `-webkit-align-content`,
+`-webkit-align-self`, `-webkit-flex-basis`, `-webkit-flex-shrink`,
+`-webkit-flex-wrap`, the four `-webkit-border-*-radius` corner longhands, and
+`-webkit-line-clamp` as Partial. The 28/42 split above is the phase-69/82
+tally of registered aliases, not the catalog status count.
+
 #### 5.3.1 Implemented vendor aliases (28)
 
 28 = 22 from Phase 69 + 6 new in Phase 82 slice A. Each entry has a prefixed-name
-test and a consumer in layout or paint (the unprefixed base is already Implemented).
+test and folds onto its unprefixed base; bases without verified behavior evidence make their aliases Partial in the catalog.
 
 | Vendor alias | Canonical property | Notes / base |
 |--------------|--------------------|--------------|
@@ -494,9 +1039,10 @@ Display value aliases (also Phase 82 slice A, at `internal/layout/style_properti
 blocking base. Do not claim Implemented for any of these 42.
 
 **Group B - 3 background longhands:** bases `background-clip`,
-`background-origin`, and `background-size` are Implemented. Their `-webkit-*`
-remaps are not registered, so the aliases stay Unsupported
-(`plans/0.2.6/catalog/mapping.json`).
+`background-origin`, and `background-size` are Partial in the catalog (parsed,
+behavior unverified). Their `-webkit-*` remaps are not registered, so the
+aliases stay Unsupported
+(`testdata/css/catalog/properties.json`).
 
 | Vendor alias | Base | Reason |
 |--------------|------|--------|
@@ -525,9 +1071,9 @@ Implemented.
 | `-webkit-mask-box-image-outset` | `mask-border-outset` | wait Phase 83 hard defer |
 | `-webkit-mask-box-image-repeat` | `mask-border-repeat` | wait Phase 83 hard defer |
 
-**Group D - 20 animation / transition / 3D / UI print-noop:** bases have no print
-PDF consumer and stay skipped. Aliases stay Unsupported (permanent non-goal for
-print).
+**Group D - 20 animation / transition / 3D / UI print-noop:** bases have no
+layout consumer and stay skipped. Aliases stay Unsupported (permanent
+non-goal).
 
 | Vendor alias | Blocking base | Reason |
 |--------------|---------------|--------|
@@ -553,7 +1099,7 @@ print).
 | `-webkit-user-select` | `user-select` | print-noop (UI) |
 
 **Group E - 5 WebKit-native with no print consumer:** bases are WebKit extensions
-with no consumer in the print engine. Left Unsupported unless a base plus consumer
+with no consumer in this engine. Left Unsupported unless a base plus consumer
 lands.
 
 | Vendor alias | Blocking base | Reason |
@@ -566,26 +1112,36 @@ lands.
 
 ### 5.4 Phase 84 print-noop categories (155 properties - Not implemented)
 
-The following 155 properties across six categories are intentionally left **unsupported** (Not implemented) as print-noop non-goals. Static print PDF has no animation time loop, no interactive scroll viewport, no pointer/caret chrome, no motion or anchor timelines, no aural speech synthesis, and no 3D scene graph. Declarations are recognized where valid CSS syntax appears and dropped without error; none are claimed as Implemented.
+The following 155 properties across six categories are intentionally left **unsupported** (Not implemented) as print-noop non-goals. This engine has no animation time loop, no interactive scroll viewport, no pointer/caret chrome, no motion or anchor timelines, no aural speech synthesis, and no 3D scene graph. Declarations are recognized where valid CSS syntax appears and dropped without error; none are claimed as Implemented.
 
 | Category | Count | Status | Description and scope |
 |----------|-------|--------|-----------------------|
-| Time, animation, and transition (`A_time_animation_transition`) | 45 | Not implemented | Static print PDF has no animation time loop, transition timeline, trigger activation, or view-transition engine (`animation`, `animation-composition`, `animation-delay`, `animation-delay-end`, `animation-delay-start`, `animation-direction`, `animation-duration`, `animation-fill-mode`, `animation-iteration-count`, `animation-name`, `animation-play-state`, `animation-range`, `animation-range-center`, `animation-range-end`, `animation-range-start`, `animation-timeline`, `animation-timing-function`, `animation-trigger`, `event-trigger`, `event-trigger-name`, `event-trigger-source`, `image-animation`, `pointer-timeline`, `pointer-timeline-axis`, `pointer-timeline-name`, `timeline-trigger`, `timeline-trigger-activation-range`, `timeline-trigger-activation-range-end`, `timeline-trigger-activation-range-start`, `timeline-trigger-active-range`, `timeline-trigger-active-range-end`, `timeline-trigger-active-range-start`, `timeline-trigger-name`, `timeline-trigger-source`, `transition`, `transition-behavior`, `transition-delay`, `transition-duration`, `transition-property`, `transition-timing-function`, `trigger-scope`, `view-transition-class`, `view-transition-group`, `view-transition-name`, `view-transition-scope`). |
-| Scroll snap, overscroll, and scrollbar (`A_scroll_snap_overscroll`) | 41 | Not implemented | Static print PDF has no scroll viewport, scroll snapping, scroll margin/padding offsets, scroll timeline drivers, or scrollbar gutter/color/width chrome (`overscroll-behavior`, `overscroll-behavior-block`, `overscroll-behavior-inline`, `overscroll-behavior-x`, `overscroll-behavior-y`, `scroll-axis-lock`, `scroll-behavior`, `scroll-initial-target`, `scroll-margin`, `scroll-margin-block`, `scroll-margin-block-end`, `scroll-margin-block-start`, `scroll-margin-bottom`, `scroll-margin-inline`, `scroll-margin-inline-end`, `scroll-margin-inline-start`, `scroll-margin-left`, `scroll-margin-right`, `scroll-margin-top`, `scroll-marker-group`, `scroll-padding`, `scroll-padding-block`, `scroll-padding-block-end`, `scroll-padding-block-start`, `scroll-padding-bottom`, `scroll-padding-inline`, `scroll-padding-inline-end`, `scroll-padding-inline-start`, `scroll-padding-left`, `scroll-padding-right`, `scroll-padding-top`, `scroll-snap-align`, `scroll-snap-stop`, `scroll-snap-type`, `scroll-target-group`, `scroll-timeline`, `scroll-timeline-axis`, `scroll-timeline-name`, `scrollbar-color`, `scrollbar-gutter`, `scrollbar-width`). |
-| Pointer, caret, and form UI (`A_pointer_form_ui`) | 25 | Not implemented | Static print PDF has no mouse pointer, cursor styling, caret animation/color/shape, spatial navigation, dynamic field sizing, input security masking, touch gestures, user text selection, or window dragging (`appearance`, `caret`, `caret-animation`, `caret-color`, `caret-shape`, `cursor`, `field-sizing`, `input-security`, `interactivity`, `interest-delay`, `interest-delay-end`, `interest-delay-start`, `nav-down`, `nav-left`, `nav-right`, `nav-up`, `pointer-events`, `resize`, `slider-orientation`, `spatial-navigation-action`, `spatial-navigation-contain`, `spatial-navigation-function`, `touch-action`, `user-select`, `window-drag`). |
-| Anchor positioning, offset motion, and view timelines (`A_anchor_timeline_motion`) | 21 | Not implemented | Interactive anchor positioning, motion path offset rotations/distances, view timelines, scroll anchoring, and paint invalidation hints have no print PDF consumer (`anchor-name`, `anchor-scope`, `offset`, `offset-anchor`, `offset-distance`, `offset-path`, `offset-position`, `offset-rotate`, `overflow-anchor`, `position-anchor`, `position-area`, `position-try`, `position-try-fallbacks`, `position-try-order`, `position-visibility`, `timeline-scope`, `view-timeline`, `view-timeline-axis`, `view-timeline-inset`, `view-timeline-name`, `will-change`). |
-| Speech and aural (`A_speech_aural`) | 19 | Not implemented | Visual print PDF has no aural speech synthesis, sound cues, pauses, rests, or speech voice properties (`cue`, `cue-after`, `cue-before`, `pause`, `pause-after`, `pause-before`, `rest`, `rest-after`, `rest-before`, `speak`, `speak-as`, `voice-balance`, `voice-duration`, `voice-family`, `voice-pitch`, `voice-range`, `voice-rate`, `voice-stress`, `voice-volume`). |
-| 3D transforms (`A_3d_transforms`) | 4 | Not implemented | Static 2D affine transforms (`transform`, `transform-origin`) are Implemented for paint CTM; 3D transform matrices, perspective projection, perspective origins, and backface culling are permanent non-goals for print PDF (`backface-visibility`, `perspective`, `perspective-origin`, `transform-style`). |
+| Time, animation, and transition (`A_time_animation_transition`) | 45 | Not implemented | This engine has no animation time loop, transition timeline, trigger activation, or view-transition engine (`animation`, `animation-composition`, `animation-delay`, `animation-delay-end`, `animation-delay-start`, `animation-direction`, `animation-duration`, `animation-fill-mode`, `animation-iteration-count`, `animation-name`, `animation-play-state`, `animation-range`, `animation-range-center`, `animation-range-end`, `animation-range-start`, `animation-timeline`, `animation-timing-function`, `animation-trigger`, `event-trigger`, `event-trigger-name`, `event-trigger-source`, `image-animation`, `pointer-timeline`, `pointer-timeline-axis`, `pointer-timeline-name`, `timeline-trigger`, `timeline-trigger-activation-range`, `timeline-trigger-activation-range-end`, `timeline-trigger-activation-range-start`, `timeline-trigger-active-range`, `timeline-trigger-active-range-end`, `timeline-trigger-active-range-start`, `timeline-trigger-name`, `timeline-trigger-source`, `transition`, `transition-behavior`, `transition-delay`, `transition-duration`, `transition-property`, `transition-timing-function`, `trigger-scope`, `view-transition-class`, `view-transition-group`, `view-transition-name`, `view-transition-scope`). |
+| Scroll snap, overscroll, and scrollbar (`A_scroll_snap_overscroll`) | 41 | Not implemented | This engine has no scroll viewport, scroll snapping, scroll margin/padding offsets, scroll timeline drivers, or scrollbar gutter/color/width chrome (`overscroll-behavior`, `overscroll-behavior-block`, `overscroll-behavior-inline`, `overscroll-behavior-x`, `overscroll-behavior-y`, `scroll-axis-lock`, `scroll-behavior`, `scroll-initial-target`, `scroll-margin`, `scroll-margin-block`, `scroll-margin-block-end`, `scroll-margin-block-start`, `scroll-margin-bottom`, `scroll-margin-inline`, `scroll-margin-inline-end`, `scroll-margin-inline-start`, `scroll-margin-left`, `scroll-margin-right`, `scroll-margin-top`, `scroll-marker-group`, `scroll-padding`, `scroll-padding-block`, `scroll-padding-block-end`, `scroll-padding-block-start`, `scroll-padding-bottom`, `scroll-padding-inline`, `scroll-padding-inline-end`, `scroll-padding-inline-start`, `scroll-padding-left`, `scroll-padding-right`, `scroll-padding-top`, `scroll-snap-align`, `scroll-snap-stop`, `scroll-snap-type`, `scroll-target-group`, `scroll-timeline`, `scroll-timeline-axis`, `scroll-timeline-name`, `scrollbar-color`, `scrollbar-gutter`, `scrollbar-width`). |
+| Pointer, caret, and form UI (`A_pointer_form_ui`) | 25 | Not implemented | This engine has no mouse pointer, cursor styling, caret animation/color/shape, spatial navigation, dynamic field sizing, input security masking, touch gestures, user text selection, or window dragging (`appearance`, `caret`, `caret-animation`, `caret-color`, `caret-shape`, `cursor`, `field-sizing`, `input-security`, `interactivity`, `interest-delay`, `interest-delay-end`, `interest-delay-start`, `nav-down`, `nav-left`, `nav-right`, `nav-up`, `pointer-events`, `resize`, `slider-orientation`, `spatial-navigation-action`, `spatial-navigation-contain`, `spatial-navigation-function`, `touch-action`, `user-select`, `window-drag`). |
+| Anchor positioning, offset motion, and view timelines (`A_anchor_timeline_motion`) | 21 | Not implemented | Interactive anchor positioning, motion path offset rotations/distances, view timelines, scroll anchoring, and paint invalidation hints have no layout consumer (`anchor-name`, `anchor-scope`, `offset`, `offset-anchor`, `offset-distance`, `offset-path`, `offset-position`, `offset-rotate`, `overflow-anchor`, `position-anchor`, `position-area`, `position-try`, `position-try-fallbacks`, `position-try-order`, `position-visibility`, `timeline-scope`, `view-timeline`, `view-timeline-axis`, `view-timeline-inset`, `view-timeline-name`, `will-change`). |
+| Speech and aural (`A_speech_aural`) | 19 | Not implemented | This engine has no aural speech synthesis, sound cues, pauses, rests, or speech voice properties (`cue`, `cue-after`, `cue-before`, `pause`, `pause-after`, `pause-before`, `rest`, `rest-after`, `rest-before`, `speak`, `speak-as`, `voice-balance`, `voice-duration`, `voice-family`, `voice-pitch`, `voice-range`, `voice-rate`, `voice-stress`, `voice-volume`). |
+| 3D transforms (`A_3d_transforms`) | 4 | Not implemented | Static 2D affine transforms (`transform`, `transform-origin`) are Implemented for paint; 3D transform matrices, perspective projection, perspective origins, and backface culling are permanent non-goals for this engine (`backface-visibility`, `perspective`, `perspective-origin`, `transform-style`). |
 
 Total: 155 properties across six categories. All remain Not implemented.
+
+Catalog reconciliation: this phase-84 tally counts print-noop names as
+unsupported, but the catalog records `scroll-margin`, `scroll-margin-bottom`,
+`scroll-margin-left`, `scroll-margin-right`, `scroll-margin-top`,
+`backface-visibility`, `perspective`, `perspective-origin`, and
+`transform-style` as Partial (parsed and stored, behavior unverified), and
+`appearance`, `caret-color`, `cursor`, `pointer-events`, `resize`,
+`touch-action`, and `user-select` as intentionally ignored. The catalog in
+section 2 is authoritative for status; this table remains the phase-84 family
+record.
 
 ### 5.5 v0.2.7 Borders-4 / Round Display drafts (14 properties - Unsupported / draft-not-ready)
 
 Phase 87.7 product choice: **Defer all 14**. Spec text for these Borders-4 /
 css-round-display-1 names is largely not ready for implementation; there is no
 apply arm and no paint consumer in `internal/layout`. Do not claim Implemented
-for parse-only stubs. Catalog rows stay `engine_status: unsupported` in
-`plans/0.2.6/catalog/mapping.json`. Fixture-64 Effect cells already warn
+for parse-only stubs. Catalog rows stay `unsupported` in
+`testdata/css/catalog/properties.json`. Fixture-64 Effect cells already warn
 `Chrome: no render expected` where Chrome BCD has no render path.
 
 | Property | Spec | Status | Note |
@@ -602,179 +1158,37 @@ for parse-only stubs. Catalog rows stay `engine_status: unsupported` in
 | `border-left-clip` | css-borders-4 | Unsupported / draft-not-ready | No apply/paint; v0.2.7 defer |
 | `border-limit` | css-borders-4 | Unsupported / draft-not-ready | No apply/paint; v0.2.7 defer |
 | `border-right-clip` | css-borders-4 | Unsupported / draft-not-ready | No apply/paint; v0.2.7 defer |
-| `border-shape` | css-borders-4 | Unsupported / draft-not-ready | Chrome BCD yes since 147; still no gowk consumer; v0.2.7 defer |
+| `border-shape` | css-borders-4 | Unsupported / draft-not-ready | Chrome BCD yes since 147; still no consumer in this tree; v0.2.7 defer |
 | `border-top-clip` | css-borders-4 | Unsupported / draft-not-ready | No apply/paint; v0.2.7 defer |
 
-Total: 14 properties. All remain Unsupported / draft-not-ready for v0.2.7.
-Ledger: `plans/0.2.7/phases/phase-87.7-border-drafts.md`. Proof:
-`plans/0.2.7/phases/_proof-87.7.md`.
+Total: 14 properties. All remain Unsupported / draft-not-ready for v0.2.7. The
+phase-87.7 ledger is not part of this tree; the catalog rows in §2 are the
+current record.
 
 ## 6. Security policy (frozen defaults)
 
 | Rule | Value |
 |------|-------|
-| Local file access | **Blocked by default** (`--allow-local-files` opt-in; `--allow` path allowlist walk) |
-| Untrusted HTML | **Not supported** - same warning as upstream `docs/status.md`; use with HTML you control only |
-| Remote URL fetch | `net/http` defaults: connect + response timeouts, redirect limit. Compatible mode allows `http://localhost` / RFC1918; Restricted (`--restrict-network`) does not. `file://` is gated by the local-file ACL |
-| SSRF posture | No automatic form submission; POST only via explicit `--post` flags; no cookies auto-forwarded from site contexts |
+| Local file access | **Blocked by default**; `settings.Load.Allow` is the path allowlist, enforced by the `internal/load` ACL (`ErrAccessDenied`, load.go:47) |
+| Untrusted HTML | **Not supported**; use HTML you control only |
+| Remote URL fetch | `net/http` defaults: connect + response timeouts, redirect limit. `CompatibleNetworkPolicy` allows `http://localhost` and RFC1918; `RestrictedNetworkPolicy` does not (load.go:135-152). `file://` is gated by the local-file ACL |
+| SSRF posture | No automatic form submission; POST only when the caller configures `settings.Load.Post`; no cookies are forwarded |
 
-## 7. CLI flag support matrix (Phase 9.1)
+## 7. CLI flags
 
-Extracted from every `add(...)` call in `internal/cli/flags.go`. Status is
-**ground truth, not intent**: each flag's dotted setting was traced from the
-`Set` surface (`internal/settings/reflect.go`) to its consumers in
-`internal/convert`, `internal/load`, `internal/imageout` and
-`internal/layout`.
-
-**Policy A:** flags with no engine consumer are **not** accepted no-ops.
-They fail parse with `unknown option` (`TestStubFlagsRemoved`,
-`TestUnknownFlagErrors`).
-
-- **Supported** - parsed, wired into settings, and the setting is consumed
-  by the PDF/image pipeline; exercised end-to-end in `internal/convert`
-  tests (incl. `TestGoldenCorpusAllFixtures`), `internal/cli` parse tests,
-  or the CLI smoke run.
-- **Partial** - accepted and stored, but only part of the upstream
-  behavior is honored (note column says which).
-- **Ignored** - accepted and stored, never consumed; no effect on output.
-- **Rejected** - not registered; `--<name>` → `unknown option`.
-
-### 7.1 Documentation flags
-
-| Flag | Mode | Status |
-|------|------|--------|
-| `--help`, `--version`, `--license`, `--extended-help` | Both | Supported (handled by the parser; prints and exits 0) |
-| `--man`, `--html` | Both | **Rejected** (`unknown option`) |
-
-### 7.2 Global page/PDF flags
-
-| Flag | Mode | Status |
-|------|------|--------|
-| `--quiet` | Both | Supported (suppresses progress; `TestRunPDFQuiet`) |
-| `--log-level` | Both | **Rejected** (`unknown option`) |
-| `--collate`, `--copies` | PDF | Supported (`TestRunPDFCopiesCollate`, `TestRunPDFCopiesNonCollate`) |
-| `--orientation` | PDF | Supported (page geometry swap) |
-| `--page-size` | PDF | Supported (A4/Letter/…; golden runner) |
-| `--grayscale` | PDF | **Supported** (sets `Global.Grayscale`; `convert` → `doc.SetGrayscale`; `TestGrayscaleSetsConvertField`) |
-| `--lowquality` | PDF | **Rejected** (`unknown option`) |
-| `--title` | PDF | Supported (PDF /Title info) |
-| `--margin-top/bottom/left/right` | PDF | Supported (page geometry + golden runner) |
-| `--dpi` | PDF | **Rejected** (`unknown option`) |
-| `--page-width`, `--page-height` | PDF | Supported (`pageGeometry` override) |
-| `--pdf-version` | PDF | Supported (PDF 1.4 default; 1.7 / 2.0 opt-in; invalid values error) |
-| `--pdf-profile` | PDF | Supported (PDF/A-3a, PDF/UA-1, dual 1.7 profiles; PDF/A-4, PDF/UA-2, dual 2.0 profiles) |
-| `--image-quality` | Both | **Rejected** (`unknown option`). Image mode uses `--quality` |
-| `--image-dpi` | PDF | **Rejected** (`unknown option`) |
-| `--no-pdf-compression` | PDF | Supported (uncompressed streams; used by tests) |
-| `--use-xserver` | Both | **Rejected** (`unknown option`) |
-| `--cookie-jar` | Both | **Rejected** (`unknown option`) |
-| `--read-args-from-stdin` | Both | **Rejected** (`unknown option`) |
-
-### 7.3 Pagination & smart shrinking
-
-| Flag | Mode | Status |
-|------|------|--------|
-| `--page-offset` | PDF | Supported (header/footer and TOC page numbers) |
-| `--enable-smart-shrinking`, `--disable-smart-shrinking` | PDF | Supported (re-layout with zoom; `TestRunPDFSmartShrinking`). There is **no** bare `--smart-shrinking` flag |
-
-### 7.4 Outline
-
-| Flag | Mode | Status |
-|------|------|--------|
-| `--outline` | PDF | Supported (`TestOutlineWiring`, `TestOutlineDisabled`) |
-| `--outline-depth` | PDF | Supported (outline tree truncation) |
-| `--dump-outline` | PDF | Supported (wkhtmltopdf XML to stdout) |
-| `--dump-default-toc-xsl` | PDF | Supported (built-in template description to stdout) |
-
-### 7.5 Web & load (page-scoped)
-
-| Flag | Mode | Status |
-|------|------|--------|
-| `--enable-javascript`, `--disable-javascript` | Both | **Rejected** (`unknown option`; no JS engine) |
-| `--allow-local-files`, `--no-allow-local-files` | Both | Supported (local-file ACL; security policy §6 + golden runner) |
-| `--allow` | Both | Supported (ACL allow-prefix list; `flags.go` registers it `ModeBoth` and `ResolveEffectiveLoadGlobal` folds global prefixes into image mode) |
-| `--restrict-network` | Both | Supported (`RestrictedNetworkPolicy`: block private destinations and cross-host redirects) |
-| `--allow-host` | Both | Supported (exact or `*.example.com` host allowlist; exact entries may skip the private-IP check) |
-| `--background`, `--no-background` | Both | Supported (paint gate; golden runner sets it on) |
-| `--enable-plugins`, `--disable-plugins` | Both | **Rejected** (`unknown option`) |
-| `--default-encoding` | Both | **Rejected** (`unknown option`) |
-| `--minimum-font-size` | Both | **Rejected** (`unknown option`) |
-| `--user-style-sheet` | Both | **Rejected** (`unknown option`) |
-| `--print-media-type`, `--no-print-media-type` | Both | **Supported** (consumed via `ResolveMedia`; PDF default remains `print`) |
-| `--simplify-dom`, `--no-simplify-dom` | Both | Supported (opt-in chrome-strip; landmarks-only `SimplifyChromeCSS`; default off; `TestSimplifyDOMOnHidesChrome`) |
-| `--simplify-dom-profile` | Both | Supported (`mediawiki` adds MW selectors; empty = landmarks only; `TestSimplifyDOMMediaWikiProfile`) |
-| `--print-link-underline` | Both | Supported (opt-in underline `a[href]` after cascade; default off; `TestPrintLinkUnderlineOptIn`) |
-| `--media-type` | Both | **Supported** (consumed via `ResolveMedia`; PDF default remains `print`) |
-| `--javascript-delay` | Both | **Rejected** (`unknown option`) |
-| `--window-status`, `--run-script` | Both | **Rejected** (`unknown option`) |
-| `--zoom` | Both | Supported (operator layout scale → `layout.Options.Zoom`; not stylesheet emulation) |
-| `--stop-slow-scripts`, `--no-stop-slow-scripts` | Both | **Rejected** (`unknown option`) |
-| `--debug-javascript`, `--no-debug-javascript` | Both | **Rejected** (`unknown option`) |
-| `--load-error-handling` | Both | Supported (abort/skip/ignore in the loader) |
-| `--load-media-error-handling` | Both | **Rejected** (`unknown option`) |
-| `--proxy` | Both | Partial (global proxy wired into the HTTP transport; object-level `load.proxy` is stored but not applied) |
-| `--username`, `--password` | Both | Supported (HTTP basic auth) |
-| `--custom-header-propagation`, `--no-custom-header-propagation` | Both | **Rejected** (`unknown option`) |
-| `--timeout` | Both | Supported (HTTP response timeout) |
-| `--external-links`, `--no-external-links` | PDF | **Supported** (`--no-external-links` honored via `stripLinkURIs`; default on) |
-| `--internal-links`, `--no-internal-links` | PDF | Partial (body `#` fragment GoTo via layout `OpLinkURI` + `applyInternalLinks`; HTML HF `#id` → body `AddLinkDest`. Geometry caveats - runs without paint boxes still skipped) |
-| `--resolve-relative-links`, `--keep-relative-links` | PDF | Supported (`resolveRelativeLinkURIs`; relative `href` resolution vs keep-as-written) |
-| `--font-path` | Both | Supported (extra font search directories for registry discovery) |
-| `--use-system-fonts` | Both | Supported (opt-in system font dirs; default off for determinism) |
-| `--produce-forms` | PDF | **Rejected** (`unknown option`) |
-
-### 7.6 Pair flags (two values)
-
-| Flag | Mode | Status |
-|------|------|--------|
-| `--cookie <name> <value>` | Both | Supported (HTTP cookies) |
-| `--custom-header <name> <value>` | Both | Supported (HTTP headers) |
-| `--post <name> <value>` | Both | Supported (POST form bodies) |
-| `--replace <name> <value>` | PDF | Supported (header/footer substitution) |
-
-### 7.7 Header & footer
-
-| Flag | Mode | Status |
-|------|------|--------|
-| `--header-left/center/right`, `--footer-left/center/right` | PDF | Supported (text HFs; `TestTextHeaderFooter`) |
-| `--header-font-size`, `--footer-font-size` | PDF | Supported |
-| `--header-spacing`, `--footer-spacing` | PDF | Supported (band measurement) |
-| `--header-line`, `--footer-line` | PDF | Supported (separator line) |
-| `--header-font-name`, `--footer-font-name` | PDF | Partial (stored; every font renders as the embedded Liberation Sans) |
-| `--header-html`, `--footer-html` | PDF | **Partial** nested HTML HF: child layout (body CSS subset, flex/grid/images, local `@font-face` via shared registry/ACL); clipped to margin band; URI + `#id` GoTo to **body** destinations only (HF-tree ids are not destinations). URL values; raw markup rejected. Tests: `TestHTMLHeader*`, `hf_links_test.go` |
-
-### 7.8 TOC objects
-
-| Flag | Mode | Status |
-|------|------|--------|
-| `--xsl-style-sheet` | PDF | Partial (accepted; warning emitted, built-in Go template used instead - no XSLT in stdlib) |
-| `--toc-header-text` | PDF | Supported (`TestTOC`) |
-| `--toc-text-size-shrink` | PDF | Supported |
-| `--disable-toc-links` | PDF | Supported |
-| `--disable-dotted-lines` | PDF | Supported |
-| `--toc-level-indentation` | PDF | Supported |
-| `--toc-forward-links` | PDF | Supported (`TestTOC`) |
-| `--toc-back-links` | PDF | Supported (`TestTOC`) |
-
-### 7.9 Image mode (`blinkless`)
-
-| Flag | Mode | Status |
-|------|------|--------|
-| `--width`, `--height` | Image | Supported (viewport/min canvas; `TestImageFlags`) |
-| `--crop-x`, `--crop-y`, `--crop-w`, `--crop-h` | Image | Supported (output crop) |
-| `--format` | Image | Supported (explicit png/jpg vs output-extension sniffing) |
-| `--quality` | Image | Supported (JPEG encoder) |
-| `--transparent` | Image | Supported (PNG alpha; JPEG falls back to white with a warning) |
-| `--smart-width`, `--no-smart-width` | Image | Supported (grow-to-fit viewport) |
-
-Short flags: `-q` quiet, `-g` grayscale, `-O` orientation, `-s` page-size,
-`-T`/`-B`/`-R` margins, `-c` copies, `-t` title. **`-L` is `--license`**,
-not margin-left. `-h` help, `-V` version, `-E` extended-help.
+The `bin/blinkless` CLI and its flag matrix from earlier revisions are not part
+of this tree: there is no `cmd/` package and no `internal/cli`. The engine is
+consumed through the Go packages (`html`, `css`, `layout`), the C binding in
+`bindings/c`, the Python binding in `bindings/python`, and the WASM binding in
+`bindings/wasm` (see [library-api.md](library-api.md)). A CLI would need its
+own flag contract; this matrix makes no flag claims.
 
 ---
 
 ## Amendment process
 
-Any change to this matrix = a plan amendment (Phase 0.5 review), recorded in
-`plans/0.1.0/00-canonical-pure-go-rewrite.md`. Phase 4 closure goldens must map to
-this matrix row-by-row.
+Any change to this matrix is a catalog edit or a plan amendment, recorded
+against [plans/v0.0.1/html-css-json-compatibility-checklist.md](../plans/v0.0.1/html-css-json-compatibility-checklist.md).
+Regenerate section 2 with `python3 scripts/css-catalog-map.py --matrix` after a
+catalog change; `make catalog-check` fails on drift between the catalog and the
+code. The 0.0.1 compatibility work maps its rows to this matrix.

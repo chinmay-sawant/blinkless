@@ -1,3 +1,5 @@
-// Package load is reserved by the load phase of the blinkless rewrite.
-// Phase 00 scaffold only; implementation lands in later phases.
+// Package load reimplements the MultiPageLoader orchestration layer: URL
+// guessing, HTTP(S)/file fetching, cookies, proxy, auth, local ACL, and POST
+// bodies. It is not a browser: it hands raw bytes to the HTML/CSS/layout
+// pipeline. JavaScript is never executed.
 package load

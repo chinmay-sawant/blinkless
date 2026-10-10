@@ -1,7 +1,7 @@
 // Package load reimplements the MultiPageLoader orchestration layer:
 // URL guessing, HTTP(S)/file fetching, cookies, proxy, auth, local ACL,
 // and POST bodies. Not a browser: it hands raw bytes to the HTML/CSS/layout
-// pipeline. JS-related settings flags are accepted by the settings/CLI layer
+// pipeline. JS-related settings flags are accepted by the settings layer
 // but not consumed here (no JS engine).
 package load
 
@@ -174,8 +174,8 @@ func ApplyNetworkPolicy(dst *settings.LoadGlobal, policy NetworkPolicy) {
 }
 
 // ResolveEffectiveLoadGlobal returns the load settings for one conversion
-// mode. global is the shared PDF/global policy; mode contains settings owned
-// by a mode-specific request, such as image-mode proxy and ACL values.
+// mode. global is the shared load policy; mode contains settings owned by a
+// mode-specific request, such as image-mode proxy and ACL values.
 //
 // Mode-specific proxy settings override the shared proxy when present. ACL
 // prefixes are additive and local-file access is enabled when either source

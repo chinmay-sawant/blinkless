@@ -18,17 +18,17 @@ func applyTextPropsWave3(
 		setTextAlignLast(style, value)
 	case tabSizeProperty:
 		setTabSize(style, value, fsize)
-	case "text-wrap":
+	case propTextWrap:
 		setTextWrap(style, value)
 	case "text-wrap-mode":
 		setTextWrapMode(style, value)
-	case "text-wrap-style":
+	case propTextWrapStyle:
 		style.TextWrapStyle = strings.ToLower(strings.TrimSpace(value))
 	case "white-space-collapse":
 		setWhiteSpaceCollapse(style, value)
 	case "white-space-trim":
 		style.WhiteSpaceTrim = strings.ToLower(strings.TrimSpace(value))
-	case "hyphens":
+	case propHyphens:
 		setHyphens(style, value)
 	case "hyphenate-character":
 		style.HyphenateCharacter = strings.Trim(strings.TrimSpace(value), `"'`)
@@ -39,7 +39,7 @@ func applyTextPropsWave3(
 
 	case "text-decoration-line":
 		setTextDecorationLine(style, value)
-	case "text-decoration-color":
+	case propTextDecorationColor:
 		if c, ok := parseUsedColor(value, style.Color); ok {
 			style.TextDecorationColor = c
 			style.TextDecorationColorSet = true

@@ -11,6 +11,7 @@ cmd/gowkhtmltoimage/gowkhtmltoimage
 /coverage.out
 /coverage.html
 *.test
+!testdata/html-conformance/**/*.test
 testdata/golden/out/
 
 # profiling harness output: heap/stack pprof files, benchmark text dumps, and
@@ -30,9 +31,9 @@ bindings/**/*.dll
 bindings/python/**/*.egg-info/
 *.egg-info/
 
-# make samples-python regenerates corpus PDFs under output/python/. Ignore the
-# bulk fixture-*.pdf set; keep top-level fixture-55 / fixture-56 as committed
-# smoke exceptions (plus architecture-diagram.pdf / invoice-inline.pdf).
+# Leftover PDFs from the removed samples-python target under output/python/.
+# Ignore the bulk fixture-*.pdf set; keep top-level fixture-55 / fixture-56 as
+# committed smoke exceptions (plus architecture-diagram.pdf / invoice-inline.pdf).
 output/python/fixture-*.pdf
 !output/python/fixture-55-*.pdf
 !output/python/fixture-56-*.pdf
@@ -88,3 +89,7 @@ plans/0.2.6/perf-time/profiles/raw/*
 
 # Agent batch proof notes (local only; not committed)
 plans/**/phases/_proof-*.md
+
+# Generated HTML reports (local only; not committed). These are rebuilt from
+# the chat database and git history, so they are reproducible artifacts.
+plans/**/report/

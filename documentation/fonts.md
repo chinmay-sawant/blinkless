@@ -15,11 +15,11 @@ Every default conversion can use:
 | **Liberation Mono** | Regular / Bold / Italic / BoldItalic | `monospace`, Courier, Consolas, … |
 | **DejaVu Sans** | Regular + Bold | Unicode fallback (`system-ui`, last-resort glyphs) |
 
-Faces live in `internal/fonts/assets` and are loaded by `fonts.LoadDefaultFaces`. The PNG path uses the same faces for glyph positions. It does not embed a font program in a PDF.
+Faces live in `internal/fonts/assets` and are loaded by `fonts.LoadDefaultFaces`. Layout reports glyph positions from the same faces and never embeds a font program in a PDF.
 
 ## CSS generic / common-name mapping
 
-`pdf.FaceSet.ResolveFamily` (used by layout after the opt-in registry):
+`fonts.FaceSet.ResolveFamily` (used by layout after the opt-in registry):
 
 | CSS token | Bundled face |
 |-----------|----------------|
@@ -38,51 +38,52 @@ codepoint (`FindWithGlyph`, prefers DejaVu/Noto names).
 
 ## Opt-in discovery
 
-Discovery is **opt-in** (privacy + startup). Nothing is scanned unless the
-operator asks.
+Discovery is **opt-in** (privacy + startup). The public engine scans nothing
+by default; document faces arrive through `@font-face`. The settings model
+carries the wkhtmltopdf-compatible font keys for engine callers that build a
+font registry directly:
 
-| Flag | Effect |
-|------|--------|
-| `--font-path DIR` | Scan `DIR` and children to **depth 2** for `.ttf` / `.otf`; repeatable |
-| `--use-system-fonts` | Also scan common OS font directories (e.g. `/usr/share/fonts`). Skips proprietary Windows/corefont trees |
+| Key | Effect |
+|-----|--------|
+| `font-path` | Scan the directory and children to **depth 2** for `.ttf` / `.otf`; repeatable |
+| `use-system-fonts` | Also scan common OS font directories (e.g. `/usr/share/fonts`). Skips proprietary Windows/corefont trees |
 
-`pdf.ScanFontDirs` reads `.ttf` and `.otf` only. **CFF / `OTTO` OpenType is
+`fonts.ScanFontDirs` reads `.ttf` and `.otf` only. **CFF / `OTTO` OpenType is
 rejected** (TrueType outlines only). A file that fails `ParseTTF` is skipped.
 
-Example (CJK / Hangul):
+Example (CJK / Hangul) with a remote `@font-face`:
 
-```sh
-blinkless --font-path /usr/share/fonts/truetype/droid \
-  --font-path testdata/fonts \
-  fixture-27-cjk-fontpath.html out.pdf
-# Production Hangul: any Hangul-capable TTF on --font-path
-#   --font-path /usr/share/fonts/opentype/noto
+```html
+<style>
+@font-face {
+  font-family: "Hangul";
+  src: url("https://fonts.internal.example/NotoSansKR-Regular.otf");
+}
+</style>
 ```
 
-`testdata/fonts/NotoSansKR-HangulSubset.ttf` is a **tiny CI subset** for
-fixture-27 smoke — not a full CJK face. Full Noto CJK is not shipped.
+`testdata/fonts/NotoSansKR-HangulSubset.ttf` is a **tiny CI subset** for the
+fixture-27 smoke, not a full CJK face. Full Noto CJK is not shipped.
 
-## Type0 / CID path
+## CJK and non-Latin runs
 
-When a text run contains code points above U+00FF (after punctuation
-folding), the writer switches that run onto a **Type0 / CIDFontType2**
-sibling resource with Identity-H encoding and Unicode CIDs. Glyphs must
-exist in the selected face; Liberation Sans alone will still show `?`
-for CJK. Mixed Latin + CJK splits: Latin missing from a CJK face is
-drawn with bundled Liberation; CJK continues on the Type0 sibling of the
-original face.
+Text operations carry the resolved face and the shaped run; the host
+renderer draws from those. Glyphs must exist in a face on the fallback
+chain; with no covering face, CJK in Liberation Sans renders as missing
+glyphs. Mixed Latin + CJK runs split across faces, with Latin drawn from
+bundled Liberation when the CJK face lacks it.
 
 ## `@font-face`
 
-`prepare.ResourceContext.MergeFontFaces` registers document faces on **both PDF and
-image** paths.
+`prepare.ResourceContext.MergeFontFaces` registers document faces on the
+layout path.
 
 | `src` | Behavior |
 |-------|----------|
 | `.woff2`, `.eot` | **Skipped** (warning). WOFF2 needs Brotli; not allowlisted |
 | `data:` | **Skipped** (warning) |
-| `https://` / `http://` TTF, OTF, WOFF1 | **Fetched** via `Fetch` → `load.FetchSub` — **same ACL, network policy, timeout, and body cap** as CSS/images |
-| Local `url(...ttf\|otf\|woff)` | Fetched under `--allow-local-files` / `--allow` |
+| `https://` / `http://` TTF, OTF, WOFF1 | **Fetched** via `Fetch` → `load.FetchSub`, under the **same ACL, network policy, timeout, and body cap** as CSS/images |
+| Local `url(...ttf\|otf\|woff)` | Denied by the default ACL; needs an allow prefix in the internal settings model |
 | WOFF1 | Decompress → `ParseTTF` (TrueType outlines only) |
 
 `font-weight` / `font-style` on `@font-face` are parsed but **ignored at
@@ -91,16 +92,16 @@ register time**. The alias is the family name only.
 ## Honest shaping limits
 
 OpenType shaping uses [`go-text/typesetting`](https://github.com/go-text/typesetting)
-when the active face has a **GSUB** table. `TextShow` / `ShapeTextFont` run
-that shaper, then reverse-cmap shaped glyphs to Unicode CIDs for Type0
-Identity-H. **There is no CGO HarfBuzz.**
+when the active face has a **GSUB** table. `ShapeRun` / `ShapeTextFont` run
+that shaper; text operations carry the shaped run and the face reference.
+**There is no CGO HarfBuzz.**
 
 - **Arabic / Hebrew:** OT joining + ligation (e.g. Lam-Alef) when GSUB is
   present and reverse-cmap covers the glyphs. **Fallback** (no face / no GSUB
   / unmapped glyph): RTL run reverse plus best-effort **presentation-form**
   joining in `ShapeText`. Faces without Presentation Forms **and** without
   usable GSUB reverse-cmap will still look disconnected.
-- **Indic and other complex scripts:** **Partial** — OT applies when the face
+- **Indic and other complex scripts:** **Partial**: OT applies when the face
   and reverse-cmap succeed; production Indic quality is **not** claimed
   (fallback keeps combining marks after the base; no in-tree matra
   reordering).
@@ -112,9 +113,8 @@ Identity-H. **There is no CGO HarfBuzz.**
   dedicated vertical CJK face are still out.
 - **IPA / uncommon Unicode:** when the CSS `font-family` face and Liberation
   lack a glyph, layout falls back to DejaVu (bundled) and then to any
-  covering face on the opt-in registry. Use `--use-system-fonts` or
-  `--font-path` for extra coverage. See
-  [cli.md](cli.md#url-mode-chrome-strip-simplify-dom).
+  covering face registered from `@font-face` or the internal font registry.
+  Full coverage needs a face that carries it.
 - **OpenType `halt` / `palt`:** requested via typesetting `FontFeatures` for
   CJK / East-Asian punctuation runs in `ShapeTextFont`, and via
   `ParseFontFeatureSettings` / `ShapeTextFontWithFeatures` when CSS
@@ -123,9 +123,9 @@ Identity-H. **There is no CGO HarfBuzz.**
   tags and keywords reach the shaper
   (`internal/layout/style_font_feature_props.go`).
 
-## Image mode
+## Image payloads
 
-Image output uses the **same** faces, metrics, and `pdf.ShapeRun` shaping as
-PDF. Glyphs are filled from TTF outlines with coverage AA on a 2×
-supersampled canvas. The 5×7 bitmap font is not the primary path.
-See [architecture.md](architecture.md#image-mode).
+An image operation carries its encoded source bytes (PNG, JPEG, or
+SVG-as-rasterized-PNG). One payload is re-encoded as a PNG when orientation
+or a clip requires it; that is the only bitmap fallback. See
+[architecture/10-imageout-svg.md](architecture/10-imageout-svg.md).

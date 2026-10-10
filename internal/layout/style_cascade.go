@@ -255,7 +255,7 @@ type inheritCopy struct {
 
 // inheritableProps is the immutable inherit table used by inheritProps.
 // Package-level so inheritProps does not allocate a new slice, name slices,
-// and closures on every styled node (was ~40% of alloc_objects on 500-page PDF).
+// and closures on every styled node (was ~40% of alloc_objects on a 500-page document).
 var inheritableProps = []inheritCopy{ //nolint:gochecknoglobals // static inherit table
 	{[]string{"color"}, func(dst, src *ResolvedStyle) { dst.Color = src.Color }},
 	{[]string{"accent-color"}, func(dst, src *ResolvedStyle) {
@@ -276,11 +276,11 @@ var inheritableProps = []inheritCopy{ //nolint:gochecknoglobals // static inheri
 	{[]string{"white-space"}, func(dst, src *ResolvedStyle) { dst.WhiteSpace = src.WhiteSpace }},
 	{[]string{"white-space-collapse"}, func(dst, src *ResolvedStyle) { dst.WhiteSpaceCollapse = src.WhiteSpaceCollapse }},
 	{[]string{"white-space-trim"}, func(dst, src *ResolvedStyle) { dst.WhiteSpaceTrim = src.WhiteSpaceTrim }},
-	{[]string{"text-wrap"}, func(dst, src *ResolvedStyle) { dst.TextWrap = src.TextWrap }},
+	{[]string{propTextWrap}, func(dst, src *ResolvedStyle) { dst.TextWrap = src.TextWrap }},
 	{[]string{"text-wrap-mode"}, func(dst, src *ResolvedStyle) { dst.TextWrapMode = src.TextWrapMode }},
-	{[]string{"text-wrap-style"}, func(dst, src *ResolvedStyle) { dst.TextWrapStyle = src.TextWrapStyle }},
+	{[]string{propTextWrapStyle}, func(dst, src *ResolvedStyle) { dst.TextWrapStyle = src.TextWrapStyle }},
 	{[]string{tabSizeProperty}, func(dst, src *ResolvedStyle) { dst.TabSize = src.TabSize }},
-	{[]string{"hyphens"}, func(dst, src *ResolvedStyle) { dst.Hyphens = src.Hyphens }},
+	{[]string{propHyphens}, func(dst, src *ResolvedStyle) { dst.Hyphens = src.Hyphens }},
 	{[]string{"hyphenate-character"}, func(dst, src *ResolvedStyle) { dst.HyphenateCharacter = src.HyphenateCharacter }},
 	{[]string{"text-justify"}, func(dst, src *ResolvedStyle) { dst.TextJustify = src.TextJustify }},
 	{[]string{"line-break"}, func(dst, src *ResolvedStyle) { dst.LineBreak = src.LineBreak }},
@@ -332,7 +332,7 @@ var inheritableProps = []inheritCopy{ //nolint:gochecknoglobals // static inheri
 		func(dst, src *ResolvedStyle) { dst.BorderCollapse = src.BorderCollapse },
 	},
 	{
-		[]string{"border-spacing"},
+		[]string{propBorderSpacing},
 		func(dst, src *ResolvedStyle) {
 			dst.BorderSpacing = src.BorderSpacing
 			dst.BorderSpacingV = src.BorderSpacingV
@@ -644,7 +644,7 @@ func cascadeRaw( //nolint:funlen // cascade tiers are deliberately visible in on
 	// author sheets in source order (shared matchedRules walk)
 	for _, hit := range hits {
 		for _, d := range hit.rule.Decls {
-			if !supportedDeclaration(d.Value) {
+			if !supportedDeclaration(d.Prop, d.Value) {
 				continue
 			}
 
@@ -655,7 +655,7 @@ func cascadeRaw( //nolint:funlen // cascade tiers are deliberately visible in on
 	// inline style attribute: outranks all normal declarations and all sheet
 	// important declarations (spec 1<<maxIntShift).
 	for _, d := range css.ParseInline(node.Attribute("style")) {
-		if !supportedDeclaration(d.Value) {
+		if !supportedDeclaration(d.Prop, d.Value) {
 			continue
 		}
 
@@ -709,7 +709,7 @@ func cascadePseudoRaw(ctx *styleContext, node *html.Node, pseudoElem string) map
 
 	for _, hit := range ctx.matchedRules(node, pseudoElem) {
 		for _, d := range hit.rule.Decls {
-			if !supportedDeclaration(d.Value) {
+			if !supportedDeclaration(d.Prop, d.Value) {
 				continue
 			}
 
@@ -1111,41 +1111,41 @@ func expandLogicalBorder(prop, value string) ([]logicalPropDecl, bool) {
 	case cssPropBorderInlineEnd:
 		return []logicalPropDecl{{"border-right", value}}, true
 	case cssPropBorderBlockColor:
-		return []logicalPropDecl{{"border-top-color", value}, {"border-bottom-color", value}}, true
+		return []logicalPropDecl{{propBorderTopColor, value}, {propBorderBottomColor, value}}, true
 	case cssPropBorderInlineColor:
-		return []logicalPropDecl{{"border-left-color", value}, {"border-right-color", value}}, true
+		return []logicalPropDecl{{propBorderLeftColor, value}, {propBorderRightColor, value}}, true
 	case cssPropBorderBlockStartColor:
-		return []logicalPropDecl{{"border-top-color", value}}, true
+		return []logicalPropDecl{{propBorderTopColor, value}}, true
 	case cssPropBorderBlockEndColor:
-		return []logicalPropDecl{{"border-bottom-color", value}}, true
+		return []logicalPropDecl{{propBorderBottomColor, value}}, true
 	case cssPropBorderInlineStartColor:
-		return []logicalPropDecl{{"border-left-color", value}}, true
+		return []logicalPropDecl{{propBorderLeftColor, value}}, true
 	case cssPropBorderInlineEndColor:
-		return []logicalPropDecl{{"border-right-color", value}}, true
+		return []logicalPropDecl{{propBorderRightColor, value}}, true
 	case cssPropBorderBlockStyle:
-		return []logicalPropDecl{{"border-top-style", value}, {"border-bottom-style", value}}, true
+		return []logicalPropDecl{{propBorderTopStyle, value}, {propBorderBottomStyle, value}}, true
 	case cssPropBorderInlineStyle:
-		return []logicalPropDecl{{"border-left-style", value}, {"border-right-style", value}}, true
+		return []logicalPropDecl{{propBorderLeftStyle, value}, {propBorderRightStyle, value}}, true
 	case cssPropBorderBlockStartStyle:
-		return []logicalPropDecl{{"border-top-style", value}}, true
+		return []logicalPropDecl{{propBorderTopStyle, value}}, true
 	case cssPropBorderBlockEndStyle:
-		return []logicalPropDecl{{"border-bottom-style", value}}, true
+		return []logicalPropDecl{{propBorderBottomStyle, value}}, true
 	case cssPropBorderInlineStartStyle:
-		return []logicalPropDecl{{"border-left-style", value}}, true
+		return []logicalPropDecl{{propBorderLeftStyle, value}}, true
 	case cssPropBorderInlineEndStyle:
-		return []logicalPropDecl{{"border-right-style", value}}, true
+		return []logicalPropDecl{{propBorderRightStyle, value}}, true
 	case cssPropBorderBlockWidth:
-		return []logicalPropDecl{{"border-top-width", value}, {"border-bottom-width", value}}, true
+		return []logicalPropDecl{{propBorderTopWidth, value}, {propBorderBottomWidth, value}}, true
 	case cssPropBorderInlineWidth:
-		return []logicalPropDecl{{"border-left-width", value}, {"border-right-width", value}}, true
+		return []logicalPropDecl{{propBorderLeftWidth, value}, {propBorderRightWidth, value}}, true
 	case cssPropBorderBlockStartWidth:
-		return []logicalPropDecl{{"border-top-width", value}}, true
+		return []logicalPropDecl{{propBorderTopWidth, value}}, true
 	case cssPropBorderBlockEndWidth:
-		return []logicalPropDecl{{"border-bottom-width", value}}, true
+		return []logicalPropDecl{{propBorderBottomWidth, value}}, true
 	case cssPropBorderInlineStartWidth:
-		return []logicalPropDecl{{"border-left-width", value}}, true
+		return []logicalPropDecl{{propBorderLeftWidth, value}}, true
 	case cssPropBorderInlineEndWidth:
-		return []logicalPropDecl{{"border-right-width", value}}, true
+		return []logicalPropDecl{{propBorderRightWidth, value}}, true
 	default:
 		return nil, false
 	}
@@ -1187,13 +1187,6 @@ func expandBoxShorthand(prop, value string) ([4]string, bool) {
 	}
 
 	return values, true
-}
-
-// supportedDeclaration reports whether a declaration value can be computed.
-// The modern color functions (oklch, oklab, color-mix, light-dark) resolve
-// through ParseColor now, so nothing is rejected here.
-func supportedDeclaration(string) bool {
-	return true
 }
 
 // applyCascadeWin folds one declaration into the winner map when its layer,
@@ -1618,12 +1611,22 @@ func applyStyleProp(
 	applyIgnoredGroup(style, prop, value)
 }
 
-// engineSupportsProperty reports whether the engine has an apply arm for the
-// property: the @supports probe runs the same dispatch table as applyStyleProp
-// on a scratch style. Unknown properties are claimed by no group and report
-// false. The value participates because some groups gate on it before
-// claiming the property.
+// engineSupportsProperty reports whether the engine supports prop: value for
+// @supports. The property must have an apply arm in the dispatch table AND the
+// value must pass the same acceptance rule as the cascade gate
+// (supportedDeclaration). Ownership alone is not support: setDisplayKeyword
+// owns display but ignores display:bogus, so that declaration must not
+// satisfy the query. Custom properties are supported by definition; their
+// values resolve in mergeCustomProps.
 func engineSupportsProperty(prop, value string) bool {
+	if strings.HasPrefix(prop, "--") {
+		return true
+	}
+
+	if !supportedDeclaration(prop, value) {
+		return false
+	}
+
 	effectiveProp := normalizeVendorPrefix(prop)
 
 	effectiveValue := value

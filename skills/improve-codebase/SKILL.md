@@ -6,7 +6,7 @@ description: >
   user wants an architecture-and-practices review, a phase-wise
   improvement report, a 10/10 plan, or runs /improve-codebase. Do not
   implement unless asked. Do not use for ponytail deletion, perf-review,
-  critical-go-review, or a single visual HTML/PDF bug.
+  critical-go-review, or a single visual HTML bug.
 ---
 
 # Improve-codebase
@@ -31,13 +31,13 @@ restate them.
 Record: branch, `HEAD`, dirty paths, today's date, product ceiling
 (controlled-report renderer unless the user named another).
 
-Existing canonical ledgers under `plans/reviews/improve-codebase/`
+Existing canonical ledgers under `plans/<version>/improve-codebase/`
 are claims. Re-open a closed ID only with current-source proof of
 regression.
 
 Output directory (create, do not reuse a closed folder):
 
-`plans/reviews/improve-codebase/<slug>-<YYYY-MM-DD>/`
+`plans/<version>/improve-codebase/<slug>-<YYYY-MM-DD>/`
 
 `<slug>` is `codebase` unless the user named a narrower slice
 (`api`, `layout`, …).
@@ -75,9 +75,9 @@ yourself instead of spawning. Same finding shape.
 
 Follow `skills/phase-wise-checklist/SKILLS.md` exactly.
 
-File: `plans/reviews/improve-codebase/<slug>-<YYYY-MM-DD>/phase-wise-checklist.md`
+File: `plans/<version>/improve-codebase/<slug>-<YYYY-MM-DD>/phase-wise-checklist.md`
 
-Parent: `plans/reviews/improve-codebase/README.md`.
+Parent: `plans/<version>/improve-codebase/README.md`.
 
 Phase order (skip an empty phase):
 
@@ -97,7 +97,7 @@ step in the row text.
 Do not check lint/test rows in a documentation-only wave.
 
 After writing the ledger, add one bullet to
-`plans/reviews/improve-codebase/README.md` pointing at the new
+`plans/<version>/improve-codebase/README.md` pointing at the new
 folder. Do not edit older ledgers except to `[~]`-pointer a row
 you moved.
 

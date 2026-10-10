@@ -7,6 +7,8 @@ blinkless used `--quiet --allow-local-files -o OUTPUT INPUT`; wkhtmltopdf used i
 - blinkless: `../../bin/blinkless` (generic CLI)
 - wkhtmltopdf: `/usr/local/bin/wkhtmltopdf` (wkhtmltopdf 0.12.6.1 (with patched qt))
 - Reproduce: `make bench-cli-compare`
+- Retired: the reproduction path required the removed `bin/blinkless` CLI; this
+  file is a historical result snapshot.
 
 | Pages | Gowk time | wkhtmltopdf time | Speedup | Gowk RSS | wkhtmltopdf RSS | Gowk PDF bytes | wkhtmltopdf PDF bytes |
 |---:|---:|---:|---:|---:|---:|---:|---:|

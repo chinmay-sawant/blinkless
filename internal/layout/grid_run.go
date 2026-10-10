@@ -7,8 +7,8 @@ import (
 
 // GridSeg is one line segment of an OpGridRun, in canvas coordinates.
 // Segments reproduce exactly the OpLine entries a collapsed table row used to
-// append one by one, so painters replay the same PDF path operators in the
-// same order and output bytes stay identical.
+// append one by one, so painters replay the same path operators in the same
+// order.
 type GridSeg struct {
 	X, Y, W, H float64
 	Width      float64

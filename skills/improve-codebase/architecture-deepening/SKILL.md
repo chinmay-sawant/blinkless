@@ -6,7 +6,7 @@ description: >
   findings for a phase-wise checklist. Use when the user wants to improve
   architecture, deepen modules, review seams, find package leaks, or runs
   /improve-codebase-architecture. Do not use for deletion (ponytail),
-  performance squeeze (perf-review), or one visual HTML/PDF bug
+  performance squeeze (perf-review), or one visual HTML bug
   (debug-html-template).
 ---
 
@@ -23,7 +23,7 @@ also read `../references/blinkless.md`.
 
 - Record HEAD and whether the tree is dirty. Evidence is **current
   source**. Exclude unrelated dirty files from quotes.
-- Scan `plans/reviews/` for open or closed rows on the same paths.
+- Scan `plans/<version>/` for open or closed rows on the same paths.
   Closed + unregressed → `refuse`, not a new defect.
 - Product ceiling (this repo, and any report renderer like it):
   authored HTML templates, not a browser. A finding that demands JS, CGO,
@@ -37,8 +37,8 @@ From source, not from docs:
 2. Import direction. Flag any production import that points *up* toward
    a hub, CLI, or settings package a sink should not know.
 3. Where untrusted input crosses a trust boundary.
-4. Where PDF vs image (or any two adapters) are supposed to share work
-   and where they are supposed to fork.
+4. Where the public drawing list and a consumer (WASM JSON, a caller
+   canvas) are supposed to share work and where they are supposed to fork.
 
 Docs that disagree with source are a **P3 friction** (stale claim),
 not a redesign.
@@ -96,8 +96,8 @@ Walk these. File a finding only when current source fails a test in §3.
   surface; only file if a key is half-wired (CLI xor `Set` xor engine).
 - Mode forks after the shared front half: prepare aliases, first-object
   vs validate, leftover ignore-extras warnings.
-- Mutable post-handoff state (`Result`, `pdf.Document`, deprecated
-  snapshots on a context object).
+- Mutable post-handoff state (a result struct the engine keeps mutating
+  after handoff, deprecated snapshots on a context object).
 - Validation repeated with **different** predicates, not defense-in-depth
   with aliased sentinels.
 - `containedctx` / process-global maps / `init()` outside the documented
@@ -114,7 +114,7 @@ If invoked **by** `/improve-codebase`, return the finding list only.
 If invoked **alone**, continue to
 `skills/phase-wise-checklist/SKILLS.md` and write:
 
-`plans/reviews/improve-codebase/architecture-<YYYY-MM-DD>/phase-wise-checklist.md`
+`plans/<version>/improve-codebase/architecture-<YYYY-MM-DD>/phase-wise-checklist.md`
 
 Phase order for this lens: invariants / DAG → job seam → ownership →
 fork collapse → docs. Closure gates stay in the checklist skill.

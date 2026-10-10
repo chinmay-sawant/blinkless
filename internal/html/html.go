@@ -1,8 +1,9 @@
 // Package html implements a tokenizer and tree builder for the HTML subset
-// blinkless accepts: tags, attributes, text, comments, doctype, CDATA,
-// self-closing and void elements. Script/style contents are kept as raw text
-// and stripped at the layout stage. No browser-grade error recovery: common
-// malformed nesting degrades to a usable tree, not a crash.
+// blinkless accepts: tags, attributes, text, comments, doctype, self-closing
+// and void elements. The tokenizer follows the WHATWG tokenizer's recovery
+// rules for unfinished comments, tags, declarations, and quoted attribute
+// values. Script/style contents are kept as raw text and stripped at the
+// layout stage.
 //
 // ponytail: custom Node tree (Parent/Attrs/void); migrate to x/net/html only if layout/css rewritten, not free delete.
 //
@@ -10,18 +11,8 @@
 package html
 
 import (
-	"errors"
 	"strings"
-)
-
-// Tokenizer failure modes, as sentinels so callers can match and wrap them.
-var (
-	errUnterminatedComment = errors.New("html: unterminated comment")
-	errUnterminatedDoctype = errors.New("html: unterminated doctype")
-	errUnterminatedDecl    = errors.New("html: unterminated declaration")
-	errUnterminatedEndTag  = errors.New("html: unterminated end tag")
-	errUnterminatedPI      = errors.New("html: unterminated processing instruction")
-	errUnterminatedAttrVal = errors.New("html: unterminated attribute value")
+	"unicode/utf8"
 )
 
 // NodeType classifies a DOM node.
@@ -39,18 +30,33 @@ const (
 
 // Node is one DOM node.
 type Node struct {
-	Type     NodeType
-	Name     string // element name (lowercased) for elements
-	Attrs    map[string]string
-	Text     string // text/comment/doctype content
-	Children []*Node
+	Type      NodeType
+	Name      string // element name (adjusted case for foreign elements)
+	Namespace Namespace
+	Attrs     map[string]string
+	AttrList  []Attr
+	Text      string // text/comment/doctype content
+	Doctype   Doctype
+	Mode      DocumentMode // document mode; only meaningful on the root
+	Children  []*Node
+	// Contents holds a template element's content, mirroring the DOM's
+	// separate DocumentFragment for template.content. It stays out of
+	// Children, Walk, TextContent, and FindFirst so template content is
+	// never rendered or collected as active style; consumers that need it
+	// read Contents directly.
+	Contents []*Node
 	Parent   *Node
 }
 
 // Attribute returns an attribute value, or "". Attribute keys are stored
-// lowercased by the tokenizer, so lookups of already-lowercase names skip the
-// ToLower copy; uppercase lookups (e.g. CSS attr(NAME)) keep the fallback.
+// lowercased for HTML elements and adjusted for foreign elements, so lookups
+// try the exact name first and fall back to the lowercased key for HTML-style
+// callers.
 func (n *Node) Attribute(name string) string {
+	if value, ok := n.Attrs[name]; ok {
+		return value
+	}
+
 	for i := range len(name) {
 		if name[i] >= 'A' && name[i] <= 'Z' {
 			return n.Attrs[strings.ToLower(name)]
@@ -71,7 +77,8 @@ func (n *Node) FirstChild(name string) *Node {
 	return nil
 }
 
-// TextContent concatenates all descendant text.
+// TextContent concatenates all descendant text. Template contents are a
+// separate fragment and contribute nothing, matching DOM textContent.
 func (n *Node) TextContent() string {
 	var b strings.Builder
 
@@ -80,7 +87,9 @@ func (n *Node) TextContent() string {
 	return b.String()
 }
 
-// Walk visits n and every descendant in pre-order (document order).
+// Walk visits n and every descendant in pre-order (document order). Template
+// contents are not visited: they live in Node.Contents, not Children, and are
+// inert until a consumer instantiates them.
 func (n *Node) Walk(f func(*Node)) {
 	n.WalkUntil(func(node *Node) bool {
 		f(node)
@@ -106,6 +115,7 @@ func (n *Node) WalkUntil(f func(*Node) bool) bool {
 }
 
 // FindFirst returns the first node in pre-order for which pred returns true, or nil.
+// Template contents are not searched; see Walk.
 func (n *Node) FindFirst(pred func(*Node) bool) *Node {
 	var found *Node
 
@@ -146,208 +156,19 @@ func (n *Node) appendText(buf *strings.Builder) {
 	}
 }
 
-// treeBuilder accumulates parsed tokens into a node tree.
-type treeBuilder struct {
-	root  *Node
-	stack []*Node
-}
-
-func newTreeBuilder() *treeBuilder {
-	root := &Node{Type: ElementNode, Name: "#document"} //nolint:exhaustruct
-
-	return &treeBuilder{
-		root:  root,
-		stack: []*Node{root},
-	}
-}
-
-func (b *treeBuilder) top() *Node {
-	return b.stack[len(b.stack)-1]
-}
-
 // Parse turns HTML source into a tree with a synthetic root. The source is
-// decoded UTF-8; charset detection happens at the load seam (internal/load).
-// Use ParseDocument for the bytes-to-tree path (it strips the BOM).
+// preprocessed before tokenizing: CRLF and CR become LF, and invalid UTF-8
+// bytes become U+FFFD. Charset detection happens at the load seam
+// (internal/load). Use ParseDocument for the bytes-to-tree path (it strips
+// the BOM).
 func Parse(source string) (*Node, error) {
 	builder := newTreeBuilder()
 
-	err := scanTokens(source, builder.appendToken)
-	if err != nil {
-		return nil, err
-	}
+	scanTokens(source, builder.appendToken, builder.foreignCDATAAllowed)
+	builder.finish()
+	applySelectedContent(builder.root)
 
 	return builder.root, nil
-}
-
-// appendToken applies one scanned token to the tree builder stack.
-func (b *treeBuilder) appendToken(tokItem token) {
-	switch tokItem.kind {
-	case tokDoctype:
-		b.appendDoctypeToken(tokItem.data)
-	case tokComment:
-		b.appendCommentToken(tokItem.data)
-	case tokText:
-		b.appendTextToken(tokItem.data)
-	case tokStart:
-		b.openElement(tokItem)
-	case tokEnd:
-		b.closeElement(tokItem.data)
-	}
-}
-
-// appendDoctypeToken attaches a doctype node to the current top of stack.
-func (b *treeBuilder) appendDoctypeToken(data string) {
-	top := b.top()
-	top.Children = append(top.Children, &Node{Type: DoctypeNode, Text: data}) //nolint:exhaustruct
-}
-
-// appendCommentToken attaches a comment node to the current top of stack.
-func (b *treeBuilder) appendCommentToken(data string) {
-	top := b.top()
-	top.Children = append(top.Children, &Node{Type: CommentNode, Text: data}) //nolint:exhaustruct
-}
-
-// appendTextToken attaches decoded text to the current top of stack, merging
-// into an adjacent text node when present.
-func (b *treeBuilder) appendTextToken(data string) {
-	if data == "" {
-		return
-	}
-
-	decoded := UnescapeEntities(data)
-	top := b.top()
-
-	if len(top.Children) > 0 {
-		last := top.Children[len(top.Children)-1]
-		if last.Type == TextNode {
-			var merged strings.Builder
-			merged.Grow(len(last.Text) + len(decoded))
-			merged.WriteString(last.Text)
-			merged.WriteString(decoded)
-			last.Text = merged.String()
-
-			return
-		}
-	}
-
-	node := &Node{Type: TextNode, Text: decoded} //nolint:exhaustruct
-	node.Parent = top
-	top.Children = append(top.Children, node)
-}
-
-// maxElementDepth caps element nesting. Elements that would nest deeper are
-// dropped by openElement, so recursive walks (Walk, appendText) stay bounded
-// on adversarial input instead of exhausting the stack.
-const maxElementDepth = 1024
-
-// openElement applies one start tag to the open-element stack. Token data is
-// already lowercased by the tokenizer.
-func (b *treeBuilder) openElement(tokItem token) {
-	name := tokItem.data
-	if b.mergeRootElement(name) {
-		return
-	}
-
-	b.autoCloseOpen(name)
-
-	if len(b.stack)-1 >= maxElementDepth {
-		return // deeper than the cap: drop the element, content flattens up
-	}
-
-	top := b.top()
-
-	node := &Node{Type: ElementNode, Name: name} //nolint:exhaustruct
-
-	if len(tokItem.attrs) > 0 {
-		const attrPairSize = 2 // attrs slice interleaves name and value
-
-		node.Attrs = make(map[string]string, len(tokItem.attrs)/attrPairSize)
-		applyAttributes(node, tokItem.attrs)
-	}
-
-	top.Children = append(top.Children, node)
-	node.Parent = top
-
-	if tokItem.selfClosing || isVoidElement(name) {
-		return // no child content
-	}
-
-	b.stack = append(b.stack, node)
-}
-
-// mergeRootElement handles html/head/body duplicates, which merge into the
-// existing element instead of nesting: the token is dropped when one is
-// already open, otherwise a closed same-level sibling is re-opened. It
-// reports whether the token was consumed.
-func (b *treeBuilder) mergeRootElement(name string) bool {
-	if name != "html" && name != "head" && name != "body" {
-		return false
-	}
-
-	if openInStack(b.stack, name) {
-		return true
-	}
-
-	if existing := findImplicit(b.top(), name); existing != nil {
-		b.stack = append(b.stack, existing)
-
-		return true
-	}
-
-	return false
-}
-
-// autoCloseOpen pops every open element that the start tag closes, and ends
-// the row when a new <td>/<th> follows an open cell.
-func (b *treeBuilder) autoCloseOpen(name string) {
-	closedCell := false
-
-	for len(b.stack) > 1 {
-		openName := b.top().Name
-		if !shouldAutoClose(openName, name) {
-			break
-		}
-
-		if openName == "td" || openName == "th" {
-			closedCell = true
-		}
-
-		b.stack = b.stack[:len(b.stack)-1]
-	}
-	// close-a-cell: a new <td>/<th> after an open cell ends the row too
-	if closedCell && (name == "td" || name == "th") && len(b.stack) > 1 {
-		if b.top().Name == "tr" {
-			b.stack = b.stack[:len(b.stack)-1]
-		}
-	}
-}
-
-// applyAttributes stores the interleaved name/value pairs on node, keeping
-// the first value of a duplicated attribute. Names are already lowercased
-// by the tokenizer.
-func applyAttributes(node *Node, attrs []string) {
-	for i := 0; i+1 < len(attrs); i += 2 {
-		val := UnescapeEntities(attrs[i+1])
-
-		if _, dup := node.Attrs[attrs[i]]; !dup {
-			node.Attrs[attrs[i]] = val
-		}
-	}
-}
-
-// closeElement pops the open-element stack back to (and including) the
-// first element with name; a stray end tag is a no-op. Token data is already
-// lowercased by the tokenizer.
-func (b *treeBuilder) closeElement(data string) {
-	name := data
-
-	for i := len(b.stack) - 1; i > 0; i-- {
-		if b.stack[i].Name == name {
-			b.stack = b.stack[:i]
-
-			break
-		}
-	}
 }
 
 // ParseDocument turns raw document bytes into a tree with a synthetic root,
@@ -357,80 +178,6 @@ func ParseDocument(body []byte) (*Node, error) {
 	s := strings.TrimPrefix(string(body), "\ufeff") // BOM, mirroring load.IsHTML
 
 	return Parse(s)
-}
-
-// isVoidElement reports whether name never takes content.
-func isVoidElement(name string) bool {
-	switch name {
-	case "area", "base", "br", "col", "embed", "hr", "img", "input",
-		"link", "meta", "param", "source", "track", "wbr":
-		return true
-	}
-
-	return false
-}
-
-// isRawTextElement reports whether name consumes everything up to its
-// closing tag (script/style/textarea/title contents are raw text).
-func isRawTextElement(name string) bool {
-	switch name {
-	case "script", "style", "textarea", "title":
-		return true
-	}
-
-	return false
-}
-
-// openInStack reports whether an element with name is currently open.
-func openInStack(stack []*Node, name string) bool {
-	for i := len(stack) - 1; i > 0; i-- {
-		if stack[i].Name == name {
-			return true
-		}
-	}
-
-	return false
-}
-
-// findImplicit looks for an existing same-name element child of top
-// (browser-style html/head/body merging).
-func findImplicit(top *Node, name string) *Node {
-	for _, c := range top.Children {
-		if c.Type == ElementNode && c.Name == name {
-			return c
-		}
-	}
-
-	return nil
-}
-
-// shouldAutoClose reports whether a start tag next closes the open element
-// open.
-func shouldAutoClose(open, next string) bool {
-	switch next {
-	case "li":
-		return open == "li"
-	case "p":
-		return open == "p"
-	case "tr":
-		return open == "tr" || open == "td" || open == "th"
-	case "td", "th":
-		return open == "td" || open == "th"
-	case "option":
-		return open == "option"
-	case "dd", "dt":
-		return open == "dd" || open == "dt"
-	case "thead", "tbody", "tfoot":
-		return open == "thead" || open == "tbody" || open == "tfoot"
-	case "head":
-		return open == "body" || open == "head"
-	case "body":
-		return open == "head" || open == "body"
-	case "html":
-		return open == "html" || open == "head" || open == "body"
-	default:
-		return false
-	}
 }
 
 // tokenKind discriminates token types.
@@ -444,20 +191,12 @@ const (
 	tokComment
 )
 
-const (
-	commentPrefixLen = 4    // len("<!--")
-	commentSuffixLen = 3    // len("-->")
-	piCloseLen       = 2    // len("?>")
-	rawCloseMinSkip  = 2    // len("</")
-	asciiFoldBit     = 0x20 // bit that maps an ASCII uppercase byte to lowercase
-	nonASCIIStart    = 0x80 // first byte value of a multi-byte UTF-8 sequence
-)
-
 type token struct {
 	kind        tokenKind
 	data        string
 	attrs       []string // interleaved name, value
 	selfClosing bool
+	doctype     Doctype
 }
 
 // tokenSink consumes one scanned HTML token.
@@ -468,20 +207,86 @@ type tokenSink func(token)
 func tokenize(src string) ([]token, error) {
 	toks := make([]token, 0, strings.Count(src, "<")+1)
 
-	err := scanTokens(src, func(tok token) {
+	scanTokens(src, func(tok token) {
 		toks = append(toks, tok)
-	})
-	if err != nil {
-		return nil, err
-	}
+	}, nil)
 
 	return toks, nil
 }
 
-// scanTokens scans raw HTML and emits each token as soon as it is recognized.
-// Scanner errors stop further emission and preserve the tokenizer's existing
-// malformed-input behavior.
-func scanTokens(src string, emit tokenSink) error {
+// preprocessInput applies the input stream preprocessing rules: CRLF and CR
+// become LF, and invalid UTF-8 byte sequences become U+FFFD. NUL bytes stay
+// in the stream; the tokenizer handles them per state.
+func preprocessInput(src string) string {
+	if strings.IndexByte(src, '\r') < 0 && utf8.ValidString(src) {
+		return src
+	}
+
+	var b strings.Builder
+
+	b.Grow(len(src))
+
+	for i := 0; i < len(src); {
+		c := src[i]
+
+		switch {
+		case c == '\r':
+			b.WriteByte('\n')
+
+			i++
+			if i < len(src) && src[i] == '\n' {
+				i++
+			}
+		case c < utf8.RuneSelf:
+			b.WriteByte(c)
+
+			i++
+		default:
+			r, size := utf8.DecodeRuneInString(src[i:])
+			if r == utf8.RuneError && size == 1 {
+				b.WriteRune(utf8.RuneError)
+
+				i++
+
+				continue
+			}
+
+			b.WriteString(src[i : i+size])
+
+			i += size
+		}
+	}
+
+	return b.String()
+}
+
+// nulReplacement is U+FFFD, the substitute for a literal NUL byte in token
+// states that replace it (comments, tag and attribute names and values, raw
+// text).
+const nulReplacement = "\uFFFD"
+
+// replaceNUL maps every literal NUL byte in s to U+FFFD.
+func replaceNUL(s string) string {
+	if strings.IndexByte(s, 0) < 0 {
+		return s
+	}
+
+	return strings.ReplaceAll(s, "\x00", nulReplacement)
+}
+
+// cdataPolicy reports whether the tokenizer may enter the CDATA section state
+// at the current position. The tree builder answers from the adjusted current
+// node: CDATA is allowed only when it is a non-HTML element. A nil policy
+// disables CDATA handling, which is the tokenizer-level default.
+type cdataPolicy func() bool
+
+// scanTokens preprocesses raw HTML and emits each token as soon as it is
+// recognized. Malformed input follows the spec's recovery rules: unfinished
+// comments, tags, declarations, and quoted attribute values produce tokens
+// or drop cleanly instead of failing the parse.
+func scanTokens(src string, emit tokenSink, allowCDATA cdataPolicy) {
+	src = preprocessInput(src)
+
 	pos := 0
 	srcLen := len(src)
 
@@ -492,7 +297,7 @@ func scanTokens(src string, emit tokenSink) error {
 				span = srcLen - pos
 			}
 
-			emit(token{kind: tokText, data: src[pos : pos+span]}) //nolint:exhaustruct
+			emit(token{kind: tokText, data: UnescapeEntities(src[pos : pos+span])}) //nolint:exhaustruct
 			pos += span
 
 			continue
@@ -506,324 +311,1084 @@ func scanTokens(src string, emit tokenSink) error {
 
 		var next int
 
-		var err error
-
 		switch {
 		case src[pos+1] == '!':
-			next, err = scanBang(src, pos, emit)
+			next = scanBang(src, pos, emit, allowCDATA)
 		case src[pos+1] == '/':
-			next, err = scanEndTag(src, pos, emit)
+			next = scanEndTag(src, pos, emit)
 		case src[pos+1] == '?':
-			next, err = scanPI(src, pos)
+			next = scanBogusComment(src, pos+2, "?", emit)
+		case isASCIILetter(src[pos+1]):
+			next = scanStartTag(src, pos, emit)
 		default:
-			next, err = scanStartTag(src, pos, emit)
-		}
+			emit(token{kind: tokText, data: "<"}) //nolint:exhaustruct
 
-		if err != nil {
-			return err
+			next = pos + 1
 		}
 
 		pos = next
 	}
-
-	return nil
 }
 
-// scanBang tokenizes a '!' construct at pos: comment, doctype, or a bogus
-// declaration that is skipped.
-func scanBang(src string, pos int, emit tokenSink) (int, error) {
+// cdataOpen is the exact, case-sensitive opener of a CDATA section.
+const cdataOpen = "<![CDATA["
+
+// scanBang tokenizes a '!' construct at pos: comment, CDATA section in
+// foreign content, doctype, or a bogus declaration that becomes a comment.
+func scanBang(src string, pos int, emit tokenSink, allowCDATA cdataPolicy) int {
 	if strings.HasPrefix(src[pos:], "<!--") {
-		end := strings.Index(src[pos+commentPrefixLen:], "-->")
-		if end < 0 {
-			return 0, errUnterminatedComment
-		}
-
-		data := src[pos+commentPrefixLen : pos+commentPrefixLen+end]
-		next := pos + commentPrefixLen + end + commentSuffixLen
-
-		emit(token{kind: tokComment, data: data}) //nolint:exhaustruct
-
-		return next, nil
+		return scanComment(src, pos, emit)
 	}
 
-	if len(src)-pos >= 9 && strings.EqualFold(src[pos:pos+9], "<!doctype") {
-		end := strings.IndexByte(src[pos:], '>')
-		if end < 0 {
-			return 0, errUnterminatedDoctype
-		}
-
-		emit(token{kind: tokDoctype, data: src[pos+2 : pos+end]}) //nolint:exhaustruct
-
-		return pos + end + 1, nil
+	if strings.HasPrefix(src[pos:], cdataOpen) && allowCDATA != nil && allowCDATA() {
+		return scanCDATA(src, pos, emit)
 	}
 
-	// other bogus declaration → skip to >
-	end := strings.IndexByte(src[pos:], '>')
-	if end < 0 {
-		return 0, errUnterminatedDecl
+	if len(src)-pos >= len("<!doctype") && strings.EqualFold(src[pos:pos+len("<!doctype")], "<!doctype") {
+		return scanDoctype(src, pos, emit)
 	}
 
-	return pos + end + 1, nil
+	return scanBogusComment(src, pos+2, "", emit)
 }
 
-// scanEndTag tokenizes a closing tag at pos.
-func scanEndTag(src string, pos int, emit tokenSink) (int, error) {
-	end := strings.IndexByte(src[pos:], '>')
-	if end < 0 {
-		return 0, errUnterminatedEndTag
+// scanCDATA consumes a CDATA section starting at the '<![CDATA[' opener and
+// emits its content as one text token. A run of ']' characters shorter than
+// the ']]>' terminator stays in the content; at EOF the gathered content is
+// emitted (eof-in-cdata recovery). NUL bytes stay in the stream; the tree
+// builder substitutes U+FFFD in foreign text.
+func scanCDATA(src string, pos int, emit tokenSink) int {
+	start := pos + len(cdataOpen)
+
+	for i := start; i < len(src); {
+		if src[i] != ']' {
+			i++
+
+			continue
+		}
+
+		j := i
+		for j < len(src) && src[j] == ']' {
+			j++
+		}
+
+		if j < len(src) && src[j] == '>' && j-i >= 2 {
+			if text := src[start : j-2]; text != "" {
+				emit(token{kind: tokText, data: text}) //nolint:exhaustruct
+			}
+
+			return j + 1
+		}
+
+		i = j
 	}
 
-	name := endTagName(src[pos+2 : pos+end])
+	if text := src[start:]; text != "" {
+		emit(token{kind: tokText, data: text}) //nolint:exhaustruct
+	}
+
+	return len(src)
+}
+
+// scanBogusComment consumes a bogus comment from src[from:] up to '>' or EOF,
+// prefixing the initial data that the caller already consumed.
+func scanBogusComment(src string, from int, initial string, emit tokenSink) int {
+	end := strings.IndexByte(src[from:], '>')
+	if end < 0 {
+		emit(token{kind: tokComment, data: replaceNUL(initial + src[from:])}) //nolint:exhaustruct
+
+		return len(src)
+	}
+
+	emit(token{kind: tokComment, data: replaceNUL(initial + src[from:from+end])}) //nolint:exhaustruct
+
+	return from + end + 1
+}
+
+// Comment states, in the order the WHATWG tokenizer defines them.
+type commentState int
+
+const (
+	commentStartState commentState = iota
+	commentStartDashState
+	commentStateData
+	commentEndDashState
+	commentEndState
+	commentEndBangState
+)
+
+// scanComment tokenizes a comment starting at '<!--', including the spec's
+// unfinished-comment recovery: at EOF the comment token is emitted with the
+// data gathered so far.
+func scanComment(src string, pos int, emit tokenSink) int {
+	var b strings.Builder
+
+	i := pos + len("<!--")
+	state := commentStartState
+
+	for i < len(src) {
+		c := src[i]
+
+		switch state {
+		case commentStartState:
+			switch c {
+			case '-':
+				state = commentStartDashState
+
+				i++
+			case '>':
+				emit(token{kind: tokComment, data: b.String()}) //nolint:exhaustruct
+
+				return i + 1
+			default:
+				state = commentStateData
+			}
+		case commentStartDashState:
+			switch c {
+			case '-':
+				state = commentEndState
+
+				i++
+			case '>':
+				emit(token{kind: tokComment, data: b.String()}) //nolint:exhaustruct
+
+				return i + 1
+			default:
+				b.WriteByte('-')
+
+				state = commentStateData
+			}
+		case commentStateData:
+			switch c {
+			case '-':
+				state = commentEndDashState
+
+				i++
+			case 0:
+				b.WriteString(nulReplacement)
+
+				i++
+			default:
+				b.WriteByte(c)
+
+				i++
+			}
+		case commentEndDashState:
+			if c == '-' {
+				state = commentEndState
+
+				i++
+			} else {
+				b.WriteByte('-')
+
+				state = commentStateData
+			}
+		case commentEndState:
+			switch c {
+			case '>':
+				emit(token{kind: tokComment, data: b.String()}) //nolint:exhaustruct
+
+				return i + 1
+			case '!':
+				state = commentEndBangState
+
+				i++
+			case '-':
+				b.WriteByte('-')
+
+				i++
+			default:
+				b.WriteString("--")
+
+				state = commentStateData
+			}
+		case commentEndBangState:
+			switch c {
+			case '-':
+				b.WriteString("--!")
+
+				state = commentEndDashState
+
+				i++
+			case '>':
+				emit(token{kind: tokComment, data: b.String()}) //nolint:exhaustruct
+
+				return i + 1
+			default:
+				b.WriteString("--!")
+
+				state = commentStateData
+			}
+		}
+	}
+
+	emit(token{kind: tokComment, data: b.String()}) //nolint:exhaustruct
+
+	return len(src)
+}
+
+// scanEndTag tokenizes a closing tag at pos. Malformed input follows the
+// spec's recovery: a non-letter name becomes a bogus comment, EOF inside the
+// tag drops the token, and a stray "</" stays text.
+func scanEndTag(src string, pos int, emit tokenSink) int {
+	i := pos + 2
+	if i >= len(src) {
+		emit(token{kind: tokText, data: "</"}) //nolint:exhaustruct
+
+		return len(src)
+	}
+
+	if !isASCIILetter(src[i]) {
+		if src[i] == '>' {
+			return i + 1 // missing end tag name: no token
+		}
+
+		return scanBogusComment(src, i, "", emit)
+	}
+
+	j := i
+
+	for j < len(src) && !isWhitespace(src[j]) && src[j] != '/' && src[j] != '>' {
+		j++
+	}
+
+	name := strings.ToLower(replaceNUL(src[i:j]))
+	if j >= len(src) {
+		return len(src) // EOF in tag name: drop the token
+	}
+
+	if src[j] == '>' {
+		emit(token{kind: tokEnd, data: name}) //nolint:exhaustruct
+
+		return j + 1
+	}
+
+	if src[j] == '/' && j+1 < len(src) && src[j+1] == '>' {
+		emit(token{kind: tokEnd, data: name}) //nolint:exhaustruct
+
+		return j + 2 // end tag with trailing solidus
+	}
+
+	// Attributes on end tags are parsed and ignored.
+	_, _, next, ok := scanTagAttributes(src, j)
+	if !ok {
+		return len(src)
+	}
+
 	emit(token{kind: tokEnd, data: name}) //nolint:exhaustruct
 
-	return pos + end + 1, nil
+	return next
 }
 
-// endTagName trims surrounding whitespace from an end-tag name and
-// lowercases it.
-func endTagName(body string) string {
-	return strings.ToLower(strings.TrimSpace(body))
-}
+// Tag attribute states, in the order the WHATWG tokenizer defines them.
+type tagState int
 
-// scanPI skips a processing instruction at pos.
-func scanPI(src string, pos int) (int, error) {
-	end := strings.Index(src[pos:], "?>")
-	if end < 0 {
-		return 0, errUnterminatedPI
+const (
+	tagStateBeforeAttrName tagState = iota
+	tagStateAttrName
+	tagStateAfterAttrName
+	tagStateBeforeAttrValue
+	tagStateAttrValueDouble
+	tagStateAttrValueSingle
+	tagStateAttrValueUnquoted
+	tagStateAfterAttrValueQuoted
+	tagStateSelfClosing
+)
+
+// scanTagAttributes parses the attribute part of a tag starting at i, which
+// must point at whitespace, '/', or '>'. It returns the interleaved
+// name/value pairs, the self-closing flag, and the index after the closing
+// '>'. ok is false when the tag runs into EOF before closing.
+func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, next int, ok bool) {
+	var (
+		nameBuf  strings.Builder
+		valueBuf strings.Builder
+	)
+
+	state := tagStateBeforeAttrName
+
+	for i < len(src) {
+		c := src[i]
+
+		switch state {
+		case tagStateBeforeAttrName:
+			switch {
+			case isWhitespace(c):
+				i++
+			case c == '/':
+				state = tagStateSelfClosing
+
+				i++
+			case c == '>':
+				return attrs, selfClosing, i + 1, true
+			case c == '=':
+				nameBuf.WriteByte('=')
+
+				state = tagStateAttrName
+
+				i++
+			default:
+				nameBuf.Reset()
+
+				state = tagStateAttrName
+			}
+		case tagStateAttrName:
+			switch {
+			case isWhitespace(c):
+				state = tagStateAfterAttrName
+
+				i++
+			case c == '/' || c == '>':
+				state = tagStateAfterAttrName
+			case c == '=':
+				state = tagStateBeforeAttrValue
+
+				i++
+			default:
+				appendNULReplaced(&nameBuf, c)
+
+				i++
+			}
+		case tagStateAfterAttrName:
+			switch {
+			case isWhitespace(c):
+				i++
+			case c == '/':
+				attrs = append(attrs, strings.ToLower(nameBuf.String()), "")
+				nameBuf.Reset()
+
+				state = tagStateSelfClosing
+
+				i++
+			case c == '=':
+				state = tagStateBeforeAttrValue
+
+				i++
+			case c == '>':
+				attrs = append(attrs, strings.ToLower(nameBuf.String()), "")
+
+				return attrs, selfClosing, i + 1, true
+			default:
+				attrs = append(attrs, strings.ToLower(nameBuf.String()), "")
+				nameBuf.Reset()
+
+				state = tagStateAttrName
+			}
+		case tagStateBeforeAttrValue:
+			switch {
+			case isWhitespace(c):
+				i++
+			case c == '"':
+				state = tagStateAttrValueDouble
+
+				i++
+			case c == '\'':
+				state = tagStateAttrValueSingle
+
+				i++
+			case c == '>':
+				attrs = append(attrs, strings.ToLower(nameBuf.String()), "")
+
+				return attrs, selfClosing, i + 1, true
+			default:
+				state = tagStateAttrValueUnquoted
+			}
+		case tagStateAttrValueDouble, tagStateAttrValueSingle:
+			quote := byte('"')
+			if state == tagStateAttrValueSingle {
+				quote = '\''
+			}
+
+			switch {
+			case c == quote:
+				state = tagStateAfterAttrValueQuoted
+
+				i++
+			case c == 0:
+				valueBuf.WriteString(nulReplacement)
+
+				i++
+			case c == '&':
+				decoded, consumed := decodeAttributeReference(src, i)
+				valueBuf.WriteString(decoded)
+
+				i += consumed
+			default:
+				valueBuf.WriteByte(c)
+
+				i++
+			}
+		case tagStateAttrValueUnquoted:
+			switch {
+			case isWhitespace(c):
+				attrs = append(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
+				nameBuf.Reset()
+				valueBuf.Reset()
+
+				state = tagStateBeforeAttrName
+
+				i++
+			case c == '>':
+				attrs = append(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
+
+				return attrs, selfClosing, i + 1, true
+			case c == 0:
+				valueBuf.WriteString(nulReplacement)
+
+				i++
+			case c == '&':
+				decoded, consumed := decodeAttributeReference(src, i)
+				valueBuf.WriteString(decoded)
+
+				i += consumed
+			default:
+				valueBuf.WriteByte(c)
+
+				i++
+			}
+		case tagStateAfterAttrValueQuoted:
+			switch {
+			case isWhitespace(c):
+				attrs = append(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
+				nameBuf.Reset()
+				valueBuf.Reset()
+
+				state = tagStateBeforeAttrName
+
+				i++
+			case c == '/':
+				attrs = append(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
+				nameBuf.Reset()
+				valueBuf.Reset()
+
+				state = tagStateSelfClosing
+
+				i++
+			case c == '>':
+				attrs = append(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
+
+				return attrs, selfClosing, i + 1, true
+			default:
+				attrs = append(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
+				nameBuf.Reset()
+				valueBuf.Reset()
+
+				state = tagStateBeforeAttrName
+			}
+		case tagStateSelfClosing:
+			if c == '>' {
+				return attrs, true, i + 1, true
+			}
+
+			state = tagStateBeforeAttrName
+		}
 	}
 
-	return pos + end + piCloseLen, nil
+	return nil, false, len(src), false
+}
+
+// appendNULReplaced appends c to buf, mapping a literal NUL byte to U+FFFD.
+func appendNULReplaced(buf *strings.Builder, c byte) {
+	if c == 0 {
+		buf.WriteString(nulReplacement)
+
+		return
+	}
+
+	buf.WriteByte(c)
+}
+
+// decodeAttributeReference decodes the character reference at the '&' at
+// src[i] with the attribute-context rules. It returns the decoded text and
+// the number of source bytes consumed; an ambiguous or historically flushed
+// reference decodes to a bare "&".
+func decodeAttributeReference(src string, i int) (string, int) {
+	if decoded, consumed, ok := decodeCharRefAt(src, i, true); ok {
+		return decoded, consumed
+	}
+
+	return "&", 1
 }
 
 // scanStartTag tokenizes a start tag at pos, including the raw-text content
-// of script/style/textarea/title elements up to their closing tag.
-func scanStartTag(src string, pos int, emit tokenSink) (int, error) {
-	if !isASCIILetter(src[pos+1]) {
-		// bare '<' followed by no valid tag start becomes text
-		emit(token{kind: tokText, data: "<"}) //nolint:exhaustruct
+// of script/style/title/textarea and the other raw-text elements up to their
+// closing tag.
+func scanStartTag(src string, pos int, emit tokenSink) int {
+	i := pos + 1
+	nameStart := i
 
-		return pos + 1, nil
+	for i < len(src) && !isWhitespace(src[i]) && src[i] != '/' && src[i] != '>' {
+		i++
 	}
 
-	end, err := tagEnd(src, pos)
-	if err != nil {
-		return 0, err
+	if i >= len(src) {
+		return len(src) // EOF in tag name: drop the token
 	}
 
-	if end < 0 {
-		// no closing '>' - treat the rest as text
-		emit(token{kind: tokText, data: src[pos:]}) //nolint:exhaustruct
+	name := strings.ToLower(replaceNUL(src[nameStart:i]))
 
-		return len(src), nil
+	attrs, selfClosing, next, ok := scanTagAttributes(src, i)
+	if !ok {
+		return len(src) // EOF inside the tag: drop the token
 	}
 
-	tag := src[pos+1 : end]
+	emit(token{kind: tokStart, data: name, attrs: attrs, selfClosing: selfClosing})
 
-	name, attrs, selfClose, err := parseTag(tag)
-	if err != nil {
-		return 0, err
-	}
+	// A raw-text element starts its raw content even with a self-closing
+	// flag: the flag is a parse error that the tree builder ignores for HTML
+	// elements.
+	if mode, raw := rawTextMode(name); raw {
+		var (
+			text   string
+			after  int
+			closed bool
+		)
 
-	if name == "" {
-		return end + 1, nil
-	}
-
-	name = strings.ToLower(name)
-	emit(token{kind: tokStart, data: name, attrs: attrs, selfClosing: selfClose})
-
-	next := end + 1
-	// raw-text elements capture everything until their closing tag
-	if isRawTextElement(name) && !selfClose {
-		rawStart, rawEnd, ok := rawTextEnd(src, next, name)
-		if !ok {
-			emit(token{kind: tokText, data: src[next:]}) //nolint:exhaustruct
-
-			return len(src), nil
+		if mode == textScript {
+			text, after, closed = scanScriptData(src, next, name)
+		} else {
+			text, after, closed = scanRawText(src, next, name)
 		}
 
-		if rawStart > next {
-			emit(token{kind: tokText, data: src[next:rawStart]}) //nolint:exhaustruct
+		if mode == textRCDATA {
+			text = UnescapeEntities(replaceNUL(text))
+		} else {
+			text = replaceNUL(text)
 		}
 
-		emit(token{kind: tokEnd, data: name}) //nolint:exhaustruct
+		if text != "" {
+			emit(token{kind: tokText, data: text}) //nolint:exhaustruct
+		}
 
-		next = rawEnd + 1
+		if closed {
+			emit(token{kind: tokEnd, data: name}) //nolint:exhaustruct
+
+			return after
+		}
+
+		return len(src)
 	}
 
-	return next, nil
+	if name == "plaintext" {
+		if rest := replaceNUL(src[next:]); rest != "" {
+			emit(token{kind: tokText, data: rest}) //nolint:exhaustruct
+		}
+
+		return len(src)
+	}
+
+	return next
 }
 
-// tagEnd returns the index of the '>' closing the start tag that begins at
-// start, respecting quoted attribute values; -1 if the tag never closes.
-func tagEnd(src string, start int) (int, error) {
-	for idx := start + 1; idx < len(src); idx++ {
-		switch src[idx] {
-		case '"', '\'':
-			q := src[idx]
+// textMode distinguishes the tokenizer states an element's content is parsed
+// in: RCDATA decodes character references, RAWTEXT and script data do not,
+// and Data is the ordinary tokenizer.
+type textMode int
 
-			k := strings.IndexByte(src[idx+1:], q)
-			if k < 0 {
-				return 0, errUnterminatedAttrVal
-			}
+const (
+	textRCDATA textMode = iota
+	textRAWTEXT
+	textScript
+	textData
+)
 
-			idx += k + 1
-		case '>':
-			return idx, nil
-		}
-	}
-
-	return -1, nil
-}
-
-// rawTextEnd finds the closing tag of a raw-text element whose content starts
-// at from. It returns the span of the closing tag, or ok=false if the content
-// runs to the end of the source. The scan is byte-wise: no lowered copy of
-// the remaining document, no needle string.
-func rawTextEnd(src string, from int, name string) (int, int, bool) {
-	offset := from
-	srcLen := len(src)
-
-	for offset < srcLen {
-		lt := strings.IndexByte(src[offset:], '<')
-		if lt < 0 {
-			return 0, 0, false
-		}
-
-		candidate := offset + lt
-		if candidate+1 < srcLen && src[candidate+1] == '/' && rawNameFolds(src[candidate+2:], name) {
-			after := candidate + rawCloseMinSkip + len(name)
-			for after < srcLen && isWhitespace(src[after]) {
-				after++
-			}
-
-			if after < srcLen && src[after] == '>' {
-				return candidate, after, true
-			}
-		}
-		// the candidate did not close the element: continue right after "</",
-		// mirroring the original search over the (previously lowered) rest
-		offset = candidate + rawCloseMinSkip
-	}
-
-	return 0, 0, false
-}
-
-// rawNameFolds reports whether s starts with the lowercase tag name name,
-// comparing ASCII bytes case-insensitively (names are stored lowercased).
-func rawNameFolds(src string, name string) bool {
-	if len(src) < len(name) {
-		return false
-	}
-
-	for i := range len(name) {
-		if src[i]|asciiFoldBit != name[i] {
-			return false
-		}
-	}
-
-	return true
-}
-
-// parseTag extracts the tag name and attribute pairs from a <...> body.
-func parseTag(body string) (string, []string, bool, error) {
-	body = strings.TrimSpace(body)
-	if body == "" {
-		return "", nil, false, nil
-	}
-	// name ends at first whitespace or '/'
-	nameEnd := len(body)
-
-	for idx := range len(body) {
-		if isWhitespace(body[idx]) || body[idx] == '/' {
-			nameEnd = idx
-
-			break
-		}
-	}
-
-	name := body[:nameEnd]
-	selfClose := strings.HasSuffix(body, "/")
-
-	const attrPairSize = 2 // attrs slice interleaves name and value
-
-	attrs := make([]string, 0, attrPairSize*strings.Count(body, "="))
-
-	rest := strings.TrimSpace(body[nameEnd:])
-	rest = strings.TrimSuffix(rest, "/")
-
-	for rest != "" {
-		key, val, after, err := nextAttr(rest)
-		if err != nil {
-			return "", nil, false, err
-		}
-
-		if key == "" && val == "" && after == "" {
-			break
-		}
-
-		attrs = append(attrs, strings.ToLower(key), val)
-		rest = after
-	}
-
-	return name, attrs, selfClose, nil
-}
-
-// nextAttr extracts one attribute (name, value) from the front of rest. The
-// returned after is the remaining body; an all-empty result means there are
-// no more attributes.
-func nextAttr(rest string) (string, string, string, error) {
-	rest = strings.TrimLeft(rest, " \t\n\r")
-	if rest == "" {
-		return "", "", "", nil
-	}
-	// attribute name: up to '=' or whitespace
-	idx := 0
-	for idx < len(rest) && rest[idx] != '=' && !isWhitespace(rest[idx]) {
-		idx++
-	}
-
-	key := rest[:idx]
-	rest = strings.TrimLeft(rest[idx:], " \t\n\r")
-
-	if !strings.HasPrefix(rest, "=") {
-		return key, "", rest, nil
-	}
-
-	rest = strings.TrimLeft(rest[1:], " \t\n\r")
-	if rest == "" {
-		return "", "", "", nil
-	}
-
-	val, after, err := attrTail(rest)
-	if err != nil {
-		return "", "", "", err
-	}
-
-	return key, val, after, nil
-}
-
-// attrTail extracts the value at the front of rest, which starts at the
-// value position: a quoted value up to its closing quote, otherwise up to
-// the next whitespace.
-func attrTail(rest string) (string, string, error) {
-	switch rest[0] {
-	case '"', '\'':
-		q := rest[0]
-
-		end := strings.IndexByte(rest[1:], q)
-		if end < 0 {
-			return "", "", errUnterminatedAttrVal
-		}
-
-		return rest[1 : end+1], rest[end+2:], nil
+// rawTextMode reports the raw-text content mode for name. noscript is
+// deliberately absent: it is raw text only with scripting enabled, and this
+// engine parses with scripting disabled. noembed is RAWTEXT, matching the
+// corpus (upstream tests16 expects its content consumed as raw text).
+func rawTextMode(name string) (textMode, bool) {
+	switch name {
+	case "title", "textarea":
+		return textRCDATA, true
+	case "style", "xmp", "iframe", "noframes", "noembed":
+		return textRAWTEXT, true
+	case "script":
+		return textScript, true
 	default:
-		end := strings.IndexAny(rest, " \t\n\r")
-		if end < 0 {
-			return rest, "", nil
+		return 0, false
+	}
+}
+
+// scanRawText consumes raw element content from src[from:] up to the
+// appropriate end tag. It returns the raw text, the position after the
+// closing tag, and whether the end tag was found. A partial end tag at EOF
+// is dropped from the text (eof-in-tag), except when the name is still
+// incomplete, which the spec re-emits as text.
+func scanRawText(src string, from int, name string) (string, int, bool) {
+	var text strings.Builder
+
+	pos := from
+
+	for pos < len(src) {
+		lt := strings.IndexByte(src[pos:], '<')
+		if lt < 0 {
+			break
 		}
 
-		return rest[:end], rest[end:], nil
+		lt += pos
+		text.WriteString(src[pos:lt])
+
+		if lt+1 >= len(src) || src[lt+1] != '/' {
+			text.WriteByte('<')
+
+			pos = lt + 1
+
+			continue
+		}
+
+		nameStart := lt + 2
+		j := nameStart
+
+		for j < len(src) && isASCIILetter(src[j]) {
+			j++
+		}
+
+		candidate := src[nameStart:j]
+
+		if candidate == "" || !strings.EqualFold(candidate, name) {
+			text.WriteString("</")
+			text.WriteString(candidate)
+
+			pos = j
+
+			continue
+		}
+
+		if j >= len(src) {
+			// EOF in the end tag name: the partial tag becomes text.
+			text.WriteString("</")
+			text.WriteString(candidate)
+
+			pos = j
+
+			break
+		}
+
+		if src[j] == '>' {
+			return text.String(), j + 1, true
+		}
+
+		if isWhitespace(src[j]) || src[j] == '/' {
+			_, _, after, ok := scanTagAttributes(src, j)
+			if !ok {
+				return text.String(), len(src), false
+			}
+
+			return text.String(), after, true
+		}
+
+		// e.g. "</xmp<": not an end tag, reconsume at the terminator.
+		text.WriteString("</")
+		text.WriteString(candidate)
+
+		pos = j
 	}
+
+	text.WriteString(src[pos:])
+
+	return text.String(), len(src), false
+}
+
+// scriptDataState is one of the WHATWG tokenizer's script data states. The
+// escaped and double-escaped states keep "<!--" comments and nested
+// "<script>" wrappers inside the script text instead of ending the element
+// at the first "</script>".
+type scriptDataState int
+
+const (
+	scriptDataData scriptDataState = iota
+	scriptDataLessThan
+	scriptDataEndTagOpen
+	scriptDataEndTagName
+	scriptDataEscapeStart
+	scriptDataEscapeStartDash
+	scriptDataEscaped
+	scriptDataEscapedDash
+	scriptDataEscapedDashDash
+	scriptDataEscapedLessThan
+	scriptDataEscapedEndTagOpen
+	scriptDataEscapedEndTagName
+	scriptDataDoubleEscapeStart
+	scriptDataDoubleEscaped
+	scriptDataDoubleEscapedDash
+	scriptDataDoubleEscapedDashDash
+	scriptDataDoubleEscapedLessThan
+	scriptDataDoubleEscapeEnd
+)
+
+// scanScriptData consumes script element content from src[from:] using the
+// WHATWG script data states, including the escaped and double-escaped
+// variants. It returns the script text, the position after the closing end
+// tag, and whether that end tag was found. Only an appropriate end tag for
+// name closes the element; every other "</" construct becomes text. NUL
+// bytes become U+FFFD. At EOF a partially scanned end tag is flushed as text
+// (eof-in-script-html-comment-like-text recovery).
+func scanScriptData(src string, from int, name string) (string, int, bool) {
+	var (
+		text strings.Builder
+		buf  strings.Builder // temporary buffer for double-escape detection
+		tag  strings.Builder // end tag name being accumulated
+	)
+
+	pos := from
+	state := scriptDataData
+
+	// flushEndTag emits the withheld "</" and the end-tag name so far.
+	flushEndTag := func() {
+		text.WriteString("</")
+		text.WriteString(tag.String())
+	}
+
+	// endTagHandled checks an appropriate end tag at pos: '>' completes it,
+	// whitespace or '/' consumes the remaining attributes. It reports
+	// whether the script element ends here.
+	endTagHandled := func() (int, bool, bool) {
+		if !strings.EqualFold(tag.String(), name) {
+			return 0, false, false
+		}
+
+		switch {
+		case src[pos] == '>':
+			return pos + 1, true, true
+		case isWhitespace(src[pos]) || src[pos] == '/':
+			_, _, after, ok := scanTagAttributes(src, pos)
+			if !ok {
+				// EOF inside the end tag: the partial tag is dropped and the
+				// script element stays open (eof-in-tag recovery).
+				return len(src), false, true
+			}
+
+			return after, true, true
+		default:
+			return 0, false, false
+		}
+	}
+
+	for pos < len(src) {
+		c := src[pos]
+
+		switch state {
+		case scriptDataData:
+			switch {
+			case c == '<':
+				state = scriptDataLessThan
+				pos++
+			case c == 0:
+				text.WriteString(nulReplacement)
+
+				pos++
+			default:
+				text.WriteByte(c)
+
+				pos++
+			}
+		case scriptDataLessThan:
+			switch c {
+			case '/':
+				tag.Reset()
+				state = scriptDataEndTagOpen
+
+				pos++
+			case '!':
+				text.WriteString("<!")
+				state = scriptDataEscapeStart
+
+				pos++
+			default:
+				text.WriteByte('<')
+				state = scriptDataData // reconsume
+			}
+		case scriptDataEndTagOpen:
+			if isASCIILetter(c) {
+				tag.Reset()
+				state = scriptDataEndTagName
+			} else {
+				text.WriteString("</")
+				state = scriptDataData // reconsume
+			}
+		case scriptDataEndTagName:
+			if isASCIILetter(c) {
+				// The buffer keeps the source case: a rejected or unfinished
+				// end tag is flushed back into the text verbatim. The
+				// appropriate-end-tag check folds case.
+				tag.WriteByte(c)
+
+				pos++
+			} else if next, closed, handled := endTagHandled(); handled {
+				return text.String(), next, closed
+			} else {
+				flushEndTag()
+				state = scriptDataData // reconsume
+			}
+		case scriptDataEscapeStart:
+			if c == '-' {
+				text.WriteByte('-')
+				state = scriptDataEscapeStartDash
+
+				pos++
+			} else {
+				state = scriptDataData // reconsume
+			}
+		case scriptDataEscapeStartDash:
+			if c == '-' {
+				text.WriteByte('-')
+				state = scriptDataEscapedDashDash
+
+				pos++
+			} else {
+				state = scriptDataData // reconsume
+			}
+		case scriptDataEscaped:
+			switch {
+			case c == '-':
+				text.WriteByte('-')
+				state = scriptDataEscapedDash
+
+				pos++
+			case c == '<':
+				state = scriptDataEscapedLessThan
+
+				pos++
+			case c == 0:
+				text.WriteString(nulReplacement)
+
+				pos++
+			default:
+				text.WriteByte(c)
+
+				pos++
+			}
+		case scriptDataEscapedDash:
+			switch {
+			case c == '-':
+				text.WriteByte('-')
+				state = scriptDataEscapedDashDash
+
+				pos++
+			case c == '<':
+				state = scriptDataEscapedLessThan
+
+				pos++
+			case c == 0:
+				text.WriteString(nulReplacement)
+
+				state = scriptDataEscaped
+
+				pos++
+			default:
+				text.WriteByte(c)
+				state = scriptDataEscaped
+
+				pos++
+			}
+		case scriptDataEscapedDashDash:
+			switch {
+			case c == '-':
+				text.WriteByte('-')
+
+				pos++
+			case c == '<':
+				state = scriptDataEscapedLessThan
+
+				pos++
+			case c == '>':
+				text.WriteByte('>')
+				state = scriptDataData
+
+				pos++
+			case c == 0:
+				text.WriteString(nulReplacement)
+
+				state = scriptDataEscaped
+
+				pos++
+			default:
+				text.WriteByte(c)
+				state = scriptDataEscaped
+
+				pos++
+			}
+		case scriptDataEscapedLessThan:
+			switch {
+			case c == '/':
+				tag.Reset()
+				state = scriptDataEscapedEndTagOpen
+
+				pos++
+			case isASCIILetter(c):
+				buf.Reset()
+
+				text.WriteByte('<')
+				state = scriptDataDoubleEscapeStart // reconsume
+			default:
+				text.WriteByte('<')
+				state = scriptDataEscaped // reconsume
+			}
+		case scriptDataEscapedEndTagOpen:
+			if isASCIILetter(c) {
+				tag.Reset()
+				state = scriptDataEscapedEndTagName
+			} else {
+				text.WriteString("</")
+				state = scriptDataEscaped // reconsume
+			}
+		case scriptDataEscapedEndTagName:
+			if isASCIILetter(c) {
+				tag.WriteByte(c)
+
+				pos++
+			} else if next, closed, handled := endTagHandled(); handled {
+				return text.String(), next, closed
+			} else {
+				flushEndTag()
+				state = scriptDataEscaped // reconsume
+			}
+		case scriptDataDoubleEscapeStart:
+			switch {
+			case isWhitespace(c) || c == '/' || c == '>':
+				if buf.String() == "script" {
+					state = scriptDataDoubleEscaped
+				} else {
+					state = scriptDataEscaped
+				}
+
+				text.WriteByte(c)
+
+				pos++
+			case isASCIILetter(c):
+				buf.WriteByte(lowerASCII(c))
+				text.WriteByte(c)
+
+				pos++
+			default:
+				state = scriptDataEscaped // reconsume
+			}
+		case scriptDataDoubleEscaped:
+			switch {
+			case c == '-':
+				text.WriteByte('-')
+				state = scriptDataDoubleEscapedDash
+
+				pos++
+			case c == '<':
+				text.WriteByte('<')
+				state = scriptDataDoubleEscapedLessThan
+
+				pos++
+			case c == 0:
+				text.WriteString(nulReplacement)
+
+				pos++
+			default:
+				text.WriteByte(c)
+
+				pos++
+			}
+		case scriptDataDoubleEscapedDash:
+			switch {
+			case c == '-':
+				text.WriteByte('-')
+				state = scriptDataDoubleEscapedDashDash
+
+				pos++
+			case c == '<':
+				text.WriteByte('<')
+				state = scriptDataDoubleEscapedLessThan
+
+				pos++
+			case c == 0:
+				text.WriteString(nulReplacement)
+
+				state = scriptDataDoubleEscaped
+
+				pos++
+			default:
+				text.WriteByte(c)
+				state = scriptDataDoubleEscaped
+
+				pos++
+			}
+		case scriptDataDoubleEscapedDashDash:
+			switch {
+			case c == '-':
+				text.WriteByte('-')
+
+				pos++
+			case c == '<':
+				text.WriteByte('<')
+				state = scriptDataDoubleEscapedLessThan
+
+				pos++
+			case c == '>':
+				text.WriteByte('>')
+				state = scriptDataData
+
+				pos++
+			case c == 0:
+				text.WriteString(nulReplacement)
+
+				state = scriptDataDoubleEscaped
+
+				pos++
+			default:
+				text.WriteByte(c)
+				state = scriptDataDoubleEscaped
+
+				pos++
+			}
+		case scriptDataDoubleEscapedLessThan:
+			if c == '/' {
+				buf.Reset()
+
+				text.WriteByte('/')
+				state = scriptDataDoubleEscapeEnd
+
+				pos++
+			} else {
+				state = scriptDataDoubleEscaped // reconsume
+			}
+		case scriptDataDoubleEscapeEnd:
+			switch {
+			case isWhitespace(c) || c == '/' || c == '>':
+				if buf.String() == "script" {
+					state = scriptDataEscaped
+				} else {
+					state = scriptDataDoubleEscaped
+				}
+
+				text.WriteByte(c)
+
+				pos++
+			case isASCIILetter(c):
+				buf.WriteByte(lowerASCII(c))
+				text.WriteByte(c)
+
+				pos++
+			default:
+				state = scriptDataDoubleEscaped // reconsume
+			}
+		}
+	}
+
+	// EOF recovery: a withheld "<" is emitted, and a partially scanned end
+	// tag flushes its "<", "/", and name characters as text.
+	switch state {
+	case scriptDataLessThan, scriptDataEscapedLessThan:
+		text.WriteByte('<')
+	case scriptDataEndTagOpen, scriptDataEndTagName,
+		scriptDataEscapedEndTagOpen, scriptDataEscapedEndTagName:
+		flushEndTag()
+	}
+
+	return text.String(), len(src), false
+}
+
+// lowerASCII lowercases one ASCII letter byte.
+func lowerASCII(c byte) byte {
+	if c >= 'A' && c <= 'Z' {
+		return c + ('a' - 'A')
+	}
+
+	return c
 }
 
 func isWhitespace(b byte) bool {

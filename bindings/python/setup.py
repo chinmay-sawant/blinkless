@@ -1,9 +1,9 @@
-"""Build shim: VERSION stamp + platform/platlib wheel tags.
+"""Build shim: platform/platlib wheel tags.
 
-pyproject.toml carries a static version so the package builds standalone.
-When the repo-root VERSION file exists (normal in-tree and sdist-from-repo
-builds), setup.py overrides that static value so the wheel or sdist always
-matches the release stamp in VERSION.
+pyproject.toml carries the static [project].version, which is the single
+committed wheel version. There is no repo VERSION file; scripts/check_versions.sh
+gates pyproject.toml against BLINKLESS_VERSION in
+bindings/c/include/blinkless.h.
 
 The package ships a prebuilt c-shared library as package data and loads it
 with ctypes. That is not a Python C extension, so setuptools would:
@@ -13,8 +13,6 @@ with ctypes. That is not a Python C extension, so setuptools would:
 Force a platform tag (py3-none-<plat>) and a BinaryDistribution so the
 native library lands in platlib and auditwheel can repair the wheel.
 """
-
-from pathlib import Path
 
 from setuptools import setup
 from setuptools.dist import Distribution
@@ -47,15 +45,10 @@ class bdist_wheel(_bdist_wheel):  # type: ignore[misc,valid-type]
         return "py3", "none", plat
 
 
-_ROOT_VERSION = Path(__file__).resolve().parent.parent.parent / "VERSION"
-
 _kwargs = {
     "distclass": BinaryDistribution,
 }
 if _bdist_wheel is not None:
     _kwargs["cmdclass"] = {"bdist_wheel": bdist_wheel}
-
-if _ROOT_VERSION.is_file():
-    _kwargs["version"] = _ROOT_VERSION.read_text(encoding="utf-8").strip()
 
 setup(**_kwargs)

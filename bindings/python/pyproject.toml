@@ -60,6 +60,9 @@ manylinux-aarch64-image = "manylinux_2_28"
 repair-wheel-command = "auditwheel repair --strip -w {dest_dir} {wheel}"
 # {project} is the repo root (cwd where cibuildwheel was invoked). Relative
 # ../.. from the package cwd is wrong and can resolve to /.
+# The libVersion stamp comes from [project].version in this file, the same
+# committed source scripts/check_versions.sh gates against BLINKLESS_VERSION;
+# the repo VERSION file is gone.
 before-build = '''
 set -eux
 ARCH="$(uname -m)"
@@ -73,14 +76,16 @@ rm -rf /usr/local/go
 tar -C /usr/local -xzf /tmp/gowk-go.tar.gz
 export PATH="/usr/local/go/bin:$PATH"
 ROOT="{project}"
-test -f "$ROOT/VERSION"
 test -f "$ROOT/go.mod"
 test -d "$ROOT/bindings/c"
+test -f "$ROOT/bindings/python/pyproject.toml"
+VERSION="$(sed -n 's/^version = "\(.*\)"$/\1/p' "$ROOT/bindings/python/pyproject.toml" | head -n1 | tr -d '[:space:]')"
+test -n "$VERSION"
 OUT="$ROOT/bindings/python/src/blinkless/libblinkless.so"
 mkdir -p "$(dirname "$OUT")"
 (
   cd "$ROOT" && CGO_ENABLED=1 go build -buildmode=c-shared \
-    -ldflags "-X main.libVersion=$(cat VERSION) -s -w" \
+    -ldflags "-X main.libVersion=$VERSION -s -w" \
     -o "$OUT" ./bindings/c
 )
 test -f "$OUT"

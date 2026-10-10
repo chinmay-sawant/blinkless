@@ -28,14 +28,14 @@ When the target is this repo: [references/blinkless.md](references/blinkless.md)
 | `ponytail` / `ponytail-review` | What to **delete** |
 | `critical-go-review` | 5-agent API/memory/devil's-advocate wave |
 | `perf-review` | Allocation / hot-path squeeze |
-| `debug-html-template` | One visual PDF symptom |
+| `debug-html-template` | One visual template symptom |
 
 Run ponytail **before** deepening so you do not solidify a stub surface.
 Do not launch critical-go-review or perf-review from this pack.
 
 ## Output home
 
-`plans/reviews/improve-codebase/<slug>-<YYYY-MM-DD>/phase-wise-checklist.md`
+`plans/<version>/improve-codebase/<slug>-<YYYY-MM-DD>/phase-wise-checklist.md`
 
 One new dated folder per wave. Never edit a closed historical ledger
 except to mark a moved row `[~]` with a pointer.

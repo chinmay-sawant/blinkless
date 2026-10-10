@@ -24,7 +24,7 @@
 <body>
   <!-- Source: third_party/blink/web_tests/external/wpt/css/css-flexbox/flex-container-max-content-001.html -->
   <!-- Fixture: case-34-wpt-flex-container-max-content -->
-  <!-- Port status: completed. Reduced source-faithful intrinsic contribution matrix. -->
+  <!-- Port status: blocked. Box deltas remain because layout is pt-exact by design: html +6.75 px and body +6.74 px tall; the row frame is 152x50 vs Chrome 147.95x47.31, the column frame +2.98/+4.04 px, and the items +1.33 px, the 2 pt border measuring 2.67 px per side in layout where Chrome computes 2 px; the ink spans also carry the known text-baseline approximation (dy +2.56 px). Screen paint at dsf 1 matches Chrome: the display-list snap turns 2 pt (2.67 px) strokes into 2 px and 1 pt (1.33 px) into 1 px, Chrome's computed widths (temps/chrome-cases/dsf-rerun/paint-width-validation.md). At fractional dsf the snap floors cssPx*dsf to whole device pixels, so 2 pt at dsf 1.25/1.5/2 paints 3/4/5 device px vs Chrome's 2.5/3/4 (temps/chrome-cases/dsf/report.md). -->
   <!-- Expected: max-content includes item margins, padding, and borders. -->
   <p class="case-description" style="position:absolute;top:12pt;left:12pt;margin:0;padding:6pt;border:1pt solid #64748b;background:#fff;color:#111827;font-size:9pt;line-height:12pt;width:550pt;">
     <strong>Case 34 expected behavior:</strong> max-content sizing includes each item's margin, padding, and border, giving 110pt and 88.01pt contributions.

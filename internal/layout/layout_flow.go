@@ -207,6 +207,13 @@ func (e *engine) flowChildren(
 	parent *box, children []*html.Node, sty ResolvedStyle,
 	contentW, contentX, posY, curY float64,
 ) float64 {
+	// Children resolve an auto inline size against this containing block's
+	// writing mode: an orthogonal child shrink-wraps (CSS Writing Modes).
+	previousWM := e.flowWritingMode
+	e.flowWritingMode = sty.WritingMode
+
+	defer func() { e.flowWritingMode = previousWM }()
+
 	// CSS Containment: content-visibility: hidden skips descendant layout and
 	// paint entirely. The box keeps its own chrome and uses the
 	// contain-intrinsic height (0 when unset) as its content size.
@@ -240,8 +247,8 @@ func (e *engine) flowChildren(
 	var deferred []*html.Node
 	// Absolute/fixed containing-block origin is the content edge at entry.
 	// Do not use the post-flow cy or deferred boxes sit below in-flow siblings.
-	absOriginY := posY + curY
-	absCBX, absCBW, absOriginY := e.flowAbsCB(sty, children, contentX, contentW, absOriginY)
+	absTop := posY + curY
+	absCBX, absCBW, absOriginY, icb := e.flowAbsCB(parent, sty, children, contentX, contentW, absTop)
 
 	// margin-trim lite: find first/last in-flow block child for trimming.
 	parentTrim := sty.MarginTrim
@@ -281,6 +288,11 @@ func (e *engine) flowChildren(
 	parentHeight := e.applyHeightConstraints(sty, curY+e.scalePt(sty.PaddingBottom))
 	cbHeight := parentHeight - (absOriginY - posY)
 
+	if icb {
+		// The initial containing block's height is the viewport height.
+		cbHeight = e.opts.Height
+	}
+
 	if cbHeight < 0 {
 		cbHeight = 0
 	}
@@ -304,25 +316,19 @@ func (e *engine) flowChildren(
 // flowAbsCB resolves the containing block for absolute/fixed descendants:
 // the padding box when the parent is positioned, transformed, or applies
 // layout/paint containment (CSS Containment makes both containment kinds a
-// containing block for absolute and fixed descendants), else the content box.
-// absOriginY is the content edge at flow entry.
+// containing block for absolute and fixed descendants), the initial
+// containing block when the root body has no containing-block ancestor, else
+// the content box. absOriginY is the content edge at flow entry. icb reports
+// an initial-containing-block origin so the caller can use the viewport height.
 func (e *engine) flowAbsCB(
-	sty ResolvedStyle, children []*html.Node, contentX, contentW, absOriginY float64,
-) (float64, float64, float64) {
+	parent *box, sty ResolvedStyle, children []*html.Node, contentX, contentW, absOriginY float64,
+) (float64, float64, float64, bool) {
 	absCBX, absCBW := contentX, contentW
 
 	paddingBoxCB := sty.HasTransform || containsLayout(sty) || containsPaint(sty)
 
-	if sty.Position == positionRelative {
-		for _, child := range children {
-			childStyle := e.stylePtr(child)
-			if childStyle.Position == positionAbsolute &&
-				(!childStyle.BottomAuto || (childStyle.Height < 0 && childStyle.HeightPercent < 0)) {
-				paddingBoxCB = true
-
-				break
-			}
-		}
+	if sty.Position == positionRelative && e.relativeAbsChildNeedsPaddingBox(children) {
+		paddingBoxCB = true
 	}
 
 	if paddingBoxCB {
@@ -331,9 +337,65 @@ func (e *engine) flowAbsCB(
 		absCBX = contentX - e.scalePt(sty.PaddingLeft)
 		absOriginY -= e.scalePt(sty.PaddingTop)
 		absCBW = contentW + e.scalePt(sty.PaddingLeft) + e.scalePt(sty.PaddingRight)
+
+		return absCBX, absCBW, absOriginY, false
 	}
 
-	return absCBX, absCBW, absOriginY
+	// CSS 2.1 §10.1: with no positioned ancestor, absolute descendants anchor
+	// to the initial containing block, not the parent's content box.
+	if e.absAnchorsToICB(parent) {
+		width := e.opts.Width
+		if width <= 0 {
+			width = contentW
+		}
+
+		return 0, width, 0, true
+	}
+
+	return absCBX, absCBW, absOriginY, false
+}
+
+// relativeAbsChildNeedsPaddingBox reports whether a relative parent's
+// containing block must be its padding box for the given absolute children.
+func (e *engine) relativeAbsChildNeedsPaddingBox(children []*html.Node) bool {
+	for _, child := range children {
+		childStyle := e.stylePtr(child)
+		if childStyle.Position == positionAbsolute &&
+			(!childStyle.BottomAuto || (childStyle.Height < 0 && childStyle.HeightPercent < 0)) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// absAnchorsToICB reports whether parent's absolute descendants have no
+// containing-block ancestor, so they anchor to the initial containing block:
+// the parent is the root body and neither it nor any ancestor is positioned,
+// transformed, or a containment box.
+func (e *engine) absAnchorsToICB(parent *box) bool {
+	if parent == nil || parent.node == nil || parent.node.Name != htmlBodyName {
+		return false
+	}
+
+	for node := parent.node; node != nil; node = node.Parent {
+		if node.Type == html.ElementNode && establishesAbsCB(e.styleVal(node)) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// establishesAbsCB reports whether a box's style makes it a containing block
+// for absolute descendants.
+func establishesAbsCB(style ResolvedStyle) bool {
+	if style.Position == positionRelative || style.Position == positionAbsolute ||
+		style.Position == positionFixed || style.Position == positionSticky {
+		return true
+	}
+
+	return style.HasTransform || containsLayout(style) || containsPaint(style)
 }
 
 // flowTrimBounds finds the first/last in-flow block child indexes for
@@ -788,7 +850,14 @@ func (e *engine) blockFitContentMarginBox(node *html.Node, style ResolvedStyle) 
 //
 // Pair every push with popBFCFloats(enclose). No per-call closure is allocated.
 func (e *engine) pushBFCFloats(style ResolvedStyle, contentX, contentW float64) bool {
-	if e.bfcFloats != nil && !establishesBFC(style) && !containsLayout(style) {
+	return e.pushBFCFloatsForce(style, contentX, contentW, false)
+}
+
+// pushBFCFloatsForce is pushBFCFloats with an explicit BFC override. force is
+// set for boxes that establish a formatting context by their position rather
+// than their own style, such as flex items (CSS Flexbox L1 §4).
+func (e *engine) pushBFCFloatsForce(style ResolvedStyle, contentX, contentW float64, force bool) bool {
+	if e.bfcFloats != nil && !force && !establishesBFC(style) && !containsLayout(style) {
 		return false
 	}
 

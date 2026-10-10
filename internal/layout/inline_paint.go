@@ -189,7 +189,7 @@ func (e *engine) emitInlineText(
 	// face-run / nested style chunk). Thin stroke ~5% em, clamped for
 	// dense reference print (min 0.25pt, max 0.45pt). Cascade wins:
 	// text-decoration:none stays none; --print-link-underline sets
-	// underline after cascade when operators want PDF link affordance.
+	// underline after cascade when operators want a visible link underline.
 	e.paintDecoration(item, runStart, runSpan, size, ascent, descent, shiftedBaseline, child, und)
 	e.paintEmphasis(item, runStart, runSpan, shiftedBaseline, ascent, descent, size)
 
@@ -228,7 +228,7 @@ func (e *engine) emitInlineFaceRuns(
 func (e *engine) paintInlineChrome(style *ResolvedStyle, leftX, baseline, ascent, descent, contentWidth float64) {
 	top := e.inlineChromeTop(style)
 	bottom := e.inlineChromeBottom(style)
-	lh := lineHeightOf(style) * e.scale
+	lh := e.lineHeightOf(style) * e.scale
 	extra := (lh - ascent - descent) / two
 	boxY := baseline - ascent - extra - top
 	boxH := ascent + extra + top + descent + extra + bottom
@@ -1871,18 +1871,18 @@ func (e *engine) inlineFontMetrics(text string, style *ResolvedStyle) (float64, 
 	return maxAscent, maxDescent
 }
 
-// isExternalHref reports whether a link target should become a URI
-// annotation (http/https/mailto). Local same-document fragments are handled
-// separately as internal GoTo links.
+// isExternalHref reports whether a link target is an absolute URI
+// (http/https/mailto). Local same-document fragments are handled separately
+// as internal fragment links.
 func isExternalHref(href string) bool {
 	low := strings.ToLower(href)
 
 	return strings.HasPrefix(low, "http://") || strings.HasPrefix(low, "https://") || strings.HasPrefix(low, "mailto:")
 }
 
-// isLinkHref reports whether an anchor target can become a PDF URI or an
-// internal fragment link. Relative references are retained for conversion to
-// resolve against the document base URL.
+// isLinkHref reports whether an anchor target becomes an OpLinkURI op.
+// Relative references are retained so a consumer can resolve them against the
+// document base URL.
 func isLinkHref(href string) bool {
 	href = strings.TrimSpace(href)
 	if href == "" {

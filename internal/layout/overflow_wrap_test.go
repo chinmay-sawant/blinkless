@@ -9,7 +9,7 @@ import (
 
 // Long unbreakable tokens (URLs, paths) must not paint past the content edge.
 // Emergency wrap applies when a token alone exceeds the line width even with
-// overflow-wrap:normal (print PDF usability).
+// overflow-wrap:normal (print usability).
 func TestLongURLEmergencyWrap(t *testing.T) {
 	t.Parallel()
 

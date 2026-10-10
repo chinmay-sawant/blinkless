@@ -30,7 +30,7 @@ commit that introduced it and what that commit was trying to do.
 - `/diff-verify <sha>` - verify one commit
 - `/diff-verify <A..B>` or `<A...B>` - verify an explicit range
 - `/diff-verify <N>` - any scope above, but run `N` sub-agents
-- `/diff-verify --write` - also save the report under `plans/reviews/diff-verify/`
+- `/diff-verify --write` - also save the report under `plans/<version>/diff-verify/`
 
 Count and range can be combined: `/diff-verify 5 master`.
 
@@ -152,8 +152,8 @@ commit. The re-add is safe only when the delete's reason no longer holds,
 and that has to be argued from evidence, not assumed.
 
 Notable additions to scan: guards and validations, constants and
-thresholds, test assertions, golden page bounds and needles, dependency
-entries, exported API, `VERSION`, `//nolint` reason comments, and comments
+thresholds, test assertions, drawing-list anchors and op counts, dependency
+entries, exported API, `//nolint` reason comments, and comments
 that state a constraint.
 
 ### 2.5 Emit the work list
@@ -211,9 +211,9 @@ Split by non-overlapping file groups. Two agents never own the same file.
 A split that fits this repo:
 
 - **A - rendering core:** `internal/layout/`, `internal/css/`, `internal/html/`
-- **B - output pipeline:** `internal/pdf/`, `internal/convert/`, `internal/load/`, `internal/imageout/`
-- **C - tests, fixtures, binaries:** `internal/**/*_test.go`, `testdata/`, `cmd/`
-- **D - contracts and rationale:** `go.mod`, `go.sum`, `VERSION`, `CHANGELOG.md`, `Makefile`, `.github/`, `documentation/`, `frontend/`, plus the cross-reference scout below
+- **B - pipeline and output:** `internal/convert/`, `internal/load/`, `internal/svg/`, `layout/` (public drawing list)
+- **C - tests, fixtures, bindings:** `internal/**/*_test.go`, `testdata/`, `test/chrome/`, `bindings/`
+- **D - contracts and rationale:** `go.mod`, `go.sum`, `CHANGELOG.md`, `RELEASE.md`, `Makefile`, `.github/`, `documentation/`, `plans/`, plus the cross-reference scout below
 
 Always keep one agent on the rationale scout: cross-reference `plans/`,
 `plans/PR/`, `knowledge-base/`, and GitHub PR numbers found in commit
@@ -292,7 +292,7 @@ Evidence rules: quote the commit body. If no rationale exists, say
 
 Default: print the report in chat. Write a file only when the user asks or
 passes `--write`; the path is
-`plans/reviews/diff-verify/<branch-slug>-<YYYY-MM-DD>.md` (create the
+`plans/<version>/diff-verify/<branch-slug>-<YYYY-MM-DD>.md` (create the
 directory only when writing).
 
 ```text
@@ -354,7 +354,7 @@ this repo, so also check:
 
 - `plans/<version>/NN-canonical-*.md` ledgers and `plans/<version>/phases/`
 - PR bodies under `plans/PR/` and `plans/<version>/PR/`
-- performance ledgers `plans/0.2.6/perf-improve/` and `plans/0.2.6/perf-time/`
+- performance ledgers (the 0.2.6 perf-improve and perf-time trees were removed with the writer; historical only)
 - `knowledge-base/wiki/log.md` and concept pages (local only, not in git)
 - `documentation/`, `CHANGELOG.md`, `RELEASE.md`
 
@@ -370,16 +370,16 @@ Lines that are never ordinary, check them with extra care:
 
 - dependency allowlist in `TestDirectModuleAllowlist`; only
   `go-text/typesetting` and `tdewolff/canvas` may be direct
-- golden contract: `fixturePageBounds`, needles, fixture headers
+- golden contract: the public drawing-list tests in `./layout` (`TestDisplay`) and the fixture-backed tests under `internal/layout`
 - claim wording policed by `make claim-scan`
-- `VERSION` and `CHANGELOG.md` discipline, `make check-versions`
+- `CHANGELOG.md` discipline and the version-source table in `RELEASE.md`
 - performance fast paths, because their reason is a measurement
 - `//nolint` reason comments and `[DEBUG-...]` cleanup
 
 ## Worked example (illustrative)
 
 Situation: the pending diff deletes one line from
-`internal/convert/convert.go`:
+`internal/<pkg>/<file>.go`:
 
 ```go
 if req.Timeout <= 0 { req.Timeout = DefaultTimeout }
@@ -391,7 +391,7 @@ so old line 412 was removed.
 **Step 2, blame the old line at the base revision.**
 
 ```bash
-git blame -w -M -C -L 412,+1 "$BASE" -- internal/convert/convert.go
+git blame -w -M -C -L 412,+1 "$BASE" -- internal/<pkg>/<file>.go
 # a1b2c3d4 fix(convert): default the request timeout before fetch
 ```
 
@@ -408,14 +408,14 @@ git log -1 --format='%h %ad %s%n%b' a1b2c3d4
 **Step 4, check whether current code still expects the old behavior.**
 
 ```bash
-rg -n 'DefaultTimeout' internal/convert
-# internal/convert/convert_test.go still asserts the default is applied
+rg -n 'DefaultTimeout' internal/<pkg>
+# the package test still asserts the default is applied
 ```
 
 **Finding:**
 
 ```text
-DV-01 [BLOCKER] internal/convert/convert.go:412 removed the timeout default
+DV-01 [BLOCKER] internal/<pkg>/<file>.go:412 removed the timeout default
   Blamed: a1b2c3d4 fix(convert): default the request timeout before fetch (#57)
   Commit said: "A zero timeout made the loader block forever on slow hosts."
   Why this matters: deleting the guard brings back the unbounded wait, and

@@ -6,12 +6,12 @@ the other common caller shape: HTML lives in the program as a string/bytes,
 you pass Document options, call ``.pdf()``, and write the bytes with
 ``os`` / ``pathlib``.
 
-Mirrors the Go ``testdata/golden/api/generate.go`` option bag
-(page size, zero margins, background, smart_shrinking, allow_local_files),
-except the source is inline HTML instead of ``File(path)`` (the v1 one-shot
-ABI accepts inline HTML only).
+Uses the same option bag as ``generate.py`` (page size, zero margins,
+background, smart_shrinking, allow_local_files), except the source is inline
+HTML instead of a file on disk (the v1 one-shot ABI accepts inline HTML
+only).
 
-Run from the repository root (also invoked by ``make python-api``):
+Run from the repository root:
 
     python3 testdata/golden/python_api/generate_inline.py
 
@@ -137,7 +137,7 @@ def write_file(path, data, mode=PDF_FILE_MODE):
 
 def render_with_document(html):
     # type: (bytes) -> bytes
-    """Document API shape, matching generate.go's option bag."""
+    """Document API shape, matching generate.py's option bag."""
     document = Document(
         pages=[Page(source=Content.from_html(html))],
         page_size="A4",
@@ -186,7 +186,7 @@ def run(argv=None):
     else:
         output_path = default_output
 
-    # Primary sample: Document with explicit options (same idea as generate.go).
+    # Primary sample: Document with explicit options (same idea as generate.py).
     pdf = render_with_document(INVOICE_HTML)
     got = page_count(pdf)
     if got != WANT_PAGES:

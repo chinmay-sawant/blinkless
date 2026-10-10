@@ -10,10 +10,11 @@ Run these before calling the tree releasable:
 
 1. `go build ./...`
 2. `make test-quick`
-3. `make lint`
-4. `make claim-scan` after documentation matches the renderer
+3. `make golden`
+4. `make lint`
+5. `make claim-scan` after documentation matches the renderer
 
-Do not run `make golden`, veraPDF, or a PDF byte compare. Those checks measured the writer.
+Do not run veraPDF or a PDF byte compare. Those checks measured the writer.
 
 ## What ships
 

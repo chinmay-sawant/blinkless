@@ -223,12 +223,23 @@ body { margin: 0 }
 			continue
 		}
 
-		opH := paintOp.Size * 1.2
-		lo := int(paintOp.Y / pageH)
-		hi := int((paintOp.Y + opH) / pageH)
+		// OpText Y is the baseline. Derive the line box from the face
+		// metrics; the removed 1.2em normal-line-height estimate no longer
+		// matches the engine (10pt Liberation Sans is 11.25pt, not 12pt).
+		ascent, descent := 0.0, 0.0
+
+		if paintOp.Font != nil && paintOp.Font.UnitsPerEm() > 0 {
+			upem := float64(paintOp.Font.UnitsPerEm())
+			ascent = float64(paintOp.Font.Ascent()) / upem * paintOp.Size
+			descent = float64(-paintOp.Font.Descent()) / upem * paintOp.Size
+		}
+
+		lo := int((paintOp.Y - ascent) / pageH)
+		hi := int((paintOp.Y + descent) / pageH)
 
 		if hi > lo {
-			t.Fatalf("text %q straddles page at y=%.1f h=%.1f (pages %d-%d)", paintOp.Text, paintOp.Y, opH, lo, hi)
+			t.Fatalf("text %q straddles page at y=%.1f (baseline) ascent=%.2f descent=%.2f (pages %d-%d)",
+				paintOp.Text, paintOp.Y, ascent, descent, lo, hi)
 		}
 	}
 
@@ -493,7 +504,7 @@ func TestMulticolDefiniteHeightCapsAnonymousStrip(t *testing.T) {
 // Under column-fill:balance that forced Height must not shrink maxColH, or a
 // short column-count:2 probe page-snaps when content-box height is a hair
 // under the child measure (fixture-57: itemH 16.25 > definiteH 15.75 ->
-// repeated snaps to ~1270pt and 37 PDF pages). clampMulticolHeight then
+// repeated snaps to ~1270pt and 37 pages). clampMulticolHeight then
 // hides the blow-up in box.height, so assert on paint extent instead.
 func TestMulticolFlexStretchBalanceNoPageSnap(t *testing.T) {
 	t.Parallel()

@@ -15,7 +15,7 @@ import (
 
 // TestDejaVuSansFamilyResolvesFallback proves font-family:'DejaVu Sans'
 // resolves the bundled fallback faces, both through the default registry
-// (convert and imageout build it from settings) and through the FaceSet when
+// (built here from settings.DefaultPdfGlobal) and through the FaceSet when
 // no registry is supplied. Without this the language-override demo falls back
 // to Liberation and the Serbian SRB locl substitution cannot show.
 func TestDejaVuSansFamilyResolvesFallback(t *testing.T) {

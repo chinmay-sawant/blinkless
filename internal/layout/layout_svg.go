@@ -87,16 +87,18 @@ func (e *engine) usedInlineSVGSize(node *html.Node, sty ResolvedStyle, ref *imag
 		hAttr = e.scalePt(pxToPt(28))
 	}
 
-	// Max constraints clamp the used size exactly like usedImageSize does for
-	// <img>: a one-dimensional constraint scales the other axis by the used
-	// ratio, so max-height 100pt on a 200x200 svg yields 100x100.
+	// Max constraints clamp like usedImageSize does for <img>: a definite
+	// width or height keeps its axis, and only an auto axis follows the used
+	// ratio (Chrome 143: a 200x200 svg with max-height 100pt stays 200 wide).
 	size := imageUsedSize{w: wAttr, h: hAttr}
 	cssW := sty.Width >= 0
 	if sty.WidthPercent >= 0 && e.imageContainingWidth() > 0 {
 		cssW = true
 	}
-	size = clampImageWidth(size, e.imageMaxWidth(sty, cssW))
-	size = clampImageHeight(e, size, sty)
+	widthDefinite := cssW || parseSVGLengthPx(node.Attribute("width")) > 0
+	heightDefinite := sty.Height >= 0 || parseSVGLengthPx(node.Attribute("height")) > 0
+	size = clampImageWidth(size, e.imageMaxWidth(sty, cssW), heightDefinite)
+	size = clampImageHeight(e, size, sty, widthDefinite)
 
 	return size
 }
@@ -255,5 +257,8 @@ func (e *engine) collectInlineSVGItem(node *html.Node, sty ResolvedStyle, out *[
 		img: true, w: svgBox.w, h: svgBox.height, style: e.stylePtr(node),
 		imgRef:  svgBox.img,
 		marginL: e.scalePt(sty.MarginLeft), marginR: e.scalePt(sty.MarginRight),
+		marginT: e.scalePt(sty.MarginTop), marginB: e.scalePt(sty.MarginBottom),
+		// Replaced elements rest their bottom margin edge on the baseline.
+		marginBaseline: true,
 	})
 }

@@ -17,7 +17,7 @@
 <body>
   <!-- Source: third_party/blink/renderer/core/layout/flex/flex_layout_algorithm_test.cc -->
   <!-- Fixture: case-38-blink-gap-decorations-basic -->
-  <!-- Port status: completed. Source-faithful six-item wrapped gap input. -->
+  <!-- Port status: blocked. Box deltas remain because layout is pt-exact by design: html and body +1.36 px tall and the frame 232x152 vs Chrome 230.66x150.64, the 2 pt dotted border measuring 2.67 px per side in layout where Chrome computes 2 px. Screen paint at dsf 1 matches Chrome: the display-list snap turns each 2 pt (2.67 px) dotted segment into 2 px, Chrome's computed width (temps/chrome-cases/dsf-rerun/paint-width-validation.md). At fractional dsf the snap floors cssPx*dsf to whole device pixels, so 2 pt at dsf 1.25/1.5/2 paints 3/4/5 device px vs Chrome's 2.5/3/4 (temps/chrome-cases/dsf/report.md). -->
   <!-- Expected: six fixed items form two rows with 10pt main and cross gaps. -->
   <p class="case-description" style="position:absolute;top:12pt;left:12pt;margin:0;padding:6pt;border:1pt solid #64748b;background:#fff;color:#111827;font-size:9pt;line-height:12pt;width:550pt;">
     <strong>Case 38 expected behavior:</strong> the six 50pt items wrap into two rows of three with 10pt row and column gaps inside the 174pt frame.

@@ -655,7 +655,7 @@ func TestDefaultImageGlobalNoQuietLogLevel(t *testing.T) {
 	t.Parallel()
 
 	img := DefaultImageGlobal()
-	// Quiet lives on PdfGlobal only; imageout uses Global.Quiet.
+	// Quiet lives on PdfGlobal only; fonts.LogFontRegistryScan reads it there.
 	if img.Width != 1024 || !img.SmartWidth || img.Quality != 94 {
 		t.Errorf("default image = %+v", img)
 	}

@@ -4,9 +4,7 @@ package layout
 //
 // tagSticky records the resolved non-auto insets on the sticky box and stamps
 // StickyID on its ops so later passes can find the sticky subtree after
-// prependChrome shifts op indices (see reapplyStickyID). The page and overflow
-// scrollport clamps that consumed the insets lived in the removed PDF page
-// renderer.
+// prependChrome shifts op indices (see reapplyStickyID).
 
 // tagSticky records sticky insets and stamps StickyID on the box's ops so
 // later paint passes can find them after parent prependChrome shifts op

@@ -213,20 +213,8 @@ func parseContainerPrelude(prelude string) (ContainerQuery, bool) {
 	if prelude == "" {
 		return ContainerQuery{}, false //nolint:exhaustruct // intentional zero-value fields
 	}
-	// Optional name: leading ident that is not not/and/or and not starting with '('.
-	name := ""
 
-	rest := prelude
-	if !strings.HasPrefix(rest, "(") && !strings.HasPrefix(strings.ToLower(rest), condKindNot) {
-		ident, rem, ok := readIdent(rest)
-		if ok {
-			low := strings.ToLower(ident)
-			if low != condKindAnd && low != condKindOr && low != condKindNot && low != containerNoneKeyword {
-				name = low
-				rest = strings.TrimSpace(rem)
-			}
-		}
-	}
+	name, rest := parseContainerPreludeName(prelude)
 
 	cond, ok := parseContainerCond(rest)
 	if !ok {
@@ -234,6 +222,30 @@ func parseContainerPrelude(prelude string) (ContainerQuery, bool) {
 	}
 
 	return ContainerQuery{Name: name, Cond: cond}, true
+}
+
+// parseContainerPreludeName splits the optional leading container name off a
+// prelude and returns it lowercased with the remaining condition text. An
+// ident immediately followed by `(` is a function token (`style(...)`,
+// `scroll-state(...)`), not a container name plus a condition (CSS
+// Conditional 5, @container grammar), so the whole prelude stays the
+// condition. Keyword-like idents (not/and/or/none) are never names.
+func parseContainerPreludeName(prelude string) (string, string) {
+	if strings.HasPrefix(prelude, "(") || strings.HasPrefix(strings.ToLower(prelude), condKindNot) {
+		return "", prelude
+	}
+
+	ident, rem, ok := readIdent(prelude)
+	if !ok || strings.HasPrefix(rem, "(") {
+		return "", prelude
+	}
+
+	low := strings.ToLower(ident)
+	if low == condKindAnd || low == condKindOr || low == condKindNot || low == containerNoneKeyword {
+		return "", prelude
+	}
+
+	return low, strings.TrimSpace(rem)
 }
 
 func readIdent(str string) (string, string, bool) {
@@ -276,13 +288,18 @@ func isIdentStart(c byte) bool {
 	return c == '-' || c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 }
 
-// parseContainerCond parses a container condition with or < and < not precedence.
+// parseContainerCond parses a container condition. A level uses one operator
+// kind only (all and or all or), the same rule as @supports; not binds
+// tighter than both.
 func parseContainerCond(str string) (ContainerCond, bool) {
 	return parseContainerCondDepth(str, 0)
 }
 
 // parseContainerCondDepth is parseContainerCond with an explicit recursion
-// depth; nesting past maxParseDepth is rejected.
+// depth; nesting past maxParseDepth is rejected. A level that mixes the two
+// operators (and with or, or with and) without parentheses is rejected (CSS
+// Conditional 3 section 6; the same single-operator rule parseSupportsChain
+// enforces).
 func parseContainerCondDepth(str string, depth int) (ContainerCond, bool) {
 	if depth > maxParseDepth {
 		return ContainerCond{}, false //nolint:exhaustruct // intentional zero-value fields
@@ -291,6 +308,10 @@ func parseContainerCondDepth(str string, depth int) (ContainerCond, bool) {
 	str = strings.TrimSpace(str)
 	if str == "" {
 		return ContainerCond{}, false //nolint:exhaustruct // intentional zero-value fields
+	}
+
+	if containsTopLevelKeyword(str, condKindAnd) && containsTopLevelKeyword(str, condKindOr) {
+		return ContainerCond{}, false //nolint:exhaustruct // and/or cannot mix at one level
 	}
 
 	return parseOrCond(str, depth)
@@ -352,7 +373,7 @@ func parseNotCond(str string, depth int) (ContainerCond, bool) {
 	str = strings.TrimSpace(str)
 	low := strings.ToLower(str)
 
-	if strings.HasPrefix(low, condKindNot) {
+	if strings.HasPrefix(low, condKindNot) && condKeywordBoundary(low, len(condKindNot)) {
 		rest := strings.TrimSpace(str[3:])
 		if rest == "" {
 			return ContainerCond{}, false //nolint:exhaustruct // intentional zero-value fields
@@ -399,6 +420,23 @@ func parseParenOrFeat(str string, depth int) (ContainerCond, bool) {
 	return ContainerCond{Kind: condKindFeat, Feat: &feat}, true //nolint:exhaustruct // intentional zero-value fields
 }
 
+// condKeywordBoundary reports that position end in str starts a new token:
+// end of input or whitespace. An opening parenthesis is not a boundary:
+// `not(`, `and(`, and `or(` tokenize as a function token rather than an
+// operator (CSS Containment 3; the same rule as @supports).
+func condKeywordBoundary(str string, end int) bool {
+	if end >= len(str) {
+		return true
+	}
+
+	switch str[end] {
+	case ' ', '\t', '\r', '\n':
+		return true
+	default:
+		return false
+	}
+}
+
 // splitCondKeyword splits on top-level `and`/`or` keywords (not inside parens).
 func splitCondKeyword(str, keyword string) ([]string, bool) {
 	str = strings.TrimSpace(str)
@@ -428,7 +466,7 @@ func splitCondKeyword(str, keyword string) ([]string, bool) {
 			continue
 		}
 
-		if depth == 0 && hasKeywordAt(low, idx, keyword) {
+		if depth == 0 && hasKeywordAt(low, idx, keyword) && condKeywordBoundary(low, idx+len(keyword)) {
 			parts = append(parts, strings.TrimSpace(str[start:idx]))
 			idx += len(keyword)
 			start = idx

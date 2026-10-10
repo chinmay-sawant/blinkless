@@ -9,7 +9,7 @@ type clipRect struct {
 }
 
 // overflowClipsPaint reports overflow values that clip descendant paint to
-// the padding box. auto/scroll clip the same in PDF (no user scroll).
+// the padding box. auto/scroll clip the same (no user scroll).
 func overflowClipsPaint(overflow string) bool {
 	switch overflow {
 	case overflowHidden, overflowClip, overflowScroll, overflowAuto:

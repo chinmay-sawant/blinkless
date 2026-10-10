@@ -1,29 +1,43 @@
 # Changelog
 
 All notable changes to blinkless are recorded here. This project follows
-semantic versioning; `VERSION` holds the current release and is stamped into
-binaries at build time (see README "Versioning").
+semantic versioning; the release version lives in
+`bindings/python/pyproject.toml` and `bindings/c/include/blinkless.h` and is
+gated by `scripts/check_versions.sh`.
 
 ## Unreleased
 
 ### Added
 
-- **Display-list export:** `layout.DisplayList` returns the retained display
+- **Display-list output:** `layout.DisplayList` returns the retained display
   list of vector operations for a document instead of a flattened bitmap, so a
   caller can replay the placement on its own canvas and keep text as glyphs
-  rather than pixels. Additive and backward compatible: `layout.Lay` is
-  unchanged and stays the way to get a picture. The new public surface is
+  rather than pixels. The public surface is
   `Display`, `DisplayOp`, `DisplayGroup`, `DisplayKind`, `DisplayOrder`,
   `DisplayFakeBold`, `DisplayTransformText`, the `DisplayOp*` kind constants
   including `DisplayOpNoop`, and the nil-safe accessors on an operation
   (`LinkURI`, `ImageBytes`, `ImageAlt`, `Transform`, `BlendModeName`,
   `Opacity`, `Outline`, `TextTransformValue`, and `NoFakeBoldValue`).
-  `op.Font.Bytes()` hands the raw SFNT face to an independent shaper. Both
-  entries share one placement, so boxes and geometry agree. The canvas height is
-  converted from points rather than read off a picture, so it can sit one pixel
-  under the height `Lay` reports. `DisplayList` also skips the raster budget, so
-  a canvas too large to rasterize still returns a display list. `screen.Render`
-  still goes through `Lay`.
+  `op.Font.Bytes()` hands the raw SFNT face to an independent shaper. The
+  canvas height is converted from points rather than read off a picture.
+  `DisplayList` also skips the raster budget, so a canvas too large to
+  rasterize still returns a display list. `layout.SnapDisplayToDevicePixels`
+  optionally snaps painted stroke widths to whole device pixels for screen
+  consumers.
+
+### Removed
+
+- **PDF writer, page rasterizer, CLI, and frontend are gone.** The engine
+  returns `layout.DisplayList`: there is no PDF file output, no page PNG or
+  JPEG encoder, no `cmd/blinkless`, no `internal/cli`, and no `frontend/`.
+  The public packages are `html`, `css`, and `layout`; the WASM binding
+  returns the versioned drawing-list JSON. An image operation keeps its
+  encoded bytes and re-encodes that one payload as a PNG when orientation or
+  a clip requires it.
+- **`layout.Lay`, `screen.Render`, `ImageDocument`, and the PDF settings
+  consumers** were removed with the writer. The committed version sources are
+  `bindings/python/pyproject.toml` and `bindings/c/include/blinkless.h`,
+  gated by `make check-versions`.
 
 ## 0.2.6 (2026-09-13)
 

@@ -142,22 +142,27 @@ func measureTrackIntrinsics(eng *engine, kids []*html.Node, nTracks int, axisCol
 		cstate := eng.stylePtr(kid)
 		tidx := i % nTracks
 
-		var val float64
+		var minVal, maxVal float64
 		if axisColumns {
-			val = eng.measureCellContent(kid, *cstate)
+			// Column tracks need both contributions: the auto minimum of an
+			// fr track is min-content, while auto/max-content maxes grow to
+			// max-content. Using max-content for both sized 1fr tracks from
+			// their content instead of the equal free-space share (C2).
+			minVal, maxVal = eng.measureCellMinMax(kid, *cstate)
 		} else {
 			// Height intrinsic: single-line text approximation via font size.
-			val = eng.scalePt(cstate.FontSize) * textLineHeightFactor
-			val += eng.scalePt(cstate.PaddingTop) + eng.scalePt(cstate.PaddingBottom) +
+			maxVal = eng.scalePt(cstate.FontSize) * textLineHeightFactor
+			maxVal += eng.scalePt(cstate.PaddingTop) + eng.scalePt(cstate.PaddingBottom) +
 				eng.scalePt(cstate.BorderTop.Width) + eng.scalePt(cstate.BorderBottom.Width)
+			minVal = maxVal
 		}
 
-		if val > out[tidx].minContent {
-			out[tidx].minContent = val
+		if minVal > out[tidx].minContent {
+			out[tidx].minContent = minVal
 		}
 
-		if val > out[tidx].maxContent {
-			out[tidx].maxContent = val
+		if maxVal > out[tidx].maxContent {
+			out[tidx].maxContent = maxVal
 		}
 	}
 
@@ -246,26 +251,114 @@ func applyAutoSoftLimit(limit []float64, def gridTrackDef, intr trackIntrinsic, 
 }
 
 // distributeGridTracks shares leftover space between fr tracks, or between
-// growable auto tracks when no fr tracks exist.
-func distributeGridTracks(defs []gridTrackDef, base, limit, frCoef []float64, frSum, free float64) []float64 {
-	out := make([]float64, len(defs))
+// growable auto tracks when no fr tracks exist. space is the grid content box
+// minus the track gaps.
+func distributeGridTracks(defs []gridTrackDef, base, limit, frCoef []float64, frSum, space float64) []float64 {
+	if frSum > 0 {
+		return distributeFrGridTracks(base, limit, frCoef, space)
+	}
 
-	if frSum > 0 && free > 0 {
-		for idx := range out {
-			out[idx] = base[idx]
-			if frCoef[idx] > 0 {
-				out[idx] += free * (frCoef[idx] / frSum)
-			}
+	bases := 0.0
+	for i := range base {
+		bases += base[i]
+	}
 
-			if out[idx] > limit[idx] {
-				out[idx] = limit[idx]
-			}
-		}
-
-		return out
+	free := space - bases
+	if free < 0 {
+		free = 0
 	}
 
 	return distributeAutoGridTracks(defs, base, limit, free, frSum)
+}
+
+// distributeFrGridTracks sizes flexible tracks with the CSS Grid "find the
+// size of an fr" algorithm (Grid L1 §11.7): the base sizes of non-flexible
+// tracks come out of the available space, the remainder is divided by the
+// flex factor sum, and each flexible track is floored at its own base size.
+// A base larger than its equal share makes the track inflexible and restarts
+// the division, so floors never inflate the other tracks' shares.
+func distributeFrGridTracks(base, limit, frCoef []float64, space float64) []float64 {
+	out := make([]float64, len(base))
+	copy(out, base)
+
+	active, activeSum, remaining := frGridTrackState(base, frCoef, space)
+	frSize := frTrackShare(base, active, frCoef, remaining, activeSum)
+
+	for idx := range out {
+		if active[idx] {
+			out[idx] = frSize * frCoef[idx]
+		}
+	}
+
+	clampGridTracks(out, limit)
+
+	return out
+}
+
+// frGridTrackState marks the flexible tracks active and returns the space
+// left after the non-flexible base sizes.
+func frGridTrackState(base, frCoef []float64, space float64) ([]bool, float64, float64) {
+	active := make([]bool, len(base))
+	activeSum := 0.0
+	remaining := space
+
+	for idx := range base {
+		if frCoef[idx] > 0 {
+			active[idx] = true
+			activeSum += frCoef[idx]
+
+			continue
+		}
+
+		remaining -= base[idx]
+	}
+
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	return active, activeSum, remaining
+}
+
+// frTrackShare resolves the final per-fr-unit share after flooring tracks
+// whose base size exceeds their equal share.
+func frTrackShare(base []float64, active []bool, frCoef []float64, remaining, activeSum float64) float64 {
+	for activeSum > 0 {
+		frSize := remaining / activeSum
+		floored := false
+
+		for idx := range base {
+			if !active[idx] {
+				continue
+			}
+
+			if share := frSize * frCoef[idx]; base[idx] > share {
+				remaining -= base[idx]
+				activeSum -= frCoef[idx]
+				active[idx] = false
+				floored = true
+			}
+		}
+
+		if !floored {
+			return frSize
+		}
+
+		if remaining < 0 {
+			remaining = 0
+		}
+	}
+
+	return 0
+}
+
+// clampGridTracks caps track sizes at their max track sizing function.
+func clampGridTracks(sizes, limit []float64) {
+	for idx := range sizes {
+		if sizes[idx] > limit[idx] {
+			sizes[idx] = limit[idx]
+		}
+	}
 }
 
 // isAutoTrackKind reports whether a track can absorb leftover space.
@@ -310,7 +403,7 @@ func sanitizeGridTrackSizes(out []float64) {
 
 // resolveGridTrackSizes distributes free space with fr, honoring minmax floors.
 // Percent mins/maxes require a definite contentSize (>=0); otherwise % -> auto.
-func resolveGridTrackSizes( //nolint:cyclop // grid track sizing has independent definite/negative/fr branches
+func resolveGridTrackSizes(
 	defs []gridTrackDef,
 	contentSize, gap float64,
 	eng *engine,
@@ -330,43 +423,14 @@ func resolveGridTrackSizes( //nolint:cyclop // grid track sizing has independent
 
 	plan := planGridTrackSides(defs, contentSize, definite, eng, intrinsics)
 
-	fixedSum := 0.0
-	for i := range plan.base {
-		fixedSum += plan.base[i]
-	}
-
-	free := contentSize - gapTotal - fixedSum
+	// Flexible tracks size from the space left after the non-flexible bases,
+	// not from a free amount that already subtracted the flexible bases.
+	space := contentSize - gapTotal
 	if !definite {
-		free = 0
+		space = 0
 	}
 
-	if free < 0 {
-		// A bare fr track is flexible when the definite grid container is
-		// narrower than its intrinsic contributions. Let the fr tracks absorb
-		// the available space instead of allowing an auto minimum to make the
-		// whole grid overflow and trigger document-wide smart shrinking.
-		if plan.frSum > 0 {
-			fixedSum = 0
-
-			for idx, coef := range plan.frCoef {
-				if coef == 0 {
-					fixedSum += plan.base[idx]
-
-					continue
-				}
-
-				plan.base[idx] = 0
-			}
-
-			free = contentSize - gapTotal - fixedSum
-		}
-
-		if free < 0 {
-			free = 0
-		}
-	}
-
-	out := distributeGridTracks(defs, plan.base, plan.limit, plan.frCoef, plan.frSum, free)
+	out := distributeGridTracks(defs, plan.base, plan.limit, plan.frCoef, plan.frSum, space)
 	sanitizeGridTrackSizes(out)
 
 	return out

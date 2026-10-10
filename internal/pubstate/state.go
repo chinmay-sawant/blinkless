@@ -13,6 +13,7 @@ import (
 // Styled is the cascade result the layout package reads.
 type Styled struct {
 	Root     *html.Node
+	Mode     html.DocumentMode
 	Sheets   []*css.Stylesheet
 	Registry *pdf.Registry
 	Media    string

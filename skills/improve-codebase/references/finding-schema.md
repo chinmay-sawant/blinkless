@@ -50,16 +50,16 @@ The orchestrator assigns numbers. A lens working alone uses a temporary
 Drop the finding (or mark `refuse`) when any of these is true:
 
 - Evidence is a historical review snippet, not current source.
-- The same location is already `[x]` or `[~]` in a canonical ledger under
-  `plans/reviews/` and source has not regressed.
+- The same location is already `[x]` or `[~]` in a canonical ledger and
+  source has not regressed.
 - The change is deletion-only (that is ponytail, not this pack).
 - The change is a micro-allocation or benchmark claim (that is perf-review).
-- The change is a visual HTML/PDF template symptom (that is debug-html-template).
+- The change is a visual HTML template symptom (that is debug-html-template).
 - The proposed fix invents a plugin framework, a one-adapter interface, or a
   second settings system.
 
 ## Dedup key
 
 `path` + the module that should absorb the change. Two write-ups of the
-same leak (e.g. "imageout imports convert" vs "prepare is reached through
+same leak (e.g. "package A imports package B" vs "B is reached through
 a facade") collapse to one finding. Keep the stronger evidence block.

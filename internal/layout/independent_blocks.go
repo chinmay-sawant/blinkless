@@ -4,7 +4,10 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
-const htmlRootName = "html"
+const (
+	htmlRootName = "html"
+	htmlBodyName = "body"
+)
 
 // IndependentBlocks reports an ordered, gap-free run of in-flow body children
 // that can be laid out one at a time. It fails closed: any child that is
@@ -65,7 +68,7 @@ func documentBody(root *html.Node) *html.Node {
 		return nil
 	}
 
-	if root.Type == html.ElementNode && root.Name == "body" {
+	if root.Type == html.ElementNode && root.Name == htmlBodyName {
 		return root
 	}
 
@@ -77,11 +80,11 @@ func documentBody(root *html.Node) *html.Node {
 		}
 	}
 
-	if body := htmlEl.FirstChild("body"); body != nil {
+	if body := htmlEl.FirstChild(htmlBodyName); body != nil {
 		return body
 	}
 
-	return root.FirstChild("body")
+	return root.FirstChild(htmlBodyName)
 }
 
 func independentCandidate(sty *ResolvedStyle, isFirst bool) bool {
