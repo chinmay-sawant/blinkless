@@ -228,7 +228,8 @@ func TestBehaviorGridAutoFlowColumnUsedPlacement(t *testing.T) {
 	t.Parallel()
 
 	res := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
-		`<div id="g" style="display:grid;width:80px;grid-template-columns:40px 40px;grid-template-rows:20px 20px;grid-auto-flow:column;gap:0">`+
+		`<div id="g" style="display:grid;width:80px;`+
+		`grid-template-columns:40px 40px;grid-template-rows:20px 20px;grid-auto-flow:column;gap:0">`+
 		`<div id="a" style="width:40px;height:20px"></div><div id="b" style="width:40px;height:20px"></div>`+
 		`</div></body></html>`)
 

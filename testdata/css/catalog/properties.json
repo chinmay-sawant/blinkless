@@ -11,8 +11,8 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 156,
-      "partial": 232,
+      "implemented": 190,
+      "partial": 198,
       "unsupported": 389,
       "intentionally ignored": 8
     },
@@ -683,7 +683,7 @@
         "normal | <baseline-position> | <content-distribution> | <overflow-position>? <content-position>"
       ],
       "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
+        "align-content has no reader in the grid path: center leaves rows at their start positions instead of centering the tracks (TestBehaviorAlignContentCenterNoOp)."
       ],
       "source": [
         "internal/layout/style_properties.go"
@@ -692,7 +692,12 @@
         "applyFlexGroup",
         "applyFlexKeywordProps"
       ],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_grid_remaining_test.go",
+          "name": "TestBehaviorAlignContentCenterNoOp"
+        }
+      ],
       "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "normal | <baseline-position> | <content-distribution> | <overflow-position>? <content-position>"
@@ -1280,9 +1285,7 @@
       "values": [
         "<bg-clip>#"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -1293,9 +1296,13 @@
         {
           "file": "internal/layout/style_backgrounds_borders_test.go",
           "name": "TestBackgroundLonghands"
+        },
+        {
+          "file": "internal/layout/css_behavior_backgrounds_test.go",
+          "name": "TestBehaviorBackgroundClipClipsImage"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<bg-clip>#"
     },
@@ -1359,9 +1366,7 @@
       "values": [
         "<visual-box>#"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -1372,9 +1377,13 @@
         {
           "file": "internal/layout/style_backgrounds_borders_test.go",
           "name": "TestBackgroundLonghands"
+        },
+        {
+          "file": "internal/layout/css_behavior_backgrounds_test.go",
+          "name": "TestBehaviorBackgroundOriginInsetsImage"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<visual-box>#"
     },
@@ -1447,9 +1456,7 @@
       "values": [
         "[ center | [ [ left | right | x-start | x-end ]? <length-percentage>? ]! ]#"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -1460,9 +1467,13 @@
         {
           "file": "internal/layout/style_backgrounds_borders_test.go",
           "name": "TestBackgroundLonghands"
+        },
+        {
+          "file": "internal/layout/css_behavior_backgrounds_test.go",
+          "name": "TestBehaviorBackgroundPositionXOffsetsImage"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ center | [ [ left | right | x-start | x-end ]? <length-percentage>? ]! ]#"
     },
@@ -1472,9 +1483,7 @@
       "values": [
         "[ center | [ [ top | bottom | y-start | y-end ]? <length-percentage>? ]! ]#"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -1485,9 +1494,13 @@
         {
           "file": "internal/layout/style_backgrounds_borders_test.go",
           "name": "TestBackgroundLonghands"
+        },
+        {
+          "file": "internal/layout/css_behavior_backgrounds_test.go",
+          "name": "TestBehaviorBackgroundPositionYOffsetsImage"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ center | [ [ top | bottom | y-start | y-end ]? <length-percentage>? ]! ]#"
     },
@@ -1497,9 +1510,7 @@
       "values": [
         "repeat | repeat-x | repeat-y | no-repeat | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -1510,9 +1521,13 @@
         {
           "file": "internal/layout/style_backgrounds_borders_test.go",
           "name": "TestBackgroundLonghands"
+        },
+        {
+          "file": "internal/layout/css_behavior_backgrounds_test.go",
+          "name": "TestBehaviorBackgroundRepeatTilesImage"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "repeat | repeat-x | repeat-y | no-repeat | inherit"
     },
@@ -1622,9 +1637,7 @@
       "values": [
         "<bg-size>#"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -1635,9 +1648,13 @@
         {
           "file": "internal/layout/style_backgrounds_borders_test.go",
           "name": "TestBackgroundLonghands"
+        },
+        {
+          "file": "internal/layout/css_behavior_backgrounds_test.go",
+          "name": "TestBehaviorBackgroundSizeScalesImage"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<bg-size>#"
     },
@@ -2379,9 +2396,7 @@
       "values": [
         "<border-width> | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -2389,8 +2404,13 @@
         "applyBorderGroup",
         "applyBorderWidthProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_backgrounds_test.go",
+          "name": "TestBehaviorBorderBottomWidthStrokesEdge"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<border-width> | inherit"
     },
@@ -2602,7 +2622,7 @@
         "[ stretch | repeat | round | space ]{1,2}"
       ],
       "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
+        "border-image-repeat delegates to the stretched painter, so repeat and stretch emit identical frames (TestBehaviorBorderImageRepeatKeepsFrame)."
       ],
       "source": [
         "internal/layout/border_image.go",
@@ -2616,6 +2636,10 @@
         {
           "file": "internal/layout/style_backgrounds_borders_test.go",
           "name": "TestBorderImageProps"
+        },
+        {
+          "file": "internal/layout/css_behavior_backgrounds_test.go",
+          "name": "TestBehaviorBorderImageRepeatKeepsFrame"
         }
       ],
       "status": "partial",
@@ -2628,9 +2652,7 @@
       "values": [
         "[<number [0,∞]> | <percentage [0,∞]>]{1,4} && fill?"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/border_image.go",
         "internal/layout/style_properties.go"
@@ -2643,9 +2665,13 @@
         {
           "file": "internal/layout/style_backgrounds_borders_test.go",
           "name": "TestBorderImageProps"
+        },
+        {
+          "file": "internal/layout/css_behavior_backgrounds_test.go",
+          "name": "TestBehaviorBorderImageSliceSelectsGeometry"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[<number [0,∞]> | <percentage [0,∞]>]{1,4} && fill?"
     },
@@ -2655,9 +2681,7 @@
       "values": [
         "none | <image>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/border_image.go",
         "internal/layout/style_properties.go"
@@ -2670,9 +2694,13 @@
         {
           "file": "internal/layout/style_backgrounds_borders_test.go",
           "name": "TestBorderImageProps"
+        },
+        {
+          "file": "internal/layout/css_behavior_backgrounds_test.go",
+          "name": "TestBehaviorBorderImageSourcePaintsSlices"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | <image>"
     },
@@ -2682,9 +2710,7 @@
       "values": [
         "[ <length-percentage [0,∞]> | <number [0,∞]> | auto ]{1,4}"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/border_image.go",
         "internal/layout/style_properties.go"
@@ -2697,9 +2723,13 @@
         {
           "file": "internal/layout/style_backgrounds_borders_test.go",
           "name": "TestBorderImageProps"
+        },
+        {
+          "file": "internal/layout/css_behavior_backgrounds_test.go",
+          "name": "TestBehaviorBorderImageWidthThickensFrame"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ <length-percentage [0,∞]> | <number [0,∞]> | auto ]{1,4}"
     },
@@ -3337,9 +3367,7 @@
       "values": [
         "<border-width> | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -3347,8 +3375,13 @@
         "applyBorderGroup",
         "applyBorderWidthProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_backgrounds_test.go",
+          "name": "TestBehaviorBorderRightWidthStrokesEdge"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<border-width> | inherit"
     },
@@ -3689,9 +3722,7 @@
       "values": [
         "<length> | <percentage> | auto | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -3706,9 +3737,13 @@
         {
           "file": "internal/layout/css_apply_test.go",
           "name": "TestCaptionSideParse"
+        },
+        {
+          "file": "internal/layout/css_behavior_position_remaining_test.go",
+          "name": "TestBehaviorBottomShiftsRelativeBox"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<length> | <percentage> | auto | inherit"
     },
@@ -3940,7 +3975,7 @@
         "auto | avoid | always | all | avoid-page | page | left | right | recto | verso | avoid-column | column | avoid-region | region"
       ],
       "limitations": [
-        "Parsed and stored (PageBreakAfter, style_properties.go:1694 and :1696); consumed by the flex path (flex.go:224). Missing behavior: a layout regression that proves the break value moves or keeps the box. TestPageBreakParsing covers parsing only. page-break-after is an alias."
+        "break-after parses to page-break-after:always but layout emits no forced break; the engine does not paginate (TestBehaviorBreakAfterColumnNoPageEffect)."
       ],
       "source": [
         "internal/layout/style_properties.go"
@@ -3953,6 +3988,10 @@
         {
           "file": "internal/layout/layout_test.go",
           "name": "TestPageBreakParsing"
+        },
+        {
+          "file": "internal/layout/css_behavior_text_remaining_test.go",
+          "name": "TestBehaviorBreakAfterColumnNoPageEffect"
         }
       ],
       "status": "partial",
@@ -4207,7 +4246,7 @@
         "nonzero | evenodd"
       ],
       "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
+        "clip-rule is dropped entirely with no paint consumer (TestBehaviorClipRuleEvenOddNoPaintEffect)."
       ],
       "source": [
         "internal/layout/style_paint_props.go"
@@ -4215,7 +4254,12 @@
       "handlers": [
         "applySVGPresentationProps"
       ],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_text_remaining_test.go",
+          "name": "TestBehaviorClipRuleEvenOddNoPaintEffect"
+        }
+      ],
       "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "nonzero | evenodd"
@@ -4535,17 +4579,20 @@
       "values": [
         "<line-color-list> | <auto-line-color-list>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_multicol_props.go"
       ],
       "handlers": [
         "applyColumnRuleProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_text_remaining_test.go",
+          "name": "TestBehaviorColumnRuleColorBluePaintsRule"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<line-color-list> | <auto-line-color-list>"
     },
@@ -4699,17 +4746,20 @@
       "values": [
         "<line-style-list> | <auto-line-style-list>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_multicol_props.go"
       ],
       "handlers": [
         "applyColumnRuleProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_text_remaining_test.go",
+          "name": "TestBehaviorColumnRuleStyleDashedSegmentsRule"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<line-style-list> | <auto-line-style-list>"
     },
@@ -6773,9 +6823,7 @@
       "values": [
         "normal | <feature-tag-value>#"
       ],
-      "limitations": [
-        "4-letter OT tags parsed into `OpText.FontFeatures` and passed to the shaper (internal/fonts/shape_gotext.go). Missing behavior: verified shaping output for each tag."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_font_feature_props.go"
       ],
@@ -6790,9 +6838,13 @@
         {
           "file": "internal/layout/style_font_props_test.go",
           "name": "TestFontPropsWave4"
+        },
+        {
+          "file": "internal/layout/css_behavior_text_remaining_test.go",
+          "name": "TestBehaviorFontFeatureSettingsSmallCapsTag"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | <feature-tag-value>#"
     },
@@ -7001,17 +7053,20 @@
       "values": [
         "none | [ weight || style || small-caps || position]"
       ],
-      "limitations": [
-        "`none` / `weight` gate fake bold via `Op.NoFakeBold` / `FakeBoldFor`."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_font_synthesis_props.go"
       ],
       "handlers": [
         "applyFontSynthesisProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_text_remaining_test.go",
+          "name": "TestBehaviorFontSynthesisNoneDisablesFakeBold"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | [ weight || style || small-caps || position]"
     },
@@ -7636,17 +7691,20 @@
       "values": [
         "<track-size>+"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
       "handlers": [
         "applyGridTemplateAutoProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_grid_remaining_test.go",
+          "name": "TestBehaviorGridAutoRowsUsedHeight"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<track-size>+"
     },
@@ -7656,17 +7714,20 @@
       "values": [
         "<grid-line> [ / <grid-line> ]?"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
       "handlers": [
         "applyGridPlacementProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_grid_remaining_test.go",
+          "name": "TestBehaviorGridColumnSpanUsedWidth"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<grid-line> [ / <grid-line> ]?"
     },
@@ -7676,17 +7737,20 @@
       "values": [
         "<grid-line>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
       "handlers": [
         "applyGridPlacementProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_grid_remaining_test.go",
+          "name": "TestBehaviorGridColumnEndUsedWidth"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<grid-line>"
     },
@@ -7696,17 +7760,20 @@
       "values": [
         "<grid-line>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
       "handlers": [
         "applyGridPlacementProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_grid_remaining_test.go",
+          "name": "TestBehaviorGridColumnStartUsedOffset"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<grid-line>"
     },
@@ -7816,17 +7883,20 @@
       "values": [
         "none | <string>+"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
       "handlers": [
         "applyGridTemplateCoreProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_grid_remaining_test.go",
+          "name": "TestBehaviorGridTemplateAreasUsedPlacement"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | <string>+"
     },
@@ -8365,9 +8435,7 @@
       "values": [
         "<'top'>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -8375,8 +8443,13 @@
         "applyLogicalInset",
         "assignLogicalInset"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_position_remaining_test.go",
+          "name": "TestBehaviorInsetBlockEndAnchorsAbsoluteBox"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'top'>"
     },
@@ -8386,9 +8459,7 @@
       "values": [
         "<'top'>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -8396,8 +8467,13 @@
         "applyLogicalInset",
         "assignLogicalInset"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_position_remaining_test.go",
+          "name": "TestBehaviorInsetBlockStartAnchorsAbsoluteBox"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'top'>"
     },
@@ -8431,9 +8507,7 @@
       "values": [
         "<'top'>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -8441,8 +8515,13 @@
         "applyLogicalInset",
         "assignLogicalInset"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_position_remaining_test.go",
+          "name": "TestBehaviorInsetInlineEndAnchorsAbsoluteBox"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'top'>"
     },
@@ -8452,9 +8531,7 @@
       "values": [
         "<'top'>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -8462,8 +8539,13 @@
         "applyLogicalInset",
         "assignLogicalInset"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_position_remaining_test.go",
+          "name": "TestBehaviorInsetInlineStartAnchorsAbsoluteBox"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'top'>"
     },
@@ -8608,9 +8690,7 @@
       "values": [
         "normal | stretch | <baseline-position> | <overflow-position>? [ <self-position> | left | right ] | legacy | legacy && [ left | right | center ]"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -8618,8 +8698,13 @@
         "applyFlexGroup",
         "applyFlexKeywordProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_grid_remaining_test.go",
+          "name": "TestBehaviorJustifyItemsCenterUsedOffset"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | stretch | <baseline-position> | <overflow-position>? [ <self-position> | left | right ] | legacy | legacy && [ left | right | center ]"
     },
@@ -8629,9 +8714,7 @@
       "values": [
         "auto | <overflow-position>? [ normal | <self-position> | left | right ] | stretch | <baseline-position>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -8639,8 +8722,13 @@
         "applyFlexGroup",
         "applyFlexKeywordProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_grid_remaining_test.go",
+          "name": "TestBehaviorJustifySelfCenterUsedOffset"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | <overflow-position>? [ normal | <self-position> | left | right ] | stretch | <baseline-position>"
     },
@@ -8932,7 +9020,7 @@
         "<uri> | none | inherit"
       ],
       "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
+        "list-style-image with an unresolvable URL falls back to the type marker; the resolved-image payload path is unverified (TestBehaviorListStyleImageBadURLFallsBackToMarker)."
       ],
       "source": [
         "internal/layout/style_paint_props.go"
@@ -8940,7 +9028,12 @@
       "handlers": [
         "applyGeneratedContentProps"
       ],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_text_remaining_test.go",
+          "name": "TestBehaviorListStyleImageBadURLFallsBackToMarker"
+        }
+      ],
       "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<uri> | none | inherit"
@@ -8951,17 +9044,20 @@
       "values": [
         "inside | outside | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
       "handlers": [
         "applyListProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_text_remaining_test.go",
+          "name": "TestBehaviorListStylePositionInsideVsOutside"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "inside | outside | inherit"
     },
@@ -10126,17 +10222,20 @@
       "values": [
         "fill | none | [contain | cover] || scale-down"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_image_adjust_props.go"
       ],
       "handlers": [
         "applyImageAdjustProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_position_remaining_test.go",
+          "name": "TestBehaviorObjectFitContainKeepsRatio"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "fill | none | [contain | cover] || scale-down"
     },
@@ -10146,17 +10245,20 @@
       "values": [
         "<position>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_image_adjust_props.go"
       ],
       "handlers": [
         "applyImageAdjustProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_position_remaining_test.go",
+          "name": "TestBehaviorObjectPositionAlignsNoneImage"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<position>"
     },
@@ -11931,9 +12033,7 @@
       "values": [
         "<length> | <percentage> | auto | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -11956,9 +12056,13 @@
         {
           "file": "internal/layout/table_transform_clip_test.go",
           "name": "TestTableCellClipsTransformedContent"
+        },
+        {
+          "file": "internal/layout/css_behavior_position_remaining_test.go",
+          "name": "TestBehaviorRightShiftsRelativeBox"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<length> | <percentage> | auto | inherit"
     },
@@ -14670,9 +14774,7 @@
       "values": [
         "mixed | upright | sideways"
       ],
-      "limitations": [
-        "Vertical writing only: `upright` stacks each rune upright down the column, centered, using the rune's measured width as its vertical advance; `sideways` is treated like `mixed` (rotated run)."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_text_support_props.go"
       ],
@@ -14683,9 +14785,13 @@
         {
           "file": "internal/layout/style_text_support_props_test.go",
           "name": "TestApplyTextSupportPropsTextOrientation"
+        },
+        {
+          "file": "internal/layout/css_behavior_text_remaining_test.go",
+          "name": "TestBehaviorTextOrientationSidewaysRotatesRun"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "mixed | upright | sideways"
     },
@@ -14908,9 +15014,7 @@
       "values": [
         "wrap | nowrap | auto | balance | stable (at most one mode and one style)"
       ],
-      "limitations": [
-        "The shorthand splits into text-wrap-mode and text-wrap-style; the mode folds onto white-space and the style drives balance line placement (inline_balance.go). Values outside wrap, nowrap, auto, balance, and stable are rejected by the acceptance gate. No shorthand-only behavior beyond the longhands."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go",
         "internal/layout/style_text_props.go"
@@ -14927,9 +15031,13 @@
         {
           "file": "layout/text_wrap_acceptance_test.go",
           "name": "TestDisplaySupportsTextWrapStyleAcceptance"
+        },
+        {
+          "file": "internal/layout/css_behavior_text_remaining_test.go",
+          "name": "TestBehaviorTextWrapNowrapKeepsSingleLine"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'text-wrap-mode'> || <'text-wrap-style'>"
     },
@@ -15479,10 +15587,6 @@
         {
           "file": "internal/layout/style_text_support_props_test.go",
           "name": "TestApplyTextSupportPropsUnicodeBidi"
-        },
-        {
-          "file": "internal/layout/css_behavior_font_lists_test.go",
-          "name": "TestBehaviorUnicodeBidiOverrideReversesOrder"
         }
       ],
       "status": "implemented",
@@ -15928,7 +16032,7 @@
         "<integer> | inherit"
       ],
       "limitations": [
-        "Parsed and stored (Widows, style_properties.go:1753) but no fragmentation consumer reads it. Missing behavior: keeping at least N lines at the end of a fragment. No behavior test resolves."
+        "widows parses but no layout pass reads it; paint moves whole ops across page boundaries without splitting lines (TestBehaviorWidowsNoFragmentationEffect)."
       ],
       "source": [
         "internal/layout/style_properties.go"
@@ -15937,7 +16041,12 @@
         "applyOrphansWidowsProps",
         "applyTableBreakGroup"
       ],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_text_remaining_test.go",
+          "name": "TestBehaviorWidowsNoFragmentationEffect"
+        }
+      ],
       "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<integer> | inherit"
@@ -16028,17 +16137,20 @@
       "values": [
         "normal | break-all | keep-all | manual | auto-phrase | break-word"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
       "handlers": [
         "applyTextWrapProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_text_remaining_test.go",
+          "name": "TestBehaviorWordBreakKeepAllKeepsToken"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | break-all | keep-all | manual | auto-phrase | break-word"
     },

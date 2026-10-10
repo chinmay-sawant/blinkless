@@ -150,24 +150,7 @@ func TestBehaviorZIndexOrdersOverlappingPaint(t *testing.T) {
 				`background-color:#0000ff;z-index:`+testCase.blueZ+`"></div>`+
 				`</div></body></html>`)
 
-			redIdx, blueIdx := -1, -1
-
-			for i, op := range res.Ops {
-				if op.Kind != OpFillRect || !near(op.W, pxToPt(100)) || !near(op.H, pxToPt(100)) {
-					continue
-				}
-
-				switch {
-				case op.R > 0.9 && op.G < 0.1 && op.B < 0.1:
-					redIdx = i
-				case op.B > 0.9 && op.R < 0.1 && op.G < 0.1:
-					blueIdx = i
-				}
-			}
-
-			if redIdx < 0 || blueIdx < 0 {
-				t.Fatalf("missing square rects: red=%d blue=%d", redIdx, blueIdx)
-			}
+			redIdx, blueIdx := behaviorPosTblSquareIndexes(t, res.Ops)
 
 			// PaintOrder resolves the ZIndex stamps into paint sequence.
 			rank := make(map[int]int, len(res.Ops))
@@ -186,6 +169,45 @@ func TestBehaviorZIndexOrdersOverlappingPaint(t *testing.T) {
 			}
 		})
 	}
+}
+
+// behaviorPosTblSquareColor names the primary color of a square fill op.
+func behaviorPosTblSquareColor(paintOp Op) string {
+	switch {
+	case paintOp.R > 0.9 && paintOp.G < 0.1 && paintOp.B < 0.1:
+		return "red"
+	case paintOp.B > 0.9 && paintOp.R < 0.1 && paintOp.G < 0.1:
+		return "blue"
+	default:
+		return ""
+	}
+}
+
+// behaviorPosTblSquareIndexes returns the op indexes of the red and blue
+// 100px squares, failing when either is missing.
+func behaviorPosTblSquareIndexes(t *testing.T, ops []Op) (int, int) {
+	t.Helper()
+
+	redIdx, blueIdx := -1, -1
+
+	for idx, paintOp := range ops {
+		if paintOp.Kind != OpFillRect || !near(paintOp.W, pxToPt(100)) || !near(paintOp.H, pxToPt(100)) {
+			continue
+		}
+
+		switch behaviorPosTblSquareColor(paintOp) {
+		case "red":
+			redIdx = idx
+		case "blue":
+			blueIdx = idx
+		}
+	}
+
+	if redIdx < 0 || blueIdx < 0 {
+		t.Fatalf("missing square rects: red=%d blue=%d", redIdx, blueIdx)
+	}
+
+	return redIdx, blueIdx
 }
 
 // TestBehaviorFloatLeftSharesBandWithSibling is float: a left float and a
@@ -266,24 +288,8 @@ func TestBehaviorOverflowVisibleKeepsTallChild(t *testing.T) {
 			clip.w, clip.height, clip.w/ptPerCSSPx, clip.height/ptPerCSSPx)
 	}
 
-	count := func(res *Result) (live, dead int) {
-		for _, op := range res.Ops {
-			if !strings.Contains(op.Text, "visline") {
-				continue
-			}
-
-			if op.Kind == opKindNoop {
-				dead++
-			} else if op.Kind == OpText {
-				live++
-			}
-		}
-
-		return live, dead
-	}
-
-	visLive, visDead := count(visible)
-	hidLive, hidDead := count(hidden)
+	visLive, visDead := behaviorPosTblCountVislines(visible)
+	hidLive, hidDead := behaviorPosTblCountVislines(hidden)
 
 	if visLive == 0 {
 		t.Errorf("visible container painted no live visline text, want all three lines live")
@@ -300,6 +306,25 @@ func TestBehaviorOverflowVisibleKeepsTallChild(t *testing.T) {
 	if hidLive >= visLive {
 		t.Errorf("hidden live=%d should be below visible live=%d", hidLive, visLive)
 	}
+}
+
+// behaviorPosTblCountVislines counts live and deactivated visline text ops.
+func behaviorPosTblCountVislines(res *Result) (int, int) {
+	live, dead := 0, 0
+
+	for _, paintOp := range res.Ops {
+		if !strings.Contains(paintOp.Text, "visline") {
+			continue
+		}
+
+		if paintOp.Kind == opKindNoop {
+			dead++
+		} else if paintOp.Kind == OpText {
+			live++
+		}
+	}
+
+	return live, dead
 }
 
 // TestBehaviorVisibilityHiddenKeepsGeometry is visibility: hidden keeps the
@@ -334,17 +359,7 @@ func TestBehaviorVisibilityHiddenKeepsGeometry(t *testing.T) {
 		}
 	}
 
-	live := func(res *Result) int {
-		n := 0
-
-		for _, op := range res.Ops {
-			if op.Kind == OpText && strings.Contains(op.Text, "hideme") {
-				n++
-			}
-		}
-
-		return n
-	}
+	live := behaviorPosTblCountHideme
 
 	if live(shown) == 0 {
 		t.Errorf("visible box painted no hideme text, want at least one live op")
@@ -491,18 +506,7 @@ func TestBehaviorEmptyCellsHideOmitsBackground(t *testing.T) {
 	hidden := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
 		`<table style="empty-cells:hide;border-spacing:0">`+rows+`</table></body></html>`)
 
-	fills := func(res *Result) int {
-		n := 0
-
-		for _, op := range res.Ops {
-			if op.Kind == OpFillRect && op.R > 0.8 && op.G > 0.8 && op.B > 0.8 &&
-				op.R < 1 && op.W > 1 && op.H > 1 {
-				n++
-			}
-		}
-
-		return n
-	}
+	fills := behaviorPosTblCountLightFills
 
 	showFills, hideFills := fills(shown), fills(hidden)
 
@@ -510,4 +514,31 @@ func TestBehaviorEmptyCellsHideOmitsBackground(t *testing.T) {
 		t.Errorf("show fills=%d should exceed hide fills=%d (empty cell omitted)",
 			showFills, hideFills)
 	}
+}
+
+// behaviorPosTblCountHideme counts live hideme text ops in a result.
+func behaviorPosTblCountHideme(res *Result) int {
+	count := 0
+
+	for _, paintOp := range res.Ops {
+		if paintOp.Kind == OpText && strings.Contains(paintOp.Text, "hideme") {
+			count++
+		}
+	}
+
+	return count
+}
+
+// behaviorPosTblCountLightFills counts large light-gray fills in a result.
+func behaviorPosTblCountLightFills(res *Result) int {
+	count := 0
+
+	for _, paintOp := range res.Ops {
+		if paintOp.Kind == OpFillRect && paintOp.R > 0.8 && paintOp.G > 0.8 && paintOp.B > 0.8 &&
+			paintOp.R < 1 && paintOp.W > 1 && paintOp.H > 1 {
+			count++
+		}
+	}
+
+	return count
 }

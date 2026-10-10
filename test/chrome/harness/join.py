@@ -429,8 +429,8 @@ def main() -> int:
         verdict = "fail" if failed else ("pass" if compared else "skipped")
         verdicts[slug] = verdict
         lines.append(
-            f"| {slug} | {case['category']} | {item['blinkless']['element_count']} | "
-            f"{item['blinkless']['box_count']} | {compared} | {passed} | {failed} | "
+            f"| {slug} | {case['category']} | {item['blinkless']['elementCount']} | "
+            f"{item['blinkless']['boxCount']} | {compared} | {passed} | {failed} | "
             f"{skipped} | {max_delta:.2f} px | {verdict} |"
         )
 

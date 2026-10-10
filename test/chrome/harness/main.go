@@ -35,6 +35,16 @@ import (
 
 const textCap = 200
 
+const (
+	defaultViewportWidth  = 1024
+	defaultViewportHeight = 768
+	outputDirPerm         = 0o755
+	outputFilePerm        = 0o600
+	docNodeName           = "#document"
+	exitUsage             = 2
+	exitFailure           = 1
+)
+
 // domElem is one element node in document order with its stable path.
 type domElem struct {
 	Pos   int    `json:"pos"`
@@ -58,173 +68,165 @@ type boxOut struct {
 	H       float64 `json:"h"`
 	Path    string  `json:"path"`
 	Match   string  `json:"match"`
-	DOMText string  `json:"dom_text,omitempty"`
+	DOMText string  `json:"domText,omitempty"`
 }
 
 type report struct {
 	Fixture   string         `json:"fixture"`
-	WidthPx   int            `json:"width_px"`
-	HeightPx  int            `json:"height_px"`
-	CanvasW   int            `json:"canvas_w"`
-	CanvasH   int            `json:"canvas_h"`
-	ElemCount int            `json:"element_count"`
-	BoxCount  int            `json:"box_count"`
-	Matches   map[string]int `json:"match_counts"`
+	WidthPx   int            `json:"widthPx"`
+	HeightPx  int            `json:"heightPx"`
+	CanvasW   int            `json:"canvasW"`
+	CanvasH   int            `json:"canvasH"`
+	ElemCount int            `json:"elementCount"`
+	BoxCount  int            `json:"boxCount"`
+	Matches   map[string]int `json:"matchCounts"`
 	Boxes     []boxOut       `json:"boxes"`
 }
 
-func main() {
-	fixture := flag.String("fixture", "", "HTML fixture to lay out (required)")
-	width := flag.Int("width", 1024, "viewport width in CSS px")
-	height := flag.Int("height", 768, "viewport height in CSS px")
-	out := flag.String("out", "", "output JSON path (default stdout)")
+// parseFlags reads the CLI flags for one dump run.
+func parseFlags() (string, int, int, string) {
+	fixtureFlag := flag.String("fixture", "", "HTML fixture to lay out (required)")
+	widthFlag := flag.Int("width", defaultViewportWidth, "viewport width in CSS px")
+	heightFlag := flag.Int("height", defaultViewportHeight, "viewport height in CSS px")
+	outFlag := flag.String("out", "", "output JSON path (default stdout)")
 	flag.Parse()
 
-	if *fixture == "" {
+	return *fixtureFlag, *widthFlag, *heightFlag, *outFlag
+}
+
+func main() {
+	fixture, width, height, out := parseFlags()
+
+	if fixture == "" {
 		fmt.Fprintln(os.Stderr, "css-review-dump: -fixture is required")
-		os.Exit(2)
+		os.Exit(exitUsage)
 	}
 
-	source, err := os.ReadFile(*fixture)
+	source, err := os.ReadFile(fixture)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "css-review-dump: read: %v\n", err)
-		os.Exit(1)
+		os.Exit(exitFailure)
 	}
 
 	domRoot, err := ihtml.ParseDocument(source)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "css-review-dump: parse: %v\n", err)
-		os.Exit(1)
+		os.Exit(exitFailure)
 	}
 
 	pubDoc, err := pubhtml.Parse(source)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "css-review-dump: public parse: %v\n", err)
-		os.Exit(1)
+		os.Exit(exitFailure)
 	}
 
 	ctx := context.Background()
 
 	styled, err := css.Apply(ctx, pubDoc, css.Options{
-		WidthPx:  *width,
-		HeightPx: *height,
+		WidthPx:  width,
+		HeightPx: height,
 		Media:    "screen",
 		Extra:    nil,
+		Focus:    "",
+		Hover:    "",
+		Active:   "",
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "css-review-dump: css apply: %v\n", err)
-		os.Exit(1)
+		os.Exit(exitFailure)
 	}
 
 	display, err := layout.DisplayList(ctx, styled)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "css-review-dump: display list: %v\n", err)
-		os.Exit(1)
+		os.Exit(exitFailure)
 	}
 
 	elems := walkElements(domRoot)
 
-	rep := report{
-		Fixture:   *fixture,
-		WidthPx:   *width,
-		HeightPx:  *height,
-		CanvasW:   display.Width,
-		CanvasH:   display.Height,
-		ElemCount: len(elems),
-		BoxCount:  len(display.Boxes),
+	rep := newReport(fixture, width, height, display.Width, display.Height, len(elems), len(display.Boxes))
+
+	joinBoxes(&rep, elems, display.Boxes)
+
+	if err := emitReport(&rep, out, fixture, len(elems), len(display.Boxes)); err != nil {
+		fmt.Fprintf(os.Stderr, "css-review-dump: %v\n", err)
+		os.Exit(exitFailure)
+	}
+}
+
+// emitReport marshals the join report and writes it to outPath, or stdout
+// when outPath is empty. It prints a one-line summary when writing to a file.
+func emitReport(rep *report, outPath, fixture string, elemCount, boxCount int) error {
+	payload, err := json.MarshalIndent(rep, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal: %w", err)
+	}
+
+	payload = append(payload, '\n')
+
+	if outPath == "" {
+		_, _ = os.Stdout.Write(payload)
+
+		return nil
+	}
+
+	if err := os.MkdirAll(filepath.Dir(outPath), outputDirPerm); err != nil {
+		return fmt.Errorf("mkdir: %w", err)
+	}
+
+	if err := os.WriteFile(outPath, payload, outputFilePerm); err != nil {
+		return fmt.Errorf("write: %w", err)
+	}
+
+	fmt.Fprintln(os.Stdout,
+		filepath.Base(fixture)+":", elemCount, "elements,",
+		boxCount, "boxes, matches:", rep.Matches)
+
+	return nil
+}
+
+// newReport builds an empty join report for one fixture run.
+func newReport(fixture string, width, height, canvasW, canvasH, elemCount, boxCount int) report {
+	return report{
+		Fixture:   fixture,
+		WidthPx:   width,
+		HeightPx:  height,
+		CanvasW:   canvasW,
+		CanvasH:   canvasH,
+		ElemCount: elemCount,
+		BoxCount:  boxCount,
 		Matches:   map[string]int{},
-		Boxes:     make([]boxOut, 0, len(display.Boxes)),
+		Boxes:     make([]boxOut, 0, boxCount),
 	}
+}
 
-	exact := map[string][]int{}
-	noText := map[string][]int{}
+// joinBoxes matches every display box to its source element and appends one
+// boxOut per box to rep. Boxes with no element match are kept with an empty
+// path and Match "unmatched" so the join output stays complete.
+func joinBoxes(rep *report, elems []domElem, boxes []layout.Box) {
+	exact, noText, used, exactCursor, noTextCursor, consume := newMatcher(elems)
 
-	for _, e := range elems {
-		exact[e.key()] = append(exact[e.key()], e.Pos)
-		noText[e.tagIDAct()] = append(noText[e.tagIDAct()], e.Pos)
-	}
-
-	used := make([]bool, len(elems))
-	exactCursor := map[string]int{}
-	noTextCursor := map[string]int{}
-
-	consume := func(queue []int, cursor *int) int {
-		for *cursor < len(queue) && used[queue[*cursor]] {
-			*cursor = *cursor + 1
-		}
-
-		if *cursor >= len(queue) {
-			return -1
-		}
-
-		pos := queue[*cursor]
-		used[pos] = true
-		*cursor = *cursor + 1
-
-		return pos
-	}
-
-	for _, b := range display.Boxes {
-		if b.Tag == "#document" || strings.HasPrefix(b.Tag, "#") {
+	for _, box := range boxes {
+		if box.Tag == docNodeName || strings.HasPrefix(box.Tag, "#") {
 			rep.Matches["structural-skip"]++
 
 			continue
 		}
 
-		keyExact := elemKey(b.Tag, b.ID, b.Action, b.Text)
-		keyNoText := elemTagKey(b.Tag, b.ID, b.Action)
+		keyExact := elemKey(box.Tag, box.ID, box.Action, box.Text)
+		keyNoText := elemTagKey(box.Tag, box.ID, box.Action)
 
-		var pos int
-
-		quality := "exact"
-
-		cursor := exactCursor[keyExact]
-
-		if len(exact[keyExact]) > 1 {
-			quality = "duplicate"
-		}
-
-		pos = consume(exact[keyExact], &cursor)
-		exactCursor[keyExact] = cursor
-
-		if pos < 0 {
-			quality = "text-fallback"
-
-			cursor = noTextCursor[keyNoText]
-			pos = consume(noText[keyNoText], &cursor)
-			noTextCursor[keyNoText] = cursor
-		}
-
-		if pos < 0 {
-			// Last resort: first unconsumed element with the same tag.
-			for i, e := range elems {
-				if used[i] || e.Tag != strings.ToLower(b.Tag) {
-					continue
-				}
-
-				if b.ID != "" && e.ID != b.ID {
-					continue
-				}
-
-				if b.Action != "" && e.Act != b.Action {
-					continue
-				}
-
-				pos = i
-				used[i] = true
-
-				break
-			}
-
-			quality = "order-fallback"
-		}
+		pos, quality := resolveBoxPos(
+			elems, used, exact, noText, exactCursor, noTextCursor,
+			consume, keyExact, keyNoText, box,
+		)
 
 		if pos < 0 {
 			rep.Matches["unmatched"]++
 
 			rep.Boxes = append(rep.Boxes, boxOut{
-				Tag: b.Tag, ID: b.ID, Action: b.Action, Text: truncate(b.Text, textCap),
-				X: b.X, Y: b.Y, W: b.W, H: b.H, Path: "", Match: "unmatched",
+				Tag: box.Tag, ID: box.ID, Action: box.Action, Text: truncate(box.Text, textCap),
+				X: box.X, Y: box.Y, W: box.W, H: box.H, Path: "", Match: "unmatched", DOMText: "",
 			})
 
 			continue
@@ -233,37 +235,115 @@ func main() {
 		rep.Matches[quality]++
 
 		rep.Boxes = append(rep.Boxes, boxOut{
-			Tag: b.Tag, ID: b.ID, Action: b.Action, Text: truncate(b.Text, textCap),
-			X: b.X, Y: b.Y, W: b.W, H: b.H,
+			Tag: box.Tag, ID: box.ID, Action: box.Action, Text: truncate(box.Text, textCap),
+			X: box.X, Y: box.Y, W: box.W, H: box.H,
 			Path: elems[pos].Path, Match: quality, DOMText: truncate(elems[pos].Text, textCap),
 		})
 	}
+}
 
-	payload, err := json.MarshalIndent(rep, "", "  ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "css-review-dump: marshal: %v\n", err)
-		os.Exit(1)
+// newMatcher builds the order-independent match indexes over the document
+// elements: exact and text-insensitive queues, consumption flags, per-key
+// cursors, and the queue consumer used by the join.
+func newMatcher(elems []domElem) (
+	map[string][]int, map[string][]int, []bool, map[string]int, map[string]int, func([]int, *int) int,
+) {
+	exact := map[string][]int{}
+	noText := map[string][]int{}
+
+	for _, elem := range elems {
+		exact[elem.key()] = append(exact[elem.key()], elem.Pos)
+		noText[elem.tagIDAct()] = append(noText[elem.tagIDAct()], elem.Pos)
 	}
 
-	payload = append(payload, '\n')
+	used := make([]bool, len(elems))
+	exactCursor := map[string]int{}
+	noTextCursor := map[string]int{}
 
-	if *out == "" {
-		_, _ = os.Stdout.Write(payload)
+	consume := func(queue []int, cursor *int) int {
+		for *cursor < len(queue) && used[queue[*cursor]] {
+			*cursor++
+		}
 
-		return
+		if *cursor >= len(queue) {
+			return -1
+		}
+
+		pos := queue[*cursor]
+		used[pos] = true
+		*cursor++
+
+		return pos
 	}
 
-	if err := os.MkdirAll(filepath.Dir(*out), 0o755); err != nil {
-		fmt.Fprintf(os.Stderr, "css-review-dump: mkdir: %v\n", err)
-		os.Exit(1)
+	return exact, noText, used, exactCursor, noTextCursor, consume
+}
+
+// resolveBoxPos matches one display box to its source element through the
+// exact, text-fallback, and tag-scan strategies in order. It returns the
+// element position and the match quality, or -1 with "unmatched".
+func resolveBoxPos(
+	elems []domElem,
+	used []bool,
+	exact, noText map[string][]int,
+	exactCursor, noTextCursor map[string]int,
+	consume func([]int, *int) int,
+	keyExact, keyNoText string,
+	box layout.Box,
+) (int, string) {
+	quality := "exact"
+
+	cursor := exactCursor[keyExact]
+
+	if len(exact[keyExact]) > 1 {
+		quality = "duplicate"
 	}
 
-	if err := os.WriteFile(*out, payload, 0o644); err != nil {
-		fmt.Fprintf(os.Stderr, "css-review-dump: write: %v\n", err)
-		os.Exit(1)
+	pos := consume(exact[keyExact], &cursor)
+	exactCursor[keyExact] = cursor
+
+	if pos < 0 {
+		quality = "text-fallback"
+
+		cursor = noTextCursor[keyNoText]
+		pos = consume(noText[keyNoText], &cursor)
+		noTextCursor[keyNoText] = cursor
 	}
 
-	fmt.Printf("%s: %d elements, %d boxes, matches=%v\n", filepath.Base(*fixture), len(elems), len(display.Boxes), rep.Matches)
+	if pos < 0 {
+		quality = "order-fallback"
+		pos = scanByTag(elems, used, box)
+	}
+
+	if pos < 0 {
+		return -1, "unmatched"
+	}
+
+	return pos, quality
+}
+
+// scanByTag is the last-resort match: the first unconsumed element with the
+// same tag, id, and action. Returns -1 when nothing matches.
+func scanByTag(elems []domElem, used []bool, box layout.Box) int {
+	for idx, elem := range elems {
+		if used[idx] || elem.Tag != strings.ToLower(box.Tag) {
+			continue
+		}
+
+		if box.ID != "" && elem.ID != box.ID {
+			continue
+		}
+
+		if box.Action != "" && elem.Act != box.Action {
+			continue
+		}
+
+		used[idx] = true
+
+		return idx
+	}
+
+	return -1
 }
 
 func walkElements(root *ihtml.Node) []domElem {
@@ -271,24 +351,24 @@ func walkElements(root *ihtml.Node) []domElem {
 
 	var visit func(n *ihtml.Node)
 
-	visit = func(n *ihtml.Node) {
-		if n == nil {
+	visit = func(node *ihtml.Node) {
+		if node == nil {
 			return
 		}
 
-		if n.Type == ihtml.ElementNode && n.Name != "#document" {
+		if node.Type == ihtml.ElementNode && node.Name != docNodeName {
 			out = append(out, domElem{
 				Pos:   len(out),
-				Path:  pathOf(n),
-				Tag:   strings.ToLower(n.Name),
-				ID:    n.Attribute("id"),
-				Act:   n.Attribute("data-action"),
-				Class: n.Attribute("class"),
-				Text:  normalizeText(n.TextContent()),
+				Path:  pathOf(node),
+				Tag:   strings.ToLower(node.Name),
+				ID:    node.Attribute("id"),
+				Act:   node.Attribute("data-action"),
+				Class: node.Attribute("class"),
+				Text:  normalizeText(node.TextContent()),
 			})
 		}
 
-		for _, c := range n.Children {
+		for _, c := range node.Children {
 			visit(c)
 		}
 	}
@@ -298,29 +378,29 @@ func walkElements(root *ihtml.Node) []domElem {
 	return out
 }
 
-func pathOf(n *ihtml.Node) string {
+func pathOf(node *ihtml.Node) string {
 	var parts []string
 
-	for cur := n; cur != nil && cur.Type == ihtml.ElementNode && cur.Name != "#document"; cur = cur.Parent {
+	for cur := node; cur != nil && cur.Type == ihtml.ElementNode && cur.Name != docNodeName; cur = cur.Parent {
 		parts = append([]string{fmt.Sprintf("%s:nth-of-type(%d)", strings.ToLower(cur.Name), nthOfType(cur))}, parts...)
 	}
 
 	return strings.Join(parts, "/")
 }
 
-func nthOfType(n *ihtml.Node) int {
+func nthOfType(node *ihtml.Node) int {
 	idx := 1
 
-	if n.Parent == nil {
+	if node.Parent == nil {
 		return idx
 	}
 
-	for _, sib := range n.Parent.Children {
-		if sib == n {
+	for _, sib := range node.Parent.Children {
+		if sib == node {
 			break
 		}
 
-		if sib.Type == ihtml.ElementNode && strings.EqualFold(sib.Name, n.Name) {
+		if sib.Type == ihtml.ElementNode && strings.EqualFold(sib.Name, node.Name) {
 			idx++
 		}
 	}

@@ -288,7 +288,9 @@ func TestBehaviorMarginTopOffsetsSibling(t *testing.T) {
 
 	// The collapsed 24px margin moved the whole body down instead.
 	behaviorBoxModelCheckOffset(t, res, "outer", "body", 0, 0)
+
 	body := boxByID(t, res, "body")
+
 	if !near(body.y, pxToPt(24)) {
 		t.Errorf("body y = %.4fpt (%.2fpx), want 24px collapsed top margin",
 			body.y, body.y/ptPerCSSPx)

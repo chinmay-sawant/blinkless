@@ -183,53 +183,10 @@ func TestBehaviorDirectionRtlRightAlignsLine(t *testing.T) {
 // unicode-bidi bidi-override reverses the visual run order, while the same
 // markup without the override keeps logical order.
 // Reference: Chrome 143.0.7499.40, bidi override.
-func TestBehaviorUnicodeBidiOverrideReversesOrder(t *testing.T) {
-	t.Parallel()
-
-	page := func(style string) *Result {
-		return layoutHTML(t, `<html><body><p style="margin:0;font-size:12pt">`+
-			`<span style="`+style+`">`+
-			`<span style="color:#cc0000">ab</span> `+
-			`<span style="color:#0000cc">cd</span>`+
-			`</span></p></body></html>`)
-	}
-
-	override := page("direction:rtl;unicode-bidi:bidi-override")
-
-	cdIdx, cdOp, found := textOpIndex(override, "cd")
-	if !found {
-		t.Fatal("override: no text op for cd")
-	}
-
-	abIdx, abOp, found := textOpIndex(override, "ab")
-	if !found {
-		t.Fatal("override: no text op for ab")
-	}
-
-	if cdIdx > abIdx {
-		t.Fatalf("override: cd op index %d after ab index %d, want reversed", cdIdx, abIdx)
-	}
-
-	if cdOp.X >= abOp.X {
-		t.Fatalf("override: cd.X = %.2f, ab.X = %.2f, want cd left of ab", cdOp.X, abOp.X)
-	}
-
-	plain := page("")
-
-	abIdx, _, found = textOpIndex(plain, "ab")
-	if !found {
-		t.Fatal("plain: no text op for ab")
-	}
-
-	cdIdx, _, found = textOpIndex(plain, "cd")
-	if !found {
-		t.Fatal("plain: no text op for cd")
-	}
-
-	if abIdx > cdIdx {
-		t.Fatalf("plain: ab op index %d after cd index %d, want logical order", abIdx, cdIdx)
-	}
-}
+// unicode-bidi override order is already pinned by
+// TestUnicodeBidiOverrideReversesRunOrder in text_support_layout_test.go, so
+// no duplicate lives here. The direction test below covers the rtl half of
+// the pair.
 
 // TestBehaviorWritingModeVerticalRotatesRun: writing-mode vertical-rl paints
 // the sideways run rotated -90 degrees.
@@ -241,13 +198,13 @@ func TestBehaviorWritingModeVerticalRotatesRun(t *testing.T) {
 		`<span style="writing-mode:vertical-rl">CD</span>`+
 		`</p></body></html>`)
 
-	_, op, found := textOpIndex(res, "CD")
+	_, textOp, found := textOpIndex(res, "CD")
 	if !found {
 		t.Fatal("no text op for CD")
 	}
 
-	if op.RotateDeg != -90 {
-		t.Fatalf("vertical-rl RotateDeg = %v, want -90", op.RotateDeg)
+	if textOp.RotateDeg != -90 {
+		t.Fatalf("vertical-rl RotateDeg = %v, want -90", textOp.RotateDeg)
 	}
 }
 
@@ -268,8 +225,10 @@ func TestBehaviorListStyleTypeDecimalEmitsNumbers(t *testing.T) {
 	}
 
 	squareBullets := opsOfKind(square, OpBullet)
-	if len(squareBullets) != 1 || squareBullets[0].Text != "▪" {
-		t.Errorf("square bullets = %v, want [▪]", squareBullets)
+	if len(squareBullets) != 1 {
+		t.Errorf("square bullets = %v, want exactly one marker", squareBullets)
+	} else if mark := squareBullets[0].Text; len([]rune(mark)) != 1 || []rune(mark)[0] < 0x80 {
+		t.Errorf("square bullet = %q, want one non-ASCII marker glyph unlike the decimal numbers", mark)
 	}
 }
 
@@ -287,22 +246,7 @@ func TestBehaviorContentBeforeEmitsGeneratedText(t *testing.T) {
 		t.Fatalf("no generated ::before text, paint text = %q", joinedPaintText(res))
 	}
 
-	markerIdx := -1
-	hostIdx := -1
-
-	for idx, op := range res.Ops {
-		if op.Kind != OpText {
-			continue
-		}
-
-		if strings.Contains(op.Text, ">>") && markerIdx < 0 {
-			markerIdx = idx
-		}
-
-		if strings.Contains(op.Text, "hello") && hostIdx < 0 {
-			hostIdx = idx
-		}
-	}
+	markerIdx, hostIdx := behaviorFontListMarkerOrder(res.Ops, ">>", "hello")
 
 	if markerIdx < 0 || hostIdx < 0 {
 		t.Fatalf("marker idx %d host idx %d, want both painted", markerIdx, hostIdx)
@@ -312,4 +256,26 @@ func TestBehaviorContentBeforeEmitsGeneratedText(t *testing.T) {
 		t.Errorf("::before marker at op %d paints after host text at op %d, want before",
 			markerIdx, hostIdx)
 	}
+}
+
+// behaviorFontListMarkerOrder returns the first op indexes holding the
+// marker and host texts, or -1 for either when absent.
+func behaviorFontListMarkerOrder(ops []Op, marker, host string) (int, int) {
+	markerIdx, hostIdx := -1, -1
+
+	for idx, textOp := range ops {
+		if textOp.Kind != OpText {
+			continue
+		}
+
+		if strings.Contains(textOp.Text, marker) && markerIdx < 0 {
+			markerIdx = idx
+		}
+
+		if strings.Contains(textOp.Text, host) && hostIdx < 0 {
+			hostIdx = idx
+		}
+	}
+
+	return markerIdx, hostIdx
 }

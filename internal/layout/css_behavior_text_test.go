@@ -209,7 +209,7 @@ func TestBehaviorVerticalAlignSuperRaisesText(t *testing.T) {
 func TestBehaviorHyphensNoneSuppressesSoftHyphenBreak(t *testing.T) {
 	t.Parallel()
 
-	const word = "super­califragilistic"
+	const word = "super\u00adcalifragilistic"
 
 	manual := layoutHTML(t, `<html><body style="margin:0">`+
 		`<p style="margin:0;width:48pt;font-size:14pt;hyphens:manual">`+word+`</p></body></html>`)

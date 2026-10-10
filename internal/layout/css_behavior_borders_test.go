@@ -14,9 +14,9 @@ import "testing"
 func behaviorBordersOutlineOps(ops []Op) []Op {
 	var out []Op
 
-	for _, op := range ops {
-		if op.isOutline() {
-			out = append(out, op)
+	for _, paintOp := range ops {
+		if paintOp.isOutline() {
+			out = append(out, paintOp)
 		}
 	}
 
@@ -46,9 +46,9 @@ func behaviorBordersBoxOps(t *testing.T, res *Result, elementID string) []Op {
 func behaviorBordersHorizontalLines(ops []Op) []Op {
 	var out []Op
 
-	for _, op := range ops {
-		if op.Kind == OpLine && op.H == 0 && op.W > 0 {
-			out = append(out, op)
+	for _, paintOp := range ops {
+		if paintOp.Kind == OpLine && paintOp.H == 0 && paintOp.W > 0 {
+			out = append(out, paintOp)
 		}
 	}
 
@@ -59,13 +59,53 @@ func behaviorBordersHorizontalLines(ops []Op) []Op {
 func behaviorBordersVerticalLines(ops []Op) []Op {
 	var out []Op
 
-	for _, op := range ops {
-		if op.Kind == OpLine && op.W == 0 && op.H > 0 {
-			out = append(out, op)
+	for _, paintOp := range ops {
+		if paintOp.Kind == OpLine && paintOp.W == 0 && paintOp.H > 0 {
+			out = append(out, paintOp)
 		}
 	}
 
 	return out
+}
+
+// behaviorBordersRunWidthCase lays out one 200x40px box with the given border
+// style and asserts the edge stroke width. selectLines picks the candidate
+// line ops, edgeOf reads the item edge coordinate, linePos reads the same
+// coordinate off a line op, and edgeName names the edge in failures.
+func behaviorBordersRunWidthCase(
+	t *testing.T, style string, wantPx float64,
+	selectLines func([]Op) []Op,
+	edgeOf func(*box) float64,
+	linePos func(Op) float64,
+	edgeName string,
+) {
+	t.Helper()
+
+	res := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
+		`<div id="item" style="width:200px;height:40px;`+style+`"></div>`+
+		`</body></html>`)
+
+	item := boxByID(t, res, "item")
+
+	var found *Op
+
+	for _, lineOp := range selectLines(res.Ops) {
+		if near(linePos(lineOp), edgeOf(item)) {
+			candidate := lineOp
+			found = &candidate
+
+			break
+		}
+	}
+
+	if found == nil {
+		t.Fatalf("no %s border op at %.4fpt", edgeName, edgeOf(item))
+	}
+
+	if !near(found.Width, pxToPt(wantPx)) {
+		t.Errorf("%s border stroke width = %.4fpt (%.2fpx), want %.2fpx",
+			edgeName, found.Width, found.Width/ptPerCSSPx, wantPx)
+	}
 }
 
 // TestBehaviorBorderTopWidthEmittedStrokeWidth is border-top-width: the top
@@ -85,30 +125,11 @@ func TestBehaviorBorderTopWidthEmittedStrokeWidth(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			res := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
-				`<div id="item" style="width:200px;height:40px;`+testCase.style+`"></div>`+
-				`</body></html>`)
-
-			item := boxByID(t, res, "item")
-			var top *Op
-
-			for _, op := range behaviorBordersHorizontalLines(res.Ops) {
-				if near(op.Y, item.y) {
-					candidate := op
-					top = &candidate
-
-					break
-				}
-			}
-
-			if top == nil {
-				t.Fatalf("no top border op at y %.4fpt", item.y)
-			}
-
-			if !near(top.Width, pxToPt(testCase.wantPx)) {
-				t.Errorf("top border stroke width = %.4fpt (%.2fpx), want %.2fpx",
-					top.Width, top.Width/ptPerCSSPx, testCase.wantPx)
-			}
+			behaviorBordersRunWidthCase(t, testCase.style, testCase.wantPx,
+				behaviorBordersHorizontalLines,
+				func(item *box) float64 { return item.y },
+				func(lineOp Op) float64 { return lineOp.Y },
+				"top")
 		})
 	}
 }
@@ -130,30 +151,11 @@ func TestBehaviorBorderLeftWidthEmittedStrokeWidth(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			res := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
-				`<div id="item" style="width:200px;height:40px;`+testCase.style+`"></div>`+
-				`</body></html>`)
-
-			item := boxByID(t, res, "item")
-			var left *Op
-
-			for _, op := range behaviorBordersVerticalLines(res.Ops) {
-				if near(op.X, item.x) {
-					candidate := op
-					left = &candidate
-
-					break
-				}
-			}
-
-			if left == nil {
-				t.Fatalf("no left border op at x %.4fpt", item.x)
-			}
-
-			if !near(left.Width, pxToPt(testCase.wantPx)) {
-				t.Errorf("left border stroke width = %.4fpt (%.2fpx), want %.2fpx",
-					left.Width, left.Width/ptPerCSSPx, testCase.wantPx)
-			}
+			behaviorBordersRunWidthCase(t, testCase.style, testCase.wantPx,
+				behaviorBordersVerticalLines,
+				func(item *box) float64 { return item.x },
+				func(lineOp Op) float64 { return lineOp.X },
+				"left")
 		})
 	}
 }
@@ -175,15 +177,15 @@ func TestBehaviorBorderTopStyleDashedExpandsSegments(t *testing.T) {
 	none := boxByID(t, res, "none")
 
 	countAt := func(y float64) int {
-		n := 0
+		segCount := 0
 
-		for _, op := range behaviorBordersHorizontalLines(res.Ops) {
-			if near(op.Y, y) {
-				n++
+		for _, paintOp := range behaviorBordersHorizontalLines(res.Ops) {
+			if near(paintOp.Y, y) {
+				segCount++
 			}
 		}
 
-		return n
+		return segCount
 	}
 
 	if got := countAt(solid.y); got != 1 {
@@ -388,40 +390,46 @@ func TestBehaviorOutlineOffsetInflatesRect(t *testing.T) {
 	zeroInflate := pxToPt(1)
 	wideInflate := pxToPt(9)
 
-	for _, stroke := range zeroStrokes {
-		if !outlineStrokeMatchesRect(stroke, zeroBox.x-zeroInflate, zeroBox.y-zeroInflate,
-			zeroBox.w+2*zeroInflate, zeroBox.height+2*zeroInflate) {
-			t.Errorf("zero-offset outline side at (%.2f, %.2f) misses the 1px inflated rect",
-				stroke.X, stroke.Y)
-		}
-	}
-
-	for _, stroke := range wideStrokes {
-		if !outlineStrokeMatchesRect(stroke, wideBox.x-wideInflate, wideBox.y-wideInflate,
-			wideBox.w+2*wideInflate, wideBox.height+2*wideInflate) {
-			t.Errorf("8px-offset outline side at (%.2f, %.2f) misses the 9px inflated rect",
-				stroke.X, stroke.Y)
-		}
-	}
+	behaviorBordersAssertStrokesMatchRect(t, zeroStrokes, zeroBox, zeroInflate, "zero-offset", "1px")
+	behaviorBordersAssertStrokesMatchRect(t, wideStrokes, wideBox, wideInflate, "8px-offset", "9px")
 
 	// The wider offset must sit further out than the zero offset.
-	zeroMinX, wideMinX := zeroStrokes[0].X, wideStrokes[0].X
-	for _, stroke := range zeroStrokes {
-		if stroke.X < zeroMinX {
-			zeroMinX = stroke.X
-		}
-	}
-
-	for _, stroke := range wideStrokes {
-		if stroke.X < wideMinX {
-			wideMinX = stroke.X
-		}
-	}
+	zeroMinX := behaviorBordersMinStrokeX(zeroStrokes)
+	wideMinX := behaviorBordersMinStrokeX(wideStrokes)
 
 	if !near(wideMinX, wideBox.x-wideInflate) || !near(zeroMinX, zeroBox.x-zeroInflate) {
 		t.Errorf("outline left edge = %.4fpt / %.4fpt, want %.4fpt / %.4fpt (8px further out)",
 			zeroMinX, wideMinX, zeroBox.x-zeroInflate, wideBox.x-wideInflate)
 	}
+}
+
+// behaviorBordersAssertStrokesMatchRect asserts every outline stroke lies on
+// the box rect inflated by inflate on each side.
+func behaviorBordersAssertStrokesMatchRect(
+	t *testing.T, strokes []Op, item *box, inflate float64, tag, wantDesc string,
+) {
+	t.Helper()
+
+	for _, stroke := range strokes {
+		if !outlineStrokeMatchesRect(stroke, item.x-inflate, item.y-inflate,
+			item.w+2*inflate, item.height+2*inflate) {
+			t.Errorf("%s outline side at (%.2f, %.2f) misses the %s inflated rect",
+				tag, stroke.X, stroke.Y, wantDesc)
+		}
+	}
+}
+
+// behaviorBordersMinStrokeX returns the smallest stroke X edge.
+func behaviorBordersMinStrokeX(strokes []Op) float64 {
+	minX := strokes[0].X
+
+	for _, stroke := range strokes {
+		if stroke.X < minX {
+			minX = stroke.X
+		}
+	}
+
+	return minX
 }
 
 // TestBehaviorOpacityFoldsIntoPaintOps is opacity: descendant paint ops report
@@ -442,28 +450,28 @@ func TestBehaviorOpacityFoldsIntoPaintOps(t *testing.T) {
 		t.Fatal("half-opacity box owns no ops")
 	}
 
-	for _, op := range halfOps {
-		if op.Kind != OpFillRect && op.Kind != OpText {
-			continue
-		}
-
-		if !near(op.Opacity(), 0.5) {
-			t.Errorf("half-opacity op kind %v Opacity() = %.3f, want 0.5", op.Kind, op.Opacity())
-		}
-	}
+	behaviorBordersAssertFillTextOpacity(t, halfOps, 0.5, "half-opacity")
 
 	fullOps := behaviorBordersBoxOps(t, full, "item")
 	if len(fullOps) == 0 {
 		t.Fatal("full-opacity box owns no ops")
 	}
 
-	for _, op := range fullOps {
-		if op.Kind != OpFillRect && op.Kind != OpText {
+	behaviorBordersAssertFillTextOpacity(t, fullOps, 1, "default")
+}
+
+// behaviorBordersAssertFillTextOpacity asserts every fill and text op in ops
+// reports the given opacity.
+func behaviorBordersAssertFillTextOpacity(t *testing.T, ops []Op, wantOpacity float64, tag string) {
+	t.Helper()
+
+	for _, paintOp := range ops {
+		if paintOp.Kind != OpFillRect && paintOp.Kind != OpText {
 			continue
 		}
 
-		if !near(op.Opacity(), 1) {
-			t.Errorf("default op kind %v Opacity() = %.3f, want 1", op.Kind, op.Opacity())
+		if !near(paintOp.Opacity(), wantOpacity) {
+			t.Errorf("%s op kind %v Opacity() = %.3f, want %.3f", tag, paintOp.Kind, paintOp.Opacity(), wantOpacity)
 		}
 	}
 }
@@ -481,22 +489,7 @@ func TestBehaviorBoxShadowPaintsOffsetFill(t *testing.T) {
 	item := boxByID(t, res, "item")
 	wantX, wantY := item.x+pxToPt(8), item.y+pxToPt(8)
 
-	found := false
-
-	for _, op := range res.Ops {
-		if op.Kind != OpFillRect {
-			continue
-		}
-
-		if near(op.X, wantX) && near(op.Y, wantY) && near(op.W, item.w) && near(op.H, item.height) &&
-			near(op.R, 1) && near(op.G, 0) && near(op.B, 0) {
-			found = true
-
-			break
-		}
-	}
-
-	if !found {
+	if behaviorBordersFindFill(res.Ops, wantX, wantY, item.w, item.height, 1, 0, 0) == nil {
 		t.Errorf("no red shadow fill at (+8px, +8px) %.4fpt,%.4fpt sized %.4fpt x %.4fpt",
 			wantX, wantY, item.w, item.height)
 	}
@@ -514,25 +507,31 @@ func TestBehaviorBackgroundColorPaintsFill(t *testing.T) {
 
 	item := boxByID(t, res, "item")
 
-	found := false
+	found := behaviorBordersFindFill(res.Ops, item.x, item.y, item.w, item.height, 1, 0, 0)
 
-	for _, op := range res.Ops {
-		if op.Kind != OpFillRect {
-			continue
-		}
-
-		if near(op.X, item.x) && near(op.Y, item.y) && near(op.W, item.w) && near(op.H, item.height) &&
-			near(op.R, 1) && near(op.G, 0) && near(op.B, 0) {
-			found = true
-
-			break
-		}
-	}
-
-	if !found {
+	if found == nil {
 		t.Errorf("no red background fill at box (%.4fpt, %.4fpt) %.4fpt x %.4fpt",
 			item.x, item.y, item.w, item.height)
 	}
+}
+
+// behaviorBordersFindFill returns the first fill op at the given rect with
+// the given color, or nil.
+func behaviorBordersFindFill(ops []Op, wantX, wantY, wantW, wantH, wantR, wantG, wantB float64) *Op {
+	for _, paintOp := range ops {
+		if paintOp.Kind != OpFillRect {
+			continue
+		}
+
+		if near(paintOp.X, wantX) && near(paintOp.Y, wantY) && near(paintOp.W, wantW) && near(paintOp.H, wantH) &&
+			near(paintOp.R, wantR) && near(paintOp.G, wantG) && near(paintOp.B, wantB) {
+			candidate := paintOp
+
+			return &candidate
+		}
+	}
+
+	return nil
 }
 
 // TestBehaviorBackgroundPositionMovesImage is background-position: right
@@ -556,25 +555,8 @@ func TestBehaviorBackgroundPositionMovesImage(t *testing.T) {
 	leftBox := boxByID(t, left, "item")
 	rightBox := boxByID(t, right, "item")
 
-	var leftImg, rightImg *Op
-
-	for _, op := range left.Ops {
-		if op.Kind == OpImage && op.IsBackground {
-			candidate := op
-			leftImg = &candidate
-
-			break
-		}
-	}
-
-	for _, op := range right.Ops {
-		if op.Kind == OpImage && op.IsBackground {
-			candidate := op
-			rightImg = &candidate
-
-			break
-		}
-	}
+	leftImg := behaviorBordersFindBackgroundImage(left.Ops)
+	rightImg := behaviorBordersFindBackgroundImage(right.Ops)
 
 	if leftImg == nil || rightImg == nil {
 		t.Fatalf("background images = left %v right %v, want one each", leftImg != nil, rightImg != nil)
@@ -597,6 +579,20 @@ func TestBehaviorBackgroundPositionMovesImage(t *testing.T) {
 		t.Errorf("right bottom image at (%.4fpt, %.4fpt), want (%.4fpt, %.4fpt)",
 			rightImg.X, rightImg.Y, wantX, wantY)
 	}
+}
+
+// behaviorBordersFindBackgroundImage returns the first background image op,
+// or nil.
+func behaviorBordersFindBackgroundImage(ops []Op) *Op {
+	for _, paintOp := range ops {
+		if paintOp.Kind == OpImage && paintOp.IsBackground {
+			candidate := paintOp
+
+			return &candidate
+		}
+	}
+
+	return nil
 }
 
 // TestBehaviorBorderColorPaintsTopEdge is border-color: the top edge stroke
@@ -625,16 +621,16 @@ func TestBehaviorBorderColorPaintsTopEdge(t *testing.T) {
 
 			found := false
 
-			for _, op := range behaviorBordersHorizontalLines(res.Ops) {
-				if !near(op.Y, item.y) {
+			for _, paintOp := range behaviorBordersHorizontalLines(res.Ops) {
+				if !near(paintOp.Y, item.y) {
 					continue
 				}
 
 				found = true
 
-				if !near(op.R, testCase.wantR) || !near(op.G, testCase.wantG) || !near(op.B, testCase.wantB) {
+				if !near(paintOp.R, testCase.wantR) || !near(paintOp.G, testCase.wantG) || !near(paintOp.B, testCase.wantB) {
 					t.Errorf("top edge color = (%.2f, %.2f, %.2f), want (%.0f, %.0f, %.0f)",
-						op.R, op.G, op.B, testCase.wantR, testCase.wantG, testCase.wantB)
+						paintOp.R, paintOp.G, paintOp.B, testCase.wantR, testCase.wantG, testCase.wantB)
 				}
 			}
 

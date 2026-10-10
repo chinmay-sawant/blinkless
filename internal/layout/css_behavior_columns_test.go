@@ -23,15 +23,15 @@ import "testing"
 // behaviorColumnsAssertSameOps asserts two results paint the same ops in the
 // same order: same kind, geometry, and text. Used to pin no-op behavior for
 // properties the drawing list cannot observe.
-func behaviorColumnsAssertSameOps(t *testing.T, a, b *Result) {
+func behaviorColumnsAssertSameOps(t *testing.T, first, second *Result) {
 	t.Helper()
 
-	if len(a.Ops) != len(b.Ops) {
-		t.Fatalf("op count = %d vs %d, want identical geometry", len(a.Ops), len(b.Ops))
+	if len(first.Ops) != len(second.Ops) {
+		t.Fatalf("op count = %d vs %d, want identical geometry", len(first.Ops), len(second.Ops))
 	}
 
-	for i := range a.Ops {
-		x, y := a.Ops[i], b.Ops[i]
+	for i := range first.Ops {
+		x, y := first.Ops[i], second.Ops[i]
 		if x.Kind != y.Kind || x.Text != y.Text ||
 			!near(x.X, y.X) || !near(x.Y, y.Y) ||
 			!near(x.W, y.W) || !near(x.H, y.H) {
@@ -44,14 +44,14 @@ func behaviorColumnsAssertSameOps(t *testing.T, a, b *Result) {
 // the shape emitColumnRules produces for a column rule (see
 // TestColumnRulePaints in multicol_test.go).
 func behaviorColumnsRuleOps(res *Result) []Op {
-	var out []Op
+	out := make([]Op, 0, len(res.Ops))
 
-	for _, op := range res.Ops {
-		if op.Kind != OpLine || op.W >= 0.5 || op.H < 4 {
+	for _, paintOp := range res.Ops {
+		if paintOp.Kind != OpLine || paintOp.W >= 0.5 || paintOp.H < 4 {
 			continue
 		}
 
-		out = append(out, op)
+		out = append(out, paintOp)
 	}
 
 	return out
@@ -61,13 +61,13 @@ func behaviorColumnsRuleOps(res *Result) []Op {
 func behaviorColumnsChildXs(t *testing.T, res *Result, ids ...string) []float64 {
 	t.Helper()
 
-	xs := make([]float64, 0, len(ids))
+	positions := make([]float64, 0, len(ids))
 
 	for _, id := range ids {
-		xs = append(xs, boxByID(t, res, id).x)
+		positions = append(positions, boxByID(t, res, id).x)
 	}
 
-	return xs
+	return positions
 }
 
 // TestBehaviorColumnsShorthandUsedCount is columns: the shorthand sets both
@@ -135,11 +135,11 @@ func TestBehaviorColumnWidthAutoCount(t *testing.T) {
 
 	var buckets []float64
 
-	for _, x := range behaviorColumnsChildXs(t, res, ids...) {
+	for _, xPos := range behaviorColumnsChildXs(t, res, ids...) {
 		seen := false
 
 		for _, b := range buckets {
-			if near(x, b) {
+			if near(xPos, b) {
 				seen = true
 
 				break
@@ -147,7 +147,7 @@ func TestBehaviorColumnWidthAutoCount(t *testing.T) {
 		}
 
 		if !seen {
-			buckets = append(buckets, x)
+			buckets = append(buckets, xPos)
 		}
 	}
 
@@ -189,7 +189,7 @@ func TestBehaviorColumnRulePaintedBetweenColumns(t *testing.T) {
 		`Multi-column sample text repeated. Multi-column sample text repeated. `+
 		`Multi-column sample text repeated.</div></body></html>`)
 
-	mc := boxByID(t, res, "mc")
+	multicol := boxByID(t, res, "mc")
 
 	var found *Op
 
@@ -205,9 +205,9 @@ func TestBehaviorColumnRulePaintedBetweenColumns(t *testing.T) {
 		t.Fatal("missing 3px solid red column-rule op between columns")
 	}
 
-	if !near(found.X, mc.x+pxToPt(150)) {
+	if !near(found.X, multicol.x+pxToPt(150)) {
 		t.Errorf("rule x = %.4fpt (%.2fpx from container %.2fpx), want gap middle 150px",
-			found.X, (found.X-mc.x)/ptPerCSSPx, mc.x/ptPerCSSPx)
+			found.X, (found.X-multicol.x)/ptPerCSSPx, multicol.x/ptPerCSSPx)
 	}
 }
 
@@ -382,6 +382,73 @@ func TestBehaviorOrphansNoFragmentationEffect(t *testing.T) {
 // container clips its 150px child to the padding box, so paint past the
 // bottom edge is deactivated and every surviving text op starts above the
 // clip bottom. Reference: Chrome 143.0.7499.40.
+// behaviorClipAssertDeactivation asserts a 200x50px clip box deactivates the
+// text ops starting past its bottom edge while keeping the first lines live.
+// prefix selects the clipped lines (both tests use distinct line text).
+func behaviorClipAssertDeactivation(t *testing.T, res *Result, clipID, prefix string) {
+	t.Helper()
+
+	clip := boxByID(t, res, clipID)
+
+	if !near(clip.w, pxToPt(200)) || !near(clip.height, pxToPt(50)) {
+		t.Fatalf("clip used box = %.4fpt x %.4fpt (%.2fpx x %.2fpx), want 200px x 50px",
+			clip.w, clip.height, clip.w/ptPerCSSPx, clip.height/ptPerCSSPx)
+	}
+
+	dead, live := behaviorClipCountOps(res.Ops, prefix)
+	clipBottom := clip.y + clip.height
+	behaviorClipAssertTopsVisible(t, res.Ops, prefix, clipBottom)
+
+	if dead == 0 {
+		t.Errorf("no clipped text ops deactivated, want overflow lines past 50px removed")
+	}
+
+	if live == 0 {
+		t.Errorf("no live text ops, want the first lines visible inside the 50px box")
+	}
+}
+
+// behaviorClipCountOps counts deactivated and live text ops holding prefix.
+func behaviorClipCountOps(ops []Op, prefix string) (int, int) {
+	dead, live := 0, 0
+
+	for _, paintOp := range ops {
+		if len(paintOp.Text) < 4 || paintOp.Text[:4] != prefix {
+			continue
+		}
+
+		if paintOp.Kind == opKindNoop {
+			dead++
+		} else if paintOp.Kind == OpText {
+			live++
+		}
+	}
+
+	return dead, live
+}
+
+// behaviorClipAssertTopsVisible asserts no live prefixed text starts at or
+// past the clip bottom edge.
+func behaviorClipAssertTopsVisible(t *testing.T, ops []Op, prefix string, clipBottom float64) {
+	t.Helper()
+
+	for _, paintOp := range ops {
+		if len(paintOp.Text) < 4 || paintOp.Text[:4] != prefix || paintOp.Kind != OpText {
+			continue
+		}
+
+		top := paintOp.Y - paintOp.Size
+		if paintOp.H > 0 {
+			top = paintOp.Y - paintOp.H
+		}
+
+		if top >= clipBottom-0.01 {
+			t.Errorf("text %q starts at %.4fpt, at or past clip bottom %.4fpt",
+				paintOp.Text, top, clipBottom)
+		}
+	}
+}
+
 func TestBehaviorOverflowHiddenClipsTallChild(t *testing.T) {
 	t.Parallel()
 
@@ -396,49 +463,5 @@ func TestBehaviorOverflowHiddenClipsTallChild(t *testing.T) {
 		`<p id="l6" style="margin:0">clip line six</p>`+
 		`</div></div></body></html>`)
 
-	clip := boxByID(t, res, "clip")
-
-	if !near(clip.w, pxToPt(200)) || !near(clip.height, pxToPt(50)) {
-		t.Fatalf("clip used box = %.4fpt x %.4fpt (%.2fpx x %.2fpx), want 200px x 50px",
-			clip.w, clip.height, clip.w/ptPerCSSPx, clip.height/ptPerCSSPx)
-	}
-
-	clipBottom := clip.y + clip.height
-	dead, live := 0, 0
-
-	for _, op := range res.Ops {
-		if len(op.Text) < 4 || op.Text[:4] != "clip" {
-			continue
-		}
-
-		if op.Kind == opKindNoop {
-			dead++
-
-			continue
-		}
-
-		if op.Kind != OpText {
-			continue
-		}
-
-		live++
-
-		top := op.Y - op.Size
-		if op.H > 0 {
-			top = op.Y - op.H
-		}
-
-		if top >= clipBottom-0.01 {
-			t.Errorf("text %q starts at %.4fpt, at or past clip bottom %.4fpt",
-				op.Text, top, clipBottom)
-		}
-	}
-
-	if dead == 0 {
-		t.Errorf("no clipped text ops deactivated, want overflow lines past 50px removed")
-	}
-
-	if live == 0 {
-		t.Errorf("no live text ops, want the first lines visible inside the 50px box")
-	}
+	behaviorClipAssertDeactivation(t, res, "clip", "clip")
 }

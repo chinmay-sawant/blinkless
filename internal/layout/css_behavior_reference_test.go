@@ -93,44 +93,65 @@ func TestBehaviorBorderImageOutsetPaints(t *testing.T) {
 		`border-image-source:url(border.png);border-image-slice:30;border-image-outset:10px"></div>`+
 		`</body></html>`, img, "border.png")
 
-	bi := boxByID(t, res, "bi")
-	if !near(bi.w, pxToPt(120)) || !near(bi.height, pxToPt(80)) {
+	borderBox := boxByID(t, res, "bi")
+	if !near(borderBox.w, pxToPt(120)) || !near(borderBox.height, pxToPt(80)) {
 		t.Errorf("used border box = %.4fpt x %.4fpt (%.2fpx x %.2fpx), want 120px x 80px",
-			bi.w, bi.height, bi.w/ptPerCSSPx, bi.height/ptPerCSSPx)
+			borderBox.w, borderBox.height, borderBox.w/ptPerCSSPx, borderBox.height/ptPerCSSPx)
 	}
 
-	var cells []Op
-	for _, op := range opsOfKind(res, OpImage) {
-		if !op.IsBackground || op.W <= 0 || op.H <= 0 {
-			continue
-		}
-		cells = append(cells, op)
-	}
+	cells := behaviorRefBorderImageCells(opsOfKind(res, OpImage))
 
 	if len(cells) == 0 {
 		t.Fatalf("no painted border-image ops for #bi")
 	}
 
+	minX, minY, maxR, maxB := behaviorRefPaintUnion(cells)
+
+	if !near(minX, borderBox.x-pxToPt(10)) || !near(minY, borderBox.y-pxToPt(10)) ||
+		!near(maxR, borderBox.x+borderBox.w+pxToPt(10)) || !near(maxB, borderBox.y+borderBox.height+pxToPt(10)) {
+		t.Errorf("border-image painted union = (%.4fpt, %.4fpt)-(%.4fpt, %.4fpt), "+
+			"want the 120x80px border box outset by 10px each side",
+			minX, minY, maxR, maxB)
+	}
+}
+
+// behaviorRefBorderImageCells keeps the non-empty background image ops.
+func behaviorRefBorderImageCells(imgOps []Op) []Op {
+	cells := make([]Op, 0, len(imgOps))
+
+	for _, paintOp := range imgOps {
+		if !paintOp.IsBackground || paintOp.W <= 0 || paintOp.H <= 0 {
+			continue
+		}
+
+		cells = append(cells, paintOp)
+	}
+
+	return cells
+}
+
+// behaviorRefPaintUnion returns the union bounds of painted image cells.
+func behaviorRefPaintUnion(cells []Op) (float64, float64, float64, float64) {
 	minX, minY := cells[0].X, cells[0].Y
 	maxR, maxB := cells[0].X+cells[0].W, cells[0].Y+cells[0].H
-	for _, op := range cells[1:] {
-		if op.X < minX {
-			minX = op.X
+
+	for _, paintOp := range cells[1:] {
+		if paintOp.X < minX {
+			minX = paintOp.X
 		}
-		if op.Y < minY {
-			minY = op.Y
+
+		if paintOp.Y < minY {
+			minY = paintOp.Y
 		}
-		if op.X+op.W > maxR {
-			maxR = op.X + op.W
+
+		if paintOp.X+paintOp.W > maxR {
+			maxR = paintOp.X + paintOp.W
 		}
-		if op.Y+op.H > maxB {
-			maxB = op.Y + op.H
+
+		if paintOp.Y+paintOp.H > maxB {
+			maxB = paintOp.Y + paintOp.H
 		}
 	}
 
-	if !near(minX, bi.x-pxToPt(10)) || !near(minY, bi.y-pxToPt(10)) ||
-		!near(maxR, bi.x+bi.w+pxToPt(10)) || !near(maxB, bi.y+bi.height+pxToPt(10)) {
-		t.Errorf("border-image painted union = (%.4fpt, %.4fpt)-(%.4fpt, %.4fpt), want the 120x80px border box outset by 10px each side",
-			minX, minY, maxR, maxB)
-	}
+	return minX, minY, maxR, maxB
 }

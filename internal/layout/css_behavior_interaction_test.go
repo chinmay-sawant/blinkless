@@ -24,15 +24,15 @@ import (
 // behaviorInteractAssertSameOps asserts two results paint the same ops in the
 // same order: same kind, geometry, and text. Used to pin no-op behavior for
 // properties the drawing list cannot observe.
-func behaviorInteractAssertSameOps(t *testing.T, a, b *Result) {
+func behaviorInteractAssertSameOps(t *testing.T, first, second *Result) {
 	t.Helper()
 
-	if len(a.Ops) != len(b.Ops) {
-		t.Fatalf("op count = %d vs %d, want identical geometry", len(a.Ops), len(b.Ops))
+	if len(first.Ops) != len(second.Ops) {
+		t.Fatalf("op count = %d vs %d, want identical geometry", len(first.Ops), len(second.Ops))
 	}
 
-	for i := range a.Ops {
-		x, y := a.Ops[i], b.Ops[i]
+	for i := range first.Ops {
+		x, y := first.Ops[i], second.Ops[i]
 		if x.Kind != y.Kind || x.Text != y.Text ||
 			!near(x.X, y.X) || !near(x.Y, y.Y) ||
 			!near(x.W, y.W) || !near(x.H, y.H) {
@@ -110,51 +110,7 @@ func TestBehaviorOverflowYScrollClipsTallChild(t *testing.T) {
 		`<p id="l6" style="margin:0">tall line six</p>`+
 		`</div></div></body></html>`)
 
-	clip := boxByID(t, res, "clip")
-
-	if !near(clip.w, pxToPt(200)) || !near(clip.height, pxToPt(50)) {
-		t.Fatalf("clip used box = %.4fpt x %.4fpt (%.2fpx x %.2fpx), want 200px x 50px",
-			clip.w, clip.height, clip.w/ptPerCSSPx, clip.height/ptPerCSSPx)
-	}
-
-	clipBottom := clip.y + clip.height
-	dead, live := 0, 0
-
-	for _, op := range res.Ops {
-		if len(op.Text) < 4 || op.Text[:4] != "tall" {
-			continue
-		}
-
-		if op.Kind == opKindNoop {
-			dead++
-
-			continue
-		}
-
-		if op.Kind != OpText {
-			continue
-		}
-
-		live++
-
-		top := op.Y - op.Size
-		if op.H > 0 {
-			top = op.Y - op.H
-		}
-
-		if top >= clipBottom-0.01 {
-			t.Errorf("text %q starts at %.4fpt, at or past clip bottom %.4fpt",
-				op.Text, top, clipBottom)
-		}
-	}
-
-	if dead == 0 {
-		t.Errorf("no clipped text ops deactivated, want overflow lines past 50px removed")
-	}
-
-	if live == 0 {
-		t.Errorf("no live text ops, want the first lines visible inside the 50px box")
-	}
+	behaviorClipAssertDeactivation(t, res, "clip", "tall")
 }
 
 // TestBehaviorOverflowWrapBreakWordWrapsToken is overflow-wrap: break-word
@@ -169,18 +125,18 @@ func TestBehaviorOverflowWrapBreakWordWrapsToken(t *testing.T) {
 		`<p id="wrap" style="margin:0;width:100px;font-size:12pt;overflow-wrap:break-word">`+
 		token+`</p></body></html>`)
 
-	var texts []string
+	texts := make([]string, 0, len(res.Ops))
 
 	var maxRight float64
 
-	for _, op := range res.Ops {
-		if op.Kind != OpText {
+	for _, paintOp := range res.Ops {
+		if paintOp.Kind != OpText {
 			continue
 		}
 
-		texts = append(texts, op.Text)
+		texts = append(texts, paintOp.Text)
 
-		if r := op.X + op.W; r > maxRight {
+		if r := paintOp.X + paintOp.W; r > maxRight {
 			maxRight = r
 		}
 	}
@@ -215,16 +171,16 @@ func TestBehaviorTextOverflowEllipsisTruncatesLine(t *testing.T) {
 
 	var maxRight float64
 
-	for _, op := range res.Ops {
-		if op.Kind != OpText {
+	for _, paintOp := range res.Ops {
+		if paintOp.Kind != OpText {
 			continue
 		}
 
-		if strings.HasSuffix(op.Text, "...") {
+		if strings.HasSuffix(paintOp.Text, "...") {
 			sawEllipsis = true
 		}
 
-		if r := op.X + op.W; r > maxRight {
+		if r := paintOp.X + paintOp.W; r > maxRight {
 			maxRight = r
 		}
 	}
@@ -334,9 +290,11 @@ func TestBehaviorResizeBothKeepsPaint(t *testing.T) {
 	t.Parallel()
 
 	plain := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
-		`<div id="rz" style="width:100px;height:50px;overflow:auto;background-color:#ffff00">x</div></body></html>`)
+		`<div id="rz" style="width:100px;height:50px;overflow:auto;`+
+		`background-color:#ffff00">x</div></body></html>`)
 	sized := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
-		`<div id="rz" style="width:100px;height:50px;overflow:auto;resize:both;background-color:#ffff00">x</div></body></html>`)
+		`<div id="rz" style="width:100px;height:50px;overflow:auto;resize:both;`+
+		`background-color:#ffff00">x</div></body></html>`)
 
 	behaviorInteractAssertSameOps(t, plain, sized)
 }
