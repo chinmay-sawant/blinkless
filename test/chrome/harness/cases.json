@@ -1,0 +1,68 @@
+[
+  {
+    "slug": "flex-align-items-stretch",
+    "category": "flex",
+    "fixture": "test/chrome/cases/case-16-wpt-align-items-stretch.html",
+    "note": "WPT flexbox_align-items-stretch-2: stretched cross size vs first item's 6em cross margin. Print scaffold transform: translateY(56pt) on .stretch-case."
+  },
+  {
+    "slug": "flex-flow-row-wrap",
+    "category": "flex",
+    "fixture": "test/chrome/cases/case-21-wpt-flow-row-wrap.html",
+    "note": "WPT flexbox_flow-row-wrap: four 96pt items with 12pt margins wrap into two rows. Print scaffold transform: translateY(56pt)."
+  },
+  {
+    "slug": "flex-gap-002-ltr",
+    "category": "flex",
+    "fixture": "test/chrome/cases/case-22-wpt-gap-002-ltr.html",
+    "note": "WPT gap-002-ltr: 15pt column gap between three flexible items. Print scaffold transform: translateY(56pt)."
+  },
+  {
+    "slug": "grid-flex-full",
+    "category": "grid",
+    "fixture": "testdata/golden/fixture-32-flex-grid-full.html",
+    "note": "Golden fixture 32: flex wrap/row-reverse/space-evenly, column flex with align-self, grid rows + row span."
+  },
+  {
+    "slug": "grid-areas-dense",
+    "category": "grid",
+    "fixture": "testdata/golden/fixture-34-grid-areas-dense.html",
+    "note": "Golden fixture 34: grid-template-areas placement, implied tracks, grid-auto-flow: dense."
+  },
+  {
+    "slug": "grid-minmax-intrinsic",
+    "category": "grid",
+    "fixture": "testdata/golden/fixture-35-grid-minmax-intrinsic.html",
+    "note": "Golden fixture 35: minmax() floors, cyclic percent height, display:subgrid copy-inherit, grid-template-rows: masonry (nonstandard; Chrome treats it as auto)."
+  },
+  {
+    "slug": "logical-flex-auto-margins",
+    "category": "logical",
+    "fixture": "test/chrome/cases/case-13-legacy-flex-flow-auto-margins.html",
+    "note": "Logical vs physical auto margins across direction/writing-mode/flex-flow; fixture carries data-expected-x/y. Print scaffold transform: translateY(56pt) on .title and .container."
+  },
+  {
+    "slug": "logical-writing-mode-006",
+    "category": "logical",
+    "fixture": "test/chrome/cases/case-24-wpt-writing-mode-006.html",
+    "note": "WPT flexbox-writing-mode-006: eight writing-mode/flex-flow branches under vertical-lr + rtl. Print scaffold transform: translateY(56pt)."
+  },
+  {
+    "slug": "text-long-text-wrap",
+    "category": "text",
+    "fixture": "testdata/golden/fixture-11-long-text-wrap.html",
+    "note": "Golden fixture 11: justified prose, line wrapping, long tokens; line counts drive paragraph heights."
+  },
+  {
+    "slug": "text-typography",
+    "category": "text",
+    "fixture": "testdata/golden/fixture-18-typography.html",
+    "note": "Golden fixture 18: h1-h6, inline runs, letter-spacing, line-height, blockquote."
+  },
+  {
+    "slug": "print-nested-float",
+    "category": "print",
+    "fixture": "testdata/golden/fixture-29-wpt-break-nested-float-print.html",
+    "note": "Golden fixture 29-wpt: nested float fragmentation through a three-page flex column. @page (5in x 3in) is print-only; on screen both engines lay out the 2in x 6in float once. Fragmentation itself is out of scope for a continuous-layout comparison."
+  }
+]

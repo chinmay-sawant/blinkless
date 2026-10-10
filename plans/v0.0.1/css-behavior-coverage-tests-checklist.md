@@ -1,7 +1,7 @@
 # 0.0.1 - CSS behavior coverage tests for the 428 fixture cells
 
 > **Parent:** `html-css-json-compatibility-checklist.md` (CAT-05/CAT-06 audit rows) and `phase-wise-checklist.md`. The audit demoted rows whose only proof was a stored-string assertion; this plan writes the missing behavior tests.
-> **Status:** open. Scoped against the 2026-10-10 tree: 90 implemented, 301 partial, 387 unsupported, 7 intentionally ignored (`testdata/css/catalog/properties.json` summary block).
+> **Status:** open. Wave A landed 2026-10-10: 74 behavior tests across 6 new files, harness promoted to test/chrome/harness/, catalog 125 implemented / 266 partial / 387 unsupported / 7 intentionally ignored. Remaining: positioning, tables, transforms, text-decoration, font selection, direction/script, lists, interaction paint, phase 6 engine work, phase 7 decisions, phase 8 gates.
 > **Estimated effort:** seven waves. No engine redesign. Roughly 300 test cases across ~40 new test files, all in existing packages.
 
 ---
@@ -70,6 +70,8 @@ Wave 1 moves the reusable part into `test/chrome/harness/`: `capture.js`, `join.
 
 ## Phase 2: Box geometry properties
 
+Wave A (2026-10-10): 16 flex/grid tests in `internal/layout/css_behavior_flex_grid_test.go`, 16 box-model tests in `internal/layout/css_behavior_box_model_test.go`, 3 reference tests in `internal/layout/css_behavior_reference_test.go` (align-items, min-width, border-image-outset). Full TestBehavior run exit 0. Still open: positioning, tables, place-*, align-*/justify-* grid variants, display resolution, margin/padding remaining longhands.
+
 Proof for the phase: `go test -p 2 -parallel 2 ./internal/layout -run 'TestBehavior' -count=1` exits 0, and `python3 scripts/css-catalog-map.py --check` reports the moved rows as implemented.
 
 Properties that resolve box position or size: the flex and grid axis set, logical sizing and inset, margin and padding longhands, min/max sizing, `gap` family, `place-*`, `align-*` and `justify-*`, `inset` family, `box-sizing`, `writing-mode`, `direction`, `aspect-ratio`, `order`, `float`, `clear`, `vertical-align`, `position` and offsets, `z-index` ordering, `table-layout`, `border-collapse`, `border-spacing`, `caption-side`, `empty-cells`, `object-fit`, `object-position`.
@@ -84,6 +86,8 @@ Properties that resolve box position or size: the flex and grid axis set, logica
 
 ## Phase 3: Paint, decoration, and backgrounds
 
+Wave A (2026-10-10): 14 tests in `internal/layout/css_behavior_borders_test.go` (widths, styles, radius, outline family, opacity, box-shadow, background-color, background-position, border-color). Full TestBehavior run exit 0. Still open: backgrounds remaining longhands, text-decoration family, transforms and effects, content-visibility, image-rendering, mix-blend-mode.
+
 Proof: `go test -p 2 -parallel 2 ./internal/layout -run 'TestBehavior' -count=1` exit 0, `make claim-scan` exit 0.
 
 - [ ] Write behavior tests for backgrounds: `background`, `background-color`, `background-image`, `background-position`, `background-position-x`, `background-position-y`, `background-size`, `background-repeat`, `background-origin`, `background-clip`, `background-attachment` (blocked on phase 6). Expected: the painted op carries the resolved position and size; targeted run exit 0.
@@ -94,6 +98,8 @@ Proof: `go test -p 2 -parallel 2 ./internal/layout -run 'TestBehavior' -count=1`
 
 ## Phase 4: Text, font, and inline layout
 
+Wave A (2026-10-10): 12 tests in `internal/layout/css_behavior_text_test.go` (line-height, letter-spacing, word-spacing, text-align, text-indent, text-transform, white-space, vertical-align, hyphens, tab-size, quotes, wrap-style auto). Documented gaps: tab-size value ignored in paint, pretty rejected, hyphens:none wraps without mark. Still open: font selection and metrics, direction and script, lists and generated content.
+
 Proof: `go test -p 2 -parallel 2 ./internal/layout -run 'TestBehavior' -count=1` exit 0, plus the shaping assertions named per row.
 
 - [ ] Write behavior tests for font selection and metrics: `font-family`, `font-size`, `font-style`, `font-weight`, `font-stretch`, `font-variant`, `font`, `font-size-adjust`, `font-kerning`, `font-feature-settings`, `font-variant-*` families, `font-synthesis`. Expected: the resolved face and the advance width are asserted, not the stored keyword; targeted run exit 0.
@@ -103,6 +109,8 @@ Proof: `go test -p 2 -parallel 2 ./internal/layout -run 'TestBehavior' -count=1`
 - [ ] Promote the phase rows and regenerate the matrix. Expected: `make catalog-check` and `make matrix-check` exit 0.
 
 ## Phase 5: Fragmentation, columns, and overflow
+
+Wave A (2026-10-10): 12 tests in `internal/layout/css_behavior_columns_test.go` (columns, count, width, gap, rule family, span, fill, overflow, plus break-inside, break-before, orphans as documented no-ops). Unobservable without pagination, asserted as current behavior. `make golden` exit 0, no fixture movement. Still open: remaining break and overflow longhands, clip-path, mask, text-overflow, interaction paint.
 
 Proof: `go test -p 2 -parallel 2 ./internal/layout -run 'TestBehavior' -count=1` exit 0, and `make golden` exit 0 with no fixture movement.
 

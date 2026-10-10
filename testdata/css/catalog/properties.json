@@ -1,7 +1,7 @@
 {
   "catalog": "blinkless-css-properties",
   "schema_version": 1,
-  "updated": "2026-10-09",
+  "updated": "2026-10-10",
   "scope": "Engine-registered CSS properties plus every property in the pinned upstream inventory. A property not listed here is unsupported by default.",
   "seed": {
     "date": "2026-10-09",
@@ -11,8 +11,8 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 90,
-      "partial": 301,
+      "implemented": 125,
+      "partial": 266,
       "unsupported": 387,
       "intentionally ignored": 7
     },
@@ -703,9 +703,7 @@
       "values": [
         "normal | stretch | <baseline-position> | <overflow-position>? <self-position>"
       ],
-      "limitations": [
-        "Handler and consumer exist (flex.go:1615, grid.go:538), but no test proves cross-axis item geometry. Missing behavior: a layout regression that sets align-items to center, stretch, or flex-start and asserts item positions; TestWebkitPrefixAliases only proves the alias mapping."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -717,9 +715,13 @@
         {
           "file": "internal/layout/style_cascade_test.go",
           "name": "TestWebkitPrefixAliases"
+        },
+        {
+          "file": "internal/layout/css_behavior_reference_test.go",
+          "name": "TestBehaviorAlignItemsCenterOffset"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | stretch | <baseline-position> | <overflow-position>? <self-position>"
     },
@@ -731,9 +733,7 @@
       "values": [
         "auto | <overflow-position>? [ normal | <self-position> ]| stretch | <baseline-position>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -741,8 +741,13 @@
         "applyFlexGroup",
         "applyFlexKeywordProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_flex_grid_test.go",
+          "name": "TestBehaviorAlignSelfEndUsedOffset"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | <overflow-position>? [ normal | <self-position> ]| stretch | <baseline-position>"
     },
@@ -876,7 +881,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<time [0s,\u221e]>#"
+      "upstream_syntax": "<time [0s,∞]>#"
     },
     {
       "name": "animation-delay-start",
@@ -924,7 +929,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "[ auto | <time [0s,\u221e]> ]#"
+      "upstream_syntax": "[ auto | <time [0s,∞]> ]#"
     },
     {
       "name": "animation-fill-mode",
@@ -1124,17 +1129,20 @@
       "values": [
         "auto || <ratio>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_aspect_ratio_props.go"
       ],
       "handlers": [
         "applyAspectRatioProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_box_model_test.go",
+          "name": "TestBehaviorAspectRatioDerivesHeightFromWidth"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto || <ratio>"
     },
@@ -1300,6 +1308,10 @@
         {
           "file": "internal/layout/layout_test.go",
           "name": "TestBackgroundFill"
+        },
+        {
+          "file": "internal/layout/css_behavior_borders_test.go",
+          "name": "TestBehaviorBackgroundColorPaintsFill"
         }
       ],
       "status": "implemented",
@@ -1364,17 +1376,20 @@
       "values": [
         "[ [ <percentage> | <length> | left | center | right ] [ <percentage> | <length> | top | center | bottom ]? ] | [ [ left | center | right ] || [ top | center | bottom ] ] | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
       "handlers": [
         "applyColorBackgroundProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_borders_test.go",
+          "name": "TestBehaviorBackgroundPositionMovesImage"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ [ <percentage> | <length> | left | center | right ] [ <percentage> | <length> | top | center | bottom ]? ] | [ [ left | center | right ] || [ top | center | bottom ] ] | inherit"
     },
@@ -1785,7 +1800,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | <length [0,\u221e]>"
+      "upstream_syntax": "none | <length [0,∞]>"
     },
     {
       "name": "bookmark-label",
@@ -1817,7 +1832,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | <integer [1,\u221e]>"
+      "upstream_syntax": "none | <integer [1,∞]>"
     },
     {
       "name": "bookmark-state",
@@ -1952,7 +1967,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
     },
     {
       "name": "border-block-end-color",
@@ -1978,7 +1993,7 @@
       "name": "border-block-end-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
+        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
       ],
       "limitations": [
         "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
@@ -1994,7 +2009,7 @@
       "tests": [],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
     },
     {
       "name": "border-block-end-style",
@@ -2070,7 +2085,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
     },
     {
       "name": "border-block-start-color",
@@ -2096,7 +2111,7 @@
       "name": "border-block-start-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
+        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
       ],
       "limitations": [
         "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
@@ -2117,7 +2132,7 @@
       ],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
     },
     {
       "name": "border-block-start-style",
@@ -2237,7 +2252,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
     },
     {
       "name": "border-bottom-color",
@@ -2266,7 +2281,7 @@
         "-webkit-border-bottom-left-radius"
       ],
       "values": [
-        "<length-percentage [0,\u221e]>{1,2}"
+        "<length-percentage [0,∞]>{1,2}"
       ],
       "limitations": [
         "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
@@ -2280,13 +2295,13 @@
       "tests": [],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2}"
+      "upstream_syntax": "<length-percentage [0,∞]>{1,2}"
     },
     {
       "name": "border-bottom-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
+        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
       ],
       "limitations": [
         "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
@@ -2300,7 +2315,7 @@
       "tests": [],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
     },
     {
       "name": "border-bottom-right-radius",
@@ -2308,7 +2323,7 @@
         "-webkit-border-bottom-right-radius"
       ],
       "values": [
-        "<length-percentage [0,\u221e]>{1,2}"
+        "<length-percentage [0,∞]>{1,2}"
       ],
       "limitations": [
         "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
@@ -2322,7 +2337,7 @@
       "tests": [],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2}"
+      "upstream_syntax": "<length-percentage [0,∞]>{1,2}"
     },
     {
       "name": "border-bottom-style",
@@ -2453,6 +2468,10 @@
         {
           "file": "internal/layout/style_backgrounds_borders_test.go",
           "name": "TestTransparentBorderPaintsNothing"
+        },
+        {
+          "file": "internal/layout/css_behavior_borders_test.go",
+          "name": "TestBehaviorBorderColorPaintsTopEdge"
         }
       ],
       "status": "implemented",
@@ -2539,11 +2558,9 @@
       "name": "border-image-outset",
       "aliases": [],
       "values": [
-        "[ <length [0,\u221e]> | <number [0,\u221e]> ]{1,4}"
+        "[ <length [0,∞]> | <number [0,∞]> ]{1,4}"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/border_image.go",
         "internal/layout/style_properties.go"
@@ -2556,11 +2573,15 @@
         {
           "file": "internal/layout/style_backgrounds_borders_test.go",
           "name": "TestBorderImageProps"
+        },
+        {
+          "file": "internal/layout/css_behavior_reference_test.go",
+          "name": "TestBehaviorBorderImageOutsetPaints"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "[ <length [0,\u221e]> | <number [0,\u221e]> ]{1,4}"
+      "upstream_syntax": "[ <length [0,∞]> | <number [0,∞]> ]{1,4}"
     },
     {
       "name": "border-image-repeat",
@@ -2593,7 +2614,7 @@
       "name": "border-image-slice",
       "aliases": [],
       "values": [
-        "[<number [0,\u221e]> | <percentage [0,\u221e]>]{1,4} && fill?"
+        "[<number [0,∞]> | <percentage [0,∞]>]{1,4} && fill?"
       ],
       "limitations": [
         "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
@@ -2614,7 +2635,7 @@
       ],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "[<number [0,\u221e]> | <percentage [0,\u221e]>]{1,4} && fill?"
+      "upstream_syntax": "[<number [0,∞]> | <percentage [0,∞]>]{1,4} && fill?"
     },
     {
       "name": "border-image-source",
@@ -2647,7 +2668,7 @@
       "name": "border-image-width",
       "aliases": [],
       "values": [
-        "[ <length-percentage [0,\u221e]> | <number [0,\u221e]> | auto ]{1,4}"
+        "[ <length-percentage [0,∞]> | <number [0,∞]> | auto ]{1,4}"
       ],
       "limitations": [
         "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
@@ -2668,7 +2689,7 @@
       ],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "[ <length-percentage [0,\u221e]> | <number [0,\u221e]> | auto ]{1,4}"
+      "upstream_syntax": "[ <length-percentage [0,∞]> | <number [0,∞]> | auto ]{1,4}"
     },
     {
       "name": "border-inline",
@@ -2760,7 +2781,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
     },
     {
       "name": "border-inline-end-color",
@@ -2786,7 +2807,7 @@
       "name": "border-inline-end-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
+        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
       ],
       "limitations": [
         "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
@@ -2807,7 +2828,7 @@
       ],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
     },
     {
       "name": "border-inline-end-style",
@@ -2883,7 +2904,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
     },
     {
       "name": "border-inline-start-color",
@@ -2909,7 +2930,7 @@
       "name": "border-inline-start-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
+        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
       ],
       "limitations": [
         "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
@@ -2925,7 +2946,7 @@
       "tests": [],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
     },
     {
       "name": "border-inline-start-style",
@@ -3045,7 +3066,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
     },
     {
       "name": "border-left-color",
@@ -3072,7 +3093,7 @@
       "name": "border-left-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
+        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
       ],
       "limitations": [
         "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
@@ -3086,7 +3107,7 @@
       "tests": [],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
     },
     {
       "name": "border-left-style",
@@ -3120,9 +3141,7 @@
       "values": [
         "<border-width> | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -3130,8 +3149,13 @@
         "applyBorderGroup",
         "applyBorderWidthProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_borders_test.go",
+          "name": "TestBehaviorBorderLeftWidthEmittedStrokeWidth"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<border-width> | inherit"
     },
@@ -3149,7 +3173,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "all | [ sides | corners ] <length-percentage [0,\u221e]>? | [ top | right | bottom | left ] <length-percentage [0,\u221e]>"
+      "upstream_syntax": "all | [ sides | corners ] <length-percentage [0,∞]>? | [ top | right | bottom | left ] <length-percentage [0,∞]>"
     },
     {
       "name": "border-radius",
@@ -3157,7 +3181,7 @@
         "-webkit-border-radius"
       ],
       "values": [
-        "<length-percentage [0,\u221e]>{1,4} [ / <length-percentage [0,\u221e]>{1,4} ]?"
+        "<length-percentage [0,∞]>{1,4} [ / <length-percentage [0,∞]>{1,4} ]?"
       ],
       "limitations": [],
       "source": [
@@ -3186,7 +3210,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,\u221e]>{1,4} [ / <length-percentage [0,\u221e]>{1,4} ]?"
+      "upstream_syntax": "<length-percentage [0,∞]>{1,4} [ / <length-percentage [0,∞]>{1,4} ]?"
     },
     {
       "name": "border-right",
@@ -3226,7 +3250,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
     },
     {
       "name": "border-right-color",
@@ -3253,7 +3277,7 @@
       "name": "border-right-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
+        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
       ],
       "limitations": [
         "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
@@ -3267,7 +3291,7 @@
       "tests": [],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
     },
     {
       "name": "border-right-style",
@@ -3472,7 +3496,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
     },
     {
       "name": "border-top-color",
@@ -3506,27 +3530,30 @@
         "-webkit-border-top-left-radius"
       ],
       "values": [
-        "<length-percentage [0,\u221e]>{1,2}"
+        "<length-percentage [0,∞]>{1,2}"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_paint_props.go"
       ],
       "handlers": [
         "applyRadiusLonghand"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_borders_test.go",
+          "name": "TestBehaviorBorderTopLeftRadiusPaintsCorner"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2}"
+      "upstream_syntax": "<length-percentage [0,∞]>{1,2}"
     },
     {
       "name": "border-top-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
+        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
       ],
       "limitations": [
         "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
@@ -3540,7 +3567,7 @@
       "tests": [],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
     },
     {
       "name": "border-top-right-radius",
@@ -3548,7 +3575,7 @@
         "-webkit-border-top-right-radius"
       ],
       "values": [
-        "<length-percentage [0,\u221e]>{1,2}"
+        "<length-percentage [0,∞]>{1,2}"
       ],
       "limitations": [
         "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
@@ -3562,7 +3589,7 @@
       "tests": [],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2}"
+      "upstream_syntax": "<length-percentage [0,∞]>{1,2}"
     },
     {
       "name": "border-top-style",
@@ -3570,9 +3597,7 @@
       "values": [
         "<border-style> | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -3584,9 +3609,13 @@
         {
           "file": "internal/layout/style_backgrounds_borders_test.go",
           "name": "TestBorderSideStyles"
+        },
+        {
+          "file": "internal/layout/css_behavior_borders_test.go",
+          "name": "TestBehaviorBorderTopStyleDashedExpandsSegments"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<border-style> | inherit"
     },
@@ -3596,9 +3625,7 @@
       "values": [
         "<border-width> | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -3606,8 +3633,13 @@
         "applyBorderGroup",
         "applyBorderWidthProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_borders_test.go",
+          "name": "TestBehaviorBorderTopWidthEmittedStrokeWidth"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<border-width> | inherit"
     },
@@ -3699,17 +3731,20 @@
       "values": [
         "none | <shadow>#"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_paint_props.go"
       ],
       "handlers": [
         "applyBoxShadowProp"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_borders_test.go",
+          "name": "TestBehaviorBoxShadowPaintsOffsetFill"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | <shadow>#"
     },
@@ -3717,7 +3752,7 @@
       "name": "box-shadow-blur",
       "aliases": [],
       "values": [
-        "<length [0,\u221e]>#"
+        "<length [0,∞]>#"
       ],
       "limitations": [
         "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
@@ -3731,7 +3766,7 @@
       "tests": [],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "<length [0,\u221e]>#"
+      "upstream_syntax": "<length [0,∞]>#"
     },
     {
       "name": "box-shadow-color",
@@ -3854,6 +3889,10 @@
         {
           "file": "internal/layout/style_cascade_test.go",
           "name": "TestWebkitPrefixAliases"
+        },
+        {
+          "file": "internal/layout/css_behavior_box_model_test.go",
+          "name": "TestBehaviorBoxSizingBorderBoxIncludesPadding"
         }
       ],
       "status": "implemented",
@@ -3913,7 +3952,7 @@
         "auto | avoid | always | all | avoid-page | page | left | right | recto | verso | avoid-column | column | avoid-region | region"
       ],
       "limitations": [
-        "Parsed and stored (PageBreakBefore, style_properties.go:1681 and :1683); consumed by the independent-block and flex paths (independent_blocks.go:105, flex.go:223). Missing behavior: a layout regression that proves the break value moves or keeps the box. TestPageBreakParsing covers parsing only. page-break-before is an alias."
+        "break-before parses to page-break-before:always but layout emits no forced break; the engine does not paginate (TestBehaviorBreakBeforeColumnNoPageEffect)."
       ],
       "source": [
         "internal/layout/style_properties.go"
@@ -3926,6 +3965,10 @@
         {
           "file": "internal/layout/layout_test.go",
           "name": "TestPageBreakParsing"
+        },
+        {
+          "file": "internal/layout/css_behavior_columns_test.go",
+          "name": "TestBehaviorBreakBeforeColumnNoPageEffect"
         }
       ],
       "status": "partial",
@@ -3941,7 +3984,7 @@
         "auto | avoid | avoid-page | avoid-column | avoid-region"
       ],
       "limitations": [
-        "Parsed and stored (PageBreakInside, style_properties.go:1708 and :1710); consumed by the independent-block path (independent_blocks.go:109, flex.go:225). Missing behavior: a layout regression that proves the break value moves or keeps the box. TestPageBreakParsing covers parsing only. page-break-inside is an alias."
+        "break-inside keywords parse but no layout or paint pass reads them; the engine returns a drawing list without paginating, so avoidance has no observable effect (TestBehaviorBreakInsideAvoidColumnNoPageEffect)."
       ],
       "source": [
         "internal/layout/style_properties.go"
@@ -3954,6 +3997,10 @@
         {
           "file": "internal/layout/layout_test.go",
           "name": "TestPageBreakParsing"
+        },
+        {
+          "file": "internal/layout/css_behavior_columns_test.go",
+          "name": "TestBehaviorBreakInsideAvoidColumnNoPageEffect"
         }
       ],
       "status": "partial",
@@ -4314,11 +4361,9 @@
       "name": "column-count",
       "aliases": [],
       "values": [
-        "auto | <integer [1,\u221e]>"
+        "auto | <integer [1,∞]>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_multicol_props.go"
       ],
@@ -4329,11 +4374,15 @@
         {
           "file": "internal/layout/multicol_test.go",
           "name": "TestMulticolFlexStretchBalanceNoPageSnap"
+        },
+        {
+          "file": "internal/layout/css_behavior_columns_test.go",
+          "name": "TestBehaviorColumnCountUsedWidths"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <integer [1,\u221e]>"
+      "upstream_syntax": "auto | <integer [1,∞]>"
     },
     {
       "name": "column-fill",
@@ -4341,17 +4390,20 @@
       "values": [
         "auto | balance | balance-all"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_multicol_props.go"
       ],
       "handlers": [
         "applyColumnFillSpanProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_columns_test.go",
+          "name": "TestBehaviorColumnFillAutoStacksFirstColumn"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | balance | balance-all"
     },
@@ -4361,7 +4413,7 @@
         "grid-column-gap"
       ],
       "values": [
-        "normal | <length-percentage [0,\u221e]> | <line-width>"
+        "normal | <length-percentage [0,∞]> | <line-width>"
       ],
       "limitations": [],
       "source": [
@@ -4376,17 +4428,25 @@
         {
           "file": "internal/layout/grid_test.go",
           "name": "TestGridRowGapVsColumnGap"
+        },
+        {
+          "file": "internal/layout/css_behavior_columns_test.go",
+          "name": "TestBehaviorColumnGapUsedSpacing"
+        },
+        {
+          "file": "internal/layout/css_behavior_flex_grid_test.go",
+          "name": "TestBehaviorColumnGapFlexUsedSpacing"
         }
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "normal | <length-percentage [0,\u221e]> | <line-width>"
+      "upstream_syntax": "normal | <length-percentage [0,∞]> | <line-width>"
     },
     {
       "name": "column-height",
       "aliases": [],
       "values": [
-        "auto | <length [0,\u221e]>"
+        "auto | <length [0,∞]>"
       ],
       "limitations": [
         "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
@@ -4400,7 +4460,7 @@
       "tests": [],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length [0,\u221e]>"
+      "upstream_syntax": "auto | <length [0,∞]>"
     },
     {
       "name": "column-rule",
@@ -4408,17 +4468,20 @@
       "values": [
         "<gap-rule-list> | <gap-auto-rule-list>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_multicol_props.go"
       ],
       "handlers": [
         "applyColumnRuleProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_columns_test.go",
+          "name": "TestBehaviorColumnRulePaintedBetweenColumns"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<gap-rule-list> | <gap-auto-rule-list>"
     },
@@ -4644,17 +4707,20 @@
       "values": [
         "<line-width-list> | <auto-line-width-list>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_multicol_props.go"
       ],
       "handlers": [
         "applyColumnRuleProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_columns_test.go",
+          "name": "TestBehaviorColumnRuleWidthUsedThickness"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<line-width-list> | <auto-line-width-list>"
     },
@@ -4662,41 +4728,47 @@
       "name": "column-span",
       "aliases": [],
       "values": [
-        "none | <integer [1,\u221e]> | all | auto"
+        "none | <integer [1,∞]> | all | auto"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_multicol_props.go"
       ],
       "handlers": [
         "applyColumnFillSpanProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_columns_test.go",
+          "name": "TestBehaviorColumnSpanAllFullWidth"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "none | <integer [1,\u221e]> | all | auto"
+      "upstream_syntax": "none | <integer [1,∞]> | all | auto"
     },
     {
       "name": "column-width",
       "aliases": [],
       "values": [
-        "auto | <length [0,\u221e]>"
+        "auto | <length [0,∞]>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_multicol_props.go"
       ],
       "handlers": [
         "applyColumnCountWidthProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_columns_test.go",
+          "name": "TestBehaviorColumnWidthAutoCount"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length [0,\u221e]>"
+      "upstream_syntax": "auto | <length [0,∞]>"
     },
     {
       "name": "column-wrap",
@@ -4724,17 +4796,20 @@
       "values": [
         "[ <'column-width'> || <'column-count'> ] [ / <'column-height'> ]?"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_multicol_props.go"
       ],
       "handlers": [
         "applyColumnCountWidthProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_columns_test.go",
+          "name": "TestBehaviorColumnsShorthandUsedCount"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ <'column-width'> || <'column-count'> ] [ / <'column-height'> ]?"
     },
@@ -4771,7 +4846,7 @@
       "name": "contain-intrinsic-block-size",
       "aliases": [],
       "values": [
-        "auto? [ none | <length [0,\u221e]> ]"
+        "auto? [ none | <length [0,∞]> ]"
       ],
       "limitations": [
         "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
@@ -4790,13 +4865,13 @@
       ],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "auto? [ none | <length [0,\u221e]> ]"
+      "upstream_syntax": "auto? [ none | <length [0,∞]> ]"
     },
     {
       "name": "contain-intrinsic-height",
       "aliases": [],
       "values": [
-        "auto? [ none | <length [0,\u221e]> ]"
+        "auto? [ none | <length [0,∞]> ]"
       ],
       "limitations": [
         "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
@@ -4815,13 +4890,13 @@
       ],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "auto? [ none | <length [0,\u221e]> ]"
+      "upstream_syntax": "auto? [ none | <length [0,∞]> ]"
     },
     {
       "name": "contain-intrinsic-inline-size",
       "aliases": [],
       "values": [
-        "auto? [ none | <length [0,\u221e]> ]"
+        "auto? [ none | <length [0,∞]> ]"
       ],
       "limitations": [
         "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
@@ -4840,13 +4915,13 @@
       ],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "auto? [ none | <length [0,\u221e]> ]"
+      "upstream_syntax": "auto? [ none | <length [0,∞]> ]"
     },
     {
       "name": "contain-intrinsic-size",
       "aliases": [],
       "values": [
-        "[ auto? [ none | <length [0,\u221e]> ] ]{1,2}"
+        "[ auto? [ none | <length [0,∞]> ] ]{1,2}"
       ],
       "limitations": [
         "Placeholder size that replaces the content-derived size under size containment."
@@ -4865,13 +4940,13 @@
       ],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "[ auto? [ none | <length [0,\u221e]> ] ]{1,2}"
+      "upstream_syntax": "[ auto? [ none | <length [0,∞]> ] ]{1,2}"
     },
     {
       "name": "contain-intrinsic-width",
       "aliases": [],
       "values": [
-        "auto? [ none | <length [0,\u221e]> ]"
+        "auto? [ none | <length [0,∞]> ]"
       ],
       "limitations": [
         "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
@@ -4890,7 +4965,7 @@
       ],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "auto? [ none | <length [0,\u221e]> ]"
+      "upstream_syntax": "auto? [ none | <length [0,∞]> ]"
     },
     {
       "name": "container",
@@ -6227,9 +6302,7 @@
       "values": [
         "content | <'width'>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -6237,8 +6310,13 @@
         "applyFlexBasisProps",
         "applyFlexGroup"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_flex_grid_test.go",
+          "name": "TestBehaviorFlexBasisUsedWidth"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "content | <'width'>"
     },
@@ -6271,6 +6349,14 @@
         {
           "file": "internal/layout/webkit_box_flex_test.go",
           "name": "TestWebkitBoxOrientVerticalStacks"
+        },
+        {
+          "file": "internal/layout/css_behavior_flex_grid_test.go",
+          "name": "TestBehaviorFlexDirectionRowUsedOrder"
+        },
+        {
+          "file": "internal/layout/css_behavior_flex_grid_test.go",
+          "name": "TestBehaviorFlexDirectionColumnUsedStack"
         }
       ],
       "status": "implemented",
@@ -6314,7 +6400,7 @@
         "-webkit-flex-grow"
       ],
       "values": [
-        "<number [0,\u221e]>"
+        "<number [0,∞]>"
       ],
       "limitations": [],
       "source": [
@@ -6332,11 +6418,15 @@
         {
           "file": "internal/layout/flex_chrome_cases_01_02_test.go",
           "name": "TestChromeFlexCase01LegacyAlgorithm"
+        },
+        {
+          "file": "internal/layout/css_behavior_flex_grid_test.go",
+          "name": "TestBehaviorFlexGrowWeightedUsedWidths"
         }
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<number [0,\u221e]>"
+      "upstream_syntax": "<number [0,∞]>"
     },
     {
       "name": "flex-line-count",
@@ -6352,7 +6442,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<integer [1,\u221e]>"
+      "upstream_syntax": "<integer [1,∞]>"
     },
     {
       "name": "flex-shrink",
@@ -6360,11 +6450,9 @@
         "-webkit-flex-shrink"
       ],
       "values": [
-        "<number [0,\u221e]>"
+        "<number [0,∞]>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -6372,10 +6460,15 @@
         "applyFlexBasisProps",
         "applyFlexGroup"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_flex_grid_test.go",
+          "name": "TestBehaviorFlexShrinkNoShrinkUsedWidth"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<number [0,\u221e]>"
+      "upstream_syntax": "<number [0,∞]>"
     },
     {
       "name": "flex-wrap",
@@ -6385,9 +6478,7 @@
       "values": [
         "nowrap | [ wrap | wrap-reverse ] || balance"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -6395,8 +6486,13 @@
         "applyFlexGroup",
         "applyFlexKeywordProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_flex_grid_test.go",
+          "name": "TestBehaviorFlexWrapWrapUsedPosition"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "nowrap | [ wrap | wrap-reverse ] || balance"
     },
@@ -6407,7 +6503,7 @@
         "left | right | none | inherit"
       ],
       "limitations": [
-        "out-of-flow pack to side; stacks on same side; simple exclusion for following in-flow content; float inside `td` packs in cell BFC; in-flow `table` always clears below floats (no shrink-beside); `float` on `table-cell`/`table-row` blockifies (CSS2.1 \u00a79.7)."
+        "out-of-flow pack to side; stacks on same side; simple exclusion for following in-flow content; float inside `td` packs in cell BFC; in-flow `table` always clears below floats (no shrink-beside); `float` on `table-cell`/`table-row` blockifies (CSS2.1 §9.7)."
       ],
       "source": [
         "internal/layout/style_properties.go"
@@ -6567,7 +6663,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "normal | <length-percentage [0,\u221e]> | infinite"
+      "upstream_syntax": "normal | <length-percentage [0,∞]> | infinite"
     },
     {
       "name": "font",
@@ -6790,7 +6886,7 @@
       "name": "font-size-adjust",
       "aliases": [],
       "values": [
-        "none | [ ex-height | cap-height | ch-width | ic-width | ic-height ]? [ from-font | <number [0,\u221e]> ]"
+        "none | [ ex-height | cap-height | ch-width | ic-width | ic-height ]? [ from-font | <number [0,∞]> ]"
       ],
       "limitations": [
         "ex-height number form; `usedFontSize` scales measure and `OpText.Size` from OS/2 `sxHeight`."
@@ -6809,7 +6905,7 @@
       ],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ ex-height | cap-height | ch-width | ic-width | ic-height ]? [ from-font | <number [0,\u221e]> ]"
+      "upstream_syntax": "none | [ ex-height | cap-height | ch-width | ic-width | ic-height ]? [ from-font | <number [0,∞]> ]"
     },
     {
       "name": "font-style",
@@ -6980,7 +7076,7 @@
         "normal | small-caps | inherit"
       ],
       "limitations": [
-        "Keywords map to OT tags (`smcp`, `liga`, `tnum`, `subs`, `jp90`, \u2026) on the same feature pipeline."
+        "Keywords map to OT tags (`smcp`, `liga`, `tnum`, `subs`, `jp90`, …) on the same feature pipeline."
       ],
       "source": [
         "internal/layout/style_font_feature_props.go"
@@ -7020,7 +7116,7 @@
         "normal | small-caps | all-small-caps | petite-caps | all-petite-caps | unicase | titling-caps"
       ],
       "limitations": [
-        "Keywords map to OT tags (`smcp`, `liga`, `tnum`, `subs`, `jp90`, \u2026) on the same feature pipeline."
+        "Keywords map to OT tags (`smcp`, `liga`, `tnum`, `subs`, `jp90`, …) on the same feature pipeline."
       ],
       "source": [
         "internal/layout/style_font_feature_props.go"
@@ -7045,7 +7141,7 @@
         "normal | [ <east-asian-variant-values> || <east-asian-width-values> || ruby ]"
       ],
       "limitations": [
-        "Keywords map to OT tags (`smcp`, `liga`, `tnum`, `subs`, `jp90`, \u2026) on the same feature pipeline."
+        "Keywords map to OT tags (`smcp`, `liga`, `tnum`, `subs`, `jp90`, …) on the same feature pipeline."
       ],
       "source": [
         "internal/layout/style_font_feature_props.go"
@@ -7085,7 +7181,7 @@
         "normal | none | [ <common-lig-values> || <discretionary-lig-values> || <historical-lig-values> || <contextual-alt-values> ]"
       ],
       "limitations": [
-        "Keywords map to OT tags (`smcp`, `liga`, `tnum`, `subs`, `jp90`, \u2026) on the same feature pipeline."
+        "Keywords map to OT tags (`smcp`, `liga`, `tnum`, `subs`, `jp90`, …) on the same feature pipeline."
       ],
       "source": [
         "internal/layout/style_font_feature_props.go"
@@ -7105,7 +7201,7 @@
         "normal | [ <numeric-figure-values> || <numeric-spacing-values> || <numeric-fraction-values> || ordinal || slashed-zero ]"
       ],
       "limitations": [
-        "Keywords map to OT tags (`smcp`, `liga`, `tnum`, `subs`, `jp90`, \u2026) on the same feature pipeline."
+        "Keywords map to OT tags (`smcp`, `liga`, `tnum`, `subs`, `jp90`, …) on the same feature pipeline."
       ],
       "source": [
         "internal/layout/style_font_feature_props.go"
@@ -7125,7 +7221,7 @@
         "normal | sub | super"
       ],
       "limitations": [
-        "Keywords map to OT tags (`smcp`, `liga`, `tnum`, `subs`, `jp90`, \u2026) on the same feature pipeline."
+        "Keywords map to OT tags (`smcp`, `liga`, `tnum`, `subs`, `jp90`, …) on the same feature pipeline."
       ],
       "source": [
         "internal/layout/style_font_feature_props.go"
@@ -7192,7 +7288,7 @@
         "font-stretch"
       ],
       "values": [
-        "normal | <percentage [0,\u221e]> | ultra-condensed | extra-condensed | condensed | semi-condensed | semi-expanded | expanded | extra-expanded | ultra-expanded"
+        "normal | <percentage [0,∞]> | ultra-condensed | extra-condensed | condensed | semi-condensed | semi-expanded | expanded | extra-expanded | ultra-expanded"
       ],
       "limitations": [
         "Keywords/% scale glyph advances (`fontWidthScale`); `font-stretch` aliases `font-width`."
@@ -7223,7 +7319,7 @@
       ],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "normal | <percentage [0,\u221e]> | ultra-condensed | extra-condensed | condensed | semi-condensed | semi-expanded | expanded | extra-expanded | ultra-expanded"
+      "upstream_syntax": "normal | <percentage [0,∞]> | ultra-condensed | extra-condensed | condensed | semi-condensed | semi-expanded | expanded | extra-expanded | ultra-expanded"
     },
     {
       "name": "footnote-display",
@@ -7327,6 +7423,10 @@
         {
           "file": "internal/layout/grid_test.go",
           "name": "TestGridRowGapVsColumnGap"
+        },
+        {
+          "file": "internal/layout/css_behavior_flex_grid_test.go",
+          "name": "TestBehaviorGapGridUsedSpacing"
         }
       ],
       "status": "implemented",
@@ -7418,17 +7518,20 @@
       "values": [
         "<track-size>+"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
       "handlers": [
         "applyGridTemplateAutoProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_flex_grid_test.go",
+          "name": "TestBehaviorGridAutoColumnsImplicitUsedWidth"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<track-size>+"
     },
@@ -7438,17 +7541,20 @@
       "values": [
         "[ row | column ] || dense"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
       "handlers": [
         "applyGridTemplateAutoProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_flex_grid_test.go",
+          "name": "TestBehaviorGridAutoFlowColumnUsedPlacement"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ row | column ] || dense"
     },
@@ -7549,6 +7655,10 @@
         {
           "file": "internal/layout/grid_test.go",
           "name": "TestGridRowSpan"
+        },
+        {
+          "file": "internal/layout/css_behavior_flex_grid_test.go",
+          "name": "TestBehaviorGridRowSpanUsedHeight"
         }
       ],
       "status": "implemented",
@@ -7654,17 +7764,20 @@
       "values": [
         "none | <track-list> | <auto-track-list> | subgrid <line-name-list>?"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
       "handlers": [
         "applyGridTemplateCoreProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_flex_grid_test.go",
+          "name": "TestBehaviorGridTemplateColumnsUsedTracks"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | <track-list> | <auto-track-list> | subgrid <line-name-list>?"
     },
@@ -7674,17 +7787,20 @@
       "values": [
         "none | <track-list> | <auto-track-list> | subgrid <line-name-list>?"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
       "handlers": [
         "applyGridTemplateCoreProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_flex_grid_test.go",
+          "name": "TestBehaviorGridTemplateRowsUsedTracks"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | <track-list> | <auto-track-list> | subgrid <line-name-list>?"
     },
@@ -7723,9 +7839,7 @@
       "values": [
         "<length> | <percentage> | auto | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -7733,8 +7847,13 @@
         "applyBoxMainSizeProps",
         "applyBoxSizingProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_box_model_test.go",
+          "name": "TestBehaviorHeightContentBoxUsedSize"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<length> | <percentage> | auto | inherit"
     },
@@ -7775,7 +7894,7 @@
       "name": "hyphenate-limit-chars",
       "aliases": [],
       "values": [
-        "[ auto | <integer [0,\u221e]> ]{1,3}"
+        "[ auto | <integer [0,∞]> ]{1,3}"
       ],
       "limitations": [],
       "source": [
@@ -7792,7 +7911,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "[ auto | <integer [0,\u221e]> ]{1,3}"
+      "upstream_syntax": "[ auto | <integer [0,∞]> ]{1,3}"
     },
     {
       "name": "hyphenate-limit-last",
@@ -7821,7 +7940,7 @@
       "name": "hyphenate-limit-lines",
       "aliases": [],
       "values": [
-        "no-limit | <integer [0,\u221e]>"
+        "no-limit | <integer [0,∞]>"
       ],
       "limitations": [],
       "source": [
@@ -7838,7 +7957,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "no-limit | <integer [0,\u221e]>"
+      "upstream_syntax": "no-limit | <integer [0,∞]>"
     },
     {
       "name": "hyphenate-limit-zone",
@@ -7890,6 +8009,10 @@
         {
           "file": "internal/layout/style_text_props_test.go",
           "name": "TestTextPropsWave3"
+        },
+        {
+          "file": "internal/layout/css_behavior_text_test.go",
+          "name": "TestBehaviorHyphensNoneSuppressesSoftHyphenBreak"
         }
       ],
       "status": "implemented",
@@ -7972,7 +8095,7 @@
       "name": "initial-letter",
       "aliases": [],
       "values": [
-        "normal | <number [1,\u221e]> <integer [1,\u221e]> | <number [1,\u221e]> && [ drop | raise ]?"
+        "normal | <number [1,∞]> <integer [1,∞]> | <number [1,∞]> && [ drop | raise ]?"
       ],
       "limitations": [
         "Drop/raise on a real leading element (for example `<span>`); `:first-letter` is rejected by the selector parser; no synthesized first-letter box. Sizes the glyph to N lines and excludes following lines (float-like)."
@@ -7991,7 +8114,7 @@
       ],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "normal | <number [1,\u221e]> <integer [1,\u221e]> | <number [1,\u221e]> && [ drop | raise ]?"
+      "upstream_syntax": "normal | <number [1,∞]> <integer [1,∞]> | <number [1,∞]> && [ drop | raise ]?"
     },
     {
       "name": "initial-letter-align",
@@ -8393,6 +8516,10 @@
         {
           "file": "internal/layout/css_review_02_test.go",
           "name": "TestFlexDistributedJustifyKeepsGap"
+        },
+        {
+          "file": "internal/layout/css_behavior_flex_grid_test.go",
+          "name": "TestBehaviorJustifyContentCenterUsedOffset"
         }
       ],
       "status": "implemented",
@@ -8476,17 +8603,20 @@
       "values": [
         "normal | <length> | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
       "handlers": [
         "applyTextSpacingProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_text_test.go",
+          "name": "TestBehaviorLetterSpacingWidensText"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | <length> | inherit"
     },
@@ -8623,6 +8753,10 @@
         {
           "file": "internal/layout/css_review_02_test.go",
           "name": "TestNormalLineHeightUsesFaceMetrics"
+        },
+        {
+          "file": "internal/layout/css_behavior_text_test.go",
+          "name": "TestBehaviorLineHeightExplicitEnlargesBox"
         }
       ],
       "status": "implemented",
@@ -8643,7 +8777,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<length [0,\u221e]>"
+      "upstream_syntax": "<length [0,∞]>"
     },
     {
       "name": "line-padding",
@@ -9031,6 +9165,10 @@
         {
           "file": "internal/layout/layout_test.go",
           "name": "TestMarginCollapse"
+        },
+        {
+          "file": "internal/layout/css_behavior_box_model_test.go",
+          "name": "TestBehaviorMarginLeftOffsetsSibling"
         }
       ],
       "status": "implemented",
@@ -9091,6 +9229,10 @@
         {
           "file": "internal/layout/layout_test.go",
           "name": "TestMarginCollapse"
+        },
+        {
+          "file": "internal/layout/css_behavior_box_model_test.go",
+          "name": "TestBehaviorMarginTopOffsetsSibling"
         }
       ],
       "status": "implemented",
@@ -9536,6 +9678,10 @@
         {
           "file": "internal/layout/css_apply_test.go",
           "name": "TestLogicalSize"
+        },
+        {
+          "file": "internal/layout/css_behavior_box_model_test.go",
+          "name": "TestBehaviorMaxBlockSizeClampsUsedHeight"
         }
       ],
       "status": "implemented",
@@ -9548,9 +9694,7 @@
       "values": [
         "<length> | <percentage> | none | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -9558,8 +9702,13 @@
         "applyBoxMaxExtentProps",
         "applyBoxSizingProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_box_model_test.go",
+          "name": "TestBehaviorMaxHeightClampsUsedHeight"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<length> | <percentage> | none | inherit"
     },
@@ -9582,6 +9731,10 @@
         {
           "file": "internal/layout/css_apply_test.go",
           "name": "TestLogicalSize"
+        },
+        {
+          "file": "internal/layout/css_behavior_box_model_test.go",
+          "name": "TestBehaviorMaxInlineSizeClampsUsedWidth"
         }
       ],
       "status": "implemented",
@@ -9592,7 +9745,7 @@
       "name": "max-lines",
       "aliases": [],
       "values": [
-        "auto || <integer [1,\u221e]>"
+        "auto || <integer [1,∞]>"
       ],
       "limitations": [
         "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
@@ -9611,7 +9764,7 @@
       ],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "auto || <integer [1,\u221e]>"
+      "upstream_syntax": "auto || <integer [1,∞]>"
     },
     {
       "name": "max-size",
@@ -9635,9 +9788,7 @@
       "values": [
         "<length> | <percentage> | none | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -9645,8 +9796,13 @@
         "applyBoxMaxExtentProps",
         "applyBoxSizingProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_box_model_test.go",
+          "name": "TestBehaviorMaxWidthClampsUsedWidth"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<length> | <percentage> | none | inherit"
     },
@@ -9669,6 +9825,10 @@
         {
           "file": "internal/layout/css_apply_test.go",
           "name": "TestLogicalSize"
+        },
+        {
+          "file": "internal/layout/css_behavior_box_model_test.go",
+          "name": "TestBehaviorMinBlockSizeClampsUsedHeight"
         }
       ],
       "status": "implemented",
@@ -9681,9 +9841,7 @@
       "values": [
         "<length> | <percentage> | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -9691,8 +9849,13 @@
         "applyBoxMinExtentProps",
         "applyBoxSizingProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_box_model_test.go",
+          "name": "TestBehaviorMinHeightClampsUsedHeight"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<length> | <percentage> | inherit"
     },
@@ -9715,6 +9878,10 @@
         {
           "file": "internal/layout/css_apply_test.go",
           "name": "TestLogicalSize"
+        },
+        {
+          "file": "internal/layout/css_behavior_box_model_test.go",
+          "name": "TestBehaviorMinInlineSizeClampsUsedWidth"
         }
       ],
       "status": "implemented",
@@ -9759,9 +9926,7 @@
       "values": [
         "<length> | <percentage> | inherit"
       ],
-      "limitations": [
-        "Handler and consumer exist (container.go:118 and flex.go:876 clamp to MinWidth), but no test proves the clamp from a min-width declaration. Missing behavior: a layout regression that sets min-width and asserts the box is clamped to the floor; TestCascadeEngineSupportsPropertyValues only checks value acceptance."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -9773,9 +9938,17 @@
         {
           "file": "internal/layout/style_cascade_test.go",
           "name": "TestCascadeEngineSupportsPropertyValues"
+        },
+        {
+          "file": "internal/layout/css_behavior_box_model_test.go",
+          "name": "TestBehaviorMinWidthClampsUsedWidth"
+        },
+        {
+          "file": "internal/layout/css_behavior_reference_test.go",
+          "name": "TestBehaviorMinWidthClampsUsedWidthReference"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<length> | <percentage> | inherit"
     },
@@ -10025,9 +10198,7 @@
       "values": [
         "<opacity-value>"
       ],
-      "limitations": [
-        "Parsed and consumed: opacity creates a stacking context (layout.go:1002-1014) and the transform/blend path reads it (transform.go:1094 and :1122). Missing behavior: a paint regression for the opacity value and its stacking-context effect. TestCascadeEngineSupportsPropertyValues covers @supports acceptance only."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -10038,9 +10209,13 @@
         {
           "file": "internal/layout/style_cascade_test.go",
           "name": "TestCascadeEngineSupportsPropertyValues"
+        },
+        {
+          "file": "internal/layout/css_behavior_borders_test.go",
+          "name": "TestBehaviorOpacityFoldsIntoPaintOps"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<opacity-value>"
     },
@@ -10053,9 +10228,7 @@
       "values": [
         "<integer>"
       ],
-      "limitations": [
-        "Handler and consumer exist (flex.go:337 and flex_columns.go:298 sort items by FlexOrder), but no test proves reordering. Missing behavior: a layout regression that sets order and asserts painted item order; TestWebkitPrefixAliases only proves the alias mapping."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -10067,9 +10240,13 @@
         {
           "file": "internal/layout/style_cascade_test.go",
           "name": "TestWebkitPrefixAliases"
+        },
+        {
+          "file": "internal/layout/css_behavior_flex_grid_test.go",
+          "name": "TestBehaviorOrderReorderUsedPosition"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<integer>"
     },
@@ -10080,7 +10257,7 @@
         "<integer> | inherit"
       ],
       "limitations": [
-        "Parsed and stored (Orphans, style_properties.go:1749) but no fragmentation consumer reads it. Missing behavior: fragmentation rule 3, keeping at least N lines at the start of a fragment. No behavior test resolves."
+        "orphans parses (initial 2) but paint moves whole ops across page boundaries without splitting lines, so orphans cannot take effect (TestBehaviorOrphansNoFragmentationEffect)."
       ],
       "source": [
         "internal/layout/style_properties.go"
@@ -10089,7 +10266,12 @@
         "applyOrphansWidowsProps",
         "applyTableBreakGroup"
       ],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_columns_test.go",
+          "name": "TestBehaviorOrphansNoFragmentationEffect"
+        }
+      ],
       "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<integer> | inherit"
@@ -10127,6 +10309,10 @@
         {
           "file": "internal/layout/outline_test.go",
           "name": "TestOutlinePaintsInflatedRect"
+        },
+        {
+          "file": "internal/layout/css_behavior_borders_test.go",
+          "name": "TestBehaviorOutlineShorthandPaintsOutsideBorderBox"
         }
       ],
       "status": "implemented",
@@ -10158,6 +10344,10 @@
         {
           "file": "internal/layout/outline_test.go",
           "name": "TestOutlinePaintsInflatedRect"
+        },
+        {
+          "file": "internal/layout/css_behavior_borders_test.go",
+          "name": "TestBehaviorOutlineColorPaintsStrokeColor"
         }
       ],
       "status": "implemented",
@@ -10185,6 +10375,10 @@
         {
           "file": "internal/layout/outline_test.go",
           "name": "TestOutlinePaintsInflatedRect"
+        },
+        {
+          "file": "internal/layout/css_behavior_borders_test.go",
+          "name": "TestBehaviorOutlineOffsetInflatesRect"
         }
       ],
       "status": "implemented",
@@ -10212,6 +10406,10 @@
         {
           "file": "internal/layout/outline_test.go",
           "name": "TestOutlinePaintsInflatedRect"
+        },
+        {
+          "file": "internal/layout/css_behavior_borders_test.go",
+          "name": "TestBehaviorOutlineStyleDashedExpandsSegments"
         }
       ],
       "status": "implemented",
@@ -10243,6 +10441,10 @@
         {
           "file": "internal/layout/outline_test.go",
           "name": "TestOutlinePaintsInflatedRect"
+        },
+        {
+          "file": "internal/layout/css_behavior_borders_test.go",
+          "name": "TestBehaviorOutlineWidthSetsStrokeWidth"
         }
       ],
       "status": "implemented",
@@ -10255,9 +10457,7 @@
       "values": [
         "visible | hidden | scroll | auto | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -10265,8 +10465,13 @@
         "applyDisplayFlowProps",
         "setOverflowKeyword"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_columns_test.go",
+          "name": "TestBehaviorOverflowHiddenClipsTallChild"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "visible | hidden | scroll | auto | inherit"
     },
@@ -10940,6 +11145,10 @@
         {
           "file": "internal/layout/layout_test.go",
           "name": "TestPaddingBorderBox"
+        },
+        {
+          "file": "internal/layout/css_behavior_box_model_test.go",
+          "name": "TestBehaviorPaddingLeftOffsetsContent"
         }
       ],
       "status": "implemented",
@@ -10992,6 +11201,10 @@
         {
           "file": "internal/layout/layout_test.go",
           "name": "TestPaddingBorderBox"
+        },
+        {
+          "file": "internal/layout/css_behavior_box_model_test.go",
+          "name": "TestBehaviorPaddingTopOffsetsContent"
         }
       ],
       "status": "implemented",
@@ -11054,7 +11267,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "svg",
-      "upstream_syntax": "none | <length> [0,\u221e]"
+      "upstream_syntax": "none | <length> [0,∞]"
     },
     {
       "name": "pause",
@@ -11086,7 +11299,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<time [0s,\u221e]> | none | x-weak | weak | medium | strong | x-strong"
+      "upstream_syntax": "<time [0s,∞]> | none | x-weak | weak | medium | strong | x-strong"
     },
     {
       "name": "pause-before",
@@ -11102,13 +11315,13 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<time [0s,\u221e]> | none | x-weak | weak | medium | strong | x-strong"
+      "upstream_syntax": "<time [0s,∞]> | none | x-weak | weak | medium | strong | x-strong"
     },
     {
       "name": "perspective",
       "aliases": [],
       "values": [
-        "none | <length [0,\u221e]>"
+        "none | <length [0,∞]>"
       ],
       "limitations": [
         "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
@@ -11122,7 +11335,7 @@
       "tests": [],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "none | <length [0,\u221e]>"
+      "upstream_syntax": "none | <length [0,∞]>"
     },
     {
       "name": "perspective-origin",
@@ -11463,6 +11676,10 @@
         {
           "file": "internal/layout/quotes_test.go",
           "name": "TestQuotes"
+        },
+        {
+          "file": "internal/layout/css_behavior_text_test.go",
+          "name": "TestBehaviorQuotesEmitGeneratedMarks"
         }
       ],
       "status": "implemented",
@@ -11579,7 +11796,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<time [0s,\u221e]> | none | x-weak | weak | medium | strong | x-strong"
+      "upstream_syntax": "<time [0s,∞]> | none | x-weak | weak | medium | strong | x-strong"
     },
     {
       "name": "rest-before",
@@ -11595,7 +11812,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<time [0s,\u221e]> | none | x-weak | weak | medium | strong | x-strong"
+      "upstream_syntax": "<time [0s,∞]> | none | x-weak | weak | medium | strong | x-strong"
     },
     {
       "name": "right",
@@ -11662,7 +11879,7 @@
         "grid-row-gap"
       ],
       "values": [
-        "normal | <length-percentage [0,\u221e]> | <line-width>"
+        "normal | <length-percentage [0,∞]> | <line-width>"
       ],
       "limitations": [],
       "source": [
@@ -11677,11 +11894,15 @@
         {
           "file": "internal/layout/grid_test.go",
           "name": "TestGridRowGapVsColumnGap"
+        },
+        {
+          "file": "internal/layout/css_behavior_flex_grid_test.go",
+          "name": "TestBehaviorRowGapGridUsedSpacing"
         }
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "normal | <length-percentage [0,\u221e]> | <line-width>"
+      "upstream_syntax": "normal | <length-percentage [0,∞]> | <line-width>"
     },
     {
       "name": "row-rule",
@@ -12528,7 +12749,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "[ auto | <length-percentage [0,\u221e]> ]{1,4}"
+      "upstream_syntax": "[ auto | <length-percentage [0,∞]> ]{1,4}"
     },
     {
       "name": "scroll-padding-block",
@@ -12544,7 +12765,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "[ auto | <length-percentage [0,\u221e]> ]{1,2}"
+      "upstream_syntax": "[ auto | <length-percentage [0,∞]> ]{1,2}"
     },
     {
       "name": "scroll-padding-block-end",
@@ -12560,7 +12781,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
+      "upstream_syntax": "auto | <length-percentage [0,∞]>"
     },
     {
       "name": "scroll-padding-block-start",
@@ -12576,7 +12797,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
+      "upstream_syntax": "auto | <length-percentage [0,∞]>"
     },
     {
       "name": "scroll-padding-bottom",
@@ -12592,7 +12813,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
+      "upstream_syntax": "auto | <length-percentage [0,∞]>"
     },
     {
       "name": "scroll-padding-inline",
@@ -12608,7 +12829,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "[ auto | <length-percentage [0,\u221e]> ]{1,2}"
+      "upstream_syntax": "[ auto | <length-percentage [0,∞]> ]{1,2}"
     },
     {
       "name": "scroll-padding-inline-end",
@@ -12624,7 +12845,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
+      "upstream_syntax": "auto | <length-percentage [0,∞]>"
     },
     {
       "name": "scroll-padding-inline-start",
@@ -12640,7 +12861,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
+      "upstream_syntax": "auto | <length-percentage [0,∞]>"
     },
     {
       "name": "scroll-padding-left",
@@ -12656,7 +12877,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
+      "upstream_syntax": "auto | <length-percentage [0,∞]>"
     },
     {
       "name": "scroll-padding-right",
@@ -12672,7 +12893,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
+      "upstream_syntax": "auto | <length-percentage [0,∞]>"
     },
     {
       "name": "scroll-padding-top",
@@ -12688,7 +12909,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
+      "upstream_syntax": "auto | <length-percentage [0,∞]>"
     },
     {
       "name": "scroll-snap-align",
@@ -12886,7 +13107,7 @@
       "name": "shape-margin",
       "aliases": [],
       "values": [
-        "<length-percentage [0,\u221e]>"
+        "<length-percentage [0,∞]>"
       ],
       "limitations": [
         "Expands the outside contour (circle/ellipse radius or inset edges)."
@@ -12900,7 +13121,7 @@
       "tests": [],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,\u221e]>"
+      "upstream_syntax": "<length-percentage [0,∞]>"
     },
     {
       "name": "shape-outside",
@@ -12936,7 +13157,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,\u221e]>"
+      "upstream_syntax": "<length-percentage [0,∞]>"
     },
     {
       "name": "shape-rendering",
@@ -13523,10 +13744,10 @@
       "name": "tab-size",
       "aliases": [],
       "values": [
-        "<number [0,\u221e]> | <length [0,\u221e]>"
+        "<number [0,∞]> | <length [0,∞]>"
       ],
       "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
+        "tab-size value is ignored in paint width: tab-size 2 vs 8 emit byte-equal widths (TestBehaviorTabSizeFixedAdvanceIgnoresValue). The resolved style carries TabSize but the paint fast path does not apply tab stops."
       ],
       "source": [
         "internal/layout/style_properties.go",
@@ -13540,11 +13761,15 @@
         {
           "file": "internal/layout/style_text_props_test.go",
           "name": "TestTextPropsWave3"
+        },
+        {
+          "file": "internal/layout/css_behavior_text_test.go",
+          "name": "TestBehaviorTabSizeFixedAdvanceIgnoresValue"
         }
       ],
       "status": "partial",
       "upstream_class": "draft",
-      "upstream_syntax": "<number [0,\u221e]> | <length [0,\u221e]>"
+      "upstream_syntax": "<number [0,∞]> | <length [0,∞]>"
     },
     {
       "name": "table-layout",
@@ -13576,9 +13801,7 @@
       "values": [
         "left | right | center | justify | inherit"
       ],
-      "limitations": [
-        "left/right/center; `justify` distributes leftover space between word items on non-final lines (`inline.go`); test `TestTextAlignJustify`"
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -13589,9 +13812,13 @@
         {
           "file": "internal/layout/invoice_css_test.go",
           "name": "TestTextAlignJustify"
+        },
+        {
+          "file": "internal/layout/css_behavior_text_test.go",
+          "name": "TestBehaviorTextAlignCentersLine"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "left | right | center | justify | inherit"
     },
@@ -14272,6 +14499,10 @@
         {
           "file": "internal/layout/style_cascade_test.go",
           "name": "TestTextIndentInheritsAndShiftsFirstLine"
+        },
+        {
+          "file": "internal/layout/css_behavior_text_test.go",
+          "name": "TestBehaviorTextIndentShiftsFirstLine"
         }
       ],
       "status": "implemented",
@@ -14412,7 +14643,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | none | <percentage [0,\u221e]>"
+      "upstream_syntax": "auto | none | <percentage [0,∞]>"
     },
     {
       "name": "text-spacing",
@@ -14470,17 +14701,20 @@
       "values": [
         "capitalize | uppercase | lowercase | none | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
       "handlers": [
         "applyTextLayoutProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_text_test.go",
+          "name": "TestBehaviorTextTransformUppercaseEmitsCaps"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "capitalize | uppercase | lowercase | none | inherit"
     },
@@ -14603,7 +14837,7 @@
         "auto | balance | stable"
       ],
       "limitations": [
-        "`balance` re-breaks each forced-break segment with the Blink ParagraphLineBreaker bisection: max 6 lines, minimum candidate width 0.8 * average normal line width, 1 px epsilon (inline_balance.go). `stable` wraps greedily like `auto`, matching Chrome. `pretty` and `avoid-short-last-line` are rejected by the acceptance gate and fall back to normal wrapping; Chrome breaks `pretty` with a score-based algorithm that avoids short last lines. `balance` is skipped for floats, line clamp, and text-indent, and its greedy dry run can pick different break sets than Chrome's ScoreLineBreaker when uneven word widths leave several valid sets. Browser reference: Chrome 143.0.7499.40 under temps/css-review/wrap/."
+        "auto is pinned to normal line breaks (TestBehaviorTextWrapStyleAutoMatchesNormal); balance is covered by inline_balance_test.go but pretty and avoid-short-last-line still fall back to greedy with no dedicated test."
       ],
       "source": [
         "internal/layout/style_properties.go",
@@ -14646,6 +14880,10 @@
         {
           "file": "layout/text_wrap_acceptance_test.go",
           "name": "TestDisplaySupportsTextWrapStyleAcceptance"
+        },
+        {
+          "file": "internal/layout/css_behavior_text_test.go",
+          "name": "TestBehaviorTextWrapStyleAutoMatchesNormal"
         }
       ],
       "status": "partial",
@@ -15012,7 +15250,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<time [0s,\u221e]>#"
+      "upstream_syntax": "<time [0s,∞]>#"
     },
     {
       "name": "transition-property",
@@ -15156,6 +15394,10 @@
         {
           "file": "internal/layout/invoice_css_test.go",
           "name": "TestTableCellVerticalAlignMiddle"
+        },
+        {
+          "file": "internal/layout/css_behavior_text_test.go",
+          "name": "TestBehaviorVerticalAlignSuperRaisesText"
         }
       ],
       "status": "implemented",
@@ -15343,7 +15585,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <time [0s,\u221e]>"
+      "upstream_syntax": "auto | <time [0s,∞]>"
     },
     {
       "name": "voice-family",
@@ -15375,7 +15617,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<frequency [0Hz,\u221e]> && absolute | [ [ x-low | low | medium | high | x-high ] || [ <frequency [0Hz,\u221e]> | <semitones> | <percentage> ] ]"
+      "upstream_syntax": "<frequency [0Hz,∞]> && absolute | [ [ x-low | low | medium | high | x-high ] || [ <frequency [0Hz,∞]> | <semitones> | <percentage> ] ]"
     },
     {
       "name": "voice-range",
@@ -15391,7 +15633,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<frequency [0Hz,\u221e]> && absolute | [ [ x-low | low | medium | high | x-high ] || [ <frequency [0Hz,\u221e]> | <semitones> | <percentage> ] ]"
+      "upstream_syntax": "<frequency [0Hz,∞]> && absolute | [ [ x-low | low | medium | high | x-high ] || [ <frequency [0Hz,∞]> | <semitones> | <percentage> ] ]"
     },
     {
       "name": "voice-rate",
@@ -15407,7 +15649,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "[ normal | x-slow | slow | medium | fast | x-fast ] || <percentage [0,\u221e]>"
+      "upstream_syntax": "[ normal | x-slow | slow | medium | fast | x-fast ] || <percentage [0,∞]>"
     },
     {
       "name": "voice-stress",
@@ -15462,6 +15704,10 @@
         {
           "file": "internal/layout/css_apply_test.go",
           "name": "TestWhiteSpacePreWrap"
+        },
+        {
+          "file": "internal/layout/css_behavior_text_test.go",
+          "name": "TestBehaviorWhiteSpaceNowrapKeepsSingleLine"
         }
       ],
       "status": "implemented",
@@ -15581,6 +15827,10 @@
         {
           "file": "internal/css/pseudo_element_drop_test.go",
           "name": "TestPseudoElementSelectorDoesNotApplyToHost"
+        },
+        {
+          "file": "internal/layout/css_behavior_box_model_test.go",
+          "name": "TestBehaviorWidthContentBoxUsedSize"
         }
       ],
       "status": "implemented",
@@ -15676,6 +15926,10 @@
         {
           "file": "internal/layout/css_apply_test.go",
           "name": "TestWordSpacingWidensRuns"
+        },
+        {
+          "file": "internal/layout/css_behavior_text_test.go",
+          "name": "TestBehaviorWordSpacingWidensText"
         }
       ],
       "status": "implemented",
@@ -15856,7 +16110,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<number [0,\u221e]> | <percentage [0,\u221e]>"
+      "upstream_syntax": "<number [0,∞]> | <percentage [0,∞]>"
     }
   ]
 }
