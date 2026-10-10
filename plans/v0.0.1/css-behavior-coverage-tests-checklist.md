@@ -1,7 +1,7 @@
 # 0.0.1 - CSS behavior coverage tests for the 428 fixture cells
 
 > **Parent:** `html-css-json-compatibility-checklist.md` (CAT-05/CAT-06 audit rows) and `phase-wise-checklist.md`. The audit demoted rows whose only proof was a stored-string assertion; this plan writes the missing behavior tests.
-> **Status:** open. Wave A landed 2026-10-10: 74 behavior tests across 6 new files, harness promoted to test/chrome/harness/, catalog 125 implemented / 266 partial / 387 unsupported / 7 intentionally ignored. Remaining: positioning, tables, transforms, text-decoration, font selection, direction/script, lists, interaction paint, phase 6 engine work, phase 7 decisions, phase 8 gates.
+> **Status:** open. Wave B landed 2026-10-10: 50 more behavior tests across 4 new files, catalog 156 implemented / 235 partial / 387 unsupported / 7 intentionally ignored. Remaining: phase 6 engine work, phase 7 decisions, phase 8 gates.
 > **Estimated effort:** seven waves. No engine redesign. Roughly 300 test cases across ~40 new test files, all in existing packages.
 
 ---

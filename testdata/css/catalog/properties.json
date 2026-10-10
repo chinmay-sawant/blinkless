@@ -11,8 +11,8 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 125,
-      "partial": 266,
+      "implemented": 156,
+      "partial": 235,
       "unsupported": 387,
       "intentionally ignored": 7
     },
@@ -657,17 +657,20 @@
       "values": [
         "auto | <color>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
       "handlers": [
         "applyColorForegroundProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_interaction_test.go",
+          "name": "TestBehaviorAccentColorTintsMeterFill"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "browser-ui",
       "upstream_syntax": "auto | <color>"
     },
@@ -1118,7 +1121,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_interaction_test.go",
+          "name": "TestBehaviorAppearanceNoneKeepsRangeThumb"
+        }
+      ],
       "status": "intentionally ignored",
       "upstream_class": "browser-ui",
       "upstream_syntax": "none | auto | base | base-select | <compat-auto> | <compat-special>"
@@ -2440,6 +2448,10 @@
         {
           "file": "internal/layout/layout_test.go",
           "name": "TestTableLayout"
+        },
+        {
+          "file": "internal/layout/css_behavior_position_tables_test.go",
+          "name": "TestBehaviorBorderCollapseMergesAdjacency"
         }
       ],
       "status": "implemented",
@@ -3374,6 +3386,10 @@
         {
           "file": "internal/layout/layout_test.go",
           "name": "TestBorderSpacing"
+        },
+        {
+          "file": "internal/layout/css_behavior_position_tables_test.go",
+          "name": "TestBehaviorBorderSpacingWidensColumns"
         }
       ],
       "status": "implemented",
@@ -4013,9 +4029,7 @@
       "values": [
         "top | bottom | inherit"
       ],
-      "limitations": [
-        "Parsed and consumed by table caption placement (layout_tables.go:123). Missing behavior: a placement regression for bottom/left/right. TestCaptionSideParse covers parsing only."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -4027,9 +4041,13 @@
         {
           "file": "internal/layout/css_apply_test.go",
           "name": "TestCaptionSideParse"
+        },
+        {
+          "file": "internal/layout/css_behavior_position_tables_test.go",
+          "name": "TestBehaviorCaptionSideBottomBelowTable"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "top | bottom | inherit"
     },
@@ -4076,7 +4094,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_interaction_test.go",
+          "name": "TestBehaviorCaretColorKeepsPaint"
+        }
+      ],
       "status": "intentionally ignored",
       "upstream_class": "browser-ui",
       "upstream_syntax": "auto | <color> [auto | <color>]?"
@@ -4103,9 +4126,7 @@
       "values": [
         "none | left | right | both | inherit"
       ],
-      "limitations": [
-        "advances past named float bottoms (`float.go`); test `TestFloatLeftRightClear`"
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -4124,9 +4145,13 @@
         {
           "file": "internal/layout/invoice_css_test.go",
           "name": "TestFloatLeftRightClear"
+        },
+        {
+          "file": "internal/layout/css_behavior_position_tables_test.go",
+          "name": "TestBehaviorClearDropsBelowFloats"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | left | right | both | inherit"
     },
@@ -4156,9 +4181,7 @@
       "values": [
         "<clip-source> | [ <basic-shape> || <geometry-box> ] | none"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/clip_path.go",
         "internal/layout/style_paint_props.go"
@@ -4167,8 +4190,13 @@
         "applyClipPathProps",
         "applySVGPresentationProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_interaction_test.go",
+          "name": "TestBehaviorClipPathEllipseMasksImage"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<clip-source> | [ <basic-shape> || <geometry-box> ] | none"
     },
@@ -5039,9 +5067,7 @@
       "values": [
         "normal | none | [ <string> | <uri> | <counter> | attr(<identifier>) | open-quote | close-quote | no-open-quote | no-close-quote ]+ | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_paint_props.go"
       ],
@@ -5060,9 +5086,13 @@
         {
           "file": "internal/layout/style_containment_props_test.go",
           "name": "TestContainmentKeywordHelpers"
+        },
+        {
+          "file": "internal/layout/css_behavior_font_lists_test.go",
+          "name": "TestBehaviorContentBeforeEmitsGeneratedText"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | none | [ <string> | <uri> | <counter> | attr(<identifier>) | open-quote | close-quote | no-open-quote | no-close-quote ]+ | inherit"
     },
@@ -5087,6 +5117,10 @@
         {
           "file": "internal/layout/content_visibility_test.go",
           "name": "TestContentVisibilityHiddenSkipsDescendantLayout"
+        },
+        {
+          "file": "internal/layout/css_behavior_paint_effects_test.go",
+          "name": "TestBehaviorContentVisibilityAutoPaintsDescendants"
         }
       ],
       "status": "implemented",
@@ -5821,7 +5855,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_interaction_test.go",
+          "name": "TestBehaviorCursorPointerKeepsPaint"
+        }
+      ],
       "status": "intentionally ignored",
       "upstream_class": "browser-ui",
       "upstream_syntax": "[ [<uri> ,]* [ auto | crosshair | default | pointer | move | e-resize | ne-resize | nw-resize | n-resize | se-resize | sw-resize | s-resize | w-resize | text | wait | help | progress ] ] | inherit"
@@ -5880,17 +5919,20 @@
       "values": [
         "ltr | rtl | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
       "handlers": [
         "applyDisplayFlowProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_font_lists_test.go",
+          "name": "TestBehaviorDirectionRtlRightAlignsLine"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "ltr | rtl | inherit"
     },
@@ -5988,17 +6030,20 @@
       "values": [
         "show | hide | inherit"
       ],
-      "limitations": [
-        "`show` (default) renders borders/background of empty cells (no visible content); `hide` suppresses `border`/`background` of empty cells."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_advanced_props.go"
       ],
       "handlers": [
         "applyAdvancedProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_position_tables_test.go",
+          "name": "TestBehaviorEmptyCellsHideOmitsBackground"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "show | hide | inherit"
     },
@@ -6246,17 +6291,20 @@
       "values": [
         "none | <filter-value-list>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
       "handlers": [
         "applyDisplayEffectProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_paint_effects_test.go",
+          "name": "TestBehaviorFilterOpacityFoldsIntoPaint"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | <filter-value-list>"
     },
@@ -6502,9 +6550,7 @@
       "values": [
         "left | right | none | inherit"
       ],
-      "limitations": [
-        "out-of-flow pack to side; stacks on same side; simple exclusion for following in-flow content; float inside `td` packs in cell BFC; in-flow `table` always clears below floats (no shrink-beside); `float` on `table-cell`/`table-row` blockifies (CSS2.1 §9.7)."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -6523,9 +6569,13 @@
         {
           "file": "internal/layout/float_table_test.go",
           "name": "TestTableClearsFloat"
+        },
+        {
+          "file": "internal/layout/css_behavior_position_tables_test.go",
+          "name": "TestBehaviorFloatLeftSharesBandWithSibling"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "left | right | none | inherit"
     },
@@ -6700,17 +6750,20 @@
       "values": [
         "[ [ <family-name> | <generic-family> ] [, <family-name> | <generic-family>]* ] | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_cascade.go"
       ],
       "handlers": [
         "applyFontFamilyValue"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_font_lists_test.go",
+          "name": "TestBehaviorFontFamilyFallbackSelectsFace"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ [ <family-name> | <generic-family> ] [, <family-name> | <generic-family>]* ] | inherit"
     },
@@ -6749,9 +6802,7 @@
       "values": [
         "auto | normal | none"
       ],
-      "limitations": [
-        "`none` emits `kern` 0 into `OpText.FontFeatures`."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_font_feature_props.go"
       ],
@@ -6762,9 +6813,13 @@
         {
           "file": "internal/layout/style_font_props_test.go",
           "name": "TestFontPropsWave4"
+        },
+        {
+          "file": "internal/layout/css_behavior_font_lists_test.go",
+          "name": "TestBehaviorFontKerningNoneDisablesKern"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | normal | none"
     },
@@ -6876,6 +6931,10 @@
         {
           "file": "internal/css/css_test.go",
           "name": "TestParseInline"
+        },
+        {
+          "file": "internal/layout/css_behavior_font_lists_test.go",
+          "name": "TestBehaviorFontSizeScalesUsedSize"
         }
       ],
       "status": "implemented",
@@ -6888,9 +6947,7 @@
       "values": [
         "none | [ ex-height | cap-height | ch-width | ic-width | ic-height ]? [ from-font | <number [0,∞]> ]"
       ],
-      "limitations": [
-        "ex-height number form; `usedFontSize` scales measure and `OpText.Size` from OS/2 `sxHeight`."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_font_size_adjust_props.go"
       ],
@@ -6901,9 +6958,13 @@
         {
           "file": "internal/layout/style_font_props_test.go",
           "name": "TestFontPropsWave4"
+        },
+        {
+          "file": "internal/layout/css_behavior_font_lists_test.go",
+          "name": "TestBehaviorFontSizeAdjustScalesUsedSize"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | [ ex-height | cap-height | ch-width | ic-width | ic-height ]? [ from-font | <number [0,∞]> ]"
     },
@@ -6924,6 +6985,10 @@
         {
           "file": "internal/layout/faces_test.go",
           "name": "TestRealBoldFaceOps"
+        },
+        {
+          "file": "internal/layout/css_behavior_font_lists_test.go",
+          "name": "TestBehaviorFontStyleItalicSelectsFace"
         }
       ],
       "status": "implemented",
@@ -7075,17 +7140,20 @@
       "values": [
         "normal | small-caps | inherit"
       ],
-      "limitations": [
-        "Keywords map to OT tags (`smcp`, `liga`, `tnum`, `subs`, `jp90`, …) on the same feature pipeline."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_font_feature_props.go"
       ],
       "handlers": [
         "applyFontFeatureProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_font_lists_test.go",
+          "name": "TestBehaviorFontVariantSmallCapsUppercases"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | small-caps | inherit"
     },
@@ -7276,6 +7344,10 @@
         {
           "file": "internal/layout/faces_test.go",
           "name": "TestRealBoldFaceOps"
+        },
+        {
+          "file": "internal/layout/css_behavior_font_lists_test.go",
+          "name": "TestBehaviorFontWeightBoldSelectsFace"
         }
       ],
       "status": "implemented",
@@ -8253,6 +8325,10 @@
         {
           "file": "internal/layout/css_apply_test.go",
           "name": "TestLogicalInset"
+        },
+        {
+          "file": "internal/layout/css_behavior_position_tables_test.go",
+          "name": "TestBehaviorInsetAnchorsAbsoluteBox"
         }
       ],
       "status": "implemented",
@@ -8574,9 +8650,7 @@
       "values": [
         "<length> | <percentage> | auto | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -8591,9 +8665,13 @@
         {
           "file": "internal/layout/table_transform_clip_test.go",
           "name": "TestTableCellClipsTransformedContent"
+        },
+        {
+          "file": "internal/layout/css_behavior_position_tables_test.go",
+          "name": "TestBehaviorLeftShiftsRelativeBox"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<length> | <percentage> | auto | inherit"
     },
@@ -8893,17 +8971,20 @@
       "values": [
         "disc | circle | square | decimal | decimal-leading-zero | lower-roman | upper-roman | lower-greek | lower-latin | upper-latin | armenian | georgian | lower-alpha | upper-alpha | none | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
       "handlers": [
         "applyListProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_font_lists_test.go",
+          "name": "TestBehaviorListStyleTypeDecimalEmitsNumbers"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "disc | circle | square | decimal | decimal-leading-zero | lower-roman | upper-roman | lower-greek | lower-latin | upper-latin | armenian | georgian | lower-alpha | upper-alpha | none | inherit"
     },
@@ -9958,17 +10039,20 @@
       "values": [
         "<blend-mode> | plus-lighter"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_advanced_props.go"
       ],
       "handlers": [
         "applyAdvancedProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_paint_effects_test.go",
+          "name": "TestBehaviorMixBlendModeOpensGroup"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<blend-mode> | plus-lighter"
     },
@@ -10469,6 +10553,10 @@
         {
           "file": "internal/layout/css_behavior_columns_test.go",
           "name": "TestBehaviorOverflowHiddenClipsTallChild"
+        },
+        {
+          "file": "internal/layout/css_behavior_position_tables_test.go",
+          "name": "TestBehaviorOverflowVisibleKeepsTallChild"
         }
       ],
       "status": "implemented",
@@ -10773,17 +10861,20 @@
       "values": [
         "normal | break-word | anywhere"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
       "handlers": [
         "applyTextWrapProps"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_interaction_test.go",
+          "name": "TestBehaviorOverflowWrapBreakWordWrapsToken"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | break-word | anywhere"
     },
@@ -10793,9 +10884,7 @@
       "values": [
         "visible | hidden | clip | scroll | auto"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -10803,8 +10892,13 @@
         "applyDisplayFlowProps",
         "setOverflowKeyword"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_interaction_test.go",
+          "name": "TestBehaviorOverflowXHiddenClipsWideChild"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "visible | hidden | clip | scroll | auto"
     },
@@ -10814,9 +10908,7 @@
       "values": [
         "visible | hidden | clip | scroll | auto"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -10824,8 +10916,13 @@
         "applyDisplayFlowProps",
         "setOverflowKeyword"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_interaction_test.go",
+          "name": "TestBehaviorOverflowYScrollClipsTallChild"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "visible | hidden | clip | scroll | auto"
     },
@@ -11452,7 +11549,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_interaction_test.go",
+          "name": "TestBehaviorPointerEventsNoneKeepsPaint"
+        }
+      ],
       "status": "intentionally ignored",
       "upstream_class": "browser-ui",
       "upstream_syntax": "auto | bounding-box | visiblePainted | visibleFill | visibleStroke | visible | painted | fill | stroke | all | none"
@@ -11526,6 +11628,10 @@
         {
           "file": "internal/layout/spacing_fix_test.go",
           "name": "TestPositionLiteFixtureReservesOverlaySpace"
+        },
+        {
+          "file": "internal/layout/css_behavior_position_tables_test.go",
+          "name": "TestBehaviorPositionRelativeKeepsFlow"
         }
       ],
       "status": "implemented",
@@ -11761,7 +11867,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_interaction_test.go",
+          "name": "TestBehaviorResizeBothKeepsPaint"
+        }
+      ],
       "status": "intentionally ignored",
       "upstream_class": "browser-ui",
       "upstream_syntax": "none | both | horizontal | vertical | block | inline"
@@ -11857,9 +11968,7 @@
       "values": [
         "none | <angle> | [ x | y | z | <number>{3} ] && <angle>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_leftovers.go",
         "internal/layout/style_properties.go"
@@ -11868,8 +11977,13 @@
         "applyLeftoversProps",
         "applyTransformGroup"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_paint_effects_test.go",
+          "name": "TestBehaviorRotatePropertyBakesMatrix"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | <angle> | [ x | y | z | <number>{3} ] && <angle>"
     },
@@ -12454,9 +12568,7 @@
       "values": [
         "none | [ <number> | <percentage> ]{1,3}"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_leftovers.go",
         "internal/layout/style_properties.go"
@@ -12469,9 +12581,13 @@
         {
           "file": "internal/layout/text_box_spacing_hyphen_test.go",
           "name": "TestTextSpacingTrimApply"
+        },
+        {
+          "file": "internal/layout/css_behavior_paint_effects_test.go",
+          "name": "TestBehaviorScalePropertyScalesPaint"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | [ <number> | <percentage> ]{1,3}"
     },
@@ -13789,6 +13905,10 @@
         {
           "file": "internal/layout/layout_test.go",
           "name": "TestTableLayoutFixedIgnoresContentMax"
+        },
+        {
+          "file": "internal/layout/css_behavior_position_tables_test.go",
+          "name": "TestBehaviorTableLayoutFixedEqualShare"
         }
       ],
       "status": "implemented",
@@ -14045,9 +14165,7 @@
       "values": [
         "<color>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go",
         "internal/layout/style_text_props.go"
@@ -14060,9 +14178,13 @@
         {
           "file": "internal/layout/style_text_props_test.go",
           "name": "TestTextDecorationPropsWave3"
+        },
+        {
+          "file": "internal/layout/css_behavior_paint_effects_test.go",
+          "name": "TestBehaviorTextDecorationColorOverridesInk"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<color>"
     },
@@ -14097,9 +14219,7 @@
       "values": [
         "none | [ underline || overline || line-through || blink ] | spelling-error | grammar-error"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go",
         "internal/layout/style_text_props.go"
@@ -14112,9 +14232,13 @@
         {
           "file": "internal/layout/style_text_props_test.go",
           "name": "TestTextDecorationPropsWave3"
+        },
+        {
+          "file": "internal/layout/css_behavior_paint_effects_test.go",
+          "name": "TestBehaviorTextDecorationLineUnderlineStrokes"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | [ underline || overline || line-through || blink ] | spelling-error | grammar-error"
     },
@@ -14249,9 +14373,7 @@
       "values": [
         "solid | double | dotted | dashed | wavy"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go",
         "internal/layout/style_text_props.go"
@@ -14264,9 +14386,13 @@
         {
           "file": "internal/layout/style_text_props_test.go",
           "name": "TestTextDecorationPropsWave3"
+        },
+        {
+          "file": "internal/layout/css_behavior_paint_effects_test.go",
+          "name": "TestBehaviorTextDecorationStyleDashedSplits"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "solid | double | dotted | dashed | wavy"
     },
@@ -14276,9 +14402,7 @@
       "values": [
         "auto | from-font | <length-percentage> | <line-width>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go",
         "internal/layout/style_text_props.go"
@@ -14291,9 +14415,13 @@
         {
           "file": "internal/layout/style_text_props_test.go",
           "name": "TestTextDecorationPropsWave3"
+        },
+        {
+          "file": "internal/layout/css_behavior_paint_effects_test.go",
+          "name": "TestBehaviorTextDecorationThicknessSetsWidth"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | from-font | <length-percentage> | <line-width>"
     },
@@ -14567,9 +14695,7 @@
       "values": [
         "[ clip | ellipsis | <string> | fade | <fade()> ]{1,2}"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_advanced_props.go"
       ],
@@ -14580,9 +14706,13 @@
         {
           "file": "internal/layout/style_advanced_props_test.go",
           "name": "TestWaveBTextTruncationAndClamping"
+        },
+        {
+          "file": "internal/layout/css_behavior_interaction_test.go",
+          "name": "TestBehaviorTextOverflowEllipsisTruncatesLine"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ clip | ellipsis | <string> | fade | <fade()> ]{1,2}"
     },
@@ -15056,9 +15186,7 @@
       "values": [
         "<length> | <percentage> | auto | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -15077,9 +15205,13 @@
         {
           "file": "internal/settings/settings_test.go",
           "name": "TestMarginEdgeUnknown"
+        },
+        {
+          "file": "internal/layout/css_behavior_position_tables_test.go",
+          "name": "TestBehaviorTopShiftsRelativeBox"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<length> | <percentage> | auto | inherit"
     },
@@ -15107,9 +15239,7 @@
       "values": [
         "none | <transform-list>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -15120,9 +15250,13 @@
         {
           "file": "internal/layout/style_cascade_test.go",
           "name": "TestWebkitPrefixAliases"
+        },
+        {
+          "file": "internal/layout/css_behavior_paint_effects_test.go",
+          "name": "TestBehaviorTransformTranslateMovesPaint"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | <transform-list>"
     },
@@ -15154,17 +15288,20 @@
       "values": [
         "[ left | center | right | top | bottom | <length-percentage> ] | [ left | center | right | <length-percentage> ] [ top | center | bottom | <length-percentage> ] <length>? | [ [ center | left | right ] && [ center | top | bottom ] ] <length>?"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
       "handlers": [
         "applyTransformGroup"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_paint_effects_test.go",
+          "name": "TestBehaviorTransformOriginShiftsRotation"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ left | center | right | top | bottom | <length-percentage> ] | [ left | center | right | <length-percentage> ] [ top | center | bottom | <length-percentage> ] <length>? | [ [ center | left | right ] && [ center | top | bottom ] ] <length>?"
     },
@@ -15290,9 +15427,7 @@
       "values": [
         "none | <length-percentage> [ <length-percentage> <length>? ]?"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_leftovers.go",
         "internal/layout/style_properties.go"
@@ -15301,8 +15436,13 @@
         "applyLeftoversProps",
         "applyTransformGroup"
       ],
-      "tests": [],
-      "status": "partial",
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_paint_effects_test.go",
+          "name": "TestBehaviorTranslatePropertyMovesPaint"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | <length-percentage> [ <length-percentage> <length>? ]?"
     },
@@ -15339,6 +15479,10 @@
         {
           "file": "internal/layout/style_text_support_props_test.go",
           "name": "TestApplyTextSupportPropsUnicodeBidi"
+        },
+        {
+          "file": "internal/layout/css_behavior_font_lists_test.go",
+          "name": "TestBehaviorUnicodeBidiOverrideReversesOrder"
         }
       ],
       "status": "implemented",
@@ -15356,7 +15500,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_interaction_test.go",
+          "name": "TestBehaviorUserSelectNoneKeepsPaint"
+        }
+      ],
       "status": "intentionally ignored",
       "upstream_class": "browser-ui",
       "upstream_syntax": "auto | text | none | contain | all"
@@ -15549,6 +15698,10 @@
         {
           "file": "internal/layout/css_apply_test.go",
           "name": "TestVisibilityHidden"
+        },
+        {
+          "file": "internal/layout/css_behavior_position_tables_test.go",
+          "name": "TestBehaviorVisibilityHiddenKeepsGeometry"
         }
       ],
       "status": "implemented",
@@ -16033,6 +16186,10 @@
         {
           "file": "internal/layout/style_cascade_test.go",
           "name": "TestWritingModeInherits"
+        },
+        {
+          "file": "internal/layout/css_behavior_font_lists_test.go",
+          "name": "TestBehaviorWritingModeVerticalRotatesRun"
         }
       ],
       "status": "implemented",
@@ -16077,9 +16234,7 @@
       "values": [
         "auto | <integer> | inherit"
       ],
-      "limitations": [
-        "Integer or `auto` (`setZIndexValue` `style_properties.go:114`)."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -16090,9 +16245,13 @@
         {
           "file": "internal/layout/style_cascade_test.go",
           "name": "TestCascadeEngineSupportsPropertyValues"
+        },
+        {
+          "file": "internal/layout/css_behavior_position_tables_test.go",
+          "name": "TestBehaviorZIndexOrdersOverlappingPaint"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | <integer> | inherit"
     },
