@@ -414,6 +414,15 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.TransformBox == b.TransformBox &&
 		a.TransformStyle == b.TransformStyle &&
 		a.BackfaceVisibility == b.BackfaceVisibility &&
+		a.Transform3D == b.Transform3D &&
+		a.HasTransform3D == b.HasTransform3D &&
+		a.PerspectiveDist == b.PerspectiveDist &&
+		a.HasPerspective == b.HasPerspective &&
+		a.PerspectiveOriginX == b.PerspectiveOriginX &&
+		a.PerspectiveOriginXPct == b.PerspectiveOriginXPct &&
+		a.PerspectiveOriginY == b.PerspectiveOriginY &&
+		a.PerspectiveOriginYPct == b.PerspectiveOriginYPct &&
+		a.PerspectiveOriginSet == b.PerspectiveOriginSet &&
 		a.FillRule == b.FillRule &&
 		a.ShapeRendering == b.ShapeRendering &&
 		a.DominantBaseline == b.DominantBaseline &&
@@ -767,6 +776,17 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashString(h, s.TransformBox)
 	h = styleInternHashString(h, s.TransformStyle)
 	h = styleInternHashString(h, s.BackfaceVisibility)
+	for _, e := range s.Transform3D {
+		h = styleInternHashFloat64(h, e)
+	}
+	h = styleInternHashBool(h, s.HasTransform3D)
+	h = styleInternHashFloat64(h, s.PerspectiveDist)
+	h = styleInternHashBool(h, s.HasPerspective)
+	h = styleInternHashFloat64(h, s.PerspectiveOriginX)
+	h = styleInternHashBool(h, s.PerspectiveOriginXPct)
+	h = styleInternHashFloat64(h, s.PerspectiveOriginY)
+	h = styleInternHashBool(h, s.PerspectiveOriginYPct)
+	h = styleInternHashBool(h, s.PerspectiveOriginSet)
 	h = styleInternHashString(h, s.FillRule)
 	h = styleInternHashString(h, s.ShapeRendering)
 	h = styleInternHashString(h, s.DominantBaseline)
@@ -1102,6 +1122,15 @@ func styleInternFields() []string {
 		"TransformBox",
 		"TransformStyle",
 		"BackfaceVisibility",
+		"Transform3D",
+		"HasTransform3D",
+		"PerspectiveDist",
+		"HasPerspective",
+		"PerspectiveOriginX",
+		"PerspectiveOriginXPct",
+		"PerspectiveOriginY",
+		"PerspectiveOriginYPct",
+		"PerspectiveOriginSet",
 		"FillRule",
 		"ShapeRendering",
 		"DominantBaseline",

@@ -379,6 +379,25 @@ func (e *engine) layoutInlineFloats(
 			breakW = prettyW
 		}
 
+		// text-wrap-style: avoid-short-last-line narrows the break width per
+		// segment to pull a word down from a short orphan tail, using
+		// avoidShortLineWidth. Kept separate from the balance/pretty branches
+		// above so those widths stay untouched.
+		if avoidShortCanApply(floats, clampLimit, blockStyle) {
+			segStart := idx
+			for segStart > 0 && !items[segStart-1].forceBreak {
+				segStart--
+			}
+
+			segEnd := inlineSegmentEnd(items, segStart)
+			epsilon := pxToPt(1) * e.scale
+
+			seg := items[segStart:segEnd]
+			if w := avoidShortLineWidth(seg, contentW, epsilon); w > 0 && breakW > w {
+				breakW = w
+			}
+		}
+
 		// Pack one line under current exclusion width.
 		start := idx
 		tailW, _ := tailRemaining(items, start)

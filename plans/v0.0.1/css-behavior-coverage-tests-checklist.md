@@ -1,7 +1,7 @@
 # 0.0.1 - CSS behavior coverage tests for the 428 fixture cells
 
 > **Parent:** `html-css-json-compatibility-checklist.md` (CAT-05/CAT-06 audit rows) and `phase-wise-checklist.md`. The audit demoted rows whose only proof was a stored-string assertion; this plan writes the missing behavior tests.
-> **Status:** complete 2026-10-10. Waves A-L landed 522 behavior tests across 60 files, catalog 90/301/387/7 to 381/9/387/8. All phase 8 gates green on the final tree (uncommitted). inline_paint.go split (inline_decoration.go) to hold the file-size gate. Remaining: 9 partial (3D, fragmentation, dynamic-range parser), 387 unsupported.
+> **Status:** complete 2026-10-10. Waves A-M landed 551 behavior tests across 69 files, catalog 90/301/387/7 to 389/1/387/8. All phase 8 gates green on the final tree (uncommitted). inline_paint.go split (inline_decoration.go) to hold the file-size gate. Remaining: 1 partial (break-inside needs a straddle test at the multicol distribution call), 387 unsupported.
 > **Estimated effort:** seven waves. No engine redesign. Roughly 300 test cases across ~40 new test files, all in existing packages.
 
 ---

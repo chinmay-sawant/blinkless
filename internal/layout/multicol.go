@@ -475,6 +475,17 @@ func (e *engine) placeMulticolAnonColumns(
 		bandH = totalH
 	}
 
+	// Orphans: keep at least style.Orphans line rows in the first column.
+	// Pure height bands can strand fewer rows above the first boundary, so
+	// move the boundary later to the mid-gap after the Nth text baseline.
+	// Never past a finite maxColH (definite height or remaining page),
+	// where the column box cannot grow. Reference: Chrome 143.0.7499.40
+	// keeps orphans lines together before a column break.
+	if snapped, ok := snapAnonBandForOrphans(top, totalH, bandH, maxColH,
+		stripLineBaselines(e.ops, cblock.opStart, cblock.opEnd+1), style.Orphans); ok {
+		bandH = snapped
+	}
+
 	// Use the box op range: prependChrome may insert before len-at-build-start.
 	opStart, opEnd := cblock.opStart, cblock.opEnd
 	type colAssign struct {
@@ -703,6 +714,10 @@ func (e *engine) placeMulticolLine(
 		return contentX + float64(c)*(colW+gap)
 	}
 	colHeights := make([]float64, nCols)
+	colLines := make([]int, nCols)
+	widows := multicolWidowsValue(style)
+	orphans := multicolOrphansValue(style)
+	counts, suffixLines, suffixHeights := multicolWidowsSuffix(e, items)
 
 	target := 0.0
 	if balance && nCols > 0 {
@@ -718,7 +733,8 @@ func (e *engine) placeMulticolLine(
 	for i, item := range items {
 		st := e.stylePtr(item.n)
 		if multicolForcedColumnBreak(st, col, colHeights, prevAfterAlways) ||
-			advanceMulticolColumn(col, colHeights, item, nCols, maxColH, target, balance) {
+			advanceMulticolColumn(col, colHeights, item, nCols, maxColH, target, balance) ||
+			multicolWidowsShouldAdvance(col, nCols, colLines, suffixLines, suffixHeights, colHeights, i, len(items), widows, orphans, maxColH, balance) {
 			col++
 		}
 
@@ -740,6 +756,9 @@ func (e *engine) placeMulticolLine(
 		}
 
 		colHeights[col] += cblock.height
+		if i >= 0 && i < len(counts) {
+			colLines[col] += counts[i]
+		}
 
 		if parent != nil {
 			parent.children = append(parent.children, cblock)

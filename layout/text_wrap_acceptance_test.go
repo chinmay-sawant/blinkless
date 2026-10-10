@@ -6,12 +6,12 @@ import (
 )
 
 // TestDisplaySupportsTextWrapStyleAcceptance: @supports must follow the
-// catalog decision for text-wrap-style. balance, stable, auto, and pretty
-// have layout behavior (balance narrows line breaking, pretty re-breaks
-// orphans, stable and auto wrap greedily), so their queries apply;
-// avoid-short-last-line falls back to normal wrapping in this engine and must
-// not satisfy the query. The text-wrap shorthand follows the same rule for
-// its style component, except pretty which the shorthand does not accept.
+// catalog decision for text-wrap-style. balance, stable, auto, pretty, and
+// avoid-short-last-line have layout behavior (balance narrows line breaking,
+// pretty and avoid-short-last-line re-break orphans, stable and auto wrap
+// greedily), so their queries apply. The text-wrap shorthand follows the
+// same rule for its style component, except pretty and avoid-short-last-line
+// which the shorthand does not accept.
 func TestDisplaySupportsTextWrapStyleAcceptance(t *testing.T) {
 	t.Parallel()
 
@@ -27,9 +27,9 @@ func TestDisplaySupportsTextWrapStyleAcceptance(t *testing.T) {
 		{"stable accepted", `@supports (text-wrap-style: stable) { #box { width: 120px } }`, 120},
 		{"pretty accepted", `@supports (text-wrap-style: pretty) { #box { width: 120px } }`, 120},
 		{
-			"avoid-short-last-line rejected",
+			"avoid-short-last-line accepted",
 			`@supports (text-wrap-style: avoid-short-last-line) { #box { width: 120px } }`,
-			11,
+			120,
 		},
 		{"bogus rejected", `@supports (text-wrap-style: bogus) { #box { width: 120px } }`, 11},
 		{"shorthand balance accepted", `@supports (text-wrap: balance) { #box { width: 120px } }`, 120},

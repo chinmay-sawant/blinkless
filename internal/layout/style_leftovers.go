@@ -36,6 +36,10 @@ func applyLeftoversProps(style *ResolvedStyle, prop, value string, fsize float64
 		applyTransformStyleProperty(style, value)
 	case "backface-visibility":
 		applyBackfaceVisibilityProperty(style, value)
+	case "perspective":
+		applyPerspectiveProperty(style, value)
+	case "perspective-origin":
+		applyPerspectiveOriginProperty(style, value, fsize)
 	case "fill-rule":
 		applyFillRuleProperty(style, value)
 	case "shape-rendering":
@@ -154,7 +158,112 @@ func applyBackfaceVisibilityProperty(style *ResolvedStyle, value string) {
 	}
 }
 
-// applyFillRuleProperty owns the standalone fill-rule property. Only nonzero
+// applyPerspectiveProperty owns the perspective property. none clears the
+// distance; a positive length stores the camera distance in pt. Stored only:
+// the stamp-time projection consumer lands with the perspective workstream.
+// Reference: Chrome 143.0.7499.40.
+func applyPerspectiveProperty(style *ResolvedStyle, value string) {
+	val := strings.TrimSpace(strings.ToLower(value))
+	if val == "" || val == cssDisplayNone {
+		style.HasPerspective = false
+		style.PerspectiveDist = 0
+
+		return
+	}
+
+	pt, _, isPct, ok := parseTransformLength(val, 0)
+	if !ok || isPct || pt <= 0 {
+		return
+	}
+
+	style.PerspectiveDist = pt
+	style.HasPerspective = true
+}
+
+// applyPerspectiveOriginProperty owns perspective-origin. One or two tokens
+// from percentages, lengths, and the left/center/right/top/bottom keywords
+// store the vanishing-point offset; anything else leaves the previous
+// declaration intact. Stored only until the perspective-origin workstream
+// reads it in perspectiveCenter. Reference: Chrome 143.0.7499.40.
+func applyPerspectiveOriginProperty(style *ResolvedStyle, value string, fsize float64) {
+	fields := strings.Fields(strings.ToLower(value))
+	if len(fields) == 0 || len(fields) > 2 {
+		return
+	}
+
+	resolve := func(tok string) (float64, bool, bool, bool) {
+		// returns (v, isPct, isVertical, ok)
+		switch tok {
+		case "left":
+			return 0, true, false, true
+		case "center":
+			return 50, true, false, true
+		case "right":
+			return 100, true, false, true
+		case "top":
+			return 0, true, true, true
+		case "bottom":
+			return 100, true, true, true
+		}
+
+		if strings.HasSuffix(tok, "%") {
+			num, ok := parseUnitless(strings.TrimSuffix(tok, "%"))
+			if ok {
+				return num, true, false, true
+			}
+
+			return 0, false, false, false
+		}
+
+		pt, _, isPct, ok := parseTransformLength(tok, fsize)
+		if !ok || isPct {
+			return 0, false, false, false
+		}
+
+		return pt, false, false, true
+	}
+
+	first, firstPct, firstVert, ok := resolve(fields[0])
+	if !ok {
+		return
+	}
+
+	second, secondPct := 50.0, true
+
+	if len(fields) == 2 {
+		var ok bool
+
+		second, secondPct, _, ok = resolve(fields[1])
+		if !ok {
+			return
+		}
+	}
+
+	x, xPct, y, yPct := first, firstPct, second, secondPct
+	if len(fields) == 1 {
+		// Single vertical keyword sets Y and centers X; anything else sets
+		// X and centers Y.
+		if firstVert {
+			x, xPct, y, yPct = 50, true, first, firstPct
+		} else {
+			y, yPct = 50, true
+		}
+	} else if firstVert && isHorizTok(fields[1]) {
+		// "top left" order: swap so X stays horizontal.
+		x, xPct, y, yPct = second, secondPct, first, firstPct
+	}
+	style.PerspectiveOriginX = x
+	style.PerspectiveOriginXPct = xPct
+	style.PerspectiveOriginY = y
+	style.PerspectiveOriginYPct = yPct
+	style.PerspectiveOriginSet = true
+}
+
+// isHorizTok reports whether tok is a horizontal origin keyword.
+func isHorizTok(tok string) bool {
+	return tok == "left" || tok == "right"
+}
+
 // and evenodd are stored canonically; anything else leaves the previous
 // declaration intact. The external canvas rasterizer (tdewolff/canvas via
 // internal/svg) has no fill-rule case even though its core Style carries a

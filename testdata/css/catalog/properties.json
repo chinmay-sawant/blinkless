@@ -11,8 +11,8 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 381,
-      "partial": 9,
+      "implemented": 389,
+      "partial": 1,
       "unsupported": 387,
       "intentionally ignored": 8
     },
@@ -1206,10 +1206,7 @@
       "values": [
         "visible | hidden"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorBackfaceVisibilityNoPaintEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -1220,9 +1217,21 @@
         {
           "file": "internal/layout/css_behavior_svg_paint_test.go",
           "name": "TestBehaviorBackfaceVisibilityNoPaintEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_backface_build_test.go",
+          "name": "TestBackfaceHiddenCullRotateY180"
+        },
+        {
+          "file": "internal/layout/css_behavior_backface_build_test.go",
+          "name": "TestBackfaceVisiblePaintsRotateY180"
+        },
+        {
+          "file": "internal/layout/css_behavior_backface_build_test.go",
+          "name": "TestBackfaceHiddenKeeps2DMirror"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "visible | hidden"
     },
@@ -4290,7 +4299,7 @@
       ],
       "limitations": [
         "break-inside keywords parse but no layout or paint pass reads them; the engine returns a drawing list without paginating, so avoidance has no observable effect (TestBehaviorBreakInsideAvoidColumnNoPageEffect).",
-        "No-op behavior pinned by TestFragmentAssessBreakInsideAvoidMulticolNoEffect; full behavior needs engine work."
+        "break-inside:avoid parses but multicol advances whole items without a straddle test at the distribution call, so avoidance equals auto (TestBreakInsideAvoidBalancedStraddleGap)."
       ],
       "source": [
         "internal/layout/style_properties.go"
@@ -4311,6 +4320,10 @@
         {
           "file": "internal/layout/css_behavior_fragment_assess_test.go",
           "name": "TestFragmentAssessBreakInsideAvoidMulticolNoEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_break_inside_build_test.go",
+          "name": "TestBreakInsideAvoidBalancedStraddleGap"
         }
       ],
       "status": "partial",
@@ -6398,7 +6411,10 @@
         "auto | <baseline-metric>"
       ],
       "limitations": [
-        "No-op behavior pinned by TestBehaviorDominantBaselineNoPaintEffect; full behavior needs engine work."
+        "No-op behavior pinned by TestBehaviorDominantBaselineNoPaintEffect; full behavior needs engine work.",
+        "No-op behavior pinned by TestPerspDominantBaselineBeyondHanging; full behavior needs engine work.",
+        "No-op behavior pinned by TestPerspDominantBaselineInitialAndBogus; full behavior needs engine work.",
+        "No-op behavior pinned by TestPerspDominantBaselineInherits; full behavior needs engine work."
       ],
       "source": [
         "internal/layout/style_paint_props.go"
@@ -6410,6 +6426,18 @@
         {
           "file": "internal/layout/css_behavior_remaining_test.go",
           "name": "TestBehaviorDominantBaselineNoPaintEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_perspective_test.go",
+          "name": "TestPerspDominantBaselineBeyondHanging"
+        },
+        {
+          "file": "internal/layout/css_behavior_perspective_test.go",
+          "name": "TestPerspDominantBaselineInitialAndBogus"
+        },
+        {
+          "file": "internal/layout/css_behavior_perspective_test.go",
+          "name": "TestPerspDominantBaselineInherits"
         }
       ],
       "status": "implemented",
@@ -6422,18 +6450,7 @@
       "values": [
         "standard | no-limit | constrained | <dynamic-range-limit-mix()>"
       ],
-      "limitations": [
-        "Parsed and stored (DynamicRangeLimit, style_color_adjust_props.go:72) but no sRGB clamp consumer reads it. Missing behavior: sRGB channel clamp. Existing tests cover parsing and rejection only.",
-        "No-op behavior pinned by TestBehaviorDynamicRangeLimitStandardNoClampEffect; full behavior needs engine work.",
-        "No-op behavior pinned by TestBehaviorDynamicRangeLimitClampsBrightColors; full behavior needs engine work.",
-        "Wired identity: clampDynamicRangeColor folds channels on the paint path (TestBehaviorDynamicRangeLimitWireClamps), but the parser yields only in-gamut colors so output is unchanged.",
-        "No-op behavior pinned by TestBehaviorDynamicRangeLimitPaintClampDiverges; full behavior needs engine work.",
-        "No-op behavior pinned by TestBehaviorDynamicRangeLimitParserYieldsOnlyInGamut; full behavior needs engine work.",
-        "No-op behavior pinned by TestBehaviorDynamicRangeLimitParserClampsRGB; full behavior needs engine work.",
-        "No-op behavior pinned by TestBehaviorDynamicRangeLimitParserRejectsWideGamut; full behavior needs engine work.",
-        "No-op behavior pinned by TestBehaviorDynamicRangeLimitParserClampsMixAndOklch; full behavior needs engine work.",
-        "No-op behavior pinned by TestBehaviorDynamicRangeLimitParserClampsOklch; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_color_adjust_props.go"
       ],
@@ -6492,9 +6509,33 @@
         {
           "file": "internal/layout/css_behavior_forced_dynamic_test.go",
           "name": "TestBehaviorDynamicRangeLimitParserClampsOklch"
+        },
+        {
+          "file": "internal/layout/css_behavior_wide_gamut_test.go",
+          "name": "TestBehaviorWideGamutDynamicRangeDiverges"
+        },
+        {
+          "file": "internal/layout/css_behavior_wide_gamut_test.go",
+          "name": "TestBehaviorWideGamutTextDiverges"
+        },
+        {
+          "file": "internal/layout/css_behavior_wide_gamut_test.go",
+          "name": "TestBehaviorWideGamutInGamutAgrees"
+        },
+        {
+          "file": "internal/layout/css_behavior_wide_gamut_test.go",
+          "name": "TestBehaviorWideGamutBridgeBoundary"
+        },
+        {
+          "file": "internal/layout/css_behavior_wide_gamut_test.go",
+          "name": "TestBehaviorWideGamutCascadeEndToEnd"
+        },
+        {
+          "file": "internal/layout/css_behavior_wide_gamut_test.go",
+          "name": "TestBehaviorWideGamutTextCascadeEndToEnd"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "standard | no-limit | constrained | <dynamic-range-limit-mix()>"
     },
@@ -11072,10 +11113,7 @@
       "values": [
         "<integer> | inherit"
       ],
-      "limitations": [
-        "orphans parses (initial 2) but paint moves whole ops across page boundaries without splitting lines, so orphans cannot take effect (TestBehaviorOrphansNoFragmentationEffect).",
-        "No-op behavior pinned by TestFragmentAssessOrphansWidowsAnonStripNoEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -11091,9 +11129,17 @@
         {
           "file": "internal/layout/css_behavior_fragment_assess_test.go",
           "name": "TestFragmentAssessOrphansWidowsAnonStripNoEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_orphans_build_test.go",
+          "name": "TestOrphansKeepsLinesInFirstColumn"
+        },
+        {
+          "file": "internal/layout/css_behavior_orphans_build_test.go",
+          "name": "TestSnapAnonBandForOrphans"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<integer> | inherit"
     },
@@ -12210,10 +12256,7 @@
       "values": [
         "none | <length [0,∞]>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorPerspectiveNoLayoutEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -12224,9 +12267,37 @@
         {
           "file": "internal/layout/css_behavior_remaining_test.go",
           "name": "TestBehaviorPerspectiveNoLayoutEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_perspective_build_test.go",
+          "name": "TestPerspBuildRotateYNarrowsOrtho"
+        },
+        {
+          "file": "internal/layout/css_behavior_perspective_build_test.go",
+          "name": "TestPerspBuildAncestorPerspectiveForeshortens"
+        },
+        {
+          "file": "internal/layout/css_behavior_perspective_build_test.go",
+          "name": "TestPerspBuildPerspectiveFunctionAppliesOwnDistance"
+        },
+        {
+          "file": "internal/layout/css_behavior_perspective_build_test.go",
+          "name": "TestPerspBuildPreserveComposedSkipsProjection"
+        },
+        {
+          "file": "internal/layout/css_behavior_perspective_test.go",
+          "name": "TestPerspPerspectiveNoEffectOn2DChild"
+        },
+        {
+          "file": "internal/layout/css_behavior_perspective_test.go",
+          "name": "TestPerspPerspectiveFunctionRejected"
+        },
+        {
+          "file": "internal/layout/css_behavior_perspective_test.go",
+          "name": "TestPerspRotate3DRejected"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | <length [0,∞]>"
     },
@@ -12236,10 +12307,7 @@
       "values": [
         "<position>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorPerspectiveOriginNoLayoutEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -12250,9 +12318,37 @@
         {
           "file": "internal/layout/css_behavior_remaining_test.go",
           "name": "TestBehaviorPerspectiveOriginNoLayoutEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_origin_build_test.go",
+          "name": "TestOriginBuildDefaultIsCenter"
+        },
+        {
+          "file": "internal/layout/css_behavior_origin_build_test.go",
+          "name": "TestOriginBuildPercentages"
+        },
+        {
+          "file": "internal/layout/css_behavior_origin_build_test.go",
+          "name": "TestOriginBuildKeywords"
+        },
+        {
+          "file": "internal/layout/css_behavior_origin_build_test.go",
+          "name": "TestOriginBuildLengths"
+        },
+        {
+          "file": "internal/layout/css_behavior_origin_build_test.go",
+          "name": "TestOriginBuildVanishingPointShiftsProjection"
+        },
+        {
+          "file": "internal/layout/css_behavior_origin_build_test.go",
+          "name": "TestOriginBuildShiftsProjectedOutput"
+        },
+        {
+          "file": "internal/layout/css_behavior_perspective_test.go",
+          "name": "TestPerspPerspectiveOriginNoEffect"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<position>"
     },
@@ -16031,9 +16127,7 @@
       "values": [
         "auto | balance | stable"
       ],
-      "limitations": [
-        "auto is pinned to normal line breaks (TestBehaviorTextWrapStyleAutoMatchesNormal); balance is covered by inline_balance_test.go but pretty and avoid-short-last-line still fall back to greedy with no dedicated test."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go",
         "internal/layout/style_text_props.go",
@@ -16079,9 +16173,25 @@
         {
           "file": "internal/layout/css_behavior_text_test.go",
           "name": "TestBehaviorTextWrapStyleAutoMatchesNormal"
+        },
+        {
+          "file": "internal/layout/css_behavior_avoid_short_test.go",
+          "name": "TestAvoidShortWireRebreaksOrphan"
+        },
+        {
+          "file": "internal/layout/css_behavior_avoid_short_test.go",
+          "name": "TestAvoidShortHelperRebreaksOrphan"
+        },
+        {
+          "file": "internal/layout/css_behavior_avoid_short_test.go",
+          "name": "TestAvoidShortKeepsGoodBreaks"
+        },
+        {
+          "file": "internal/layout/css_behavior_avoid_short_test.go",
+          "name": "TestAvoidShortApplyGates"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | balance | stable | pretty | avoid-short-last-line"
     },
@@ -16381,10 +16491,7 @@
       "values": [
         "flat | preserve-3d"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorTransformStylePreserve3DNoPaintEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -16395,9 +16502,21 @@
         {
           "file": "internal/layout/css_behavior_final_test.go",
           "name": "TestBehaviorTransformStylePreserve3DNoPaintEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_perspective_test.go",
+          "name": "TestPerspTransformStyleFlatteningIdentical"
+        },
+        {
+          "file": "internal/layout/css_behavior_preserve_build_test.go",
+          "name": "TestPreserveBuildNestedCounterRotationDiverges"
+        },
+        {
+          "file": "internal/layout/css_behavior_preserve_build_test.go",
+          "name": "TestPreserveBuildFlatBoundaryClearsChain"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "flat | preserve-3d"
     },
@@ -17016,9 +17135,7 @@
       "values": [
         "<integer> | inherit"
       ],
-      "limitations": [
-        "widows parses but no layout pass reads it; paint moves whole ops across page boundaries without splitting lines (TestBehaviorWidowsNoFragmentationEffect)."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -17030,9 +17147,13 @@
         {
           "file": "internal/layout/css_behavior_text_remaining_test.go",
           "name": "TestBehaviorWidowsNoFragmentationEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_widows_build_test.go",
+          "name": "TestBehaviorWidowsKeepsMinLinesInNextColumn"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<integer> | inherit"
     },

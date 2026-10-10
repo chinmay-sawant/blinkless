@@ -1,7 +1,11 @@
 //nolint:cyclop // color-adjust, forced-colors, and dynamic-range property dispatch
 package layout
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/chinmay-sawant/blinkless/internal/css"
+)
 
 // Print color adjustment keywords. The apply arm stores only these normalized
 // spellings; paint consumers compare against the same constants.
@@ -361,4 +365,41 @@ func usedTextForPaintActive(color [3]float64, rootScheme, adjust, limit string, 
 	color = forcedColorsPaintColor(forcedActive, adjust, color, [3]float64{})
 
 	return clampDynamicRangeColor(color, limit)
+}
+
+// usedWideBGForPaint resolves an author background-color string to a used
+// paint fill under a dynamic-range-limit value. Wide-gamut spellings keep
+// their headroom through css.ParseColorWide, so standard and
+// constrained-high fold them into sRGB while no-limit and high preserve the
+// out-of-range channels. The legacy css.ParseColor byte pipeline cannot
+// carry headroom (its 0..255 int return folds at parse time), so this is the
+// author-string entry point that reaches the clamp with headroom intact.
+// Forced-colors mapping stays in the full pipeline (usedBGForPaintActive);
+// this covers the parse-to-clamp seam with forced mode off. Reference:
+// Chrome 143.0.7499.40.
+func usedWideBGForPaint(value, limit string) ([4]float64, bool) {
+	rgb, alpha, ok := css.ParseColorWide(value)
+	if !ok {
+		return [4]float64{}, false
+	}
+
+	if alpha <= 0 {
+		return [4]float64{rgb[0], rgb[1], rgb[2], alpha}, true
+	}
+
+	rgb = clampDynamicRangeColor(rgb, limit)
+
+	return [4]float64{rgb[0], rgb[1], rgb[2], alpha}, true
+}
+
+// usedWideTextForPaint resolves an author text color string to used ink
+// under a dynamic-range-limit value, preserving wide-gamut headroom until
+// the clamp. Reference: Chrome 143.0.7499.40.
+func usedWideTextForPaint(value, limit string) ([3]float64, bool) {
+	rgb, _, ok := css.ParseColorWide(value)
+	if !ok {
+		return [3]float64{}, false
+	}
+
+	return clampDynamicRangeColor(rgb, limit), true
 }

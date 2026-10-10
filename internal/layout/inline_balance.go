@@ -7,10 +7,11 @@ package layout
 // its core width search lives beside balance, while the cascade acceptance
 // and pack-loop hook stay owned elsewhere (named in prettyLineWidth).
 const (
-	textWrapStyleAuto    = "auto"
-	textWrapStyleBalance = "balance"
-	textWrapStyleStable  = "stable"
-	textWrapStylePretty  = "pretty"
+	textWrapStyleAuto       = "auto"
+	textWrapStyleBalance    = "balance"
+	textWrapStyleStable     = "stable"
+	textWrapStylePretty     = "pretty"
+	textWrapStyleAvoidShort = "avoid-short-last-line"
 )
 
 const (
@@ -226,6 +227,68 @@ func prettyPackLines(items []inlineItem, width float64) ([]prettyLineStat, bool)
 	flush()
 
 	return lines, true
+}
+
+// avoidShortMinLastWords is the smallest acceptable last-line word count for
+// text-wrap-style: avoid-short-last-line. A greedy tail of one word is short;
+// Chrome 143.0.7499.40 pulls another word down instead of leaving it alone.
+const avoidShortMinLastWords = 2
+
+// avoidShortCanApply reports whether a block's paragraphs may use
+// avoid-short-last-line wrapping: no active floats, no line clamp, and a
+// text-wrap-style: avoid-short-last-line block without a first-line indent.
+// It mirrors prettyCanApply so the two stay aligned.
+func avoidShortCanApply(floats *floatState, clampLimit int, blockStyle *ResolvedStyle) bool {
+	if blockStyle == nil || clampLimit != 0 || blockStyle.TextIndent != 0 ||
+		blockStyle.TextWrapStyle != textWrapStyleAvoidShort {
+		return false
+	}
+
+	return floats == nil || (!floats.hasLeft && !floats.hasRight)
+}
+
+// avoidShortTailOK reports whether a packed last line avoids the orphan fix.
+func avoidShortTailOK(last prettyLineStat) bool {
+	return last.words >= avoidShortMinLastWords
+}
+
+// avoidShortLineWidth returns a narrower break width that avoids a short last
+// line, or 0 when greedy wrapping already ends well.
+//
+// It mirrors prettyLineWidth: pack at the full width, keep greedy when it
+// yields one line or a last line of at least avoidShortMinLastWords words,
+// and otherwise scan downward for the widest width that keeps the same line
+// count with an acceptable tail. The scan steps by epsilon (one CSS pixel at
+// the caller's scale) so the result is stable across scales. Reference:
+// Chrome 143.0.7499.40 avoids the orphan without adding lines.
+//
+// contentW and the returned width are engine points.
+func avoidShortLineWidth(items []inlineItem, contentW, epsilon float64) float64 {
+	if contentW <= 0 || epsilon <= 0 {
+		return 0
+	}
+
+	normalLines, ok := prettyPackLines(items, contentW)
+	if !ok || len(normalLines) < minBalanceLines {
+		return 0
+	}
+
+	if avoidShortTailOK(normalLines[len(normalLines)-1]) {
+		return 0
+	}
+
+	for width := contentW - epsilon; width > 0; width -= epsilon {
+		candidate, ok := prettyPackLines(items, width)
+		if !ok || len(candidate) != len(normalLines) {
+			continue
+		}
+
+		if avoidShortTailOK(candidate[len(candidate)-1]) {
+			return width
+		}
+	}
+
+	return 0
 }
 
 // inlineSegmentEnd returns the index of the first forced break at or after

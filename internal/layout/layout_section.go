@@ -120,6 +120,7 @@ func assembleNodeResult(eng *engine, rootBox *box, opts Options, workspace *Work
 	}
 
 	if eng.needsXformStamp {
+		propagatePerspective(rootBox)
 		stampBoxTransforms(rootBox, IdentityMatrix(), res.Ops)
 	}
 

@@ -44,12 +44,21 @@ func parseUsedColorAlpha(value string, current [3]float64) ([3]float64, float64,
 		return current, 1, true
 	}
 
-	r, g, b, a, ok := css.ParseColor(value)
+	red, green, blue, alpha, ok := css.ParseColor(value)
 	if !ok {
-		return [3]float64{}, 0, false
+		// Wide-gamut spellings (color(), lab(), lch(), hwb(), wide
+		// color-mix) carry out-of-range channels for dynamic-range-limit;
+		// legacy ParseColor rejects them, so fall back to the headroom
+		// representation. Legacy results are untouched.
+		wide, wideAlpha, wideOK := css.ParseColorWide(value)
+		if !wideOK {
+			return [3]float64{}, 0, false
+		}
+
+		return wide, wideAlpha, true
 	}
 
-	return [3]float64{float64(r) / 255, float64(g) / 255, float64(b) / 255}, a, true
+	return [3]float64{float64(red) / 255, float64(green) / 255, float64(blue) / 255}, alpha, true
 }
 
 // parseUsedColor maps a CSS color token onto 0..1 RGB. currentColor uses the

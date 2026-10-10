@@ -481,9 +481,28 @@ type ResolvedStyle struct {
 	// and encodes back to sRGB. ColorInterpolationFilters does the same for
 	// filter primitives (blur, grayscale, invert). Both are inherited per SVG
 	// 2; "auto" reads as "srgb" in this engine. Reference: Chrome 143.0.7499.40.
-	TransformBox              string
-	TransformStyle            string
-	BackfaceVisibility        string
+	TransformBox       string
+	TransformStyle     string
+	BackfaceVisibility string
+	// Gap-L 3D flattening state (CSS Transforms 2). Transform3D accumulates
+	// the 3D functions of the transform list (rotateX/Y/Z, rotate3d,
+	// translateZ, scaleZ, perspective(), matrix3d) in post-multiply order;
+	// HasTransform3D reports whether any parsed. The 2D bake in Transform
+	// carries identity for those functions, so paint is unchanged until the
+	// stamp-time projection consumers land. PerspectiveDist is the
+	// perspective property distance in pt (HasPerspective set unless none);
+	// PerspectiveOrigin parts position the vanishing point inside the
+	// perspective box (PerspectiveOriginSet when declared). Reference for
+	// all: Chrome 143.0.7499.40.
+	Transform3D               [16]float64
+	HasTransform3D            bool
+	PerspectiveDist           float64
+	HasPerspective            bool
+	PerspectiveOriginX        float64
+	PerspectiveOriginXPct     bool
+	PerspectiveOriginY        float64
+	PerspectiveOriginYPct     bool
+	PerspectiveOriginSet      bool
 	FillRule                  string
 	ShapeRendering            string
 	DominantBaseline          string

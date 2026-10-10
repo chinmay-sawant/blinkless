@@ -1199,6 +1199,7 @@ func finalizeResult(eng *engine, root *html.Node, opts Options) (*Result, error)
 	// is final so transform-origin % resolves against the border box.
 	// Skip the full tree walk when no element had transform/opacity.
 	if eng.needsXformStamp {
+		propagatePerspective(boxNode)
 		stampBoxTransforms(boxNode, IdentityMatrix(), res.Ops)
 	}
 
@@ -1461,8 +1462,23 @@ type box struct {
 	// box's subtree emitted. opEnd < opStart means the box emitted nothing
 	// (e.g. boxes built during a noEmit measure pass).
 	opStart, opEnd int
-	children       []*box
-	firstBaseline  float64
+	// Gap-L 3D contracts. perspDist/hasPerspDist carry the inherited
+	// perspective camera distance for stamp time: the perspective
+	// workstream fills them in a pre-pass over the box tree (nearest
+	// ancestor with the perspective property wins) and boxTransformAccum
+	// reads them when projecting 3D state. perspCX/perspCY carry the
+	// vanishing point computed from that ancestor via perspectiveCenter.
+	// preserveComposed is set by the transform-style workstream when a
+	// preserve-3d chain already composed this box's 3D state, telling
+	// boxTransformAccum to skip its own 3D branch and keep the 2D path.
+	// All default zero/false (no 3D).
+	perspDist        float64
+	hasPerspDist     bool
+	perspCX          float64
+	perspCY          float64
+	preserveComposed bool
+	children         []*box
+	firstBaseline    float64
 	// table cells
 	col, span int
 	row       int // owning table row index, set once at placement

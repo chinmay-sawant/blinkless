@@ -9,18 +9,12 @@ import "testing"
 // (1) backface-visibility: the declaration stores canonically
 // (internal/layout/style_leftovers.go:150-155, initial visible at
 // internal/layout/style.go:664, not inherited per
-// internal/layout/style_cascade.go:502) but no paint pass reads the field:
-// the only BackfaceVisibility references in the tree are the store, the
-// cascade comment, the struct, the interning table, and these tests. The 2D
-// engine has no 3D back face to hide (internal/layout/style.go:465-466), and
-// the transform parser rejects 3D functions (internal/layout/transform.go:351-352
-// returns ok=false for 3D/perspective/matrix3d). 3D matrices, perspective
-// projection, and backface culling are a permanent print non-goal
-// (documentation/deferred.md:115). A 2D approximation such as hiding mirrored
-// content with a negative-determinant matrix would be wrong: Chrome keeps
-// 2D scaleX(-1) content visible under backface-visibility:hidden because the
-// property only applies to 3D-rotated faces. Verdict: unwinnable without a 3D
-// engine. Pinned below as stored-but-identical, never failing.
+// internal/layout/style_cascade.go:502) and stampExclusiveTransformOps
+// (internal/layout/transform.go) culls 3D-rotated back faces: a box with
+// HasTransform3D whose flattened facing is negative zeroes its exclusive
+// op geometry under hidden. 2D content never culls: Chrome keeps 2D
+// scaleX(-1) visible under hidden because the property only applies to
+// 3D-rotated faces. Pinned below as stored plus 3D cull behavior.
 //
 // (2) break-before (representative of break-before/break-after/break-inside
 // plus orphans/widows/margin-break): the declaration parses onto the box
@@ -50,9 +44,9 @@ import "testing"
 // stored-but-identical, never failing.
 
 // TestHardGapBackfaceVisibilityStoresButPaintsIdentical pins the
-// backface-visibility gap: hidden stores canonically yet paints identical
-// geometry to visible under the same 2D rotation, and a 3D rotateY keeps
-// HasTransform false because the parser rejects it.
+// backface-visibility behavior: hidden stores canonically and paints
+// identical geometry to visible under the same 2D rotation, while a 3D
+// rotateY(180deg) with hidden zeroes its fill geometry and visible paints.
 func TestHardGapBackfaceVisibilityStoresButPaintsIdentical(t *testing.T) {
 	t.Parallel()
 
@@ -83,8 +77,49 @@ func TestHardGapBackfaceVisibilityStoresButPaintsIdentical(t *testing.T) {
 	flat := boxByID(t, layoutHTML(t, `<html><body style="margin:0">`+
 		`<div id="a" style="width:100px;height:50px;transform:rotateY(180deg);`+
 		`backface-visibility:hidden"></div></body></html>`), "a")
-	if flat.style.HasTransform {
-		t.Errorf("rotateY(180deg) HasTransform = true, want false (3D rejected at transform.go:351-352)")
+	if !flat.style.HasTransform3D {
+		t.Errorf("rotateY(180deg) HasTransform3D = false, want true (3D parses onto the side channel)")
+	}
+
+	hardGapAssertBackfaceCull(t)
+}
+
+// hardGapAssertBackfaceCull pins the 3D truth: rotateY(180deg) turns the back
+// face to the viewer, so hidden zeroes the fill geometry while visible
+// paints. Reference: Chrome 143.0.7499.40.
+func hardGapAssertBackfaceCull(t *testing.T) {
+	t.Helper()
+
+	threeDoc := func(vis string) string {
+		return `<html><body style="margin:0">` +
+			`<div id="a" style="width:100px;height:50px;background-color:#ff0000;transform:rotateY(180deg);` +
+			`backface-visibility:` + vis + `"></div></body></html>`
+	}
+
+	visibleFills := opsOfKind(layoutHTML(t, threeDoc("visible")), OpFillRect)
+	hiddenFills := opsOfKind(layoutHTML(t, threeDoc("hidden")), OpFillRect)
+
+	if len(visibleFills) == 0 || len(hiddenFills) == 0 {
+		t.Fatalf("want fill ops, got visible=%d hidden=%d", len(visibleFills), len(hiddenFills))
+	}
+
+	sawPaint := false
+
+	for _, op := range visibleFills {
+		if op.W > 1 && op.H > 1 {
+			sawPaint = true
+		}
+	}
+
+	if !sawPaint {
+		t.Errorf("visible rotateY(180deg) paints no live fill, want at least one")
+	}
+
+	for _, op := range hiddenFills {
+		if op.W != 0 || op.H != 0 {
+			t.Errorf("hidden rotateY(180deg) fill = %.4fpt x %.4fpt, want 0 x 0 (culled)",
+				op.W, op.H)
+		}
 	}
 }
 

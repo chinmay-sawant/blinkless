@@ -364,7 +364,7 @@ func TestTextWrapStyleAcceptanceGate(t *testing.T) {
 		{"text-wrap-style", "balance", true},
 		{"text-wrap-style", "stable", true},
 		{"text-wrap-style", "pretty", true},
-		{"text-wrap-style", "avoid-short-last-line", false},
+		{"text-wrap-style", "avoid-short-last-line", true},
 		{"text-wrap-style", "bogus", false},
 		{"text-wrap", "balance", true},
 		{"text-wrap", "wrap balance", true},
