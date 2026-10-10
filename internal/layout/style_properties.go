@@ -1648,6 +1648,8 @@ func applyCaptionSideValue(style *ResolvedStyle, value string) {
 }
 
 func applyPageBreakProps(style *ResolvedStyle, prop, value string) bool {
+	const marginBreakDiscard = "discard"
+
 	switch prop {
 	case "page-break-before", "break-before":
 		return applyBreakBeforeProps(style, value)
@@ -1657,7 +1659,7 @@ func applyPageBreakProps(style *ResolvedStyle, prop, value string) bool {
 		return applyBreakInsideProps(style, value)
 	case "margin-break":
 		val := strings.ToLower(strings.TrimSpace(value))
-		if val == marginBreakKeep || val == "discard" || val == "auto" {
+		if val == marginBreakKeep || val == marginBreakDiscard || val == "auto" {
 			style.MarginBreak = val
 
 			return true

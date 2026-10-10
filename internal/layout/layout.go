@@ -112,6 +112,12 @@ type Options struct {
 	Background    bool    // paint background colors
 	DebugBoxes    bool    // outline every box for test/golden output
 	Zoom          float64 // zoom factor; style lengths are scaled by it (any positive value, < 1 shrinks)
+	// ForcedColorsActive is the document-wide forced-colors mode switch
+	// (Windows high-contrast / prefers forced palette). When true, paint maps
+	// forced-color-adjust:auto elements to the system color while :none keeps
+	// author colors, per css-color-adjust-1. Default false (print has no
+	// forced-colors mode), matching Options.Background as a document setting.
+	ForcedColorsActive bool
 	// PrintLinkUnderline is an opt-in operator policy (--print-link-underline):
 	// after cascade, force text-decoration:underline on a[href]. Default off
 	// so author CSS (including inherit → none) is honored.

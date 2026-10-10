@@ -297,27 +297,6 @@ func TestBehaviorColorInterpolationFiltersNoPaintEffect(t *testing.T) {
 	behaviorSvgAssertSameOps(t, plain, tuned)
 }
 
-// TestBehaviorClipNoPaintEffect documents the current behavior of the
-// deprecated clip property: the rect() declaration is dropped and no paint
-// pass reads it, so the clipped absolute box paints identical geometry to the
-// unclipped one. GAP: style_paint_props forwards clip to applyLeftoversProps
-// which has no clip case and returns false. Unobservable in the drawing list:
-// reported as a no-op, never failing. Reference: Chrome 143.0.7499.40 would
-// cut the absolute box to the rect.
-func TestBehaviorClipNoPaintEffect(t *testing.T) {
-	t.Parallel()
-
-	plain := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
-		`<div id="a" style="position:absolute;top:10px;left:10px;width:100px;height:50px;background-color:#ff0000"></div>`+
-		`</body></html>`)
-	clipped := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
-		`<div id="a" style="position:absolute;top:10px;left:10px;width:100px;height:50px;background-color:#ff0000;`+
-		`clip:rect(0px,50px,20px,0px)"></div>`+
-		`</body></html>`)
-
-	behaviorSvgAssertSameOps(t, plain, clipped)
-}
-
 // TestBehaviorIsolationOpensGroup is isolation: isolate opens an isolated
 // blend group around the element while auto opens none. Reference: Chrome
 // 143.0.7499.40 isolates the element backdrop per CSS Compositing.

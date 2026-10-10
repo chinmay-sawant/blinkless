@@ -238,23 +238,6 @@ func TestBehaviorInitialLetterExclusionWidth(t *testing.T) {
 	}
 }
 
-// TestBehaviorColorSchemeDarkNoCanvasEffect documents the current behavior of
-// color-scheme: the value parses, stores, and inherits (ColorScheme,
-// style_color_adjust_props.go:63) but no canvas or text consumer reads it, so
-// a dark scheme paints identical ops to the default. GAP: missing behavior is
-// a dark canvas with light default text. Reported as a no-op, never failing.
-// Reference: Chrome 143.0.7499.40 would swap default colors under dark.
-func TestBehaviorColorSchemeDarkNoCanvasEffect(t *testing.T) {
-	t.Parallel()
-
-	doc := func(scheme string) string {
-		return `<html style="color-scheme:` + scheme + `"><body style="margin:0">` +
-			`<p id="p" style="margin:0;font-size:12pt">hello world</p></body></html>`
-	}
-
-	behaviorSvgAssertSameOps(t, layoutHTML(t, doc("normal")), layoutHTML(t, doc("dark")))
-}
-
 // TestBehaviorDynamicRangeLimitStandardNoClampEffect documents the current
 // behavior of dynamic-range-limit: the value parses and stores
 // (DynamicRangeLimit, style_color_adjust_props.go:72) but no sRGB clamp

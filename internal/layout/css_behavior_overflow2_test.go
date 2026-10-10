@@ -387,7 +387,7 @@ func TestBehaviorOverflowClipMarginBlockEndKeepsBelowChild(t *testing.T) {
 // behaviorOver2ScrollDoc builds a 100x50px red box carrying the scroll-margin
 // declaration under test.
 func behaviorOver2ScrollDoc(extra string) string {
-	style := "width:100px;height:50px;background-color:#ff0000"
+	style := scrollProbeItemStyle
 	if extra != "" {
 		style += ";" + extra
 	}

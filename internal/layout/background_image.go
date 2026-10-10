@@ -119,7 +119,8 @@ func (e *engine) appendBackgroundImage(
 		)
 		if sty.Filter != "" {
 			filters := parseFilterList(sty.Filter, sty.Color, sty.FontSize)
-			baseOp.setImage(applyImageFilterToImage(baseOp.Image, filters), ref.w, ref.h, "")
+			filtered := applyImageFilterToImageWithInterp(baseOp.Image, filters, sty.ColorInterpolationFilters)
+			baseOp.setImage(filtered, ref.w, ref.h, "")
 		}
 
 		dst = tileBackgroundRepeat(
@@ -154,7 +155,7 @@ func (e *engine) appendGradientLayer(
 	destX, destY := resolveBackgroundPosition(
 		sty.BackgroundPosX, sty.BackgroundPosY, originX, originY, originW, originH, destW, destH,
 	)
-	pngData, imgW, imgH, ok := renderGradientPNG(layer, destW, destH, sty.Color)
+	pngData, imgW, imgH, ok := renderGradientPNGWithInterp(layer, destW, destH, sty.Color, sty.ColorInterpolation)
 	if !ok {
 		return dst
 	}
@@ -172,7 +173,8 @@ func (e *engine) appendGradientLayer(
 	)
 	if sty.Filter != "" {
 		filters := parseFilterList(sty.Filter, sty.Color, sty.FontSize)
-		baseOp.setImage(applyImageFilterToImage(baseOp.Image, filters), imgW, imgH, "")
+		filtered := applyImageFilterToImageWithInterp(baseOp.Image, filters, sty.ColorInterpolationFilters)
+		baseOp.setImage(filtered, imgW, imgH, "")
 	}
 
 	return tileBackgroundRepeat(dst, baseOp, repeatX, repeatY, clip, destX, destY, destW, destH)

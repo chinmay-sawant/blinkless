@@ -713,9 +713,12 @@ func (e *engine) placeMulticolLine(
 	}
 
 	col := 0
+	prevAfterAlways := false
 
 	for i, item := range items {
-		if advanceMulticolColumn(col, colHeights, item, nCols, maxColH, target, balance) {
+		st := e.stylePtr(item.n)
+		if multicolForcedColumnBreak(st, col, colHeights, prevAfterAlways) ||
+			advanceMulticolColumn(col, colHeights, item, nCols, maxColH, target, balance) {
 			col++
 		}
 
@@ -731,6 +734,7 @@ func (e *engine) placeMulticolLine(
 		}
 
 		cblock := e.build(item.n, colW, colX(col), yPos+curY+colHeights[col])
+		prevAfterAlways = st.PageBreakAfter == pageBreakAlways
 		if cblock == nil {
 			continue
 		}
@@ -776,6 +780,29 @@ func advanceMulticolColumn(
 	}
 
 	return colHeights[col]+item.h > maxColH+1e-6
+}
+
+// multicolForcedColumnBreak reports whether the item must start in the next
+// column because of a forced break: break-before:column/page on the item
+// (parsed to PageBreakBefore always at style_properties.go:1680-1681) or
+// break-after on the previous batch item (parsed at
+// style_properties.go:1693-1694). A forced break into an empty column is
+// already satisfied, so it stays a no-op there: break-before on the first
+// item of a line and break-after at the end of a line change nothing.
+// Avoid values are not honored here: keeping an overflowing item in its
+// column needs keep-together logic this greedy packer has no pass for.
+func multicolForcedColumnBreak(
+	st *ResolvedStyle, col int, colHeights []float64, prevAfterAlways bool,
+) bool {
+	if col < 0 || col >= len(colHeights) || colHeights[col] <= 0 {
+		return false
+	}
+
+	if st != nil && st.PageBreakBefore == pageBreakAlways {
+		return true
+	}
+
+	return prevAfterAlways
 }
 
 // measureMulticolChildHeight lays out n at availW without emitting ops.

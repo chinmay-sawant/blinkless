@@ -183,7 +183,7 @@ func declarationValueAccepted(prop, value string) bool {
 	case "text-align":
 		return keywordIn(value, floatLeft, fxCenter, cssTextAlignJustify, floatRight, fxEnd, fxStart)
 	case propTextWrapStyle:
-		return keywordIn(value, textWrapStyleAuto, textWrapStyleBalance, textWrapStyleStable)
+		return keywordIn(value, textWrapStyleAuto, textWrapStyleBalance, textWrapStyleStable, textWrapStylePretty)
 	case propTextWrap:
 		return textWrapShorthandValueAccepted(value)
 	case "white-space":

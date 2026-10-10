@@ -25,6 +25,9 @@ import (
 
 // svgBakeMemAvailableMB reads MemAvailable from /proc/meminfo. A read error
 // yields a large value so non-Linux runners proceed instead of skipping.
+// svgBakeRectTemplate is the shared 60x24 test rect with a style hole.
+const svgBakeRectTemplate = `<rect x="2" y="2" width="60" height="24" style="%s"/>`
+
 func svgBakeMemAvailableMB() float64 {
 	data, err := os.ReadFile("/proc/meminfo")
 	if err != nil {
@@ -135,7 +138,7 @@ func TestBehaviorSvgBakeDasharrayDashesStroke(t *testing.T) {
 	t.Parallel()
 	svgBakeRequireMem(t)
 
-	rect := `<rect x="2" y="2" width="60" height="24" style="%s"/>`
+	rect := svgBakeRectTemplate
 	plain := svgBakeRaster(t,
 		svgBakeSerialize(t, fmt.Sprintf(rect, "fill:none;stroke:#ff0000;stroke-width:3pt")))
 	dashed := svgBakeRaster(t,
@@ -156,7 +159,7 @@ func TestBehaviorSvgBakeDashoffsetShiftsPhase(t *testing.T) {
 	t.Parallel()
 	svgBakeRequireMem(t)
 
-	rect := `<rect x="2" y="2" width="60" height="24" style="%s"/>`
+	rect := svgBakeRectTemplate
 	base := "fill:none;stroke:#ff0000;stroke-width:3pt;stroke-dasharray:5pt 2pt"
 	plain := svgBakeRaster(t, svgBakeSerialize(t, fmt.Sprintf(rect, base)))
 	shifted := svgBakeRaster(t, svgBakeSerialize(t, fmt.Sprintf(rect, base+";stroke-dashoffset:3pt")))

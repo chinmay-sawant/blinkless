@@ -11,14 +11,14 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 358,
-      "partial": 32,
+      "implemented": 381,
+      "partial": 9,
       "unsupported": 387,
       "intentionally ignored": 8
     },
     "aliases": 38,
-    "engine_registered": 395,
-    "upstream_only": 390,
+    "engine_registered": 401,
+    "upstream_only": 384,
     "upstream": {
       "inventory": "webref-ed-css",
       "revision": "1f2ec8f74a80c14066b4c7d6822cee59f69fa03b",
@@ -779,10 +779,7 @@
       "values": [
         "baseline | <baseline-metric>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorAlignmentBaselineNoPaintEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_paint_props.go"
       ],
@@ -793,9 +790,17 @@
         {
           "file": "internal/layout/css_behavior_svg_paint_test.go",
           "name": "TestBehaviorAlignmentBaselineNoPaintEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_gap_abc_test.go",
+          "name": "TestGapABCAlignmentBaselineCentralIdeographic"
+        },
+        {
+          "file": "internal/layout/css_behavior_gap_abc_test.go",
+          "name": "TestGapABCAlignmentBaselineMiddleHanging"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "baseline | <baseline-metric>"
     },
@@ -1893,6 +1898,10 @@
         {
           "file": "internal/layout/css_behavior_bookmark_test.go",
           "name": "TestBehaviorBookmarkStylesheetCascade"
+        },
+        {
+          "file": "internal/layout/css_behavior_gcpm_wire_test.go",
+          "name": "TestBehaviorGCPMWireBookmarkLabel"
         }
       ],
       "status": "unsupported",
@@ -1922,6 +1931,10 @@
         {
           "file": "internal/layout/css_behavior_bookmark_test.go",
           "name": "TestBehaviorBookmarkSkippedLevelNestsUnderNearestAncestor"
+        },
+        {
+          "file": "internal/layout/css_behavior_gcpm_wire_test.go",
+          "name": "TestBehaviorGCPMWireBookmarkLevel"
         }
       ],
       "status": "unsupported",
@@ -1943,6 +1956,10 @@
         {
           "file": "internal/layout/css_behavior_bookmark_test.go",
           "name": "TestBehaviorBookmarkStateOpenClosed"
+        },
+        {
+          "file": "internal/layout/css_behavior_gcpm_wire_test.go",
+          "name": "TestBehaviorGCPMWireBookmarkState"
         }
       ],
       "status": "unsupported",
@@ -4199,9 +4216,7 @@
       "values": [
         "auto | avoid | always | all | avoid-page | page | left | right | recto | verso | avoid-column | column | avoid-region | region"
       ],
-      "limitations": [
-        "break-after parses to page-break-after:always but layout emits no forced break; the engine does not paginate (TestBehaviorBreakAfterColumnNoPageEffect)."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -4217,9 +4232,13 @@
         {
           "file": "internal/layout/css_behavior_text_remaining_test.go",
           "name": "TestBehaviorBreakAfterColumnNoPageEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_fragment_assess_test.go",
+          "name": "TestFragmentAssessBreakAfterColumnForcesColumn"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | avoid | always | all | avoid-page | page | left | right | recto | verso | avoid-column | column | avoid-region | region"
     },
@@ -4231,9 +4250,7 @@
       "values": [
         "auto | avoid | always | all | avoid-page | page | left | right | recto | verso | avoid-column | column | avoid-region | region"
       ],
-      "limitations": [
-        "break-before parses to page-break-before:always but layout emits no forced break; the engine does not paginate (TestBehaviorBreakBeforeColumnNoPageEffect)."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go"
       ],
@@ -4249,9 +4266,17 @@
         {
           "file": "internal/layout/css_behavior_columns_test.go",
           "name": "TestBehaviorBreakBeforeColumnNoPageEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_fragment_assess_test.go",
+          "name": "TestFragmentAssessBreakBeforeColumnForcesColumn"
+        },
+        {
+          "file": "internal/layout/css_behavior_fragment_assess_test.go",
+          "name": "TestFragmentAssessBreakBeforeFirstChildNoColumnEffect"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | avoid | always | all | avoid-page | page | left | right | recto | verso | avoid-column | column | avoid-region | region"
     },
@@ -4264,7 +4289,8 @@
         "auto | avoid | avoid-page | avoid-column | avoid-region"
       ],
       "limitations": [
-        "break-inside keywords parse but no layout or paint pass reads them; the engine returns a drawing list without paginating, so avoidance has no observable effect (TestBehaviorBreakInsideAvoidColumnNoPageEffect)."
+        "break-inside keywords parse but no layout or paint pass reads them; the engine returns a drawing list without paginating, so avoidance has no observable effect (TestBehaviorBreakInsideAvoidColumnNoPageEffect).",
+        "No-op behavior pinned by TestFragmentAssessBreakInsideAvoidMulticolNoEffect; full behavior needs engine work."
       ],
       "source": [
         "internal/layout/style_properties.go"
@@ -4281,6 +4307,10 @@
         {
           "file": "internal/layout/css_behavior_columns_test.go",
           "name": "TestBehaviorBreakInsideAvoidColumnNoPageEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_fragment_assess_test.go",
+          "name": "TestFragmentAssessBreakInsideAvoidMulticolNoEffect"
         }
       ],
       "status": "partial",
@@ -4425,10 +4455,7 @@
       "values": [
         "<shape> | auto | inherit"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorClipNoPaintEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_paint_props.go"
       ],
@@ -4437,11 +4464,11 @@
       ],
       "tests": [
         {
-          "file": "internal/layout/css_behavior_svg_paint_test.go",
-          "name": "TestBehaviorClipNoPaintEffect"
+          "file": "internal/layout/css_behavior_gap_abc_test.go",
+          "name": "TestGapABCClipRectCutsAbsposBox"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<shape> | auto | inherit"
     },
@@ -4615,10 +4642,7 @@
       "values": [
         "auto | sRGB | linearRGB"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorColorInterpolationNoPaintEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_paint_props.go"
       ],
@@ -4629,9 +4653,17 @@
         {
           "file": "internal/layout/css_behavior_svg_paint_test.go",
           "name": "TestBehaviorColorInterpolationNoPaintEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_gap_interp_test.go",
+          "name": "TestGapInterpColorInterpolationLinearDiffersFromSRGB"
+        },
+        {
+          "file": "internal/layout/css_behavior_gap_interp_test.go",
+          "name": "TestGapInterpColorInterpolationPropertyChangesGradientPaint"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "auto | sRGB | linearRGB"
     },
@@ -4641,10 +4673,7 @@
       "values": [
         "auto | sRGB | linearRGB"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorColorInterpolationFiltersNoPaintEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_paint_props.go"
       ],
@@ -4655,9 +4684,17 @@
         {
           "file": "internal/layout/css_behavior_svg_paint_test.go",
           "name": "TestBehaviorColorInterpolationFiltersNoPaintEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_gap_interp_test.go",
+          "name": "TestGapInterpColorInterpolationFiltersLinearDiffersFromSRGB"
+        },
+        {
+          "file": "internal/layout/css_behavior_gap_interp_test.go",
+          "name": "TestGapInterpColorInterpolationFiltersPropertyChangesFilteredPaint"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | sRGB | linearRGB"
     },
@@ -4668,9 +4705,9 @@
         "normal | [ light | dark | <custom-ident> ]+ && only?"
       ],
       "limitations": [
-        "Parsed, stored, and inherited (ColorScheme, style_color_adjust_props.go:63) but no canvas or text consumer reads it. Missing behavior: dark canvas with light default text. Existing tests cover parsing, rejection, and inheritance only.",
-        "No-op behavior pinned by TestBehaviorColorSchemeDarkNoCanvasEffect; full behavior needs engine work.",
-        "No-op behavior pinned by TestBehaviorColorSchemeDarkDefaults; full behavior needs engine work."
+        "No-op behavior pinned by TestBehaviorColorSchemeDarkDefaults; full behavior needs engine work.",
+        "No-op behavior pinned by TestBehaviorColorSchemeDarkWireCanvasAndText; full behavior needs engine work.",
+        "No-op behavior pinned by TestBehaviorColorSchemeDarkWireAuthorBGWins; full behavior needs engine work."
       ],
       "source": [
         "internal/layout/style_color_adjust_props.go"
@@ -4696,15 +4733,19 @@
           "name": "TestColorAdjustPropsRejectIllegalKeywords"
         },
         {
-          "file": "internal/layout/css_behavior_final_test.go",
-          "name": "TestBehaviorColorSchemeDarkNoCanvasEffect"
-        },
-        {
           "file": "internal/layout/css_behavior_color_adjust_test.go",
           "name": "TestBehaviorColorSchemeDarkDefaults"
+        },
+        {
+          "file": "internal/layout/css_behavior_color_wire_test.go",
+          "name": "TestBehaviorColorSchemeDarkWireCanvasAndText"
+        },
+        {
+          "file": "internal/layout/css_behavior_color_wire_test.go",
+          "name": "TestBehaviorColorSchemeDarkWireAuthorBGWins"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | [ light | dark | <custom-ident> ]+ && only?"
     },
@@ -6244,7 +6285,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_svg_geo_test.go",
+          "name": "TestBehaviorSvgGeoCxMovesCircle"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "svg",
       "upstream_syntax": "<length-percentage>"
@@ -6260,7 +6306,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_svg_geo_test.go",
+          "name": "TestBehaviorSvgGeoCyMovesCircle"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "svg",
       "upstream_syntax": "<length-percentage>"
@@ -6276,7 +6327,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_svg_markers_test.go",
+          "name": "TestBehaviorSvgCSSDProvidesPathData"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "svg",
       "upstream_syntax": "none | <string>"
@@ -6342,7 +6398,6 @@
         "auto | <baseline-metric>"
       ],
       "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
         "No-op behavior pinned by TestBehaviorDominantBaselineNoPaintEffect; full behavior needs engine work."
       ],
       "source": [
@@ -6357,7 +6412,7 @@
           "name": "TestBehaviorDominantBaselineNoPaintEffect"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | <baseline-metric>"
     },
@@ -6370,7 +6425,14 @@
       "limitations": [
         "Parsed and stored (DynamicRangeLimit, style_color_adjust_props.go:72) but no sRGB clamp consumer reads it. Missing behavior: sRGB channel clamp. Existing tests cover parsing and rejection only.",
         "No-op behavior pinned by TestBehaviorDynamicRangeLimitStandardNoClampEffect; full behavior needs engine work.",
-        "No-op behavior pinned by TestBehaviorDynamicRangeLimitClampsBrightColors; full behavior needs engine work."
+        "No-op behavior pinned by TestBehaviorDynamicRangeLimitClampsBrightColors; full behavior needs engine work.",
+        "Wired identity: clampDynamicRangeColor folds channels on the paint path (TestBehaviorDynamicRangeLimitWireClamps), but the parser yields only in-gamut colors so output is unchanged.",
+        "No-op behavior pinned by TestBehaviorDynamicRangeLimitPaintClampDiverges; full behavior needs engine work.",
+        "No-op behavior pinned by TestBehaviorDynamicRangeLimitParserYieldsOnlyInGamut; full behavior needs engine work.",
+        "No-op behavior pinned by TestBehaviorDynamicRangeLimitParserClampsRGB; full behavior needs engine work.",
+        "No-op behavior pinned by TestBehaviorDynamicRangeLimitParserRejectsWideGamut; full behavior needs engine work.",
+        "No-op behavior pinned by TestBehaviorDynamicRangeLimitParserClampsMixAndOklch; full behavior needs engine work.",
+        "No-op behavior pinned by TestBehaviorDynamicRangeLimitParserClampsOklch; full behavior needs engine work."
       ],
       "source": [
         "internal/layout/style_color_adjust_props.go"
@@ -6402,6 +6464,34 @@
         {
           "file": "internal/layout/css_behavior_color_adjust_test.go",
           "name": "TestBehaviorDynamicRangeLimitClampsBrightColors"
+        },
+        {
+          "file": "internal/layout/css_behavior_color_wire_test.go",
+          "name": "TestBehaviorDynamicRangeLimitWireClamps"
+        },
+        {
+          "file": "internal/layout/css_behavior_forced_dynamic_test.go",
+          "name": "TestBehaviorDynamicRangeLimitPaintClampDiverges"
+        },
+        {
+          "file": "internal/layout/css_behavior_forced_dynamic_test.go",
+          "name": "TestBehaviorDynamicRangeLimitParserYieldsOnlyInGamut"
+        },
+        {
+          "file": "internal/layout/css_behavior_forced_dynamic_test.go",
+          "name": "TestBehaviorDynamicRangeLimitParserClampsRGB"
+        },
+        {
+          "file": "internal/layout/css_behavior_forced_dynamic_test.go",
+          "name": "TestBehaviorDynamicRangeLimitParserRejectsWideGamut"
+        },
+        {
+          "file": "internal/layout/css_behavior_forced_dynamic_test.go",
+          "name": "TestBehaviorDynamicRangeLimitParserClampsMixAndOklch"
+        },
+        {
+          "file": "internal/layout/css_behavior_forced_dynamic_test.go",
+          "name": "TestBehaviorDynamicRangeLimitParserClampsOklch"
         }
       ],
       "status": "partial",
@@ -6643,11 +6733,7 @@
       "values": [
         "nonzero | evenodd"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorFillRuleNoPaintEffect; full behavior needs engine work.",
-        "No-op behavior pinned by TestBehaviorSvgBakeFillRuleGap; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_paint_props.go"
       ],
@@ -6662,9 +6748,13 @@
         {
           "file": "internal/layout/css_behavior_svg_bake_test.go",
           "name": "TestBehaviorSvgBakeFillRuleGap"
+        },
+        {
+          "file": "internal/layout/css_behavior_gap_close_c_test.go",
+          "name": "TestGapCFillRuleEvenOddHolesRaster"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "nonzero | evenodd"
     },
@@ -7269,10 +7359,7 @@
       "values": [
         "auto | none"
       ],
-      "limitations": [
-        "On a face with `fvar`, `auto` instances `opsz` from used font-size via `Font.Instance` (`font_instance.go`).",
-        "No-op behavior pinned by TestBehaviorFontOpticalSizingStaticKeepsFace; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_font_variant_props.go"
       ],
@@ -7289,7 +7376,7 @@
           "name": "TestBehaviorFontOpticalSizingStaticKeepsFace"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | none"
     },
@@ -7299,10 +7386,7 @@
       "values": [
         "normal | light | dark | <palette-identifier> | <palette-mix()>"
       ],
-      "limitations": [
-        "COLR+CPAL faces select a palette; paint uses the first CPAL color as a solid fill (`fontPaletteFill`).",
-        "No-op behavior pinned by TestBehaviorFontPaletteStaticKeepsColor; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_font_variant_props.go"
       ],
@@ -7319,7 +7403,7 @@
           "name": "TestBehaviorFontPaletteStaticKeepsColor"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | light | dark | <palette-identifier> | <palette-mix()>"
     },
@@ -7761,10 +7845,7 @@
       "values": [
         "normal | [ <opentype-tag> <number> ]#"
       ],
-      "limitations": [
-        "Quoted 4-letter tags instance glyf/hmtx on `fvar` faces (`resolveFontVariants` -> `Font.Instance`).",
-        "No-op behavior pinned by TestBehaviorFontVariationSettingsStaticKeepsFace; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_font_variant_props.go"
       ],
@@ -7781,7 +7862,7 @@
           "name": "TestBehaviorFontVariationSettingsStaticKeepsFace"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | [ <opentype-tag> <number> ]#"
     },
@@ -7884,6 +7965,10 @@
         {
           "file": "internal/layout/css_behavior_footnote_test.go",
           "name": "TestBehaviorFootnoteDisplayNoneSkipped"
+        },
+        {
+          "file": "internal/layout/css_behavior_gcpm_wire_test.go",
+          "name": "TestBehaviorGCPMWireFootnoteDisplay"
         }
       ],
       "status": "unsupported",
@@ -7905,6 +7990,10 @@
         {
           "file": "internal/layout/css_behavior_footnote_test.go",
           "name": "TestBehaviorFootnotePolicyGrouping"
+        },
+        {
+          "file": "internal/layout/css_behavior_gcpm_wire_test.go",
+          "name": "TestBehaviorGCPMWireFootnotePolicy"
         }
       ],
       "status": "unsupported",
@@ -7917,11 +8006,7 @@
       "values": [
         "auto | none | preserve-parent-color"
       ],
-      "limitations": [
-        "Parsed, stored, and inherited (ForcedColorAdjust, style_color_adjust_props.go:54) but no forced-colors consumer reads it. Missing behavior: forced-colors opt-out. Existing tests cover parsing, rejection, and inheritance only.",
-        "No-op behavior pinned by TestBehaviorForcedColorAdjustNoneNoPaintEffect; full behavior needs engine work.",
-        "No-op behavior pinned by TestBehaviorForcedColorAdjustNonePreservesAuthor; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_color_adjust_props.go"
       ],
@@ -7948,9 +8033,29 @@
         {
           "file": "internal/layout/css_behavior_color_adjust_test.go",
           "name": "TestBehaviorForcedColorAdjustNonePreservesAuthor"
+        },
+        {
+          "file": "internal/layout/css_behavior_color_wire_test.go",
+          "name": "TestBehaviorForcedColorAdjustWirePreservesAuthor"
+        },
+        {
+          "file": "internal/layout/css_behavior_forced_dynamic_test.go",
+          "name": "TestBehaviorForcedColorAdjustTestModeDiverges"
+        },
+        {
+          "file": "internal/layout/css_behavior_forced_dynamic_test.go",
+          "name": "TestBehaviorForcedColorAdjustPrintKeepsAuthor"
+        },
+        {
+          "file": "internal/layout/css_behavior_forced_dynamic_test.go",
+          "name": "TestBehaviorForcedColorAdjustOptionsModeDiverges"
+        },
+        {
+          "file": "internal/layout/css_behavior_forced_dynamic_test.go",
+          "name": "TestBehaviorForcedColorAdjustActiveHelpersDiverge"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | none | preserve-parent-color"
     },
@@ -9722,6 +9827,10 @@
         {
           "file": "internal/layout/css_behavior_margin_break_test.go",
           "name": "TestBehaviorMarginBreakDiscardNoFragmentEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_fragment_assess_test.go",
+          "name": "TestFragmentAssessMarginBreakMulticolNoEffect"
         }
       ],
       "status": "unsupported",
@@ -9943,7 +10052,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_svg_markers_test.go",
+          "name": "TestBehaviorSvgMarkerShorthandPaintsVertices"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "svg",
       "upstream_syntax": "none | <marker-ref>"
@@ -9959,7 +10073,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_svg_markers_test.go",
+          "name": "TestBehaviorSvgMarkerEndPaintsArrowhead"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "svg",
       "upstream_syntax": "none | <marker-ref>"
@@ -9975,7 +10094,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_svg_markers_test.go",
+          "name": "TestBehaviorSvgMarkerShorthandPaintsVertices"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "svg",
       "upstream_syntax": "none | <marker-ref>"
@@ -10007,7 +10131,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_svg_markers_test.go",
+          "name": "TestBehaviorSvgMarkerEndPaintsArrowhead"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "svg",
       "upstream_syntax": "none | <marker-ref>"
@@ -10944,7 +11073,8 @@
         "<integer> | inherit"
       ],
       "limitations": [
-        "orphans parses (initial 2) but paint moves whole ops across page boundaries without splitting lines, so orphans cannot take effect (TestBehaviorOrphansNoFragmentationEffect)."
+        "orphans parses (initial 2) but paint moves whole ops across page boundaries without splitting lines, so orphans cannot take effect (TestBehaviorOrphansNoFragmentationEffect).",
+        "No-op behavior pinned by TestFragmentAssessOrphansWidowsAnonStripNoEffect; full behavior needs engine work."
       ],
       "source": [
         "internal/layout/style_properties.go"
@@ -10957,6 +11087,10 @@
         {
           "file": "internal/layout/css_behavior_columns_test.go",
           "name": "TestBehaviorOrphansNoFragmentationEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_fragment_assess_test.go",
+          "name": "TestFragmentAssessOrphansWidowsAnonStripNoEffect"
         }
       ],
       "status": "partial",
@@ -11996,7 +12130,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_svg_geo_test.go",
+          "name": "TestBehaviorSvgGeoPaintOrderGap"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "svg",
       "upstream_syntax": "normal | [ fill || stroke || markers ]"
@@ -12467,6 +12606,10 @@
       ],
       "handlers": [],
       "tests": [
+        {
+          "file": "internal/layout/css_behavior_svg_geo_test.go",
+          "name": "TestBehaviorSvgGeoRResizesCircle"
+        },
         {
           "file": "internal/layout/css_behavior_ruby_test.go",
           "name": "TestBehaviorRubyParsersAcceptSpecValues"
@@ -13263,7 +13406,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_svg_geo_test.go",
+          "name": "TestBehaviorSvgGeoRxRoundsRect"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "svg",
       "upstream_syntax": "<length-percentage> | auto"
@@ -13279,7 +13427,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_svg_geo_test.go",
+          "name": "TestBehaviorSvgGeoRyRoundsRect"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "svg",
       "upstream_syntax": "<length-percentage> | auto"
@@ -13367,10 +13520,7 @@
       "values": [
         "<length>{1,4}"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorScrollMarginNoPaintEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_paint_props.go"
       ],
@@ -13383,7 +13533,7 @@
           "name": "TestBehaviorScrollMarginNoPaintEffect"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<length>{1,4}"
     },
@@ -13441,10 +13591,7 @@
       "values": [
         "<length>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorScrollMarginBottomNoPaintEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_paint_props.go"
       ],
@@ -13457,7 +13604,7 @@
           "name": "TestBehaviorScrollMarginBottomNoPaintEffect"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<length>"
     },
@@ -13515,10 +13662,7 @@
       "values": [
         "<length>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorScrollMarginLeftNoPaintEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_paint_props.go"
       ],
@@ -13531,7 +13675,7 @@
           "name": "TestBehaviorScrollMarginLeftNoPaintEffect"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<length>"
     },
@@ -13541,10 +13685,7 @@
       "values": [
         "<length>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorScrollMarginRightNoPaintEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_paint_props.go"
       ],
@@ -13557,7 +13698,7 @@
           "name": "TestBehaviorScrollMarginRightNoPaintEffect"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<length>"
     },
@@ -13567,10 +13708,7 @@
       "values": [
         "<length>"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorScrollMarginTopNoPaintEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_paint_props.go"
       ],
@@ -13583,7 +13721,7 @@
           "name": "TestBehaviorScrollMarginTopNoPaintEffect"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<length>"
     },
@@ -14044,11 +14182,7 @@
       "values": [
         "auto | optimizeSpeed | crispEdges | geometricPrecision"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorShapeRenderingNoPaintEffect; full behavior needs engine work.",
-        "No-op behavior pinned by TestBehaviorSvgBakeShapeRenderingGap; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_paint_props.go"
       ],
@@ -14063,9 +14197,13 @@
         {
           "file": "internal/layout/css_behavior_svg_bake_test.go",
           "name": "TestBehaviorSvgBakeShapeRenderingGap"
+        },
+        {
+          "file": "internal/layout/css_behavior_gap_close_c_test.go",
+          "name": "TestGapCShapeRenderingCrispSnapsRaster"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "auto | optimizeSpeed | crispEdges | geometricPrecision"
     },
@@ -14192,7 +14330,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_svg_geo_test.go",
+          "name": "TestBehaviorSvgGeoStopColorRecolorsGradient"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "svg"
     },
@@ -14207,7 +14350,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_svg_geo_test.go",
+          "name": "TestBehaviorSvgGeoStopOpacityFadesGradient"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "svg"
     },
@@ -14242,6 +14390,10 @@
         {
           "file": "internal/layout/css_behavior_string_set_test.go",
           "name": "TestBehaviorStringSetNoPaintEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_gcpm_wire_test.go",
+          "name": "TestBehaviorGCPMWireStringSet"
         }
       ],
       "status": "unsupported",
@@ -14818,10 +14970,7 @@
       "values": [
         "start | middle | end"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorTextAnchorNoPaintEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_paint_props.go"
       ],
@@ -14832,9 +14981,13 @@
         {
           "file": "internal/layout/css_behavior_text2_test.go",
           "name": "TestBehaviorTextAnchorNoPaintEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_gap_abc_test.go",
+          "name": "TestGapABCTextAnchorMiddleAnchorsSvgText"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "start | middle | end"
     },
@@ -15371,10 +15524,7 @@
       "values": [
         "spaces || punctuation || symbols || narrow"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorTextEmphasisSkipNoLayoutEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go",
         "internal/layout/style_text_props.go"
@@ -15391,9 +15541,17 @@
         {
           "file": "internal/layout/css_behavior_text2_test.go",
           "name": "TestBehaviorTextEmphasisSkipNoLayoutEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_gap_underline_test.go",
+          "name": "TestGapEmphasisSkipPunctuationSkipsComma"
+        },
+        {
+          "file": "internal/layout/css_behavior_gap_underline_test.go",
+          "name": "TestGapEmphasisSkipNarrowSkipsNarrow"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "spaces || punctuation || symbols || narrow"
     },
@@ -15607,7 +15765,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_svg_geo_test.go",
+          "name": "TestBehaviorSvgGeoTextRenderingGap"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "svg",
       "upstream_syntax": "auto | optimizeSpeed | optimizeLegibility | geometricPrecision"
@@ -15773,10 +15936,7 @@
       "values": [
         "auto | [ from-font | under ] || [ left | right ]"
       ],
-      "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
-        "No-op behavior pinned by TestBehaviorTextUnderlinePositionNoPaintEffect; full behavior needs engine work."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_properties.go",
         "internal/layout/style_text_props.go"
@@ -15791,11 +15951,15 @@
           "name": "TestTextDecorationPropsWave3"
         },
         {
-          "file": "internal/layout/css_behavior_text2_test.go",
-          "name": "TestBehaviorTextUnderlinePositionNoPaintEffect"
+          "file": "internal/layout/css_behavior_gap_underline_test.go",
+          "name": "TestGapUnderlinePositionUnderDropsStroke"
+        },
+        {
+          "file": "internal/layout/css_behavior_gap_underline_test.go",
+          "name": "TestGapUnderlinePositionLeftRightMoveStroke"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | [ from-font | under ] || [ left | right ]"
     },
@@ -16168,7 +16332,6 @@
         "content-box | border-box | fill-box | stroke-box | view-box"
       ],
       "limitations": [
-        "Behavior evidence is unverified (CAT-05 audit). Missing behavior: a layout or paint regression that exercises the used value.",
         "No-op behavior pinned by TestBehaviorTransformBoxFillBoxNoPaintEffect; full behavior needs engine work."
       ],
       "source": [
@@ -16183,7 +16346,7 @@
           "name": "TestBehaviorTransformBoxFillBoxNoPaintEffect"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "content-box | border-box | fill-box | stroke-box | view-box"
     },
@@ -16430,7 +16593,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_svg_geo_test.go",
+          "name": "TestBehaviorSvgGeoVectorEffectGap"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "svg",
       "upstream_syntax": "none | non-scaling-stroke | non-scaling-size | non-rotation | fixed-position"
@@ -17136,7 +17304,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_svg_geo_test.go",
+          "name": "TestBehaviorSvgGeoXMovesRect"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "svg",
       "upstream_syntax": "<length-percentage>"
@@ -17152,7 +17325,12 @@
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_svg_geo_test.go",
+          "name": "TestBehaviorSvgGeoYMovesRect"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "svg",
       "upstream_syntax": "<length-percentage>"

@@ -379,6 +379,14 @@ type ResolvedStyle struct {
 	OverflowClipMarginRight  float64
 	OverflowClipMarginBottom float64
 	OverflowClipMarginLeft   float64
+	// Scroll-margin snap outsets (CSS Scroll Snap 1), in points. Zero on
+	// every side is the CSS initial value. The static engine carries no
+	// scroll offset, so these inset only the snap/visibility rect computed
+	// in scroll.go; static paint still clips to the padding box.
+	ScrollMarginTop    float64
+	ScrollMarginRight  float64
+	ScrollMarginBottom float64
+	ScrollMarginLeft   float64
 	// Containment and content visibility (CSS Containment).
 	Contain                    string  // "none" or space-separated: size layout paint style content
 	ContainIntrinsicWidth      float64 // pt; -1 = auto/unset
@@ -450,6 +458,39 @@ type ResolvedStyle struct {
 	TextSpacingTrim string // "space-all" | "trim-start" | "trim-both" | …
 	TextGroupAlign  string // "none" | "start" | "end" | "left" | "right" | "center"
 	TextFit         string // "none" | "auto" | "scale" (apply-only; no scale consumer yet)
+	// Gap-B transform and SVG text used values. TransformBox selects the
+	// transform-origin reference box ("view-box" initial per CSS Transforms 2;
+	// content-box resolves against the content box, all other boxes use the
+	// border box for CSS layout boxes). TransformStyle is flat or preserve-3d
+	// (2D engine flattens both). BackfaceVisibility is visible or hidden (2D
+	// engine has no 3D back face to hide). FillRule is nonzero or evenodd
+	// (external canvas rasterizer ignores it; clip masks keep using ClipRule).
+	// ShapeRendering is the SVG hint (external rasterizer ignores it).
+	// DominantBaseline is the SVG/CSS baseline selector; offsets come from
+	// font metrics in inline_vertical_align.go.
+	// AlignmentBaseline is the inline alignment selector: auto and baseline
+	// defer to DominantBaseline, other selectors shift the run from font
+	// metrics in inline_vertical_align.go. Not inherited per CSS Inline 3.
+	// Clip is the deprecated CSS2 clip rect on absolutely positioned boxes:
+	// "" means auto (no clip), otherwise the canonical rect() declaration
+	// resolved against the border box in overflow_clip.go. Reference for all
+	// three: Chrome 143.0.7499.40.
+	// ColorInterpolation selects the blending space for gradient sampling:
+	// "srgb" interpolates gamma-encoded channels directly (the historic path)
+	// while "linearrgb" converts stops to linear light, interpolates there,
+	// and encodes back to sRGB. ColorInterpolationFilters does the same for
+	// filter primitives (blur, grayscale, invert). Both are inherited per SVG
+	// 2; "auto" reads as "srgb" in this engine. Reference: Chrome 143.0.7499.40.
+	TransformBox              string
+	TransformStyle            string
+	BackfaceVisibility        string
+	FillRule                  string
+	ShapeRendering            string
+	DominantBaseline          string
+	AlignmentBaseline         string
+	Clip                      string
+	ColorInterpolation        string
+	ColorInterpolationFilters string
 	// CustomProps holds resolved CSS custom properties (--*) for this element
 	// (inherited). Shared with the parent map when the element declares none.
 	CustomProps map[string]string
@@ -618,6 +659,15 @@ func initialStyle() ResolvedStyle { //nolint:funlen // complete CSS initial-valu
 		TextSpacingTrim:            "space-all",
 		TextGroupAlign:             cssDisplayNone,
 		TextFit:                    cssDisplayNone,
+		TransformBox:               "view-box",
+		TransformStyle:             "flat",
+		BackfaceVisibility:         "visible",
+		FillRule:                   "nonzero",
+		ShapeRendering:             "auto",
+		DominantBaseline:           "auto",
+		AlignmentBaseline:          "auto",
+		ColorInterpolation:         "srgb",
+		ColorInterpolationFilters:  "srgb",
 	}
 }
 

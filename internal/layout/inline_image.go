@@ -77,7 +77,7 @@ func (e *engine) paintInlineImageItem(item *inlineItem, leftX, top, imgX, imgY, 
 
 	if sty.Filter != "" {
 		filters := parseFilterList(sty.Filter, sty.Color, sty.FontSize)
-		imgData = applyImageFilterToImage(imgData, filters)
+		imgData = applyImageFilterToImageWithInterp(imgData, filters, sty.ColorInterpolationFilters)
 		isJPEG = false
 	}
 

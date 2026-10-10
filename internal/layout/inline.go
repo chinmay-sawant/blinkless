@@ -277,7 +277,7 @@ func (e *engine) inflowPseudoImage(
 // baseline on the box. When floats is non-nil, each line re-queries exclusion
 // at its canvas Y so text widens again after a float ends mid-paragraph.
 //
-//nolint:cyclop,gocognit,gocyclo,funlen,mnd,wsl // hot path: per-line wrap against float exclusion zones
+//nolint:cyclop,gocognit,gocyclo,funlen,mnd,wsl,maintidx // hot path: per-line wrap against float exclusion zones
 func (e *engine) layoutInlineFloats(
 	boxNode *box, nodes []*html.Node, contentW, contentX, lineY float64,
 	floats *floatState,
@@ -331,9 +331,12 @@ func (e *engine) layoutInlineFloats(
 
 	// text-wrap-style: balance narrows the break width per forced-break
 	// segment (Blink ParagraphLineBreaker bisection), computed lazily when a
-	// segment starts.
+	// segment starts. text-wrap-style: pretty narrows the break width per
+	// segment to avoid a short last line, using prettyLineWidth.
 	balanceEligible := balanceCanApply(floats, clampLimit, blockStyle)
+	prettyEligible := prettyCanApply(floats, clampLimit, blockStyle)
 	balanceW := 0.0
+	prettyW := 0.0
 
 	idx := 0
 	consecHyphenLines := 0
@@ -360,12 +363,20 @@ func (e *engine) layoutInlineFloats(
 			balanceW = e.balanceSegmentWidth(items, idx, contentW)
 		}
 
-		// Pack width: a balanced segment re-breaks at the bisected width,
-		// while alignment keeps the full line width (Chrome overrides only
-		// the line breaker's available width).
+		if prettyEligible && (idx == 0 || items[idx-1].forceBreak) {
+			prettyW = prettyLineWidth(items[idx:inlineSegmentEnd(items, idx)], contentW, pxToPt(1)*e.scale)
+		}
+
+		// Pack width: a balanced or pretty segment re-breaks at the narrowed
+		// width, while alignment keeps the full line width (Chrome overrides
+		// only the line breaker's available width).
 		breakW := lineW
 		if balanceW > 0 && breakW > balanceW {
 			breakW = balanceW
+		}
+
+		if prettyW > 0 && breakW > prettyW {
+			breakW = prettyW
 		}
 
 		// Pack one line under current exclusion width.
@@ -392,10 +403,10 @@ func (e *engine) layoutInlineFloats(
 		idx = nextIdx
 		leftY = packedY
 
-		// A balanced segment keeps the full line width for alignment; the
-		// packer can only narrow lineW for active floats, which balancing
-		// already opted out of.
-		if balanceW == 0 {
+		// A balanced or pretty segment keeps the full line width for
+		// alignment; the packer can only narrow lineW for active floats,
+		// which both modes already opted out of.
+		if balanceW == 0 && prettyW == 0 {
 			lineX, lineW = packedX, packedW
 		}
 

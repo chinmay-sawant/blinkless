@@ -275,9 +275,4 @@ func TestBehaviorTextWrapStyleAutoMatchesNormal(t *testing.T) {
 			t.Errorf("line %d = %q, want normal %q", idx, autoLines[idx].text, normalLines[idx].text)
 		}
 	}
-
-	// Documented gap: pretty is not accepted, so it stays greedy.
-	if supportedDeclaration("text-wrap-style", "pretty") {
-		t.Errorf("supportedDeclaration(text-wrap-style, pretty) = true, want false (documented gap)")
-	}
 }

@@ -258,3 +258,107 @@ func forcedColorsPaintColor(forcedActive bool, adjust string, author, system [3]
 
 	return system
 }
+
+// forcedColorsTestActive is the explicit test-only forced-colors mode
+// override. Print has no forced-colors mode (Windows high-contrast only),
+// so paint defaults to off. Tests enable it to observe the auto vs none
+// split: auto maps to the system color while none keeps author colors,
+// matching Chrome 143.0.7499.40 with forced-colors active.
+var forcedColorsTestActive bool //nolint:gochecknoglobals // test-only forced-colors mode override
+
+// setForcedColorsTestActive enables the test-only forced-colors mode.
+// Callers must defer setForcedColorsTestActive(false) and must not run in
+// parallel with other paint tests.
+func setForcedColorsTestActive(active bool) {
+	forcedColorsTestActive = active
+}
+
+// forcedColorsActive reports whether forced-colors mode is on for paint.
+// Print has no forced-colors mode (Windows high-contrast only), so this is
+// false unless the test override is enabled. The call site exists so
+// forced-color-adjust: none keeps author colors through the same mapping
+// Chrome 143.0.7499.40 uses when the mode is on.
+func forcedColorsActive() bool {
+	return forcedColorsTestActive
+}
+
+// forcedColorsForPaint reports whether forced-colors mode is on for this
+// Layout run: the test-only override or the document setting
+// (Options.ForcedColorsActive). Nil-engine safe for helper-only callers.
+func (e *engine) forcedColorsForPaint() bool {
+	if forcedColorsActive() {
+		return true
+	}
+
+	return e != nil && e.opts.ForcedColorsActive
+}
+
+// canvasFillForRoot returns the root canvas fill for paint. A dark
+// color-scheme root with no author background paints opaque #121212; an
+// author background wins and non-dark schemes keep the transparent paper.
+// Only the html root's value is consumed; nested values stay parsed.
+func canvasFillForRoot(rootStyle *ResolvedStyle) ([4]float64, bool) {
+	if rootStyle == nil {
+		return [4]float64{}, false
+	}
+
+	if rootStyle.BGColor[3] > 0 {
+		return [4]float64{}, false
+	}
+
+	fill := defaultCanvasForScheme(rootStyle.ColorScheme)
+	if fill[3] <= 0 {
+		return [4]float64{}, false
+	}
+
+	return fill, true
+}
+
+// usedBGForPaint resolves one background fill for paint: forced-mode mapping
+// then dynamic-range clamp, preserving alpha. Print forced mode is off by
+// default (test override or Options.ForcedColorsActive aside) so author
+// colors survive; the clamp only folds out-of-range computed values into
+// sRGB since the parser only produces 0..1 channels.
+func usedBGForPaint(sty ResolvedStyle) [4]float64 {
+	return usedBGForPaintActive(sty, forcedColorsActive())
+}
+
+// usedBGForPaintActive is usedBGForPaint with an explicit forced-colors mode
+// flag so engine paint paths can pass the document setting
+// (Options.ForcedColorsActive) instead of the test-only override.
+func usedBGForPaintActive(sty ResolvedStyle, forcedActive bool) [4]float64 {
+	base := sty.BGColor
+	if base[3] <= 0 {
+		return base
+	}
+
+	rgb := [3]float64{base[0], base[1], base[2]}
+	rgb = forcedColorsPaintColor(forcedActive, sty.ForcedColorAdjust, rgb, [3]float64{})
+	rgb = clampDynamicRangeColor(rgb, sty.DynamicRangeLimit)
+
+	return [4]float64{rgb[0], rgb[1], rgb[2], base[3]}
+}
+
+// usedTextForPaint resolves one text ink color for paint: dark-scheme default
+// substitution (initial black only), then forced mapping, then dynamic clamp.
+// rootScheme is the html root's color-scheme; only it selects the default.
+// Author colors (anything but initial black) keep their value before the
+// forced and clamp stages. Reference: Chrome 143.0.7499.40.
+func usedTextForPaint(color [3]float64, rootScheme, adjust, limit string) [3]float64 {
+	return usedTextForPaintActive(color, rootScheme, adjust, limit, forcedColorsActive())
+}
+
+// usedTextForPaintActive is usedTextForPaint with an explicit forced-colors
+// mode flag so engine paint paths can pass the document setting
+// (Options.ForcedColorsActive) instead of the test-only override.
+func usedTextForPaintActive(color [3]float64, rootScheme, adjust, limit string, forcedActive bool) [3]float64 {
+	if color == ([3]float64{}) {
+		if def := defaultTextForScheme(rootScheme); def != ([3]float64{}) {
+			color = def
+		}
+	}
+
+	color = forcedColorsPaintColor(forcedActive, adjust, color, [3]float64{})
+
+	return clampDynamicRangeColor(color, limit)
+}

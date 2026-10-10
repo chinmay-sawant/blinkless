@@ -253,23 +253,22 @@ func TestBehaviorPerspectiveOriginNoLayoutEffect(t *testing.T) {
 	behaviorRemAssertSameOps(t, plain, origin)
 }
 
-// TestBehaviorDominantBaselineNoPaintEffect documents the current behavior of
-// dominant-baseline: the declaration is dropped (style_paint_props.go
-// forwards it to applyLeftoversProps, which has no dominant-baseline case
-// and returns false) and no paint pass reads it, so
-// dominant-baseline:hanging paints identical text positions to the default.
-// Unobservable in the drawing list: reported as a no-op, never failing.
-// Reference: Chrome 143.0.7499.40 would align the 16px run to the hanging
-// baseline, about 5px above alphabetic.
+// TestBehaviorDominantBaselineNoPaintEffect pins the remaining no-op pair
+// for dominant-baseline: auto and alphabetic share the alphabetic baseline,
+// so they paint identical text positions. Hanging now raises the run (see
+// TestGapBDominantBaselineHangingRaisesText); other baselines pin to
+// alphabetic until font baseline tables exist.
+// Reference: Chrome 143.0.7499.40 keeps auto and alphabetic on the same
+// baseline and aligns the 16px hanging run about 5px above alphabetic.
 func TestBehaviorDominantBaselineNoPaintEffect(t *testing.T) {
 	t.Parallel()
 
 	plain := layoutHTML(t, `<html><body style="margin:0">`+
 		`<p style="margin:0;font-size:16px">Ag</p></body></html>`)
-	hang := layoutHTML(t, `<html><body style="margin:0">`+
-		`<p style="margin:0;font-size:16px;dominant-baseline:hanging">Ag</p></body></html>`)
+	alpha := layoutHTML(t, `<html><body style="margin:0">`+
+		`<p style="margin:0;font-size:16px;dominant-baseline:alphabetic">Ag</p></body></html>`)
 
-	behaviorRemAssertSameOps(t, plain, hang)
+	behaviorRemAssertSameOps(t, plain, alpha)
 }
 
 // TestBehaviorInitialLetterAlignHangingRaisesLetter is initial-letter-align:

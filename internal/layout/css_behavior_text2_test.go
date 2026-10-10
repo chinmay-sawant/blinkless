@@ -645,25 +645,6 @@ func TestBehaviorTextUnderlineOffsetShiftsStroke(t *testing.T) {
 	}
 }
 
-// TestBehaviorTextUnderlinePositionNoPaintEffect documents the current
-// behavior of text-underline-position: the value is stored but no paint pass
-// reads it (only text-underline-offset moves the stroke), so under paints
-// identical geometry to the default.
-// Unobservable in the drawing list: reported as a no-op, never failing.
-// Reference: Chrome 143.0.7499.40 would place the stroke under descenders.
-func TestBehaviorTextUnderlinePositionNoPaintEffect(t *testing.T) {
-	t.Parallel()
-
-	plain := layoutHTML(t, `<html><body><p style="margin:0;font-size:14pt">`+
-		`<span style="text-decoration:underline">acemnorstu</span>`+
-		`</p></body></html>`)
-	under := layoutHTML(t, `<html><body><p style="margin:0;font-size:14pt">`+
-		`<span style="text-decoration:underline;text-underline-position:under">acemnorstu</span>`+
-		`</p></body></html>`)
-
-	behaviorText2AssertSameOps(t, plain, under)
-}
-
 // TestBehaviorHangingPunctuationFirstHangsQuote is hanging-punctuation: first
 // hangs the leading quote past the content edge, so the hung line starts left
 // of the plain line.

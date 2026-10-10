@@ -114,6 +114,81 @@ func defaultTransformOrigin() transformOriginSpec {
 }
 
 func resolveTransformOrigin(spec transformOriginSpec, boxNode *box) (float64, float64) {
+	return resolveBorderBoxOrigin(spec, boxNode)
+}
+
+// resolveTransformOriginWithBox resolves transform-origin against the
+// transform-box reference box. Only content-box differs from the border box
+// for CSS layout boxes: percentages resolve against the content size and
+// lengths offset from the content origin (border plus padding inset).
+// fill-box, stroke-box, and border-box all alias the border box for CSS
+// boxes (the object bounding box of a CSS box is its border box). view-box
+// resolves against the nearest SVG viewport carried by the stamp walk and
+// falls back to the border box when the box has no SVG ancestor (a plain
+// HTML box). Reference: Chrome 143.0.7499.40.
+func resolveTransformOriginWithBox(
+	spec transformOriginSpec, boxNode *box, transformBox string, viewport svgViewport,
+) (float64, float64) {
+	if boxNode == nil {
+		return 0, 0
+	}
+
+	if transformBox == "content-box" {
+		return resolveContentBoxOrigin(spec, boxNode)
+	}
+
+	if transformBox == "view-box" && viewport.set {
+		return resolveViewportOrigin(spec, viewport)
+	}
+
+	return resolveTransformOrigin(spec, boxNode)
+}
+
+// resolveViewportOrigin resolves transform-origin against the nearest SVG
+// viewport rectangle: percentages scale the viewport size, lengths offset
+// from the viewport origin.
+func resolveViewportOrigin(spec transformOriginSpec, viewport svgViewport) (float64, float64) {
+	var originX, originY float64
+
+	if spec.XPercent {
+		originX = viewport.x + viewport.w*spec.X/oneHundred
+	} else {
+		originX = viewport.x + spec.X
+	}
+
+	if spec.YPercent {
+		originY = viewport.y + viewport.h*spec.Y/oneHundred
+	} else {
+		originY = viewport.y + spec.Y
+	}
+
+	return originX, originY
+}
+
+// svgViewport carries the nearest SVG viewport rectangle (page-space pt)
+// down the stamp walk so view-box origins resolve against it.
+type svgViewport struct {
+	x, y, w, h float64
+	set        bool
+}
+
+// viewportOfBox reports the SVG viewport established by boxNode when the box
+// wraps an <svg> element: the viewport origin sits at the border-box origin
+// and spans the border-box size.
+func viewportOfBox(boxNode *box) (svgViewport, bool) {
+	if boxNode == nil || boxNode.node == nil || boxNode.node.Name != cssTagSVG {
+		var none svgViewport
+
+		return none, false
+	}
+
+	return svgViewport{x: boxNode.x, y: boxNode.y, w: boxNode.w, h: boxNode.height, set: true}, true
+}
+
+// resolveBorderBoxOrigin resolves transform-origin against the border box.
+// It is the shared base for resolveTransformOrigin and
+// resolveTransformOriginWithBox so neither wrapper recurses into the other.
+func resolveBorderBoxOrigin(spec transformOriginSpec, boxNode *box) (float64, float64) {
 	if boxNode == nil {
 		return 0, 0
 	}
@@ -130,6 +205,52 @@ func resolveTransformOrigin(spec transformOriginSpec, boxNode *box) (float64, fl
 		originY = boxNode.y + boxNode.height*spec.Y/oneHundred
 	} else {
 		originY = boxNode.y + spec.Y
+	}
+
+	return originX, originY
+}
+
+// resolveContentBoxOrigin resolves transform-origin against the content box.
+// Border and padding come from used style values (unscaled pt); the box
+// geometry is scaled, so the two match at scale 1 (all layout tests) and
+// approximate under zoom. Threading engine scale through stampBoxTransforms
+// is future work.
+func resolveContentBoxOrigin(spec transformOriginSpec, boxNode *box) (float64, float64) {
+	var padL, padR, padT, padB, borderL, borderR, borderT, borderB float64
+
+	if sty := boxNode.style; sty != nil {
+		padL, padR, padT, padB = sty.PaddingLeft, sty.PaddingRight, sty.PaddingTop, sty.PaddingBottom
+		borderL = borderPaint(sty.BorderLeft)
+		borderR = borderPaint(sty.BorderRight)
+		borderT = borderPaint(sty.BorderTop)
+		borderB = borderPaint(sty.BorderBottom)
+	}
+
+	contentX := boxNode.x + borderL + padL
+	contentY := boxNode.y + borderT + padT
+	contentW := boxNode.w - borderL - borderR - padL - padR
+	contentH := boxNode.height - borderT - borderB - padT - padB
+
+	if contentW < 0 {
+		contentW = 0
+	}
+
+	if contentH < 0 {
+		contentH = 0
+	}
+
+	var originX, originY float64
+
+	if spec.XPercent {
+		originX = contentX + contentW*spec.X/oneHundred
+	} else {
+		originX = contentX + spec.X
+	}
+
+	if spec.YPercent {
+		originY = contentY + contentH*spec.Y/oneHundred
+	} else {
+		originY = contentY + spec.Y
 	}
 
 	return originX, originY
@@ -982,7 +1103,11 @@ func stampBoxTransforms(boxNode *box, parentAccum Matrix2D, ops []Op) {
 	}
 
 	covered := make([]bool, len(ops))
-	stampBoxTransformsRec(boxNode, parentAccum, ops, covered)
+	// rootViewport starts unset: the root has no SVG ancestor, so a
+	// view-box origin on a top-level box falls back to the border box.
+	var rootViewport svgViewport
+
+	stampBoxTransformsRec(boxNode, parentAccum, ops, covered, rootViewport)
 }
 
 // withPercentTranslate folds deferred translate percents into the box transform.
@@ -1007,7 +1132,11 @@ func withPercentTranslate(sty *ResolvedStyle, boxNode *box) Matrix2D {
 }
 
 // boxTransformAccum composes one box's baked transform onto its parent.
-func boxTransformAccum(boxNode *box, parentAccum Matrix2D) Matrix2D {
+// viewport is the nearest ancestor SVG viewport: a view-box origin resolves
+// against it while every other reference box resolves against the box
+// itself (fill-box uses the object bounding box, the border box for CSS
+// boxes).
+func boxTransformAccum(boxNode *box, parentAccum Matrix2D, viewport svgViewport) Matrix2D {
 	sty := boxNode.style
 
 	if sty == nil || !sty.HasTransform {
@@ -1015,21 +1144,28 @@ func boxTransformAccum(boxNode *box, parentAccum Matrix2D) Matrix2D {
 	}
 
 	tform := withPercentTranslate(sty, boxNode)
-	originX, originY := resolveTransformOrigin(sty.TransformOrigin, boxNode)
+	originX, originY := resolveTransformOriginWithBox(sty.TransformOrigin, boxNode, sty.TransformBox, viewport)
 	baked := BakeOrigin(tform, originX, originY)
 
 	return parentAccum.Mul(baked)
 }
 
-func stampBoxTransformsRec(boxNode *box, parentAccum Matrix2D, ops []Op, covered []bool) {
+func stampBoxTransformsRec(boxNode *box, parentAccum Matrix2D, ops []Op, covered []bool, viewport svgViewport) {
 	if boxNode == nil {
 		return
 	}
 
-	accum := boxTransformAccum(boxNode, parentAccum)
+	accum := boxTransformAccum(boxNode, parentAccum, viewport)
+
+	// An <svg> box establishes a viewport for its subtree; the box's own
+	// transform still resolves against the ancestor viewport above.
+	childViewport := viewport
+	if established, ok := viewportOfBox(boxNode); ok {
+		childViewport = established
+	}
 
 	for _, c := range boxNode.children {
-		stampBoxTransformsRec(c, accum, ops, covered)
+		stampBoxTransformsRec(c, accum, ops, covered, childViewport)
 	}
 
 	// Mark child-owned ranges, stamp exclusive ops, then clear for siblings.
