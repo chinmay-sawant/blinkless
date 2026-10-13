@@ -57,8 +57,10 @@ FUNC_DEF = re.compile(r"^func\s+(?:\([^)]*\)\s*)?([A-Za-z_]\w*)\s*\(", re.M)
 CONST_STR = re.compile(r"^\s*([A-Za-z_]\w*)\s*=\s*\"([^\"]*)\"", re.M)
 IDENT_CALL = re.compile(r"\b([A-Za-z_]\w*)\s*\(")
 RAW_LOOKUP = re.compile(r"\braw\[\"([^\"]+)\"\]")
-PROP_CMP = re.compile(r"\bprop\s*(?:==|!=)\s*\"([^\"]+)\"")
-VENDOR_PAIR = re.compile(r"case\s+\"([^\"]+)\":\s*return\s+\"([^\"]+)\"")
+PROP_CMP = re.compile(r'\bprop\s*(?:==|!=)\s*("[^"]+"|[A-Za-z_]\w*)')
+VENDOR_PAIR = re.compile(
+    r'case\s+("[^"]+"|[A-Za-z_]\w*)\s*:\s*return\s+("[^"]+"|[A-Za-z_]\w*)'
+)
 GO_KEYWORDS = frozenset({
     "if", "for", "switch", "select", "return", "go", "defer", "func", "range",
     "make", "new", "append", "len", "cap", "copy", "delete", "panic", "recover",
@@ -360,7 +362,10 @@ def discover_engine(root: Path) -> dict[str, Any]:
         body = src[start:end]
         names, missing = switch_prop_labels(body, consts)
         unresolved.update(missing)
-        names.update(PROP_CMP.findall(body))
+        for match in PROP_CMP.finditer(body):
+            name = resolve_case_label(match.group(1), consts)
+            if name is not None:
+                names.add(name)
         for name in names:
             handlers.setdefault(name, set()).add(fn)
             handler_files.setdefault(name, set()).add(str(path.relative_to(root)))
@@ -371,13 +376,28 @@ def discover_engine(root: Path) -> dict[str, Any]:
             handlers.setdefault(name, set()).add(fn)
             handler_files.setdefault(name, set()).add(str(path.relative_to(root)))
 
-    # Vendor aliases map onto their canonical property before dispatch.
+    # Vendor aliases map onto their canonical property before dispatch. Follow
+    # the normalizer's helper calls so splitting its switch does not hide pairs.
     vendor_map: dict[str, str] = {}
-    nv = funcs.get("normalizeVendorPrefix")
-    if nv is not None:
-        _, src, start, end = nv
-        for m in VENDOR_PAIR.finditer(src[start:end]):
-            vendor_map[m.group(1)] = m.group(2)
+    normalizer = "normalizeVendorPrefix"
+    if normalizer in funcs:
+        normalize_seen: set[str] = set()
+        normalize_stack = [normalizer]
+        while normalize_stack:
+            fn = normalize_stack.pop()
+            if fn in normalize_seen or fn not in funcs:
+                continue
+            normalize_seen.add(fn)
+
+            _, src, start, end = funcs[fn]
+            body = src[start:end]
+            normalize_stack.extend(calls_in(body) & set(funcs))
+
+            for match in VENDOR_PAIR.finditer(body):
+                alias = resolve_case_label(match.group(1), consts)
+                target = resolve_case_label(match.group(2), consts)
+                if alias is not None and target is not None:
+                    vendor_map[alias] = target
 
     return {
         "groups": groups,

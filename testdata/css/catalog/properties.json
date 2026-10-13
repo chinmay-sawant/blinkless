@@ -1,7 +1,7 @@
 {
   "catalog": "blinkless-css-properties",
   "schema_version": 1,
-  "updated": "2026-10-10",
+  "updated": "2026-10-13",
   "scope": "Engine-registered CSS properties plus every property in the pinned upstream inventory. A property not listed here is unsupported by default.",
   "seed": {
     "date": "2026-10-09",
@@ -12,13 +12,13 @@
     "properties": 785,
     "by_status": {
       "implemented": 389,
-      "partial": 1,
-      "unsupported": 387,
+      "partial": 19,
+      "unsupported": 369,
       "intentionally ignored": 8
     },
     "aliases": 38,
-    "engine_registered": 401,
-    "upstream_only": 384,
+    "engine_registered": 419,
+    "upstream_only": 366,
     "upstream": {
       "inventory": "webref-ed-css",
       "revision": "1f2ec8f74a80c14066b4c7d6822cee59f69fa03b",
@@ -246,16 +246,30 @@
     {
       "name": "-webkit-mask",
       "aliases": [],
-      "values": [],
+      "values": [
+        "url(...) | none; supported mask mode, position, size, repeat, origin, clip, and composite values"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The shorthand expands its supported subset and resets mask-border values. CSS gradients, image-set, mask-border painting, and an in-repo pixel replay backend are unsupported."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_mask_accept.go",
+        "internal/layout/style_mask_props.go",
+        "internal/layout/mask_paint.go",
+        "internal/layout/layout.go",
+        "bindings/wasm/drawing_list.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskVendorAliasesReachMaskGroup"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "vendor"
     },
     {
@@ -351,106 +365,204 @@
     {
       "name": "-webkit-mask-clip",
       "aliases": [],
-      "values": [],
+      "values": [
+        "border-box | padding-box | content-box | no-clip"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_mask_accept.go",
+        "internal/layout/style_mask_props.go",
+        "internal/layout/mask_paint.go",
+        "internal/layout/layout.go",
+        "bindings/wasm/drawing_list.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskVendorAliasesReachMaskGroup"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "vendor"
     },
     {
       "name": "-webkit-mask-composite",
       "aliases": [],
-      "values": [],
+      "values": [
+        "source-over | source-out | source-in | xor"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_mask_accept.go",
+        "internal/layout/style_mask_props.go",
+        "internal/layout/mask_paint.go",
+        "internal/layout/layout.go",
+        "bindings/wasm/drawing_list.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskVendorAliasesReachMaskGroup"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "vendor"
     },
     {
       "name": "-webkit-mask-image",
       "aliases": [],
-      "values": [],
+      "values": [
+        "url(...) | none"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Only URL and none sources are accepted. CSS gradients and image-set sources are unsupported; pixels are not replayed inside this repository."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_mask_accept.go",
+        "internal/layout/style_mask_props.go",
+        "internal/layout/mask_paint.go",
+        "internal/layout/layout.go",
+        "bindings/wasm/drawing_list.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskVendorAliasesReachMaskGroup"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "vendor"
     },
     {
       "name": "-webkit-mask-origin",
       "aliases": [],
-      "values": [],
+      "values": [
+        "border-box | padding-box | content-box"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_mask_accept.go",
+        "internal/layout/style_mask_props.go",
+        "internal/layout/mask_paint.go",
+        "internal/layout/layout.go",
+        "bindings/wasm/drawing_list.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskVendorAliasesReachMaskGroup"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "vendor"
     },
     {
       "name": "-webkit-mask-position",
       "aliases": [],
-      "values": [],
+      "values": [
+        "CSS position keywords, lengths, and percentages accepted by parseObjectPosition"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. A consumer must resolve positions against the mask positioning area."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_mask_accept.go",
+        "internal/layout/style_mask_props.go",
+        "internal/layout/mask_paint.go",
+        "internal/layout/layout.go",
+        "bindings/wasm/drawing_list.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskVendorAliasesReachMaskGroup"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "vendor"
     },
     {
       "name": "-webkit-mask-repeat",
       "aliases": [],
-      "values": [],
+      "values": [
+        "repeat | repeat-x | repeat-y | no-repeat"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_mask_accept.go",
+        "internal/layout/style_mask_props.go",
+        "internal/layout/mask_paint.go",
+        "internal/layout/layout.go",
+        "bindings/wasm/drawing_list.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskVendorAliasesReachMaskGroup"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "vendor"
     },
     {
       "name": "-webkit-mask-size",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | cover | contain | one or two non-negative CSS lengths or percentages"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. A consumer must resolve sizing against the mask positioning area."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_mask_accept.go",
+        "internal/layout/style_mask_props.go",
+        "internal/layout/mask_paint.go",
+        "internal/layout/layout.go",
+        "bindings/wasm/drawing_list.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskVendorAliasesReachMaskGroup"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "vendor"
     },
     {
@@ -10185,16 +10297,38 @@
     {
       "name": "mask",
       "aliases": [],
-      "values": [],
+      "values": [
+        "url(...) | none; supported mask mode, position, size, repeat, origin, clip, and composite values"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The shorthand expands its supported subset and resets mask-border values. CSS gradients, image-set, mask-border painting, and an in-repo pixel replay backend are unsupported."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_mask_accept.go",
+        "internal/layout/style_mask_props.go",
+        "internal/layout/mask_paint.go",
+        "internal/layout/layout.go",
+        "bindings/wasm/drawing_list.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskShorthandCreatesElementGroup"
+        },
+        {
+          "file": "internal/layout/style_cascade_test.go",
+          "name": "TestMaskShorthandCSSWideKeywords"
+        },
+        {
+          "file": "internal/layout/style_cascade_test.go",
+          "name": "TestMaskShorthandResolvesCustomPropertiesAndKeepsLonghandOrder"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<mask-layer>#"
     },
@@ -10313,144 +10447,291 @@
     {
       "name": "mask-clip",
       "aliases": [],
-      "values": [],
+      "values": [
+        "border-box | padding-box | content-box | no-clip"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_mask_accept.go",
+        "internal/layout/style_mask_props.go",
+        "internal/layout/mask_paint.go",
+        "internal/layout/layout.go",
+        "bindings/wasm/drawing_list.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskLayerPropertiesAttachToAllElementPaint"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "[ <coord-box> | no-clip ]#"
     },
     {
       "name": "mask-composite",
       "aliases": [],
-      "values": [],
+      "values": [
+        "add | subtract | intersect | exclude"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_mask_accept.go",
+        "internal/layout/style_mask_props.go",
+        "internal/layout/mask_paint.go",
+        "internal/layout/layout.go",
+        "bindings/wasm/drawing_list.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskLayerPropertiesAttachToAllElementPaint"
+        },
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskVendorAliasesReachMaskGroup"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<compositing-operator>#"
     },
     {
       "name": "mask-image",
       "aliases": [],
-      "values": [],
+      "values": [
+        "url(...) | none"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Only URL and none sources are accepted. CSS gradients and image-set sources are unsupported; pixels are not replayed inside this repository."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_mask_accept.go",
+        "internal/layout/style_mask_props.go",
+        "internal/layout/mask_paint.go",
+        "internal/layout/layout.go",
+        "bindings/wasm/drawing_list.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskLayerPropertiesAttachToAllElementPaint"
+        },
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskMatchSourceUsesImageAlpha"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<mask-reference>#"
     },
     {
       "name": "mask-mode",
       "aliases": [],
-      "values": [],
+      "values": [
+        "match-source | alpha | luminance"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. SVG masks support the documented child-paint subset."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_mask_accept.go",
+        "internal/layout/style_mask_props.go",
+        "internal/layout/mask_paint.go",
+        "internal/layout/layout.go",
+        "bindings/wasm/drawing_list.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskLayerPropertiesAttachToAllElementPaint"
+        },
+        {
+          "file": "internal/svg/mask_test.go",
+          "name": "TestRasterizeMaskUsesSourceLuminanceForMatchSource"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<masking-mode>#"
     },
     {
       "name": "mask-origin",
       "aliases": [],
-      "values": [],
+      "values": [
+        "border-box | padding-box | content-box"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_mask_accept.go",
+        "internal/layout/style_mask_props.go",
+        "internal/layout/mask_paint.go",
+        "internal/layout/layout.go",
+        "bindings/wasm/drawing_list.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskLayerPropertiesAttachToAllElementPaint"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<coord-box>#"
     },
     {
       "name": "mask-position",
       "aliases": [],
-      "values": [],
+      "values": [
+        "CSS position keywords, lengths, and percentages accepted by parseObjectPosition"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. A consumer must resolve positions against the mask positioning area."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_mask_accept.go",
+        "internal/layout/style_mask_props.go",
+        "internal/layout/mask_paint.go",
+        "internal/layout/layout.go",
+        "bindings/wasm/drawing_list.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskLayerPropertiesAttachToAllElementPaint"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<position>#"
     },
     {
       "name": "mask-repeat",
       "aliases": [],
-      "values": [],
+      "values": [
+        "repeat | repeat-x | repeat-y | no-repeat"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_mask_accept.go",
+        "internal/layout/style_mask_props.go",
+        "internal/layout/mask_paint.go",
+        "internal/layout/layout.go",
+        "bindings/wasm/drawing_list.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskLayerPropertiesAttachToAllElementPaint"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<repeat-style>#"
     },
     {
       "name": "mask-size",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | cover | contain | one or two non-negative CSS lengths or percentages"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. A consumer must resolve sizing against the mask positioning area."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_mask_accept.go",
+        "internal/layout/style_mask_props.go",
+        "internal/layout/mask_paint.go",
+        "internal/layout/layout.go",
+        "bindings/wasm/drawing_list.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskLayerPropertiesAttachToAllElementPaint"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<bg-size>#"
     },
     {
       "name": "mask-type",
       "aliases": [],
-      "values": [],
+      "values": [
+        "luminance | alpha"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "SVG mask-type is read from presentation attributes or inline style on an external SVG fragment. External stylesheet cascade and in-repo pixel replay are unsupported."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_mask_accept.go",
+        "internal/layout/style_mask_props.go",
+        "internal/layout/mask_paint.go",
+        "internal/layout/layout.go",
+        "bindings/wasm/drawing_list.go",
+        "internal/svg/mask.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorSVGMaskTypeFlowsIntoMaskImagePayload"
+        },
+        {
+          "file": "internal/svg/mask_test.go",
+          "name": "TestRasterizeMaskUsesSourceAlphaForAlphaMode"
+        },
+        {
+          "file": "internal/svg/mask_test.go",
+          "name": "TestRasterizeMaskUsesSourceLuminanceForMatchSource"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "luminance | alpha"
     },

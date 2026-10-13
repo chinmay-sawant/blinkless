@@ -205,10 +205,30 @@ type drawBoxJSON struct {
 // drawGroupJSON is one blend or isolation group. Parent is absent at the page
 // root.
 type drawGroupJSON struct {
-	ID      int    `json:"id"`
-	Mode    string `json:"mode,omitempty"`
-	Isolate bool   `json:"isolate,omitempty"`
-	Parent  *int   `json:"parent,omitempty"`
+	ID      int           `json:"id"`
+	Mode    string        `json:"mode,omitempty"`
+	Isolate bool          `json:"isolate,omitempty"`
+	Parent  *int          `json:"parent,omitempty"`
+	Mask    *drawMaskJSON `json:"mask,omitempty"`
+}
+
+// drawMaskJSON describes the mask composited over one element group.
+type drawMaskJSON struct {
+	Layers []drawMaskLayerJSON `json:"layers"`
+}
+
+// drawMaskLayerJSON stores one comma-separated CSS mask layer.
+type drawMaskLayerJSON struct {
+	Source       string `json:"source"`
+	ImageID      string `json:"image,omitempty"`
+	Preprocessed bool   `json:"preprocessed,omitempty"`
+	Mode         string `json:"mode"`
+	Composite    string `json:"composite"`
+	Position     string `json:"position"`
+	Repeat       string `json:"repeat"`
+	Size         string `json:"size"`
+	Origin       string `json:"origin"`
+	Clip         string `json:"clip"`
 }
 
 // drawFontJSON is one font face referenced by text and bullet entries.
@@ -554,6 +574,26 @@ func (res *drawingResources) addGroup(group *layout.DisplayGroup) {
 		ID:      group.ID,
 		Mode:    group.Mode,
 		Isolate: group.Isolate,
+	}
+	if group.Mask != nil {
+		entry.Mask = &drawMaskJSON{Layers: make([]drawMaskLayerJSON, len(group.Mask.Layers))}
+		for idx, layer := range group.Mask.Layers {
+			encoded := drawMaskLayerJSON{
+				Source:       layer.Source,
+				Preprocessed: layer.Preprocessed,
+				Mode:         layer.Mode,
+				Composite:    layer.Composite,
+				Position:     layer.Position,
+				Repeat:       layer.Repeat,
+				Size:         layer.Size,
+				Origin:       layer.Origin,
+				Clip:         layer.Clip,
+			}
+			if len(layer.ImageBytes) > 0 {
+				encoded.ImageID = res.addImage(layer.ImageBytes, layer.PixelWidth, layer.PixelHeight)
+			}
+			entry.Mask.Layers[idx] = encoded
+		}
 	}
 
 	if group.Parent != nil {

@@ -2,6 +2,27 @@ package layout
 
 import "testing"
 
+type declarationValueCase struct {
+	prop  string
+	value string
+	want  bool
+}
+
+func assertSupportedDeclarationCases(t *testing.T, cases []declarationValueCase) {
+	t.Helper()
+
+	for _, testCase := range cases {
+		t.Run(testCase.prop+"/"+testCase.value, func(t *testing.T) {
+			t.Parallel()
+
+			if got := supportedDeclaration(testCase.prop, testCase.value); got != testCase.want {
+				t.Errorf("supportedDeclaration(%q, %q) = %v, want %v",
+					testCase.prop, testCase.value, got, testCase.want)
+			}
+		})
+	}
+}
+
 // TestSupportedDeclarationBackgroundFontGrammar (CSS-01b): the acceptance
 // gate mirrors the value parser behind each property's apply arm, so an
 // invalid ordinary value cannot win the cascade or satisfy @supports. This
@@ -10,11 +31,7 @@ import "testing"
 func TestSupportedDeclarationBackgroundFontGrammar(t *testing.T) {
 	t.Parallel()
 
-	cases := []struct {
-		prop  string
-		value string
-		want  bool
-	}{
+	cases := []declarationValueCase{
 		// CSS-wide keywords and var() are universal.
 		{"background", "inherit", true},
 		{"font", "var(--f)", true},
@@ -54,16 +71,51 @@ func TestSupportedDeclarationBackgroundFontGrammar(t *testing.T) {
 		{"transform", "bogus", false},
 	}
 
-	for _, testCase := range cases {
-		t.Run(testCase.prop+"/"+testCase.value, func(t *testing.T) {
-			t.Parallel()
+	assertSupportedDeclarationCases(t, cases)
+}
 
-			if got := supportedDeclaration(testCase.prop, testCase.value); got != testCase.want {
-				t.Errorf("supportedDeclaration(%q, %q) = %v, want %v",
-					testCase.prop, testCase.value, got, testCase.want)
-			}
-		})
+func TestSupportedDeclarationMaskGrammar(t *testing.T) {
+	t.Parallel()
+
+	cases := []declarationValueCase{
+		{"mask", "none", true},
+		{"mask", `url(mask.png) center / cover no-repeat alpha padding-box intersect`, true},
+		{"mask", `url(a.png), url(b.png) right bottom / 10px 20px repeat-y`, true},
+		{"mask", `url(a.png) / cover 10px`, false},
+		{"mask", `url(a.png),`, false},
+		{"mask-image", "none, url(Mask.png)", true},
+		{"mask-image", "linear-gradient(red, blue)", false},
+		{"mask-image", "url(mask.png) junk", false},
+		{"mask-mode", "match-source, alpha, luminance", true},
+		{"mask-mode", "bogus", false},
+		{"mask-position", "left top, 10px 20%", true},
+		{"mask-position", "left top right", false},
+		{"mask-size", "auto, cover, contain, 10px 20%", true},
+		{"mask-size", "-1px", false},
+		{"mask-size", "cover 10px", false},
+		{"mask-repeat", "repeat, repeat-x, repeat-y, no-repeat", true},
+		{"mask-repeat", "round", false},
+		{"mask-origin", "border-box, padding-box, content-box", true},
+		{"mask-origin", "no-clip", false},
+		{"mask-clip", "border-box, padding-box, content-box, no-clip", true},
+		{"mask-clip", "view-box", false},
+		{"mask-composite", "add, subtract, intersect, exclude", true},
+		{"mask-composite", "source-over", false},
+		{"mask-type", "alpha", true},
+		{"mask-type", "match-source", false},
+		{"-webkit-mask", `url(mask.png) center / cover no-repeat`, true},
+		{"-webkit-mask-clip", "no-clip", true},
+		{"-webkit-mask-composite", "source-over, source-out, source-in, xor", true},
+		{"-webkit-mask-composite", "add", false},
+		{"-webkit-mask-composite", "destination-out", false},
+		{"-webkit-mask-image", "url(mask.png)", true},
+		{"-webkit-mask-origin", "content-box", true},
+		{"-webkit-mask-position", "right bottom", true},
+		{"-webkit-mask-repeat", "repeat-x", true},
+		{"-webkit-mask-size", "contain", true},
 	}
+
+	assertSupportedDeclarationCases(t, cases)
 }
 
 // TestSupportedDeclarationFlexGridGeneratedGrammar (CSS-01b): the second half
@@ -72,11 +124,7 @@ func TestSupportedDeclarationBackgroundFontGrammar(t *testing.T) {
 func TestSupportedDeclarationFlexGridGeneratedGrammar(t *testing.T) {
 	t.Parallel()
 
-	cases := []struct {
-		prop  string
-		value string
-		want  bool
-	}{
+	cases := []declarationValueCase{
 		// flex-flow: direction and wrap keywords in any order.
 		{"flex-flow", "row wrap", true},
 		{"flex-flow", "wrap column-reverse", true},
@@ -126,16 +174,7 @@ func TestSupportedDeclarationFlexGridGeneratedGrammar(t *testing.T) {
 		{"flex", "bogus", false},
 	}
 
-	for _, testCase := range cases {
-		t.Run(testCase.prop+"/"+testCase.value, func(t *testing.T) {
-			t.Parallel()
-
-			if got := supportedDeclaration(testCase.prop, testCase.value); got != testCase.want {
-				t.Errorf("supportedDeclaration(%q, %q) = %v, want %v",
-					testCase.prop, testCase.value, got, testCase.want)
-			}
-		})
-	}
+	assertSupportedDeclarationCases(t, cases)
 }
 
 // TestSupportedDeclarationGridTemplateGrammar (CSS-01b): this table covers the

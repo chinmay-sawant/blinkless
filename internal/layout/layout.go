@@ -553,7 +553,7 @@ type engine struct {
 	positioned     bool
 	blendMode      string
 	// blendGroup is the CSS element group that owns newly emitted ops
-	// (mix-blend-mode or isolation: isolate). nil means page-level paint.
+	// (masking, mix-blend-mode, or isolation). nil means page-level paint.
 	// blendGroupOwner is the style that created the innermost group, so the
 	// same element's inline runs are not wrapped in a second group.
 	blendGroup      *BlendGroup
@@ -977,8 +977,8 @@ type blendScope struct {
 }
 
 // pushZ enters one element's stacking and compositing scope, emitting the
-// group begin marker when mix-blend-mode or isolation creates a group. owner
-// is the resolved style pointer that identifies the element.
+// group begin marker when masking, blending, or isolation creates a group.
+// owner is the resolved style pointer that identifies the element.
 func (e *engine) pushZ(style ResolvedStyle, owner *ResolvedStyle) blendScope {
 	prev := blendScope{
 		prevZ:          e.zIndex,
@@ -989,13 +989,14 @@ func (e *engine) pushZ(style ResolvedStyle, owner *ResolvedStyle) blendScope {
 		prevGroupOwner: e.blendGroupOwner,
 		beginMark:      -1,
 	}
-	createsBlendContext := style.MixBlendMode != blendNormal || style.Isolation == "isolate"
+	createsGroupContext := style.MixBlendMode != blendNormal || style.Isolation == "isolate" ||
+		maskImageEnabled(style.MaskImage)
 
 	if style.Position == positionAbsolute || style.Position == positionFixed {
 		e.positioned = true
 	}
 
-	e.enterStackingContext(style, createsBlendContext)
+	e.enterStackingContext(style, createsGroupContext)
 	e.enterBlendIsolation(style, owner)
 
 	if e.blendGroup != prev.prevGroup {
@@ -1006,13 +1007,13 @@ func (e *engine) pushZ(style ResolvedStyle, owner *ResolvedStyle) blendScope {
 }
 
 // enterStackingContext applies CSS stacking-context creation: an explicit
-// z-index wins, otherwise transform, opacity, blend, or isolation reset the
-// level to zero.
-func (e *engine) enterStackingContext(style ResolvedStyle, createsBlendContext bool) {
+// z-index wins, otherwise transform, opacity, masking, blending, or isolation
+// reset the level to zero.
+func (e *engine) enterStackingContext(style ResolvedStyle, createsGroupContext bool) {
 	if style.ZIndexSet {
 		e.zIndex = style.ZIndex
 		e.zIndexSet = true
-	} else if style.HasTransform || style.Opacity < 1 || createsBlendContext {
+	} else if style.HasTransform || style.Opacity < 1 || createsGroupContext {
 		// CSS: transform, opacity, blend, and isolation create a stacking context.
 		e.zIndex = 0
 		e.zIndexSet = true
@@ -1020,9 +1021,8 @@ func (e *engine) enterStackingContext(style ResolvedStyle, createsBlendContext b
 }
 
 // enterBlendIsolation applies the transform stamp and enters the element's
-// blend group. An HTML element that blends, or that isolates, is an isolated
-// group per CSS Compositing 3.2, so the group starts on a transparent
-// backdrop; descendants inherit the group membership instead of the mode.
+// paint group. The group starts on a transparent backdrop; descendants inherit
+// its membership so mask, blend, or isolation is applied once to the subtree.
 func (e *engine) enterBlendIsolation(style ResolvedStyle, owner *ResolvedStyle) {
 	if style.HasTransform || style.Opacity < 1 {
 		e.needsXformStamp = true
@@ -1030,31 +1030,29 @@ func (e *engine) enterBlendIsolation(style ResolvedStyle, owner *ResolvedStyle) 
 
 	// normalizeBlendMode accepts the CSS vocabulary; the style apply arm
 	// already normalized MixBlendMode, so only "normal"/empty skip.
-	mode := ""
-	if style.MixBlendMode != "" && style.MixBlendMode != blendNormal {
-		mode = style.MixBlendMode
-	}
+	mode := nonNormalBlendMode(style.MixBlendMode)
 
-	if mode == "" && style.Isolation != "isolate" {
+	hasMask := maskImageEnabled(style.MaskImage)
+	if mode == "" && style.Isolation != "isolate" && !hasMask {
 		return
 	}
 
 	e.nextGroupID++
+
 	e.blendGroup = &BlendGroup{
 		ID:      e.nextGroupID,
 		Mode:    mode,
 		Isolate: true,
 		Parent:  e.blendGroup,
+		Mask:    nil,
 	}
+	if hasMask {
+		e.blendGroup.Mask = e.maskDescriptor(style)
+	}
+
 	e.blendGroupOwner = owner
 
-	if style.Isolation == "isolate" {
-		e.blendMode = ""
-	}
-
-	if mode != "" {
-		e.blendMode = mode
-	}
+	e.applyBlendMode(&style, mode)
 }
 
 // addGroupMark appends a begin/end boundary op for group and returns its op

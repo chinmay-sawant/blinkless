@@ -8,4 +8,4 @@ Follow-up checklist: [v0.0.1 HTML, CSS, and JSON compatibility](v0.0.1/html-css-
 
 Native view proposal: [native web view checklist](v0.0.1/native-window/native-web-view-checklist.md). It defines the runtime, scrolling, input, navigation, JavaScript, native surface, accessibility, and compatibility work around Blinkless's drawing-list engine. All implementation rows are open.
 
-CSS masking proposal: [CSS masking first wave checklist](v0.0.1/css-masking/css-masking-checklist.md). It targets 10 standard mask properties and 8 WebKit-prefixed forms. The plan starts with a display-list group decision and leaves implementation open.
+CSS masking first wave: [CSS masking checklist](v0.0.1/css-masking/css-masking-checklist.md). It targets 10 standard mask properties and 8 WebKit-prefixed forms. The display-list group contract and property behavior are implemented; all final gates passed on 2026-10-13.

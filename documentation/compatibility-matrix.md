@@ -41,7 +41,7 @@ as its inline text (per the note column).
 
 ## 2. Supported CSS properties
 
-The catalog in `testdata/css/catalog/properties.json` (schema v1) is the authoritative property record. Measured 2026-10-10: 785 rows - 389 implemented, 1 partial, 387 unsupported, 8 intentionally ignored. The pinned upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties: 671 draft, 70 vendor, 52 svg, 28 browser-ui). Regenerate the tables below with `python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails on drift between the catalog and the code.
+The catalog in `testdata/css/catalog/properties.json` (schema v1) is the authoritative property record. Measured 2026-10-13: 785 rows - 389 implemented, 19 partial, 369 unsupported, 8 intentionally ignored. The pinned upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties: 671 draft, 70 vendor, 52 svg, 28 browser-ui). Regenerate the tables below with `python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails on drift between the catalog and the code.
 
 Statuses describe the layout pipeline, not browsers:
 
@@ -446,13 +446,31 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `writing-mode` | horizontal-tb \| vertical-rl \| vertical-lr \| sideways-rl \| sideways-lr | `internal/layout/style_properties.go` | `TestWritingModeInherits`, `TestBehaviorWritingModeVerticalRotatesRun` |
 | `z-index` | auto \| <integer> \| inherit | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestBehaviorZIndexOrdersOverlappingPaint` |
 
-### 2.2 Partial (1)
+### 2.2 Partial (19)
 
 | Property | Accepted values | Source | Named missing behavior |
 |---|---|---|---|
+| `-webkit-mask` | url(...) \| none; supported mask mode, position, size, repeat, origin, clip, and composite values | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go` | The shorthand expands its supported subset and resets mask-border values. CSS gradients, image-set, mask-border painting, and an in-repo pixel replay backend are unsupported. |
+| `-webkit-mask-clip` | border-box \| padding-box \| content-box \| no-clip | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go` | Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. |
+| `-webkit-mask-composite` | source-over \| source-out \| source-in \| xor | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go` | Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. |
+| `-webkit-mask-image` | url(...) \| none | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go` | Only URL and none sources are accepted. CSS gradients and image-set sources are unsupported; pixels are not replayed inside this repository. |
+| `-webkit-mask-origin` | border-box \| padding-box \| content-box | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go` | Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. |
+| `-webkit-mask-position` | CSS position keywords, lengths, and percentages accepted by parseObjectPosition | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go` | Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. A consumer must resolve positions against the mask positioning area. |
+| `-webkit-mask-repeat` | repeat \| repeat-x \| repeat-y \| no-repeat | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go` | Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. |
+| `-webkit-mask-size` | auto \| cover \| contain \| one or two non-negative CSS lengths or percentages | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go` | Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. A consumer must resolve sizing against the mask positioning area. |
 | `break-inside` | auto \| avoid \| avoid-page \| avoid-column \| avoid-region | `internal/layout/style_properties.go` | break-inside keywords parse but no layout or paint pass reads them; the engine returns a drawing list without paginating, so avoidance has no observable effect (TestBehaviorBreakInsideAvoidColumnNoPageEffect). break-inside:avoid parses but multicol advances whole items without a straddle test at the distribution call, so avoidance equals auto (TestBreakInsideAvoidBalancedStraddleGap). |
+| `mask` | url(...) \| none; supported mask mode, position, size, repeat, origin, clip, and composite values | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go` | The shorthand expands its supported subset and resets mask-border values. CSS gradients, image-set, mask-border painting, and an in-repo pixel replay backend are unsupported. |
+| `mask-clip` | border-box \| padding-box \| content-box \| no-clip | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go` | Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. |
+| `mask-composite` | add \| subtract \| intersect \| exclude | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go` | Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. |
+| `mask-image` | url(...) \| none | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go` | Only URL and none sources are accepted. CSS gradients and image-set sources are unsupported; pixels are not replayed inside this repository. |
+| `mask-mode` | match-source \| alpha \| luminance | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go` | Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. SVG masks support the documented child-paint subset. |
+| `mask-origin` | border-box \| padding-box \| content-box | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go` | Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. |
+| `mask-position` | CSS position keywords, lengths, and percentages accepted by parseObjectPosition | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go` | Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. A consumer must resolve positions against the mask positioning area. |
+| `mask-repeat` | repeat \| repeat-x \| repeat-y \| no-repeat | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go` | Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. |
+| `mask-size` | auto \| cover \| contain \| one or two non-negative CSS lengths or percentages | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go` | Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. A consumer must resolve sizing against the mask positioning area. |
+| `mask-type` | luminance \| alpha | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go`, `internal/svg/mask.go` | SVG mask-type is read from presentation attributes or inline style on an external SVG fragment. External stylesheet cascade and in-repo pixel replay are unsupported. |
 
-### 2.3 Unsupported (387)
+### 2.3 Unsupported (369)
 
 | Property | Named missing behavior |
 |---|---|
@@ -470,20 +488,12 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `-webkit-background-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `-webkit-background-origin` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `-webkit-background-size` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `-webkit-mask` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `-webkit-mask-box-image` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `-webkit-mask-box-image-outset` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `-webkit-mask-box-image-repeat` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `-webkit-mask-box-image-slice` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `-webkit-mask-box-image-source` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `-webkit-mask-box-image-width` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `-webkit-mask-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `-webkit-mask-composite` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `-webkit-mask-image` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `-webkit-mask-origin` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `-webkit-mask-position` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `-webkit-mask-repeat` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `-webkit-mask-size` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `-webkit-perspective` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `-webkit-perspective-origin` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `-webkit-text-size-adjust` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -648,7 +658,6 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `marker-mid` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `marker-side` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `marker-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `mask` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `mask-border` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `mask-border-mode` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `mask-border-outset` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -656,15 +665,6 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `mask-border-slice` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `mask-border-source` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `mask-border-width` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `mask-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `mask-composite` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `mask-image` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `mask-mode` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `mask-origin` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `mask-position` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `mask-repeat` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `mask-size` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `mask-type` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `math-depth` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `math-shift` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `math-style` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -925,7 +925,7 @@ Status legend: Implemented and Partial as in §2; Not implemented means the sele
 | `@font-face` (remote / WOFF2) | **Partial:** local **and `https://`** TTF/OTF/WOFF1 via `FetchSub` (same load ACL and network policy as other subresources). **`.woff2` / `.eot` / `data:`** skipped. Missing faces fall back to registry / Liberation |
 | Custom XSLT TOC (`--xsl-style-sheet`) | Not implemented (no XSLT in the standard library); this tree has no TOC pipeline |
 | SVG-as-`<img>` / SVG presentation | **Implemented** SVG-as-`<img>` and inline `<svg>` rasterization via `internal/svg`; 5 CSS properties (`fill`, `stroke`, `stroke-width`, `fill-opacity`, `stroke-opacity`) parsed in style; the remaining SVG presentation properties are unsupported (§2.3) |
-| Masking / clipping | **Implemented** `overflow-clip` for descendant box clipping (`overflow_clip.go`); `clip-path` is parsed and stored but its behavior is unverified (§2.2); CSS `mask-*` properties are unsupported |
+| Masking / clipping | **Implemented** `overflow-clip` for descendant box clipping (`overflow_clip.go`) and `clip-path` (§2.1). The 10 standard mask properties and 8 WebKit aliases are **Partial**: they attach mask layers to element groups in the drawing list; a consumer must replay the mask pixels (§2.2). |
 | CSS Regions & Exclusions | **Not implemented** (`flow-from`, `flow-into`, `flow-tolerance`, `region-fragment`, `wrap-after`, `wrap-before`, `wrap-flow`, `wrap-inside`, `wrap-through` are permanent non-goals for this engine) |
 | WebP, AVIF | Not implemented; broken-image placeholder or skip |
 | Fixed CSS headers/footers via `position: fixed` alone | `position: fixed` is marked viewport-fixed (`markOpsFixed`, `layout_chrome.go:12`) when not under a transformed ancestor; not a full running-element model. There are no header/footer flags in this tree |
@@ -944,24 +944,26 @@ The following 94 properties are intentionally left **unsupported** (Not implemen
 
 Total: 94 properties across three families. All are Not implemented and left unsupported with no layout consumer.
 
-### 5.2 Phase 83 hard-defer categories (87 properties - Not implemented)
+### 5.2 Phase 83 hard-defer categories (87 properties in the original scope)
 
-The following 87 properties across three categories are intentionally left **unsupported** (Not implemented) as hard-deferred or permanent non-goals for this engine:
+The following 87 properties across three categories were grouped as hard-deferred or permanent non-goals in Phase 83. The catalog in section 2 records their current status:
 
 | Category | Count | Status | Description and scope |
 |----------|-------|--------|-----------------------|
 | SVG presentation & geometry (`B_svg_presentation`) | 53 | Not implemented | Remaining SVG presentation and geometry properties. SVG-as-`<img>` is implemented via `internal/svg` rasterizer; 5 CSS properties (`fill`, `stroke`, `stroke-width`, `fill-opacity`, `stroke-opacity`) are parsed in style; remaining 53 SVG presentation properties are unsupported (`alignment-baseline`, `baseline-shift`, `color-interpolation`, `cx`, `cy`, `d`, `dominant-baseline`, `fill-break`, `fill-color`, `fill-image`, `fill-origin`, `fill-position`, `fill-repeat`, `fill-rule`, `fill-size`, `glyph-orientation-vertical`, `image-rendering`, `marker`, `marker-end`, `marker-mid`, `marker-side`, `marker-start`, `paint-order`, `path-length`, `r`, `rx`, `ry`, `shape-rendering`, `stop-color`, `stop-opacity`, `stroke-align`, `stroke-alignment`, `stroke-break`, `stroke-color`, `stroke-dash-corner`, `stroke-dash-justify`, `stroke-dashadjust`, `stroke-dasharray`, `stroke-dashcorner`, `stroke-dashoffset`, `stroke-image`, `stroke-linecap`, `stroke-linejoin`, `stroke-miterlimit`, `stroke-origin`, `stroke-position`, `stroke-repeat`, `stroke-size`, `text-anchor`, `text-rendering`, `vector-effect`, `x`, `y`). |
-| Mask, clip, and filter effects (`B_mask_clip_filter_effects`) | 25 | Not implemented | Masking, clipping, and filter primitives. `overflow-clip` is implemented for descendant box clipping (`overflow_clip.go`); 2D image filter (opacity, blur, grayscale, invert, adjustments) on raster images + CSS `opacity()` on elements are implemented (`filter.go`); `clip-path`, CSS `mask-*` properties, `backdrop-filter`, and CSS shader/SVG filter composition are unsupported (`backdrop-filter`, `clip`, `clip-path`, `clip-rule`, `color-interpolation-filters`, `flood-color`, `flood-opacity`, `lighting-color`, `mask`, `mask-border`, `mask-border-mode`, `mask-border-outset`, `mask-border-repeat`, `mask-border-slice`, `mask-border-source`, `mask-border-width`, `mask-clip`, `mask-composite`, `mask-image`, `mask-mode`, `mask-origin`, `mask-position`, `mask-repeat`, `mask-size`, `mask-type`). |
+| Mask, clip, and filter effects (`B_mask_clip_filter_effects`) | 25 | Mixed | `clip-path` is implemented. The 10 standard mask properties are Partial: `mask`, `mask-clip`, `mask-composite`, `mask-image`, `mask-mode`, `mask-origin`, `mask-position`, `mask-repeat`, `mask-size`, and `mask-type`. They emit element-group mask data for a display-list consumer; this repository has no pixel replay backend. The 14 Unsupported names are `backdrop-filter`, `clip`, `clip-rule`, `color-interpolation-filters`, `flood-color`, `flood-opacity`, `lighting-color`, and the seven `mask-border*` properties. |
 | CSS Regions & Exclusions (`B_regions_exclusions`) | 9 | Not implemented | CSS Regions and Exclusions are permanent non-goals for this engine (`flow-from`, `flow-into`, `flow-tolerance`, `region-fragment`, `wrap-after`, `wrap-before`, `wrap-flow`, `wrap-inside`, `wrap-through`). |
 
-Total: 87 properties across three hard-defer categories. All remain Not implemented.
+Total: 87 names across three Phase 83 categories. Current statuses are in section 2; the mask category includes one Implemented property, 10 Partial properties, and 14 Unsupported properties.
 
 Catalog reconciliation: this phase-83 tally counts names with no print
 consumer as unsupported, but several are parsed and stored in the style layer
 and therefore appear as Partial in the catalog with unverified behavior:
 `alignment-baseline`, `color-interpolation`, `dominant-baseline`, `fill-rule`,
 `shape-rendering`, `stroke-dasharray`, `stroke-dashoffset`, `stroke-linecap`,
-`stroke-linejoin`, `stroke-miterlimit`, `text-anchor`, and `clip-path`. The
+`stroke-linejoin`, `stroke-miterlimit`, and `text-anchor`. The 18 first-wave
+mask properties are Partial because the display list leaves pixel replay to
+its consumer. `clip-path` is Implemented. The
 five SVG properties consumed by SVG-as-img (`fill`, `stroke`, `stroke-width`,
 `fill-opacity`, `stroke-opacity`) are Partial as well. The catalog in section 2
 is authoritative for status; this table remains the phase-83 family record.
@@ -974,8 +976,8 @@ This section is the contract for vendor-prefixed alias handling. Alias mechanism
 and value remaps in `remapWebkitValue` at `internal/layout/style_cascade.go:1000`.
 
 - **Total tracked:** 70 `-webkit-` alias names.
-- **Registered:** 28 aliases that map to an unprefixed base the engine consumes. The catalog records an alias as Partial when its base is Partial; see the reconciliation note below.
-- **Unsupported:** 42 aliases whose bases are not Implemented or are print-noop. These are
+- **Registered:** 36 aliases that map to an unprefixed base the engine consumes. The catalog records an alias as Partial when its base is Partial; see the reconciliation note below.
+- **Unsupported:** 34 aliases whose bases are not Implemented or are print-noop. These are
   not Implemented and degrade gracefully (ignored declaration).
 
 Do not treat Unsupported aliases as Implemented. Tests for Implemented aliases live in
@@ -990,10 +992,11 @@ aliases Partial, so the catalog records `-webkit-box-shadow`, `-webkit-filter`,
 `-webkit-line-clamp` as Partial. The 28/42 split above is the phase-69/82
 tally of registered aliases, not the catalog status count.
 
-#### 5.3.1 Implemented vendor aliases (28)
+#### 5.3.1 Registered vendor aliases (36)
 
-28 = 22 from Phase 69 + 6 new in Phase 82 slice A. Each entry has a prefixed-name
-test and folds onto its unprefixed base; bases without verified behavior evidence make their aliases Partial in the catalog.
+28 aliases were registered in Phases 69 and 82. Eight mask aliases were added
+in the CSS masking first wave. Each folds onto its unprefixed base; aliases
+with a Partial base remain Partial in the catalog.
 
 | Vendor alias | Canonical property | Notes / base |
 |--------------|--------------------|--------------|
@@ -1025,6 +1028,14 @@ test and folds onto its unprefixed base; bases without verified behavior evidenc
 | `-webkit-box-orient` | `flex-direction` | **New in Phase 82 slice A.** Value remap `horizontal`/`inline-axis`->`row`, `vertical`/`block-axis`->`column` via `remapWebkitValue` |
 | `-webkit-box-pack` | `justify-content` | **New in Phase 82 slice A.** Value remap `start`->`flex-start`, `end`->`flex-end`, `center`->`center`, `justify`->`space-between` via `remapWebkitValue` |
 | `-webkit-text-fill-color` | `color` | **New in Phase 82 slice A.** Alias to `color` |
+| `-webkit-mask` | `mask` | **CSS masking first wave.** Shorthand alias; Partial |
+| `-webkit-mask-image` | `mask-image` | **CSS masking first wave.** URL and `none` values; Partial |
+| `-webkit-mask-size` | `mask-size` | **CSS masking first wave.** Accepted size tokens; Partial |
+| `-webkit-mask-repeat` | `mask-repeat` | **CSS masking first wave.** Accepted repeat tokens; Partial |
+| `-webkit-mask-position` | `mask-position` | **CSS masking first wave.** Position keywords, lengths, and percentages; Partial |
+| `-webkit-mask-origin` | `mask-origin` | **CSS masking first wave.** Border, padding, or content box; Partial |
+| `-webkit-mask-clip` | `mask-clip` | **CSS masking first wave.** Box values or `no-clip`; Partial |
+| `-webkit-mask-composite` | `mask-composite` | **CSS masking first wave.** Remaps the four legacy operators; Partial |
 
 Display value aliases (also Phase 82 slice A, at `internal/layout/style_properties.go:81`):
 
@@ -1033,10 +1044,10 @@ Display value aliases (also Phase 82 slice A, at `internal/layout/style_properti
 | `display: -webkit-box` | `display: flex` |
 | `display: -webkit-inline-box` | `display: inline-flex` |
 
-#### 5.3.2 Still Unsupported vendor aliases (42)
+#### 5.3.2 Still Unsupported vendor aliases (34)
 
-42 aliases remain **Unsupported**. They are not Implemented. Each group notes the
-blocking base. Do not claim Implemented for any of these 42.
+34 aliases remain **Unsupported**. Each group notes the
+blocking base. Do not claim Implemented for any of these 34.
 
 **Group B - 3 background longhands:** bases `background-clip`,
 `background-origin`, and `background-size` are Partial in the catalog (parsed,
@@ -1050,20 +1061,12 @@ aliases stay Unsupported
 | `-webkit-background-origin` | `background-origin` | remap not registered |
 | `-webkit-background-size` | `background-size` | remap not registered |
 
-**Group C - 14 mask family (wait Phase 83 hard defer):** bases `mask` and
-`mask-border` families are hard-deferred. No alias flips until bases are
-Implemented.
+**Group C - 6 mask-border aliases:** the eight selected `-webkit-mask*`
+aliases are registered and Partial. These six `-webkit-mask-box-image*`
+aliases still have no mask-border consumer.
 
 | Vendor alias | Blocking base | Reason |
 |--------------|---------------|--------|
-| `-webkit-mask` | `mask` | wait Phase 83 hard defer |
-| `-webkit-mask-image` | `mask-image` | wait Phase 83 hard defer |
-| `-webkit-mask-size` | `mask-size` | wait Phase 83 hard defer |
-| `-webkit-mask-repeat` | `mask-repeat` | wait Phase 83 hard defer |
-| `-webkit-mask-position` | `mask-position` | wait Phase 83 hard defer |
-| `-webkit-mask-origin` | `mask-origin` | wait Phase 83 hard defer |
-| `-webkit-mask-clip` | `mask-clip` | wait Phase 83 hard defer |
-| `-webkit-mask-composite` | `mask-composite` | wait Phase 83 hard defer |
 | `-webkit-mask-box-image` | `mask-border` | wait Phase 83 hard defer |
 | `-webkit-mask-box-image-source` | `mask-border-source` | wait Phase 83 hard defer |
 | `-webkit-mask-box-image-slice` | `mask-border-slice` | wait Phase 83 hard defer |

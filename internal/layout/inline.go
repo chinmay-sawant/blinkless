@@ -1289,7 +1289,7 @@ type inlineBlendScope struct {
 }
 
 // pushInlineBlend enters the compositing scope of one inline item. Inline
-// items do not get their own box-layout pushZ call, so isolation and
+// items do not get their own box-layout pushZ call, so masks, isolation, and
 // mix-blend-mode must be scoped while their text and decorations are emitted.
 // popInlineBlend restores the previous blend mode, group, and owner.
 //
@@ -1312,19 +1312,44 @@ func (e *engine) pushInlineBlend(style *ResolvedStyle) inlineBlendScope {
 		return scope
 	}
 
-	mode := ""
-	if style.MixBlendMode != "" && style.MixBlendMode != blendNormal {
-		mode = style.MixBlendMode
-	}
+	mode := nonNormalBlendMode(style.MixBlendMode)
 
-	if mode == "" && style.Isolation != "isolate" {
+	hasMask := maskImageEnabled(style.MaskImage)
+	if mode == "" && style.Isolation != "isolate" && !hasMask {
 		return scope
 	}
 
 	e.nextGroupID++
-	e.blendGroup = &BlendGroup{ID: e.nextGroupID, Mode: mode, Isolate: true, Parent: e.blendGroup}
+
+	e.blendGroup = &BlendGroup{
+		ID:      e.nextGroupID,
+		Mode:    mode,
+		Isolate: true,
+		Parent:  e.blendGroup,
+		Mask:    nil,
+	}
+	if hasMask {
+		e.blendGroup.Mask = e.maskDescriptor(*style)
+	}
+
 	e.blendGroupOwner = style
 
+	e.applyBlendMode(style, mode)
+
+	scope.markStart = e.addGroupMark(e.blendGroup, groupMarkBegin)
+
+	return scope
+}
+
+func nonNormalBlendMode(mode string) string {
+	if mode == blendNormal {
+		return ""
+	}
+
+	return mode
+}
+
+func (e *engine) applyBlendMode(style *ResolvedStyle, mode string) {
 	if style.Isolation == "isolate" {
 		e.blendMode = ""
 	}
@@ -1332,10 +1357,6 @@ func (e *engine) pushInlineBlend(style *ResolvedStyle) inlineBlendScope {
 	if mode != "" {
 		e.blendMode = mode
 	}
-
-	scope.markStart = e.addGroupMark(e.blendGroup, groupMarkBegin)
-
-	return scope
 }
 
 // popInlineBlend closes the inline item's group (balanced markers) and

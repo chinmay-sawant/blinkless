@@ -169,12 +169,31 @@ text. Use boxes for hit testing; use operations for painting.
 
 ### Blend and isolation groups
 
-`groups` entries are `{ id, mode, isolate, parent }`. `mode` is the CSS
-mix-blend-mode value, empty when the element only declared
-`isolation: isolate`; `isolate` marks a group whose initial backdrop is
-transparent; `parent` is the enclosing group ID and is absent at the page
-root. Operations inside a group carry its `group` ID. `groupBegin` and
-`groupEnd` entries delimit the group in `ops`; they paint nothing.
+`groups` entries are `{ id, mode, isolate, parent, mask }`. `mode` is the CSS
+mix-blend-mode value, empty when no blend mode is set. `isolate` marks a group
+whose initial backdrop is transparent; `parent` is the enclosing group ID and
+is absent at the page root. Operations inside a group carry its `group` ID.
+`groupBegin` and `groupEnd` entries delimit the group in `ops`; they paint
+nothing. A mask group contains the element's paint and its descendants. The
+boundary operations carry the element bounds. Layout creates and closes these
+groups in `internal/layout/layout.go:982-1120`.
+
+When `mask` is present, replay the group's operations into a temporary
+surface, apply the listed mask layers to that surface, then composite it into
+the parent group. Each layer has a CSS image `source`, an optional `image` ID
+in the images table, and its `mode`, `composite`, `position`, `repeat`, `size`,
+`origin`, and `clip` values. The layer order follows the CSS comma-separated
+values. Layout resolves layer fields in `internal/layout/mask_paint.go:25-109`.
+When an image source cannot be resolved, the layer settings remain available
+and its `image` field is omitted.
+
+For a direct image, `match-source` becomes alpha mode. For an external SVG
+`<mask>` fragment, Blinkless rasterizes the mask's child paint to PNG and
+stores the mask result in the alpha channel. The WASM record sets
+`preprocessed: true` for that PNG, so the consumer should use its alpha
+channel directly. SVG mask mode and `mask-type` handling live in
+`internal/svg/mask.go:41-114`; the WASM fields are written in
+`bindings/wasm/drawing_list.go:205-231,578-603`.
 
 ### Font references
 
@@ -193,7 +212,9 @@ bytes }`. `bytes` is the encoded payload, base64 encoded; `format` is `png`,
 `jpeg`, or `binary`. The `id` is `i-` plus a truncated SHA-256 of the
 payload, so identical payloads share one entry. Image operations keep the
 target box in points and point at this table; a browser source must be a
-`data:` URL, since inline input has no base URL and no IO.
+`data:` URL, since inline input has no base URL and no IO. Mask layers may
+also point at this table; SVG `<mask>` sources are stored as rasterized PNG
+masks.
 
 ### Limits
 

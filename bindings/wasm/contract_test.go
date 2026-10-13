@@ -177,6 +177,92 @@ func TestDrawingListAgreesWithNativeDisplay(t *testing.T) {
 	}
 }
 
+func TestDrawingGroupSerializesMaskAndImageReference(t *testing.T) {
+	t.Parallel()
+
+	maskPNG := []byte("mask-image-payload")
+	group := &layout.DisplayGroup{
+		ID: 7,
+		Mask: &layout.MaskDescriptor{Layers: []layout.MaskLayer{{
+			Source:       `url("mask.png")`,
+			ImageBytes:   maskPNG,
+			PixelWidth:   12,
+			PixelHeight:  8,
+			Preprocessed: true,
+			Mode:         "luminance",
+			Composite:    "add",
+			Position:     "25% 50%",
+			Repeat:       "no-repeat",
+			Size:         "contain",
+			Origin:       "padding-box",
+			Clip:         "content-box",
+		}}},
+	}
+
+	resources := newDrawingResources()
+	resources.addGroup(group)
+	entry := resources.groups[group.ID]
+	if entry.Mask == nil || len(entry.Mask.Layers) != 1 {
+		t.Fatalf("group mask = %+v, want one mask layer", entry.Mask)
+	}
+	layer := entry.Mask.Layers[0]
+	if layer.Source != `url("mask.png")` || layer.Mode != "luminance" ||
+		layer.Composite != "add" || layer.Position != "25% 50%" ||
+		layer.Repeat != "no-repeat" || layer.Size != "contain" ||
+		layer.Origin != "padding-box" || layer.Clip != "content-box" {
+		t.Fatalf("mask layer = %+v", layer)
+	}
+	if len(resources.images) != 1 || layer.ImageID != resources.images[0].ID ||
+		resources.images[0].PixelWidth != 12 || resources.images[0].PixelHeight != 8 {
+		t.Fatalf("mask image ref = %q, images = %+v", layer.ImageID, resources.images)
+	}
+	if !layer.Preprocessed {
+		t.Fatal("SVG mask payload should be marked as preprocessed")
+	}
+
+	data, err := json.Marshal(entry)
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+	var wire map[string]any
+	if err := json.Unmarshal(data, &wire); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
+	mask, ok := wire["mask"].(map[string]any)
+	if !ok || mask["layers"] == nil {
+		t.Fatalf("serialized group has no mask layers: %s", data)
+	}
+}
+
+func TestConvertSerializesSVGMaskInGroupContract(t *testing.T) {
+	t.Parallel()
+
+	maskSVG := []byte(`<svg xmlns="http://www.w3.org/2000/svg" width="4" height="2" viewBox="0 0 4 2">
+<defs><mask id="cutout" mask-type="alpha"><rect width="2" height="2" fill="white"/></mask></defs></svg>`)
+	maskURL := "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString(maskSVG) + "#cutout"
+	source := `<html><body><div style="width:40px;height:20px;mask-image:url('` + maskURL + `')">masked</div></body></html>`
+	_, list := convertSource(t, source, 100, 60)
+
+	var maskGroup *drawGroupJSON
+	for idx := range list.Groups {
+		if list.Groups[idx].Mask != nil {
+			maskGroup = &list.Groups[idx]
+			break
+		}
+	}
+	if maskGroup == nil || len(maskGroup.Mask.Layers) != 1 {
+		t.Fatalf("groups contain no one-layer mask: %+v", list.Groups)
+	}
+	layer := maskGroup.Mask.Layers[0]
+	if layer.Mode != "match-source" || !layer.Preprocessed || layer.ImageID == "" {
+		t.Fatalf("serialized SVG mask layer = %+v", layer)
+	}
+	if got := maskGroup.Mask.Layers[0].Source; !strings.Contains(got, "#cutout") {
+		t.Fatalf("serialized mask source = %q, want fragment #cutout", got)
+	}
+	assertReferencesResolve(t, list)
+}
+
 func assertOpMatchesNative(t *testing.T, got *drawOpJSON, op *layout.DisplayOp) {
 	t.Helper()
 
@@ -403,11 +489,18 @@ func assertReferencesResolve(t *testing.T, list drawingListJSON) {
 
 	for _, group := range list.Groups {
 		if group.Parent == nil {
-			continue
-		}
-
-		if _, ok := groupIDs[*group.Parent]; !ok {
+		} else if _, ok := groupIDs[*group.Parent]; !ok {
 			t.Fatalf("group %d references missing parent %d", group.ID, *group.Parent)
+		}
+		if group.Mask != nil {
+			for _, layer := range group.Mask.Layers {
+				if layer.ImageID == "" {
+					continue
+				}
+				if _, ok := imageIDs[layer.ImageID]; !ok {
+					t.Fatalf("group %d mask references missing image %q", group.ID, layer.ImageID)
+				}
+			}
 		}
 	}
 

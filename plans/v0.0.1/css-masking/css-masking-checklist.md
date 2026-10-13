@@ -1,108 +1,118 @@
 # v0.0.1 - CSS masking first wave checklist
 
 > **Parent:** [HTML, CSS, and JSON compatibility](../html-css-json-compatibility-checklist.md) - shared catalog and behavior-test rules.
-> **Status:** proposal. The 18-property baseline is verified. Implementation has not started.
-> **Estimated effort:** set after Phase 0 selects the mask representation and supported source types.
+> **Status:** complete. All 18 selected property names are recorded as Partial, and every final gate passed on 2026-10-13.
+> **Estimated effort:** 18 CSS property names across four implementation phases.
 
 ---
 
 ## Overview
 
-Add static CSS masking for controlled HTML and CSS templates. A mask controls how much of an element shows through: alpha mode uses source transparency, while luminance mode uses source brightness. The first wave targets 18 names in the CSS property catalog, the repo's status table: 10 standard properties and 8 WebKit-prefixed properties.
+CSS masks control which parts of an element remain visible. Blinkless returns an ordered display list, a set of paint instructions for another program to replay. This first wave adds mask data to element groups so a display-list consumer can apply the mask after painting the element and its children. It does not add a page renderer to Blinkless.
 
-Blinkless returns a drawing list, an ordered list of paint operations for a renderer to replay. A mask must apply to the element and its children as one painted group, including text, borders, backgrounds, and child paint. This matches the W3C mask rendering model ([CSS Masking, sections 1-2](https://www.w3.org/TR/css-masking-1/#module-interactions)). The `maskClipPathOps` helper changes image operations only (`internal/layout/clip_path.go:467-485`), so that helper alone is not enough for CSS masks.
+The selected names are 10 standard properties and 8 WebKit-prefixed forms. The catalog records all 18 as Partial because Blinkless exports their group data but does not replay mask pixels itself. Catalog values name the accepted subset. The catalog, not the number of selected names, is the support record.
 
-The drawing list already has group boundary operations for blend and isolation (`layout/layout.go:364-376`, `internal/layout/blend_group.go:14-47`). Phase 0 must decide whether that representation can carry mask behavior or whether the display-list contract needs a new form. The decision must include the Go API (`layout/displaylist.go:99-106,134-139`) and the WebAssembly (WASM) JSON output (`bindings/wasm/contract.go:123-128,165-174`).
+A masked group includes the element's background, border, text, images, and child paint. That follows the [W3C CSS Masking group model](https://www.w3.org/TR/css-masking-1/#module-interactions). The public Go API carries `MaskDescriptor` on `BlendGroup` (`internal/layout/blend_group.go:13-67`, `layout/displaylist.go:55-62`). WASM exposes the same group and layer data (`bindings/wasm/drawing_list.go:205-231,578-603`).
 
 ## Executive summary
 
-The target names are:
-
-| Standard property | Matching WebKit-prefixed property |
+| Standard property | WebKit-prefixed form |
 |---|---|
 | `mask` | `-webkit-mask` |
 | `mask-clip` | `-webkit-mask-clip` |
 | `mask-composite` | `-webkit-mask-composite` |
 | `mask-image` | `-webkit-mask-image` |
-| `mask-mode` | No alias in this target |
+| `mask-mode` | no alias in this wave |
 | `mask-origin` | `-webkit-mask-origin` |
 | `mask-position` | `-webkit-mask-position` |
 | `mask-repeat` | `-webkit-mask-repeat` |
 | `mask-size` | `-webkit-mask-size` |
-| `mask-type` | No alias in this target |
+| `mask-type` | no alias in this wave |
 
-All 18 names are currently `unsupported` with no handler or behavior test in the catalog (`testdata/css/catalog/properties.json:247-442,10186-10442`). This wave excludes the visual behavior of `mask-border*` and the `-webkit-mask-box-image*` family. The `mask` shorthand still has to reset the `mask-border` properties to their initial values as the spec requires ([CSS Masking section 7.9](https://www.w3.org/TR/css-masking-1/#propdef-mask)). Property names are the target count; each property's catalog status must still match the value and paint behavior that passes tests.
+The accepted source subset is `url(...)` and `none`. Resolved raster images use their original PNG or JPEG bytes. An external SVG `<mask>` fragment is rasterized through its SVG source. A direct image's `match-source` mode uses alpha. An SVG mask's `match-source` mode uses the source mask's `mask-type`, whose initial value is luminance ([W3C `mask-mode`](https://www.w3.org/TR/css-masking-1/#the-mask-mode), [W3C `mask-type`](https://www.w3.org/TR/css-masking-1/#mask-type)).
 
-The current compatibility matrix still lists `clip-path` as unsupported in its old Phase 83 summary, although section 2 records it as implemented and names a behavior test (`documentation/compatibility-matrix.md:167,953-967`). Reconcile that stale family summary when updating compatibility docs for this work.
+CSS gradients and `image-set()` sources are outside this subset. SVG masks support the graphics subset already handled by `internal/svg`; mask-region clipping, external stylesheet cascade, filters, animation, and nested mask references are not handled. The `mask` shorthand resets `mask-border` values, but mask-border painting is outside this wave.
 
 ## Phase 0: lock the contract and baseline
 
-- [x] Verify the 18 selected catalog rows are `unsupported` and have no handlers or tests. Proof on 2026-10-13: catalog row inspection found all 18 with empty handler and test lists; `make catalog-check` passed with 785 properties, 389 implemented, 1 partial, 387 unsupported, and 8 intentionally ignored; `make matrix-check` passed.
-- [ ] Add test pages compared with a named browser for masks on elements with text, border, background, image, and child paint. Record browser version, viewport, device scale, and expected pixels or drawing-list result.
-- [ ] Add fixtures for nested masks, multiple mask layers (comma-separated mask images), alpha (source transparency) and luminance (source brightness), invalid declarations, and prefixed plus unprefixed declarations in both orders.
-- [ ] Choose the first supported `mask-image` source types from the current loader and image decoding paths. Record unsupported source types as explicit limitations.
-- [ ] Trace a real `mask-type` use through an SVG mask source. If this engine path has no consumer, remove `mask-type` from this wave before implementation and keep its catalog row unsupported.
-- [ ] Choose the element-group representation. Specify paint order, nested groups, clipping, blend/isolation interaction, and whether the Go or WASM drawing-list format changes.
+- [x] Verify the 18 selected catalog rows were `unsupported` before implementation. Evidence from 2026-10-13: all 18 had no handler or test; `make catalog-check` and `make matrix-check` passed at the starting baseline of 389 implemented, 1 partial, 387 unsupported, and 8 intentionally ignored.
+- [x] Record the browser reference in `testdata/css/masking/element-group-reference.html`. Chrome 143.0.7499.40, viewport 380 by 140 CSS pixels, device scale factor 1. Puppeteer captured `/tmp/blinkless-css-mask-reference.png`. The alpha fixture uses an opaque white right half and transparent left half; the luminance fixture uses opaque white and black halves.
+- [x] Record browser pixel expectations. At y=50, x=50 and x=230 show body green `(0,160,0)`, x=120 and x=300 show element red `(230,30,30)`, and x=179 and x=359 show the blue border `(0,0,255)`. At y=95, x=90 and x=270 show green through the transparent/black halves; x=150 and x=330 show the yellow child box `(255,220,0)`. White child-text pixels are present on both visible halves.
+- [x] Select raster URLs and external SVG mask fragments as sources. `mask_paint.go` uses the image resolver, and `internal/svg.RasterizeMask` consumes the raw SVG source when the URL has a fragment. Local same-document fragments without resolver-provided SVG source stay unresolved.
+- [x] Keep `mask-type` in scope. `TestBehaviorSVGMaskTypeFlowsIntoMaskImagePayload` and the SVG alpha, luminance, and linearRGB pixel tests prove that `mask-type` changes the processed SVG mask alpha for `match-source`.
+- [x] Select nested element groups as the representation. Mask groups use the existing group markers, carry a `MaskDescriptor`, preserve their parent links, and serialize to the Go and WASM contracts. The consumer applies the group mask after replaying its operations.
 
-**Gate:** the fixture set, supported source types, `mask-type` decision, and display-list representation are written down. Do not start property handlers before this gate passes.
+**Gate:** passed by the baseline checks, Chrome reference capture, SVG mask tests, and Go/WASM group contract tests listed above.
 
 ## Phase 1: represent and apply an element mask
 
-- [ ] Add the selected mask state to the style and paint model. Keep mask state separate from background clipping and `clip-path` (`internal/layout/style.go:317-335`).
-- [ ] Carry a mask group around all paint emitted by the element. Cover text, inline decorations, backgrounds, borders, and images; do not limit the effect to `OpImage`.
-- [ ] Preserve nested element groups and existing blend/isolation boundaries. Add focused tests for paint order and group ownership.
-- [ ] If the public display-list format changes, update the Go reader and WASM schema/consumer together. Add a replay test for the new operation before changing the schema version.
+- [x] Add mask fields to resolved style and style interning. Proof: `TestStyleInternGenerated` and the focused layout test run.
+- [x] Attach mask layers to an isolated element group. `TestBehaviorMaskLayerPropertiesAttachToAllElementPaint` checks background, border, text, child image, sibling separation, and balanced group markers.
+- [x] Preserve nested mask groups and group paint order. `TestBehaviorMaskGroupsNestAndRepeatLayerValues` and the `TestPaintOrder` tests pass.
+- [x] Update the Go group aliases, WASM group JSON, image-table references, and library API notes. `TestDrawingGroupSerializesMaskAndImageReference` and `TestConvertSerializesSVGMaskInGroupContract` pass.
 
-**Gate:** fixtures prove the mask affects every paint type in scope, preserves unaffected siblings, and composes with nested groups. If the display-list contract changed, its Go and WASM consumers replay the same fixture.
+**Gate:** focused layout, SVG, paint-order, and WASM contract tests pass. Final repository gates are recorded in Phase 4.
 
-## Phase 2: implement the standard properties
+## Phase 2: implement standard properties
 
-### 2.1 Layer source and mode
+### 2.1 Image source and mode
 
-- [ ] Implement `mask-image` for the Phase 0 source types, including `none`, comma-separated layers, and normal CSS image sizing inputs. A layer is one image in that comma-separated list.
-- [ ] Implement `mask-mode` for the selected alpha, luminance, and `match-source` cases. Test pixels with different alpha and color values.
-- [ ] Implement `mask-type` only for the SVG `<mask>` source proven in Phase 0. Test the actual source and leave the property unsupported if no consumer exists ([CSS Masking section 9.2](https://www.w3.org/TR/css-masking-1/#mask-type)).
+- [x] Accept `url(...)` and `none`, multiple comma-separated mask images, and the selected alpha, luminance, and `match-source` values. `TestBehaviorMaskGroupsNestAndRepeatLayerValues` and `TestBehaviorMaskMatchSourceUsesImageAlpha` pass.
+- [x] Apply `mask-type` for the selected SVG `<mask>` fragment source. Alpha and luminance output pixels, explicit mode override, and inline SVG `mask-type` are covered in `internal/svg/mask_test.go` and `TestBehaviorSVGMaskTypeFlowsIntoMaskImagePayload`.
 
-### 2.2 Layer geometry
+### 2.2 Layer values
 
-- [ ] Implement `mask-position` and resolve percentages and lengths against the mask positioning area, the box used to position each mask image.
-- [ ] Implement `mask-size`, including the selected `cover`, `contain`, and explicit-size cases.
-- [ ] Implement `mask-repeat` for the selected repeat, repeat-x, repeat-y, and no-repeat cases.
-- [ ] Implement `mask-origin` and `mask-clip` using the selected border, padding, and content boxes. Test that each box changes the visible mask boundary.
+- [x] Carry accepted `mask-position`, `mask-size`, `mask-repeat`, `mask-origin`, and `mask-clip` tokens into each mask layer. The element-group test asserts each value and the nested-layer test checks CSS list cycling.
+- [x] Carry standard `mask-composite` values in layer order. The group test checks `exclude` and the nested-layer test checks two-layer ordering. Pixel compositing is performed by the display-list consumer.
 
-### 2.3 Layer composition and shorthand
+### 2.3 Shorthand and acceptance
 
-- [ ] Implement `mask-composite` in layer order. Test each supported standard combination rule against pixel references.
-- [ ] Implement the `mask` shorthand, one declaration that sets several mask properties, including its layer parsing, resets of omitted component properties, and reset of `mask-border` properties to initial values. Test shorthand and component-property ordering in both directions ([CSS Masking section 7.9](https://www.w3.org/TR/css-masking-1/#propdef-mask)).
-- [ ] Validate declarations through the shared acceptance path. Make `@supports` (the CSS feature query) report true only for values accepted by the property code and consumed by paint (`internal/layout/style_cascade.go:1640-1695`).
-- [ ] Add a behavior test for every standard property that asserts its effect on the returned drawing list or rendered test pixels. Do not promote a catalog row from parsing or stored-value tests alone.
+- [x] Expand the `mask` shorthand, apply defaults, reset `mask-border` longhands, and resolve CSS-wide values. `TestMaskShorthandExpansionAndBorderReset` and `TestMaskShorthandCSSWideKeywords` pass.
+- [x] Resolve custom properties in the shorthand while keeping shorthand and longhand source order. `TestMaskShorthandResolvesCustomPropertiesAndKeepsLonghandOrder` passes.
+- [x] Make declaration acceptance and `@supports` use the same value rules. `TestBehaviorMaskSupportsMatchesAcceptedValues` and `TestBehaviorMaskInvalidValuesDoNotReplaceEarlierDeclarations` pass.
+- [x] Add behavior coverage for each standard property at the drawing-list contract. The mask group tests assert accepted layer values, resolved image data, SVG preprocessing, shorthand output, and paint ownership.
 
-**Gate:** all standard properties retained in scope have passing behavior tests for their recorded value subset. Invalid values preserve earlier valid declarations, and `@supports` agrees with declaration acceptance.
+**Gate:** passed for the documented value subset in focused tests. CSS gradients, `image-set()`, SVG features listed above, and pixel replay are outside the first-wave contract.
 
-## Phase 3: add the WebKit-prefixed forms
+## Phase 3: add WebKit-prefixed forms
 
-- [ ] Map `-webkit-mask`, `-webkit-mask-clip`, `-webkit-mask-image`, `-webkit-mask-origin`, `-webkit-mask-position`, `-webkit-mask-repeat`, and `-webkit-mask-size` to the working standard behavior.
-- [ ] Implement `-webkit-mask-composite` with its own tested legacy operator mapping. Do not pass its values through the standard operator parser unchanged.
-- [ ] Test declaration order when prefixed and unprefixed forms appear together. Prefix mapping currently happens during property application (`internal/layout/style_cascade.go:1573-1637,1643-1659`), so the fixture must prove the winning declaration follows CSS source order.
-- [ ] Test `@supports` for valid and invalid prefixed values through the same path as the cascade (`internal/layout/style_cascade.go:1662-1695`).
-- [ ] Add one behavior test per prefixed catalog row. Leave any alias unsupported if its value mapping or paint behavior is not proven.
+- [x] Map all eight selected aliases to the standard mask behavior. `TestBehaviorMaskVendorAliasesReachMaskGroup` checks each alias in the resulting mask group.
+- [x] Map `source-over`, `source-out`, `source-in`, and `xor` to the standard composite tokens. The alias behavior test checks `source-over` and `xor`; cascade acceptance tests cover the accepted legacy values.
+- [x] Test prefixed/unprefixed source order. `TestBehaviorMaskVendorAliasUsesCSSSourceOrder` passes with both declaration orders.
+- [x] Test valid and invalid `@supports` values for mask declarations and a prefixed composite value. `TestBehaviorMaskSupportsMatchesAcceptedValues` and `TestCascadeEngineSupportsPropertyValues` pass.
 
-**Gate:** the eight prefixed rows have browser-reference behavior tests, including the legacy composite values and mixed-prefix cascade cases.
+**Gate:** passed for the eight selected aliases and their documented value subset. The six `-webkit-mask-box-image*` names remain outside this 18-name target.
 
 ## Phase 4: reconcile catalog, docs, and final evidence
 
-- [ ] Add the matching handler and behavior-test name to each completed property row in `testdata/css/catalog/properties.json:247-442,10186-10442`. Use `partial` when only a tested subset works; use `implemented` only when the advertised values have behavior coverage.
-- [ ] Regenerate the compatibility matrix from the catalog. Update its Phase 83 mask-family record and vendor-alias table to distinguish this wave from the still-deferred `mask-border` family.
-- [ ] Update `documentation/deferred.md` and the compatibility matrix's stale `clip-path` Phase 83 note. Keep remaining unsupported effects listed accurately.
-- [ ] Update the CSS masking knowledge-base page with final source paths, limitations, and evidence.
-- [ ] Run `make catalog-check`, `make matrix-check`, `make golden`, `make test`, `make lint`, and `make claim-scan` on the final code tree. If the public display-list or WASM contract changes, also run `make wasm-test` and record its result.
+- [x] Update the catalog rows and summary from code and behavior tests. `make catalog-check` passes with 389 implemented, 19 partial, 369 unsupported, and 8 intentionally ignored.
+- [x] Regenerate the compatibility matrix property section and update the older mask and `clip-path` summaries. `make matrix-check` passes.
+- [x] Update `documentation/deferred.md` and `documentation/library-api.md` with current behavior and limits.
+- [x] Update the local CSS masking knowledge-base page, index, and operation log after the final gates.
+- [x] Run `make test` on the completed tree. Exit 0; all test packages passed.
+- [x] Run `go build ./...` on the completed tree. Exit 0.
+- [x] Run `make golden` on the completed tree. Exit 0; `layout.TestDisplay` passed.
+- [x] Run `make wasm-test` on the completed tree. Exit 0; contract tests, JSON consumer check, and WASM build passed.
+- [x] Run `make lint` on the completed tree. Exit 0; golangci-lint and the file-size check passed.
+- [x] Run `make claim-scan`, `make catalog-check`, `make matrix-check`, and `git diff --check`. Each exited 0. Catalog totals are 389 implemented, 19 partial, 369 unsupported, and 8 intentionally ignored.
 
-**Gate:** catalog and generated matrix agree; all required final commands pass; documentation states only behavior proven by the fixtures. Record commands and results here before closing this phase.
+**Gate:** passed on 2026-10-13. Every checklist item is complete.
+
+## Test method
+
+Blinkless has no page-pixel renderer. The Go tests therefore check the returned drawing list: each mask group owns the element's paint, has the right parent, and carries the expected source bytes and CSS values. The SVG tests inspect output PNG alpha at known pixels. WASM tests parse the serialized group and verify its image references. Chrome's screenshot provides the browser reference for group masking and the listed sample colors; it does not claim that Blinkless rendered those pixels. `make golden` runs the public drawing-list tests in `layout`, not a page raster comparison.
+
+Run focused tests during edits:
+
+```sh
+GOCACHE=/tmp/blinkless-mask-gocache go test ./internal/layout -run 'TestMaskShorthand|TestBehaviorMask|TestBehaviorSVGMask|TestPaintOrder|TestSupportedDeclarationMaskGrammar|TestCascadeEngineSupportsPropertyValues|TestStyleInternGenerated' -count=1
+GOCACHE=/tmp/blinkless-mask-gocache go test ./internal/svg
+GOCACHE=/tmp/blinkless-mask-gocache go test ./bindings/wasm -run 'TestDrawingGroupSerializesMaskAndImageReference|TestConvertSerializesSVGMaskInGroupContract' -count=1
+```
 
 ## Dependencies
 
-- The CSS declaration and `@supports` paths share vendor normalization and style-group dispatch (`internal/layout/style_cascade.go:1573-1695`).
-- The current `clip-path` raster helper changes image payloads only (`internal/layout/clip_path.go:467-510`). Element masking needs a group-level paint path.
-- Blend and isolation already delimit grouped operations (`layout/layout.go:364-376`, `internal/layout/blend_group.go:14-47`). Their current contract does not itself prove mask support.
-- CSS Masking section 7.9 says the `mask` shorthand resets the `mask-border` shorthand and its component properties. This reset behavior stays in scope even though the first wave excludes their visual effect ([W3C CSS Masking](https://www.w3.org/TR/css-masking-1/#propdef-mask)).
-- The catalog is authoritative for per-property status. Its current selected rows are `unsupported` (`testdata/css/catalog/properties.json:247-442,10186-10442`); the old Phase 83 prose is historical and needs reconciliation at closeout (`documentation/compatibility-matrix.md:953-967,1053-1072`).
+- CSS declaration acceptance and `@supports` share `supportedDeclaration` in `internal/layout/style_value_accept.go` and vendor normalization in `internal/layout/style_cascade.go`.
+- The layout engine stops at `layout.DisplayList`; a caller replays its operations (`layout/displaylist.go:129-144`). Mask pixel replay belongs to that caller.
+- SVG mask alpha conversion uses the sRGB or linearRGB color path in `internal/svg/mask.go:285-369`.
+- The property catalog is authoritative for per-property status. The generated matrix must match it (`scripts/css-catalog-map.py`, `scripts/check-matrix-sync.sh`).

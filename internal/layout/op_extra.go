@@ -26,8 +26,8 @@ type opExtra struct {
 	// IsOutline marks CSS outline operations, which paint above descendant
 	// content even though ordinary backgrounds and borders paint below it.
 	IsOutline bool
-	// BlendGroup is the owning CSS element group (mix-blend-mode or
-	// isolation: isolate). GroupMark flags begin/end boundary markers that
+	// BlendGroup is the owning CSS element group for masks, blending, or
+	// isolation. GroupMark flags begin/end boundary markers that
 	// carry the group without painting.
 	BlendGroup *BlendGroup
 	GroupMark  uint8
