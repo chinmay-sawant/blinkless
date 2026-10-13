@@ -786,6 +786,25 @@ func applyCascadeDeclaration(
 	ids, classes, types, order, layer int,
 	important bool,
 ) {
+	if effectiveProp := normalizeVendorPrefix(prop); effectiveProp != prop {
+		value = remapWebkitValue(prop, value)
+		prop = effectiveProp
+	}
+
+	if prop == maskShorthandProperty && containsVarFunc(value) {
+		for _, longhand := range [...]string{
+			"mask-image", "mask-mode", "mask-position", "mask-size",
+			"mask-repeat", "mask-origin", "mask-clip", "mask-composite",
+		} {
+			applyCascadeWin(
+				wins, longhand, maskShorthandDeferredPrefix+value,
+				ids, classes, types, order, layer, important,
+			)
+		}
+
+		return
+	}
+
 	if expanded, ok := expandShorthandDeclaration(prop, value); ok {
 		for _, item := range expanded {
 			applyCascadeDeclaration(wins, item.prop, item.val, ids, classes, types, order, layer, important)
@@ -818,6 +837,10 @@ func expandShorthandDeclaration(prop, value string) ([]logicalPropDecl, bool) {
 		return expanded, true
 	}
 
+	if expanded, ok := expandMaskShorthandDeclaration(prop, value); ok {
+		return expanded, true
+	}
+
 	if expanded, ok := expandListStyleDeclaration(prop, value); ok {
 		return expanded, true
 	}
@@ -827,6 +850,89 @@ func expandShorthandDeclaration(prop, value string) ([]logicalPropDecl, bool) {
 	}
 
 	return expandLogicalBoxDeclaration(prop, value)
+}
+
+// expandMaskShorthandDeclaration expands mask layers and resets the mask-border
+// family to its initial values, as required by the mask shorthand.
+func expandMaskShorthandDeclaration(prop, value string) ([]logicalPropDecl, bool) {
+	if prop != maskShorthandProperty {
+		return nil, false
+	}
+
+	if cssWideKeyword(strings.TrimSpace(value)) {
+		return maskShorthandWideDeclarations(strings.TrimSpace(value)), true
+	}
+
+	if containsVarFunc(value) {
+		return nil, false
+	}
+
+	layers, ok := parseMaskShorthand(value)
+	if !ok {
+		return nil, false
+	}
+
+	var image, mode, position, size, repeat, origin, clip, composite strings.Builder
+
+	for idx, layer := range layers {
+		if idx > 0 {
+			image.WriteString(", ")
+			mode.WriteString(", ")
+			position.WriteString(", ")
+			size.WriteString(", ")
+			repeat.WriteString(", ")
+			origin.WriteString(", ")
+			clip.WriteString(", ")
+			composite.WriteString(", ")
+		}
+
+		image.WriteString(layer.image)
+		mode.WriteString(layer.mode)
+		position.WriteString(layer.position)
+		size.WriteString(layer.size)
+		repeat.WriteString(layer.repeat)
+		origin.WriteString(layer.origin)
+		clip.WriteString(layer.clip)
+		composite.WriteString(layer.composite)
+	}
+
+	return []logicalPropDecl{
+		{prop: "mask-image", val: image.String()},
+		{prop: "mask-mode", val: mode.String()},
+		{prop: "mask-position", val: position.String()},
+		{prop: "mask-size", val: size.String()},
+		{prop: "mask-repeat", val: repeat.String()},
+		{prop: "mask-origin", val: origin.String()},
+		{prop: "mask-clip", val: clip.String()},
+		{prop: "mask-composite", val: composite.String()},
+		{prop: "mask-border", val: "initial"},
+		{prop: "mask-border-source", val: "none"},
+		{prop: "mask-border-mode", val: "alpha"},
+		{prop: "mask-border-slice", val: "0"},
+		{prop: "mask-border-width", val: "auto"},
+		{prop: "mask-border-outset", val: "0"},
+		{prop: "mask-border-repeat", val: "stretch"},
+	}, true
+}
+
+func maskShorthandWideDeclarations(value string) []logicalPropDecl {
+	return []logicalPropDecl{
+		{prop: "mask-image", val: value},
+		{prop: "mask-mode", val: value},
+		{prop: "mask-position", val: value},
+		{prop: "mask-size", val: value},
+		{prop: "mask-repeat", val: value},
+		{prop: "mask-origin", val: value},
+		{prop: "mask-clip", val: value},
+		{prop: "mask-composite", val: value},
+		{prop: "mask-border", val: value},
+		{prop: "mask-border-source", val: value},
+		{prop: "mask-border-mode", val: value},
+		{prop: "mask-border-slice", val: value},
+		{prop: "mask-border-width", val: value},
+		{prop: "mask-border-outset", val: value},
+		{prop: "mask-border-repeat", val: value},
+	}
 }
 
 // boxShorthandLonghands returns the four physical longhand names for a box
@@ -1564,76 +1670,196 @@ var styleGroups = [...]styleGroupFn{ //nolint:gochecknoglobals // static dispatc
 	applyInitialLetterProps,
 	applyShapeProps,
 	applyFloatPageProps,
+	applyMaskProps,
 	applyClipPathProps,
 	applyRubyProps,
 	applyScrollProps,
 }
 
-//nolint:cyclop,goconst,funlen // vendor prefix lookup map
 func normalizeVendorPrefix(prop string) string {
 	if !strings.HasPrefix(prop, "-webkit-") {
 		return prop
 	}
 
+	if normalized, ok := normalizeWebkitMaskProperty(prop); ok {
+		return normalized
+	}
+
+	return normalizeOtherWebkitProperty(prop)
+}
+
+const (
+	webkitBoxSizingTarget         = "box-sizing"
+	webkitBorderRadiusTarget      = "border-radius"
+	webkitBorderTopLeftTarget     = "border-top-left-radius"
+	webkitBorderTopRightTarget    = "border-top-right-radius"
+	webkitBorderBottomLeftTarget  = "border-bottom-left-radius"
+	webkitBorderBottomRightTarget = "border-bottom-right-radius"
+	webkitTransformTarget         = "transform"
+	webkitTransformOriginTarget   = "transform-origin"
+	webkitFlexBasisTarget         = "flex-basis"
+	webkitFlexDirectionTarget     = "flex-direction"
+	webkitFlexGrowTarget          = "flex-grow"
+	webkitFlexShrinkTarget        = "flex-shrink"
+	webkitFlexWrapTarget          = "flex-wrap"
+	webkitJustifyContentTarget    = "justify-content"
+	webkitAlignContentTarget      = "align-content"
+	webkitAlignItemsTarget        = "align-items"
+	webkitAlignSelfTarget         = "align-self"
+	webkitOrderTarget             = "order"
+	webkitFilterTarget            = "filter"
+	webkitBoxAlignProperty        = "-webkit-box-align"
+	webkitBoxOrdinalGroupProperty = "-webkit-box-ordinal-group"
+	webkitBoxOrientProperty       = "-webkit-box-orient"
+	webkitBoxPackProperty         = "-webkit-box-pack"
+)
+
+func normalizeOtherWebkitProperty(prop string) string {
+	if normalized, ok := normalizeWebkitBorderProperty(prop); ok {
+		return normalized
+	}
+
+	if normalized, ok := normalizeWebkitTransformProperty(prop); ok {
+		return normalized
+	}
+
+	if normalized, ok := normalizeWebkitFlexProperty(prop); ok {
+		return normalized
+	}
+
+	if normalized, ok := normalizeWebkitFlexAlignmentProperty(prop); ok {
+		return normalized
+	}
+
+	if normalized, ok := normalizeWebkitLegacyBoxProperty(prop); ok {
+		return normalized
+	}
+
+	if normalized, ok := normalizeWebkitMiscProperty(prop); ok {
+		return normalized
+	}
+
+	return prop
+}
+
+func normalizeWebkitBorderProperty(prop string) (string, bool) {
 	switch prop {
 	case "-webkit-box-sizing":
-		return "box-sizing"
+		return webkitBoxSizingTarget, true
 	case "-webkit-border-radius":
-		return "border-radius"
+		return webkitBorderRadiusTarget, true
 	case "-webkit-border-top-left-radius":
-		return "border-top-left-radius"
+		return webkitBorderTopLeftTarget, true
 	case "-webkit-border-top-right-radius":
-		return "border-top-right-radius"
+		return webkitBorderTopRightTarget, true
 	case "-webkit-border-bottom-left-radius":
-		return "border-bottom-left-radius"
+		return webkitBorderBottomLeftTarget, true
 	case "-webkit-border-bottom-right-radius":
-		return "border-bottom-right-radius"
-	case "-webkit-transform":
-		return "transform"
-	case "-webkit-transform-origin":
-		return "transform-origin"
-	case "-webkit-flex":
-		return "flex"
-	case "-webkit-flex-basis":
-		return "flex-basis"
-	case "-webkit-flex-direction":
-		return "flex-direction"
-	case "-webkit-flex-flow":
-		return "flex-flow"
-	case "-webkit-flex-grow":
-		return "flex-grow"
-	case "-webkit-flex-shrink":
-		return "flex-shrink"
-	case "-webkit-flex-wrap":
-		return "flex-wrap"
-	case "-webkit-justify-content":
-		return "justify-content"
-	case "-webkit-align-content":
-		return "align-content"
-	case "-webkit-align-items":
-		return "align-items"
-	case "-webkit-align-self":
-		return "align-self"
-	case "-webkit-order":
-		return "order"
-	case "-webkit-box-shadow":
-		return "box-shadow"
-	case "-webkit-filter":
-		return "filter"
-	case "-webkit-box-align":
-		return "align-items"
-	case "-webkit-box-flex":
-		return "flex-grow"
-	case "-webkit-box-ordinal-group":
-		return "order"
-	case "-webkit-box-orient":
-		return "flex-direction"
-	case "-webkit-box-pack":
-		return "justify-content"
-	case "-webkit-text-fill-color":
-		return "color"
+		return webkitBorderBottomRightTarget, true
 	default:
-		return prop
+		return "", false
+	}
+}
+
+func normalizeWebkitTransformProperty(prop string) (string, bool) {
+	switch prop {
+	case "-webkit-transform":
+		return webkitTransformTarget, true
+	case "-webkit-transform-origin":
+		return webkitTransformOriginTarget, true
+	default:
+		return "", false
+	}
+}
+
+func normalizeWebkitFlexProperty(prop string) (string, bool) {
+	switch prop {
+	case "-webkit-flex":
+		return flexKeyword, true
+	case "-webkit-flex-basis":
+		return webkitFlexBasisTarget, true
+	case "-webkit-flex-direction":
+		return webkitFlexDirectionTarget, true
+	case "-webkit-flex-flow":
+		return propFlexFlow, true
+	case "-webkit-flex-grow":
+		return webkitFlexGrowTarget, true
+	case "-webkit-flex-shrink":
+		return webkitFlexShrinkTarget, true
+	case "-webkit-flex-wrap":
+		return webkitFlexWrapTarget, true
+	default:
+		return "", false
+	}
+}
+
+func normalizeWebkitFlexAlignmentProperty(prop string) (string, bool) {
+	switch prop {
+	case "-webkit-justify-content":
+		return webkitJustifyContentTarget, true
+	case "-webkit-align-content":
+		return webkitAlignContentTarget, true
+	case "-webkit-align-items":
+		return webkitAlignItemsTarget, true
+	case "-webkit-align-self":
+		return webkitAlignSelfTarget, true
+	case "-webkit-order":
+		return webkitOrderTarget, true
+	default:
+		return "", false
+	}
+}
+
+func normalizeWebkitLegacyBoxProperty(prop string) (string, bool) {
+	switch prop {
+	case "-webkit-box-shadow":
+		return boxShadowProp, true
+	case webkitBoxAlignProperty:
+		return webkitAlignItemsTarget, true
+	case "-webkit-box-flex":
+		return webkitFlexGrowTarget, true
+	case webkitBoxOrdinalGroupProperty:
+		return webkitOrderTarget, true
+	case webkitBoxOrientProperty:
+		return webkitFlexDirectionTarget, true
+	case webkitBoxPackProperty:
+		return webkitJustifyContentTarget, true
+	default:
+		return "", false
+	}
+}
+
+func normalizeWebkitMiscProperty(prop string) (string, bool) {
+	switch prop {
+	case "-webkit-filter":
+		return webkitFilterTarget, true
+	case "-webkit-text-fill-color":
+		return blendColor, true
+	default:
+		return "", false
+	}
+}
+
+func normalizeWebkitMaskProperty(prop string) (string, bool) {
+	switch prop {
+	case "-webkit-mask":
+		return maskShorthandProperty, true
+	case "-webkit-mask-clip":
+		return maskClipProperty, true
+	case webkitMaskCompositeProperty:
+		return maskCompositeProperty, true
+	case "-webkit-mask-image":
+		return maskImageProperty, true
+	case "-webkit-mask-origin":
+		return maskOriginProperty, true
+	case "-webkit-mask-position":
+		return maskPositionProperty, true
+	case "-webkit-mask-repeat":
+		return maskRepeatProperty, true
+	case "-webkit-mask-size":
+		return maskSizeProperty, true
+	default:
+		return prop, false
 	}
 }
 
@@ -1749,6 +1975,8 @@ func remapWebkitValue(prop, value string) string {
 			return strconv.Itoa(n)
 		}
 		return trimmed
+	case webkitMaskCompositeProperty:
+		return remapWebkitMaskCompositeValue(trimmed)
 	default:
 		return value
 	}

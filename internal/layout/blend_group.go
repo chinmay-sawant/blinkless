@@ -10,11 +10,9 @@ const (
 	groupMarkEnd uint8 = 2
 )
 
-// BlendGroup describes one element compositing group created by
-// mix-blend-mode or isolation: isolate. Every operation painted inside the
-// group carries a pointer to it. Painters buffer those operations and
-// composite the group once, which is the element-group semantics the CSS
-// compositing model requires.
+// BlendGroup describes one element compositing group. Every operation painted
+// inside the group carries a pointer to it. A painter buffers those
+// operations, applies its mask when present, and composites the group once.
 //
 // Parent chains nested groups: an inner group's operations are buffered
 // inside the enclosing group's buffer, so siblings in different groups never
@@ -24,7 +22,7 @@ type BlendGroup struct {
 	// have increasing IDs; tests use it to check nesting.
 	ID int
 	// Mode is the CSS mix-blend-mode, "" or "normal" when the element only
-	// declared isolation: isolate.
+	// declared masking or isolation: isolate.
 	Mode string
 	// Isolate marks a group whose initial backdrop is transparent. HTML
 	// stacking contexts are always isolated groups (CSS Compositing 3.2), so
@@ -32,6 +30,40 @@ type BlendGroup struct {
 	Isolate bool
 	// Parent is the enclosing group, nil at the page root.
 	Parent *BlendGroup
+	// Mask describes the CSS mask applied after the group's operations have
+	// been painted. Nil means the group exists for blending or isolation only.
+	Mask *MaskDescriptor
+}
+
+// MaskDescriptor carries the CSS mask values for one group. Values stay as
+// CSS tokens so a display-list consumer can apply the sizing and compositing
+// rules as it replays the group.
+type MaskDescriptor struct {
+	Layers []MaskLayer
+}
+
+// MaskLayer is one comma-separated mask image layer and its computed values.
+type MaskLayer struct {
+	// Source retains the CSS image token, such as url("mask.png") or none.
+	Source string
+	// ImageBytes contains resolved encoded image bytes when the layout caller
+	// supplied them. SVG <mask> fragments are rasterized separately.
+	ImageBytes  []byte
+	PixelWidth  int
+	PixelHeight int
+	// Preprocessed is true when ImageBytes is an alpha-only PNG made from an
+	// SVG <mask>. Its mask-type or mask-mode has already been applied.
+	Preprocessed bool
+	// Mode is the CSS mask-mode token. Match-source on a regular image resolves
+	// to alpha; preprocessed SVG mask bytes already carry the selected mode in
+	// their alpha channel.
+	Mode      string
+	Composite string
+	Position  string
+	Repeat    string
+	Size      string
+	Origin    string
+	Clip      string
 }
 
 // IsGroupBegin reports whether the operation opens a blend group.

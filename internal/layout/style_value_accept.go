@@ -104,6 +104,10 @@ func supportedDeclaration(prop, value string) bool {
 		return true
 	}
 
+	if prop == webkitMaskCompositeProperty && !webkitMaskCompositeValueAccepted(trimmed) {
+		return false
+	}
+
 	effectiveProp := normalizeVendorPrefix(prop)
 	if effectiveProp != prop {
 		trimmed = strings.TrimSpace(remapWebkitValue(prop, value))
@@ -132,70 +136,28 @@ func cssWideKeyword(value string) bool {
 // as written (transforms, images, strings) or has a grammar this table does
 // not model yet; rejecting a valid value would break layout, while the
 // applier already drops an invalid one.
-//
-//nolint:cyclop,funlen // flat per-property acceptance table reads clearer than a split dispatch
 func declarationValueAccepted(prop, value string) bool {
+	if accepted, isMaskProperty := maskDeclarationValueAccepted(prop, value); isMaskProperty {
+		return accepted
+	}
+
+	if accepted, handled := declarationFlowValueAccepted(prop, value); handled {
+		return accepted
+	}
+
+	if accepted, handled := declarationBoxValueAccepted(prop, value); handled {
+		return accepted
+	}
+
+	if accepted, handled := declarationTextValueAccepted(prop, value); handled {
+		return accepted
+	}
+
 	switch prop {
-	case propDisplay:
-		return displayValueAccepted(value)
-	case propPosition:
-		return keywordIn(value, positionStatic, positionRelative, positionAbsolute, positionFixed, positionSticky)
-	case "float":
-		return keywordIn(value, floatLeft, floatRight, cssDisplayNone)
-	case clearKeyword:
-		return keywordIn(value, floatLeft, floatRight, clearBoth, cssDisplayNone)
-	case "box-sizing":
-		return keywordIn(value, "content-box", borderBox)
-	case "writing-mode":
-		return keywordIn(value, writingModeHorizontalTB, writingModeVerticalRL, writingModeVerticalLR)
-	case "direction":
-		return keywordIn(value, cssDirectionLTR, cssDirectionRTL)
 	case propOverflow, propOverflowX, propOverflowY:
 		_, ok := parseOverflowKeyword(value)
 
 		return ok
-	case "visibility":
-		return keywordIn(value, visibleKeyword, overflowHidden, borderCollapseValue)
-	case propWidth:
-		return widthValueAccepted(value)
-	case propHeight:
-		return heightValueAccepted(value)
-	case propMinWidth, propMinHeight:
-		return minExtentValueAccepted(value)
-	case propMaxWidth, propMaxHeight:
-		return boxLengthValueAccepted(value, cssDisplayNone)
-	case marginProperty:
-		return boxShorthandValueAccepted(value, marginLengthValueAccepted)
-	case propMarginTop, propMarginRight, propMarginBottom, propMarginLeft,
-		cssVerticalAlignTop, floatRight, cssVerticalAlignBottom, floatLeft:
-		// The inset offsets share the margin value grammar.
-		return marginLengthValueAccepted(value)
-	case paddingProperty:
-		return boxShorthandValueAccepted(value, paddingLengthValueAccepted)
-	case propPaddingTop, propPaddingRight, propPaddingBottom, propPaddingLeft:
-		return paddingLengthValueAccepted(value)
-	case "font-style":
-		return keywordIn(value, contentNormal, cssFontStyleItalic, cssFontStyleOblique)
-	case "font-weight":
-		return fontWeightValueAccepted(value)
-	case "text-transform":
-		return keywordIn(value, textTransformNone, textTransformUppercase, textTransformLowercase, textTransformCapitalize)
-	case "text-align":
-		return keywordIn(value, floatLeft, fxCenter, cssTextAlignJustify, floatRight, fxEnd, fxStart)
-	case propTextWrapStyle:
-		return keywordIn(value, textWrapStyleAuto, textWrapStyleBalance,
-			textWrapStyleStable, textWrapStylePretty, textWrapStyleAvoidShort)
-	case propTextWrap:
-		return textWrapShorthandValueAccepted(value)
-	case "white-space":
-		return keywordIn(value, contentNormal, cssWhiteSpaceNowrap, cssWhiteSpacePre,
-			cssWhiteSpacePreWrap, cssWhiteSpacePreLine)
-	case "vertical-align":
-		return verticalAlignValueAccepted(value)
-	case "overflow-wrap", "word-wrap":
-		return keywordIn(value, contentNormal, overflowWrapBreakWord, overflowWrapAnywhere, "break-spaces")
-	case "word-break":
-		return keywordIn(value, contentNormal, "break-all", "keep-all", overflowWrapBreakWord)
 	case "opacity":
 		_, ok := parseOpacityValue(value)
 
@@ -204,6 +166,155 @@ func declarationValueAccepted(prop, value string) bool {
 		return zIndexValueAccepted(value)
 	default:
 		return extendedDeclarationValueAccepted(prop, value)
+	}
+}
+
+func declarationFlowValueAccepted(prop, value string) (bool, bool) {
+	switch prop {
+	case propDisplay:
+		return displayValueAccepted(value), true
+	case propPosition:
+		return keywordIn(value, positionStatic, positionRelative, positionAbsolute, positionFixed, positionSticky), true
+	case "float":
+		return keywordIn(value, floatLeft, floatRight, cssDisplayNone), true
+	case clearKeyword:
+		return keywordIn(value, floatLeft, floatRight, clearBoth, cssDisplayNone), true
+	case "box-sizing":
+		return keywordIn(value, "content-box", borderBox), true
+	case "writing-mode":
+		return keywordIn(value, writingModeHorizontalTB, writingModeVerticalRL, writingModeVerticalLR), true
+	case "direction":
+		return keywordIn(value, cssDirectionLTR, cssDirectionRTL), true
+	case "visibility":
+		return keywordIn(value, visibleKeyword, overflowHidden, borderCollapseValue), true
+	default:
+		return false, false
+	}
+}
+
+func declarationBoxValueAccepted(prop, value string) (bool, bool) {
+	if accepted, handled := declarationExtentValueAccepted(prop, value); handled {
+		return accepted, true
+	}
+
+	return declarationSpacingValueAccepted(prop, value)
+}
+
+func declarationExtentValueAccepted(prop, value string) (bool, bool) {
+	switch prop {
+	case propWidth:
+		return widthValueAccepted(value), true
+	case propHeight:
+		return heightValueAccepted(value), true
+	case propMinWidth, propMinHeight:
+		return minExtentValueAccepted(value), true
+	case propMaxWidth, propMaxHeight:
+		return boxLengthValueAccepted(value, cssDisplayNone), true
+	default:
+		return false, false
+	}
+}
+
+func declarationSpacingValueAccepted(prop, value string) (bool, bool) {
+	switch prop {
+	case marginProperty:
+		return boxShorthandValueAccepted(value, marginLengthValueAccepted), true
+	case propMarginTop, propMarginRight, propMarginBottom, propMarginLeft,
+		cssVerticalAlignTop, floatRight, cssVerticalAlignBottom, floatLeft:
+		return marginLengthValueAccepted(value), true
+	case paddingProperty:
+		return boxShorthandValueAccepted(value, paddingLengthValueAccepted), true
+	case propPaddingTop, propPaddingRight, propPaddingBottom, propPaddingLeft:
+		return paddingLengthValueAccepted(value), true
+	default:
+		return false, false
+	}
+}
+
+func declarationTextValueAccepted(prop, value string) (bool, bool) {
+	if accepted, handled := declarationTextFontValueAccepted(prop, value); handled {
+		return accepted, true
+	}
+
+	return declarationTextFlowValueAccepted(prop, value)
+}
+
+func declarationTextFontValueAccepted(prop, value string) (bool, bool) {
+	switch prop {
+	case "font-style":
+		return keywordIn(value, contentNormal, cssFontStyleItalic, cssFontStyleOblique), true
+	case "font-weight":
+		return fontWeightValueAccepted(value), true
+	case "text-transform":
+		return keywordIn(value, textTransformNone, textTransformUppercase,
+			textTransformLowercase, textTransformCapitalize), true
+	case "text-align":
+		return keywordIn(value, floatLeft, fxCenter, cssTextAlignJustify, floatRight, fxEnd, fxStart), true
+	case propTextWrapStyle:
+		return keywordIn(value, textWrapStyleAuto, textWrapStyleBalance,
+			textWrapStyleStable, textWrapStylePretty, textWrapStyleAvoidShort), true
+	default:
+		return false, false
+	}
+}
+
+func declarationTextFlowValueAccepted(prop, value string) (bool, bool) {
+	switch prop {
+	case propTextWrap:
+		return textWrapShorthandValueAccepted(value), true
+	case "white-space":
+		return keywordIn(value, contentNormal, cssWhiteSpaceNowrap, cssWhiteSpacePre,
+			cssWhiteSpacePreWrap, cssWhiteSpacePreLine), true
+	case "vertical-align":
+		return verticalAlignValueAccepted(value), true
+	case "overflow-wrap", "word-wrap":
+		return keywordIn(value, contentNormal, overflowWrapBreakWord, overflowWrapAnywhere, "break-spaces"), true
+	case "word-break":
+		return keywordIn(value, contentNormal, "break-all", "keep-all", overflowWrapBreakWord), true
+	default:
+		return false, false
+	}
+}
+
+func maskDeclarationValueAccepted(prop, value string) (bool, bool) {
+	if accepted, handled := maskLayerDeclarationAccepted(prop, value); handled {
+		return accepted, true
+	}
+
+	return maskBoxDeclarationAccepted(prop, value)
+}
+
+func maskLayerDeclarationAccepted(prop, value string) (bool, bool) {
+	switch prop {
+	case maskShorthandProperty:
+		return maskShorthandValueAccepted(value), true
+	case maskImageProperty:
+		return maskLayerListValueAccepted(value, maskImageLayerValueAccepted), true
+	case maskModeProperty:
+		return maskLayerListValueAccepted(value, maskModeLayerValueAccepted), true
+	case maskPositionProperty:
+		return maskLayerListValueAccepted(value, maskPositionLayerValueAccepted), true
+	case maskSizeProperty:
+		return maskLayerListValueAccepted(value, maskSizeLayerValueAccepted), true
+	default:
+		return false, false
+	}
+}
+
+func maskBoxDeclarationAccepted(prop, value string) (bool, bool) {
+	switch prop {
+	case maskRepeatProperty:
+		return maskLayerListValueAccepted(value, maskRepeatLayerValueAccepted), true
+	case maskOriginProperty:
+		return maskLayerListValueAccepted(value, maskOriginLayerValueAccepted), true
+	case maskClipProperty:
+		return maskLayerListValueAccepted(value, maskClipLayerValueAccepted), true
+	case maskCompositeProperty:
+		return maskLayerListValueAccepted(value, maskCompositeLayerValueAccepted), true
+	case maskTypeProperty:
+		return maskTypeValueAccepted(value), true
+	default:
+		return false, false
 	}
 }
 

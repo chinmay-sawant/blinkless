@@ -38,6 +38,186 @@ func TestCascadeShorthandRespectsSourceOrder(t *testing.T) {
 	}
 }
 
+func TestCascadeVendorAliasesShareSourceOrder(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name  string
+		style string
+		want  string
+	}{
+		{
+			name:  "prefixed declaration comes later",
+			style: "box-sizing:border-box;-webkit-box-sizing:content-box",
+			want:  "content-box",
+		},
+		{
+			name:  "standard declaration comes later",
+			style: "-webkit-box-sizing:content-box;box-sizing:border-box",
+			want:  borderBox,
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			root := mustParse(t, `<html><body><div style="`+testCase.style+`">x</div></body></html>`)
+			styles := resolveStyles(root, nil, "print", testViewport, 800)
+			div := findElementByName(root, "div")
+
+			if got := styles[div].BoxSizing; got != testCase.want {
+				t.Fatalf("BoxSizing = %q, want %q", got, testCase.want)
+			}
+		})
+	}
+}
+
+func TestMaskShorthandExpansionAndBorderReset(t *testing.T) {
+	t.Parallel()
+
+	wins := make(map[string]cascadeWin)
+	applyCascadeDeclaration(wins, "mask-image", "url(old.png)", 0, 0, 0, 1, 0, false)
+	applyCascadeDeclaration(wins, "mask-border-source", "url(border.png)", 0, 0, 0, 1, 0, false)
+	applyCascadeDeclaration(
+		wins, maskShorthandProperty,
+		`url(mask.png) center / cover no-repeat alpha padding-box intersect`,
+		0, 0, 0, 2, 0, false,
+	)
+	applyCascadeDeclaration(wins, "mask-mode", "luminance", 0, 0, 0, 3, 0, false)
+
+	want := map[string]string{
+		"mask-image":         "url(mask.png)",
+		"mask-mode":          "luminance",
+		"mask-position":      "center",
+		"mask-size":          "cover",
+		"mask-repeat":        "no-repeat",
+		"mask-origin":        "padding-box",
+		"mask-clip":          "padding-box",
+		"mask-composite":     "intersect",
+		"mask-border":        "initial",
+		"mask-border-source": "none",
+		"mask-border-mode":   "alpha",
+		"mask-border-slice":  "0",
+		"mask-border-width":  "auto",
+		"mask-border-outset": "0",
+		"mask-border-repeat": "stretch",
+	}
+	for prop, value := range want {
+		if got := wins[prop].value; got != value {
+			t.Errorf("mask cascade %s = %q, want %q", prop, got, value)
+		}
+	}
+}
+
+func TestMaskVendorAliasDeclarationSourceOrder(t *testing.T) {
+	t.Parallel()
+
+	for _, testCase := range []struct {
+		name  string
+		style string
+		want  string
+	}{
+		{
+			name:  "prefixed declaration comes later",
+			style: "mask-image:url(standard.png);-webkit-mask-image:url(prefixed.png)",
+			want:  "url(prefixed.png)",
+		},
+		{
+			name:  "standard declaration comes later",
+			style: "-webkit-mask-image:url(prefixed.png);mask-image:url(standard.png)",
+			want:  "url(standard.png)",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			root := mustParse(t, `<html><body><div style="`+testCase.style+`">x</div></body></html>`)
+			div := findElementByName(root, "div")
+			raw := cascadeRaw(nil, div, nil)
+
+			if got := raw[maskImageProperty]; got != testCase.want {
+				t.Fatalf("mask-image winner = %q, want %q; raw=%v", got, testCase.want, raw)
+			}
+		})
+	}
+}
+
+func TestMaskShorthandCSSWideKeywords(t *testing.T) {
+	t.Parallel()
+
+	root := mustParse(t, `<html><body><div id="parent" style="mask-image:url(parent.png);`+
+		`mask-mode:luminance;mask-position:center;mask-size:cover;mask-repeat:no-repeat;`+
+		`mask-origin:padding-box;mask-clip:content-box;mask-composite:exclude">`+
+		`<span id="reset" style="mask-image:url(old.png);mask-mode:luminance;mask:initial"></span>`+
+		`<span id="inherit" style="mask:inherit"></span></div></body></html>`)
+	styles := resolveStyles(root, nil, "print", testViewport, 800)
+	reset := styles[findElementByID(t, root, "reset")]
+
+	if got, want := maskStyleValuesOf(reset), initialMaskStyleValues(); got != want {
+		t.Fatalf("mask:initial fields = %+v, want %+v", got, want)
+	}
+
+	parent := styles[findElementByID(t, root, "parent")]
+	inherited := styles[findElementByID(t, root, "inherit")]
+
+	if got, want := maskStyleValuesOf(inherited), maskStyleValuesOf(parent); got != want {
+		t.Fatalf("mask:inherit = %+v, parent = %+v", got, want)
+	}
+}
+
+func TestMaskShorthandResolvesCustomPropertiesAndKeepsLonghandOrder(t *testing.T) {
+	t.Parallel()
+
+	root := mustParse(t, `<html><body>`+
+		`<div id="shorthand-wins" style="--mask:url(variable.png) 25% 50% / cover no-repeat luminance padding-box intersect;`+
+		`mask-image:url(old.png);mask:var(--mask)"></div>`+
+		`<div id="longhand-wins" style="--mask:url(variable.png) center / contain no-repeat alpha content-box;`+
+		`mask:var(--mask);mask-image:url(last.png)"></div>`+
+		`<div id="prefixed" style="--mask:url(prefixed.png) right / contain no-repeat alpha content-box;`+
+		`-webkit-mask:var(--mask)"></div>`+
+		`</body></html>`)
+	styles := resolveStyles(root, nil, "print", testViewport, 800)
+	styleByID := func(identifier string) *ResolvedStyle {
+		return styles[findElementByID(t, root, identifier)]
+	}
+
+	for _, testCase := range []struct {
+		id   string
+		want maskStyleValues
+	}{
+		{
+			id: "shorthand-wins",
+			want: maskStyleValues{
+				image: "url(variable.png)", mode: maskModeLuminance, position: "25% 50%",
+				size: "cover", repeat: maskRepeatNoRepeat, origin: "padding-box",
+				clip: "padding-box", composite: "intersect",
+			},
+		},
+		{
+			id: "longhand-wins",
+			want: maskStyleValues{
+				image: "url(last.png)", mode: maskModeAlpha, position: "center",
+				size: "contain", repeat: maskRepeatNoRepeat, origin: "content-box",
+				clip: "content-box", composite: maskCompositeAdd,
+			},
+		},
+		{
+			id: "prefixed",
+			want: maskStyleValues{
+				image: "url(prefixed.png)", mode: maskModeAlpha, position: "right",
+				size: "contain", repeat: maskRepeatNoRepeat, origin: "content-box",
+				clip: "content-box", composite: maskCompositeAdd,
+			},
+		},
+	} {
+		got := maskStyleValuesOf(styleByID(testCase.id))
+		if got != testCase.want {
+			t.Errorf("%s mask fields = %+v, want %+v", testCase.id, got, testCase.want)
+		}
+	}
+}
+
 // TestCascadeListStyleShorthandBeatsUADisc: an author list-style shorthand
 // must beat the UA `ul { list-style-type: disc }` longhand on the same
 // element (fixture-61 rows 108-111). The shorthand expands at cascade time
@@ -786,6 +966,11 @@ func TestCascadeEngineSupportsPropertyValues(t *testing.T) {
 		{"width", "var(--w)", true},
 		{"display", "inherit", true},
 		{"-webkit-box-orient", "horizontal", true},
+		{"mask", `url(mask.png) center / cover no-repeat`, true},
+		{"mask", "url(mask.png) bogus", false},
+		{"-webkit-mask", `url(mask.png) center / cover no-repeat`, true},
+		{"-webkit-mask-composite", "source-over, xor", true},
+		{"-webkit-mask-composite", "destination-out", false},
 		{"opacity", "bogus", false},
 		{"z-index", "3", true},
 		{"z-index", "bogus", false},
@@ -822,6 +1007,85 @@ func TestCascadeEngineSupportsPropertyValues(t *testing.T) {
 	if got := styles[div].Width; !near(got, 90) {
 		t.Fatalf("valid @supports did not apply: Width = %.2fpt, want 90", got)
 	}
+
+	root = mustParse(t, `<html><body><div class="box">x</div></body></html>`)
+	styles = resolveStyles(root,
+		[]*css.Stylesheet{sheet(t, `
+			.box { width: 80px }
+			@supports (mask: url(mask.png) center / cover no-repeat) { .box { width: 120px } }
+		`)}, "print", testViewport, 800)
+	div = findElementByName(root, "div")
+
+	if got := styles[div].Width; !near(got, 90) {
+		t.Fatalf("valid mask @supports did not apply: Width = %.2fpt, want 90", got)
+	}
+}
+
+type maskStyleValues struct {
+	image     string
+	mode      string
+	position  string
+	size      string
+	repeat    string
+	origin    string
+	clip      string
+	composite string
+}
+
+func maskStyleValuesOf(style *ResolvedStyle) maskStyleValues {
+	return maskStyleValues{
+		image:     style.MaskImage,
+		mode:      style.MaskMode,
+		position:  style.MaskPosition,
+		size:      style.MaskSize,
+		repeat:    style.MaskRepeat,
+		origin:    style.MaskOrigin,
+		clip:      style.MaskClip,
+		composite: style.MaskComposite,
+	}
+}
+
+func initialMaskStyleValues() maskStyleValues {
+	return maskStyleValues{
+		image:     "none",
+		mode:      maskModeMatchSource,
+		position:  maskInitialPosition,
+		size:      "auto",
+		repeat:    "repeat",
+		origin:    "border-box",
+		clip:      "border-box",
+		composite: maskCompositeAdd,
+	}
+}
+
+func findElementByID(t *testing.T, root *html.Node, identifier string) *html.Node {
+	t.Helper()
+
+	if found := findElementByIDNode(root, identifier); found != nil {
+		return found
+	}
+
+	t.Fatalf("element id=%q not found", identifier)
+
+	return nil
+}
+
+func findElementByIDNode(root *html.Node, identifier string) *html.Node {
+	if root == nil {
+		return nil
+	}
+
+	if root.Type == html.ElementNode && root.Attribute("id") == identifier {
+		return root
+	}
+
+	for _, child := range root.Children {
+		if found := findElementByIDNode(child, identifier); found != nil {
+			return found
+		}
+	}
+
+	return nil
 }
 
 func findElementByName(root *html.Node, name string) *html.Node {

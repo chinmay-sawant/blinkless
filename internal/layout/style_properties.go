@@ -65,7 +65,7 @@ func applyDisplayFlowProps(style *ResolvedStyle, prop, value string) bool {
 		setFloatKeyword(style, value)
 	case clearKeyword:
 		setClearKeyword(style, value)
-	case "box-sizing":
+	case webkitBoxSizingTarget:
 		setBoxSizingKeyword(style, value)
 	case "writing-mode":
 		setWritingModeKeyword(style, value)
@@ -244,11 +244,11 @@ func applyFlexGroup(
 	switch prop {
 	case gapKeyword, propRowGap, propColumnGap, "grid-gap", "grid-row-gap", "grid-column-gap":
 		return applyGapProps(style, prop, value, fsize, ctx)
-	case "flex-direction", "flex-wrap", "justify-content", "align-items",
-		"align-content", "align-self", "justify-items", "justify-self",
+	case webkitFlexDirectionTarget, webkitFlexWrapTarget, webkitJustifyContentTarget, webkitAlignItemsTarget,
+		webkitAlignContentTarget, webkitAlignSelfTarget, "justify-items", "justify-self",
 		"flex-flow", propPlaceContent, propPlaceItems, propPlaceSelf:
 		return applyFlexAlignmentProps(style, prop, value)
-	case flexKeyword, "flex-grow", "flex-shrink", "flex-basis", "order":
+	case flexKeyword, webkitFlexGrowTarget, webkitFlexShrinkTarget, webkitFlexBasisTarget, webkitOrderTarget:
 		return applyFlexBasisProps(style, prop, value, fsize, ctx)
 	default:
 		return false
@@ -1772,7 +1772,7 @@ func applyTransformGroup(
 	style *ResolvedStyle, prop, value string, fsize float64, _ *styleContext, _ *ResolvedStyle, _ bool,
 ) bool {
 	switch prop {
-	case "transform":
+	case webkitTransformTarget:
 		applyTransformListValue(style, value, fsize)
 	case "transform-origin":
 		if spec, ok := parseTransformOrigin(value, fsize); ok {

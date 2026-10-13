@@ -7,3 +7,5 @@ That ledger records removal of the PDF writer and retention of the HTML drawing 
 Follow-up checklist: [v0.0.1 HTML, CSS, and JSON compatibility](v0.0.1/html-css-json-compatibility-checklist.md). It covers CSS fallback correctness, HTML parser measurements and repairs, the capability catalog, WASM drawing-list JSON, and remaining CSS behavior. Its header reports completion: all rows closed through waves A-F, with the wave G gate recorded on 2026-10-10.
 
 Native view proposal: [native web view checklist](v0.0.1/native-window/native-web-view-checklist.md). It defines the runtime, scrolling, input, navigation, JavaScript, native surface, accessibility, and compatibility work around Blinkless's drawing-list engine. All implementation rows are open.
+
+CSS masking first wave: [CSS masking checklist](v0.0.1/css-masking/css-masking-checklist.md). It targets 10 standard mask properties and 8 WebKit-prefixed forms. The display-list group contract and property behavior are implemented; all final gates passed on 2026-10-13.

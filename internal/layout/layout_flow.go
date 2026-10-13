@@ -62,10 +62,11 @@ func borderLayoutWidth(style *ResolvedStyle, side border) float64 {
 // imageRef is the resolved form of one <img src>: bytes + intrinsic size,
 // resolved at most once per Layout run (measure and build share it).
 type imageRef struct {
-	src    string
-	data   []byte
-	w, h   int
-	isJPEG bool
+	src        string
+	sourceData []byte
+	data       []byte
+	w, h       int
+	isJPEG     bool
 	// crops caches encoded border-image slice PNGs keyed by source rect so one
 	// element's slices are encoded once per Layout run instead of once per
 	// consumer. The ref is engine-local and layout runs single-goroutine.
@@ -99,7 +100,7 @@ func (e *engine) resolveImage(src string) *imageRef {
 		return nil
 	}
 
-	ref := &imageRef{src: src, data: data} //nolint:exhaustruct // intentional zero fields
+	ref := &imageRef{src: src, sourceData: data, data: data} //nolint:exhaustruct // intentional zero fields
 	if png, pw, ph, err := svg.Rasterize(data, svgRasterMaxDim); err == nil {
 		ref.data, ref.w, ref.h = png, pw, ph
 	} else if w, h, jpeg, ok := imageDims(data); ok {

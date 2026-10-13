@@ -30,7 +30,7 @@ const fallbackViewportPx = 1024
 //
 // Two kinds carry no paint and must be skipped: DisplayOpNoop, which the
 // clipper leaves behind when it deactivates an operation, and DisplayOpUnknown,
-// which is the boundary marker for a blend or isolation group. Treat any kind
+// which is the boundary marker for a mask, blend, or isolation group. Treat any kind
 // outside the list below as inert, so a kind added later cannot be mistaken for
 // a fill.
 //
@@ -45,7 +45,7 @@ const fallbackViewportPx = 1024
 // Fixed, Pinned, Positioned, StickyID, ZIndex, ZIndexSet, XformSet, ID) are
 // always safe to read; do not write through them.
 //
-// A blend group is read through the existing Group, GroupBoundary,
+// An element group is read through the existing Group, GroupBoundary,
 // IsGroupBegin, and IsGroupEnd methods, which are also nil-safe.
 //
 // Font is a *pdf.Font from an internal package, so a caller cannot declare a
@@ -54,9 +54,12 @@ const fallbackViewportPx = 1024
 // itself. Bytes hands the raw SFNT face to an independent shaper.
 type DisplayOp = ilayout.Op
 
-// DisplayGroup is the CSS element group an operation belongs to, used by
-// mix-blend-mode and isolation: isolate. Nil for every op outside a group.
+// DisplayGroup is the CSS element compositing group an operation belongs to.
 type DisplayGroup = ilayout.BlendGroup
+
+// MaskDescriptor and MaskLayer describe the mask carried by a display group.
+type MaskDescriptor = ilayout.MaskDescriptor
+type MaskLayer = ilayout.MaskLayer
 
 // DisplayKind is the operation kind. It is a distinct type, so a consumer
 // working with kinds declares values of this type rather than plain integers.
@@ -70,7 +73,7 @@ const (
 	// Skip it. It is 255, outside the sequence below.
 	DisplayOpNoop = ilayout.OpKindNoop
 	// DisplayOpUnknown is the zero kind. Layout emits it only as the boundary
-	// marker that opens or closes a blend or isolation group, which carries no
+	// marker that opens or closes a mask, blend, or isolation group, which carries no
 	// paint; test GroupBoundary to tell a marker from an unset kind. No painter
 	// matches it, so treat it as inert rather than as a fill.
 	DisplayOpUnknown = ilayout.OpUnknown
