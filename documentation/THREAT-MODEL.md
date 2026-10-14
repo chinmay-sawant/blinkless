@@ -22,6 +22,42 @@ explicitly enabled. Treat HTML as fully trusted whenever local-file access or
 allow prefixes are enabled, or when the machine running the conversion holds
 secrets reachable via arbitrary network fetches.
 
+## 1.1 Why blinkless is a far smaller target than a full browser
+
+Chrome (and any full browser) ships a JavaScript engine, JIT compilers, C/C++ parsers,
+a GPU stack, IPC, and a sandbox. Every one of those is a memory-safety surface that can
+turn one crafted byte into remote code execution in the renderer. The 2024-2026
+Chrome zero-days in our evidence set all sit in those layers: V8 type confusion,
+ANGLE heap overflows, Blink CSS UAF, JIT shape violations.
+
+Blinkless removes the biggest classes entirely:
+
+- No JavaScript engine and no code execution at all. A `<script>` element is stored
+  as raw text and never run. `os/exec` is absent from the tree.
+- No C/C++ in the engine's own code. Go's runtime gives memory safety for the HTML
+  parser, CSS cascade, and layout code, so buffer overflows, use-after-free, and type
+  confusion do not occur in our own code paths.
+- No GPU/ANGLE path. The product returns a drawing list; pixels are the caller's job.
+- No browser sandbox is needed because the document cannot execute code.
+
+What remains is the honest residual surface of a layout-only engine:
+
+- Denial of service: deep nesting, oversized inputs, unbounded selector matching,
+  memory amplification from tiles/columns/spans, and malformed font/image/SVG input.
+- Server-side request and read hazards: document-controlled URLs can cause fetches,
+  SSRF to localhost/RFC1918, local file reads if the ACL is opened up, and
+  credential leakage through headers and redirects.
+- Interface boundaries: C bindings, the WASM bridge, and third-party parsers
+  (fonts via go-text/typesetting/tdewolff, SVG via tdewolff/canvas) remain
+  input-trusting and can still crash the process even if they cannot execute code.
+
+The worst outcome of a bug in blinkless is generally a process crash or a hung
+conversion, not renderer RCE. FFI boundaries and any host calling those bindings are
+the only places where a memory or integrity failure could cross into the host.
+Keep that distinction when triaging: treat DoS and SSRF as primary, RCE in our own
+Go code as not applicable, and parser panics in dependencies as recover-and-limit
+work.
+
 ## 2. Assets
 
 - Local file confidentiality: every file readable by the user running the
