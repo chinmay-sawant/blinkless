@@ -101,11 +101,11 @@ no visual surface changed
 | Extension | Files | Insertions | Deletions |
 | --- | ---: | ---: | ---: |
 | `.in` | 1 | 0 | 7 |
-| `.md` | 10 | 61 | 104 |
+| `.md` | 11 | 172 | 104 |
 | `.py` | 11 | 0 | 1849 |
 | `.sh` | 3 | 0 | 81 |
 | `.toml` | 1 | 0 | 100 |
 | `.typed` | 1 | 0 | 1 |
 | `.yml` | 4 | 14 | 395 |
 | No extension | 2 | 8 | 39 |
-| **Total** | **33** | **83** | **2576** |
+| **Total** | **34** | **194** | **2576** |
