@@ -74,15 +74,15 @@ func main() {
 
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded bg-zinc-900 border border-zinc-800 text-xs font-mono text-zinc-300 mb-6">
             <span className="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
-            <span>Blink Alternative in Pure Go &bull; {ENGINE_STATS.version}</span>
+            <span>Go-Native Alternative to Blink &bull; {ENGINE_STATS.version}</span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white mb-6 leading-tight">
-            A script-free alternative to Chromium's Blink.
+            A Go-native alternative to Chromium's Blink.
           </h1>
 
           <p className="text-base sm:text-lg text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed font-normal">
-            Blinkless is an embeddable, memory-safe HTML and CSS layout engine written in pure Go. It cascades styles and emits vector drawing lists without JavaScript, without CGO, and without browser bloat.
+            Blinkless is an embeddable, memory-safe HTML and CSS layout engine written in pure Go. It matches Chrome layout geometry and cascade rules to emit vector drawing lists without CGO and without browser bloat.
           </p>
 
           {/* Quick Install Bar & GitHub Star */}
