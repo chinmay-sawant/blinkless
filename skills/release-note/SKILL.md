@@ -11,12 +11,16 @@ description: >
 # Release notes
 
 Promote the next semver. Release work always starts at
-[`RELEASE.md`](../../RELEASE.md), which holds the version-source table and the
-hard-gate order. Do **not** tag or push `v*` until the user asks. Default
-integration branch is **`master`**.
+[`RELEASE.md`](../../RELEASE.md), which holds the local hard-gate order. Do
+**not** tag or push `v*` until the user asks. Default integration branch is
+**`master`**.
 
-There is no `VERSION` file and no `internal/cli` package in this tree. The
-release record is `CHANGELOG.md` plus the ledger under `plans/<ver>/`.
+There is no `VERSION` file and no `internal/cli` package in this tree. A
+`v*` tag is not compared to a version file. Pushing the tag runs `make test`
+and `make lint`, then creates or updates the GitHub Release. Python wheels
+and `.github/workflows/publish-pypi.yml` are gone. Do not bump a Python
+package version and do not run `make check-versions`. The release record is
+`CHANGELOG.md` plus the ledger under `plans/<ver>/`.
 
 ## 1. Collect the delta
 
@@ -39,8 +43,8 @@ Honesty that always stays true unless the engine change says otherwise:
 
 ## 2. Version files
 
-The version sources are listed in [`RELEASE.md`](../../RELEASE.md); the
-bindings carry their own `BINDINGS_VERSION` / `WASM_VERSION` in the Makefile.
+There is no `VERSION` file and no tag-vs-source check. The bindings carry
+their own `BINDINGS_VERSION` / `WASM_VERSION` in the Makefile.
 
 | File | What to set |
 |------|-------------|

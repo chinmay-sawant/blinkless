@@ -54,7 +54,6 @@ prune_dirs=(
 	./docs
 	./frontend
 	./scripts/puppeteer
-	./bindings/python
 )
 
 find_expr=(-path "${prune_dirs[0]}")

@@ -1182,8 +1182,8 @@ current record.
 The `bin/blinkless` CLI and its flag matrix from earlier revisions are not part
 of this tree: there is no `cmd/` package and no `internal/cli`. The engine is
 consumed through the Go packages (`html`, `css`, `layout`), the C binding in
-`bindings/c`, the Python binding in `bindings/python`, and the WASM binding in
-`bindings/wasm` (see [library-api.md](library-api.md)). A CLI would need its
+`bindings/c`, and the WASM binding in `bindings/wasm` (see
+[library-api.md](library-api.md)). A CLI would need its
 own flag contract; this matrix makes no flag claims.
 
 ---

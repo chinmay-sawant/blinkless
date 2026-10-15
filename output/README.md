@@ -30,9 +30,8 @@ byte baselines.
   (`benchmark-results.csv`, `benchmark-summary.md`) from the external
   comparison run. The PDFs named in them are gone.
 
-The Python binding's `convert_*_to_pdf` helpers raise `RuntimeError`
-(`bindings/python/src/blinkless/_lib.py:221`), so nothing in the current tree
-produces PDFs.
+Nothing in the current tree produces PDFs. The Python package that used to
+load the C library is gone.
 
 The directory is its own Go module (`output/go.mod`) so these bytes stay out
 of the parent module zip.

@@ -162,11 +162,10 @@ skip long perf tests (`make test-quick`), or fall back to single-threaded
 
 Run targeted single-package tests during a session (`go test ./internal/<pkg>`
 or `go test ./internal/<pkg> -run '<TestName>'`); run the full gate set once
-at session end before claiming done. CI additionally runs `make test-race`
-(`./internal/layout ./internal/load ./internal/fonts`), a CGO_ENABLED=0
-static build with a cgo purity guard, the WASM contract and browser smoke
-(`make wasm-test`), the fast `make final-evidence` bundle, and an opt-in
-c-shared job that asserts the ABI and version stamp.
+at session end before claiming done. GitHub CI (`.github/workflows/ci.yml`)
+runs only `make test` and `make lint`. It does not run claim-scan,
+catalog-check, matrix-check, race, wasm, final-evidence, or a c-shared job.
+`make c-shared` stays an opt-in local C build.
 
 ## Things to AVOID (paid-for lessons)
 
@@ -242,13 +241,15 @@ c-shared job that asserts the ABI and version stamp.
   `github.com/tdewolff/canvas` (SVG rasterization), checked by
   `TestDirectModuleAllowlist`. Everything else stays `// indirect`.
 - **Version discipline.** `VERSION` is not used: there is no `VERSION` file
-  and no `internal/cli` package. The committed version sources are
-  `bindings/python/pyproject.toml` (`[project].version`) and
-  `bindings/c/include/blinkless.h` (`BLINKLESS_VERSION`); `make check-versions`
-  gates them against each other, and `release.yml` / `publish-pypi.yml` gate a
-  `v*` tag against them. The bindings carry their own `BINDINGS_VERSION` /
-  `WASM_VERSION` stamps in the Makefile; leave them alone unless the user asks.
-  Release records live in `CHANGELOG.md` and the ledger under `plans/<ver>/`.
+  and no `internal/cli` package. There is no tag-vs-source version gate:
+  `scripts/check_versions.sh` and `make check-versions` are gone, and a `v*`
+  tag is not compared to a version file. `.github/workflows/release.yml` runs
+  `make test` and `make lint`, then creates or updates the GitHub Release.
+  The Python package and `.github/workflows/publish-pypi.yml` are gone.
+  `bindings/c` and `bindings/wasm` stay. The bindings carry their own
+  `BINDINGS_VERSION` / `WASM_VERSION` stamps in the Makefile; leave them
+  alone unless the user asks. Release records live in `CHANGELOG.md` and the
+  ledger under `plans/<ver>/`.
 - **The frontend site is not in this tree.** There is no `frontend/` source
   and no built `docs/`; `make lint-frontend` is a no-op that says so, and
   `make lint` does not chain it. `claim-scan` reads only `doc.go`, `README.md`,
