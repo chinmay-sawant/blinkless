@@ -102,4 +102,5 @@ no visual surface changed
 
 | Extension | Files | Insertions | Deletions |
 | --- | ---: | ---: | ---: |
-| placeholder | 0 | 0 | 0 |
+| `.md` | 11 | 248 | 6 |
+| **Total** | **11** | **248** | **6** |
