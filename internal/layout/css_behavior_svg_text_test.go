@@ -57,10 +57,10 @@ func svgTextSerialized(t *testing.T, textStyle string) string {
 }
 
 // TestSvgTextTextAnchorMiddleAnchorsSvgText is text-anchor: middle bakes into
-// the serialized SVG as a text-anchor attribute on the text element, and the
-// rasterizer (which honors middle/end anchoring) paints different pixels than
-// the default start anchor. HTML text is unaffected: Chrome 143.0.7499.40
-// anchors SVG text only.
+// the serialized SVG as a text-anchor attribute on the text element. The
+// raster path removes text, tspan, and textPath before canvas.ParseSVG so an
+// SVG cannot load a system font. The two rasters therefore match. HTML text
+// is unaffected.
 func TestSvgTextTextAnchorMiddleAnchorsSvgText(t *testing.T) {
 	t.Parallel()
 
@@ -81,8 +81,8 @@ func TestSvgTextTextAnchorMiddleAnchorsSvgText(t *testing.T) {
 		t.Fatalf("svg image ops = %d / %d, want 1 each", len(startImgs), len(middleImgs))
 	}
 
-	if bytes.Equal(startImgs[0].Image, middleImgs[0].Image) {
-		t.Error("text-anchor:middle raster bytes match start anchor, want shifted text pixels")
+	if !bytes.Equal(startImgs[0].Image, middleImgs[0].Image) {
+		t.Error("text-anchor rasters differ; SVG text must be removed before the system font loader")
 	}
 
 	plain := layoutHTML(t, `<html><body style="margin:0">`+

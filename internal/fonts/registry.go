@@ -463,6 +463,13 @@ func scanFontFile(out *Registry, path string, entry os.DirEntry) {
 		return
 	}
 
+	// A FIFO named .ttf blocks in os.Open. Skip anything Info says is not
+	// a regular file before that open.
+	info, infoErr := entry.Info()
+	if infoErr == nil && (info == nil || !info.Mode().IsRegular()) {
+		return
+	}
+
 	fnt := loadFontFile(path, entry)
 	if fnt != nil {
 		out.AddFont(fnt)

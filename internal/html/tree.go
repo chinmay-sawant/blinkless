@@ -15,6 +15,11 @@ const maxElementDepth = 1024
 // chain at most this many times.
 const maxReprocess = 8
 
+// maxForeignReparse caps how many times foreign raw text is tokenized again.
+// A raw-text element inside that run can scan again. Past the cap the run is
+// inserted as text, so nested <svg><style> cannot recurse without bound.
+const maxForeignReparse = 32
+
 // Attribute and selected-content caps keep adversarial input from driving
 // unbounded allocation during parsing.
 const (
@@ -90,6 +95,9 @@ type treeBuilder struct {
 	fragment         bool            // fragment parsing: the synthetic root holds the context
 	fragmentContext  *Node           // context element for a fragment parse (nil for documents)
 	reparseRawText   bool            // next text token holds foreign raw-text content; re-tokenize in Data state
+	reparseDepth     int             // nested foreign raw-text reparses; capped by maxForeignReparse
+	textAccum        *Node           // text node whose bytes are still in textBytes
+	textBytes        []byte          // pending text for textAccum; flushed onto Node.Text
 }
 
 func newTreeBuilder() *treeBuilder {
@@ -135,8 +143,10 @@ func (b *treeBuilder) appendToken(tokItem token) {
 	if b.reparseRawText {
 		b.reparseRawText = false
 
-		if tokItem.kind == tokText {
+		if tokItem.kind == tokText && b.reparseDepth < maxForeignReparse {
+			b.reparseDepth++
 			scanTokens(tokItem.data, b.appendToken, b.foreignCDATAAllowed)
+			b.reparseDepth--
 
 			return
 		}
@@ -156,6 +166,8 @@ func (b *treeBuilder) appendToken(tokItem token) {
 // finish runs the end-of-file mode chain: every mode before "in body" creates
 // the document structure the standard inserts at EOF.
 func (b *treeBuilder) finish() {
+	defer b.flushTextAccum()
+
 	b.flushPendingTableText()
 
 	for {
@@ -1378,11 +1390,13 @@ func (b *treeBuilder) appendTextToken(data string) {
 
 			if i > 0 {
 				if prev := (*children)[i-1]; prev.Type == TextNode {
-					prev.Text += data
+					b.accumulateText(prev, data)
 
 					return
 				}
 			}
+
+			b.flushTextAccum()
 
 			node := &Node{Type: TextNode, Text: data, Parent: point.parent} //nolint:exhaustruct
 			insertChildAt(point, node)
@@ -1396,19 +1410,41 @@ func (b *treeBuilder) appendTextToken(data string) {
 	if len(*children) > 0 {
 		last := (*children)[len(*children)-1]
 		if last.Type == TextNode {
-			var merged strings.Builder
-			merged.Grow(len(last.Text) + len(data))
-			merged.WriteString(last.Text)
-			merged.WriteString(data)
-			last.Text = merged.String()
+			b.accumulateText(last, data)
 
 			return
 		}
 	}
 
+	b.flushTextAccum()
+
 	node := &Node{Type: TextNode, Text: data} //nolint:exhaustruct
 	node.Parent = top
 	*children = append(*children, node)
+}
+
+// accumulateText appends data onto a text node. Repeated appends stay in
+// textBytes and are copied onto the node once, in flushTextAccum, so a long
+// run of one-character tokens does not copy the whole string each time.
+func (b *treeBuilder) accumulateText(node *Node, data string) {
+	if b.textAccum != node {
+		b.flushTextAccum()
+		b.textAccum = node
+		b.textBytes = append(b.textBytes[:0], node.Text...)
+	}
+
+	b.textBytes = append(b.textBytes, data...)
+}
+
+// flushTextAccum writes any pending text bytes onto their text node.
+func (b *treeBuilder) flushTextAccum() {
+	if b.textAccum == nil {
+		return
+	}
+
+	b.textAccum.Text = string(b.textBytes)
+	b.textAccum = nil
+	b.textBytes = b.textBytes[:0]
 }
 
 // applyAttributes stores the interleaved name/value pairs on node, keeping

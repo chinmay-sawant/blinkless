@@ -33,6 +33,7 @@ var (
 	errFontTruncatedCmap4Segs = errors.New("font: truncated cmap format 4 segments")
 	errFontTruncatedCmap12    = errors.New("font: truncated cmap format 12")
 	errFontTooLarge           = errors.New("font: input exceeds byte limit")
+	errFontNotRegular         = errors.New("font: not a regular file")
 	errFontTooManyTables      = errors.New("font: too many tables in directory")
 	errFontCmapRangeTooLarge  = errors.New("font: cmap range too large")
 )

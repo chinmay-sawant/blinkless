@@ -176,25 +176,39 @@ func ParseNumber(val string) (float64, bool) {
 	return f, true
 }
 
+// maxColorVarDepth caps nested var() fallbacks while parsing a color.
+// The bound is the same order as maxMathDepth: a deeper fallback is not a color.
+const maxColorVarDepth = 64
+
 // ParseColor parses #rgb, #rrggbb, #rrggbbaa, rgb()/rgba() with integer,
 // float or percentage channels, hsl()/hsla(), the full CSS Color 4 named-color
 // list, and the modern functions oklab(), oklch(), color-mix(in srgb, ...) and
 // light-dark(). It returns RGB in 0..255 and alpha in 0..1; ok=false for
 // anything unrecognized.
+func ParseColor(val string) (int, int, int, float64, bool) {
+	return parseColorDepth(val, 0)
+}
+
+// parseColorDepth is ParseColor with a var() fallback depth. depth counts
+// fallbacks already entered. At maxColorVarDepth another var() is rejected.
 //
 //nolint:cyclop // linear dispatch across color forms; extraction would obscure it
-func ParseColor(val string) (int, int, int, float64, bool) {
+func parseColorDepth(val string, depth int) (int, int, int, float64, bool) {
 	val = strings.TrimSpace(val)
 	if val == "" {
 		return 0, 0, 0, 0, false
 	}
-	// CSS variables: var(--name, fallback) — resolve fallback only (no custom props).
+	// CSS variables: var(--name, fallback). Resolve the fallback only (no custom props).
 	// ponytail: ParseColor accepts bare var() without a prop map (API is color-
 	// string only). Layout resolves custom props via ResolveCustomProps before
 	// color parse; upgrade if ParseColor gains a props argument.
 	if strings.HasPrefix(strings.ToLower(val), "var(") {
+		if depth >= maxColorVarDepth {
+			return 0, 0, 0, 0, false
+		}
+
 		if fb, okFB := cssVarFallback(val); okFB {
-			return ParseColor(fb)
+			return parseColorDepth(fb, depth+1)
 		}
 
 		return 0, 0, 0, 0, false

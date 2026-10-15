@@ -249,11 +249,22 @@ func matchLeftAdjacent(st MatchState, part SelectorPart, cur *html.Node) *html.N
 }
 
 // matchLeftSibling returns the nearest previous element sibling of cur that
-// matches part, else nil.
-func matchLeftSibling(st MatchState, part SelectorPart, cur *html.Node) *html.Node {
-	for sib := previousElementSibling(cur); sib != nil; sib = previousElementSibling(sib) {
-		if matchPart(st, part, sib) {
-			return sib
+// matches part, else nil. One pass over the parent's children remembers the
+// last match, so a wide sibling list stays linear.
+func matchLeftSibling(state MatchState, part SelectorPart, cur *html.Node) *html.Node {
+	if cur == nil || cur.Parent == nil {
+		return nil
+	}
+
+	var last *html.Node
+
+	for _, child := range cur.Parent.Children {
+		if child == cur {
+			return last
+		}
+
+		if child.Type == html.ElementNode && matchPart(state, part, child) {
+			last = child
 		}
 	}
 
@@ -544,9 +555,14 @@ func matchAnyRelative(st MatchState, rels []RelativeSelector, node *html.Node) b
 }
 
 // matchNone reports whether no selector of the list matches node.
-func matchNone(_ MatchState, sels []Selector, node *html.Node) bool {
+// Focus, hover, and active stay unset on the inner match. The visit budget
+// is the caller's, or one budget shared by every argument when the caller
+// has none, so each :not() argument does not start a fresh cap.
+func matchNone(state MatchState, sels []Selector, node *html.Node) bool {
+	inner := sharedBudgetState(state)
+
 	for _, sel := range sels {
-		if Match(sel, node) {
+		if inner.Matches(sel, node) {
 			return false
 		}
 	}
@@ -555,14 +571,30 @@ func matchNone(_ MatchState, sels []Selector, node *html.Node) bool {
 }
 
 // matchAnySelector reports whether any selector of the list matches node.
-func matchAnySelector(_ MatchState, sels []Selector, node *html.Node) bool {
+// Focus, hover, and active stay unset. Arguments share one visit budget,
+// the same rule as matchNone.
+func matchAnySelector(state MatchState, sels []Selector, node *html.Node) bool {
+	inner := sharedBudgetState(state)
+
 	for _, sel := range sels {
-		if Match(sel, node) {
+		if inner.Matches(sel, node) {
 			return true
 		}
 	}
 
 	return false
+}
+
+// sharedBudgetState is a match state with no focus, hover, or active id.
+// It keeps the caller's visit budget, or allocates one budget for the list
+// when the caller has none.
+func sharedBudgetState(state MatchState) MatchState {
+	budget := state.budget
+	if budget == nil {
+		budget = &hasBudget{left: maxHasVisits}
+	}
+
+	return MatchState{Focus: "", Hover: "", Active: "", budget: budget}
 }
 
 // isRootElement reports whether node is the document element (html in HTML).

@@ -14,14 +14,17 @@ const (
 	readFontTestContents    = "0123456789"
 )
 
-// staticFileInfo overrides only the size the sized read path consults; the
-// embedded nil FileInfo satisfies the interface for methods that never run.
+// staticFileInfo overrides the size the sized read path consults. Mode reports
+// a regular file so the non-regular skip does not treat the stub as a pipe.
+// The embedded FileInfo stays nil; other methods are not called.
 type staticFileInfo struct {
 	os.FileInfo
 	size int64
 }
 
 func (f staticFileInfo) Size() int64 { return f.size }
+
+func (f staticFileInfo) Mode() os.FileMode { return 0o644 }
 
 func writeTestFont(t *testing.T, dir, name string) string {
 	t.Helper()

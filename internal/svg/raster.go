@@ -186,6 +186,9 @@ func rasterizeCanvas(ctx context.Context, data []byte, maxSide int) (pngBytes []
 	// FillRule. Emulate both here so they observably change raster pixels;
 	// without this the baked attributes rasterize identically (pinned gap).
 	data = emulateDroppedPresentation(data)
+	// Drop text before ParseSVG. canvas getFontFace calls LoadSystemFont
+	// while canvasMu is held, and a missing family panics.
+	data = stripSVGTextElements(data)
 
 	svgCanvas, err := canvas.ParseSVG(bytes.NewReader(data))
 	if err != nil {

@@ -467,16 +467,29 @@ func parseLightDark(val string) (int, int, int, float64, bool) {
 // ParseColor's clamped values; only the wide-gamut functions carry
 // headroom. Reference: Chrome 143.0.7499.40.
 //
-//nolint:cyclop // linear dispatch across color forms; extraction would obscure it
+// ParseColorWide parses a color and keeps wide-gamut channels unclamped.
 func ParseColorWide(val string) ([3]float64, float64, bool) {
+	return parseColorWideDepth(val, 0)
+}
+
+// parseColorWideDepth is ParseColorWide with a var() fallback depth.
+// depth counts fallbacks already entered. At maxColorVarDepth another var()
+// is rejected, matching parseColorDepth.
+//
+//nolint:cyclop // linear dispatch across color forms; extraction would obscure it
+func parseColorWideDepth(val string, depth int) ([3]float64, float64, bool) {
 	val = strings.TrimSpace(val)
 	if val == "" {
 		return [3]float64{}, 0, false
 	}
 
 	if strings.HasPrefix(strings.ToLower(val), "var(") {
+		if depth >= maxColorVarDepth {
+			return [3]float64{}, 0, false
+		}
+
 		if fb, okFB := cssVarFallback(val); okFB {
-			return ParseColorWide(fb)
+			return parseColorWideDepth(fb, depth+1)
 		}
 
 		return [3]float64{}, 0, false

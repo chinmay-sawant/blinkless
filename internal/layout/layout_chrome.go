@@ -76,9 +76,16 @@ func appendBorderLineOpsForSide(
 	return dst
 }
 
+// maxDashSegments caps dashed and dotted edge pieces. 1024 matches the
+// background tile cap. Draw and gap are at least 0.5pt, so the painter
+// steps at least 1pt; the count is only a capacity hint unless the loop
+// stops at the same bound. Outlines and column rules share this helper.
+const maxDashSegments = 1024
+
 // dashedSegmentMetrics derives the draw and gap lengths for one dashed or
-// dotted edge and the upper bound on the segment count. Callers that size a
-// shared buffer for several sides use the bound to allocate once.
+// dotted edge and the segment count. Callers that size a shared buffer for
+// several sides use the count to allocate once, and it never exceeds
+// maxDashSegments.
 func dashedSegmentMetrics(length, width float64, dotted bool) (drawLen, gap float64, segments int) {
 	drawLen, gap = width*3, width*2 // three=3, two=2 inlined; remaining two/three usages parked
 	if dotted {
@@ -93,7 +100,32 @@ func dashedSegmentMetrics(length, width float64, dotted bool) (drawLen, gap floa
 		gap = 0.5
 	}
 
-	return drawLen, gap, int(length/(drawLen+gap)) + 1
+	return drawLen, gap, cappedDashSegments(length, drawLen+gap)
+}
+
+// cappedDashSegments is the number of dash or dot pieces that fit in length,
+// never more than maxDashSegments. The float division is capped before the
+// int conversion so a huge length cannot request a multi-million allocation.
+func cappedDashSegments(length, step float64) int {
+	if !(step > 0) || !(length > 0) {
+		return 1
+	}
+
+	count := length / step
+	if !(count < float64(maxDashSegments)) {
+		return maxDashSegments
+	}
+
+	segments := int(count) + 1
+	if segments < 1 {
+		return 1
+	}
+
+	if segments > maxDashSegments {
+		return maxDashSegments
+	}
+
+	return segments
 }
 
 // borderSideOpCount returns the largest number of ops one border side can
@@ -125,15 +157,24 @@ func appendDashedLineGridSegments(
 	}
 
 	drawLen, gap, n := dashedSegmentMetrics(length, width, dotted)
+	if n > maxDashSegments {
+		n = maxDashSegments
+	}
+
+	if n < 1 {
+		n = 1
+	}
 
 	if cap(dst)-len(dst) < n {
-		// Grow once for the expected segment count.
+		// Grow once for the capped segment count, not the raw edge length.
 		grown := make([]GridSeg, len(dst), len(dst)+n)
 		copy(grown, dst)
 		dst = grown
 	}
 
-	for pos := 0.0; pos < length-0.001; pos += drawLen + gap {
+	step := drawLen + gap
+	emitted := 0
+	for pos := 0.0; pos < length-0.001 && emitted < n; pos += step {
 		seg := math.Min(drawLen, length-pos)
 		if seg <= 0 {
 			break
@@ -148,6 +189,7 @@ func appendDashedLineGridSegments(
 			X: segX, Y: segY, W: segW, H: segH,
 			Width: width, R: red, G: green, B: blue,
 		})
+		emitted++
 	}
 
 	return dst

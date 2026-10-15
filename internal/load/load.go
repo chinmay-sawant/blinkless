@@ -941,9 +941,13 @@ func sameNetworkHost(left, right *url.URL) bool {
 
 //nolint:gochecknoglobals // precomputed immutable CIDR and target IP values for SSRF filtering
 var (
-	cgnatCIDR    = mustCIDR("100.64.0.0/10")
-	metaCIDR     = mustCIDR("169.254.169.0/24")
-	metaTargetIP = net.ParseIP("169.254.169.254")
+	cgnatCIDR          = mustCIDR("100.64.0.0/10")
+	metaCIDR           = mustCIDR("169.254.169.0/24")
+	metaTargetIP       = net.ParseIP("169.254.169.254")
+	limitedBroadcastIP = net.ParseIP("255.255.255.255")
+	// 192.0.0.192 is in the IETF assignment block and is an Azure metadata address.
+	protocolAssignIP  = net.ParseIP("192.0.0.192")
+	azureWireServerIP = net.ParseIP("168.63.129.16")
 )
 
 func mustCIDR(cidr string) *net.IPNet {
@@ -964,7 +968,7 @@ func isPrivateNetworkIP(addr net.IP) bool {
 		return true
 	}
 
-	if cgnatCIDR.Contains(addr) {
+	if blockedSpecialIP(addr) || cgnatCIDR.Contains(addr) {
 		return true
 	}
 
@@ -1496,6 +1500,13 @@ func (l *Loader) loadHTTP(ctx context.Context, target string, pageLoad settings.
 
 	resp, err := client.Do(req)
 	if err != nil {
+		// CheckRedirect returns a host-free policy error. net/http then wraps
+		// it in url.Error and sets URL to the raw Location, which can hold a
+		// password or a file path. Return the policy error without that wrap.
+		if policyErr := policyErrorWithoutLocation(err); policyErr != nil {
+			return nil, policyErr
+		}
+
 		return nil, fmt.Errorf("fetch %s: %w", parsed.String(), err)
 	}
 	defer resp.Body.Close()

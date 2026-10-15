@@ -9,6 +9,43 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/fonts/assets"
 )
 
+func TestParseCPALRejectsHighColorOffset(t *testing.T) {
+	t.Parallel()
+
+	tbl := make([]byte, cpalHeaderSize+uint16Bytes)
+	binary.BigEndian.PutUint16(tbl[2:4], 1)
+	binary.BigEndian.PutUint16(tbl[4:6], 1)
+	binary.BigEndian.PutUint16(tbl[6:8], 1)
+	binary.BigEndian.PutUint32(tbl[8:12], 0x80000000)
+
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			t.Fatalf("CPAL parse panicked: %v", recovered)
+		}
+	}()
+
+	if palettes := parseCPAL(tbl); palettes != nil {
+		t.Fatalf("parseCPAL = %+v, want nil", palettes)
+	}
+
+	// int32 wrap is what a 32-bit int(uint32) does with this offset.
+	rawOff := uint32(0x80000000)
+	negative := int(int32(rawOff)) //nolint:gosec // models the 32-bit conversion under test
+
+	if negative >= 0 {
+		t.Fatal("fixture did not model a wrapped 32-bit offset")
+	}
+
+	if _, ok := parseCPALPalette(tbl, cpalHeaderSize, negative, 1, 1, 0, 0); ok {
+		t.Fatal("parseCPALPalette accepted a negative color offset")
+	}
+
+	fnt := &Font{tables: map[string][]byte{"CPAL": tbl, "COLR": {0}}}
+	if _, _, _, ok := fnt.PaletteSolidFill("0"); ok {
+		t.Fatal("palette helper indexed a hostile color offset")
+	}
+}
+
 func TestHmtxRejectsMetricCountAboveGlyphCount(t *testing.T) {
 	t.Parallel()
 

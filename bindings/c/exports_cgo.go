@@ -239,9 +239,13 @@ func parseImageRequest(
 
 		return nil, empty, true
 	}
-	if int64(cLen) > int64(math.MaxInt32) {
+
+	// Compare the unsigned length before any int64 or C.int conversion.
+	// A size_t >= 2^63 becomes negative as int64 and would pass a signed
+	// cap, then C.GoBytes would copy a truncated length.
+	if !htmlLenFits(cLen) {
 		message := fmt.Sprintf("html length %d exceeds the %d byte limit",
-			int64(cLen), int64(math.MaxInt32))
+			uint64(cLen), uint64(math.MaxInt32))
 		rejectRequest(message, cErr)
 
 		return nil, empty, true
@@ -253,6 +257,19 @@ func parseImageRequest(
 	}
 
 	return C.GoBytes(unsafe.Pointer(cHTML), C.int(cLen)), opts, false
+}
+
+// htmlLenFits reports whether cLen can be copied. size_t is unsigned, so
+// the check stays in uint64. Zero is rejected here as well as by the caller.
+// Lengths above MaxInt32 stay rejected. A length >= 2^63 does not fit in a
+// non-negative int64 and must not reach C.GoBytes.
+func htmlLenFits(cLen C.size_t) bool {
+	length := uint64(cLen)
+	if length == 0 || length >= uint64(1)<<63 {
+		return false
+	}
+
+	return length <= uint64(math.MaxInt32)
 }
 
 // convertImageOptions maps a GwkImageOptions pointer onto imageOptions and
@@ -547,4 +564,33 @@ func probeLastErrorOversize() (int32, bool) {
 // cgo is not supported in test files, so C pointer work stays here.
 func probeHtmlToImageNil() int32 {
 	return int32(blinkless_html_to_image(nil, 0, nil, nil, nil, nil))
+}
+
+// probeHTMLLenFits reports the unsigned length gate for one size_t value.
+// Test-only helper: cgo is not supported in test files.
+func probeHTMLLenFits(length uint64) bool {
+	return htmlLenFits(C.size_t(length))
+}
+
+// probeParseImageRequestHighBit calls the HTML parser with a length of
+// 2^63. The pointer is a real one-byte buffer. Rejection must happen before
+// C.GoBytes; a truncated copy would return the byte instead of rejecting.
+func probeParseImageRequestHighBit() bool {
+	raw := C.CString("x")
+	defer C.free(unsafe.Pointer(raw))
+
+	_, _, rejected := parseImageRequest(raw, C.size_t(uint64(1)<<63), nil, nil)
+
+	return rejected
+}
+
+// probeParseImageRequestCopies parses a short HTML buffer and returns the
+// Go copy. rejected is true when the length gate refuses it.
+func probeParseImageRequestCopies(payload string) ([]byte, bool) {
+	raw := C.CString(payload)
+	defer C.free(unsafe.Pointer(raw))
+
+	html, _, rejected := parseImageRequest(raw, C.size_t(len(payload)), nil, nil)
+
+	return html, rejected
 }

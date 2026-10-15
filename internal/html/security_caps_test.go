@@ -1,6 +1,7 @@
 package html
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -145,5 +146,127 @@ func TestSelectedContentCloneCap(t *testing.T) {
 
 	if len(content.Children) != 0 {
 		t.Fatal("selectedcontent cloned a subtree over the byte cap")
+	}
+}
+
+// TestForeignRawTextReparseFinishes proves nested svg style content is
+// reparsed, and that reparse stops at maxForeignReparse instead of recursing
+// for every nested raw-text element.
+func TestForeignRawTextReparseFinishes(t *testing.T) {
+	t.Parallel()
+
+	shallow := mustParse(t, `<svg><style><svg><rect/></style></svg>`)
+	if firstElement(shallow, "rect") == nil {
+		t.Fatalf("nested svg style did not reparse:\n%s", treeString(shallow))
+	}
+
+	const nests = maxForeignReparse + 8
+
+	var src strings.Builder
+
+	for range nests {
+		src.WriteString("<svg><style>")
+	}
+
+	src.WriteString("x")
+
+	root := mustParse(t, src.String())
+	svgs := 0
+
+	root.Walk(func(n *Node) {
+		if n.Type == ElementNode && n.Name == "svg" {
+			svgs++
+		}
+	})
+
+	if svgs == 0 {
+		t.Fatal("deep svg style produced no svg element")
+	}
+
+	if svgs > maxForeignReparse+1 {
+		t.Fatalf("svg count %d, reparse continued past cap %d", svgs, maxForeignReparse)
+	}
+}
+
+// TestFosterParentedOneCharTokensFinish proves many one-character table text
+// tokens still merge into the fostered text node and the parse returns.
+func TestFosterParentedOneCharTokensFinish(t *testing.T) {
+	t.Parallel()
+
+	const tokenCount = 4000
+
+	var src strings.Builder
+
+	src.Grow(tokenCount * 10)
+	src.WriteString("<table>")
+
+	for range tokenCount {
+		src.WriteString("x<!--c-->")
+	}
+
+	src.WriteString("</table>")
+
+	root := mustParse(t, src.String())
+	body := firstElement(root, "body")
+
+	if body == nil || len(body.Children) == 0 || body.Children[0].Type != TextNode {
+		t.Fatalf("foster text missing:\n%s", treeString(root))
+	}
+
+	if got := body.Children[0].Text; got != strings.Repeat("x", tokenCount) {
+		t.Fatalf("foster text length %d, want %d", len(got), tokenCount)
+	}
+}
+
+// TestActiveFormattingListCap proves distinct formatting elements cannot
+// grow the active list past the cap, and a normal bold/italic misnest still
+// reconstructs.
+func TestActiveFormattingListCap(t *testing.T) {
+	t.Parallel()
+
+	builder := newTreeBuilder()
+
+	for i := range maxActiveFormatting + 500 {
+		builder.pushActiveFormatting(&Node{
+			Type:      ElementNode,
+			Name:      "b",
+			Namespace: NamespaceHTML,
+			AttrList:  []Attr{{Namespace: "", Name: "id", Value: strconv.Itoa(i)}},
+		})
+	}
+
+	if got := len(builder.activeFormatting); got != maxActiveFormatting {
+		t.Fatalf("active formatting list = %d, want cap %d", got, maxActiveFormatting)
+	}
+
+	const nests = 1500
+
+	var src strings.Builder
+
+	src.WriteString("<body>")
+
+	for i := range nests {
+		src.WriteString(`<b id="`)
+		src.WriteString(strconv.Itoa(i))
+		src.WriteString(`"><p>`)
+	}
+
+	parsed := newTreeBuilder()
+	scanTokens(src.String(), parsed.appendToken, parsed.foreignCDATAAllowed)
+	parsed.finish()
+
+	if got := len(parsed.activeFormatting); got > maxActiveFormatting {
+		t.Fatalf("parsed active formatting list = %d, over cap %d", got, maxActiveFormatting)
+	}
+
+	root := mustParse(t, `<b><i>one</b>two</i>`)
+	body := firstElement(root, "body")
+
+	if body == nil || len(body.Children) < 2 {
+		t.Fatalf("reconstructed tree:\n%s", treeString(root))
+	}
+
+	if got := body.Children[1].TextContent(); got != "two" {
+		t.Fatalf("reconstructed italic text = %q, want %q", got, "two")
 	}
 }

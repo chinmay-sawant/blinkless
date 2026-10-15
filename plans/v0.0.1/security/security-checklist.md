@@ -1,7 +1,7 @@
 # 0.0.1 - Security hardening
 
 > **Parent:** `plans/v0.0.1/phase-wise-checklist.md` - canonical 0.0.1 ledger; this file is the security slice of that ledger.
-> **Status:** ledgers 01 through 05 are closed. A 2026-10-15 rescan added open rows in ledgers 06 through 09. Those rows are not repeats of the closed controls. Public `html.Parse` still has no byte cap. An in-flight canvas Draw still runs to completion. C callers must still pass valid pointers.
+> **Status:** ledgers 01 through 09 are closed. The 2026-10-15 rescan rows in 06 through 09 were implemented and proved with `make test`, `make lint`, `make golden`, and `make claim-scan`. Public `html.Parse` still has no byte cap. An in-flight canvas Draw still runs to completion. C callers must still pass valid pointers. SVG text is removed before raster so the converter does not load a system font.
 > **Estimated effort:** security-only hardening across HTML/CSS/layout/load/fonts/svg/bindings.
 
 ---

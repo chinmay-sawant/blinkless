@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"unicode/utf16"
@@ -139,9 +140,9 @@ func parseCPAL(tbl []byte) []ColorPalette {
 	numEntries := int(binary.BigEndian.Uint16(tbl[2:4]))
 	numPalettes := int(binary.BigEndian.Uint16(tbl[4:6]))
 	numColors := int(binary.BigEndian.Uint16(tbl[6:8]))
-	colorOff := int(binary.BigEndian.Uint32(tbl[8:12]))
+	colorOff, colorOK := cpalOffsetInTable(tbl, binary.BigEndian.Uint32(tbl[8:12]))
 
-	if numEntries <= 0 || numPalettes <= 0 || numColors < numEntries {
+	if !colorOK || numEntries <= 0 || numPalettes <= 0 || numColors < numEntries {
 		return nil
 	}
 
@@ -190,7 +191,11 @@ func parseCPALTypes(tbl []byte, version uint16, indexEnd, numPalettes int) []uin
 		return nil
 	}
 
-	typesOff := int(binary.BigEndian.Uint32(tbl[typesOffPos : typesOffPos+uint32Bytes]))
+	typesOff, typesOK := nonNegativeIndex(binary.BigEndian.Uint32(tbl[typesOffPos : typesOffPos+uint32Bytes]))
+	if !typesOK {
+		return nil
+	}
+
 	if typesOff <= 0 {
 		return types
 	}
@@ -212,6 +217,12 @@ func parseCPALPalette(
 	indexOff, colorOff, numEntries, numColors, paletteIndex int,
 	paletteType uint32,
 ) (ColorPalette, bool) {
+	// A 32-bit int conversion of a uint32 above MaxInt32 is negative.
+	// Reject that before any color-record index.
+	if colorOff < 0 || colorOff > len(tbl) {
+		return ColorPalette{Colors: nil, Type: 0}, false
+	}
+
 	start := int(binary.BigEndian.Uint16(tbl[indexOff+paletteIndex*uint16Bytes:]))
 	end := start + numEntries
 
@@ -236,6 +247,33 @@ func parseCPALPalette(
 	}
 
 	return ColorPalette{Colors: colors, Type: paletteType}, true
+}
+
+// nonNegativeIndex converts an unsigned CPAL offset to an int index.
+// On a 32-bit int, a uint32 above MaxInt32 becomes negative and a later
+// slice index panics. Those offsets are rejected before any index.
+func nonNegativeIndex(off uint32) (int, bool) {
+	if int64(off) > int64(math.MaxInt) {
+		return 0, false
+	}
+
+	idx := int(off)
+	if idx < 0 {
+		return 0, false
+	}
+
+	return idx, true
+}
+
+// cpalOffsetInTable is nonNegativeIndex plus a bounds check against tbl.
+// The offset must be a non-negative index inside the table.
+func cpalOffsetInTable(tbl []byte, off uint32) (int, bool) {
+	idx, ok := nonNegativeIndex(off)
+	if !ok || idx > len(tbl) {
+		return 0, false
+	}
+
+	return idx, true
 }
 
 // WithColorPalettes rebuilds ttf with CPAL (and a minimal COLR so

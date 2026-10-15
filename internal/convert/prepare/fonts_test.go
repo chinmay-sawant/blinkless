@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/andybalholm/brotli"
@@ -76,6 +79,60 @@ func TestMergeFontFacesDataURLWOFF2(t *testing.T) {
 	registry := testResources(t).MergeFontFaces(t.Context(), pdf.NewRegistry(), []*css.Stylesheet{sheet}, 1, io.Discard)
 	if font := registry.Lookup([]string{"InlineWoff2"}, 400, false); font != nil {
 		t.Fatal("data: WOFF2 font-face must be skipped")
+	}
+}
+
+// TestMergeFontFacesFetchCap proves a wide @font-face list does not fetch
+// every URL. data: sources are not counted; these are remote .ttf URLs.
+func TestMergeFontFacesFetchCap(t *testing.T) {
+	t.Parallel()
+
+	const (
+		many = 80
+		capN = 64
+	)
+
+	var fetchMu sync.Mutex
+
+	hits := map[string]int{}
+	server := httptest.NewServer(http.HandlerFunc(func(responseWriter http.ResponseWriter, request *http.Request) {
+		fetchMu.Lock()
+		hits[request.URL.Path]++
+		fetchMu.Unlock()
+
+		responseWriter.WriteHeader(http.StatusOK)
+		_, _ = responseWriter.Write([]byte("not a font"))
+	}))
+	t.Cleanup(server.Close)
+
+	faces := make([]css.FontFace, many)
+	for idx := range many {
+		faces[idx] = css.FontFace{
+			Family: fmt.Sprintf("Face%d", idx),
+			Src:    fmt.Sprintf("url(%s/f%d.ttf)", server.URL, idx),
+		}
+	}
+
+	var logBuf bytes.Buffer
+
+	sheet := &css.Stylesheet{FontFaces: faces}
+	_ = testResources(t).MergeFontFaces(t.Context(), pdf.NewRegistry(), []*css.Stylesheet{sheet}, 1, &logBuf)
+
+	total := 0
+	for _, count := range hits {
+		total += count
+	}
+
+	if total != capN {
+		t.Fatalf("font fetches = %d, want %d; hits %v", total, capN, hits)
+	}
+
+	if hits["/f0.ttf"] != 1 || hits["/f79.ttf"] != 0 {
+		t.Fatalf("cap did not keep the early fetches and drop the tail: %v", hits)
+	}
+
+	if !strings.Contains(logBuf.String(), "font fetches") {
+		t.Fatalf("log = %q, want a fetch-cap warning", logBuf.String())
 	}
 }
 

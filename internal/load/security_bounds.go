@@ -1,8 +1,11 @@
 package load
 
 import (
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -58,4 +61,35 @@ func stripIPv6Zone(host string) string {
 	}
 
 	return host
+}
+
+// blockedSpecialIP reports addresses outside IsPrivate that still must not
+// be dialed in restricted mode: multicast, the limited broadcast, the
+// protocol-assignment host, and the Azure WireServer.
+func blockedSpecialIP(addr net.IP) bool {
+	return addr.IsMulticast() || addr.Equal(limitedBroadcastIP) ||
+		addr.Equal(protocolAssignIP) || addr.Equal(azureWireServerIP)
+}
+
+// policyErrorWithoutLocation peels url.Error wrappers off a network-policy
+// failure. The inner error is the one CheckRedirect or the dial policy
+// returned. Its text does not include the redirect Location.
+func policyErrorWithoutLocation(err error) error {
+	if err == nil || !errors.Is(err, ErrNetworkPolicy) {
+		return nil
+	}
+
+	for {
+		var locationErr *url.Error
+		if !errors.As(err, &locationErr) || locationErr == nil || locationErr.Err == nil {
+			return err
+		}
+
+		next := locationErr.Err
+		if errors.Is(next, err) {
+			return err
+		}
+
+		err = next
+	}
 }

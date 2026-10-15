@@ -95,6 +95,26 @@ func TestLastErrorOversizeBufLenRejected(t *testing.T) {
 	}
 }
 
+func TestParseImageRequestLengthGate(t *testing.T) {
+	// No t.Parallel: rejection writes the process-wide last-error slot.
+	if probeHTMLLenFits(uint64(1) << 63) {
+		t.Fatal("length 2^63 fits, want it rejected before a signed conversion")
+	}
+
+	if probeHTMLLenFits(^uint64(0)) {
+		t.Fatal("max size_t fits, want it rejected before a signed conversion")
+	}
+
+	if !probeParseImageRequestHighBit() {
+		t.Fatal("parseImageRequest copied or accepted a length of 2^63")
+	}
+
+	got, rejected := probeParseImageRequestCopies("ok")
+	if rejected || string(got) != "ok" {
+		t.Fatalf("small html = %q, rejected=%v, want a copy of %q", got, rejected, "ok")
+	}
+}
+
 func TestExportWrappersHappyPath(t *testing.T) {
 	// No t.Parallel: shares the process-wide last-error slot, see above.
 	// Drives every panic-wrapped export reachable without C pointers in
