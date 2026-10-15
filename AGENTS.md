@@ -71,23 +71,21 @@ inline as a fallback - still do not write a file.
    one label.
 6. **Checklists are live ledgers:** phase files under `plans/<version>/`
     close rows `[x]` in the same change that implements them, and only when
-    the gate actually passed. Never mark `[x]` from intent. When you create
-    or finish a plan under `plans/`, update `knowledge-base/` in the same
-    session so the local narrative matches what shipped.
-7. **Answer from knowledge-base, prove with code.** Start in
-   `knowledge-base/wiki/index.md`, then open the real source under
-   `internal/`. A KB hit is a starting point, not proof. If KB and code
-   disagree, trust the code, fix the KB, answer from the code. For prose
+    the gate actually passed. Never mark `[x]` from intent.
+7. **Answer from documentation, prove with code.** Start in
+   `documentation/README.md`, then open the real source under
+   `internal/`. A doc hit is a starting point, not proof. If docs and code
+   disagree, trust the code, fix the docs, answer from the code. For prose
    claims (performance numbers, fidelity statements), the committed reference
    is `documentation/*.md`, and `make claim-scan` polices forbidden claims
    there.
-8. **Unslop all writing.** Before writing plans, docs, knowledge-base pages,
+8. **Unslop all writing.** Before writing plans, docs,
    PR/issue text, commit messages, or user-facing replies, apply `/unslop`.
    Cut puffery, em dashes, chatbot filler, synonym cycling, title-case
    headings.
 9. **Feynman every explanation and document.** Whenever you respond with an
    explanation or produce documentation (plans, `documentation/`,
-   knowledge-base pages, README sections, PR bodies, design notes), apply
+   README sections, PR bodies, design notes), apply
    `skills/feynman/SKILLS.md`: plain words a smart 12-year-old could retell,
    grounded in real source (`file:line` citations), self-audited for jargon,
    hand-waves, circularity, and name-dropping until zero findings remain.
@@ -96,7 +94,7 @@ inline as a fallback - still do not write a file.
 ## Unslop (`/unslop`)
 
 Apply to every prose surface: chat replies, `plans/`, `documentation/`,
-`knowledge-base/`, README, CHANGELOG entries, PR and issue bodies, commit
+README, CHANGELOG entries, PR and issue bodies, commit
 messages. Load the unslop skill, rewrite to plain human voice, then self-
 audit: "What makes this obviously AI generated?" Prefer concrete facts and
 file paths over vague summary language.
@@ -110,26 +108,9 @@ name-dropping, fill each gap from real source with `file:line` citations,
 repeat until zero findings. Never explain from memory alone; read the code
 or doc first. Report the pass count when invoked as `/feynman`.
 
-## Knowledge base (local only)
+## Documentation
 
-`knowledge-base/` is gitignored on purpose. Keep it current even though git
-does not track it. It has three layers (`knowledge-base/README.md`,
-`SCHEMA.md`):
-
-- `raw/` - immutable captures (api-contract, core-specs, security-posture)
-- `wiki/` - compiled articles. Entry point `wiki/index.md`; append-only op
-  log `wiki/log.md`; concept pages under `wiki/concepts/`; doc summaries
-  under `wiki/summaries/`; cross-cutting syntheses under `wiki/syntheses/`
-- `outputs/` - one derived report per query
-
-### When to update it
-
-- Creating or editing a plan under `plans/`
-- Shipping a behavior change: update the matching wiki pages in the same
-  session as the code change
-- Any time code and KB disagree while answering a question: fix the KB
-
-`documentation/` remains the committed reference. There is no `frontend/`
+`documentation/` is the committed reference. There is no `frontend/`
 site and no built `docs/` in this tree; the only prose surface to edit is
 the markdown under `documentation/`.
 
