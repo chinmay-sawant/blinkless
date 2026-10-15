@@ -25,11 +25,9 @@ There is no CLI in this tree. `cmd/` is empty and no Makefile target writes a CL
 
 `make wasm` builds `dist/wasm/blinkless.wasm` and copies `wasm_exec.js`, `testdata/wasm/sample.html`, and `testdata/wasm/manifest.json` (Makefile `wasm` target). `make wasm-test` runs `scripts/check-wasm-contract.sh` first.
 
-## C and Python bindings
+## C binding
 
-`bindings/c` builds the c-shared library with `make c-shared` (needs `CGO_ENABLED=1`). It exposes the frozen ABI in `bindings/c/include/blinkless.h`: version and ABI queries, status codes, and a process-wide last-error slot (`bindings/c/main.go`). A drawing-list entry point is not wired yet; `exports_stub.go` keeps the package compiling under `CGO_ENABLED=0`.
-
-`bindings/python` loads that library through ctypes. Version and ABI queries work. The conversion entry points (`convert_html_to_pdf`, `convert_file_to_pdf`, `convert_url_to_pdf`, `convert_html_to_image`, `Document.pdf`, `ImageDocument.image`) raise `RuntimeError` with the removal reason (`bindings/python/README.md`).
+`bindings/c` builds the c-shared library with `make c-shared` (needs `CGO_ENABLED=1`). It exposes the frozen ABI in `bindings/c/include/blinkless.h`: version and ABI queries, status codes, and a process-wide last-error slot (`bindings/c/main.go`). A drawing-list entry point is not wired yet; `exports_stub.go` keeps the package compiling under `CGO_ENABLED=0`. `make c-shared` is an opt-in local build, not a CI job. There is no Python package.
 
 ## Build targets
 

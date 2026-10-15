@@ -11,3 +11,5 @@ Native view proposal: [native web view checklist](v0.0.1/native-window/native-we
 CSS masking first wave: [CSS masking checklist](v0.0.1/css-masking/css-masking-checklist.md). It targets 10 standard mask properties and 8 WebKit-prefixed forms. The display-list group contract and property behavior are implemented; all final gates passed on 2026-10-13.
 
 Security hardening: [security checklist](v0.0.1/security/security-checklist.md). Ledgers 01 through 09 are closed. The rescan rows in 06 through 09 landed on 2026-10-15.
+
+Release note: [v0.0.1 release note](v0.0.1/release-note/v0.0.1.md), with the [54-commit ledger](v0.0.1/release-note/commits.md). It covers `master` from `23061d8` through `c085b34`. It does not tag a release. Binding version strings still read 0.2.6 while `RELEASE.md` names this cut 0.0.1.

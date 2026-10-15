@@ -1,4 +1,4 @@
-.PHONY: test test-unit test-quick test-serial test-race lint lint-frontend size-check build wasm wasm-test fmt golden golden-update samples clean claim-scan catalog-check matrix-check final-evidence bench bench-engine bench-lib bench-inprocess bench-cli-compare c-shared print-bindings-version bindings-clean check-versions python-binding-test python-benchmarks
+.PHONY: test test-unit test-quick test-serial test-race lint lint-frontend size-check build wasm wasm-test fmt golden golden-update samples clean claim-scan catalog-check matrix-check final-evidence bench bench-engine bench-lib bench-inprocess bench-cli-compare c-shared print-bindings-version bindings-clean
 # Pure-Go runtime: the standard library plus the allowlisted direct modules
 # below. No cgo, browser, or native converter process is required.
 # Direct third-party requires must stay ⊆ {
@@ -25,7 +25,7 @@ GO_TEST_FLAGS ?=
 # Packages under test for make test / test-quick / test-serial.
 TEST_PKGS ?= ./...
 
-# Hot packages used by the race job (matches .github/workflows/ci.yml).
+# Hot packages for the local-only race target. Not part of GitHub CI.
 RACE_PKGS ?= ./internal/layout ./internal/load ./internal/fonts
 
 test:
@@ -207,9 +207,9 @@ clean:
 	rm -rf testdata/golden/out
 	rm -rf dist
 
-# --- Python cgo bindings (opt-in only; never part of build/test/golden) -----
+# --- C shared library (opt-in only; never part of build/test/golden) --------
 
-# Builds the C ABI shared library for the Python bindings. Requires an
+# Builds the opt-in C shared library under bindings/c. Requires an
 # explicit CGO_ENABLED=1; the guard refuses to run otherwise so the default
 # pure-Go targets can never drift into a cgo build. Emits dist/libblinkless.so
 # plus the generated header, then smokes exports via nm (grep -c fails on 0).
@@ -217,34 +217,11 @@ c-shared:
 	[ "$(CGO_ENABLED)" = "1" ] || { echo "refusing: c-shared needs CGO_ENABLED=1 (pure-Go default stays CGO_ENABLED=0)" >&2; exit 2; }
 	mkdir -p dist && CGO_ENABLED=1 go build -buildmode=c-shared -ldflags "$(BINDINGS_VERSION_LDFLAGS) -s -w" -o dist/libblinkless.so ./bindings/c && file dist/libblinkless.so && nm -D dist/libblinkless.so | grep -c blinkless_
 
-# Prints the version stamped into the c-shared library; the CI ABI check
-# compares the loaded blinkless_version() against it.
+# Prints the stamp used by the c-shared ldflags.
 print-bindings-version:
 	@echo $(BINDINGS_VERSION)
 
 bindings-clean:
 	rm -rf dist
-
-# Committed version-source alignment gate: bindings/python/pyproject.toml vs
-# bindings/c/include/blinkless.h; an optional argument pins both to a tag version.
-check-versions:
-	bash scripts/check_versions.sh
-
-# Convenience: rebuild the shared library, then run the Python stdlib unittest
-# suite against it. Needs a working C toolchain (CGO_ENABLED=1) and python3;
-# the tests load the dist/libblinkless.* artifact produced by c-shared.
-python-binding-test:
-	CGO_ENABLED=1 $(MAKE) c-shared
-	python3 -m unittest discover -s bindings/python/tests -t . -v
-
-# Public Python API library matrix. Same dirty report.html.tmpl fixture as
-# `make bench-lib` (20 invoice rows per requested page). Template expansion
-# happens before the timer; Document.pdf / ImageDocument.image stay inside
-# the timed calls. Rebuilds the c-shared library first. Optional overrides:
-# BLINKLESS_BENCH_SIZES=2,10,50 BLINKLESS_BENCH_RUNS=10
-python-benchmarks:
-	CGO_ENABLED=1 $(MAKE) c-shared
-	PYTHONPATH=bindings/python/src \
-		python3 bindings/python/tests/bench_library.py
 
 

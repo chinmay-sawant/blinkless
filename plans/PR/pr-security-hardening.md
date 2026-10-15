@@ -29,7 +29,7 @@ Font table offsets, cmap expansion, horizontal metrics, composite depth, and CPA
 
 Allowed file reads go through `os.Root`. Unix opens are non-blocking so a FIFO is rejected. Local files stay denied by default. Restricted mode refuses private addresses, multicast, the limited broadcast, `192.0.0.192`, and `168.63.129.16`. A hostname is refused when a proxy is set. A refused redirect does not return the raw `Location`. Proxy errors do not echo secrets. Response headers are capped at 128 keys and 1 MiB. Stylesheet and font-face fetches stop after 64.
 
-The C last-error buffer and allow list are capped before any unsafe slice. An HTML length at or above 2^63 is rejected before the copy. The seven C exports recover from panics. Python serializes foreign calls and rejects an embedded NUL. WASM boxes the JavaScript string, then applies the JSON and HTML byte caps.
+The C last-error buffer and allow list are capped before any unsafe slice. An HTML length at or above 2^63 is rejected before the copy. The seven C exports recover from panics. WASM boxes the JavaScript string, then applies the JSON and HTML byte caps. The Python wrapper checks are not in this branch. `master` removed `bindings/python`.
 
 ### What stays as a decision
 
@@ -44,7 +44,7 @@ Public `html.Parse` has no byte cap. The caller bounds those bytes. An in-flight
 | **Performance** | Hostile documents stop at fixed budgets instead of scanning or allocating without a ceiling. Ordinary pages stay inside those budgets. |
 | **Memory** | Image, font, grid, stylesheet, and body caps reject work before the large allocation. |
 | **Behavior / correctness** | SVG text glyphs are no longer rasterized, so the converter does not read system fonts. `text-anchor` is still written into the serialized SVG. |
-| **API / CLI** | No new command. C, Python, and WASM callers see the same entry points with tighter length and allow-list checks. |
+| **API / CLI** | No new command. C and WASM callers see the same entry points with tighter length and allow-list checks. |
 | **Dependencies** | No new modules. |
 | **Binary size / build time** | No new packages. |
 
@@ -78,7 +78,7 @@ make golden
 make claim-scan
 ```
 
-These four exited 0 on the tip commit. The earlier hardening commit also ran race tests, the WASM gate, and 49 Python tests. Those three were not re-run after the rescan fixes.
+These four exited 0 on the tip commit before this merge. The earlier hardening commit also ran race tests and the WASM gate. Those were not re-run after the rescan fixes. The 49 Python tests from that commit are gone with `bindings/python`.
 
 ---
 
@@ -111,6 +111,7 @@ No GitHub issue. The work is tracked in `plans/v0.0.1/security/`.
 - Public `html.Parse` still has no byte cap. Callers must bound the source.
 - An SVG draw that has already started still runs to completion.
 - C callers must still pass a valid pointer. The new check only rejects an oversized length.
+- Python call locks and the embedded-NUL check lived in `bindings/python`. That package is not in this branch.
 
 ---
 

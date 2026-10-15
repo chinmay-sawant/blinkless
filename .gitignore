@@ -18,18 +18,14 @@ testdata/golden/out/
 # per-mode summaries. Reports derived from these live under plans/.
 output/profiles/
 
-# c-shared / python binding build artifacts (Phase 40.4). The committed
-# vendored header include/gowkhtmltopdf.h stays trackable: no include/*.h
-# rule is added here.
+# c-shared build artifacts for bindings/c (.so/.dylib/.dll and /dist/).
+# The committed vendored header include/gowkhtmltopdf.h stays trackable:
+# no include/*.h rule is added here.
 /dist/
 bindings/c/libgowkhtmltopdf.h
 bindings/**/*.so
 bindings/**/*.dylib
 bindings/**/*.dll
-
-# Python packaging / editable-install noise (pip install -e bindings/python)
-bindings/python/**/*.egg-info/
-*.egg-info/
 
 # Leftover PDFs from the removed samples-python target under output/python/.
 # Ignore the bulk fixture-*.pdf set; keep top-level fixture-55 / fixture-56 as
@@ -72,12 +68,8 @@ knowledge-base
 /.audit/
 
 __pycache__/
-bindings/python/**/__pycache__/
 
 .vscode
-# local python package build trees
-bindings/python/build/
-bindings/python/dist/
 pen/
 
 

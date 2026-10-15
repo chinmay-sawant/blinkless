@@ -150,33 +150,24 @@ CI on PRs and ordinary branch pushes does **not** publish anything. A release
 starts when a **`v*` git tag** is pushed (workflow
 [`.github/workflows/release.yml`](.github/workflows/release.yml)).
 
-1. Bump `[project].version` in
-   [`bindings/python/pyproject.toml`](bindings/python/pyproject.toml) and
-   `BLINKLESS_VERSION` in
-   [`bindings/c/include/blinkless.h`](bindings/c/include/blinkless.h) to the
-   new semver (for example `0.2.6`). `make check-versions` gates the two
-   sources against each other.
-2. Move notes under `## Unreleased` in [`CHANGELOG.md`](CHANGELOG.md) into a
+There is still no `VERSION` file. Do not bump a Python package version, and
+do not run `make check-versions`. Python wheels and
+`.github/workflows/publish-pypi.yml` are gone.
+
+1. Move notes under `## Unreleased` in [`CHANGELOG.md`](CHANGELOG.md) into a
    dated section for that version.
-3. Merge the release prep to the default branch.
-4. Tag and push (the tag must match both version sources, with a `v` prefix):
+2. Merge the release prep to the default branch.
+3. Tag and push. The workflow does not check the tag against a version file:
 
 ```sh
-git tag v0.2.6
-git push origin v0.2.6
+git tag v0.2.7
+git push origin v0.2.7
 ```
 
 The release workflow then:
 
-- Refuses to publish when the tag does not match the committed version
-  sources (`scripts/check_versions.sh`; there is no `VERSION` file)
-- Runs the [`RELEASE.md`](RELEASE.md) hard gates: `make build`,
-  `make test-quick`, `make golden`, `make lint`, `make claim-scan`
-- Creates or updates the GitHub Release for that tag with generated notes.
-  No binaries are attached.
-
-Python wheels publish from
-[`.github/workflows/publish-pypi.yml`](.github/workflows/publish-pypi.yml).
+- Runs `make test` and `make lint`
+- Creates or updates the GitHub Release for that tag
 
 Creating a GitHub Release in the UI with a **new** `v*` tag also pushes the tag
 and runs the same workflow. The workflow does **not** invent tags on its own.
@@ -218,8 +209,8 @@ sync only when you close a phase item.
 
 Include:
 
-- Commit hash (and the binding version from `bindings/python/pyproject.toml`
-  or `bindings/c/include/blinkless.h` when you use a binding)
+- Commit hash (and `BLINKLESS_VERSION` from `bindings/c/include/blinkless.h`
+  when you use the C binding)
 - Minimal HTML (or fixture path) and the exact library call
 - Expected vs actual; for layout bugs, a drawing-list diff or the matching
   browser case under `test/chrome/` helps

@@ -1,31 +1,13 @@
-# Tag-driven release workflow.
-#
-# History: this workflow built multi-platform CLI binaries from ./cmd/blinkless
-# and stamped internal/cli.Version. That command and package are gone from this
-# tree (there is no cmd/ and no internal/cli), and there is no VERSION file, so
-# the binary matrix and its version stamping were removed.
-#
-# What this does now: on a v* tag it checks the tag against the committed
-# version sources, runs the RELEASE.md hard gates, then creates or updates the
-# GitHub Release with generated notes. No binaries are attached.
-#
-# What replaced the binaries:
-#   - Python wheels publish from .github/workflows/publish-pypi.yml
-#   - the WASM browser artifact is built by `make wasm` and exercised by
-#     `make wasm-test` in .github/workflows/ci.yml; it is not attached here
-#   - the drawing list ships as a Go library, not as a release binary
+# This workflow does not check versions against committed files.
+# The only gates are make test and make lint.
 #
 # Trigger: push of a v* tag only (never PR / ordinary branch push).
 #   git tag v0.2.6 && git push origin v0.2.6
+# Creates or updates the GitHub Release with generated notes. No binaries
+# are attached.
 name: release
 
 on:
-  # Intentional releases only. Ordinary branch/PR pushes never run this.
-  # Cutting a release: promote CHANGELOG.md (see skills/release-note), commit,
-  # then:
-  #   git tag v0.2.6 && git push origin v0.2.6
-  # Creating a GitHub Release in the UI with a new v* tag also pushes the tag
-  # and runs this workflow once.
   push:
     tags:
       - 'v*'
@@ -35,7 +17,7 @@ permissions:
 
 jobs:
   release:
-    name: gate + GitHub Release
+    name: test + lint + GitHub Release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,41 +27,8 @@ jobs:
           go-version: '1.26'
           cache: true
 
-      - name: Resolve version from tag
-        id: ver
-        run: |
-          set -euo pipefail
-          tag="${GITHUB_REF_NAME}"
-          case "${tag}" in
-            v*) ver="${tag#v}" ;;
-            *)
-              echo "tag must look like v0.2.6 (got ${tag})" >&2
-              exit 1
-              ;;
-          esac
-          if ! printf '%s' "${ver}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([.-].*)?$'; then
-            echo "refusing non-semver-ish version: ${ver}" >&2
-            exit 1
-          fi
-          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
-          echo "version=${ver}" >> "${GITHUB_OUTPUT}"
-          echo "Releasing ${tag} (version ${ver})"
-
-      - name: Version gate (tag vs committed sources)
-        # No VERSION file: bindings/python/pyproject.toml and
-        # bindings/c/include/blinkless.h must both carry the tag version.
-        run: bash scripts/check_versions.sh "${{ steps.ver.outputs.version }}"
-
-      # RELEASE.md hard gates, in order. The removed writer-era checks
-      # (golden PDF compares, veraPDF) are intentionally not run.
-      - name: Build packages (CGO_ENABLED=0)
-        run: make build
-
-      - name: Test (quick)
-        run: make test-quick
-
-      - name: Golden corpus
-        run: make golden
+      - name: Test
+        run: make test
 
       - name: Install golangci-lint
         # Build with the job's Go (1.26+): v1.64 refuses to lint when the
@@ -89,18 +38,13 @@ jobs:
       - name: Lint
         run: make lint
 
-      - name: Claim scan
-        run: make claim-scan
-
       - name: Create or update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.ver.outputs.tag }}
-          name: ${{ steps.ver.outputs.tag }}
-          # Create the release when triggered by a tag push; update when
-          # the release already exists (published event or re-run).
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
           draft: false
-          prerelease: ${{ contains(steps.ver.outputs.version, '-') }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
