@@ -1,7 +1,7 @@
 # 0.0.1 - Security hardening
 
 > **Parent:** `plans/v0.0.1/phase-wise-checklist.md` - canonical 0.0.1 ledger; this file is the security slice of that ledger.
-> **Status:** follow-up fixes on 2026-10-15 closed the rows the review left open. Selector work, the CSS parser byte cap, image-header checks, grid repeat expansion, font panic guards, loader redaction, proxy hostname refusal, response header caps, SVG lock waits, and capped fuzz targets are recorded in the five ledgers. Public `html.Parse` still has no byte cap. An in-flight canvas Draw still runs to completion. C callers must still pass valid pointers.
+> **Status:** ledgers 01 through 05 are closed. A 2026-10-15 rescan added open rows in ledgers 06 through 09. Those rows are not repeats of the closed controls. Public `html.Parse` still has no byte cap. An in-flight canvas Draw still runs to completion. C callers must still pass valid pointers.
 > **Estimated effort:** security-only hardening across HTML/CSS/layout/load/fonts/svg/bindings.
 
 ---
@@ -50,6 +50,10 @@ phases and proof commands. The recommended order:
 - [03-parsers-and-namespace-confusion.md](03-parsers-and-namespace-confusion.md) - Parser and namespace confusion: HTML foreign content, CSS namespace, malformed input integrity.
 - [04-ffi-memory-safety-and-panics.md](04-ffi-memory-safety-and-panics.md) - FFI, memory safety, and panics: C bindings, WASM bridge, recovery, host integrity.
 - [05-concurrency-state-and-leakage.md](05-concurrency-state-and-leakage.md) - Concurrency, state, and leakage: shared-state safety, cache handling, redaction, metadata caps, closure gates.
+- [06-parser-and-selector-residuals.md](06-parser-and-selector-residuals.md) - Open rescan: foreign raw-text reparse, fostered text, formatting-list length, sibling matching, `:not`/`:is` budgets, and `var()` color depth.
+- [07-layout-paint-residuals.md](07-layout-paint-residuals.md) - Open rescan: dashed edges, text decoration, border-image repeat, and a multicolumn snap that can spin.
+- [08-binding-length-residual.md](08-binding-length-residual.md) - Open rescan: C HTML length check when the high bit of `size_t` is set.
+- [09-fetch-and-font-residuals.md](09-fetch-and-font-residuals.md) - Open rescan: fetch width, redirect error text, more non-global addresses, SVG system fonts, font-directory pipes, and a 32-bit CPAL offset.
 
 ## Closure rules
 

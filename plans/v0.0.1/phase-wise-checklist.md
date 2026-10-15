@@ -10,7 +10,7 @@
 
 [HTML, CSS, and JSON compatibility](html-css-json-compatibility-checklist.md) owns the findings from the 2026-10-08 repository review. It stays under 0.0.1 and has its own implementation gates. Use its final behavior and coverage evidence when closing related documentation rows here.
 
-[Security hardening](security/security-checklist.md) owns the security review introduced by commit `6939166`, including the 2026-10-15 implementation corrections. Its five ledgers record the security gates and remaining limits.
+[Security hardening](security/security-checklist.md) owns the security review introduced by commit `6939166`, including the 2026-10-15 implementation corrections. Ledgers 01 through 05 are closed. Ledgers 06 through 09 record the later rescan and are still open.
 
 ## Overview
 

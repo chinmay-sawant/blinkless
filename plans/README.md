@@ -10,4 +10,4 @@ Native view proposal: [native web view checklist](v0.0.1/native-window/native-we
 
 CSS masking first wave: [CSS masking checklist](v0.0.1/css-masking/css-masking-checklist.md). It targets 10 standard mask properties and 8 WebKit-prefixed forms. The display-list group contract and property behavior are implemented; all final gates passed on 2026-10-13.
 
-Security hardening: [security checklist](v0.0.1/security/security-checklist.md). The five ledgers cover availability, resource access, parsers, bindings, and shared state. The 2026-10-15 review fixes implementation failures and records final gate evidence; open and partial rows remain explicit.
+Security hardening: [security checklist](v0.0.1/security/security-checklist.md). Ledgers 01 through 05 are closed. Ledgers 06 through 09 are the 2026-10-15 rescan and are still open.
