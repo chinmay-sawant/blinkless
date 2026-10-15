@@ -1,0 +1,2068 @@
+{
+  "source": "testdata/css/catalog/properties.json",
+  "updated": "2026-10-13",
+  "properties": [
+    {
+      "name": "-webkit-mask",
+      "status": "partial",
+      "values": "url(...) | none; supported mask mode, position, size, repeat, origin, clip, and composite values",
+      "note": "The shorthand expands its supported subset and resets mask-border values. CSS gradients, image-set, mask-border painting, and an in-repo pixel replay backend are unsupported."
+    },
+    {
+      "name": "-webkit-mask-clip",
+      "status": "partial",
+      "values": "border-box | padding-box | content-box | no-clip",
+      "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
+    },
+    {
+      "name": "-webkit-mask-composite",
+      "status": "partial",
+      "values": "source-over | source-out | source-in | xor",
+      "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
+    },
+    {
+      "name": "-webkit-mask-image",
+      "status": "partial",
+      "values": "url(...) | none",
+      "note": "Only URL and none sources are accepted. CSS gradients and image-set sources are unsupported; pixels are not replayed inside this repository."
+    },
+    {
+      "name": "-webkit-mask-origin",
+      "status": "partial",
+      "values": "border-box | padding-box | content-box",
+      "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
+    },
+    {
+      "name": "-webkit-mask-position",
+      "status": "partial",
+      "values": "CSS position keywords, lengths, and percentages accepted by parseObjectPosition",
+      "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. A c..."
+    },
+    {
+      "name": "-webkit-mask-repeat",
+      "status": "partial",
+      "values": "repeat | repeat-x | repeat-y | no-repeat",
+      "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
+    },
+    {
+      "name": "-webkit-mask-size",
+      "status": "partial",
+      "values": "auto | cover | contain | one or two non-negative CSS lengths or percentages",
+      "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. A c..."
+    },
+    {
+      "name": "accent-color",
+      "status": "implemented",
+      "values": "auto | \u003ccolor\u003e"
+    },
+    {
+      "name": "align-content",
+      "status": "implemented",
+      "values": "normal | \u003cbaseline-position\u003e | \u003ccontent-distribution\u003e | \u003coverflow-position\u003e? \u003ccontent-position\u003e"
+    },
+    {
+      "name": "align-items",
+      "status": "implemented",
+      "values": "normal | stretch | \u003cbaseline-position\u003e | \u003coverflow-position\u003e? \u003cself-position\u003e"
+    },
+    {
+      "name": "align-self",
+      "status": "implemented",
+      "values": "auto | \u003coverflow-position\u003e? [ normal | \u003cself-position\u003e ]| stretch | \u003cbaseline-position\u003e"
+    },
+    {
+      "name": "alignment-baseline",
+      "status": "implemented",
+      "values": "baseline | \u003cbaseline-metric\u003e"
+    },
+    {
+      "name": "aspect-ratio",
+      "status": "implemented",
+      "values": "auto || \u003cratio\u003e"
+    },
+    {
+      "name": "backface-visibility",
+      "status": "implemented",
+      "values": "visible | hidden"
+    },
+    {
+      "name": "background",
+      "status": "implemented",
+      "values": "[\u003c'background-color'\u003e || \u003c'background-image'\u003e || \u003c'background-repeat'\u003e || \u003c'background-attachment'\u003e || \u003c'background-position'\u003e] | inherit"
+    },
+    {
+      "name": "background-blend-mode",
+      "status": "implemented",
+      "values": "\u003c'mix-blend-mode'\u003e#"
+    },
+    {
+      "name": "background-clip",
+      "status": "implemented",
+      "values": "\u003cbg-clip\u003e#"
+    },
+    {
+      "name": "background-color",
+      "status": "implemented",
+      "values": "\u003ccolor\u003e | transparent | inherit"
+    },
+    {
+      "name": "background-image",
+      "status": "implemented",
+      "values": "\u003curi\u003e | none | inherit"
+    },
+    {
+      "name": "background-origin",
+      "status": "implemented",
+      "values": "\u003cvisual-box\u003e#"
+    },
+    {
+      "name": "background-position",
+      "status": "implemented",
+      "values": "[ [ \u003cpercentage\u003e | \u003clength\u003e | left | center | right ] [ \u003cpercentage\u003e | \u003clength\u003e | top | center | bottom ]? ] | [ [ left | center | right ] || [ top | center | bottom ] ] | inherit"
+    },
+    {
+      "name": "background-position-block",
+      "status": "implemented",
+      "values": "[ center | [ [ start | end ]? \u003clength-percentage\u003e? ]! ]#"
+    },
+    {
+      "name": "background-position-inline",
+      "status": "implemented",
+      "values": "[ center | [ [ start | end ]? \u003clength-percentage\u003e? ]! ]#"
+    },
+    {
+      "name": "background-position-x",
+      "status": "implemented",
+      "values": "[ center | [ [ left | right | x-start | x-end ]? \u003clength-percentage\u003e? ]! ]#"
+    },
+    {
+      "name": "background-position-y",
+      "status": "implemented",
+      "values": "[ center | [ [ top | bottom | y-start | y-end ]? \u003clength-percentage\u003e? ]! ]#"
+    },
+    {
+      "name": "background-repeat",
+      "status": "implemented",
+      "values": "repeat | repeat-x | repeat-y | no-repeat | inherit"
+    },
+    {
+      "name": "background-repeat-block",
+      "status": "implemented",
+      "values": "\u003crepetition\u003e#"
+    },
+    {
+      "name": "background-repeat-inline",
+      "status": "implemented",
+      "values": "\u003crepetition\u003e#"
+    },
+    {
+      "name": "background-repeat-x",
+      "status": "implemented",
+      "values": "\u003crepetition\u003e#"
+    },
+    {
+      "name": "background-repeat-y",
+      "status": "implemented",
+      "values": "\u003crepetition\u003e#"
+    },
+    {
+      "name": "background-size",
+      "status": "implemented",
+      "values": "\u003cbg-size\u003e#"
+    },
+    {
+      "name": "block-size",
+      "status": "implemented",
+      "values": "\u003c'width'\u003e"
+    },
+    {
+      "name": "border",
+      "status": "implemented",
+      "values": "[ \u003cborder-width\u003e || \u003cborder-style\u003e || \u003c'border-top-color'\u003e ] | inherit"
+    },
+    {
+      "name": "border-block",
+      "status": "implemented",
+      "values": "\u003c'border-block-start'\u003e"
+    },
+    {
+      "name": "border-block-color",
+      "status": "implemented",
+      "values": "\u003c'border-top-color'\u003e{1,2}"
+    },
+    {
+      "name": "border-block-end",
+      "status": "implemented",
+      "values": "\u003cline-width\u003e || \u003cline-style\u003e || \u003ccolor\u003e"
+    },
+    {
+      "name": "border-block-end-color",
+      "status": "implemented",
+      "values": "\u003ccolor\u003e | \u003cimage-1D\u003e"
+    },
+    {
+      "name": "border-block-end-radius",
+      "status": "implemented",
+      "values": "\u003clength-percentage [0,∞]\u003e{1,2} [ / \u003clength-percentage [0,∞]\u003e{1,2} ]?"
+    },
+    {
+      "name": "border-block-end-style",
+      "status": "implemented",
+      "values": "\u003cline-style\u003e"
+    },
+    {
+      "name": "border-block-end-width",
+      "status": "implemented",
+      "values": "\u003cline-width\u003e"
+    },
+    {
+      "name": "border-block-start",
+      "status": "implemented",
+      "values": "\u003cline-width\u003e || \u003cline-style\u003e || \u003ccolor\u003e"
+    },
+    {
+      "name": "border-block-start-color",
+      "status": "implemented",
+      "values": "\u003ccolor\u003e | \u003cimage-1D\u003e"
+    },
+    {
+      "name": "border-block-start-radius",
+      "status": "implemented",
+      "values": "\u003clength-percentage [0,∞]\u003e{1,2} [ / \u003clength-percentage [0,∞]\u003e{1,2} ]?"
+    },
+    {
+      "name": "border-block-start-style",
+      "status": "implemented",
+      "values": "\u003cline-style\u003e"
+    },
+    {
+      "name": "border-block-start-width",
+      "status": "implemented",
+      "values": "\u003cline-width\u003e"
+    },
+    {
+      "name": "border-block-style",
+      "status": "implemented",
+      "values": "\u003c'border-top-style'\u003e{1,2}"
+    },
+    {
+      "name": "border-block-width",
+      "status": "implemented",
+      "values": "\u003c'border-top-width'\u003e{1,2}"
+    },
+    {
+      "name": "border-bottom",
+      "status": "implemented",
+      "values": "[ \u003cborder-width\u003e || \u003cborder-style\u003e || \u003c'border-top-color'\u003e ] | inherit"
+    },
+    {
+      "name": "border-bottom-color",
+      "status": "implemented",
+      "values": "\u003ccolor\u003e | transparent | inherit"
+    },
+    {
+      "name": "border-bottom-left-radius",
+      "status": "implemented",
+      "values": "\u003clength-percentage [0,∞]\u003e{1,2}"
+    },
+    {
+      "name": "border-bottom-radius",
+      "status": "implemented",
+      "values": "\u003clength-percentage [0,∞]\u003e{1,2} [ / \u003clength-percentage [0,∞]\u003e{1,2} ]?"
+    },
+    {
+      "name": "border-bottom-right-radius",
+      "status": "implemented",
+      "values": "\u003clength-percentage [0,∞]\u003e{1,2}"
+    },
+    {
+      "name": "border-bottom-style",
+      "status": "implemented",
+      "values": "\u003cborder-style\u003e | inherit"
+    },
+    {
+      "name": "border-bottom-width",
+      "status": "implemented",
+      "values": "\u003cborder-width\u003e | inherit"
+    },
+    {
+      "name": "border-collapse",
+      "status": "implemented",
+      "values": "collapse | separate | inherit"
+    },
+    {
+      "name": "border-color",
+      "status": "implemented",
+      "values": "[ \u003ccolor\u003e | transparent ]{1,4} | inherit"
+    },
+    {
+      "name": "border-end-end-radius",
+      "status": "implemented",
+      "values": "\u003cborder-radius\u003e"
+    },
+    {
+      "name": "border-end-start-radius",
+      "status": "implemented",
+      "values": "\u003cborder-radius\u003e"
+    },
+    {
+      "name": "border-image",
+      "status": "implemented",
+      "values": "\u003c'border-image-source'\u003e || \u003c'border-image-slice'\u003e [ / \u003c'border-image-width'\u003e | / \u003c'border-image-width'\u003e? / \u003c'border-image-outset'\u003e ]? || \u003c'border-image-repeat'\u003e"
+    },
+    {
+      "name": "border-image-outset",
+      "status": "implemented",
+      "values": "[ \u003clength [0,∞]\u003e | \u003cnumber [0,∞]\u003e ]{1,4}"
+    },
+    {
+      "name": "border-image-repeat",
+      "status": "implemented",
+      "values": "[ stretch | repeat | round | space ]{1,2}"
+    },
+    {
+      "name": "border-image-slice",
+      "status": "implemented",
+      "values": "[\u003cnumber [0,∞]\u003e | \u003cpercentage [0,∞]\u003e]{1,4} \u0026\u0026 fill?"
+    },
+    {
+      "name": "border-image-source",
+      "status": "implemented",
+      "values": "none | \u003cimage\u003e"
+    },
+    {
+      "name": "border-image-width",
+      "status": "implemented",
+      "values": "[ \u003clength-percentage [0,∞]\u003e | \u003cnumber [0,∞]\u003e | auto ]{1,4}"
+    },
+    {
+      "name": "border-inline",
+      "status": "implemented",
+      "values": "\u003c'border-block-start'\u003e"
+    },
+    {
+      "name": "border-inline-color",
+      "status": "implemented",
+      "values": "\u003c'border-top-color'\u003e{1,2}"
+    },
+    {
+      "name": "border-inline-end",
+      "status": "implemented",
+      "values": "\u003cline-width\u003e || \u003cline-style\u003e || \u003ccolor\u003e"
+    },
+    {
+      "name": "border-inline-end-color",
+      "status": "implemented",
+      "values": "\u003ccolor\u003e | \u003cimage-1D\u003e"
+    },
+    {
+      "name": "border-inline-end-radius",
+      "status": "implemented",
+      "values": "\u003clength-percentage [0,∞]\u003e{1,2} [ / \u003clength-percentage [0,∞]\u003e{1,2} ]?"
+    },
+    {
+      "name": "border-inline-end-style",
+      "status": "implemented",
+      "values": "\u003cline-style\u003e"
+    },
+    {
+      "name": "border-inline-end-width",
+      "status": "implemented",
+      "values": "\u003cline-width\u003e"
+    },
+    {
+      "name": "border-inline-start",
+      "status": "implemented",
+      "values": "\u003cline-width\u003e || \u003cline-style\u003e || \u003ccolor\u003e"
+    },
+    {
+      "name": "border-inline-start-color",
+      "status": "implemented",
+      "values": "\u003ccolor\u003e | \u003cimage-1D\u003e"
+    },
+    {
+      "name": "border-inline-start-radius",
+      "status": "implemented",
+      "values": "\u003clength-percentage [0,∞]\u003e{1,2} [ / \u003clength-percentage [0,∞]\u003e{1,2} ]?"
+    },
+    {
+      "name": "border-inline-start-style",
+      "status": "implemented",
+      "values": "\u003cline-style\u003e"
+    },
+    {
+      "name": "border-inline-start-width",
+      "status": "implemented",
+      "values": "\u003cline-width\u003e"
+    },
+    {
+      "name": "border-inline-style",
+      "status": "implemented",
+      "values": "\u003c'border-top-style'\u003e{1,2}"
+    },
+    {
+      "name": "border-inline-width",
+      "status": "implemented",
+      "values": "\u003c'border-top-width'\u003e{1,2}"
+    },
+    {
+      "name": "border-left",
+      "status": "implemented",
+      "values": "[ \u003cborder-width\u003e || \u003cborder-style\u003e || \u003c'border-top-color'\u003e ] | inherit"
+    },
+    {
+      "name": "border-left-color",
+      "status": "implemented",
+      "values": "\u003ccolor\u003e | transparent | inherit"
+    },
+    {
+      "name": "border-left-radius",
+      "status": "implemented",
+      "values": "\u003clength-percentage [0,∞]\u003e{1,2} [ / \u003clength-percentage [0,∞]\u003e{1,2} ]?"
+    },
+    {
+      "name": "border-left-style",
+      "status": "implemented",
+      "values": "\u003cborder-style\u003e | inherit"
+    },
+    {
+      "name": "border-left-width",
+      "status": "implemented",
+      "values": "\u003cborder-width\u003e | inherit"
+    },
+    {
+      "name": "border-radius",
+      "status": "implemented",
+      "values": "\u003clength-percentage [0,∞]\u003e{1,4} [ / \u003clength-percentage [0,∞]\u003e{1,4} ]?"
+    },
+    {
+      "name": "border-right",
+      "status": "implemented",
+      "values": "[ \u003cborder-width\u003e || \u003cborder-style\u003e || \u003c'border-top-color'\u003e ] | inherit"
+    },
+    {
+      "name": "border-right-color",
+      "status": "implemented",
+      "values": "\u003ccolor\u003e | transparent | inherit"
+    },
+    {
+      "name": "border-right-radius",
+      "status": "implemented",
+      "values": "\u003clength-percentage [0,∞]\u003e{1,2} [ / \u003clength-percentage [0,∞]\u003e{1,2} ]?"
+    },
+    {
+      "name": "border-right-style",
+      "status": "implemented",
+      "values": "\u003cborder-style\u003e | inherit"
+    },
+    {
+      "name": "border-right-width",
+      "status": "implemented",
+      "values": "\u003cborder-width\u003e | inherit"
+    },
+    {
+      "name": "border-spacing",
+      "status": "implemented",
+      "values": "\u003clength\u003e \u003clength\u003e? | inherit"
+    },
+    {
+      "name": "border-start-end-radius",
+      "status": "implemented",
+      "values": "\u003cborder-radius\u003e"
+    },
+    {
+      "name": "border-start-start-radius",
+      "status": "implemented",
+      "values": "\u003cborder-radius\u003e"
+    },
+    {
+      "name": "border-style",
+      "status": "implemented",
+      "values": "\u003cborder-style\u003e{1,4} | inherit"
+    },
+    {
+      "name": "border-top",
+      "status": "implemented",
+      "values": "[ \u003cborder-width\u003e || \u003cborder-style\u003e || \u003c'border-top-color'\u003e ] | inherit"
+    },
+    {
+      "name": "border-top-color",
+      "status": "implemented",
+      "values": "\u003ccolor\u003e | transparent | inherit"
+    },
+    {
+      "name": "border-top-left-radius",
+      "status": "implemented",
+      "values": "\u003clength-percentage [0,∞]\u003e{1,2}"
+    },
+    {
+      "name": "border-top-radius",
+      "status": "implemented",
+      "values": "\u003clength-percentage [0,∞]\u003e{1,2} [ / \u003clength-percentage [0,∞]\u003e{1,2} ]?"
+    },
+    {
+      "name": "border-top-right-radius",
+      "status": "implemented",
+      "values": "\u003clength-percentage [0,∞]\u003e{1,2}"
+    },
+    {
+      "name": "border-top-style",
+      "status": "implemented",
+      "values": "\u003cborder-style\u003e | inherit"
+    },
+    {
+      "name": "border-top-width",
+      "status": "implemented",
+      "values": "\u003cborder-width\u003e | inherit"
+    },
+    {
+      "name": "border-width",
+      "status": "implemented",
+      "values": "\u003cborder-width\u003e{1,4} | inherit"
+    },
+    {
+      "name": "bottom",
+      "status": "implemented",
+      "values": "\u003clength\u003e | \u003cpercentage\u003e | auto | inherit"
+    },
+    {
+      "name": "box-shadow",
+      "status": "implemented",
+      "values": "none | \u003cshadow\u003e#"
+    },
+    {
+      "name": "box-shadow-blur",
+      "status": "implemented",
+      "values": "\u003clength [0,∞]\u003e#"
+    },
+    {
+      "name": "box-shadow-color",
+      "status": "implemented",
+      "values": "\u003ccolor\u003e#"
+    },
+    {
+      "name": "box-shadow-inset",
+      "status": "implemented",
+      "values": "inset"
+    },
+    {
+      "name": "box-shadow-offset",
+      "status": "implemented",
+      "values": "[ none | \u003clength\u003e{1,2} ]#"
+    },
+    {
+      "name": "box-shadow-position",
+      "status": "implemented",
+      "values": "[ outset | inset ]#"
+    },
+    {
+      "name": "box-shadow-spread",
+      "status": "implemented",
+      "values": "\u003clength\u003e#"
+    },
+    {
+      "name": "box-sizing",
+      "status": "implemented",
+      "values": "content-box | border-box"
+    },
+    {
+      "name": "break-after",
+      "status": "implemented",
+      "values": "auto | avoid | always | all | avoid-page | page | left | right | recto | verso | avoid-column | column | avoid-region | region"
+    },
+    {
+      "name": "break-before",
+      "status": "implemented",
+      "values": "auto | avoid | always | all | avoid-page | page | left | right | recto | verso | avoid-column | column | avoid-region | region"
+    },
+    {
+      "name": "break-inside",
+      "status": "partial",
+      "values": "auto | avoid | avoid-page | avoid-column | avoid-region",
+      "note": "break-inside keywords parse but no layout or paint pass reads them; the engine returns a drawing list without paginating, so avoidance has no observable effect (TestBehaviorBrea..."
+    },
+    {
+      "name": "caption-side",
+      "status": "implemented",
+      "values": "top | bottom | inherit"
+    },
+    {
+      "name": "clear",
+      "status": "implemented",
+      "values": "none | left | right | both | inherit"
+    },
+    {
+      "name": "clip",
+      "status": "implemented",
+      "values": "\u003cshape\u003e | auto | inherit"
+    },
+    {
+      "name": "clip-path",
+      "status": "implemented",
+      "values": "\u003cclip-source\u003e | [ \u003cbasic-shape\u003e || \u003cgeometry-box\u003e ] | none"
+    },
+    {
+      "name": "clip-rule",
+      "status": "implemented",
+      "values": "nonzero | evenodd"
+    },
+    {
+      "name": "color",
+      "status": "implemented",
+      "values": "\u003ccolor\u003e | inherit"
+    },
+    {
+      "name": "color-adjust",
+      "status": "implemented",
+      "values": "\u003c'print-color-adjust'\u003e"
+    },
+    {
+      "name": "color-interpolation",
+      "status": "implemented",
+      "values": "auto | sRGB | linearRGB"
+    },
+    {
+      "name": "color-interpolation-filters",
+      "status": "implemented",
+      "values": "auto | sRGB | linearRGB"
+    },
+    {
+      "name": "color-scheme",
+      "status": "implemented",
+      "values": "normal | [ light | dark | \u003ccustom-ident\u003e ]+ \u0026\u0026 only?",
+      "note": "No-op behavior pinned by TestBehaviorColorSchemeDarkDefaults; full behavior needs engine work."
+    },
+    {
+      "name": "column-count",
+      "status": "implemented",
+      "values": "auto | \u003cinteger [1,∞]\u003e"
+    },
+    {
+      "name": "column-fill",
+      "status": "implemented",
+      "values": "auto | balance | balance-all"
+    },
+    {
+      "name": "column-gap",
+      "status": "implemented",
+      "values": "normal | \u003clength-percentage [0,∞]\u003e | \u003cline-width\u003e"
+    },
+    {
+      "name": "column-height",
+      "status": "implemented",
+      "values": "auto | \u003clength [0,∞]\u003e"
+    },
+    {
+      "name": "column-rule",
+      "status": "implemented",
+      "values": "\u003cgap-rule-list\u003e | \u003cgap-auto-rule-list\u003e"
+    },
+    {
+      "name": "column-rule-color",
+      "status": "implemented",
+      "values": "\u003cline-color-list\u003e | \u003cauto-line-color-list\u003e"
+    },
+    {
+      "name": "column-rule-style",
+      "status": "implemented",
+      "values": "\u003cline-style-list\u003e | \u003cauto-line-style-list\u003e"
+    },
+    {
+      "name": "column-rule-width",
+      "status": "implemented",
+      "values": "\u003cline-width-list\u003e | \u003cauto-line-width-list\u003e"
+    },
+    {
+      "name": "column-span",
+      "status": "implemented",
+      "values": "none | \u003cinteger [1,∞]\u003e | all | auto"
+    },
+    {
+      "name": "column-width",
+      "status": "implemented",
+      "values": "auto | \u003clength [0,∞]\u003e"
+    },
+    {
+      "name": "column-wrap",
+      "status": "implemented",
+      "values": "auto | nowrap | wrap"
+    },
+    {
+      "name": "columns",
+      "status": "implemented",
+      "values": "[ \u003c'column-width'\u003e || \u003c'column-count'\u003e ] [ / \u003c'column-height'\u003e ]?"
+    },
+    {
+      "name": "contain",
+      "status": "implemented",
+      "values": "none | strict | content | [ [size | inline-size] || layout || style || paint ]"
+    },
+    {
+      "name": "contain-intrinsic-block-size",
+      "status": "implemented",
+      "values": "auto? [ none | \u003clength [0,∞]\u003e ]"
+    },
+    {
+      "name": "contain-intrinsic-height",
+      "status": "implemented",
+      "values": "auto? [ none | \u003clength [0,∞]\u003e ]"
+    },
+    {
+      "name": "contain-intrinsic-inline-size",
+      "status": "implemented",
+      "values": "auto? [ none | \u003clength [0,∞]\u003e ]"
+    },
+    {
+      "name": "contain-intrinsic-size",
+      "status": "implemented",
+      "values": "[ auto? [ none | \u003clength [0,∞]\u003e ] ]{1,2}"
+    },
+    {
+      "name": "contain-intrinsic-width",
+      "status": "implemented",
+      "values": "auto? [ none | \u003clength [0,∞]\u003e ]"
+    },
+    {
+      "name": "container",
+      "status": "implemented",
+      "values": "\u003c'container-name'\u003e [ / \u003c'container-type'\u003e ]?"
+    },
+    {
+      "name": "container-name",
+      "status": "implemented",
+      "values": "none | \u003ccustom-ident\u003e+"
+    },
+    {
+      "name": "container-type",
+      "status": "implemented",
+      "values": "normal | [ [ size | inline-size ] || scroll-state ]"
+    },
+    {
+      "name": "content",
+      "status": "implemented",
+      "values": "normal | none | [ \u003cstring\u003e | \u003curi\u003e | \u003ccounter\u003e | attr(\u003cidentifier\u003e) | open-quote | close-quote | no-open-quote | no-close-quote ]+ | inherit"
+    },
+    {
+      "name": "content-visibility",
+      "status": "implemented",
+      "values": "visible | auto | hidden"
+    },
+    {
+      "name": "counter-increment",
+      "status": "implemented",
+      "values": "[ \u003cidentifier\u003e \u003cinteger\u003e? ]+ | none | inherit"
+    },
+    {
+      "name": "counter-reset",
+      "status": "implemented",
+      "values": "[ \u003cidentifier\u003e \u003cinteger\u003e? ]+ | none | inherit"
+    },
+    {
+      "name": "counter-set",
+      "status": "implemented",
+      "values": "[ \u003ccounter-name\u003e \u003cinteger\u003e? ]+ | none"
+    },
+    {
+      "name": "direction",
+      "status": "implemented",
+      "values": "ltr | rtl | inherit"
+    },
+    {
+      "name": "display",
+      "status": "implemented",
+      "values": "inline | block | list-item | inline-block | table | inline-table | table-row-group | table-header-group | table-footer-group | table-row | table-column-group | table-column | table-cell | table-caption | none | inherit"
+    },
+    {
+      "name": "dominant-baseline",
+      "status": "implemented",
+      "values": "auto | \u003cbaseline-metric\u003e",
+      "note": "No-op behavior pinned by TestBehaviorDominantBaselineNoPaintEffect; full behavior needs engine work."
+    },
+    {
+      "name": "dynamic-range-limit",
+      "status": "implemented",
+      "values": "standard | no-limit | constrained | \u003cdynamic-range-limit-mix()\u003e"
+    },
+    {
+      "name": "empty-cells",
+      "status": "implemented",
+      "values": "show | hide | inherit"
+    },
+    {
+      "name": "fill",
+      "status": "implemented",
+      "values": "\u003cpaint\u003e"
+    },
+    {
+      "name": "fill-opacity",
+      "status": "implemented",
+      "values": "\u003c'opacity'\u003e"
+    },
+    {
+      "name": "fill-rule",
+      "status": "implemented",
+      "values": "nonzero | evenodd"
+    },
+    {
+      "name": "filter",
+      "status": "implemented",
+      "values": "none | \u003cfilter-value-list\u003e"
+    },
+    {
+      "name": "flex",
+      "status": "implemented",
+      "values": "none | [ \u003c'flex-grow'\u003e \u003c'flex-shrink'\u003e? || \u003c'flex-basis'\u003e ]"
+    },
+    {
+      "name": "flex-basis",
+      "status": "implemented",
+      "values": "content | \u003c'width'\u003e"
+    },
+    {
+      "name": "flex-direction",
+      "status": "implemented",
+      "values": "row | row-reverse | column | column-reverse"
+    },
+    {
+      "name": "flex-flow",
+      "status": "implemented",
+      "values": "\u003c'flex-direction'\u003e || \u003c'flex-wrap'\u003e"
+    },
+    {
+      "name": "flex-grow",
+      "status": "implemented",
+      "values": "\u003cnumber [0,∞]\u003e"
+    },
+    {
+      "name": "flex-shrink",
+      "status": "implemented",
+      "values": "\u003cnumber [0,∞]\u003e"
+    },
+    {
+      "name": "flex-wrap",
+      "status": "implemented",
+      "values": "nowrap | [ wrap | wrap-reverse ] || balance"
+    },
+    {
+      "name": "float",
+      "status": "implemented",
+      "values": "left | right | none | inherit"
+    },
+    {
+      "name": "float-offset",
+      "status": "implemented",
+      "values": "\u003clength-percentage\u003e"
+    },
+    {
+      "name": "float-reference",
+      "status": "implemented",
+      "values": "inline | column | region | page"
+    },
+    {
+      "name": "font",
+      "status": "implemented",
+      "values": "[ [ \u003c'font-style'\u003e || \u003c'font-variant'\u003e || \u003c'font-weight'\u003e ]? \u003c'font-size'\u003e [ / \u003c'line-height'\u003e ]? \u003c'font-family'\u003e ] | caption | icon | menu | message-box | small-caption | status-bar | inherit"
+    },
+    {
+      "name": "font-family",
+      "status": "implemented",
+      "values": "[ [ \u003cfamily-name\u003e | \u003cgeneric-family\u003e ] [, \u003cfamily-name\u003e | \u003cgeneric-family\u003e]* ] | inherit"
+    },
+    {
+      "name": "font-feature-settings",
+      "status": "implemented",
+      "values": "normal | \u003cfeature-tag-value\u003e#"
+    },
+    {
+      "name": "font-kerning",
+      "status": "implemented",
+      "values": "auto | normal | none"
+    },
+    {
+      "name": "font-language-override",
+      "status": "implemented",
+      "values": "normal | \u003cstring\u003e"
+    },
+    {
+      "name": "font-optical-sizing",
+      "status": "implemented",
+      "values": "auto | none"
+    },
+    {
+      "name": "font-palette",
+      "status": "implemented",
+      "values": "normal | light | dark | \u003cpalette-identifier\u003e | \u003cpalette-mix()\u003e"
+    },
+    {
+      "name": "font-size",
+      "status": "implemented",
+      "values": "\u003cabsolute-size\u003e | \u003crelative-size\u003e | \u003clength\u003e | \u003cpercentage\u003e | inherit"
+    },
+    {
+      "name": "font-size-adjust",
+      "status": "implemented",
+      "values": "none | [ ex-height | cap-height | ch-width | ic-width | ic-height ]? [ from-font | \u003cnumber [0,∞]\u003e ]"
+    },
+    {
+      "name": "font-style",
+      "status": "implemented",
+      "values": "normal | italic | oblique | inherit"
+    },
+    {
+      "name": "font-synthesis",
+      "status": "implemented",
+      "values": "none | [ weight || style || small-caps || position]"
+    },
+    {
+      "name": "font-synthesis-position",
+      "status": "implemented",
+      "values": "auto | none"
+    },
+    {
+      "name": "font-synthesis-small-caps",
+      "status": "implemented",
+      "values": "auto | none"
+    },
+    {
+      "name": "font-synthesis-style",
+      "status": "implemented",
+      "values": "auto | none | oblique-only"
+    },
+    {
+      "name": "font-synthesis-weight",
+      "status": "implemented",
+      "values": "auto | none"
+    },
+    {
+      "name": "font-variant",
+      "status": "implemented",
+      "values": "normal | small-caps | inherit"
+    },
+    {
+      "name": "font-variant-alternates",
+      "status": "implemented",
+      "values": "normal | [ stylistic(\u003cfont-feature-value-name\u003e) || historical-forms || styleset(\u003cfont-feature-value-name\u003e#) || character-variant(\u003cfont-feature-value-name\u003e#) || swash(\u003cfont-feature-value-name\u003e) || ornaments(\u003cfont-feature-value-name\u003e) || annotation(\u003cfont-feature-value-name\u003e) ]"
+    },
+    {
+      "name": "font-variant-caps",
+      "status": "implemented",
+      "values": "normal | small-caps | all-small-caps | petite-caps | all-petite-caps | unicase | titling-caps"
+    },
+    {
+      "name": "font-variant-east-asian",
+      "status": "implemented",
+      "values": "normal | [ \u003ceast-asian-variant-values\u003e || \u003ceast-asian-width-values\u003e || ruby ]"
+    },
+    {
+      "name": "font-variant-emoji",
+      "status": "implemented",
+      "values": "normal | text | emoji | unicode"
+    },
+    {
+      "name": "font-variant-ligatures",
+      "status": "implemented",
+      "values": "normal | none | [ \u003ccommon-lig-values\u003e || \u003cdiscretionary-lig-values\u003e || \u003chistorical-lig-values\u003e || \u003ccontextual-alt-values\u003e ]"
+    },
+    {
+      "name": "font-variant-numeric",
+      "status": "implemented",
+      "values": "normal | [ \u003cnumeric-figure-values\u003e || \u003cnumeric-spacing-values\u003e || \u003cnumeric-fraction-values\u003e || ordinal || slashed-zero ]"
+    },
+    {
+      "name": "font-variant-position",
+      "status": "implemented",
+      "values": "normal | sub | super"
+    },
+    {
+      "name": "font-variation-settings",
+      "status": "implemented",
+      "values": "normal | [ \u003copentype-tag\u003e \u003cnumber\u003e ]#"
+    },
+    {
+      "name": "font-weight",
+      "status": "implemented",
+      "values": "normal | bold | bolder | lighter | 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900 | inherit"
+    },
+    {
+      "name": "font-width",
+      "status": "implemented",
+      "values": "normal | \u003cpercentage [0,∞]\u003e | ultra-condensed | extra-condensed | condensed | semi-condensed | semi-expanded | expanded | extra-expanded | ultra-expanded"
+    },
+    {
+      "name": "forced-color-adjust",
+      "status": "implemented",
+      "values": "auto | none | preserve-parent-color"
+    },
+    {
+      "name": "gap",
+      "status": "implemented",
+      "values": "\u003c'row-gap'\u003e \u003c'column-gap'\u003e?"
+    },
+    {
+      "name": "grid",
+      "status": "implemented",
+      "values": "\u003c'grid-template'\u003e | \u003c'grid-template-rows'\u003e / [ auto-flow \u0026\u0026 dense? ] \u003c'grid-auto-columns'\u003e? | [ auto-flow \u0026\u0026 dense? ] \u003c'grid-auto-rows'\u003e? / \u003c'grid-template-columns'\u003e"
+    },
+    {
+      "name": "grid-area",
+      "status": "implemented",
+      "values": "\u003cgrid-line\u003e [ / \u003cgrid-line\u003e ]{0,3}"
+    },
+    {
+      "name": "grid-auto-columns",
+      "status": "implemented",
+      "values": "\u003ctrack-size\u003e+"
+    },
+    {
+      "name": "grid-auto-flow",
+      "status": "implemented",
+      "values": "[ row | column ] || dense"
+    },
+    {
+      "name": "grid-auto-rows",
+      "status": "implemented",
+      "values": "\u003ctrack-size\u003e+"
+    },
+    {
+      "name": "grid-column",
+      "status": "implemented",
+      "values": "\u003cgrid-line\u003e [ / \u003cgrid-line\u003e ]?"
+    },
+    {
+      "name": "grid-column-end",
+      "status": "implemented",
+      "values": "\u003cgrid-line\u003e"
+    },
+    {
+      "name": "grid-column-start",
+      "status": "implemented",
+      "values": "\u003cgrid-line\u003e"
+    },
+    {
+      "name": "grid-row",
+      "status": "implemented",
+      "values": "\u003cgrid-line\u003e [ / \u003cgrid-line\u003e ]?"
+    },
+    {
+      "name": "grid-row-end",
+      "status": "implemented",
+      "values": "\u003cgrid-line\u003e"
+    },
+    {
+      "name": "grid-row-start",
+      "status": "implemented",
+      "values": "\u003cgrid-line\u003e"
+    },
+    {
+      "name": "grid-template",
+      "status": "implemented",
+      "values": "none | [ \u003c'grid-template-rows'\u003e / \u003c'grid-template-columns'\u003e ] | [ \u003cline-names\u003e? \u003cstring\u003e \u003ctrack-size\u003e? \u003cline-names\u003e? ]+ [ / \u003cexplicit-track-list\u003e ]?"
+    },
+    {
+      "name": "grid-template-areas",
+      "status": "implemented",
+      "values": "none | \u003cstring\u003e+"
+    },
+    {
+      "name": "grid-template-columns",
+      "status": "implemented",
+      "values": "none | \u003ctrack-list\u003e | \u003cauto-track-list\u003e | subgrid \u003cline-name-list\u003e?"
+    },
+    {
+      "name": "grid-template-rows",
+      "status": "implemented",
+      "values": "none | \u003ctrack-list\u003e | \u003cauto-track-list\u003e | subgrid \u003cline-name-list\u003e?"
+    },
+    {
+      "name": "hanging-punctuation",
+      "status": "implemented",
+      "values": "none | [ first || [ force-end | allow-end ] || last ]"
+    },
+    {
+      "name": "height",
+      "status": "implemented",
+      "values": "\u003clength\u003e | \u003cpercentage\u003e | auto | inherit"
+    },
+    {
+      "name": "hyphenate-character",
+      "status": "implemented",
+      "values": "auto | \u003cstring\u003e"
+    },
+    {
+      "name": "hyphenate-limit-chars",
+      "status": "implemented",
+      "values": "[ auto | \u003cinteger [0,∞]\u003e ]{1,3}"
+    },
+    {
+      "name": "hyphenate-limit-last",
+      "status": "implemented",
+      "values": "none | always | column | page | spread"
+    },
+    {
+      "name": "hyphenate-limit-lines",
+      "status": "implemented",
+      "values": "no-limit | \u003cinteger [0,∞]\u003e"
+    },
+    {
+      "name": "hyphenate-limit-zone",
+      "status": "implemented",
+      "values": "\u003clength-percentage\u003e"
+    },
+    {
+      "name": "hyphens",
+      "status": "implemented",
+      "values": "none | manual | auto"
+    },
+    {
+      "name": "image-orientation",
+      "status": "implemented",
+      "values": "from-image | none | [ \u003cangle\u003e || flip ]"
+    },
+    {
+      "name": "image-resolution",
+      "status": "implemented",
+      "values": "[ from-image || \u003cresolution\u003e ] \u0026\u0026 snap?"
+    },
+    {
+      "name": "initial-letter",
+      "status": "implemented",
+      "values": "normal | \u003cnumber [1,∞]\u003e \u003cinteger [1,∞]\u003e | \u003cnumber [1,∞]\u003e \u0026\u0026 [ drop | raise ]?"
+    },
+    {
+      "name": "initial-letter-align",
+      "status": "implemented",
+      "values": "[ border-box? [ alphabetic | ideographic | hanging | leading ]? ]!"
+    },
+    {
+      "name": "initial-letter-wrap",
+      "status": "implemented",
+      "values": "none | first | all | grid | \u003clength-percentage\u003e"
+    },
+    {
+      "name": "inline-size",
+      "status": "implemented",
+      "values": "auto | \u003clength-percentage\u003e"
+    },
+    {
+      "name": "inset",
+      "status": "implemented",
+      "values": "\u003c'top'\u003e{1,4}"
+    },
+    {
+      "name": "inset-block",
+      "status": "implemented",
+      "values": "\u003c'top'\u003e{1,2}"
+    },
+    {
+      "name": "inset-block-end",
+      "status": "implemented",
+      "values": "\u003c'top'\u003e"
+    },
+    {
+      "name": "inset-block-start",
+      "status": "implemented",
+      "values": "\u003c'top'\u003e"
+    },
+    {
+      "name": "inset-inline",
+      "status": "implemented",
+      "values": "\u003c'top'\u003e{1,2}"
+    },
+    {
+      "name": "inset-inline-end",
+      "status": "implemented",
+      "values": "\u003c'top'\u003e"
+    },
+    {
+      "name": "inset-inline-start",
+      "status": "implemented",
+      "values": "\u003c'top'\u003e"
+    },
+    {
+      "name": "isolation",
+      "status": "implemented",
+      "values": "\u003cisolation-mode\u003e"
+    },
+    {
+      "name": "justify-content",
+      "status": "implemented",
+      "values": "normal | \u003ccontent-distribution\u003e | \u003coverflow-position\u003e? [ \u003ccontent-position\u003e | left | right ]"
+    },
+    {
+      "name": "justify-items",
+      "status": "implemented",
+      "values": "normal | stretch | \u003cbaseline-position\u003e | \u003coverflow-position\u003e? [ \u003cself-position\u003e | left | right ] | legacy | legacy \u0026\u0026 [ left | right | center ]"
+    },
+    {
+      "name": "justify-self",
+      "status": "implemented",
+      "values": "auto | \u003coverflow-position\u003e? [ normal | \u003cself-position\u003e | left | right ] | stretch | \u003cbaseline-position\u003e"
+    },
+    {
+      "name": "left",
+      "status": "implemented",
+      "values": "\u003clength\u003e | \u003cpercentage\u003e | auto | inherit"
+    },
+    {
+      "name": "letter-spacing",
+      "status": "implemented",
+      "values": "normal | \u003clength\u003e | inherit"
+    },
+    {
+      "name": "line-break",
+      "status": "implemented",
+      "values": "auto | loose | normal | strict | anywhere"
+    },
+    {
+      "name": "line-clamp",
+      "status": "implemented",
+      "values": "none | [\u003c'max-lines'\u003e || \u003c'block-ellipsis'\u003e] -webkit-legacy?"
+    },
+    {
+      "name": "line-height",
+      "status": "implemented",
+      "values": "normal | \u003cnumber\u003e | \u003clength\u003e | \u003cpercentage\u003e | inherit"
+    },
+    {
+      "name": "list-style",
+      "status": "implemented",
+      "values": "[ \u003c'list-style-type'\u003e || \u003c'list-style-position'\u003e || \u003c'list-style-image'\u003e ] | inherit"
+    },
+    {
+      "name": "list-style-image",
+      "status": "implemented",
+      "values": "\u003curi\u003e | none | inherit"
+    },
+    {
+      "name": "list-style-position",
+      "status": "implemented",
+      "values": "inside | outside | inherit"
+    },
+    {
+      "name": "list-style-type",
+      "status": "implemented",
+      "values": "disc | circle | square | decimal | decimal-leading-zero | lower-roman | upper-roman | lower-greek | lower-latin | upper-latin | armenian | georgian | lower-alpha | upper-alpha | none | inherit"
+    },
+    {
+      "name": "margin",
+      "status": "implemented",
+      "values": "\u003cmargin-width\u003e{1,4} | inherit"
+    },
+    {
+      "name": "margin-block",
+      "status": "implemented",
+      "values": "\u003c'margin-top'\u003e{1,2}"
+    },
+    {
+      "name": "margin-block-end",
+      "status": "implemented",
+      "values": "\u003c'margin-top'\u003e"
+    },
+    {
+      "name": "margin-block-start",
+      "status": "implemented",
+      "values": "\u003c'margin-top'\u003e"
+    },
+    {
+      "name": "margin-bottom",
+      "status": "implemented",
+      "values": "\u003cmargin-width\u003e | inherit"
+    },
+    {
+      "name": "margin-inline",
+      "status": "implemented",
+      "values": "\u003c'margin-top'\u003e{1,2}"
+    },
+    {
+      "name": "margin-inline-end",
+      "status": "implemented",
+      "values": "\u003c'margin-top'\u003e"
+    },
+    {
+      "name": "margin-inline-start",
+      "status": "implemented",
+      "values": "\u003c'margin-top'\u003e"
+    },
+    {
+      "name": "margin-left",
+      "status": "implemented",
+      "values": "\u003cmargin-width\u003e | inherit"
+    },
+    {
+      "name": "margin-right",
+      "status": "implemented",
+      "values": "\u003cmargin-width\u003e | inherit"
+    },
+    {
+      "name": "margin-top",
+      "status": "implemented",
+      "values": "\u003cmargin-width\u003e | inherit"
+    },
+    {
+      "name": "margin-trim",
+      "status": "implemented",
+      "values": "none | block | [ block-start || block-end ]"
+    },
+    {
+      "name": "mask",
+      "status": "partial",
+      "values": "url(...) | none; supported mask mode, position, size, repeat, origin, clip, and composite values",
+      "note": "The shorthand expands its supported subset and resets mask-border values. CSS gradients, image-set, mask-border painting, and an in-repo pixel replay backend are unsupported."
+    },
+    {
+      "name": "mask-clip",
+      "status": "partial",
+      "values": "border-box | padding-box | content-box | no-clip",
+      "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
+    },
+    {
+      "name": "mask-composite",
+      "status": "partial",
+      "values": "add | subtract | intersect | exclude",
+      "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
+    },
+    {
+      "name": "mask-image",
+      "status": "partial",
+      "values": "url(...) | none",
+      "note": "Only URL and none sources are accepted. CSS gradients and image-set sources are unsupported; pixels are not replayed inside this repository."
+    },
+    {
+      "name": "mask-mode",
+      "status": "partial",
+      "values": "match-source | alpha | luminance",
+      "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. SVG..."
+    },
+    {
+      "name": "mask-origin",
+      "status": "partial",
+      "values": "border-box | padding-box | content-box",
+      "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
+    },
+    {
+      "name": "mask-position",
+      "status": "partial",
+      "values": "CSS position keywords, lengths, and percentages accepted by parseObjectPosition",
+      "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. A c..."
+    },
+    {
+      "name": "mask-repeat",
+      "status": "partial",
+      "values": "repeat | repeat-x | repeat-y | no-repeat",
+      "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
+    },
+    {
+      "name": "mask-size",
+      "status": "partial",
+      "values": "auto | cover | contain | one or two non-negative CSS lengths or percentages",
+      "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. A c..."
+    },
+    {
+      "name": "mask-type",
+      "status": "partial",
+      "values": "luminance | alpha",
+      "note": "SVG mask-type is read from presentation attributes or inline style on an external SVG fragment. External stylesheet cascade and in-repo pixel replay are unsupported."
+    },
+    {
+      "name": "max-block-size",
+      "status": "implemented",
+      "values": "\u003c'max-width'\u003e"
+    },
+    {
+      "name": "max-height",
+      "status": "implemented",
+      "values": "\u003clength\u003e | \u003cpercentage\u003e | none | inherit"
+    },
+    {
+      "name": "max-inline-size",
+      "status": "implemented",
+      "values": "\u003c'max-width'\u003e"
+    },
+    {
+      "name": "max-lines",
+      "status": "implemented",
+      "values": "auto || \u003cinteger [1,∞]\u003e"
+    },
+    {
+      "name": "max-width",
+      "status": "implemented",
+      "values": "\u003clength\u003e | \u003cpercentage\u003e | none | inherit"
+    },
+    {
+      "name": "min-block-size",
+      "status": "implemented",
+      "values": "\u003c'min-width'\u003e"
+    },
+    {
+      "name": "min-height",
+      "status": "implemented",
+      "values": "\u003clength\u003e | \u003cpercentage\u003e | inherit"
+    },
+    {
+      "name": "min-inline-size",
+      "status": "implemented",
+      "values": "\u003c'min-width'\u003e"
+    },
+    {
+      "name": "min-width",
+      "status": "implemented",
+      "values": "\u003clength\u003e | \u003cpercentage\u003e | inherit"
+    },
+    {
+      "name": "mix-blend-mode",
+      "status": "implemented",
+      "values": "\u003cblend-mode\u003e | plus-lighter"
+    },
+    {
+      "name": "object-fit",
+      "status": "implemented",
+      "values": "fill | none | [contain | cover] || scale-down"
+    },
+    {
+      "name": "object-position",
+      "status": "implemented",
+      "values": "\u003cposition\u003e"
+    },
+    {
+      "name": "object-view-box",
+      "status": "implemented",
+      "values": "none | \u003cbasic-shape-rect\u003e"
+    },
+    {
+      "name": "opacity",
+      "status": "implemented",
+      "values": "\u003copacity-value\u003e"
+    },
+    {
+      "name": "order",
+      "status": "implemented",
+      "values": "\u003cinteger\u003e"
+    },
+    {
+      "name": "orphans",
+      "status": "implemented",
+      "values": "\u003cinteger\u003e | inherit"
+    },
+    {
+      "name": "outline",
+      "status": "implemented",
+      "values": "[ \u003c'outline-color'\u003e || \u003c'outline-style'\u003e || \u003c'outline-width'\u003e ] | inherit"
+    },
+    {
+      "name": "outline-color",
+      "status": "implemented",
+      "values": "\u003ccolor\u003e | invert | inherit"
+    },
+    {
+      "name": "outline-offset",
+      "status": "implemented",
+      "values": "\u003clength\u003e"
+    },
+    {
+      "name": "outline-style",
+      "status": "implemented",
+      "values": "\u003cborder-style\u003e | inherit"
+    },
+    {
+      "name": "outline-width",
+      "status": "implemented",
+      "values": "\u003cborder-width\u003e | inherit"
+    },
+    {
+      "name": "overflow",
+      "status": "implemented",
+      "values": "visible | hidden | scroll | auto | inherit"
+    },
+    {
+      "name": "overflow-block",
+      "status": "implemented",
+      "values": "visible | hidden | clip | scroll | auto"
+    },
+    {
+      "name": "overflow-clip-margin",
+      "status": "implemented",
+      "values": "\u003cvisual-box\u003e || \u003clength\u003e"
+    },
+    {
+      "name": "overflow-clip-margin-block",
+      "status": "implemented",
+      "values": "\u003cvisual-box\u003e || \u003clength\u003e"
+    },
+    {
+      "name": "overflow-clip-margin-block-end",
+      "status": "implemented",
+      "values": "\u003cvisual-box\u003e || \u003clength\u003e"
+    },
+    {
+      "name": "overflow-clip-margin-block-start",
+      "status": "implemented",
+      "values": "\u003cvisual-box\u003e || \u003clength\u003e"
+    },
+    {
+      "name": "overflow-clip-margin-bottom",
+      "status": "implemented",
+      "values": "\u003cvisual-box\u003e || \u003clength\u003e"
+    },
+    {
+      "name": "overflow-clip-margin-inline",
+      "status": "implemented",
+      "values": "\u003cvisual-box\u003e || \u003clength\u003e"
+    },
+    {
+      "name": "overflow-clip-margin-inline-end",
+      "status": "implemented",
+      "values": "\u003cvisual-box\u003e || \u003clength\u003e"
+    },
+    {
+      "name": "overflow-clip-margin-inline-start",
+      "status": "implemented",
+      "values": "\u003cvisual-box\u003e || \u003clength\u003e"
+    },
+    {
+      "name": "overflow-clip-margin-left",
+      "status": "implemented",
+      "values": "\u003cvisual-box\u003e || \u003clength\u003e"
+    },
+    {
+      "name": "overflow-clip-margin-right",
+      "status": "implemented",
+      "values": "\u003cvisual-box\u003e || \u003clength\u003e"
+    },
+    {
+      "name": "overflow-clip-margin-top",
+      "status": "implemented",
+      "values": "\u003cvisual-box\u003e || \u003clength\u003e"
+    },
+    {
+      "name": "overflow-inline",
+      "status": "implemented",
+      "values": "visible | hidden | clip | scroll | auto"
+    },
+    {
+      "name": "overflow-wrap",
+      "status": "implemented",
+      "values": "normal | break-word | anywhere"
+    },
+    {
+      "name": "overflow-x",
+      "status": "implemented",
+      "values": "visible | hidden | clip | scroll | auto"
+    },
+    {
+      "name": "overflow-y",
+      "status": "implemented",
+      "values": "visible | hidden | clip | scroll | auto"
+    },
+    {
+      "name": "padding",
+      "status": "implemented",
+      "values": "\u003cpadding-width\u003e{1,4} | inherit"
+    },
+    {
+      "name": "padding-block",
+      "status": "implemented",
+      "values": "\u003c'padding-top'\u003e{1,2}"
+    },
+    {
+      "name": "padding-block-end",
+      "status": "implemented",
+      "values": "\u003c'padding-top'\u003e"
+    },
+    {
+      "name": "padding-block-start",
+      "status": "implemented",
+      "values": "\u003c'padding-top'\u003e"
+    },
+    {
+      "name": "padding-bottom",
+      "status": "implemented",
+      "values": "\u003cpadding-width\u003e | inherit"
+    },
+    {
+      "name": "padding-inline",
+      "status": "implemented",
+      "values": "\u003c'padding-top'\u003e{1,2}"
+    },
+    {
+      "name": "padding-inline-end",
+      "status": "implemented",
+      "values": "\u003c'padding-top'\u003e"
+    },
+    {
+      "name": "padding-inline-start",
+      "status": "implemented",
+      "values": "\u003c'padding-top'\u003e"
+    },
+    {
+      "name": "padding-left",
+      "status": "implemented",
+      "values": "\u003cpadding-width\u003e | inherit"
+    },
+    {
+      "name": "padding-right",
+      "status": "implemented",
+      "values": "\u003cpadding-width\u003e | inherit"
+    },
+    {
+      "name": "padding-top",
+      "status": "implemented",
+      "values": "\u003cpadding-width\u003e | inherit"
+    },
+    {
+      "name": "perspective",
+      "status": "implemented",
+      "values": "none | \u003clength [0,∞]\u003e"
+    },
+    {
+      "name": "perspective-origin",
+      "status": "implemented",
+      "values": "\u003cposition\u003e"
+    },
+    {
+      "name": "place-content",
+      "status": "implemented",
+      "values": "\u003c'align-content'\u003e \u003c'justify-content'\u003e?"
+    },
+    {
+      "name": "place-items",
+      "status": "implemented",
+      "values": "\u003c'align-items'\u003e \u003c'justify-items'\u003e?"
+    },
+    {
+      "name": "place-self",
+      "status": "implemented",
+      "values": "\u003c'align-self'\u003e \u003c'justify-self'\u003e?"
+    },
+    {
+      "name": "position",
+      "status": "implemented",
+      "values": "static | relative | absolute | fixed | inherit"
+    },
+    {
+      "name": "print-color-adjust",
+      "status": "implemented",
+      "values": "economy | exact"
+    },
+    {
+      "name": "quotes",
+      "status": "implemented",
+      "values": "[\u003cstring\u003e \u003cstring\u003e]+ | none | inherit"
+    },
+    {
+      "name": "right",
+      "status": "implemented",
+      "values": "\u003clength\u003e | \u003cpercentage\u003e | auto | inherit"
+    },
+    {
+      "name": "rotate",
+      "status": "implemented",
+      "values": "none | \u003cangle\u003e | [ x | y | z | \u003cnumber\u003e{3} ] \u0026\u0026 \u003cangle\u003e"
+    },
+    {
+      "name": "row-gap",
+      "status": "implemented",
+      "values": "normal | \u003clength-percentage [0,∞]\u003e | \u003cline-width\u003e"
+    },
+    {
+      "name": "ruby-align",
+      "status": "implemented",
+      "values": "start | center | space-between | space-around"
+    },
+    {
+      "name": "ruby-merge",
+      "status": "implemented",
+      "values": "separate | merge | auto"
+    },
+    {
+      "name": "ruby-overhang",
+      "status": "implemented",
+      "values": "auto | spaces"
+    },
+    {
+      "name": "ruby-position",
+      "status": "implemented",
+      "values": "[ alternate || [ over | under ] ] | inter-character"
+    },
+    {
+      "name": "scale",
+      "status": "implemented",
+      "values": "none | [ \u003cnumber\u003e | \u003cpercentage\u003e ]{1,3}"
+    },
+    {
+      "name": "scroll-margin",
+      "status": "implemented",
+      "values": "\u003clength\u003e{1,4}"
+    },
+    {
+      "name": "scroll-margin-bottom",
+      "status": "implemented",
+      "values": "\u003clength\u003e"
+    },
+    {
+      "name": "scroll-margin-left",
+      "status": "implemented",
+      "values": "\u003clength\u003e"
+    },
+    {
+      "name": "scroll-margin-right",
+      "status": "implemented",
+      "values": "\u003clength\u003e"
+    },
+    {
+      "name": "scroll-margin-top",
+      "status": "implemented",
+      "values": "\u003clength\u003e"
+    },
+    {
+      "name": "shape-margin",
+      "status": "implemented",
+      "values": "\u003clength-percentage [0,∞]\u003e"
+    },
+    {
+      "name": "shape-outside",
+      "status": "implemented",
+      "values": "none | [ \u003cbasic-shape\u003e || \u003cshape-box\u003e ] | \u003cimage\u003e"
+    },
+    {
+      "name": "shape-rendering",
+      "status": "implemented",
+      "values": "auto | optimizeSpeed | crispEdges | geometricPrecision"
+    },
+    {
+      "name": "stroke",
+      "status": "implemented",
+      "values": "\u003cpaint\u003e"
+    },
+    {
+      "name": "stroke-dasharray",
+      "status": "implemented",
+      "values": "none | \u003cdasharray\u003e"
+    },
+    {
+      "name": "stroke-dashoffset",
+      "status": "implemented",
+      "values": "\u003clength-percentage\u003e | \u003cnumber\u003e"
+    },
+    {
+      "name": "stroke-linecap",
+      "status": "implemented",
+      "values": "butt | round | square"
+    },
+    {
+      "name": "stroke-linejoin",
+      "status": "implemented",
+      "values": "miter | round | bevel"
+    },
+    {
+      "name": "stroke-miterlimit",
+      "status": "implemented",
+      "values": "\u003cnumber\u003e"
+    },
+    {
+      "name": "stroke-opacity",
+      "status": "implemented",
+      "values": "\u003c'opacity'\u003e"
+    },
+    {
+      "name": "stroke-width",
+      "status": "implemented",
+      "values": "\u003clength-percentage\u003e | \u003cnumber\u003e"
+    },
+    {
+      "name": "tab-size",
+      "status": "implemented",
+      "values": "\u003cnumber [0,∞]\u003e | \u003clength [0,∞]\u003e"
+    },
+    {
+      "name": "table-layout",
+      "status": "implemented",
+      "values": "auto | fixed | inherit"
+    },
+    {
+      "name": "text-align",
+      "status": "implemented",
+      "values": "left | right | center | justify | inherit"
+    },
+    {
+      "name": "text-align-all",
+      "status": "implemented",
+      "values": "start | end | left | right | center | \u003cstring\u003e | justify | match-parent"
+    },
+    {
+      "name": "text-align-last",
+      "status": "implemented",
+      "values": "auto | start | end | left | right | center | justify | match-parent"
+    },
+    {
+      "name": "text-anchor",
+      "status": "implemented",
+      "values": "start | middle | end"
+    },
+    {
+      "name": "text-autospace",
+      "status": "implemented",
+      "values": "normal | \u003cautospace\u003e | auto"
+    },
+    {
+      "name": "text-box",
+      "status": "implemented",
+      "values": "normal | \u003c'text-box-trim'\u003e || \u003c'text-box-edge'\u003e"
+    },
+    {
+      "name": "text-box-edge",
+      "status": "implemented",
+      "values": "auto | \u003ctext-edge\u003e"
+    },
+    {
+      "name": "text-box-trim",
+      "status": "implemented",
+      "values": "none | trim-start | trim-end | trim-both"
+    },
+    {
+      "name": "text-combine-upright",
+      "status": "implemented",
+      "values": "none | all | [ digits \u003cinteger [2,4]\u003e? ]"
+    },
+    {
+      "name": "text-decoration",
+      "status": "implemented",
+      "values": "none | [ underline || overline || line-through || blink ] | inherit"
+    },
+    {
+      "name": "text-decoration-color",
+      "status": "implemented",
+      "values": "\u003ccolor\u003e"
+    },
+    {
+      "name": "text-decoration-inset",
+      "status": "implemented",
+      "values": "\u003clength-percentage\u003e{1,2} | auto"
+    },
+    {
+      "name": "text-decoration-line",
+      "status": "implemented",
+      "values": "none | [ underline || overline || line-through || blink ] | spelling-error | grammar-error"
+    },
+    {
+      "name": "text-decoration-skip",
+      "status": "implemented",
+      "values": "none | auto"
+    },
+    {
+      "name": "text-decoration-skip-box",
+      "status": "implemented",
+      "values": "none | all"
+    },
+    {
+      "name": "text-decoration-skip-ink",
+      "status": "implemented",
+      "values": "auto | none | all"
+    },
+    {
+      "name": "text-decoration-skip-self",
+      "status": "implemented",
+      "values": "auto | skip-all | [ skip-underline || skip-overline || skip-line-through ] | no-skip"
+    },
+    {
+      "name": "text-decoration-skip-spaces",
+      "status": "implemented",
+      "values": "none | all | [ start || end ]"
+    },
+    {
+      "name": "text-decoration-style",
+      "status": "implemented",
+      "values": "solid | double | dotted | dashed | wavy"
+    },
+    {
+      "name": "text-decoration-thickness",
+      "status": "implemented",
+      "values": "auto | from-font | \u003clength-percentage\u003e | \u003cline-width\u003e"
+    },
+    {
+      "name": "text-emphasis",
+      "status": "implemented",
+      "values": "\u003c'text-emphasis-style'\u003e || \u003c'text-emphasis-color'\u003e"
+    },
+    {
+      "name": "text-emphasis-color",
+      "status": "implemented",
+      "values": "\u003ccolor\u003e"
+    },
+    {
+      "name": "text-emphasis-position",
+      "status": "implemented",
+      "values": "[ over | under ] \u0026\u0026 [ right | left ]?"
+    },
+    {
+      "name": "text-emphasis-skip",
+      "status": "implemented",
+      "values": "spaces || punctuation || symbols || narrow"
+    },
+    {
+      "name": "text-emphasis-style",
+      "status": "implemented",
+      "values": "none | [ [ filled | open ] || [ dot | circle | double-circle | triangle | sesame ] ] | \u003cstring\u003e"
+    },
+    {
+      "name": "text-group-align",
+      "status": "implemented",
+      "values": "none | start | end | left | right | center"
+    },
+    {
+      "name": "text-indent",
+      "status": "implemented",
+      "values": "\u003clength\u003e | \u003cpercentage\u003e | inherit"
+    },
+    {
+      "name": "text-justify",
+      "status": "implemented",
+      "values": "[ auto | none | inter-word | inter-character | ruby ] || no-compress"
+    },
+    {
+      "name": "text-orientation",
+      "status": "implemented",
+      "values": "mixed | upright | sideways"
+    },
+    {
+      "name": "text-overflow",
+      "status": "implemented",
+      "values": "[ clip | ellipsis | \u003cstring\u003e | fade | \u003cfade()\u003e ]{1,2}"
+    },
+    {
+      "name": "text-shadow",
+      "status": "implemented",
+      "values": "none | \u003cshadow\u003e#"
+    },
+    {
+      "name": "text-spacing",
+      "status": "implemented",
+      "values": "none | auto | \u003cspacing-trim\u003e || \u003cautospace\u003e"
+    },
+    {
+      "name": "text-spacing-trim",
+      "status": "implemented",
+      "values": "\u003cspacing-trim\u003e | auto"
+    },
+    {
+      "name": "text-transform",
+      "status": "implemented",
+      "values": "capitalize | uppercase | lowercase | none | inherit"
+    },
+    {
+      "name": "text-underline-offset",
+      "status": "implemented",
+      "values": "auto | \u003clength-percentage\u003e"
+    },
+    {
+      "name": "text-underline-position",
+      "status": "implemented",
+      "values": "auto | [ from-font | under ] || [ left | right ]"
+    },
+    {
+      "name": "text-wrap",
+      "status": "implemented",
+      "values": "wrap | nowrap | auto | balance | stable (at most one mode and one style)"
+    },
+    {
+      "name": "text-wrap-mode",
+      "status": "implemented",
+      "values": "wrap | nowrap"
+    },
+    {
+      "name": "text-wrap-style",
+      "status": "implemented",
+      "values": "auto | balance | stable"
+    },
+    {
+      "name": "top",
+      "status": "implemented",
+      "values": "\u003clength\u003e | \u003cpercentage\u003e | auto | inherit"
+    },
+    {
+      "name": "transform",
+      "status": "implemented",
+      "values": "none | \u003ctransform-list\u003e"
+    },
+    {
+      "name": "transform-box",
+      "status": "implemented",
+      "values": "content-box | border-box | fill-box | stroke-box | view-box",
+      "note": "No-op behavior pinned by TestBehaviorTransformBoxFillBoxNoPaintEffect; full behavior needs engine work."
+    },
+    {
+      "name": "transform-origin",
+      "status": "implemented",
+      "values": "[ left | center | right | top | bottom | \u003clength-percentage\u003e ] | [ left | center | right | \u003clength-percentage\u003e ] [ top | center | bottom | \u003clength-percentage\u003e ] \u003clength\u003e? | [ [ center | left | right ] \u0026\u0026 [ center | top | bottom ] ] \u003clength\u003e?"
+    },
+    {
+      "name": "transform-style",
+      "status": "implemented",
+      "values": "flat | preserve-3d"
+    },
+    {
+      "name": "translate",
+      "status": "implemented",
+      "values": "none | \u003clength-percentage\u003e [ \u003clength-percentage\u003e \u003clength\u003e? ]?"
+    },
+    {
+      "name": "unicode-bidi",
+      "status": "implemented",
+      "values": "normal | embed | bidi-override | inherit"
+    },
+    {
+      "name": "vertical-align",
+      "status": "implemented",
+      "values": "baseline | sub | super | top | text-top | middle | bottom | text-bottom | \u003cpercentage\u003e | \u003clength\u003e | inherit"
+    },
+    {
+      "name": "visibility",
+      "status": "implemented",
+      "values": "visible | hidden | collapse | inherit"
+    },
+    {
+      "name": "white-space",
+      "status": "implemented",
+      "values": "normal | pre | nowrap | pre-wrap | pre-line | inherit"
+    },
+    {
+      "name": "white-space-collapse",
+      "status": "implemented",
+      "values": "collapse | discard | preserve | preserve-breaks | preserve-spaces | break-spaces"
+    },
+    {
+      "name": "white-space-trim",
+      "status": "implemented",
+      "values": "none | discard-before || discard-after || discard-inner"
+    },
+    {
+      "name": "widows",
+      "status": "implemented",
+      "values": "\u003cinteger\u003e | inherit"
+    },
+    {
+      "name": "width",
+      "status": "implemented",
+      "values": "\u003clength\u003e | \u003cpercentage\u003e | auto | inherit"
+    },
+    {
+      "name": "word-break",
+      "status": "implemented",
+      "values": "normal | break-all | keep-all | manual | auto-phrase | break-word"
+    },
+    {
+      "name": "word-spacing",
+      "status": "implemented",
+      "values": "normal | \u003clength\u003e | inherit"
+    },
+    {
+      "name": "writing-mode",
+      "status": "implemented",
+      "values": "horizontal-tb | vertical-rl | vertical-lr | sideways-rl | sideways-lr"
+    },
+    {
+      "name": "z-index",
+      "status": "implemented",
+      "values": "auto | \u003cinteger\u003e | inherit"
+    }
+  ]
+}

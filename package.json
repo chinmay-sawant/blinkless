@@ -1,0 +1,11 @@
+{
+  "name": "blinkless",
+  "version": "0.0.2",
+  "private": true,
+  "description": "Pure-Go HTML and CSS layout engine",
+  "scripts": {
+    "build": "npm run build --prefix frontend",
+    "dev": "npm run dev --prefix frontend",
+    "preview": "npm run preview --prefix frontend"
+  }
+}
