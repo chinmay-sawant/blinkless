@@ -15,6 +15,8 @@ HTML + CSS
 
 `layout.DisplayList` returns the drawing list. Each operation is a filled or stroked rectangle, a line, a text run, an image, a link target, a list marker, or collapsed table border segments. Coordinates are canvas points, y down. The engine does not encode that list as a page PNG or JPEG.
 
+0.0.2 keeps that output and stops hostile documents at fixed budgets. A stylesheet over 32 MiB is rejected. Element nesting stops at 1024. `html.Parse` does not cap the source length. SVG text is removed before raster. Details are in `plans/v0.0.2/release-note/v0.0.2.md`.
+
 An image operation keeps the source bytes. When orientation or a clip cannot stay in those bytes, that one operation is re-encoded as a PNG. That bitmap fallback is part of the list. It is not a picture of the page.
 
 ## What it is for

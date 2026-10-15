@@ -10,6 +10,8 @@ blinkless is a layout engine for HTML and CSS. Both are inputs. HTML alone is no
 
 A browser engine such as Blink does this too, and then it keeps going. It runs script and it paints pixels. This engine does not run script. The drawing list is where the layout stops.
 
+0.0.2 adds resource caps on that same pipeline. A stylesheet over 32 MiB is rejected. Element nesting stops at 1024. `html.Parse` does not cap the source length. SVG `text`, `tspan`, and `textPath` are removed before an SVG image is rasterized. The record is `plans/v0.0.2/release-note/v0.0.2.md`.
+
 Each entry is one drawing operation: a filled or stroked rectangle, a line, a text run, an image, a link target, a list marker, or collapsed table border segments. A deactivated operation and a group boundary carry no paint. Operation coordinates are canvas points, y down. Text Y is the baseline. Element boxes on the same result are CSS pixels, y down, origin at the top left.
 
 ```text

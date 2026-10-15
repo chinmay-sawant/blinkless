@@ -1,6 +1,6 @@
 # Release
 
-blinkless 0.0.1 is the renderer cut. The PDF writer is not part of this tree.
+blinkless 0.0.2 is the security release. It follows the published 0.0.1 renderer cut. The PDF writer is not part of this tree.
 
 `VERSION` is not used. There is no image binary and no `internal/cli` package.
 
