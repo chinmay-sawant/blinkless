@@ -50,19 +50,21 @@ const (
 	glyfHaveInstructions = 0x0100
 
 	// cmap formats / sizes.
-	cmapFormat4          = 4
-	cmapFormat6          = 6
-	cmapFormat12         = 12
-	cmapFormat0Size      = 262
-	cmapFormat4Header    = 14
-	cmapFormat6Header    = 10
-	cmapFormat12Header   = 16
-	cmapFormat4LenBase   = 16 // format-4 length field base (14-byte header + reservedPad)
-	cmapFormat4SegStride = 8  // four uint16 arrays per segment
-	cmapPlatformUnicode  = 0
-	cmapPlatformMac      = 1
-	cmapPlatformWin      = 3
-	cmapWinUnicodeBMP    = 1
+	cmapFormat4           = 4
+	cmapFormat6           = 6
+	cmapFormat12          = 12
+	cmapFormat0Size       = 262
+	cmapFormat0GlyphCount = 256
+	cmapFormat4Header     = 14
+	cmapFormat6Header     = 10
+	cmapFormat12Header    = 16
+	cmapFormat4LenBase    = 16 // format-4 length field base (14-byte header + reservedPad)
+	cmapFormat4SegStride  = 8  // four uint16 arrays per segment
+	cmapCountHeaderSize   = 4  // version + numTables fields before subtable records
+	cmapPlatformUnicode   = 0
+	cmapPlatformMac       = 1
+	cmapPlatformWin       = 3
+	cmapWinUnicodeBMP     = 1
 
 	// WOFF / OTTO.
 	tagSize  = 4

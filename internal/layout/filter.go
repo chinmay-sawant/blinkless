@@ -3,6 +3,7 @@ package layout
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -13,6 +14,10 @@ import (
 	"strconv"
 	"strings"
 )
+
+// errImageDecodeBudget rejects a decode whose header exceeds the pixel budget.
+// DecodeConfig reads the header only, so the full bitmap is never allocated.
+var errImageDecodeBudget = errors.New("layout: image exceeds the pixel budget")
 
 // filterKind names one CSS filter function. filterUnknown is the zero value:
 // a parsedFilter that was never assigned a kind is not a valid filter, so
@@ -334,9 +339,32 @@ func toNRGBA(img image.Image) *image.NRGBA {
 	return nrgba
 }
 
-// decodeImageBytes decodes PNG/JPEG bytes, retrying with the explicit
-// decoders when the sniffed format probe fails.
+// imageHeaderWithinBudget reads only the format header. GIF is included
+// because image.DecodeConfig uses the decoders registered by this package.
+func imageHeaderWithinBudget(imgBytes []byte) bool {
+	if cfg, _, err := image.DecodeConfig(bytes.NewReader(imgBytes)); err == nil {
+		return validImageSize(cfg.Width, cfg.Height)
+	}
+
+	if cfg, err := png.DecodeConfig(bytes.NewReader(imgBytes)); err == nil {
+		return validImageSize(cfg.Width, cfg.Height)
+	}
+
+	if cfg, err := jpeg.DecodeConfig(bytes.NewReader(imgBytes)); err == nil {
+		return validImageSize(cfg.Width, cfg.Height)
+	}
+
+	return false
+}
+
+// decodeImageBytes decodes PNG, JPEG, or GIF bytes, retrying with the
+// explicit decoders when the sniffed format probe fails. The header budget
+// runs first so a huge logical size cannot allocate a bitmap.
 func decodeImageBytes(imgBytes []byte) (image.Image, error) {
+	if !imageHeaderWithinBudget(imgBytes) {
+		return nil, errImageDecodeBudget
+	}
+
 	if srcImg, _, err := image.Decode(bytes.NewReader(imgBytes)); err == nil {
 		return srcImg, nil
 	}

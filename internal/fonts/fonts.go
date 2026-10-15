@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"unicode"
 	"unicode/utf16"
 
 	gtfont "github.com/go-text/typesetting/font"
@@ -32,9 +33,28 @@ var (
 	errFontTruncatedCmap4Segs = errors.New("font: truncated cmap format 4 segments")
 	errFontTruncatedCmap12    = errors.New("font: truncated cmap format 12")
 	errFontTooLarge           = errors.New("font: input exceeds byte limit")
+	errFontNotRegular         = errors.New("font: not a regular file")
+	errFontTooManyTables      = errors.New("font: too many tables in directory")
+	errFontCmapRangeTooLarge  = errors.New("font: cmap range too large")
 )
 
 const maxFontBytes = 32 << 20
+
+// maxFontTables caps the SFNT table-directory entry count: generous against
+// real fonts (tens of tables) while bounding record scanning and overlap
+// checks on hostile input.
+const maxFontTables = 64
+
+// maxCmap4Segments caps format-4 segment counts: real fonts use tens of
+// segments, and each segment can expand to 65,536 codepoints.
+const maxCmap4Segments = 4096
+
+// maxCmapGroupSpan caps one format-12 group's codepoint span so a single
+// group cannot drive billions of map insertions.
+const maxCmapGroupSpan = 1 << 20
+
+// maxCmapWork bounds total expanded entries across all encoding subtables.
+const maxCmapWork = 4 * (unicode.MaxRune + 1)
 
 // Font is a parsed TrueType/OpenType font (table-directory view). It exposes
 // the metrics needed for text layout and the glyph data needed to embed and
@@ -63,10 +83,11 @@ type Font struct {
 	capHeight     int16
 	xHeight       int16 // OS/2 sxHeight; 0 when absent
 
-	tables  map[string][]byte // name -> raw table bytes (for rebuilding subset)
-	cmap    map[uint32]uint16 // rune -> glyph id
-	advance []int32           // advance width in font units per glyph
-	lsb     []int16           // left side bearing per glyph
+	tables   map[string][]byte // name -> raw table bytes (for rebuilding subset)
+	cmap     map[uint32]uint16 // rune -> glyph id
+	cmapWork int
+	advance  []int32 // advance width in font units per glyph
+	lsb      []int16 // left side bearing per glyph
 
 	// Derived, immutable caches live on the Font next to the data they
 	// derive from (locality) and disappear with it (bounds): the go-text
@@ -195,23 +216,50 @@ func (f *Font) parseAll() error {
 }
 
 func parseTableDirectory(data []byte) (map[string][]byte, error) {
+	if len(data) < sfntOffsetTableSize {
+		return nil, errFontTruncatedDirectory
+	}
+
 	numTables := int(binary.BigEndian.Uint16(data[4:6]))
+	if numTables > maxFontTables {
+		return nil, errFontTooManyTables
+	}
+
 	if sfntOffsetTableSize+sfntTableRecordSize*numTables > len(data) {
 		return nil, errFontTruncatedDirectory
 	}
 
 	tables := make(map[string][]byte, numTables)
 
-	for i := range numTables {
-		rec := data[sfntOffsetTableSize+sfntTableRecordSize*i:]
-		tag := string(rec[0:4])
-		off := int(binary.BigEndian.Uint32(rec[8:12]))
-		length := int(binary.BigEndian.Uint32(rec[12:16]))
+	type tableSpan struct {
+		off, end int
+	}
 
-		if off+length > len(data) {
+	spans := make([]tableSpan, 0, numTables)
+
+	for i := range numTables {
+		base := sfntOffsetTableSize + sfntTableRecordSize*i
+		rec := data[base : base+sfntTableRecordSize]
+		tag := string(rec[0:4])
+		offset := uint64(binary.BigEndian.Uint32(rec[8:12]))
+		length64 := uint64(binary.BigEndian.Uint32(rec[12:16]))
+
+		if offset > uint64(len(data)) || length64 > uint64(len(data))-offset {
 			return nil, fmt.Errorf("font: table %q out of range", tag) //nolint:err113 // dynamic tag in message
 		}
 
+		off, length := int(offset), int(length64) //nolint:gosec // both fit within len(data), checked above
+
+		// Reject overlapping or aliased tables: the same bytes must not
+		// back two tables, or a crafted directory could double-expose
+		// memory through two tags.
+		for _, span := range spans {
+			if off < span.end && span.off < off+length {
+				return nil, fmt.Errorf("font: table %q overlaps another table", tag) //nolint:err113 // dynamic tag in message
+			}
+		}
+
+		spans = append(spans, tableSpan{off: off, end: off + length})
 		tables[tag] = data[off : off+length]
 	}
 
@@ -286,6 +334,13 @@ func (f *Font) parseHmtx() error {
 		return errFontTruncatedHmtx
 	}
 
+	// numHMetrics is the number of glyphs that carry their own advance.
+	// The spec requires it to be at most numGlyphs. A larger count would
+	// index past the advance slice allocated from numGlyphs.
+	if f.numGlyphs <= 0 || f.numHMetrics > f.numGlyphs {
+		return errFontBadNumHMetrics
+	}
+
 	lastAdv := int32(binary.BigEndian.Uint16(tbl[need-4 : need-2]))
 	f.advance = make([]int32, f.numGlyphs)
 	f.lsb = make([]int16, f.numGlyphs)
@@ -345,6 +400,7 @@ func (f *Font) parseCmap() error {
 	}
 
 	f.cmap = map[uint32]uint16{}
+	f.cmapWork = 0
 	subs := parseCmapSubtables(tbl)
 	mergeCmapSubtables(f, tbl, subs)
 
@@ -362,11 +418,19 @@ type cmapSubtable struct {
 }
 
 func parseCmapSubtables(tbl []byte) []cmapSubtable {
+	if len(tbl) < cmapCountHeaderSize {
+		return nil
+	}
+
 	num := int(binary.BigEndian.Uint16(tbl[2:4]))
 	subs := make([]cmapSubtable, 0, num)
 
 	for i := range num {
-		rec := tbl[4+i*8:]
+		if cmapCountHeaderSize+i*8+8 > len(tbl) {
+			break
+		}
+
+		rec := tbl[cmapCountHeaderSize+i*8:]
 		subs = append(subs, cmapSubtable{
 			platform: int(binary.BigEndian.Uint16(rec[0:2])),
 			encoding: int(binary.BigEndian.Uint16(rec[2:4])),
@@ -383,13 +447,17 @@ func parseCmapSubtables(tbl []byte) []cmapSubtable {
 func mergeCmapSubtables(fnt *Font, tbl []byte, subs []cmapSubtable) {
 	order := [][2]int{{3, 10}, {3, 1}, {0, 4}, {0, 3}, {0, 5}, {0, 2}, {0, 1}, {0, 0}}
 
-	for _, o := range order {
+	for _, encodingPair := range order {
 		for idx := range subs {
-			if subs[idx].platform != o[0] || subs[idx].encoding != o[1] {
+			if fnt.cmapWork >= maxCmapWork {
+				return
+			}
+
+			if subs[idx].platform != encodingPair[0] || subs[idx].encoding != encodingPair[1] {
 				continue
 			}
 
-			if subs[idx].offset < 0 || subs[idx].offset+2 > len(tbl) {
+			if subs[idx].offset < 0 || subs[idx].offset > len(tbl)-2 {
 				continue
 			}
 
@@ -426,6 +494,10 @@ func (f *Font) parseCmap6(state []byte) {
 		return
 	}
 
+	if !f.reserveCmapWork(count) {
+		return
+	}
+
 	for index := range count {
 		glyph := binary.BigEndian.Uint16(state[10+index*2:])
 		if glyph == 0 {
@@ -441,6 +513,10 @@ func (f *Font) parseCmap6(state []byte) {
 
 func (f *Font) parseCmap0(state []byte) {
 	if len(state) < cmapFormat0Size {
+		return
+	}
+
+	if !f.reserveCmapWork(cmapFormat0GlyphCount) {
 		return
 	}
 
@@ -460,6 +536,10 @@ func (f *Font) parseCmap4(state []byte) error {
 	}
 
 	segCount := int(binary.BigEndian.Uint16(state[6:8])) / uint16Bytes
+	if segCount > maxCmap4Segments {
+		return errFontCmapRangeTooLarge
+	}
+
 	endOff := 14
 	startOff := endOff + uint16Bytes*segCount + uint16Bytes // + reservedPad
 	deltaOff := startOff + uint16Bytes*segCount
@@ -477,23 +557,35 @@ func (f *Font) parseCmap4(state []byte) error {
 			continue // final sentinel segment
 		}
 
+		if end < start || !f.reserveCmapWork(int(end-start)+1) {
+			return errFontCmapRangeTooLarge
+		}
+
 		//nolint:gosec // idDelta is signed int16 per cmap-4 spec
 		idDelta := int32(int16(binary.BigEndian.Uint16(state[deltaOff+idx*2 : deltaOff+idx*2+2])))
 		idRange := int32(binary.BigEndian.Uint16(state[rangeOff+idx*2 : rangeOff+idx*2+2]))
 
-		for codepoint := start; codepoint <= end; codepoint++ {
-			if _, exists := f.cmap[codepoint]; exists {
-				continue
-			}
-
-			glyph := cmap4GlyphID(state, idx, codepoint, start, idDelta, idRange, rangeOff)
-			if glyph > 0 && glyph < int32(f.numGlyphs) { //nolint:gosec // numGlyphs is small relative to int32
-				f.cmap[codepoint] = uint16(glyph) //nolint:gosec // range-checked above
-			}
-		}
+		f.mapCmap4Range(state, idx, start, end, idDelta, idRange, rangeOff)
 	}
 
 	return nil
+}
+
+// mapCmap4Range expands one format-4 segment's codepoint range into the cmap,
+// keeping existing (higher-priority) mappings.
+func (f *Font) mapCmap4Range(
+	state []byte, idx int, start, end uint32, idDelta, idRange int32, rangeOff int,
+) {
+	for codepoint := start; codepoint <= end; codepoint++ {
+		if _, exists := f.cmap[codepoint]; exists {
+			continue
+		}
+
+		glyph := cmap4GlyphID(state, idx, codepoint, start, idDelta, idRange, rangeOff)
+		if glyph > 0 && glyph < int32(f.numGlyphs) { //nolint:gosec // numGlyphs is small relative to int32
+			f.cmap[codepoint] = uint16(glyph) //nolint:gosec // range-checked above
+		}
+	}
 }
 
 func cmap4GlyphID(state []byte, idx int, codepoint, start uint32, idDelta, idRange int32, rangeOff int) int32 {
@@ -521,24 +613,52 @@ func (f *Font) parseCmap12(state []byte) error {
 
 	groups := int(binary.BigEndian.Uint32(state[12:16]))
 	for i := range groups {
+		if 16+i*12+12 > len(state) {
+			return errFontTruncatedCmap12
+		}
+
 		rec := state[16+i*12:]
 		start := binary.BigEndian.Uint32(rec[0:4])
 		end := binary.BigEndian.Uint32(rec[4:8])
 		startGlyph := binary.BigEndian.Uint32(rec[8:12])
 
-		for codepoint := start; codepoint <= end; codepoint++ {
-			if _, exists := f.cmap[codepoint]; exists {
-				continue
-			}
-
-			g := startGlyph + (codepoint - start)
-			if g < uint32(f.numGlyphs) { //nolint:gosec // numGlyphs is small relative to uint32
-				f.cmap[codepoint] = uint16(g) //nolint:gosec // range-checked above
-			}
+		if end < start || end > unicode.MaxRune || end-start > maxCmapGroupSpan {
+			return errFontCmapRangeTooLarge
 		}
+
+		if !f.reserveCmapWork(int(end-start) + 1) {
+			return errFontCmapRangeTooLarge
+		}
+
+		f.mapCmap12Range(start, end, startGlyph)
 	}
 
 	return nil
+}
+
+func (f *Font) mapCmap12Range(start, end, startGlyph uint32) {
+	for codepoint := start; codepoint <= end; codepoint++ {
+		if _, exists := f.cmap[codepoint]; exists {
+			continue
+		}
+
+		glyph := uint64(startGlyph) + uint64(codepoint-start)
+		if glyph < uint64(f.numGlyphs) { //nolint:gosec // numGlyphs is non-negative from maxp
+			f.cmap[codepoint] = uint16(glyph) //nolint:gosec // range-checked above
+		}
+	}
+}
+
+func (f *Font) reserveCmapWork(count int) bool {
+	if count > maxCmapWork-f.cmapWork {
+		f.cmapWork = maxCmapWork
+
+		return false
+	}
+
+	f.cmapWork += count
+
+	return true
 }
 
 // Bytes returns the raw SFNT face bytes this font was loaded from. It exists
@@ -771,10 +891,14 @@ func decodeUTF16BE(buf []byte) string {
 }
 
 // Advance returns the horizontal advance width in font units for a rune.
-func (f *Font) Advance(r rune) float64 {
+func (f *Font) Advance(runeValue rune) float64 {
 	f.ensureParsed()
 
-	g := f.GlyphID(r)
+	if len(f.advance) == 0 {
+		return 0
+	}
+
+	g := f.GlyphID(runeValue)
 	if int(g) >= len(f.advance) {
 		return float64(f.advance[0])
 	}
@@ -783,17 +907,27 @@ func (f *Font) Advance(r rune) float64 {
 }
 
 // AdvanceInPoints converts an advance from font units to points for a size.
-func (f *Font) AdvanceInPoints(r rune, size float64) float64 {
-	return f.Advance(r) / float64(f.unitsPerEm) * size
+func (f *Font) AdvanceInPoints(runeValue rune, size float64) float64 {
+	f.ensureParsed()
+
+	if f.unitsPerEm <= 0 {
+		return 0
+	}
+
+	return f.Advance(runeValue) / float64(f.unitsPerEm) * size
 }
 
 // GlyphAdvancePoints returns the advance width in points for r at size with
 // a single cmap lookup: the same glyph table and out-of-range fallback that
 // Advance uses, so the result equals AdvanceInPoints(r, size).
-func (f *Font) GlyphAdvancePoints(r rune, size float64) float64 {
+func (f *Font) GlyphAdvancePoints(runeValue rune, size float64) float64 {
 	f.ensureParsed()
 
-	g := f.GlyphID(r)
+	if f.unitsPerEm <= 0 || len(f.advance) == 0 {
+		return 0
+	}
+
+	g := f.GlyphID(runeValue)
 
 	adv := float64(f.advance[0])
 	if int(g) < len(f.advance) {
@@ -819,14 +953,9 @@ func (f *Font) glyphOutline(glob uint16) []byte {
 
 	count := int(glob)
 
-	var off, next int
-
-	if f.indexToLocFmt == 0 {
-		off = int(binary.BigEndian.Uint16(loca[count*uint16Bytes:])) * uint16Bytes
-		next = int(binary.BigEndian.Uint16(loca[(count+1)*uint16Bytes:])) * uint16Bytes
-	} else {
-		off = int(binary.BigEndian.Uint32(loca[count*4:]))
-		next = int(binary.BigEndian.Uint32(loca[(count+1)*4:]))
+	off, next, ok := locaOffsets(loca, f.indexToLocFmt, count)
+	if !ok {
+		return nil
 	}
 
 	if off < 0 || next < off || next > len(found) {
@@ -834,6 +963,33 @@ func (f *Font) glyphOutline(glob uint16) []byte {
 	}
 
 	return found[off:next]
+}
+
+// locaOffsets resolves glyf byte offsets for a glyph id from the loca table,
+// validating the format selector and the entry bounds first.
+func locaOffsets(loca []byte, indexToLocFmt int16, count int) (int, int, bool) {
+	switch indexToLocFmt {
+	case 0:
+		if (count+1)*uint16Bytes+uint16Bytes > len(loca) {
+			return 0, 0, false
+		}
+
+		off := int(binary.BigEndian.Uint16(loca[count*uint16Bytes:])) * uint16Bytes
+		next := int(binary.BigEndian.Uint16(loca[(count+1)*uint16Bytes:])) * uint16Bytes
+
+		return off, next, true
+	case 1:
+		if (count+1)*uint32Bytes+uint32Bytes > len(loca) {
+			return 0, 0, false
+		}
+
+		off := int(binary.BigEndian.Uint32(loca[count*uint32Bytes:]))
+		next := int(binary.BigEndian.Uint32(loca[(count+1)*uint32Bytes:]))
+
+		return off, next, true
+	default:
+		return 0, 0, false
+	}
 }
 
 // Runes returns all runes mapped by the font, sorted.

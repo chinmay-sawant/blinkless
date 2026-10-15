@@ -172,10 +172,22 @@ func fontFileKeyFor(path string, entry os.DirEntry, info os.FileInfo, infoErr er
 	return fontFileKey{path: abs, size: info.Size(), modNano: info.ModTime().UnixNano()}, true
 }
 
+func rejectNonRegularFont(path string, info os.FileInfo, infoErr error) error {
+	if infoErr == nil && info != nil && !info.Mode().IsRegular() {
+		return fmt.Errorf("%w: %s", errFontNotRegular, path)
+	}
+
+	return nil
+}
+
 // readFontFile reads one font file, bounding the first allocation by the stat
 // size. A file that shrank or grew after the stat falls back to the limited
 // read path so the maxFontBytes cap holds either way.
 func readFontFile(path string, info os.FileInfo, infoErr error) ([]byte, error) {
+	if err := rejectNonRegularFont(path, info, infoErr); err != nil {
+		return nil, err
+	}
+
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("open font %s: %w", path, err)

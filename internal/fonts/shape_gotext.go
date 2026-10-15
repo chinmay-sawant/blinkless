@@ -27,6 +27,11 @@ var (
 	}
 )
 
+// maxShapeRunBytes bounds one OpenType shaping run. Layout shapes
+// line-scoped text, so a run past this size is hostile input; shaping work
+// and allocations grow with run length.
+const maxShapeRunBytes = 1 << 20
+
 // shapedRun is the internal result of OpenType shaping for reverse-cmap text.
 type shapedRun struct {
 	text string // reverse-cmap Unicode when fully mapped; else ""
@@ -162,6 +167,12 @@ func shapingLanguageOverride(tag string) language.Language {
 
 func tryShapeOpenType(str string, fnt *Font, features []shaping.FontFeature, lang language.Language) (shapedRun, bool) {
 	if fnt == nil {
+		return shapedRun{}, false //nolint:exhaustruct // intentional zero-value fields
+	}
+
+	// Bound one shaping run: layout shapes line-scoped text, so a run past
+	// this size is hostile input, and shaping work grows with run length.
+	if len(str) > maxShapeRunBytes {
 		return shapedRun{}, false //nolint:exhaustruct // intentional zero-value fields
 	}
 	// GSUB covers Arabic ligation; halt/palt live in GPOS and are requested via

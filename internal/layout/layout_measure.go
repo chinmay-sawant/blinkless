@@ -859,6 +859,8 @@ func cellRowSpan(n *html.Node) int {
 	return tableSpan(n.Attribute("rowspan"))
 }
 
+const maxTableSpan = 1024
+
 func tableSpan(value string) int {
 	value = strings.TrimSpace(value)
 	if value == "" {
@@ -866,6 +868,10 @@ func tableSpan(value string) int {
 	}
 
 	if v, err := strconv.Atoi(value); err == nil && v > 1 {
+		if v > maxTableSpan {
+			v = maxTableSpan
+		}
+
 		return v
 	}
 

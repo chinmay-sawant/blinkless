@@ -93,7 +93,9 @@ func (e *engine) resolveSVGMaskLayer(layer MaskLayer, resourceURL, fragment stri
 		return layer
 	}
 
-	maskBytes, width, height, err := svg.RasterizeMask(ref.sourceData, fragment, 0, 0, layer.Mode)
+	maskBytes, width, height, err := svg.RasterizeMaskContext(
+		e.rasterContext(), ref.sourceData, fragment, 0, 0, layer.Mode,
+	)
 	if err != nil {
 		return layer
 	}

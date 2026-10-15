@@ -59,10 +59,13 @@
  *     INVALID_ARG so layout drift cannot corrupt reads.
  *   - Passing opts == NULL selects defaults for every field.
  *   - String fields left NULL behave like empty strings and select engine
- *     defaults. The allow array is an array of pointers to NUL-terminated
- *     path prefixes; allow_len entries are read only during the call and
- *     are capped at 1024 (a larger length is rejected with INVALID_ARG
- *     before any entry is read).
+ *     defaults. All C string fields and every non-NULL allow array entry
+ *     are trusted to be NUL-terminated UTF-8 for the duration of the call;
+ *     the library reads to the first NUL and does not validate embedded
+ *     NUL bytes or missing terminators. The allow array is an array of
+ *     pointers to NUL-terminated path prefixes; allow_len entries are read
+ *     only during the call and are capped at 1024 (a larger length is
+ *     rejected with INVALID_ARG before any entry is read).
  *   - network_policy: 0 keeps the compatible default policy (HTTP(S) to any
  *     host, cross-host redirects allowed); 1 installs the restricted policy
  *     (private and link-local destinations blocked unless allowlisted,
@@ -156,7 +159,9 @@ int32_t blinkless_last_error_length(void);
 /*
  * Copies the most recent error message into buf (buf_len includes room
  * for the NUL terminator). Returns payload bytes written excluding the
- * terminator, 0 for NULL buf, non-positive buf_len, or no stored message.
+ * terminator, 0 for NULL buf, non-positive buf_len, buf_len above the
+ * one MiB limit, or no stored message. buf must point at at least
+ * buf_len writable bytes; buf and buf_len are trusted for the call.
  */
 int32_t blinkless_last_error(char* buf, int32_t buf_len);
 

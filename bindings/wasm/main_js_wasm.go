@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"syscall/js"
 	"time"
 )
@@ -38,6 +39,13 @@ func convertJS(_ js.Value, args []js.Value) (response any) {
 		}
 		progress = args[1]
 		hasProgress = true
+	}
+
+	// Box the primitive string so syscall/js can read its length without
+	// copying it into Go. UTF-8 bytes are never fewer than UTF-16 units.
+	// This cap includes the JSON envelope; HTML has a separate byte cap.
+	if js.Global().Get("String").New(args[0]).Length() > maxRequestBytes {
+		return jsError(errorResponse(fmt.Errorf("%w: %w", errInvalidRequest, errInputTooLarge)))
 	}
 
 	request, err := DecodeRequest(args[0].String())

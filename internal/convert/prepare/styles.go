@@ -16,11 +16,15 @@ import (
 )
 
 const (
-	maxStylesheetRules = 1_000_000
-	maxImportDepth     = 8
+	maxStylesheetRules    = 1_000_000
+	maxImportDepth        = 8
+	maxRemoteAssetFetches = 64
 )
 
-var errStylesheetLimit = errors.New("convert: stylesheet rule limit exceeded")
+var (
+	errStylesheetLimit      = errors.New("convert: stylesheet rule limit exceeded")
+	errStylesheetFetchLimit = errors.New("convert: stylesheet fetch limit exceeded")
+)
 
 // SheetOptions configures stylesheet viewport/media gating and warning labels.
 type SheetOptions struct {
@@ -38,14 +42,16 @@ type SheetOptions struct {
 }
 
 type sheetCollector struct {
-	resources load.ResourceContext
-	opts      SheetOptions
-	log       io.Writer
-	sheets    []*css.Stylesheet
-	seen      map[string]struct{}
-	rules     int
-	visits    uint32
-	err       error
+	resources   load.ResourceContext
+	opts        SheetOptions
+	log         io.Writer
+	sheets      []*css.Stylesheet
+	seen        map[string]struct{}
+	rules       int
+	visits      uint32
+	fetches     int
+	fetchCapped bool
+	err         error
 	// inlineSheets / inlineByNode cache the <style> parses from the gating
 	// pre-pass so the main walk does not parse inline styles twice.
 	inlineSheets []*css.Stylesheet
@@ -196,6 +202,11 @@ func (collector *sheetCollector) collectLink(ctx context.Context, node *html.Nod
 	// Fetch is bounded per request by the loader's timeout policy
 	// (LoadPage.Timeout, or load.DefaultResponseTimeout when unset); ctx
 	// carries the caller's overall deadline and cancellation.
+	// The shared fetch cap stops a wide set of link and import URLs.
+	if !collector.allowStylesheetFetch() {
+		return
+	}
+
 	resource, err := collector.resources.Fetch(ctx, node.Attribute("href"))
 	if err != nil {
 		collector.warn("skipping <link href=%q>: %v", node.Attribute("href"), err)
@@ -314,13 +325,25 @@ func (collector *sheetCollector) loadImportedSheet(
 ) (*css.Stylesheet, string, string) {
 	resource, err := collector.fetchRef(ctx, base, ref)
 	if err != nil {
-		collector.warn("skipping @import %q: %v", ref, err)
+		if !errors.Is(err, errStylesheetFetchLimit) {
+			collector.warn("skipping @import %q: %v", ref, err)
+		}
 
 		return nil, "", ""
 	}
 
 	if resource == nil || resource.Skip {
 		collector.warn("skipping @import %q: resource skipped", ref)
+
+		return nil, "", ""
+	}
+
+	// A redirect or alias can land on an already-seen stylesheet even when the
+	// original ref did not match; treat a different final URL as the cycle
+	// key. The resolved ref itself was just marked seen above, so only a
+	// different final URL counts here.
+	if resolved := resolvedRef(base, ref); resource.URL != resolved && collector.seenURL(resource.URL) {
+		collector.warn("skipping @import %q: stylesheet cycle detected via %q", ref, resource.URL)
 
 		return nil, "", ""
 	}
@@ -340,6 +363,10 @@ func (collector *sheetCollector) loadImportedSheet(
 // fetchRef loads ref with the same ACL as <link rel=stylesheet>. Relative
 // imports resolve against the current sheet base, not the document base.
 func (collector *sheetCollector) fetchRef(ctx context.Context, base, ref string) (*load.Resource, error) {
+	if !collector.allowStylesheetFetch() {
+		return nil, errStylesheetFetchLimit
+	}
+
 	resources := collector.resources
 	if base != "" && base != resources.Base() {
 		if loader := resources.Loader(); loader != nil {
@@ -353,6 +380,23 @@ func (collector *sheetCollector) fetchRef(ctx context.Context, base, ref string)
 	}
 
 	return resource, nil
+}
+
+// allowStylesheetFetch counts one link or import fetch against the cap.
+// Further fetches are skipped after the cap, with a single warning.
+func (collector *sheetCollector) allowStylesheetFetch() bool {
+	if collector.fetches >= maxRemoteAssetFetches {
+		if !collector.fetchCapped {
+			collector.warn("skipping further stylesheet fetches: limit %d", maxRemoteAssetFetches)
+			collector.fetchCapped = true
+		}
+
+		return false
+	}
+
+	collector.fetches++
+
+	return true
 }
 
 func (collector *sheetCollector) seenURL(raw string) bool {
@@ -387,6 +431,17 @@ func resourceBase(resource *load.Resource) string {
 	}
 
 	return resource.URL
+}
+
+// hasFontExtension reports whether uri's path ends with ext, ignoring any
+// query string or fragment so a cache-busting suffix cannot hide the type.
+func hasFontExtension(uri, ext string) bool {
+	path := uri
+	if parsed, err := url.Parse(uri); err == nil && parsed.Path != "" {
+		path = parsed.Path
+	}
+
+	return strings.HasSuffix(strings.ToLower(path), ext)
 }
 
 func importRef(raw string) string {
@@ -465,8 +520,18 @@ func linkStylesheet(node *html.Node, viewportW, viewportH float64, mediaType str
 	return media == "" || css.MediaMatches(media, mediaType, viewportW, viewportH)
 }
 
-//nolint:wsl,nlreturn,lll // font-face collection flow
-func mergeFontFaces(ctx context.Context, resources load.ResourceContext, registry *pdf.Registry, sheets []*css.Stylesheet, idx int, log io.Writer) *pdf.Registry {
+//nolint:wsl,nlreturn // font-face collection flow
+func mergeFontFaces(
+	ctx context.Context,
+	resources load.ResourceContext,
+	registry *pdf.Registry,
+	sheets []*css.Stylesheet,
+	idx int,
+	log io.Writer,
+) *pdf.Registry {
+	fetches := 0
+	fetchCapped := false
+
 	for _, sheet := range sheets {
 		if ctx != nil && ctx.Err() != nil {
 			return registry
@@ -478,15 +543,27 @@ func mergeFontFaces(ctx context.Context, resources load.ResourceContext, registr
 			if ctx != nil && ctx.Err() != nil {
 				return registry
 			}
-			registry = mergeFontFace(ctx, resources, registry, face, idx, log)
+			registry = mergeFontFace(ctx, resources, registry, face, idx, log, &fetches, &fetchCapped)
 		}
 	}
 	return registry
 }
 
-//nolint:wsl,nlreturn,lll // font-face collection flow
-func mergeFontFace(ctx context.Context, resources load.ResourceContext, registry *pdf.Registry, face css.FontFace, idx int, log io.Writer) *pdf.Registry {
+//nolint:wsl,nlreturn // font-face collection flow
+func mergeFontFace(
+	ctx context.Context,
+	resources load.ResourceContext,
+	registry *pdf.Registry,
+	face css.FontFace,
+	idx int,
+	log io.Writer,
+	fetches *int,
+	fetchCapped *bool,
+) *pdf.Registry {
 	for _, uri := range css.FontFaceURLs(face.Src) {
+		if fontSourceFetched(uri) && !allowFontFetch(fetches, fetchCapped, idx, log) {
+			continue
+		}
 		font, ok := fetchFontFace(ctx, resources, uri, idx, log)
 		if !ok {
 			continue
@@ -505,19 +582,88 @@ func mergeFontFace(ctx context.Context, resources load.ResourceContext, registry
 	return registry
 }
 
-//nolint:wsl,nlreturn,lll // font-face collection flow
-func fetchFontFace(ctx context.Context, resources load.ResourceContext, uri string, idx int, log io.Writer) (*pdf.Font, bool) {
-	lower := strings.ToLower(uri)
-	isData := strings.HasPrefix(lower, "data:")
-	if !isData && (strings.HasSuffix(lower, ".woff2") || strings.HasSuffix(lower, ".eot")) {
+// fontBodyWithinCap applies the font size cap before Decode so a hostile
+// payload cannot force decompression or table parsing before the size is
+// checked. The cap mirrors internal/fonts.maxFontBytes, tightened by the
+// loader's body limit when one is configured.
+func fontBodyWithinCap(resources load.ResourceContext, body []byte) bool {
+	const maxFontSrcBytes = int64(32 << 20)
+
+	maxBytes := maxFontSrcBytes
+	if loader := resources.Loader(); loader != nil && loader.MaxBodySize > 0 && loader.MaxBodySize < maxBytes {
+		maxBytes = loader.MaxBodySize
+	}
+
+	return int64(len(body)) <= maxBytes
+}
+
+// fontSourceFetched reports whether uri is loaded with resources.Fetch.
+// data:, WOFF2, and EOT sources are refused locally and do not count.
+func fontSourceFetched(uri string) bool {
+	lower := strings.ToLower(strings.TrimSpace(uri))
+	if strings.HasPrefix(lower, "data:") {
+		return false
+	}
+
+	return !hasFontExtension(lower, ".woff2") && !hasFontExtension(lower, ".eot")
+}
+
+// allowFontFetch counts one remote font fetch. Nil fetches means a direct
+// single-URL call with no collection cap.
+func allowFontFetch(fetches *int, capped *bool, idx int, log io.Writer) bool {
+	if fetches == nil {
+		return true
+	}
+
+	if *fetches >= maxRemoteAssetFetches {
+		if capped != nil && !*capped {
+			line.Emit(log, line.Warn,
+				"object %d: skipping further font fetches after %d",
+				idx, maxRemoteAssetFetches)
+
+			*capped = true
+		}
+
+		return false
+	}
+
+	*fetches++
+
+	return true
+}
+
+//nolint:wsl,nlreturn // font-face collection flow
+func fetchFontFace(
+	ctx context.Context,
+	resources load.ResourceContext,
+	uri string,
+	idx int,
+	log io.Writer,
+) (*pdf.Font, bool) {
+	// The remote-font policy excludes WOFF2/EOT and data: sources, including
+	// the subset of WOFF2 supported by the standalone font decoder.
+	if !fontSourceFetched(uri) {
 		line.Emit(log, line.Warn,
-			"object %d: @font-face src %q skipped (WOFF2/EOT unsupported; WOFF1/TTF/OTF only)", idx, uri)
+			"object %d: @font-face src %q skipped (WOFF2/EOT/data: unsupported; WOFF1/TTF/OTF only)", idx, uri)
 		return nil, false
 	}
 
 	resource, err := resources.Fetch(ctx, uri)
 	if err != nil {
 		line.Emit(log, line.Warn, "object %d: @font-face src %q: %v", idx, uri, err)
+		return nil, false
+	}
+
+	if !fontBodyWithinCap(resources, resource.Body) {
+		line.Emit(log, line.Warn,
+			"object %d: @font-face src %q: %d bytes exceeds the font byte limit",
+			idx, uri, len(resource.Body))
+		return nil, false
+	}
+
+	if len(resource.Body) >= 4 && string(resource.Body[:4]) == "wOF2" {
+		line.Emit(log, line.Warn, "object %d: @font-face src %q skipped (WOFF2 font source)", idx, uri)
+
 		return nil, false
 	}
 

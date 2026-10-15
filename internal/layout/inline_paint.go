@@ -36,6 +36,11 @@ const (
 
 	minVisibleSeg = 0.2
 
+	// maxDecorationSteps caps dash, dot, and wave pieces on one decoration.
+	// letter-spacing and tab-size can stretch a run far past the page, and
+	// each step emits an op. 1024 matches the background tile cap.
+	maxDecorationSteps = 1024
+
 	emphasisDotRatio = 0.18
 	minEmphasisDot   = 1.1
 	maxEmphasisDot   = 2.4
@@ -1147,7 +1152,7 @@ func (e *engine) emitDashedLine(startX, lineY, lineW, width float64, col [3]floa
 		gap = two
 	}
 
-	for cur := startX; cur < startX+lineW; {
+	for cur, n := startX, 0; cur < startX+lineW && n < maxDecorationSteps; n++ {
 		seg := dash
 		if cur+seg > startX+lineW {
 			seg = startX + lineW - cur
@@ -1175,7 +1180,7 @@ func (e *engine) emitDottedLine(startX, lineY, lineW, width float64, col [3]floa
 		gap = minDotGap
 	}
 
-	for cur := startX; cur < startX+lineW; {
+	for cur, n := startX, 0; cur < startX+lineW && n < maxDecorationSteps; n++ {
 		seg := dot
 		if cur+seg > startX+lineW {
 			seg = startX + lineW - cur
@@ -1190,6 +1195,19 @@ func (e *engine) emitDottedLine(startX, lineY, lineW, width float64, col [3]floa
 
 		cur += dot + gap
 	}
+}
+
+func wavyStepCount(lineW, segW float64) int {
+	steps := maxDecorationSteps
+	if segW > 0 && lineW > 0 && lineW/segW < float64(maxDecorationSteps) {
+		steps = int(lineW / segW)
+	}
+
+	if steps < 1 {
+		return 1
+	}
+
+	return steps
 }
 
 func (e *engine) emitWavyLine(startX, lineY, lineW, width float64, col [3]float64) {
@@ -1207,10 +1225,7 @@ func (e *engine) emitWavyLine(startX, lineY, lineW, width float64, col [3]float6
 		segW = three
 	}
 
-	steps := int(lineW / segW)
-	if steps < 1 {
-		steps = 1
-	}
+	steps := wavyStepCount(lineW, segW)
 
 	step := lineW / float64(steps)
 
@@ -1899,14 +1914,46 @@ func isLinkHref(href string) bool {
 		return true
 	}
 
-	low := strings.ToLower(href)
-	for _, prefix := range []string{"javascript:", "data:", "blob:"} {
-		if strings.HasPrefix(low, prefix) {
-			return false
-		}
+	if hasDangerousScheme(href) {
+		return false
 	}
 
 	return !strings.Contains(href, "://") && !strings.Contains(href, ":")
+}
+
+// hasDangerousScheme reports whether href uses a non-navigable URI scheme,
+// even when obfuscated with whitespace or control characters between the
+// scheme name and the colon.
+func hasDangerousScheme(href string) bool {
+	low := stripASCIISpace(strings.ToLower(href))
+
+	for _, prefix := range []string{"javascript:", "vbscript:", "data:", "blob:", "file:"} {
+		if strings.HasPrefix(low, prefix) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// stripASCIISpace removes ASCII whitespace and control characters so scheme
+// prefix checks cannot be bypassed with embedded junk characters. Only ASCII
+// is stripped: bytes at or below 0x20 (which covers space and all C0
+// controls) plus DEL.
+func stripASCIISpace(src string) string {
+	var compact strings.Builder
+
+	compact.Grow(len(src))
+
+	for _, char := range src {
+		if char < 0x80 && (char <= 0x20 || char == 0x7f) {
+			continue
+		}
+
+		compact.WriteRune(char)
+	}
+
+	return compact.String()
 }
 
 // isInternalHref reports a same-document fragment link (#id).

@@ -32,10 +32,16 @@ func EvalMath(value string, env MathEnv) (float64, bool) {
 		return 0, false
 	}
 
-	parser := mathParser{src: src, pos: 0, env: env}
+	parser := mathParser{src: src, pos: 0, env: env, depth: 0}
 
 	result, ok := parser.parseExpr()
 	if !ok || parser.pos != len(parser.src) {
+		return 0, false
+	}
+
+	// Extreme or undefined results (overflow to Inf, 0/0-style NaN) degrade
+	// to "no value" so they cannot poison layout geometry downstream.
+	if math.IsInf(result, 0) || math.IsNaN(result) {
 		return 0, false
 	}
 
@@ -43,9 +49,32 @@ func EvalMath(value string, env MathEnv) (float64, bool) {
 }
 
 type mathParser struct {
-	src string
-	pos int
-	env MathEnv
+	src   string
+	pos   int
+	env   MathEnv
+	depth int
+}
+
+// maxMathDepth caps nesting of parenthesized expressions and math functions
+// so adversarial input cannot drive deep parser recursion.
+const maxMathDepth = 64
+
+// enterMathDepth reserves one nesting level; false means the cap is hit.
+func (p *mathParser) enterMathDepth() bool {
+	if p.depth >= maxMathDepth {
+		return false
+	}
+
+	p.depth++
+
+	return true
+}
+
+// leaveMathDepth releases one nesting level reserved by enterMathDepth.
+func (p *mathParser) leaveMathDepth() {
+	if p.depth > 0 {
+		p.depth--
+	}
 }
 
 func (p *mathParser) parseExpr() (float64, bool) {
@@ -119,25 +148,29 @@ func (p *mathParser) parseTerm() (float64, bool) {
 }
 
 func (p *mathParser) parseUnary() (float64, bool) {
-	p.skipSpace()
+	negative := false
 
-	if p.pos >= len(p.src) {
-		return 0, false
-	}
+	for {
+		p.skipSpace()
 
-	switch p.src[p.pos] {
-	case '+':
+		if p.pos >= len(p.src) {
+			return 0, false
+		}
+
+		switch p.src[p.pos] {
+		case '-':
+			negative = !negative
+		case '+':
+		default:
+			value, ok := p.parsePrimary()
+			if negative {
+				value = -value
+			}
+
+			return value, ok
+		}
+
 		p.pos++
-
-		return p.parseUnary()
-	case '-':
-		p.pos++
-
-		value, ok := p.parseUnary()
-
-		return -value, ok
-	default:
-		return p.parsePrimary()
 	}
 }
 
@@ -150,10 +183,17 @@ func (p *mathParser) parsePrimary() (float64, bool) {
 
 	switch {
 	case p.src[p.pos] == '(':
+		if !p.enterMathDepth() {
+			return 0, false
+		}
+
 		p.pos++
 
 		value, ok := p.parseExpr()
-		if !ok || !p.consume(')') {
+		closed := p.consume(')')
+		p.leaveMathDepth()
+
+		if !ok || !closed {
 			return 0, false
 		}
 
@@ -173,6 +213,12 @@ func (p *mathParser) parseFunc() (float64, bool) {
 	}
 
 	name := strings.ToLower(p.src[start:p.pos])
+
+	if !p.enterMathDepth() {
+		return 0, false
+	}
+
+	defer p.leaveMathDepth()
 
 	if !p.consume('(') {
 		return 0, false

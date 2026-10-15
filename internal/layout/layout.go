@@ -91,7 +91,13 @@ var (
 	errInvalidViewportHeight = errors.New("layout: height must be finite and non-negative")
 	errInvalidZoom           = errors.New("layout: zoom must be zero or a finite positive value")
 	errInvalidMediaValue     = errors.New("layout: media")
+	errLayoutDepthExceeded   = errors.New("layout: document nesting depth exceeds 2048")
 )
+
+// maxBuildDepth caps DOM recursion during layout so pathologically deep
+// documents stop with errLayoutDepthExceeded instead of overflowing the
+// goroutine stack.
+const maxBuildDepth = 2048
 
 // Options controls a Layout run.
 type Options struct {
@@ -626,6 +632,9 @@ type engine struct {
 	// needsXformStamp is set when any built box has transform≠none or
 	// opacity<1 so stampBoxTransforms can skip the full tree walk.
 	needsXformStamp bool
+	// buildDepth tracks DOM recursion during layout so pathologically
+	// deep documents are stopped instead of overflowing the stack.
+	buildDepth int
 	// pageSnapHeight records the finite Options.Height that multicol column
 	// snapping used (0 when no multicol page-height snapping ran). Paint
 	// rejects a mismatch instead of splitting ops at a boundary the layout
@@ -1143,69 +1152,6 @@ func layoutContext(
 	return layoutContextWithStyles(ctx, root, opts, workspace, nil)
 }
 
-// newEngine constructs the layout engine state (extracted from LayoutContext
-// for clarity).
-func newEngine(
-	ctx context.Context, opts Options, faces *pdf.FaceSet, font *pdf.Font,
-	styles map[*html.Node]*ResolvedStyle, containers map[*html.Node]sizeContainer, ops []Op,
-) *engine {
-	return &engine{ //nolint:exhaustruct // intentional zero fields
-		opts:       opts,
-		ctx:        ctx,
-		font:       font,
-		faces:      faces,
-		registry:   opts.Registry,
-		styles:     styles,
-		scale:      zoomScale(opts.Zoom),
-		containers: containers,
-		ops:        ops,
-	}
-}
-
-// finalizeResult builds the display list and Result from the constructed
-// engine (extracted from LayoutContext for clarity).
-func finalizeResult(eng *engine, root *html.Node, opts Options) (*Result, error) {
-	eng.seedInitialContainingBlock()
-	boxNode := eng.build(root, opts.Width, 0, 0)
-
-	if eng.err != nil {
-		return nil, eng.err
-	}
-	// Merge deferred background/border ops before stamping sticky/fixed flags
-	// and CSS transforms (those passes need final op indices).
-	eng.finalizeChrome(boxNode)
-
-	boxes := make([]*box, 0)
-	flattenBoxes(boxNode, &boxes)
-
-	res := &Result{ //nolint:exhaustruct // intentional zero fields
-		Ops:            eng.ops,
-		Width:          opts.Width,
-		Height:         opts.Height,
-		pageSnapHeight: eng.pageSnapHeight,
-		root:           boxNode,
-		boxes:          boxes,
-	}
-	if boxNode != nil {
-		res.Height = boxNode.y + boxNode.height
-	}
-
-	if res.Height < eng.height {
-		res.Height = eng.height
-	}
-	// Paint-time CSS transforms/opacity: stamp composed CTMs after geometry
-	// is final so transform-origin % resolves against the border box.
-	// Skip the full tree walk when no element had transform/opacity.
-	if eng.needsXformStamp {
-		propagatePerspective(boxNode)
-		stampBoxTransforms(boxNode, IdentityMatrix(), res.Ops)
-	}
-
-	res.MaxContentX, res.HasFragmentLinks = censusOps(res.Ops, opts.Width)
-
-	return res, nil
-}
-
 // censusOps records the right edge of fill/stroke/image ops and whether any
 // link URI is a same-document fragment. Width is the floor so MaxContentX is
 // never zero after a real Layout (zero stays the hand-built Result signal).
@@ -1507,13 +1453,26 @@ type box struct {
 }
 
 func (e *engine) build(node *html.Node, availW, posX, posY float64) *box {
+	if node == nil {
+		return nil
+	}
+
 	if e.checkContext() {
+		return nil
+	}
+
+	if e.buildDepth >= maxBuildDepth {
+		e.err = errLayoutDepthExceeded
+
 		return nil
 	}
 
 	if node.Type == html.TextNode {
 		return nil
 	}
+
+	e.buildDepth++
+	defer func() { e.buildDepth-- }()
 
 	sty := e.styleVal(node)
 

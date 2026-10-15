@@ -2,6 +2,7 @@ package svg
 
 import (
 	"bytes"
+	"context"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -69,6 +70,15 @@ type maskRasterInput struct {
 // does not apply SVG mask-region bounds, external stylesheet cascade, filters,
 // animation, or nested mask references.
 func RasterizeMask(data []byte, id string, width, height int, mode string) ([]byte, int, int, error) {
+	// Tests and callers without a context use the background entry.
+	return RasterizeMaskContext(context.Background(), data, id, width, height, mode)
+}
+
+// RasterizeMaskContext is RasterizeMask with the caller's context. The
+// context stops the lock wait and prevents a draw from starting after cancel.
+func RasterizeMaskContext(
+	ctx context.Context, data []byte, id string, width, height int, mode string,
+) ([]byte, int, int, error) {
 	prepared, err := prepareMaskRaster(data, id, width, height, mode)
 	if err != nil {
 		return nil, 0, 0, err
@@ -79,7 +89,7 @@ func RasterizeMask(data []byte, id string, width, height int, mode string) ([]by
 		maxSide = prepared.height
 	}
 
-	rasterPNG, rasterW, rasterH, err := Rasterize(prepared.source, maxSide)
+	rasterPNG, rasterW, rasterH, err := RasterizeContext(ctx, prepared.source, maxSide)
 	if err != nil {
 		return nil, 0, 0, fmt.Errorf("svg mask: rasterize contents: %w", err)
 	}
@@ -181,6 +191,11 @@ func resolveMaskDimensions(data []byte, width, height int) (int, int, error) {
 	return width, height, nil
 }
 
+// maxMaskDepth caps element nesting while parsing an SVG mask document, so
+// adversarial or pathological documents cannot drive unbounded recursion in
+// readSVGMaskElement.
+const maxMaskDepth = 1024
+
 func parseSVGMaskDocument(data []byte) (*svgMaskElement, error) {
 	decoder := xml.NewDecoder(bytes.NewReader(data))
 
@@ -195,11 +210,15 @@ func parseSVGMaskDocument(data []byte) (*svgMaskElement, error) {
 			continue
 		}
 
-		return readSVGMaskElement(decoder, start)
+		return readSVGMaskElement(decoder, start, 0)
 	}
 }
 
-func readSVGMaskElement(decoder *xml.Decoder, start xml.StartElement) (*svgMaskElement, error) {
+func readSVGMaskElement(decoder *xml.Decoder, start xml.StartElement, depth int) (*svgMaskElement, error) {
+	if depth > maxMaskDepth {
+		return nil, errMaskBadStructure
+	}
+
 	element := &svgMaskElement{
 		start:    start,
 		children: []svgMaskPart{},
@@ -213,7 +232,7 @@ func readSVGMaskElement(decoder *xml.Decoder, start xml.StartElement) (*svgMaskE
 
 		switch item := token.(type) {
 		case xml.StartElement:
-			child, err := readSVGMaskElement(decoder, item)
+			child, err := readSVGMaskElement(decoder, item, depth+1)
 			if err != nil {
 				return nil, err
 			}

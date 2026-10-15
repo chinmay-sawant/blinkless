@@ -3,6 +3,7 @@ package layout
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"image"
 	"image/draw"
@@ -12,6 +13,17 @@ import (
 	"math"
 	"strconv"
 	"strings"
+)
+
+// errBorderImageExtremeDims rejects border images whose header dimensions
+// exceed the pixel budget before decoding.
+var errBorderImageExtremeDims = errors.New("decode border image: invalid or extreme dimensions")
+
+const (
+	// minBorderImageTile is the smallest repeat step that still advances the
+	// float cursor. A smaller tile is painted as one stretched slice.
+	minBorderImageTile  = 0.5
+	maxBorderImageTiles = 1024
 )
 
 // applyBorderImageProps handles border-image and its longhands.
@@ -508,6 +520,8 @@ func borderImageEdgeSource(
 // border thickness across the edge and keeps the slice aspect ratio along it,
 // and a trailing partial tile is clipped to the edge end, matching the repeat
 // tiling Chrome 143.0.7499.40 shows. Round and space share this core.
+//
+//nolint:cyclop // horizontal and vertical tiles share the step cap
 func appendBorderImageTiledEdge(
 	dst []Op,
 	ref *imageRef,
@@ -529,12 +543,18 @@ func appendBorderImageTiledEdge(
 
 	tile := cross * float64(along) / float64(across)
 
-	if !(tile > 0) {
+	// A tiny tile stops the cursor (pos += tile stays put) and would spin.
+	// One stretched slice covers the edge. A legal tile is still capped.
+	if !(tile >= minBorderImageTile) {
 		return appendBorderImagePart(dst, ref, src, x, y, w, h)
 	}
 
-	for pos := 0.0; pos < span; {
+	for pos, n := 0.0, 0; pos < span && n < maxBorderImageTiles; n++ {
 		used := min(tile, span-pos)
+
+		if !(used > 0) {
+			break
+		}
 
 		if horizontal {
 			dst = appendBorderImageTile(dst, ref, src, x+pos, y, used, h, used/tile, true)
@@ -542,7 +562,13 @@ func appendBorderImageTiledEdge(
 			dst = appendBorderImageTile(dst, ref, src, x, y+pos, w, used, used/tile, false)
 		}
 
-		pos += used
+		next := pos + used
+
+		if !(next > pos) {
+			break
+		}
+
+		pos = next
 	}
 
 	return dst
@@ -611,6 +637,11 @@ func borderImageSliceBytes(ref *imageRef, src image.Rectangle) ([]byte, error) {
 }
 
 func cropBorderImage(data []byte, src image.Rectangle) ([]byte, error) {
+	width, height, _, ok := imageDims(data)
+	if !ok || !validImageSize(width, height) {
+		return nil, errBorderImageExtremeDims
+	}
+
 	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("decode border image: %w", err)

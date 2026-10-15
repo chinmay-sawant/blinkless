@@ -225,6 +225,80 @@ func TestCollectSheetsImportDepthCap(t *testing.T) {
 
 const maxImportDepth = 8
 
+// TestCollectSheetsImportFetchCap proves a wide @import list stops fetching
+// after the stylesheet cap. One import still loads (see
+// TestCollectSheetsImportAppliesImportedRules). The million-rule cap is
+// unchanged and is not what stops these fetches.
+func TestCollectSheetsImportFetchCap(t *testing.T) {
+	t.Parallel()
+
+	const (
+		many = 80
+		capN = 64
+	)
+
+	files := map[string]string{}
+
+	var body strings.Builder
+
+	for idx := range many {
+		name := fmt.Sprintf("/i%d.css", idx)
+		files[name] = fmt.Sprintf(".i%d { color: red }", idx)
+		fmt.Fprintf(&body, "@import url(\"i%d.css\");\n", idx)
+	}
+
+	body.WriteString(".root { color: blue }\n")
+	files["/a.css"] = body.String()
+
+	sheets, logBuf, hits := collectImportSheets(t, importFixture{
+		html:  `<html><head><link rel="stylesheet" href="a.css"></head><body></body></html>`,
+		files: files,
+		media: "print",
+	})
+
+	assertImportFetchCap(t, sheets, logBuf, hits, capN)
+}
+
+func assertImportFetchCap(
+	t *testing.T,
+	sheets []*css.Stylesheet,
+	logBuf bytes.Buffer,
+	hits map[string]int,
+	capN int,
+) {
+	t.Helper()
+
+	total := 0
+	for _, count := range hits {
+		total += count
+	}
+
+	if total > capN {
+		t.Fatalf("stylesheet fetches = %d, want <= %d; hits %v", total, capN, hits)
+	}
+
+	if hits["/a.css"] != 1 || hits["/i0.css"] != 1 {
+		t.Fatalf("early sheets were not fetched: %v", hits)
+	}
+
+	if hits["/i79.css"] != 0 {
+		t.Fatalf("fetch cap did not stop the tail import: %v", hits)
+	}
+
+	classes := sheetClasses(sheets)
+	if !slices.Contains(classes, "root") || !slices.Contains(classes, "i0") {
+		t.Fatalf("early sheets missing from cascade: %v", classes)
+	}
+
+	if slices.Contains(classes, "i79") {
+		t.Fatalf("tail import was applied: %v", classes)
+	}
+
+	if !strings.Contains(logBuf.String(), "stylesheet fetches") {
+		t.Fatalf("log = %q, want a fetch-cap warning", logBuf.String())
+	}
+}
+
 type importFixture struct {
 	html  string
 	files map[string]string

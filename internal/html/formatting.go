@@ -42,10 +42,16 @@ func (b *treeBuilder) activeFormattingMarkerStart() int {
 	return 0
 }
 
+// maxActiveFormatting caps the active formatting list. Noah's Ark drops only
+// a fourth identical element, so distinct elements such as <b id="N"> would
+// otherwise grow the list without bound.
+const maxActiveFormatting = 1024
+
 // pushActiveFormatting adds node to the list, applying the Noah's Ark clause:
 // when three entries after the last marker already have the same name,
 // namespace, and attributes, the earliest of them is removed first. A nil
-// node (dropped by the depth cap) is ignored.
+// node (dropped by the depth cap) is ignored. The list length stays at or
+// below maxActiveFormatting.
 func (b *treeBuilder) pushActiveFormatting(node *Node) {
 	if node == nil {
 		return
@@ -63,6 +69,10 @@ func (b *treeBuilder) pushActiveFormatting(node *Node) {
 	if len(matches) >= 3 {
 		idx := matches[0]
 		b.activeFormatting = append(b.activeFormatting[:idx], b.activeFormatting[idx+1:]...)
+	}
+
+	if len(b.activeFormatting) >= maxActiveFormatting {
+		return
 	}
 
 	b.activeFormatting = append(b.activeFormatting, node)
@@ -234,6 +244,15 @@ func (b *treeBuilder) insertClone(clone *Node) *Node {
 // end tag token, repairing misnested formatting elements.
 func (b *treeBuilder) adoptionAgency(tokItem *token) {
 	subject := tokItem.data
+
+	// Depth guard: when the stack is already at the element-depth cap, do not
+	// re-parent or clone formatting elements, which could otherwise push the
+	// tree past the cap. Fall back to the ordinary end-tag rules instead.
+	if depthExceeded(len(b.stack) - 1) {
+		b.closeHTMLElement(subject)
+
+		return
+	}
 
 	// Step 2: a current node matching subject that is not a formatting entry
 	// is simply popped.

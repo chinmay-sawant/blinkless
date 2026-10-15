@@ -383,6 +383,10 @@ func adjustedPaintImage(ref *imageRef, style ResolvedStyle) *imageRef {
 // orientedPaintImage rasterizes the orientation transform, optionally crops
 // the view box from the oriented pixels, and re-encodes as PNG.
 func orientedPaintImage(ref *imageRef, deg float64, mirror bool, cropRect image.Rectangle, crop bool) *imageRef {
+	if !imageRefDecodable(ref) {
+		return ref
+	}
+
 	decoded, _, err := image.Decode(bytes.NewReader(ref.data))
 	if err != nil {
 		return ref
@@ -609,17 +613,68 @@ func (e *engine) buildHR(n *html.Node, sty ResolvedStyle, availW, posX, posY flo
 	return boxNode
 }
 
-// imageDims extracts pixel dimensions from PNG or JPEG bytes.
+const (
+	maxImageDimPixels = 16384
+	maxImagePixels    = 16 * 1024 * 1024
+)
+
+// imageDims extracts pixel dimensions from PNG or JPEG bytes. Extreme
+// dimensions are rejected so a hostile header cannot drive huge allocations.
 func imageDims(data []byte) (int, int, bool, bool) {
-	if len(data) >= 24 && string(data[:8]) == "\x89PNG\r\n\x1a\n" {
-		return int(binary.BigEndian.Uint32(data[16:20])), int(binary.BigEndian.Uint32(data[20:24])), false, true
+	if width, height, ok := pngDims(data); ok {
+		return width, height, false, true
 	}
 
 	if len(data) >= 2 && data[0] == 0xFF && data[1] == 0xD8 {
-		return jpegDims(data)
+		width, height, jpeg, ok := jpegDims(data)
+		if !ok || !validImageSize(width, height) {
+			return 0, 0, false, false
+		}
+
+		return width, height, jpeg, true
 	}
 
 	return 0, 0, false, false
+}
+
+// pngDims reads IHDR dimensions from PNG bytes, rejecting extreme sizes.
+func pngDims(data []byte) (int, int, bool) {
+	if len(data) < 24 || string(data[:8]) != "\x89PNG\r\n\x1a\n" {
+		return 0, 0, false
+	}
+
+	width := int(binary.BigEndian.Uint32(data[16:20]))
+	height := int(binary.BigEndian.Uint32(data[20:24]))
+
+	if !validImageSize(width, height) {
+		return 0, 0, false
+	}
+
+	return width, height, true
+}
+
+// imageRefDecodable reports whether an image reference is safe to decode:
+// present, positively sized, and within the pixel budget.
+func imageRefDecodable(ref *imageRef) bool {
+	if ref == nil {
+		return false
+	}
+
+	return validImageSize(ref.w, ref.h)
+}
+
+// validImageSize reports whether pixel dimensions are positive and within
+// the per-edge and total-pixel budgets.
+func validImageSize(width, height int) bool {
+	if width <= 0 || height <= 0 {
+		return false
+	}
+
+	if width > maxImageDimPixels || height > maxImageDimPixels {
+		return false
+	}
+
+	return int64(width)*int64(height) <= maxImagePixels
 }
 
 // jpegDims scans JPEG segment markers for a SOF segment carrying dimensions.

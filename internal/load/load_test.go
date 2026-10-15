@@ -1086,6 +1086,89 @@ func TestRestrictedNetworkPolicyBlocksCrossHostRedirect(t *testing.T) {
 	}
 }
 
+// TestRestrictedRedirectErrorOmitsLocationSecrets proves a refused redirect
+// does not echo the Location. net/http stores that header on url.Error.URL.
+func TestRestrictedRedirectErrorOmitsLocationSecrets(t *testing.T) {
+	t.Parallel()
+
+	const (
+		password    = "super-secret-password"
+		plantedPath = "/tmp/planted-secret-file"
+	)
+
+	origin := httptest.NewServer(http.HandlerFunc(func(respWriter http.ResponseWriter, req *http.Request) {
+		respWriter.Header().Set("Location", req.URL.Query().Get("loc"))
+		respWriter.WriteHeader(http.StatusFound)
+	}))
+	t.Cleanup(origin.Close)
+
+	originURL, err := url.Parse(origin.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	policy := load.RestrictedNetworkPolicy()
+	policy.AllowedHosts = []string{originURL.Hostname(), "203.0.113.9"}
+
+	loader, err := load.NewLoaderWithNetworkPolicy(settings.LoadGlobal{}, policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cases := map[string]string{
+		"cross-host": "http://user:" + password + "@203.0.113.9" + plantedPath,
+		"file":       "file://" + plantedPath,
+	}
+
+	for name, location := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			target := origin.URL + "/?loc=" + url.QueryEscape(location)
+
+			_, err := loader.Load(t.Context(), target, defaultLP())
+			if !errors.Is(err, load.ErrNetworkPolicy) {
+				t.Fatalf("error = %v, want ErrNetworkPolicy", err)
+			}
+
+			if strings.Contains(err.Error(), password) || strings.Contains(err.Error(), plantedPath) {
+				t.Fatalf("error text contains Location secret: %v", err)
+			}
+		})
+	}
+}
+
+func TestRestrictedNetworkPolicyBlocksSpecialAddresses(t *testing.T) {
+	t.Parallel()
+
+	loader, err := load.NewLoaderWithNetworkPolicy(settings.LoadGlobal{}, load.RestrictedNetworkPolicy())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	targets := []string{
+		"http://224.0.0.1/",
+		"http://[ff02::1]/",
+		"http://255.255.255.255/",
+		"http://192.0.0.192/",
+		"http://168.63.129.16/",
+	}
+
+	for _, target := range targets {
+		t.Run(target, func(t *testing.T) {
+			t.Parallel()
+
+			ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+			defer cancel()
+
+			_, err := loader.Load(ctx, target, defaultLP())
+			if !errors.Is(err, load.ErrNetworkPolicy) {
+				t.Fatalf("error = %v, want ErrNetworkPolicy", err)
+			}
+		})
+	}
+}
+
 // TestLoadInlineHTML: an explicit in-memory HTML source is returned as-is
 // and skips GuessURL entirely; subresources resolve against InlineBase.
 func TestLoadInlineHTML(t *testing.T) {

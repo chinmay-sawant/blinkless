@@ -10,6 +10,8 @@ import (
 // invalid-UTF-8 tests.
 const fffdText = "a\uFFFDb"
 
+const htmlSampleTwo = "two"
+
 func mustParse(t *testing.T, src string) *Node {
 	t.Helper()
 
@@ -1275,8 +1277,8 @@ func TestParseMisnestedFormatting(t *testing.T) {
 		t.Errorf("b text = %q, want %q", got, "one")
 	}
 
-	if got := body.Children[1].TextContent(); got != "two" {
-		t.Errorf("reconstructed i text = %q, want %q", got, "two")
+	if got := body.Children[1].TextContent(); got != htmlSampleTwo {
+		t.Errorf("reconstructed i text = %q, want %q", got, htmlSampleTwo)
 	}
 }
 
@@ -1402,8 +1404,8 @@ func TestParseClosesParagraphsListsAndDefinitions(t *testing.T) {
 		t.Errorf("p text = %q, want %q", got, "one")
 	}
 
-	if got := body.FirstChild("div").TextContent(); got != "two" {
-		t.Errorf("div text = %q, want %q", got, "two")
+	if got := body.FirstChild("div").TextContent(); got != htmlSampleTwo {
+		t.Errorf("div text = %q, want %q", got, htmlSampleTwo)
 	}
 
 	if got := body.Children[2].Text; got != "three" {

@@ -284,6 +284,14 @@ func (e *engine) multicolGap(st ResolvedStyle) float64 {
 // usedColumnCountWidth resolves used column count and width from container
 // content width, gap, and specified column-width / column-count (CSS Multicol §3.3).
 func usedColumnCountWidth(avail, gap, colWidth float64, colCount int) (int, float64) {
+	if colCount > maxMulticolColumns {
+		colCount = maxMulticolColumns
+	}
+
+	if colCount < -maxMulticolColumns {
+		colCount = -maxMulticolColumns
+	}
+
 	switch {
 	case colCount <= 0 && colWidth < 0:
 		return 1, avail
@@ -298,9 +306,15 @@ func usedColumnCountWidth(avail, gap, colWidth float64, colCount int) (int, floa
 
 // fitColumnCount clamps the column count to ≥1 and returns the widths that
 // fill avail with gap between columns.
+const maxMulticolColumns = 4096
+
 func fitColumnCount(n int, avail, gap float64) (int, float64) {
 	if n < 1 {
 		n = 1
+	}
+
+	if n > maxMulticolColumns {
+		n = maxMulticolColumns
 	}
 
 	return n, columnWidth(n, avail, gap)
@@ -322,6 +336,10 @@ func shrinkColumnCount(colCount int, avail, gap, colWidth float64) (int, float64
 	count := colCount
 	if count < 1 {
 		count = 1
+	}
+
+	if count > maxMulticolColumns {
+		count = maxMulticolColumns
 	}
 
 	for count > 1 {
@@ -393,13 +411,31 @@ func (e *engine) flowMulticolSegment(
 	}
 
 	idx := 0
+	// snappedIdle is set when a snap did not consume an item. One more snap
+	// would walk pages forever when the font is taller than the page:
+	// remain stays under fontSize*1.2 at every page top, so idx never
+	// advances. Place on this page instead. Do not cap column height on
+	// the balance path; that is what makes fixture-57 page-snap.
+	snappedIdle := false
 	for idx < len(items) {
-		maxColH, snappedCy, snap := e.multicolColumnHeight(items, idx, style, balance, definiteH, padTop, yPos, curY, pageH)
+		maxColH, snappedCy, snap := e.multicolColumnHeight(
+			items, idx, style, balance, definiteH, padTop, yPos, curY, pageH,
+		)
+		if snap && (snappedIdle || !(snappedCy > curY)) {
+			snap = false
+			if maxColH <= 0 {
+				maxColH = pageH
+			}
+		}
+
 		if snap {
+			snappedIdle = true
 			curY = snappedCy
 
 			continue
 		}
+
+		snappedIdle = false
 
 		startIdx := idx
 		batch, nextIdx, totalH := collectMulticolBatch(items, idx, maxColH, maxColH*float64(nCols))
@@ -610,10 +646,15 @@ func (e *engine) multicolColumnHeight(
 	boundary := pageTop + pageH
 	remain := boundary - absTop
 	minUseful := e.scalePt(style.FontSize) * 1.2
-	// Snap to the next page when little/no room remains. Guard against
-	// float edges where absTop/pageH truncates just below an integer and
-	// remain≈0 (would spin forever on cy += remain).
-	if remain < minUseful {
+	// Snap to the next page when little room remains. Guard against float
+	// edges where absTop/pageH truncates just below an integer and remain
+	// is about 0 (a cy += remain update would spin).
+	// A font taller than the page leaves remain < minUseful even at the
+	// page top. Snapping there never consumes the item, so keep this page
+	// and let the caller place it. Do not clamp maxColH for balance;
+	// fixture-57 page-snaps when a stretched height is the column cap.
+	atPageTop := absTop <= pageTop+1e-6
+	if remain < minUseful && !atPageTop {
 		return 0, snapMulticolToPage(curY, absTop, boundary, pageH), true
 	}
 

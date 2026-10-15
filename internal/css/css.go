@@ -202,6 +202,14 @@ type Declaration struct {
 // Parse parses a stylesheet. Broken input never returns an error for recoverable
 // garbage; only unbalanced blocks do. @media preambles are stored raw on
 // Rule.Media and evaluated later via MediaMatches.
+// maxStylesheetBytes is the parser input cap. The loader also bounds a
+// document body, but Parse is public and must stop on its own.
+const maxStylesheetBytes = 32 << 20
+
+// ErrStylesheetTooLarge is returned when Parse or ParseBytes is given more
+// than maxStylesheetBytes of source.
+var ErrStylesheetTooLarge = errors.New("css: stylesheet exceeds byte limit")
+
 func Parse(src string) (*Stylesheet, error) {
 	return parse(src)
 }
@@ -220,6 +228,10 @@ func ParseBytes(src []byte) (*Stylesheet, error) {
 }
 
 func parse(src string) (*Stylesheet, error) {
+	if len(src) > maxStylesheetBytes {
+		return nil, ErrStylesheetTooLarge
+	}
+
 	str := &Stylesheet{} //nolint:exhaustruct // intentional zero-value fields
 	src = stripComments(src)
 	order := 0

@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/chinmay-sawant/blinkless/internal/errs"
@@ -42,6 +43,19 @@ const (
 	DefaultResponseTimeout = 60 * time.Second
 	DefaultMaxBodySize     = 100 << 20 // 100 MiB
 	DefaultMaxRedirects    = 10
+	// These caps bound operator-supplied request metadata and response headers.
+	MaxCustomHeaders       = 128
+	MaxCookies             = 128
+	MaxPostItems           = 1024
+	MaxMetadataBytes       = 8 << 10
+	MaxResponseHeaders     = 128
+	MaxResponseHeaderBytes = 1 << 20
+)
+
+// scheme names for default-port canonicalization in redirect host checks.
+const (
+	schemeHTTP  = "http"
+	schemeHTTPS = "https"
 )
 
 // ErrAccessDenied is returned when the local-file ACL blocks a path.
@@ -62,20 +76,62 @@ var ErrNilLoader = errors.New("blinkless: nil loader")
 // Package-level sentinels for the loader's internal failure modes, so
 // dynamic messages wrap a static error and stay matchable with errors.Is.
 var (
-	errCannotLoad          = errors.New("cannot load")
-	errUnsupportedCharset  = errors.New("unsupported charset")
-	errBlockedFileAccess   = errors.New("blocked file access")
-	errNoDocumentBase      = errors.New("cannot resolve relative subresource")
-	errUnsupportedScheme   = errors.New("unsupported subresource scheme")
-	errMalformedDataURL    = errors.New("malformed data URL")
-	errInvalidDataURL      = errors.New("invalid URL escape in data URL")
-	errTooManyRedirects    = errors.New("too many redirects")
-	errBodyTooLarge        = errors.New("exceeds max body size")
-	errInvalidBodyLimit    = errors.New("invalid max body size")
-	errInvalidRedirects    = errors.New("invalid max redirects")
-	errNilClient           = errors.New("load: client is nil")
-	errUninitializedLoader = errors.New("loader client is not initialized")
+	errCannotLoad                 = errors.New("cannot load")
+	errUnsupportedCharset         = errors.New("unsupported charset")
+	errBlockedFileAccess          = errors.New("blocked file access")
+	errNoDocumentBase             = errors.New("cannot resolve relative subresource")
+	errUnsupportedScheme          = errors.New("unsupported subresource scheme")
+	errMalformedDataURL           = errors.New("malformed data URL")
+	errInvalidDataURL             = errors.New("invalid URL escape in data URL")
+	errTooManyRedirects           = errors.New("too many redirects")
+	errBodyTooLarge               = errors.New("exceeds max body size")
+	errInvalidBodyLimit           = errors.New("invalid max body size")
+	errInvalidRedirects           = errors.New("invalid max redirects")
+	errNilClient                  = errors.New("load: client is nil")
+	errUninitializedLoader        = errors.New("loader client is not initialized")
+	errContentLengthRangeMismatch = errors.New("content-length and content-range mismatch")
+	errMetadataTooLarge           = errors.New("metadata exceeds limit")
 )
+
+// checkRequestMetadataLimits bounds operator-supplied request metadata so a
+// misconfigured caller cannot attach unbounded headers, cookies, or POST
+// fields to outbound requests.
+func checkRequestMetadataLimits(pageLoad settings.LoadPage) error {
+	if len(pageLoad.CustomHeaders) > MaxCustomHeaders {
+		return fmt.Errorf("%w: %d custom headers, limit %d",
+			errMetadataTooLarge, len(pageLoad.CustomHeaders), MaxCustomHeaders)
+	}
+
+	if len(pageLoad.Cookies) > MaxCookies {
+		return fmt.Errorf("%w: %d cookies, limit %d",
+			errMetadataTooLarge, len(pageLoad.Cookies), MaxCookies)
+	}
+
+	if len(pageLoad.Post) > MaxPostItems {
+		return fmt.Errorf("%w: %d POST items, limit %d",
+			errMetadataTooLarge, len(pageLoad.Post), MaxPostItems)
+	}
+
+	total := 0
+	for key, value := range pageLoad.CustomHeaders {
+		total += len(key) + len(value)
+	}
+
+	for key, value := range pageLoad.Cookies {
+		total += len(key) + len(value)
+	}
+
+	for _, item := range pageLoad.Post {
+		total += len(item.Name) + len(item.Value)
+	}
+
+	if total > MaxMetadataBytes {
+		return fmt.Errorf("%w: %d metadata bytes, limit %d",
+			errMetadataTooLarge, total, MaxMetadataBytes)
+	}
+
+	return nil
+}
 
 // clipRef shortens a long reference (URL or data URL payload) for error
 // messages so huge inputs cannot bloat logs.
@@ -276,12 +332,22 @@ func (a *AccessController) Allowed(path string) bool {
 		}
 
 		ap := resolvePath(p)
-		if abs == ap || strings.HasPrefix(abs, ap+string(filepath.Separator)) {
+		if pathWithinPrefix(abs, ap) {
 			return true
 		}
 	}
 
 	return false
+}
+
+func pathWithinPrefix(path, prefix string) bool {
+	if path == "" || prefix == "" {
+		return false
+	}
+
+	relative, err := filepath.Rel(prefix, path)
+
+	return err == nil && filepath.IsLocal(relative)
 }
 
 // resolvePath returns the clean absolute form of path, following symlinks
@@ -403,12 +469,13 @@ var _ IPResolver = net.DefaultResolver
 // visibility would be a breaking API shift for internal/load, and the setters
 // provide the guard without breaking compatibility.
 type Loader struct {
-	Client       *http.Client
-	Global       settings.LoadGlobal
-	Network      NetworkPolicy
-	Log          io.Writer
-	MaxBodySize  int64
-	MaxRedirects int
+	Client         *http.Client
+	Global         settings.LoadGlobal
+	Network        NetworkPolicy
+	Log            io.Writer
+	MaxBodySize    int64
+	MaxRedirects   int
+	maxRedirectsMu sync.RWMutex
 	// Resolver looks up host addresses for Restricted private-IP checks
 	// and pinned dials. Nil uses net.DefaultResolver.
 	Resolver IPResolver
@@ -474,9 +541,24 @@ func (l *Loader) SetMaxRedirects(maxRedirects int) error {
 		return fmt.Errorf("%w: %d must be non-negative", errInvalidRedirects, maxRedirects)
 	}
 
+	l.maxRedirectsMu.Lock()
+	defer l.maxRedirectsMu.Unlock()
+
 	l.MaxRedirects = maxRedirects
 
 	return nil
+}
+
+// maxRedirects returns a synchronized snapshot of the configured redirect cap.
+func (l *Loader) maxRedirects() int {
+	if l == nil {
+		return 0
+	}
+
+	l.maxRedirectsMu.RLock()
+	defer l.maxRedirectsMu.RUnlock()
+
+	return l.MaxRedirects
 }
 
 // SetResolver replaces the IP resolver. Nil restores the default resolver
@@ -545,8 +627,9 @@ func (l *Loader) initClient() error {
 		KeepAlive: defaultKeepAliveSec * time.Second,
 	}
 	transport := &http.Transport{ //nolint:exhaustruct // intentional zero/partial fields
-		ForceAttemptHTTP2: true,
-		DialContext:       l.policyDialContext(dialer),
+		ForceAttemptHTTP2:      true,
+		DialContext:            l.policyDialContext(dialer),
+		MaxResponseHeaderBytes: MaxResponseHeaderBytes,
 	}
 
 	if l.Global.Proxy != "" {
@@ -569,16 +652,16 @@ func (l *Loader) initClient() error {
 			if l.Network.BlockCrossHostRedirects && len(via) > 0 {
 				origin := via[0].URL
 				if !sameNetworkHost(origin, req.URL) {
-					return fmt.Errorf("%w: cross-host redirect %s -> %s", ErrNetworkPolicy,
-						origin.Host, req.URL.Host)
+					return fmt.Errorf("%w: cross-host redirect", ErrNetworkPolicy)
 				}
 			}
 
 			// Go's client counts the requests made so far in via, so the
 			// MaxRedirects-th redirect (len(via) == MaxRedirects) is the
 			// last one allowed to complete.
-			if len(via) > l.MaxRedirects {
-				return fmt.Errorf("%w: stopped after %d redirects", errTooManyRedirects, l.MaxRedirects)
+			maxRedirects := l.maxRedirects()
+			if len(via) > maxRedirects {
+				return fmt.Errorf("%w: stopped after %d redirects", errTooManyRedirects, maxRedirects)
 			}
 
 			return nil
@@ -608,16 +691,22 @@ func (l *Loader) policyDialContext( //nolint:cyclop // hostname vs IP vs proxy p
 			return nil, fmt.Errorf("%w: invalid dial address %q: %w", ErrNetworkPolicy, address, err)
 		}
 
+		// Dial the canonical host so a trailing FQDN dot or mixed case
+		// ("EXAMPLE.com.") connects to the same host the allowlist and
+		// redirect checks matched. The dot is semantically empty, but the
+		// resolver would treat "127.0.0.1." as a DNS name and fail.
+		host = normalizeNetworkHost(host)
+
 		if l.networkHostExactAllowlisted(host) {
-			return l.dialRaw(ctx, dialer, network, address)
+			return l.dialRaw(ctx, dialer, network, net.JoinHostPort(host, port))
 		}
 
 		if ip := net.ParseIP(host); ip != nil {
 			if isPrivateNetworkIP(ip) {
-				return nil, fmt.Errorf("%w: private address %s", ErrNetworkPolicy, ip)
+				return nil, fmt.Errorf("%w: private address", ErrNetworkPolicy)
 			}
 
-			return l.dialRaw(ctx, dialer, network, address)
+			return l.dialRaw(ctx, dialer, network, net.JoinHostPort(host, port))
 		}
 
 		ips, err := l.lookupIPs(ctx, host)
@@ -625,7 +714,7 @@ func (l *Loader) policyDialContext( //nolint:cyclop // hostname vs IP vs proxy p
 			return nil, fmt.Errorf("resolve %s: %w", host, err)
 		}
 
-		if err := rejectPrivateResolvedIPs(host, ips); err != nil {
+		if err := rejectPrivateResolvedIPs(ips); err != nil {
 			return nil, err
 		}
 
@@ -641,7 +730,7 @@ func (l *Loader) policyDialContext( //nolint:cyclop // hostname vs IP vs proxy p
 		}
 
 		if first == nil {
-			return nil, fmt.Errorf("%w: %s resolved to no addresses", ErrNetworkPolicy, host)
+			return nil, fmt.Errorf("%w: resolved to no addresses", ErrNetworkPolicy)
 		}
 
 		return nil, first
@@ -700,6 +789,14 @@ func (l *Loader) checkNetworkURL(ctx context.Context, target *url.URL) error {
 		return nil
 	}
 
+	// A proxy resolves the request URL itself. Restricted mode therefore
+	// accepts only literal addresses when a proxy is set, after the
+	// private-address check below. A hostname would let the proxy pick a
+	// different address than the one this process just looked up.
+	if l.Global.Proxy != "" && net.ParseIP(host) == nil {
+		return fmt.Errorf("%w: hostname targets require a literal address when a proxy is configured", ErrNetworkPolicy)
+	}
+
 	// Exact allowlisted hosts may skip the private-IP check (trusted
 	// internal services). Wildcard suffixes still resolve and block
 	// private records.
@@ -713,7 +810,7 @@ func (l *Loader) checkNetworkURL(ctx context.Context, target *url.URL) error {
 func (l *Loader) rejectPrivateTarget(ctx context.Context, host string) error {
 	if ip := net.ParseIP(host); ip != nil {
 		if isPrivateNetworkIP(ip) {
-			return fmt.Errorf("%w: private address %s", ErrNetworkPolicy, ip)
+			return fmt.Errorf("%w: private address", ErrNetworkPolicy)
 		}
 
 		return nil
@@ -724,17 +821,17 @@ func (l *Loader) rejectPrivateTarget(ctx context.Context, host string) error {
 		return fmt.Errorf("resolve %s: %w", host, err)
 	}
 
-	return rejectPrivateResolvedIPs(host, ips)
+	return rejectPrivateResolvedIPs(ips)
 }
 
-func rejectPrivateResolvedIPs(host string, ips []net.IP) error {
+func rejectPrivateResolvedIPs(ips []net.IP) error {
 	if len(ips) == 0 {
-		return fmt.Errorf("%w: %s resolved to no addresses", ErrNetworkPolicy, host)
+		return fmt.Errorf("%w: resolved to no addresses", ErrNetworkPolicy)
 	}
 
 	for _, ip := range ips {
 		if isPrivateNetworkIP(ip) {
-			return fmt.Errorf("%w: %s resolves to private address %s", ErrNetworkPolicy, host, ip)
+			return fmt.Errorf("%w: resolves to a private address", ErrNetworkPolicy)
 		}
 	}
 
@@ -742,7 +839,9 @@ func rejectPrivateResolvedIPs(host string, ips []net.IP) error {
 }
 
 func normalizeNetworkHost(host string) string {
-	return strings.ToLower(strings.TrimSpace(strings.TrimSuffix(host, ".")))
+	host = strings.ToLower(strings.TrimSpace(strings.TrimSuffix(host, ".")))
+
+	return stripIPv6Zone(host)
 }
 
 func (l *Loader) networkHostAllowlisted(host string) bool {
@@ -800,15 +899,55 @@ func containsFold(values []string, want string) bool {
 	return false
 }
 
+func canonicalNetworkHost(target *url.URL) string {
+	if target == nil {
+		return ""
+	}
+
+	host := normalizeNetworkHost(target.Hostname())
+	port := target.Port()
+
+	if port == "" {
+		port = defaultPortForScheme(target.Scheme)
+	}
+
+	if port == "" {
+		return host
+	}
+
+	return host + ":" + port
+}
+
+// defaultPortForScheme returns the implicit port for HTTP(S) schemes so
+// "example.com" and "example.com:443" compare equal on https.
+func defaultPortForScheme(scheme string) string {
+	switch strings.ToLower(scheme) {
+	case schemeHTTP:
+		return "80"
+	case schemeHTTPS:
+		return "443"
+	default:
+		return ""
+	}
+}
+
 func sameNetworkHost(left, right *url.URL) bool {
-	return strings.EqualFold(left.Host, right.Host)
+	if left == nil || right == nil {
+		return false
+	}
+
+	return canonicalNetworkHost(left) == canonicalNetworkHost(right)
 }
 
 //nolint:gochecknoglobals // precomputed immutable CIDR and target IP values for SSRF filtering
 var (
-	cgnatCIDR    = mustCIDR("100.64.0.0/10")
-	metaCIDR     = mustCIDR("169.254.169.0/24")
-	metaTargetIP = net.ParseIP("169.254.169.254")
+	cgnatCIDR          = mustCIDR("100.64.0.0/10")
+	metaCIDR           = mustCIDR("169.254.169.0/24")
+	metaTargetIP       = net.ParseIP("169.254.169.254")
+	limitedBroadcastIP = net.ParseIP("255.255.255.255")
+	// 192.0.0.192 is in the IETF assignment block and is an Azure metadata address.
+	protocolAssignIP  = net.ParseIP("192.0.0.192")
+	azureWireServerIP = net.ParseIP("168.63.129.16")
 )
 
 func mustCIDR(cidr string) *net.IPNet {
@@ -829,7 +968,7 @@ func isPrivateNetworkIP(addr net.IP) bool {
 		return true
 	}
 
-	if cgnatCIDR.Contains(addr) {
+	if blockedSpecialIP(addr) || cgnatCIDR.Contains(addr) {
 		return true
 	}
 
@@ -841,19 +980,26 @@ func isPrivateNetworkIP(addr net.IP) bool {
 }
 
 func parseProxy(raw string) (*url.URL, error) {
-	proxy, err := url.Parse(strings.TrimSpace(raw))
+	trimmed := strings.TrimSpace(raw)
+
+	proxy, err := url.Parse(trimmed)
 	if err != nil {
-		return nil, fmt.Errorf("%w %q: %w", ErrInvalidProxy, raw, err)
+		// A parse error can contain the original URL, including credentials.
+		// No reliable user-info boundary exists when parsing has failed.
+		return nil, fmt.Errorf("%w: malformed proxy URL", ErrInvalidProxy)
 	}
 
-	if proxy.Scheme == "" || proxy.Host == "" || proxy.Hostname() == "" {
-		return nil, fmt.Errorf("%w %q: absolute URL with scheme and host required", ErrInvalidProxy, raw)
+	// Opaque URLs such as "http:user:secret@host" parse without a host, and
+	// URL.Redacted leaves that secret in the opaque part. Never echo the
+	// input. Require a hierarchical http(s) URL with a host.
+	if proxy.Opaque != "" || proxy.Scheme == "" || proxy.Host == "" || proxy.Hostname() == "" {
+		return nil, fmt.Errorf("%w: absolute URL with scheme and host required", ErrInvalidProxy)
 	}
 
 	switch strings.ToLower(proxy.Scheme) {
 	case "http", "https":
 	default:
-		return nil, fmt.Errorf("%w %q: only http and https proxies are supported", ErrInvalidProxy, raw)
+		return nil, fmt.Errorf("%w: only http and https proxies are supported", ErrInvalidProxy)
 	}
 
 	return proxy, nil
@@ -1139,8 +1285,8 @@ func (l *Loader) validateLimits() error {
 		return err
 	}
 
-	if l.MaxRedirects < 0 {
-		return fmt.Errorf("%w: %d must be non-negative", errInvalidRedirects, l.MaxRedirects)
+	if maxRedirects := l.maxRedirects(); maxRedirects < 0 {
+		return fmt.Errorf("%w: %d must be non-negative", errInvalidRedirects, maxRedirects)
 	}
 
 	return nil
@@ -1226,24 +1372,20 @@ func (l *Loader) loadFile(ctx context.Context, path string, pageLoad settings.Lo
 	}
 
 	if !l.fileAccessAllowed(filePath, pageLoad) {
-		return nil, fmt.Errorf("%w: %s", ErrAccessDenied, filePath)
+		return nil, ErrAccessDenied
 	}
 	// blockLocalFileAccess=true blocks local reads even for the primary page
 	// unless the user explicitly enabled local access.
-	file, err := os.Open(filePath)
+	file, err := l.openPinnedFile(filePath, pageLoad)
 	if err != nil {
-		return nil, fmt.Errorf("open %s: %w", filePath, err)
+		return nil, err
 	}
 
 	defer file.Close()
 
-	body, err := readFileBody(ctx, file, l.MaxBodySize)
+	body, err := l.readPinnedBody(ctx, file)
 	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", filePath, err)
-	}
-
-	if int64(len(body)) > l.MaxBodySize {
-		return nil, fmt.Errorf("file %s %w %d", filePath, errBodyTooLarge, l.MaxBodySize)
+		return nil, err
 	}
 
 	return &Resource{ //nolint:exhaustruct // intentional zero/partial fields
@@ -1256,22 +1398,58 @@ func (l *Loader) loadFile(ctx context.Context, path string, pageLoad settings.Lo
 	}, nil
 }
 
+// readPinnedBody stats and reads an opened local file, rejecting
+// non-regular files and enforcing the body cap on the read side.
+func (l *Loader) readPinnedBody(ctx context.Context, file *os.File) ([]byte, error) {
+	info, err := file.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("stat local file: %w", err)
+	}
+
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("%w: not a regular file", errBlockedFileAccess)
+	}
+
+	body, err := readFileBody(ctx, file, l.MaxBodySize)
+	if err != nil {
+		return nil, fmt.Errorf("read local file: %w", err)
+	}
+
+	if int64(len(body)) > l.MaxBodySize {
+		return nil, fmt.Errorf("local file %w %d", errBodyTooLarge, l.MaxBodySize)
+	}
+
+	return body, nil
+}
+
 // filePathFromURL extracts the local filesystem path from a file:// URL
 // (or passes a plain path through). Remote file hosts - anything other
 // than the empty host and localhost - are refused.
 func filePathFromURL(path string) (string, error) {
 	parsed, err := url.Parse(path)
 	if err != nil {
-		// unparseable strings fall back to the plain path
-		return path, nil //nolint:nilerr // deliberate: parse failure means plain path
+		// Unparseable strings are treated as plain paths only when they do
+		// not look like a URL, so a malformed URL cannot be misread as a
+		// local filesystem target.
+		if strings.Contains(path, "://") {
+			// url.Error quotes the raw input, which can hold a password.
+			return "", errBlockedFileAccess
+		}
+
+		return path, nil // deliberate: no scheme means plain path
 	}
 
 	if parsed.Scheme != "file" {
+		if parsed.Scheme == "" {
+			return path, nil
+		}
+
 		return path, nil
 	}
 
-	if parsed.Host != "" && parsed.Host != "localhost" {
-		return "", fmt.Errorf("%w to %q", errBlockedFileAccess, path)
+	host := normalizeNetworkHost(parsed.Host)
+	if host != "" && host != "localhost" {
+		return "", fmt.Errorf("%w to requested host", errBlockedFileAccess)
 	}
 
 	if parsed.Path != "" {
@@ -1307,6 +1485,10 @@ func (l *Loader) loadHTTP(ctx context.Context, target string, pageLoad settings.
 		return nil, err
 	}
 
+	if err := checkRequestMetadataLimits(pageLoad); err != nil {
+		return nil, err
+	}
+
 	req, err := buildHTTPRequest(ctx, parsed, pageLoad)
 	if err != nil {
 		return nil, err
@@ -1318,6 +1500,13 @@ func (l *Loader) loadHTTP(ctx context.Context, target string, pageLoad settings.
 
 	resp, err := client.Do(req)
 	if err != nil {
+		// CheckRedirect returns a host-free policy error. net/http then wraps
+		// it in url.Error and sets URL to the raw Location, which can hold a
+		// password or a file path. Return the policy error without that wrap.
+		if policyErr := policyErrorWithoutLocation(err); policyErr != nil {
+			return nil, policyErr
+		}
+
 		return nil, fmt.Errorf("fetch %s: %w", parsed.String(), err)
 	}
 	defer resp.Body.Close()
@@ -1325,6 +1514,36 @@ func (l *Loader) loadHTTP(ctx context.Context, target string, pageLoad settings.
 	if resp.StatusCode >= httpStatusBadRequest {
 		// skip / ignore / abort policy
 		return l.loadErrorResponse(parsed, resp, pageLoad)
+	}
+
+	bodyBytes, err := l.readHTTPBody(parsed, resp)
+	if err != nil {
+		return nil, err
+	}
+
+	ctype := resp.Header.Get("Content-Type")
+	final := resp.Request.URL.String()
+
+	return &Resource{ //nolint:exhaustruct // intentional zero/partial fields
+		Kind:        KindHTTP,
+		URL:         final,
+		Base:        final,
+		Body:        bodyBytes,
+		ContentType: ctype,
+		StatusCode:  resp.StatusCode,
+	}, nil
+}
+
+// readHTTPBody validates a success response and reads it under the body cap:
+// Content-Range consistency first, then the Content-Length short-circuit,
+// then the authoritative read-side limit for chunked bodies.
+func (l *Loader) readHTTPBody(parsed *url.URL, resp *http.Response) ([]byte, error) {
+	if err := checkResponseHeaderLimits(resp.Header); err != nil {
+		return nil, err
+	}
+
+	if err := checkRangeConsistency(resp.Header.Get("Content-Range"), resp.ContentLength); err != nil {
+		return nil, err
 	}
 
 	// Enforce the body cap: reject oversized bodies outright rather than
@@ -1345,17 +1564,11 @@ func (l *Loader) loadHTTP(ctx context.Context, target string, pageLoad settings.
 		return nil, fmt.Errorf("response from %s %w %d", parsed.String(), errBodyTooLarge, l.MaxBodySize)
 	}
 
-	ctype := resp.Header.Get("Content-Type")
-	final := resp.Request.URL.String()
+	if err := checkRangeConsistency(resp.Header.Get("Content-Range"), int64(len(bodyBytes))); err != nil {
+		return nil, err
+	}
 
-	return &Resource{ //nolint:exhaustruct // intentional zero/partial fields
-		Kind:        KindHTTP,
-		URL:         final,
-		Base:        final,
-		Body:        bodyBytes,
-		ContentType: ctype,
-		StatusCode:  resp.StatusCode,
-	}, nil
+	return bodyBytes, nil
 }
 
 func cloneLoadPage(src settings.LoadPage) settings.LoadPage {
@@ -1485,8 +1698,9 @@ func (l *Loader) FetchSub(ctx context.Context, base, ref string, pageLoad settin
 
 	switch abs.Scheme {
 	case "file", "":
-		if abs.Host != "" && abs.Host != "localhost" {
-			return nil, fmt.Errorf("%w to %q", errBlockedFileAccess, abs.String())
+		host := normalizeNetworkHost(abs.Host)
+		if host != "" && host != "localhost" {
+			return nil, fmt.Errorf("%w to requested host", errBlockedFileAccess)
 		}
 
 		return l.loadFile(ctx, abs.Path, pageLoad)
