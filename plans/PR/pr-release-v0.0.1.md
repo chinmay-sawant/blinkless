@@ -78,5 +78,5 @@ no visual surface changed
 
 | Extension | Files | Insertions | Deletions |
 | --- | ---: | ---: | ---: |
-| `.md` | 0 | 0 | 0 |
-| **Total** | **0** | **0** | **0** |
+| `.md` | 3 | 84 | 2 |
+| **Total** | **3** | **84** | **2** |
