@@ -124,7 +124,8 @@ The home page specimen lists one outer fill at 0, 0 covering the 420 by 132 canv
 | `.jpg` | 4 | Binary | Binary |
 | `.js` | 3 | 251 | 0 |
 | `.json` | 7 | 4907 | 0 |
+| `.md` | 1 | 131 | 0 |
 | `.ts` | 4 | 155 | 0 |
 | `.tsx` | 11 | 1349 | 0 |
 | No extension | 2 | 27 | 0 |
-| **Total** | **36** | **7133** | **0** |
+| **Total** | **37** | **7264** | **0** |
