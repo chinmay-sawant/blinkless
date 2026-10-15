@@ -9,3 +9,5 @@ Follow-up checklist: [v0.0.1 HTML, CSS, and JSON compatibility](v0.0.1/html-css-
 Native view proposal: [native web view checklist](v0.0.1/native-window/native-web-view-checklist.md). It defines the runtime, scrolling, input, navigation, JavaScript, native surface, accessibility, and compatibility work around Blinkless's drawing-list engine. All implementation rows are open.
 
 CSS masking first wave: [CSS masking checklist](v0.0.1/css-masking/css-masking-checklist.md). It targets 10 standard mask properties and 8 WebKit-prefixed forms. The display-list group contract and property behavior are implemented; all final gates passed on 2026-10-13.
+
+Release note: [v0.0.1 release note](v0.0.1/release-note/v0.0.1.md), with the [54-commit ledger](v0.0.1/release-note/commits.md). It covers `master` from `23061d8` through `c085b34`. It does not tag a release. Binding version strings still read 0.2.6 while `RELEASE.md` names this cut 0.0.1.
