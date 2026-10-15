@@ -1,6 +1,7 @@
 package load
 
 import (
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -44,5 +45,31 @@ func TestAllowedRootRejectsSymlinkSwappedAfterACLCheck(t *testing.T) {
 		_ = file.Close()
 
 		t.Fatal("file replaced by an escaping symlink must not open")
+	}
+}
+
+func TestNormalizeNetworkHostStripsZone(t *testing.T) {
+	t.Parallel()
+
+	if got := normalizeNetworkHost("[FE80::1%eth0]"); got != "[fe80::1]" {
+		t.Fatalf("bracketed zone host = %q", got)
+	}
+
+	if got := normalizeNetworkHost("fe80::1%25eth0"); got != "fe80::1" {
+		t.Fatalf("bare zone host = %q", got)
+	}
+
+	left, err := url.Parse("https://[2001:db8::1%25eth0]/a")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	right, err := url.Parse("https://[2001:db8::1]/a")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !sameNetworkHost(left, right) {
+		t.Fatal("an IPv6 zone id must not make the same address look like another host")
 	}
 }

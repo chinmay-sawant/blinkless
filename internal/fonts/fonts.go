@@ -333,6 +333,13 @@ func (f *Font) parseHmtx() error {
 		return errFontTruncatedHmtx
 	}
 
+	// numHMetrics is the number of glyphs that carry their own advance.
+	// The spec requires it to be at most numGlyphs. A larger count would
+	// index past the advance slice allocated from numGlyphs.
+	if f.numGlyphs <= 0 || f.numHMetrics > f.numGlyphs {
+		return errFontBadNumHMetrics
+	}
+
 	lastAdv := int32(binary.BigEndian.Uint16(tbl[need-4 : need-2]))
 	f.advance = make([]int32, f.numGlyphs)
 	f.lsb = make([]int16, f.numGlyphs)

@@ -18,10 +18,18 @@ func (f *Font) GlyphContours(r rune) [][]GlyphPoint {
 		return nil
 	}
 
-	return f.glyphContoursID(g, 0, 0, 1, 1)
+	return f.glyphContoursID(g, 0, 0, 1, 1, 0)
 }
 
-func (f *Font) glyphContoursID(glyphID uint16, deltaX, deltaY, scaleX, scaleY float64) [][]GlyphPoint {
+// maxCompositeDepth stops a composite glyph that includes itself, or a
+// chain longer than a real face uses, from recursing until the stack dies.
+const maxCompositeDepth = 32
+
+func (f *Font) glyphContoursID(glyphID uint16, deltaX, deltaY, scaleX, scaleY float64, depth int) [][]GlyphPoint {
+	if depth > maxCompositeDepth {
+		return nil
+	}
+
 	raw := f.glyphOutline(glyphID)
 	if len(raw) < glyfHeaderSize {
 		return nil
@@ -29,7 +37,7 @@ func (f *Font) glyphContoursID(glyphID uint16, deltaX, deltaY, scaleX, scaleY fl
 
 	numContours := int16(binary.BigEndian.Uint16(raw[0:2])) //nolint:gosec // numContours is int16 per glyf spec
 	if numContours < 0 {
-		return f.compositeContours(raw, deltaX, deltaY, scaleX, scaleY)
+		return f.compositeContours(raw, deltaX, deltaY, scaleX, scaleY, depth)
 	}
 
 	return f.simpleContours(raw, int(numContours), deltaX, deltaY, scaleX, scaleY)
@@ -260,7 +268,7 @@ func f2dot14(raw []byte, pos int) float64 {
 	return float64(int16(binary.BigEndian.Uint16(raw[pos:]))) / f2dot14Scale
 }
 
-func (f *Font) compositeContours(raw []byte, deltaX, deltaY, scaleX, scaleY float64) [][]GlyphPoint {
+func (f *Font) compositeContours(raw []byte, deltaX, deltaY, scaleX, scaleY float64, depth int) [][]GlyphPoint {
 	var out [][]GlyphPoint
 
 	pos := glyfHeaderSize
@@ -275,7 +283,7 @@ func (f *Font) compositeContours(raw []byte, deltaX, deltaY, scaleX, scaleY floa
 
 		pos = next
 
-		sub := f.glyphContoursID(child, deltaX+axVal*scaleX, deltaY+ayVal*scaleY, scaleX*csxVal, scaleY*csyVal)
+		sub := f.glyphContoursID(child, deltaX+axVal*scaleX, deltaY+ayVal*scaleY, scaleX*csxVal, scaleY*csyVal, depth+1)
 		out = append(out, sub...)
 
 		if flags&glyfMoreComponents == 0 { // MORE_COMPONENTS

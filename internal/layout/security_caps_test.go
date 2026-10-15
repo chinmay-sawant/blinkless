@@ -2,6 +2,7 @@ package layout
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
@@ -29,6 +30,22 @@ func TestGridRejectsCumulativeCellBudget(t *testing.T) {
 
 	if gridExtentWithinBudget(-1, -1, 1, 1, 0) {
 		t.Fatal("accepted a cell after exhausting the cumulative budget")
+	}
+}
+
+func TestGridRepeatNestingStaysBounded(t *testing.T) {
+	t.Parallel()
+
+	nested := strings.Repeat("repeat(63, ", 3) + "1px)))"
+	got := expandRepeatFunctions(nested)
+
+	if got != nested {
+		t.Fatalf("triple nested repeat expanded to %d bytes", len(got))
+	}
+
+	flat := expandRepeatFunctions("repeat(4, 1px)")
+	if strings.Count(flat, "1px") != 4 {
+		t.Fatalf("repeat(4, 1px) = %q", flat)
 	}
 }
 

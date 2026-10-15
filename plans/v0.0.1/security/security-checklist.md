@@ -1,7 +1,7 @@
 # 0.0.1 - Security hardening
 
 > **Parent:** `plans/v0.0.1/phase-wise-checklist.md` - canonical 0.0.1 ledger; this file is the security slice of that ledger.
-> **Status:** review fixes and final verification completed on 2026-10-15. Build, full tests, lint, drawing-list, race, WASM runtime/consumer, and C/Python gates passed. The security plan remains partial wherever rows are open or deferred; this header does not close them.
+> **Status:** follow-up fixes on 2026-10-15 closed the rows the review left open. Selector work, the CSS parser byte cap, image-header checks, grid repeat expansion, font panic guards, loader redaction, proxy hostname refusal, response header caps, SVG lock waits, and capped fuzz targets are recorded in the five ledgers. Public `html.Parse` still has no byte cap. An in-flight canvas Draw still runs to completion. C callers must still pass valid pointers.
 > **Estimated effort:** security-only hardening across HTML/CSS/layout/load/fonts/svg/bindings.
 
 ---
@@ -22,8 +22,8 @@ contain a vulnerability.
 | Attack class | Realistic today in blinkless | Primary code | Landed controls |
 |---|---|---|---|
 | Document script execution | Unsupported; this is not a proof that every vulnerability is impossible | html / css / layout / bindings | No script evaluator; C callers must provide valid memory |
-| DoS / resource exhaustion | High | layout, html, css, fonts, svg, bindings | Input, depth, grid-work, font-work, and raster caps; selector budget remains open |
-| SSRF / local file read | High in service use | load, css urls, fonts | ACL default deny, rooted allowed-path opens, body caps; restricted network mode is opt-in |
+| DoS / resource exhaustion | High | layout, html, css, fonts, svg, bindings | Input, depth, grid-work, font-work, raster, selector, and stylesheet caps |
+| SSRF / local file read | High in service use | load, css urls, fonts | ACL default deny, rooted allowed-path opens, body caps; restricted mode refuses proxied hostnames |
 | Parser / namespace differential | Output and resource-resolution integrity; scripts stay inert | html / foreign, css namespace | HTML integration points documented |
 | FFI / host integrity failure | Medium for direct C / WASM callers | bindings/c, bindings/wasm | Allow-list and error-buffer caps; Go panic recovery in C and WASM |
 | Information leakage | Medium | load, bindings/c | Proxy errors redacted; C error slot remains process-wide |
@@ -78,13 +78,13 @@ Standards verification passed on the full tree. Lint ran with
 `GOGC=30 GOMEMLIMIT=1600MiB GOMAXPROCS=2` to fit this host's memory.
 The earlier killed or subset runs are not the closing evidence.
 
-These limits remain open or partial: selector matching work, caller-enforced
-public HTML and CSS input bounds, SVG parsing work and cancellation, proxy
-DNS enforcement, response metadata policy, embedded-payload copying, and
-parser fuzz targets. Operational file/HTTP error redaction and C caller-memory
-obligations retain the documented scope. HTTP timeouts do not bound SVG work,
-and lack of document-script execution does not prove every vulnerability
-impossible.
+The follow-up on 2026-10-15 closed the rows that were still open or partial.
+Public `html.Parse` remains uncapped on purpose; callers bound those bytes.
+CSS parsing rejects more than 32 MiB. SVG lock waits observe the caller
+context, and a Draw that has already started still finishes. Policy denials
+omit secrets and resolved addresses. Operational file and HTTP errors still
+echo the caller's own identifier. C callers must still pass valid memory.
+Lack of document-script execution does not prove every vulnerability impossible.
 
 | Final command | Exit | Evidence log |
 |---|---|---|
@@ -102,3 +102,9 @@ gate ran actual JavaScript bridge tests and compared decoded operations and
 resources with native output. Targeted 32-bit font regressions passed.
 Darwin/arm64 and Windows/amd64 loader/font-preparation builds passed; those
 are compile checks, not runtime proof.
+
+Follow-up on 2026-10-15, after the remaining rows were implemented:
+`make test` exit 0, `make golden` exit 0, `make claim-scan` exit 0, and
+`GOGC=30 GOMEMLIMIT=1600MiB GOMAXPROCS=2 make lint` exit 0. The two-second
+fuzz runs are named on the fuzz row in `05-concurrency-state-and-leakage.md`.
+Race, WASM, and Python gates were not re-run for this follow-up.

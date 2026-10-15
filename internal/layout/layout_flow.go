@@ -101,7 +101,7 @@ func (e *engine) resolveImage(src string) *imageRef {
 	}
 
 	ref := &imageRef{src: src, sourceData: data, data: data} //nolint:exhaustruct // intentional zero fields
-	if png, pw, ph, err := svg.Rasterize(data, svgRasterMaxDim); err == nil {
+	if png, pw, ph, err := svg.RasterizeContext(e.rasterContext(), data, svgRasterMaxDim); err == nil {
 		ref.data, ref.w, ref.h = png, pw, ph
 	} else if w, h, jpeg, ok := imageDims(data); ok {
 		ref.w, ref.h, ref.isJPEG = w, h, jpeg

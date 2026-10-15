@@ -95,53 +95,80 @@ func parseGridTrackDefs(raw string) []gridTrackDef {
 	return out
 }
 
+// Grid repeat expansion bounds. One repeat() is at most 63 copies. Nested
+// repeat() multiplies, so the pass count and the output size stop a short
+// source from becoming millions of tracks before placement runs.
+const (
+	maxRepeatPasses = 128
+	maxRepeatBytes  = 256 << 10
+)
+
 // expandRepeatFunctions replaces repeat(N, <track-list>) with N copies.
+// Input that would expand past the pass or byte budget is returned unchanged,
+// so the track parser sees the original repeat() text instead of a huge list.
 func expandRepeatFunctions(raw string) string {
-	lower := strings.ToLower(raw)
+	original := raw
 
-	for {
-		idx := strings.Index(lower, "repeat(")
-		if idx < 0 {
+	for range maxRepeatPasses {
+		next, ok := expandOneRepeat(raw)
+		if !ok {
 			return raw
 		}
 
-		start := idx + len("repeat(")
-
-		end := findMatchingParen(raw, start-1)
-		if end < 0 {
-			return raw
+		if len(next) > maxRepeatBytes {
+			return original
 		}
 
-		inner := raw[start:end]
-
-		parts := splitTopLevelComma(inner)
-		if len(parts) != two {
-			return raw
-		}
-
-		node, err := strconv.Atoi(strings.TrimSpace(parts[0]))
-		if err != nil || node <= 0 || node >= 64 {
-			return raw
-		}
-
-		track := strings.TrimSpace(parts[1])
-
-		var boxNode strings.Builder
-
-		boxNode.WriteString(raw[:idx])
-
-		for i := range node {
-			if i > 0 {
-				boxNode.WriteByte(' ')
-			}
-
-			boxNode.WriteString(track)
-		}
-
-		boxNode.WriteString(raw[end+1:])
-		raw = boxNode.String()
-		lower = strings.ToLower(raw)
+		raw = next
 	}
+
+	return original
+}
+
+// expandOneRepeat replaces the first repeat() call. ok is false when the
+// text has no further valid repeat, and the caller keeps raw as it stands.
+func expandOneRepeat(raw string) (string, bool) {
+	lower := strings.ToLower(raw)
+	idx := strings.Index(lower, "repeat(")
+
+	if idx < 0 {
+		return raw, false
+	}
+
+	start := idx + len("repeat(")
+	end := findMatchingParen(raw, start-1)
+
+	if end < 0 {
+		return raw, false
+	}
+
+	parts := splitTopLevelComma(raw[start:end])
+	if len(parts) != two {
+		return raw, false
+	}
+
+	count, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+	if err != nil || count <= 0 || count >= 64 {
+		return raw, false
+	}
+
+	track := strings.TrimSpace(parts[1])
+
+	var expanded strings.Builder
+
+	expanded.WriteString(raw[:idx])
+
+	for i := range count {
+		if i > 0 {
+			expanded.WriteByte(' ')
+		}
+
+		expanded.WriteString(track)
+	}
+
+	expanded.WriteString(raw[end+1:])
+
+	return expanded.String(), true
 }
 
 func findMatchingParen(s string, openIdx int) int {

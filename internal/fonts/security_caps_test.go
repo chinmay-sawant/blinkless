@@ -9,6 +9,41 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/fonts/assets"
 )
 
+func TestHmtxRejectsMetricCountAboveGlyphCount(t *testing.T) {
+	t.Parallel()
+
+	fnt := &Font{
+		numGlyphs:   1,
+		numHMetrics: 2,
+		tables:      map[string][]byte{"hmtx": make([]byte, 8)},
+	}
+
+	if err := fnt.parseHmtx(); err == nil {
+		t.Fatal("accepted numHMetrics greater than numGlyphs")
+	}
+}
+
+func TestCompositeGlyphCycleStops(t *testing.T) {
+	t.Parallel()
+
+	glyf := make([]byte, 16)
+	binary.BigEndian.PutUint16(glyf[0:2], 0xFFFF)
+	binary.BigEndian.PutUint16(glyf[10:12], glyfArgsXYValues)
+	binary.BigEndian.PutUint16(glyf[12:14], 0)
+
+	loca := make([]byte, 4)
+	binary.BigEndian.PutUint16(loca[2:4], uint16(len(glyf)/2)) //nolint:gosec // the fixture glyf is 16 bytes
+
+	fnt := &Font{
+		tables:        map[string][]byte{"glyf": glyf, "loca": loca},
+		indexToLocFmt: 0,
+	}
+
+	if contours := fnt.GlyphContours(0); len(contours) != 0 {
+		t.Fatalf("self-referential composite returned %d contours", len(contours))
+	}
+}
+
 func TestLazyFontAdvanceInPoints(t *testing.T) {
 	t.Parallel()
 

@@ -10,6 +10,7 @@ package svg
 
 import (
 	"bytes"
+	"context"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -19,19 +20,24 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/renderers/rasterizer"
 )
 
 const (
-	cssDPI           = 96.0
-	mmPerInch        = 25.4
-	viewBoxNumParts  = 4
-	maxSVGBytes      = 32 << 20
-	maxSVGProbeBytes = 4096
-	maxRasterSide    = 4096
+	cssDPI            = 96.0
+	mmPerInch         = 25.4
+	viewBoxNumParts   = 4
+	maxSVGBytes       = 32 << 20
+	maxSVGProbeBytes  = 4096
+	maxRasterSide     = 4096
+	maxEmulateTags    = 100000
+	maxRasterLockWait = 30 * time.Second
 )
+
+var errRasterBusy = errors.New("svg: rasterizer lock wait exceeded")
 
 // Static errors returned by Rasterize; callers can match with errors.Is.
 var (
@@ -54,6 +60,25 @@ var (
 // returns err with nil pngBytes and zero w/h - callers must treat error
 // as "no image". There is no second rasterizer or shell fallback.
 func Rasterize(data []byte, maxSide int) ([]byte, int, int, error) {
+	// Callers that have a context use RasterizeContext. This entry is for
+	// tests and helpers that do not.
+	return RasterizeContext(context.Background(), data, maxSide)
+}
+
+// RasterizeContext is Rasterize with a caller context. A cancelled context
+// or a deadline returns before the canvas lock is taken and before drawing
+// starts. The lock wait itself stops at the deadline or at maxRasterLockWait.
+// Once canvas Draw has started, that library call runs to completion because
+// it has no cancel point. The mutex is released when Draw returns.
+func RasterizeContext(ctx context.Context, data []byte, maxSide int) ([]byte, int, int, error) {
+	if ctx == nil {
+		return nil, 0, 0, errNotSVG
+	}
+
+	if err := ctx.Err(); err != nil {
+		return nil, 0, 0, fmt.Errorf("svg raster: %w", err)
+	}
+
 	if len(data) > maxSVGBytes {
 		return nil, 0, 0, fmt.Errorf("%w: %d bytes, limit %d", errSVGTooLarge, len(data), maxSVGBytes)
 	}
@@ -68,7 +93,47 @@ func Rasterize(data []byte, maxSide int) ([]byte, int, int, error) {
 		return nil, 0, 0, errNotSVG
 	}
 
-	return rasterizeCanvas(data, maxSide)
+	return rasterizeCanvas(ctx, data, maxSide)
+}
+
+// lockCanvas waits until the shared canvas mutex is free, the context ends,
+// or maxRasterLockWait elapses. TryLock avoids leaving a goroutine holding
+// the mutex after the caller has given up.
+func lockCanvas(ctx context.Context) error {
+	wait := maxRasterLockWait
+	if deadline, ok := ctx.Deadline(); ok {
+		if remaining := time.Until(deadline); remaining < wait {
+			wait = remaining
+		}
+	}
+
+	if wait <= 0 {
+		if err := ctx.Err(); err != nil {
+			return fmt.Errorf("svg raster: %w", err)
+		}
+
+		return errRasterBusy
+	}
+
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+
+	ticker := time.NewTicker(time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		if canvasMu.TryLock() {
+			return nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("svg raster: %w", ctx.Err())
+		case <-timer.C:
+			return errRasterBusy
+		case <-ticker.C:
+		}
+	}
 }
 
 // rasterizeCanvas uses tdewolff/canvas to parse SVG and rasterize to PNG.
@@ -99,9 +164,15 @@ func dpmmScaleFactor(targetW, targetH, maxSide int) float64 {
 }
 
 //nolint:nonamedreturns,cyclop // defer-recover must override the result values; SVG raster has inherent branches
-func rasterizeCanvas(data []byte, maxSide int) (pngBytes []byte, w, h int, err error) {
-	canvasMu.Lock()
+func rasterizeCanvas(ctx context.Context, data []byte, maxSide int) (pngBytes []byte, w, h int, err error) {
+	if err = lockCanvas(ctx); err != nil {
+		return nil, 0, 0, err
+	}
 	defer canvasMu.Unlock()
+
+	if err = ctx.Err(); err != nil {
+		return nil, 0, 0, fmt.Errorf("svg raster: %w", err)
+	}
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -138,6 +209,10 @@ func rasterizeCanvas(data []byte, maxSide int) (pngBytes []byte, w, h int, err e
 	if math.IsNaN(pixelW) || math.IsNaN(pixelH) || pixelW < 0.5 || pixelH < 0.5 ||
 		pixelW > maxRasterSide || pixelH > maxRasterSide {
 		return nil, 0, 0, errCanvasZeroPixel
+	}
+
+	if err = ctx.Err(); err != nil {
+		return nil, 0, 0, fmt.Errorf("svg raster: %w", err)
 	}
 
 	img := rasterizer.Draw(svgCanvas, canvas.DPMM(dpmm), nil)
@@ -375,7 +450,14 @@ func emulateTags(data []byte) []byte {
 	flush := 0
 	pos := 0
 
+	tags := 0
+
 	for pos < len(data) {
+		tags++
+		if tags > maxEmulateTags {
+			return nil
+		}
+
 		rel := bytes.IndexByte(data[pos:], '<')
 		if rel < 0 {
 			break

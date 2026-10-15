@@ -1,7 +1,7 @@
 # 0.0.1 - Parsers and namespace confusion
 
 > **Parent:** `plans/v0.0.1/security/security-checklist.md` (Parser and namespace confusion slice)
-> **Status:** review fixes and final verification completed on 2026-10-15. Build, full tests, lint, drawing-list, race, WASM runtime/consumer, and C/Python gates passed. The security plan remains partial wherever rows are open or deferred; this header does not close them.
+> **Status:** follow-up on 2026-10-15 closed the rows in this ledger that were still open or deferred. Package tests for the touched code passed the same day. Full-tree gates stay in the closure section.
 > **Estimated effort:** parser hardening across `internal/html`, `internal/css`, `internal/svg`, and `internal/convert`, plus documentation, gated by package tests, `make test`, and `make lint`.
 
 ## Overview
@@ -38,7 +38,7 @@ Proof for the phase: `go test ./internal/html`.
 
 Proof for the phase: `go test ./internal/css ./internal/convert`.
 
-- [ ] `:has` cost (`internal/css/has.go:210-314`). Still open: stop-on-match pre-exists but no per-query work budget; chained/nested `:has()` can multiply subtree walks. Next gate: work budget plus regression test. (open 2026-10-14)
+- [x] `:has` cost (`internal/css/match.go:84-114`, `internal/css/has.go`). One match shares 1,048,576 element inspections across its `:has()` walks and fails closed when they run out. A `:has()` argument that itself contains `:has()` is still rejected at parse time. Proof: `TestHasVisitBudgetStopsBeforeLateMatch` and `go test ./internal/css -count=1` exit 0 on 2026-10-15.
 - [x] calc NaN and Inf propagation (`internal/css/math_expr.go`). Non-finite results degrade to no-value. Proof: `go test ./internal/css -run TestEvalMathRejectsNonFinite` exit 0. (closed 2026-10-14)
 - [x] Import cycle and depth (`internal/convert/prepare/styles.go:19-431`; `maxImportDepth=8`; `maxStylesheetRules=1e6`). Depth cap, rule cap, and final-URL cycle detection; same-URL cycle covered by `TestCollectSheetsImportSkipsCycle` (redirect-alias branch has no direct test). Proof: `go test ./internal/convert/prepare` exit 0. (closed 2026-10-14)
 - [x] Selector parse depth (`internal/css/css.go:877-909`). Verified pre-existing 128 cap with pre-scan and boundary tests. No change needed. Proof: `go test ./internal/css` exit 0. (closed 2026-10-14)
@@ -50,7 +50,7 @@ Proof for the phase: `go test ./internal/css ./internal/convert`.
 Proof for the phase: `go test ./internal/svg`.
 
 - [x] Mask parser recursion (`internal/svg/mask.go:184`; `internal/svg/mask.go:202`). 1024 cap threaded through `readSVGMaskElement`. Proof: `go test ./internal/svg -run TestRasterizeMaskDepthCap` exit 0. (closed 2026-10-14)
-- [~] emulateTags scanner (`internal/svg/raster.go:377`). Iterative with guaranteed progress under the 32 MiB input cap; no per-tag cap. Accepted residual (see 01 Phase 4). (deferred 2026-10-14)
+- [x] emulateTags scanner (`internal/svg/raster.go:455`). The rewrite stops after 100,000 tags and keeps the original bytes. The 32 MiB input cap still applies. Proof: `TestEmulateTagsStopsAtTagCap` and `go test ./internal/svg -count=1` exit 0 on 2026-10-15.
 - [x] Root dimension parser HTMLEntity and HTMLAutoClose (`internal/svg/raster.go:217`). Reviewed: custom external entities are rejected (fail closed, no XXE/file read); HTML auto-close only affects size/shape parsing on huge inputs already bounded by `maxSVGBytes`. No change. Proof: `go test ./internal/svg` exit 0. (closed 2026-10-14)
 - [x] No XXE or file fetch positive control; SVG url refs limited to `url(#id)` (`internal/svg/svg.go`). Stronger than stated: `internal/svg` contains no URL, href, network, or file handling at all (verified by grep 2026-10-14); external references are never resolved. Documented in THREAT-MODEL section 9. Proof: `go test ./internal/svg` exit 0. (closed 2026-10-14)
 

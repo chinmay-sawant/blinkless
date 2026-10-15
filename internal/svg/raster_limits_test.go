@@ -2,11 +2,52 @@ package svg
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"image/png"
 	"math"
 	"testing"
+	"time"
 )
+
+//nolint:paralleltest // this test holds the package canvas mutex
+func TestRasterizeContextStopsWaitingForMutex(t *testing.T) {
+	canvasMu.Lock()
+	t.Cleanup(canvasMu.Unlock)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 40*time.Millisecond)
+	t.Cleanup(cancel)
+
+	started := time.Now()
+	src := []byte(`<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"/>`)
+	png, width, height, err := RasterizeContext(ctx, src, 16)
+
+	if err == nil || png != nil || width != 0 || height != 0 {
+		t.Fatal("rasterize waited for a held mutex")
+	}
+
+	if time.Since(started) > time.Second {
+		t.Fatal("mutex wait ignored the caller deadline")
+	}
+}
+
+func TestEmulateTagsStopsAtTagCap(t *testing.T) {
+	t.Parallel()
+
+	var body bytes.Buffer
+
+	body.WriteString(`<svg fill-rule="evenodd">`)
+
+	for range maxEmulateTags + 2 {
+		body.WriteString(`<rect fill-rule="evenodd"/>`)
+	}
+
+	body.WriteString(`</svg>`)
+
+	if emulateTags(body.Bytes()) != nil {
+		t.Fatal("tag cap still rewrote the document")
+	}
+}
 
 func TestCanvasDPMMBoundsBothAxes(t *testing.T) {
 	t.Parallel()

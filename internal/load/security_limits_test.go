@@ -1,6 +1,8 @@
 package load_test
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -170,6 +172,7 @@ func TestProxyErrorRedactsCredentials(t *testing.T) {
 		"ftp://operator:supersecretpw@proxy.example.com:8080",
 		"http://operator:supersecretpw@proxy.example.com:bad",
 		"http://operator:supersecretpw@proxy.example.com/%zz",
+		"http:operator:supersecretpw@proxy.example.com",
 	} {
 		global := settings.LoadGlobal{Proxy: proxy}
 
@@ -277,13 +280,64 @@ func TestMalformedFileURLFallback(t *testing.T) {
 	loader := mustLoader(t)
 	loader.EnableLocalFileAccess = true
 
-	_, err := loader.Load(t.Context(), "file://foo bar/baz", pageLoad)
+	_, err := loader.Load(t.Context(), "file://user:supersecretpw@foo bar/baz", pageLoad)
 	if err == nil {
 		t.Fatal("malformed file URL must be refused")
 	}
 
 	if !strings.Contains(err.Error(), "blocked") {
 		t.Fatalf("error = %v, want a blocked-access refusal", err)
+	}
+
+	if strings.Contains(err.Error(), "supersecretpw") {
+		t.Fatalf("malformed file URL error leaks credentials: %v", err)
+	}
+}
+
+func TestRestrictedProxyRejectsHostname(t *testing.T) {
+	t.Parallel()
+
+	loader, err := load.NewLoaderWithNetworkPolicy(settings.LoadGlobal{
+		Proxy: "http://127.0.0.1:9",
+	}, load.RestrictedNetworkPolicy())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = loader.Load(t.Context(), "http://example.com/", defaultLP())
+	if !errors.Is(err, load.ErrNetworkPolicy) {
+		t.Fatalf("error = %v, want a policy refusal for a proxied hostname", err)
+	}
+
+	if strings.Contains(err.Error(), "example.com") {
+		t.Fatalf("proxy hostname refusal leaks the target: %v", err)
+	}
+}
+
+func TestResponseHeaderCountCap(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		for i := range load.MaxResponseHeaders + 1 {
+			writer.Header().Set(fmt.Sprintf("X-Extra-%d", i), "v")
+		}
+
+		_, _ = writer.Write([]byte("ok"))
+	}))
+	defer srv.Close()
+
+	loader := mustLoader(t)
+	transport, ok := loader.Client.Transport.(*http.Transport)
+
+	if !ok || transport.MaxResponseHeaderBytes != load.MaxResponseHeaderBytes {
+		t.Fatalf("default transport header cap = %v, ok %v", transport, ok)
+	}
+
+	loader.Client = &http.Client{Transport: &http.Transport{MaxResponseHeaderBytes: 8 << 20}}
+
+	_, err := loader.Load(t.Context(), srv.URL, defaultLP())
+	if err == nil || !strings.Contains(err.Error(), "response headers") {
+		t.Fatalf("error = %v, want a response header cap", err)
 	}
 }
 

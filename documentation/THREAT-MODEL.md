@@ -39,14 +39,20 @@ The controls in this document address the risks visible in the current code:
 - Input size, recursion, numeric, image, and font limits reduce CPU and memory
   abuse. They do not impose a total memory budget or a conversion deadline.
   Public `html.Parse` has no input byte cap; direct callers must bound their
-  source bytes. The loader and WASM adapter enforce separate input limits.
+  source bytes. CSS `Parse` rejects more than 32 MiB. The loader and WASM
+  adapter enforce separate input limits. One selector match stops after
+  1,048,576 `:has()` inspections. Filter and clip-path image decodes read
+  the header before allocating a bitmap.
 - The loader checks network destinations and local-file permissions. Its
   compatible default allows private-network HTTP destinations, so a service
   must select restricted mode explicitly when it accepts untrusted HTML.
 - C and WASM exports recover from ordinary Go panics. Recovery cannot contain
   every process failure, such as exhausted memory or invalid C pointers.
 - HTML parsing, selector matching, and SVG rasterization run in the caller's
-  process. HTTP timeouts do not interrupt CPU work or the SVG mutex wait.
+  process. SVG lock waits stop when the caller context ends or after 30
+  seconds, and drawing does not start after cancellation. A canvas Draw
+  that has already started still runs to completion. HTTP timeouts do not
+  cancel that draw.
 
 Use process isolation and external resource limits when a service needs a
 hard boundary around conversions of untrusted documents.
@@ -139,10 +145,14 @@ writer. Every platform rejects non-regular files before reading their bodies.
 - **NetworkPolicy**: `CompatibleNetworkPolicy` is the default when no
   policy is set. `RestrictedNetworkPolicy` blocks private destinations and
   cross-host redirects. Restricted dials pin the resolved IP (no second DNS
-  lookup). Exact allow-host entries may skip the private-IP check; wildcards
-  do not. The seam is `load.NetworkPolicy` / `load.ApplyNetworkPolicy`
-  (internal); the public entry points build loaders with the compatible
-  default.
+  lookup). When a proxy is configured, restricted mode accepts only a
+  literal address, so the proxy is not asked to resolve a hostname. Exact
+  allow-host entries may skip the private-IP check for a literal address;
+  wildcards do not. The seam is `load.NetworkPolicy` /
+  `load.ApplyNetworkPolicy` (internal); the public entry points build
+  loaders with the compatible default. The default transport caps response
+  headers at 1 MiB, and the loader rejects an over-cap header block even
+  if the caller supplies another client.
 
 ## 5. Data exfiltration channels
 
@@ -176,19 +186,18 @@ writer. Every platform rejects non-regular files before reading their bodies.
   JavaScript-related keys have no engine consumer.
 - **No built-in process sandbox**: HTML parsing, CSS processing, and layout
   run in-process. Input byte caps do not bound total CPU time or memory.
-  Context cancellation is cooperative; SVG rasterization and its mutex wait
-  do not observe the caller's context.
+  Context cancellation is cooperative. `RasterizeContext` observes it before
+  the canvas lock and before drawing. A Draw that has already started still
+  finishes.
 - **Compatible mode allows localhost / RFC1918 HTTP**; Restricted mode
   does not (SSRF posture, section 5).
 - **Filesystem boundary limits**: allow-root containment does not protect
   operator-controlled roots from replacement by another local actor, and
   `os.Root` has platform limitations (section 3).
-- **DNS rebinding through a configured proxy**: with `Global.Proxy` set, the
-  target hostname is resolved by the proxy at dial time, so a name that
-  resolved to a public address at check time can resolve to a private one
-  later. Literal private-IP targets are still denied up front. Restricted
-  mode cannot guarantee public-only destinations through a proxy unless the
-  proxy independently enforces that policy.
+- **Proxied hostnames in restricted mode are refused.** The loader does not
+  send a hostname to a proxy, because the proxy would resolve it. Literal
+  private addresses are still denied. A public literal address can still be
+  fetched through the operator's proxy.
 
 ## 7. Recommendations for untrusted HTML
 

@@ -24,7 +24,7 @@ func (e *engine) buildInlineSVG(node *html.Node, sty ResolvedStyle, posX, posY f
 
 	data := e.serializeInlineSVG(node)
 	ref := &imageRef{src: "#inline-svg"} //nolint:exhaustruct // synthetic raster
-	if png, pw, ph, err := svg.Rasterize(data, 1024); err == nil && len(png) > 0 {
+	if png, pw, ph, err := svg.RasterizeContext(e.rasterContext(), data, 1024); err == nil && len(png) > 0 {
 		ref.data, ref.w, ref.h = png, pw, ph
 	}
 	boxNode.img = ref

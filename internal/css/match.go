@@ -81,30 +81,62 @@ func getSiblingInfo(node *html.Node) siblingInfo {
 	return info
 }
 
+// maxHasVisits is the number of element inspections one selector match may
+// spend inside :has(). Nested relative walks share this budget. When it
+// runs out, :has() fails closed instead of scanning the rest of the tree.
+const maxHasVisits = 1 << 20
+
+// hasBudget is shared across a match and the :has() walks it starts.
+type hasBudget struct {
+	left int
+}
+
 // MatchState carries the runtime state stateful pseudo-classes need: the ids
 // of the focused, hovered, and pressed elements. An empty id never matches.
+// budget is set by Matches so every :has() walk in that match shares one cap.
 type MatchState struct {
 	Focus  string
 	Hover  string
 	Active string
+	budget *hasBudget
 }
 
 // Match reports whether the selector matches the element node with no state.
 // Matching runs right to left: the last part must match n, earlier parts must
 // match ancestors/siblings per their combinators.
 func Match(s Selector, n *html.Node) bool {
-	return MatchState{Focus: "", Hover: "", Active: ""}.Matches(s, n)
+	return MatchState{Focus: "", Hover: "", Active: "", budget: nil}.Matches(s, n)
 }
 
 // Matches is Match with pseudo-class state.
 func (st MatchState) Matches(s Selector, n *html.Node) bool {
+	if st.budget == nil {
+		st.budget = &hasBudget{left: maxHasVisits}
+	}
+
 	return leftmostMatch(st, s, n) != nil
+}
+
+// chargeHasVisit spends one :has() inspection. False means the budget is
+// gone and the walk must stop.
+func chargeHasVisit(state MatchState) bool {
+	if state.budget == nil {
+		return true
+	}
+
+	if state.budget.left <= 0 {
+		return false
+	}
+
+	state.budget.left--
+
+	return true
 }
 
 // MatchPseudo reports whether s selects the ::before or ::after pseudo-element
 // of n (pe is "before" or "after") with no state.
 func MatchPseudo(sel Selector, count *html.Node, pseudo string) bool {
-	return MatchState{Focus: "", Hover: "", Active: ""}.MatchesPseudo(sel, count, pseudo)
+	return MatchState{Focus: "", Hover: "", Active: "", budget: nil}.MatchesPseudo(sel, count, pseudo)
 }
 
 // MatchesPseudo is MatchPseudo with pseudo-class state.

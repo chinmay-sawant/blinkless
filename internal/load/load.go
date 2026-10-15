@@ -43,11 +43,13 @@ const (
 	DefaultResponseTimeout = 60 * time.Second
 	DefaultMaxBodySize     = 100 << 20 // 100 MiB
 	DefaultMaxRedirects    = 10
-	// These caps bound operator-supplied request metadata.
-	MaxCustomHeaders = 128
-	MaxCookies       = 128
-	MaxPostItems     = 1024
-	MaxMetadataBytes = 8 << 10
+	// These caps bound operator-supplied request metadata and response headers.
+	MaxCustomHeaders       = 128
+	MaxCookies             = 128
+	MaxPostItems           = 1024
+	MaxMetadataBytes       = 8 << 10
+	MaxResponseHeaders     = 128
+	MaxResponseHeaderBytes = 1 << 20
 )
 
 // scheme names for default-port canonicalization in redirect host checks.
@@ -625,8 +627,9 @@ func (l *Loader) initClient() error {
 		KeepAlive: defaultKeepAliveSec * time.Second,
 	}
 	transport := &http.Transport{ //nolint:exhaustruct // intentional zero/partial fields
-		ForceAttemptHTTP2: true,
-		DialContext:       l.policyDialContext(dialer),
+		ForceAttemptHTTP2:      true,
+		DialContext:            l.policyDialContext(dialer),
+		MaxResponseHeaderBytes: MaxResponseHeaderBytes,
 	}
 
 	if l.Global.Proxy != "" {
@@ -649,8 +652,7 @@ func (l *Loader) initClient() error {
 			if l.Network.BlockCrossHostRedirects && len(via) > 0 {
 				origin := via[0].URL
 				if !sameNetworkHost(origin, req.URL) {
-					return fmt.Errorf("%w: cross-host redirect %s -> %s", ErrNetworkPolicy,
-						origin.Host, req.URL.Host)
+					return fmt.Errorf("%w: cross-host redirect", ErrNetworkPolicy)
 				}
 			}
 
@@ -701,7 +703,7 @@ func (l *Loader) policyDialContext( //nolint:cyclop // hostname vs IP vs proxy p
 
 		if ip := net.ParseIP(host); ip != nil {
 			if isPrivateNetworkIP(ip) {
-				return nil, fmt.Errorf("%w: private address %s", ErrNetworkPolicy, ip)
+				return nil, fmt.Errorf("%w: private address", ErrNetworkPolicy)
 			}
 
 			return l.dialRaw(ctx, dialer, network, net.JoinHostPort(host, port))
@@ -712,7 +714,7 @@ func (l *Loader) policyDialContext( //nolint:cyclop // hostname vs IP vs proxy p
 			return nil, fmt.Errorf("resolve %s: %w", host, err)
 		}
 
-		if err := rejectPrivateResolvedIPs(host, ips); err != nil {
+		if err := rejectPrivateResolvedIPs(ips); err != nil {
 			return nil, err
 		}
 
@@ -728,7 +730,7 @@ func (l *Loader) policyDialContext( //nolint:cyclop // hostname vs IP vs proxy p
 		}
 
 		if first == nil {
-			return nil, fmt.Errorf("%w: %s resolved to no addresses", ErrNetworkPolicy, host)
+			return nil, fmt.Errorf("%w: resolved to no addresses", ErrNetworkPolicy)
 		}
 
 		return nil, first
@@ -787,6 +789,14 @@ func (l *Loader) checkNetworkURL(ctx context.Context, target *url.URL) error {
 		return nil
 	}
 
+	// A proxy resolves the request URL itself. Restricted mode therefore
+	// accepts only literal addresses when a proxy is set, after the
+	// private-address check below. A hostname would let the proxy pick a
+	// different address than the one this process just looked up.
+	if l.Global.Proxy != "" && net.ParseIP(host) == nil {
+		return fmt.Errorf("%w: hostname targets require a literal address when a proxy is configured", ErrNetworkPolicy)
+	}
+
 	// Exact allowlisted hosts may skip the private-IP check (trusted
 	// internal services). Wildcard suffixes still resolve and block
 	// private records.
@@ -800,7 +810,7 @@ func (l *Loader) checkNetworkURL(ctx context.Context, target *url.URL) error {
 func (l *Loader) rejectPrivateTarget(ctx context.Context, host string) error {
 	if ip := net.ParseIP(host); ip != nil {
 		if isPrivateNetworkIP(ip) {
-			return fmt.Errorf("%w: private address %s", ErrNetworkPolicy, ip)
+			return fmt.Errorf("%w: private address", ErrNetworkPolicy)
 		}
 
 		return nil
@@ -811,17 +821,17 @@ func (l *Loader) rejectPrivateTarget(ctx context.Context, host string) error {
 		return fmt.Errorf("resolve %s: %w", host, err)
 	}
 
-	return rejectPrivateResolvedIPs(host, ips)
+	return rejectPrivateResolvedIPs(ips)
 }
 
-func rejectPrivateResolvedIPs(host string, ips []net.IP) error {
+func rejectPrivateResolvedIPs(ips []net.IP) error {
 	if len(ips) == 0 {
-		return fmt.Errorf("%w: %s resolved to no addresses", ErrNetworkPolicy, host)
+		return fmt.Errorf("%w: resolved to no addresses", ErrNetworkPolicy)
 	}
 
 	for _, ip := range ips {
 		if isPrivateNetworkIP(ip) {
-			return fmt.Errorf("%w: %s resolves to private address %s", ErrNetworkPolicy, host, ip)
+			return fmt.Errorf("%w: resolves to a private address", ErrNetworkPolicy)
 		}
 	}
 
@@ -829,7 +839,9 @@ func rejectPrivateResolvedIPs(host string, ips []net.IP) error {
 }
 
 func normalizeNetworkHost(host string) string {
-	return strings.ToLower(strings.TrimSpace(strings.TrimSuffix(host, ".")))
+	host = strings.ToLower(strings.TrimSpace(strings.TrimSuffix(host, ".")))
+
+	return stripIPv6Zone(host)
 }
 
 func (l *Loader) networkHostAllowlisted(host string) bool {
@@ -973,14 +985,17 @@ func parseProxy(raw string) (*url.URL, error) {
 		return nil, fmt.Errorf("%w: malformed proxy URL", ErrInvalidProxy)
 	}
 
-	if proxy.Scheme == "" || proxy.Host == "" || proxy.Hostname() == "" {
-		return nil, fmt.Errorf("%w %q: absolute URL with scheme and host required", ErrInvalidProxy, proxy.Redacted())
+	// Opaque URLs such as "http:user:secret@host" parse without a host, and
+	// URL.Redacted leaves that secret in the opaque part. Never echo the
+	// input. Require a hierarchical http(s) URL with a host.
+	if proxy.Opaque != "" || proxy.Scheme == "" || proxy.Host == "" || proxy.Hostname() == "" {
+		return nil, fmt.Errorf("%w: absolute URL with scheme and host required", ErrInvalidProxy)
 	}
 
 	switch strings.ToLower(proxy.Scheme) {
 	case "http", "https":
 	default:
-		return nil, fmt.Errorf("%w %q: only http and https proxies are supported", ErrInvalidProxy, proxy.Redacted())
+		return nil, fmt.Errorf("%w: only http and https proxies are supported", ErrInvalidProxy)
 	}
 
 	return proxy, nil
@@ -1413,7 +1428,8 @@ func filePathFromURL(path string) (string, error) {
 		// not look like a URL, so a malformed URL cannot be misread as a
 		// local filesystem target.
 		if strings.Contains(path, "://") {
-			return "", fmt.Errorf("%w: %w", errBlockedFileAccess, err)
+			// url.Error quotes the raw input, which can hold a password.
+			return "", errBlockedFileAccess
 		}
 
 		return path, nil // deliberate: no scheme means plain path
@@ -1511,6 +1527,10 @@ func (l *Loader) loadHTTP(ctx context.Context, target string, pageLoad settings.
 // Content-Range consistency first, then the Content-Length short-circuit,
 // then the authoritative read-side limit for chunked bodies.
 func (l *Loader) readHTTPBody(parsed *url.URL, resp *http.Response) ([]byte, error) {
+	if err := checkResponseHeaderLimits(resp.Header); err != nil {
+		return nil, err
+	}
+
 	if err := checkRangeConsistency(resp.Header.Get("Content-Range"), resp.ContentLength); err != nil {
 		return nil, err
 	}

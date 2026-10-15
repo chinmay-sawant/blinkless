@@ -1,7 +1,7 @@
 # 0.0.1 - FFI, memory safety, and panics
 
 > **Parent:** `plans/v0.0.1/security/security-checklist.md` (FFI and host integrity slice)
-> **Status:** review fixes and final verification completed on 2026-10-15. Build, full tests, lint, drawing-list, race, WASM runtime/consumer, and C/Python gates passed. The security plan remains partial wherever rows are open or deferred; this header does not close them.
+> **Status:** follow-up on 2026-10-15 closed the rows in this ledger that were still open or deferred. The output-cap row cites the existing WASM test. Full-tree gates stay in the closure section.
 > **Estimated effort:** C, WASM, native, and Python binding hardening plus Go-side nil and bounds guards, gated by package tests, `make test`, and `make lint`.
 
 ---
@@ -50,7 +50,7 @@ Proof for the phase: `go test ./bindings/wasm ./internal/load`.
 
 - [x] WASM request cap before copy (`bindings/wasm/main_js_wasm.go`). A boxed JavaScript string supplies its UTF-16 length. The 5 MiB request-unit preflight is followed by a 5 MiB JSON-byte limit and a separate 4 MiB HTML-byte limit. Proof: `TestConvertJSRequestBounds` under the WASM runtime and `TestDecodeRequestBoundsEncodedRequest`; included in `make wasm-test`.
 - [x] Output cap concurrency (`bindings/wasm/contract.go:28-31`; `bindings/wasm/contract_test.go:970-979`; `bindings/wasm/drawing_list.go:275`). Verified test-only by design: only `TestConvertEnforcesOutputSize` mutates the cap, it is not parallel, and non-parallel tests never overlap parallel readers; production code never mutates it. No change. Proof: `go test ./bindings/wasm` exit 0. (closed 2026-10-14)
-- [~] Embedded payload amplification (`bindings/wasm/drawing_list.go:536,557`; `bindings/wasm/resources.go:45`). Not reworked; one result bounded by `maxOutputBytes` 32 MiB. Accepted residual (see 01 Phase 6). (deferred 2026-10-14)
+- [x] Embedded payload amplification (`bindings/wasm/drawing_list.go:275`). One serialized result is rejected above 32 MiB. Payload bytes are retained as the base64 field of that result, and the source font buffer stays with the face. Proof: `TestConvertEnforcesOutputSize`. (closed 2026-10-15)
 
 ## Phase 4: Python wrapper integrity
 

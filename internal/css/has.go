@@ -213,41 +213,59 @@ func matchRelative(state MatchState, rel RelativeSelector, subject *html.Node) b
 		return false
 	}
 
-	sel := Selector{Parts: rel.Parts}
+	return matchRelativeLeading(state, Selector{Parts: rel.Parts}, rel.Leading, subject)
+}
 
-	switch rel.Leading {
+func matchRelativeLeading(state MatchState, sel Selector, leading string, subject *html.Node) bool {
+	switch leading {
 	case "+":
-		sib := nextElementSibling(subject)
-		if sib == nil {
+		return matchNextRelative(state, sel, subject)
+	case "~":
+		return matchFollowingRelatives(state, sel, subject)
+	case ">":
+		return matchRelativeDescendant(state, sel, subject, true)
+	default:
+		return matchRelativeDescendant(state, sel, subject, false)
+	}
+}
+
+func matchNextRelative(state MatchState, sel Selector, subject *html.Node) bool {
+	sibling := nextElementSibling(subject)
+	if sibling == nil || !chargeHasVisit(state) {
+		return false
+	}
+
+	return matchRelativeFrom(state, sel, sibling)
+}
+
+func matchFollowingRelatives(state MatchState, sel Selector, subject *html.Node) bool {
+	for sibling := nextElementSibling(subject); sibling != nil; sibling = nextElementSibling(sibling) {
+		if !chargeHasVisit(state) {
 			return false
 		}
 
-		return matchRelativeFrom(state, sel, sib)
-	case "~":
-		for sib := nextElementSibling(subject); sib != nil; sib = nextElementSibling(sib) {
-			if matchRelativeFrom(state, sel, sib) {
-				return true
-			}
+		if matchRelativeFrom(state, sel, sibling) {
+			return true
 		}
-
-		return false
-	case ">":
-		return matchRelativeDescendant(state, sel, subject, true)
-	default: // descendant
-		return matchRelativeDescendant(state, sel, subject, false)
 	}
+
+	return false
 }
 
 // matchRelativeDescendant reports whether some descendant d of subject matches
 // sel with its leftmost-match element anchored at subject (directly when
 // direct is true, or anywhere beneath it otherwise).
 func matchRelativeDescendant(state MatchState, sel Selector, subject *html.Node, direct bool) bool {
-	for d := range elementDescendants(subject) {
-		if !state.Matches(sel, d) {
+	for descendant := range elementDescendants(subject) {
+		if !chargeHasVisit(state) {
+			return false
+		}
+
+		if !state.Matches(sel, descendant) {
 			continue
 		}
 
-		left := leftmostMatch(state, sel, d)
+		left := leftmostMatch(state, sel, descendant)
 		if left == nil {
 			continue
 		}
@@ -276,8 +294,12 @@ func matchRelativeFrom(state MatchState, sel Selector, anchor *html.Node) bool {
 		return true
 	}
 
-	for d := range elementDescendants(anchor) {
-		if state.Matches(sel, d) && leftmostMatch(state, sel, d) == anchor {
+	for descendant := range elementDescendants(anchor) {
+		if !chargeHasVisit(state) {
+			return false
+		}
+
+		if state.Matches(sel, descendant) && leftmostMatch(state, sel, descendant) == anchor {
 			return true
 		}
 	}

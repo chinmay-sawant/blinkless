@@ -7,6 +7,16 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
+// rasterContext is the engine context for SVG work. Public Layout stores
+// context.Background when the caller did not supply one.
+func (e *engine) rasterContext() context.Context {
+	if e != nil && e.ctx != nil {
+		return e.ctx
+	}
+
+	return context.Background()
+}
+
 // newEngine constructs the layout engine state (extracted from LayoutContext
 // for clarity).
 func newEngine(

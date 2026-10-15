@@ -86,6 +86,8 @@ func NodeWithWorkspace(
 	}
 
 	eng := newEngine(ctx, opts, faces, font, styles, nil, ops)
+
+	//nolint:contextcheck // ctx is stored on the engine and read by SVG calls
 	rootBox := eng.build(node, opts.Width, 0, 0)
 
 	if eng.err != nil {
