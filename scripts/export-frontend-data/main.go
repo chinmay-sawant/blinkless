@@ -25,6 +25,33 @@ const (
 	catalogPath      = "testdata/css/catalog/properties.json"
 	specimenOut      = "frontend/src/data/specimen.json"
 	catalogOut       = "frontend/src/data/catalog.json"
+
+	// siteDataPerm is world-readable because the JSON files are committed
+	// site data, not secrets.
+	siteDataPerm = 0o644
+
+	// channelMax is the top of an 8-bit color channel.
+	channelMax = 255
+	// channelSlack is how far a painted channel may sit from the CSS color.
+	channelSlack = 2
+	// roundTenths keeps one decimal place in pixel coordinates.
+	roundTenths = 10
+	// maxNoteLen is the catalog note cutoff, in bytes.
+	maxNoteLen = 180
+
+	// Specimen CSS colors as 8-bit channels: #9c3b2e, #1c1915, #f6f4ef.
+	swatchRedR   = 156
+	swatchRedG   = 59
+	swatchRedB   = 46
+	swatchBlackR = 28
+	swatchBlackG = 25
+	swatchBlackB = 21
+	swatchPaperR = 246
+	swatchPaperG = 244
+	swatchPaperB = 239
+
+	pinnedUpstreamMark = " Pinned upstream"
+	noteEllipsis       = "..."
 )
 
 // Padding lives on the page, so the white fill covers the canvas and the
@@ -63,6 +90,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "specimen: %v\n", err)
 		os.Exit(1)
 	}
+
 	if err := writeCatalog(); err != nil {
 		fmt.Fprintf(os.Stderr, "catalog: %v\n", err)
 		os.Exit(1)
@@ -71,47 +99,28 @@ func main() {
 
 func writeSpecimen() error {
 	ctx := context.Background()
+
 	doc, err := html.Parse([]byte(specimenHTML))
 	if err != nil {
-		return err
+		return fmt.Errorf("parse specimen: %w", err)
 	}
+
 	styled, err := css.Apply(ctx, doc, css.Options{
 		WidthPx:  specimenWidthPx,
 		HeightPx: specimenHeightPx,
+		Media:    "screen",
+		Extra:    nil,
+		Focus:    "",
+		Hover:    "",
+		Active:   "",
 	})
 	if err != nil {
-		return err
-	}
-	display, err := layout.DisplayList(ctx, styled)
-	if err != nil {
-		return err
+		return fmt.Errorf("apply specimen css: %w", err)
 	}
 
-	pxPerPt := display.PixelPerPoint
-	ops := make([]specimenOp, 0, len(display.Order))
-	for _, index := range display.Order {
-		op := display.Ops[index]
-		name, paint := kindName(op.Kind)
-		if !paint {
-			continue
-		}
-		r := channel(op.R)
-		g := channel(op.G)
-		b := channel(op.B)
-		text := strings.TrimSpace(op.Text)
-		ops = append(ops, specimenOp{
-			Kind:  name,
-			Label: paintLabel(name, text, r, g, b),
-			X:     round1(op.X * pxPerPt),
-			Y:     round1(op.Y * pxPerPt),
-			W:     round1(op.W * pxPerPt),
-			H:     round1(op.H * pxPerPt),
-			R:     r,
-			G:     g,
-			B:     b,
-			Size:  round1(op.Size * pxPerPt),
-			Text:  text,
-		})
+	display, err := layout.DisplayList(ctx, styled)
+	if err != nil {
+		return fmt.Errorf("layout specimen: %w", err)
 	}
 
 	payload := specimenFile{
@@ -120,10 +129,46 @@ func writeSpecimen() error {
 		HeightPx:      specimenHeightPx,
 		CanvasWidth:   display.Width,
 		CanvasHeight:  display.Height,
-		PixelPerPoint: pxPerPt,
-		Ops:           ops,
+		PixelPerPoint: display.PixelPerPoint,
+		Ops:           specimenOps(display),
 	}
+
 	return writeJSON(specimenOut, payload)
+}
+
+func specimenOps(display *layout.Display) []specimenOp {
+	pxPerPt := display.PixelPerPoint
+	ops := make([]specimenOp, 0, len(display.Order))
+
+	for _, index := range display.Order {
+		operation := display.Ops[index]
+
+		name, paint := kindName(operation.Kind)
+		if !paint {
+			continue
+		}
+
+		red := channel(operation.R)
+		green := channel(operation.G)
+		blue := channel(operation.B)
+		text := strings.TrimSpace(operation.Text)
+
+		ops = append(ops, specimenOp{
+			Kind:  name,
+			Label: paintLabel(name, text, red, green, blue),
+			X:     round1(operation.X * pxPerPt),
+			Y:     round1(operation.Y * pxPerPt),
+			W:     round1(operation.W * pxPerPt),
+			H:     round1(operation.H * pxPerPt),
+			R:     red,
+			G:     green,
+			B:     blue,
+			Size:  round1(operation.Size * pxPerPt),
+			Text:  text,
+		})
+	}
+
+	return ops
 }
 
 type specimenFile struct {
@@ -150,19 +195,32 @@ type specimenOp struct {
 	Text  string  `json:"text,omitempty"`
 }
 
-func paintLabel(kind, text string, r, g, b int) string {
+type colorSwatch struct {
+	red   int
+	green int
+	blue  int
+	label string
+}
+
+func paintLabel(kind, text string, red, green, blue int) string {
 	if kind == "Text" && text != "" {
 		return text
 	}
-	switch {
-	case near(r, 156) && near(g, 59) && near(b, 46):
-		return "red"
-	case near(r, 28) && near(g, 25) && near(b, 21):
-		return "black"
-	case near(r, 246) && near(g, 244) && near(b, 239):
-		return "outer"
-	default:
-		return kind
+
+	for _, swatch := range specimenSwatches() {
+		if near(red, swatch.red) && near(green, swatch.green) && near(blue, swatch.blue) {
+			return swatch.label
+		}
+	}
+
+	return kind
+}
+
+func specimenSwatches() []colorSwatch {
+	return []colorSwatch{
+		{red: swatchRedR, green: swatchRedG, blue: swatchRedB, label: "red"},
+		{red: swatchBlackR, green: swatchBlackG, blue: swatchBlackB, label: "black"},
+		{red: swatchPaperR, green: swatchPaperG, blue: swatchPaperB, label: "outer"},
 	}
 }
 
@@ -171,7 +229,8 @@ func near(got, want int) bool {
 	if diff < 0 {
 		diff = -diff
 	}
-	return diff <= 2
+
+	return diff <= channelSlack
 }
 
 func kindName(kind layout.DisplayKind) (string, bool) {
@@ -198,18 +257,20 @@ func kindName(kind layout.DisplayKind) (string, bool) {
 }
 
 func channel(unit float64) int {
-	n := int(math.Round(unit * 255))
-	if n < 0 {
+	scaled := int(math.Round(unit * channelMax))
+	if scaled < 0 {
 		return 0
 	}
-	if n > 255 {
-		return 255
+
+	if scaled > channelMax {
+		return channelMax
 	}
-	return n
+
+	return scaled
 }
 
-func round1(v float64) float64 {
-	return math.Round(v*10) / 10
+func round1(value float64) float64 {
+	return math.Round(value*roundTenths) / roundTenths
 }
 
 type catalogFile struct {
@@ -238,18 +299,22 @@ type rawCatalog struct {
 func writeCatalog() error {
 	rawBytes, err := os.ReadFile(catalogPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("read catalog: %w", err)
 	}
+
 	var raw rawCatalog
+
 	if err := json.Unmarshal(rawBytes, &raw); err != nil {
-		return err
+		return fmt.Errorf("decode catalog: %w", err)
 	}
 
 	entries := make([]catalogEntry, 0, len(raw.Properties))
+
 	for _, row := range raw.Properties {
 		if row.Status != "implemented" && row.Status != "partial" {
 			continue
 		}
+
 		entries = append(entries, catalogEntry{
 			Name:   row.Name,
 			Status: row.Status,
@@ -263,6 +328,7 @@ func writeCatalog() error {
 		Updated:    raw.Updated,
 		Properties: entries,
 	}
+
 	return writeJSON(catalogOut, payload)
 }
 
@@ -270,22 +336,33 @@ func shortNote(limits []string) string {
 	if len(limits) == 0 {
 		return ""
 	}
+
 	note := limits[0]
-	if i := strings.Index(note, " Pinned upstream"); i >= 0 {
-		note = strings.TrimSpace(note[:i])
+
+	if cut := strings.Index(note, pinnedUpstreamMark); cut >= 0 {
+		note = strings.TrimSpace(note[:cut])
 	}
+
 	note = strings.TrimSpace(note)
-	if len(note) > 180 {
-		note = note[:177] + "..."
+
+	if len(note) > maxNoteLen {
+		note = note[:maxNoteLen-len(noteEllipsis)] + noteEllipsis
 	}
+
 	return note
 }
 
 func writeJSON(path string, payload any) error {
 	buf, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal %s: %w", path, err)
 	}
+
 	buf = append(buf, '\n')
-	return os.WriteFile(path, buf, 0o644)
+
+	if err := os.WriteFile(path, buf, siteDataPerm); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+
+	return nil
 }
