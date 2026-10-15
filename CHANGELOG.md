@@ -1,9 +1,8 @@
 # Changelog
 
 All notable changes to blinkless are recorded here. This project follows
-semantic versioning; the release version lives in
-`bindings/python/pyproject.toml` and `bindings/c/include/blinkless.h` and is
-gated by `scripts/check_versions.sh`.
+semantic versioning. There is no `VERSION` file, and GitHub CI does not
+compare tags to source version stamps.
 
 ## Unreleased
 
@@ -35,9 +34,11 @@ gated by `scripts/check_versions.sh`.
   encoded bytes and re-encodes that one payload as a PNG when orientation or
   a clip requires it.
 - **`layout.Lay`, `screen.Render`, `ImageDocument`, and the PDF settings
-  consumers** were removed with the writer. The committed version sources are
-  `bindings/python/pyproject.toml` and `bindings/c/include/blinkless.h`,
-  gated by `make check-versions`.
+  consumers** were removed with the writer.
+- **Python package, PyPI publish, and the tag-vs-source version gate** are
+  removed: `bindings/python`, `.github/workflows/publish-pypi.yml`,
+  `scripts/check_versions.sh`, and `make check-versions`. `bindings/c` and
+  `bindings/wasm` stay. There is no `VERSION` file.
 
 ## 0.2.6 (2026-09-13)
 
