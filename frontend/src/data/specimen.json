@@ -1,0 +1,72 @@
+{
+  "html": "\u003c!DOCTYPE html\u003e\n\u003chtml\u003e\n\u003chead\u003e\n\u003cstyle\u003e\n  html, body { margin: 0; }\n  body { padding: 20px; background: #f6f4ef; font-family: sans-serif; }\n  .black {\n    margin: 0;\n    background: #1c1915;\n    color: #f6f4ef;\n    padding: 10px 14px;\n    font-size: 16px;\n  }\n  .red {\n    margin: 16px 0 0;\n    background: #9c3b2e;\n    color: #f6f4ef;\n    padding: 10px 14px;\n    font-size: 16px;\n  }\n\u003c/style\u003e\n\u003c/head\u003e\n\u003cbody\u003e\n  \u003cdiv class=\"black\"\u003eblack\u003c/div\u003e\n  \u003cdiv class=\"red\"\u003ered\u003c/div\u003e\n\u003c/body\u003e\n\u003c/html\u003e",
+  "widthPx": 420,
+  "heightPx": 1,
+  "canvasWidth": 420,
+  "canvasHeight": 132,
+  "pixelPerPoint": 1.3333333333333333,
+  "ops": [
+    {
+      "kind": "FillRect",
+      "label": "outer",
+      "x": 0,
+      "y": 0,
+      "w": 420,
+      "h": 132,
+      "r": 246,
+      "g": 244,
+      "b": 239,
+      "size": 0
+    },
+    {
+      "kind": "FillRect",
+      "label": "black",
+      "x": 20,
+      "y": 20,
+      "w": 380,
+      "h": 38,
+      "r": 28,
+      "g": 25,
+      "b": 21,
+      "size": 0
+    },
+    {
+      "kind": "FillRect",
+      "label": "red",
+      "x": 20,
+      "y": 74,
+      "w": 380,
+      "h": 38,
+      "r": 156,
+      "g": 59,
+      "b": 46,
+      "size": 0
+    },
+    {
+      "kind": "Text",
+      "label": "black",
+      "x": 34,
+      "y": 44.5,
+      "w": 37.4,
+      "h": 18,
+      "r": 246,
+      "g": 244,
+      "b": 239,
+      "size": 16,
+      "text": "black"
+    },
+    {
+      "kind": "Text",
+      "label": "red",
+      "x": 34,
+      "y": 98.5,
+      "w": 23.1,
+      "h": 18,
+      "r": 246,
+      "g": 244,
+      "b": 239,
+      "size": 16,
+      "text": "red"
+    }
+  ]
+}

@@ -1,7 +1,8 @@
 import React from 'react';
-import { GitBranch, BookOpen, Layout, Star } from 'lucide-react';
 import { Logo } from './Logo';
 import { ENGINE_STATS } from '../data/properties';
+import { useTheme } from '../theme';
+import { GitHubLink } from './GitHubLink';
 
 interface NavbarProps {
   currentView: 'product' | 'docs';
@@ -9,73 +10,58 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ currentView, onViewChange }) => {
+  const { theme, toggle } = useTheme();
+  const itemClass = (active: boolean) =>
+    `cursor-pointer min-h-11 px-3 text-sm border-b-2 ${
+      active
+        ? 'text-ink border-ink'
+        : 'text-muted border-transparent hover:text-ink'
+    }`;
+
   return (
-    <header className="sticky top-0 z-50 bg-zinc-950/95 backdrop-blur border-b border-zinc-800/80">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14">
-          {/* Brand with New Unique Logo */}
-          <div className="flex items-center gap-6">
+    <header className="sticky top-0 z-50 bg-paper/90 backdrop-blur border-b border-line">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 min-h-14">
+          <button
+            type="button"
+            onClick={() => onViewChange('product')}
+            className="flex items-center gap-2.5 text-left cursor-pointer min-h-11"
+          >
+            <span className="inline-flex h-8 w-8 items-center justify-center text-ink">
+              <Logo size={32} className="h-8 w-8" />
+            </span>
+            <span className="font-sans font-medium tracking-tight text-ink">blinkless</span>
+            <span className="text-xs font-mono text-faint">{ENGINE_STATS.version}</span>
+          </button>
+
+          <nav className="flex items-center">
             <button
+              type="button"
               onClick={() => onViewChange('product')}
-              className="flex items-center gap-2.5 text-left group"
+              className={itemClass(currentView === 'product')}
             >
-              <div className="w-8 h-8 rounded bg-zinc-900 border border-zinc-700/80 flex items-center justify-center text-white group-hover:border-zinc-500 transition-colors">
-                <Logo size={20} className="w-5 h-5 text-white" />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm tracking-tight text-white group-hover:text-zinc-200 transition-colors">
-                  blinkless
-                </span>
-                <span className="text-[11px] px-1.5 py-0.5 rounded bg-zinc-900 text-zinc-400 font-mono border border-zinc-800">
-                  {ENGINE_STATS.version}
-                </span>
-              </div>
+              Product
             </button>
-
-            {/* Navigation Tabs */}
-            <nav className="flex items-center gap-1">
-              <button
-                onClick={() => onViewChange('product')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                  currentView === 'product'
-                    ? 'bg-zinc-800 text-white'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
-                }`}
-              >
-                <Layout className="w-3.5 h-3.5" />
-                <span>Product</span>
-              </button>
-              <button
-                onClick={() => onViewChange('docs')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                  currentView === 'docs'
-                    ? 'bg-zinc-800 text-white'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
-                }`}
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>Documentation</span>
-              </button>
-            </nav>
-          </div>
-
-          {/* Right Links: GitHub with Stars Badge */}
-          <div className="flex items-center gap-3">
-            <a
-              href="https://github.com/chinmay-sawant/blinkless"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-xs font-mono py-1 px-2.5 rounded bg-zinc-900 hover:bg-zinc-850 text-zinc-300 border border-zinc-800 hover:border-zinc-700 transition-all group"
+            <button
+              type="button"
+              onClick={() => onViewChange('docs')}
+              className={itemClass(currentView === 'docs')}
             >
-              <div className="flex items-center gap-1.5">
-                <GitBranch className="w-3.5 h-3.5 text-zinc-400 group-hover:text-white transition-colors" />
-                <span>GitHub</span>
-              </div>
-              <div className="border-l border-zinc-700/80 pl-2 flex items-center gap-1 text-zinc-300 font-semibold">
-                <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                <span>1</span>
-              </div>
-            </a>
+              Documentation
+            </button>
+          </nav>
+
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              type="button"
+              onClick={toggle}
+              aria-pressed={theme === 'dark'}
+              aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              className="inline-flex min-h-11 cursor-pointer items-center border border-line px-3 text-sm text-muted hover:text-ink"
+            >
+              {theme === 'dark' ? 'Dark' : 'Light'}
+            </button>
+            <GitHubLink className="px-3" />
           </div>
         </div>
       </div>

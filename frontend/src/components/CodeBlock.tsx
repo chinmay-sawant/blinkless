@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Check, Copy, Terminal } from 'lucide-react';
 
 interface CodeBlockProps {
   code: string;
@@ -8,27 +7,20 @@ interface CodeBlockProps {
 }
 
 /**
- * Highlights Go syntax tokens using semantic flat palette:
- * - Comments: text-zinc-500 italic
- * - Strings: text-emerald-400
- * - Keywords: text-purple-400 font-semibold
- * - Types: text-sky-300
- * - Functions: text-blue-400
- * - Numbers: text-amber-300
+ * Colors one Go source line.
+ * Comments, strings, keywords, types, functions, and numbers use the code palette.
  */
 function highlightGoLine(line: string): React.ReactNode {
-  // Check full line comment
   const commentMatch = line.match(/^(\s*)(\/\/.*)$/);
   if (commentMatch) {
     return (
       <>
         <span>{commentMatch[1]}</span>
-        <span className="text-zinc-500 italic">{commentMatch[2]}</span>
+        <span className="text-codecomment italic">{commentMatch[2]}</span>
       </>
     );
   }
 
-  // Regex tokenizer for Go code
   const tokenRegex = /(\/\/.*$)|("(?:\\.|[^"\\])*"|`[^`]*`)|(\b(?:package|import|func|return|if|else|for|range|switch|case|default|go|defer|type|struct|interface|nil|true|false|var|const)\b)|(\b(?:context\.Context|string|error|int|int64|float64|bool|byte|\[\]byte|\*html\.Document|\*css\.Document|\*layout\.Display|css\.Options|layout\.Options|layout\.DisplayOp|layout\.DisplayOpFillRect|layout\.DisplayOpText|layout\.DisplayOpImage|layout\.DisplayOpLine)\b)|(\b(?:Parse|Apply|DisplayList|DisplayListOptions|Background|Printf|Println|panic|make|len|append)\b)|(\b\d+(?:\.\d+)?\b)|([^\s"'`\w]+|\s+|\w+)/g;
 
   const elements: React.ReactNode[] = [];
@@ -39,19 +31,19 @@ function highlightGoLine(line: string): React.ReactNode {
     const [raw, comment, str, keyword, typeName, funcName, num] = match;
 
     if (comment) {
-      elements.push(<span key={key++} className="text-zinc-500 italic">{comment}</span>);
+      elements.push(<span key={key++} className="text-codecomment italic">{comment}</span>);
     } else if (str) {
-      elements.push(<span key={key++} className="text-emerald-400">{str}</span>);
+      elements.push(<span key={key++} className="text-codestring">{str}</span>);
     } else if (keyword) {
-      elements.push(<span key={key++} className="text-purple-400 font-semibold">{keyword}</span>);
+      elements.push(<span key={key++} className="text-codekeyword">{keyword}</span>);
     } else if (typeName) {
-      elements.push(<span key={key++} className="text-sky-300">{typeName}</span>);
+      elements.push(<span key={key++} className="text-codetext">{typeName}</span>);
     } else if (funcName) {
-      elements.push(<span key={key++} className="text-blue-400">{funcName}</span>);
+      elements.push(<span key={key++} className="text-codetext">{funcName}</span>);
     } else if (num) {
-      elements.push(<span key={key++} className="text-amber-300">{num}</span>);
+      elements.push(<span key={key++} className="text-codestring">{num}</span>);
     } else {
-      elements.push(<span key={key++} className="text-zinc-200">{raw}</span>);
+      elements.push(<span key={key++} className="text-codetext">{raw}</span>);
     }
   }
 
@@ -70,55 +62,38 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({ code, filename = 'main.go'
   const lines = code.trim().split('\n');
 
   return (
-    <div className="rounded border border-zinc-800 bg-zinc-950 overflow-hidden text-xs font-mono shadow-sm">
-      {/* Header Bar */}
-      <div className="bg-zinc-900/90 px-4 py-2 border-b border-zinc-800 flex items-center justify-between text-zinc-400">
-        <div className="flex items-center gap-2">
-          <Terminal className="w-3.5 h-3.5 text-zinc-400" />
-          <span className="text-zinc-300 font-medium">{filename}</span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 font-normal border border-zinc-700/60 uppercase">
-            {language}
-          </span>
+    <div className="rounded-md border border-line bg-codebg overflow-hidden font-mono text-[13px]">
+      <div className="bg-codebar px-4 py-2 flex items-center justify-between">
+        <div className="flex items-baseline gap-3 min-w-0">
+          <span className="text-codetext truncate">{filename}</span>
+          <span className="text-codecomment">{language}</span>
         </div>
         <button
+          type="button"
           onClick={handleCopy}
-          className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
-          title="Copy code snippet"
+          className="inline-flex items-center justify-center min-h-11 px-3 text-codecomment hover:text-codetext cursor-pointer"
         >
-          {copied ? (
-            <>
-              <Check className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-[11px] text-emerald-400 font-sans">Copied</span>
-            </>
-          ) : (
-            <>
-              <Copy className="w-3.5 h-3.5" />
-              <span className="text-[11px] font-sans">Copy</span>
-            </>
-          )}
+          {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
 
-      {/* Code Area */}
-      <div className="p-4 sm:p-5 overflow-x-auto leading-relaxed no-scrollbar bg-zinc-950">
-        <pre className="font-mono text-xs">
+      <div className="px-4 py-3 overflow-x-auto leading-relaxed">
+        <pre className="font-mono text-[13px]">
           {lines.map((line, idx) => (
             <div key={idx} className="table-row">
-              <span className="table-cell select-none text-zinc-600 pr-4 text-right w-6">
+              <span className="table-cell select-none text-codecomment pr-4 text-right w-6">
                 {idx + 1}
               </span>
               <span className="table-cell whitespace-pre">
                 {language === 'go' ? highlightGoLine(line) : (
-                  <span className="text-zinc-300">
-                    {line.startsWith('$') ? (
-                      <>
-                        <span className="text-zinc-500 mr-2">$</span>
-                        <span className="text-emerald-400">{line.slice(1).trim()}</span>
-                      </>
-                    ) : (
-                      line
-                    )}
-                  </span>
+                  line.startsWith('$') ? (
+                    <>
+                      <span className="text-codecomment">$</span>
+                      <span className="text-codestring">{line.slice(1)}</span>
+                    </>
+                  ) : (
+                    <span className="text-codetext">{line}</span>
+                  )
                 )}
               </span>
             </div>

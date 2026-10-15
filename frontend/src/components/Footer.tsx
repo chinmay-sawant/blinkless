@@ -1,7 +1,7 @@
 import React from 'react';
-import { GitBranch, ArrowUp, Star } from 'lucide-react';
 import { Logo } from './Logo';
 import { ENGINE_STATS } from '../data/properties';
+import { GitHubLink } from './GitHubLink';
 
 interface FooterProps {
   onGoToDocs: (section?: string) => void;
@@ -13,69 +13,48 @@ export const Footer: React.FC<FooterProps> = ({ onGoToDocs }) => {
   };
 
   return (
-    <footer className="bg-zinc-950 border-t border-zinc-900 py-12 text-zinc-400 text-xs font-mono">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 pb-8 border-b border-zinc-900">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-white">
-              <Logo size={18} className="w-4 h-4 text-white" />
+    <footer className="border-t border-line bg-paper py-10 text-sm text-muted">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2.5 text-ink">
+              <Logo size={20} className="h-5 w-5" />
+              <span className="font-medium tracking-tight">blinkless</span>
+              <span className="font-mono text-xs text-faint">{ENGINE_STATS.version}</span>
             </div>
-            <div>
-              <div className="font-semibold text-white text-xs">blinkless {ENGINE_STATS.version}</div>
-              <div className="text-[11px] text-zinc-500 font-sans">Pure-Go HTML & CSS Layout Engine</div>
-            </div>
+            <p className="mt-1 font-mono text-xs">{ENGINE_STATS.modulePath}</p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-6 text-xs text-zinc-400">
+          <nav className="flex flex-wrap items-center gap-x-5 gap-y-1">
             <button
+              type="button"
               onClick={() => onGoToDocs('overview')}
-              className="hover:text-white transition-colors"
+              className="cursor-pointer min-h-11 hover:text-ink"
             >
               Documentation
             </button>
             <button
+              type="button"
               onClick={() => onGoToDocs('properties')}
-              className="hover:text-white transition-colors"
+              className="cursor-pointer min-h-11 hover:text-ink"
             >
-              CSS Reference
+              CSS catalog
             </button>
+            <GitHubLink />
             <button
-              onClick={() => onGoToDocs('comparison')}
-              className="hover:text-white transition-colors"
-            >
-              Blink Comparison
-            </button>
-            <a
-              href="https://github.com/chinmay-sawant/blinkless"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-white transition-colors flex items-center gap-1.5"
-            >
-              <GitBranch className="w-3.5 h-3.5" />
-              <span>GitHub</span>
-              <span className="flex items-center gap-0.5 text-zinc-300 ml-1">
-                <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                <span>1</span>
-              </span>
-            </a>
-            <button
+              type="button"
               onClick={scrollToTop}
-              className="hover:text-white transition-colors flex items-center gap-1 ml-auto md:ml-0"
+              className="cursor-pointer min-h-11 hover:text-ink"
             >
-              <span>Back to Top</span>
-              <ArrowUp className="w-3.5 h-3.5" />
+              Back to top
             </button>
-          </div>
+          </nav>
         </div>
 
-        <div className="pt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-zinc-500 text-[11px]">
-          <div>
-            Module: <code className="text-zinc-400">{ENGINE_STATS.modulePath}</code>
-          </div>
-          <div>
-            MIT Licensed &bull; Pure Go &bull; 100% CGO-free
-          </div>
-        </div>
+        <p className="mt-6 flex flex-wrap gap-x-4 gap-y-1">
+          <span>MIT</span>
+          <span>Default build leaves CGO off.</span>
+        </p>
       </div>
     </footer>
   );

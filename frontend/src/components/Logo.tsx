@@ -5,11 +5,7 @@ interface LogoProps {
   size?: number;
 }
 
-/**
- * Blinkless Logo:
- * A distinctive geometric "unblinking eye" integrating HTML/CSS layout box brackets
- * and a centered render aperture. Symbolizes pure layout computation without script flicker.
- */
+/** Crop mark: four corner ticks, a square, and a filled center. */
 export const Logo: React.FC<LogoProps> = ({ className = 'w-6 h-6', size = 24 }) => {
   return (
     <svg
@@ -19,34 +15,15 @@ export const Logo: React.FC<LogoProps> = ({ className = 'w-6 h-6', size = 24 }) 
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
+      aria-hidden="true"
     >
-      {/* Outer stylized unblinking contour */}
       <path
-        d="M2 16C5.5 8.5 10.5 5 16 5C21.5 5 26.5 8.5 30 16C26.5 23.5 21.5 27 16 27C10.5 27 5.5 23.5 2 16Z"
+        d="M4 9V4H9M23 4H28V9M28 23V28H23M9 28H4V23"
         stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        strokeWidth="1.5"
       />
-      {/* Layout box model center (square pupil & bounding box) */}
-      <rect
-        x="11"
-        y="11"
-        width="10"
-        height="10"
-        rx="1.5"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* Focal core point */}
-      <circle cx="16" cy="16" r="2" fill="currentColor" />
-      {/* Corner alignment ticks representing layout anchors */}
-      <path d="M11 8V11H8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M21 8V11H24" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M11 24V21H8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M21 24V21H24" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <rect x="11" y="11" width="10" height="10" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="14.5" y="14.5" width="3" height="3" fill="currentColor" />
     </svg>
   );
 };

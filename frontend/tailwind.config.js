@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+const channel = (name) => `rgb(var(--${name}) / <alpha-value>)`;
+
 export default {
   content: [
     "./index.html",
@@ -7,21 +9,30 @@ export default {
   theme: {
     extend: {
       colors: {
-        brand: {
-          50: '#f0f7ff',
-          100: '#e0effe',
-          200: '#b9ddfd',
-          500: '#0284c7',
-          600: '#0369a1',
-          700: '#075985',
-          800: '#0c4a6e',
-          900: '#082f49',
-          950: '#031726',
-        },
+        paper: channel('paper'),
+        sheet: channel('sheet'),
+        'paper-deep': channel('paper-deep'),
+        ink: channel('ink'),
+        muted: channel('muted'),
+        faint: channel('faint'),
+        line: channel('line'),
+        mark: channel('mark'),
+        'mark-soft': channel('mark-soft'),
+        moss: channel('moss'),
+        'moss-soft': channel('moss-soft'),
+        warn: channel('warn'),
+        'warn-soft': channel('warn-soft'),
+        codebg: channel('codebg'),
+        codebar: channel('codebar'),
+        codetext: channel('codetext'),
+        codecomment: channel('codecomment'),
+        codestring: channel('codestring'),
+        codekeyword: channel('codekeyword'),
       },
       fontFamily: {
-        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', 'monospace'],
-        sans: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+        sans: ['IBM Plex Sans', 'Helvetica Neue', 'Arial', 'sans-serif'],
+        display: ['Fraunces', 'Iowan Old Style', 'Palatino', 'serif'],
+        mono: ['IBM Plex Mono', 'ui-monospace', 'monospace'],
       },
     },
   },

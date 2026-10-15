@@ -2,24 +2,98 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Dark is the default. Light overrides the same channel names. */
+:root {
+  color-scheme: dark;
+  --paper: 18 16 14;
+  --sheet: 28 25 22;
+  --paper-deep: 36 32 28;
+  --ink: 244 239 230;
+  --muted: 196 187 175;
+  --faint: 168 158 146;
+  --line: 68 60 52;
+  --mark: 224 164 150;
+  --mark-soft: 62 40 36;
+  --moss: 168 204 176;
+  --moss-soft: 28 46 36;
+  --warn: 230 196 130;
+  --warn-soft: 54 42 24;
+  --codebg: 12 11 10;
+  --codebar: 32 28 24;
+  --codetext: 244 239 230;
+  --codecomment: 168 158 146;
+  --codestring: 228 201 160;
+  --codekeyword: 240 183 168;
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+  --paper: 246 244 239;
+  --sheet: 255 252 247;
+  --paper-deep: 239 236 228;
+  --ink: 28 25 21;
+  --muted: 63 58 52;
+  --faint: 107 100 92;
+  --line: 211 200 184;
+  --mark: 156 59 46;
+  --mark-soft: 244 231 227;
+  --moss: 44 90 66;
+  --moss-soft: 229 239 232;
+  --warn: 138 90 18;
+  --warn-soft: 246 238 221;
+  --codebg: 28 25 21;
+  --codebar: 42 37 31;
+  --codetext: 244 239 230;
+  --codecomment: 163 152 136;
+  --codestring: 228 201 160;
+  --codekeyword: 231 179 166;
+}
+
 @layer base {
   body {
-    @apply bg-zinc-950 text-zinc-100 font-sans antialiased;
+    @apply bg-paper text-ink font-sans antialiased;
+  }
+
+  ::selection {
+    background: rgb(var(--mark-soft));
+    color: rgb(var(--ink));
   }
 }
 
-/* Minimal flat scrollbar */
+:focus-visible {
+  outline: 2px solid rgb(var(--ink));
+  outline-offset: 2px;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--line)) rgb(var(--paper));
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
+
 ::-webkit-scrollbar-track {
-  background: #09090b;
+  background: rgb(var(--paper));
 }
+
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
-  border-radius: 2px;
+  background: rgb(var(--line));
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: rgb(var(--faint));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
