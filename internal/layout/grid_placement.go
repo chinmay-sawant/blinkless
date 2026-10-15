@@ -15,12 +15,19 @@ type gridCell struct {
 
 // gridOccupation tracks placed grid cells so auto-flow items skip overlaps.
 type gridOccupation struct {
-	nCols int
-	byRow map[int]map[int]bool
+	nCols    int
+	byRow    map[int]map[int]bool
+	workLeft int
+	err      error
 }
 
+// maxGridPlacementAttempts bounds implicit-row scanning during auto-placement
+// so spanned or impossible dense layouts terminate instead of walking rows
+// without end.
+const maxGridPlacementAttempts = 1 << 16
+
 func newGridOccupation(nCols int) *gridOccupation {
-	return &gridOccupation{nCols: nCols, byRow: map[int]map[int]bool{}}
+	return &gridOccupation{nCols: nCols, byRow: map[int]map[int]bool{}, workLeft: maxGridChecks, err: nil}
 }
 
 func (o *gridOccupation) ensure(row int) {
@@ -30,12 +37,21 @@ func (o *gridOccupation) ensure(row int) {
 }
 
 func (o *gridOccupation) freeAt(row, col, rowSpan, colSpan int) bool {
-	for r := range rowSpan {
-		o.ensure(row + r)
+	for rowOffset := range rowSpan {
+		o.ensure(row + rowOffset)
 
-		for i := range colSpan {
-			c := col + i
-			if c >= o.nCols || o.byRow[row+r][c] {
+		for colOffset := range colSpan {
+			if o.workLeft == 0 {
+				o.err = errGridExtentExceeded
+				// Stop the slot search. placeGridItems checks err before
+				// using the coordinates or marking any cells.
+				return true
+			}
+
+			o.workLeft--
+
+			column := col + colOffset
+			if column >= o.nCols || o.byRow[row+rowOffset][column] {
 				return false
 			}
 		}
@@ -65,50 +81,75 @@ func placeGridItems(
 	columnMajor, densePack bool, explicitRows int,
 ) []gridCell {
 	// Implicit row band for column-major auto flow (grid-template-rows empty).
-	implicitRows := areas.rows
-	if explicitRows > implicitRows {
-		implicitRows = explicitRows
-	}
-
-	if implicitRows < 1 {
-		implicitRows = (len(kids) + nCols - 1) / nCols
-	}
-
-	minRows := implicitRows
-	if minRows < 1 {
-		minRows = 1
-	}
+	implicitRows := gridImplicitRowCount(len(kids), nCols, areas.rows, explicitRows)
+	minRows := max(implicitRows, 1)
 
 	placed := make([]gridCell, 0, len(kids))
 	cursorRow, cursorCol := 0, 0
+	remainingCells := maxGridCells
 
 	for _, kid := range kids {
+		style := *eng.stylePtr(kid)
+		rowStart, colStart, rowSpan, colSpan, _ := gridItemSpans(style, areas, nCols)
+
+		if !gridExtentWithinBudget(rowStart, colStart, rowSpan, colSpan, remainingCells) {
+			eng.err = errGridExtentExceeded
+
+			return nil
+		}
+
 		row, col, rowSpan, colSpan := planGridItemPlacement(
-			*eng.stylePtr(kid), areas, occ, nCols, cursorRow, cursorCol,
+			style, areas, occ, nCols, cursorRow, cursorCol,
 			columnMajor, densePack, minRows,
 		)
+
+		if occ.err != nil {
+			eng.err = occ.err
+
+			return nil
+		}
+
+		if !gridExtentWithinBudget(row, col, rowSpan, colSpan, remainingCells) {
+			eng.err = errGridExtentExceeded
+
+			return nil
+		}
+
+		remainingCells -= rowSpan * colSpan
 		occ.mark(row, col, rowSpan, colSpan)
 
-		placed = append(placed, gridCell{n: kid, col: col, colSpan: colSpan, row: row, rowSpan: rowSpan})
-
-		if columnMajor {
-			cursorRow = row + rowSpan
-			cursorCol = col
-
-			if implicitRows > 0 && cursorRow >= implicitRows {
-				cursorRow = 0
-				cursorCol++
-			}
-		} else {
-			cursorRow, cursorCol = row, col+colSpan
-			if cursorCol >= nCols {
-				cursorCol = 0
-				cursorRow++
-			}
-		}
+		cell := gridCell{n: kid, col: col, colSpan: colSpan, row: row, rowSpan: rowSpan}
+		placed = append(placed, cell)
+		cursorRow, cursorCol = nextGridCursor(cell, columnMajor, implicitRows, nCols)
 	}
 
 	return placed
+}
+
+func nextGridCursor(cell gridCell, columnMajor bool, implicitRows, nCols int) (int, int) {
+	if columnMajor {
+		row, col := cell.row+cell.rowSpan, cell.col
+		if implicitRows > 0 && row >= implicitRows {
+			return 0, col + 1
+		}
+
+		return row, col
+	}
+
+	row, col := cell.row, cell.col+cell.colSpan
+	if col >= nCols {
+		return row + 1, 0
+	}
+
+	return row, col
+}
+
+func gridImplicitRowCount(itemCount, nCols, areaRows, explicitRows int) int {
+	if rows := max(areaRows, explicitRows); rows > 0 {
+		return rows
+	}
+
+	return (itemCount + nCols - 1) / nCols
 }
 
 // gridItemSpans resolves the row/col start (0-based, -1 = auto) and span for
@@ -278,8 +319,15 @@ func placeGridItemDefinite(occ *gridOccupation, rowStart, colStart, rowSpan, col
 		col = 0
 	}
 
+	attempts := 0
+
 	for !occ.freeAt(row, col, rowSpan, colSpan) {
 		row++
+		attempts++
+
+		if attempts > maxGridPlacementAttempts {
+			break
+		}
 	}
 
 	return row, col
@@ -298,8 +346,15 @@ func placeGridItemColumnPinned(
 		row = cursorRow
 	}
 
+	attempts := 0
+
 	for !occ.freeAt(row, colStart, rowSpan, colSpan) {
 		row++
+		attempts++
+
+		if attempts > maxGridPlacementAttempts {
+			break
+		}
 	}
 
 	return row, colStart
@@ -310,7 +365,15 @@ func placeGridItemColumnPinned(
 func placeGridItemRowPinned(occ *gridOccupation, rowStart, nCols int, rowSpan, colSpan int) (int, int) {
 	row, col := rowStart, 0
 
+	attempts := 0
+
 	for {
+		if attempts > maxGridPlacementAttempts {
+			break
+		}
+
+		attempts++
+
 		if col+colSpan > nCols {
 			col = 0
 			row++
@@ -390,7 +453,15 @@ type gridFreeFn func(row, col, rowSpan, colSpan int) bool
 func findGridSlotRowMajor(free gridFreeFn, nCols, startRow, startCol, rowSpan, colSpan int) (int, int) {
 	row, col := startRow, startCol
 
+	attempts := 0
+
 	for {
+		if attempts > maxGridPlacementAttempts {
+			return row, col
+		}
+
+		attempts++
+
 		if col+colSpan > nCols {
 			col = 0
 			row++

@@ -35,6 +35,7 @@ from .exceptions import (
     sniff_sentinel,
 )
 from .document import (
+    MAX_ALLOW_ENTRIES,
     Content,
     Crop,
     Document,
@@ -118,6 +119,7 @@ __all__ = [
     "convert_file_to_pdf",
     "convert_url_to_pdf",
     "convert_html_to_image",
+    "MAX_ALLOW_ENTRIES",
     "__version__",
     "library_version",
     "abi_version",

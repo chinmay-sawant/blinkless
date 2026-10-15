@@ -1899,14 +1899,46 @@ func isLinkHref(href string) bool {
 		return true
 	}
 
-	low := strings.ToLower(href)
-	for _, prefix := range []string{"javascript:", "data:", "blob:"} {
-		if strings.HasPrefix(low, prefix) {
-			return false
-		}
+	if hasDangerousScheme(href) {
+		return false
 	}
 
 	return !strings.Contains(href, "://") && !strings.Contains(href, ":")
+}
+
+// hasDangerousScheme reports whether href uses a non-navigable URI scheme,
+// even when obfuscated with whitespace or control characters between the
+// scheme name and the colon.
+func hasDangerousScheme(href string) bool {
+	low := stripASCIISpace(strings.ToLower(href))
+
+	for _, prefix := range []string{"javascript:", "vbscript:", "data:", "blob:", "file:"} {
+		if strings.HasPrefix(low, prefix) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// stripASCIISpace removes ASCII whitespace and control characters so scheme
+// prefix checks cannot be bypassed with embedded junk characters. Only ASCII
+// is stripped: bytes at or below 0x20 (which covers space and all C0
+// controls) plus DEL.
+func stripASCIISpace(src string) string {
+	var compact strings.Builder
+
+	compact.Grow(len(src))
+
+	for _, char := range src {
+		if char < 0x80 && (char <= 0x20 || char == 0x7f) {
+			continue
+		}
+
+		compact.WriteRune(char)
+	}
+
+	return compact.String()
 }
 
 // isInternalHref reports a same-document fragment link (#id).

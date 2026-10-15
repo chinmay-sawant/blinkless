@@ -65,8 +65,26 @@ func mirrorSelectedContent(selectNode *Node) {
 		return
 	}
 
+	// Bound the deep clone so a huge selected subtree cannot double the
+	// tree's memory. When the estimate exceeds the cap, leave the
+	// selectedcontent empty rather than cloning an unbounded subtree.
+	total := 0
+
 	for _, child := range selected.Children {
-		selectedContent.Children = append(selectedContent.Children, cloneSubtree(child))
+		total += subtreeByteSize(child, 0)
+		if total > maxSelectedContentBytes {
+			return
+		}
+	}
+
+	for _, child := range selected.Children {
+		childClone := cloneSubtree(child)
+		if childClone == nil {
+			continue
+		}
+
+		childClone.Parent = selectedContent
+		selectedContent.Children = append(selectedContent.Children, childClone)
 	}
 }
 
@@ -74,6 +92,14 @@ func mirrorSelectedContent(selectNode *Node) {
 // attributes, namespace, and text. Template contents are copied too so a
 // cloned template stays complete.
 func cloneSubtree(node *Node) *Node {
+	return cloneSubtreeDepth(node, 0)
+}
+
+func cloneSubtreeDepth(node *Node, depth int) *Node {
+	if node == nil || depthExceeded(depth) {
+		return nil
+	}
+
 	clone := &Node{ //nolint:exhaustruct
 		Type:      node.Type,
 		Name:      node.Name,
@@ -95,18 +121,63 @@ func cloneSubtree(node *Node) *Node {
 	}
 
 	for _, child := range node.Children {
-		childClone := cloneSubtree(child)
+		childClone := cloneSubtreeDepth(child, depth+1)
+		if childClone == nil {
+			continue
+		}
+
 		childClone.Parent = clone
 		clone.Children = append(clone.Children, childClone)
 	}
 
 	for _, child := range node.Contents {
-		childClone := cloneSubtree(child)
+		childClone := cloneSubtreeDepth(child, depth+1)
+		if childClone == nil {
+			continue
+		}
+
 		childClone.Parent = clone
 		clone.Contents = append(clone.Contents, childClone)
 	}
 
 	return clone
+}
+
+// subtreeByteSize estimates the in-memory size of a cloned subtree, including
+// the depth cap so adversarial nesting cannot recurse without bound.
+func subtreeByteSize(node *Node, depth int) int {
+	if node == nil || depthExceeded(depth) {
+		return 0
+	}
+
+	// Include the node allocation and child-slice entry, even for empty
+	// elements. Text and attributes alone leave empty trees unbounded.
+	const nodeBytes, attrBytes = 256, 64
+	size := nodeBytes + len(node.Text) + len(node.Name) + attrBytes*(len(node.Attrs)+len(node.AttrList))
+
+	for key, value := range node.Attrs {
+		size += len(key) + len(value)
+	}
+
+	for _, attr := range node.AttrList {
+		size += len(attr.Namespace) + len(attr.Name) + len(attr.Value)
+	}
+
+	for _, child := range node.Children {
+		size += subtreeByteSize(child, depth+1)
+		if size > maxSelectedContentBytes {
+			return maxSelectedContentBytes + 1
+		}
+	}
+
+	for _, child := range node.Contents {
+		size += subtreeByteSize(child, depth+1)
+		if size > maxSelectedContentBytes {
+			return maxSelectedContentBytes + 1
+		}
+	}
+
+	return size
 }
 
 // --- select and template state helpers ---

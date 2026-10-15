@@ -11,8 +11,39 @@ import "strings"
 const maxElementDepth = 1024
 
 // maxReprocess bounds mode-transition reprocessing so adversarial input cannot
-// loop between insertion modes.
+// loop between insertion modes. It is a hard limit: appendToken runs the mode
+// chain at most this many times.
 const maxReprocess = 8
+
+// Attribute and selected-content caps keep adversarial input from driving
+// unbounded allocation during parsing.
+const (
+	// maxAttributesPerElement caps the number of attributes stored on one
+	// element; excess attributes are dropped during token scanning.
+	maxAttributesPerElement = 1000
+
+	// maxAttributeNameBytes caps one attribute name's size.
+	maxAttributeNameBytes = 4096
+
+	// maxAttributeValueBytes caps one attribute value's size.
+	maxAttributeValueBytes = 64 * 1024
+
+	// maxAttributeBytesPerElement caps the total attribute bytes stored on
+	// one element.
+	maxAttributeBytesPerElement = 64 * 1024
+
+	// maxSelectedContentBytes bounds the deep clone performed for a
+	// selectedcontent element, so a huge selected subtree cannot double the
+	// tree's memory.
+	maxSelectedContentBytes = 1 << 20
+)
+
+// depthExceeded reports whether a nesting depth has reached the element-depth
+// cap. Callers pass the depth of the node they are about to process or
+// create; the cap is applied consistently with insertNode.
+func depthExceeded(depth int) bool {
+	return depth >= maxElementDepth
+}
 
 // insertionMode is the standard's tree-construction mode.
 type insertionMode uint8
@@ -1395,14 +1426,27 @@ func applyAttributes(node *Node, attrs []string) {
 		node.Attrs = make(map[string]string, len(attrs)/attrPairSize)
 	}
 
+	totalBytes := 0
+
 	for i := 0; i+1 < len(attrs); i += 2 {
+		if len(node.AttrList) >= maxAttributesPerElement {
+			break
+		}
+
 		key, attr := adjustAttributeName(node.Namespace, attrs[i], attrs[i+1])
+
+		pairBytes := len(key) + len(attr.Value)
+		if totalBytes+pairBytes > maxAttributeBytesPerElement {
+			break
+		}
+
 		if _, dup := node.Attrs[key]; dup {
 			continue
 		}
 
 		node.Attrs[key] = attr.Value
 		node.AttrList = append(node.AttrList, attr)
+		totalBytes += pairBytes
 	}
 }
 

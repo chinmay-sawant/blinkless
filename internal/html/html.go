@@ -11,6 +11,8 @@
 package html
 
 import (
+	"bytes"
+	"errors"
 	"strings"
 	"unicode/utf8"
 )
@@ -89,7 +91,8 @@ func (n *Node) TextContent() string {
 
 // Walk visits n and every descendant in pre-order (document order). Template
 // contents are not visited: they live in Node.Contents, not Children, and are
-// inert until a consumer instantiates them.
+// inert until a consumer instantiates them. Deep adversarial trees stop at
+// maxElementDepth.
 func (n *Node) Walk(f func(*Node)) {
 	n.WalkUntil(func(node *Node) bool {
 		f(node)
@@ -99,14 +102,23 @@ func (n *Node) Walk(f func(*Node)) {
 }
 
 // WalkUntil visits n and every descendant in pre-order, stopping when f returns false.
-// It reports whether the full tree was visited.
+// It reports whether the full tree was visited. Deep adversarial trees stop at
+// maxElementDepth.
 func (n *Node) WalkUntil(f func(*Node) bool) bool {
+	return walkUntil(n, f, 0)
+}
+
+func walkUntil(n *Node, f func(*Node) bool, depth int) bool {
+	if depthExceeded(depth) {
+		return false
+	}
+
 	if !f(n) {
 		return false
 	}
 
 	for _, child := range n.Children {
-		if !child.WalkUntil(f) {
+		if !walkUntil(child, f, depth+1) {
 			return false
 		}
 	}
@@ -143,12 +155,20 @@ func (n *Node) TextContentOf(name string) string {
 }
 
 func (n *Node) appendText(buf *strings.Builder) {
+	n.appendTextDepth(buf, 0)
+}
+
+func (n *Node) appendTextDepth(buf *strings.Builder, depth int) {
+	if depthExceeded(depth) {
+		return
+	}
+
 	switch n.Type {
 	case TextNode:
 		buf.WriteString(n.Text)
 	case ElementNode:
 		for _, c := range n.Children {
-			c.appendText(buf)
+			c.appendTextDepth(buf, depth+1)
 		}
 	case CommentNode, DoctypeNode:
 		// comments and doctypes contribute no text
@@ -156,11 +176,18 @@ func (n *Node) appendText(buf *strings.Builder) {
 	}
 }
 
+// maxParseInputBytes is the default upper bound for a single Parse call's input.
+// Parse itself does not enforce it: callers are expected to enforce
+// MaxBodySize at the load seam (internal/load) before bytes reach ParseDocument.
+// ParseWithLimit enforces it for callers that parse untrusted strings directly.
+const maxParseInputBytes = 64 * 1024 * 1024
+
 // Parse turns HTML source into a tree with a synthetic root. The source is
 // preprocessed before tokenizing: CRLF and CR become LF, and invalid UTF-8
 // bytes become U+FFFD. Charset detection happens at the load seam
-// (internal/load). Use ParseDocument for the bytes-to-tree path (it strips
-// the BOM).
+// (internal/load), and input size is the caller's responsibility there. Use
+// ParseDocument for the bytes-to-tree path (it strips the BOM), or
+// ParseWithLimit when an explicit bound is needed.
 func Parse(source string) (*Node, error) {
 	builder := newTreeBuilder()
 
@@ -171,13 +198,42 @@ func Parse(source string) (*Node, error) {
 	return builder.root, nil
 }
 
+// ParseWithLimit turns HTML source into a tree, rejecting input larger than
+// maxBytes. A non-positive maxBytes uses maxParseInputBytes. The underlying
+// Parse does not cap input size.
+func ParseWithLimit(source string, maxBytes int) (*Node, error) {
+	if maxBytes <= 0 {
+		maxBytes = maxParseInputBytes
+	}
+
+	if len(source) > maxBytes {
+		return nil, errors.New("html: source exceeds byte limit")
+	}
+
+	return Parse(source)
+}
+
 // ParseDocument turns raw document bytes into a tree with a synthetic root,
 // stripping a leading UTF-8 BOM (mirroring load.IsHTML). Only UTF-8/ASCII
-// sources are supported; the charset rule is enforced at the load seam.
+// sources are supported; the charset rule is enforced at the load seam. Size
+// enforcement follows the caller; see ParseWithLimit.
 func ParseDocument(body []byte) (*Node, error) {
 	s := strings.TrimPrefix(string(body), "\ufeff") // BOM, mirroring load.IsHTML
 
 	return Parse(s)
+}
+
+// ParseDocumentWithLimit turns raw document bytes into a tree with an explicit
+// byte bound on the source after BOM stripping.
+func ParseDocumentWithLimit(body []byte, maxBytes int) (*Node, error) {
+	body = bytes.TrimPrefix(body, []byte("\xef\xbb\xbf"))
+	if maxBytes <= 0 {
+		maxBytes = maxParseInputBytes
+	}
+	if len(body) > maxBytes {
+		return nil, errors.New("html: source exceeds byte limit")
+	}
+	return Parse(string(body))
 }
 
 // tokenKind discriminates token types.
@@ -644,7 +700,9 @@ func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, nex
 
 				i++
 			default:
-				appendNULReplaced(&nameBuf, c)
+				if nameBuf.Len() < maxAttributeNameBytes {
+					appendNULReplaced(&nameBuf, c)
+				}
 
 				i++
 			}
@@ -653,7 +711,7 @@ func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, nex
 			case isWhitespace(c):
 				i++
 			case c == '/':
-				attrs = append(attrs, strings.ToLower(nameBuf.String()), "")
+				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), "")
 				nameBuf.Reset()
 
 				state = tagStateSelfClosing
@@ -664,11 +722,11 @@ func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, nex
 
 				i++
 			case c == '>':
-				attrs = append(attrs, strings.ToLower(nameBuf.String()), "")
+				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), "")
 
 				return attrs, selfClosing, i + 1, true
 			default:
-				attrs = append(attrs, strings.ToLower(nameBuf.String()), "")
+				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), "")
 				nameBuf.Reset()
 
 				state = tagStateAttrName
@@ -686,7 +744,7 @@ func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, nex
 
 				i++
 			case c == '>':
-				attrs = append(attrs, strings.ToLower(nameBuf.String()), "")
+				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), "")
 
 				return attrs, selfClosing, i + 1, true
 			default:
@@ -704,23 +762,29 @@ func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, nex
 
 				i++
 			case c == 0:
-				valueBuf.WriteString(nulReplacement)
+				if valueBuf.Len()+len(nulReplacement) <= maxAttributeValueBytes {
+					valueBuf.WriteString(nulReplacement)
+				}
 
 				i++
 			case c == '&':
 				decoded, consumed := decodeAttributeReference(src, i)
-				valueBuf.WriteString(decoded)
+				if valueBuf.Len()+len(decoded) <= maxAttributeValueBytes {
+					valueBuf.WriteString(decoded)
+				}
 
 				i += consumed
 			default:
-				valueBuf.WriteByte(c)
+				if valueBuf.Len() < maxAttributeValueBytes {
+					valueBuf.WriteByte(c)
+				}
 
 				i++
 			}
 		case tagStateAttrValueUnquoted:
 			switch {
 			case isWhitespace(c):
-				attrs = append(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
+				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
 				nameBuf.Reset()
 				valueBuf.Reset()
 
@@ -728,27 +792,33 @@ func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, nex
 
 				i++
 			case c == '>':
-				attrs = append(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
+				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
 
 				return attrs, selfClosing, i + 1, true
 			case c == 0:
-				valueBuf.WriteString(nulReplacement)
+				if valueBuf.Len()+len(nulReplacement) <= maxAttributeValueBytes {
+					valueBuf.WriteString(nulReplacement)
+				}
 
 				i++
 			case c == '&':
 				decoded, consumed := decodeAttributeReference(src, i)
-				valueBuf.WriteString(decoded)
+				if valueBuf.Len()+len(decoded) <= maxAttributeValueBytes {
+					valueBuf.WriteString(decoded)
+				}
 
 				i += consumed
 			default:
-				valueBuf.WriteByte(c)
+				if valueBuf.Len() < maxAttributeValueBytes {
+					valueBuf.WriteByte(c)
+				}
 
 				i++
 			}
 		case tagStateAfterAttrValueQuoted:
 			switch {
 			case isWhitespace(c):
-				attrs = append(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
+				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
 				nameBuf.Reset()
 				valueBuf.Reset()
 
@@ -756,7 +826,7 @@ func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, nex
 
 				i++
 			case c == '/':
-				attrs = append(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
+				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
 				nameBuf.Reset()
 				valueBuf.Reset()
 
@@ -764,11 +834,11 @@ func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, nex
 
 				i++
 			case c == '>':
-				attrs = append(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
+				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
 
 				return attrs, selfClosing, i + 1, true
 			default:
-				attrs = append(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
+				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
 				nameBuf.Reset()
 				valueBuf.Reset()
 
@@ -1380,6 +1450,25 @@ func scanScriptData(src string, from int, name string) (string, int, bool) {
 	}
 
 	return text.String(), len(src), false
+}
+
+// appendCappedAttr appends one attribute unless the per-element count or total
+// byte cap has already been reached; otherwise it returns attrs unchanged.
+func appendCappedAttr(attrs []string, name, value string) []string {
+	if len(attrs)/2 >= maxAttributesPerElement {
+		return attrs
+	}
+
+	total := 0
+	for _, entry := range attrs {
+		total += len(entry)
+	}
+
+	if total+len(name)+len(value) > maxAttributeBytesPerElement {
+		return attrs
+	}
+
+	return append(attrs, name, value)
 }
 
 // lowerASCII lowercases one ASCII letter byte.

@@ -284,6 +284,14 @@ func (e *engine) multicolGap(st ResolvedStyle) float64 {
 // usedColumnCountWidth resolves used column count and width from container
 // content width, gap, and specified column-width / column-count (CSS Multicol §3.3).
 func usedColumnCountWidth(avail, gap, colWidth float64, colCount int) (int, float64) {
+	if colCount > maxMulticolColumns {
+		colCount = maxMulticolColumns
+	}
+
+	if colCount < -maxMulticolColumns {
+		colCount = -maxMulticolColumns
+	}
+
 	switch {
 	case colCount <= 0 && colWidth < 0:
 		return 1, avail
@@ -298,9 +306,15 @@ func usedColumnCountWidth(avail, gap, colWidth float64, colCount int) (int, floa
 
 // fitColumnCount clamps the column count to ≥1 and returns the widths that
 // fill avail with gap between columns.
+const maxMulticolColumns = 4096
+
 func fitColumnCount(n int, avail, gap float64) (int, float64) {
 	if n < 1 {
 		n = 1
+	}
+
+	if n > maxMulticolColumns {
+		n = maxMulticolColumns
 	}
 
 	return n, columnWidth(n, avail, gap)
@@ -322,6 +336,10 @@ func shrinkColumnCount(colCount int, avail, gap, colWidth float64) (int, float64
 	count := colCount
 	if count < 1 {
 		count = 1
+	}
+
+	if count > maxMulticolColumns {
+		count = maxMulticolColumns
 	}
 
 	for count > 1 {

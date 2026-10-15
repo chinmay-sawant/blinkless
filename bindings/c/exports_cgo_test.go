@@ -77,3 +77,44 @@ func TestAllowListMessage(t *testing.T) {
 		t.Fatalf("allowListMessage = %q, want it to name got and limit", msg)
 	}
 }
+
+func TestLastErrorOversizeBufLenRejected(t *testing.T) {
+	// No t.Parallel: the last-error slot is process-wide, so the
+	// set/read round trip must not race the parallel tests above.
+	setLastError("oversize probe")
+
+	got, untouched := probeLastErrorOversize()
+	if got != 0 {
+		t.Fatalf("blinkless_last_error(oversize) = %d, want 0", got)
+	}
+	if !untouched {
+		t.Fatal("blinkless_last_error(oversize) touched caller memory")
+	}
+	if got := readLastErrorViaExport(); got != "oversize probe" {
+		t.Fatalf("readLastErrorViaExport = %q, want %q", got, "oversize probe")
+	}
+}
+
+func TestExportWrappersHappyPath(t *testing.T) {
+	// No t.Parallel: shares the process-wide last-error slot, see above.
+	// Drives every panic-wrapped export reachable without C pointers in
+	// this file; a panic in any wrapper fails the test instead of
+	// returning. The recover branches themselves only fire on unexpected
+	// internal panics and have no deterministic trigger.
+	if got := exportedABI(); got != abiVersionValue {
+		t.Fatalf("exportedABI() = %d, want %d", got, abiVersionValue)
+	}
+	if got := exportedVersion(); got != libVersion {
+		t.Fatalf("exportedVersion() = %q, want %q", got, libVersion)
+	}
+	blinkless_free(nil)
+
+	if got := probeHtmlToImageNil(); got != statusInvalidArg {
+		t.Fatalf("blinkless_html_to_image(nil) = %d, want %d", got, statusInvalidArg)
+	}
+
+	setLastError("export smoke")
+	if got := readLastErrorViaExport(); got != "export smoke" {
+		t.Fatalf("readLastErrorViaExport = %q, want %q", got, "export smoke")
+	}
+}

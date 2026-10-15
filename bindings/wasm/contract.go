@@ -17,8 +17,11 @@ const (
 	// displayMode is the only output mode: the versioned drawing-list JSON.
 	displayMode = "display"
 	// defaultMode is what a request with no mode gets.
-	defaultMode     = displayMode
-	maxHTMLBytes    = 4 << 20
+	defaultMode  = displayMode
+	maxHTMLBytes = 4 << 20
+	// The full JSON request has a 5 MiB byte cap, including whitespace,
+	// fields, and escapes. Escaped HTML can reach it before the 4 MiB HTML cap.
+	maxRequestBytes = maxHTMLBytes + (1 << 20)
 	maxViewportSide = 4096
 	// fallbackViewportPx matches the bitmap viewport the display list grew
 	// from: an unset width lays out at 1024 CSS pixels.
@@ -67,7 +70,11 @@ type ErrorResponse struct {
 
 // DecodeRequest validates JSON before any renderer or loader work starts.
 func DecodeRequest(raw string) (Request, error) {
-	decoder := json.NewDecoder(io.LimitReader(strings.NewReader(raw), maxHTMLBytes+1<<20))
+	if len(raw) > maxRequestBytes {
+		return Request{}, fmt.Errorf("%w: %w", errInvalidRequest, errInputTooLarge)
+	}
+
+	decoder := json.NewDecoder(strings.NewReader(raw))
 	decoder.DisallowUnknownFields()
 
 	var request Request

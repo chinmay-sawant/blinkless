@@ -10,6 +10,12 @@ cd "$repo_root"
 # paint order, malformed requests, and output-size enforcement.
 go test -p 2 -parallel 2 ./bindings/wasm -count=1
 
+# Exercise syscall/js with real JavaScript strings. Native tests exclude the
+# bridge and cannot catch primitive-value access or pre-copy limit failures.
+wasm_runner="$(go env GOROOT)/lib/wasm/go_js_wasm_exec"
+GOOS=js GOARCH=wasm go test -p 2 -parallel 2 -exec="$wasm_runner" \
+	./bindings/wasm -run '^TestConvertJSRequestBounds$' -count=1
+
 # Browser contract: build the wasm adapter, run it under node with the local
 # Go wasm_exec.js, decode a real result, and compare its operations and
 # referenced resources with the native result for testdata/wasm/sample.html.

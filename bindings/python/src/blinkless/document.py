@@ -9,6 +9,7 @@ methods report that PDF writing and image encoding were removed.
 
 import ctypes
 import dataclasses
+import itertools
 import urllib.parse
 from typing import List, Optional, Sequence
 
@@ -24,6 +25,10 @@ from .exceptions import (
 
 #: Upper bound for Document.copies, matching Go MaxDocumentCopies (api.go).
 MAX_DOCUMENT_COPIES = 1000
+
+#: Upper bound for the number of entries in an allow array, matching
+#: maxAllowEntries in bindings/c/options_image.go.
+MAX_ALLOW_ENTRIES = 1024
 
 #: Page size names accepted by the engine (internal/settings/pagesize.go).
 PAGE_SIZES = frozenset(
@@ -447,10 +452,25 @@ class ImageDocument:
 
 def _encode_optional(text, keepalive):
     # type: (Optional[str], list) -> Optional[bytes]
-    """Encode a string for a c_char_p field; empty becomes NULL."""
+    """Encode a string for a c_char_p field; empty becomes NULL.
+
+    Inputs are NUL-terminated on the C side, so an embedded NUL byte
+    would silently truncate the value before any policy check runs. Reject
+    such inputs before encoding instead of passing a shortened string
+    across the FFI boundary.
+    """
     if text is None:
         return None
-    encoded = text.encode("utf-8")
+    if isinstance(text, (bytes, bytearray)):
+        encoded = bytes(text)
+    elif isinstance(text, str):
+        encoded = text.encode("utf-8")
+    else:
+        encoded = str(text).encode("utf-8")
+    if b"\x00" in encoded:
+        raise InvalidArgumentError(
+            1, "string field contains an embedded NUL byte"
+        )
     keepalive.append(encoded)
     return encoded or None
 
@@ -469,9 +489,24 @@ def _network_policy_flag(policy):
 
 
 def _allow_array(entries, keepalive):
-    # type: (Optional[Sequence[str]], list)
-    """Build the c_char_p array for the allow list, keeping refs alive."""
-    encoded = [_encode_optional(item, keepalive) for item in entries or []]
+    # type: (Optional[Sequence[str]], list) -> ctypes.Array
+    """Build the c_char_p array for the allow list, keeping refs alive.
+
+    The C side rejects allow arrays longer than ``MAX_ALLOW_ENTRIES``
+    (1024) before it forms an unsafe slice over caller memory. Mirror
+    that cap here so an oversized (or NUL-containing) list fails before
+    any foreign call is made; ``InvalidArgumentError`` is raised in both
+    cases to match the ABI's INVALID_ARG status.
+    """
+    normalized = list(itertools.islice(entries or (), MAX_ALLOW_ENTRIES + 1))
+    if len(normalized) > MAX_ALLOW_ENTRIES:
+        raise InvalidArgumentError(
+            1,
+            "allow list length {0} exceeds the {1} entry limit".format(
+                len(normalized), MAX_ALLOW_ENTRIES
+            ),
+        )
+    encoded = [_encode_optional(item, keepalive) for item in normalized]
     array = (ctypes.c_char_p * len(encoded))(*encoded)
     keepalive.append(array)
     return array
@@ -496,8 +531,9 @@ def _serialize_image_options(image_doc, timeout):
     if not (base_url or "").strip() and image_doc.source.kind == "html":
         base_url = image_doc.source.base
     opts.base_url = _encode_optional(base_url or "", keepalive)
-    opts.allow = _allow_array(image_doc.allow, keepalive)
-    opts.allow_len = len(image_doc.allow or [])
+    allow = _allow_array(image_doc.allow, keepalive)
+    opts.allow = allow
+    opts.allow_len = len(allow)
     opts.width = image_doc.width
     opts.height = image_doc.height
     opts.quality = image_doc.quality

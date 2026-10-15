@@ -181,6 +181,11 @@ func resolveMaskDimensions(data []byte, width, height int) (int, int, error) {
 	return width, height, nil
 }
 
+// maxMaskDepth caps element nesting while parsing an SVG mask document, so
+// adversarial or pathological documents cannot drive unbounded recursion in
+// readSVGMaskElement.
+const maxMaskDepth = 1024
+
 func parseSVGMaskDocument(data []byte) (*svgMaskElement, error) {
 	decoder := xml.NewDecoder(bytes.NewReader(data))
 
@@ -195,11 +200,15 @@ func parseSVGMaskDocument(data []byte) (*svgMaskElement, error) {
 			continue
 		}
 
-		return readSVGMaskElement(decoder, start)
+		return readSVGMaskElement(decoder, start, 0)
 	}
 }
 
-func readSVGMaskElement(decoder *xml.Decoder, start xml.StartElement) (*svgMaskElement, error) {
+func readSVGMaskElement(decoder *xml.Decoder, start xml.StartElement, depth int) (*svgMaskElement, error) {
+	if depth > maxMaskDepth {
+		return nil, errMaskBadStructure
+	}
+
 	element := &svgMaskElement{
 		start:    start,
 		children: []svgMaskPart{},
@@ -213,7 +222,7 @@ func readSVGMaskElement(decoder *xml.Decoder, start xml.StartElement) (*svgMaskE
 
 		switch item := token.(type) {
 		case xml.StartElement:
-			child, err := readSVGMaskElement(decoder, item)
+			child, err := readSVGMaskElement(decoder, item, depth+1)
 			if err != nil {
 				return nil, err
 			}

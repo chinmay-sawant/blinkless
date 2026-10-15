@@ -157,6 +157,25 @@ func decodeNumericRef(src string, offset int) (string, int, bool) {
 	}
 
 	digitsStart := idx
+
+	value, idx := scanNumericDigits(src, idx, base)
+
+	if idx == digitsStart {
+		return "", 0, false
+	}
+
+	consumed := idx - offset
+	if idx < len(src) && src[idx] == ';' {
+		consumed++
+	}
+
+	return numericRefValue(value), consumed, true
+}
+
+// scanNumericDigits consumes the full digit run in one pass. Saturation
+// prevents overflow without changing references with many leading zeros.
+// The caller advances past this run, so each input digit is visited once.
+func scanNumericDigits(src string, idx int, base uint64) (uint64, int) {
 	value := uint64(0)
 
 	for idx < len(src) {
@@ -172,16 +191,7 @@ func decodeNumericRef(src string, offset int) (string, int, bool) {
 		idx++
 	}
 
-	if idx == digitsStart {
-		return "", 0, false
-	}
-
-	consumed := idx - offset
-	if idx < len(src) && src[idx] == ';' {
-		consumed++
-	}
-
-	return numericRefValue(value), consumed, true
+	return value, idx
 }
 
 func digitValue(char byte, base uint64) (uint64, bool) {

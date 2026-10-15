@@ -963,6 +963,44 @@ func TestDecodeRequestRejectsOversizedHTML(t *testing.T) {
 	}
 }
 
+func TestDecodeRequestBoundsEncodedRequest(t *testing.T) {
+	t.Parallel()
+
+	valid := `{"html":"<p>x</p>"}`
+	for _, testCase := range []struct {
+		name    string
+		raw     string
+		wantErr error
+	}{
+		{
+			name: "at request cap",
+			raw:  valid + strings.Repeat(" ", maxRequestBytes-len(valid)),
+		},
+		{
+			name:    "above request cap",
+			raw:     valid + strings.Repeat(" ", maxRequestBytes-len(valid)+1),
+			wantErr: errInputTooLarge,
+		},
+		{
+			name:    "second value beyond old reader cap",
+			raw:     valid + strings.Repeat(" ", maxRequestBytes-len(valid)) + `{}`,
+			wantErr: errInputTooLarge,
+		},
+		{
+			name:    "escaped HTML below HTML cap exceeds request cap",
+			raw:     `{"html":"` + strings.Repeat(`\u0061`, maxRequestBytes/6+1) + `"}`,
+			wantErr: errInputTooLarge,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			_, err := DecodeRequest(testCase.raw)
+			if !errors.Is(err, testCase.wantErr) {
+				t.Fatalf("DecodeRequest error = %v, want %v", err, testCase.wantErr)
+			}
+		})
+	}
+}
+
 // TestConvertEnforcesOutputSize lowers the cap instead of building a document
 // large enough to cross 32 MiB. It does not run in parallel: the cap is
 // package state and every parallel test must observe the production value.

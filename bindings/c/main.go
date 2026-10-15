@@ -35,14 +35,20 @@ const (
 
 // The last-error slot records the most recent failure message from any
 // exported call. It is process-wide rather than thread-local because the
-// primary consumer loads the library through ctypes from Python, where the
-// GIL serializes calls; the mutex still makes concurrent Go-side access safe.
+// primary consumer loads the library through ctypes from Python, whose
+// wrapper serializes calls. ctypes itself releases the GIL during C calls.
+// The mutex makes concurrent Go-side access safe.
 type lastErrorSlot struct {
 	mu    sync.Mutex
 	value string
 }
 
 var lastError = lastErrorSlot{} //nolint:gochecknoglobals // single documented diagnostic slot for the whole library
+
+// maxLastErrorBufLen bounds the user-supplied buffer accepted by
+// blinkless_last_error. Larger lengths are rejected without touching the
+// buffer. This limit cannot verify that the caller allocated bufLen bytes.
+const maxLastErrorBufLen = 1 << 20
 
 // setLastError replaces the stored diagnostic message.
 func setLastError(message string) {

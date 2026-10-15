@@ -22,6 +22,14 @@ borrowed for the duration of a call only.
 Engine calls are not documented as thread-affine, so every foreign call is
 serialized through a module-wide lock. ctypes releases the GIL around each
 CDLL call.
+
+Locks:
+  ``_LOAD_LOCK`` guards the one-time library discovery/loading sequence
+  (``load_library``) and the module-global ``_LOADED_LIBRARY`` slot.
+  ``_CALL_LOCK`` serializes the wrapper's foreign calls, including the
+  initial ABI check, version queries, and string releases. When both
+  locks are needed, ``_LOAD_LOCK`` is acquired first. Callers using the
+  returned CDLL directly must serialize their own calls.
 """
 
 import ctypes
@@ -33,7 +41,14 @@ from pathlib import Path
 #: ABI revision this binding is compiled against. Must match the header.
 ABI_VERSION = 1
 
+# Serializes discovery, dlopen, prototype binding, and ABI validation.
 _LOAD_LOCK = threading.Lock()
+
+# Serializes every foreign call into libblinkless. The engine is not
+# documented as thread-affine, and the library holds process-wide state
+# (including the last-error slot), so all calls take this lock before
+# entering C and release it on return. ctypes releases the GIL around each
+# CDLL call, so other Python threads can still make progress.
 _CALL_LOCK = threading.Lock()
 
 _LOADED_LIBRARY = None  # type: ctypes.CDLL
@@ -184,7 +199,8 @@ def load_library():
         # of the global namespace.
         lib = ctypes.CDLL(str(path))
         _bind_prototypes(lib)
-        reported = int(lib.blinkless_abi_version())
+        with _CALL_LOCK:
+            reported = int(lib.blinkless_abi_version())
         if reported != ABI_VERSION:
             raise ImportError(
                 "ABI mismatch: library {0}, binding expects {1}".format(
@@ -197,8 +213,14 @@ def load_library():
 
 def abi_version():
     # type: () -> int
-    """Return the ABI revision reported by the loaded library."""
-    return int(load_library().blinkless_abi_version())
+    """Return the ABI revision reported by the loaded library.
+
+    The underlying foreign call is serialized through ``_CALL_LOCK`` like
+    every other library entry point.
+    """
+    lib = load_library()
+    with _CALL_LOCK:
+        return int(lib.blinkless_abi_version())
 
 
 def library_version_string():
@@ -215,7 +237,8 @@ def library_version_string():
         return (text or b"").decode("utf-8", "replace")
     finally:
         if ptr:
-            lib.blinkless_free_string(ctypes.cast(ptr, ctypes.c_char_p))
+            with _CALL_LOCK:
+                lib.blinkless_free_string(ctypes.cast(ptr, ctypes.c_char_p))
 
 
 def convert_html_to_pdf(html, opts=None):

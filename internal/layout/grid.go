@@ -103,6 +103,10 @@ func (e *engine) layoutStandardGrid(
 		e, kids, areas, newGridOccupation(len(cols)), len(cols), columnMajor, densePack, explicitRows,
 	)
 
+	if e.err != nil {
+		return boxNode
+	}
+
 	numRows := gridRowCount(placed, areas)
 
 	rowTemplate := strings.TrimSpace(sty.GridTemplateRows)

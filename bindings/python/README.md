@@ -36,3 +36,21 @@ pip install -e ./bindings/python
 `make c-shared` writes `dist/libblinkless.so`, which the loader finds
 automatically. Set `BLINKLESS_LIBRARY_PATH` when the library lives
 elsewhere.
+
+## Thread safety
+
+`libblinkless` is not documented as thread-affine and keeps process-wide
+state, including the last-error slot. The binding therefore serializes
+access with two module-level locks defined in `blinkless._lib`:
+
+- `_LOAD_LOCK` guards library discovery, dlopen, prototype binding, and
+  the ABI check inside `load_library()`. It protects the
+  `_LOADED_LIBRARY` slot only.
+- `_CALL_LOCK` serializes the wrapper's foreign calls, including the
+  initial ABI check, version queries, and string releases.
+
+ctypes releases the GIL around each CDLL call, so holding `_CALL_LOCK`
+does not block other Python threads from running pure Python. When the
+wrapper needs both locks, it takes `_LOAD_LOCK` first. Do not hold either
+private lock when calling a wrapper function. Calls made directly through
+the CDLL returned by `load_library()` need caller-managed serialization.

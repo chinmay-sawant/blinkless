@@ -282,5 +282,60 @@ class DataclassShapeTest(unittest.TestCase):
         self.assertEqual(len(dataclasses.fields(ImageOptions)), 13)
 
 
+class AllowArrayGuardTest(unittest.TestCase):
+    def test_oversize_iterator_is_not_materialized(self):
+        from blinkless.document import MAX_ALLOW_ENTRIES, _allow_array
+
+        consumed = []
+
+        def entries():
+            for index in range(MAX_ALLOW_ENTRIES + 1):
+                consumed.append(index)
+                yield "/entry"
+            self.fail("allow-list guard read past the first rejected entry")
+
+        with self.assertRaises(InvalidArgumentError):
+            _allow_array(entries(), [])
+        self.assertEqual(len(consumed), MAX_ALLOW_ENTRIES + 1)
+
+    def test_oversize_allow_list_rejected_before_ffi(self):
+        from blinkless.document import MAX_ALLOW_ENTRIES, _allow_array
+
+        with self.assertRaises(InvalidArgumentError):
+            _allow_array(["/p%d" % i for i in range(MAX_ALLOW_ENTRIES + 1)], [])
+
+    def test_boundary_allow_list_accepted(self):
+        from blinkless.document import MAX_ALLOW_ENTRIES, _allow_array
+
+        _allow_array(["/p%d" % i for i in range(MAX_ALLOW_ENTRIES)], [])
+
+    def test_nul_entry_rejected_before_ffi(self):
+        from blinkless.document import _allow_array
+
+        with self.assertRaises(InvalidArgumentError):
+            _allow_array(["/ok", "/bad\x00prefix"], [])
+
+
+class EncodeOptionalNulTest(unittest.TestCase):
+    def test_nul_str_rejected(self):
+        from blinkless.document import _encode_optional
+
+        with self.assertRaises(InvalidArgumentError):
+            _encode_optional("ab\x00cd", [])
+
+    def test_nul_bytes_rejected(self):
+        from blinkless.document import _encode_optional
+
+        with self.assertRaises(InvalidArgumentError):
+            _encode_optional(b"ab\x00cd", [])
+
+    def test_plain_str_encodes(self):
+        from blinkless.document import _encode_optional
+
+        keepalive = []
+        self.assertEqual(_encode_optional("ab", keepalive), b"ab")
+        self.assertEqual(len(keepalive), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

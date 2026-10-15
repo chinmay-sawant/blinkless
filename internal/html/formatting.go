@@ -235,6 +235,15 @@ func (b *treeBuilder) insertClone(clone *Node) *Node {
 func (b *treeBuilder) adoptionAgency(tokItem *token) {
 	subject := tokItem.data
 
+	// Depth guard: when the stack is already at the element-depth cap, do not
+	// re-parent or clone formatting elements, which could otherwise push the
+	// tree past the cap. Fall back to the ordinary end-tag rules instead.
+	if depthExceeded(len(b.stack) - 1) {
+		b.closeHTMLElement(subject)
+
+		return
+	}
+
 	// Step 2: a current node matching subject that is not a formatting entry
 	// is simply popped.
 	if cur := b.top(); cur.Namespace == NamespaceHTML && cur.Name == subject &&

@@ -654,13 +654,19 @@ func alignContentOffsets(alignContent string, free float64, count int) []float64
 	case fxCenter:
 		base = free / two
 	case fxBetween:
-		step = free / float64(count-1)
+		if count > 1 {
+			step = free / float64(count-1)
+		}
 	case fxAround:
-		unit := free / float64(two*count)
-		base, step = unit, two*unit
+		if count > 0 {
+			unit := free / float64(two*count)
+			base, step = unit, two*unit
+		}
 	case fxEvenly:
-		unit := free / float64(count+1)
-		base, step = unit, unit
+		if count >= 0 {
+			unit := free / float64(count+1)
+			base, step = unit, unit
+		}
 	}
 
 	offsets := make([]float64, count)

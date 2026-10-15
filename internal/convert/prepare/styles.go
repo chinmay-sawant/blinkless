@@ -325,6 +325,16 @@ func (collector *sheetCollector) loadImportedSheet(
 		return nil, "", ""
 	}
 
+	// A redirect or alias can land on an already-seen stylesheet even when the
+	// original ref did not match; treat a different final URL as the cycle
+	// key. The resolved ref itself was just marked seen above, so only a
+	// different final URL counts here.
+	if resolved := resolvedRef(base, ref); resource.URL != resolved && collector.seenURL(resource.URL) {
+		collector.warn("skipping @import %q: stylesheet cycle detected via %q", ref, resource.URL)
+
+		return nil, "", ""
+	}
+
 	collector.noteSeen(resource.URL)
 
 	sheet, err := css.ParseBytes(resource.Body)
@@ -387,6 +397,17 @@ func resourceBase(resource *load.Resource) string {
 	}
 
 	return resource.URL
+}
+
+// hasFontExtension reports whether uri's path ends with ext, ignoring any
+// query string or fragment so a cache-busting suffix cannot hide the type.
+func hasFontExtension(uri, ext string) bool {
+	path := uri
+	if parsed, err := url.Parse(uri); err == nil && parsed.Path != "" {
+		path = parsed.Path
+	}
+
+	return strings.HasSuffix(strings.ToLower(path), ext)
 }
 
 func importRef(raw string) string {
@@ -505,19 +526,48 @@ func mergeFontFace(ctx context.Context, resources load.ResourceContext, registry
 	return registry
 }
 
+// fontBodyWithinCap applies the font size cap before Decode so a hostile
+// payload cannot force decompression or table parsing before the size is
+// checked. The cap mirrors internal/fonts.maxFontBytes, tightened by the
+// loader's body limit when one is configured.
+func fontBodyWithinCap(resources load.ResourceContext, body []byte) bool {
+	const maxFontSrcBytes = int64(32 << 20)
+
+	maxBytes := maxFontSrcBytes
+	if loader := resources.Loader(); loader != nil && loader.MaxBodySize > 0 && loader.MaxBodySize < maxBytes {
+		maxBytes = loader.MaxBodySize
+	}
+
+	return int64(len(body)) <= maxBytes
+}
+
 //nolint:wsl,nlreturn,lll // font-face collection flow
 func fetchFontFace(ctx context.Context, resources load.ResourceContext, uri string, idx int, log io.Writer) (*pdf.Font, bool) {
-	lower := strings.ToLower(uri)
-	isData := strings.HasPrefix(lower, "data:")
-	if !isData && (strings.HasSuffix(lower, ".woff2") || strings.HasSuffix(lower, ".eot")) {
+	lower := strings.ToLower(strings.TrimSpace(uri))
+	// The remote-font policy excludes WOFF2/EOT and data: sources, including
+	// the subset of WOFF2 supported by the standalone font decoder.
+	if strings.HasPrefix(lower, "data:") || hasFontExtension(lower, ".woff2") || hasFontExtension(lower, ".eot") {
 		line.Emit(log, line.Warn,
-			"object %d: @font-face src %q skipped (WOFF2/EOT unsupported; WOFF1/TTF/OTF only)", idx, uri)
+			"object %d: @font-face src %q skipped (WOFF2/EOT/data: unsupported; WOFF1/TTF/OTF only)", idx, uri)
 		return nil, false
 	}
 
 	resource, err := resources.Fetch(ctx, uri)
 	if err != nil {
 		line.Emit(log, line.Warn, "object %d: @font-face src %q: %v", idx, uri, err)
+		return nil, false
+	}
+
+	if !fontBodyWithinCap(resources, resource.Body) {
+		line.Emit(log, line.Warn,
+			"object %d: @font-face src %q: %d bytes exceeds the font byte limit",
+			idx, uri, len(resource.Body))
+		return nil, false
+	}
+
+	if len(resource.Body) >= 4 && string(resource.Body[:4]) == "wOF2" {
+		line.Emit(log, line.Warn, "object %d: @font-face src %q skipped (WOFF2 font source)", idx, uri)
+
 		return nil, false
 	}
 

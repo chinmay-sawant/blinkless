@@ -10,6 +10,8 @@
 
 [HTML, CSS, and JSON compatibility](html-css-json-compatibility-checklist.md) owns the findings from the 2026-10-08 repository review. It stays under 0.0.1 and has its own implementation gates. Use its final behavior and coverage evidence when closing related documentation rows here.
 
+[Security hardening](security/security-checklist.md) owns the security review introduced by commit `6939166`, including the 2026-10-15 implementation corrections. Its five ledgers record the security gates and remaining limits.
+
 ## Overview
 
 Blinkless keeps the code that turns HTML into a drawing list. That list is `layout.Op` in `internal/layout/layout.go`. One op is a filled rectangle, a line of text, an image, or a link box. Coordinates are canvas points, y down. `Op.Font` is `*pdf.Font` (`internal/layout/layout.go`, field on `Op`).

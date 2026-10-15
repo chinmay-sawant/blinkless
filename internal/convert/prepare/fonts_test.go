@@ -6,6 +6,8 @@ import (
 	"encoding/binary"
 	"io"
 	"math"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -45,8 +47,8 @@ func dataURL(mediaType string, body []byte) string {
 	return "data:" + mediaType + ";base64," + base64.StdEncoding.EncodeToString(body)
 }
 
-// TestMergeFontFacesDataURLTTF proves a base64 data: TTF registers through
-// the whole merge path.
+// TestMergeFontFacesDataURLTTF documents that data: font sources are skipped
+// (see THREAT-MODEL section 5).
 func TestMergeFontFacesDataURLTTF(t *testing.T) {
 	t.Parallel()
 
@@ -56,13 +58,12 @@ func TestMergeFontFacesDataURLTTF(t *testing.T) {
 	}
 
 	registry := testResources(t).MergeFontFaces(t.Context(), pdf.NewRegistry(), []*css.Stylesheet{sheet}, 1, io.Discard)
-	if font := registry.Lookup([]string{"InlineFace"}, 400, false); font == nil {
-		t.Fatal("data: TTF font-face was not registered")
+	if font := registry.Lookup([]string{"InlineFace"}, 400, false); font != nil {
+		t.Fatal("data: TTF font-face must be skipped")
 	}
 }
 
-// TestMergeFontFacesDataURLWOFF2 proves a null-transform WOFF2 data: URL is
-// Brotli-decoded and registered.
+// TestMergeFontFacesDataURLWOFF2 documents that data: WOFF2 sources are skipped.
 func TestMergeFontFacesDataURLWOFF2(t *testing.T) {
 	t.Parallel()
 
@@ -73,8 +74,23 @@ func TestMergeFontFacesDataURLWOFF2(t *testing.T) {
 	}
 
 	registry := testResources(t).MergeFontFaces(t.Context(), pdf.NewRegistry(), []*css.Stylesheet{sheet}, 1, io.Discard)
-	if font := registry.Lookup([]string{"InlineWoff2"}, 400, false); font == nil {
-		t.Fatal("data: WOFF2 font-face was not registered")
+	if font := registry.Lookup([]string{"InlineWoff2"}, 400, false); font != nil {
+		t.Fatal("data: WOFF2 font-face must be skipped")
+	}
+}
+
+func TestFetchFontFaceRejectsWOFF2WithTTFExtension(t *testing.T) {
+	t.Parallel()
+
+	font := buildWOFF2(t, readFontAsset(t), false)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(font)
+	}))
+	defer server.Close()
+
+	if _, ok := fetchFontFace(t.Context(), testResources(t).Bound(), server.URL+"/face.ttf", 1, io.Discard); ok {
+		t.Fatal("WOFF2 payload disguised as a TTF must be skipped")
 	}
 }
 

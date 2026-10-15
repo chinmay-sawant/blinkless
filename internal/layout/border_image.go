@@ -3,6 +3,7 @@ package layout
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"image"
 	"image/draw"
@@ -13,6 +14,10 @@ import (
 	"strconv"
 	"strings"
 )
+
+// errBorderImageExtremeDims rejects border images whose header dimensions
+// exceed the pixel budget before decoding.
+var errBorderImageExtremeDims = errors.New("decode border image: invalid or extreme dimensions")
 
 // applyBorderImageProps handles border-image and its longhands.
 func applyBorderImageProps(style *ResolvedStyle, prop, value string) bool {
@@ -611,6 +616,11 @@ func borderImageSliceBytes(ref *imageRef, src image.Rectangle) ([]byte, error) {
 }
 
 func cropBorderImage(data []byte, src image.Rectangle) ([]byte, error) {
+	width, height, _, ok := imageDims(data)
+	if !ok || !validImageSize(width, height) {
+		return nil, errBorderImageExtremeDims
+	}
+
 	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("decode border image: %w", err)

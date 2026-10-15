@@ -33,7 +33,7 @@ class ConversionError(GowkhtmltopdfError):
         self.message = message
 
 
-class InvalidArgumentError(ConversionError):
+class InvalidArgumentError(ConversionError, ValueError):
     """The engine rejected an argument value (status 1).
 
     Attributes:

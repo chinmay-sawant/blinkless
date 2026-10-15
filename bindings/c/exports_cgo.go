@@ -78,12 +78,28 @@ import (
 const networkPolicyRestricted = 1
 
 //export blinkless_abi_version
-func blinkless_abi_version() C.int32_t {
+func blinkless_abi_version() (result C.int32_t) {
+	defer func() {
+		if r := recover(); r != nil {
+			setLastError(fmt.Sprintf("internal panic in blinkless_abi_version: %v", r))
+
+			result = 0
+		}
+	}()
+
 	return C.int32_t(abiVersionValue)
 }
 
 //export blinkless_version
-func blinkless_version() *C.char {
+func blinkless_version() (result *C.char) {
+	defer func() {
+		if r := recover(); r != nil {
+			setLastError(fmt.Sprintf("internal panic in blinkless_version: %v", r))
+
+			result = nil
+		}
+	}()
+
 	return C.CString(libVersion)
 }
 
@@ -95,7 +111,25 @@ func blinkless_html_to_image(
 	cOutData **C.uchar,
 	cOutLen *C.size_t,
 	cErr **C.char,
-) C.int {
+) (result C.int) {
+	defer func() {
+		if r := recover(); r != nil {
+			setLastError(fmt.Sprintf("internal panic in blinkless_html_to_image: %v", r))
+
+			if cOutData != nil {
+				*cOutData = nil
+			}
+			if cOutLen != nil {
+				*cOutLen = 0
+			}
+			if cErr != nil {
+				*cErr = C.CString(currentLastError())
+			}
+
+			result = C.int(statusInternal)
+		}
+	}()
+
 	html, opts, rejected := parseImageRequest(cHTML, cLen, cOpts, cErr)
 	if rejected {
 		return C.int(statusInvalidArg)
@@ -111,22 +145,54 @@ func blinkless_html_to_image(
 
 //export blinkless_free
 func blinkless_free(p unsafe.Pointer) {
+	defer func() {
+		_ = recover()
+	}()
+
 	C.free(p)
 }
 
 //export blinkless_free_string
 func blinkless_free_string(s *C.char) {
+	defer func() {
+		_ = recover()
+	}()
+
 	C.free(unsafe.Pointer(s))
 }
 
 //export blinkless_last_error_length
-func blinkless_last_error_length() C.int32_t {
+func blinkless_last_error_length() (result C.int32_t) {
+	defer func() {
+		if r := recover(); r != nil {
+			setLastError(fmt.Sprintf("internal panic in blinkless_last_error_length: %v", r))
+
+			result = 0
+		}
+	}()
+
 	return C.int32_t(lastErrorLength())
 }
 
 //export blinkless_last_error
-func blinkless_last_error(buf *C.char, bufLen C.int32_t) C.int32_t {
+func blinkless_last_error(buf *C.char, bufLen C.int32_t) (result C.int32_t) {
+	defer func() {
+		if r := recover(); r != nil {
+			setLastError(fmt.Sprintf("internal panic in blinkless_last_error: %v", r))
+
+			result = 0
+		}
+	}()
+
 	if buf == nil || bufLen <= 0 {
+		return 0
+	}
+
+	// Trust contract: buf points at caller-allocated storage and bufLen is
+	// a truthful length for that storage. Reject lengths above the API cap
+	// before forming a slice. Smaller lengths still rely on the caller's
+	// allocation; the cap does not make an invalid pointer safe.
+	if bufLen > maxLastErrorBufLen {
 		return 0
 	}
 
@@ -209,6 +275,11 @@ func convertImageOptions(cOpts *C.GwkImageOptions, cErr **C.char) (imageOptions,
 		return opts, false
 	}
 
+	// Trust contract: C string fields are treated as NUL-terminated
+	// UTF-8 buffers for the duration of the call. C.GoString reads to
+	// the first NUL; embedded NUL bytes silently truncate the value and
+	// any non-NUL-terminated input is undefined behavior. The library
+	// does not copy or validate the bytes beyond that terminator.
 	if cOpts.format != nil {
 		opts.format = C.GoString(cOpts.format)
 	}
@@ -247,7 +318,9 @@ func convertImageOptions(cOpts *C.GwkImageOptions, cErr **C.char) (imageOptions,
 // and crash the process from inside an exported call.
 
 // convertAllowList copies allow_len entries from the borrowed allow array.
-// Nil entries are skipped because the header lets callers leave slots empty.
+// Trust contract: every non-NULL entry must point at a NUL-terminated C
+// string for the whole call. Nil entries are skipped because the header
+// lets callers leave slots empty.
 // The bool is false when allow_len exceeds maxAllowEntries; no slice is
 // formed in that case.
 func convertAllowList(allow **C.char, allowLen C.size_t) ([]string, bool) {
@@ -447,4 +520,31 @@ func readLastErrorViaExport() string {
 	}
 
 	return C.GoStringN(sink, C.int(written))
+}
+
+// probeLastErrorOversize calls blinkless_last_error with a bufLen above
+// maxLastErrorBufLen and reports the return value plus whether the one
+// guard byte was left untouched. Test-only helper: cgo is not supported
+// in test files, so C pointer work stays here.
+func probeLastErrorOversize() (int32, bool) {
+	const guard = 0x5A
+
+	sink := (*C.char)(C.malloc(1))
+	if sink == nil {
+		return -1, false
+	}
+	defer C.free(unsafe.Pointer(sink))
+
+	*sink = C.char(guard)
+	got := blinkless_last_error(sink, C.int32_t(maxLastErrorBufLen+1))
+
+	return int32(got), *sink == C.char(guard)
+}
+
+// probeHtmlToImageNil drives the real blinkless_html_to_image export with
+// nil HTML and nil out parameters, exercising its panic wrapper and the
+// nil-HTML rejection without touching caller memory. Test-only helper:
+// cgo is not supported in test files, so C pointer work stays here.
+func probeHtmlToImageNil() int32 {
+	return int32(blinkless_html_to_image(nil, 0, nil, nil, nil, nil))
 }
