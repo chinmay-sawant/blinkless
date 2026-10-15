@@ -191,6 +191,10 @@ func parse3DFunc(name, args string) (matrix3D, bool) {
 	parts := splitTransformArgs(args)
 
 	switch strings.ToLower(name) {
+	case "translate3d", "scale3d":
+		// The 2D arm in parseOneTransformFunc owns these. A 3D-only parse
+		// would drop tx and ty off the stamped matrix.
+		return matrix3D{}, false
 	case "rotatex", "rotatey", "rotatez":
 		return parseAxisRotate3DFunc(name, parts)
 	case "rotate3d":
@@ -269,6 +273,57 @@ func parseRotate3DAxisFunc(parts []string) (matrix3D, bool) {
 	return rotate3DAxis(nums[0]/length, nums[1]/length, nums[2]/length, nums[3]), true
 }
 
+// parseTranslate3DFunc parses translate3d(tx, ty, tz). tx and ty follow the
+// 2D translate path, including percentages. A percentage tz is rejected.
+func parseTranslate3DFunc(parts []string, fontSize float64) (Matrix2D, float64, float64, matrix3D, bool) {
+	if len(parts) != maxThreeValueArgs {
+		return Matrix2D{}, math.NaN(), math.NaN(), matrix3D{}, false //nolint:exhaustruct // zero matrix is unused on failure
+	}
+
+	plane, xPct, yPct, ok := parseTranslateFunc("translate", parts[:2], fontSize)
+	if !ok {
+		return Matrix2D{}, math.NaN(), math.NaN(), matrix3D{}, false //nolint:exhaustruct // zero matrix is unused on failure
+	}
+
+	depth, _, isPercent, depthOK := parseTransformLength(parts[2], fontSize)
+	if !depthOK || isPercent {
+		return Matrix2D{}, math.NaN(), math.NaN(), matrix3D{}, false //nolint:exhaustruct // zero matrix is unused on failure
+	}
+
+	return plane, xPct, yPct, translateZ3D(depth), true
+}
+
+// parseScale3DFunc parses scale3d(sx, sy, sz). One number does not apply.
+func parseScale3DFunc(parts []string) (Matrix2D, matrix3D, bool) {
+	if len(parts) != maxThreeValueArgs {
+		return Matrix2D{}, matrix3D{}, false //nolint:exhaustruct // zero matrix is unused on failure
+	}
+
+	plane, ok := parseScaleFunc("scale", parts[:2])
+	if !ok {
+		return Matrix2D{}, matrix3D{}, false //nolint:exhaustruct // zero matrix is unused on failure
+	}
+
+	depth, depthOK := parseUnitless(parts[2])
+	if !depthOK {
+		return Matrix2D{}, matrix3D{}, false //nolint:exhaustruct // zero matrix is unused on failure
+	}
+
+	return plane, scaleZ3D(depth), true
+}
+
+// appendTransform3D post-multiplies one side matrix onto the style.
+func appendTransform3D(style *ResolvedStyle, extra matrix3D) {
+	base := identity3D()
+	if style.HasTransform3D {
+		base = matrix3D(style.Transform3D)
+	}
+
+	next := base.mul(extra)
+	style.Transform3D = next
+	style.HasTransform3D = true
+}
+
 // parseTranslateZFunc parses translateZ(length); percentages are meaningless
 // in depth. parseTransformLength returns (pt, pct, isPct, ok); the pct slot
 // keeps its conventional name.
@@ -345,8 +400,8 @@ func parseMatrix3DFunc(parts []string) (matrix3D, bool) {
 // perspectiveCenter returns the vanishing point for the perspective set on
 // perspBox: its border-box origin shifted by perspective-origin. The default
 // (no perspective-origin declaration) is the border-box center per CSS
-// Transforms 2. Owned by the perspective-origin workstream: this body is the
-// default-center stub until that work lands. Reference: Chrome 143.0.7499.40.
+// Transforms 2. propagatePerspective calls this when it fills a descendant.
+// Reference: Chrome 143.0.7499.40.
 func perspectiveCenter(perspBox *box) (float64, float64) {
 	if perspBox == nil {
 		return 0, 0

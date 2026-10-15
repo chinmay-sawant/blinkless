@@ -4,12 +4,12 @@ import (
 	"testing"
 )
 
-// 3D gated properties and dominant-baseline follow-ups. The engine is 2D by
-// architecture (documentation/deferred.md): paint carries one Matrix2D per op
-// (layout.go:402, op_extra.go:16) and the transform parser rejects 3D
-// functions (transform.go:351). Reference browser for every case: Chrome
-// 143.0.7499.40. Every test below asserts used values (box geometry, op
-// fields, style used values), never stored strings.
+// 3D gated properties and dominant-baseline follow-ups. Paint carries one
+// Matrix2D per op. 3D functions parse onto a side matrix and
+// boxTransformAccum flattens that matrix at stamp time. Acceptance is
+// parse3DFunc, not a rejection in the 2D scanner. Reference browser for
+// every case: Chrome 143.0.7499.40. Every test below asserts used values
+// (box geometry, op fields, style used values), never stored strings.
 
 // perspAssertSameOps pins no-op behavior: two results must paint the same ops
 // in the same order with identical kind, geometry, and text.
@@ -79,14 +79,14 @@ func TestPerspPerspectiveNoEffectOn2DChild(t *testing.T) {
 	perspAssertSameOps(t, plain, persp)
 }
 
-// TestPerspPerspectiveFunctionRejected pins the depthless function truth:
+// TestPerspPerspectiveFunctionDepthless pins the depthless function truth:
 // perspective() parses onto the 3D side channel with an identity 2D
 // contribution, and the 3D branch projects it with its own distance. A lone
 // perspective() before a 2D rotate(10deg) carries no depth, so its bake stays
 // identity and the list paints exactly like a 2D-only rotate. Chrome
 // 143.0.7499.40 shows no foreshortening without depth; depthful lists pin
 // their difference in css_behavior_perspective_build_test.go.
-func TestPerspPerspectiveFunctionRejected(t *testing.T) {
+func TestPerspPerspectiveFunctionDepthless(t *testing.T) {
 	t.Parallel()
 
 	rotated := layoutHTML(t, `<html><body style="margin:0">`+
@@ -103,14 +103,14 @@ func TestPerspPerspectiveFunctionRejected(t *testing.T) {
 	perspAssertSameOps(t, rotated, funcForm)
 }
 
-// TestPerspRotate3DRejected pins the projected orthographic truth.
+// TestPerspRotate3DOrthographic pins the projected orthographic truth.
 // rotateX and rotateY now narrow through the boxTransformAccum 3D branch
 // (baked Xform A/D differ from plain) while layout geometry (X/Y/W/H) stays
 // put because the bake rides the separate Xform channel. translateZ and the
 // identity matrix3d stay identity orthographically: depth alone only shows
 // through a perspective divide. One 2D control (rotate) proves the harness
 // observes a transform when one is kept. Reference: Chrome 143.0.7499.40.
-func TestPerspRotate3DRejected(t *testing.T) {
+func TestPerspRotate3DOrthographic(t *testing.T) {
 	t.Parallel()
 
 	plainDoc := `<html><body style="margin:0">` +

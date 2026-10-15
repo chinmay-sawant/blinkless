@@ -711,6 +711,30 @@ func layoutDeclarationValueAccepted(prop, value string) bool {
 		return hyphenateLimitLinesValueAccepted(value)
 	case "hyphenate-limit-zone":
 		return hyphenateLimitZoneValueAccepted(value)
+	case "row-rule-width":
+		return rowRuleListValueAccepted(value, rowRuleWidthTokenAccepted)
+	case "row-rule-style":
+		return rowRuleListValueAccepted(value, rowRuleStyleTokenAccepted)
+	case "row-rule-color":
+		return rowRuleListValueAccepted(value, rowRuleColorTokenAccepted)
+	case "row-rule":
+		return outlineShorthandValueAccepted(value)
+	case "row-rule-break", "rule-break":
+		return rowRuleKeywordList(value, cssDisplayNone, contentNormal, "intersection")
+	case "row-rule-visibility-items", "rule-visibility-items":
+		return rowRuleKeywordList(value, "all", "around", "between", contentNormal)
+	case "rule-overlap":
+		return rowRuleKeywordList(value, "row-over-column", "column-over-row")
+	case "row-rule-inset-cap-start", "row-rule-inset-cap-end",
+		"row-rule-inset-junction-start", "row-rule-inset-junction-end":
+		return rowRuleInsetTokenAccepted(strings.TrimSpace(value))
+	case "row-rule-inset", "row-rule-inset-cap", "row-rule-inset-junction",
+		"row-rule-inset-start", "row-rule-inset-end",
+		"rule", "rule-width", "rule-style", "rule-color",
+		"rule-inset", "rule-inset-cap", "rule-inset-start", "rule-inset-end", "rule-inset-junction":
+		_, ok := expandGapRuleDeclaration(prop, value)
+
+		return ok
 	default:
 		return true
 	}
@@ -947,6 +971,47 @@ func outlineShorthandValueAccepted(value string) bool {
 	}
 
 	return recognized
+}
+
+// rowRuleListValueAccepted reports whether every space-separated token is
+// accepted. Parentheses stay inside one token. An empty list is rejected so
+// it cannot replace an earlier valid declaration.
+func rowRuleListValueAccepted(value string, accept func(string) bool) bool {
+	accepted := false
+
+	for start := 0; ; {
+		token, next, ok := nextSpaceToken(value, start)
+		if !ok {
+			break
+		}
+
+		if !accept(token) {
+			return false
+		}
+
+		accepted = true
+		start = next
+	}
+
+	return accepted
+}
+
+func rowRuleWidthTokenAccepted(token string) bool {
+	_, ok := parseRowRuleWidthToken(token, 0)
+
+	return ok
+}
+
+func rowRuleStyleTokenAccepted(token string) bool {
+	_, ok := parseRowRuleStyleToken(token)
+
+	return ok
+}
+
+func rowRuleColorTokenAccepted(token string) bool {
+	_, _, ok := parseRowRuleColorToken(token, [3]float64{})
+
+	return ok
 }
 
 func outlineTokenRecognized(token string) bool {

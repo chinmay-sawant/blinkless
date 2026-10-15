@@ -105,42 +105,56 @@ const asciiFoldBit = 0x20
 //
 //nolint:lll // the resolved-style table keeps field comments beside each property
 type ResolvedStyle struct {
-	Display            string
-	IsWebkitBox        bool    // true when display was -webkit-box / -webkit-inline-box (legacy)
-	Position           string  // "static" | "relative" | "absolute" | "fixed" | "sticky"
-	Float              string  // cssDisplayNone | floatLeft | floatRight
-	Clear              string  // cssDisplayNone | floatLeft | floatRight | "both"
-	BoxSizing          string  // "content-box" | "border-box"
-	Top                float64 // position offsets (pt); 0 = unset for absolute uses Auto flags
-	Right              float64
-	Bottom             float64
-	Left               float64
-	TopAuto            bool
-	RightAuto          bool
-	BottomAuto         bool
-	LeftAuto           bool
-	FlexDirection      string  // "row" | fxCol | "row-reverse" | "column-reverse"
-	FlexWrap           string  // "nowrap" | "wrap" | "wrap-reverse"
-	JustifyContent     string  // flex-start | flex-end | center | space-between | space-around | space-evenly
-	AlignItems         string  // stretch | flex-start | center | flex-end
-	AlignContent       string  // flex-start | flex-end | center | space-between | space-around | space-evenly | stretch
-	AlignSelf          string  // auto | stretch | flex-start | flex-end | center | start | end
-	JustifyItems       string  // grid: stretch | start | end | center
-	JustifySelf        string  // grid item: auto | stretch | start | end | center
-	Gap                float64 // flex/grid gap shorthand (pt); kept for backward compat
-	RowGap             float64 // pt; 0 with ColumnGap 0 → layout falls back to Gap
-	ColumnGap          float64
-	ColumnGapNormal    bool    // true when column-gap is normal/initial (multicol → 1em; flex/grid → 0)
-	ColumnCount        int     // 0 = auto; ≥1 = used count hint
-	ColumnWidth        float64 // -1 = auto; else length in pt
-	ColumnHeight       float64 // -1 = auto; else length in pt (Multicol 2)
-	ColumnWrap         string  // "auto" | "nowrap" | "wrap"
-	ColumnSpan         string  // cssDisplayNone | "all" (multicol spanner)
-	ColumnFill         string  // "balance" | overflowAuto
-	ColumnRuleWidth    float64 // pt; CSS initial medium
-	ColumnRuleStyle    string  // none | solid | dashed | dotted
-	ColumnRuleColor    [3]float64
-	ColumnRuleColorSet bool // false → paint uses currentColor (Color)
+	Display                   string
+	IsWebkitBox               bool    // true when display was -webkit-box / -webkit-inline-box (legacy)
+	Position                  string  // "static" | "relative" | "absolute" | "fixed" | "sticky"
+	Float                     string  // cssDisplayNone | floatLeft | floatRight
+	Clear                     string  // cssDisplayNone | floatLeft | floatRight | "both"
+	BoxSizing                 string  // "content-box" | "border-box"
+	Top                       float64 // position offsets (pt); 0 = unset for absolute uses Auto flags
+	Right                     float64
+	Bottom                    float64
+	Left                      float64
+	TopAuto                   bool
+	RightAuto                 bool
+	BottomAuto                bool
+	LeftAuto                  bool
+	FlexDirection             string  // "row" | fxCol | "row-reverse" | "column-reverse"
+	FlexWrap                  string  // "nowrap" | "wrap" | "wrap-reverse"
+	JustifyContent            string  // flex-start | flex-end | center | space-between | space-around | space-evenly
+	AlignItems                string  // stretch | flex-start | center | flex-end
+	AlignContent              string  // flex-start | flex-end | center | space-between | space-around | space-evenly | stretch
+	AlignSelf                 string  // auto | stretch | flex-start | flex-end | center | start | end
+	JustifyItems              string  // grid: stretch | start | end | center
+	JustifySelf               string  // grid item: auto | stretch | start | end | center
+	Gap                       float64 // flex/grid gap shorthand (pt); kept for backward compat
+	RowGap                    float64 // pt; 0 with ColumnGap 0 → layout falls back to Gap
+	ColumnGap                 float64
+	ColumnGapNormal           bool    // true when column-gap is normal/initial (multicol → 1em; flex/grid → 0)
+	ColumnCount               int     // 0 = auto; ≥1 = used count hint
+	ColumnWidth               float64 // -1 = auto; else length in pt
+	ColumnHeight              float64 // -1 = auto; else length in pt (Multicol 2)
+	ColumnWrap                string  // "auto" | "nowrap" | "wrap"
+	ColumnSpan                string  // cssDisplayNone | "all" (multicol spanner)
+	ColumnFill                string  // "balance" | overflowAuto
+	ColumnRuleWidth           float64 // pt; CSS initial medium
+	ColumnRuleStyle           string  // none | solid | dashed | dotted
+	ColumnRuleColor           [3]float64
+	ColumnRuleColorSet        bool       // false → paint uses currentColor (Color)
+	RowRuleWidth              float64    // pt; first item; CSS initial medium. Painter uses this.
+	RowRuleStyle              string     // none | solid | dashed | dotted. Painter uses this.
+	RowRuleColor              [3]float64 // first color. Painter uses this.
+	RowRuleColorSet           bool       // false means paint uses currentColor (Color)
+	RowRuleWidths             []float64  // every accepted width, first is RowRuleWidth
+	RowRuleStyles             []string   // every accepted style, first is RowRuleStyle
+	RowRuleColors             []string   // raw color tokens, first is the one parsed into RowRuleColor
+	RowRuleBreak              string     // none | normal | intersection
+	RowRuleVisibility         string     // all | around | between | normal
+	RowRuleInsetCapStart      float64
+	RowRuleInsetCapEnd        float64
+	RowRuleInsetJunctionStart float64
+	RowRuleInsetJunctionEnd   float64
+	RuleOverlap               string // row-over-column | column-over-row
 	// Initial-letter drop/raised caps (CSS Inline 3). Size 0 = normal.
 	// Authoring: apply on a real leading element (e.g. <span>); :first-letter
 	// is rejected by the CSS selector parser.
@@ -497,8 +511,8 @@ type ResolvedStyle struct {
 	// the 3D functions of the transform list (rotateX/Y/Z, rotate3d,
 	// translateZ, scaleZ, perspective(), matrix3d) in post-multiply order;
 	// HasTransform3D reports whether any parsed. The 2D bake in Transform
-	// carries identity for those functions, so paint is unchanged until the
-	// stamp-time projection consumers land. PerspectiveDist is the
+	// carries identity for those functions. boxTransformAccum flattens the
+	// side matrix onto the paint op. PerspectiveDist is the
 	// perspective property distance in pt (HasPerspective set unless none);
 	// PerspectiveOrigin parts position the vanishing point inside the
 	// perspective box (PerspectiveOriginSet when declared). Reference for
@@ -575,6 +589,10 @@ func initialStyle() ResolvedStyle { //nolint:funlen // complete CSS initial-valu
 		ColumnFill:         "balance",
 		ColumnRuleWidth:    borderWidth(mediumKeyword, 0),
 		ColumnRuleStyle:    cssDisplayNone,
+		RowRuleWidth:       borderWidth(mediumKeyword, 0),
+		RowRuleStyle:       cssDisplayNone,
+		RowRuleBreak:       contentNormal,
+		RowRuleVisibility:  contentNormal,
 		InitialLetterAlign: "alphabetic",
 		InitialLetterWrap:  "none",
 		Width:              -1,

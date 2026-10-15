@@ -3,6 +3,7 @@ package layout
 import (
 	"bytes"
 	"image/png"
+	"math"
 	"strings"
 	"testing"
 
@@ -332,17 +333,31 @@ func TestBehaviorMaskMatchSourceUsesImageAlpha(t *testing.T) {
 func TestBehaviorMaskSupportsMatchesAcceptedValues(t *testing.T) {
 	t.Parallel()
 
-	root := mustParse(t, `<html><body><div id="feature">masked</div></body></html>`)
+	root := mustParse(t, `<html><body>`+
+		`<div id="url">url</div><div id="gradient">gradient</div></body></html>`)
 	styles := resolveStyles(root, []*css.Stylesheet{sheet(t, `
-		#feature { mask-image:none }
-		@supports (mask-image:url(mask.png)) { #feature { mask-image:url(valid.png) } }
-		@supports (mask-image:linear-gradient(red, blue)) { #feature { mask-image:url(invalid.png) } }
-		@supports (-webkit-mask-composite:source-out) { #feature { -webkit-mask-composite:source-out } }
+		#url { mask-image:none }
+		@supports (mask-image:url(mask.png)) { #url { mask-image:url(valid.png) } }
+		#gradient { mask-image:none }
+		@supports (mask-image:linear-gradient(red, blue)) {
+			#gradient { mask-image:linear-gradient(red, blue) }
+		}
+		@supports (mask-image:image-set(url(b.png) 1x)) {
+			#gradient { mask-image:image-set(url(b.png) 1x) }
+		}
+		@supports (mask-image:image-set()) { #gradient { mask-image:url(empty-set.png) } }
+		@supports (mask-image:not-an-image()) { #gradient { mask-image:url(rejected.png) } }
+		@supports (-webkit-mask-composite:source-out) { #gradient { -webkit-mask-composite:source-out } }
 	`)}, "print", testViewport, 800)
 
-	feature := styles[findElementByName(root, "div")]
-	if feature.MaskImage != "url(valid.png)" || feature.MaskComposite != "subtract" {
-		t.Fatalf("@supports mask result = image:%q composite:%q", feature.MaskImage, feature.MaskComposite)
+	urlFeature := styles[findElementByID(t, root, "url")]
+	if urlFeature.MaskImage != "url(valid.png)" {
+		t.Fatalf("@supports url() mask-image = %q, want url(valid.png)", urlFeature.MaskImage)
+	}
+
+	gradient := styles[findElementByID(t, root, "gradient")]
+	if gradient.MaskImage != "image-set(url(b.png) 1x)" || gradient.MaskComposite != "subtract" {
+		t.Fatalf("@supports mask result = image:%q composite:%q", gradient.MaskImage, gradient.MaskComposite)
 	}
 }
 
@@ -352,7 +367,7 @@ func TestBehaviorMaskInvalidValuesDoNotReplaceEarlierDeclarations(t *testing.T) 
 	root := mustParse(t, `<html><body><div id="feature"></div></body></html>`)
 	styles := resolveStyles(root, []*css.Stylesheet{sheet(t, `
 		#feature { mask-image:url(earlier.png); mask-size:cover }
-		#feature { mask-image:linear-gradient(red, blue); mask-size:-1px }
+		#feature { mask-image:not-an-image(); mask-size:-1px }
 	`)}, "print", testViewport, 800)
 
 	feature := styles[findElementByName(root, "div")]
@@ -371,6 +386,93 @@ func TestBehaviorMaskNoneDoesNotCreateMaskGroup(t *testing.T) {
 			t.Fatalf("mask:none created a mask group: %+v", group)
 		}
 	}
+}
+
+func TestBehaviorMaskGradientBytesOnGroup(t *testing.T) {
+	t.Parallel()
+
+	assertGradientMaskRaster(t, "linear-gradient(red, blue)")
+}
+
+//nolint:wsl // the image provider and the layout result stay in one test
+func TestBehaviorMaskImageSetPicks1x(t *testing.T) {
+	t.Parallel()
+
+	wide := tinyPNG(4, 2)
+	square := tinyPNG(2, 2)
+	root := mustParse(t, `<html><body><div style="width:20px;height:10px;`+
+		`mask-image:image-set(url(a.png) 2x, url(b.png) 1x)"></div></body></html>`)
+	res, err := Layout(root, Options{
+		Width: testViewport, Height: 800, Background: true,
+		Images: func(src string) ([]byte, error) {
+			switch src {
+			case "a.png":
+				return wide, nil
+			case "b.png":
+				return square, nil
+			default:
+				t.Errorf("image src %q", src)
+
+				return nil, nil
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("Layout: %v", err)
+	}
+
+	layer := onlyMaskGroup(t, res).Mask.Layers[0]
+	if layer.Source != "url(b.png)" {
+		t.Fatalf("image-set source = %q, want url(b.png)", layer.Source)
+	}
+
+	if layer.PixelWidth != 2 || layer.PixelHeight != 2 {
+		t.Fatalf("image-set pixels = %d x %d, want the 1x candidate 2 x 2", layer.PixelWidth, layer.PixelHeight)
+	}
+
+	if !bytes.Equal(layer.ImageBytes, square) {
+		t.Fatal("image-set bytes are not the 1x candidate")
+	}
+}
+
+//nolint:wsl // the group read follows the layout call
+func TestBehaviorMaskImageSetGradientCandidate(t *testing.T) {
+	t.Parallel()
+
+	res := layoutHTML(t, `<html><body><div style="width:20px;height:10px;`+
+		`mask-image:image-set(linear-gradient(red, blue) 1x)"></div></body></html>`)
+	layer := onlyMaskGroup(t, res).Mask.Layers[0]
+	if layer.Source != "linear-gradient(red, blue)" {
+		t.Fatalf("gradient image-set source = %q", layer.Source)
+	}
+
+	if len(layer.ImageBytes) < 4 || layer.ImageBytes[0] != 0x89 {
+		t.Fatal("chosen gradient did not rasterize to a PNG")
+	}
+}
+
+//nolint:wsl // the style read follows resolveStyles
+func TestBehaviorMaskImageSetEmptyDoesNotReplace(t *testing.T) {
+	t.Parallel()
+
+	root := mustParse(t, `<html><body><div id="feature"></div></body></html>`)
+	styles := resolveStyles(root, []*css.Stylesheet{sheet(t, `
+		#feature { mask-image:url(earlier.png) }
+		#feature { mask-image:image-set() }
+	`)}, "print", testViewport, 800)
+	feature := styles[findElementByName(root, "div")]
+	if feature.MaskImage != "url(earlier.png)" {
+		t.Fatalf("empty image-set replaced mask-image with %q", feature.MaskImage)
+	}
+}
+
+func TestBehaviorMaskRepeatingGradientBytes(t *testing.T) {
+	t.Parallel()
+
+	// parseLinearGradient accepts the repeating-linear-gradient prefix, so this
+	// layer is a border-box PNG. The declaration is not dropped in favor of an
+	// earlier url().
+	assertGradientMaskRaster(t, "repeating-linear-gradient(red, blue)")
 }
 
 func onlyMaskGroup(t *testing.T, res *Result) *BlendGroup {
@@ -503,5 +605,80 @@ func maskStyleValuesFromLayer(layer MaskLayer) maskStyleValues {
 		origin:    layer.Origin,
 		clip:      layer.Clip,
 		composite: layer.Composite,
+	}
+}
+
+func layoutGradientMaskBox(t *testing.T, maskImage string) *Result {
+	t.Helper()
+
+	style := "width:20px;height:10px;background-color:#00ff00"
+	if maskImage != "" {
+		style += ";mask-image:" + maskImage
+	}
+
+	return layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
+		`<div id="masked" style="`+style+`"></div></body></html>`)
+}
+
+//nolint:cyclop // one helper checks bytes, size, and the unmasked twin
+func assertGradientMaskRaster(t *testing.T, gradient string) {
+	t.Helper()
+
+	res := layoutGradientMaskBox(t, gradient)
+	plain := layoutGradientMaskBox(t, "")
+	group := onlyMaskGroup(t, res)
+
+	if len(group.Mask.Layers) != 1 {
+		t.Fatalf("mask layer count = %d, want 1", len(group.Mask.Layers))
+	}
+
+	layer := group.Mask.Layers[0]
+	if len(layer.ImageBytes) == 0 || !bytes.HasPrefix(layer.ImageBytes, []byte{0x89, 'P', 'N', 'G'}) {
+		t.Fatalf("gradient mask bytes = %d, want a non-empty PNG", len(layer.ImageBytes))
+	}
+
+	masked := boxByID(t, res, "masked")
+	wantW := int(math.Ceil(masked.w))
+	wantH := int(math.Ceil(masked.height))
+	// 20px is 15pt and 10px is 7.5pt, so those ceils are 15 and 8.
+	fromPxW := int(math.Ceil(pxToPt(20)))
+	fromPxH := int(math.Ceil(pxToPt(10)))
+	pixelsInRange := layer.PixelWidth > 0 && layer.PixelWidth <= 512 &&
+		layer.PixelHeight > 0 && layer.PixelHeight <= 512
+
+	if layer.PixelWidth != wantW || layer.PixelHeight != wantH || !pixelsInRange {
+		t.Fatalf("mask pixels = %dx%d, want ceil(border box) %dx%d with both in 1..512",
+			layer.PixelWidth, layer.PixelHeight, wantW, wantH)
+	}
+
+	if wantW != fromPxW || wantH != fromPxH {
+		t.Fatalf("border box ceil = %dx%d, want %dx%d for 20px by 10px with no padding",
+			wantW, wantH, fromPxW, fromPxH)
+	}
+
+	if !strings.Contains(layer.Source, gradient) {
+		t.Fatalf("mask source = %q, want it to contain %q", layer.Source, gradient)
+	}
+
+	if layer.Preprocessed {
+		t.Fatal("gradient mask Preprocessed = true, want false")
+	}
+
+	fills := len(opsOfKind(res, OpFillRect))
+	plainFills := len(opsOfKind(plain, OpFillRect))
+
+	if fills != plainFills {
+		t.Fatalf("OpFillRect count = %d, twin = %d; gradient must not add a fill", fills, plainFills)
+	}
+
+	images := len(opsOfKind(res, OpImage))
+	plainImages := len(opsOfKind(plain, OpImage))
+
+	if images != plainImages {
+		t.Fatalf("OpImage count = %d, twin = %d; gradient must not add an image op", images, plainImages)
+	}
+
+	if behaviorBordersFindFill(res.Ops, masked.x, masked.y, masked.w, masked.height, 0, 1, 0) == nil {
+		t.Fatal("green background fill missing")
 	}
 }

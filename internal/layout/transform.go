@@ -402,10 +402,18 @@ func parseOneTransformFunc(name, args string, fontSize float64) (Matrix2D, float
 		m, xPct, yPct, ok := parseTranslateFunc(name, parts, fontSize)
 
 		return m, xPct, yPct, matrix3D{}, false, ok
+	case "translate3d":
+		m, xPct, yPct, side, ok := parseTranslate3DFunc(parts, fontSize)
+
+		return m, xPct, yPct, side, ok, ok
 	case "scale", transformFuncScalex, "scaley":
 		m, ok := parseScaleFunc(name, parts)
 
 		return m, math.NaN(), math.NaN(), matrix3D{}, false, ok
+	case "scale3d":
+		m, side, ok := parseScale3DFunc(parts)
+
+		return m, math.NaN(), math.NaN(), side, ok, ok
 	case "rotate":
 		m, ok := parseRotateFunc(parts)
 
@@ -981,32 +989,113 @@ func parseRotateAngle(value string) (float64, bool) {
 }
 
 // ApplyRotate implements the CSS `rotate` longhand (CSS Transforms Level 2).
-// It parses a single angle (deg/rad/grad/turn or bare number as deg) and
-// composes it into style.Transform / style.HasTransform. On invalid input the
-// style is unchanged and false is returned. The composition uses post-multiply
-// (style.Transform = style.Transform * RotateDeg) to match parseTransformList
-// ordering and to allow successive individual properties to accumulate.
+// A bare angle stays the 2D path. An axis keyword or a three-number axis
+// builds the same side matrix as rotateX, rotateY, rotateZ, or rotate3d.
+// On invalid input the style is unchanged and false is returned.
 func ApplyRotate(style *ResolvedStyle, value string) bool {
 	if style == nil {
 		return false
 	}
 
-	deg, angleOK := parseRotateAngle(value)
-	if !angleOK {
+	fields := strings.Fields(strings.ReplaceAll(strings.TrimSpace(value), ",", " "))
+	if len(fields) == 1 {
+		deg, angleOK := parseRotateAngle(fields[0])
+		if !angleOK {
+			return false
+		}
+
+		style.Transform = style.Transform.Mul(RotateDeg(deg))
+		style.HasTransform = true
+
+		return true
+	}
+
+	side, ok := parseRotateAxisProperty(fields)
+	if !ok {
 		return false
 	}
 
-	rot := RotateDeg(deg)
-	style.Transform = style.Transform.Mul(rot)
+	appendTransform3D(style, side)
 	style.HasTransform = true
 
 	return true
+}
+
+// parseRotateAxisProperty reads "y 60deg", "60deg y", or "0 1 0 60deg".
+// A zero three-number axis is rejected.
+//
+//nolint:cyclop // axis keyword and three-number forms stay in one parser
+func parseRotateAxisProperty(fields []string) (matrix3D, bool) {
+	angleAt := -1
+
+	for idx, field := range fields {
+		if _, ok := parseAngleDeg(field); ok {
+			angleAt = idx
+
+			break
+		}
+	}
+
+	if angleAt < 0 {
+		return matrix3D{}, false
+	}
+
+	deg, _ := parseAngleDeg(fields[angleAt])
+	axis := make([]string, 0, len(fields)-1)
+
+	for idx, field := range fields {
+		if idx == angleAt {
+			continue
+		}
+
+		axis = append(axis, field)
+	}
+
+	switch len(axis) {
+	case 1:
+		switch strings.ToLower(axis[0]) {
+		case "x":
+			return rotateX3D(deg), true
+		case "y":
+			return rotateY3D(deg), true
+		case "z":
+			return rotateZ3D(deg), true
+		default:
+			return matrix3D{}, false
+		}
+	case maxThreeValueArgs:
+		return rotatePropertyAxis(axis, deg)
+	default:
+		return matrix3D{}, false
+	}
+}
+
+func rotatePropertyAxis(axis []string, deg float64) (matrix3D, bool) {
+	nums := make([]float64, len(axis))
+
+	for idx, field := range axis {
+		num, ok := parseUnitless(field)
+		if !ok {
+			return matrix3D{}, false
+		}
+
+		nums[idx] = num
+	}
+
+	length := math.Sqrt(nums[0]*nums[0] + nums[1]*nums[1] + nums[2]*nums[2])
+	if length < axisEpsilon {
+		return matrix3D{}, false
+	}
+
+	return rotate3DAxis(nums[0]/length, nums[1]/length, nums[2]/length, deg), true
 }
 
 // ApplyScale implements the CSS `scale` longhand. It parses one or two
 // unitless numbers (sx [sy]); a single number yields uniform scale.
 // Invalid input leaves style unchanged. Composition is post-multiply like
 // parseTransformList.
+//
+//nolint:cyclop // the third value is the only addition to the existing 2D parser
 func ApplyScale(style *ResolvedStyle, value string) bool {
 	if style == nil {
 		return false
@@ -1043,7 +1132,15 @@ func ApplyScale(style *ResolvedStyle, value string) bool {
 		scaleY = second
 	}
 
-	// Third value (z) ignored for 2D print.
+	if len(parts) == maxThreeValueArgs {
+		scaleZ, scaleZOK := parseUnitless(parts[2])
+		if !scaleZOK {
+			return false
+		}
+
+		appendTransform3D(style, scaleZ3D(scaleZ))
+	}
+
 	scaled := Scale(scaleX, scaleY)
 	style.Transform = style.Transform.Mul(scaled)
 	style.HasTransform = true
@@ -1076,6 +1173,8 @@ func parseTranslateValues(parts []string, fsize float64) (float64, float64, floa
 // against the border box at layout time, bare numbers are treated as px. The
 // absolute part is post-multiplied into style.Transform and the percent part
 // is stored in TranslateX/YPercent for resolution in stampBoxTransforms.
+//
+//nolint:cyclop // the third value is the only addition to the existing 2D parser
 func ApplyTranslate(style *ResolvedStyle, value string, fsize float64) bool {
 	if style == nil {
 		return false
@@ -1099,7 +1198,15 @@ func ApplyTranslate(style *ResolvedStyle, value string, fsize float64) bool {
 		return false
 	}
 
-	// Third value (z) ignored for 2D print.
+	if len(parts) == maxThreeValueArgs {
+		depth, _, depthPercent, depthOK := parseTransformLength(parts[2], fsize)
+		if !depthOK || depthPercent {
+			return false
+		}
+
+		appendTransform3D(style, translateZ3D(depth))
+	}
+
 	formed := Translate(transX, transY)
 	style.Transform = style.Transform.Mul(formed)
 
@@ -1385,7 +1492,8 @@ func stampBoxTransformsRec(
 		markBoxOpsCovered(c, ops, covered, true)
 	}
 
-	stampExclusiveTransformOps(boxNode, accum, ops, covered)
+	chainFacing, useChainFacing := composedChainFacing(boxNode, chain, chainActive, has3D, viewport)
+	stampExclusiveTransformOps(boxNode, accum, ops, covered, chainFacing, useChainFacing)
 	stampExclusiveOpacityOps(boxNode, ops, covered)
 	stampCoveredOpacityOps(boxNode, ops, covered)
 
@@ -1417,11 +1525,15 @@ func boxOwnsOps(boxNode *box) bool {
 
 // stampExclusiveTransformOps applies the accumulated transform to ops owned
 // exclusively by boxNode; child-owned ops keep the child's own transform.
-func stampExclusiveTransformOps(boxNode *box, accum Matrix2D, ops []Op, covered []bool) {
+func stampExclusiveTransformOps(
+	boxNode *box, accum Matrix2D, ops []Op, covered []bool, chainFacing float64, useChainFacing bool,
+) {
 	// Backface cull: a 3D-rotated face turned away from the viewer paints
 	// nothing under backface-visibility:hidden. 2D mirrors never cull (only
-	// HasTransform3D faces qualify). Reference: Chrome 143.0.7499.40.
-	if backfaceCulled(boxNode) {
+	// HasTransform3D faces qualify). A child inside a preserve-3d chain uses
+	// the chain facing, so a parent rotateY(180deg) hides a hidden child.
+	// Reference: Chrome 143.0.7499.40.
+	if backfaceCulled(boxNode, chainFacing, useChainFacing) {
 		zeroExclusiveOps(boxNode, ops, covered)
 
 		return
@@ -1450,12 +1562,36 @@ func stampExclusiveTransformOps(boxNode *box, accum Matrix2D, ops []Op, covered 
 // a 3D-rotated face turned away from the viewer under
 // backface-visibility:hidden. Facing comes from the flattened 3D state;
 // 2D content never qualifies.
-func backfaceCulled(boxNode *box) bool {
-	if boxNode == nil || boxNode.style == nil {
-		return false
+// composedChainFacing reports the facing of the preserve-3d chain this box
+// belongs to. use is false when the box is not inside that chain, and the
+// caller then reads the local side matrix instead.
+func composedChainFacing(
+	boxNode *box, chain matrix3D, chainActive, has3D bool, viewport svgViewport,
+) (float64, bool) {
+	if !chainActive || boxNode == nil {
+		return 0, false
 	}
 
-	if !boxNode.style.HasTransform3D {
+	facingChain := chain
+	if has3D {
+		facingChain = chain.mul(baked3DForBox(boxNode, viewport))
+	}
+
+	var originX, originY float64
+	if boxNode.style != nil {
+		originX, originY = resolveTransformOriginWithBox(
+			boxNode.style.TransformOrigin, boxNode, boxNode.style.TransformBox, viewport,
+		)
+	}
+
+	dist, vanishX, vanishY := perspectiveFlattenArgs(boxNode, facingChain, originX, originY)
+	_, facing := facingChain.flatten3D(vanishX, vanishY, dist)
+
+	return facing, true
+}
+
+func backfaceCulled(boxNode *box, chainFacing float64, useChainFacing bool) bool {
+	if boxNode == nil || boxNode.style == nil {
 		return false
 	}
 
@@ -1464,6 +1600,14 @@ func backfaceCulled(boxNode *box) bool {
 	}
 
 	if !boxOwnsOps(boxNode) {
+		return false
+	}
+
+	if useChainFacing {
+		return chainFacing < 0
+	}
+
+	if !boxNode.style.HasTransform3D {
 		return false
 	}
 

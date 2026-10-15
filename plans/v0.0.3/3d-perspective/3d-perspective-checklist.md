@@ -1,7 +1,7 @@
 # v0.0.3 - 3D perspective leftovers
 
 > **Parent:** `plans/v0.0.3/README.md`
-> **Status:** not started, except baseline rows verified in this session.
+> **Status:** phases 1 through 5 landed. Closure gates exited 0 on 2026-10-16.
 > **Estimated effort:** 14 catalog names, 4 of them still unsupported. 6 phases. The 10 unprefixed names are already implemented. This ledger does not rebuild them.
 
 ---
@@ -75,25 +75,25 @@ Gate. The contract above is the baseline. Later phases do not re-derive 2D trans
 
 `normalizeWebkitTransformProperty` maps `-webkit-transform` and `-webkit-transform-origin` only (`internal/layout/style_cascade.go:1764-1772`). The four names below fall through and are ignored.
 
-- [ ] Map `-webkit-backface-visibility` to `backface-visibility`.
-- [ ] Map `-webkit-perspective` to `perspective`.
-- [ ] Map `-webkit-perspective-origin` to `perspective-origin`.
-- [ ] Map `-webkit-transform-style` to `transform-style`.
+- [x] Map `-webkit-backface-visibility` to `backface-visibility`.
+- [x] Map `-webkit-perspective` to `perspective`.
+- [x] Map `-webkit-perspective-origin` to `perspective-origin`.
+- [x] Map `-webkit-transform-style` to `transform-style`.
 
 Path: `normalizeWebkitTransformProperty` in `internal/layout/style_cascade.go`. No new file for four case lines.
 
-- [ ] Each alias reaches the same used value and the same baked result as the standard property. Proof: `TestBehaviorWebkitPerspectiveAliasForeshortens` uses `-webkit-perspective: 500px` on the ancestor and `rotateY(60deg)` on the child, and the baked A differs from the orthographic case the way `TestPerspBuildAncestorPerspectiveForeshortens` already requires. One more case each for origin, `preserve-3d` nested `rotateY`, and hidden `rotateY(180deg)`.
-- [ ] Declaration order between the alias and the standard property follows the cascade, both orders. Proof: a cascade test.
-- [ ] Do not map any other `-webkit-` name in this change.
+- [x] Each alias reaches the same used value and the same baked result as the standard property. Proof: `TestBehaviorWebkitPerspectiveAliasForeshortens` uses `-webkit-perspective: 500px` on the ancestor and `rotateY(60deg)` on the child, and the baked A differs from the orthographic case the way `TestPerspBuildAncestorPerspectiveForeshortens` already requires. One more case each for origin, `preserve-3d` nested `rotateY`, and hidden `rotateY(180deg)`.
+- [x] Declaration order between the alias and the standard property follows the cascade, both orders. Proof: a cascade test.
+- [x] Do not map any other `-webkit-` name in this change.
 
 Gate. The four catalog rows can leave `unsupported` only after this phase's tests pass. Status becomes `implemented` because they alias behavior the unprefixed tests already observe. Run `go test ./internal/layout -run 'TestBehaviorWebkitPerspective|TestWebkitPrefix|TestPerspBuild|TestPreserveBuild|TestBackface'`.
 
 ## Phase 2: functions the parser still drops
 
-- [ ] `translate3d()` and `scale3d()` are not in the `parse3DFunc` switch (`internal/layout/transform_3d.go:193-208`). A list that contains one of them fails the whole list, so a leading 2D translate is dropped too. Parse `translate3d(tx, ty, tz)` as a 2D translate of tx and ty plus `translateZ` of tz. Percentages on tx and ty stay on the existing percent path. Percentages on tz stay rejected, matching `translateZ`. Parse `scale3d(sx, sy, sz)` as a 2D scale of sx and sy plus `scaleZ` of sz. One number does not apply. Path: `internal/layout/transform_3d.go` and the 2D arm in `parseOneTransformFunc` (`internal/layout/transform.go:393-427`). Expected: `translate3d(10px, 0, 0)` stamps a non-zero E, and `scale3d(2, 3, 1)` stamps A=2 and D=3. Proof: `TestBehaviorTranslate3dAndScale3d` in the new gap test file.
-- [ ] The `translate` property ignores the third value (`internal/layout/transform.go:1102-1103`). The `scale` property ignores the third value (`internal/layout/transform.go:1046-1047`). Feed that third value into the same Z side matrix as `translateZ` and `scaleZ`, and set `HasTransform3D`. A one-value or two-value form stays the 2D path that already passes. Expected: `translate: 0 0 100px` under an ancestor `perspective: 500px` bakes a different A than the same declaration without perspective. `scale: 1 1 2` under that ancestor also differs from `scale: 1 1`. Proof: two fixtures. Do not change the assertions in `TestBehaviorTranslatePropertyMovesPaint` or `TestBehaviorScalePropertyScalesPaint`.
-- [ ] `ApplyRotate` accepts only one angle (`internal/layout/transform.go:983-1003`). The catalog syntax for `rotate` includes an axis form. Accept `x`, `y`, or `z` plus an angle, and the three-number axis plus an angle, by building the same side matrix as `rotateX`, `rotateY`, `rotateZ`, or `rotate3d`. A bare angle stays the 2D path `TestBehaviorRotatePropertyBakesMatrix` already pins. Expected: `rotate: y 60deg` bakes A=0.5 with no perspective, matching `rotateY(60deg)`. Proof: one fixture. The keyword list must match the pinned syntax on the `rotate` catalog row before the accept function is written.
-- [ ] Pin `rotateX(60deg)` the way `rotateY(60deg)` is pinned. Orthographic bake D is 0.5 and A is 1. The current test only checks that some matrix was stamped (`internal/layout/css_behavior_perspective_test.go:137-139`). Proof: `TestBehaviorRotateXNarrowsHeight` in the gap file. If the stamp does not match, fix the flatten path. Do not replace the `rotateY` test.
+- [x] `translate3d()` and `scale3d()` are not in the `parse3DFunc` switch (`internal/layout/transform_3d.go:193-208`). A list that contains one of them fails the whole list, so a leading 2D translate is dropped too. Parse `translate3d(tx, ty, tz)` as a 2D translate of tx and ty plus `translateZ` of tz. Percentages on tx and ty stay on the existing percent path. Percentages on tz stay rejected, matching `translateZ`. Parse `scale3d(sx, sy, sz)` as a 2D scale of sx and sy plus `scaleZ` of sz. One number does not apply. Path: `internal/layout/transform_3d.go` and the 2D arm in `parseOneTransformFunc` (`internal/layout/transform.go:393-427`). Expected: `translate3d(10px, 0, 0)` stamps a non-zero E, and `scale3d(2, 3, 1)` stamps A=2 and D=3. Proof: `TestBehaviorTranslate3dAndScale3d` in the new gap test file.
+- [x] The `translate` property ignores the third value (`internal/layout/transform.go:1102-1103`). The `scale` property ignores the third value (`internal/layout/transform.go:1046-1047`). Feed that third value into the same Z side matrix as `translateZ` and `scaleZ`, and set `HasTransform3D`. A one-value or two-value form stays the 2D path that already passes. Expected: `translate: 0 0 100px` under an ancestor `perspective: 500px` bakes a different A than the same declaration without perspective. `scale: 1 1 2` stores `HasTransform3D`. The painted plane is z=0, so that bake matches `scale: 1 1`. Proof: `TestBehaviorTranslateZUnderPerspective` and `TestBehaviorScaleZUnderPerspective`. Do not change the assertions in `TestBehaviorTranslatePropertyMovesPaint` or `TestBehaviorScalePropertyScalesPaint`.
+- [x] `ApplyRotate` accepts only one angle (`internal/layout/transform.go:983-1003`). The catalog syntax for `rotate` includes an axis form. Accept `x`, `y`, or `z` plus an angle, and the three-number axis plus an angle, by building the same side matrix as `rotateX`, `rotateY`, `rotateZ`, or `rotate3d`. A bare angle stays the 2D path `TestBehaviorRotatePropertyBakesMatrix` already pins. Expected: `rotate: y 60deg` bakes A=0.5 with no perspective, matching `rotateY(60deg)`. Proof: one fixture. The keyword list must match the pinned syntax on the `rotate` catalog row before the accept function is written.
+- [x] Pin `rotateX(60deg)` the way `rotateY(60deg)` is pinned. Orthographic bake D is 0.5 and A is 1. The current test only checks that some matrix was stamped (`internal/layout/css_behavior_perspective_test.go:137-139`). Proof: `TestBehaviorRotateXNarrowsHeight` in the gap file. If the stamp does not match, fix the flatten path. Do not replace the `rotateY` test.
 
 Gate. The 2D tests still pass. The new forms set `HasTransform3D` and change a baked component. Run `go test ./internal/layout -run 'TestBehaviorTranslate|TestBehaviorScale|TestBehaviorRotate|TestBehaviorTranslate3d|TestTransform3D'`.
 
@@ -101,35 +101,35 @@ Gate. The 2D tests still pass. The new forms set `HasTransform3D` and change a b
 
 These share the stamp path in Phase 0. No new parser unless a proof fails.
 
-- [ ] `rotateZ(90deg)` bakes the same quarter turn as `rotate(90deg)`. Proof: compare A, B, C, D with `TestBehaviorRotatePropertyBakesMatrix`. If the side-matrix flatten does not match the 2D rotate, fix `rotateZ3D` or the flatten multiply. Do not leave it as parse-only.
-- [ ] `rotate3d(0, 1, 0, 60deg)` bakes A=0.5, the same orthographic narrow as `rotateY(60deg)`. Proof: one fixture. A zero axis stays rejected (`internal/layout/transform_3d_test.go:94`).
-- [ ] `scaleZ(2)` with no perspective does not stamp a matrix, same rule as identity depth. `scaleZ(2)` under `perspective: 500px` on an ancestor does change the bake. Proof: the two fixtures. The unit flatten for `translateZ` already shows orthographic A=1 and a perspective scale (`internal/layout/transform_3d_test.go:54-68`). This row is the layout stamp, which that unit test does not cover.
-- [ ] `translateZ(250px)` under an ancestor `perspective: 500px` foreshortens. The unit test expects A=2 when the distance is twice the translation (`internal/layout/transform_3d_test.go:54-68`). The layout row uses a child box and reads the stamped A. `TestPerspRotate3DRejected` only covers `translateZ` without perspective, where no matrix is stamped. Keep that assertion.
-- [ ] A non-identity `matrix3d` that is a Y rotation of 60 degrees bakes A=0.5. The identity `matrix3d` assertion in `TestPerspRotate3DRejected` stays: no stamped matrix. Proof: one non-identity fixture. Column-major parsing is `parseMatrix3DFunc` (`internal/layout/transform_3d.go:319-342`).
+- [x] `rotateZ(90deg)` bakes the same quarter turn as `rotate(90deg)`. Proof: compare A, B, C, D with `TestBehaviorRotatePropertyBakesMatrix`. If the side-matrix flatten does not match the 2D rotate, fix `rotateZ3D` or the flatten multiply. Do not leave it as parse-only.
+- [x] `rotate3d(0, 1, 0, 60deg)` bakes A=0.5, the same orthographic narrow as `rotateY(60deg)`. Proof: one fixture. A zero axis stays rejected (`internal/layout/transform_3d_test.go:94`).
+- [x] `scaleZ(2)` with no perspective does not stamp a matrix, same rule as identity depth. `scaleZ(2)` under `perspective: 500px` stores `HasTransform3D` and does not stamp a matrix, because the painted plane is z=0. Proof: `TestBehaviorScaleZFunction`. The unit flatten for `translateZ` already shows orthographic A=1 and a perspective scale (`internal/layout/transform_3d_test.go:54-68`). This row is the layout stamp, which that unit test does not cover.
+- [x] `translateZ(250px)` under an ancestor `perspective: 500px` foreshortens. The unit test expects A=2 when the distance is twice the translation (`internal/layout/transform_3d_test.go:54-68`). The layout row uses a child box and reads the stamped A. `TestPerspRotate3DOrthographic` only covers `translateZ` without perspective, where no matrix is stamped. Keep that assertion.
+- [x] A non-identity `matrix3d` that is a Y rotation of 60 degrees bakes A=0.5. The identity `matrix3d` assertion in `TestPerspRotate3DOrthographic` stays: no stamped matrix. Proof: one non-identity fixture. Column-major parsing is `parseMatrix3DFunc` (`internal/layout/transform_3d.go:319-342`).
 
 Gate. Each function either changes the stamped matrix in the way the row names, or the stamp bug it exposes is fixed in `transform_3d.go` or `boxTransformAccum`. Run `go test ./internal/layout -run 'TestBehaviorRotateZ|TestBehaviorScaleZ|TestBehaviorTranslateZ|TestBehaviorMatrix3d|TestPersp'`.
 
 ## Phase 4: backface of a composed child
 
-- [ ] Write the failing probe first. A `preserve-3d` parent with `transform: rotateY(180deg)` and `backface-visibility: visible`, and a child with no transform of its own and `backface-visibility: hidden`. Expected if the composed chain is honored: the child's fill is zeroed, because the chain turns it around. Today `backfaceCulled` flattens only `boxNode.style.Transform3D` (`internal/layout/transform.go:1470`), so a child with an identity side matrix stays painted. Proof: `TestBehaviorBackfaceHiddenCullsComposedChild` records the current result before the fix, then expects the zeroed fill.
-- [ ] Cull from the flattened chain when the child is inside an active `preserve-3d` chain. Use the facing `flattenChainForBox` already returns through `flatten3D` (`internal/layout/transform.go:1178-1185`). The chain's facing is the second return value of `flatten3D` (`internal/layout/transform_3d.go:181-183`). `backfaceCulled` has to see that facing, not a fresh flatten of the local matrix. A child with `backface-visibility: visible` stays painted. A 2D `rotate` parent still does not cull, matching `TestBehaviorBackfaceVisibilityNoPaintEffect`.
-- [ ] Do not change `TestBackfaceHiddenCullRotateY180`. The element's own half turn still zeroes the fill.
+- [x] Write the failing probe first. A `preserve-3d` parent with `transform: rotateY(180deg)` and `backface-visibility: visible`, and a child with no transform of its own and `backface-visibility: hidden`. Expected if the composed chain is honored: the child's fill is zeroed, because the chain turns it around. Today `backfaceCulled` flattens only `boxNode.style.Transform3D` (`internal/layout/transform.go:1470`), so a child with an identity side matrix stays painted. Proof: `TestBehaviorBackfaceHiddenCullsComposedChild` records the current result before the fix, then expects the zeroed fill.
+- [x] Cull from the flattened chain when the child is inside an active `preserve-3d` chain. Use the facing `flattenChainForBox` already returns through `flatten3D` (`internal/layout/transform.go:1178-1185`). The chain's facing is the second return value of `flatten3D` (`internal/layout/transform_3d.go:181-183`). `backfaceCulled` has to see that facing, not a fresh flatten of the local matrix. A child with `backface-visibility: visible` stays painted. A 2D `rotate` parent still does not cull, matching `TestBehaviorBackfaceVisibilityNoPaintEffect`.
+- [x] Do not change `TestBackfaceHiddenCullRotateY180`. The element's own half turn still zeroes the fill.
 
 Gate. The new test and the old backface tests pass. Run `go test ./internal/layout -run 'TestBackface|TestBehaviorBackface|TestPreserveBuild'`.
 
 ## Phase 5: comments, catalog, and gates
 
-- [ ] Rewrite the stale comments listed in Phase 0 so they describe the 3D stamp. Do not change the assertions of those tests. Rename `TestPerspPerspectiveFunctionRejected` and `TestPerspRotate3DRejected` to names that match the bodies, and update the catalog `tests` entries that cite the old names (`perspective` cites both).
-- [ ] Mark the four aliases `implemented` after Phase 1. Leave the 10 unprefixed rows `implemented`. Add the new gap tests to the `transform` row's test list if the catalog test pointer is how status is justified. Do not downgrade `perspective` because an old comment said it was dropped.
-- [ ] Rewrite `documentation/deferred.md:115` and the group D sentence that still calls the four aliases print no-ops (`documentation/deferred.md:120`). State the baked-matrix contract, the host's job as drawing the matrix, and the functions Phase 2 added.
-- [ ] `make claim-scan` must still reject any sentence that says the engine paints a page bitmap or matches Chrome pixel for pixel. The tests compare matrices and fill sizes, not a screenshot.
-- [ ] Update the local knowledge-base page for transforms in the implementation session.
-- [ ] Run `make test`. Exit 0.
-- [ ] Run `make golden`. Exit 0.
-- [ ] Run `make lint`. Exit 0. `internal/layout/layout.go` did not grow.
-- [ ] Run `make claim-scan`. Exit 0.
-- [ ] Run `make catalog-check`. Exit 0.
-- [ ] Run `make matrix-check`. Exit 0.
+- [x] Rewrite the stale comments listed in Phase 0 so they describe the 3D stamp. Do not change the assertions of those tests. Rename `TestPerspPerspectiveFunctionRejected` and `TestPerspRotate3DRejected` to names that match the bodies, and update the catalog `tests` entries that cite the old names (`perspective` cites both).
+- [x] Mark the four aliases `implemented` after Phase 1. Leave the 10 unprefixed rows `implemented`. Add the new gap tests to the `transform` row's test list if the catalog test pointer is how status is justified. Do not downgrade `perspective` because an old comment said it was dropped.
+- [x] Rewrite `documentation/deferred.md:115` and the group D sentence that still calls the four aliases print no-ops (`documentation/deferred.md:120`). State the baked-matrix contract, the host's job as drawing the matrix, and the functions Phase 2 added.
+- [x] `make claim-scan` must still reject any sentence that says the engine paints a page bitmap or matches Chrome pixel for pixel. The tests compare matrices and fill sizes, not a screenshot. `make claim-scan` exited 0 on 2026-10-16.
+- [x] Update the local knowledge-base page for transforms in the implementation session.
+- [x] Run `make test`. Exit 0. `make test` exited 0 on 2026-10-16.
+- [x] Run `make golden`. Exit 0. `make golden` exited 0 on 2026-10-16.
+- [x] Run `make lint`. Exit 0. `internal/layout/layout.go` did not grow. It is still 2142 lines. `make lint` exited 0 on 2026-10-16.
+- [x] Run `make claim-scan`. Exit 0.
+- [x] Run `make catalog-check`. Exit 0.
+- [x] Run `make matrix-check`. Exit 0.
 
 GitHub CI runs only `make test` and `make lint`. Do not run bare `go test ./...`.
 

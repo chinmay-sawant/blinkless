@@ -849,7 +849,7 @@ func expandShorthandDeclaration(prop, value string) ([]logicalPropDecl, bool) {
 		return expanded, true
 	}
 
-	return expandLogicalBoxDeclaration(prop, value)
+	return expandRowAndGapRules(prop, value)
 }
 
 // expandMaskShorthandDeclaration expands mask layers and resets the mask-border
@@ -1637,13 +1637,14 @@ type styleGroupFn func(
 ) bool
 
 // styleGroups is the immutable dispatch order for applyStyleProp.
-// Package-level so applyStyleProp does not rebuild the 31-entry array on
+// Package-level so applyStyleProp does not rebuild the 33-entry array on
 // every cascaded property of every element.
 var styleGroups = [...]styleGroupFn{ //nolint:gochecknoglobals // static dispatch table
 	applyDisplayGroup,
 	applyPositionGroup,
 	applyFlexGroup,
 	applyMulticolGroup,
+	applyRowRuleGroup,
 	applyGridGroup,
 	applyBoxGroup,
 	applyBorderGroup,
@@ -1689,29 +1690,33 @@ func normalizeVendorPrefix(prop string) string {
 }
 
 const (
-	webkitBoxSizingTarget         = "box-sizing"
-	webkitBorderRadiusTarget      = "border-radius"
-	webkitBorderTopLeftTarget     = "border-top-left-radius"
-	webkitBorderTopRightTarget    = "border-top-right-radius"
-	webkitBorderBottomLeftTarget  = "border-bottom-left-radius"
-	webkitBorderBottomRightTarget = "border-bottom-right-radius"
-	webkitTransformTarget         = "transform"
-	webkitTransformOriginTarget   = "transform-origin"
-	webkitFlexBasisTarget         = "flex-basis"
-	webkitFlexDirectionTarget     = "flex-direction"
-	webkitFlexGrowTarget          = "flex-grow"
-	webkitFlexShrinkTarget        = "flex-shrink"
-	webkitFlexWrapTarget          = "flex-wrap"
-	webkitJustifyContentTarget    = "justify-content"
-	webkitAlignContentTarget      = "align-content"
-	webkitAlignItemsTarget        = "align-items"
-	webkitAlignSelfTarget         = "align-self"
-	webkitOrderTarget             = "order"
-	webkitFilterTarget            = "filter"
-	webkitBoxAlignProperty        = "-webkit-box-align"
-	webkitBoxOrdinalGroupProperty = "-webkit-box-ordinal-group"
-	webkitBoxOrientProperty       = "-webkit-box-orient"
-	webkitBoxPackProperty         = "-webkit-box-pack"
+	webkitBoxSizingTarget          = "box-sizing"
+	webkitBorderRadiusTarget       = "border-radius"
+	webkitBorderTopLeftTarget      = "border-top-left-radius"
+	webkitBorderTopRightTarget     = "border-top-right-radius"
+	webkitBorderBottomLeftTarget   = "border-bottom-left-radius"
+	webkitBorderBottomRightTarget  = "border-bottom-right-radius"
+	webkitTransformTarget          = "transform"
+	webkitTransformOriginTarget    = "transform-origin"
+	webkitBackfaceVisibilityTarget = "backface-visibility"
+	webkitPerspectiveTarget        = "perspective"
+	webkitPerspectiveOriginTarget  = "perspective-origin"
+	webkitTransformStyleTarget     = "transform-style"
+	webkitFlexBasisTarget          = "flex-basis"
+	webkitFlexDirectionTarget      = "flex-direction"
+	webkitFlexGrowTarget           = "flex-grow"
+	webkitFlexShrinkTarget         = "flex-shrink"
+	webkitFlexWrapTarget           = "flex-wrap"
+	webkitJustifyContentTarget     = "justify-content"
+	webkitAlignContentTarget       = "align-content"
+	webkitAlignItemsTarget         = "align-items"
+	webkitAlignSelfTarget          = "align-self"
+	webkitOrderTarget              = "order"
+	webkitFilterTarget             = "filter"
+	webkitBoxAlignProperty         = "-webkit-box-align"
+	webkitBoxOrdinalGroupProperty  = "-webkit-box-ordinal-group"
+	webkitBoxOrientProperty        = "-webkit-box-orient"
+	webkitBoxPackProperty          = "-webkit-box-pack"
 )
 
 func normalizeOtherWebkitProperty(prop string) string {
@@ -1767,6 +1772,14 @@ func normalizeWebkitTransformProperty(prop string) (string, bool) {
 		return webkitTransformTarget, true
 	case "-webkit-transform-origin":
 		return webkitTransformOriginTarget, true
+	case "-webkit-backface-visibility":
+		return webkitBackfaceVisibilityTarget, true
+	case "-webkit-perspective":
+		return webkitPerspectiveTarget, true
+	case "-webkit-perspective-origin":
+		return webkitPerspectiveOriginTarget, true
+	case "-webkit-transform-style":
+		return webkitTransformStyleTarget, true
 	default:
 		return "", false
 	}
