@@ -10,7 +10,7 @@ commits on `master`, `23061d8` through `c085b34` (2026-10-08 to 2026-10-13).
 | [commits.md](commits.md) | One line for each of the 54 commits, in order. |
 
 Nothing here tags a release, edits `CHANGELOG.md`, or moves the binding
-version strings. `master` has no `v*` tag. `RELEASE.md` calls this cut
+version strings. The GitHub Release tag is `v0.0.1`. `RELEASE.md` calls this cut
 0.0.1, and the Makefile stamps `BINDINGS_VERSION` and `WASM_VERSION` as
 0.0.1. `bindings/python/pyproject.toml` and `BLINKLESS_VERSION` in
 `bindings/c/include/blinkless.h` still say `0.2.6`.
