@@ -20,6 +20,10 @@ An image on the list keeps its encoded bytes. Orientation or a clip that cannot 
 
 `html.Parse`, `css.Apply`, and `layout.DisplayList` return errors for a bad document, a bad size, or a nil context. `errors.Is` matches `css.ErrBadSize`, `css.ErrNilContext`, `layout.ErrNilContext`, and `layout.ErrNilDocument`.
 
+## Limits
+
+`html.Parse` does not cap the source length. `internal/html.ParseWithLimit` does, and a non-positive limit uses 64 MiB. `css.Parse` returns an error when the stylesheet is over 32 MiB. Element nesting stops at 1024. The 0.0.2 note lists the other caps.
+
 ## WASM drawing-list JSON
 
 `bindings/wasm` wraps the same display-list call (`layout.DisplayListOptions`)

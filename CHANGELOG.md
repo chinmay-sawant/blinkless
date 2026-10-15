@@ -6,6 +6,25 @@ compare tags to source version stamps.
 
 ## Unreleased
 
+## 0.0.2 (2026-10-15)
+
+Security release after `v0.0.1`. The output is still `layout.DisplayList`.
+
+### Security
+
+- Stylesheet source over 32 MiB is rejected. HTML element depth and the active formatting list stop at 1024. `html.Parse` still does not cap its own byte length. `ParseWithLimit` does, with a 64 MiB default.
+- Dashed edges, text-decoration steps, and border-image tiles stop at 1024. Decoded images stop at 16 million pixels. SVG `text`, `tspan`, and `textPath` are removed before raster.
+- Local files open through `os.Root`. Restricted mode refuses private addresses and a proxied hostname. The C binding caps the allow list and the last-error buffer, rejects an HTML length at or above 2^63, and recovers panics. WASM applies the JSON and HTML byte caps.
+- Records: `plans/v0.0.1/security/` ledgers 01 through 09. Note: `plans/v0.0.2/release-note/v0.0.2.md`.
+
+### Removed
+
+- **Python package, PyPI publish, and the tag-vs-source version gate** are removed: `bindings/python`, `.github/workflows/publish-pypi.yml`, `scripts/check_versions.sh`, and `make check-versions`. `bindings/c` and `bindings/wasm` stay. GitHub CI runs `make test` and `make lint` only.
+
+## 0.0.1 (2026-10-15)
+
+Renderer cut, published as tag `v0.0.1` at `108c2c9`.
+
 ### Added
 
 - **Display-list output:** `layout.DisplayList` returns the retained display
@@ -35,10 +54,6 @@ compare tags to source version stamps.
   a clip requires it.
 - **`layout.Lay`, `screen.Render`, `ImageDocument`, and the PDF settings
   consumers** were removed with the writer.
-- **Python package, PyPI publish, and the tag-vs-source version gate** are
-  removed: `bindings/python`, `.github/workflows/publish-pypi.yml`,
-  `scripts/check_versions.sh`, and `make check-versions`. `bindings/c` and
-  `bindings/wasm` stay. There is no `VERSION` file.
 
 ## 0.2.6 (2026-09-13)
 

@@ -12,4 +12,6 @@ CSS masking first wave: [CSS masking checklist](v0.0.1/css-masking/css-masking-c
 
 Security hardening: [security checklist](v0.0.1/security/security-checklist.md). Ledgers 01 through 09 are closed. The rescan rows in 06 through 09 landed on 2026-10-15.
 
-Release note: [v0.0.1 release note](v0.0.1/release-note/v0.0.1.md), with the [54-commit ledger](v0.0.1/release-note/commits.md). It covers `master` from `23061d8` through `c085b34`. It does not tag a release. Binding version strings still read 0.2.6 while `RELEASE.md` names this cut 0.0.1.
+Release note: [v0.0.1 release note](v0.0.1/release-note/v0.0.1.md), with the [54-commit ledger](v0.0.1/release-note/commits.md). It covers `master` from `23061d8` through `c085b34`. Tag `v0.0.1` is `108c2c9`.
+
+Security release: [v0.0.2 release note](v0.0.2/release-note/v0.0.2.md), with the [commits after v0.0.1](v0.0.2/release-note/commits.md). Tag `v0.0.2`. `Makefile` binding stamps stay `0.0.1`.
