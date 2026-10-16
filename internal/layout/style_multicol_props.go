@@ -32,10 +32,29 @@ func applyMulticolGroup(
 	return applyColumnFillSpanProps(style, prop, value)
 }
 
+// applyColumnRuleProps stores column-rule, column-rule-break, and the
+// column-rule line and inset longhands.
 func applyColumnRuleProps(style *ResolvedStyle, prop, value string, fsize float64) bool {
 	switch prop {
 	case "column-rule":
 		applyColumnRuleShorthand(style, value, fsize)
+	case "column-rule-break":
+		applyRowRuleKeyword(style, value, &style.ColumnRuleBreak, cssDisplayNone, contentNormal, "intersection")
+	default:
+		if applyColumnRuleLineProps(style, prop, value, fsize) {
+			return true
+		}
+
+		return applyColumnRuleInsetProps(style, prop, value, fsize)
+	}
+
+	return true
+}
+
+// applyColumnRuleLineProps stores the column-rule-width, column-rule-style,
+// and column-rule-color longhands.
+func applyColumnRuleLineProps(style *ResolvedStyle, prop, value string, fsize float64) bool {
+	switch prop {
 	case "column-rule-width":
 		if width, parsed := parseOutlineWidth(value, fsize); parsed {
 			style.ColumnRuleWidth = width
@@ -49,6 +68,24 @@ func applyColumnRuleProps(style *ResolvedStyle, prop, value string, fsize float6
 			style.ColumnRuleColor = color
 			style.ColumnRuleColorSet = true
 		}
+	default:
+		return false
+	}
+
+	return true
+}
+
+// applyColumnRuleInsetProps stores the column-rule-inset-* longhands.
+func applyColumnRuleInsetProps(style *ResolvedStyle, prop, value string, fsize float64) bool {
+	switch prop {
+	case "column-rule-inset-cap-start":
+		applyRowRuleInsetSide(style, value, fsize, &style.ColumnRuleInsetCapStart)
+	case "column-rule-inset-cap-end":
+		applyRowRuleInsetSide(style, value, fsize, &style.ColumnRuleInsetCapEnd)
+	case "column-rule-inset-junction-start":
+		applyRowRuleInsetSide(style, value, fsize, &style.ColumnRuleInsetJunctionStart)
+	case "column-rule-inset-junction-end":
+		applyRowRuleInsetSide(style, value, fsize, &style.ColumnRuleInsetJunctionEnd)
 	default:
 		return false
 	}

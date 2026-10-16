@@ -1,6 +1,19 @@
 package layout
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/chinmay-sawant/blinkless/internal/css"
+)
+
+// ruleInset is one parsed <inset-value> (css-gaps-1). Percent holds a
+// percentage number; OverlapJoin marks the overlap-join keyword; otherwise
+// Value is a length in points. The initial value is the zero ruleInset.
+type ruleInset struct {
+	Value       float64
+	Percent     bool
+	OverlapJoin bool
+}
 
 // applyRowRuleGroup stores row-rule, row-rule-width, row-rule-style, and
 // row-rule-color. Other row-rule longhands and every rule* shorthand are
@@ -109,6 +122,10 @@ func expandRowAndGapRules(prop, value string) ([]logicalPropDecl, bool) {
 //
 //nolint:cyclop // each shorthand is one case
 func expandGapRuleDeclaration(prop, value string) ([]logicalPropDecl, bool) {
+	if expanded, ok := expandInsetSideShorthand(prop, value); ok {
+		return expanded, true
+	}
+
 	switch prop {
 	case "rule":
 		if !outlineShorthandValueAccepted(value) {
@@ -126,22 +143,150 @@ func expandGapRuleDeclaration(prop, value string) ([]logicalPropDecl, bool) {
 	case "rule-color":
 		return duplicateGapLonghand(value, rowRuleColorValueAccepted, "column-rule-color", "row-rule-color")
 	case "rule-break":
-		return aliasGapLonghand(value, rowRuleBreakAccepted, "row-rule-break")
+		return duplicateGapLonghand(value, rowRuleBreakAccepted, "column-rule-break", "row-rule-break")
 	case "rule-visibility-items":
 		return aliasGapLonghand(value, rowRuleVisibilityAccepted, "row-rule-visibility-items")
-	case "row-rule-inset-start", "rule-inset-start":
-		return aliasGapLonghand(value, rowRuleInsetTokenAccepted, "row-rule-inset-cap-start")
-	case "row-rule-inset-end", "rule-inset-end":
-		return aliasGapLonghand(value, rowRuleInsetTokenAccepted, "row-rule-inset-cap-end")
-	case "row-rule-inset-cap", "rule-inset-cap":
+	case "row-rule-inset-cap":
 		return expandInsetPair(value, "row-rule-inset-cap-start", "row-rule-inset-cap-end")
-	case "row-rule-inset-junction", "rule-inset-junction":
-		return expandInsetPair(value, "row-rule-inset-junction-start", "row-rule-inset-junction-end")
-	case "row-rule-inset", "rule-inset":
-		return expandRowRuleInset(value)
+	case "row-rule-inset-junction":
+		return expandInsetPair(
+			value, "row-rule-inset-junction-start", "row-rule-inset-junction-end",
+		)
+	case "column-rule-inset-cap":
+		return expandInsetPair(value, "column-rule-inset-cap-start", "column-rule-inset-cap-end")
+	case "column-rule-inset-junction":
+		return expandInsetPair(
+			value, "column-rule-inset-junction-start", "column-rule-inset-junction-end",
+		)
+	case "rule-inset-cap":
+		return expandBothAxisInsetPair(value, "-rule-inset-cap-start", "-rule-inset-cap-end")
+	case "rule-inset-junction":
+		return expandBothAxisInsetPair(
+			value, "-rule-inset-junction-start", "-rule-inset-junction-end",
+		)
+	case "row-rule-inset":
+		return expandPrefixedRuleInset(value, "row-rule-inset")
+	case "column-rule-inset":
+		return expandPrefixedRuleInset(value, "column-rule-inset")
+	case "rule-inset":
+		return expandBothAxisRuleInset(value)
 	default:
 		return nil, false
 	}
+}
+
+// expandInsetSideShorthand dispatches the inset-start and inset-end
+// shorthand names (css-gaps-1#inset). Each name sets both the cap and the
+// junction side, on one axis or on both axes for the rule-* name.
+func expandInsetSideShorthand(prop, value string) ([]logicalPropDecl, bool) {
+	switch prop {
+	case "row-rule-inset-start":
+		return insetSideDecls(value, "row", "start")
+	case "row-rule-inset-end":
+		return insetSideDecls(value, "row", "end")
+	case "column-rule-inset-start":
+		return insetSideDecls(value, floatRefColumn, "start")
+	case "column-rule-inset-end":
+		return insetSideDecls(value, floatRefColumn, "end")
+	case "rule-inset-start":
+		return insetSideDecls(value, "both", "start")
+	case "rule-inset-end":
+		return insetSideDecls(value, "both", "end")
+	default:
+		return nil, false
+	}
+}
+
+// insetSideDecls expands one inset-start or inset-end shorthand value into
+// the cap and junction longhands for the given axes and side.
+func insetSideDecls(value, axes, side string) ([]logicalPropDecl, bool) {
+	if !rowRuleInsetTokenAccepted(value) {
+		return nil, false
+	}
+
+	trimmed := strings.TrimSpace(value)
+
+	var decls []logicalPropDecl
+
+	add := func(axis string) {
+		decls = append(decls,
+			logicalPropDecl{
+				prop: axis + "-rule-inset-cap-" + side,
+				val:  trimmed,
+			},
+			logicalPropDecl{
+				prop: axis + "-rule-inset-junction-" + side,
+				val:  trimmed,
+			},
+		)
+	}
+
+	if axes == "both" || axes == "row" {
+		add("row")
+	}
+
+	if axes == "both" || axes == floatRefColumn {
+		add(floatRefColumn)
+	}
+
+	return decls, true
+}
+
+// expandBothAxisInsetPair expands a rule-* pair shorthand into both axes.
+func expandBothAxisInsetPair(value, startSuffix, endSuffix string) ([]logicalPropDecl, bool) {
+	decls, ok := expandInsetPair(value, "row"+startSuffix, "row"+endSuffix)
+	if !ok {
+		return nil, false
+	}
+
+	column, columnOK := expandInsetPair(value, "column"+startSuffix, "column"+endSuffix)
+	if !columnOK {
+		return nil, false
+	}
+
+	return append(decls, column...), true
+}
+
+// expandBothAxisRuleInset expands rule-inset for both axes.
+func expandBothAxisRuleInset(value string) ([]logicalPropDecl, bool) {
+	row, ok := expandPrefixedRuleInset(value, "row-rule-inset")
+	if !ok {
+		return nil, false
+	}
+
+	column, columnOK := expandPrefixedRuleInset(value, "column-rule-inset")
+	if !columnOK {
+		return nil, false
+	}
+
+	return append(row, column...), true
+}
+
+// expandPrefixedRuleInset expands the "<prefix>-cap [/ <prefix>-junction]?"
+// value grammar for one axis. Omitted junction values copy the cap values,
+// and an omitted end copies the start (css-gaps-1#inset).
+func expandPrefixedRuleInset(value, prefix string) ([]logicalPropDecl, bool) {
+	capPart, junctionPart, hasJunction := strings.Cut(value, "/")
+	insetCap, parsed := expandInsetPair(capPart, prefix+"-cap-start", prefix+"-cap-end")
+
+	if !parsed {
+		return nil, false
+	}
+
+	junctionValue := capPart
+	if hasJunction {
+		junctionValue = junctionPart
+	}
+
+	junction, junctionOK := expandInsetPair(
+		junctionValue, prefix+"-junction-start", prefix+"-junction-end",
+	)
+
+	if !junctionOK {
+		return nil, false
+	}
+
+	return append(insetCap, junction...), true
 }
 
 func duplicateGapLonghand(
@@ -189,30 +334,6 @@ func expandInsetPair(value, startProp, endProp string) ([]logicalPropDecl, bool)
 		{prop: startProp, val: fields[0]},
 		{prop: endProp, val: end},
 	}, true
-}
-
-func expandRowRuleInset(value string) ([]logicalPropDecl, bool) {
-	capPart, junctionPart, hasJunction := strings.Cut(value, "/")
-	insetCap, parsed := expandInsetPair(capPart, "row-rule-inset-cap-start", "row-rule-inset-cap-end")
-
-	if !parsed {
-		return nil, false
-	}
-
-	junctionValue := "0"
-	if hasJunction {
-		junctionValue = junctionPart
-	}
-
-	junction, junctionOK := expandInsetPair(
-		junctionValue, "row-rule-inset-junction-start", "row-rule-inset-junction-end",
-	)
-
-	if !junctionOK {
-		return nil, false
-	}
-
-	return append(insetCap, junction...), true
 }
 
 func rowRuleWidthValueAccepted(value string) bool {
@@ -265,28 +386,43 @@ func applyRowRuleKeyword(style *ResolvedStyle, value string, dest *string, keywo
 	_ = style
 }
 
-func applyRowRuleInsetSide(style *ResolvedStyle, value string, fsize float64, dest *float64) {
-	length, ok := parseRowRuleInset(value, fsize)
+func applyRowRuleInsetSide(style *ResolvedStyle, value string, fsize float64, dest *ruleInset) {
+	inset, ok := parseRowRuleInset(value, fsize)
 	if !ok {
 		return
 	}
 
-	*dest = length
+	*dest = inset
 	_ = style
 }
 
-func parseRowRuleInset(value string, fsize float64) (float64, bool) {
+// parseRowRuleInset parses one <inset-value>: overlap-join, a percentage
+// number, or a length (negative lengths are legal offsets). auto, inherit,
+// and initial are not inset values.
+func parseRowRuleInset(value string, fsize float64) (ruleInset, bool) {
 	trimmed := strings.TrimSpace(value)
-	if trimmed == "0" {
-		return 0, true
+	if trimmed == "" {
+		return ruleInset{Value: 0, Percent: false, OverlapJoin: false}, false
+	}
+
+	if strings.EqualFold(trimmed, "overlap-join") {
+		return ruleInset{Value: 0, Percent: false, OverlapJoin: true}, true
+	}
+
+	if percent, unit, ok := css.ParseLength(trimmed); ok && unit == "%" {
+		return ruleInset{Value: percent, Percent: true, OverlapJoin: false}, true
+	}
+
+	if trimmed == overflowAuto || trimmed == inheritKeyword || trimmed == cssKeywordInitial {
+		return ruleInset{Value: 0, Percent: false, OverlapJoin: false}, false
 	}
 
 	length, ok := lengthBox(trimmed, fsize, 0, overflowAuto)
-	if !ok || length < 0 {
-		return 0, false
+	if !ok {
+		return ruleInset{Value: 0, Percent: false, OverlapJoin: false}, false
 	}
 
-	return length, true
+	return ruleInset{Value: length, Percent: false, OverlapJoin: false}, true
 }
 
 // applyRowRuleShorthand stores one width, one style, and the shorthand color.

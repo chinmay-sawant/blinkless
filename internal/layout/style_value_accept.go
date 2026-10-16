@@ -108,6 +108,10 @@ func supportedDeclaration(prop, value string) bool {
 		return false
 	}
 
+	if accepted, handled := webkitMaskLegacyValueAccepted(prop, trimmed); handled {
+		return accepted
+	}
+
 	effectiveProp := normalizeVendorPrefix(prop)
 	if effectiveProp != prop {
 		trimmed = strings.TrimSpace(remapWebkitValue(prop, value))
@@ -719,14 +723,16 @@ func layoutDeclarationValueAccepted(prop, value string) bool {
 		return rowRuleListValueAccepted(value, rowRuleColorTokenAccepted)
 	case "row-rule":
 		return outlineShorthandValueAccepted(value)
-	case "row-rule-break", "rule-break":
+	case "row-rule-break", "column-rule-break", "rule-break":
 		return rowRuleKeywordList(value, cssDisplayNone, contentNormal, "intersection")
 	case "row-rule-visibility-items", "rule-visibility-items":
 		return rowRuleKeywordList(value, "all", "around", "between", contentNormal)
 	case "rule-overlap":
 		return rowRuleKeywordList(value, "row-over-column", "column-over-row")
 	case "row-rule-inset-cap-start", "row-rule-inset-cap-end",
-		"row-rule-inset-junction-start", "row-rule-inset-junction-end":
+		"row-rule-inset-junction-start", "row-rule-inset-junction-end",
+		"column-rule-inset-cap-start", "column-rule-inset-cap-end",
+		"column-rule-inset-junction-start", "column-rule-inset-junction-end":
 		return rowRuleInsetTokenAccepted(strings.TrimSpace(value))
 	case "row-rule-inset", "row-rule-inset-cap", "row-rule-inset-junction",
 		"row-rule-inset-start", "row-rule-inset-end",

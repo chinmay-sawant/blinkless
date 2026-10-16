@@ -148,12 +148,17 @@ type ResolvedStyle struct {
 	RowRuleWidths             []float64  // every accepted width, first is RowRuleWidth
 	RowRuleStyles             []string   // every accepted style, first is RowRuleStyle
 	RowRuleColors             []string   // raw color tokens, first is the one parsed into RowRuleColor
-	RowRuleBreak              string     // none | normal | intersection
-	RowRuleVisibility         string     // all | around | between | normal
-	RowRuleInsetCapStart      float64
-	RowRuleInsetCapEnd        float64
-	RowRuleInsetJunctionStart float64
-	RowRuleInsetJunctionEnd   float64
+	RowRuleBreak              string    // none | normal | intersection
+	RowRuleVisibility         string    // all | around | between | normal
+	RowRuleInsetCapStart      ruleInset // start endpoint at a content edge
+	RowRuleInsetCapEnd        ruleInset // end endpoint at a content edge
+	RowRuleInsetJunctionStart ruleInset // start endpoint at a gap junction
+	RowRuleInsetJunctionEnd   ruleInset // end endpoint at a gap junction
+	ColumnRuleBreak           string    // none | normal | intersection
+	ColumnRuleInsetCapStart      ruleInset
+	ColumnRuleInsetCapEnd        ruleInset
+	ColumnRuleInsetJunctionStart ruleInset
+	ColumnRuleInsetJunctionEnd   ruleInset
 	RuleOverlap               string // row-over-column | column-over-row
 	// Initial-letter drop/raised caps (CSS Inline 3). Size 0 = normal.
 	// Authoring: apply on a real leading element (e.g. <span>); :first-letter
@@ -589,6 +594,7 @@ func initialStyle() ResolvedStyle { //nolint:funlen // complete CSS initial-valu
 		ColumnFill:         "balance",
 		ColumnRuleWidth:    borderWidth(mediumKeyword, 0),
 		ColumnRuleStyle:    cssDisplayNone,
+		ColumnRuleBreak:    contentNormal,
 		RowRuleWidth:       borderWidth(mediumKeyword, 0),
 		RowRuleStyle:       cssDisplayNone,
 		RowRuleBreak:       contentNormal,

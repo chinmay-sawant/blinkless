@@ -120,7 +120,7 @@ func (e *engine) layoutStandardGrid(
 
 	rowYs := emitGridBoxes(e, sty, boxNode, pboxes, rows, rowGap, posY, curY, contentH)
 	if rowYs != nil {
-		e.paintGridGapRules(sty, contentX, contentW, cols, columnGap, rowYs, rows, posY)
+		e.paintGridGapRules(sty, placed, contentX, contentW, cols, columnGap, rowYs, rows, posY)
 	}
 
 	usedH := curY

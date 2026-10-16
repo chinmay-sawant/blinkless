@@ -74,9 +74,23 @@ func TestSupportedDeclarationBackgroundFontGrammar(t *testing.T) {
 	assertSupportedDeclarationCases(t, cases)
 }
 
-//nolint:dupl // the case table shares its shape with the flex and grid table
+// TestSupportedDeclarationMaskGrammar (CSS-01b): the acceptance gate mirrors
+// the value parser behind each property's apply arm, so an invalid ordinary
+// value cannot win the cascade or satisfy @supports. The cases run in
+// cohesive groups: the mask shorthand and layer properties, the position,
+// size, and repeat tuning properties, the box and composite properties, and
+// the -webkit-mask legacy aliases.
 func TestSupportedDeclarationMaskGrammar(t *testing.T) {
 	t.Parallel()
+
+	runMaskShorthandLayerCases(t)
+	runMaskPositionSizeRepeatCases(t)
+	runMaskBoxCompositeCases(t)
+	runWebkitMaskCases(t)
+}
+
+func runMaskShorthandLayerCases(t *testing.T) {
+	t.Helper()
 
 	cases := []declarationValueCase{
 		{"mask", "none", true},
@@ -84,36 +98,113 @@ func TestSupportedDeclarationMaskGrammar(t *testing.T) {
 		{"mask", `url(a.png), url(b.png) right bottom / 10px 20px repeat-y`, true},
 		{"mask", `url(a.png) / cover 10px`, false},
 		{"mask", `url(a.png),`, false},
+		{"mask", "url(a.png) space round", true},
+		{"mask", "url(a.png) left 10px top", true},
+		{"mask", "url(a.png) top 10px left", true},
+		{"mask", "url(a.png) view-box content-box", true},
+		{"mask", "url(a.png) no-clip", true},
+		{"mask", "url(a.png) round", true},
+		{"mask", "url(a.png) left 10px top 20px", true},
+		{"mask", "url(a.png) space left top round", false},
+		{"mask", "url(a.png) content-box no-clip view-box", false},
 		{"mask-image", "none, url(Mask.png)", true},
 		{"mask-image", "linear-gradient(red, blue)", true},
 		{"mask-image", "not-an-image()", false},
 		{"mask-image", "url(mask.png) junk", false},
 		{"mask-mode", "match-source, alpha, luminance", true},
 		{"mask-mode", "bogus", false},
+	}
+
+	assertSupportedDeclarationCases(t, cases)
+}
+
+func runMaskPositionSizeRepeatCases(t *testing.T) {
+	t.Helper()
+
+	cases := []declarationValueCase{
 		{"mask-position", "left top, 10px 20%", true},
+		{"mask-position", "center", true},
+		{"mask-position", "10px", true},
+		{"mask-position", "calc(10px + 5%)", true},
+		{"mask-position", "10px top", true},
+		{"mask-position", "left 10px top 20px", true},
+		{"mask-position", "top 10px left 20px", true},
+		{"mask-position", "left calc(10px + 5%)", true},
+		{"mask-position", "left 10px top calc(10px + 5%)", true},
+		{"mask-position", "left 10px top 20px, top 10px left 20px", true},
 		{"mask-position", "left top right", false},
+		{"mask-position", "left 10px top", false},
+		{"mask-position", "left top 10px", false},
+		{"mask-position", "10px left", false},
+		{"mask-position", "top 10px", false},
+		{"mask-position", "30% 40% 50% 60%", false},
+		{"mask-position", "left top, left 10px top", false},
+		{"mask-position", "left right", false},
+		{"mask-position", "top bottom", false},
+		{"mask-position", "left 10px top 20px 30px", false},
 		{"mask-size", "auto, cover, contain, 10px 20%", true},
 		{"mask-size", "-1px", false},
 		{"mask-size", "cover 10px", false},
 		{"mask-repeat", "repeat, repeat-x, repeat-y, no-repeat", true},
-		{"mask-repeat", "round", false},
+		{"mask-repeat", "round", true},
+		{"mask-repeat", "space", true},
+		{"mask-repeat", "space round", true},
+		{"mask-repeat", "round no-repeat", true},
+		{"mask-repeat", "no-repeat, space round", true},
+		{"mask-repeat", "space, round", true},
+		{"mask-repeat", "repeat-x, repeat-y", true},
+		{"mask-repeat", "repeat-x repeat-y", false},
+		{"mask-repeat", "space repeat-x", false},
+		{"mask-repeat", "repeat-x space", false},
+	}
+
+	assertSupportedDeclarationCases(t, cases)
+}
+
+func runMaskBoxCompositeCases(t *testing.T) {
+	t.Helper()
+
+	cases := []declarationValueCase{
 		{"mask-origin", "border-box, padding-box, content-box", true},
+		{"mask-origin", "fill-box, view-box", true},
+		{"mask-origin", "view-box", true},
+		{"mask-origin", "stroke-box", true},
 		{"mask-origin", "no-clip", false},
+		{"mask-origin", "no-clip, view-box", false},
 		{"mask-clip", "border-box, padding-box, content-box, no-clip", true},
-		{"mask-clip", "view-box", false},
+		{"mask-clip", "view-box", true},
+		{"mask-clip", "no-clip, view-box", true},
+		{"mask-clip", "content-box, no-clip", true},
 		{"mask-composite", "add, subtract, intersect, exclude", true},
 		{"mask-composite", "source-over", false},
 		{"mask-type", "alpha", true},
 		{"mask-type", "match-source", false},
+	}
+
+	assertSupportedDeclarationCases(t, cases)
+}
+
+func runWebkitMaskCases(t *testing.T) {
+	t.Helper()
+
+	cases := []declarationValueCase{
 		{"-webkit-mask", `url(mask.png) center / cover no-repeat`, true},
-		{"-webkit-mask-clip", "no-clip", true},
+		{"-webkit-mask", "url(a.png) view-box content-box", false},
+		{"-webkit-mask", "url(a.png) no-clip", false},
+		{"-webkit-mask-clip", "no-clip", false},
+		{"-webkit-mask-clip", "fill-box", false},
+		{"-webkit-mask-clip", "stroke-box", false},
+		{"-webkit-mask-clip", "view-box", false},
 		{"-webkit-mask-composite", "source-over, source-out, source-in, xor", true},
 		{"-webkit-mask-composite", "add", false},
 		{"-webkit-mask-composite", "destination-out", false},
 		{"-webkit-mask-image", "url(mask.png)", true},
 		{"-webkit-mask-origin", "content-box", true},
+		{"-webkit-mask-origin", "view-box", false},
 		{"-webkit-mask-position", "right bottom", true},
+		{"-webkit-mask-position", "left 10px top 20px", true},
 		{"-webkit-mask-repeat", "repeat-x", true},
+		{"-webkit-mask-repeat", "space round", true},
 		{"-webkit-mask-size", "contain", true},
 	}
 
@@ -123,8 +214,6 @@ func TestSupportedDeclarationMaskGrammar(t *testing.T) {
 // TestSupportedDeclarationFlexGridGeneratedGrammar (CSS-01b): the second half
 // of the table covers flex-flow, grid placement, counters, quotes, and
 // hyphenate-character, reusing the same parsers as their apply arms.
-//
-//nolint:dupl // the case table shares its shape with the mask table
 func TestSupportedDeclarationFlexGridGeneratedGrammar(t *testing.T) {
 	t.Parallel()
 

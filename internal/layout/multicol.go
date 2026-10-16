@@ -886,7 +886,10 @@ func (e *engine) measureMulticolChildHeight(n *html.Node, availW float64) float6
 }
 
 // emitColumnRules paints the column rules between columns for one multicol
-// line. The rule is centered in the gap and spans lineH.
+// line. The rule is centered in the gap and spans lineH, inset by the cap
+// ends of column-rule-inset-cap: cap-start moves the top end down, cap-end
+// moves the bottom end up. A collapsed segment (start >= end) paints
+// nothing.
 func (e *engine) emitColumnRules(style ResolvedStyle, contentX, colW, gap float64, nCols int, yTop, lineH float64) {
 	if e == nil || e.noEmit || nCols <= 1 || lineH <= 0 {
 		return
@@ -901,6 +904,12 @@ func (e *engine) emitColumnRules(style ResolvedStyle, contentX, colW, gap float6
 		return
 	}
 
+	ruleTop := yTop + e.columnRuleCapInset(style.ColumnRuleInsetCapStart)
+	ruleEnd := yTop + lineH - e.columnRuleCapInset(style.ColumnRuleInsetCapEnd)
+	if ruleTop >= ruleEnd {
+		return
+	}
+
 	var col [3]float64
 	if style.ColumnRuleColorSet {
 		col = style.ColumnRuleColor
@@ -910,6 +919,19 @@ func (e *engine) emitColumnRules(style ResolvedStyle, contentX, colW, gap float6
 
 	for i := 0; i < nCols-1; i++ {
 		ruleX := contentX + float64(i+1)*(colW+gap) - gap/2
-		e.emitBorderLine(ruleX, yTop, 0, lineH, ruleW, style.ColumnRuleStyle, col[0], col[1], col[2])
+		e.emitBorderLine(ruleX, ruleTop, 0, ruleEnd-ruleTop, ruleW, style.ColumnRuleStyle, col[0], col[1], col[2])
 	}
+}
+
+// columnRuleCapInset resolves one column-rule cap inset for a multicol
+// rule. A percentage has no crossing gap to resolve against at a cap, so it
+// is a no-op, matching gapRuleInsetOffset for a cap endpoint (see
+// gap_rules.go). Junction insets and overlap-join extend into a junction,
+// and a multicol line has none.
+func (e *engine) columnRuleCapInset(inset ruleInset) float64 {
+	if inset.Percent || inset.OverlapJoin {
+		return 0
+	}
+
+	return e.scalePt(inset.Value)
 }

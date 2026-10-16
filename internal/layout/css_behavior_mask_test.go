@@ -200,6 +200,48 @@ func TestBehaviorMaskShorthandCreatesElementGroup(t *testing.T) {
 	}
 }
 
+// TestBehaviorMaskShorthandRepeatPairAndOffsetPositionReachDescriptor: the D1
+// grammar extension must survive into the MaskDescriptor layer fields, not
+// just into supportedDeclaration. A two-token repeat pair and a 4-value
+// edge-offset position are checked via longhands and via the shorthand.
+// Chrome 155 probe (d1-probe5.html): CSS.supports("mask", "url(a.png) space
+// round left 10px top 20px") is true and the computed values agree between
+// the shorthand element and the longhand element (repeat "space round",
+// position "10px 20px").
+func TestBehaviorMaskShorthandRepeatPairAndOffsetPositionReachDescriptor(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name  string
+		style string
+	}{
+		{
+			name:  "longhands",
+			style: "mask-image:url(mask.png);mask-repeat:space round;mask-position:left 10px top 20px",
+		},
+		{name: "shorthand", style: "mask:url(mask.png) space round left 10px top 20px"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			res := layoutHTMLWithImages(t, `<html><body><div style="width:40px;height:20px;`+
+				testCase.style+`"></div></body></html>`, tinyPNG(8, 6), "")
+
+			group := onlyMaskGroup(t, res)
+			layer := group.Mask.Layers[0]
+
+			if layer.Repeat != "space round" {
+				t.Fatalf("descriptor layer repeat = %q, want %q", layer.Repeat, "space round")
+			}
+
+			if layer.Position != "left 10px top 20px" {
+				t.Fatalf("descriptor layer position = %q, want %q", layer.Position, "left 10px top 20px")
+			}
+		})
+	}
+}
+
 func TestBehaviorMaskVendorAliasesReachMaskGroup(t *testing.T) {
 	t.Parallel()
 
