@@ -13027,7 +13027,7 @@
         "none | <position-area>"
       ],
       "limitations": [
-        "Applies only to absolute and fixed targets with an in-scope anchor; none keeps left and top offsets; static targets keep flow position. Single keywords top, bottom, left, right and center move; exotic multi-token areas are stored but keep offsets."
+        "Applies only to absolute and fixed targets with an in-scope anchor; none keeps left and top offsets; static targets keep flow position. Options are tested against their position-area region and the first fitting option wins, safe-shifted into the containing block; exotic multi-token areas are stored but keep offsets."
       ],
       "source": [
         "internal/layout/anchor_position.go",
@@ -13079,7 +13079,7 @@
         "none | [ [<dashed-ident> || <try-tactic>] | <position-area> ]#"
       ],
       "limitations": [
-        "Accepts none, position-area list and pinned try-tactic keywords flip-block, flip-inline, flip-start, flip-x and flip-y. Dashed-ident reads @position-try area; unknown idents are skipped. First fallback runs only when the base fails visibility. Inset overrides from @position-try are stored but not applied."
+        "Accepts none, position-area list and pinned try-tactic keywords flip-block, flip-inline, flip-start, flip-x and flip-y. Dashed-ident reads @position-try area; unknown idents are skipped. Options run in order after the base and the first whose box fits its position-area region wins; a tactic also swaps the corresponding inset sides. Inset overrides from @position-try are stored but not applied."
       ],
       "source": [
         "internal/layout/anchor_position.go",
@@ -13109,7 +13109,7 @@
         "normal | most-width | most-height | most-block-size | most-inline-size"
       ],
       "limitations": [
-        "normal keeps document order; try-size picks the largest passing no-overflow candidate on that axis."
+        "normal keeps document order; try-size picks the largest candidate that fits its position-area region on that axis."
       ],
       "source": [
         "internal/layout/anchor_position.go",

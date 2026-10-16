@@ -747,6 +747,45 @@ type anchorCandidate struct {
 	x, y float64
 	cbW  float64
 	cbH  float64
+	rx0  float64
+	ry0  float64
+	rx1  float64
+	ry1  float64
+}
+
+// clampRectStart shifts one axis of a box so the box stays inside the
+// containing block span when it can fit there at all.
+func clampRectStart(start, size, cbStart, cbSize float64) float64 {
+	if size >= cbSize {
+		return cbStart
+	}
+
+	if start < cbStart {
+		return cbStart
+	}
+
+	if start+size > cbStart+cbSize {
+		return cbStart + cbSize - size
+	}
+
+	return start
+}
+
+// rectInside reports whether the box lies inside the rect within tolerance.
+func rectInside(x, y, w, h, rx0, ry0, rx1, ry1 float64) bool {
+	if w < 0 || h < 0 {
+		return false
+	}
+
+	if x < rx0-0.01 || y < ry0-0.01 {
+		return false
+	}
+
+	if x+w > rx1+0.01 || y+h > ry1+0.01 {
+		return false
+	}
+
+	return true
 }
 
 // buildAnchorMap indexes every built box carrying anchor-name by its names in
@@ -947,10 +986,10 @@ func lookupPositionTry(sheets []*css.Stylesheet, name string) *css.PositionTryRu
 // rule (unknown idents fail so the entry is skipped) and try-tactics flip
 // the resulting area after the area is known. It reports false when the
 // entry is invalid or its ident is unknown.
-func resolveAnchorFallbackItem(item, base string, sheets []*css.Stylesheet) (string, bool) {
+func resolveAnchorFallbackItem(item, base string, sheets []*css.Stylesheet) (string, bool, bool, bool) {
 	tokens := strings.Fields(strings.ToLower(strings.TrimSpace(item)))
 	if len(tokens) == 0 {
-		return "", false
+		return "", false, false, false
 	}
 
 	var ident string
@@ -961,7 +1000,7 @@ func resolveAnchorFallbackItem(item, base string, sheets []*css.Stylesheet) (str
 		switch {
 		case isAnchorDashedIdent(tok):
 			if ident != "" {
-				return "", false
+				return "", false, false, false
 			}
 
 			ident = tok
@@ -970,20 +1009,20 @@ func resolveAnchorFallbackItem(item, base string, sheets []*css.Stylesheet) (str
 		case isPositionAreaKeyword(tok):
 			// Area keywords must not mix with ident/tactic in one entry.
 			if ident != "" || len(tactics) > 0 {
-				return "", false
+				return "", false, false, false
 			}
 		default:
-			return "", false
+			return "", false, false, false
 		}
 	}
 
 	// Pure area fallback: one or two area keywords.
 	if ident == "" && len(tactics) == 0 {
 		if !isValidPositionArea(item) {
-			return "", false
+			return "", false, false, false
 		}
 
-		return normalizeCSSValue(item), true
+		return normalizeCSSValue(item), true, false, false
 	}
 
 	// Ident and/or tactic fallback.
@@ -992,40 +1031,57 @@ func resolveAnchorFallbackItem(item, base string, sheets []*css.Stylesheet) (str
 	if ident != "" {
 		rule := lookupPositionTry(sheets, ident)
 		if rule == nil {
-			return "", false
+			return "", false, false, false
 		}
 
 		candidate = strings.ToLower(strings.TrimSpace(rule.Area))
 
 		if candidate == "" || candidate == "none" {
-			return "", false
+			return "", false, false, false
 		}
 	}
 
 	if candidate == "" || strings.EqualFold(candidate, "none") {
-		return "", false
+		return "", false, false, false
 	}
+
+	flipV, flipH := false, false
 
 	for _, tactic := range tactics {
 		candidate = flipPositionArea(candidate, tactic)
+
+		switch tactic {
+		case "flip-block", "flip-y":
+			flipV = !flipV
+		case "flip-inline", "flip-x":
+			flipH = !flipH
+		case "flip-start":
+			flipV = !flipV
+
+			flipH = !flipH
+		}
 	}
 
 	if !isValidPositionArea(candidate) {
-		return "", false
+		return "", false, false, false
 	}
 
-	return candidate, true
+	return candidate, true, flipV, flipH
 }
 
 // collectAnchorCandidates builds the position options list: the base area
 // followed by resolved fallbacks in document order. Unknown dashed-idents
-// are skipped; tactic entries flip the base area.
+// are skipped; tactic entries flip the base area. Each option carries the
+// position-area region rect its box must land inside to be accepted, and its
+// point is first shifted to stay inside the containing block when it can.
 func collectAnchorCandidates(
-	sty *ResolvedStyle, anchor, target *box, viewportW, viewportH float64, sheets []*css.Stylesheet,
+	sty *ResolvedStyle, anchor, target *box, cbX, cbY, cbW, cbH, viewportW, viewportH float64,
+	sheets []*css.Stylesheet,
 ) []anchorCandidate {
-	var out []anchorCandidate
+	base := make([]anchorCandidate, 0, 1)
+	fallbacks := make([]anchorCandidate, 0, len(sty.PositionTryFallbacks))
 
-	addArea := func(area string) {
+	add := func(area string, flipV, flipH bool, into *[]anchorCandidate) {
 		if anchor == nil || target == nil {
 			return
 		}
@@ -1034,26 +1090,53 @@ func collectAnchorCandidates(
 			return
 		}
 
-		x, y, cbW, cbH, ok := anchorAreaGeometry(area, anchor, target.w, target.height, viewportW, viewportH)
+		leftAuto := sty.LeftAuto
+		topAuto := sty.TopAuto
+		fallbackX := target.x
+		fallbackY := target.y
+
+		if flipV {
+			topAuto = sty.BottomAuto
+		}
+
+		if flipH {
+			leftAuto = sty.RightAuto
+		}
+
+		x, y, trackW, trackH, ok := anchorAreaGeometry(
+			area, anchor, target.w, target.height, viewportW, viewportH,
+			fallbackX, fallbackY, leftAuto, topAuto,
+		)
 		if !ok {
 			return
 		}
 
-		out = append(out, anchorCandidate{area: normalizeCSSValue(area), x: x, y: y, cbW: cbW, cbH: cbH})
+		x = clampRectStart(x, target.w, cbX, cbW)
+		y = clampRectStart(y, target.height, cbY, cbH)
+
+		rx0, ry0, rx1, ry1 := anchorRegionRect(area, anchor, cbX, cbY, cbW, cbH)
+
+		*into = append(*into, anchorCandidate{
+			area: normalizeCSSValue(area),
+			x:    x, y: y, cbW: trackW, cbH: trackH,
+			rx0: rx0, ry0: ry0, rx1: rx1, ry1: ry1,
+		})
 	}
 
-	addArea(sty.PositionArea)
+	add(sty.PositionArea, false, false, &base)
 
 	for _, entry := range sty.PositionTryFallbacks {
-		area, ok := resolveAnchorFallbackItem(entry, sty.PositionArea, sheets)
+		area, ok, flipV, flipH := resolveAnchorFallbackItem(entry, sty.PositionArea, sheets)
 		if !ok {
 			continue
 		}
 
-		addArea(area)
+		add(area, flipV, flipH, &fallbacks)
 	}
 
-	return out
+	fallbacks = orderAnchorCandidates(fallbacks, sty.PositionTryOrder)
+
+	return append(base, fallbacks...)
 }
 
 // orderAnchorCandidates stably sorts a copy of the candidates by the
@@ -1098,60 +1181,117 @@ func anchorTrySizeValue(order string, cbW, cbH float64) float64 {
 	}
 }
 
-// anchorNoOverflow reports whether the candidate border box sits inside the
-// layout viewport (Options.Width and Options.Height on the engine).
-func anchorNoOverflow(x, y, w, h, viewportW, viewportH float64) bool {
-	if w < 0 || h < 0 {
-		return false
+// anchorRegionRect returns the position-area region for one area: the
+// inset-modified containing block an option's box must fit inside. Single
+// tracks span from the containing block edge to the anchor edge; spans cover
+// their two tracks; a missing track is the full containing block axis.
+func anchorRegionRect(area string, anchor *box, cbX, cbY, cbW, cbH float64) (float64, float64, float64, float64) {
+	vert, horiz, _, ok := splitPositionArea(area)
+	if !ok || anchor == nil {
+		return cbX, cbY, cbX + cbW, cbY + cbH
 	}
 
-	if x < -0.01 || y < -0.01 {
-		return false
-	}
+	ry0, ry1 := verticalRegionFor(vert, anchor.y, anchor.height, cbY, cbY+cbH)
+	rx0, rx1 := horizontalRegionFor(horiz, anchor.x, anchor.w, cbX, cbX+cbW)
 
-	if x+w > viewportW+0.01 || y+h > viewportH+0.01 {
-		return false
-	}
-
-	return true
+	return rx0, ry0, rx1, ry1
 }
 
-// pickAnchorCandidate selects the winning candidate. With visibility always
-// the base area wins and fallbacks are unused, even off-viewport. Otherwise
-// the first candidate in (possibly size-sorted) order wins, skipping
-// no-overflow failures when the visibility asks for it. Anchor-valid and
-// anchor-visible behave the same here: a valid anchor takes the base, and a
-// missing or out-of-scope anchor never reaches this function, so the box
-// keeps its ordinary absolute placement with paint intact. Nil means no
-// candidate won and the box keeps its offsets.
+func verticalRegionFor(vert string, anchorY, anchorH, cbY0, cbY1 float64) (float64, float64) {
+	switch vert {
+	case "center":
+		return anchorY, anchorY + anchorH
+	case "span-all":
+		return min(cbY0, anchorY), max(cbY1, anchorY+anchorH)
+	case "span-top", "span-y-start", "span-self-y-start", "span-block-start",
+		"span-self-block-start", "span-start", "span-self-start":
+		return min(cbY0, anchorY), anchorY + anchorH
+	case "span-bottom", "span-y-end", "span-self-y-end", "span-block-end",
+		"span-self-block-end", "span-end", "span-self-end":
+		return anchorY, max(cbY1, anchorY+anchorH)
+	case "":
+		return cbY0, cbY1
+	default:
+		if anchorTrackSide(vert) > 0 {
+			return anchorY + anchorH, max(cbY1, anchorY+anchorH)
+		}
+
+		if anchorTrackSide(vert) < 0 {
+			return min(cbY0, anchorY), anchorY
+		}
+
+		return cbY0, cbY1
+	}
+}
+
+func horizontalRegionFor(horiz string, anchorX, anchorW, cbX0, cbX1 float64) (float64, float64) {
+	switch horiz {
+	case "center":
+		return anchorX, anchorX + anchorW
+	case "span-all":
+		return min(cbX0, anchorX), max(cbX1, anchorX+anchorW)
+	case "span-left", "span-x-start", "span-self-x-start", "span-inline-start",
+		"span-self-inline-start", "span-start", "span-self-start":
+		return min(cbX0, anchorX), anchorX + anchorW
+	case "span-right", "span-x-end", "span-self-x-end", "span-inline-end",
+		"span-self-inline-end", "span-end", "span-self-end":
+		return anchorX, max(cbX1, anchorX+anchorW)
+	case "":
+		return cbX0, cbX1
+	default:
+		if anchorTrackSide(horiz) > 0 {
+			return anchorX + anchorW, max(cbX1, anchorX+anchorW)
+		}
+
+		if anchorTrackSide(horiz) < 0 {
+			return min(cbX0, anchorX), anchorX
+		}
+
+		return cbX0, cbX1
+	}
+}
+
+// pickAnchorCandidate selects the winning option: the base first, then the
+// fallbacks in the try order. An option wins when its box fits that option's
+// position-area region (per Chrome 155 print). When no option fits, the box
+// keeps the base option (its current styles) and is only hidden under
+// no-overflow. hidden reports that case.
 func pickAnchorCandidate(
-	cands []anchorCandidate, sty *ResolvedStyle, target *box, viewportW, viewportH float64,
-) *anchorCandidate {
+	cands []anchorCandidate, sty *ResolvedStyle, target *box,
+) (*anchorCandidate, bool) {
 	if len(cands) == 0 || sty == nil || target == nil {
-		return nil
+		return nil, false
 	}
 
-	vis := normalizeCSSValue(sty.PositionVisibility)
-
-	if vis == "always" {
-		base := cands[0]
-
-		return &base
+	fits := func(cand anchorCandidate) bool {
+		return rectInside(cand.x, cand.y, target.w, target.height, cand.rx0, cand.ry0, cand.rx1, cand.ry1)
 	}
 
-	ordered := orderAnchorCandidates(cands, sty.PositionTryOrder)
-	needsOverflow := strings.Contains(vis, "no-overflow")
+	for i := range cands {
+		if i == 0 {
+			if fits(cands[0]) {
+				return &cands[0], false
+			}
 
-	for i := range ordered {
-		cand := ordered[i]
-		if needsOverflow && !anchorNoOverflow(cand.x, cand.y, target.w, target.height, viewportW, viewportH) {
 			continue
 		}
 
-		return &cand
+		base := &cands[i]
+
+		if fits(*base) {
+			out := *base
+
+			return &out, false
+		}
 	}
 
-	return nil
+	if strings.Contains(normalizeCSSValue(sty.PositionVisibility), "no-overflow") {
+		return nil, true
+	}
+
+	out := cands[0]
+
+	return &out, false
 }
 
 // resolveAnchorPositions moves absolute and fixed boxes with an in-scope
@@ -1170,35 +1310,62 @@ func (e *engine) resolveAnchorPositions(root *box) {
 		return
 	}
 
-	var walk func(b *box)
-	walk = func(b *box) {
+	hidden := map[*box]struct{}{}
+
+	var walk func(b, cb *box)
+	walk = func(b, cb *box) {
 		if b == nil {
 			return
 		}
 
-		e.placeAnchorTarget(b, anchorMap)
+		if e.placeAnchorTarget(b, anchorMap, cb) {
+			hidden[b] = struct{}{}
+		}
+
+		next := cb
+		if b.style != nil && b.style.Position != positionStatic {
+			next = b
+		}
 
 		for _, child := range b.children {
-			walk(child)
+			walk(child, next)
 		}
 	}
 
-	walk(root)
+	walk(root, nil)
+
+	if len(hidden) > 0 {
+		skip := map[*box]struct{}{}
+		for b := range hidden {
+			for s := range markBoxSubtree(b) {
+				skip[s] = struct{}{}
+			}
+		}
+
+		kept := make([]chromeEntry, 0, len(e.deferredChrome))
+		for _, entry := range e.deferredChrome {
+			if _, ok := skip[entry.b]; !ok {
+				kept = append(kept, entry)
+			}
+		}
+
+		e.deferredChrome = kept
+	}
 }
 
-func (e *engine) placeAnchorTarget(target *box, anchorMap map[string][]*box) {
+func (e *engine) placeAnchorTarget(target *box, anchorMap map[string][]*box, cb *box) bool {
 	if e == nil || target == nil || target.style == nil {
-		return
+		return false
 	}
 
 	sty := target.style
 	if sty.Position != positionAbsolute && sty.Position != positionFixed {
-		return
+		return false
 	}
 
 	anchor := findTargetAnchor(target, anchorMap, e.styles)
 	if anchor == nil {
-		return
+		return false
 	}
 
 	viewportW := e.opts.Width
@@ -1207,25 +1374,59 @@ func (e *engine) placeAnchorTarget(target *box, anchorMap map[string][]*box) {
 		viewportH = 1e9
 	}
 
-	cands := collectAnchorCandidates(sty, anchor, target, viewportW, viewportH, e.opts.Sheets)
+	cbX, cbY, cbW, cbH := anchorCBRect(target, cb, viewportW, viewportH)
+
+	cands := collectAnchorCandidates(sty, anchor, target, cbX, cbY, cbW, cbH, viewportW, viewportH, e.opts.Sheets)
 	if len(cands) == 0 {
-		return
+		return false
 	}
 
-	win := pickAnchorCandidate(cands, sty, target, viewportW, viewportH)
+	win, hidden := pickAnchorCandidate(cands, sty, target)
+	if hidden {
+		hideAnchorBox(e, target)
+
+		return true
+	}
+
 	if win == nil {
-		return
+		return false
 	}
 
 	dx := win.x - target.x
 	dy := win.y - target.y
 	if dx == 0 && dy == 0 {
-		return
+		return false
 	}
 
 	target.x = win.x
 	target.y = win.y
 	e.shiftBoxOps(target, dx, dy)
+
+	return false
+}
+
+func anchorCBRect(target, cb *box, viewportW, viewportH float64) (float64, float64, float64, float64) {
+	if target != nil && target.style != nil && target.style.Position == positionFixed {
+		return 0, 0, viewportW, viewportH
+	}
+
+	if cb != nil {
+		return cb.x, cb.y, cb.w, cb.height
+	}
+
+	return 0, 0, viewportW, viewportH
+}
+
+func hideAnchorBox(e *engine, target *box) {
+	if e == nil || target == nil {
+		return
+	}
+
+	if target.opEnd >= target.opStart {
+		for k := target.opStart; k <= target.opEnd && k < len(e.ops); k++ {
+			e.ops[k].Kind = opKindNoop
+		}
+	}
 }
 
 // anchorAreaGeometry returns the target top-left and the containing-block
@@ -1235,6 +1436,7 @@ func (e *engine) placeAnchorTarget(target *box, anchorMap map[string][]*box) {
 // offsets.
 func anchorAreaGeometry(
 	area string, anchor *box, targetW, targetH, viewportW, viewportH float64,
+	fallbackX, fallbackY float64, leftAuto, topAuto bool,
 ) (float64, float64, float64, float64, bool) {
 	vert, horiz, single, ok := splitPositionArea(area)
 	if !ok {
@@ -1245,11 +1447,25 @@ func anchorAreaGeometry(
 
 	switch single {
 	case "vertical":
-		x = anchor.x
-		y = verticalAreaY(vert, anchor.y, anchor.height, targetH)
+		x = fallbackX
+		switch {
+		case anchorTrackSide(vert) > 0:
+			y = anchor.y + anchor.height
+		case topAuto:
+			y = verticalAreaY(vert, anchor.y, anchor.height, targetH)
+		default:
+			y = fallbackY
+		}
 	case "horizontal":
-		y = anchor.y
-		x = horizontalAreaX(horiz, anchor.x, anchor.w, targetW)
+		y = fallbackY
+		switch {
+		case anchorTrackSide(horiz) > 0:
+			x = anchor.x + anchor.w
+		case leftAuto:
+			x = horizontalAreaX(horiz, anchor.x, anchor.w, targetW)
+		default:
+			x = fallbackX
+		}
 	case "single-center":
 		x = anchor.x + (anchor.w-targetW)/2
 		y = anchor.y + (anchor.height-targetH)/2
@@ -1257,8 +1473,30 @@ func anchorAreaGeometry(
 		x = anchor.x
 		y = anchor.y
 	case "double":
-		y = verticalAreaY(vert, anchor.y, anchor.height, targetH)
-		x = horizontalAreaX(horiz, anchor.x, anchor.w, targetW)
+		switch anchorTrackSide(vert) {
+		case 1:
+			y = anchor.y + anchor.height
+		case -1:
+			if topAuto {
+				y = verticalAreaY(vert, anchor.y, anchor.height, targetH)
+			} else {
+				y = fallbackY
+			}
+		default:
+			y = verticalAreaY(vert, anchor.y, anchor.height, targetH)
+		}
+		switch anchorTrackSide(horiz) {
+		case 1:
+			x = anchor.x + anchor.w
+		case -1:
+			if leftAuto {
+				x = horizontalAreaX(horiz, anchor.x, anchor.w, targetW)
+			} else {
+				x = fallbackX
+			}
+		default:
+			x = horizontalAreaX(horiz, anchor.x, anchor.w, targetW)
+		}
 	default:
 		return 0, 0, 0, 0, false
 	}

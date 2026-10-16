@@ -2,13 +2,11 @@ package layout
 
 import "testing"
 
-// TestBehaviorPositionTryTactic proves the tactic row: a tactic flips the
-// chosen area across the axis the pinned spec names, applied after the area
-// is known and before the final shift. The flipped target carries
-// position-visibility:no-overflow so its base top (which would hang off the
-// viewport) fails and the flip-block fallback wins below the anchor, while
-// the unflipped target keeps the base top above it. The output is
-// layout.DisplayList: both targets shift their paint ops with their boxes.
+// TestBehaviorPositionTryTactic proves the tactic row: the base top spills
+// above the canvas so it unanchors, while the flip-block fallback flips the
+// chosen area across the axis the pinned spec names and wins below the
+// anchor. The output is layout.DisplayList: the flipped target shifts its
+// paint ops with its box.
 //
 // Pinned <try-tactic> = flip-block || flip-inline || flip-start || flip-x ||
 // flip-y (https://drafts.csswg.org/css-anchor-position-1/#position-try-fallbacks).
@@ -32,19 +30,20 @@ func TestBehaviorPositionTryTactic(t *testing.T) {
 	plain := boxByID(t, res, "plain")
 	flipped := boxByID(t, res, "flipped")
 
-	if !(plain.y < anchor.y) {
-		t.Errorf("plain Y = %.4fpt, anchor Y = %.4fpt, want plain above anchor (top)",
-			plain.y, anchor.y)
+	if !near(plain.x, 0) || !near(plain.y, 0) {
+		t.Errorf("plain = (%.4fpt, %.4fpt), want laid-out (0, 0) after the base top spilled",
+			plain.x, plain.y)
 	}
 
-	if !(flipped.y > anchor.y) {
-		t.Errorf("flipped Y = %.4fpt, anchor Y = %.4fpt, want flipped below anchor (flip-block)",
-			flipped.y, anchor.y)
+	wantY := anchor.y + anchor.height
+	if !near(flipped.y, wantY) {
+		t.Errorf("flipped Y = %.4fpt, want below anchor %.4fpt (flip-block)",
+			flipped.y, wantY)
 	}
 
-	if !near(plain.x, anchor.x) || !near(flipped.x, anchor.x) {
-		t.Errorf("plain X = %.4fpt, flipped X = %.4fpt, anchor X = %.4fpt, want both aligned to anchor start",
-			plain.x, flipped.x, anchor.x)
+	if !near(plain.x, flipped.x) {
+		t.Errorf("plain X = %.4fpt, flipped X = %.4fpt, want both at laid-out start",
+			plain.x, flipped.x)
 	}
 
 	if len(res.Ops) == 0 {

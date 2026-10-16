@@ -1,4 +1,4 @@
-//nolint:wsl,cyclop,funlen,varnamelen,nlreturn,lll,gocognit,dupword,gocyclo // behavior fixtures
+//nolint:wsl,cyclop,funlen,varnamelen,nlreturn,lll,gocognit,dupword,gocyclo,maintidx // behavior fixtures
 package layout
 
 import (
@@ -10,14 +10,14 @@ import (
 
 // TestBehaviorPositionAreaPlacesAboveAnchor proves core placement: an
 // absolute target with position-area:top sits above its in-scope anchor
-// with X aligned to the anchor start edge. The anchor does not move and
+// with X keeping the laid-out offset. The anchor does not move and
 // the target paint ops move with the box.
 func TestBehaviorPositionAreaPlacesAboveAnchor(t *testing.T) {
 	t.Parallel()
 
 	src := `<html><body style="margin:0">` +
-		`<div id="anchor" style="anchor-name:--a;margin:100px 0 0 50px;width:100px;height:50px;background:#ff0000">anchor</div>` +
-		`<div id="target" style="position:absolute;left:0;top:0;position-anchor:--a;position-area:top;width:80px;height:30px;background:#00ff00">target</div>` +
+		`<div id="anchor" style="anchor-name:--a;margin:200px 0 0 50px;width:100px;height:50px;background:#ff0000">anchor</div>` +
+		`<div id="target" style="position:absolute;position-anchor:--a;position-area:top;width:80px;height:30px;background:#00ff00">target</div>` +
 		`</body></html>`
 	res := layoutHTML(t, src)
 
@@ -28,17 +28,17 @@ func TestBehaviorPositionAreaPlacesAboveAnchor(t *testing.T) {
 		t.Fatalf("target y=%v want < anchor y=%v (above anchor)", target.y, anchor.y)
 	}
 
-	if !near(target.x, anchor.x) {
-		t.Fatalf("target x=%v want anchor x=%v (start-edge aligned)", target.x, anchor.x)
+	if !near(target.x, 0) {
+		t.Fatalf("target x=%v want laid-out 0 (missing track keeps offset)", target.x)
 	}
 
-	// Anchor keeps its flow position: 50px left, 100px top at 0.75pt per px.
+	// Anchor keeps its flow position: 50px left, 200px top at 0.75pt per px.
 	if !near(anchor.x, 50*0.75) {
 		t.Fatalf("anchor x=%v want %v", anchor.x, 50*0.75)
 	}
 
-	if !near(anchor.y, 100*0.75) {
-		t.Fatalf("anchor y=%v want %v", anchor.y, 100*0.75)
+	if !near(anchor.y, 200*0.75) {
+		t.Fatalf("anchor y=%v want %v", anchor.y, 200*0.75)
 	}
 
 	// Target sits directly above: anchor top minus target height.
@@ -94,7 +94,11 @@ func TestBehaviorPositionAreaNone(t *testing.T) {
 			omBox.x, omBox.y, omBox.x/ptPerCSSPx, omBox.y/ptPerCSSPx)
 	}
 
-	topRes := layoutHTML(t, fmt.Sprintf(base, ";position-area:top"))
+	topAuto := `<html style="margin:0"><body style="margin:0">` +
+		`<div id="anchor" style="anchor-name:--a;width:100px;height:50px;margin-top:100px"></div>` +
+		`<div id="target" style="position:absolute;width:50px;height:20px;position-anchor:--a;position-area:top"></div>` +
+		`</body></html>`
+	topRes := layoutHTML(t, topAuto)
 	topBox := boxByID(t, topRes, "target")
 	anchorBox := boxByID(t, topRes, "anchor")
 
@@ -129,7 +133,7 @@ func TestBehaviorPositionAreaOutOfScope(t *testing.T) {
 		`</body></html>`)
 	inScope := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
 		`<div id="anchor" style="anchor-name:--a;width:100px;height:50px;margin-top:100px"></div>`+
-		`<div id="target" style="position:absolute;left:10px;top:10px;width:50px;height:20px;position-anchor:--a;position-area:top"></div>`+
+		`<div id="target" style="position:absolute;width:50px;height:20px;position-anchor:--a;position-area:top"></div>`+
 		`</body></html>`)
 
 	scopedBox := boxByID(t, scoped, "target")
@@ -179,14 +183,15 @@ func TestBehaviorPositionAreaStatic(t *testing.T) {
 	}
 }
 
-// TestBehaviorPositionTryAlwaysKeepsBase: the first fallback is tried only
-// when the base fails visibility. With visibility always the base area wins
-// and the fallback is unused.
+// TestBehaviorPositionTryAlwaysKeepsBase: the box tries options in order.
+// The base top unanchors when it would spill above the canvas, so the bottom
+// fallback wins even under visibility always (Chrome 155 print). When the
+// base fits it wins and no fallback applies.
 func TestBehaviorPositionTryAlwaysKeepsBase(t *testing.T) {
 	t.Parallel()
 
 	res := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
-		`<div id="anchor" style="anchor-name:--foo;width:100px;height:20px;margin:100px 0 0 50px"></div>`+
+		`<div id="anchor" style="anchor-name:--foo;width:100px;height:20px;margin:5px 0 0 50px"></div>`+
 		`<div id="tip" style="position:absolute;position-anchor:--foo;position-area:top;`+
 		`width:60px;height:30px;position-try-fallbacks:bottom;position-visibility:always"></div>`+
 		`</body></html>`)
@@ -198,17 +203,36 @@ func TestBehaviorPositionTryAlwaysKeepsBase(t *testing.T) {
 		t.Fatalf("fallbacks = %v, want [bottom]", tip.style.PositionTryFallbacks)
 	}
 
-	// Base top sits above the anchor; fallback bottom would sit below it.
-	wantY := anchor.y - tip.height
-	fallbackY := anchor.y + anchor.height
-
+	// Base top would sit above the canvas (anchor.y - tip.height < 0), so the
+	// bottom fallback wins even under always: tip below the anchor.
+	wantY := anchor.y + anchor.height
 	if !near(tip.y, wantY) {
-		t.Errorf("tip.y = %.4fpt (%.2fpx), want base top %.4fpt; fallback bottom would be %.4fpt",
-			tip.y, tip.y/ptPerCSSPx, wantY, fallbackY)
+		t.Errorf("tip.y = %.4fpt (%.2fpx), want fallback bottom %.4fpt",
+			tip.y, tip.y/ptPerCSSPx, wantY)
 	}
 
-	if !near(tip.x, anchor.x) {
-		t.Errorf("tip.x = %.4fpt, want anchor start edge %.4fpt", tip.x, anchor.x)
+	if !near(tip.x, 0) {
+		t.Errorf("tip.x = %.4fpt, want laid-out 0 (missing track keeps offset)", tip.x)
+	}
+}
+
+// TestBehaviorPositionTryBaseFitsWins: when the base fits the containing
+// block it wins and the fallback is unused.
+func TestBehaviorPositionTryBaseFitsWins(t *testing.T) {
+	t.Parallel()
+
+	res := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
+		`<div id="anchor" style="anchor-name:--foo;width:100px;height:20px;margin:200px 0 0 50px"></div>`+
+		`<div id="tip" style="position:absolute;position-anchor:--foo;position-area:top;`+
+		`width:60px;height:30px;position-try-fallbacks:bottom;position-visibility:always"></div>`+
+		`</body></html>`)
+
+	anchor := boxByID(t, res, "anchor")
+	tip := boxByID(t, res, "tip")
+
+	wantY := anchor.y - tip.height
+	if !near(tip.y, wantY) {
+		t.Errorf("tip.y = %.4fpt, want base top %.4fpt", tip.y, wantY)
 	}
 }
 
@@ -218,19 +242,21 @@ func TestBehaviorPositionTryOrderNormalKeepsDocOrder(t *testing.T) {
 	t.Parallel()
 
 	res := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
-		`<div id="anchor" style="anchor-name:--foo;width:50px;height:20px;margin:100px 0 0 50px"></div>`+
-		`<div id="tip" style="position:absolute;position-anchor:--foo;position-area:left;`+
-		`width:20px;height:20px;position-try-fallbacks:left,right;`+
+		`<div id="anchor" style="anchor-name:--foo;width:50px;height:20px;margin:5px 0 0 60px"></div>`+
+		`<div id="tip" style="position:absolute;position-anchor:--foo;position-area:top;`+
+		`width:20px;height:20px;position-try-fallbacks:bottom,right;`+
 		`position-try-order:normal;position-visibility:no-overflow"></div>`+
 		`</body></html>`)
 
 	anchor := boxByID(t, res, "anchor")
 	tip := boxByID(t, res, "tip")
 
-	wantX := anchor.x - tip.w
-	if !near(tip.x, wantX) {
-		t.Errorf("tip.x = %.4fpt (%.2fpx), want base left %.4fpt",
-			tip.x, tip.x/ptPerCSSPx, wantX)
+	// The base top area spills above the canvas, so the first fallback in
+	// document order, bottom, wins: the tip sits below the anchor.
+	wantY := anchor.y + anchor.height
+	if !near(tip.y, wantY) {
+		t.Errorf("tip.y = %.4fpt (%.2fpx), want first fallback bottom %.4fpt",
+			tip.y, tip.y/ptPerCSSPx, wantY)
 	}
 }
 
@@ -241,8 +267,8 @@ func TestBehaviorPositionTryOrderMostInlineSizePicksWide(t *testing.T) {
 	t.Parallel()
 
 	res := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
-		`<div id="anchor" style="anchor-name:--foo;width:50px;height:20px;margin:100px 0 0 50px"></div>`+
-		`<div id="tip" style="position:absolute;position-anchor:--foo;position-area:left;`+
+		`<div id="anchor" style="anchor-name:--foo;width:50px;height:20px;margin:5px 0 0 60px"></div>`+
+		`<div id="tip" style="position:absolute;position-anchor:--foo;position-area:top;`+
 		`width:20px;height:20px;position-try-fallbacks:left,right;`+
 		`position-try-order:most-inline-size;position-visibility:no-overflow"></div>`+
 		`</body></html>`)
@@ -254,6 +280,8 @@ func TestBehaviorPositionTryOrderMostInlineSizePicksWide(t *testing.T) {
 		t.Fatalf("order = %q, want most-inline-size", tip.style.PositionTryOrder)
 	}
 
+	// The base top area spills above the canvas. Right fits and is wider than
+	// left, so most-inline-size picks right.
 	wantX := anchor.x + anchor.w
 	if !near(tip.x, wantX) {
 		t.Errorf("tip.x = %.4fpt (%.2fpx), want wide right %.4fpt",
@@ -464,30 +492,40 @@ func TestBehaviorPositionVisibility(t *testing.T) {
 		}
 	})
 
-	t.Run("always-keeps-above", func(t *testing.T) {
+	t.Run("base-fits-keeps-laid-out", func(t *testing.T) {
 		t.Parallel()
 
 		res := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
+			`<div style="height:100px"></div>`+
 			`<div id="anchor" style="anchor-name:--a;width:100px;height:50px;background-color:#eeeeee"></div>`+
+			`<div id="tip" style="position:absolute;left:10px;top:10px;position-anchor:--a;position-area:top;`+
+			`position-visibility:always;width:50px;height:40px;background-color:#ff0000"></div>`+
+			`</body></html>`)
+
+		tip := boxByID(t, res, "tip")
+
+		if !near(tip.x, pxToPt(10)) || !near(tip.y, pxToPt(10)) {
+			t.Errorf("tip = (%.4fpt, %.4fpt), want laid-out (10px, 10px) while the base fits", tip.x, tip.y)
+		}
+	})
+
+	t.Run("always-overflow-takes-fallback", func(t *testing.T) {
+		t.Parallel()
+
+		res := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
+			`<div id="anchor" style="anchor-name:--a;width:100px;height:50px;margin-top:5px;background-color:#eeeeee"></div>`+
 			`<div id="tip" style="position:absolute;position-anchor:--a;position-area:top;`+
-			`position-visibility:always;width:50px;height:40px;left:0;top:0;background-color:#ff0000"></div>`+
+			`position-try-fallbacks:bottom;position-visibility:always;width:50px;height:40px;background-color:#ff0000"></div>`+
 			`</body></html>`)
 
 		anchor := boxByID(t, res, "anchor")
 		tip := boxByID(t, res, "tip")
 
-		if !near(tip.x, anchor.x) {
-			t.Errorf("tip.x = %.4fpt, anchor.x = %.4fpt, want aligned start edge", tip.x, anchor.x)
+		wantY := anchor.y + anchor.height
+		if !near(tip.y, wantY) {
+			t.Errorf("tip.y = %.4fpt, want fallback bottom %.4fpt (base spills above the canvas)", tip.y, wantY)
 		}
-		if !(tip.y < anchor.y) {
-			t.Errorf("tip.y = %.4fpt, anchor.y = %.4fpt, want tip above anchor", tip.y, anchor.y)
-		}
-		if !(tip.y < 0) {
-			t.Errorf("tip.y = %.4fpt, want negative (hanging off viewport top)", tip.y)
-		}
-		if len(res.Ops) == 0 {
-			t.Fatalf("no ops, want tip fill retained")
-		}
+
 		found := false
 		for _, op := range res.Ops {
 			if op.Kind == OpFillRect && near(op.X, tip.x) && near(op.Y, tip.y) {
@@ -496,11 +534,11 @@ func TestBehaviorPositionVisibility(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Errorf("tip fill at (%.4fpt, %.4fpt) missing from Ops, want retained off-viewport base", tip.x, tip.y)
+			t.Errorf("tip fill at (%.4fpt, %.4fpt) missing from Ops, want painted fallback", tip.x, tip.y)
 		}
 	})
 
-	t.Run("always-keeps-past-height", func(t *testing.T) {
+	t.Run("always-shifts-base-to-fit", func(t *testing.T) {
 		t.Parallel()
 
 		src := `<html style="margin:0"><body style="margin:0">` +
@@ -519,10 +557,20 @@ func TestBehaviorPositionVisibility(t *testing.T) {
 			t.Fatalf("Layout: %v", err)
 		}
 
+		// The bottom area would sit past the viewport height, so the base
+		// styles keep applying with the box shifted to stay inside the
+		// containing block (Chrome 155 print).
 		tip := boxByID(t, res, "tip")
-		if !(tip.y > viewportH) {
-			t.Errorf("tip.y = %.4fpt, viewportH = %.4fpt, want past height", tip.y, viewportH)
+
+		wantY := viewportH - tip.height
+		if !near(tip.y, wantY) {
+			t.Errorf("tip.y = %.4fpt, want safe-shifted %.4fpt", tip.y, wantY)
 		}
+
+		if tip.y+tip.height > pxToPt(100)+0.01 {
+			t.Errorf("tip bottom = %.4fpt, want inside viewport %.4fpt", tip.y+tip.height, pxToPt(100))
+		}
+
 		found := false
 		for _, op := range res.Ops {
 			if op.Kind == OpFillRect && near(op.X, tip.x) && near(op.Y, tip.y) {
@@ -531,7 +579,7 @@ func TestBehaviorPositionVisibility(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Errorf("tip fill at (%.4fpt, %.4fpt) missing from Ops, want retained past height", tip.x, tip.y)
+			t.Errorf("tip fill at (%.4fpt, %.4fpt) missing from Ops, want painted", tip.x, tip.y)
 		}
 	})
 
@@ -663,4 +711,102 @@ func TestBehaviorPositionVisibilityNoOverflow(t *testing.T) {
 			t.Errorf("anchor-visible tip emitted no ops (box hidden), want paint ops kept on this canvas")
 		}
 	})
+}
+
+func TestBehaviorPositionAreaTopExplicitKeepsFallback(t *testing.T) {
+	t.Parallel()
+	res := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
+		`<div id="anchor" style="anchor-name:--a;width:100px;height:50px;margin:100px 0 0 50px"></div>`+
+		`<div id="tip" style="position:absolute;left:10px;top:10px;width:50px;height:20px;position-anchor:--a;position-area:top"></div>`+
+		`</body></html>`)
+	tip := boxByID(t, res, "tip")
+	anchor := boxByID(t, res, "anchor")
+	if !near(tip.x, pxToPt(10)) || !near(tip.y, pxToPt(10)) {
+		t.Errorf("tip = (%.4fpt, %.4fpt), want (10px, 10px) fallback offsets",
+			tip.x, tip.y)
+	}
+	wantY := anchor.y - tip.height
+	if near(tip.y, wantY) {
+		t.Errorf("tip.y = %.4fpt matches anchored top %.4fpt, want fallback", tip.y, wantY)
+	}
+}
+
+func TestBehaviorPositionAreaBottomExplicitAnchorsY(t *testing.T) {
+	t.Parallel()
+	res := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
+		`<div id="anchor" style="anchor-name:--a;width:100px;height:50px;margin:100px 0 0 50px"></div>`+
+		`<div id="tip" style="position:absolute;left:10px;top:10px;width:50px;height:20px;position-anchor:--a;position-area:bottom"></div>`+
+		`</body></html>`)
+	tip := boxByID(t, res, "tip")
+	anchor := boxByID(t, res, "anchor")
+	wantY := anchor.y + anchor.height
+	if !near(tip.y, wantY) {
+		t.Errorf("tip.y = %.4fpt, want anchor bottom %.4fpt", tip.y, wantY)
+	}
+	if !near(tip.x, pxToPt(10)) {
+		t.Errorf("tip.x = %.4fpt, want laid-out 10px (missing track keeps offset)", tip.x)
+	}
+}
+
+func TestBehaviorPositionVisibilityNoOverflowUsesContainingBlock(t *testing.T) {
+	t.Parallel()
+
+	res := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
+		`<div style="position:relative;width:300px;height:120px;">`+
+		`<div id="anchor" style="anchor-name:--a;position:absolute;left:250px;top:40px;width:40px;height:20px;background-color:red"></div>`+
+		`<div id="tip" style="position:absolute;position-anchor:--a;position-area:right;`+
+		`position-try-fallbacks:left;position-visibility:no-overflow;`+
+		`width:80px;height:20px;background-color:blue"></div>`+
+		`</div></body></html>`)
+
+	anchor := boxByID(t, res, "anchor")
+	tip := boxByID(t, res, "tip")
+
+	wantX := anchor.x - tip.w
+	if !near(tip.x, wantX) {
+		t.Errorf("tip.x = %.4fpt, want left fallback %.4fpt (right overflows the 300px stage)", tip.x, wantX)
+	}
+
+	found := false
+	for _, op := range res.Ops {
+		if op.Kind == OpFillRect && near(op.X, tip.x) && near(op.Y, tip.y) && near(op.W, tip.w) && near(op.H, tip.height) {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("winning left fallback fill missing from Ops, want the tip painted")
+	}
+}
+
+func TestBehaviorPositionVisibilityNoOverflowHidesWhenAllReject(t *testing.T) {
+	t.Parallel()
+
+	res := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
+		`<div style="position:relative;width:400px;height:140px;">`+
+		`<div id="anchor" style="anchor-name:--a;position:absolute;left:300px;top:8px;width:80px;height:30px;background-color:red"></div>`+
+		`<div id="tip" style="position:absolute;position-anchor:--a;position-area:top;`+
+		`position-try-fallbacks:right;position-try-order:normal;position-visibility:no-overflow;`+
+		`width:120px;height:20px;background-color:blue"></div>`+
+		`</div></body></html>`)
+
+	tip := boxByID(t, res, "tip")
+
+	for _, op := range res.Ops {
+		if op.Kind == OpFillRect && near(op.X, tip.x) && near(op.Y, tip.y) && near(op.W, tip.w) && near(op.H, tip.height) {
+			t.Errorf("tip fill at (%.4fpt, %.4fpt) present in Ops, want hidden after all candidates rejected", tip.x, tip.y)
+		}
+	}
+
+	anchor := boxByID(t, res, "anchor")
+	found := false
+	for _, op := range res.Ops {
+		if op.Kind == OpFillRect && near(op.X, anchor.x) && near(op.Y, anchor.y) {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("anchor fill missing from Ops, want only the tip hidden")
+	}
 }

@@ -19,9 +19,9 @@ Pinned upstream is `webref-ed-css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69
 | `position-anchor` | `auto` or one dashed ident. Unknown keeps earlier value. `normal`, `none` and `match-parent` are rejected. |
 | `position-area` | `none` or a `position-area` keyword. `none` keeps `left` and `top` offsets. Single keywords `top`, `bottom`, `left`, `right` and `center` move. Exotic multi-token areas are stored but keep offsets. |
 | `position-try` | Shorthand for order plus fallbacks, including fallbacks only. CSS-wide keywords reset both. A following longhand wins in source order. |
-| `position-try-fallbacks` | `none`, a `position-area` list, or pinned tactic keywords `flip-block`, `flip-inline`, `flip-start`, `flip-x` and `flip-y`. Dashed idents read `@position-try` areas. Unknown idents are skipped. Inset overrides from `@position-try` are stored but not applied. |
+| `position-try-fallbacks` | `none`, a `position-area` list, or pinned tactic keywords `flip-block`, `flip-inline`, `flip-start`, `flip-x` and `flip-y`. Dashed idents read `@position-try` areas. Unknown idents are skipped. Fallbacks run in order after the base. A tactic also swaps the corresponding inset sides. Inset overrides stored on `@position-try` are not applied. |
 | `position-try-order` | `normal` keeps document order. Size keywords `most-width`, `most-height`, `most-block-size` and `most-inline-size` pick the largest passing `no-overflow` candidate on that axis. |
-| `position-visibility` | `always`, `anchor-valid`, `anchor-visible`, `no-overflow`, and combinations. Invalid keeps previous. `always` keeps the base even off canvas. `anchor-valid` falls back when the anchor is missing or out of scope, else keeps ordinary absolute placement and still paints. `no-overflow` rejects candidates outside `Options.Width` and `Options.Height`. |
+| `position-visibility` | `always`, `anchor-valid`, `anchor-visible`, `no-overflow`, and combinations. Invalid keeps previous. `always` never hides: the base styles keep applying, safe-shifted into the containing block. `anchor-valid` falls back when the anchor is missing or out of scope, else keeps ordinary absolute placement and still paints. `no-overflow` hides the box only when every option fails to fit its position-area region. |
 
 `anchor()` inside `top`, `left`, `right`, `bottom` or `inset` is out of scope. `position-area` moves the box without it.
 
@@ -33,7 +33,7 @@ A name on a box is visible to later boxes unless an ancestor scope separates the
 
 ## Candidate selection
 
-The base `position-area` runs first. With `always`, the base wins and fallbacks are unused. Otherwise each candidate is tested in order. `anchor-valid` rejects missing or out-of-scope anchors. `no-overflow` rejects boxes outside the viewport. `flip-block` and `flip-y` mirror vertical, `flip-inline` and `flip-x` mirror horizontal, `flip-start` mirrors both. The flip applies after the area is known and before the final shift.
+Options are tried in order: the base `position-area` first, then the fallbacks, sorted by `position-try-order`. An option wins when its box fits that option's position-area region, the cell of the anchor grid it selects. When the base fits, the fallback is unused. When the base spills, the fallback wins even under `always`. A box that overflows its region but still fits the containing block is safe-shifted to stay inside it. When no option fits, the base styles keep applying with that shift, and only `no-overflow` hides the box instead. `flip-block` and `flip-y` mirror vertical and swap `top` and `bottom`, `flip-inline` and `flip-x` mirror horizontal and swap `left` and `right`, `flip-start` does both. This matches headless Chrome 155 print, verified on fixture-66 on 2026-10-16.
 
 ## Scroll non-goal
 
