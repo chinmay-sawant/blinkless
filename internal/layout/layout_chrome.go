@@ -471,13 +471,18 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty ResolvedStyle, po
 
 	var chrome []Op
 	radii, radiiY := usedBorderRadiiXY(sty, width, height)
+	shapeK := cornerShapePaintK(sty)
+	cornerFillOps, cornerBorderOps, cornerFillHandled, cornerBorderHandled := cornerShapePaint(
+		e, boxNode, sty, posX, posY, width, height, radii, radiiY, shapeK)
 	radius := uniformRadius(radii)
 	// Outset box-shadow paints behind the background so blur rings do not
 	// cover the border box. Inset shadows must paint after the background
 	// (CSS Backgrounds §7.1 / fixture-61 box-shadow-position), or the fill
 	// hides them.
 	chrome = e.appendBoxShadow(chrome, sty, posX, posY, width, height, radii, radiiY, false)
-	if sty.BGColor[3] > 0 && e.backgroundPaintEnabled(&sty) {
+	if cornerFillHandled {
+		chrome = append(chrome, cornerFillOps...)
+	} else if sty.BGColor[3] > 0 && e.backgroundPaintEnabled(&sty) {
 		usedBG := usedBGForPaintActive(sty, e.forcedColorsForPaint())
 		bgOp := Op{ //nolint:exhaustruct // intentional zero fields
 			Kind: OpFillRect, X: posX, Y: posY, W: width, H: height,
@@ -512,6 +517,8 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty ResolvedStyle, po
 
 	if sty.BorderImageSource != "" {
 		chrome = e.appendBorderImage(chrome, sty, posX, posY, width, height)
+	} else if cornerBorderHandled {
+		chrome = append(chrome, cornerBorderOps...)
 	} else {
 		switch {
 		case hasRoundedRadii(radii) && roundedSolidBorder(sty):

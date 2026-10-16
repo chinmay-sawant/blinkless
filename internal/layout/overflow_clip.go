@@ -311,6 +311,8 @@ func clipPaintOp(op *Op, clip clipRect) {
 	switch op.Kind {
 	case OpFillRect, OpStrokeRect, OpImage, OpLinkURI:
 		clipRectOp(op, clip)
+	case OpPath:
+		clipCornerPathOp(op, clip)
 	case OpLine:
 		clipLineOp(op, clip)
 	case OpGridRun:
@@ -318,6 +320,15 @@ func clipPaintOp(op *Op, clip clipRect) {
 	case OpText, OpBullet:
 		clipTextOp(op, clip)
 	case OpUnknown, opKindNoop:
+	}
+}
+
+// clipCornerPathOp keeps a corner-shape path only while its bounds overlap
+// the clip. Point-level clipping inside a partial overlap is a later wave
+// (documented in corner_shape_paint.go).
+func clipCornerPathOp(op *Op, clip clipRect) {
+	if !rectIntersects(op.X, op.Y, op.X+op.W, op.Y+op.H, clip) {
+		DeactivateOp(op)
 	}
 }
 

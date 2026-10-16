@@ -37,6 +37,10 @@ type opExtra struct {
 	// carry the group without painting.
 	BlendGroup *BlendGroup
 	GroupMark  uint8
+	// CornerPath holds the command list for an OpPath operation. Nil for
+	// every other kind. It lives here, not on the hot Op record, so that
+	// record stays at 256 bytes.
+	CornerPath *CornerPath
 }
 
 func (op *Op) detachExtra() *opExtra {
@@ -58,6 +62,7 @@ func (op Op) detachedExtraCopy() *opExtra {
 	cp := *op.opExtra
 	cp.Image = append([]byte(nil), cp.Image...)
 	cp.Path.Points = append([]DisplayPoint(nil), cp.Path.Points...)
+	cp.CornerPath = cloneCornerPath(cp.CornerPath)
 
 	return &cp
 }
@@ -390,6 +395,7 @@ func cloneOpExtra(src *opExtra) *opExtra {
 
 	cp := *src
 	cp.Image = append([]byte(nil), src.Image...)
+	cp.CornerPath = cloneCornerPath(src.CornerPath)
 
 	return &cp
 }

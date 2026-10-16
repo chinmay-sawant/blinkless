@@ -137,6 +137,7 @@ Every entry carries the fields it needs; absent optional fields are omitted.
 | `transform` | object | Baked affine transform, present when the native `xformSet` is true |
 | `radii` | object | Rounded corner geometry for fillRect and strokeRect |
 | `segments` | array | Ordered line segments of a gridRun |
+| `cornerPath` | object | Command list of a path entry: `{ stroke, commands }`. Commands replay in order and end with a close |
 | `textTransform` | string | CSS text-transform value to apply to `text` |
 | `textLanguage` | string | OpenType language override |
 | `textAutospace` | string | text-autospace value |
@@ -160,9 +161,20 @@ Operation kinds:
 | `image` | Encoded image | `image` reference; `x/y/w/h` is the target box |
 | `linkURI` | Nothing | `uri` |
 | `gridRun` | Collapsed table grid | `segments`, replayed in order |
+| `path` | Corner-shape outline | `cornerPath` commands; `stroke` marks the border stroke. A `round` box never uses this kind |
 | `groupBegin`, `groupEnd` | Nothing | `group`, `groupMark` |
 | `noop` | Nothing | Deactivated by clipping; skip |
 | `unknown` | Nothing | Unset kind; skip |
+
+A `path` entry is the outline of a box whose `corner-shape` is not `round`:
+`cornerPath.commands` carries `{ verb, pts }` entries with the verbs `moveTo`,
+`lineTo`, `quadTo`, `cubicTo`, and `close`, in canvas points. `pts` holds one
+point for move/line, two for quad, three for cubic, and is omitted for close.
+`cornerPath.stroke` marks the border-stroke path; the background fill omits
+it. A box with the initial `round` corner shape keeps `fillRect`/`strokeRect`
+entries with `radii` and never uses `path`. The kind constant lives at
+`internal/layout/corner_path.go:19`; the outline is built in
+`internal/layout/corner_shape_paint.go:81`.
 
 ### Element boxes
 

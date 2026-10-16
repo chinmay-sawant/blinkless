@@ -294,7 +294,7 @@ func paintLayer(paintOp *Op) int {
 	}
 
 	switch paintOp.Kind {
-	case OpFillRect, OpStrokeRect, OpLine, OpGridRun:
+	case OpFillRect, OpStrokeRect, OpLine, OpGridRun, OpPath:
 		return paintLayerChrome
 	case OpText, OpImage, OpLinkURI, OpBullet, OpUnknown, opKindNoop:
 		return paintLayerContent

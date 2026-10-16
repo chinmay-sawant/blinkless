@@ -968,6 +968,26 @@ func applyBorderGroup(
 		return true
 	}
 
+	if applyCornerShapeLonghand(style, prop, value) {
+		return true
+	}
+
+	if ApplyCornerShapePairProp(style, prop, value, SetCornerShapeByName) {
+		return true
+	}
+
+	if applyCornerShapeShorthand(style, prop, value, fsize) {
+		return true
+	}
+
+	if applyCornerSideShorthand(style, prop, value, fsize) {
+		return true
+	}
+
+	if applyCornerSingleShorthand(style, prop, value, fsize) {
+		return true
+	}
+
 	switch prop {
 	case "border":
 		return applyBorderAllSides(style, value, fsize)

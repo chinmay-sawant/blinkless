@@ -1,7 +1,7 @@
 {
   "catalog": "blinkless-css-properties",
   "schema_version": 1,
-  "updated": "2026-10-16",
+  "updated": "2026-10-17",
   "scope": "Engine-registered CSS properties plus every property in the pinned upstream inventory. A property not listed here is unsupported by default.",
   "seed": {
     "date": "2026-10-09",
@@ -12,13 +12,13 @@
     "properties": 785,
     "by_status": {
       "implemented": 454,
-      "partial": 3,
-      "unsupported": 320,
+      "partial": 37,
+      "unsupported": 286,
       "intentionally ignored": 8
     },
     "aliases": 38,
-    "engine_registered": 468,
-    "upstream_only": 317,
+    "engine_registered": 502,
+    "upstream_only": 283,
     "upstream": {
       "inventory": "webref-ed-css",
       "revision": "1f2ec8f74a80c14066b4c7d6822cee59f69fa03b",
@@ -5861,544 +5861,1096 @@
     {
       "name": "corner",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'border-radius'> || <'corner-shape'>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_shorthand.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerShapeShorthand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBCornerShorthandRadiusShape"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-radius'> || <'corner-shape'>"
     },
     {
       "name": "corner-block-end",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'border-radius'> || <'corner-shape'> side form (radius piece, shape piece, or both)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_side.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerSideShorthand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBSideShorthands"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-radius'> || <'corner-top-shape'>"
     },
     {
       "name": "corner-block-end-shape",
       "aliases": [],
-      "values": [],
+      "values": [
+        "round | scoop | bevel | notch | square | squircle | superellipse(<number> | infinity | -infinity)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_pairs.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "ApplyCornerShapePairProp"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBBlockEndPairNotch"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'corner-top-left-shape'>{1,2}"
     },
     {
       "name": "corner-block-start",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'border-radius'> || <'corner-shape'> side form (radius piece, shape piece, or both)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_side.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerSideShorthand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBSideShorthands"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-radius'> || <'corner-top-shape'>"
     },
     {
       "name": "corner-block-start-shape",
       "aliases": [],
-      "values": [],
+      "values": [
+        "round | scoop | bevel | notch | square | squircle | superellipse(<number> | infinity | -infinity)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_pairs.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "ApplyCornerShapePairProp"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBBlockStartPairNotch"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'corner-top-left-shape'>{1,2}"
     },
     {
       "name": "corner-bottom",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'border-radius'> || <'corner-shape'> side form (radius piece, shape piece, or both)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_side.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerSideShorthand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBSideShorthands"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-radius'> || <'corner-top-shape'>"
     },
     {
       "name": "corner-bottom-left",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'border-top-left-radius'> || <'corner-top-left-shape'>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_corners.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerSingleShorthand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBSingleCornerShorthands"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-left-radius'> || <'corner-top-left-shape'>"
     },
     {
       "name": "corner-bottom-left-shape",
       "aliases": [],
-      "values": [],
+      "values": [
+        "round | scoop | bevel | notch | square | squircle | superellipse(<number> | infinity | -infinity)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerShapeLonghand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_a_test.go",
+          "name": "TestCornerShapeASingleBottomLeftBevel"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<corner-shape-value>"
     },
     {
       "name": "corner-bottom-right",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'border-top-left-radius'> || <'corner-top-left-shape'>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_corners.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerSingleShorthand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBSingleCornerShorthands"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-left-radius'> || <'corner-top-left-shape'>"
     },
     {
       "name": "corner-bottom-right-shape",
       "aliases": [],
-      "values": [],
+      "values": [
+        "round | scoop | bevel | notch | square | squircle | superellipse(<number> | infinity | -infinity)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerShapeLonghand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_a_test.go",
+          "name": "TestCornerShapeASingleBottomRightBevel"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<corner-shape-value>"
     },
     {
       "name": "corner-bottom-shape",
       "aliases": [],
-      "values": [],
+      "values": [
+        "round | scoop | bevel | notch | square | squircle | superellipse(<number> | infinity | -infinity)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_pairs.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "ApplyCornerShapePairProp"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBBottomPairScoopBevel"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'corner-top-left-shape'>{1,2}"
     },
     {
       "name": "corner-end-end",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'border-top-left-radius'> || <'corner-top-left-shape'>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_corners.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerSingleShorthand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBSingleCornerShorthands"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-left-radius'> || <'corner-top-left-shape'>"
     },
     {
       "name": "corner-end-end-shape",
       "aliases": [],
-      "values": [],
+      "values": [
+        "round | scoop | bevel | notch | square | squircle | superellipse(<number> | infinity | -infinity)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerShapeLonghand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBLogicalSinglesMatchPhysical"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<corner-shape-value>"
     },
     {
       "name": "corner-end-start",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'border-top-left-radius'> || <'corner-top-left-shape'>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_corners.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerSingleShorthand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBSingleCornerShorthands"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-left-radius'> || <'corner-top-left-shape'>"
     },
     {
       "name": "corner-end-start-shape",
       "aliases": [],
-      "values": [],
+      "values": [
+        "round | scoop | bevel | notch | square | squircle | superellipse(<number> | infinity | -infinity)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerShapeLonghand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBLogicalSinglesMatchPhysical"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<corner-shape-value>"
     },
     {
       "name": "corner-inline-end",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'border-radius'> || <'corner-shape'> side form (radius piece, shape piece, or both)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_side.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerSideShorthand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBSideShorthands"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-radius'> || <'corner-top-shape'>"
     },
     {
       "name": "corner-inline-end-shape",
       "aliases": [],
-      "values": [],
+      "values": [
+        "round | scoop | bevel | notch | square | squircle | superellipse(<number> | infinity | -infinity)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_pairs.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "ApplyCornerShapePairProp"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBInlineEndPairNotch"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'corner-top-left-shape'>{1,2}"
     },
     {
       "name": "corner-inline-start",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'border-radius'> || <'corner-shape'> side form (radius piece, shape piece, or both)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_side.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerSideShorthand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBSideShorthands"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-radius'> || <'corner-top-shape'>"
     },
     {
       "name": "corner-inline-start-shape",
       "aliases": [],
-      "values": [],
+      "values": [
+        "round | scoop | bevel | notch | square | squircle | superellipse(<number> | infinity | -infinity)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_pairs.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "ApplyCornerShapePairProp"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBInlineStartPairNotch"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'corner-top-left-shape'>{1,2}"
     },
     {
       "name": "corner-left",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'border-radius'> || <'corner-shape'> side form (radius piece, shape piece, or both)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_side.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerSideShorthand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBSideShorthands"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-radius'> || <'corner-top-shape'>"
     },
     {
       "name": "corner-left-shape",
       "aliases": [],
-      "values": [],
+      "values": [
+        "round | scoop | bevel | notch | square | squircle | superellipse(<number> | infinity | -infinity)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_pairs.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "ApplyCornerShapePairProp"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBLeftPairNotchScoop"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'corner-top-left-shape'>{1,2}"
     },
     {
       "name": "corner-right",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'border-radius'> || <'corner-shape'> side form (radius piece, shape piece, or both)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_side.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerSideShorthand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBSideShorthands"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-radius'> || <'corner-top-shape'>"
     },
     {
       "name": "corner-right-shape",
       "aliases": [],
-      "values": [],
+      "values": [
+        "round | scoop | bevel | notch | square | squircle | superellipse(<number> | infinity | -infinity)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_pairs.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "ApplyCornerShapePairProp"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBRightPairSquircleSquare"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'corner-top-left-shape'>{1,2}"
     },
     {
       "name": "corner-shape",
       "aliases": [],
-      "values": [],
+      "values": [
+        "1 to 4 <corner-shape-value> tokens assigned to the top, right, bottom, and left sides"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_shorthand.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerShapeShorthand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_a_test.go",
+          "name": "TestCornerShapeABevelEmitsPath"
+        },
+        {
+          "file": "internal/layout/css_behavior_corner_shape_a_test.go",
+          "name": "TestCornerShapeASuperellipseMatchesKeywords"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'corner-top-left-shape'>{1,4}"
     },
     {
       "name": "corner-start-end",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'border-top-left-radius'> || <'corner-top-left-shape'>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_corners.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerSingleShorthand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBSingleCornerShorthands"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-left-radius'> || <'corner-top-left-shape'>"
     },
     {
       "name": "corner-start-end-shape",
       "aliases": [],
-      "values": [],
+      "values": [
+        "round | scoop | bevel | notch | square | squircle | superellipse(<number> | infinity | -infinity)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerShapeLonghand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBLogicalSinglesMatchPhysical"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<corner-shape-value>"
     },
     {
       "name": "corner-start-start",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'border-top-left-radius'> || <'corner-top-left-shape'>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_corners.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerSingleShorthand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBSingleCornerShorthands"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-left-radius'> || <'corner-top-left-shape'>"
     },
     {
       "name": "corner-start-start-shape",
       "aliases": [],
-      "values": [],
+      "values": [
+        "round | scoop | bevel | notch | square | squircle | superellipse(<number> | infinity | -infinity)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerShapeLonghand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBLogicalSinglesMatchPhysical"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<corner-shape-value>"
     },
     {
       "name": "corner-top",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'border-radius'> || <'corner-shape'> side form (radius piece, shape piece, or both)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_side.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerSideShorthand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBSideShorthands"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-radius'> || <'corner-top-shape'>"
     },
     {
       "name": "corner-top-left",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'border-top-left-radius'> || <'corner-top-left-shape'>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_corners.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerSingleShorthand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBSingleCornerShorthands"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-left-radius'> || <'corner-top-left-shape'>"
     },
     {
       "name": "corner-top-left-shape",
       "aliases": [],
-      "values": [],
+      "values": [
+        "round | scoop | bevel | notch | square | squircle | superellipse(<number> | infinity | -infinity)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerShapeLonghand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_a_test.go",
+          "name": "TestCornerShapeASingleTopLeftBevel"
+        },
+        {
+          "file": "bindings/wasm/corner_shape_test.go",
+          "name": "TestDrawingCornerShapeScoopPath"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<corner-shape-value>"
     },
     {
       "name": "corner-top-right",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'border-top-left-radius'> || <'corner-top-left-shape'>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_corners.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerSingleShorthand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBSingleCornerShorthands"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-left-radius'> || <'corner-top-left-shape'>"
     },
     {
       "name": "corner-top-right-shape",
       "aliases": [],
-      "values": [],
+      "values": [
+        "round | scoop | bevel | notch | square | squircle | superellipse(<number> | infinity | -infinity)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyCornerShapeLonghand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_a_test.go",
+          "name": "TestCornerShapeASingleTopRightBevel"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<corner-shape-value>"
     },
     {
       "name": "corner-top-shape",
       "aliases": [],
-      "values": [],
+      "values": [
+        "round | scoop | bevel | notch | square | squircle | superellipse(<number> | infinity | -infinity)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1, notch -infinity; superellipse() takes a number, infinity, or -infinity).",
+        "Wave limits, named not silent: a non-round corner with a dashed or dotted border paints a solid path (dash segments do not follow the curve), border sides that differ in width or color stay on the rounded stroke-rect path, background-clip and overflow clip keep their existing boxes instead of following the scooped outer path, box-shadow keeps today's radii, and logical names use the fixed horizontal left-to-right map (no vertical writing-mode table)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json",
+        "internal/layout/style_corner_shape_pairs.go",
+        "internal/layout/corner_shape_paint.go",
+        "internal/layout/corner_path.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_chrome.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "ApplyCornerShapePairProp"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_corner_shape_b_test.go",
+          "name": "TestCornerShapeBTopPairBevelScoop"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'corner-top-left-shape'>{1,2}"
     },

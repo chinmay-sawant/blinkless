@@ -573,6 +573,8 @@ func countMaskGroupOperation(operation *Op, group *BlendGroup, counts *maskPaint
 	switch operation.Kind {
 	case OpFillRect:
 		counts.fills++
+	case OpPath:
+		countCornerPathGroupOperation(operation, counts)
 	case OpStrokeRect, OpLine:
 		counts.strokes++
 	case OpText:
@@ -584,6 +586,19 @@ func countMaskGroupOperation(operation *Op, group *BlendGroup, counts *maskPaint
 	case OpUnknown, OpLinkURI, OpBullet, OpGridRun, opKindNoop:
 		return
 	}
+}
+
+// countCornerPathGroupOperation counts one corner-shape path: the border
+// stroke path counts as a stroke, the background fill path as a fill.
+func countCornerPathGroupOperation(operation *Op, counts *maskPaintOperationCounts) {
+	path, ok := operation.CornerPathValue()
+	if ok && path.Stroke {
+		counts.strokes++
+
+		return
+	}
+
+	counts.fills++
 }
 
 func countSiblingText(operation *Op, group *BlendGroup, counts *maskPaintOperationCounts) {

@@ -50,7 +50,7 @@ func opOwnedBy(oper *Op, boxNode *box, phase opOwnerPhase) bool {
 	}
 
 	switch oper.Kind {
-	case OpFillRect, OpStrokeRect:
+	case OpFillRect, OpStrokeRect, OpPath:
 		return opOwnsBoxPaint(oper, boxNode, phase)
 	case OpLine:
 		if opOwnsBoxSide(oper, boxNode, phase) {
@@ -83,7 +83,7 @@ func opOwnsBoxPaint(oper *Op, boxNode *box, phase opOwnerPhase) bool {
 // accepts page-split fragments; the seal accepts page fragments whose Y sits
 // inside the box; overflow clipping keeps the exact-frame rule.
 func opOwnsBoxRect(oper *Op, boxNode *box, phase opOwnerPhase) bool {
-	if oper.Kind != OpFillRect && oper.Kind != OpStrokeRect {
+	if oper.Kind != OpFillRect && oper.Kind != OpStrokeRect && oper.Kind != OpPath {
 		return false
 	}
 

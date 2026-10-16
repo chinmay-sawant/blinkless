@@ -64,6 +64,8 @@ func finalizeProjectedOp(operation *Op, projective ProjectiveTransform) error {
 		points := projectedRectPath(*operation, projective)
 		operation.setDisplayPath(points, true)
 		setProjectedBounds(operation, points)
+	case OpPath:
+		finalizeProjectedCornerPath(operation, projective)
 	case OpLine:
 		finalizeProjectedLine(operation, projective)
 	case OpText, OpBullet:
@@ -95,6 +97,57 @@ func projectedRectPath(op Op, projective ProjectiveTransform) []DisplayPoint {
 	}
 
 	return points
+}
+
+// pathCmdPointCount returns how many points one path command consumes.
+func pathCmdPointCount(verb PathVerb) int {
+	switch verb {
+	case PathMoveTo, PathLineTo:
+		return 1
+	case PathQuadTo:
+		return pathQuadPointCount
+	case PathCubicTo:
+		return pathCubicPointCount
+	case PathClose:
+		return 0
+	default:
+		return 0
+	}
+}
+
+// Point counts of the multi-point path verbs.
+const (
+	pathQuadPointCount  = 2
+	pathCubicPointCount = 3
+)
+
+// finalizeProjectedCornerPath projects every corner-path command point and
+// re-bounds the op. The verb and stroke flag survive the rewrite.
+func finalizeProjectedCornerPath(operation *Op, projective ProjectiveTransform) {
+	path, ok := operation.CornerPathValue()
+	if !ok || path == nil {
+		return
+	}
+
+	commands := make([]PathCmd, len(path.Cmds))
+
+	var bounds []DisplayPoint
+
+	for idx := range path.Cmds {
+		command := path.Cmds[idx]
+		count := pathCmdPointCount(command.Verb)
+
+		for pointIdx := range count {
+			projectedX, projectedY := projective.Apply(command.Pts[pointIdx].X, command.Pts[pointIdx].Y)
+			command.Pts[pointIdx].X, command.Pts[pointIdx].Y = projectedX, projectedY
+			bounds = append(bounds, command.Pts[pointIdx])
+		}
+
+		commands[idx] = command
+	}
+
+	operation.setCornerPath(commands, path.Stroke)
+	setProjectedBounds(operation, bounds)
 }
 
 func setProjectedBounds(operation *Op, points []DisplayPoint) {

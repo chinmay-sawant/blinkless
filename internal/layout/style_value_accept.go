@@ -541,6 +541,10 @@ func keywordIn(value string, accepted ...string) bool {
 //
 //nolint:cyclop // flat per-property acceptance table reads clearer than a split dispatch
 func extendedDeclarationValueAccepted(prop, value string) bool {
+	if accepted, handled := cornerDeclarationValueAccepted(prop, value); handled {
+		return accepted
+	}
+
 	switch prop {
 	case "color", "outline-color", propTextDecorationColor:
 		return colorValueAccepted(value)
@@ -584,6 +588,35 @@ func extendedDeclarationValueAccepted(prop, value string) bool {
 		return lineHeightValueAccepted(value)
 	default:
 		return layoutDeclarationValueAccepted(prop, value)
+	}
+}
+
+// cornerDeclarationValueAccepted models the corner-shape family for the
+// cascade gate and @supports probe: the 8 single-corner shape longhands, the
+// 8 pair longhands, corner-shape, corner, and the 17 radius-plus-shape
+// shorthands. handled reports whether prop belongs to the family.
+func cornerDeclarationValueAccepted(prop, value string) (bool, bool) {
+	switch prop {
+	case propCornerTopLeftShape, propCornerTopRightShape, propCornerBottomRightShape,
+		propCornerBottomLeftShape, propCornerStartStartShape, propCornerStartEndShape,
+		propCornerEndStartShape, propCornerEndEndShape:
+		return cornerShapeValueAccepted(value), true
+	case propCornerTopShape, propCornerBottomShape, propCornerLeftShape, propCornerRightShape,
+		propCornerBlockStartShape, propCornerBlockEndShape, propCornerInlineStartShape,
+		propCornerInlineEndShape:
+		return cornerShapePairValueAccepted(value), true
+	case propCornerShape:
+		return cornerShapeSidesValueAccepted(value), true
+	case propCornerShorthand:
+		return cornerTopLevelValueAccepted(value), true
+	case propCornerTop, propCornerRight, propCornerBottom, propCornerLeft,
+		propCornerBlockStart, propCornerBlockEnd, propCornerInlineStart, propCornerInlineEnd:
+		return cornerSideShorthandValueAccepted(value), true
+	case propCornerTopLeft, propCornerTopRight, propCornerBottomRight, propCornerBottomLeft,
+		propCornerStartStart, propCornerStartEnd, propCornerEndStart, propCornerEndEnd:
+		return cornerSingleShorthandValueAccepted(value), true
+	default:
+		return false, false
 	}
 }
 

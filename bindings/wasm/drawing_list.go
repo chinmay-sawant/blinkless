@@ -39,6 +39,7 @@ const (
 	kindLinkURI    = "linkURI"
 	kindBullet     = "bullet"
 	kindGridRun    = "gridRun"
+	kindPath       = "path"
 	kindGroupBegin = "groupBegin"
 	kindGroupEnd   = "groupEnd"
 )
@@ -124,7 +125,11 @@ type drawOpJSON struct {
 	// Radii describes rounded corners for fillRect and strokeRect entries.
 	Radii *drawRadiiJSON `json:"radii,omitempty"`
 	// Segments are the ordered line segments of a gridRun entry.
-	Segments      []drawSegJSON `json:"segments,omitempty"`
+	Segments []drawSegJSON `json:"segments,omitempty"`
+	// CornerPath is the command list of a path entry: one corner-shaped
+	// outline replayed in order. Stroke marks the border stroke; a fill
+	// entry omits it.
+	CornerPath    *drawPathJSON `json:"cornerPath,omitempty"`
 	TextTransform string        `json:"textTransform,omitempty"`
 	TextLanguage  string        `json:"textLanguage,omitempty"`
 	TextAutospace string        `json:"textAutospace,omitempty"`
@@ -188,6 +193,27 @@ type drawSegJSON struct {
 	G         float64 `json:"g"`
 	B         float64 `json:"b"`
 	LineInset uint8   `json:"lineInset,omitempty"`
+}
+
+// drawPathJSON is the command list of one path entry, in canvas points.
+// Commands replay in order and end with a close.
+type drawPathJSON struct {
+	// Stroke marks a border-stroke path; a background fill omits it.
+	Stroke   bool              `json:"stroke,omitempty"`
+	Commands []drawPathCmdJSON `json:"commands"`
+}
+
+// drawPathCmdJSON is one path verb with its control and end points. Pts is
+// empty for close.
+type drawPathCmdJSON struct {
+	Verb string          `json:"verb"`
+	Pts  []drawPointJSON `json:"pts,omitempty"`
+}
+
+// drawPointJSON is one canvas point, y down.
+type drawPointJSON struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
 }
 
 // drawBoxJSON is one element border box in CSS pixels.
@@ -427,6 +453,10 @@ func (res *drawingResources) convertOp(op *layout.DisplayOp) drawOpJSON {
 		out.Radii = radii
 	}
 
+	if path, ok := op.CornerPathValue(); ok {
+		out.CornerPath = drawCornerPath(path)
+	}
+
 	if op.Grid != nil {
 		out.Segments = make([]drawSegJSON, len(op.Grid.Segs))
 		for i := range op.Grid.Segs {
@@ -482,8 +512,73 @@ func drawKind(op *layout.DisplayOp) (string, uint8) {
 		return kindBullet, value
 	case layout.DisplayOpGridRun:
 		return kindGridRun, value
+	case layout.DisplayOpPath:
+		return kindPath, value
 	default:
 		return kindUnknown, value
+	}
+}
+
+// drawCornerPath converts the native corner path into its JSON command
+// list. It returns nil for an absent or empty path so the key stays out of
+// the document.
+func drawCornerPath(path *layout.CornerPath) *drawPathJSON {
+	if path == nil || len(path.Cmds) == 0 {
+		return nil
+	}
+
+	out := &drawPathJSON{
+		Stroke:   path.Stroke,
+		Commands: make([]drawPathCmdJSON, len(path.Cmds)),
+	}
+
+	for i := range path.Cmds {
+		cmd := &path.Cmds[i]
+		entry := drawPathCmdJSON{Verb: drawPathVerb(cmd.Verb)}
+
+		if count := drawPathPointCount(cmd.Verb); count > 0 {
+			entry.Pts = make([]drawPointJSON, count)
+
+			for k := 0; k < count; k++ {
+				entry.Pts[k] = drawPointJSON{X: cmd.Pts[k].X, Y: cmd.Pts[k].Y}
+			}
+		}
+
+		out.Commands[i] = entry
+	}
+
+	return out
+}
+
+// drawPathVerb names one path command for the JSON schema.
+func drawPathVerb(verb layout.PathVerb) string {
+	switch verb {
+	case layout.PathMoveTo:
+		return "moveTo"
+	case layout.PathLineTo:
+		return "lineTo"
+	case layout.PathQuadTo:
+		return "quadTo"
+	case layout.PathCubicTo:
+		return "cubicTo"
+	case layout.PathClose:
+		return "close"
+	default:
+		return "unknown"
+	}
+}
+
+// drawPathPointCount returns how many points one path verb consumes.
+func drawPathPointCount(verb layout.PathVerb) int {
+	switch verb {
+	case layout.PathMoveTo, layout.PathLineTo:
+		return 1
+	case layout.PathQuadTo:
+		return 2
+	case layout.PathCubicTo:
+		return 3
+	default:
+		return 0
 	}
 }
 

@@ -105,61 +105,61 @@ const asciiFoldBit = 0x20
 //
 //nolint:lll // the resolved-style table keeps field comments beside each property
 type ResolvedStyle struct {
-	Display                   string
-	IsWebkitBox               bool    // true when display was -webkit-box / -webkit-inline-box (legacy)
-	Position                  string  // "static" | "relative" | "absolute" | "fixed" | "sticky"
-	Float                     string  // cssDisplayNone | floatLeft | floatRight
-	Clear                     string  // cssDisplayNone | floatLeft | floatRight | "both"
-	BoxSizing                 string  // "content-box" | "border-box"
-	Top                       float64 // position offsets (pt); 0 = unset for absolute uses Auto flags
-	Right                     float64
-	Bottom                    float64
-	Left                      float64
-	TopAuto                   bool
-	RightAuto                 bool
-	BottomAuto                bool
-	LeftAuto                  bool
-	FlexDirection             string  // "row" | fxCol | "row-reverse" | "column-reverse"
-	FlexWrap                  string  // "nowrap" | "wrap" | "wrap-reverse"
-	JustifyContent            string  // flex-start | flex-end | center | space-between | space-around | space-evenly
-	AlignItems                string  // stretch | flex-start | center | flex-end
-	AlignContent              string  // flex-start | flex-end | center | space-between | space-around | space-evenly | stretch
-	AlignSelf                 string  // auto | stretch | flex-start | flex-end | center | start | end
-	JustifyItems              string  // grid: stretch | start | end | center
-	JustifySelf               string  // grid item: auto | stretch | start | end | center
-	Gap                       float64 // flex/grid gap shorthand (pt); kept for backward compat
-	RowGap                    float64 // pt; 0 with ColumnGap 0 → layout falls back to Gap
-	ColumnGap                 float64
-	ColumnGapNormal           bool    // true when column-gap is normal/initial (multicol → 1em; flex/grid → 0)
-	ColumnCount               int     // 0 = auto; ≥1 = used count hint
-	ColumnWidth               float64 // -1 = auto; else length in pt
-	ColumnHeight              float64 // -1 = auto; else length in pt (Multicol 2)
-	ColumnWrap                string  // "auto" | "nowrap" | "wrap"
-	ColumnSpan                string  // cssDisplayNone | "all" (multicol spanner)
-	ColumnFill                string  // "balance" | overflowAuto
-	ColumnRuleWidth           float64 // pt; CSS initial medium
-	ColumnRuleStyle           string  // none | solid | dashed | dotted
-	ColumnRuleColor           [3]float64
-	ColumnRuleColorSet        bool       // false → paint uses currentColor (Color)
-	RowRuleWidth              float64    // pt; first item; CSS initial medium. Painter uses this.
-	RowRuleStyle              string     // none | solid | dashed | dotted. Painter uses this.
-	RowRuleColor              [3]float64 // first color. Painter uses this.
-	RowRuleColorSet           bool       // false means paint uses currentColor (Color)
-	RowRuleWidths             []float64  // every accepted width, first is RowRuleWidth
-	RowRuleStyles             []string   // every accepted style, first is RowRuleStyle
-	RowRuleColors             []string   // raw color tokens, first is the one parsed into RowRuleColor
-	RowRuleBreak              string    // none | normal | intersection
-	RowRuleVisibility         string    // all | around | between | normal
-	RowRuleInsetCapStart      ruleInset // start endpoint at a content edge
-	RowRuleInsetCapEnd        ruleInset // end endpoint at a content edge
-	RowRuleInsetJunctionStart ruleInset // start endpoint at a gap junction
-	RowRuleInsetJunctionEnd   ruleInset // end endpoint at a gap junction
-	ColumnRuleBreak           string    // none | normal | intersection
+	Display                      string
+	IsWebkitBox                  bool    // true when display was -webkit-box / -webkit-inline-box (legacy)
+	Position                     string  // "static" | "relative" | "absolute" | "fixed" | "sticky"
+	Float                        string  // cssDisplayNone | floatLeft | floatRight
+	Clear                        string  // cssDisplayNone | floatLeft | floatRight | "both"
+	BoxSizing                    string  // "content-box" | "border-box"
+	Top                          float64 // position offsets (pt); 0 = unset for absolute uses Auto flags
+	Right                        float64
+	Bottom                       float64
+	Left                         float64
+	TopAuto                      bool
+	RightAuto                    bool
+	BottomAuto                   bool
+	LeftAuto                     bool
+	FlexDirection                string  // "row" | fxCol | "row-reverse" | "column-reverse"
+	FlexWrap                     string  // "nowrap" | "wrap" | "wrap-reverse"
+	JustifyContent               string  // flex-start | flex-end | center | space-between | space-around | space-evenly
+	AlignItems                   string  // stretch | flex-start | center | flex-end
+	AlignContent                 string  // flex-start | flex-end | center | space-between | space-around | space-evenly | stretch
+	AlignSelf                    string  // auto | stretch | flex-start | flex-end | center | start | end
+	JustifyItems                 string  // grid: stretch | start | end | center
+	JustifySelf                  string  // grid item: auto | stretch | start | end | center
+	Gap                          float64 // flex/grid gap shorthand (pt); kept for backward compat
+	RowGap                       float64 // pt; 0 with ColumnGap 0 → layout falls back to Gap
+	ColumnGap                    float64
+	ColumnGapNormal              bool    // true when column-gap is normal/initial (multicol → 1em; flex/grid → 0)
+	ColumnCount                  int     // 0 = auto; ≥1 = used count hint
+	ColumnWidth                  float64 // -1 = auto; else length in pt
+	ColumnHeight                 float64 // -1 = auto; else length in pt (Multicol 2)
+	ColumnWrap                   string  // "auto" | "nowrap" | "wrap"
+	ColumnSpan                   string  // cssDisplayNone | "all" (multicol spanner)
+	ColumnFill                   string  // "balance" | overflowAuto
+	ColumnRuleWidth              float64 // pt; CSS initial medium
+	ColumnRuleStyle              string  // none | solid | dashed | dotted
+	ColumnRuleColor              [3]float64
+	ColumnRuleColorSet           bool       // false → paint uses currentColor (Color)
+	RowRuleWidth                 float64    // pt; first item; CSS initial medium. Painter uses this.
+	RowRuleStyle                 string     // none | solid | dashed | dotted. Painter uses this.
+	RowRuleColor                 [3]float64 // first color. Painter uses this.
+	RowRuleColorSet              bool       // false means paint uses currentColor (Color)
+	RowRuleWidths                []float64  // every accepted width, first is RowRuleWidth
+	RowRuleStyles                []string   // every accepted style, first is RowRuleStyle
+	RowRuleColors                []string   // raw color tokens, first is the one parsed into RowRuleColor
+	RowRuleBreak                 string     // none | normal | intersection
+	RowRuleVisibility            string     // all | around | between | normal
+	RowRuleInsetCapStart         ruleInset  // start endpoint at a content edge
+	RowRuleInsetCapEnd           ruleInset  // end endpoint at a content edge
+	RowRuleInsetJunctionStart    ruleInset  // start endpoint at a gap junction
+	RowRuleInsetJunctionEnd      ruleInset  // end endpoint at a gap junction
+	ColumnRuleBreak              string     // none | normal | intersection
 	ColumnRuleInsetCapStart      ruleInset
 	ColumnRuleInsetCapEnd        ruleInset
 	ColumnRuleInsetJunctionStart ruleInset
 	ColumnRuleInsetJunctionEnd   ruleInset
-	RuleOverlap               string // row-over-column | column-over-row
+	RuleOverlap                  string // row-over-column | column-over-row
 	// Initial-letter drop/raised caps (CSS Inline 3). Size 0 = normal.
 	// Authoring: apply on a real leading element (e.g. <span>); :first-letter
 	// is rejected by the CSS selector parser.
@@ -233,29 +233,31 @@ type ResolvedStyle struct {
 	// PositionVisibility is position-visibility: "always" or a combo of
 	// anchor-valid, anchor-visible, no-overflow. Empty behaves like
 	// anchor-valid (anchor-visible is identical until a scroll offset exists).
-	PositionVisibility   string
-	MarginTop                                                                                      float64
-	MarginRight                                                                                    float64
-	MarginBottom                                                                                   float64
-	MarginLeft                                                                                     float64
-	MarginTopAuto                                                                                  bool // margin-top: auto in a flex column
-	MarginBottomAuto                                                                               bool // margin-bottom: auto in a flex column
-	MarginLeftAuto                                                                                 bool // margin-left: auto (horizontal centering with right auto)
-	MarginRightAuto                                                                                bool // margin-right: auto
-	PaddingTop                                                                                     float64
-	PaddingRight                                                                                   float64
-	PaddingBottom                                                                                  float64
-	PaddingLeft                                                                                    float64
-	BorderTop                                                                                      border
-	BorderRight                                                                                    border
-	BorderBottom                                                                                   border
-	BorderLeft                                                                                     border
-	BorderRadius                                                                                   float64
-	BorderRadiusPercent                                                                            float64
-	BorderRadiusTopLeft, BorderRadiusTopRight, BorderRadiusBottomRight, BorderRadiusBottomLeft     float64
-	BorderRadiusTopLeftY, BorderRadiusTopRightY, BorderRadiusBottomRightY, BorderRadiusBottomLeftY float64
-	Color                                                                                          [3]float64
-	BGColor                                                                                        [4]float64 // rgba, 0..1
+	PositionVisibility                                                                                                 string
+	MarginTop                                                                                                          float64
+	MarginRight                                                                                                        float64
+	MarginBottom                                                                                                       float64
+	MarginLeft                                                                                                         float64
+	MarginTopAuto                                                                                                      bool // margin-top: auto in a flex column
+	MarginBottomAuto                                                                                                   bool // margin-bottom: auto in a flex column
+	MarginLeftAuto                                                                                                     bool // margin-left: auto (horizontal centering with right auto)
+	MarginRightAuto                                                                                                    bool // margin-right: auto
+	PaddingTop                                                                                                         float64
+	PaddingRight                                                                                                       float64
+	PaddingBottom                                                                                                      float64
+	PaddingLeft                                                                                                        float64
+	BorderTop                                                                                                          border
+	BorderRight                                                                                                        border
+	BorderBottom                                                                                                       border
+	BorderLeft                                                                                                         border
+	BorderRadius                                                                                                       float64
+	BorderRadiusPercent                                                                                                float64
+	BorderRadiusTopLeft, BorderRadiusTopRight, BorderRadiusBottomRight, BorderRadiusBottomLeft                         float64
+	BorderRadiusTopLeftY, BorderRadiusTopRightY, BorderRadiusBottomRightY, BorderRadiusBottomLeftY                     float64
+	CornerShapeTopLeft, CornerShapeTopRight, CornerShapeBottomRight, CornerShapeBottomLeft                             float64
+	CornerShapeTopLeftKeyword, CornerShapeTopRightKeyword, CornerShapeBottomRightKeyword, CornerShapeBottomLeftKeyword string
+	Color                                                                                                              [3]float64
+	BGColor                                                                                                            [4]float64 // rgba, 0..1
 	// AccentColor is CSS accent-color when authored; AccentColorSet is false
 	// when the property is absent so widgets can keep their default fill.
 	AccentColor    [3]float64
@@ -644,49 +646,57 @@ func initialStyle() ResolvedStyle { //nolint:funlen // complete CSS initial-valu
 		FontFamily:         nil,
 		// Empty family hashes to the FNV-1a offset, matching what
 		// resolveElementStyle records for elements without font-family.
-		famHash:               hashFontFamily(nil),
-		FontSize:              12, // 16px at 96dpi
-		FontWeight:            400,
-		TextTransform:         textTransformNone,
-		VerticalAlign:         "baseline",
-		WhiteSpace:            "normal",
-		TabSize:               defaultTabSize,
-		HyphenateCharacter:    "-",
-		HyphenateLimitLast:    cssDisplayNone,
-		HyphenateLimitLines:   -1,
-		HyphenateLimitZonePct: -1,
-		HangingPunctuation:    cssDisplayNone,
-		OverflowWrap:          "normal",
-		WordBreak:             "normal",
-		TextDecoration:        cssDisplayNone,
-		ListStyleType:         "disc",
-		BorderCollapse:        "separate",
-		BorderSpacing:         0,
-		TableLayout:           overflowAuto,
-		GridColumnSpan:        1,
-		GridRowSpan:           1,
-		WritingMode:           writingModeHorizontalTB,
-		Direction:             cssDirectionLTR,
-		MixBlendMode:          blendNormal,
-		BackgroundBlendMode:   blendNormal,
-		Isolation:             "auto",
-		MaskImage:             "none",
-		MaskMode:              "match-source",
-		MaskComposite:         "add",
-		MaskPosition:          "0% 0%",
-		MaskRepeat:            "repeat",
-		MaskSize:              "auto",
-		MaskOrigin:            "border-box",
-		MaskClip:              "border-box",
-		MaskType:              "luminance",
-		Orphans:               2,
-		Widows:                2,
-		EmptyCells:            "",
-		Transform:             IdentityMatrix(),
-		TransformOrigin:       defaultTransformOrigin(),
-		Opacity:               1,
-		FillOpacity:           1,
-		StrokeOpacity:         1,
+		famHash:                       hashFontFamily(nil),
+		FontSize:                      12, // 16px at 96dpi
+		FontWeight:                    400,
+		TextTransform:                 textTransformNone,
+		VerticalAlign:                 "baseline",
+		WhiteSpace:                    "normal",
+		TabSize:                       defaultTabSize,
+		HyphenateCharacter:            "-",
+		HyphenateLimitLast:            cssDisplayNone,
+		HyphenateLimitLines:           -1,
+		HyphenateLimitZonePct:         -1,
+		HangingPunctuation:            cssDisplayNone,
+		OverflowWrap:                  "normal",
+		WordBreak:                     "normal",
+		TextDecoration:                cssDisplayNone,
+		ListStyleType:                 "disc",
+		BorderCollapse:                "separate",
+		BorderSpacing:                 0,
+		CornerShapeTopLeft:            CornerShapeRoundK,
+		CornerShapeTopRight:           CornerShapeRoundK,
+		CornerShapeBottomRight:        CornerShapeRoundK,
+		CornerShapeBottomLeft:         CornerShapeRoundK,
+		CornerShapeTopLeftKeyword:     "round",
+		CornerShapeTopRightKeyword:    "round",
+		CornerShapeBottomRightKeyword: "round",
+		CornerShapeBottomLeftKeyword:  "round",
+		TableLayout:                   overflowAuto,
+		GridColumnSpan:                1,
+		GridRowSpan:                   1,
+		WritingMode:                   writingModeHorizontalTB,
+		Direction:                     cssDirectionLTR,
+		MixBlendMode:                  blendNormal,
+		BackgroundBlendMode:           blendNormal,
+		Isolation:                     "auto",
+		MaskImage:                     "none",
+		MaskMode:                      "match-source",
+		MaskComposite:                 "add",
+		MaskPosition:                  "0% 0%",
+		MaskRepeat:                    "repeat",
+		MaskSize:                      "auto",
+		MaskOrigin:                    "border-box",
+		MaskClip:                      "border-box",
+		MaskType:                      "luminance",
+		Orphans:                       2,
+		Widows:                        2,
+		EmptyCells:                    "",
+		Transform:                     IdentityMatrix(),
+		TransformOrigin:               defaultTransformOrigin(),
+		Opacity:                       1,
+		FillOpacity:                   1,
+		StrokeOpacity:                 1,
 
 		// Re-added support properties (2026-09-12 demotions).
 		Contain:                    "none",

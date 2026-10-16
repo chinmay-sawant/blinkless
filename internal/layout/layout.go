@@ -1161,7 +1161,7 @@ func censusOps(ops []Op, width float64) (float64, bool) {
 
 	for idx := range ops {
 		switch ops[idx].Kind {
-		case OpFillRect, OpStrokeRect, OpImage:
+		case OpFillRect, OpStrokeRect, OpImage, OpPath:
 			if ext := ops[idx].X + ops[idx].W; ext > maxX {
 				maxX = ext
 			}

@@ -37,7 +37,7 @@ const fallbackViewportPx = 1024
 // Use the accessor methods (LinkURI, ImageBytes, ImageAlt, Transform,
 // ProjectiveTransformValue,
 // BlendModeName, Opacity, Outline, FontFeatures, TextLanguage, TextAutospace,
-// TextTransformValue, NoFakeBoldValue, PathValue, GlyphBasisValue) for the
+// TextTransformValue, NoFakeBoldValue, PathValue, CornerPathValue, GlyphBasisValue) for the
 // rare payload rather than the promoted fields: the payload sits behind an embedded pointer to an
 // unexported type, so a caller cannot build or inspect it, and every accessor
 // answers safely when it is absent. The plain fields (Kind, X, Y, W, H, R, G,
@@ -67,6 +67,32 @@ type DisplayPath = ilayout.DisplayPath
 
 // GlyphBasis describes the local direction and scale of a projected text run.
 type GlyphBasis = ilayout.GlyphBasis
+
+// CornerPath is the command list of one DisplayOpPath: the shaped outline
+// of a corner-shape box. Read it with CornerPathValue.
+type CornerPath = ilayout.CornerPath
+
+// PathCmd is one command of a CornerPath: a verb with its control and end
+// points.
+type PathCmd = ilayout.PathCmd
+
+// PathVerb names one CornerPath command.
+type PathVerb = ilayout.PathVerb
+
+// Path command verbs. An alias does not inherit the constants, so they are
+// restated here next to the CornerPath alias.
+const (
+	// PathMoveTo starts a new contour at Pts[0].
+	PathMoveTo = ilayout.PathMoveTo
+	// PathLineTo draws a straight edge to Pts[0].
+	PathLineTo = ilayout.PathLineTo
+	// PathQuadTo draws a quadratic curve through control Pts[0] to Pts[1].
+	PathQuadTo = ilayout.PathQuadTo
+	// PathCubicTo draws a cubic curve through controls Pts[0], Pts[1] to Pts[2].
+	PathCubicTo = ilayout.PathCubicTo
+	// PathClose closes the current contour.
+	PathClose = ilayout.PathClose
+)
 
 // DisplayGroup is the CSS element compositing group an operation belongs to.
 type DisplayGroup = ilayout.BlendGroup
@@ -112,6 +138,10 @@ const (
 	// DisplayOpGridRun is one table row's collapsed border grid, carried as
 	// ordered segments in Grid. Replay the segments in order.
 	DisplayOpGridRun = ilayout.OpGridRun
+	// DisplayOpPath is one corner-shape path for a non-round box. Read the
+	// commands with CornerPathValue; the op bounds stay the border box.
+	// A round box never uses this kind: it keeps the fill and stroke radii.
+	DisplayOpPath = ilayout.OpPath
 )
 
 // Display is a retained display list plus the canvas it was laid out for.
