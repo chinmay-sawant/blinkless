@@ -710,6 +710,84 @@ func cornerShapeBCheckSingleShorthandCase(
 		testCase.testDecl, twin.testDecl, got)
 }
 
+// TestCornerShapeBCornerShapeExpansionMatchesChrome pins the corner-shape
+// 1-4 value expansion to Chrome 155: four values shape the top-left,
+// top-right, bottom-right, and bottom-left corners in that order; two values
+// set top-left and bottom-right then top-right and bottom-left; three values
+// set top-left, top-right and bottom-left, then bottom-right. Those are the
+// border-radius copy rules. Chrome 155.0.8059.84 resolves
+// corner-shape: scoop bevel notch squircle as scoop/bevel/notch/squircle on
+// TL/TR/BR/BL (captured 2026-10-17 with getComputedStyle).
+func TestCornerShapeBCornerShapeExpansionMatchesChrome(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		decl    string
+		control string
+		wantKs  [4]float64
+	}{
+		{
+			name: "four values in border-radius order",
+			decl: "corner-shape:bevel scoop notch squircle;",
+			control: "corner-top-left-shape:bevel;" +
+				"corner-top-right-shape:scoop;" +
+				"corner-bottom-right-shape:notch;" +
+				"corner-bottom-left-shape:squircle;",
+			wantKs: [4]float64{0, -1, math.Inf(-1), 2},
+		},
+		{
+			name: "three values copy right to left",
+			decl: "corner-shape:bevel scoop notch;",
+			control: "corner-top-left-shape:bevel;" +
+				"corner-top-right-shape:scoop;" +
+				"corner-bottom-right-shape:notch;" +
+				"corner-bottom-left-shape:scoop;",
+			wantKs: [4]float64{0, -1, math.Inf(-1), -1},
+		},
+		{
+			name: "two values set the diagonal pairs",
+			decl: "corner-shape:bevel scoop;",
+			control: "corner-top-left-shape:bevel;" +
+				"corner-top-right-shape:scoop;" +
+				"corner-bottom-right-shape:bevel;" +
+				"corner-bottom-left-shape:scoop;",
+			wantKs: [4]float64{0, -1, 0, -1},
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			res, got := cornerShapeBBoxPath(t, cornerShapeBDoc(testCase.decl), testCase.decl)
+
+			cornerShapeBAssertKs(t, cornerShapeBBoxStyle(t, res), testCase.wantKs, testCase.decl)
+			cornerShapeBRequireEqualPath(t, cornerShapeBDoc(testCase.control), testCase.decl, testCase.control, got)
+		})
+	}
+}
+
+// TestCornerShapeBCornerShorthandShapeExpansion runs the same expansion
+// through the corner shorthand's shape piece on a radiusless box.
+func TestCornerShapeBCornerShorthandShapeExpansion(t *testing.T) {
+	t.Parallel()
+
+	const tag = "corner:16px bevel scoop"
+
+	res, got := cornerShapeBBoxPath(t, cornerShapeBDocBare(tag+";"), tag)
+
+	cornerShapeBAssertKs(t, cornerShapeBBoxStyle(t, res), [4]float64{0, -1, 0, -1}, tag)
+
+	control := "border-radius:16px;" +
+		"corner-top-left-shape:bevel;" +
+		"corner-top-right-shape:scoop;" +
+		"corner-bottom-right-shape:bevel;" +
+		"corner-bottom-left-shape:scoop;"
+
+	cornerShapeBRequireEqualPath(t, cornerShapeBDocBare(control), tag, control, got)
+}
+
 // TestCornerShapeBBadTokenKeepsBevel is the invalid-value rule (checklist
 // Phase 1): invalid values leave the previous declaration, so a bad shape
 // token after a valid bevel must not replace it. Both the single longhand

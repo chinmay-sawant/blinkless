@@ -88,7 +88,7 @@ One value sets both corners. Two values follow CSS Borders 4 section 3.8.1: phys
 
 ### Four-corner shape shorthand
 
-- [x] `corner-shape`. Catalog `<'corner-top-left-shape'>{1,4}`. The fetched draft assigns the four values to the top, right, bottom, and left sides. A missing left copies right, a missing bottom copies top, and a missing right copies top (CSS Borders 4 section 3.8.2). That is not the `border-radius` corner order. One value sets all four corners. A side value sets both corners on that side. When two sides name the same corner, the side later in top, right, bottom, left order wins. The test records that tie-break, because the fetched paragraph does not.
+- [x] `corner-shape`. Catalog `<'corner-top-left-shape'>{1,4}`. The four values shape the top-left, top-right, bottom-right, and bottom-left corners in that order, the border-radius path order: a missing bottom copies top, a missing right copies top, and a missing left copies right (CSS Borders 4 section 3.8.2). Chrome 155 resolves `corner-shape: scoop bevel notch squircle` as scoop/bevel/notch/squircle on TL/TR/BR/BL and applies the same copy rules (captured 2026-10-17 from Chrome 155.0.8059.84 with `getComputedStyle`); `TestCornerShapeBCornerShapeExpansionMatchesChrome` pins the mapping and the longhand equivalence. An earlier pass recorded a side-order tie-break here; that reading was wrong and was corrected.
 
 ### Shorthands that also set a radius
 

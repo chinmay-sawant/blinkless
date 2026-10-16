@@ -8,11 +8,15 @@ import (
 // `corner-shape` and `corner`.
 //
 // `corner-shape` takes one to four <corner-shape-value> tokens. The four
-// values assign to the top, right, bottom, and left SIDES, not to corners
-// in border-radius order (CSS Borders 4 section 3.8.2). A missing left
-// copies right, a missing bottom copies top, and a missing right copies
-// top. One value sets all four corners. A side value sets both corners on
-// that side.
+// values shape the top-left, top-right, bottom-right, and bottom-left
+// corners in that order, and the missing-value copy rules match border-radius:
+// a missing bottom copies top, a missing right copies top, and a missing left
+// copies right. Chrome 155 resolves `corner-shape: scoop bevel notch squircle`
+// as top-left scoop, top-right bevel, bottom-right notch, bottom-left
+// squircle, which is this expansion (the side language in css-borders-4
+// section 3.8.2 names each side's value at the corner where the side starts:
+// top at top-left, right at top-right, bottom at bottom-right, left at
+// bottom-left).
 //
 // `corner` takes a radius piece, a shape piece, or both in any order
 // (<'border-radius'> || <'corner-shape'>). It sets all four radii and all
@@ -25,8 +29,8 @@ import (
 // maps round to 1, squircle to 2, square to +Inf, bevel to 0, scoop to -1,
 // notch to -Inf, and superellipse() to its number (infinity/-infinity at
 // the ends). SetCornerShapeByName writes one corner's K plus its keyword.
-// This file only expands sides and splits the `corner` pieces, then calls
-// those.
+// This file only expands the value list and splits the `corner` pieces,
+// then calls those.
 //
 // An invalid value owns its property name but stores nothing, so the
 // previous declaration stays. Validation runs before any write: a bad
@@ -44,9 +48,9 @@ func applyCornerShapeShorthand(style *ResolvedStyle, prop, value string, fsize f
 	return true
 }
 
-// cornerShapeSide is one parsed side value: the superellipse K plus the
+// cornerShapeValue is one parsed shape value: the superellipse K plus the
 // canonical keyword for the declared-form tests.
-type cornerShapeSide struct {
+type cornerShapeValue struct {
 	k       float64
 	keyword string
 }
@@ -54,49 +58,29 @@ type cornerShapeSide struct {
 // applyCornerShapeSides stores one `corner-shape` declaration. Anything
 // but one to four valid shape tokens stores nothing.
 func applyCornerShapeSides(style *ResolvedStyle, value string) {
-	sides, ok := expandCornerShapeSides(value)
+	corners, ok := expandCornerShapeSides(value)
 	if !ok {
 		return
 	}
 
-	writeCornerShapeSides(style, sides)
+	writeCornerShapeCorners(style, corners)
 }
 
-// writeCornerShapeSides assigns the four side values to corners in side
-// order top, right, bottom, left. Each side writes both of its corners:
-// top writes top-left and top-right, right writes top-right and
-// bottom-right, bottom writes bottom-right and bottom-left, left writes
-// bottom-left and top-left. A corner named by two sides keeps the side
-// later in top, right, bottom, left order, so the final corners read
-// top-left = left, top-right = right, bottom-right = bottom,
-// bottom-left = left. That is not the border-radius corner order, where
-// four values land directly on top-left, top-right, bottom-right,
-// bottom-left. The checklist records this tie-break because the draft
-// paragraph does not spell it out.
-func writeCornerShapeSides(style *ResolvedStyle, sides [cornerShapeQuadValues]cornerShapeSide) {
-	top, right, bottom, left := sides[0], sides[1], sides[2], sides[3]
-
-	SetCornerShapeByName(style, cornerNameTopLeft, top.k, top.keyword)
-	SetCornerShapeByName(style, cornerNameTopRight, top.k, top.keyword)
-
-	SetCornerShapeByName(style, cornerNameTopRight, right.k, right.keyword)
-	SetCornerShapeByName(style, cornerNameBottomRight, right.k, right.keyword)
-
-	SetCornerShapeByName(style, cornerNameBottomRight, bottom.k, bottom.keyword)
-	SetCornerShapeByName(style, cornerNameBottomLeft, bottom.k, bottom.keyword)
-
-	SetCornerShapeByName(style, cornerNameBottomLeft, left.k, left.keyword)
-	SetCornerShapeByName(style, cornerNameTopLeft, left.k, left.keyword)
+// writeCornerShapeCorners assigns the four corner values in top-left,
+// top-right, bottom-right, bottom-left order.
+func writeCornerShapeCorners(style *ResolvedStyle, corners [cornerShapeQuadValues]cornerShapeValue) {
+	SetCornerShapeByName(style, cornerNameTopLeft, corners[0].k, corners[0].keyword)
+	SetCornerShapeByName(style, cornerNameTopRight, corners[1].k, corners[1].keyword)
+	SetCornerShapeByName(style, cornerNameBottomRight, corners[2].k, corners[2].keyword)
+	SetCornerShapeByName(style, cornerNameBottomLeft, corners[3].k, corners[3].keyword)
 }
 
 // expandCornerShapeSides parses one `corner-shape` value into its four
-// side values in top, right, bottom, left order. Missing sides copy per
-// the draft: one value sets all four, two values set top then right with
-// bottom copying top and left copying right, three values set top, right,
-// bottom with left copying right. Tokens split paren-aware (nextSpaceToken
-// keeps superellipse() with inner spaces whole). ok is false for zero
-// tokens, more than four, or any token that is not a shape value.
-func expandCornerShapeSides(value string) ([cornerShapeQuadValues]cornerShapeSide, bool) {
+// corner values in top-left, top-right, bottom-right, bottom-left order.
+// Tokens split paren-aware (nextSpaceToken keeps superellipse() with inner
+// spaces whole). ok is false for zero tokens, more than four, or any token
+// that is not a shape value.
+func expandCornerShapeSides(value string) ([cornerShapeQuadValues]cornerShapeValue, bool) {
 	var toks []string
 
 	for start := 0; ; {
@@ -109,21 +93,23 @@ func expandCornerShapeSides(value string) ([cornerShapeQuadValues]cornerShapeSid
 		start = next
 	}
 
-	return expandCornerShapeSideTokens(toks)
+	return expandCornerShapeTokens(toks)
 }
 
-// expandCornerShapeSideTokens parses already-split shape tokens into the
-// four side values. One token sets all four sides; otherwise the missing
-// sides copy per expandCornerShapeSides. ok is false unless one to four
-// tokens are present and every token parses as a shape value.
-func expandCornerShapeSideTokens(toks []string) ([cornerShapeQuadValues]cornerShapeSide, bool) {
-	var empty [cornerShapeQuadValues]cornerShapeSide
+// expandCornerShapeTokens parses already-split shape tokens into the four
+// corner values with the border-radius copy rules: one value sets all four
+// corners, two values set top-left and bottom-right then top-right and
+// bottom-left, three values set top-left, top-right and bottom-left, then
+// bottom-right. ok is false unless one to four tokens are present and every
+// token parses as a shape value.
+func expandCornerShapeTokens(toks []string) ([cornerShapeQuadValues]cornerShapeValue, bool) {
+	var empty [cornerShapeQuadValues]cornerShapeValue
 
 	if len(toks) == 0 || len(toks) > cornerShapeQuadValues {
 		return empty, false
 	}
 
-	parsed := make([]cornerShapeSide, 0, len(toks))
+	parsed := make([]cornerShapeValue, 0, len(toks))
 
 	for _, token := range toks {
 		kValue, keyword, valid := parseCornerShapeValue(token)
@@ -131,24 +117,25 @@ func expandCornerShapeSideTokens(toks []string) ([cornerShapeQuadValues]cornerSh
 			return empty, false
 		}
 
-		parsed = append(parsed, cornerShapeSide{k: kValue, keyword: keyword})
+		parsed = append(parsed, cornerShapeValue{k: kValue, keyword: keyword})
 	}
 
-	sides := [cornerShapeQuadValues]cornerShapeSide{parsed[0], parsed[0], parsed[0], parsed[0]}
+	corners := [cornerShapeQuadValues]cornerShapeValue{parsed[0], parsed[0], parsed[0], parsed[0]}
 
 	if len(parsed) > 1 {
-		sides[1], sides[3] = parsed[1], parsed[1]
+		corners[cornerShapePairValues-1] = parsed[1]
+		corners[cornerShapeQuadValues-1] = parsed[1]
 	}
 
 	if len(parsed) > cornerShapePairValues {
-		sides[cornerShapePairValues] = parsed[cornerShapePairValues]
+		corners[cornerShapeTripleValues-1] = parsed[cornerShapePairValues]
 	}
 
 	if len(parsed) > cornerShapeTripleValues {
-		sides[cornerShapeTripleValues] = parsed[cornerShapeTripleValues]
+		corners[cornerShapeQuadValues-1] = parsed[cornerShapeTripleValues]
 	}
 
-	return sides, true
+	return corners, true
 }
 
 // applyCornerTopLevel stores one `corner` declaration: a radius piece, a
@@ -162,7 +149,7 @@ func applyCornerTopLevel(style *ResolvedStyle, value string, fsize float64) {
 		return
 	}
 
-	sides, shapesOK := expandCornerShapeSideTokens(shapeToks)
+	corners, shapesOK := expandCornerShapeTokens(shapeToks)
 	if len(shapeToks) > 0 && !shapesOK {
 		return
 	}
@@ -180,7 +167,7 @@ func applyCornerTopLevel(style *ResolvedStyle, value string, fsize float64) {
 	if len(shapeToks) == 0 {
 		resetCornerShapeRound(style)
 	} else {
-		writeCornerShapeSides(style, sides)
+		writeCornerShapeCorners(style, corners)
 	}
 }
 
@@ -241,7 +228,7 @@ func cornerTopLevelValueAccepted(value string) bool {
 		return false
 	}
 
-	if _, shapesOK := expandCornerShapeSideTokens(shapeToks); len(shapeToks) > 0 && !shapesOK {
+	if _, shapesOK := expandCornerShapeTokens(shapeToks); len(shapeToks) > 0 && !shapesOK {
 		return false
 	}
 
