@@ -126,6 +126,6 @@ all match within 1.5pt (most under 0.2pt):
 | Extension | Files | Insertions | Deletions |
 | --- | ---: | ---: | ---: |
 | `.go` | 17 | 3542 | 27 |
-| `.json` | 1 | 141 | 53 |
-| `.md` | 5 | 234 | 51 |
-| **Total** | **23** | **3917** | **131** |
+| `.json` | 1 | 140 | 52 |
+| `.md` | 5 | 241 | 58 |
+| **Total** | **23** | **3923** | **137** |
