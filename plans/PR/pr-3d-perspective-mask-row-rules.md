@@ -1,6 +1,6 @@
 ## Summary
 
-This pull request implements four WebKit 3D prefix aliases and multi-axis 3D transform functions, adds support for linear gradients and image sets in CSS masks, and introduces row-rule styling and painting for grid and flex layouts. It also updates the CSS catalog, compatibility tables, deferred notes, and v0.0.3 phase ledgers to record passed test gates.
+This pull request implements four WebKit 3D prefix aliases and multi-axis 3D transform functions, adds support for linear gradients and image sets in CSS masks, and introduces row-rule styling and painting for grid and flex layouts. It also updates the CSS catalog, compatibility tables, deferred notes, and v0.0.3 phase ledgers to record passed test gates. Follow-up commits on the branch finalize projected operations into display geometry, preserve hidden backfaces in print media, and compose preserve-3d chains in world space.
 
 ---
 
@@ -35,6 +35,15 @@ Earlier versions deferred several CSS transform, masking, and rule features or l
 - Connected container painting for flex wrapped rows and grid rows in `internal/layout/flex.go` and `internal/layout/grid.go`.
 - Added tests in `internal/layout/css_behavior_row_rule_test.go` and `internal/layout/style_gap_rules_test.go`.
 
+### Follow-up fixes (display geometry, mask raster, print backfaces)
+
+- Finalized projected operations into display geometry (`9882877`). `FinalizeDisplayOps` runs at the end of `DisplayListOptions`: rectangles and links become 4-point paths, lines and grid lines become projected segments, and text gets a projected anchor plus a local `GlyphBasis`. Each op's own transform and projective matrix are cleared so painters do not apply the projection twice. New accessors `PathValue`, `GlyphBasisValue`, and `ProjectiveTransformValue` (`internal/layout/op_read.go`) expose the result. An image op that still carries a projection is rejected with a static error.
+- Fixed mask gradient stop positions (`internal/layout/mask_gradient.go`, `9882877`). Lengths such as `black 6px, transparent 12px` in linear and repeating-linear gradients are rewritten as percentages of the gradient-line length before rasterization, so stops are no longer read as raw `t` values. The rasterized PNG bytes travel on the mask group (`MaskDescriptor.Raster`, `internal/layout/mask_paint.go`).
+- Corrected perspective math (`internal/layout/transform.go`, `internal/layout/transform_3d.go`, `9882877`). The vanishing point is taken relative to `transform-origin`, `baked3DForBox` returns the raw stored matrix with the origin baked by the caller, and a culled backface is deactivated (`Kind = OpKindNoop`) instead of left zero-sized.
+- Preserved hidden backfaces in print media (`7cc73fc`). The transform stamping path now carries the active media; `backface-visibility: hidden` still culls on screen but keeps hidden faces when the media is print, matching Chrome's print-to-PDF output (`internal/layout/transform.go`).
+- Composed preserve-3d chains in world space (`2d1a7c8`). New `internal/layout/transform_preserve.go` stamps an op range with the composed world transform: projective when a perspective distance applies, plain affine otherwise, with `OpImage` under a preserve chain baking a center-projected Jacobian. Chrome splices also call `shiftDescendantOpRanges` (`internal/layout/layout_chrome.go`) so descendant op ranges stay aligned after a shift.
+- Regression coverage: backface cull/visible/mirror tests, backface break tests, preserve-build divergence and flat-boundary tests, `TestTransformBoxViewBox*`, and gradient mask raster tests (`internal/layout/css_behavior_*_test.go`).
+
 ### Catalog, docs, and maintenance
 
 - Updated catalog entries in `testdata/css/catalog/properties.json`.
@@ -48,10 +57,10 @@ Earlier versions deferred several CSS transform, masking, and rule features or l
 
 | Area | Impact |
 |------|--------|
-| **Performance** | Gap rule painting and gradient mask rasterization run only when declared. Default layout paths remain unchanged. |
+| **Performance** | Gap rule painting and gradient mask rasterization run only when declared. Display finalization adds one linear pass over the op list per run; other default paths are unchanged. |
 | **Memory** | Small additions to style structures for row rule properties and mask sources. |
-| **Behavior / correctness** | WebKit 3D aliases now map to unprefixed properties. Gradients and image sets now work in `mask-image`. Row rules paint between flex/grid rows. |
-| **API / CLI** | Purely internal layout and style additions. Public API remains unchanged. |
+| **Behavior / correctness** | WebKit 3D aliases now map to unprefixed properties. Gradients and image sets now work in `mask-image`. Row rules paint between flex/grid rows. 3D perspective is baked into display geometry, and hidden backfaces are preserved in print media. |
+| **API / CLI** | Additive: the public `layout` package gains display-list payload accessors (`PathValue`, `GlyphBasisValue`, `ProjectiveTransformValue`) and result types (`DisplayPoint`, `DisplayPath`, `GlyphBasis`). No breaking changes. |
 | **Dependencies** | No new dependencies. |
 | **Binary size / build time** | Modest addition of layout code and tests. File size limit enforced. |
 
@@ -67,9 +76,9 @@ Earlier versions deferred several CSS transform, masking, and rule features or l
 
 ## Test plan
 
-- [x] `make test-quick` exited 0 (all unit and integration suites pass)
+- [x] `make test-quick` exited 0 (unit and integration suites pass; the CI test step is green at `2d1a7c8`)
 - [x] `make golden` exited 0 (`TestDisplay` in `layout/` passes)
-- [x] `make lint` exited 0 (golangci-lint v1.64.8 and file size checks pass)
+- [x] `make lint` exited 0 (golangci-lint v1.64.8 and file size checks pass; the `2d1a7c8` findings are cleared in `75f7937`)
 - [x] `make claim-scan` exited 0 (no forbidden claims in documentation)
 
 ### Commands
@@ -101,7 +110,7 @@ ok  	github.com/chinmay-sawant/blinkless/layout	0.018s
 ## PR metadata checklist (author)
 
 - [x] Self-assigned (`--assignee @me`)
-- [x] Labels applied (`enhancement`)
+- [x] Labels applied (`documentation`, `enhancement`)
 - [x] Related issues filled. There is no ticket ID.
 - [x] Filled body committed under `plans/PR/pr-3d-perspective-mask-row-rules.md`
 
@@ -110,6 +119,9 @@ ok  	github.com/chinmay-sawant/blinkless/layout	0.018s
 ## Follow-ups (out of scope)
 
 - Corner-shape, speech, anchors, and scroll timeline checklists in `plans/v0.0.3/` remain open for future work.
+- Reconcile stale `documentation/compatibility-matrix.md` rows that still contradict the implemented 3D path: the four `-webkit-` aliases are listed as "print-noop (3D)" (lines 1097-1100), and two notes still call 3D/perspective a permanent non-goal (lines 923 and 1127), while `documentation/deferred.md` records them as implemented.
+- Refresh `plans/v0.0.3/3d-perspective/` and `plans/v0.0.3/mask/` checklist rows that describe the pre-fix backface and mask paths touched by `9882877`, `7cc73fc`, and `2d1a7c8`.
+- Fix the stale PDF-era comment in `internal/layout/blend_group.go:46` ("The PDF adapter uses these bytes...") since this tree ships no PDF writer.
 
 ---
 
@@ -130,7 +142,7 @@ ok  	github.com/chinmay-sawant/blinkless/layout	0.018s
 
 | Extension | Files | Insertions | Deletions |
 | --- | ---: | ---: | ---: |
-| `.go` | 23 | 2760 | 127 |
+| `.go` | 37 | 3702 | 187 |
 | `.json` | 1 | 685 | 339 |
-| `.md` | 19 | 3223 | 74 |
-| **Total** | **43** | **6668** | **540** |
+| `.md` | 19 | 3235 | 74 |
+| **Total** | **57** | **7622** | **600** |
