@@ -389,6 +389,106 @@ func TestColumnRulePaints(t *testing.T) {
 	}
 }
 
+// TestColumnRuleCapInsetsSpanTheLine is column-rule-inset-cap: the multicol
+// rule spans the line height inset by cap-start at the top and cap-end at
+// the bottom. Percent insets are no-ops at caps, junction insets and
+// overlap-join do nothing because a multicol line has no junctions, and an
+// inset pair that collapses the segment paints no rule. Reference: Chrome
+// 155.0.8059.84 on a 240x120 content box, 2 columns, 20px gap: cap 20px
+// paints y 20..100, cap-start-only 20px paints y 20..120, cap 25% and the
+// junction insets paint y 0..120.
+func TestColumnRuleCapInsetsSpanTheLine(t *testing.T) {
+	t.Parallel()
+
+	base := multicolRuleOp(t, "")
+	if base == nil {
+		t.Fatal("baseline column rule missing")
+	}
+
+	if !near(base.H, pxToPt(120)) {
+		t.Fatalf("baseline rule height = %.2fpt (%.2fpx), want the 120px column-height line",
+			base.H, base.H/ptPerCSSPx)
+	}
+
+	capInset := multicolRuleOp(t, "column-rule-inset-cap:20px;")
+	if capInset == nil {
+		t.Fatal("column-rule-inset-cap:20px removed the rule")
+	}
+
+	if !near(capInset.Y, base.Y+pxToPt(20)) || !near(capInset.H, pxToPt(80)) {
+		t.Errorf("cap 20px rule y/h = %.2f/%.2f, want y=%.2f h=%.2f",
+			capInset.Y, capInset.H, base.Y+pxToPt(20), pxToPt(80))
+	}
+
+	capStart := multicolRuleOp(t, "column-rule-inset-cap-start:20px;")
+	if capStart == nil {
+		t.Fatal("column-rule-inset-cap-start:20px removed the rule")
+	}
+
+	if !near(capStart.Y, base.Y+pxToPt(20)) || !near(capStart.H, pxToPt(100)) {
+		t.Errorf("cap-start 20px rule y/h = %.2f/%.2f, want y=%.2f h=%.2f",
+			capStart.Y, capStart.H, base.Y+pxToPt(20), pxToPt(100))
+	}
+
+	capEnd := multicolRuleOp(t, "column-rule-inset-cap-end:20px;")
+	if capEnd == nil {
+		t.Fatal("column-rule-inset-cap-end:20px removed the rule")
+	}
+
+	if !near(capEnd.Y, base.Y) || !near(capEnd.H, pxToPt(100)) {
+		t.Errorf("cap-end 20px rule y/h = %.2f/%.2f, want y=%.2f h=%.2f",
+			capEnd.Y, capEnd.H, base.Y, pxToPt(100))
+	}
+
+	for _, noOp := range []string{
+		"column-rule-inset-cap:25%;",
+		"column-rule-inset-cap:50%;",
+		"column-rule-inset-junction:30px;",
+		"column-rule-inset-junction:overlap-join;",
+	} {
+		rule := multicolRuleOp(t, noOp)
+		if rule == nil || !near(rule.Y, base.Y) || !near(rule.H, base.H) {
+			t.Errorf("%s changed the rule geometry, want y=%.2f h=%.2f", noOp, base.Y, base.H)
+		}
+	}
+
+	if collapsed := multicolRuleOp(t, "column-rule-inset-cap:1000px;"); collapsed != nil {
+		t.Errorf("cap 1000px painted a rule y=%.2f h=%.2f, want none", collapsed.Y, collapsed.H)
+	}
+}
+
+// multicolRuleOp lays out the fixed multicol page and returns the blue
+// vertical column-rule op, or nil when none painted. The same content feeds
+// every inset variant, so the compared geometry differs only by the inset.
+// column-height:120px pins the line span the way the Chrome probe's 120px
+// container did.
+func multicolRuleOp(t *testing.T, insetCSS string) *Op {
+	t.Helper()
+
+	res := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
+		`<div style="width:240px;column-count:2;column-gap:20px;column-height:120px;`+
+		`column-rule:4px solid #00f;`+insetCSS+`font-size:8px">`+
+		`Multi-column sample text repeated. Multi-column sample text repeated. `+
+		`Multi-column sample text repeated.</div></body></html>`)
+
+	var found *Op
+
+	for _, op := range behaviorColumnsRuleOps(res) {
+		if !near(op.R, 0) || !near(op.G, 0) || !near(op.B, 1) {
+			continue
+		}
+
+		if found != nil {
+			t.Fatal("more than one blue column rule painted")
+		}
+
+		rule := op
+		found = &rule
+	}
+
+	return found
+}
+
 func TestMulticolAnonymousTextPaints(t *testing.T) {
 	t.Parallel()
 

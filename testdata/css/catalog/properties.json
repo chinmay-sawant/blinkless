@@ -11,14 +11,14 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 412,
-      "partial": 27,
-      "unsupported": 338,
+      "implemented": 446,
+      "partial": 3,
+      "unsupported": 328,
       "intentionally ignored": 8
     },
     "aliases": 38,
-    "engine_registered": 450,
-    "upstream_only": 335,
+    "engine_registered": 460,
+    "upstream_only": 325,
     "upstream": {
       "inventory": "webref-ed-css",
       "revision": "1f2ec8f74a80c14066b4c7d6822cee59f69fa03b",
@@ -277,7 +277,7 @@
           "name": "TestBehaviorMaskVendorAliasesReachMaskGroup"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
@@ -374,7 +374,7 @@
       "name": "-webkit-mask-clip",
       "aliases": [],
       "values": [
-        "border-box | padding-box | content-box | no-clip"
+        "border-box | padding-box | content-box"
       ],
       "limitations": [
         "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
@@ -396,7 +396,7 @@
           "name": "TestBehaviorMaskVendorAliasesReachMaskGroup"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
@@ -406,7 +406,7 @@
         "source-over | source-out | source-in | xor"
       ],
       "limitations": [
-        "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
+        "The engine accepts source-over, source-in, source-out, and xor only; Chrome 155 also accepts source-atop, destination-over, destination-in, destination-out, destination-atop, clear, and copy. Mask pixel replay stays a host contract."
       ],
       "source": [
         "internal/layout/style_cascade.go",
@@ -462,7 +462,7 @@
           "name": "TestBehaviorMaskImageSetPicks1x"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
@@ -491,14 +491,14 @@
           "name": "TestBehaviorMaskVendorAliasesReachMaskGroup"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
       "name": "-webkit-mask-position",
       "aliases": [],
       "values": [
-        "CSS position keywords, lengths, and percentages accepted by parseObjectPosition"
+        "CSS position keywords, lengths, and percentages, plus 4-value edge-offset positions such as left 10px top 20px"
       ],
       "limitations": [
         "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. A consumer must resolve positions against the mask positioning area."
@@ -520,14 +520,14 @@
           "name": "TestBehaviorMaskVendorAliasesReachMaskGroup"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
       "name": "-webkit-mask-repeat",
       "aliases": [],
       "values": [
-        "repeat | repeat-x | repeat-y | no-repeat"
+        "repeat | repeat-x | repeat-y | no-repeat | space | round | one or two of repeat, space, round, no-repeat"
       ],
       "limitations": [
         "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
@@ -549,7 +549,7 @@
           "name": "TestBehaviorMaskVendorAliasesReachMaskGroup"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
@@ -578,7 +578,7 @@
           "name": "TestBehaviorMaskVendorAliasesReachMaskGroup"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
@@ -5048,16 +5048,26 @@
     {
       "name": "column-rule-break",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | normal | intersection"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_multicol_props.go",
+        "internal/layout/gap_rules.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyColumnRuleProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_gap_break_test.go",
+          "name": "TestBehaviorColumnRuleBreakIntersectionSplitsAtRowGaps"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | normal | intersection"
     },
@@ -5087,144 +5097,239 @@
     {
       "name": "column-rule-inset",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'column-rule-inset-cap'> [ / <'column-rule-inset-junction'> ]?"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_multicol_props.go",
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyColumnRuleProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_gap_break_test.go",
+          "name": "TestBehaviorColumnRuleJunctionAndCapInsets"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'column-rule-inset-cap'> [ / <'column-rule-inset-junction'> ]?"
     },
     {
       "name": "column-rule-inset-cap",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<inset-value> <inset-value>?"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_multicol_props.go",
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyColumnRuleProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_gap_break_test.go",
+          "name": "TestBehaviorColumnRuleJunctionAndCapInsets"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<inset-value> <inset-value>?"
     },
     {
       "name": "column-rule-inset-cap-end",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<inset-value>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_multicol_props.go",
+        "internal/layout/gap_rules.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyColumnRuleProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_gap_break_test.go",
+          "name": "TestBehaviorColumnRuleJunctionAndCapInsets"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<inset-value>"
     },
     {
       "name": "column-rule-inset-cap-start",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<inset-value>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_multicol_props.go",
+        "internal/layout/gap_rules.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyColumnRuleProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_gap_break_test.go",
+          "name": "TestBehaviorColumnRuleJunctionAndCapInsets"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<inset-value>"
     },
     {
       "name": "column-rule-inset-end",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<inset-value>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_multicol_props.go",
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyColumnRuleProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_gap_break_test.go",
+          "name": "TestBehaviorColumnRuleJunctionAndCapInsets"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<inset-value>"
     },
     {
       "name": "column-rule-inset-junction",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<inset-value> <inset-value>?"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_multicol_props.go",
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyColumnRuleProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/style_gap_rules_test.go",
+          "name": "TestRowRuleBadTokenKeepsEarlier"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<inset-value> <inset-value>?"
     },
     {
       "name": "column-rule-inset-junction-end",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<inset-value>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_multicol_props.go",
+        "internal/layout/gap_rules.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyColumnRuleProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/style_gap_rules_test.go",
+          "name": "TestRowRuleBadTokenKeepsEarlier"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<inset-value>"
     },
     {
       "name": "column-rule-inset-junction-start",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<inset-value>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_multicol_props.go",
+        "internal/layout/gap_rules.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyColumnRuleProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/style_gap_rules_test.go",
+          "name": "TestRowRuleBadTokenKeepsEarlier"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<inset-value>"
     },
     {
       "name": "column-rule-inset-start",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<inset-value>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_multicol_props.go",
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyColumnRuleProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_gap_break_test.go",
+          "name": "TestBehaviorColumnRuleJunctionAndCapInsets"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<inset-value>"
     },
@@ -10368,7 +10473,7 @@
           "name": "TestMaskShorthandResolvesCustomPropertiesAndKeepsLonghandOrder"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<mask-layer>#"
     },
@@ -10488,7 +10593,7 @@
       "name": "mask-clip",
       "aliases": [],
       "values": [
-        "border-box | padding-box | content-box | no-clip"
+        "border-box | padding-box | content-box | fill-box | stroke-box | view-box | no-clip"
       ],
       "limitations": [
         "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
@@ -10510,7 +10615,7 @@
           "name": "TestBehaviorMaskLayerPropertiesAttachToAllElementPaint"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ <coord-box> | no-clip ]#"
     },
@@ -10544,7 +10649,7 @@
           "name": "TestBehaviorMaskVendorAliasesReachMaskGroup"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<compositing-operator>#"
     },
@@ -10586,7 +10691,7 @@
           "name": "TestBehaviorMaskImageSetPicks1x"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<mask-reference>#"
     },
@@ -10620,7 +10725,7 @@
           "name": "TestRasterizeMaskUsesSourceLuminanceForMatchSource"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<masking-mode>#"
     },
@@ -10628,7 +10733,7 @@
       "name": "mask-origin",
       "aliases": [],
       "values": [
-        "border-box | padding-box | content-box"
+        "border-box | padding-box | content-box | fill-box | stroke-box | view-box"
       ],
       "limitations": [
         "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
@@ -10650,7 +10755,7 @@
           "name": "TestBehaviorMaskLayerPropertiesAttachToAllElementPaint"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<coord-box>#"
     },
@@ -10658,7 +10763,7 @@
       "name": "mask-position",
       "aliases": [],
       "values": [
-        "CSS position keywords, lengths, and percentages accepted by parseObjectPosition"
+        "CSS position keywords, lengths, and percentages, plus 4-value edge-offset positions such as left 10px top 20px"
       ],
       "limitations": [
         "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. A consumer must resolve positions against the mask positioning area."
@@ -10680,7 +10785,7 @@
           "name": "TestBehaviorMaskLayerPropertiesAttachToAllElementPaint"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<position>#"
     },
@@ -10688,7 +10793,7 @@
       "name": "mask-repeat",
       "aliases": [],
       "values": [
-        "repeat | repeat-x | repeat-y | no-repeat"
+        "repeat | repeat-x | repeat-y | no-repeat | space | round | one or two of repeat, space, round, no-repeat"
       ],
       "limitations": [
         "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
@@ -10710,7 +10815,7 @@
           "name": "TestBehaviorMaskLayerPropertiesAttachToAllElementPaint"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<repeat-style>#"
     },
@@ -10740,7 +10845,7 @@
           "name": "TestBehaviorMaskLayerPropertiesAttachToAllElementPaint"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<bg-size>#"
     },
@@ -10751,7 +10856,7 @@
         "luminance | alpha"
       ],
       "limitations": [
-        "SVG mask-type is read from presentation attributes or inline style on an external SVG fragment. External stylesheet cascade and in-repo pixel replay are unsupported."
+        "mask-type cascades into ResolvedStyle.MaskType but no consumer reads it; the SVG rasterizer uses only the mask-type on the SVG source element. Pixel replay stays a host contract."
       ],
       "source": [
         "internal/layout/style_cascade.go",
@@ -13288,9 +13393,7 @@
       "values": [
         "none | normal | intersection"
       ],
-      "limitations": [
-        "none stores none and still paints the row line. intersection matches normal until a column line crosses the row line."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_gap_rules.go",
         "internal/layout/gap_rules.go",
@@ -13306,7 +13409,7 @@
           "name": "TestBehaviorRowRuleBreakNoneStillPaints"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | normal | intersection"
     },
@@ -13342,9 +13445,7 @@
       "values": [
         "<'column-rule-inset-cap'> [ / <'column-rule-inset-junction'> ]?"
       ],
-      "limitations": [
-        "Cap insets shorten the painted line. Junction insets are stored and not painted until a column rule crosses the row rule."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_gap_rules.go",
         "internal/layout/gap_rules.go",
@@ -13360,7 +13461,7 @@
           "name": "TestBehaviorRowRuleInsetCap"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'column-rule-inset-cap'> [ / <'column-rule-inset-junction'> ]?"
     },
@@ -13474,9 +13575,7 @@
       "values": [
         "<inset-value> <inset-value>?"
       ],
-      "limitations": [
-        "Stored. Not painted until a column rule crosses the row rule in the same grid."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_gap_rules.go",
         "internal/layout/gap_rules.go",
@@ -13492,7 +13591,7 @@
           "name": "TestRowRuleBadTokenKeepsEarlier"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<inset-value> <inset-value>?"
     },
@@ -13502,9 +13601,7 @@
       "values": [
         "<inset-value>"
       ],
-      "limitations": [
-        "Stored. Not painted until a column rule crosses the row rule in the same grid."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_gap_rules.go",
         "internal/layout/gap_rules.go",
@@ -13520,7 +13617,7 @@
           "name": "TestRowRuleBadTokenKeepsEarlier"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<inset-value>"
     },
@@ -13530,9 +13627,7 @@
       "values": [
         "<inset-value>"
       ],
-      "limitations": [
-        "Stored. Not painted until a column rule crosses the row rule in the same grid."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_gap_rules.go",
         "internal/layout/gap_rules.go",
@@ -13548,7 +13643,7 @@
           "name": "TestRowRuleBadTokenKeepsEarlier"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<inset-value>"
     },
@@ -13820,9 +13915,7 @@
       "values": [
         "<'column-rule-break'>"
       ],
-      "limitations": [
-        "Sets row-rule-break only. intersection matches normal until a column line crosses the row line."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_gap_rules.go",
         "internal/layout/gap_rules.go",
@@ -13838,7 +13931,7 @@
           "name": "TestBehaviorRowRuleBreakNoneStillPaints"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'column-rule-break'>"
     },
@@ -13874,9 +13967,7 @@
       "values": [
         "<'column-rule-inset'>"
       ],
-      "limitations": [
-        "Sets the row inset only. Junction insets are stored and not painted."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_gap_rules.go",
         "internal/layout/gap_rules.go",
@@ -13892,7 +13983,7 @@
           "name": "TestBehaviorRowRuleInsetCap"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'column-rule-inset'>"
     },
@@ -13954,9 +14045,7 @@
       "values": [
         "<'column-rule-inset-junction'>"
       ],
-      "limitations": [
-        "Sets the row junction insets only. Not painted until a column rule crosses the row rule."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/style_gap_rules.go",
         "internal/layout/gap_rules.go",
@@ -13972,7 +14061,7 @@
           "name": "TestRowRuleBadTokenKeepsEarlier"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'column-rule-inset-junction'>"
     },

@@ -144,6 +144,11 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.RowRuleInsetCapEnd == b.RowRuleInsetCapEnd &&
 		a.RowRuleInsetJunctionStart == b.RowRuleInsetJunctionStart &&
 		a.RowRuleInsetJunctionEnd == b.RowRuleInsetJunctionEnd &&
+		a.ColumnRuleBreak == b.ColumnRuleBreak &&
+		a.ColumnRuleInsetCapStart == b.ColumnRuleInsetCapStart &&
+		a.ColumnRuleInsetCapEnd == b.ColumnRuleInsetCapEnd &&
+		a.ColumnRuleInsetJunctionStart == b.ColumnRuleInsetJunctionStart &&
+		a.ColumnRuleInsetJunctionEnd == b.ColumnRuleInsetJunctionEnd &&
 		a.RuleOverlap == b.RuleOverlap &&
 		a.InitialLetterSize == b.InitialLetterSize &&
 		a.InitialLetterSink == b.InitialLetterSink &&
@@ -509,10 +514,15 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashStringSlice(h, s.RowRuleColors)
 	h = styleInternHashString(h, s.RowRuleBreak)
 	h = styleInternHashString(h, s.RowRuleVisibility)
-	h = styleInternHashFloat64(h, s.RowRuleInsetCapStart)
-	h = styleInternHashFloat64(h, s.RowRuleInsetCapEnd)
-	h = styleInternHashFloat64(h, s.RowRuleInsetJunctionStart)
-	h = styleInternHashFloat64(h, s.RowRuleInsetJunctionEnd)
+	h = styleInternHashRuleInset(h, s.RowRuleInsetCapStart)
+	h = styleInternHashRuleInset(h, s.RowRuleInsetCapEnd)
+	h = styleInternHashRuleInset(h, s.RowRuleInsetJunctionStart)
+	h = styleInternHashRuleInset(h, s.RowRuleInsetJunctionEnd)
+	h = styleInternHashString(h, s.ColumnRuleBreak)
+	h = styleInternHashRuleInset(h, s.ColumnRuleInsetCapStart)
+	h = styleInternHashRuleInset(h, s.ColumnRuleInsetCapEnd)
+	h = styleInternHashRuleInset(h, s.ColumnRuleInsetJunctionStart)
+	h = styleInternHashRuleInset(h, s.ColumnRuleInsetJunctionEnd)
 	h = styleInternHashString(h, s.RuleOverlap)
 	h = styleInternHashFloat64(h, s.InitialLetterSize)
 	h = styleInternHashInt(h, s.InitialLetterSink)
@@ -900,6 +910,11 @@ func styleInternFields() []string {
 		"RowRuleInsetCapEnd",
 		"RowRuleInsetJunctionStart",
 		"RowRuleInsetJunctionEnd",
+		"ColumnRuleBreak",
+		"ColumnRuleInsetCapStart",
+		"ColumnRuleInsetCapEnd",
+		"ColumnRuleInsetJunctionStart",
+		"ColumnRuleInsetJunctionEnd",
 		"RuleOverlap",
 		"InitialLetterSize",
 		"InitialLetterSink",
@@ -1232,6 +1247,14 @@ func styleInternHashBorder(h uint64, v border) uint64 {
 		h = styleInternHashFloat64(h, e)
 	}
 	h = styleInternHashBool(h, v.Transparent)
+
+	return h
+}
+
+func styleInternHashRuleInset(h uint64, v ruleInset) uint64 {
+	h = styleInternHashFloat64(h, v.Value)
+	h = styleInternHashBool(h, v.Percent)
+	h = styleInternHashBool(h, v.OverlapJoin)
 
 	return h
 }

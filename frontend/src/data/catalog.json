@@ -1,54 +1,74 @@
 {
   "source": "testdata/css/catalog/properties.json",
-  "updated": "2026-10-13",
+  "updated": "2026-10-16",
   "properties": [
     {
+      "name": "-webkit-backface-visibility",
+      "status": "implemented",
+      "values": "alias of the unprefixed property"
+    },
+    {
       "name": "-webkit-mask",
-      "status": "partial",
+      "status": "implemented",
       "values": "url(...) | none; supported mask mode, position, size, repeat, origin, clip, and composite values",
-      "note": "The shorthand expands its supported subset and resets mask-border values. CSS gradients, image-set, mask-border painting, and an in-repo pixel replay backend are unsupported."
+      "note": "The shorthand expands its supported subset and resets mask-border values. Gradient and image-set sources are accepted and stored on the mask group. Mask-border painting and an i..."
     },
     {
       "name": "-webkit-mask-clip",
-      "status": "partial",
-      "values": "border-box | padding-box | content-box | no-clip",
+      "status": "implemented",
+      "values": "border-box | padding-box | content-box",
       "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
     },
     {
       "name": "-webkit-mask-composite",
       "status": "partial",
       "values": "source-over | source-out | source-in | xor",
-      "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
+      "note": "The engine accepts source-over, source-in, source-out, and xor only; Chrome 155 also accepts source-atop, destination-over, destination-in, destination-out, destination-atop, cl..."
     },
     {
       "name": "-webkit-mask-image",
-      "status": "partial",
+      "status": "implemented",
       "values": "url(...) | none",
-      "note": "Only URL and none sources are accepted. CSS gradients and image-set sources are unsupported; pixels are not replayed inside this repository."
+      "note": "url(), none, CSS gradients, and image-set() are accepted. Gradient and chosen image-set bytes are stored on the mask group. Pixels are not replayed inside this repository."
     },
     {
       "name": "-webkit-mask-origin",
-      "status": "partial",
+      "status": "implemented",
       "values": "border-box | padding-box | content-box",
       "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
     },
     {
       "name": "-webkit-mask-position",
-      "status": "partial",
-      "values": "CSS position keywords, lengths, and percentages accepted by parseObjectPosition",
+      "status": "implemented",
+      "values": "CSS position keywords, lengths, and percentages, plus 4-value edge-offset positions such as left 10px top 20px",
       "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. A c..."
     },
     {
       "name": "-webkit-mask-repeat",
-      "status": "partial",
-      "values": "repeat | repeat-x | repeat-y | no-repeat",
+      "status": "implemented",
+      "values": "repeat | repeat-x | repeat-y | no-repeat | space | round | one or two of repeat, space, round, no-repeat",
       "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
     },
     {
       "name": "-webkit-mask-size",
-      "status": "partial",
+      "status": "implemented",
       "values": "auto | cover | contain | one or two non-negative CSS lengths or percentages",
       "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. A c..."
+    },
+    {
+      "name": "-webkit-perspective",
+      "status": "implemented",
+      "values": "alias of the unprefixed property"
+    },
+    {
+      "name": "-webkit-perspective-origin",
+      "status": "implemented",
+      "values": "alias of the unprefixed property"
+    },
+    {
+      "name": "-webkit-transform-style",
+      "status": "implemented",
+      "values": "alias of the unprefixed property"
     },
     {
       "name": "accent-color",
@@ -658,9 +678,69 @@
       "values": "\u003cgap-rule-list\u003e | \u003cgap-auto-rule-list\u003e"
     },
     {
+      "name": "column-rule-break",
+      "status": "implemented",
+      "values": "none | normal | intersection",
+      "note": "Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+    },
+    {
       "name": "column-rule-color",
       "status": "implemented",
       "values": "\u003cline-color-list\u003e | \u003cauto-line-color-list\u003e"
+    },
+    {
+      "name": "column-rule-inset",
+      "status": "implemented",
+      "values": "\u003c'column-rule-inset-cap'\u003e [ / \u003c'column-rule-inset-junction'\u003e ]?",
+      "note": "Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+    },
+    {
+      "name": "column-rule-inset-cap",
+      "status": "implemented",
+      "values": "\u003cinset-value\u003e \u003cinset-value\u003e?",
+      "note": "Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+    },
+    {
+      "name": "column-rule-inset-cap-end",
+      "status": "implemented",
+      "values": "\u003cinset-value\u003e",
+      "note": "Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+    },
+    {
+      "name": "column-rule-inset-cap-start",
+      "status": "implemented",
+      "values": "\u003cinset-value\u003e",
+      "note": "Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+    },
+    {
+      "name": "column-rule-inset-end",
+      "status": "implemented",
+      "values": "\u003cinset-value\u003e",
+      "note": "Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+    },
+    {
+      "name": "column-rule-inset-junction",
+      "status": "implemented",
+      "values": "\u003cinset-value\u003e \u003cinset-value\u003e?",
+      "note": "Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+    },
+    {
+      "name": "column-rule-inset-junction-end",
+      "status": "implemented",
+      "values": "\u003cinset-value\u003e",
+      "note": "Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+    },
+    {
+      "name": "column-rule-inset-junction-start",
+      "status": "implemented",
+      "values": "\u003cinset-value\u003e",
+      "note": "Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+    },
+    {
+      "name": "column-rule-inset-start",
+      "status": "implemented",
+      "values": "\u003cinset-value\u003e",
+      "note": "Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
     },
     {
       "name": "column-rule-style",
@@ -1305,55 +1385,55 @@
     },
     {
       "name": "mask",
-      "status": "partial",
+      "status": "implemented",
       "values": "url(...) | none; supported mask mode, position, size, repeat, origin, clip, and composite values",
-      "note": "The shorthand expands its supported subset and resets mask-border values. CSS gradients, image-set, mask-border painting, and an in-repo pixel replay backend are unsupported."
+      "note": "The shorthand expands its supported subset and resets mask-border values. Gradient and image-set sources are accepted and stored on the mask group. Mask-border painting and an i..."
     },
     {
       "name": "mask-clip",
-      "status": "partial",
-      "values": "border-box | padding-box | content-box | no-clip",
+      "status": "implemented",
+      "values": "border-box | padding-box | content-box | fill-box | stroke-box | view-box | no-clip",
       "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
     },
     {
       "name": "mask-composite",
-      "status": "partial",
+      "status": "implemented",
       "values": "add | subtract | intersect | exclude",
       "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
     },
     {
       "name": "mask-image",
-      "status": "partial",
+      "status": "implemented",
       "values": "url(...) | none",
-      "note": "Only URL and none sources are accepted. CSS gradients and image-set sources are unsupported; pixels are not replayed inside this repository."
+      "note": "url(), none, CSS gradients, and image-set() are accepted. Gradient and chosen image-set bytes are stored on the mask group. Pixels are not replayed inside this repository."
     },
     {
       "name": "mask-mode",
-      "status": "partial",
+      "status": "implemented",
       "values": "match-source | alpha | luminance",
       "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. SVG..."
     },
     {
       "name": "mask-origin",
-      "status": "partial",
-      "values": "border-box | padding-box | content-box",
+      "status": "implemented",
+      "values": "border-box | padding-box | content-box | fill-box | stroke-box | view-box",
       "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
     },
     {
       "name": "mask-position",
-      "status": "partial",
-      "values": "CSS position keywords, lengths, and percentages accepted by parseObjectPosition",
+      "status": "implemented",
+      "values": "CSS position keywords, lengths, and percentages, plus 4-value edge-offset positions such as left 10px top 20px",
       "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. A c..."
     },
     {
       "name": "mask-repeat",
-      "status": "partial",
-      "values": "repeat | repeat-x | repeat-y | no-repeat",
+      "status": "implemented",
+      "values": "repeat | repeat-x | repeat-y | no-repeat | space | round | one or two of repeat, space, round, no-repeat",
       "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page."
     },
     {
       "name": "mask-size",
-      "status": "partial",
+      "status": "implemented",
       "values": "auto | cover | contain | one or two non-negative CSS lengths or percentages",
       "note": "Values are emitted in element-group metadata for the display-list consumer. Blinkless has no pixel replay backend, so it does not apply these mask layers to a rendered page. A c..."
     },
@@ -1361,7 +1441,7 @@
       "name": "mask-type",
       "status": "partial",
       "values": "luminance | alpha",
-      "note": "SVG mask-type is read from presentation attributes or inline style on an external SVG fragment. External stylesheet cascade and in-repo pixel replay are unsupported."
+      "note": "mask-type cascades into ResolvedStyle.MaskType but no consumer reads it; the SVG rasterizer uses only the mask-type on the SVG source element. Pixel replay stays a host contract."
     },
     {
       "name": "max-block-size",
@@ -1664,6 +1744,81 @@
       "values": "normal | \u003clength-percentage [0,∞]\u003e | \u003cline-width\u003e"
     },
     {
+      "name": "row-rule",
+      "status": "implemented",
+      "values": "\u003cgap-rule-list\u003e | \u003cgap-auto-rule-list\u003e"
+    },
+    {
+      "name": "row-rule-break",
+      "status": "implemented",
+      "values": "none | normal | intersection"
+    },
+    {
+      "name": "row-rule-color",
+      "status": "implemented",
+      "values": "\u003cline-color-list\u003e | \u003cauto-line-color-list\u003e"
+    },
+    {
+      "name": "row-rule-inset",
+      "status": "implemented",
+      "values": "\u003c'column-rule-inset-cap'\u003e [ / \u003c'column-rule-inset-junction'\u003e ]?"
+    },
+    {
+      "name": "row-rule-inset-cap",
+      "status": "implemented",
+      "values": "\u003cinset-value\u003e \u003cinset-value\u003e?"
+    },
+    {
+      "name": "row-rule-inset-cap-end",
+      "status": "implemented",
+      "values": "\u003cinset-value\u003e"
+    },
+    {
+      "name": "row-rule-inset-cap-start",
+      "status": "implemented",
+      "values": "\u003cinset-value\u003e"
+    },
+    {
+      "name": "row-rule-inset-end",
+      "status": "implemented",
+      "values": "\u003cinset-value\u003e"
+    },
+    {
+      "name": "row-rule-inset-junction",
+      "status": "implemented",
+      "values": "\u003cinset-value\u003e \u003cinset-value\u003e?"
+    },
+    {
+      "name": "row-rule-inset-junction-end",
+      "status": "implemented",
+      "values": "\u003cinset-value\u003e"
+    },
+    {
+      "name": "row-rule-inset-junction-start",
+      "status": "implemented",
+      "values": "\u003cinset-value\u003e"
+    },
+    {
+      "name": "row-rule-inset-start",
+      "status": "implemented",
+      "values": "\u003cinset-value\u003e"
+    },
+    {
+      "name": "row-rule-style",
+      "status": "implemented",
+      "values": "\u003cline-style-list\u003e | \u003cauto-line-style-list\u003e"
+    },
+    {
+      "name": "row-rule-visibility-items",
+      "status": "implemented",
+      "values": "all | around | between | normal"
+    },
+    {
+      "name": "row-rule-width",
+      "status": "implemented",
+      "values": "\u003cline-width-list\u003e | \u003cauto-line-width-list\u003e"
+    },
+    {
       "name": "ruby-align",
       "status": "implemented",
       "values": "start | center | space-between | space-around"
@@ -1682,6 +1837,66 @@
       "name": "ruby-position",
       "status": "implemented",
       "values": "[ alternate || [ over | under ] ] | inter-character"
+    },
+    {
+      "name": "rule",
+      "status": "implemented",
+      "values": "\u003c'column-rule'\u003e"
+    },
+    {
+      "name": "rule-break",
+      "status": "implemented",
+      "values": "\u003c'column-rule-break'\u003e"
+    },
+    {
+      "name": "rule-color",
+      "status": "implemented",
+      "values": "\u003c'column-rule-color'\u003e"
+    },
+    {
+      "name": "rule-inset",
+      "status": "implemented",
+      "values": "\u003c'column-rule-inset'\u003e"
+    },
+    {
+      "name": "rule-inset-cap",
+      "status": "implemented",
+      "values": "\u003c'column-rule-inset-cap'\u003e"
+    },
+    {
+      "name": "rule-inset-end",
+      "status": "implemented",
+      "values": "\u003c'column-rule-inset-end'\u003e"
+    },
+    {
+      "name": "rule-inset-junction",
+      "status": "implemented",
+      "values": "\u003c'column-rule-inset-junction'\u003e"
+    },
+    {
+      "name": "rule-inset-start",
+      "status": "implemented",
+      "values": "\u003c'column-rule-inset-start'\u003e"
+    },
+    {
+      "name": "rule-overlap",
+      "status": "implemented",
+      "values": "row-over-column | column-over-row"
+    },
+    {
+      "name": "rule-style",
+      "status": "implemented",
+      "values": "\u003c'column-rule-style'\u003e"
+    },
+    {
+      "name": "rule-visibility-items",
+      "status": "implemented",
+      "values": "\u003c'column-rule-visibility-items'\u003e"
+    },
+    {
+      "name": "rule-width",
+      "status": "implemented",
+      "values": "\u003c'column-rule-width'\u003e"
     },
     {
       "name": "scale",
