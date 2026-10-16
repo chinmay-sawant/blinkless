@@ -550,6 +550,7 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty ResolvedStyle, po
 		return
 	}
 	// Immediate splice (sticky/fixed/transform).
+	shiftDescendantOpRanges(boxNode, insertAt, len(chrome))
 	tail := append([]Op(nil), e.ops[insertAt:]...)
 	e.ops = e.ops[:insertAt]
 	e.ops = append(e.ops, chrome...)
@@ -561,6 +562,26 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty ResolvedStyle, po
 		if e.deferredChrome[i].at >= insertAt {
 			e.deferredChrome[i].at += n
 		}
+	}
+}
+
+// shiftDescendantOpRanges keeps child ownership aligned when immediate chrome
+// is inserted before the box's content. Deferred chrome remaps ranges in
+// finalizeChrome; transformed boxes splice during layout so they need this
+// local shift before the parent range is finalized.
+func shiftDescendantOpRanges(boxNode *box, insertAt, count int) {
+	if boxNode == nil || count == 0 {
+		return
+	}
+
+	for _, child := range boxNode.children {
+		if child.opStart >= insertAt {
+			child.opStart += count
+		}
+		if child.opEnd >= insertAt {
+			child.opEnd += count
+		}
+		shiftDescendantOpRanges(child, insertAt, count)
 	}
 }
 

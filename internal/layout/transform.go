@@ -1281,7 +1281,7 @@ func stampBoxTransforms(boxNode *box, parentAccum Matrix2D, ops []Op, media stri
 	// view-box origin on a top-level box falls back to the border box.
 	var rootViewport svgViewport
 
-	stampBoxTransformsRec(boxNode, parentAccum, ops, covered, rootViewport, identity3D(), false, IdentityMatrix(), media)
+	stampBoxTransformsRec(boxNode, parentAccum, ops, covered, rootViewport, identity3D(), false, IdentityMatrix(), identity3D(), media)
 }
 
 // translate3D returns a 3D translation by tx, ty, tz points.
@@ -1491,7 +1491,7 @@ func markPreserveComposed(boxNode *box, has3D, chainActive, isPreserve bool) {
 
 func stampBoxTransformsRec(
 	boxNode *box, parentAccum Matrix2D, ops []Op, covered []bool, viewport svgViewport,
-	chain matrix3D, chainActive bool, chainBase Matrix2D, media string,
+	chain matrix3D, chainActive bool, chainBase Matrix2D, worldChain matrix3D, media string,
 ) {
 	if boxNode == nil {
 		return
@@ -1502,6 +1502,12 @@ func stampBoxTransformsRec(
 	isPreserve := isPreserveBox(boxNode)
 
 	markPreserveComposed(boxNode, has3D, chainActive, isPreserve)
+
+	preservePath := chainActive || isPreserve
+	boxWorldChain := worldChain
+	if preservePath {
+		boxWorldChain = boxWorldChain.mul(worldTransform3DForBox(boxNode, viewport))
+	}
 
 	accum2D := boxTransformAccum(boxNode, parentAccum, viewport)
 	accum, childChain, childBase, childActive := preserveStep(
@@ -1517,11 +1523,17 @@ func stampBoxTransformsRec(
 	// Preserve children keep the 2D-only parent: the chain carries deferred 3D.
 	childParent := accum
 	if childActive {
-		childParent = accum2D
+		childParent = parentAccum
+	} else if preservePath && chainActive {
+		childParent = IdentityMatrix()
+	}
+	childWorldChain := identity3D()
+	if childActive {
+		childWorldChain = boxWorldChain
 	}
 
 	for _, c := range boxNode.children {
-		stampBoxTransformsRec(c, childParent, ops, covered, childViewport, childChain, childActive, childBase, media)
+		stampBoxTransformsRec(c, childParent, ops, covered, childViewport, childChain, childActive, childBase, childWorldChain, media)
 	}
 
 	// Mark child-owned ranges, stamp exclusive ops, then clear for siblings.
@@ -1530,8 +1542,17 @@ func stampBoxTransformsRec(
 	}
 
 	chainFacing, useChainFacing := composedChainFacing(boxNode, chain, chainActive, has3D, viewport)
-	stampExclusiveTransformOps(boxNode, accum, ops, covered, chainFacing, useChainFacing, media)
-	stampProjectiveTransformOps(boxNode, parentAccum, ops, viewport)
+	if preservePath {
+		stampExclusiveTransformOps(boxNode, IdentityMatrix(), ops, covered, chainFacing, useChainFacing, media)
+		if chainActive && !isPreserve {
+			stampPreserveTransformRange(boxNode, boxWorldChain, parentAccum, ops, covered, false, viewport)
+		} else {
+			stampPreserveTransformRange(boxNode, boxWorldChain, parentAccum, ops, covered, true, viewport)
+		}
+	} else {
+		stampExclusiveTransformOps(boxNode, accum, ops, covered, chainFacing, useChainFacing, media)
+		stampProjectiveTransformOps(boxNode, parentAccum, ops, viewport)
+	}
 	stampExclusiveOpacityOps(boxNode, ops, covered)
 	stampCoveredOpacityOps(boxNode, ops, covered)
 
