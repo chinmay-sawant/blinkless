@@ -2,6 +2,7 @@ package layout
 
 import (
 	"math"
+	"slices"
 	"strings"
 )
 
@@ -331,64 +332,81 @@ func cornerShapePaintOuterPath(
 	}
 
 	points := make([]DisplayPoint, 0, cornerShapePaintPointCap)
-	// Top edge: TL end to TR start.
-	points = append(points, DisplayPoint{X: minX + radiusX[0], Y: minY})
-	points = append(points, DisplayPoint{X: minX + width - radiusX[1], Y: minY})
-	// TR corner: outer (minX+width, minY), inner offset (-rx, +ry).
-	points = appendCornerShapePaintPoints(points, minX+width, minY, -radiusX[1], radiusY[1], shapeK[1])
-	// Right edge down to BR start.
-	points = append(points, DisplayPoint{X: minX + width, Y: minY + height - radiusY[2]})
-	// BR corner: outer (minX+width, minY+height), inner offset (-rx, -ry).
-	points = appendCornerShapePaintPoints(points, minX+width, minY+height, -radiusX[2], -radiusY[2], shapeK[2])
-	// Bottom edge to BL start.
-	points = append(points, DisplayPoint{X: minX + radiusX[3], Y: minY + height})
-	// BL corner: outer (minX, minY+height), inner offset (+rx, -ry).
-	points = appendCornerShapePaintPoints(points, minX, minY+height, radiusX[3], -radiusY[3], shapeK[3])
-	// Left edge up to TL start.
-	points = append(points, DisplayPoint{X: minX, Y: minY + radiusY[0]})
-	// TL corner: outer (minX, minY), inner offset (+rx, +ry). Ends at start.
-	points = appendCornerShapePaintPoints(points, minX, minY, radiusX[0], radiusY[0], shapeK[0])
+	// Each corner emits its own edge endpoints, so the straight edges between
+	// corners are the segments between one corner's end and the next corner's
+	// start; the top edge is the closing segment. Top-right and bottom-left
+	// run horizontal edge to vertical edge; bottom-right and top-left run the
+	// other way. TL is emitted last, and the close returns to the first point
+	// (the top edge start).
+	points = appendCornerShapePaintPoints(points, minX+width, minY, -radiusX[1], radiusY[1], shapeK[1], false)
+	points = appendCornerShapePaintPoints(points, minX+width, minY+height, -radiusX[2], -radiusY[2], shapeK[2], true)
+	points = appendCornerShapePaintPoints(points, minX, minY+height, radiusX[3], -radiusY[3], shapeK[3], false)
+	points = appendCornerShapePaintPoints(points, minX, minY, radiusX[0], radiusY[0], shapeK[0], true)
 
 	return points
 }
 
-// appendCornerShapePaintPoints appends one corner's curve from its first
-// edge point (assumed already emitted) to its second edge point. outerX,
-// outerY is the outer box corner and deltaX, deltaY is the signed inner
-// offset of the curve's inner corner, so the two edge points are
-// (outerX, outerY+deltaY) and (outerX+deltaX, outerY).
+// appendCornerShapePaintPoints appends one corner's outline from its start
+// edge point to its end edge point, both emitted exactly. outerX, outerY is
+// the outer box corner and deltaX, deltaY is the signed inner offset of the
+// curve's inner corner, so the two edge points are the horizontal-edge point
+// (outerX+deltaX, outerY) and the vertical-edge point (outerX, outerY+deltaY).
+// reverse selects the traversal direction, keeping the clockwise trace
+// continuous.
 func appendCornerShapePaintPoints(
-	points []DisplayPoint, outerX, outerY, deltaX, deltaY, kValue float64,
+	points []DisplayPoint, outerX, outerY, deltaX, deltaY, kValue float64, reverse bool,
 ) []DisplayPoint {
-	edgePoint := DisplayPoint{X: outerX, Y: outerY + deltaY}
-	innerPoint := DisplayPoint{X: outerX + deltaX, Y: outerY + deltaY}
+	horizontalEdge := DisplayPoint{X: outerX + deltaX, Y: outerY}
+	verticalEdge := DisplayPoint{X: outerX, Y: outerY + deltaY}
+
+	start, end := horizontalEdge, verticalEdge
+	if reverse {
+		start, end = verticalEdge, horizontalEdge
+	}
+
+	points = append(points, start)
 
 	if deltaX == 0 || deltaY == 0 {
-		return append(points, edgePoint)
+		if start != end {
+			points = append(points, end)
+		}
+
+		return points
 	}
 
 	if math.IsNaN(kValue) {
 		kValue = CornerShapeRoundK
 	}
 
-	if math.IsInf(kValue, 1) {
-		// square: sharp outer corner through (outerX, outerY).
-		return append(points, DisplayPoint{X: outerX, Y: outerY}, edgePoint)
+	switch {
+	case math.IsInf(kValue, 1):
+		// square: the sharp outer corner.
+		points = append(points, DisplayPoint{X: outerX, Y: outerY})
+	case math.IsInf(kValue, -1):
+		// notch: the concave V through the inner corner.
+		points = append(points, DisplayPoint{X: outerX + deltaX, Y: outerY + deltaY})
+	case kValue == 0:
+		// bevel: the straight chamfer; start to end is the whole outline.
+	default:
+		points = appendCornerShapePaintArc(points, outerX, outerY, deltaX, deltaY, kValue, reverse)
 	}
 
-	if math.IsInf(kValue, -1) {
-		// notch: concave V through the inner corner.
-		return append(points, innerPoint, edgePoint)
-	}
+	return append(points, end)
+}
 
-	if kValue == 0 {
-		// bevel: straight chamfer between the two edge points.
-		return append(points, edgePoint)
-	}
-
+// appendCornerShapePaintArc samples the superellipse between the corner's
+// edge points. Samples are generated from the horizontal-edge side toward the
+// vertical-edge side and emitted in reverse when the traversal runs the other
+// way; the endpoints themselves come from the caller, so only interior
+// samples are appended.
+func appendCornerShapePaintArc(
+	points []DisplayPoint, outerX, outerY, deltaX, deltaY, kValue float64, reverse bool,
+) []DisplayPoint {
 	exponent := cornerShapeCircleExponent / (math.Abs(kValue) + 1)
 
-	for step := 1; step <= cornerShapePaintSegments; step++ {
+	samples := make([]DisplayPoint, 0, cornerShapePaintSegments-1)
+
+	for step := 1; step < cornerShapePaintSegments; step++ {
 		angle := cornerShapeQuarterTurn * (1 - float64(step)/cornerShapePaintSegments)
 		cosine, sine := math.Cos(angle), math.Sin(angle)
 		curveX := 1 - math.Pow(math.Abs(cosine), exponent)
@@ -399,8 +417,12 @@ func appendCornerShapePaintPoints(
 			offsetX, offsetY = 1-curveY, 1-curveX
 		}
 
-		points = append(points, DisplayPoint{X: outerX + offsetX*deltaX, Y: outerY + offsetY*deltaY})
+		samples = append(samples, DisplayPoint{X: outerX + offsetX*deltaX, Y: outerY + offsetY*deltaY})
 	}
 
-	return points
+	if reverse {
+		slices.Reverse(samples)
+	}
+
+	return append(points, samples...)
 }
