@@ -88,13 +88,13 @@ func (e *engine) buildGrid(node *html.Node, sty ResolvedStyle, availW, posX, pos
 	}
 
 	return e.layoutStandardGrid(
-		boxNode, sty, kids, areas, cols, columnGap, rowGap, contentX, curY, posY, contentH, contentStart,
+		boxNode, sty, kids, areas, cols, columnGap, rowGap, contentX, contentW, curY, posY, contentH, contentStart,
 	)
 }
 
 func (e *engine) layoutStandardGrid(
 	boxNode *box, sty ResolvedStyle, kids []*html.Node, areas gridTemplateAreasMap,
-	cols []float64, columnGap, rowGap, contentX, curY, posY, contentH float64,
+	cols []float64, columnGap, rowGap, contentX, contentW, curY, posY, contentH float64,
 	contentStart int,
 ) *box {
 	columnMajor, densePack := gridAutoFlowMode(sty.GridAutoFlow)
@@ -119,9 +119,12 @@ func (e *engine) layoutStandardGrid(
 	)
 
 	rowYs := emitGridBoxes(e, sty, boxNode, pboxes, rows, rowGap, posY, curY, contentH)
+	if rowYs != nil {
+		e.paintGridGapRules(sty, contentX, contentW, cols, columnGap, rowYs, rows, posY)
+	}
 
 	usedH := curY
-	if numRows > 0 {
+	if numRows > 0 && rowYs != nil {
 		usedH = rowYs[numRows-1] + rows[numRows-1]
 	}
 

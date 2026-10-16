@@ -137,9 +137,9 @@ func applyTransformBoxProperty(style *ResolvedStyle, value string) {
 }
 
 // applyTransformStyleProperty owns transform-style. Only flat and preserve-3d
-// are stored; anything else leaves the previous declaration intact. The 2D
-// engine flattens both (no 3D plane), so this is a used-value store with no
-// paint difference. Reference: Chrome 143.0.7499.40.
+// are stored; anything else leaves the previous declaration intact. preserve-3d
+// composes nested 3D before one flatten. flat flattens at this element.
+// Reference: Chrome 143.0.7499.40.
 func applyTransformStyleProperty(style *ResolvedStyle, value string) {
 	switch normalized := normalizeCSSValue(value); normalized {
 	case "flat", "preserve-3d":
@@ -148,9 +148,10 @@ func applyTransformStyleProperty(style *ResolvedStyle, value string) {
 }
 
 // applyBackfaceVisibilityProperty owns backface-visibility. Only visible and
-// hidden are stored; anything else leaves the previous declaration intact. The
-// 2D engine has no 3D back face to hide, so hidden paints like visible (pinned
-// gap). Reference: Chrome 143.0.7499.40.
+// hidden are stored; anything else leaves the previous declaration intact.
+// hidden zeroes a 3D face whose flattened facing is negative, including a
+// child turned around by a preserve-3d parent. A 2D rotation is not culled.
+// Reference: Chrome 143.0.7499.40.
 func applyBackfaceVisibilityProperty(style *ResolvedStyle, value string) {
 	switch normalized := normalizeCSSValue(value); normalized {
 	case "visible", "hidden":
@@ -159,9 +160,9 @@ func applyBackfaceVisibilityProperty(style *ResolvedStyle, value string) {
 }
 
 // applyPerspectiveProperty owns the perspective property. none clears the
-// distance; a positive length stores the camera distance in pt. Stored only:
-// the stamp-time projection consumer lands with the perspective workstream.
-// Reference: Chrome 143.0.7499.40.
+// distance; a positive length stores the camera distance in pt. The pre-pass
+// copies that distance onto a 3D descendant, and boxTransformAccum projects
+// with it. Reference: Chrome 143.0.7499.40.
 func applyPerspectiveProperty(style *ResolvedStyle, value string) {
 	val := strings.TrimSpace(strings.ToLower(value))
 	if val == "" || val == cssDisplayNone {
@@ -183,8 +184,8 @@ func applyPerspectiveProperty(style *ResolvedStyle, value string) {
 // applyPerspectiveOriginProperty owns perspective-origin. One or two tokens
 // from percentages, lengths, and the left/center/right/top/bottom keywords
 // store the vanishing-point offset; anything else leaves the previous
-// declaration intact. Stored only until the perspective-origin workstream
-// reads it in perspectiveCenter. Reference: Chrome 143.0.7499.40.
+// declaration intact. perspectiveCenter reads the stored offset when it
+// projects a 3D descendant. Reference: Chrome 143.0.7499.40.
 func applyPerspectiveOriginProperty(style *ResolvedStyle, value string, fsize float64) {
 	fields := strings.Fields(strings.ToLower(value))
 	if len(fields) == 0 || len(fields) > 2 {

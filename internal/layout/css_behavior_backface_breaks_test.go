@@ -96,8 +96,8 @@ func assertBackfaceCull(t *testing.T) {
 			`backface-visibility:` + vis + `"></div></body></html>`
 	}
 
-	visibleFills := opsOfKind(layoutHTML(t, threeDoc("visible")), OpFillRect)
-	hiddenFills := opsOfKind(layoutHTML(t, threeDoc("hidden")), OpFillRect)
+	visibleFills := backfaceRedFills(layoutHTML(t, threeDoc("visible")))
+	hiddenFills := backfaceRedFills(layoutHTML(t, threeDoc("hidden")))
 
 	if len(visibleFills) == 0 || len(hiddenFills) == 0 {
 		t.Fatalf("want fill ops, got visible=%d hidden=%d", len(visibleFills), len(hiddenFills))

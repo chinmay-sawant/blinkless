@@ -72,7 +72,7 @@ func finalizeResult(eng *engine, root *html.Node, opts Options) (*Result, error)
 	// Skip the full tree walk when no element had transform/opacity.
 	if eng.needsXformStamp {
 		propagatePerspective(boxNode)
-		stampBoxTransforms(boxNode, IdentityMatrix(), res.Ops)
+		stampBoxTransforms(boxNode, IdentityMatrix(), res.Ops, opts.Media)
 	}
 
 	res.MaxContentX, res.HasFragmentLinks = censusOps(res.Ops, opts.Width)

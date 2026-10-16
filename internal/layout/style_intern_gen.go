@@ -131,6 +131,20 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.ColumnRuleStyle == b.ColumnRuleStyle &&
 		a.ColumnRuleColor == b.ColumnRuleColor &&
 		a.ColumnRuleColorSet == b.ColumnRuleColorSet &&
+		a.RowRuleWidth == b.RowRuleWidth &&
+		a.RowRuleStyle == b.RowRuleStyle &&
+		a.RowRuleColor == b.RowRuleColor &&
+		a.RowRuleColorSet == b.RowRuleColorSet &&
+		slices.Equal(a.RowRuleWidths, b.RowRuleWidths) &&
+		slices.Equal(a.RowRuleStyles, b.RowRuleStyles) &&
+		slices.Equal(a.RowRuleColors, b.RowRuleColors) &&
+		a.RowRuleBreak == b.RowRuleBreak &&
+		a.RowRuleVisibility == b.RowRuleVisibility &&
+		a.RowRuleInsetCapStart == b.RowRuleInsetCapStart &&
+		a.RowRuleInsetCapEnd == b.RowRuleInsetCapEnd &&
+		a.RowRuleInsetJunctionStart == b.RowRuleInsetJunctionStart &&
+		a.RowRuleInsetJunctionEnd == b.RowRuleInsetJunctionEnd &&
+		a.RuleOverlap == b.RuleOverlap &&
 		a.InitialLetterSize == b.InitialLetterSize &&
 		a.InitialLetterSink == b.InitialLetterSink &&
 		a.InitialLetterAlign == b.InitialLetterAlign &&
@@ -484,6 +498,22 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 		h = styleInternHashFloat64(h, e)
 	}
 	h = styleInternHashBool(h, s.ColumnRuleColorSet)
+	h = styleInternHashFloat64(h, s.RowRuleWidth)
+	h = styleInternHashString(h, s.RowRuleStyle)
+	for _, e := range s.RowRuleColor {
+		h = styleInternHashFloat64(h, e)
+	}
+	h = styleInternHashBool(h, s.RowRuleColorSet)
+	h = styleInternHashFloat64Slice(h, s.RowRuleWidths)
+	h = styleInternHashStringSlice(h, s.RowRuleStyles)
+	h = styleInternHashStringSlice(h, s.RowRuleColors)
+	h = styleInternHashString(h, s.RowRuleBreak)
+	h = styleInternHashString(h, s.RowRuleVisibility)
+	h = styleInternHashFloat64(h, s.RowRuleInsetCapStart)
+	h = styleInternHashFloat64(h, s.RowRuleInsetCapEnd)
+	h = styleInternHashFloat64(h, s.RowRuleInsetJunctionStart)
+	h = styleInternHashFloat64(h, s.RowRuleInsetJunctionEnd)
+	h = styleInternHashString(h, s.RuleOverlap)
 	h = styleInternHashFloat64(h, s.InitialLetterSize)
 	h = styleInternHashInt(h, s.InitialLetterSink)
 	h = styleInternHashString(h, s.InitialLetterAlign)
@@ -857,6 +887,20 @@ func styleInternFields() []string {
 		"ColumnRuleStyle",
 		"ColumnRuleColor",
 		"ColumnRuleColorSet",
+		"RowRuleWidth",
+		"RowRuleStyle",
+		"RowRuleColor",
+		"RowRuleColorSet",
+		"RowRuleWidths",
+		"RowRuleStyles",
+		"RowRuleColors",
+		"RowRuleBreak",
+		"RowRuleVisibility",
+		"RowRuleInsetCapStart",
+		"RowRuleInsetCapEnd",
+		"RowRuleInsetJunctionStart",
+		"RowRuleInsetJunctionEnd",
+		"RuleOverlap",
 		"InitialLetterSize",
 		"InitialLetterSink",
 		"InitialLetterAlign",

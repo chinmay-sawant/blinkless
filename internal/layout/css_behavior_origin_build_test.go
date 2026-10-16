@@ -10,10 +10,8 @@ import (
 // (X) and height (Y), absolute lengths are pt offsets from the border-box
 // top-left, and the parser already folds keywords to positions (left/top
 // 0%, center 50%, right/bottom 100%). Unset keeps the default center.
-// The stamp-time projection that consumes this vanishing point has not
-// landed yet (no production caller of perspectiveCenter), so the projection
-// shift is asserted at the flatten3D contract level and layout-level
-// divergence stays pending-reconcile. Reference: Chrome 143.0.7499.40.
+// propagatePerspective calls perspectiveCenter, and the layout tests below
+// assert the stamped shift. Reference: Chrome 143.0.7499.40.
 // Every test below asserts used values (vanishing-point points and baked
 // projected geometry), never stored strings.
 

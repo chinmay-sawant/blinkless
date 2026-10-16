@@ -483,6 +483,14 @@ func maskImageLayerValueAccepted(value string) bool {
 		return true
 	}
 
+	if maskGradientAccepted(trimmed) {
+		return true
+	}
+
+	if _, ok := maskImageSetChoice(trimmed); ok {
+		return true
+	}
+
 	if !cssURLFunctionValue(trimmed) {
 		return false
 	}

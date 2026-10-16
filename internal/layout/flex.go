@@ -56,9 +56,7 @@ type flexPlacedItem struct {
 	n   *html.Node
 }
 
-// buildFlex lays out a flex container (row or column) with a report-friendly
-// subset: justify-content, align-items/self, align-content, gap/row-gap/
-// column-gap, flex-grow/shrink/basis, order, wrap, and reverse directions.
+// buildFlex lays out a flex container with justify, align, gap, grow, and wrap.
 //
 //nolint:cyclop,gocritic,wsl // dispatch also installs the containing-block scope
 func (e *engine) buildFlex(node *html.Node, sty ResolvedStyle, availW, x, posY float64) *box {
@@ -300,7 +298,10 @@ func (e *engine) flowFlexRow(
 		}
 	}
 
-	return e.applyAlignContentRow(parent, style.AlignContent, placed, rowGap, contentH, curY)
+	curY = e.applyAlignContentRow(parent, style.AlignContent, placed, rowGap, contentH, curY)
+	e.emitFlexRowGapRules(parent, style, placed, rowGap, contentX, contentW)
+
+	return curY
 }
 
 func (e *engine) flexRowItems(kids []*html.Node, contentW float64, crossSize ...float64) []flexMeas {

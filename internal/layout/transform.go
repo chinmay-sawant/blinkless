@@ -33,6 +33,42 @@ type Matrix2D struct {
 	A, B, C, D, E, F float64
 }
 
+// ProjectiveTransform maps canvas points through a 3D perspective plane.
+// A point maps to ((A*x+C*y+E)/w, (B*x+D*y+F)/w), where w=G*x+H*y+I.
+type ProjectiveTransform struct {
+	A, B, C, D, E, F, G, H, I float64
+}
+
+// Apply maps one canvas point through the projective transform.
+func (m ProjectiveTransform) Apply(pointX, pointY float64) (float64, float64) {
+	denom := m.G*pointX + m.H*pointY + m.I
+	if denom == 0 {
+		return math.Copysign(math.MaxFloat64, m.A*pointX+m.C*pointY+m.E),
+			math.Copysign(math.MaxFloat64, m.B*pointX+m.D*pointY+m.F)
+	}
+
+	return (m.A*pointX + m.C*pointY + m.E) / denom, (m.B*pointX + m.D*pointY + m.F) / denom
+}
+
+// Jacobian returns the local affine transform at one canvas point.
+func (m ProjectiveTransform) Jacobian(pointX, pointY float64) Matrix2D {
+	denom := m.G*pointX + m.H*pointY + m.I
+	if denom == 0 {
+		return Matrix2D{} //nolint:exhaustruct // degenerate point: no finite local transform
+	}
+
+	numX := m.A*pointX + m.C*pointY + m.E
+	numY := m.B*pointX + m.D*pointY + m.F
+	denomSquared := denom * denom
+
+	return Matrix2D{ //nolint:exhaustruct // translation terms stay zero
+		A: (m.A*denom - numX*m.G) / denomSquared,
+		B: (m.B*denom - numY*m.G) / denomSquared,
+		C: (m.C*denom - numX*m.H) / denomSquared,
+		D: (m.D*denom - numY*m.H) / denomSquared,
+	}
+}
+
 // IdentityMatrix returns the identity transform.
 func IdentityMatrix() Matrix2D {
 	return Matrix2D{A: 1, D: 1} //nolint:exhaustruct // intentional zero fields
@@ -402,10 +438,18 @@ func parseOneTransformFunc(name, args string, fontSize float64) (Matrix2D, float
 		m, xPct, yPct, ok := parseTranslateFunc(name, parts, fontSize)
 
 		return m, xPct, yPct, matrix3D{}, false, ok
+	case "translate3d":
+		m, xPct, yPct, side, ok := parseTranslate3DFunc(parts, fontSize)
+
+		return m, xPct, yPct, side, ok, ok
 	case "scale", transformFuncScalex, "scaley":
 		m, ok := parseScaleFunc(name, parts)
 
 		return m, math.NaN(), math.NaN(), matrix3D{}, false, ok
+	case "scale3d":
+		m, side, ok := parseScale3DFunc(parts)
+
+		return m, math.NaN(), math.NaN(), side, ok, ok
 	case "rotate":
 		m, ok := parseRotateFunc(parts)
 
@@ -981,32 +1025,114 @@ func parseRotateAngle(value string) (float64, bool) {
 }
 
 // ApplyRotate implements the CSS `rotate` longhand (CSS Transforms Level 2).
-// It parses a single angle (deg/rad/grad/turn or bare number as deg) and
-// composes it into style.Transform / style.HasTransform. On invalid input the
-// style is unchanged and false is returned. The composition uses post-multiply
-// (style.Transform = style.Transform * RotateDeg) to match parseTransformList
-// ordering and to allow successive individual properties to accumulate.
+// A bare angle stays the 2D path. An axis keyword or a three-number axis
+// builds the same side matrix as rotateX, rotateY, rotateZ, or rotate3d.
+// On invalid input the style is unchanged and false is returned.
 func ApplyRotate(style *ResolvedStyle, value string) bool {
 	if style == nil {
 		return false
 	}
 
-	deg, angleOK := parseRotateAngle(value)
-	if !angleOK {
+	fields := strings.Fields(strings.ReplaceAll(strings.TrimSpace(value), ",", " "))
+	if len(fields) == 1 {
+		deg, angleOK := parseRotateAngle(fields[0])
+		if !angleOK {
+			return false
+		}
+
+		style.Transform = style.Transform.Mul(RotateDeg(deg))
+		style.HasTransform = true
+
+		return true
+	}
+
+	side, ok := parseRotateAxisProperty(fields)
+	if !ok {
 		return false
 	}
 
-	rot := RotateDeg(deg)
-	style.Transform = style.Transform.Mul(rot)
+	appendTransform3D(style, side)
 	style.HasTransform = true
 
 	return true
+}
+
+// parseRotateAxisProperty reads "y 60deg", "60deg y", or "0 1 0 60deg".
+// A zero three-number axis is rejected.
+//
+//nolint:cyclop // axis keyword and three-number forms stay in one parser
+func parseRotateAxisProperty(fields []string) (matrix3D, bool) {
+	angleAt := -1
+
+	for idx := len(fields) - 1; idx >= 0; idx-- {
+		field := fields[idx]
+		if _, ok := parseAngleDeg(field); ok {
+			angleAt = idx
+
+			break
+		}
+	}
+
+	if angleAt < 0 {
+		return matrix3D{}, false
+	}
+
+	deg, _ := parseAngleDeg(fields[angleAt])
+	axis := make([]string, 0, len(fields)-1)
+
+	for idx, field := range fields {
+		if idx == angleAt {
+			continue
+		}
+
+		axis = append(axis, field)
+	}
+
+	switch len(axis) {
+	case 1:
+		switch strings.ToLower(axis[0]) {
+		case "x":
+			return rotateX3D(deg), true
+		case "y":
+			return rotateY3D(deg), true
+		case "z":
+			return rotateZ3D(deg), true
+		default:
+			return matrix3D{}, false
+		}
+	case maxThreeValueArgs:
+		return rotatePropertyAxis(axis, deg)
+	default:
+		return matrix3D{}, false
+	}
+}
+
+func rotatePropertyAxis(axis []string, deg float64) (matrix3D, bool) {
+	nums := make([]float64, len(axis))
+
+	for idx, field := range axis {
+		num, ok := parseUnitless(field)
+		if !ok {
+			return matrix3D{}, false
+		}
+
+		nums[idx] = num
+	}
+
+	length := math.Sqrt(nums[0]*nums[0] + nums[1]*nums[1] + nums[2]*nums[2])
+	if length < axisEpsilon {
+		return matrix3D{}, false
+	}
+
+	return rotate3DAxis(nums[0]/length, nums[1]/length, nums[2]/length, deg), true
 }
 
 // ApplyScale implements the CSS `scale` longhand. It parses one or two
 // unitless numbers (sx [sy]); a single number yields uniform scale.
 // Invalid input leaves style unchanged. Composition is post-multiply like
 // parseTransformList.
+//
+//nolint:cyclop // the third value is the only addition to the existing 2D parser
 func ApplyScale(style *ResolvedStyle, value string) bool {
 	if style == nil {
 		return false
@@ -1043,7 +1169,15 @@ func ApplyScale(style *ResolvedStyle, value string) bool {
 		scaleY = second
 	}
 
-	// Third value (z) ignored for 2D print.
+	if len(parts) == maxThreeValueArgs {
+		scaleZ, scaleZOK := parseUnitless(parts[2])
+		if !scaleZOK {
+			return false
+		}
+
+		appendTransform3D(style, scaleZ3D(scaleZ))
+	}
+
 	scaled := Scale(scaleX, scaleY)
 	style.Transform = style.Transform.Mul(scaled)
 	style.HasTransform = true
@@ -1076,6 +1210,8 @@ func parseTranslateValues(parts []string, fsize float64) (float64, float64, floa
 // against the border box at layout time, bare numbers are treated as px. The
 // absolute part is post-multiplied into style.Transform and the percent part
 // is stored in TranslateX/YPercent for resolution in stampBoxTransforms.
+//
+//nolint:cyclop // the third value is the only addition to the existing 2D parser
 func ApplyTranslate(style *ResolvedStyle, value string, fsize float64) bool {
 	if style == nil {
 		return false
@@ -1099,7 +1235,15 @@ func ApplyTranslate(style *ResolvedStyle, value string, fsize float64) bool {
 		return false
 	}
 
-	// Third value (z) ignored for 2D print.
+	if len(parts) == maxThreeValueArgs {
+		depth, _, depthPercent, depthOK := parseTransformLength(parts[2], fsize)
+		if !depthOK || depthPercent {
+			return false
+		}
+
+		appendTransform3D(style, translateZ3D(depth))
+	}
+
 	formed := Translate(transX, transY)
 	style.Transform = style.Transform.Mul(formed)
 
@@ -1127,7 +1271,7 @@ func ApplyTranslate(style *ResolvedStyle, value string, fsize float64) bool {
 // A single []bool covered bitmap replaces per-node map[int]struct{} sets —
 // multi-page tables allocate tens of thousands of boxes and the map path was
 // a top alloc_space hotspot.
-func stampBoxTransforms(boxNode *box, parentAccum Matrix2D, ops []Op) {
+func stampBoxTransforms(boxNode *box, parentAccum Matrix2D, ops []Op, media string) {
 	if boxNode == nil || len(ops) == 0 {
 		return
 	}
@@ -1137,7 +1281,10 @@ func stampBoxTransforms(boxNode *box, parentAccum Matrix2D, ops []Op) {
 	// view-box origin on a top-level box falls back to the border box.
 	var rootViewport svgViewport
 
-	stampBoxTransformsRec(boxNode, parentAccum, ops, covered, rootViewport, identity3D(), false, IdentityMatrix())
+	stampBoxTransformsRec(
+		boxNode, parentAccum, ops, covered, rootViewport, identity3D(),
+		false, IdentityMatrix(), identity3D(), media,
+	)
 }
 
 // translate3D returns a 3D translation by tx, ty, tz points.
@@ -1157,10 +1304,11 @@ func isPreserveBox(boxNode *box) bool {
 	return boxNode != nil && boxNode.style != nil && boxNode.style.TransformStyle == "preserve-3d"
 }
 
-// baked3DForBox returns the origin-baked 3D matrix for one box: the stored
-// side-channel list sandwiched by its transform-origin so centers match the
-// 2D BakeOrigin path. Identity when the box carries no 3D.
-func baked3DForBox(boxNode *box, viewport svgViewport) matrix3D {
+// baked3DForBox returns the 3D matrix for one box in a form that flatten3D
+// can project without leaking the element's page position into the perspective
+// scale. The origin-bake is done at the call site (BakeOrigin on the projected
+// 2D result), so the matrix passed here is the raw stored 3D transform.
+func baked3DForBox(boxNode *box) matrix3D {
 	sty := boxNode.style
 	if sty == nil || !sty.HasTransform3D {
 		return identity3D()
@@ -1170,9 +1318,7 @@ func baked3DForBox(boxNode *box, viewport svgViewport) matrix3D {
 
 	copy(raw[:], sty.Transform3D[:])
 
-	originX, originY := resolveTransformOriginWithBox(sty.TransformOrigin, boxNode, sty.TransformBox, viewport)
-
-	return translate3D(originX, originY, 0).mul(raw).mul(translate3D(-originX, -originY, 0))
+	return raw
 }
 
 // flattenChainForBox projects one composed 3D chain onto the page plane using
@@ -1180,7 +1326,7 @@ func baked3DForBox(boxNode *box, viewport svgViewport) matrix3D {
 // perspective function, else orthographic). Reference: Chrome 143.0.7499.40.
 func flattenChainForBox(chain matrix3D, boxNode *box, originX, originY float64) Matrix2D {
 	dist, vx, vy := perspectiveFlattenArgs(boxNode, chain, originX, originY)
-	proj, _ := chain.flatten3D(vx, vy, dist)
+	proj, _ := chain.flatten3D(vx-originX, vy-originY, dist)
 
 	return proj
 }
@@ -1194,10 +1340,11 @@ func preserveStarter(boxNode *box, accum2D Matrix2D, viewport svgViewport) (Matr
 		return accum2D, identity3D(), accum2D
 	}
 
-	own := baked3DForBox(boxNode, viewport)
+	own := baked3DForBox(boxNode)
 	sty := boxNode.style
 	originX, originY := resolveTransformOriginWithBox(sty.TransformOrigin, boxNode, sty.TransformBox, viewport)
 	flat := flattenChainForBox(own, boxNode, originX, originY)
+	flat = BakeOrigin(flat, originX, originY)
 
 	return accum2D.Mul(flat), own, accum2D
 }
@@ -1224,12 +1371,12 @@ func preserveContinuer(
 		return chainBase.Mul(flat).Mul(baked2D), chain
 	}
 
-	own := baked3DForBox(boxNode, viewport)
+	own := baked3DForBox(boxNode)
 	grown := chain.mul(own)
 	originX, originY := resolveTransformOriginWithBox(sty.TransformOrigin, boxNode, sty.TransformBox, viewport)
 	flat := flattenChainForBox(grown, boxNode, originX, originY)
 
-	return chainBase.Mul(flat), grown
+	return chainBase.Mul(BakeOrigin(flat, originX, originY)), grown
 }
 
 // flatBoundaryAccum flattens an active preserve-3d chain at a flat boundary.
@@ -1255,12 +1402,12 @@ func flatBoundaryAccum(
 		return chainBase.Mul(flat).Mul(baked2D)
 	}
 
-	own := baked3DForBox(boxNode, viewport)
+	own := baked3DForBox(boxNode)
 	grown := chain.mul(own)
 	originX, originY := resolveTransformOriginWithBox(sty.TransformOrigin, boxNode, sty.TransformBox, viewport)
 	flat := flattenChainForBox(grown, boxNode, originX, originY)
 
-	return chainBase.Mul(flat)
+	return chainBase.Mul(BakeOrigin(flat, originX, originY))
 }
 
 // withPercentTranslate folds deferred translate percents into the box transform.
@@ -1303,7 +1450,7 @@ func boxTransformAccum(boxNode *box, parentAccum Matrix2D, viewport svgViewport)
 	if sty.HasTransform3D && !boxNode.preserveComposed {
 		m3 := matrix3D(sty.Transform3D)
 		dist, vx, vy := perspectiveFlattenArgs(boxNode, m3, originX, originY)
-		proj, _ := m3.flatten3D(vx, vy, dist)
+		proj, _ := m3.flatten3D(vx-originX, vy-originY, dist)
 		baked = baked.Mul(BakeOrigin(proj, originX, originY))
 	}
 
@@ -1347,7 +1494,7 @@ func markPreserveComposed(boxNode *box, has3D, chainActive, isPreserve bool) {
 
 func stampBoxTransformsRec(
 	boxNode *box, parentAccum Matrix2D, ops []Op, covered []bool, viewport svgViewport,
-	chain matrix3D, chainActive bool, chainBase Matrix2D,
+	chain matrix3D, chainActive bool, chainBase Matrix2D, worldChain matrix3D, media string,
 ) {
 	if boxNode == nil {
 		return
@@ -1359,38 +1506,148 @@ func stampBoxTransformsRec(
 
 	markPreserveComposed(boxNode, has3D, chainActive, isPreserve)
 
+	preservePath := chainActive || isPreserve
+
+	boxWorldChain := worldChain
+	if preservePath {
+		boxWorldChain = boxWorldChain.mul(worldTransform3DForBox(boxNode, viewport))
+	}
+
 	accum2D := boxTransformAccum(boxNode, parentAccum, viewport)
 	accum, childChain, childBase, childActive := preserveStep(
 		boxNode, accum2D, chain, chainActive, isPreserve, viewport, chainBase)
 
 	// An <svg> box establishes a viewport for its subtree; the box's own
 	// transform still resolves against the ancestor viewport above.
-	childViewport := viewport
-	if established, ok := viewportOfBox(boxNode); ok {
-		childViewport = established
-	}
+	childViewport := childViewportForBox(boxNode, viewport)
 
-	// Preserve children keep the 2D-only parent: the chain carries deferred 3D.
-	childParent := accum
-	if childActive {
-		childParent = accum2D
-	}
+	childParent, childWorldChain := stampChildState(
+		preservePath, chainActive, childActive, accum, parentAccum, boxWorldChain)
 
 	for _, c := range boxNode.children {
-		stampBoxTransformsRec(c, childParent, ops, covered, childViewport, childChain, childActive, childBase)
+		stampBoxTransformsRec(
+			c, childParent, ops, covered, childViewport, childChain,
+			childActive, childBase, childWorldChain, media,
+		)
 	}
 
 	// Mark child-owned ranges, stamp exclusive ops, then clear for siblings.
-	for _, c := range boxNode.children {
-		markBoxOpsCovered(c, ops, covered, true)
-	}
+	markChildrenOpsCovered(boxNode, ops, covered, true)
 
-	stampExclusiveTransformOps(boxNode, accum, ops, covered)
+	chainFacing, useChainFacing := composedChainFacing(boxNode, chain, chainActive, has3D, viewport)
+	stampBoxTransformOps(
+		boxNode, preservePath, chainActive, isPreserve, accum, parentAccum, boxWorldChain,
+		ops, covered, chainFacing, useChainFacing, viewport, media,
+	)
+
 	stampExclusiveOpacityOps(boxNode, ops, covered)
 	stampCoveredOpacityOps(boxNode, ops, covered)
 
+	markChildrenOpsCovered(boxNode, ops, covered, false)
+}
+
+// childViewportForBox returns the SVG viewport boxNode establishes for its
+// subtree, or viewport when the box establishes none.
+func childViewportForBox(boxNode *box, viewport svgViewport) svgViewport {
+	if established, ok := viewportOfBox(boxNode); ok {
+		return established
+	}
+
+	return viewport
+}
+
+// stampChildState returns the transform state handed to one box's children.
+// Preserve children keep the 2D-only parent: the chain carries deferred 3D.
+func stampChildState(
+	preservePath, chainActive, childActive bool, accum, parentAccum Matrix2D, boxWorldChain matrix3D,
+) (Matrix2D, matrix3D) {
+	childParent := accum
+	if childActive {
+		childParent = parentAccum
+	} else if preservePath && chainActive {
+		childParent = IdentityMatrix()
+	}
+
+	childWorldChain := identity3D()
+	if childActive {
+		childWorldChain = boxWorldChain
+	}
+
+	return childParent, childWorldChain
+}
+
+// markChildrenOpsCovered marks or clears the display-list ops owned by every
+// child of boxNode.
+func markChildrenOpsCovered(boxNode *box, ops []Op, covered []bool, record bool) {
 	for _, c := range boxNode.children {
-		markBoxOpsCovered(c, ops, covered, false)
+		markBoxOpsCovered(c, ops, covered, record)
+	}
+}
+
+// stampBoxTransformOps applies the box's exclusive ops transform: the shared
+// preserve chain when preservePath is set, the per-level 2D accum otherwise.
+func stampBoxTransformOps(
+	boxNode *box, preservePath, chainActive, isPreserve bool, accum, parentAccum Matrix2D,
+	boxWorldChain matrix3D, ops []Op, covered []bool, chainFacing float64,
+	useChainFacing bool, viewport svgViewport, media string,
+) {
+	if !preservePath {
+		stampExclusiveTransformOps(boxNode, accum, ops, covered, chainFacing, useChainFacing, media)
+		stampProjectiveTransformOps(boxNode, parentAccum, ops, viewport)
+
+		return
+	}
+
+	stampExclusiveTransformOps(boxNode, IdentityMatrix(), ops, covered, chainFacing, useChainFacing, media)
+
+	exclusive := true
+	if chainActive && !isPreserve {
+		exclusive = false
+	}
+
+	stampPreserveTransformRange(boxNode, boxWorldChain, parentAccum, ops, covered, exclusive, viewport)
+}
+
+func stampProjectiveTransformOps(
+	boxNode *box, parentAccum Matrix2D, ops []Op, viewport svgViewport,
+) {
+	if boxNode == nil || boxNode.style == nil || !boxNode.style.HasTransform3D || boxNode.preserveComposed {
+		return
+	}
+
+	style := boxNode.style
+	originX, originY := resolveTransformOriginWithBox(style.TransformOrigin, boxNode, style.TransformBox, viewport)
+	transform := matrix3D(style.Transform3D)
+	dist, vanishX, vanishY := perspectiveFlattenArgs(boxNode, transform, originX, originY)
+
+	if dist <= 0 {
+		return
+	}
+
+	projective := projectiveTransform3D(transform, originX, originY, vanishX, vanishY, dist)
+	local := BakeOrigin(withPercentTranslate(style, boxNode), originX, originY)
+	projective = composeProjectiveAffine(projective, local)
+	projective = composeProjectiveAffine(projective, parentAccum)
+
+	end := min(boxNode.opEnd, len(ops)-1)
+	for idx := boxNode.opStart; idx <= end; idx++ {
+		if idx < 0 || ops[idx].Kind == OpKindNoop {
+			continue
+		}
+
+		ops[idx].setProjectiveTransform(projective)
+	}
+}
+
+func composeProjectiveAffine(projective ProjectiveTransform, affine Matrix2D) ProjectiveTransform {
+	return ProjectiveTransform{
+		A: affine.A*projective.A + affine.C*projective.B + affine.E*projective.G,
+		B: affine.B*projective.A + affine.D*projective.B + affine.F*projective.G,
+		C: affine.A*projective.C + affine.C*projective.D + affine.E*projective.H,
+		D: affine.B*projective.C + affine.D*projective.D + affine.F*projective.H,
+		E: affine.A*projective.E + affine.C*projective.F + affine.E*projective.I,
+		F: affine.B*projective.E + affine.D*projective.F + affine.F*projective.I,
+		G: projective.G, H: projective.H, I: projective.I,
 	}
 }
 
@@ -1417,11 +1674,13 @@ func boxOwnsOps(boxNode *box) bool {
 
 // stampExclusiveTransformOps applies the accumulated transform to ops owned
 // exclusively by boxNode; child-owned ops keep the child's own transform.
-func stampExclusiveTransformOps(boxNode *box, accum Matrix2D, ops []Op, covered []bool) {
-	// Backface cull: a 3D-rotated face turned away from the viewer paints
-	// nothing under backface-visibility:hidden. 2D mirrors never cull (only
-	// HasTransform3D faces qualify). Reference: Chrome 143.0.7499.40.
-	if backfaceCulled(boxNode) {
+func stampExclusiveTransformOps(
+	boxNode *box, accum Matrix2D, ops []Op, covered []bool, chainFacing float64, useChainFacing bool, media string,
+) {
+	// Chrome 143.0.7499.40 culls hidden back faces on screen but paints them
+	// in print-to-PDF. Keep screen culling here and preserve those ops for print.
+	isPrint := strings.EqualFold(strings.TrimSpace(media), "print")
+	if !isPrint && backfaceCulled(boxNode, chainFacing, useChainFacing) {
 		zeroExclusiveOps(boxNode, ops, covered)
 
 		return
@@ -1450,12 +1709,36 @@ func stampExclusiveTransformOps(boxNode *box, accum Matrix2D, ops []Op, covered 
 // a 3D-rotated face turned away from the viewer under
 // backface-visibility:hidden. Facing comes from the flattened 3D state;
 // 2D content never qualifies.
-func backfaceCulled(boxNode *box) bool {
-	if boxNode == nil || boxNode.style == nil {
-		return false
+// composedChainFacing reports the facing of the preserve-3d chain this box
+// belongs to. use is false when the box is not inside that chain, and the
+// caller then reads the local side matrix instead.
+func composedChainFacing(
+	boxNode *box, chain matrix3D, chainActive, has3D bool, viewport svgViewport,
+) (float64, bool) {
+	if !chainActive || boxNode == nil {
+		return 0, false
 	}
 
-	if !boxNode.style.HasTransform3D {
+	facingChain := chain
+	if has3D {
+		facingChain = chain.mul(baked3DForBox(boxNode))
+	}
+
+	var originX, originY float64
+	if boxNode.style != nil {
+		originX, originY = resolveTransformOriginWithBox(
+			boxNode.style.TransformOrigin, boxNode, boxNode.style.TransformBox, viewport,
+		)
+	}
+
+	dist, vanishX, vanishY := perspectiveFlattenArgs(boxNode, facingChain, originX, originY)
+	_, facing := facingChain.flatten3D(vanishX-originX, vanishY-originY, dist)
+
+	return facing, true
+}
+
+func backfaceCulled(boxNode *box, chainFacing float64, useChainFacing bool) bool {
+	if boxNode == nil || boxNode.style == nil {
 		return false
 	}
 
@@ -1467,13 +1750,23 @@ func backfaceCulled(boxNode *box) bool {
 		return false
 	}
 
+	if useChainFacing {
+		return chainFacing < 0
+	}
+
+	if !boxNode.style.HasTransform3D {
+		return false
+	}
+
 	_, facing := matrix3D(boxNode.style.Transform3D).flatten3D(0, 0, 0)
 
 	return facing < 0
 }
 
 // zeroExclusiveOps hides one box's exclusive ops by collapsing their
-// geometry, skipping child-owned ranges via the covered mask.
+// geometry and deactivating them (Kind = OpKindNoop) so painters skip them,
+// skipping child-owned ranges via the covered mask. W and H stay zeroed to
+// keep the deactivated contract consistent.
 func zeroExclusiveOps(boxNode *box, ops []Op, covered []bool) {
 	end := boxNode.opEnd
 	if end >= len(ops) {
@@ -1487,6 +1780,7 @@ func zeroExclusiveOps(boxNode *box, ops []Op, covered []bool) {
 
 		ops[idx].W = 0
 		ops[idx].H = 0
+		ops[idx].Kind = OpKindNoop
 	}
 }
 

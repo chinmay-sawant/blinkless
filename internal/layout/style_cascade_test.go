@@ -110,6 +110,69 @@ func TestMaskShorthandExpansionAndBorderReset(t *testing.T) {
 	}
 }
 
+func TestMaskShorthandGradientImageAndBorderReset(t *testing.T) {
+	t.Parallel()
+
+	const gradient = "linear-gradient(red, blue)"
+
+	wins := make(map[string]cascadeWin)
+	applyCascadeDeclaration(wins, "mask-image", "url(old.png)", 0, 0, 0, 1, 0, false)
+	applyCascadeDeclaration(wins, "mask-border-source", "url(border.png)", 0, 0, 0, 1, 0, false)
+	applyCascadeDeclaration(wins, maskShorthandProperty, gradient, 0, 0, 0, 2, 0, false)
+
+	// An image-only mask shorthand keeps the function text and the layer
+	// defaults from newMaskShorthandState, and still resets mask-border.
+	want := map[string]string{
+		"mask-image":         gradient,
+		"mask-mode":          "match-source",
+		"mask-position":      "0% 0%",
+		"mask-size":          "auto",
+		"mask-repeat":        "repeat",
+		"mask-origin":        "border-box",
+		"mask-clip":          "border-box",
+		"mask-composite":     "add",
+		"mask-border":        "initial",
+		"mask-border-source": "none",
+		"mask-border-mode":   "alpha",
+		"mask-border-slice":  "0",
+		"mask-border-width":  "auto",
+		"mask-border-outset": "0",
+		"mask-border-repeat": "stretch",
+	}
+	for prop, value := range want {
+		if got := wins[prop].value; got != value {
+			t.Errorf("mask cascade %s = %q, want %q", prop, got, value)
+		}
+	}
+}
+
+func TestMaskShorthandImageSetAndBorderReset(t *testing.T) {
+	t.Parallel()
+
+	const imageSet = "image-set(url(b.png) 1x)"
+
+	wins := make(map[string]cascadeWin)
+	applyCascadeDeclaration(wins, maskShorthandProperty, imageSet, 0, 0, 0, 1, 0, false)
+
+	if got := wins["mask-image"].value; got != imageSet {
+		t.Fatalf("mask-image = %q, want %q", got, imageSet)
+	}
+
+	for prop, value := range map[string]string{
+		"mask-border":        "initial",
+		"mask-border-source": "none",
+		"mask-border-mode":   "alpha",
+		"mask-border-slice":  "0",
+		"mask-border-width":  "auto",
+		"mask-border-outset": "0",
+		"mask-border-repeat": "stretch",
+	} {
+		if got := wins[prop].value; got != value {
+			t.Errorf("mask cascade %s = %q, want %q", prop, got, value)
+		}
+	}
+}
+
 func TestMaskVendorAliasDeclarationSourceOrder(t *testing.T) {
 	t.Parallel()
 

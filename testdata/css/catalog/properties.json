@@ -1,7 +1,7 @@
 {
   "catalog": "blinkless-css-properties",
   "schema_version": 1,
-  "updated": "2026-10-13",
+  "updated": "2026-10-16",
   "scope": "Engine-registered CSS properties plus every property in the pinned upstream inventory. A property not listed here is unsupported by default.",
   "seed": {
     "date": "2026-10-09",
@@ -11,14 +11,14 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 389,
-      "partial": 19,
-      "unsupported": 369,
+      "implemented": 412,
+      "partial": 27,
+      "unsupported": 338,
       "intentionally ignored": 8
     },
     "aliases": 38,
-    "engine_registered": 419,
-    "upstream_only": 366,
+    "engine_registered": 450,
+    "upstream_only": 335,
     "upstream": {
       "inventory": "webref-ed-css",
       "revision": "1f2ec8f74a80c14066b4c7d6822cee59f69fa03b",
@@ -186,16 +186,24 @@
     {
       "name": "-webkit-backface-visibility",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "alias of the unprefixed property"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_cascade.go",
+        "internal/layout/transform.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "normalizeWebkitTransformProperty"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_webkit_3d_alias_test.go",
+          "name": "TestBehaviorWebkitBackfaceAliasHides"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
@@ -250,7 +258,7 @@
         "url(...) | none; supported mask mode, position, size, repeat, origin, clip, and composite values"
       ],
       "limitations": [
-        "The shorthand expands its supported subset and resets mask-border values. CSS gradients, image-set, mask-border painting, and an in-repo pixel replay backend are unsupported."
+        "The shorthand expands its supported subset and resets mask-border values. Gradient and image-set sources are accepted and stored on the mask group. Mask-border painting and an in-repo pixel replay backend stay unsupported. The host applies the mask."
       ],
       "source": [
         "internal/layout/style_cascade.go",
@@ -427,7 +435,7 @@
         "url(...) | none"
       ],
       "limitations": [
-        "Only URL and none sources are accepted. CSS gradients and image-set sources are unsupported; pixels are not replayed inside this repository."
+        "url(), none, CSS gradients, and image-set() are accepted. Gradient and chosen image-set bytes are stored on the mask group. Pixels are not replayed inside this repository."
       ],
       "source": [
         "internal/layout/style_cascade.go",
@@ -444,6 +452,14 @@
         {
           "file": "internal/layout/css_behavior_mask_test.go",
           "name": "TestBehaviorMaskVendorAliasesReachMaskGroup"
+        },
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskGradientBytesOnGroup"
+        },
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskImageSetPicks1x"
         }
       ],
       "status": "partial",
@@ -568,31 +584,47 @@
     {
       "name": "-webkit-perspective",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "alias of the unprefixed property"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_cascade.go",
+        "internal/layout/transform.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "normalizeWebkitTransformProperty"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_webkit_3d_alias_test.go",
+          "name": "TestBehaviorWebkitPerspectiveAliasForeshortens"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
       "name": "-webkit-perspective-origin",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "alias of the unprefixed property"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_cascade.go",
+        "internal/layout/transform.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "normalizeWebkitTransformProperty"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_webkit_3d_alias_test.go",
+          "name": "TestBehaviorWebkitPerspectiveOriginAlias"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
@@ -661,16 +693,24 @@
     {
       "name": "-webkit-transform-style",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "alias of the unprefixed property"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_cascade.go",
+        "internal/layout/transform.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "normalizeWebkitTransformProperty"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_webkit_3d_alias_test.go",
+          "name": "TestBehaviorWebkitTransformStyleAliasPreserve3D"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
@@ -1026,7 +1066,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<time [0s,∞]>#"
+      "upstream_syntax": "<time [0s,\u221e]>#"
     },
     {
       "name": "animation-delay-start",
@@ -1074,7 +1114,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "[ auto | <time [0s,∞]> ]#"
+      "upstream_syntax": "[ auto | <time [0s,\u221e]> ]#"
     },
     {
       "name": "animation-fill-mode",
@@ -1994,7 +2034,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | <length [0,∞]>"
+      "upstream_syntax": "none | <length [0,\u221e]>"
     },
     {
       "name": "bookmark-label",
@@ -2060,7 +2100,7 @@
       ],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | <integer [1,∞]>"
+      "upstream_syntax": "none | <integer [1,\u221e]>"
     },
     {
       "name": "bookmark-state",
@@ -2213,7 +2253,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
     },
     {
       "name": "border-block-end-color",
@@ -2242,7 +2282,7 @@
       "name": "border-block-end-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
       ],
       "limitations": [],
       "source": [
@@ -2261,7 +2301,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
     },
     {
       "name": "border-block-end-style",
@@ -2346,7 +2386,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
     },
     {
       "name": "border-block-start-color",
@@ -2375,7 +2415,7 @@
       "name": "border-block-start-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
       ],
       "limitations": [],
       "source": [
@@ -2398,7 +2438,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
     },
     {
       "name": "border-block-start-style",
@@ -2530,7 +2570,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
     },
     {
       "name": "border-bottom-color",
@@ -2562,7 +2602,7 @@
         "-webkit-border-bottom-left-radius"
       ],
       "values": [
-        "<length-percentage [0,∞]>{1,2}"
+        "<length-percentage [0,\u221e]>{1,2}"
       ],
       "limitations": [],
       "source": [
@@ -2579,13 +2619,13 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2}"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2}"
     },
     {
       "name": "border-bottom-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
       ],
       "limitations": [],
       "source": [
@@ -2602,7 +2642,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
     },
     {
       "name": "border-bottom-right-radius",
@@ -2610,7 +2650,7 @@
         "-webkit-border-bottom-right-radius"
       ],
       "values": [
-        "<length-percentage [0,∞]>{1,2}"
+        "<length-percentage [0,\u221e]>{1,2}"
       ],
       "limitations": [],
       "source": [
@@ -2627,7 +2667,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2}"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2}"
     },
     {
       "name": "border-bottom-style",
@@ -2864,7 +2904,7 @@
       "name": "border-image-outset",
       "aliases": [],
       "values": [
-        "[ <length [0,∞]> | <number [0,∞]> ]{1,4}"
+        "[ <length [0,\u221e]> | <number [0,\u221e]> ]{1,4}"
       ],
       "limitations": [],
       "source": [
@@ -2887,7 +2927,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "[ <length [0,∞]> | <number [0,∞]> ]{1,4}"
+      "upstream_syntax": "[ <length [0,\u221e]> | <number [0,\u221e]> ]{1,4}"
     },
     {
       "name": "border-image-repeat",
@@ -2926,7 +2966,7 @@
       "name": "border-image-slice",
       "aliases": [],
       "values": [
-        "[<number [0,∞]> | <percentage [0,∞]>]{1,4} && fill?"
+        "[<number [0,\u221e]> | <percentage [0,\u221e]>]{1,4} && fill?"
       ],
       "limitations": [],
       "source": [
@@ -2949,7 +2989,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "[<number [0,∞]> | <percentage [0,∞]>]{1,4} && fill?"
+      "upstream_syntax": "[<number [0,\u221e]> | <percentage [0,\u221e]>]{1,4} && fill?"
     },
     {
       "name": "border-image-source",
@@ -2984,7 +3024,7 @@
       "name": "border-image-width",
       "aliases": [],
       "values": [
-        "[ <length-percentage [0,∞]> | <number [0,∞]> | auto ]{1,4}"
+        "[ <length-percentage [0,\u221e]> | <number [0,\u221e]> | auto ]{1,4}"
       ],
       "limitations": [],
       "source": [
@@ -3007,7 +3047,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "[ <length-percentage [0,∞]> | <number [0,∞]> | auto ]{1,4}"
+      "upstream_syntax": "[ <length-percentage [0,\u221e]> | <number [0,\u221e]> | auto ]{1,4}"
     },
     {
       "name": "border-inline",
@@ -3108,7 +3148,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
     },
     {
       "name": "border-inline-end-color",
@@ -3137,7 +3177,7 @@
       "name": "border-inline-end-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
       ],
       "limitations": [],
       "source": [
@@ -3160,7 +3200,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
     },
     {
       "name": "border-inline-end-style",
@@ -3245,7 +3285,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
     },
     {
       "name": "border-inline-start-color",
@@ -3274,7 +3314,7 @@
       "name": "border-inline-start-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
       ],
       "limitations": [],
       "source": [
@@ -3293,7 +3333,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
     },
     {
       "name": "border-inline-start-style",
@@ -3425,7 +3465,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
     },
     {
       "name": "border-left-color",
@@ -3455,7 +3495,7 @@
       "name": "border-left-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
       ],
       "limitations": [],
       "source": [
@@ -3472,7 +3512,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
     },
     {
       "name": "border-left-style",
@@ -3540,7 +3580,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "all | [ sides | corners ] <length-percentage [0,∞]>? | [ top | right | bottom | left ] <length-percentage [0,∞]>"
+      "upstream_syntax": "all | [ sides | corners ] <length-percentage [0,\u221e]>? | [ top | right | bottom | left ] <length-percentage [0,\u221e]>"
     },
     {
       "name": "border-radius",
@@ -3548,7 +3588,7 @@
         "-webkit-border-radius"
       ],
       "values": [
-        "<length-percentage [0,∞]>{1,4} [ / <length-percentage [0,∞]>{1,4} ]?"
+        "<length-percentage [0,\u221e]>{1,4} [ / <length-percentage [0,\u221e]>{1,4} ]?"
       ],
       "limitations": [],
       "source": [
@@ -3577,7 +3617,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,4} [ / <length-percentage [0,∞]>{1,4} ]?"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,4} [ / <length-percentage [0,\u221e]>{1,4} ]?"
     },
     {
       "name": "border-right",
@@ -3617,7 +3657,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
     },
     {
       "name": "border-right-color",
@@ -3647,7 +3687,7 @@
       "name": "border-right-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
       ],
       "limitations": [],
       "source": [
@@ -3664,7 +3704,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
     },
     {
       "name": "border-right-style",
@@ -3882,7 +3922,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
     },
     {
       "name": "border-top-color",
@@ -3918,7 +3958,7 @@
         "-webkit-border-top-left-radius"
       ],
       "values": [
-        "<length-percentage [0,∞]>{1,2}"
+        "<length-percentage [0,\u221e]>{1,2}"
       ],
       "limitations": [],
       "source": [
@@ -3935,13 +3975,13 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2}"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2}"
     },
     {
       "name": "border-top-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
       ],
       "limitations": [],
       "source": [
@@ -3958,7 +3998,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
     },
     {
       "name": "border-top-right-radius",
@@ -3966,7 +4006,7 @@
         "-webkit-border-top-right-radius"
       ],
       "values": [
-        "<length-percentage [0,∞]>{1,2}"
+        "<length-percentage [0,\u221e]>{1,2}"
       ],
       "limitations": [],
       "source": [
@@ -3983,7 +4023,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2}"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2}"
     },
     {
       "name": "border-top-style",
@@ -4148,7 +4188,7 @@
       "name": "box-shadow-blur",
       "aliases": [],
       "values": [
-        "<length [0,∞]>#"
+        "<length [0,\u221e]>#"
       ],
       "limitations": [],
       "source": [
@@ -4165,7 +4205,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length [0,∞]>#"
+      "upstream_syntax": "<length [0,\u221e]>#"
     },
     {
       "name": "box-shadow-color",
@@ -4878,7 +4918,7 @@
       "name": "column-count",
       "aliases": [],
       "values": [
-        "auto | <integer [1,∞]>"
+        "auto | <integer [1,\u221e]>"
       ],
       "limitations": [],
       "source": [
@@ -4899,7 +4939,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <integer [1,∞]>"
+      "upstream_syntax": "auto | <integer [1,\u221e]>"
     },
     {
       "name": "column-fill",
@@ -4930,7 +4970,7 @@
         "grid-column-gap"
       ],
       "values": [
-        "normal | <length-percentage [0,∞]> | <line-width>"
+        "normal | <length-percentage [0,\u221e]> | <line-width>"
       ],
       "limitations": [],
       "source": [
@@ -4957,13 +4997,13 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "normal | <length-percentage [0,∞]> | <line-width>"
+      "upstream_syntax": "normal | <length-percentage [0,\u221e]> | <line-width>"
     },
     {
       "name": "column-height",
       "aliases": [],
       "values": [
-        "auto | <length [0,∞]>"
+        "auto | <length [0,\u221e]>"
       ],
       "limitations": [],
       "source": [
@@ -4980,7 +5020,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length [0,∞]>"
+      "upstream_syntax": "auto | <length [0,\u221e]>"
     },
     {
       "name": "column-rule",
@@ -5254,7 +5294,7 @@
       "name": "column-span",
       "aliases": [],
       "values": [
-        "none | <integer [1,∞]> | all | auto"
+        "none | <integer [1,\u221e]> | all | auto"
       ],
       "limitations": [],
       "source": [
@@ -5271,13 +5311,13 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "none | <integer [1,∞]> | all | auto"
+      "upstream_syntax": "none | <integer [1,\u221e]> | all | auto"
     },
     {
       "name": "column-width",
       "aliases": [],
       "values": [
-        "auto | <length [0,∞]>"
+        "auto | <length [0,\u221e]>"
       ],
       "limitations": [],
       "source": [
@@ -5294,7 +5334,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length [0,∞]>"
+      "upstream_syntax": "auto | <length [0,\u221e]>"
     },
     {
       "name": "column-wrap",
@@ -5377,7 +5417,7 @@
       "name": "contain-intrinsic-block-size",
       "aliases": [],
       "values": [
-        "auto? [ none | <length [0,∞]> ]"
+        "auto? [ none | <length [0,\u221e]> ]"
       ],
       "limitations": [],
       "source": [
@@ -5398,13 +5438,13 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "auto? [ none | <length [0,∞]> ]"
+      "upstream_syntax": "auto? [ none | <length [0,\u221e]> ]"
     },
     {
       "name": "contain-intrinsic-height",
       "aliases": [],
       "values": [
-        "auto? [ none | <length [0,∞]> ]"
+        "auto? [ none | <length [0,\u221e]> ]"
       ],
       "limitations": [],
       "source": [
@@ -5425,13 +5465,13 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "auto? [ none | <length [0,∞]> ]"
+      "upstream_syntax": "auto? [ none | <length [0,\u221e]> ]"
     },
     {
       "name": "contain-intrinsic-inline-size",
       "aliases": [],
       "values": [
-        "auto? [ none | <length [0,∞]> ]"
+        "auto? [ none | <length [0,\u221e]> ]"
       ],
       "limitations": [],
       "source": [
@@ -5452,13 +5492,13 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "auto? [ none | <length [0,∞]> ]"
+      "upstream_syntax": "auto? [ none | <length [0,\u221e]> ]"
     },
     {
       "name": "contain-intrinsic-size",
       "aliases": [],
       "values": [
-        "[ auto? [ none | <length [0,∞]> ] ]{1,2}"
+        "[ auto? [ none | <length [0,\u221e]> ] ]{1,2}"
       ],
       "limitations": [],
       "source": [
@@ -5479,13 +5519,13 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "[ auto? [ none | <length [0,∞]> ] ]{1,2}"
+      "upstream_syntax": "[ auto? [ none | <length [0,\u221e]> ] ]{1,2}"
     },
     {
       "name": "contain-intrinsic-width",
       "aliases": [],
       "values": [
-        "auto? [ none | <length [0,∞]> ]"
+        "auto? [ none | <length [0,\u221e]> ]"
       ],
       "limitations": [],
       "source": [
@@ -5506,7 +5546,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "auto? [ none | <length [0,∞]> ]"
+      "upstream_syntax": "auto? [ none | <length [0,\u221e]> ]"
     },
     {
       "name": "container",
@@ -7092,7 +7132,7 @@
         "-webkit-flex-grow"
       ],
       "values": [
-        "<number [0,∞]>"
+        "<number [0,\u221e]>"
       ],
       "limitations": [],
       "source": [
@@ -7118,7 +7158,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<number [0,∞]>"
+      "upstream_syntax": "<number [0,\u221e]>"
     },
     {
       "name": "flex-line-count",
@@ -7134,7 +7174,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<integer [1,∞]>"
+      "upstream_syntax": "<integer [1,\u221e]>"
     },
     {
       "name": "flex-shrink",
@@ -7142,7 +7182,7 @@
         "-webkit-flex-shrink"
       ],
       "values": [
-        "<number [0,∞]>"
+        "<number [0,\u221e]>"
       ],
       "limitations": [],
       "source": [
@@ -7160,7 +7200,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<number [0,∞]>"
+      "upstream_syntax": "<number [0,\u221e]>"
     },
     {
       "name": "flex-wrap",
@@ -7363,7 +7403,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "normal | <length-percentage [0,∞]> | infinite"
+      "upstream_syntax": "normal | <length-percentage [0,\u221e]> | infinite"
     },
     {
       "name": "font",
@@ -7603,7 +7643,7 @@
       "name": "font-size-adjust",
       "aliases": [],
       "values": [
-        "none | [ ex-height | cap-height | ch-width | ic-width | ic-height ]? [ from-font | <number [0,∞]> ]"
+        "none | [ ex-height | cap-height | ch-width | ic-width | ic-height ]? [ from-font | <number [0,\u221e]> ]"
       ],
       "limitations": [],
       "source": [
@@ -7624,7 +7664,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ ex-height | cap-height | ch-width | ic-width | ic-height ]? [ from-font | <number [0,∞]> ]"
+      "upstream_syntax": "none | [ ex-height | cap-height | ch-width | ic-width | ic-height ]? [ from-font | <number [0,\u221e]> ]"
     },
     {
       "name": "font-style",
@@ -8052,7 +8092,7 @@
         "font-stretch"
       ],
       "values": [
-        "normal | <percentage [0,∞]> | ultra-condensed | extra-condensed | condensed | semi-condensed | semi-expanded | expanded | extra-expanded | ultra-expanded"
+        "normal | <percentage [0,\u221e]> | ultra-condensed | extra-condensed | condensed | semi-condensed | semi-expanded | expanded | extra-expanded | ultra-expanded"
       ],
       "limitations": [],
       "source": [
@@ -8085,7 +8125,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "normal | <percentage [0,∞]> | ultra-condensed | extra-condensed | condensed | semi-condensed | semi-expanded | expanded | extra-expanded | ultra-expanded"
+      "upstream_syntax": "normal | <percentage [0,\u221e]> | ultra-condensed | extra-condensed | condensed | semi-condensed | semi-expanded | expanded | extra-expanded | ultra-expanded"
     },
     {
       "name": "footnote-display",
@@ -8740,7 +8780,7 @@
       "name": "hyphenate-limit-chars",
       "aliases": [],
       "values": [
-        "[ auto | <integer [0,∞]> ]{1,3}"
+        "[ auto | <integer [0,\u221e]> ]{1,3}"
       ],
       "limitations": [],
       "source": [
@@ -8757,7 +8797,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "[ auto | <integer [0,∞]> ]{1,3}"
+      "upstream_syntax": "[ auto | <integer [0,\u221e]> ]{1,3}"
     },
     {
       "name": "hyphenate-limit-last",
@@ -8786,7 +8826,7 @@
       "name": "hyphenate-limit-lines",
       "aliases": [],
       "values": [
-        "no-limit | <integer [0,∞]>"
+        "no-limit | <integer [0,\u221e]>"
       ],
       "limitations": [],
       "source": [
@@ -8803,7 +8843,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "no-limit | <integer [0,∞]>"
+      "upstream_syntax": "no-limit | <integer [0,\u221e]>"
     },
     {
       "name": "hyphenate-limit-zone",
@@ -8947,7 +8987,7 @@
       "name": "initial-letter",
       "aliases": [],
       "values": [
-        "normal | <number [1,∞]> <integer [1,∞]> | <number [1,∞]> && [ drop | raise ]?"
+        "normal | <number [1,\u221e]> <integer [1,\u221e]> | <number [1,\u221e]> && [ drop | raise ]?"
       ],
       "limitations": [],
       "source": [
@@ -8968,7 +9008,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "normal | <number [1,∞]> <integer [1,∞]> | <number [1,∞]> && [ drop | raise ]?"
+      "upstream_syntax": "normal | <number [1,\u221e]> <integer [1,\u221e]> | <number [1,\u221e]> && [ drop | raise ]?"
     },
     {
       "name": "initial-letter-align",
@@ -9666,7 +9706,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<length [0,∞]>"
+      "upstream_syntax": "<length [0,\u221e]>"
     },
     {
       "name": "line-padding",
@@ -10301,7 +10341,7 @@
         "url(...) | none; supported mask mode, position, size, repeat, origin, clip, and composite values"
       ],
       "limitations": [
-        "The shorthand expands its supported subset and resets mask-border values. CSS gradients, image-set, mask-border painting, and an in-repo pixel replay backend are unsupported."
+        "The shorthand expands its supported subset and resets mask-border values. Gradient and image-set sources are accepted and stored on the mask group. Mask-border painting and an in-repo pixel replay backend stay unsupported. The host applies the mask."
       ],
       "source": [
         "internal/layout/style_cascade.go",
@@ -10515,7 +10555,7 @@
         "url(...) | none"
       ],
       "limitations": [
-        "Only URL and none sources are accepted. CSS gradients and image-set sources are unsupported; pixels are not replayed inside this repository."
+        "url(), none, CSS gradients, and image-set() are accepted. Gradient and chosen image-set bytes are stored on the mask group. Pixels are not replayed inside this repository."
       ],
       "source": [
         "internal/layout/style_cascade.go",
@@ -10536,6 +10576,14 @@
         {
           "file": "internal/layout/css_behavior_mask_test.go",
           "name": "TestBehaviorMaskMatchSourceUsesImageAlpha"
+        },
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskGradientBytesOnGroup"
+        },
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskImageSetPicks1x"
         }
       ],
       "status": "partial",
@@ -10869,7 +10917,7 @@
       "name": "max-lines",
       "aliases": [],
       "values": [
-        "auto || <integer [1,∞]>"
+        "auto || <integer [1,\u221e]>"
       ],
       "limitations": [],
       "source": [
@@ -10890,7 +10938,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "auto || <integer [1,∞]>"
+      "upstream_syntax": "auto || <integer [1,\u221e]>"
     },
     {
       "name": "max-size",
@@ -12481,7 +12529,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "svg",
-      "upstream_syntax": "none | <length> [0,∞]"
+      "upstream_syntax": "none | <length> [0,\u221e]"
     },
     {
       "name": "pause",
@@ -12513,7 +12561,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<time [0s,∞]> | none | x-weak | weak | medium | strong | x-strong"
+      "upstream_syntax": "<time [0s,\u221e]> | none | x-weak | weak | medium | strong | x-strong"
     },
     {
       "name": "pause-before",
@@ -12529,13 +12577,13 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<time [0s,∞]> | none | x-weak | weak | medium | strong | x-strong"
+      "upstream_syntax": "<time [0s,\u221e]> | none | x-weak | weak | medium | strong | x-strong"
     },
     {
       "name": "perspective",
       "aliases": [],
       "values": [
-        "none | <length [0,∞]>"
+        "none | <length [0,\u221e]>"
       ],
       "limitations": [],
       "source": [
@@ -12571,16 +12619,16 @@
         },
         {
           "file": "internal/layout/css_behavior_perspective_test.go",
-          "name": "TestPerspPerspectiveFunctionRejected"
+          "name": "TestPerspPerspectiveFunctionDepthless"
         },
         {
           "file": "internal/layout/css_behavior_perspective_test.go",
-          "name": "TestPerspRotate3DRejected"
+          "name": "TestPerspRotate3DOrthographic"
         }
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "none | <length [0,∞]>"
+      "upstream_syntax": "none | <length [0,\u221e]>"
     },
     {
       "name": "perspective-origin",
@@ -13095,7 +13143,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<time [0s,∞]> | none | x-weak | weak | medium | strong | x-strong"
+      "upstream_syntax": "<time [0s,\u221e]> | none | x-weak | weak | medium | strong | x-strong"
     },
     {
       "name": "rest-before",
@@ -13111,7 +13159,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<time [0s,∞]> | none | x-weak | weak | medium | strong | x-strong"
+      "upstream_syntax": "<time [0s,\u221e]> | none | x-weak | weak | medium | strong | x-strong"
     },
     {
       "name": "right",
@@ -13183,7 +13231,7 @@
         "grid-row-gap"
       ],
       "values": [
-        "normal | <length-percentage [0,∞]> | <line-width>"
+        "normal | <length-percentage [0,\u221e]> | <line-width>"
       ],
       "limitations": [],
       "source": [
@@ -13206,245 +13254,405 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "normal | <length-percentage [0,∞]> | <line-width>"
+      "upstream_syntax": "normal | <length-percentage [0,\u221e]> | <line-width>"
     },
     {
       "name": "row-rule",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<gap-rule-list> | <gap-auto-rule-list>"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_row_rule_test.go",
+          "name": "TestBehaviorRowRulePaintedBetweenRows"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<gap-rule-list> | <gap-auto-rule-list>"
     },
     {
       "name": "row-rule-break",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | normal | intersection"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "none stores none and still paints the row line. intersection matches normal until a column line crosses the row line."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_row_rule_test.go",
+          "name": "TestBehaviorRowRuleBreakNoneStillPaints"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "none | normal | intersection"
     },
     {
       "name": "row-rule-color",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<line-color-list> | <auto-line-color-list>"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_row_rule_test.go",
+          "name": "TestBehaviorRowRuleColorBlue"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<line-color-list> | <auto-line-color-list>"
     },
     {
       "name": "row-rule-inset",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'column-rule-inset-cap'> [ / <'column-rule-inset-junction'> ]?"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Cap insets shorten the painted line. Junction insets are stored and not painted until a column rule crosses the row rule."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_row_rule_test.go",
+          "name": "TestBehaviorRowRuleInsetCap"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'column-rule-inset-cap'> [ / <'column-rule-inset-junction'> ]?"
     },
     {
       "name": "row-rule-inset-cap",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<inset-value> <inset-value>?"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_row_rule_test.go",
+          "name": "TestBehaviorRowRuleInsetCap"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<inset-value> <inset-value>?"
     },
     {
       "name": "row-rule-inset-cap-end",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<inset-value>"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_row_rule_test.go",
+          "name": "TestBehaviorRowRuleInsetCap"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<inset-value>"
     },
     {
       "name": "row-rule-inset-cap-start",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<inset-value>"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_row_rule_test.go",
+          "name": "TestBehaviorRowRuleInsetCap"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<inset-value>"
     },
     {
       "name": "row-rule-inset-end",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<inset-value>"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_row_rule_test.go",
+          "name": "TestBehaviorRowRuleInsetCap"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<inset-value>"
     },
     {
       "name": "row-rule-inset-junction",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<inset-value> <inset-value>?"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Stored. Not painted until a column rule crosses the row rule in the same grid."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/style_gap_rules_test.go",
+          "name": "TestRowRuleBadTokenKeepsEarlier"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<inset-value> <inset-value>?"
     },
     {
       "name": "row-rule-inset-junction-end",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<inset-value>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Stored. Not painted until a column rule crosses the row rule in the same grid."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/style_gap_rules_test.go",
+          "name": "TestRowRuleBadTokenKeepsEarlier"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<inset-value>"
     },
     {
       "name": "row-rule-inset-junction-start",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<inset-value>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Stored. Not painted until a column rule crosses the row rule in the same grid."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/style_gap_rules_test.go",
+          "name": "TestRowRuleBadTokenKeepsEarlier"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<inset-value>"
     },
     {
       "name": "row-rule-inset-start",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<inset-value>"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_row_rule_test.go",
+          "name": "TestBehaviorRowRuleInsetCap"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<inset-value>"
     },
     {
       "name": "row-rule-style",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<line-style-list> | <auto-line-style-list>"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_row_rule_test.go",
+          "name": "TestBehaviorRowRuleDashedSegments"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<line-style-list> | <auto-line-style-list>"
     },
     {
       "name": "row-rule-visibility-items",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "all | around | between | normal"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_row_rule_test.go",
+          "name": "TestBehaviorRowRuleVisibilityAround"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "all | around | between | normal"
     },
     {
       "name": "row-rule-width",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<line-width-list> | <auto-line-width-list>"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_row_rule_test.go",
+          "name": "TestBehaviorRowRuleWidthCurrentColor"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<line-width-list> | <auto-line-width-list>"
     },
@@ -13583,192 +13791,318 @@
     {
       "name": "rule",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<'column-rule'>"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_row_rule_test.go",
+          "name": "TestBehaviorRulePaintsBothAxes"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'column-rule'>"
     },
     {
       "name": "rule-break",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'column-rule-break'>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Sets row-rule-break only. intersection matches normal until a column line crosses the row line."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_row_rule_test.go",
+          "name": "TestBehaviorRowRuleBreakNoneStillPaints"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'column-rule-break'>"
     },
     {
       "name": "rule-color",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<'column-rule-color'>"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_row_rule_test.go",
+          "name": "TestBehaviorRuleLonghandsBothAxes"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'column-rule-color'>"
     },
     {
       "name": "rule-inset",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'column-rule-inset'>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Sets the row inset only. Junction insets are stored and not painted."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_row_rule_test.go",
+          "name": "TestBehaviorRowRuleInsetCap"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'column-rule-inset'>"
     },
     {
       "name": "rule-inset-cap",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<'column-rule-inset-cap'>"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_row_rule_test.go",
+          "name": "TestBehaviorRowRuleInsetCap"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'column-rule-inset-cap'>"
     },
     {
       "name": "rule-inset-end",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<'column-rule-inset-end'>"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_row_rule_test.go",
+          "name": "TestBehaviorRowRuleInsetCap"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'column-rule-inset-end'>"
     },
     {
       "name": "rule-inset-junction",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'column-rule-inset-junction'>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Sets the row junction insets only. Not painted until a column rule crosses the row rule."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/style_gap_rules_test.go",
+          "name": "TestRowRuleBadTokenKeepsEarlier"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'column-rule-inset-junction'>"
     },
     {
       "name": "rule-inset-start",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<'column-rule-inset-start'>"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_row_rule_test.go",
+          "name": "TestBehaviorRowRuleInsetCap"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'column-rule-inset-start'>"
     },
     {
       "name": "rule-overlap",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "row-over-column | column-over-row"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_row_rule_test.go",
+          "name": "TestBehaviorRuleOverlapOrdersLines"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "row-over-column | column-over-row"
     },
     {
       "name": "rule-style",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<'column-rule-style'>"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_row_rule_test.go",
+          "name": "TestBehaviorRuleLonghandsBothAxes"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'column-rule-style'>"
     },
     {
       "name": "rule-visibility-items",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<'column-rule-visibility-items'>"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_row_rule_test.go",
+          "name": "TestBehaviorRowRuleVisibilityAround"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'column-rule-visibility-items'>"
     },
     {
       "name": "rule-width",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<'column-rule-width'>"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_gap_rules.go",
+        "internal/layout/gap_rules.go",
+        "internal/layout/grid.go",
+        "internal/layout/flex.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyRowRuleGroup"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_row_rule_test.go",
+          "name": "TestBehaviorRuleLonghandsBothAxes"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'column-rule-width'>"
     },
@@ -14132,7 +14466,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "[ auto | <length-percentage [0,∞]> ]{1,4}"
+      "upstream_syntax": "[ auto | <length-percentage [0,\u221e]> ]{1,4}"
     },
     {
       "name": "scroll-padding-block",
@@ -14148,7 +14482,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "[ auto | <length-percentage [0,∞]> ]{1,2}"
+      "upstream_syntax": "[ auto | <length-percentage [0,\u221e]> ]{1,2}"
     },
     {
       "name": "scroll-padding-block-end",
@@ -14164,7 +14498,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,∞]>"
+      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
     },
     {
       "name": "scroll-padding-block-start",
@@ -14180,7 +14514,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,∞]>"
+      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
     },
     {
       "name": "scroll-padding-bottom",
@@ -14196,7 +14530,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,∞]>"
+      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
     },
     {
       "name": "scroll-padding-inline",
@@ -14212,7 +14546,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "[ auto | <length-percentage [0,∞]> ]{1,2}"
+      "upstream_syntax": "[ auto | <length-percentage [0,\u221e]> ]{1,2}"
     },
     {
       "name": "scroll-padding-inline-end",
@@ -14228,7 +14562,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,∞]>"
+      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
     },
     {
       "name": "scroll-padding-inline-start",
@@ -14244,7 +14578,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,∞]>"
+      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
     },
     {
       "name": "scroll-padding-left",
@@ -14260,7 +14594,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,∞]>"
+      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
     },
     {
       "name": "scroll-padding-right",
@@ -14276,7 +14610,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,∞]>"
+      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
     },
     {
       "name": "scroll-padding-top",
@@ -14292,7 +14626,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,∞]>"
+      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
     },
     {
       "name": "scroll-snap-align",
@@ -14495,7 +14829,7 @@
       "name": "shape-margin",
       "aliases": [],
       "values": [
-        "<length-percentage [0,∞]>"
+        "<length-percentage [0,\u221e]>"
       ],
       "limitations": [],
       "source": [
@@ -14512,7 +14846,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>"
+      "upstream_syntax": "<length-percentage [0,\u221e]>"
     },
     {
       "name": "shape-outside",
@@ -14551,7 +14885,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>"
+      "upstream_syntax": "<length-percentage [0,\u221e]>"
     },
     {
       "name": "shape-rendering",
@@ -15203,7 +15537,7 @@
       "name": "tab-size",
       "aliases": [],
       "values": [
-        "<number [0,∞]> | <length [0,∞]>"
+        "<number [0,\u221e]> | <length [0,\u221e]>"
       ],
       "limitations": [],
       "source": [
@@ -15230,7 +15564,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<number [0,∞]> | <length [0,∞]>"
+      "upstream_syntax": "<number [0,\u221e]> | <length [0,\u221e]>"
     },
     {
       "name": "table-layout",
@@ -16195,7 +16529,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | none | <percentage [0,∞]>"
+      "upstream_syntax": "auto | none | <percentage [0,\u221e]>"
     },
     {
       "name": "text-spacing",
@@ -16710,6 +17044,18 @@
         {
           "file": "internal/layout/css_behavior_paint_effects_test.go",
           "name": "TestBehaviorTransformTranslateMovesPaint"
+        },
+        {
+          "file": "internal/layout/css_behavior_transform_3d_gap_test.go",
+          "name": "TestBehaviorTranslate3dAndScale3d"
+        },
+        {
+          "file": "internal/layout/css_behavior_transform_3d_gap_test.go",
+          "name": "TestBehaviorRotateXNarrowsHeight"
+        },
+        {
+          "file": "internal/layout/css_behavior_transform_3d_gap_test.go",
+          "name": "TestBehaviorMatrix3DRotateY"
         }
       ],
       "status": "implemented",
@@ -16863,7 +17209,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<time [0s,∞]>#"
+      "upstream_syntax": "<time [0s,\u221e]>#"
     },
     {
       "name": "transition-property",
@@ -17215,7 +17561,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <time [0s,∞]>"
+      "upstream_syntax": "auto | <time [0s,\u221e]>"
     },
     {
       "name": "voice-family",
@@ -17247,7 +17593,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<frequency [0Hz,∞]> && absolute | [ [ x-low | low | medium | high | x-high ] || [ <frequency [0Hz,∞]> | <semitones> | <percentage> ] ]"
+      "upstream_syntax": "<frequency [0Hz,\u221e]> && absolute | [ [ x-low | low | medium | high | x-high ] || [ <frequency [0Hz,\u221e]> | <semitones> | <percentage> ] ]"
     },
     {
       "name": "voice-range",
@@ -17263,7 +17609,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<frequency [0Hz,∞]> && absolute | [ [ x-low | low | medium | high | x-high ] || [ <frequency [0Hz,∞]> | <semitones> | <percentage> ] ]"
+      "upstream_syntax": "<frequency [0Hz,\u221e]> && absolute | [ [ x-low | low | medium | high | x-high ] || [ <frequency [0Hz,\u221e]> | <semitones> | <percentage> ] ]"
     },
     {
       "name": "voice-rate",
@@ -17279,7 +17625,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "[ normal | x-slow | slow | medium | fast | x-fast ] || <percentage [0,∞]>"
+      "upstream_syntax": "[ normal | x-slow | slow | medium | fast | x-fast ] || <percentage [0,\u221e]>"
     },
     {
       "name": "voice-stress",
@@ -17778,7 +18124,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<number [0,∞]> | <percentage [0,∞]>"
+      "upstream_syntax": "<number [0,\u221e]> | <percentage [0,\u221e]>"
     }
   ]
 }

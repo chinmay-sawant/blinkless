@@ -14,6 +14,12 @@ type opExtra struct {
 	ImgW, ImgH    int
 	Alt           string
 	Xform         Matrix2D
+	Projective    ProjectiveTransform
+	HasProjective bool
+	Path          DisplayPath
+	HasPath       bool
+	GlyphBasis    GlyphBasis
+	HasGlyphBasis bool
 	BlendMode     string
 	PaintOpacity  float64
 	TextTransform string
@@ -51,6 +57,7 @@ func (op Op) detachedExtraCopy() *opExtra {
 
 	cp := *op.opExtra
 	cp.Image = append([]byte(nil), cp.Image...)
+	cp.Path.Points = append([]DisplayPoint(nil), cp.Path.Points...)
 
 	return &cp
 }
@@ -99,6 +106,34 @@ func (op *Op) SetBlendMode(mode string) { op.setBlendMode(mode) }
 func (op *Op) SetXform(matrix Matrix2D) {
 	op.setXform(matrix)
 	op.XformSet = true
+}
+
+// setProjectiveTransform keeps the plane projection inside Blinkless until
+// FinalizeDisplayOps turns it into drawing geometry.
+func (op *Op) setProjectiveTransform(matrix ProjectiveTransform) {
+	extra := op.detachExtra()
+	extra.Projective = matrix
+	extra.HasProjective = true
+}
+
+func (op *Op) setDisplayPath(points []DisplayPoint, closed bool) {
+	extra := op.detachExtra()
+	extra.Path = DisplayPath{Points: points, Closed: closed}
+	extra.HasPath = len(points) > 0
+}
+
+func (op *Op) setGlyphBasis(matrix Matrix2D) {
+	extra := op.detachExtra()
+	extra.GlyphBasis = GlyphBasis{A: matrix.A, B: matrix.B, C: matrix.C, D: matrix.D}
+	extra.HasGlyphBasis = true
+}
+
+func (op *Op) clearProjectiveTransform() {
+	if op == nil || op.opExtra == nil || !op.opExtra.HasProjective {
+		return
+	}
+
+	op.detachExtra().HasProjective = false
 }
 
 // SetTextTransform writes the CSS text-transform, allocating a unique extra if needed.

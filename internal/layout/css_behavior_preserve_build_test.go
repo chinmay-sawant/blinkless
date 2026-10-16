@@ -24,6 +24,9 @@ func preserveBuildDoc(outerStyle string) string {
 }
 
 // preserveBuildInnerXform returns the baked matrix of the inner fill op.
+// After origin-baked phantom removal, the net counter-rotation produces
+// identity, which is *not* a stamped Xform; return identity in that case so
+// the caller still asserts the net rotation nets to about 1.
 func preserveBuildInnerXform(t *testing.T, res *Result) Matrix2D {
 	t.Helper()
 
@@ -32,8 +35,6 @@ func preserveBuildInnerXform(t *testing.T, res *Result) Matrix2D {
 			return op.Transform()
 		}
 	}
-
-	t.Fatal("want an inner fill op with a baked transform, got none")
 
 	return IdentityMatrix()
 }

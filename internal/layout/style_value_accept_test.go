@@ -74,6 +74,7 @@ func TestSupportedDeclarationBackgroundFontGrammar(t *testing.T) {
 	assertSupportedDeclarationCases(t, cases)
 }
 
+//nolint:dupl // the case table shares its shape with the flex and grid table
 func TestSupportedDeclarationMaskGrammar(t *testing.T) {
 	t.Parallel()
 
@@ -84,7 +85,8 @@ func TestSupportedDeclarationMaskGrammar(t *testing.T) {
 		{"mask", `url(a.png) / cover 10px`, false},
 		{"mask", `url(a.png),`, false},
 		{"mask-image", "none, url(Mask.png)", true},
-		{"mask-image", "linear-gradient(red, blue)", false},
+		{"mask-image", "linear-gradient(red, blue)", true},
+		{"mask-image", "not-an-image()", false},
 		{"mask-image", "url(mask.png) junk", false},
 		{"mask-mode", "match-source, alpha, luminance", true},
 		{"mask-mode", "bogus", false},
@@ -121,6 +123,8 @@ func TestSupportedDeclarationMaskGrammar(t *testing.T) {
 // TestSupportedDeclarationFlexGridGeneratedGrammar (CSS-01b): the second half
 // of the table covers flex-flow, grid placement, counters, quotes, and
 // hyphenate-character, reusing the same parsers as their apply arms.
+//
+//nolint:dupl // the case table shares its shape with the mask table
 func TestSupportedDeclarationFlexGridGeneratedGrammar(t *testing.T) {
 	t.Parallel()
 

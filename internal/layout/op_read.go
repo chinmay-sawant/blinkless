@@ -46,6 +46,35 @@ func (op Op) Transform() Matrix2D {
 	return op.opExtra.Xform
 }
 
+// PathValue returns the straight-edged path attached to an operation, if any.
+// The returned points belong to the display list and must not be modified.
+func (op Op) PathValue() (DisplayPath, bool) {
+	if op.opExtra == nil || !op.opExtra.HasPath {
+		return DisplayPath{}, false //nolint:exhaustruct // intentional zero-value fields
+	}
+
+	return op.opExtra.Path, true
+}
+
+// GlyphBasisValue returns the final local basis for a projected text run.
+func (op Op) GlyphBasisValue() (GlyphBasis, bool) {
+	if op.opExtra == nil || !op.opExtra.HasGlyphBasis {
+		return GlyphBasis{}, false //nolint:exhaustruct // intentional zero-value fields
+	}
+
+	return op.opExtra.GlyphBasis, true
+}
+
+// ProjectiveTransformValue returns the projection for a payload the display
+// list could not turn into final vector geometry, such as a textured image.
+func (op Op) ProjectiveTransformValue() (ProjectiveTransform, bool) {
+	if op.opExtra == nil || !op.opExtra.HasProjective {
+		return ProjectiveTransform{}, false //nolint:exhaustruct // intentional zero-value fields
+	}
+
+	return op.opExtra.Projective, true
+}
+
 // BlendModeName returns the op's CSS mix-blend-mode value, or "" for the
 // default normal blending.
 func (op Op) BlendModeName() string {
