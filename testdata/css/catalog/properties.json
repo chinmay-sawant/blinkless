@@ -11,8 +11,8 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 454,
-      "partial": 37,
+      "implemented": 488,
+      "partial": 3,
       "unsupported": 286,
       "intentionally ignored": 8
     },
@@ -5886,7 +5886,7 @@
           "name": "TestCornerShapeBCornerShorthandRadiusShape"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-radius'> || <'corner-shape'>"
     },
@@ -5918,7 +5918,7 @@
           "name": "TestCornerShapeBSideShorthands"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-radius'> || <'corner-top-shape'>"
     },
@@ -5950,7 +5950,7 @@
           "name": "TestCornerShapeBBlockEndPairNotch"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'corner-top-left-shape'>{1,2}"
     },
@@ -5982,7 +5982,7 @@
           "name": "TestCornerShapeBSideShorthands"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-radius'> || <'corner-top-shape'>"
     },
@@ -6014,7 +6014,7 @@
           "name": "TestCornerShapeBBlockStartPairNotch"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'corner-top-left-shape'>{1,2}"
     },
@@ -6046,7 +6046,7 @@
           "name": "TestCornerShapeBSideShorthands"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-radius'> || <'corner-top-shape'>"
     },
@@ -6078,7 +6078,7 @@
           "name": "TestCornerShapeBSingleCornerShorthands"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-left-radius'> || <'corner-top-left-shape'>"
     },
@@ -6110,7 +6110,7 @@
           "name": "TestCornerShapeASingleBottomLeftBevel"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<corner-shape-value>"
     },
@@ -6142,7 +6142,7 @@
           "name": "TestCornerShapeBSingleCornerShorthands"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-left-radius'> || <'corner-top-left-shape'>"
     },
@@ -6174,7 +6174,7 @@
           "name": "TestCornerShapeASingleBottomRightBevel"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<corner-shape-value>"
     },
@@ -6206,7 +6206,7 @@
           "name": "TestCornerShapeBBottomPairScoopBevel"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'corner-top-left-shape'>{1,2}"
     },
@@ -6238,7 +6238,7 @@
           "name": "TestCornerShapeBSingleCornerShorthands"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-left-radius'> || <'corner-top-left-shape'>"
     },
@@ -6270,7 +6270,7 @@
           "name": "TestCornerShapeBLogicalSinglesMatchPhysical"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<corner-shape-value>"
     },
@@ -6302,7 +6302,7 @@
           "name": "TestCornerShapeBSingleCornerShorthands"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-left-radius'> || <'corner-top-left-shape'>"
     },
@@ -6334,7 +6334,7 @@
           "name": "TestCornerShapeBLogicalSinglesMatchPhysical"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<corner-shape-value>"
     },
@@ -6366,7 +6366,7 @@
           "name": "TestCornerShapeBSideShorthands"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-radius'> || <'corner-top-shape'>"
     },
@@ -6398,7 +6398,7 @@
           "name": "TestCornerShapeBInlineEndPairNotch"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'corner-top-left-shape'>{1,2}"
     },
@@ -6430,7 +6430,7 @@
           "name": "TestCornerShapeBSideShorthands"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-radius'> || <'corner-top-shape'>"
     },
@@ -6462,7 +6462,7 @@
           "name": "TestCornerShapeBInlineStartPairNotch"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'corner-top-left-shape'>{1,2}"
     },
@@ -6494,7 +6494,7 @@
           "name": "TestCornerShapeBSideShorthands"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-radius'> || <'corner-top-shape'>"
     },
@@ -6526,7 +6526,7 @@
           "name": "TestCornerShapeBLeftPairNotchScoop"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'corner-top-left-shape'>{1,2}"
     },
@@ -6558,7 +6558,7 @@
           "name": "TestCornerShapeBSideShorthands"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-radius'> || <'corner-top-shape'>"
     },
@@ -6590,7 +6590,7 @@
           "name": "TestCornerShapeBRightPairSquircleSquare"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'corner-top-left-shape'>{1,2}"
     },
@@ -6626,7 +6626,7 @@
           "name": "TestCornerShapeASuperellipseMatchesKeywords"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'corner-top-left-shape'>{1,4}"
     },
@@ -6658,7 +6658,7 @@
           "name": "TestCornerShapeBSingleCornerShorthands"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-left-radius'> || <'corner-top-left-shape'>"
     },
@@ -6690,7 +6690,7 @@
           "name": "TestCornerShapeBLogicalSinglesMatchPhysical"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<corner-shape-value>"
     },
@@ -6722,7 +6722,7 @@
           "name": "TestCornerShapeBSingleCornerShorthands"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-left-radius'> || <'corner-top-left-shape'>"
     },
@@ -6754,7 +6754,7 @@
           "name": "TestCornerShapeBLogicalSinglesMatchPhysical"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<corner-shape-value>"
     },
@@ -6786,7 +6786,7 @@
           "name": "TestCornerShapeBSideShorthands"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-radius'> || <'corner-top-shape'>"
     },
@@ -6818,7 +6818,7 @@
           "name": "TestCornerShapeBSingleCornerShorthands"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-left-radius'> || <'corner-top-left-shape'>"
     },
@@ -6854,7 +6854,7 @@
           "name": "TestDrawingCornerShapeScoopPath"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<corner-shape-value>"
     },
@@ -6886,7 +6886,7 @@
           "name": "TestCornerShapeBSingleCornerShorthands"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-left-radius'> || <'corner-top-left-shape'>"
     },
@@ -6918,7 +6918,7 @@
           "name": "TestCornerShapeASingleTopRightBevel"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<corner-shape-value>"
     },
@@ -6950,7 +6950,7 @@
           "name": "TestCornerShapeBTopPairBevelScoop"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'corner-top-left-shape'>{1,2}"
     },

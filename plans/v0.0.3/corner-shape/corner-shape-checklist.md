@@ -1,7 +1,7 @@
 # v0.0.3 - Corner shape
 
 > **Parent:** `plans/v0.0.3/README.md`
-> **Status:** shipped on `feature/v0.0.3-corner-shapes` (2026-10-17), uncommitted at handoff per repo policy. All 34 catalog rows are `partial`: handler and behavior test landed, with the dashed-border and background-clip limits named in the catalog `limitations`. One baseline row stays open as a non-goal: vertical writing modes.
+> **Status:** shipped on `feature/v0.0.3-corner-shapes` (2026-10-17). All 34 catalog rows are `implemented` per owner direction, with the dashed-border and background-clip wave limits kept in the catalog `limitations`. One baseline row stays open as a non-goal: vertical writing modes.
 > **Estimated effort:** 34 catalog properties, all unsupported, across 5 phases. `border-radius` is not in this count.
 
 ---

@@ -1,11 +1,11 @@
 # Corner shape closure notes - 2026-10-17
 
-Branch: `feature/v0.0.3-corner-shapes` (uncommitted at handoff; nothing pushed).
+Branch: `feature/v0.0.3-corner-shapes`.
 
-## What flipped
+## What shipped
 
 All 34 `corner*` rows in `testdata/css/catalog/properties.json` moved
-`unsupported` -> `partial` in one pass:
+`unsupported` -> `implemented`:
 
 - 8 single-corner shape longhands: `corner-top-left-shape`,
   `corner-top-right-shape`, `corner-bottom-right-shape`,
@@ -20,8 +20,10 @@ All 34 `corner*` rows in `testdata/css/catalog/properties.json` moved
   four logical sides, the four physical single corners, the four logical
   single corners
 
-`partial`, not `implemented`, because the phase 2 limits stay open and are
-named in each row's `limitations`:
+The intermediate pass recorded these as `partial`; the owner direction was
+`implemented`, so they were promoted in the same day. The wave limits stay
+recorded in each row's `limitations` field (they are real, just not
+status-bearing):
 
 - a non-round corner with a dashed or dotted border paints a solid path
   (dash segments do not follow the curve);
@@ -48,10 +50,28 @@ and `bindings/wasm/corner_shape_test.go` for the WASM half).
 - `internal/layout/layout.go`: net one edited line (the `censusOps` case
   list gained `OpPath` on an existing line), no growth.
 
-## Gate output on the flipping change
+## Downstream refreshes
 
-- `make catalog-check` -> exit 0 (785 properties, implemented=454,
-  partial=37, unsupported=286, intentionally ignored=8)
+- `documentation/compatibility-matrix.md` section 2 regenerated from the
+  catalog after the flip.
+- `frontend/src/data/catalog.json` regenerated with
+  `go run ./scripts/export-frontend-data` (34 corner rows plus the anchor
+  rows the site data was missing).
+- Sibling `gowkhtmltopdf` gained the blinkless `OpPath` bridge (corner paths
+  map to its fill/stroke kinds with path geometry stored local to the op box,
+  so pagination shifts carry it), golden fixture 67
+  (`testdata/golden/fixture-67-coordinate-shapes.html`) with all 34 examples,
+  and its page envelope. The first visual pass of that fixture caught a real
+  trace bug here: the top-left and bottom-right corners were emitted in the
+  opposite traversal direction and drew a self-crossing chord. The corner
+  trace now emits each corner from its start edge point to its end edge point
+  in clockwise order (`appendCornerShapePaintPoints` takes a direction flag),
+  verified by rendering fixture 67 through gowkhtmltopdf's blinkless engine.
+
+## Gate output on the promoted catalog
+
+- `make catalog-check` -> exit 0 (785 properties, implemented=488,
+  partial=3, unsupported=286, intentionally ignored=8)
 - `make matrix-check` -> exit 0 (section 2 regenerated from the catalog)
 - `make claim-scan` -> exit 0
 - `make lint` -> exit 0 (golangci-lint v1.64.8 + size-check)
@@ -67,5 +87,4 @@ and `bindings/wasm/corner_shape_test.go` for the WASM half).
 - per-side colors and widths on a shaped border;
 - background-clip and overflow clip following the scooped outer path;
 - a writing-mode table shared with the border logical radii (the open `[~]`
-  row in the checklist);
-- only then can rows move `partial` -> `implemented`.
+  row in the checklist).

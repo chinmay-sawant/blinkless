@@ -1,6 +1,6 @@
 {
   "source": "testdata/css/catalog/properties.json",
-  "updated": "2026-10-16",
+  "updated": "2026-10-17",
   "properties": [
     {
       "name": "-webkit-backface-visibility",
@@ -94,6 +94,18 @@
       "name": "alignment-baseline",
       "status": "implemented",
       "values": "baseline | \u003cbaseline-metric\u003e"
+    },
+    {
+      "name": "anchor-name",
+      "status": "implemented",
+      "values": "none | \u003canchor-name\u003e#",
+      "note": "Stores none or one or more dashed-idents; invalid keeps previous, none clears. Visible only to later in-scope boxes; absolute and fixed targets only."
+    },
+    {
+      "name": "anchor-scope",
+      "status": "implemented",
+      "values": "none | all | \u003canchor-name\u003e#",
+      "note": "none is initial and hides nothing; all hides every name on the element from outside descendants; name list hides only those. Lookup only, no containing block."
     },
     {
       "name": "aspect-ratio",
@@ -826,6 +838,210 @@
       "name": "content-visibility",
       "status": "implemented",
       "values": "visible | auto | hidden"
+    },
+    {
+      "name": "corner",
+      "status": "implemented",
+      "values": "\u003c'border-radius'\u003e || \u003c'corner-shape'\u003e",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-block-end",
+      "status": "implemented",
+      "values": "\u003c'border-radius'\u003e || \u003c'corner-shape'\u003e side form (radius piece, shape piece, or both)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-block-end-shape",
+      "status": "implemented",
+      "values": "round | scoop | bevel | notch | square | squircle | superellipse(\u003cnumber\u003e | infinity | -infinity)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-block-start",
+      "status": "implemented",
+      "values": "\u003c'border-radius'\u003e || \u003c'corner-shape'\u003e side form (radius piece, shape piece, or both)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-block-start-shape",
+      "status": "implemented",
+      "values": "round | scoop | bevel | notch | square | squircle | superellipse(\u003cnumber\u003e | infinity | -infinity)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-bottom",
+      "status": "implemented",
+      "values": "\u003c'border-radius'\u003e || \u003c'corner-shape'\u003e side form (radius piece, shape piece, or both)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-bottom-left",
+      "status": "implemented",
+      "values": "\u003c'border-top-left-radius'\u003e || \u003c'corner-top-left-shape'\u003e",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-bottom-left-shape",
+      "status": "implemented",
+      "values": "round | scoop | bevel | notch | square | squircle | superellipse(\u003cnumber\u003e | infinity | -infinity)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-bottom-right",
+      "status": "implemented",
+      "values": "\u003c'border-top-left-radius'\u003e || \u003c'corner-top-left-shape'\u003e",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-bottom-right-shape",
+      "status": "implemented",
+      "values": "round | scoop | bevel | notch | square | squircle | superellipse(\u003cnumber\u003e | infinity | -infinity)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-bottom-shape",
+      "status": "implemented",
+      "values": "round | scoop | bevel | notch | square | squircle | superellipse(\u003cnumber\u003e | infinity | -infinity)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-end-end",
+      "status": "implemented",
+      "values": "\u003c'border-top-left-radius'\u003e || \u003c'corner-top-left-shape'\u003e",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-end-end-shape",
+      "status": "implemented",
+      "values": "round | scoop | bevel | notch | square | squircle | superellipse(\u003cnumber\u003e | infinity | -infinity)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-end-start",
+      "status": "implemented",
+      "values": "\u003c'border-top-left-radius'\u003e || \u003c'corner-top-left-shape'\u003e",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-end-start-shape",
+      "status": "implemented",
+      "values": "round | scoop | bevel | notch | square | squircle | superellipse(\u003cnumber\u003e | infinity | -infinity)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-inline-end",
+      "status": "implemented",
+      "values": "\u003c'border-radius'\u003e || \u003c'corner-shape'\u003e side form (radius piece, shape piece, or both)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-inline-end-shape",
+      "status": "implemented",
+      "values": "round | scoop | bevel | notch | square | squircle | superellipse(\u003cnumber\u003e | infinity | -infinity)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-inline-start",
+      "status": "implemented",
+      "values": "\u003c'border-radius'\u003e || \u003c'corner-shape'\u003e side form (radius piece, shape piece, or both)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-inline-start-shape",
+      "status": "implemented",
+      "values": "round | scoop | bevel | notch | square | squircle | superellipse(\u003cnumber\u003e | infinity | -infinity)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-left",
+      "status": "implemented",
+      "values": "\u003c'border-radius'\u003e || \u003c'corner-shape'\u003e side form (radius piece, shape piece, or both)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-left-shape",
+      "status": "implemented",
+      "values": "round | scoop | bevel | notch | square | squircle | superellipse(\u003cnumber\u003e | infinity | -infinity)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-right",
+      "status": "implemented",
+      "values": "\u003c'border-radius'\u003e || \u003c'corner-shape'\u003e side form (radius piece, shape piece, or both)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-right-shape",
+      "status": "implemented",
+      "values": "round | scoop | bevel | notch | square | squircle | superellipse(\u003cnumber\u003e | infinity | -infinity)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-shape",
+      "status": "implemented",
+      "values": "1 to 4 \u003ccorner-shape-value\u003e tokens assigned to the top, right, bottom, and left sides",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-start-end",
+      "status": "implemented",
+      "values": "\u003c'border-top-left-radius'\u003e || \u003c'corner-top-left-shape'\u003e",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-start-end-shape",
+      "status": "implemented",
+      "values": "round | scoop | bevel | notch | square | squircle | superellipse(\u003cnumber\u003e | infinity | -infinity)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-start-start",
+      "status": "implemented",
+      "values": "\u003c'border-top-left-radius'\u003e || \u003c'corner-top-left-shape'\u003e",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-start-start-shape",
+      "status": "implemented",
+      "values": "round | scoop | bevel | notch | square | squircle | superellipse(\u003cnumber\u003e | infinity | -infinity)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-top",
+      "status": "implemented",
+      "values": "\u003c'border-radius'\u003e || \u003c'corner-shape'\u003e side form (radius piece, shape piece, or both)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-top-left",
+      "status": "implemented",
+      "values": "\u003c'border-top-left-radius'\u003e || \u003c'corner-top-left-shape'\u003e",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-top-left-shape",
+      "status": "implemented",
+      "values": "round | scoop | bevel | notch | square | squircle | superellipse(\u003cnumber\u003e | infinity | -infinity)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-top-right",
+      "status": "implemented",
+      "values": "\u003c'border-top-left-radius'\u003e || \u003c'corner-top-left-shape'\u003e",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-top-right-shape",
+      "status": "implemented",
+      "values": "round | scoop | bevel | notch | square | squircle | superellipse(\u003cnumber\u003e | infinity | -infinity)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
+    },
+    {
+      "name": "corner-top-shape",
+      "status": "implemented",
+      "values": "round | scoop | bevel | notch | square | squircle | superellipse(\u003cnumber\u003e | infinity | -infinity)",
+      "note": "Corner boxes are the used border-radius; the curve inside each corner box follows the CSS Borders 4 superellipse K map (round 1, squircle 2, square +infinity, bevel 0, scoop -1,..."
     },
     {
       "name": "counter-increment",
@@ -1717,6 +1933,42 @@
       "name": "position",
       "status": "implemented",
       "values": "static | relative | absolute | fixed | inherit"
+    },
+    {
+      "name": "position-anchor",
+      "status": "implemented",
+      "values": "auto | \u003canchor-name\u003e",
+      "note": "auto uses the anchor only when exactly one in-scope name exists; several means no guess and keeps buildOutOfFlow offsets. Unknown keeps earlier value. normal, none and match-par..."
+    },
+    {
+      "name": "position-area",
+      "status": "implemented",
+      "values": "none | \u003cposition-area\u003e",
+      "note": "Applies only to absolute and fixed targets with an in-scope anchor; none keeps left and top offsets; static targets keep flow position. Options are tested against their position..."
+    },
+    {
+      "name": "position-try",
+      "status": "implemented",
+      "values": "\u003c'position-try-order'\u003e? \u003c'position-try-fallbacks'\u003e",
+      "note": "Expands to order plus fallbacks including fallbacks-only; CSS-wide keywords reset both; a following longhand overrides the shorthand in source order."
+    },
+    {
+      "name": "position-try-fallbacks",
+      "status": "implemented",
+      "values": "none | [ [\u003cdashed-ident\u003e || \u003ctry-tactic\u003e] | \u003cposition-area\u003e ]#",
+      "note": "Accepts none, position-area list and pinned try-tactic keywords flip-block, flip-inline, flip-start, flip-x and flip-y. Dashed-ident reads @position-try area; unknown idents are..."
+    },
+    {
+      "name": "position-try-order",
+      "status": "implemented",
+      "values": "normal | most-width | most-height | most-block-size | most-inline-size",
+      "note": "normal keeps document order; try-size picks the largest candidate that fits its position-area region on that axis."
+    },
+    {
+      "name": "position-visibility",
+      "status": "implemented",
+      "values": "always | anchor-valid | anchor-visible | no-overflow",
+      "note": "Scrollport hiding for anchor-visible is a host-scroll non-goal on this canvas: no scroll offset exists in this tree, so anchor-visible matches anchor-valid until host scroll wor..."
     },
     {
       "name": "print-color-adjust",
