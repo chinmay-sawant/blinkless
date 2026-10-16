@@ -195,6 +195,13 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.OverflowX == b.OverflowX &&
 		a.OverflowY == b.OverflowY &&
 		a.Visibility == b.Visibility &&
+		slices.Equal(a.AnchorNames, b.AnchorNames) &&
+		a.AnchorScope == b.AnchorScope &&
+		a.PositionAnchor == b.PositionAnchor &&
+		a.PositionArea == b.PositionArea &&
+		slices.Equal(a.PositionTryFallbacks, b.PositionTryFallbacks) &&
+		a.PositionTryOrder == b.PositionTryOrder &&
+		a.PositionVisibility == b.PositionVisibility &&
 		a.MarginTop == b.MarginTop &&
 		a.MarginRight == b.MarginRight &&
 		a.MarginBottom == b.MarginBottom &&
@@ -569,6 +576,13 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashString(h, s.OverflowX)
 	h = styleInternHashString(h, s.OverflowY)
 	h = styleInternHashString(h, s.Visibility)
+	h = styleInternHashStringSlice(h, s.AnchorNames)
+	h = styleInternHashString(h, s.AnchorScope)
+	h = styleInternHashString(h, s.PositionAnchor)
+	h = styleInternHashString(h, s.PositionArea)
+	h = styleInternHashStringSlice(h, s.PositionTryFallbacks)
+	h = styleInternHashString(h, s.PositionTryOrder)
+	h = styleInternHashString(h, s.PositionVisibility)
 	h = styleInternHashFloat64(h, s.MarginTop)
 	h = styleInternHashFloat64(h, s.MarginRight)
 	h = styleInternHashFloat64(h, s.MarginBottom)
@@ -961,6 +975,13 @@ func styleInternFields() []string {
 		"OverflowX",
 		"OverflowY",
 		"Visibility",
+		"AnchorNames",
+		"AnchorScope",
+		"PositionAnchor",
+		"PositionArea",
+		"PositionTryFallbacks",
+		"PositionTryOrder",
+		"PositionVisibility",
 		"MarginTop",
 		"MarginRight",
 		"MarginBottom",

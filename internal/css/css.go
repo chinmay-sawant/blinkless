@@ -76,6 +76,10 @@ type Stylesheet struct {
 	// Properties holds @property registrations in source order. Layout applies
 	// initial values and the inherits flag when resolving custom properties.
 	Properties []PropertyRule
+	// PositionTries holds @position-try fallback blocks in source order.
+	// Layout resolves dashed-ident fallbacks in position-try-fallbacks
+	// against these rules; unknown idents are skipped.
+	PositionTries []PositionTryRule
 	// Layers lists named @layer names in declaration order (first use).
 	Layers []string
 	// layerRanks maps a layer name to its 1-based cascade rank; layerCount is
@@ -289,6 +293,8 @@ func parseAtRule(src string, str *Stylesheet, order *int) (string, error) {
 // rule list: @property, @page, @keyframes, @font-face, and @import.
 func parseNonConditionalAtRule(src string, str *Stylesheet) (string, error) {
 	switch {
+	case hasFoldPrefix(src, "@position-try"):
+		return parsePositionTryRule(src, str)
 	case hasFoldPrefix(src, "@property"):
 		return parsePropertyRule(src, str)
 	case hasFoldPrefix(src, "@page"):
@@ -715,6 +721,13 @@ func parseNestedAtRule(
 	str *Stylesheet, block, media string, contQ *ContainerQuery, orderPtr *int, depth int,
 ) (string, []Rule, error) {
 	switch {
+	case hasFoldPrefix(block, "@position-try"):
+		rest, err := parsePositionTryRule(block, str)
+		if err != nil {
+			return "", nil, err
+		}
+
+		return rest, nil, nil
 	case hasFoldPrefix(block, "@container"):
 		return parseNestedContainerRule(str, block, media, orderPtr, depth)
 	case hasFoldPrefix(block, "@supports"):

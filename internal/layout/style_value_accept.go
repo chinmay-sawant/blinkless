@@ -610,7 +610,7 @@ func borderValueAccepted(prop, value string) bool {
 // setters drop invalid values. It continues extendedDeclarationValueAccepted;
 // an unlisted property stays default-accept.
 //
-//nolint:cyclop,funlen,gocyclo // flat per-property acceptance table reads clearer than a split dispatch
+//nolint:cyclop,funlen,gocyclo,maintidx // flat per-property acceptance table reads clearer than a split dispatch
 func layoutDeclarationValueAccepted(prop, value string) bool {
 	switch prop {
 	case "align-items":
@@ -741,6 +741,22 @@ func layoutDeclarationValueAccepted(prop, value string) bool {
 		_, ok := expandGapRuleDeclaration(prop, value)
 
 		return ok
+	case anchorNameProp:
+		return anchorNameValueAccepted(value)
+	case anchorScopeProp:
+		return anchorScopeValueAccepted(value)
+	case positionAnchorProp:
+		return anchorPositionAnchorValueAccepted(value)
+	case positionAreaProp:
+		return anchorPositionAreaValueAccepted(value)
+	case positionTryFallbacks:
+		return anchorFallbacksValueAccepted(value)
+	case positionTryOrderProp:
+		return anchorOrderValueAccepted(value)
+	case positionTryProp:
+		return anchorTryValueAccepted(value)
+	case positionVisibilityProp:
+		return anchorVisibilityValueAccepted(value)
 	default:
 		return true
 	}

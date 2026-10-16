@@ -11,14 +11,14 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 446,
+      "implemented": 454,
       "partial": 3,
-      "unsupported": 328,
+      "unsupported": 320,
       "intentionally ignored": 8
     },
     "aliases": 38,
-    "engine_registered": 460,
-    "upstream_only": 325,
+    "engine_registered": 468,
+    "upstream_only": 317,
     "upstream": {
       "inventory": "webref-ed-css",
       "revision": "1f2ec8f74a80c14066b4c7d6822cee59f69fa03b",
@@ -975,32 +975,52 @@
     {
       "name": "anchor-name",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | <anchor-name>#"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Stores none or one or more dashed-idents; invalid keeps previous, none clears. Visible only to later in-scope boxes; absolute and fixed targets only."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/anchor_position.go",
+        "internal/layout/style_cascade.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyAnchorProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/anchor_position_test.go",
+          "name": "TestAnchorNameScope"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | <anchor-name>#"
     },
     {
       "name": "anchor-scope",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | all | <anchor-name>#"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "none is initial and hides nothing; all hides every name on the element from outside descendants; name list hides only those. Lookup only, no containing block."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/anchor_position.go",
+        "internal/layout/style_cascade.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyAnchorProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/anchor_position_test.go",
+          "name": "TestAnchorScopeLookup"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | all | <anchor-name>#"
     },
@@ -12973,96 +12993,164 @@
     {
       "name": "position-anchor",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | <anchor-name>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "auto uses the anchor only when exactly one in-scope name exists; several means no guess and keeps buildOutOfFlow offsets. Unknown keeps earlier value. normal, none and match-parent are rejected and keep previous."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/anchor_position.go",
+        "internal/layout/style_cascade.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyAnchorProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/anchor_position_test.go",
+          "name": "TestAnchorInvalidLeavesPrevious"
+        },
+        {
+          "file": "internal/layout/css_behavior_anchor_test.go",
+          "name": "TestBehaviorPositionAreaPlacesAboveAnchor"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | none | auto | <anchor-name> | match-parent"
     },
     {
       "name": "position-area",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | <position-area>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Applies only to absolute and fixed targets with an in-scope anchor; none keeps left and top offsets; static targets keep flow position. Options are tested against their position-area region and the first fitting option wins, safe-shifted into the containing block; exotic multi-token areas are stored but keep offsets."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/anchor_position.go",
+        "internal/layout/style_cascade.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyAnchorProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_anchor_test.go",
+          "name": "TestBehaviorPositionAreaPlacesAboveAnchor"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | <position-area>"
     },
     {
       "name": "position-try",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'position-try-order'>? <'position-try-fallbacks'>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Expands to order plus fallbacks including fallbacks-only; CSS-wide keywords reset both; a following longhand overrides the shorthand in source order."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/anchor_position.go",
+        "internal/layout/style_cascade.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyAnchorProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_anchor_test.go",
+          "name": "TestBehaviorPositionTryShorthandExpands"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'position-try-order'>? <'position-try-fallbacks'>"
     },
     {
       "name": "position-try-fallbacks",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | [ [<dashed-ident> || <try-tactic>] | <position-area> ]#"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Accepts none, position-area list and pinned try-tactic keywords flip-block, flip-inline, flip-start, flip-x and flip-y. Dashed-ident reads @position-try area; unknown idents are skipped. Options run in order after the base and the first whose box fits its position-area region wins; a tactic also swaps the corresponding inset sides. Inset overrides from @position-try are stored but not applied."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/anchor_position.go",
+        "internal/css/at_position_try.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyAnchorProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_anchor_test.go",
+          "name": "TestBehaviorPositionTryAlwaysKeepsBase"
+        },
+        {
+          "file": "internal/css/at_position_try_test.go",
+          "name": "TestPositionTryAtRule"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | [ [<dashed-ident> || <try-tactic>] | <position-area> ]#"
     },
     {
       "name": "position-try-order",
       "aliases": [],
-      "values": [],
+      "values": [
+        "normal | most-width | most-height | most-block-size | most-inline-size"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "normal keeps document order; try-size picks the largest candidate that fits its position-area region on that axis."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/anchor_position.go",
+        "internal/layout/style_cascade.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyAnchorProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_anchor_test.go",
+          "name": "TestBehaviorPositionTryOrderMostInlineSizePicksWide"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | <try-size>"
     },
     {
       "name": "position-visibility",
       "aliases": [],
-      "values": [],
+      "values": [
+        "always | anchor-valid | anchor-visible | no-overflow"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Scrollport hiding for anchor-visible is a host-scroll non-goal on this canvas: no scroll offset exists in this tree, so anchor-visible matches anchor-valid until host scroll work lands (plans/v0.0.1/native-window/native-web-view-checklist.md)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/anchor_position.go",
+        "internal/layout/style_cascade.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyAnchorProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_anchor_test.go",
+          "name": "TestBehaviorPositionVisibilityNoOverflow"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "always | [ anchor-valid || anchor-visible || no-overflow ]"
     },

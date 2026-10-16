@@ -139,6 +139,17 @@ type Display struct {
 	// points per CSS pixel (72/96); PixelPerPoint is CSS pixels per point
 	// (96/72). They are reciprocals.
 	PointsPerPixel, PixelPerPoint float64
+
+	// ForcedBreaks holds canvas-point Y coordinates where a new page must
+	// start, from page-break-before and page-break-after always. Values are
+	// sorted ascending with near duplicates merged. A paginator clamps them
+	// to its own page grid and ignores any at or past the content end.
+	ForcedBreaks []float64
+
+	// KeepTogether holds canvas-point [start, end] ranges from
+	// break-inside avoid. A paginator keeps a range on one page when the
+	// range fits that page and lets taller ranges split.
+	KeepTogether [][2]float64
 }
 
 // DisplayList lays doc out and returns its display list. It does not paint
@@ -207,6 +218,8 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 		canvasPt = minPt
 	}
 
+	forced, keep := ilayout.PageBreaks(res)
+
 	return &Display{
 		Ops:            res.Ops,
 		Order:          ilayout.PaintOrder(res.Ops),
@@ -215,6 +228,8 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 		Height:         int(canvasPt * ptToPx),
 		PointsPerPixel: 1 / ptToPx,
 		PixelPerPoint:  ptToPx,
+		ForcedBreaks:   forced,
+		KeepTogether:   keep,
 	}, nil
 }
 
