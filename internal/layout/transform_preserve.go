@@ -9,19 +9,22 @@ func worldTransform3DForBox(boxNode *box, viewport svgViewport) matrix3D {
 	}
 
 	style := boxNode.style
+
 	local2D := IdentityMatrix()
 	if style.HasTransform {
 		local2D = withPercentTranslate(style, boxNode)
 	}
+
 	local3D := identity3D()
 	if style.HasTransform3D {
-		local3D = baked3DForBox(boxNode, viewport)
+		local3D = baked3DForBox(boxNode)
 	}
 
 	originX, originY := resolveTransformOriginWithBox(
 		style.TransformOrigin, boxNode, style.TransformBox, viewport,
 	)
 	local := matrix3DFromAffine(local2D).mul(local3D)
+
 	return translate3D(originX, originY, 0).mul(local).mul(translate3D(-originX, -originY, 0))
 }
 
@@ -49,13 +52,17 @@ func stampPreserveTransformRange(
 		boxNode.style.TransformOrigin, boxNode, boxNode.style.TransformBox, viewport,
 	)
 	dist, vanishX, vanishY := perspectiveFlattenArgs(boxNode, worldChain, originX, originY)
+
 	start, end := boxNode.opStart, min(boxNode.opEnd, len(ops)-1)
 	if start < 0 || start > end {
 		return
 	}
 
-	var projection ProjectiveTransform
-	var affine Matrix2D
+	var (
+		projection ProjectiveTransform
+		affine     Matrix2D
+	)
+
 	if dist > 0 {
 		projection = projectiveTransform3DWorld(worldChain, vanishX, vanishY, dist)
 		projection = composeProjectiveAffine(projection, parentAccum)
@@ -63,70 +70,93 @@ func stampPreserveTransformRange(
 		affine = parentAccum.Mul(matrix2DFromWorld3D(worldChain))
 	}
 
+	stampPreserveRangeOps(ops, covered, start, end, exclusive, dist, projection, affine)
+}
+
+// stampPreserveRangeOps stamps every op the range owns, dispatching on the
+// projection mode chosen for the box.
+func stampPreserveRangeOps(
+	ops []Op, covered []bool, start, end int, exclusive bool, dist float64,
+	projection ProjectiveTransform, affine Matrix2D,
+) {
 	for idx := start; idx <= end; idx++ {
 		if exclusive && covered[idx] {
 			continue
 		}
 
-		op := &ops[idx]
-		if op.Kind == OpKindNoop || op.Kind == OpUnknown {
+		operation := &ops[idx]
+		if operation.Kind == OpKindNoop || operation.Kind == OpUnknown {
 			continue
 		}
 
 		if dist > 0 {
-			if op.Kind == OpImage {
-				mapping := projection
-				if !exclusive {
-					mapping = composeProjectiveInputAffine(mapping, op.Transform())
-				}
-				setPreserveImageTransform(op, mapping)
-
-				continue
-			}
-
-			if !exclusive {
-				if inner, ok := op.ProjectiveTransformValue(); ok {
-					projectionForOp := composeProjectiveTransforms(projection, inner)
-					op.setProjectiveTransform(projectionForOp)
-					op.XformSet = false
-
-					continue
-				}
-				if op.XformSet {
-					projectionForOp := composeProjectiveInputAffine(projection, op.Transform())
-					op.setProjectiveTransform(projectionForOp)
-					op.XformSet = false
-
-					continue
-				}
-			}
-
-			op.setProjectiveTransform(projection)
-			op.XformSet = false
-
-			continue
+			stampPreserveProjectiveOp(operation, projection, exclusive)
+		} else {
+			stampPreserveAffineOp(operation, affine, exclusive)
 		}
-
-		transform := affine
-		if !exclusive {
-			if op.XformSet {
-				transform = transform.Mul(op.Transform())
-			}
-			if inner, ok := op.ProjectiveTransformValue(); ok {
-				if op.Kind == OpImage {
-					setPreserveImageTransform(op, composeProjectiveAffine(inner, affine))
-				} else {
-					op.setProjectiveTransform(composeProjectiveAffine(inner, affine))
-					op.XformSet = false
-				}
-
-				continue
-			}
-		}
-
-		op.setXform(transform)
-		op.XformSet = true
 	}
+}
+
+// stampPreserveProjectiveOp stamps one op inside a projected preserve-3d
+// range, mirroring the branch order of the original projection pass.
+func stampPreserveProjectiveOp(operation *Op, projection ProjectiveTransform, exclusive bool) {
+	if operation.Kind == OpImage {
+		mapping := projection
+		if !exclusive {
+			mapping = composeProjectiveInputAffine(mapping, operation.Transform())
+		}
+
+		setPreserveImageTransform(operation, mapping)
+
+		return
+	}
+
+	if !exclusive {
+		if inner, ok := operation.ProjectiveTransformValue(); ok {
+			operation.setProjectiveTransform(composeProjectiveTransforms(projection, inner))
+			operation.XformSet = false
+
+			return
+		}
+
+		if operation.XformSet {
+			operation.setProjectiveTransform(composeProjectiveInputAffine(projection, operation.Transform()))
+			operation.XformSet = false
+
+			return
+		}
+	}
+
+	operation.setProjectiveTransform(projection)
+	operation.XformSet = false
+}
+
+// stampPreserveAffineOp stamps one op inside an unprojected preserve-3d range
+// with the flattened 2D affine accumulated for this box.
+func stampPreserveAffineOp(operation *Op, affine Matrix2D, exclusive bool) {
+	transform := affine
+
+	if !exclusive {
+		if operation.XformSet {
+			transform = transform.Mul(operation.Transform())
+		}
+
+		if inner, ok := operation.ProjectiveTransformValue(); ok {
+			if operation.Kind == OpImage {
+				setPreserveImageTransform(operation, composeProjectiveAffine(inner, affine))
+
+				return
+			}
+
+			operation.setProjectiveTransform(composeProjectiveAffine(inner, affine))
+			operation.XformSet = false
+
+			return
+		}
+	}
+
+	operation.setXform(transform)
+	operation.XformSet = true
 }
 
 func matrix2DFromWorld3D(world matrix3D) Matrix2D {
@@ -136,21 +166,21 @@ func matrix2DFromWorld3D(world matrix3D) Matrix2D {
 }
 
 func projectiveTransform3DWorld(world matrix3D, vanishX, vanishY, dist float64) ProjectiveTransform {
-	wX, wY, w0 := -world[8], -world[9], dist-world[11]
+	wCoeffX, wCoeffY, wCoeff0 := -world[8], -world[9], dist-world[11]
 
 	return ProjectiveTransform{
-		A: vanishX*wX + dist*world[0],
-		B: vanishY*wX + dist*world[4],
-		C: vanishX*wY + dist*world[1],
-		D: vanishY*wY + dist*world[5],
-		E: vanishX*w0 + dist*(world[3]-vanishX),
-		F: vanishY*w0 + dist*(world[7]-vanishY),
-		G: wX, H: wY, I: w0,
+		A: vanishX*wCoeffX + dist*world[0],
+		B: vanishY*wCoeffX + dist*world[4],
+		C: vanishX*wCoeffY + dist*world[1],
+		D: vanishY*wCoeffY + dist*world[5],
+		E: vanishX*wCoeff0 + dist*(world[3]-vanishX),
+		F: vanishY*wCoeff0 + dist*(world[7]-vanishY),
+		G: wCoeffX, H: wCoeffY, I: wCoeff0,
 	}
 }
 
 func composeProjectiveInputAffine(projective ProjectiveTransform, affine Matrix2D) ProjectiveTransform {
-	return composeProjectiveTransforms(projective, ProjectiveTransform{
+	return composeProjectiveTransforms(projective, ProjectiveTransform{ //nolint:exhaustruct // affine lift: G, H stay zero
 		A: affine.A, B: affine.B, C: affine.C, D: affine.D, E: affine.E, F: affine.F, I: 1,
 	})
 }
@@ -169,13 +199,16 @@ func composeProjectiveTransforms(outer, inner ProjectiveTransform) ProjectiveTra
 	}
 }
 
-func setPreserveImageTransform(op *Op, projective ProjectiveTransform) {
-	cx, cy := op.X+op.W/2, op.Y+op.H/2
+// centerDivisor halves a box's width and height to reach its center.
+const centerDivisor = 2
+
+func setPreserveImageTransform(operation *Op, projective ProjectiveTransform) {
+	cx, cy := operation.X+operation.W/centerDivisor, operation.Y+operation.H/centerDivisor
 	x, y := projective.Apply(cx, cy)
 	jacobian := projective.Jacobian(cx, cy)
 	jacobian.E = x - jacobian.A*cx - jacobian.C*cy
 	jacobian.F = y - jacobian.B*cx - jacobian.D*cy
-	op.setXform(jacobian)
-	op.XformSet = true
-	op.clearProjectiveTransform()
+	operation.setXform(jacobian)
+	operation.XformSet = true
+	operation.clearProjectiveTransform()
 }

@@ -168,17 +168,7 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 		return nil, ErrNilDocument
 	}
 
-	widthPx := float64(styled.WidthPx)
-	if widthPx <= 0 {
-		widthPx = fallbackViewportPx
-	}
-
-	// Unset height uses the viewport width, in points. That is the bitmap
-	// renderer's containing-block fallback for percentage heights.
-	heightPt := float64(styled.HeightPx) * cssPxToPt
-	if heightPt <= 0 {
-		heightPt = widthPx * cssPxToPt
-	}
+	widthPt, heightPt := displayViewportPt(styled)
 
 	font, err := pdf.DefaultFont()
 	if err != nil {
@@ -189,7 +179,7 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 		ctx,
 		styled.Root,
 		ilayout.Options{ //nolint:exhaustruct // fixed viewport, backgrounds on
-			Width:      widthPx * cssPxToPt,
+			Width:      widthPt,
 			Height:     heightPt,
 			Font:       font,
 			Registry:   styled.Registry,
@@ -226,6 +216,25 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 		PointsPerPixel: 1 / ptToPx,
 		PixelPerPoint:  ptToPx,
 	}, nil
+}
+
+// displayViewportPt returns the viewport width and height in points for a
+// styled document. An unset width falls back to fallbackViewportPx, and an
+// unset height uses that resolved width.
+func displayViewportPt(styled pubstate.Styled) (float64, float64) {
+	widthPx := float64(styled.WidthPx)
+	if widthPx <= 0 {
+		widthPx = fallbackViewportPx
+	}
+
+	// Unset height uses the viewport width, in points. That is the bitmap
+	// renderer's containing-block fallback for percentage heights.
+	heightPt := float64(styled.HeightPx) * cssPxToPt
+	if heightPt <= 0 {
+		heightPt = widthPx * cssPxToPt
+	}
+
+	return widthPx * cssPxToPt, heightPt
 }
 
 // DisplayOrder returns the indices that put ops in paint order. It is the

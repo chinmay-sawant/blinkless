@@ -28,7 +28,7 @@ func (e *engine) maskDescriptor(style ResolvedStyle) *MaskDescriptor {
 		return nil
 	}
 
-	descriptor := &MaskDescriptor{Layers: make([]MaskLayer, 0, len(images))}
+	descriptor := &MaskDescriptor{Layers: make([]MaskLayer, 0, len(images))} //nolint:exhaustruct // Raster set below
 
 	for index, source := range images {
 		layer := MaskLayer{

@@ -1,6 +1,16 @@
 package layout
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+// Static errors for projection finalization. Dynamic values are wrapped with
+// %w at the return site so messages keep their detail.
+var (
+	errPerspectiveImageVector  = errors.New("layout: perspective image cannot be emitted as vector geometry")
+	errFinalizePerspectiveKind = errors.New("layout: cannot finalize perspective operation kind")
+)
 
 // DisplayPoint is one point in canvas coordinates.
 type DisplayPoint struct {
@@ -25,37 +35,49 @@ type GlyphBasis struct {
 // matrices for those operations.
 func FinalizeDisplayOps(ops []Op) error {
 	for idx := range ops {
-		op := &ops[idx]
-		projective, ok := op.ProjectiveTransformValue()
+		operation := &ops[idx]
+
+		projective, ok := operation.ProjectiveTransformValue()
 		if !ok {
 			continue
 		}
 
-		switch op.Kind {
-		case OpFillRect, OpStrokeRect:
-			points := projectedRectPath(*op, projective)
-			op.setDisplayPath(points, true)
-			setProjectedBounds(op, points)
-		case OpLine:
-			finalizeProjectedLine(op, projective)
-		case OpText, OpBullet:
-			finalizeProjectedText(op, projective)
-		case OpLinkURI:
-			finalizeProjectedLink(op, projective)
-		case OpGridRun:
-			finalizeProjectedGrid(op, projective)
-		case OpUnknown, OpKindNoop:
-			// Group boundary and deactivated operations carry no geometry.
-		case OpImage:
-			return fmt.Errorf("layout: perspective image cannot be emitted as vector geometry")
-		default:
-			return fmt.Errorf("layout: cannot finalize perspective operation kind %d", op.Kind)
+		err := finalizeProjectedOp(operation, projective)
+		if err != nil {
+			return err
 		}
 
 		// The projective matrix already includes the operation's affine
 		// transforms. Do not let a downstream painter apply them a second time.
-		op.XformSet = false
-		op.clearProjectiveTransform()
+		operation.XformSet = false
+		operation.clearProjectiveTransform()
+	}
+
+	return nil
+}
+
+// finalizeProjectedOp rewrites one projected operation into final display
+// geometry. It reports operation kinds that cannot be finalized.
+func finalizeProjectedOp(operation *Op, projective ProjectiveTransform) error {
+	switch operation.Kind {
+	case OpFillRect, OpStrokeRect:
+		points := projectedRectPath(*operation, projective)
+		operation.setDisplayPath(points, true)
+		setProjectedBounds(operation, points)
+	case OpLine:
+		finalizeProjectedLine(operation, projective)
+	case OpText, OpBullet:
+		finalizeProjectedText(operation, projective)
+	case OpLinkURI:
+		finalizeProjectedLink(operation, projective)
+	case OpGridRun:
+		finalizeProjectedGrid(operation, projective)
+	case OpUnknown, OpKindNoop:
+		// Group boundary and deactivated operations carry no geometry.
+	case OpImage:
+		return errPerspectiveImageVector
+	default:
+		return fmt.Errorf("%w %d", errFinalizePerspectiveKind, operation.Kind)
 	}
 
 	return nil
@@ -75,61 +97,70 @@ func projectedRectPath(op Op, projective ProjectiveTransform) []DisplayPoint {
 	return points
 }
 
-func setProjectedBounds(op *Op, points []DisplayPoint) {
+func setProjectedBounds(operation *Op, points []DisplayPoint) {
 	if len(points) == 0 {
 		return
 	}
 
 	left, right := points[0].X, points[0].X
 	top, bottom := points[0].Y, points[0].Y
+
 	for _, point := range points[1:] {
 		left = min(left, point.X)
 		right = max(right, point.X)
 		top = min(top, point.Y)
 		bottom = max(bottom, point.Y)
 	}
-	op.X, op.Y = left, top
-	op.W, op.H = right-left, bottom-top
+
+	operation.X, operation.Y = left, top
+	operation.W, operation.H = right-left, bottom-top
 }
 
-func finalizeProjectedLine(op *Op, projective ProjectiveTransform) {
-	lineX, lineY, lineW, lineH, width := op.PaintLineGeometry()
+func finalizeProjectedLine(operation *Op, projective ProjectiveTransform) {
+	lineX, lineY, lineW, lineH, width := operation.PaintLineGeometry()
 	startX, startY := projective.Apply(lineX, lineY)
 	endX, endY := projective.Apply(lineX+lineW, lineY+lineH)
-	op.X, op.Y = startX, startY
-	op.W, op.H = endX-startX, endY-startY
-	op.Width = width
-	op.LineInset = 0
+	operation.X, operation.Y = startX, startY
+	operation.W, operation.H = endX-startX, endY-startY
+	operation.Width = width
+	operation.LineInset = 0
 }
 
-func finalizeProjectedText(op *Op, projective ProjectiveTransform) {
-	oldX, oldY := op.X, op.Y
-	op.X, op.Y = projective.Apply(oldX, oldY)
-	op.setGlyphBasis(projective.Jacobian(oldX, oldY))
+func finalizeProjectedText(operation *Op, projective ProjectiveTransform) {
+	oldX, oldY := operation.X, operation.Y
+	operation.X, operation.Y = projective.Apply(oldX, oldY)
+	operation.setGlyphBasis(projective.Jacobian(oldX, oldY))
 }
 
-func finalizeProjectedLink(op *Op, projective ProjectiveTransform) {
-	points := projectedRectPath(*op, projective)
-	setProjectedBounds(op, points)
+func finalizeProjectedLink(operation *Op, projective ProjectiveTransform) {
+	points := projectedRectPath(*operation, projective)
+	setProjectedBounds(operation, points)
 }
 
-func finalizeProjectedGrid(op *Op, projective ProjectiveTransform) {
-	if op.Grid == nil {
+// projectedGridPointsPerSegment is the number of display points each grid
+// segment projects to: one start and one end point.
+const projectedGridPointsPerSegment = 2
+
+func finalizeProjectedGrid(operation *Op, projective ProjectiveTransform) {
+	if operation.Grid == nil {
 		return
 	}
 
-	var bounds []DisplayPoint
-	for idx := range op.Grid.Segs {
-		line := op.Grid.asLine(op, idx)
+	bounds := make([]DisplayPoint, 0, projectedGridPointsPerSegment*len(operation.Grid.Segs))
+
+	for idx := range operation.Grid.Segs {
+		line := operation.Grid.asLine(operation, idx)
 		lineX, lineY, lineW, lineH, width := line.PaintLineGeometry()
 		startX, startY := projective.Apply(lineX, lineY)
 		endX, endY := projective.Apply(lineX+lineW, lineY+lineH)
-		segment := &op.Grid.Segs[idx]
+		segment := &operation.Grid.Segs[idx]
 		segment.X, segment.Y = startX, startY
 		segment.W, segment.H = endX-startX, endY-startY
 		segment.Width = width
 		segment.LineInset = 0
+
 		bounds = append(bounds, DisplayPoint{X: startX, Y: startY}, DisplayPoint{X: endX, Y: endY})
 	}
-	setProjectedBounds(op, bounds)
+
+	setProjectedBounds(operation, bounds)
 }
