@@ -211,7 +211,29 @@ type ResolvedStyle struct {
 	OverflowY           string
 	// Visibility is CSS visibility: "visible" | "hidden" | "collapse".
 	// Empty means visible. hidden and collapse skip paint and keep layout size.
-	Visibility                                                                                     string
+	Visibility string
+	// AnchorNames holds anchor-name dashed-idents; empty means none.
+	AnchorNames []string
+	// AnchorScope is anchor-scope: "none" | "all" | space-joined names.
+	// Empty is the initial (hides nothing, like none).
+	AnchorScope string
+	// PositionAnchor is position-anchor: "auto" or one dashed-ident.
+	// Empty behaves as auto (anchor only when exactly one in-scope name).
+	PositionAnchor string
+	// PositionArea is position-area: "none" or a 1-2 keyword area.
+	// Empty behaves as none (keeps left/top offsets).
+	PositionArea string
+	// PositionTryFallbacks holds one entry per position-try-fallbacks item
+	// (area, dashed-ident with optional try-tactics, or tactics alone).
+	// Empty means none.
+	PositionTryFallbacks []string
+	// PositionTryOrder is position-try-order: "normal" or a try-size
+	// keyword. Empty behaves as normal (fallback document order).
+	PositionTryOrder string
+	// PositionVisibility is position-visibility: "always" or a combo of
+	// anchor-valid, anchor-visible, no-overflow. Empty behaves like
+	// anchor-valid (anchor-visible is identical until a scroll offset exists).
+	PositionVisibility   string
 	MarginTop                                                                                      float64
 	MarginRight                                                                                    float64
 	MarginBottom                                                                                   float64

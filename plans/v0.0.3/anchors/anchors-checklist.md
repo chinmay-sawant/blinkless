@@ -1,7 +1,7 @@
 # v0.0.3 - Anchor positioning
 
 > **Parent:** `plans/v0.0.3/README.md`
-> **Status:** not started, except baseline rows verified in this session.
+> **Status:** complete 2026-10-16. All rows validated. `make test`, `make golden`, `make lint`, `make claim-scan`, `make catalog-check` and `make matrix-check` exit 0.
 > **Estimated effort:** 8 properties, 6 phases.
 
 ---
@@ -12,9 +12,9 @@ Anchor positioning places one absolutely or fixed positioned box against another
 
 This ledger is only `anchor-name`, `anchor-scope`, `position-anchor`, `position-area`, `position-try`, `position-try-fallbacks`, `position-try-order`, and `position-visibility`. It does not include `scroll-timeline`, `view-timeline`, `animation-timeline`, or `pointer-timeline`.
 
-`documentation/deferred.md:113` still calls this family a print non-goal. The catalog, read on 2026-10-15 from `testdata/css/catalog/properties.json` (`updated` field `2026-10-13`), marks all eight `unsupported` with an empty handler list. That deferred sentence is behind this ledger. Phase 5 updates it after the tests pass.
+`documentation/deferred.md` now lists anchor positioning as an implemented one-canvas subset with `position-visibility` partial for the scroll non-goal. The catalog, read on 2026-10-16 from `testdata/css/catalog/properties.json` (`updated` field `2026-10-16`), marks seven rows `implemented` and `position-visibility` `partial`, each with handler `applyAnchorProps` and resolvable behavior tests. Phase 5 landed those edits after the tests passed.
 
-Absolute and fixed boxes already move. `buildOutOfFlow` sets X from `left` or `right`, then Y from `resolveAbsY`, then shifts the box and its paint ops (`internal/layout/layout.go:2007-2046`). New placement math goes in `internal/layout/anchor_position.go`. Do not add that math to `internal/layout/layout.go`. The existing out-of-flow function may call one helper.
+Absolute and fixed boxes already move. `buildOutOfFlow` sets X from `left` or `right`, then Y from `resolveAbsY`, then shifts the box and its paint ops. New placement math lives in `internal/layout/anchor_position.go`. That math was not added to `internal/layout/layout.go`, which stays at its allowlisted size. Anchor placement runs once from `finalizeResult` in `internal/layout/layout_context.go` before `finalizeChrome` and may shift again.
 
 The drawing list does not need a new public field. A passing test shows the positioned box's X and Y changed. The host draws those ops where they already are.
 

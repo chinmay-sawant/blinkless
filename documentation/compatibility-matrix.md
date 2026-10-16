@@ -41,7 +41,7 @@ as its inline text (per the note column).
 
 ## 2. Supported CSS properties
 
-The catalog in `testdata/css/catalog/properties.json` (schema v1) is the authoritative property record. Measured 2026-10-16: 785 rows - 446 implemented, 3 partial, 328 unsupported, 8 intentionally ignored. The pinned upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties: 671 draft, 70 vendor, 52 svg, 28 browser-ui). Regenerate the tables below with `python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails on drift between the catalog and the code.
+The catalog in `testdata/css/catalog/properties.json` (schema v1) is the authoritative property record. Measured 2026-10-16: 785 rows - 453 implemented, 4 partial, 320 unsupported, 8 intentionally ignored. The pinned upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties: 671 draft, 70 vendor, 52 svg, 28 browser-ui). Regenerate the tables below with `python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails on drift between the catalog and the code.
 
 Statuses describe the layout pipeline, not browsers:
 
@@ -52,7 +52,7 @@ Statuses describe the layout pipeline, not browsers:
 
 An implemented status is not a browser-parity or parser-conformance claim. Rendering comparisons and HTML parsing carry separate evidence in `plans/v0.0.1/html-css-json-compatibility-checklist.md`.
 
-### 2.1 Implemented (446)
+### 2.1 Implemented (453)
 
 | Property | Accepted values | Source | Behavior tests |
 |---|---|---|---|
@@ -72,6 +72,8 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `align-items` | normal \| stretch \| <baseline-position> \| <overflow-position>? <self-position> | `internal/layout/style_properties.go` | `TestWebkitPrefixAliases`, `TestBehaviorAlignItemsCenterOffset` |
 | `align-self` | auto \| <overflow-position>? [ normal \| <self-position> ]\| stretch \| <baseline-position> | `internal/layout/style_properties.go` | `TestBehaviorAlignSelfEndUsedOffset` |
 | `alignment-baseline` | baseline \| <baseline-metric> | `internal/layout/style_paint_props.go` | `TestBehaviorAlignmentBaselineNoPaintEffect`, `TestSvgTextAlignmentBaselineCentralIdeographic`, `TestSvgTextAlignmentBaselineMiddleHanging` |
+| `anchor-name` | none \| <anchor-name># | `internal/layout/anchor_position.go`, `internal/layout/style_cascade.go` | `TestAnchorNameScope` |
+| `anchor-scope` | none \| all \| <anchor-name># | `internal/layout/anchor_position.go`, `internal/layout/style_cascade.go` | `TestAnchorScopeLookup` |
 | `aspect-ratio` | auto \|\| <ratio> | `internal/layout/style_aspect_ratio_props.go` | `TestBehaviorAspectRatioDerivesHeightFromWidth` |
 | `backface-visibility` | visible \| hidden | `internal/layout/style_properties.go` | `TestBehaviorBackfaceVisibilityNoPaintEffect`, `TestBackfaceHiddenCullRotateY180`, `TestBackfaceVisiblePaintsRotateY180`, `TestBackfaceHiddenKeeps2DMirror` |
 | `background` | [<'background-color'> \|\| <'background-image'> \|\| <'background-repeat'> \|\| <'background-attachment'> \|\| <'background-position'>] \| inherit | `internal/layout/style_properties.go` | `TestApplyImageKeyBackgroundAlias`, `TestAuthorBackgroundShorthandOverridesButtonUA`, `TestBackgroundImageParse`, `TestBackgroundSingleFieldNoWebMirror`, `TestGlobalGetSetRoundTripAndIgnored` |
@@ -390,6 +392,11 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `place-items` | <'align-items'> <'justify-items'>? | `internal/layout/style_properties.go` | `TestPlaceShorthands`, `TestGridPlaceItemsCenterShrinksItems` |
 | `place-self` | <'align-self'> <'justify-self'>? | `internal/layout/style_properties.go` | `TestPlaceShorthands`, `TestGridPlaceSelfEndShrinksItem` |
 | `position` | static \| relative \| absolute \| fixed \| inherit | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestPositionLiteFixtureReservesOverlaySpace`, `TestBehaviorPositionRelativeKeepsFlow` |
+| `position-anchor` | auto \| <anchor-name> | `internal/layout/anchor_position.go`, `internal/layout/style_cascade.go` | `TestAnchorInvalidLeavesPrevious`, `TestBehaviorPositionAreaPlacesAboveAnchor` |
+| `position-area` | none \| <position-area> | `internal/layout/anchor_position.go`, `internal/layout/style_cascade.go` | `TestBehaviorPositionAreaPlacesAboveAnchor` |
+| `position-try` | <'position-try-order'>? <'position-try-fallbacks'> | `internal/layout/anchor_position.go`, `internal/layout/style_cascade.go` | `TestBehaviorPositionTryShorthandExpands` |
+| `position-try-fallbacks` | none \| [ [<dashed-ident> \|\| <try-tactic>] \| <position-area> ]# | `internal/layout/anchor_position.go`, `internal/css/at_position_try.go` | `TestBehaviorPositionTryAlwaysKeepsBase`, `TestPositionTryAtRule` |
+| `position-try-order` | normal \| most-width \| most-height \| most-block-size \| most-inline-size | `internal/layout/anchor_position.go`, `internal/layout/style_cascade.go` | `TestBehaviorPositionTryOrderMostInlineSizePicksWide` |
 | `print-color-adjust` | economy \| exact | `internal/layout/style_color_adjust_props.go` | `TestColorAdjustPropsAcceptLegalKeywords`, `TestColorAdjustPropsReachRestPass`, `TestColorAdjustPropsRejectIllegalKeywords` |
 | `quotes` | [<string> <string>]+ \| none \| inherit | `internal/layout/style_paint_props.go` | `TestQuotes`, `TestBehaviorQuotesEmitGeneratedMarks` |
 | `right` | <length> \| <percentage> \| auto \| inherit | `internal/layout/style_properties.go` | `TestAuthorOverridesButtonUADefaults`, `TestBackgroundPositionUsesCSSPxIntrinsicSize`, `TestCaptionSideParse`, `TestTableCellClipsTransformedContent`, `TestBehaviorRightShiftsRelativeBox` |
@@ -503,15 +510,16 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `writing-mode` | horizontal-tb \| vertical-rl \| vertical-lr \| sideways-rl \| sideways-lr | `internal/layout/style_properties.go` | `TestWritingModeInherits`, `TestBehaviorWritingModeVerticalRotatesRun` |
 | `z-index` | auto \| <integer> \| inherit | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestBehaviorZIndexOrdersOverlappingPaint` |
 
-### 2.2 Partial (3)
+### 2.2 Partial (4)
 
 | Property | Accepted values | Source | Named missing behavior |
 |---|---|---|---|
 | `-webkit-mask-composite` | source-over \| source-out \| source-in \| xor | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go` | The engine accepts source-over, source-in, source-out, and xor only; Chrome 155 also accepts source-atop, destination-over, destination-in, destination-out, destination-atop, clear, and copy. Mask pixel replay stays a host contract. |
 | `break-inside` | auto \| avoid \| avoid-page \| avoid-column \| avoid-region | `internal/layout/style_properties.go` | break-inside keywords parse but no layout or paint pass reads them; the engine returns a drawing list without paginating, so avoidance has no observable effect (TestBehaviorBreakInsideAvoidColumnNoPageEffect). break-inside:avoid parses but multicol advances whole items without a straddle test at the distribution call, so avoidance equals auto (TestBreakInsideAvoidBalancedStraddleGap). |
 | `mask-type` | luminance \| alpha | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go`, `internal/svg/mask.go` | mask-type cascades into ResolvedStyle.MaskType but no consumer reads it; the SVG rasterizer uses only the mask-type on the SVG source element. Pixel replay stays a host contract. |
+| `position-visibility` | always \| anchor-valid \| anchor-visible \| no-overflow | `internal/layout/anchor_position.go`, `internal/layout/style_cascade.go` | anchor-visible is stored but treated as anchor-valid on this canvas: no scroll offset exists so no scrollport hiding. Scroll-linked hiding is a non-goal owned by host-scroll work, see Phase 0 deferred row in plans/v0.0.3/anchors/anchors-checklist.md. |
 
-### 2.3 Unsupported (328)
+### 2.3 Unsupported (320)
 
 | Property | Named missing behavior |
 |---|---|
@@ -545,8 +553,6 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `-webkit-transition-timing-function` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `-webkit-user-select` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `all` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `anchor-name` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `anchor-scope` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `animation` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `animation-composition` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `animation-delay` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -723,12 +729,6 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `pointer-timeline` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `pointer-timeline-axis` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `pointer-timeline-name` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `position-anchor` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `position-area` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `position-try` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `position-try-fallbacks` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `position-try-order` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `position-visibility` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `r` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `reading-flow` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `reading-order` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -1113,20 +1113,20 @@ lands.
 | `-webkit-text-stroke-color` | `text-stroke-color` | WebKit-native, no print consumer |
 | `-webkit-text-stroke-width` | `text-stroke-width` | WebKit-native, no print consumer |
 
-### 5.4 Phase 84 print-noop categories (155 properties - Not implemented)
+### 5.4 Phase 84 print-noop categories (147 properties - Not implemented)
 
-The following 155 properties across six categories are intentionally left **unsupported** (Not implemented) as print-noop non-goals. This engine has no animation time loop, no interactive scroll viewport, no pointer/caret chrome, no motion or anchor timelines, no aural speech synthesis, and no 3D scene graph. Declarations are recognized where valid CSS syntax appears and dropped without error; none are claimed as Implemented.
+The following 147 properties across six categories are intentionally left **unsupported** (Not implemented) as print-noop non-goals. This engine has no animation time loop, no interactive scroll viewport, no pointer/caret chrome, no motion or view timelines, no aural speech synthesis, and no 3D scene graph. Anchor positioning is excluded here because its one-canvas subset is implemented in section 2. Declarations below are recognized where valid CSS syntax appears and dropped without error; none are claimed as Implemented.
 
 | Category | Count | Status | Description and scope |
 |----------|-------|--------|-----------------------|
 | Time, animation, and transition (`A_time_animation_transition`) | 45 | Not implemented | This engine has no animation time loop, transition timeline, trigger activation, or view-transition engine (`animation`, `animation-composition`, `animation-delay`, `animation-delay-end`, `animation-delay-start`, `animation-direction`, `animation-duration`, `animation-fill-mode`, `animation-iteration-count`, `animation-name`, `animation-play-state`, `animation-range`, `animation-range-center`, `animation-range-end`, `animation-range-start`, `animation-timeline`, `animation-timing-function`, `animation-trigger`, `event-trigger`, `event-trigger-name`, `event-trigger-source`, `image-animation`, `pointer-timeline`, `pointer-timeline-axis`, `pointer-timeline-name`, `timeline-trigger`, `timeline-trigger-activation-range`, `timeline-trigger-activation-range-end`, `timeline-trigger-activation-range-start`, `timeline-trigger-active-range`, `timeline-trigger-active-range-end`, `timeline-trigger-active-range-start`, `timeline-trigger-name`, `timeline-trigger-source`, `transition`, `transition-behavior`, `transition-delay`, `transition-duration`, `transition-property`, `transition-timing-function`, `trigger-scope`, `view-transition-class`, `view-transition-group`, `view-transition-name`, `view-transition-scope`). |
 | Scroll snap, overscroll, and scrollbar (`A_scroll_snap_overscroll`) | 41 | Not implemented | This engine has no scroll viewport, scroll snapping, scroll margin/padding offsets, scroll timeline drivers, or scrollbar gutter/color/width chrome (`overscroll-behavior`, `overscroll-behavior-block`, `overscroll-behavior-inline`, `overscroll-behavior-x`, `overscroll-behavior-y`, `scroll-axis-lock`, `scroll-behavior`, `scroll-initial-target`, `scroll-margin`, `scroll-margin-block`, `scroll-margin-block-end`, `scroll-margin-block-start`, `scroll-margin-bottom`, `scroll-margin-inline`, `scroll-margin-inline-end`, `scroll-margin-inline-start`, `scroll-margin-left`, `scroll-margin-right`, `scroll-margin-top`, `scroll-marker-group`, `scroll-padding`, `scroll-padding-block`, `scroll-padding-block-end`, `scroll-padding-block-start`, `scroll-padding-bottom`, `scroll-padding-inline`, `scroll-padding-inline-end`, `scroll-padding-inline-start`, `scroll-padding-left`, `scroll-padding-right`, `scroll-padding-top`, `scroll-snap-align`, `scroll-snap-stop`, `scroll-snap-type`, `scroll-target-group`, `scroll-timeline`, `scroll-timeline-axis`, `scroll-timeline-name`, `scrollbar-color`, `scrollbar-gutter`, `scrollbar-width`). |
 | Pointer, caret, and form UI (`A_pointer_form_ui`) | 25 | Not implemented | This engine has no mouse pointer, cursor styling, caret animation/color/shape, spatial navigation, dynamic field sizing, input security masking, touch gestures, user text selection, or window dragging (`appearance`, `caret`, `caret-animation`, `caret-color`, `caret-shape`, `cursor`, `field-sizing`, `input-security`, `interactivity`, `interest-delay`, `interest-delay-end`, `interest-delay-start`, `nav-down`, `nav-left`, `nav-right`, `nav-up`, `pointer-events`, `resize`, `slider-orientation`, `spatial-navigation-action`, `spatial-navigation-contain`, `spatial-navigation-function`, `touch-action`, `user-select`, `window-drag`). |
-| Anchor positioning, offset motion, and view timelines (`A_anchor_timeline_motion`) | 21 | Not implemented | Interactive anchor positioning, motion path offset rotations/distances, view timelines, scroll anchoring, and paint invalidation hints have no layout consumer (`anchor-name`, `anchor-scope`, `offset`, `offset-anchor`, `offset-distance`, `offset-path`, `offset-position`, `offset-rotate`, `overflow-anchor`, `position-anchor`, `position-area`, `position-try`, `position-try-fallbacks`, `position-try-order`, `position-visibility`, `timeline-scope`, `view-timeline`, `view-timeline-axis`, `view-timeline-inset`, `view-timeline-name`, `will-change`). |
+| Motion path, offset and view timelines (`A_anchor_timeline_motion`) | 13 | Not implemented | Motion path offset rotations and distances, view timelines, scroll anchoring, and paint invalidation hints have no layout consumer (`offset`, `offset-anchor`, `offset-distance`, `offset-path`, `offset-position`, `offset-rotate`, `overflow-anchor`, `timeline-scope`, `view-timeline`, `view-timeline-axis`, `view-timeline-inset`, `view-timeline-name`, `will-change`). Anchor positioning (`anchor-name`, `anchor-scope`, `position-anchor`, `position-area`, `position-try`, `position-try-fallbacks`, `position-try-order`, `position-visibility`) is implemented in section 2 and excluded from this count. |
 | Speech and aural (`A_speech_aural`) | 19 | Not implemented | This engine has no aural speech synthesis, sound cues, pauses, rests, or speech voice properties (`cue`, `cue-after`, `cue-before`, `pause`, `pause-after`, `pause-before`, `rest`, `rest-after`, `rest-before`, `speak`, `speak-as`, `voice-balance`, `voice-duration`, `voice-family`, `voice-pitch`, `voice-range`, `voice-rate`, `voice-stress`, `voice-volume`). |
 | 3D transforms (`A_3d_transforms`) | 4 | Not implemented | Static 2D affine transforms (`transform`, `transform-origin`) are Implemented for paint; 3D transform matrices, perspective projection, perspective origins, and backface culling are permanent non-goals for this engine (`backface-visibility`, `perspective`, `perspective-origin`, `transform-style`). |
 
-Total: 155 properties across six categories. All remain Not implemented.
+Total: 147 properties across six categories. All remain Not implemented. Anchor positioning (8 properties) is implemented in section 2 and not counted here.
 
 Catalog reconciliation: this phase-84 tally counts print-noop names as
 unsupported, but the catalog records `scroll-margin`, `scroll-margin-bottom`,

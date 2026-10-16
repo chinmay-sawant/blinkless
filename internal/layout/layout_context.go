@@ -45,6 +45,11 @@ func finalizeResult(eng *engine, root *html.Node, opts Options) (*Result, error)
 	if eng.err != nil {
 		return nil, eng.err
 	}
+	// Anchor positioning: move absolute and fixed boxes with an in-scope
+	// anchor and a position-area, selecting the winning fallback by
+	// position-try-order and position-visibility. Runs before chrome merge
+	// so shifted boxes carry their backgrounds and borders.
+	eng.resolveAnchorPositions(boxNode)
 	// Merge deferred background/border ops before stamping sticky/fixed flags
 	// and CSS transforms (those passes need final op indices).
 	eng.finalizeChrome(boxNode)

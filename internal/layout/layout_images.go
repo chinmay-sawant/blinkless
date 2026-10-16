@@ -273,7 +273,7 @@ func imageOrientationFor(style ResolvedStyle, ref *imageRef) (float64, bool, boo
 		quarters, mirror := exifOrientationTransform(orientation)
 
 		return float64(quarters * degreesQuarterTurn), mirror, true
-	case "none": //nolint:goconst // fontOpticalNone is font-specific; none is the shared CSS keyword
+	case "none": // none is the shared CSS keyword
 		return 0, false, false
 	default:
 		mirror := strings.HasSuffix(style.ImageOrientation, " flip")
