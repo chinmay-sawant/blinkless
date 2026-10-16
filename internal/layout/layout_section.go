@@ -123,7 +123,7 @@ func assembleNodeResult(eng *engine, rootBox *box, opts Options, workspace *Work
 
 	if eng.needsXformStamp {
 		propagatePerspective(rootBox)
-		stampBoxTransforms(rootBox, IdentityMatrix(), res.Ops)
+		stampBoxTransforms(rootBox, IdentityMatrix(), res.Ops, opts.Media)
 	}
 
 	res.MaxContentX, res.HasFragmentLinks = censusOps(res.Ops, opts.Width)

@@ -1271,7 +1271,7 @@ func ApplyTranslate(style *ResolvedStyle, value string, fsize float64) bool {
 // A single []bool covered bitmap replaces per-node map[int]struct{} sets —
 // multi-page tables allocate tens of thousands of boxes and the map path was
 // a top alloc_space hotspot.
-func stampBoxTransforms(boxNode *box, parentAccum Matrix2D, ops []Op) {
+func stampBoxTransforms(boxNode *box, parentAccum Matrix2D, ops []Op, media string) {
 	if boxNode == nil || len(ops) == 0 {
 		return
 	}
@@ -1281,7 +1281,7 @@ func stampBoxTransforms(boxNode *box, parentAccum Matrix2D, ops []Op) {
 	// view-box origin on a top-level box falls back to the border box.
 	var rootViewport svgViewport
 
-	stampBoxTransformsRec(boxNode, parentAccum, ops, covered, rootViewport, identity3D(), false, IdentityMatrix())
+	stampBoxTransformsRec(boxNode, parentAccum, ops, covered, rootViewport, identity3D(), false, IdentityMatrix(), media)
 }
 
 // translate3D returns a 3D translation by tx, ty, tz points.
@@ -1491,7 +1491,7 @@ func markPreserveComposed(boxNode *box, has3D, chainActive, isPreserve bool) {
 
 func stampBoxTransformsRec(
 	boxNode *box, parentAccum Matrix2D, ops []Op, covered []bool, viewport svgViewport,
-	chain matrix3D, chainActive bool, chainBase Matrix2D,
+	chain matrix3D, chainActive bool, chainBase Matrix2D, media string,
 ) {
 	if boxNode == nil {
 		return
@@ -1521,7 +1521,7 @@ func stampBoxTransformsRec(
 	}
 
 	for _, c := range boxNode.children {
-		stampBoxTransformsRec(c, childParent, ops, covered, childViewport, childChain, childActive, childBase)
+		stampBoxTransformsRec(c, childParent, ops, covered, childViewport, childChain, childActive, childBase, media)
 	}
 
 	// Mark child-owned ranges, stamp exclusive ops, then clear for siblings.
@@ -1530,7 +1530,7 @@ func stampBoxTransformsRec(
 	}
 
 	chainFacing, useChainFacing := composedChainFacing(boxNode, chain, chainActive, has3D, viewport)
-	stampExclusiveTransformOps(boxNode, accum, ops, covered, chainFacing, useChainFacing)
+	stampExclusiveTransformOps(boxNode, accum, ops, covered, chainFacing, useChainFacing, media)
 	stampProjectiveTransformOps(boxNode, parentAccum, ops, viewport)
 	stampExclusiveOpacityOps(boxNode, ops, covered)
 	stampCoveredOpacityOps(boxNode, ops, covered)
@@ -1606,14 +1606,12 @@ func boxOwnsOps(boxNode *box) bool {
 // stampExclusiveTransformOps applies the accumulated transform to ops owned
 // exclusively by boxNode; child-owned ops keep the child's own transform.
 func stampExclusiveTransformOps(
-	boxNode *box, accum Matrix2D, ops []Op, covered []bool, chainFacing float64, useChainFacing bool,
+	boxNode *box, accum Matrix2D, ops []Op, covered []bool, chainFacing float64, useChainFacing bool, media string,
 ) {
-	// Backface cull: a 3D-rotated face turned away from the viewer paints
-	// nothing under backface-visibility:hidden. 2D mirrors never cull (only
-	// HasTransform3D faces qualify). A child inside a preserve-3d chain uses
-	// the chain facing, so a parent rotateY(180deg) hides a hidden child.
-	// Reference: Chrome 143.0.7499.40.
-	if backfaceCulled(boxNode, chainFacing, useChainFacing) {
+	// Chrome 143.0.7499.40 culls hidden back faces on screen but paints them
+	// in print-to-PDF. Keep screen culling here and preserve those ops for print.
+	isPrint := strings.EqualFold(strings.TrimSpace(media), "print")
+	if !isPrint && backfaceCulled(boxNode, chainFacing, useChainFacing) {
 		zeroExclusiveOps(boxNode, ops, covered)
 
 		return

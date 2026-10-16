@@ -98,7 +98,7 @@ func viewportTestTree(t *testing.T, rootTag, childTag, transformBox string) (*bo
 func viewportTestStamped(t *testing.T, root *box, ops []Op) Matrix2D {
 	t.Helper()
 
-	stampBoxTransforms(root, IdentityMatrix(), ops)
+	stampBoxTransforms(root, IdentityMatrix(), ops, "screen")
 
 	if !ops[0].XformSet {
 		t.Fatal("stamped op carries no baked transform, want XformSet")
