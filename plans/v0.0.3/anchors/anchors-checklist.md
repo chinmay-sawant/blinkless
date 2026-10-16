@@ -12,7 +12,7 @@ Anchor positioning places one absolutely or fixed positioned box against another
 
 This ledger is only `anchor-name`, `anchor-scope`, `position-anchor`, `position-area`, `position-try`, `position-try-fallbacks`, `position-try-order`, and `position-visibility`. It does not include `scroll-timeline`, `view-timeline`, `animation-timeline`, or `pointer-timeline`.
 
-`documentation/deferred.md` now lists anchor positioning as an implemented one-canvas subset with `position-visibility` partial for the scroll non-goal. The catalog, read on 2026-10-16 from `testdata/css/catalog/properties.json` (`updated` field `2026-10-16`), marks seven rows `implemented` and `position-visibility` `partial`, each with handler `applyAnchorProps` and resolvable behavior tests. Phase 5 landed those edits after the tests passed.
+`documentation/deferred.md` now lists anchor positioning as an implemented one-canvas subset. The catalog, read on 2026-10-16 from `testdata/css/catalog/properties.json` (`updated` field `2026-10-16`), marks all eight rows `implemented` for the one-canvas contract, each with handler `applyAnchorProps` and resolvable behavior tests. `position-visibility` carries the scroll non-goal as a limitation. Phase 5 landed those edits after the tests passed.
 
 Absolute and fixed boxes already move. `buildOutOfFlow` sets X from `left` or `right`, then Y from `resolveAbsY`, then shifts the box and its paint ops. New placement math lives in `internal/layout/anchor_position.go`. That math was not added to `internal/layout/layout.go`, which stays at its allowlisted size. Anchor placement runs once from `finalizeResult` in `internal/layout/layout_context.go` before `finalizeChrome` and may shift again.
 
@@ -22,14 +22,14 @@ The drawing list does not need a new public field. A passing test shows the posi
 
 | Property | Catalog status | Pinned syntax |
 |---|---|---|
-| `anchor-name` | unsupported | `none \| <anchor-name>#` |
-| `anchor-scope` | unsupported | `none \| all \| <anchor-name>#` |
-| `position-anchor` | unsupported | `auto \| <anchor-name>` |
-| `position-area` | unsupported | `none \| <position-area>` |
-| `position-try` | unsupported | `<'position-try-order'>? <'position-try-fallbacks'>` |
-| `position-try-fallbacks` | unsupported | `none \| [ [<dashed-ident> \|\| <try-tactic>] \| <position-area> ]#` |
-| `position-try-order` | unsupported | `normal \| <try-size>` |
-| `position-visibility` | unsupported | `always \| [ anchor-valid \|\| anchor-visible \|\| no-overflow ]` |
+| `anchor-name` | implemented | `none \| <anchor-name>#` |
+| `anchor-scope` | implemented | `none \| all \| <anchor-name>#` |
+| `position-anchor` | implemented | `auto \| <anchor-name>` |
+| `position-area` | implemented | `none \| <position-area>` |
+| `position-try` | implemented | `<'position-try-order'>? <'position-try-fallbacks'>` |
+| `position-try-fallbacks` | implemented | `none \| [ [<dashed-ident> \|\| <try-tactic>] \| <position-area> ]#` |
+| `position-try-order` | implemented | `normal \| <try-size>` |
+| `position-visibility` | implemented | `always \| [ anchor-valid \|\| anchor-visible \|\| no-overflow ]` |
 
 Syntax strings are the pinned upstream inventory `webref-ed-css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b`, spec `css-anchor-position`. `position-visibility` uses the singular tokens `anchor-valid` and `anchor-visible` from that inventory (`testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json:5488`). Do not rename them in this ledger.
 
@@ -89,7 +89,7 @@ Gate. Visibility changes which candidate wins. It does not add a scrollport and 
 
 ## Phase 5: catalog, docs, and gates
 
-- [x] Point the eight catalog rows at `internal/layout/anchor_position.go` and the new behavior tests. Seven rows are `implemented` for behavior a test observes in the drawing list. `anchor-visible` stays `partial` while the Phase 0 scroll non-goal stands, and its limitation names that non-goal. `make catalog-check` exits 0.
+- [x] Point the eight catalog rows at `internal/layout/anchor_position.go` and the new behavior tests. All eight rows are `implemented` for behavior a test observes in the drawing list. The scrollport case stays the Phase 0 host-scroll non-goal, named in the `position-visibility` limitation. `make catalog-check` exits 0.
 - [x] Update `documentation/deferred.md` so this family is no longer a blanket print non-goal. States the one-canvas contract and the scroll non-goal.
 - [x] Update `documentation/compatibility-matrix.md` only through the matrix generator. Generated property rows untouched by hand; `make matrix-check` exits 0.
 - [x] Update the local knowledge-base page for anchor positioning in the same session as the code, per the repo ledger rule. Landed as `documentation/anchor-positioning.md`. This checklist does not do that edit.

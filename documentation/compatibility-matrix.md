@@ -41,7 +41,7 @@ as its inline text (per the note column).
 
 ## 2. Supported CSS properties
 
-The catalog in `testdata/css/catalog/properties.json` (schema v1) is the authoritative property record. Measured 2026-10-16: 785 rows - 453 implemented, 4 partial, 320 unsupported, 8 intentionally ignored. The pinned upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties: 671 draft, 70 vendor, 52 svg, 28 browser-ui). Regenerate the tables below with `python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails on drift between the catalog and the code.
+The catalog in `testdata/css/catalog/properties.json` (schema v1) is the authoritative property record. Measured 2026-10-16: 785 rows - 454 implemented, 3 partial, 320 unsupported, 8 intentionally ignored. The pinned upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties: 671 draft, 70 vendor, 52 svg, 28 browser-ui). Regenerate the tables below with `python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails on drift between the catalog and the code.
 
 Statuses describe the layout pipeline, not browsers:
 
@@ -52,7 +52,7 @@ Statuses describe the layout pipeline, not browsers:
 
 An implemented status is not a browser-parity or parser-conformance claim. Rendering comparisons and HTML parsing carry separate evidence in `plans/v0.0.1/html-css-json-compatibility-checklist.md`.
 
-### 2.1 Implemented (453)
+### 2.1 Implemented (454)
 
 | Property | Accepted values | Source | Behavior tests |
 |---|---|---|---|
@@ -397,6 +397,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `position-try` | <'position-try-order'>? <'position-try-fallbacks'> | `internal/layout/anchor_position.go`, `internal/layout/style_cascade.go` | `TestBehaviorPositionTryShorthandExpands` |
 | `position-try-fallbacks` | none \| [ [<dashed-ident> \|\| <try-tactic>] \| <position-area> ]# | `internal/layout/anchor_position.go`, `internal/css/at_position_try.go` | `TestBehaviorPositionTryAlwaysKeepsBase`, `TestPositionTryAtRule` |
 | `position-try-order` | normal \| most-width \| most-height \| most-block-size \| most-inline-size | `internal/layout/anchor_position.go`, `internal/layout/style_cascade.go` | `TestBehaviorPositionTryOrderMostInlineSizePicksWide` |
+| `position-visibility` | always \| anchor-valid \| anchor-visible \| no-overflow | `internal/layout/anchor_position.go`, `internal/layout/style_cascade.go` | `TestBehaviorPositionVisibilityNoOverflow` |
 | `print-color-adjust` | economy \| exact | `internal/layout/style_color_adjust_props.go` | `TestColorAdjustPropsAcceptLegalKeywords`, `TestColorAdjustPropsReachRestPass`, `TestColorAdjustPropsRejectIllegalKeywords` |
 | `quotes` | [<string> <string>]+ \| none \| inherit | `internal/layout/style_paint_props.go` | `TestQuotes`, `TestBehaviorQuotesEmitGeneratedMarks` |
 | `right` | <length> \| <percentage> \| auto \| inherit | `internal/layout/style_properties.go` | `TestAuthorOverridesButtonUADefaults`, `TestBackgroundPositionUsesCSSPxIntrinsicSize`, `TestCaptionSideParse`, `TestTableCellClipsTransformedContent`, `TestBehaviorRightShiftsRelativeBox` |
@@ -510,14 +511,13 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `writing-mode` | horizontal-tb \| vertical-rl \| vertical-lr \| sideways-rl \| sideways-lr | `internal/layout/style_properties.go` | `TestWritingModeInherits`, `TestBehaviorWritingModeVerticalRotatesRun` |
 | `z-index` | auto \| <integer> \| inherit | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestBehaviorZIndexOrdersOverlappingPaint` |
 
-### 2.2 Partial (4)
+### 2.2 Partial (3)
 
 | Property | Accepted values | Source | Named missing behavior |
 |---|---|---|---|
 | `-webkit-mask-composite` | source-over \| source-out \| source-in \| xor | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go` | The engine accepts source-over, source-in, source-out, and xor only; Chrome 155 also accepts source-atop, destination-over, destination-in, destination-out, destination-atop, clear, and copy. Mask pixel replay stays a host contract. |
 | `break-inside` | auto \| avoid \| avoid-page \| avoid-column \| avoid-region | `internal/layout/style_properties.go` | break-inside keywords parse but no layout or paint pass reads them; the engine returns a drawing list without paginating, so avoidance has no observable effect (TestBehaviorBreakInsideAvoidColumnNoPageEffect). break-inside:avoid parses but multicol advances whole items without a straddle test at the distribution call, so avoidance equals auto (TestBreakInsideAvoidBalancedStraddleGap). |
 | `mask-type` | luminance \| alpha | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go`, `internal/svg/mask.go` | mask-type cascades into ResolvedStyle.MaskType but no consumer reads it; the SVG rasterizer uses only the mask-type on the SVG source element. Pixel replay stays a host contract. |
-| `position-visibility` | always \| anchor-valid \| anchor-visible \| no-overflow | `internal/layout/anchor_position.go`, `internal/layout/style_cascade.go` | anchor-visible is stored but treated as anchor-valid on this canvas: no scroll offset exists so no scrollport hiding. Scroll-linked hiding is a non-goal owned by host-scroll work, see Phase 0 deferred row in plans/v0.0.3/anchors/anchors-checklist.md. |
 
 ### 2.3 Unsupported (320)
 

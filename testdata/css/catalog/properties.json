@@ -11,8 +11,8 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 453,
-      "partial": 4,
+      "implemented": 454,
+      "partial": 3,
       "unsupported": 320,
       "intentionally ignored": 8
     },
@@ -13135,7 +13135,7 @@
         "always | anchor-valid | anchor-visible | no-overflow"
       ],
       "limitations": [
-        "anchor-visible is stored but treated as anchor-valid on this canvas: no scroll offset exists so no scrollport hiding. Scroll-linked hiding is a non-goal owned by host-scroll work, see Phase 0 deferred row in plans/v0.0.3/anchors/anchors-checklist.md."
+        "Scrollport hiding for anchor-visible is a host-scroll non-goal on this canvas: no scroll offset exists in this tree, so anchor-visible matches anchor-valid until host scroll work lands (plans/v0.0.1/native-window/native-web-view-checklist.md)."
       ],
       "source": [
         "internal/layout/anchor_position.go",
@@ -13150,7 +13150,7 @@
           "name": "TestBehaviorPositionVisibilityNoOverflow"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "always | [ anchor-valid || anchor-visible || no-overflow ]"
     },
