@@ -32,6 +32,10 @@ func maskGradientAccepted(value string) bool {
 // The 512 cap stays inside renderGradientPNG. ok is false when the
 // gradient does not parse or the size is not positive.
 func maskGradientPNG(raw string, width, height float64, current [3]float64) ([]byte, int, int, bool) {
+	if normalized, ok := normalizeMaskLinearGradient(raw, width, height); ok {
+		raw = normalized
+	}
+
 	return renderGradientPNG(raw, width, height, current)
 }
 

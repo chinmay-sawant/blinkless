@@ -35,9 +35,10 @@ const fallbackViewportPx = 1024
 // a fill.
 //
 // Use the accessor methods (LinkURI, ImageBytes, ImageAlt, Transform,
+// ProjectiveTransformValue,
 // BlendModeName, Opacity, Outline, FontFeatures, TextLanguage, TextAutospace,
-// TextTransformValue, NoFakeBoldValue) for the rare payload rather than the
-// promoted fields: the payload sits behind an embedded pointer to an
+// TextTransformValue, NoFakeBoldValue, PathValue, GlyphBasisValue) for the
+// rare payload rather than the promoted fields: the payload sits behind an embedded pointer to an
 // unexported type, so a caller cannot build or inspect it, and every accessor
 // answers safely when it is absent. The plain fields (Kind, X, Y, W, H, R, G,
 // B, Alpha, Width, Size, LetterSpacing, Text, Font, Grid, the radii,
@@ -54,11 +55,25 @@ const fallbackViewportPx = 1024
 // itself. Bytes hands the raw SFNT face to an independent shaper.
 type DisplayOp = ilayout.Op
 
+// ProjectiveTransform is a perspective mapping retained for payloads that
+// cannot be expressed as final vector geometry.
+type ProjectiveTransform = ilayout.ProjectiveTransform
+
+// DisplayPoint is one point in canvas coordinates.
+type DisplayPoint = ilayout.DisplayPoint
+
+// DisplayPath is straight-edged drawing geometry attached to an operation.
+type DisplayPath = ilayout.DisplayPath
+
+// GlyphBasis describes the local direction and scale of a projected text run.
+type GlyphBasis = ilayout.GlyphBasis
+
 // DisplayGroup is the CSS element compositing group an operation belongs to.
 type DisplayGroup = ilayout.BlendGroup
 
 // MaskDescriptor and MaskLayer describe the mask carried by a display group.
 type MaskDescriptor = ilayout.MaskDescriptor
+type MaskRaster = ilayout.MaskRaster
 type MaskLayer = ilayout.MaskLayer
 
 // DisplayKind is the operation kind. It is a distinct type, so a consumer
@@ -187,6 +202,12 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 	)
 	if err != nil {
 		return nil, fmt.Errorf("layout: display: %w", err)
+	}
+
+	// CSS perspective is resolved in Blinkless. The public list carries the
+	// resulting paths and text basis, leaving consumers with drawing geometry.
+	if err := ilayout.FinalizeDisplayOps(res.Ops); err != nil {
+		return nil, fmt.Errorf("layout: display geometry: %w", err)
 	}
 
 	// Canvas height is the taller of the content and the requested minimum.

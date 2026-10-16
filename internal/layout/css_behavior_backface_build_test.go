@@ -12,7 +12,12 @@ func backfaceRedFills(res *Result) []Op {
 	var out []Op
 
 	for _, op := range res.Ops {
-		if op.Kind == OpFillRect && op.R > 0.9 && op.G < 0.1 && op.B < 0.1 {
+		// A culled fill is deactivated (Kind == OpKindNoop) but keeps its
+		// original color, so accept both live (OpFillRect) and culled
+		// (OpKindNoop) red fills as evidence that a red fill existed. The
+		// "live painted fill" check lives in the individual tests (W/H > 1).
+		if op.R > 0.9 && op.G < 0.1 && op.B < 0.1 &&
+			(op.Kind == OpFillRect || op.Kind == OpKindNoop) {
 			out = append(out, op)
 		}
 	}

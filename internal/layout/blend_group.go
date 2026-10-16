@@ -35,11 +35,19 @@ type BlendGroup struct {
 	Mask *MaskDescriptor
 }
 
-// MaskDescriptor carries the CSS mask values for one group. Values stay as
-// CSS tokens so a display-list consumer can apply the sizing and compositing
-// rules as it replays the group.
+// MaskDescriptor carries both the resolved mask raster for painters and the
+// source layers for consumers that need the CSS details.
 type MaskDescriptor struct {
 	Layers []MaskLayer
+	Raster *MaskRaster
+}
+
+// MaskRaster is the resolved mask image selected by Blinkless for this group.
+// The PDF adapter uses these bytes as a PDF soft-mask image resource.
+type MaskRaster struct {
+	ImageBytes  []byte
+	PixelWidth  int
+	PixelHeight int
 }
 
 // MaskLayer is one comma-separated mask image layer and its computed values.

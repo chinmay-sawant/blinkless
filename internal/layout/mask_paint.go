@@ -52,11 +52,29 @@ func (e *engine) maskDescriptor(style ResolvedStyle) *MaskDescriptor {
 
 		if isGradientFunc(layer.Source) {
 			e.fillMaskGradient(&layer, style)
+
+			if layer.Mode == maskModeMatchSource {
+				layer.Mode = maskModeAlpha
+			}
 		} else if !strings.EqualFold(layer.Source, "none") {
 			layer = e.resolveMaskLayer(layer)
 		}
 
 		descriptor.Layers = append(descriptor.Layers, layer)
+	}
+
+	// The current paint-list subset emits the first resolved layer as the
+	// group's ready-to-paint mask raster. Multi-layer composition remains
+	// outside this subset.
+	if len(descriptor.Layers) > 0 {
+		layer := descriptor.Layers[0]
+		if len(layer.ImageBytes) > 0 {
+			descriptor.Raster = &MaskRaster{
+				ImageBytes:  layer.ImageBytes,
+				PixelWidth:  layer.PixelWidth,
+				PixelHeight: layer.PixelHeight,
+			}
+		}
 	}
 
 	return descriptor
@@ -69,9 +87,8 @@ const maskGradientMinPt = 1
 
 const maskGradientAxisCount = 2
 
-// fillMaskGradient stores one gradient mask as PNG bytes. Source stays the
-// function text. Preprocessed stays false. The host applies the mask; this
-// does not emit a paint op.
+// fillMaskGradient stores one gradient mask as PNG bytes. The display list
+// carries the resolved raster on its group; it is not a standalone image op.
 func (e *engine) fillMaskGradient(layer *MaskLayer, style ResolvedStyle) {
 	width, height := e.maskGradientPaintSize(style, layer.Size)
 	pngBytes, pixelW, pixelH, rendered := maskGradientPNG(

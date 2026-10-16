@@ -154,6 +154,35 @@ func (mat matrix3D) apply3D(px, py, pz float64) (float64, float64, float64) {
 // collapsing onto or behind the camera stay finite.
 const perspectiveFoldEpsilon = 1e-6
 
+func projectiveTransform3D(
+	mat matrix3D, originX, originY, vanishX, vanishY, dist float64,
+) ProjectiveTransform {
+	if dist <= 0 {
+		return ProjectiveTransform{}
+	}
+
+	// The denominator is dist-z after the 3D transform. The projected
+	// numerator keeps the perspective origin relative to transform-origin.
+	wX := -mat[8]
+	wY := -mat[9]
+	w0 := dist + mat[8]*originX + mat[9]*originY - mat[11]
+
+	xX := vanishX*wX + dist*mat[0]
+	xY := vanishX*wY + dist*mat[1]
+	x0 := vanishX*w0 + dist*(mat[3]-mat[0]*originX-mat[1]*originY-vanishX+originX)
+
+	yX := vanishY*wX + dist*mat[4]
+	yY := vanishY*wY + dist*mat[5]
+	y0 := vanishY*w0 + dist*(mat[7]-mat[4]*originX-mat[5]*originY-vanishY+originY)
+
+	return ProjectiveTransform{
+		A: xX, B: yX,
+		C: xY, D: yY,
+		E: x0, F: y0,
+		G: wX, H: wY, I: w0,
+	}
+}
+
 func (mat matrix3D) flatten3D(vanishX, vanishY, dist float64) (Matrix2D, float64) {
 	project := func(px, py, pz float64) (float64, float64) {
 		transX, transY, transZ := mat.apply3D(px, py, pz)
