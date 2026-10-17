@@ -505,11 +505,13 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty ResolvedStyle, po
 		}
 	} else if isColorSchemeCanvasRoot(boxNode) {
 		if fill, ok := canvasFillForRoot(&sty); ok && width > 0 && height > 0 {
-			chrome = append(chrome, Op{ //nolint:exhaustruct // intentional zero fields
+			bgOp := Op{ //nolint:exhaustruct // intentional zero fields
 				Kind: OpFillRect, X: posX, Y: posY, W: width, H: height,
 				R: fill[0], G: fill[1], B: fill[2], Alpha: fill[3], Radius: radius,
 				RadiusTopLeft: radii[0], RadiusTopRight: radii[1], RadiusBottomRight: radii[2], RadiusBottomLeft: radii[3],
-			})
+			}
+			bgOp.setCanvasBackground()
+			chrome = append(chrome, bgOp)
 		}
 	}
 	chrome = e.appendBackgroundImage(chrome, sty, posX, posY, width, height)

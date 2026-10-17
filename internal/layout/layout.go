@@ -405,7 +405,7 @@ const (
 // OpText and OpBullet, Y is the baseline.
 //
 // Rare payloads (URI, Image, Xform, BlendMode, structure tags, text-transform,
-// and text synthesis gates)
+// text synthesis gates, and the canvas-background marker)
 // live on the embedded *opExtra so the hot record is 256 bytes. Promoted
 // field names stay so readers (paint, tests, bindings) keep op.URI and
 // op.Image. Writers must detachExtra before mutating those fields.

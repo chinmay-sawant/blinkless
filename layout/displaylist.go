@@ -36,7 +36,7 @@ const fallbackViewportPx = 1024
 //
 // Use the accessor methods (LinkURI, ImageBytes, ImageAlt, Transform,
 // ProjectiveTransformValue,
-// BlendModeName, Opacity, Outline, FontFeatures, TextLanguage, TextAutospace,
+// BlendModeName, Opacity, Outline, IsCanvasBackground, FontFeatures, TextLanguage, TextAutospace,
 // TextTransformValue, NoFakeBoldValue, PathValue, CornerPathValue, GlyphBasisValue) for the
 // rare payload rather than the promoted fields: the payload sits behind an embedded pointer to an
 // unexported type, so a caller cannot build or inspect it, and every accessor

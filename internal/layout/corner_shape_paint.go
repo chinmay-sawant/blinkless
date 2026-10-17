@@ -139,6 +139,8 @@ func cornerShapePaintFill(
 			return nil, false
 		}
 
+		fillOp.setCanvasBackground()
+
 		return []Op{fillOp}, true
 	}
 

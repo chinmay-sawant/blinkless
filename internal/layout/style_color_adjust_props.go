@@ -318,6 +318,32 @@ func canvasFillForRoot(rootStyle *ResolvedStyle) ([4]float64, bool) {
 	return fill, true
 }
 
+// applyCanvasBackgroundGeometry snaps every marked canvas fill to the canvas
+// rect (0,0,canvasW,canvasH).
+//
+// The fill is emitted while the root box is laid out, when the only geometry
+// in hand is that box: a root margin offsets and shrinks it, and a canvas
+// raised by the requested viewport minimum is taller than it. The canvas
+// background covers the whole canvas regardless of the root box (CSS
+// Backgrounds 3 §2.11.2: the root's background propagates to the canvas,
+// whose painting area is the full canvas), so the rect is fixed up here once
+// the canvas size is final. Only the flat radiused OpFillRect is normed; a
+// corner-shape OpPath keeps its baked command list and its emission rect.
+func applyCanvasBackgroundGeometry(ops []Op, canvasW, canvasH float64) {
+	if canvasW <= 0 || canvasH <= 0 {
+		return
+	}
+
+	for opIdx := range ops {
+		if !ops[opIdx].IsCanvasBackground() || ops[opIdx].Kind != OpFillRect {
+			continue
+		}
+
+		ops[opIdx].X, ops[opIdx].Y = 0, 0
+		ops[opIdx].W, ops[opIdx].H = canvasW, canvasH
+	}
+}
+
 // usedBGForPaint resolves one background fill for paint: forced-mode mapping
 // then dynamic-range clamp, preserving alpha. Print forced mode is off by
 // default (test override or Options.ForcedColorsActive aside) so author

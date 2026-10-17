@@ -121,6 +121,15 @@ func assembleNodeResult(eng *engine, rootBox *box, opts Options, workspace *Work
 		res.Height = eng.height
 	}
 
+	// The canvas is final now: the canvas default fill must cover it, not the
+	// root box it was emitted for.
+	canvasH := res.Height
+	if opts.Height > canvasH {
+		canvasH = opts.Height
+	}
+
+	applyCanvasBackgroundGeometry(res.Ops, res.Width, canvasH)
+
 	if eng.needsXformStamp {
 		propagatePerspective(rootBox)
 		stampBoxTransforms(rootBox, IdentityMatrix(), res.Ops, opts.Media)

@@ -72,6 +72,15 @@ func finalizeResult(eng *engine, root *html.Node, opts Options) (*Result, error)
 	if res.Height < eng.height {
 		res.Height = eng.height
 	}
+	// The canvas is final now: the canvas default fill must cover it, not the
+	// root box it was emitted for (root margins and a viewport-raised canvas
+	// make the two differ).
+	canvasH := res.Height
+	if opts.Height > canvasH {
+		canvasH = opts.Height
+	}
+
+	applyCanvasBackgroundGeometry(res.Ops, res.Width, canvasH)
 	// Paint-time CSS transforms/opacity: stamp composed CTMs after geometry
 	// is final so transform-origin % resolves against the border box.
 	// Skip the full tree walk when no element had transform/opacity.
