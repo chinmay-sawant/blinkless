@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<!--
+  fixture-78-flow-tolerance-default-normal
+  Proves: an undeclared flow-tolerance uses the CSS initial `normal` (one em of
+  slack), not the old infinite shortest-column packing. Column 1 holds a 20pt
+  item; a 60pt item would overhang the neighboring column bottom by more than
+  one em, so the packer skips column 1 and places it in column 2. Expected:
+  item b X is 110 (column 2), and it matches the explicit flow-tolerance:normal
+  fixture. flow-tolerance:infinite keeps the old column-1 placement.
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>flow-tolerance default is normal</title>
+  <style>
+    body { font-family: monospace; font-size: 10pt; margin: 0; }
+    #g { display: grid; grid-template-rows: masonry; grid-template-columns: 100pt 100pt; gap: 10pt; width: 210pt; }
+    #a { height: 20pt; background: #ddd; }
+    #b { height: 60pt; background: #bbb; }
+  </style>
+</head>
+<body>
+  <div id="g">
+    <div id="a">a</div>
+    <div id="b">b</div>
+  </div>
+</body>
+</html>

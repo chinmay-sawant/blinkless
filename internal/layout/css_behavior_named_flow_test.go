@@ -677,6 +677,72 @@ func TestBehaviorWrapInsideAvoidFitsAndOverflows(t *testing.T) {
 	}
 }
 
+// TestBehaviorWrapInsideAvoidMovesGroupWhole pins the remainder rule: a
+// wrap-inside: avoid group that fits the content width but not the remainder
+// moves to the next line as one unit instead of gluing past the content edge.
+func TestBehaviorWrapInsideAvoidMovesGroupWhole(t *testing.T) {
+	t.Parallel()
+
+	res := layoutGoldenFixture(t, "fixture-77-wrap-inside-avoid-remainder.html")
+
+	group := textOpContaining(t, res, "cccccccccccc")
+	prefix := textOpContaining(t, res, "aaaa aaaa aaaa aaaa aaaa aaaa")
+
+	if !near(group.X, 0) {
+		t.Errorf("group first word X = %.2f, want 0 (moved whole to the next line)", group.X)
+	}
+
+	if group.Y <= prefix.Y {
+		t.Errorf("group Y = %.2f, want it below the prefix line (%.2f)", group.Y, prefix.Y)
+	}
+
+	if group.X+group.W > 200.5 {
+		t.Errorf("group right edge = %.2f, want it inside the 200pt content box", group.X+group.W)
+	}
+}
+
+// TestBehaviorFlowToleranceDefaultNormal pins the CSS initial: an undeclared
+// flow-tolerance uses normal (one em of slack), not the old infinite
+// shortest-column packing. The golden fixture carries no declaration.
+func TestBehaviorFlowToleranceDefaultNormal(t *testing.T) {
+	t.Parallel()
+
+	doc := func(decl string) string {
+		extra := ""
+
+		if decl != "" {
+			extra = "flow-tolerance:" + decl + ";"
+		}
+
+		return `<html style="margin:0"><body style="margin:0;font:10pt/12pt monospace">` +
+			`<div style="display:grid;grid-template-rows:masonry;grid-template-columns:100pt 100pt;` +
+			`column-gap:10pt;width:210pt;` + extra + `">` +
+			`<div id="a" style="height:20pt">item a</div>` +
+			`<div id="b" style="height:60pt">item b</div>` +
+			`</div></body></html>`
+	}
+
+	undeclared := textOpContaining(t, layoutHTML(t, doc("")), "item b")
+	normal := textOpContaining(t, layoutHTML(t, doc("normal")), "item b")
+	infinite := textOpContaining(t, layoutHTML(t, doc("infinite")), "item b")
+	fixture := textOpContaining(t, layoutGoldenFixture(t, "fixture-78-flow-tolerance-default-normal.html"), "b")
+
+	if !near(undeclared.X, normal.X) {
+		t.Errorf("undeclared flow-tolerance X = %.2f, want the normal value (%.2f)",
+			undeclared.X, normal.X)
+	}
+
+	if near(undeclared.X, infinite.X) {
+		t.Errorf("undeclared flow-tolerance X = %.2f, want it to differ from infinite (%.2f)",
+			undeclared.X, infinite.X)
+	}
+
+	if !near(fixture.X, undeclared.X) {
+		t.Errorf("golden fixture item X = %.2f, want the undeclared value (%.2f)",
+			fixture.X, undeclared.X)
+	}
+}
+
 // distinctTextYs counts the distinct baselines of text ops whose payload
 // contains any needle (every text op when no needle is given).
 func distinctTextYs(res *Result, needles ...string) int {

@@ -543,6 +543,17 @@ func (e *engine) packInlineLine(
 			remain = 0
 		}
 
+		// A wrap-inside: avoid group that fits the content width but not the
+		// remaining space moves to the next line as one unit: break before its
+		// first item. A group wider than the content width keeps the bounded
+		// overflow behavior (glue within the group below).
+		if lineAdv > 0 && item.avoidInside && !item.forceBreak &&
+			wrapInsideGroupOpensAt(*items, idx) &&
+			e.wrapInsideGroupFitsContent(*items, idx, contentW) &&
+			!e.wrapInsideGroupFitsRemainder(*items, idx, remain) {
+			break
+		}
+
 		if allowHyphen {
 			if parts := e.maybeSplitHyphen(*item, remain, lineW); len(parts) > 1 {
 				e.spliceInlineParts(items, idx, parts)
@@ -569,7 +580,12 @@ func (e *engine) packInlineLine(
 		if lineAdv > 0 && lineAdv+adv > lineW+1e-6 {
 			// wrap-before/after: avoid and wrap-inside: avoid groups glue
 			// across a soft wrap within a bounded slack (wrap_break.go).
-			if e.wrapBreakGlues(*items, idx, start, adv, lineW) {
+			// A wrap-inside: avoid group that fits the content width but not
+			// the remainder moves to the next line as a unit instead of
+			// gluing past the content edge.
+			glue := e.wrapBreakGlues(*items, idx, start, adv, lineW)
+
+			if glue {
 				lineAdv += adv
 				idx++
 
@@ -641,7 +657,7 @@ func (e *engine) spliceInlineParts(items *[]inlineItem, idx int, parts []inlineI
 // intrudes at y, so the intersection runs only when a float actually narrows
 // the line. That keeps an inside span free to reach into its
 // padding/border/margin reference box on float-free lines and keeps this
-// path byte-identical to plain float exclusion when inside is nil.
+// path mathematically identical to plain float exclusion when inside is nil.
 func (e *engine) lineBounds(
 	floats *floatState, inside *shapeExclusion, contentX, contentW, lineY float64,
 ) (float64, float64) {

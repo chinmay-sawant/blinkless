@@ -195,6 +195,37 @@ func (e *engine) wrapInsideGroupFits(items []inlineItem, start int) bool {
 	return total <= width+inlineFitEpsilon
 }
 
+// wrapInsideGroupFitsContent reports whether the wrap-inside: avoid group
+// that opens at items[start] fits the content width as one unit.
+func (e *engine) wrapInsideGroupFitsContent(items []inlineItem, start int, contentW float64) bool {
+	return wrapInsideGroupWidth(items, start) <= contentW+inlineFitEpsilon
+}
+
+// wrapInsideGroupFitsRemainder reports whether the group fits the remainder
+// of the current line. A group that fits the content width but not the
+// remainder moves to the next line as a unit.
+func (e *engine) wrapInsideGroupFitsRemainder(items []inlineItem, start int, remainder float64) bool {
+	return wrapInsideGroupWidth(items, start) <= remainder+inlineFitEpsilon
+}
+
+// wrapInsideGroupOpensAt reports whether items[idx] is the first item of a
+// wrap-inside: avoid group.
+func wrapInsideGroupOpensAt(items []inlineItem, idx int) bool {
+	return idx <= 0 || !items[idx-1].avoidInside
+}
+
+// wrapInsideGroupWidth returns the total advance of the wrap-inside: avoid
+// group that opens at start: the run of consecutive items flagged avoidInside.
+func wrapInsideGroupWidth(items []inlineItem, start int) float64 {
+	total := 0.0
+
+	for idx := start; idx < len(items) && items[idx].avoidInside; idx++ {
+		total += items[idx].marginL + items[idx].w + items[idx].marginR
+	}
+
+	return total
+}
+
 // wrapBreakGlues reports that the packer should skip the soft wrap before
 // items[idx]: an avoid boundary within one em of slack, or a soft wrap
 // inside a wrap-inside: avoid group.
