@@ -932,17 +932,16 @@ Status legend: Implemented and Partial as in §2; Not implemented means the sele
 | Complex-script shaping (Indic, Arabic, CJK) | **Arabic OT** via `go-text/typesetting` when the face has GSUB (+ presentation-form `ShapeText` fallback); Hangul needs a Hangul face. `writing-mode` vertical keywords inherit and rotate glyphs (`RotateDeg == -90`); block/line layout stays horizontal. **Indic Partial** (OT when face/cmap allow; not production-claimed). Optional OT **`halt`/`palt`** for CJK punctuation via `ShapeTextFont` FontFeatures |
 | PDF output (versions, profiles) | **Not part of this tree.** The engine returns a drawing list; PDF emission is out of scope. There are no `--pdf-version` / `--pdf-profile` flags, no `Document.PDFVersion` / `Document.PDFProfile` fields, and no PDF/A or PDF/UA claims |
 
-### 5.1 Deferred niche and draft families (94 properties - Not implemented)
+### 5.1 Deferred niche and draft families (60 properties - Not implemented)
 
-The following 94 properties are intentionally left **unsupported** (Not implemented). They have no layout or paint consumer and are out of scope for this engine. Declarations are parsed as valid property names where recognized and then ignored with graceful degrade, never claimed as Implemented. No Implemented claims are made for any of the 94.
+The following 60 properties are intentionally left **unsupported** (Not implemented). They have no layout or paint consumer and are out of scope for this engine. Declarations are parsed as valid property names where recognized and then ignored with graceful degrade, never claimed as Implemented. No Implemented claims are made for any of the 60.
 
 | Family | Count | Status | Note | Examples (not exhaustive) |
 |--------|-------|--------|------|---------------------------|
-| Draft corner-shape CSS (34 properties: corner, corner-block-*, corner-inline-*, etc.) | 34 | Not implemented | Draft corner-shape CSS; no layout consumer. Left unsupported. `corner-*` is not `border-radius` (see the `border-radius` row in §2). | `corner`, `corner-shape`, `corner-block-start-shape`, `corner-inline-end-shape`, `corner-top-left-shape`, `corner-bottom-right-shape`, etc. |
 | Ruby/MathML/rhythmic niche (33 properties: block-ellipsis, block-step-*, box-snap, ruby-*, math-*, etc.) | 33 | Not implemented | Ruby/MathML/rhythmic niche; not implemented here. Left unsupported. | `block-ellipsis`, `block-step-*`, `box-snap`, `ruby-align`, `ruby-position`, `math-depth`, `math-style`, `line-snap`, etc. |
 | Draft gap/row-rule decorations (27 properties: row-rule*, rule*) | 27 | Not implemented | Draft gap/row-rule decorations; no layout consumer. Left unsupported. `row-rule*` and `rule*` are not `column-rule` (see the `column-rule*` rows in §2). | `row-rule`, `row-rule-break`, `row-rule-color`, `row-rule-style`, `row-rule-width`, `rule`, `rule-break`, `rule-color`, `rule-style`, `rule-width`, etc. |
 
-Total: 94 properties across three families. All are Not implemented and left unsupported with no layout consumer.
+Total: 60 properties across two families. All are Not implemented and left unsupported with no layout consumer.
 
 ### 5.2 Phase 83 hard-defer categories (87 properties in the original scope)
 
