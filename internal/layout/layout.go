@@ -571,6 +571,12 @@ type engine struct {
 	// imgMaxW > 0 clamps replaced <img> boxes to this containing-block width
 	// (table cell / float / inline formatting context).
 	imgMaxW float64
+	// imgCBIndefinite marks an intrinsic sizing pass with no definite
+	// containing block (grid track sizing): a percentage width on replaced
+	// content is cyclic there and resolves as auto (CSS Grid L1 §11.5), so the
+	// contribution must not echo the viewport or container width back into a
+	// track's base size.
+	imgCBIndefinite bool
 	// inlineCBW is the inline formatting context's content width when > 0;
 	// used so width:% on inline-blocks resolves against the real CB.
 	inlineCBW float64
