@@ -491,6 +491,14 @@ type ResolvedStyle struct {
 	FloatOffset        float64 // pt nudge on placeFloat when FloatOffsetPercent < 0
 	FloatOffsetPercent float64 // >=0 means % of float border-box height; -1 = length
 	FloatReference     string  // "inline" | "column" | "region" | "page"
+	// CSS Shapes inside (v0.0.3 shapes ledger): shape-inside storage plus
+	// shape-padding. shape-inside is not inherited, so children keep the
+	// initial auto while the element's own inline content carries the contour.
+	ShapeInside         string  // "auto" | circle()/ellipse()/inset() canonical
+	ShapeInsideBox      string  // "" = content-box reference; margin/border/padding/content-box
+	ShapeInsideOutside  bool    // shape-inside: outside-shape copies ShapeOutside
+	ShapePadding        float64 // pt when ShapePaddingPercent < 0
+	ShapePaddingPercent float64 // >=0 means % of reference diagonal/√2; -1 = length
 	// Advanced text support.
 	TextCombineUpright       string  // "none" | "all" | "digits N"
 	TextDecorationInset      float64 // pt
@@ -735,6 +743,8 @@ func initialStyle() ResolvedStyle { //nolint:funlen // complete CSS initial-valu
 		ObjectPositionY:            "50%",
 		ShapeOutside:               shapeOutsideNone,
 		ShapeMarginPercent:         -1,
+		ShapeInside:                shapeInsideAuto,
+		ShapePaddingPercent:        -1,
 		FloatOffsetPercent:         -1,
 		FloatReference:             floatRefInline,
 		TextCombineUpright:         "none",

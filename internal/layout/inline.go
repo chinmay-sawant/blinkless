@@ -338,11 +338,21 @@ func (e *engine) layoutInlineFloats(
 	balanceW := 0.0
 	prettyW := 0.0
 
+	// shape-inside lite: the element's own content narrows to the inside
+	// contour at each line Y before float exclusion runs (shape_inside.go).
+	// nil when the element declared no usable shape: auto, a rejected token,
+	// or a box without a definite content height.
+	var inside *shapeExclusion
+
+	if blockStyle != nil {
+		inside = e.buildShapeInside(*blockStyle, boxNode, contentX, contentW)
+	}
+
 	idx := 0
 	consecHyphenLines := 0
 
 	for idx < len(items) {
-		lineX, lineW := e.lineBounds(floats, contentX, contentW, leftY)
+		lineX, lineW := e.lineBounds(floats, inside, contentX, contentW, leftY)
 
 		if idx == 0 && boxNode != nil && boxNode.style != nil && boxNode.style.TextIndent != 0 {
 			indent := e.scalePt(boxNode.style.TextIndent)
@@ -357,7 +367,7 @@ func (e *engine) layoutInlineFloats(
 		// Short remaining tail beside a float: if it fits as one full-width
 		// line under the float, drop there instead of leaving an orphan in
 		// the narrow column (e.g. wiki "big time."[71] left of a thumb).
-		leftY, lineX, lineW = e.preferClearForTail(items, idx, lineX, lineW, contentX, contentW, leftY, floats)
+		leftY, lineX, lineW = e.preferClearForTail(items, idx, lineX, lineW, contentX, contentW, leftY, floats, inside)
 
 		if balanceEligible && (idx == 0 || items[idx-1].forceBreak) {
 			balanceW = e.balanceSegmentWidth(items, idx, contentW)
@@ -417,7 +427,7 @@ func (e *engine) layoutInlineFloats(
 		}
 
 		nextIdx, packedX, packedW, packedY := e.packInlineLine(
-			&items, start, lineX, breakW, leftY, contentX, contentW, floats, blockHyphen,
+			&items, start, lineX, breakW, leftY, contentX, contentW, floats, inside, blockHyphen,
 		)
 		idx = nextIdx
 		leftY = packedY
@@ -509,7 +519,7 @@ func (e *engine) releaseInlineItems(items []inlineItem) {
 //nolint:cyclop,gocognit,nestif,funlen // line packing has separate split, fit, and float paths
 func (e *engine) packInlineLine(
 	items *[]inlineItem, start int, lineX, lineW, leftY float64,
-	contentX, contentW float64, floats *floatState, allowHyphen bool,
+	contentX, contentW float64, floats *floatState, inside *shapeExclusion, allowHyphen bool,
 ) (int, float64, float64, float64) {
 	idx := start
 	lineAdv := 0.0
@@ -573,7 +583,7 @@ func (e *engine) packInlineLine(
 		// Empty line beside a float too narrow for this item: CSS2.1 §9.5
 		// pushes the line box below the float and recomputes width.
 		if lineAdv == 0 {
-			nY, nX, nW, retry := e.clearFloatBelow(lineX, lineW, leftY, adv, contentX, contentW, floats)
+			nY, nX, nW, retry := e.clearFloatBelow(lineX, lineW, leftY, adv, contentX, contentW, floats, inside)
 			leftY, lineX, lineW = nY, nX, nW
 
 			if retry {
@@ -606,15 +616,33 @@ func (e *engine) spliceInlineParts(items *[]inlineItem, idx int, parts []inlineI
 	copy((*items)[idx:idx+len(parts)], parts)
 }
 
-// lineBounds returns the line origin and width under float exclusion at y.
-// When a float carries a shape-outside contour (shape_exclusion.go), exclusion
-// uses that contour's per-line interval instead of the rectangular margin box.
-func (e *engine) lineBounds(floats *floatState, contentX, contentW, lineY float64) (float64, float64) {
-	if floats == nil {
+// lineBounds returns the line origin and width under the inside contour and
+// float exclusion at y. The element's own shape-inside interval (inside,
+// shape_inside.go) narrows the line first; active floats then narrow it
+// further, and a float with a shape-outside contour uses that contour's
+// per-line interval instead of the rectangular margin box.
+//
+// floatState.exclusion reports the untouched content box when no float
+// intrudes at y, so the intersection runs only when a float actually narrows
+// the line. That keeps an inside span free to reach into its
+// padding/border/margin reference box on float-free lines and keeps this
+// path byte-identical to plain float exclusion when inside is nil.
+func (e *engine) lineBounds(
+	floats *floatState, inside *shapeExclusion, contentX, contentW, lineY float64,
+) (float64, float64) {
+	if floats == nil && inside == nil {
 		return contentX, contentW
 	}
 
-	lineX, lineW := floats.exclusion(contentX, contentW, 0, lineY)
+	lineX, lineW := insideSpanAt(inside, contentX, contentW, lineY)
+
+	if floats != nil {
+		exX, exW := floats.exclusion(contentX, contentW, 0, lineY)
+		if exX != contentX || exW != contentW {
+			lineX, lineW = intersectSpans(lineX, lineW, exX, exW)
+		}
+	}
+
 	if lineW < 0 {
 		lineW = 0
 	}
@@ -627,14 +655,14 @@ func (e *engine) lineBounds(floats *floatState, contentX, contentW, lineY float6
 // Returns (lineY, lineX, lineW) to match the call site assignment order.
 func (e *engine) preferClearForTail(
 	items []inlineItem, idx int, lineX, lineW, contentX, contentW, lineY float64,
-	floats *floatState,
+	floats *floatState, inside *shapeExclusion,
 ) (float64, float64, float64) {
 	if floats == nil || lineW >= contentW-0.5 {
 		return lineY, lineX, lineW
 	}
 
 	if next, ok := e.preferFloatClearForTail(items, idx, contentW, lineW, lineY, floats); ok {
-		nextX, nextW := e.lineBounds(floats, contentX, contentW, next)
+		nextX, nextW := e.lineBounds(floats, inside, contentX, contentW, next)
 
 		return next, nextX, nextW
 	}
@@ -732,7 +760,7 @@ func isNowrapCluster(a, b inlineItem) bool {
 // match the call site assignment order.
 func (e *engine) clearFloatBelow(
 	lineX, lineW, lineY, adv, contentX, contentW float64,
-	floats *floatState,
+	floats *floatState, inside *shapeExclusion,
 ) (float64, float64, float64, bool) {
 	if floats == nil || adv <= lineW || lineW >= contentW-0.5 {
 		return lineY, lineX, lineW, false
@@ -743,7 +771,7 @@ func (e *engine) clearFloatBelow(
 		return lineY, lineX, lineW, false
 	}
 
-	nextX, nextW := e.lineBounds(floats, contentX, contentW, next)
+	nextX, nextW := e.lineBounds(floats, inside, contentX, contentW, next)
 	// Retry this item at the new Y (do not advance i).
 	if nextW >= contentW-0.5 || adv <= nextW {
 		return next, nextX, nextW, true

@@ -12,8 +12,9 @@ import (
 //   - shape-outside: none | circle() | ellipse() | inset() [ || <shape-box> ]
 //   - shape-margin: <length-percentage>
 //
-// polygon()/path()/url() parse as rejected (leave prior value). shape-inside,
-// shape-padding, and shape-image-threshold stay Unsupported (no apply arms).
+// polygon()/path()/url() parse as rejected (leave prior value). shape-inside
+// and shape-padding are owned by style_shape_inside.go (v0.0.3 shapes
+// ledger); shape-image-threshold stays Unsupported (no apply arm).
 
 const (
 	shapeOutsideNone = "none"
