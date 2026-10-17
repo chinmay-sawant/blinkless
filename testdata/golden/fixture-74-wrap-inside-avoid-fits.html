@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<!--
+  fixture-74-wrap-inside-avoid-fits
+  Proves: wrap-inside: avoid keeps an inline element's text on one line when
+  the line has room. The span's words fit inside the 200pt content box, so
+  they share one baseline.
+  Expected: the span's text ops all have the same Y.
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>wrap-inside avoid fits</title>
+  <style>
+    body { font-family: monospace; font-size: 10pt; margin: 0; width: 200pt; color: #222; }
+    p { margin: 0; }
+  </style>
+</head>
+<body>
+  <p id="p">prefix words <span id="s" style="wrap-inside: avoid">short phrase</span> tail words</p>
+</body>
+</html>

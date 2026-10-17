@@ -48,7 +48,9 @@ func masonryMaxBottom(colBot []float64, rowGap float64) float64 {
 }
 
 // emitMasonryItems packs each item into the shortest column and keeps
-// content-sized heights (CSS Grid L3 masonry lite).
+// content-sized heights (CSS Grid L3 masonry lite). A finite flow-tolerance
+// (masonry_tolerance.go) can move an auto-placed item to the next column when
+// it would stick out past the neighboring one.
 func (e *engine) emitMasonryItems(
 	boxNode *box, kids []*html.Node, cols []float64,
 	columnGap, rowGap, contentX, posY, curY float64,
@@ -57,6 +59,13 @@ func (e *engine) emitMasonryItems(
 	if nCols == 0 {
 		return curY
 	}
+
+	var containerStyle *ResolvedStyle
+	if boxNode != nil {
+		containerStyle = boxNode.style
+	}
+
+	tolerance := masonryToleranceOf(e, containerStyle)
 
 	colX := make([]float64, nCols)
 	x := contentX
@@ -69,12 +78,22 @@ func (e *engine) emitMasonryItems(
 	colBot := make([]float64, nCols)
 
 	for _, kid := range kids {
-		col, span, cellW := masonryPlacement(e.stylePtr(kid), cols, columnGap, colBot)
+		stylePtr := e.stylePtr(kid)
+		col, span, cellW := masonryPlacement(stylePtr, cols, columnGap, colBot)
 		targetY := posY + curY + masonrySpanStart(colBot, col, span)
 		cblock := e.build(kid, cellW, colX[col], targetY)
 
 		if cblock == nil {
 			continue
+		}
+
+		// Explicit placement is kept; auto-placed items may move once the
+		// built block size is known.
+		if stylePtr == nil || stylePtr.GridColumnStart == 0 {
+			if moved := tolerance.column(colBot, span, cblock.height); moved != col {
+				col = moved
+				targetY = posY + curY + masonrySpanStart(colBot, col, span)
+			}
 		}
 
 		shiftMasonryBox(e, cblock, colX[col], targetY)

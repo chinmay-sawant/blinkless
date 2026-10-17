@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<!--
+  fixture-67-named-flow-region-fragment-auto
+  Proves: region-fragment: auto (the initial) lets one block child start in
+  the first region and continue in the second. The paragraph's first lines
+  paint inside region B's content box and its later lines inside region C.
+  Expected: text ops inside both regions, one continuous canvas.
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Named flow region-fragment auto</title>
+  <style>
+    body { font-family: monospace; font-size: 10pt; margin: 0; color: #222; }
+    #b { flow-from: article; height: 24pt; border: 1pt solid #888; }
+    #c { flow-from: article; border: 1pt solid #888; }
+    p { margin: 0; }
+  </style>
+</head>
+<body>
+  <div id="src" style="flow-into: article content"><p id="p">alpha bravo charlie delta
+    echo foxtrot golf hotel india juliet kilo lima mike november oscar papa
+    quebec romeo sierra tango uniform victor whiskey xray yankee zulu</p></div>
+  <div id="b"></div>
+  <div id="c"></div>
+</body>
+</html>

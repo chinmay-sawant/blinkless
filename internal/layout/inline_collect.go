@@ -536,12 +536,33 @@ func (e *engine) preserveTrailingGap(node *html.Node, out *[]inlineItem) {
 	item.w = e.inlineTextWidth(item.text, e.stylePtr(node), item.chrome)
 }
 
-// collectInlineElement flattens one element node into inline items.
+// collectInlineElement flattens one element node into inline items. The
+// wrap-before/after/inside hooks (wrap_break.go) wrap the collection:
+// wrap-before: line injects a forced break, avoid flags mark the boundary
+// items, and wrap-inside: avoid groups the run when it fits one line.
 func (e *engine) collectInlineElement(node *html.Node, sty ResolvedStyle, out *[]inlineItem) {
 	if sty.Display == cssDisplayNone {
 		return
 	}
 
+	if wrapBreakLineBefore(sty) {
+		*out = append(*out, inlineItem{forceBreak: true}) //nolint:exhaustruct // intentional zero fields
+	}
+
+	start := len(*out)
+
+	e.collectInlineElementInner(node, sty, out)
+
+	e.applyWrapBreakFlags(sty, *out, start)
+
+	if wrapBreakLineAfter(sty) {
+		*out = append(*out, inlineItem{forceBreak: true}) //nolint:exhaustruct // intentional zero fields
+	}
+}
+
+// collectInlineElementInner is the unwrapped inline element collection (kept
+// separate so the wrap-break hook cannot be skipped by an early return).
+func (e *engine) collectInlineElementInner(node *html.Node, sty ResolvedStyle, out *[]inlineItem) {
 	if e.collectInlineAtomic(node, sty, out) {
 		return
 	}

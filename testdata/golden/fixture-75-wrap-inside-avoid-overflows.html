@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<!--
+  fixture-75-wrap-inside-avoid-overflows
+  Proves: wrap-inside: avoid does not overflow the content box without bound.
+  The span's text is wider than the 200pt content box, so it wraps anyway.
+  Expected: the span's text ops span more than one line (more than one Y).
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>wrap-inside avoid overflows</title>
+  <style>
+    body { font-family: monospace; font-size: 10pt; margin: 0; width: 200pt; color: #222; }
+    p { margin: 0; }
+  </style>
+</head>
+<body>
+  <p id="p"><span id="s" style="wrap-inside: avoid">this phrase is deliberately much longer than the
+    content box so it has to wrap across lines anyway</span></p>
+</body>
+</html>

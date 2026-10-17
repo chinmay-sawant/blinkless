@@ -484,6 +484,17 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.Clip == b.Clip &&
 		a.ColorInterpolation == b.ColorInterpolation &&
 		a.ColorInterpolationFilters == b.ColorInterpolationFilters &&
+		a.FlowInto == b.FlowInto &&
+		a.FlowIntoElement == b.FlowIntoElement &&
+		a.FlowFrom == b.FlowFrom &&
+		a.RegionFragment == b.RegionFragment &&
+		a.FlowTolerancePt == b.FlowTolerancePt &&
+		a.FlowToleranceInfinite == b.FlowToleranceInfinite &&
+		a.WrapFlow == b.WrapFlow &&
+		a.WrapThrough == b.WrapThrough &&
+		a.WrapBefore == b.WrapBefore &&
+		a.WrapAfter == b.WrapAfter &&
+		a.WrapInside == b.WrapInside &&
 		maps.Equal(a.CustomProps, b.CustomProps)
 }
 
@@ -904,6 +915,17 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashString(h, s.Clip)
 	h = styleInternHashString(h, s.ColorInterpolation)
 	h = styleInternHashString(h, s.ColorInterpolationFilters)
+	h = styleInternHashString(h, s.FlowInto)
+	h = styleInternHashBool(h, s.FlowIntoElement)
+	h = styleInternHashString(h, s.FlowFrom)
+	h = styleInternHashString(h, s.RegionFragment)
+	h = styleInternHashFloat64(h, s.FlowTolerancePt)
+	h = styleInternHashBool(h, s.FlowToleranceInfinite)
+	h = styleInternHashString(h, s.WrapFlow)
+	h = styleInternHashString(h, s.WrapThrough)
+	h = styleInternHashString(h, s.WrapBefore)
+	h = styleInternHashString(h, s.WrapAfter)
+	h = styleInternHashString(h, s.WrapInside)
 	h = styleInternHashStringMap(h, s.CustomProps)
 
 	return h
@@ -1302,6 +1324,17 @@ func styleInternFields() []string {
 		"Clip",
 		"ColorInterpolation",
 		"ColorInterpolationFilters",
+		"FlowInto",
+		"FlowIntoElement",
+		"FlowFrom",
+		"RegionFragment",
+		"FlowTolerancePt",
+		"FlowToleranceInfinite",
+		"WrapFlow",
+		"WrapThrough",
+		"WrapBefore",
+		"WrapAfter",
+		"WrapInside",
 		"CustomProps",
 	}
 }

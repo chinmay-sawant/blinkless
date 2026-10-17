@@ -576,6 +576,31 @@ type ResolvedStyle struct {
 	Clip                      string
 	ColorInterpolation        string
 	ColorInterpolationFilters string
+	// Named flows (css-regions-1 lite, one canvas). FlowInto is "" (none) or
+	// the flow custom ident; FlowIntoElement selects the element keyword
+	// (the source box moves with its content) over the initial content
+	// keyword. FlowFrom is the region's flow ident ("" = none).
+	// RegionFragment is "" (auto) or "break" (move a straddling block child
+	// whole into the next region instead of slicing it).
+	FlowInto        string
+	FlowIntoElement bool
+	FlowFrom        string
+	RegionFragment  string
+	// FlowTolerancePt is the css-grid-3 masonry placement slack in pt;
+	// < 0 means normal (resolved to one em when the packer runs).
+	// FlowToleranceInfinite keeps the shortest-column choice.
+	FlowTolerancePt       float64
+	FlowToleranceInfinite bool
+	// Exclusions (css-exclusions-1 lite). WrapFlow is "" (auto) or both /
+	// start / end / minimum / maximum / clear. WrapThrough is "" (wrap) or
+	// none (ignore exclusions from outside the element).
+	WrapFlow    string
+	WrapThrough string
+	// Line and flex wrap opportunities (css-text-4 lite): "" (auto) or line
+	// / avoid / avoid-line / flex / avoid-flex.
+	WrapBefore string
+	WrapAfter  string
+	WrapInside string
 	// CustomProps holds resolved CSS custom properties (--*) for this element
 	// (inherited). Shared with the parent map when the element declares none.
 	CustomProps map[string]string
@@ -603,30 +628,32 @@ type border struct {
 // initialStyle returns the CSS initial values.
 func initialStyle() ResolvedStyle { //nolint:funlen // complete CSS initial-value record
 	return ResolvedStyle{ //nolint:exhaustruct // intentional zero fields
-		Display:            "inline",
-		Position:           "static",
-		Float:              cssDisplayNone,
-		FlexGrow:           0,
-		FlexShrink:         1,
-		FlexBasis:          -1,
-		FlexBasisPercent:   -1,
-		Clear:              cssDisplayNone,
-		BoxSizing:          "content-box",
-		TopAuto:            true,
-		RightAuto:          true,
-		BottomAuto:         true,
-		LeftAuto:           true,
-		FlexDirection:      "row",
-		FlexWrap:           "nowrap",
-		JustifyContent:     "flex-start",
-		AlignItems:         "stretch",
-		AlignContent:       "stretch",
-		AlignSelf:          overflowAuto,
-		JustifyItems:       "stretch",
-		JustifySelf:        overflowAuto,
-		ColumnGapNormal:    true,
-		ColumnWidth:        -1,
-		ColumnHeight:       -1,
+		Display:          "inline",
+		Position:         "static",
+		Float:            cssDisplayNone,
+		FlexGrow:         0,
+		FlexShrink:       1,
+		FlexBasis:        -1,
+		FlexBasisPercent: -1,
+		Clear:            cssDisplayNone,
+		BoxSizing:        "content-box",
+		TopAuto:          true,
+		RightAuto:        true,
+		BottomAuto:       true,
+		LeftAuto:         true,
+		FlexDirection:    "row",
+		FlexWrap:         "nowrap",
+		JustifyContent:   "flex-start",
+		AlignItems:       "stretch",
+		AlignContent:     "stretch",
+		AlignSelf:        overflowAuto,
+		JustifyItems:     "stretch",
+		JustifySelf:      overflowAuto,
+		ColumnGapNormal:  true,
+		ColumnWidth:      -1,
+		ColumnHeight:     -1,
+		// Initial flow-tolerance is normal, resolved to one em at pack time.
+		FlowTolerancePt:    -1,
 		ColumnWrap:         columnWrapAuto,
 		ColumnSpan:         cssDisplayNone,
 		ColumnFill:         "balance",

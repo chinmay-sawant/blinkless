@@ -1658,6 +1658,10 @@ var styleGroups = [...]styleGroupFn{ //nolint:gochecknoglobals // static dispatc
 	applyClipPathProps,
 	applyRubyProps,
 	applyScrollProps,
+	applyNamedFlowProps,
+	applyFlowToleranceProps,
+	applyExclusionProps,
+	applyWrapBreakProps,
 }
 
 func normalizeVendorPrefix(prop string) string {
