@@ -234,6 +234,95 @@ func TestDrawingGroupSerializesMaskAndImageReference(t *testing.T) {
 	}
 }
 
+// TestDrawingGroupSerializesMaskBorderAndImageReference pins the mask-border
+// wire contract: slice insets, width, outset, repeat, mode, the fill flag,
+// and an image-table reference whose bytes round-trip.
+func TestDrawingGroupSerializesMaskBorderAndImageReference(t *testing.T) {
+	t.Parallel()
+
+	borderPNG := []byte("mask-border-image-payload")
+	group := &layout.DisplayGroup{
+		ID: 9,
+		MaskBorder: &layout.MaskBorder{
+			Source:      `url("border.png")`,
+			ImageBytes:  borderPNG,
+			PixelWidth:  24,
+			PixelHeight: 16,
+			Slice:       [4]float64{30, 30, 30, 30},
+			SliceFill:   true,
+			Width:       [4]float64{7.5, 7.5, 7.5, 7.5},
+			Outset:      [4]float64{0, 0, 0, 0},
+			Repeat:      "repeat space",
+			Mode:        "luminance",
+		},
+	}
+
+	resources := newDrawingResources()
+	resources.addGroup(group)
+	entry := resources.groups[group.ID]
+	if entry.MaskBorder == nil {
+		t.Fatalf("group maskBorder = %+v, want one border frame", entry.MaskBorder)
+	}
+
+	border := entry.MaskBorder
+	if border.Source != `url("border.png")` || border.Repeat != "repeat space" ||
+		border.Mode != "luminance" || !border.Fill {
+		t.Fatalf("mask border = %+v", border)
+	}
+	if border.Slice != (drawEdgesJSON{Top: 30, Right: 30, Bottom: 30, Left: 30}) {
+		t.Fatalf("mask border slice = %+v", border.Slice)
+	}
+	if border.Width != (drawEdgesJSON{Top: 7.5, Right: 7.5, Bottom: 7.5, Left: 7.5}) {
+		t.Fatalf("mask border width = %+v", border.Width)
+	}
+	if border.Outset != (drawEdgesJSON{}) {
+		t.Fatalf("mask border outset = %+v", border.Outset)
+	}
+	if len(resources.images) != 1 || border.ImageID != resources.images[0].ID ||
+		resources.images[0].PixelWidth != 24 || resources.images[0].PixelHeight != 16 {
+		t.Fatalf("mask border image ref = %q, images = %+v", border.ImageID, resources.images)
+	}
+	raw, err := base64.StdEncoding.DecodeString(resources.images[0].Bytes)
+	if err != nil || string(raw) != string(borderPNG) {
+		t.Fatalf("mask border image bytes = %q, err %v", raw, err)
+	}
+
+	data, err := json.Marshal(entry)
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+	var wire map[string]any
+	if err := json.Unmarshal(data, &wire); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
+	borderWire, ok := wire["maskBorder"].(map[string]any)
+	if !ok {
+		t.Fatalf("serialized group has no maskBorder object: %s", data)
+	}
+	if borderWire["source"] != `url("border.png")` || borderWire["repeat"] != "repeat space" ||
+		borderWire["mode"] != "luminance" || borderWire["fill"] != true {
+		t.Fatalf("maskBorder wire = %s", data)
+	}
+	if borderWire["image"] != border.ImageID {
+		t.Fatalf("maskBorder image %v, want %q", borderWire["image"], border.ImageID)
+	}
+	sliceWire, ok := borderWire["slice"].(map[string]any)
+	if !ok || sliceWire["top"] != float64(30) || sliceWire["right"] != float64(30) ||
+		sliceWire["bottom"] != float64(30) || sliceWire["left"] != float64(30) {
+		t.Fatalf("maskBorder slice wire = %v", borderWire["slice"])
+	}
+	widthWire, ok := borderWire["width"].(map[string]any)
+	if !ok || widthWire["top"] != 7.5 || widthWire["right"] != 7.5 ||
+		widthWire["bottom"] != 7.5 || widthWire["left"] != 7.5 {
+		t.Fatalf("maskBorder width wire = %v", borderWire["width"])
+	}
+	outsetWire, ok := borderWire["outset"].(map[string]any)
+	if !ok || outsetWire["top"] != float64(0) || outsetWire["right"] != float64(0) ||
+		outsetWire["bottom"] != float64(0) || outsetWire["left"] != float64(0) {
+		t.Fatalf("maskBorder outset wire = %v", borderWire["outset"])
+	}
+}
+
 func TestConvertSerializesSVGMaskInGroupContract(t *testing.T) {
 	t.Parallel()
 
