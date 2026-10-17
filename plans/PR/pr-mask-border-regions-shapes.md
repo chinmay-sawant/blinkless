@@ -128,9 +128,9 @@ WASM: TestDrawingGroupSerializesMaskBorderAndImageReference (check-wasm-contract
 | Extension | Files | Insertions | Deletions |
 | --- | ---: | ---: | ---: |
 | `.go` | 33 | 5118 | 173 |
-| `.html` | 12 | 288 | 0 |
+| `.html` | 14 | 339 | 0 |
 | `.json` | 1 | 661 | 150 |
-| `.md` | 6 | 137 | 126 |
+| `.md` | 7 | 308 | 161 |
 | `.txt` | 1 | 1 | 1 |
 | No extension | 1 | 3 | 0 |
-| **Total** | **54** | **6208** | **450** |
+| **Total** | **57** | **6639** | **485** |
