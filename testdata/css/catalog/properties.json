@@ -11,14 +11,14 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 488,
-      "partial": 3,
-      "unsupported": 286,
+      "implemented": 499,
+      "partial": 16,
+      "unsupported": 262,
       "intentionally ignored": 8
     },
     "aliases": 38,
-    "engine_registered": 502,
-    "upstream_only": 283,
+    "engine_registered": 526,
+    "upstream_only": 259,
     "upstream": {
       "inventory": "webref-ed-css",
       "revision": "1f2ec8f74a80c14066b4c7d6822cee59f69fa03b",
@@ -283,91 +283,199 @@
     {
       "name": "-webkit-mask-box-image",
       "aliases": [],
-      "values": [],
+      "values": [
+        "alias of mask-border"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Partial: the alias normalizes onto mask-border. The descriptor rides the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Gradient sources are rejected until the mask-source ledger accepts them; percentage width and outset values are rejected because the descriptor is written before the element box exists."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/mask_border.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_value_accept.go",
+        "internal/layout/inline.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "normalizeWebkitMaskBoxImageAlias",
+        "applyMaskBorderProps",
+        "cascadeMaskBorderShorthand"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderAliasReachesGroup"
+        },
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderVendorAliasUsesCSSSourceOrder"
+        },
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderSupportsAcceptedValues"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "vendor"
     },
     {
       "name": "-webkit-mask-box-image-outset",
       "aliases": [],
-      "values": [],
+      "values": [
+        "alias of mask-border-outset"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Partial: the alias normalizes onto mask-border-outset. The resolved outward offsets ride the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Percentage outsets are rejected because the descriptor is written before the element box exists."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/mask_border.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_value_accept.go",
+        "internal/layout/inline.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "normalizeWebkitMaskBoxImageAlias",
+        "applyMaskBorderProps",
+        "maskBorderOutsetValueAccepted"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderAliasReachesGroup"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "vendor"
     },
     {
       "name": "-webkit-mask-box-image-repeat",
       "aliases": [],
-      "values": [],
+      "values": [
+        "alias of mask-border-repeat"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Partial: the alias normalizes onto mask-border-repeat. The used repeat pair rides the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/mask_border.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_value_accept.go",
+        "internal/layout/inline.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "normalizeWebkitMaskBoxImageAlias",
+        "applyMaskBorderProps",
+        "maskBorderRepeatValueAccepted"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderAliasReachesGroup"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "vendor"
     },
     {
       "name": "-webkit-mask-box-image-slice",
       "aliases": [],
-      "values": [],
+      "values": [
+        "alias of mask-border-slice"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Partial: the alias normalizes onto mask-border-slice. The resolved source-pixel insets ride the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/mask_border.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_value_accept.go",
+        "internal/layout/inline.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "normalizeWebkitMaskBoxImageAlias",
+        "applyMaskBorderProps",
+        "maskBorderSliceValueAccepted"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderAliasReachesGroup"
+        },
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderInvalidValuesKeepEarlier"
+        },
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderSupportsAcceptedValues"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "vendor"
     },
     {
       "name": "-webkit-mask-box-image-source",
       "aliases": [],
-      "values": [],
+      "values": [
+        "alias of mask-border-source"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Partial: the alias normalizes onto mask-border-source. The source and its encoded bytes ride the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Gradient sources are rejected until the mask-source ledger accepts them."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/mask_border.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_value_accept.go",
+        "internal/layout/inline.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "normalizeWebkitMaskBoxImageAlias",
+        "applyMaskBorderProps",
+        "maskBorderSourceValueAccepted"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderAliasReachesGroup"
+        },
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderInvalidValuesKeepEarlier"
+        },
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderSupportsAcceptedValues"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "vendor"
     },
     {
       "name": "-webkit-mask-box-image-width",
       "aliases": [],
-      "values": [],
+      "values": [
+        "alias of mask-border-width"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Partial: the alias normalizes onto mask-border-width. The resolved frame thickness rides the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Percentage widths are rejected because the descriptor is written before the element box exists."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/mask_border.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_value_accept.go",
+        "internal/layout/inline.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "normalizeWebkitMaskBoxImageAlias",
+        "applyMaskBorderProps",
+        "maskBorderWidthValueAccepted"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderAliasReachesGroup"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "vendor"
     },
     {
@@ -7945,7 +8053,7 @@
       "aliases": [],
       "values": [],
       "limitations": [
-        "No page-float defer model."
+        "No page-float model exists in this engine. Decision recorded in the shapes ledger: support only none (the initial behavior); integer and last stay unsupported."
       ],
       "source": [
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
@@ -8037,48 +8145,123 @@
     {
       "name": "flow-from",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | <custom-ident>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "One canvas: the engine returns one display list and never allocates Result.Pages, so named flows are not fragmented across pages (paged fragmentation is a non-goal). Overflow continues in the next flow-from box for the same flow; a remainder with no next region is not painted."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/named_flow.go",
+        "internal/layout/layout_flow.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_value_accept.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyNamedFlowProps",
+        "parseFlowFrom",
+        "namedFlowDeclarationValueAccepted"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorNamedFlowMovesTextIntoSecondBox"
+        },
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorNamedFlowContinuesInNextRegion"
+        },
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorNamedFlowNoRegionDropsSourceContent"
+        },
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorNamedFlowPropertyStorage"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<custom-ident> | none"
     },
     {
       "name": "flow-into",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | <custom-ident> [element | content]?"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "One canvas: the engine returns one display list and never allocates Result.Pages, so named flows are not fragmented across pages (paged fragmentation is a non-goal)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/named_flow.go",
+        "internal/layout/layout_flow.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_value_accept.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyNamedFlowProps",
+        "parseFlowInto",
+        "namedFlowDeclarationValueAccepted"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorNamedFlowPropertyStorage"
+        },
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorNamedFlowMovesTextIntoSecondBox"
+        },
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorNamedFlowElementMovesWholeSourceBox"
+        },
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorNamedFlowContinuesInNextRegion"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | <custom-ident> [element | content]?"
     },
     {
       "name": "flow-tolerance",
       "aliases": [],
-      "values": [],
+      "values": [
+        "normal | <length [0,\u221e]> | infinite"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Read only by the row-masonry packer (grid-template-rows: masonry); a non-masonry grid ignores it (TestBehaviorFlowToleranceNonMasonryGridIgnored). The item is measured once at the shortest column's width and moved, so unequal track widths do not re-measure it."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/masonry_tolerance.go",
+        "internal/layout/grid_masonry.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_value_accept.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyFlowToleranceProps",
+        "parseFlowTolerance",
+        "flowToleranceDeclarationValueAccepted",
+        "masonryToleranceOf"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorFlowToleranceChangesMasonryColumn"
+        },
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorFlowToleranceNonMasonryGridIgnored"
+        },
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorNamedFlowPropertyStorage"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | <length-percentage [0,\u221e]> | infinite"
     },
@@ -11052,112 +11235,267 @@
     {
       "name": "mask-border",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'mask-border-source'> || <'mask-border-slice'> [ / <'mask-border-width'>? [ / <'mask-border-outset'> ]? ]? || <'mask-border-repeat'> || <'mask-border-mode'>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Partial: the shorthand expands into the six longhands and the descriptor rides the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Gradient sources are rejected until the mask-source ledger accepts them; percentage width and outset values are rejected because the descriptor is written before the element box exists."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/mask_border.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_value_accept.go",
+        "internal/layout/inline.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskBorderProps",
+        "cascadeMaskBorderShorthand",
+        "expandMaskBorderShorthandDeclaration",
+        "maskBorderDeclarationAccepted"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/style_cascade_test.go",
+          "name": "TestMaskBorderShorthandExpansionAndSourceOrder"
+        },
+        {
+          "file": "internal/layout/style_cascade_test.go",
+          "name": "TestMaskBorderShorthandWideKeywordResetsToInitial"
+        },
+        {
+          "file": "internal/layout/style_cascade_test.go",
+          "name": "TestMaskBorderShorthandResolvesCustomProperties"
+        },
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderVendorAliasUsesCSSSourceOrder"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'mask-border-source'> || <'mask-border-slice'> [ / <'mask-border-width'>? [ / <'mask-border-outset'> ]? ]? || <'mask-border-repeat'> || <'mask-border-mode'>"
     },
     {
       "name": "mask-border-mode",
       "aliases": [],
-      "values": [],
+      "values": [
+        "alpha | luminance"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Partial: the stored mode rides the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels (only the SVG mask preprocessing bakes a mode)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/mask_border.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_value_accept.go",
+        "internal/layout/inline.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskBorderProps",
+        "maskBorderStyleField",
+        "maskBorderStyleInitial",
+        "maskBorderStyleLowercase",
+        "maskBorderModeValueAccepted",
+        "maskBorderUsedMode"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderDescriptorNotPaint"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "luminance | alpha"
     },
     {
       "name": "mask-border-outset",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<length [0,\u221e]> | <number [0,\u221e]>, one to four values"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Partial: the resolved outward offsets ride the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Percentage outsets are rejected because the descriptor is written before the element box exists."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/mask_border.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_value_accept.go",
+        "internal/layout/inline.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskBorderProps",
+        "maskBorderStyleField",
+        "maskBorderStyleInitial",
+        "maskBorderOutsetValueAccepted"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderDescriptorNotPaint"
+        },
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderAliasReachesGroup"
+        },
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderInvalidValuesKeepEarlier"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-image-outset'>"
     },
     {
       "name": "mask-border-repeat",
       "aliases": [],
-      "values": [],
+      "values": [
+        "stretch | repeat | round | space, one or two values"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Partial: the used repeat pair rides the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/mask_border.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_value_accept.go",
+        "internal/layout/inline.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskBorderProps",
+        "maskBorderStyleField",
+        "maskBorderStyleInitial",
+        "maskBorderStyleLowercase",
+        "maskBorderRepeatValueAccepted",
+        "maskBorderUsedRepeat"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderDescriptorNotPaint"
+        },
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderAliasReachesGroup"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-image-repeat'>"
     },
     {
       "name": "mask-border-slice",
       "aliases": [],
-      "values": [],
+      "values": [
+        "one to four non-negative <number> or <percentage> values, plus the optional fill keyword"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Partial: the resolved source-pixel insets ride the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/mask_border.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_value_accept.go",
+        "internal/layout/inline.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskBorderProps",
+        "maskBorderStyleField",
+        "maskBorderStyleInitial",
+        "maskBorderSliceValueAccepted",
+        "maskBorderUsedSlice"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderDescriptorNotPaint"
+        },
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderAliasReachesGroup"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-image-slice'>"
     },
     {
       "name": "mask-border-source",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | url(...) | image-set(...) whose chosen candidate is url(...)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Partial: the source and its encoded bytes ride the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Gradient sources are rejected until the mask-source ledger accepts them."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/mask_border.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_value_accept.go",
+        "internal/layout/inline.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskBorderProps",
+        "maskBorderStyleField",
+        "maskBorderStyleInitial",
+        "maskBorderSourceValueAccepted",
+        "resolveMaskBorderComponent"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderDescriptorNotPaint"
+        },
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderAliasReachesGroup"
+        },
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderInvalidValuesKeepEarlier"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-image-source'>"
     },
     {
       "name": "mask-border-width",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | <length [0,\u221e]> | <number [0,\u221e]>, one to four values"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Partial: the resolved frame thickness rides the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Percentage widths are rejected because the descriptor is written before the element box exists."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/mask_border.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_value_accept.go",
+        "internal/layout/inline.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaskBorderProps",
+        "maskBorderStyleField",
+        "maskBorderStyleInitial",
+        "maskBorderWidthValueAccepted"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderDescriptorNotPaint"
+        },
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderAliasReachesGroup"
+        },
+        {
+          "file": "internal/layout/css_behavior_mask_border_test.go",
+          "name": "TestBehaviorMaskBorderInvalidValuesKeepEarlier"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-image-width'>"
     },
@@ -13824,16 +14162,34 @@
     {
       "name": "region-fragment",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | break"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "One canvas: the engine returns one display list and never allocates Result.Pages, so region-fragment slices a region chain at op granularity and is not page fragmentation (a non-goal)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/named_flow.go",
+        "internal/layout/layout_flow.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_value_accept.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyNamedFlowProps",
+        "parseRegionFragment",
+        "namedFlowDeclarationValueAccepted"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorNamedFlowRegionFragmentAutoVsBreak"
+        },
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorNamedFlowPropertyStorage"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | break"
     },
@@ -15522,7 +15878,7 @@
       "aliases": [],
       "values": [],
       "limitations": [
-        "No alpha-contour extraction from float images."
+        "No image shape is parsed; shape-outside rejects url(), so no alpha contour can feed a threshold. Decision recorded in the shapes ledger: do not add url() shapes here."
       ],
       "source": [
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
@@ -15536,21 +15892,48 @@
     {
       "name": "shape-inside",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | outside-shape | [ <basic-shape> || <shape-box> ] (circle(), ellipse(), inset(); polygon(), path(), and url() are rejected)"
+      ],
       "limitations": [
-        "CSS Shapes 2 interior fitting; Chrome has no BCD support."
+        "Chrome has no BCD support for shape-inside. Lite rule: the inside contour needs a definite content height, so an auto-height box is a no-op (TestBehaviorShapeInsideNoLayoutEffect)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_shape_inside.go",
+        "internal/layout/shape_inside.go",
+        "internal/layout/style_cascade.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applyShapeInsideProps",
+        "parseShapeInside"
+      ],
       "tests": [
+        {
+          "file": "internal/layout/css_behavior_shape_inside_test.go",
+          "name": "TestBehaviorShapeInsideCircleTapersLines"
+        },
+        {
+          "file": "internal/layout/css_behavior_shape_inside_test.go",
+          "name": "TestBehaviorShapeInsideShapeBoxMovesReference"
+        },
+        {
+          "file": "internal/layout/css_behavior_shape_inside_test.go",
+          "name": "TestBehaviorShapeInsideOutsideShapeCopiesOutside"
+        },
+        {
+          "file": "internal/layout/css_behavior_shape_inside_test.go",
+          "name": "TestBehaviorShapeInsideStacksWithFloatExclusion"
+        },
+        {
+          "file": "internal/layout/css_behavior_shape_inside_test.go",
+          "name": "TestBehaviorShapeInsideDoesNotInherit"
+        },
         {
           "file": "internal/layout/css_behavior_list_shape_test.go",
           "name": "TestBehaviorShapeInsideNoLayoutEffect"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | outside-shape | [ <basic-shape> || shape-box ] | <image> | display"
     },
@@ -15603,16 +15986,36 @@
     {
       "name": "shape-padding",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<length-percentage [0,\u221e]>"
+      ],
       "limitations": [
-        "CSS Shapes 2 interior fitting; Chrome has no BCD support."
+        "Chrome has no BCD support for shape-padding. The padding shrinks the inside contour only; without a shape-inside contour it has no effect (TestBehaviorShapeInsidePaddingAloneNoEffect). A percentage resolves against the shape reference diagonal."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_shape_inside.go",
+        "internal/layout/shape_inside.go",
+        "internal/layout/style_cascade.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyShapeInsideProps",
+        "parseShapePadding"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_shape_inside_test.go",
+          "name": "TestBehaviorShapeInsidePaddingShrinksMiddleLine"
+        },
+        {
+          "file": "internal/layout/css_behavior_shape_inside_test.go",
+          "name": "TestBehaviorShapeInsidePaddingAloneNoEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_shape_inside_test.go",
+          "name": "TestBehaviorShapeInsideOversizePaddingKeepsZeroWidthLines"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<length-percentage [0,\u221e]>"
     },
@@ -18666,80 +19069,188 @@
     {
       "name": "wrap-after",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | line | avoid | avoid-line | flex | avoid-flex"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "avoid and avoid-line skip a soft wrap only within one em of slack; longer content wraps anyway. flex ends the current flex line for a flex item; it is ignored on an inline-level box and in a nowrap container."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/wrap_break.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_value_accept.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyWrapBreakProps",
+        "parseWrapBreak",
+        "wrapBreakDeclarationValueAccepted"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorWrapBeforeLineBreaks"
+        },
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorNamedFlowPropertyStorage"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | avoid | avoid-line | avoid-flex | line | flex"
     },
     {
       "name": "wrap-before",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | line | avoid | avoid-line | flex | avoid-flex"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "avoid and avoid-line skip a soft wrap only within one em of slack; longer content wraps anyway. flex forces a new flex line on a flex item; it is ignored on an inline-level box and in a nowrap container (TestBehaviorWrapBeforeFlexBreaksLine)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/wrap_break.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_value_accept.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyWrapBreakProps",
+        "parseWrapBreak",
+        "wrapBreakDeclarationValueAccepted"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorWrapBeforeLineBreaks"
+        },
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorWrapAvoidSkipsSoftWrap"
+        },
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorWrapBeforeFlexBreaksLine"
+        },
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorWrapBreakNotPageBreak"
+        },
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorNamedFlowPropertyStorage"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | avoid | avoid-line | avoid-flex | line | flex"
     },
     {
       "name": "wrap-flow",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | both | start | end | minimum | maximum | clear"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "One-interval line model: both and maximum pick the side with the larger free gap and minimum the smaller; two-sided shortening needs two exclusion boxes (TestBehaviorWrapFlowBothShortensLine). shape-outside contours are not consulted for exclusion boxes (they stay float-only)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/exclusion.go",
+        "internal/layout/float.go",
+        "internal/layout/layout_flow.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_value_accept.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyExclusionProps",
+        "parseWrapFlow",
+        "exclusionDeclarationValueAccepted",
+        "placeExclusion"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorWrapFlowBothShortensLine"
+        },
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorWrapFlowKeywords"
+        },
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorNamedFlowPropertyStorage"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | both | start | end | minimum | maximum | clear"
     },
     {
       "name": "wrap-inside",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | avoid | avoid-line"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Only avoid and avoid-line change layout; line, flex, and avoid-flex are stored but have no wrap-inside consumer. avoid keeps a fitting inline run on one line; wider text wraps normally (TestBehaviorWrapInsideAvoidFitsAndOverflows)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/wrap_break.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_value_accept.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyWrapBreakProps",
+        "parseWrapBreak",
+        "wrapBreakDeclarationValueAccepted",
+        "wrapBreakInsideAvoid"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorWrapInsideAvoidFitsAndOverflows"
+        },
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorNamedFlowPropertyStorage"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | avoid"
     },
     {
       "name": "wrap-through",
       "aliases": [],
-      "values": [],
+      "values": [
+        "wrap | none"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "A wrap-through: none subtree builds against a scratch floatState, so floats inside it do not leak to later siblings (lite deviation from CSS2.1 float scope)."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/exclusion.go",
+        "internal/layout/float.go",
+        "internal/layout/layout_flow.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_value_accept.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyExclusionProps",
+        "parseWrapThrough",
+        "exclusionDeclarationValueAccepted",
+        "beginWrapThroughBypass"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorWrapThroughNoneIgnoresExclusion"
+        },
+        {
+          "file": "internal/layout/css_behavior_named_flow_test.go",
+          "name": "TestBehaviorNamedFlowPropertyStorage"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "wrap | none"
     },
