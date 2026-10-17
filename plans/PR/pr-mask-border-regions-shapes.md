@@ -38,7 +38,7 @@
 
 ### Catalog, matrix, docs
 
-- 28 catalog rows updated with values, limitations, handlers, and tests: mask-border Partial; regions Implemented for the one-canvas contracts with the paged-fragmentation non-goal named; shape-inside/shape-padding Implemented with the Chrome no-BCD note kept.
+- 26 catalog rows updated (24 status changes plus limitation-only edits to `float-defer` and `shape-image-threshold`) with values, limitations, handlers, and tests: mask-border Partial; regions Implemented for the one-canvas contracts with the paged-fragmentation non-goal named; shape-inside/shape-padding Implemented with the Chrome no-BCD note kept.
 - Compatibility matrix section 2 regenerated; header counts, section 5 rows, the phase-83 tally notes, and the vendor group C alias table refreshed to agree with section 2.
 - `documentation/deferred.md`: mask row updated for the descriptor, regions row rewritten as four one-canvas contracts, v0.2.7 leftovers list corrected, vendor group C updated.
 
@@ -46,9 +46,9 @@
 
 | Area | Impact |
 |------|--------|
-| **Performance** | No change on documents that do not use the new properties: every hook is gated on the new style fields. Masonry tolerance reads one float per placement. |
+| **Performance** | No change on documents that do not use the new properties, with one deliberate exception: a masonry container with no `flow-tolerance` declaration now uses the CSS initial `normal` (one em of slack) instead of the old shortest-column packing; an explicit `flow-tolerance: infinite` restores the old choice. Every other hook is gated on the new style fields. |
 | **Memory** | `ResolvedStyle` gains shape/flow/wrap fields; `BlendGroup` gains the `MaskBorder` pointer. Descriptors hold the source image bytes once, shared with the existing image resolver. |
-| **Behavior / correctness** | New behavior only when the new properties are set. The mask shorthand reset, the first-wave mask aliases, border-image painting, float wrapping, flex, and grid suites are unchanged and green. |
+| **Behavior / correctness** | New behavior only when the new properties are set, except the masonry default above. The mask shorthand reset, the first-wave mask aliases, border-image painting, float wrapping, flex, and grid suites are unchanged and green. |
 | **API / CLI** | Additive: `layout.MaskBorder` and `layout.DisplayGroup.MaskBorder` exported; WASM group JSON gains an optional `maskBorder` object. No CLI in this tree. |
 | **Dependencies** | None. Direct module allowlist untouched (`go-text/typesetting`, `tdewolff/canvas`). |
 | **Binary size / build time** | Negligible; no new packages. |
@@ -57,7 +57,7 @@
 
 | Item | Migration |
 |------|-----------|
-| None | - |
+| Masonry `flow-tolerance` default | A `grid-template-rows: masonry` container with no `flow-tolerance` declaration now uses the CSS initial `normal` (one em of slack) instead of the old shortest-column packing. Set `flow-tolerance: infinite` to keep the old choice. |
 
 ## Test plan
 
