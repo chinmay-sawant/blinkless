@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<!--
+  fixture-65-named-flow-no-region
+  Proves: flow-into: article content on a source with no matching flow-from
+  region drops the source's children from Result.Ops. The canvas does not
+  invent a box or a page to hold them; the source keeps its own (empty) box
+  in normal flow. Expected: "unplaced source words" is absent from the
+  display list and #src has zero height.
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Named flow with no region</title>
+  <style>
+    body { font-family: monospace; font-size: 10pt; margin: 0; color: #222; }
+    p { margin: 0; }
+  </style>
+</head>
+<body>
+  <div id="src" style="flow-into: article content">unplaced source words</div>
+  <p id="after">in-flow words stay visible</p>
+</body>
+</html>

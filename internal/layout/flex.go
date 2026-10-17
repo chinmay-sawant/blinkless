@@ -386,95 +386,6 @@ func (e *engine) flexAspectContentWidth(node *html.Node, style ResolvedStyle, cr
 	return width
 }
 
-// flexWrapLines packs measured items into flex lines, honoring wrap mode and
-// reverse direction (item order within each line, then line order). The trial
-// line is checked after flex grow/shrink and min/max clamping, because a
-// content-based minimum can make a line overflow even when raw flex bases fit.
-func (e *engine) flexWrapLines(
-	items []flexMeas, wrap, reverse, wrapReverse bool, colGap, contentW float64,
-) [][]flexMeas {
-	if !wrap {
-		if reverse {
-			reverseFlexMeas(items)
-		}
-
-		return [][]flexMeas{items}
-	}
-
-	var lines [][]flexMeas
-
-	line := make([]flexMeas, 0, len(items))
-	used := 0.0
-
-	poll := newCtxPoll(e.ctx)
-	for _, item := range items {
-		if poll.poll() {
-			e.err = poll.err
-
-			return nil
-		}
-
-		need := item.hypotheticalW
-		if len(line) > 0 {
-			need += colGap
-		}
-
-		trial := append(append([]flexMeas(nil), line...), item)
-		if len(line) > 0 && !e.flexLineFits(trial, contentW, colGap) {
-			lines = append(lines, finalizeFlexLine(line, reverse))
-			line = nil
-			used = 0
-			need = item.hypotheticalW
-		}
-
-		line = append(line, item)
-		used += need
-	}
-
-	if len(line) > 0 {
-		lines = append(lines, finalizeFlexLine(line, reverse))
-	}
-
-	if wrapReverse {
-		slices.Reverse(lines)
-	}
-
-	return lines
-}
-
-func (e *engine) flexLineFits(items []flexMeas, contentW, gap float64) bool {
-	widths := e.flexLineWidths(items, contentW, gap)
-	total := gap * float64(len(widths)-1)
-
-	for idx, width := range widths {
-		total += width + flexRowNormalMargins(e, items[idx])
-	}
-
-	if total > contentW+layoutEpsilon {
-		return false
-	}
-
-	// A wrapped line may be a few points over its raw hypothetical sizes when
-	// flex-shrink resolves font-metric rounding. Do not use a large shrink to
-	// defeat wrapping: that collapses later items into unreadable slivers and
-	// also pulls full-width captions into the row. A candidate is therefore
-	// accepted only when every positive-base item remains within ten percent of
-	// its hypothetical size.
-	const maxLineShrink = 0.10
-
-	for idx, item := range items {
-		if item.baseW <= layoutEpsilon || item.shrink <= 0 {
-			continue
-		}
-
-		if widths[idx] < item.baseW*(1-maxLineShrink) {
-			return false
-		}
-	}
-
-	return true
-}
-
 // flexHypotheticalMainSize is the size used when deciding whether an item
 // belongs on the current flex line. Wrapping is based on the hypothetical
 // main size, not the raw flex base size: min-width:auto contributes the
@@ -497,18 +408,6 @@ func (e *engine) flexHypotheticalMainSize(item flexMeas, mainSize float64) float
 	}
 
 	return size
-}
-
-func finalizeFlexLine(line []flexMeas, reverse bool) []flexMeas {
-	if reverse {
-		reverseFlexMeas(line)
-	}
-
-	return line
-}
-
-func reverseFlexMeas(line []flexMeas) {
-	slices.Reverse(line)
 }
 
 // applyAlignContentRow distributes free cross space between wrapped flex

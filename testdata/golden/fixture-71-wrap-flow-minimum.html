@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<!--
+  fixture-71-wrap-flow-minimum
+  Proves: wrap-flow: minimum places the following paragraph on the side with
+  the smaller free gap. The box sits at margin-left 60pt in a 200pt content
+  box, so the right gap (40pt) is smaller: lines start after the box.
+  Expected: the first line's X is at or after the exclusion's right edge.
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>wrap-flow minimum</title>
+  <style>
+    body { font-family: monospace; font-size: 10pt; margin: 0; width: 200pt; color: #222; }
+    #exc { wrap-flow: minimum; margin-left: 60pt; width: 100pt; height: 30pt; background: #ddd; }
+    p { margin: 0; }
+  </style>
+</head>
+<body>
+  <div id="exc"></div>
+  <p id="p">alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima</p>
+</body>
+</html>

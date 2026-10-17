@@ -182,7 +182,6 @@ type Result struct {
 	flowBoxes   [][]int
 	flowBoxPage []int
 	flowBoxPos  []int
-
 	// pageSnapHeight records the page content height that multicol column
 	// snapping used during Layout (Options.Height). Paint compares it with
 	// its own content height so columns cannot snap to one boundary while
@@ -646,6 +645,11 @@ type engine struct {
 	// rejects a mismatch instead of splitting ops at a boundary the layout
 	// never snapped to.
 	pageSnapHeight float64
+	// namedFlows maps one flow ident to its source for this Layout run
+	// (css-regions-1 lite, see named_flow.go). namedFlowScanDone records the
+	// one-time document scan that registers sources ahead of their regions.
+	namedFlows        map[string]*namedFlow
+	namedFlowScanDone bool
 }
 
 // styleOverride temporarily substitutes one node's resolved style while that

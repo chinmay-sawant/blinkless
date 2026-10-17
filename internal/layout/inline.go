@@ -60,6 +60,13 @@ type inlineItem struct {
 	thumbImg       bool // img inside a collapsed wiki figure; outer frame owns L/R/T
 	chrome         bool // text belongs to an inline element with its own decoration
 	noSplit        bool // vertical writing-mode run must remain one rotated line
+	// Wrap-break flags (css-text-4 lite, wrap_break.go): the first/last item
+	// of an element with wrap-before/after: avoid carry the boundary flags,
+	// and every item of a wrap-inside: avoid group that fits one line carries
+	// avoidInside so the packer keeps the group together.
+	avoidBefore bool
+	avoidAfter  bool
+	avoidInside bool
 	// bidiScoped marks an item owned by a unicode-bidi scope (embed, isolate,
 	// override, plaintext). The run-order heuristic and reverseInlineRange
 	// leave scoped runs alone; the scope owner already ordered them.
@@ -550,6 +557,14 @@ func (e *engine) packInlineLine(
 		// Exception: never break before attaching punctuation / mid-cite
 		// (")[37]" → ")\n[" or "[\n37]" or "saying.[\n7]").
 		if lineAdv > 0 && lineAdv+adv > lineW+1e-6 {
+			// wrap-before/after: avoid and wrap-inside: avoid groups glue
+			// across a soft wrap within a bounded slack (wrap_break.go).
+			if e.wrapBreakGlues(*items, idx, start, adv, lineW) {
+				lineAdv += adv
+				idx++
+
+				continue
+			}
 			// Last chance: SHY-split the current item into the remaining room.
 			if allowHyphen {
 				if parts := e.maybeSplitHyphen(*item, remain, lineW); len(parts) > 1 {
