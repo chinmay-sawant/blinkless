@@ -1,7 +1,7 @@
 # v0.0.3 - Mask border
 
 > **Parent:** `plans/v0.0.3/README.md`
-> **Status:** Phases 0-3 implemented and verified in the mask-border worktree (`TestBehaviorMaskBorder*`, `TestMaskBorder*`, `TestMaskShorthand*` green). Phase 4 catalog, WASM, matrix, knowledge-base, and gate rows remain for the merge session.
+> **Status:** implemented and merged on `feature/v0.0.3-mask-border-regions-shapes`. Phases 0-3 verified (`TestBehaviorMaskBorder*`, `TestMaskBorder*`, `TestMaskShorthand*` green); Phase 4 catalog (13 rows partial), WASM serialization (`TestDrawingGroupSerializesMaskBorderAndImageReference`), matrix, and docs are merged. Gate rows record the branch-level `make test` / `make golden` / `make lint` / `make claim-scan` / `make catalog-check` / `make matrix-check` results. The local knowledge-base page stays out of scope for this tree.
 > **Estimated effort:** 13 property names, 5 phases.
 
 ---
@@ -109,18 +109,18 @@ Gate. Six aliases, one code path. Run `go test ./internal/layout -run 'TestBehav
 
 ## Phase 4: catalog, WASM, docs, and gates
 
-- [ ] Mark the 13 names Partial, not implemented. The group carries the data and this repo does not apply the mask pixels. Limitations say that, and say gradient sources wait on the mask-source ledger if they are still rejected.
+- [x] Mark the 13 names Partial, not implemented. The group carries the data and this repo does not apply the mask pixels. Limitations say that, and say gradient sources wait on the mask-source ledger if they are still rejected. Proof: all 13 catalog rows are `partial` with limitations, handlers, and tests; `make catalog-check` exits 0.
 - [x] Serialize `MaskBorder` beside `Mask` in the WASM group JSON. The mask copy is `bindings/wasm/drawing_list.go:578-581`. Add the border object next to `drawMaskJSON` (`bindings/wasm/drawing_list.go:212-221`). Proof: `TestDrawingGroupSerializesMaskBorderAndImageReference` reads slice, width, outset, repeat, mode, and image bytes; `bash scripts/check-wasm-contract.sh` exits 0.
 - [x] Update `documentation/deferred.md:108` and the group C sentence at `documentation/deferred.md:119`. The aliases are no longer "no consumer" once Phase 3 passes. Pixel replay stays unsupported here.
 - [x] Update `documentation/library-api.md` only to name the new group field. Do not claim the engine masks pixels.
-- [ ] Regenerate the compatibility matrix.
-- [ ] Update the local knowledge-base mask page in the implementation session.
-- [ ] Run `make test`. Exit 0.
-- [ ] Run `make golden`. Exit 0.
-- [ ] Run `make lint`. Exit 0. `internal/layout/layout.go` did not grow.
-- [ ] Run `make claim-scan`. Exit 0.
-- [ ] Run `make catalog-check`. Exit 0.
-- [ ] Run `make matrix-check`. Exit 0.
+- [x] Regenerate the compatibility matrix. Proof: `make matrix-check` exits 0 on the merged branch.
+- [ ] Update the local knowledge-base mask page in the implementation session. Out of scope for this tree: no knowledge-base page lives in this repository.
+- [x] Run `make test`. Exit 0.
+- [x] Run `make golden`. Exit 0.
+- [x] Run `make lint`. Exit 0. `internal/layout/layout.go` did not grow. It stays at 2157 lines, the single allowlisted file.
+- [x] Run `make claim-scan`. Exit 0.
+- [x] Run `make catalog-check`. Exit 0.
+- [x] Run `make matrix-check`. Exit 0.
 
 GitHub CI runs only `make test` and `make lint`. Do not run bare `go test ./...`.
 

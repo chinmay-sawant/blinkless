@@ -756,6 +756,17 @@ func TestBehaviorWrapAvoidSkipsSoftWrap(t *testing.T) {
 	if lines := distinctTextYs(long); lines < 2 {
 		t.Errorf("overflow avoid fixture line count = %d, want more than 1", lines)
 	}
+
+	// The avoid-line keyword shares the glue path: the same fitting fixture
+	// with wrap-before:avoid-line keeps the boundary word on line 1.
+	avoidLine := layoutHTML(t, doc("wrap-before:avoid-line"))
+	avoidLineFirst := textOpContaining(t, avoidLine, "aaaa")
+	avoidLineX := textOpContaining(t, avoidLine, "x")
+
+	if !near(avoidLineX.Y, avoidLineFirst.Y) {
+		t.Errorf("wrap-before avoid-line boundary Y = %.2f, want glued on line 1 (%.2f)",
+			avoidLineX.Y, avoidLineFirst.Y)
+	}
 }
 
 // TestBehaviorWrapBeforeFlexBreaksLine pins wrap-before: flex: the item
@@ -805,6 +816,60 @@ func TestBehaviorWrapBeforeFlexBreaksLine(t *testing.T) {
 		t.Errorf("nowrap flex b Y = %.2f, want the value ignored (a %.2f)",
 			nowrapB.Y, nowrapA.Y)
 	}
+
+	avoid := layoutHTML(t, doc("wrap", "wrap-before:avoid-flex"))
+	avoidA := textOpContaining(t, avoid, "item a")
+	avoidB := textOpContaining(t, avoid, "item b")
+
+	if !near(avoidA.Y, avoidB.Y) {
+		t.Errorf("wrap-before avoid-flex b Y = %.2f, want it kept on a's line (%.2f)",
+			avoidB.Y, avoidA.Y)
+	}
+}
+
+// TestBehaviorWrapBreakInvalidValuesKeepEarlier pins the storage gate: an
+// invalid wrap-before/after/inside value never replaces an earlier valid one.
+func TestBehaviorWrapBreakInvalidValuesKeepEarlier(t *testing.T) {
+	t.Parallel()
+
+	res := layoutHTML(t, `<html><body style="margin:0">`+
+		`<div id="a" style="wrap-before:line;wrap-before:2line;`+
+		`wrap-after:line;wrap-after:banana;`+
+		`wrap-inside:avoid;wrap-inside:often"></div>`+
+		`</body></html>`)
+
+	a := boxByID(t, res, "a")
+
+	if a.style.WrapBefore != wrapBreakLine {
+		t.Errorf("invalid wrap-before replaced earlier: got %q, want line", a.style.WrapBefore)
+	}
+
+	if a.style.WrapAfter != wrapBreakLine {
+		t.Errorf("invalid wrap-after replaced earlier: got %q, want line", a.style.WrapAfter)
+	}
+
+	if a.style.WrapInside != wrapBreakAvoid {
+		t.Errorf("invalid wrap-inside replaced earlier: got %q, want avoid", a.style.WrapInside)
+	}
+}
+
+// TestBehaviorWrapFlowAutoKeepsFloatBehavior pins the float compatibility row:
+// wrap-flow: auto changes no op of a plain float fixture.
+func TestBehaviorWrapFlowAutoKeepsFloatBehavior(t *testing.T) {
+	t.Parallel()
+
+	doc := func(extra string) string {
+		return `<html style="margin:0"><body style="margin:0;font:10pt/12pt monospace;width:200pt">` +
+			`<div id="f" style="float:left;width:50pt;height:30pt;` + extra + `"></div>` +
+			`<p style="margin:0">floating words keep their line beside the box and wrap below it ` +
+			`when the run is long enough to need a second line of text here</p>` +
+			`</body></html>`
+	}
+
+	plain := layoutHTML(t, doc(""))
+	auto := layoutHTML(t, doc("wrap-flow:auto"))
+
+	behaviorTextRemAssertSameOps(t, plain, auto)
 }
 
 // TestBehaviorWrapBreakNotPageBreak pins the Phase 4 gate: wrap-before: line

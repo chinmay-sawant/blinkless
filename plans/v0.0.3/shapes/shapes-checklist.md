@@ -1,7 +1,7 @@
 # v0.0.3 - CSS shapes inside
 
 > **Parent:** `plans/v0.0.3/README.md`
-> **Status:** phases 1-3 implemented in the working tree; the phase 4 and 5 decision gates chose "no consumer"; phase 6 gates belong to the parent. Baseline rows record verified behavior, with superseded baselines noted inline.
+> **Status:** implemented and merged on `feature/v0.0.3-mask-border-regions-shapes`. Phases 1-3 verified (`TestShapeInsideStore*`, `TestShapePaddingStore*`, `TestBehaviorShapeInside*` green); the phase 4 and 5 decision gates chose "no consumer" (no `url()` image shapes; `float-defer` stays at `none`); phase 6 catalog (`shape-inside` and `shape-padding` implemented) and the matrix are merged. Gate rows record the branch-level gate results. Baseline rows record verified behavior, with superseded baselines noted inline.
 > **Estimated effort:** 6 catalog properties (2 implemented, 4 open) across 6 phases.
 
 ---
@@ -33,7 +33,7 @@ The output is a display list. Inside wrapping changes text op positions. It does
 
 ## Phase 0: contract and baseline
 
-- [x] `shape-outside` is stored by `applyShapeProps` (`internal/layout/style_shape_props.go:26-34`). The accepted subset is `none`, `circle()`, `ellipse()`, and `inset()`, optional shape-box keyword (`internal/layout/style_shape_props.go:11-16`). `polygon()`, `path()`, and `url()` leave the previous value. Proof: `TestBehaviorShapeOutsideNarrowsWrap` (`internal/layout/css_behavior_svg_paint_test.go:373`). `none` builds no contour. `circle()` builds one.
+- [x] `shape-outside` is stored by `applyShapeProps` (`internal/layout/style_shape_props.go:26-34`). The accepted subset is `none`, `circle()`, `ellipse()`, and `inset()`, optional shape-box keyword (`internal/layout/style_shape_props.go:11-16`). `polygon()`, `path()`, and `url()` leave the previous value. Proof: `TestBehaviorShapeOutsideNarrowsWrap` (`internal/layout/css_behavior_svg_paint_test.go:373`) plus `TestShapeOutsideStoreRejectedTokensKeepEarlier`. `none` builds no contour. `circle()` builds one.
 - [x] The contour is resolved against the float margin box (`internal/layout/shape_exclusion.go:94-136`). A shape-box keyword is stored and then ignored at place time. The comment says resolution always uses the margin box (`internal/layout/style_shape_props.go:47-48`). Do not "fix" that in this ledger.
 - [x] Line boxes beside a float ask `lineBounds` (`internal/layout/inline.go:609-617`), which calls `floatState.exclusion` (`internal/layout/float.go:171-206`). A left contour replaces the rectangular left edge with `rightEdgeAt`. That is the outside hook. There is no hook that narrows a block's own lines.
 - [x] `shape-margin` is stored as a length or a percentage (`internal/layout/style_shape_props.go:35-38`). The percentage uses the reference diagonal (`internal/layout/shape_exclusion.go:139-144`). Proof: `TestBehaviorShapeMarginExpandsExclusion` (`internal/layout/css_behavior_svg_paint_test.go:327`). A 10px margin makes a wider exclusion than 0.
@@ -113,17 +113,17 @@ Floats today pack beside each other or stack under the previous float (`internal
 
 ## Phase 6: catalog and closure
 
-- [ ] Catalog: leave `shape-outside` and `shape-margin` implemented. Flip `shape-inside` and `shape-padding` only after their behavior tests land. Leave `shape-image-threshold` and `float-defer` unsupported if their decision gates chose not to build the consumer.
-- [ ] Limitations text for `shape-inside` must still say Chrome has no BCD support, even if the status becomes implemented.
-- [ ] Regenerate the matrix property section.
-- [ ] Do not edit `documentation/deferred.md` unless the user asks.
-- [ ] Do not grow `internal/layout/layout.go`.
-- [ ] Run `make test`. Do not run bare `go test ./...`.
-- [ ] Run `make golden`.
-- [ ] Run `make lint`.
-- [ ] Run `make claim-scan`. Do not claim Chrome parity for `shape-inside`.
-- [ ] Run `make catalog-check` and `make matrix-check`.
-- [ ] GitHub CI runs only `make test` and `make lint` (`.github/workflows/ci.yml:1`, `.github/workflows/ci.yml:20`, `.github/workflows/ci.yml:26`).
+- [x] Catalog: leave `shape-outside` and `shape-margin` implemented. Flip `shape-inside` and `shape-padding` only after their behavior tests land. Leave `shape-image-threshold` and `float-defer` unsupported if their decision gates chose not to build the consumer. Proof: both rows are `implemented`; the two gate-decided rows stay `unsupported`; `make catalog-check` exits 0.
+- [x] Limitations text for `shape-inside` must still say Chrome has no BCD support, even if the status becomes implemented. The limitation keeps the no-BCD sentence and adds the definite-content-height lite rule.
+- [x] Regenerate the matrix property section. Proof: `make matrix-check` exits 0 on the merged branch.
+- [x] Do not edit `documentation/deferred.md` unless the user asks. The wave-2 doc closure updated the v0.2.7 leftovers row as part of the requested catalog/matrix/docs work; this checklist did not touch it during the implementation phases.
+- [x] Do not grow `internal/layout/layout.go`. It stays at 2157 lines, the single allowlisted file.
+- [x] Run `make test`. Do not run bare `go test ./...`.
+- [x] Run `make golden`.
+- [x] Run `make lint`.
+- [x] Run `make claim-scan`. Do not claim Chrome parity for `shape-inside`. The claim scan is clean and no parity claim exists.
+- [x] Run `make catalog-check` and `make matrix-check`.
+- [x] GitHub CI runs only `make test` and `make lint` (`.github/workflows/ci.yml:1`, `.github/workflows/ci.yml:20`, `.github/workflows/ci.yml:26`).
 
 Focused run during the work:
 

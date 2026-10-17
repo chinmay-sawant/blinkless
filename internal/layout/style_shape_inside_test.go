@@ -10,6 +10,37 @@ func shapeInsideStoreCtx() *styleContext {
 	return &styleContext{ctx: context.Background(), viewportW: 800}
 }
 
+// TestShapeOutsideStoreRejectedTokensKeepEarlier pins the baseline rejection
+// clause: polygon(), path(), and url() leave the earlier shape-outside value.
+func TestShapeOutsideStoreRejectedTokensKeepEarlier(t *testing.T) {
+	t.Parallel()
+
+	sty := initialStyle()
+
+	if !applyShapeProps(&sty, "shape-outside", "circle(10px)", 16, shapeInsideStoreCtx(), nil, false) {
+		t.Fatal("applyShapeProps rejected the circle() baseline")
+	}
+
+	if sty.ShapeOutside != "circle(10px)" {
+		t.Fatalf("baseline ShapeOutside = %q, want circle(10px)", sty.ShapeOutside)
+	}
+
+	for _, rejected := range []string{
+		"polygon(0 0, 10px 0, 10px 10px)",
+		"path('M 0 0 L 10 10 Z')",
+		"url(pic.png)",
+	} {
+		if !applyShapeProps(&sty, "shape-outside", rejected, 16, shapeInsideStoreCtx(), nil, false) {
+			t.Fatalf("applyShapeProps(%q) = false, want the group to own the property", rejected)
+		}
+
+		if sty.ShapeOutside != "circle(10px)" {
+			t.Errorf("rejected %q replaced the earlier value: got %q, want circle(10px)",
+				rejected, sty.ShapeOutside)
+		}
+	}
+}
+
 // shapeInsideApply runs the group applier for one declaration and requires
 // the group to claim the property. A rejected value still returns true: the
 // group owns the property even when the parser leaves the earlier stored

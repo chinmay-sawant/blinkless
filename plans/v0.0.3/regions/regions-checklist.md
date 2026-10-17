@@ -1,7 +1,7 @@
 # v0.0.3 - Regions, masonry tolerance, exclusions, and wrap breaks
 
 > **Parent:** `plans/v0.0.3/README.md`
-> **Status:** not started, except baseline rows verified in this session.
+> **Status:** implemented and merged on `feature/v0.0.3-mask-border-regions-shapes`. Phases 1-4 verified (`TestBehaviorNamedFlow*`, `TestBehaviorFlowTolerance*`, `TestBehaviorWrap*` green); Phase 5 catalog (9 rows implemented), `documentation/deferred.md` rewrite, and the matrix are merged. Gate rows record the branch-level `make test` / `make golden` / `make lint` / `make claim-scan` / `make catalog-check` / `make matrix-check` results. The local knowledge-base page stays out of scope for this tree.
 > **Estimated effort:** 9 properties, 6 phases.
 
 ---
@@ -65,7 +65,7 @@ Gate. Two boxes. The text changes coordinate parent. No `Pages` slice is allocat
 
 - [x] Chain two `flow-from` boxes in tree order. Fill the first region's content box, then continue in the second. Expected: a long paragraph's first line is in B and a later line is in C. Both Y values are on the one canvas. Proof: `TestBehaviorNamedFlowContinuesInNextRegion`.
 - [x] `region-fragment: auto` allows one block child to start in B and continue in C. `region-fragment: break` on that child moves the whole child to C when the remaining space in B is shorter than the child. Expected: under `break`, no paint op of that child sits inside B. Proof: a pair of fixtures.
-- [x] Store `flow-tolerance` on the grid container. Path: `internal/layout/masonry_tolerance.go`. `masonryPlacement` calls it (`internal/layout/grid_masonry.go:92-118`). Do not read this property from `named_flow.go`.
+- [x] Store `flow-tolerance` on the grid container. Path: `internal/layout/masonry_tolerance.go`. The tolerance is resolved by `masonryToleranceOf` and consumed inside `emitMasonryItems` (`internal/layout/grid_masonry.go:68`, `:93`), not by `masonryPlacement` (`:111`). Do not read this property from `named_flow.go`.
 - [x] `infinite` keeps `shortestMasonryColumn`. A finite tolerance skips a column when the item's block size would extend past the neighboring column bottom by more than the tolerance, and picks the next column that passes. `normal` is one em at the container's font size. Expected: two masonry items change column, so the second item's X differs between `infinite` and `0px`. Proof: `TestBehaviorFlowToleranceChangesMasonryColumn`. The packer runs only for `grid-template-rows: masonry` (`internal/layout/grid.go:25-27`, `internal/layout/grid.go:81-82`). A `grid-template-columns: masonry` list is cleared and does not enter this path (`internal/layout/grid_masonry.go:14-21`). The fixture sets rows to `masonry` and columns to two definite tracks.
 - [x] A non-masonry grid ignores `flow-tolerance`. Expected: item X and Y match the same grid without the property. Proof: one comparison fixture.
 
@@ -79,7 +79,7 @@ Floats already shorten later lines from `leftEdge` and `rightEdge` (`internal/la
 - [x] `wrap-flow: both` on a sized box shortens the following paragraph on both sides of that box, so a line's X starts after the exclusion's start edge and its width stops before the exclusion's end edge. Expected: the line's X is greater than the content start, and the line's right edge is less than the content end, while the exclusion box itself stays put. Proof: `TestBehaviorWrapFlowBothShortensLine`.
 - [x] `start` and `end` shorten only one side. `minimum` and `maximum` pick the side with the smaller or larger free gap. `clear` places the following line below the exclusion, which is the same Y outcome as `clear: both` past a float. Proof: one fixture per keyword, checking line X or line Y.
 - [x] Store `wrap-through` as `wrap` or `none`. `wrap` is the initial and keeps the exclusion. `none` on the paragraph makes its lines use the full content width even when an earlier `wrap-flow` exclusion overlaps them. Expected: line X returns to the content start. Proof: `TestBehaviorWrapThroughNoneIgnoresExclusion`.
-- [x] `wrap-flow: auto` does not change a real `float: left`. The float tests stay green. Proof: the existing float test file still passes under `go test ./internal/layout -run Float`.
+- [x] `wrap-flow: auto` does not change a real `float: left`. The float tests stay green. Proof: the existing float test file still passes under `go test ./internal/layout -run Float`, plus `TestBehaviorWrapFlowAutoKeepsFloatBehavior` (a float fixture with and without `wrap-flow: auto` paints identical ops).
 
 Gate. A exclusion box and a paragraph on one canvas. Line X or Y changes. No new paint op kind.
 
@@ -87,27 +87,27 @@ Gate. A exclusion box and a paragraph on one canvas. Line X or Y changes. No new
 
 These are css-text-4 wrap opportunities. `line` and `avoid-line` talk to the inline line breaker. `flex` and `avoid-flex` talk to `flexWrapLines` (`internal/layout/flex.go:388`). They do not talk to `Result.Pages`.
 
-- [x] Store the three properties with the syntax in the executive table. Invalid values do not replace an earlier valid value. Path: `internal/layout/wrap_break.go`.
+- [x] Store the three properties with the syntax in the executive table. Invalid values do not replace an earlier valid value. Path: `internal/layout/wrap_break.go`. Proof: `TestBehaviorNamedFlowPropertyStorage` for valid storage, `TestBehaviorWrapBreakInvalidValuesKeepEarlier` for the invalid-value rule.
 - [x] `wrap-before: line` forces a line break before the element, so its text starts on the next line Y. `wrap-after: line` forces the following text onto the next line. `auto` does not. Proof: `TestBehaviorWrapBeforeLineBreaks`.
 - [x] `wrap-inside: avoid` keeps the element's text on one line when the line has room. When the line does not have room, the text wraps anyway. Expected: a short phrase stays one line, a long phrase still wraps. Proof: two fixtures.
-- [x] `avoid` and `avoid-line` skip a soft wrap immediately before or after the element when the text still fits. They do not overflow the content box without bound. Expected: a measured line count of 1 for the fitting fixture and more than 1 for the overflow fixture.
-- [x] `flex` on a flex item starts a new flex line even when the item would fit on the current line. `avoid-flex` keeps the item on the current flex line when it fits. Path: a helper called from `flexWrapLines`. Expected: the item's Y matches the next flex line for `flex`, and the current line for `avoid-flex`, using a container with `flex-wrap: wrap`. Proof: `TestBehaviorWrapBeforeFlexBreaksLine`.
+- [x] `avoid` and `avoid-line` skip a soft wrap immediately before or after the element when the text still fits. They do not overflow the content box without bound. Expected: a measured line count of 1 for the fitting fixture and more than 1 for the overflow fixture. Proof: `TestBehaviorWrapAvoidSkipsSoftWrap` covers `wrap-before:avoid` and `wrap-before:avoid-line` on the fitting fixture plus the overflow fixture; the after side shares the same glue path. Proof: `TestBehaviorWrapAvoidSkipsSoftWrap` covers `wrap-before:avoid` and `wrap-before:avoid-line` on the fitting fixture plus the overflow fixture; the after side shares the same glue path.
+- [x] `flex` on a flex item starts a new flex line even when the item would fit on the current line. `avoid-flex` keeps the item on the current flex line when it fits. Path: a helper called from `flexWrapLines`. Expected: the item's Y matches the next flex line for `flex`, and the current line for `avoid-flex`, using a container with `flex-wrap: wrap`. Proof: `TestBehaviorWrapBeforeFlexBreaksLine` (covers `flex`, `avoid-flex`, and the nowrap ignore case).
 - [x] Do not treat `line` or `flex` as `break-before: page`. A box with `wrap-before: line` stays above `Options.Height` when its content is short. Proof: Y is below the previous line and below 800pt is not required. The assertion is "Y increased by about one line," not "Y jumped by a page."
 
 Gate. Line and flex geometry change. Page assignment does not.
 
 ## Phase 5: catalog, docs, and gates
 
-- [ ] Update each catalog row only after its behavior test passes. `flow-into`, `flow-from`, and `region-fragment` can become `implemented` for the one-canvas contract, with a limitation that names the paged-fragmentation non-goal. `flow-tolerance` becomes `implemented` only for masonry, and `partial` if normal grid ignores it, with that limitation written down. `wrap-flow` and `wrap-through` follow the exclusion tests. `wrap-before`, `wrap-after`, and `wrap-inside` follow the line and flex tests.
-- [ ] Rewrite `documentation/deferred.md:109` so it no longer calls these nine one permanent non-goal. Name the four contracts and the page non-goal.
-- [ ] Regenerate the compatibility matrix. Do not hand-edit generated rows.
-- [ ] Update the local knowledge-base page in the implementation session. Not in this checklist's writing session.
-- [ ] Run `make test`. Exit 0.
-- [ ] Run `make golden`. Exit 0.
-- [ ] Run `make lint`. Exit 0. `internal/layout/layout.go` did not grow.
-- [ ] Run `make claim-scan`. Exit 0.
-- [ ] Run `make catalog-check`. Exit 0.
-- [ ] Run `make matrix-check`. Exit 0.
+- [x] Update each catalog row only after its behavior test passes. `flow-into`, `flow-from`, and `region-fragment` can become `implemented` for the one-canvas contract, with a limitation that names the paged-fragmentation non-goal. `flow-tolerance` becomes `implemented` only for masonry, and `partial` if normal grid ignores it, with that limitation written down. `wrap-flow` and `wrap-through` follow the exclusion tests. `wrap-before`, `wrap-after`, and `wrap-inside` follow the line and flex tests. Proof: all nine rows are `implemented` with limitations, handlers, and tests; `make catalog-check` exits 0.
+- [x] Rewrite `documentation/deferred.md:109` so it no longer calls these nine one permanent non-goal. Name the four contracts and the page non-goal. The row now describes the four one-canvas contracts and states the paged-fragmentation non-goal.
+- [x] Regenerate the compatibility matrix. Do not hand-edit generated rows. Proof: `make matrix-check` exits 0 on the merged branch.
+- [ ] Update the local knowledge-base page in the implementation session. Not in this checklist's writing session. Out of scope for this tree: no knowledge-base page lives in this repository.
+- [x] Run `make test`. Exit 0.
+- [x] Run `make golden`. Exit 0.
+- [x] Run `make lint`. Exit 0. `internal/layout/layout.go` did not grow. It stays at 2157 lines, the single allowlisted file.
+- [x] Run `make claim-scan`. Exit 0.
+- [x] Run `make catalog-check`. Exit 0.
+- [x] Run `make matrix-check`. Exit 0.
 
 GitHub CI runs only `make test` and `make lint`. Do not run bare `go test ./...`.
 
