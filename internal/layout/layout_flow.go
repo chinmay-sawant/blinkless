@@ -230,7 +230,7 @@ func (e *engine) flowChildren(
 	// css-regions-1 lite (named_flow.go): a source withholds its children, a
 	// region swaps in the named flow's content, and the frame carries the
 	// region cut to the post-hook below.
-	nf := e.namedFlowBegin(parent, &children, sty, contentX, posY, curY)
+	namedFlowFrame := e.namedFlowBegin(parent, &children, sty, contentX, posY, curY)
 
 	// contain: paint clips descendant paint to the padding box. Stamp the box
 	// so the existing overflow:clip pass (overflow_clip.go) applies it.
@@ -316,8 +316,8 @@ func (e *engine) flowChildren(
 		curY += prevBottom
 	}
 
-	if nf != nil {
-		curY = e.namedFlowFinish(nf, parent, posY, curY)
+	if namedFlowFrame != nil {
+		curY = e.namedFlowFinish(namedFlowFrame, parent, posY, curY)
 	}
 
 	return curY
@@ -743,6 +743,7 @@ func (e *engine) layoutBlockChild(
 	// scratch floatState so outside exclusions do not shorten its lines.
 	bypass := e.beginWrapThroughBypass(floats, cstate)
 	cblock := e.build(node, boxW, boxX, posY+curY)
+
 	endWrapThroughBypass(floats, bypass)
 
 	if cblock == nil {

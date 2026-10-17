@@ -1,4 +1,3 @@
-//nolint:cyclop,mnd,varnamelen // shape-inside contour + shape-padding shrink
 package layout
 
 // shape-inside lite (v0.0.3 shapes ledger). The outside hook (shape-outside,
@@ -160,6 +159,8 @@ func shrinkInsideShape(shape *shapeExclusion, pad float64) {
 	}
 
 	switch shape.kind {
+	case shapeKindNone:
+		// A missing kind carries no geometry to inset; keep it as-is.
 	case shapeKindEllipse:
 		shape.rx -= pad
 		shape.ry -= pad

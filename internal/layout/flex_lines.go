@@ -26,7 +26,6 @@ func (e *engine) flexWrapLines(
 	var lines [][]flexMeas
 
 	line := make([]flexMeas, 0, len(items))
-	used := 0.0
 
 	poll := newCtxPoll(e.ctx)
 	for _, item := range items {
@@ -36,36 +35,7 @@ func (e *engine) flexWrapLines(
 			return nil
 		}
 
-		// wrap-before: flex forces a new flex line even when the item fits
-		// (wrap_break.go; nowrap already returned above).
-		if len(line) > 0 && e.flexWrapBreakBefore(item) {
-			lines = append(lines, finalizeFlexLine(line, reverse))
-			line = nil
-			used = 0
-		}
-
-		need := item.hypotheticalW
-		if len(line) > 0 {
-			need += colGap
-		}
-
-		trial := append(append([]flexMeas(nil), line...), item)
-		if len(line) > 0 && !e.flexLineFits(trial, contentW, colGap) {
-			lines = append(lines, finalizeFlexLine(line, reverse))
-			line = nil
-			used = 0
-			need = item.hypotheticalW
-		}
-
-		line = append(line, item)
-		used += need
-
-		// wrap-after: flex ends the line after the item.
-		if e.flexWrapBreakAfter(item) {
-			lines = append(lines, finalizeFlexLine(line, reverse))
-			line = nil
-			used = 0
-		}
+		line = e.flexWrapPlaceItem(&lines, line, item, reverse, colGap, contentW)
 	}
 
 	if len(line) > 0 {
@@ -77,6 +47,38 @@ func (e *engine) flexWrapLines(
 	}
 
 	return lines
+}
+
+// flexWrapPlaceItem places one item on the current flex line, closing the line
+// first when wrap-before: flex asks for it or the item does not fit after flex
+// grow/shrink, and closing again when wrap-after: flex asks for it. It returns
+// the (possibly empty) current line.
+func (e *engine) flexWrapPlaceItem(
+	lines *[][]flexMeas, line []flexMeas, item flexMeas,
+	reverse bool, colGap, contentW float64,
+) []flexMeas {
+	// wrap-before: flex forces a new flex line even when the item fits
+	// (wrap_break.go; nowrap returns before this loop).
+	if len(line) > 0 && e.flexWrapBreakBefore(item) {
+		*lines = append(*lines, finalizeFlexLine(line, reverse))
+		line = nil
+	}
+
+	trial := append(append([]flexMeas(nil), line...), item)
+	if len(line) > 0 && !e.flexLineFits(trial, contentW, colGap) {
+		*lines = append(*lines, finalizeFlexLine(line, reverse))
+		line = nil
+	}
+
+	line = append(line, item)
+
+	// wrap-after: flex ends the line after the item.
+	if e.flexWrapBreakAfter(item) {
+		*lines = append(*lines, finalizeFlexLine(line, reverse))
+		line = nil
+	}
+
+	return line
 }
 
 func (e *engine) flexLineFits(items []flexMeas, contentW, gap float64) bool {

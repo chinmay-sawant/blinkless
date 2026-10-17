@@ -1,4 +1,3 @@
-//nolint:all // targeted shape-inside / shape-padding storage tests
 package layout
 
 import (

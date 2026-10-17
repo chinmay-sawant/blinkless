@@ -53,13 +53,13 @@ func applyFlowToleranceProps(
 		return false
 	}
 
-	pt, infinite, ok := parseFlowTolerance(value, fsize)
+	points, infinite, ok := parseFlowTolerance(value, fsize)
 	if !ok {
 		return true
 	}
 
 	style.FlowToleranceInfinite = infinite
-	style.FlowTolerancePt = pt
+	style.FlowTolerancePt = points
 
 	return true
 }
@@ -111,7 +111,7 @@ func flowToleranceDeclarationValueAccepted(prop, value string) (bool, bool) {
 
 // masonryToleranceOf resolves the container's used slack. A nil style keeps
 // the shortest-column choice (hand-built engines and tests).
-func masonryToleranceOf(e *engine, container *ResolvedStyle) masonryTolerance {
+func masonryToleranceOf(eng *engine, container *ResolvedStyle) masonryTolerance {
 	if container == nil {
 		return masonryTolerance{ //nolint:exhaustruct // infinite is false; slack still zero
 		}
@@ -121,12 +121,12 @@ func masonryToleranceOf(e *engine, container *ResolvedStyle) masonryTolerance {
 		return masonryTolerance{infinite: true, slack: 0}
 	}
 
-	pt := container.FlowTolerancePt
-	if pt < 0 {
-		pt = container.FontSize
+	points := container.FlowTolerancePt
+	if points < 0 {
+		points = container.FontSize
 	}
 
-	return masonryTolerance{infinite: false, slack: e.scalePt(pt)}
+	return masonryTolerance{infinite: false, slack: eng.scalePt(points)}
 }
 
 // column returns the column for one auto-placed item of block size itemH.

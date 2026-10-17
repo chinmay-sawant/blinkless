@@ -222,7 +222,7 @@ func (e *engine) hangingPunctuationFirstWidth(style *ResolvedStyle, text string)
 		return 0
 	}
 
-	if !hangingPunctuationHas(style.HangingPunctuation, "first") {
+	if !hangingPunctuationHas(style.HangingPunctuation, hangingPunctuationFirst) {
 		return 0
 	}
 

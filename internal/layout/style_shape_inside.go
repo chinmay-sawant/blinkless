@@ -1,4 +1,4 @@
-//nolint:mnd,varnamelen // shape-inside / shape-padding lite parsers
+//nolint:varnamelen // shape-inside / shape-padding lite parsers
 package layout
 
 import "github.com/chinmay-sawant/blinkless/internal/css"
@@ -72,25 +72,27 @@ func parseShapeInside(raw string) (string, string, bool, bool) {
 		return "", "", false, false
 	}
 
-	var canonical string
-
-	switch name {
-	case "circle":
-		canonical, ok = canonicalShapeCircle(args)
-	case shapeEllipseKeyword:
-		canonical, ok = canonicalShapeEllipse(args)
-	case "inset":
-		canonical, ok = canonicalShapeInset(args)
-	default:
-		// polygon(), path(), url() images, and display all land here.
-		return "", "", false, false
-	}
-
+	canonical, ok := canonicalShapeInsideFunction(name, args)
 	if !ok {
 		return "", "", false, false
 	}
 
 	return canonical, box, false, true
+}
+
+// canonicalShapeInsideFunction canonicalizes the supported shape functions.
+// polygon(), path(), url() images, and display report ok = false.
+func canonicalShapeInsideFunction(name, args string) (string, bool) {
+	switch name {
+	case "circle":
+		return canonicalShapeCircle(args)
+	case shapeEllipseKeyword:
+		return canonicalShapeEllipse(args)
+	case "inset":
+		return canonicalShapeInset(args)
+	default:
+		return "", false
+	}
 }
 
 // parseShapePadding accepts a non-negative length or percentage. The

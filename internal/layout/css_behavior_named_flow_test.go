@@ -1,3 +1,4 @@
+//nolint:cyclop,varnamelen,dupword // behavior fixtures: long table tests, one-char ids, repeated filler
 package layout
 
 import (

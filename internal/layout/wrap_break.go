@@ -168,18 +168,7 @@ func (e *engine) applyWrapBreakFlags(sty ResolvedStyle, items []inlineItem, star
 		return
 	}
 
-	width := e.inlineCBW
-	if width <= 0 {
-		return
-	}
-
-	total := 0.0
-
-	for idx := start; idx < len(items); idx++ {
-		total += items[idx].marginL + items[idx].w + items[idx].marginR
-	}
-
-	if total > width+inlineFitEpsilon {
+	if !e.wrapInsideGroupFits(items, start) {
 		return
 	}
 
@@ -188,10 +177,28 @@ func (e *engine) applyWrapBreakFlags(sty ResolvedStyle, items []inlineItem, star
 	}
 }
 
+// wrapInsideGroupFits reports whether the items one element contributed fit
+// the available inline line width as one group. e.inlineCBW is set by the
+// collector; 0 means unknown, so the group stays breakable.
+func (e *engine) wrapInsideGroupFits(items []inlineItem, start int) bool {
+	width := e.inlineCBW
+	if width <= 0 {
+		return false
+	}
+
+	total := 0.0
+
+	for idx := start; idx < len(items); idx++ {
+		total += items[idx].marginL + items[idx].w + items[idx].marginR
+	}
+
+	return total <= width+inlineFitEpsilon
+}
+
 // wrapBreakGlues reports that the packer should skip the soft wrap before
 // items[idx]: an avoid boundary within one em of slack, or a soft wrap
 // inside a wrap-inside: avoid group.
-func (e *engine) wrapBreakGlues(items []inlineItem, idx, start int, adv, lineW float64) bool {
+func (e *engine) wrapBreakGlues(items []inlineItem, idx, start int, adv, _ float64) bool {
 	if idx <= 0 || idx >= len(items) || idx <= start {
 		return false
 	}
@@ -209,11 +216,18 @@ func (e *engine) wrapBreakGlues(items []inlineItem, idx, start int, adv, lineW f
 		return false
 	}
 
-	slack := 0.0
-	if item.style != nil {
-		slack = item.style.FontSize * e.scale
+	return wrapBreakFitsSlack(item, e.scale, adv)
+}
+
+// wrapBreakFitsSlack reports whether the advance fits within one em of slack
+// at the item's font size. A missing style or a non-positive size means no
+// slack, so the wrap is not glued.
+func wrapBreakFitsSlack(item inlineItem, scale, adv float64) bool {
+	if item.style == nil {
+		return false
 	}
 
+	slack := item.style.FontSize * scale
 	if slack <= 0 {
 		return false
 	}

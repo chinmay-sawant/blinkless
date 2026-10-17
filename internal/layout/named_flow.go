@@ -248,14 +248,14 @@ func namedFlowDeclarationValueAccepted(prop, value string) (bool, bool) {
 // namedFlowChildMentions reports whether any element child declares a
 // named-flow property, so the registry scan only runs for documents that use
 // regions at all.
-func namedFlowChildMentions(e *engine, children []*html.Node) bool {
+func namedFlowChildMentions(eng *engine, children []*html.Node) bool {
 	for _, child := range children {
 		if child.Type != html.ElementNode {
 			continue
 		}
 
-		st := e.stylePtr(child)
-		if st != nil && (st.FlowInto != "" || st.FlowFrom != "") {
+		style := eng.stylePtr(child)
+		if style != nil && (style.FlowInto != "" || style.FlowFrom != "") {
 			return true
 		}
 	}
@@ -291,18 +291,18 @@ func (e *engine) scanNamedFlows(root *html.Node) {
 			return
 		}
 
-		st := e.stylePtr(node)
-		if st == nil || st.FlowInto == "" {
+		style := e.stylePtr(node)
+		if style == nil || style.FlowInto == "" {
 			return
 		}
 
-		if _, exists := e.namedFlows[st.FlowInto]; exists {
+		if _, exists := e.namedFlows[style.FlowInto]; exists {
 			return
 		}
 
-		e.namedFlows[st.FlowInto] = &namedFlow{ //nolint:exhaustruct // placed/pending start zero
+		e.namedFlows[style.FlowInto] = &namedFlow{ //nolint:exhaustruct // placed/pending start zero
 			source:  node,
-			element: st.FlowIntoElement,
+			element: style.FlowIntoElement,
 		}
 	})
 }
@@ -311,7 +311,7 @@ func (e *engine) scanNamedFlows(root *html.Node) {
 // children, replaces a region's children with the named flow's content, and
 // captures the op/child cursors and the region cut for the post-hook.
 //
-//nolint:cyclop,funlen // one dispatch over the scan, source, and region paths
+//nolint:cyclop // one dispatch over the scan, source, and region paths
 func (e *engine) namedFlowBegin(
 	parent *box, children *[]*html.Node, sty ResolvedStyle, contentX, posY, curY float64,
 ) *namedFlowFrame {
@@ -404,39 +404,43 @@ func (e *engine) namedFlowRegionChildren(
 // not painted at all. Content-keyword sources stay (their own flow walk
 // returns no children, leaving an empty source box in flow).
 func (e *engine) namedFlowFilterChildren(children []*html.Node) []*html.Node {
-	drop := false
-
-	for _, child := range children {
-		if child.Type != html.ElementNode {
-			continue
-		}
-
-		st := e.stylePtr(child)
-		if st != nil && st.FlowInto != "" && st.FlowIntoElement {
-			drop = true
-
-			break
-		}
-	}
-
-	if !drop {
+	if !namedFlowHasElementSource(e, children) {
 		return children
 	}
 
 	out := make([]*html.Node, 0, len(children))
 
 	for _, child := range children {
-		if child.Type == html.ElementNode {
-			st := e.stylePtr(child)
-			if st != nil && st.FlowInto != "" && st.FlowIntoElement {
-				continue
-			}
+		if !namedFlowIsElementSource(e, child) {
+			out = append(out, child)
 		}
-
-		out = append(out, child)
 	}
 
 	return out
+}
+
+// namedFlowHasElementSource reports whether any child is an element-keyword
+// flow source.
+func namedFlowHasElementSource(e *engine, children []*html.Node) bool {
+	for _, child := range children {
+		if namedFlowIsElementSource(e, child) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// namedFlowIsElementSource reports whether one node is an element-keyword
+// flow source.
+func namedFlowIsElementSource(e *engine, child *html.Node) bool {
+	if child.Type != html.ElementNode {
+		return false
+	}
+
+	st := e.stylePtr(child)
+
+	return st != nil && st.FlowInto != "" && st.FlowIntoElement
 }
 
 // namedFlowSeedNode picks any node that can reach the parsed root.
@@ -514,19 +518,19 @@ func (e *engine) namedFlowFinish(
 func (e *engine) adoptNamedFlowOverflow(
 	frame *namedFlowFrame, pending *namedFlowOverflow, contentX, contentTop float64,
 ) float64 {
-	dx := contentX - pending.x
-	dy := contentTop - pending.top
+	offsetX := contentX - pending.x
+	offsetY := contentTop - pending.top
 
 	for _, boxNode := range pending.boxes {
-		e.shiftBoxOps(boxNode, dx, dy)
-		boxNode.x += dx
-		boxNode.y += dy
+		e.shiftBoxOps(boxNode, offsetX, offsetY)
+		boxNode.x += offsetX
+		boxNode.y += offsetY
 	}
 
 	for _, idx := range pending.ops {
 		if idx >= 0 && idx < len(e.ops) {
-			e.ops[idx].X += dx
-			e.ops[idx].Y += dy
+			e.ops[idx].X += offsetX
+			e.ops[idx].Y += offsetY
 		}
 	}
 
@@ -552,16 +556,7 @@ func (e *engine) cutNamedFlowOverflow(
 	owned := make(map[int]*box)
 	movedWhole := make(map[*box]bool)
 
-	var candidates []*box
-
-	switch {
-	case frame.adopted:
-		candidates = frame.contentBoxes
-	case parent != nil && frame.childStart >= 0:
-		candidates = parent.children[frame.childStart:]
-	}
-
-	for _, boxNode := range candidates {
+	for _, boxNode := range namedFlowOverflowCandidates(frame, parent) {
 		if boxNode == nil || boxNode.opEnd < boxNode.opStart {
 			continue
 		}
@@ -592,6 +587,20 @@ func (e *engine) cutNamedFlowOverflow(
 	}
 
 	return pending
+}
+
+// namedFlowOverflowCandidates returns the child boxes a cut considers: the
+// adopted content boxes when this region adopted a previous remainder, or the
+// parent's children from the region's own child start.
+func namedFlowOverflowCandidates(frame *namedFlowFrame, parent *box) []*box {
+	switch {
+	case frame.adopted:
+		return frame.contentBoxes
+	case parent != nil && frame.childStart >= 0:
+		return parent.children[frame.childStart:]
+	default:
+		return nil
+	}
 }
 
 // namedFlowBoxMovesWhole reports whether a candidate child travels to the
@@ -645,18 +654,30 @@ func (e *engine) collectNamedFlowOverflowOps(
 	}
 
 	for idx := frame.contentOpStart; idx < len(e.ops); idx++ {
-		if boxNode, boxed := owned[idx]; boxed {
-			if movedWhole[boxNode] {
-				continue
-			}
-
-			if boxNode.y+boxNode.height <= cutY {
-				continue
-			}
+		if e.namedFlowOpTravelsWithBox(owned, movedWhole, idx, cutY) {
+			continue
 		}
 
 		consider(idx)
 	}
+}
+
+// namedFlowOpTravelsWithBox reports whether op idx belongs to a box that
+// already travels to the next region: a wholly moved box, or a straddling
+// child whose ops end at or above the cut.
+func (e *engine) namedFlowOpTravelsWithBox(
+	owned map[int]*box, movedWhole map[*box]bool, idx int, cutY float64,
+) bool {
+	boxNode, boxed := owned[idx]
+	if !boxed {
+		return false
+	}
+
+	if movedWhole[boxNode] {
+		return true
+	}
+
+	return boxNode.y+boxNode.height <= cutY
 }
 
 // finishNamedFlows hides the remainders of flows that never reached another
