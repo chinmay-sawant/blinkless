@@ -438,6 +438,11 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.FloatOffset == b.FloatOffset &&
 		a.FloatOffsetPercent == b.FloatOffsetPercent &&
 		a.FloatReference == b.FloatReference &&
+		a.ShapeInside == b.ShapeInside &&
+		a.ShapeInsideBox == b.ShapeInsideBox &&
+		a.ShapeInsideOutside == b.ShapeInsideOutside &&
+		a.ShapePadding == b.ShapePadding &&
+		a.ShapePaddingPercent == b.ShapePaddingPercent &&
 		a.TextCombineUpright == b.TextCombineUpright &&
 		a.TextDecorationInset == b.TextDecorationInset &&
 		a.TextDecorationSkip == b.TextDecorationSkip &&
@@ -845,6 +850,11 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashFloat64(h, s.FloatOffset)
 	h = styleInternHashFloat64(h, s.FloatOffsetPercent)
 	h = styleInternHashString(h, s.FloatReference)
+	h = styleInternHashString(h, s.ShapeInside)
+	h = styleInternHashString(h, s.ShapeInsideBox)
+	h = styleInternHashBool(h, s.ShapeInsideOutside)
+	h = styleInternHashFloat64(h, s.ShapePadding)
+	h = styleInternHashFloat64(h, s.ShapePaddingPercent)
 	h = styleInternHashString(h, s.TextCombineUpright)
 	h = styleInternHashFloat64(h, s.TextDecorationInset)
 	h = styleInternHashString(h, s.TextDecorationSkip)
@@ -1234,6 +1244,11 @@ func styleInternFields() []string {
 		"FloatOffset",
 		"FloatOffsetPercent",
 		"FloatReference",
+		"ShapeInside",
+		"ShapeInsideBox",
+		"ShapeInsideOutside",
+		"ShapePadding",
+		"ShapePaddingPercent",
 		"TextCombineUpright",
 		"TextDecorationInset",
 		"TextDecorationSkip",

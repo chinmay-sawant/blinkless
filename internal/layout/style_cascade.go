@@ -1613,7 +1613,7 @@ type styleGroupFn func(
 ) bool
 
 // styleGroups is the immutable dispatch order for applyStyleProp.
-// Package-level so applyStyleProp does not rebuild the 33-entry array on
+// Package-level so applyStyleProp does not rebuild the 34-entry array on
 // every cascaded property of every element.
 var styleGroups = [...]styleGroupFn{ //nolint:gochecknoglobals // static dispatch table
 	applyDisplayGroup,
@@ -1647,6 +1647,7 @@ var styleGroups = [...]styleGroupFn{ //nolint:gochecknoglobals // static dispatc
 	applyHyphenationProps,
 	applyInitialLetterProps,
 	applyShapeProps,
+	applyShapeInsideProps,
 	applyFloatPageProps,
 	applyMaskProps,
 	applyClipPathProps,

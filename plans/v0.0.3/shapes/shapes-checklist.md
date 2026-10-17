@@ -1,7 +1,7 @@
 # v0.0.3 - CSS shapes inside
 
 > **Parent:** `plans/v0.0.3/README.md`
-> **Status:** not started. Baseline rows record verified current behavior. Implementation rows are open.
+> **Status:** phases 1-3 implemented in the working tree; the phase 4 and 5 decision gates chose "no consumer"; phase 6 gates belong to the parent. Baseline rows record verified behavior, with superseded baselines noted inline.
 > **Estimated effort:** 6 catalog properties (2 implemented, 4 open) across 6 phases.
 
 ---
@@ -37,38 +37,38 @@ The output is a display list. Inside wrapping changes text op positions. It does
 - [x] The contour is resolved against the float margin box (`internal/layout/shape_exclusion.go:94-136`). A shape-box keyword is stored and then ignored at place time. The comment says resolution always uses the margin box (`internal/layout/style_shape_props.go:47-48`). Do not "fix" that in this ledger.
 - [x] Line boxes beside a float ask `lineBounds` (`internal/layout/inline.go:609-617`), which calls `floatState.exclusion` (`internal/layout/float.go:171-206`). A left contour replaces the rectangular left edge with `rightEdgeAt`. That is the outside hook. There is no hook that narrows a block's own lines.
 - [x] `shape-margin` is stored as a length or a percentage (`internal/layout/style_shape_props.go:35-38`). The percentage uses the reference diagonal (`internal/layout/shape_exclusion.go:139-144`). Proof: `TestBehaviorShapeMarginExpandsExclusion` (`internal/layout/css_behavior_svg_paint_test.go:327`). A 10px margin makes a wider exclusion than 0.
-- [x] `shape-inside` is dropped. `applyShapeProps` has no arm, and there is no `ShapeInside` field. A circle inside a wrapping div paints the same ops as no declaration. Proof: `TestBehaviorShapeInsideNoLayoutEffect` (`internal/layout/css_behavior_list_shape_test.go:94`).
-- [ ] Do not replan `shape-outside` or `shape-margin`. New code goes in `internal/layout/style_shape_inside.go` and `internal/layout/shape_inside.go`. Do not grow `internal/layout/layout.go`. Do not add a path kind for this ledger. The inside effect is shorter text lines, which are already `OpText`.
+- [x] Baseline (superseded by phases 1-3): `shape-inside` used to be dropped (`applyShapeProps` had no arm and there was no `ShapeInside` field), so a circle inside a wrapping div painted the same ops as no declaration. Proof of the pre-change baseline: `TestBehaviorShapeInsideNoLayoutEffect` (`internal/layout/css_behavior_list_shape_test.go:94`). That test now pins the no-op cases (auto, rejected tokens, circle() on an auto-height box); a definite content height does narrow.
+- [x] Do not replan `shape-outside` or `shape-margin`. New code lives in `internal/layout/style_shape_inside.go` (storage) and `internal/layout/shape_inside.go` (contour); the only edits outside those are the `ResolvedStyle` fields and initials in `style.go`, the group registration in `style_cascade.go`, the regenerated `style_intern_gen.go`, the line hook in `inline.go`, and tests. `internal/layout/layout.go` did not grow. No path kind was added; the inside effect stays `OpText` lines. Proof: `go test ./internal/layout -count=1 -p 1 -parallel 1` (1151 pass).
 
-**Gate:** the five baseline rows are closed by the tests named above. The open row is the file boundary for later phases.
+**Gate:** the five baseline rows are closed by the tests named above. The file-boundary row closed with phases 1-3 (the named files hold the new code).
 
 ## Phase 1: decide, then store `shape-inside`
 
 Catalog syntax: `auto | outside-shape | [ <basic-shape> || shape-box ] | <image> | display`.
 
-- [ ] Decision gate. Chrome has no BCD support (`testdata/css/catalog/properties.json` limitation on `shape-inside`, and `internal/layout/css_behavior_list_shape_test.go:92-93`). Choose one: implement the subset below anyway, and say in the catalog limitation that Chrome ignores it; or stop this ledger at the baseline. The rows under this gate stay open until that choice is written down in this file. They are not a non-goal by default.
-- [ ] How inside differs from outside. Outside shortens the lines next to a float (`internal/layout/float.go:164-168`). Inside shortens the lines of the element that declared it. Do not call `buildShapeExclusion` on the element's own float and hope that wraps its children. A non-floated div has no float exclusion.
-- [ ] Acceptance, first subset: `auto`, `circle()`, `ellipse()`, and `inset()`, plus an optional shape-box keyword from the set `shape-outside` already parses (`margin-box`, `border-box`, `padding-box`, `content-box` in `internal/layout/style_shape_props.go:18-24`). `auto` clears the inside shape.
-- [ ] `outside-shape` stores a flag that means "copy this element's `shape-outside` contour." It does not parse a second function.
-- [ ] `polygon()` and `path()` parse as rejected, the same as `shape-outside` today (`internal/layout/style_shape_props.go:15`). A later row can add them. Do not silently accept them.
-- [ ] `<image>` parses as rejected in this phase. `shape-image-threshold` owns the image follow-up.
-- [ ] `display` parses as rejected in this phase. It needs the element's border geometry as a shape. Record it as a follow-up row, not as a stored keyword that does nothing.
-- [ ] Storage: `ShapeInside` string and a shape-box keyword on the resolved style, interned the same way `ShapeOutside` is (`internal/layout/style_intern_gen.go:772`). Regenerate the intern file the way other style fields do. Do not hand-edit the generated hash if the repo generates it.
-- [ ] A bad token does not replace an earlier `circle()`.
+- [x] Decision gate. Chrome has no BCD support (`testdata/css/catalog/properties.json` limitation on `shape-inside`, and `internal/layout/css_behavior_list_shape_test.go:92-93`). Choice (a): implement the subset below anyway. The catalog limitation text must still say Chrome ignores `shape-inside` (parent edits `testdata/css/catalog/properties.json`); this ledger makes no browser-parity claim.
+- [x] How inside differs from outside. Outside shortens the lines next to a float (`internal/layout/float.go:164-168`). Inside shortens the lines of the element that declared it: `buildShapeInside` (`internal/layout/shape_inside.go`) builds its own contour and never calls `buildShapeExclusion` on the element's own float; a non-floated div has no float exclusion and still narrows. Proof: `TestBehaviorShapeInsideCircleTapersLines`, `TestBehaviorShapeInsideDoesNotInherit`.
+- [x] Acceptance, first subset: `auto`, `circle()`, `ellipse()`, and `inset()`, plus an optional shape-box keyword from the set `shape-outside` already parses (`margin-box`, `border-box`, `padding-box`, `content-box` in `internal/layout/style_shape_props.go:18-24`). `auto` clears the inside shape back to `auto`/empty/false. Proof: `TestShapeInsideStoreAcceptsSubset`, `TestShapeInsideStoreOutsideShapeFlagAndAutoReset`.
+- [x] `outside-shape` stores a flag that means "copy this element's `shape-outside` contour." It does not parse a second function. Proof: `TestShapeInsideStoreOutsideShapeFlagAndAutoReset`, `TestBehaviorShapeInsideOutsideShapeCopiesOutside`.
+- [x] `polygon()` and `path()` parse as rejected, the same as `shape-outside` today (`internal/layout/style_shape_props.go:15`). A later row can add them. Proof: `TestShapeInsideStoreRejectedTokensKeepEarlierValue`, `TestBehaviorShapeInsideNoLayoutEffect`.
+- [x] `<image>` parses as rejected in this phase (`url()` fails the function-name switch in `parseShapeInside`). `shape-image-threshold` owns the image follow-up. Proof: `TestShapeInsideStoreRejectedTokensKeepEarlierValue`, `TestBehaviorShapeInsideNoLayoutEffect`.
+- [x] `display` parses as rejected in this phase (no function parens, so the shape split fails). It needs the element's border geometry as a shape; recorded here as the follow-up, not as a stored keyword that does nothing. Proof: `TestShapeInsideStoreRejectedTokensKeepEarlierValue`, `TestBehaviorShapeInsideNoLayoutEffect`.
+- [x] Storage: `ShapeInside` string and a shape-box keyword on the resolved style, interned the same way `ShapeOutside` is (`internal/layout/style_intern_gen.go:772`). Regenerated with `go generate ./` from `internal/layout` (the `//go:generate` directive in `style.go:2`); the generated equality, fingerprint, and field list cover `ShapeInside`, `ShapeInsideBox`, `ShapeInsideOutside`, `ShapePadding`, and `ShapePaddingPercent`. The fields live on `ResolvedStyle` in `style.go` because that struct has a single declaration site. Proof: `TestStyleInternGeneratedFieldsComplete`, `TestShapeInsideStoreInitials`.
+- [x] A bad token does not replace an earlier `circle()`: `circle(10px at 20% 30%) padding-box` survives `polygon()`, `path()`, `url()`, `display`, `none`, a bare shape-box keyword, and junk. Proof: `TestShapeInsideStoreRejectedTokensKeepEarlierValue`.
 
-**Gate:** store tests only. Layout ops for `shape-inside: circle()` may still match the baseline until phase 2. The decision row is still a gate, not a closed choice.
+**Gate:** store tests only, and they pass (`TestShapeInsideStore*`). Phases 1-3 landed in one change, so the phase 2 layout behavior below is also closed on tests.
 
 ## Phase 2: narrow the element's own lines
 
 New file `internal/layout/shape_inside.go`.
 
-- [ ] Build an inside contour with the circle, ellipse, and inset math already in `internal/layout/shape_exclusion.go`. Pass the element's content box as the reference, not the float margin box. Name the function `buildShapeInside` so it cannot be confused with `buildShapeExclusion`.
-- [ ] Shape-box: the first consumer uses the content box when the keyword is missing. `content-box`, `padding-box`, `border-box`, and `margin-box` change that reference rectangle. This is stricter than `shape-outside`, which stores the keyword and ignores it (`internal/layout/style_shape_props.go:47-48`). Do not change the outside behavior to match.
-- [ ] `outside-shape` on an element that also has a supported `shape-outside` uses that contour, flipped to an inside inset of the same element. On an element with no `shape-outside`, `outside-shape` is a no-op.
-- [ ] Line breaking for that element's own inline content uses the inside interval the way `lineBounds` uses the outside interval (`internal/layout/inline.go:609`). The hook is the element's content width at each line Y, before float exclusion runs. Floats beside the element still apply after the inside inset.
-- [ ] `shape-inside: auto` matches today's full content width. The opened no-effect test stays true for `auto` and for a rejected token.
-- [ ] A `circle()` on a wide paragraph moves at least one text op's X or width versus `auto`. Children do not inherit the contour.
-- [ ] `display` and image values still paint like `auto`.
+- [x] Build an inside contour with the circle, ellipse, and inset math already in `internal/layout/shape_exclusion.go`. Pass the element's content box as the reference, not the float margin box. Named `buildShapeInside` (`internal/layout/shape_inside.go`) so it cannot be confused with `buildShapeExclusion`. Proof: `TestBehaviorShapeInsideCircleTapersLines`.
+- [x] Shape-box: the first consumer uses the content box when the keyword is missing. `content-box`, `padding-box`, `border-box`, and `margin-box` change that reference rectangle. This is stricter than `shape-outside`, which stores the keyword and ignores it (`internal/layout/style_shape_props.go:47-48`); the outside behavior is untouched. Proof: `TestBehaviorShapeInsideShapeBoxMovesReference` (four distinct first-line x values with margin, border, and padding set).
+- [x] `outside-shape` on an element that also has a supported `shape-outside` uses that contour, flipped to an inside inset of the same element. On an element with no `shape-outside`, `outside-shape` is a no-op. Proof: `TestBehaviorShapeInsideOutsideShapeCopiesOutside`.
+- [x] Line breaking for that element's own inline content uses the inside interval the way `lineBounds` uses the outside interval (`internal/layout/inline.go:609`). The hook is the element's content width at each line Y, before float exclusion runs: `lineBounds` narrows by the inside span first, then intersects an active float interval, and the float exclusion leaves the span untouched when no float intrudes at that Y. Floats beside the element still apply after the inside inset. Proof: `TestBehaviorShapeInsideStacksWithFloatExclusion`.
+- [x] `shape-inside: auto` matches today's full content width. The opened no-effect test stays true for `auto` and for a rejected token (and for `circle()` on an auto-height box: no definite content height, so the contour is nil). Proof: `TestBehaviorShapeInsideNoLayoutEffect`.
+- [x] A `circle()` on a wide paragraph moves at least one text op's X or width versus `auto`. Children do not inherit the contour. Proof: `TestBehaviorShapeInsideCircleTapersLines`, `TestBehaviorShapeInsideDoesNotInherit`.
+- [x] `display` and image values still paint like `auto`. Proof: `TestBehaviorShapeInsideNoLayoutEffect`.
 
 **Gate:** one behavior test where a circle makes a middle line shorter than the first line. `shape-outside` tests stay green.
 
@@ -76,11 +76,11 @@ New file `internal/layout/shape_inside.go`.
 
 Catalog syntax: a non-negative length or percentage. Catalog limitation: no Chrome BCD support.
 
-- [ ] Decision gate. Same Chrome fact as `shape-inside`. Proceed only if phase 1 chose to implement inside shapes. `shape-padding` without `shape-inside` does nothing, including on a `shape-outside` float. It is not a second `shape-margin`.
-- [ ] Acceptance: a length, or a percentage. Negative values do not replace an earlier padding. Percentage reference is the same diagonal `resolveShapeMargin` uses (`internal/layout/shape_exclusion.go:139-144`).
-- [ ] Storage: `ShapePadding` length and percent on the resolved style, in `internal/layout/style_shape_inside.go`.
-- [ ] Consumer: shrink the inside contour by that padding before `buildShapeInside` returns the interval. `0` matches phase 2. Padding larger than the shape yields an empty interval. `lineBounds` already clamps a negative width to 0 (`internal/layout/inline.go:618-620`). The line stays at that Y with width 0. Do not invent a page break for this row.
-- [ ] Behavior test: `shape-inside: circle(); shape-padding: 10px` makes a shorter middle line than `shape-padding: 0px`. A percentage stores and changes the line. `shape-padding` alone does not move ops.
+- [x] Decision gate. Same Chrome fact as `shape-inside`. Phase 1 chose to implement inside shapes, so this phase proceeded. `shape-padding` without `shape-inside` does nothing, including on a `shape-outside` float. It is not a second `shape-margin`. Proof: `TestBehaviorShapeInsidePaddingAloneNoEffect`.
+- [x] Acceptance: a length, or a percentage. Negative values do not replace an earlier padding. Percentage reference is the same diagonal `resolveShapeMargin` uses (`internal/layout/shape_exclusion.go:139-144`); 5% of the 150x150 reference resolves to the same geometry as 10px. Proof: `TestShapePaddingStoreLengthPercentAndReject`, `TestBehaviorShapeInsidePaddingShrinksMiddleLine`.
+- [x] Storage: `ShapePadding` length and percent on the resolved style; the parser and shrink helpers live in `internal/layout/style_shape_inside.go` and `internal/layout/shape_inside.go`, the fields on `ResolvedStyle` in `style.go` (single struct declaration site), interned with the other shape fields.
+- [x] Consumer: the contour shrinks by the padding before `buildShapeInside` returns it. `0` matches phase 2. Padding larger than the shape yields an empty interval and the line stays at its Y with width 0 (no page break invented). Proof: `TestBehaviorShapeInsidePaddingShrinksMiddleLine` (0px paints like no declaration), `TestBehaviorShapeInsideOversizePaddingKeepsZeroWidthLines`.
+- [x] Behavior test: `shape-inside: circle()` plus `shape-padding: 10px` makes a shorter middle line than `shape-padding: 0px` (the literal form and the `circle(90px at 50% 0px)` form are both tested). A percentage paints identically to the equal-pixel length. `shape-padding` alone does not move ops. Proof: `TestBehaviorShapeInsidePaddingShrinksMiddleLine`, `TestBehaviorShapeInsidePaddingAloneNoEffect`.
 
 **Gate:** depends on phase 2. Does not change `shape-margin` numbers.
 
@@ -88,7 +88,7 @@ Catalog syntax: a non-negative length or percentage. Catalog limitation: no Chro
 
 Catalog syntax `<'opacity'>`. Catalog limitation: no alpha-contour extraction from float images.
 
-- [ ] Decision gate. `shape-outside` rejects `url()` (`internal/layout/style_shape_props.go:15`). There is no image shape to threshold. Choose one: keep rejecting image shapes and leave this property unsupported; or add `url()` to the outside subset first, in a change that is explicitly allowed to extend `style_shape_props.go`. This ledger does not sneak `url()` into `shape-outside` under a threshold row.
+- [x] Decision gate. `shape-outside` rejects `url()` (`internal/layout/style_shape_props.go:15`). There is no image shape to threshold. Choice: keep rejecting image shapes here; `shape-image-threshold` stays planned, not done. The acceptance, storage, consumer, and behavior rows below stay open. This ledger does not sneak `url()` into `shape-outside` under a threshold row.
 - [ ] Acceptance, only if the decision adds image shapes: a number from 0 to 1, same parser as opacity. The initial value used by the contour is 0, matching the usual CSS initial, unless the spec row we copy says otherwise. Write the chosen initial into the test.
 - [ ] Storage: the threshold on the resolved style even if the consumer is still gated. A stored-but-unused value is not catalog `implemented`.
 - [ ] Consumer: when a float's `shape-outside` is a raster image, the exclusion interval at each Y includes pixels whose alpha is at or above the threshold. The scan reads the image's own bytes. It does not rasterize the page.
@@ -103,7 +103,7 @@ Catalog syntax `<integer> | last | none`. Source spec: CSS Page Floats, `https:/
 
 Floats today pack beside each other or stack under the previous float (`internal/layout/layout_flow.go:1151-1174`). Nothing defers a float to a later page or a later column.
 
-- [ ] Decision gate. `none` is the initial and matches `placeFloat` today. An integer or `last` needs a fragmentation point the float can move to. This tree's display list is not a page-float model. Choose one: implement `none` plus a line defer that pushes the float down by N in-flow lines inside the current block; or stop at `none` and leave integer and `last` unsupported. Do not invent page boxes for this row.
+- [ ] Decision gate. `none` is the initial and matches `placeFloat` today. An integer or `last` needs a fragmentation point the float can move to. This tree's display list is not a page-float model. Choice: stop at `none`; integer and `last` stay unsupported, the acceptance, storage, and consumer rows below stay open, and no page boxes are invented. (Gate text keeps this row open even with the choice recorded.)
 - [ ] Acceptance: `none`, a non-negative integer, and `last`. A negative integer does not replace an earlier value.
 - [ ] Storage: the keyword or the integer on the resolved style, in `internal/layout/style_shape_inside.go` only if that does not mix two jobs. Prefer `internal/layout/style_float_defer.go` so shape storage stays shape storage.
 - [ ] Consumer: if the decision is line defer, `placeFloat` (`internal/layout/layout_flow.go:1154`) skips N line heights before packing. `last` means "after the other floats in this block", which is the stack-below path that already exists when horizontal room runs out. Do not move the float onto a later display-list page.
