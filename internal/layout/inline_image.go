@@ -67,33 +67,21 @@ func (e *engine) paintInlineImageItem(item *inlineItem, leftX, top, imgX, imgY, 
 		return
 	}
 
-	imgData := item.imgRef.data
-	isJPEG := item.imgRef.isJPEG
 	sty := ResolvedStyle{} //nolint:exhaustruct // image paint defaults are filled conditionally
 
 	if item.style != nil {
 		sty = *item.style
 	}
 
-	if sty.Filter != "" {
-		filters := parseFilterList(sty.Filter, sty.Color, sty.FontSize)
-		imgData = applyImageFilterToImageWithInterp(imgData, filters, sty.ColorInterpolationFilters)
-		isJPEG = false
-	}
-
-	intrinsicW, intrinsicH := replacedIntrinsicPt(e, sty, item.imgRef)
-	fitX, fitY, fitW, fitH := applyObjectFitToPaint(sty, imgX, imgY, imgW, imgH, intrinsicW, intrinsicH)
-
-	if clipShape, ok := parseClipPathShape(sty.ClipPath, sty.FontSize); ok {
-		if masked := maskImageWithClipPath(
-			imgData, withClipRule(clipShape, sty.ClipRule), fitX, fitY, fitW, fitH, leftX, top, item.w, item.h,
-		); masked != nil {
-			imgData = masked
-			isJPEG = false
-		}
+	imgData, isJPEG, pixW, pixH, fitX, fitY, fitW, fitH := e.objectFitPaintForImage(
+		item.imgRef, item.imgRef.data, item.imgRef.isJPEG, sty,
+		imgX, imgY, imgW, imgH, leftX, top, item.w, item.h,
+	)
+	if fitW <= 0 || fitH <= 0 {
+		return
 	}
 
 	e.add((Op{ //nolint:exhaustruct // intentional zero fields
 		Kind: OpImage, X: fitX, Y: fitY, W: fitW, H: fitH, IsJPEG: isJPEG,
-	}).withImage(imgData, item.imgRef.w, item.imgRef.h, item.alt))
+	}).withImage(imgData, pixW, pixH, item.alt))
 }
