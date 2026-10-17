@@ -108,6 +108,119 @@ func TestMaskShorthandExpansionAndBorderReset(t *testing.T) {
 			t.Errorf("mask cascade %s = %q, want %q", prop, got, value)
 		}
 	}
+
+	// The same reset at the group level: the shorthand erased the earlier
+	// mask-border source, so the group carries only the first-wave Mask.
+	res := layoutHTMLWithImages(t, `<html><body><div style="width:20px;height:20px;`+
+		`mask-border-source:url(border.png);mask:url(mask.png)"></div></body></html>`, tinyPNG(2, 2), "")
+	group := onlyMaskGroup(t, res)
+
+	if group.MaskBorder != nil {
+		t.Fatalf("mask shorthand reset stored a mask-border descriptor: %+v", group.MaskBorder)
+	}
+}
+
+// TestMaskBorderShorthandExpansionAndSourceOrder mirrors
+// TestMaskShorthandExpansionAndBorderReset for mask-border: the shorthand
+// expands into its six longhands at its own origin, a following longhand
+// overrides the piece it names, and an earlier longhand loses.
+func TestMaskBorderShorthandExpansionAndSourceOrder(t *testing.T) {
+	t.Parallel()
+
+	wins := make(map[string]cascadeWin)
+	applyCascadeDeclaration(wins, maskBorderSourceProperty, maskBorderTestEarlier, 0, 0, 0, 1, 0, false)
+	applyCascadeDeclaration(
+		wins, maskBorderShorthandProperty,
+		"url(border.png) 30 fill / 10px / 10px stretch alpha",
+		0, 0, 0, 2, 0, false,
+	)
+	applyCascadeDeclaration(wins, maskBorderModeProperty, "luminance", 0, 0, 0, 3, 0, false)
+
+	want := map[string]string{
+		"mask-border-source": "url(border.png)",
+		"mask-border-slice":  "30 fill",
+		"mask-border-width":  "10px",
+		"mask-border-outset": "10px",
+		"mask-border-repeat": "stretch",
+		"mask-border-mode":   "luminance",
+	}
+	for prop, value := range want {
+		if got := wins[prop].value; got != value {
+			t.Errorf("mask-border cascade %s = %q, want %q", prop, got, value)
+		}
+	}
+
+	// The other declaration order: a longhand declared before the shorthand
+	// loses to the shorthand's own value for that piece.
+	earlier := make(map[string]cascadeWin)
+	applyCascadeDeclaration(earlier, maskBorderModeProperty, "luminance", 0, 0, 0, 1, 0, false)
+	applyCascadeDeclaration(earlier, maskBorderShorthandProperty, "url(border.png) alpha", 0, 0, 0, 2, 0, false)
+
+	if got := earlier["mask-border-mode"].value; got != maskModeAlpha {
+		t.Errorf("earlier mask-border-mode beat the shorthand: %q, want alpha", got)
+	}
+
+	if got := earlier["mask-border-source"].value; got != "url(border.png)" {
+		t.Errorf("mask-border-source = %q, want url(border.png)", got)
+	}
+}
+
+// TestMaskBorderShorthandWideKeywordResetsToInitial: a CSS-wide keyword on
+// the shorthand resets all seven names, and initial resolves to source none,
+// so layout stores no descriptor.
+func TestMaskBorderShorthandWideKeywordResetsToInitial(t *testing.T) {
+	t.Parallel()
+
+	wins := make(map[string]cascadeWin)
+	applyCascadeDeclaration(wins, maskBorderSourceProperty, maskBorderTestSource, 0, 0, 0, 1, 0, false)
+	applyCascadeDeclaration(wins, maskBorderSliceProperty, "30 fill", 0, 0, 0, 1, 0, false)
+	applyCascadeDeclaration(wins, maskBorderShorthandProperty, "initial", 0, 0, 0, 2, 0, false)
+
+	for _, prop := range []string{
+		maskBorderShorthandProperty, maskBorderSourceProperty, maskBorderSliceProperty,
+		maskBorderWidthProperty, maskBorderOutsetProperty, maskBorderRepeatProperty, maskBorderModeProperty,
+	} {
+		if got := wins[prop].value; got != "initial" {
+			t.Errorf("mask-border %s = %q, want initial", prop, got)
+		}
+	}
+
+	res := layoutHTMLWithImages(t, `<html><body><div style="width:20px;height:20px;`+
+		`mask-border-source:url(border.png);mask-border:initial"></div></body></html>`, tinyPNG(2, 2), "")
+	for idx := range res.Ops {
+		if group := res.Ops[idx].Group(); group != nil && group.MaskBorder != nil {
+			t.Fatalf("mask-border: initial stored a descriptor: %+v", group.MaskBorder)
+		}
+	}
+}
+
+// TestMaskBorderShorthandResolvesCustomProperties: a var() shorthand value is
+// stored deferred on the six longhands and resolved after substitution, so a
+// later longhand still overrides the piece it names and an earlier one loses.
+func TestMaskBorderShorthandResolvesCustomProperties(t *testing.T) {
+	t.Parallel()
+
+	root := mustParse(t, `<html><body>`+
+		`<div id="shorthand-wins" style="--mb:url(variable.png) 30 fill / 10px / 10px stretch luminance;`+
+		`mask-border-source:url(old.png);mask-border:var(--mb)"></div>`+
+		`<div id="longhand-wins" style="--mb:url(variable.png) 30 fill;`+
+		`mask-border:var(--mb);mask-border-mode:luminance"></div>`+
+		`</body></html>`)
+	styles := resolveStyles(root, nil, "print", testViewport, 800)
+
+	shorthand := styles[findElementByID(t, root, "shorthand-wins")]
+	if shorthand.MaskBorderSource != "url(variable.png)" || shorthand.MaskBorderSlice != "30 fill" ||
+		shorthand.MaskBorderWidth != "10px" || shorthand.MaskBorderMode != maskModeLuminance {
+		t.Fatalf("var() shorthand fields = %q/%q/%q/%q, want variable/30 fill/10px/luminance",
+			shorthand.MaskBorderSource, shorthand.MaskBorderSlice,
+			shorthand.MaskBorderWidth, shorthand.MaskBorderMode)
+	}
+
+	longhand := styles[findElementByID(t, root, "longhand-wins")]
+	if longhand.MaskBorderMode != maskModeLuminance || longhand.MaskBorderSource != "url(variable.png)" {
+		t.Fatalf("later longhand lost to var() shorthand: mode=%q source=%q",
+			longhand.MaskBorderMode, longhand.MaskBorderSource)
+	}
 }
 
 func TestMaskShorthandGradientImageAndBorderReset(t *testing.T) {

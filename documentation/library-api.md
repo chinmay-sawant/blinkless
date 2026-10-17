@@ -185,7 +185,7 @@ text. Use boxes for hit testing; use operations for painting.
 
 ### Blend and isolation groups
 
-`groups` entries are `{ id, mode, isolate, parent, mask }`. `mode` is the CSS
+`groups` entries are `{ id, mode, isolate, parent, mask, maskBorder }`. `mode` is the CSS
 mix-blend-mode value, empty when no blend mode is set. `isolate` marks a group
 whose initial backdrop is transparent; `parent` is the enclosing group ID and
 is absent at the page root. Operations inside a group carry its `group` ID.
@@ -202,6 +202,11 @@ in the images table, and its `mode`, `composite`, `position`, `repeat`, `size`,
 values. Layout resolves layer fields in `internal/layout/mask_paint.go:25-109`.
 When an image source cannot be resolved, the layer settings remain available
 and its `image` field is omitted.
+
+A `maskBorder` object carries the element's mask-border frame: the CSS image
+`source`, its resolved bytes, `slice` insets in source pixels, the `fill`
+flag, `width` and `outset` in points, the `repeat` pair, and `mode`. The host
+applies the frame; layout emits no image operations for it.
 
 For a direct image, `match-source` becomes alpha mode. For an external SVG
 `<mask>` fragment, Blinkless rasterizes the mask's child paint to PNG and

@@ -379,6 +379,12 @@ type ResolvedStyle struct {
 	MaskOrigin             string
 	MaskClip               string
 	MaskType               string
+	MaskBorderSource       string
+	MaskBorderSlice        string
+	MaskBorderWidth        string
+	MaskBorderOutset       string
+	MaskBorderRepeat       string
+	MaskBorderMode         string
 	// ClipPath is the canonical clip-path value: inset() | circle() | ellipse()
 	// | polygon(). Empty means no clip (none / unsupported / invalid).
 	ClipPath string
@@ -697,6 +703,12 @@ func initialStyle() ResolvedStyle { //nolint:funlen // complete CSS initial-valu
 		MaskOrigin:                    "border-box",
 		MaskClip:                      "border-box",
 		MaskType:                      "luminance",
+		MaskBorderSource:              "none",
+		MaskBorderSlice:               "0",
+		MaskBorderWidth:               "auto",
+		MaskBorderOutset:              "0",
+		MaskBorderRepeat:              "stretch",
+		MaskBorderMode:                "alpha",
 		Orphans:                       2,
 		Widows:                        2,
 		EmptyCells:                    "",
