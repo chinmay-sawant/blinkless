@@ -69,6 +69,13 @@ document out and returns the display list (`layout/displaylist.go:126-136`).
 `layout.DisplayListOptions(ctx, doc, options)` is the same call with an image
 resolver (`layout/displaylist.go:138-139`).
 
+A print layout is fitted to the canvas width: when the laid-out content draws
+past it, the document is re-laid out at `width/contentWidth`, the print
+renderers' smart shrink (Chrome print fit, wkhtmltopdf smart shrinking;
+`layout/displaylist.go:168-177`, `:220-232`, `:263-286`). Screen media keeps
+overflowing content at its authored scale, so the browser binding is
+unaffected.
+
 `layout.Options.Images` is `func(src string) ([]byte, error)`. It returns
 encoded image bytes (PNG, JPEG, or SVG) for one source, such as an `<img src>`
 value or a CSS `background-image` target. Nil means no source resolves, so

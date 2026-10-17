@@ -3,6 +3,8 @@ package layout
 import (
 	"context"
 	"fmt"
+	"math"
+	"strings"
 
 	"github.com/chinmay-sawant/blinkless/css"
 	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
@@ -18,6 +20,11 @@ const cssPxToPt = 72.0 / 96.0
 // viewport unset. Percentage heights then use that same width as their
 // containing block, which is the fallback the bitmap renderer used.
 const fallbackViewportPx = 1024
+
+// printFitMinOverflowPt is the smallest content overflow (in points) that
+// triggers the print width fit, the same threshold the native PDF path uses
+// for its smart shrink. A hair of overflow (a fractional pixel) is noise.
+const printFitMinOverflowPt = 0.1
 
 // DisplayOp is one display-list operation. It is the internal Op under an
 // exported name so a caller outside this module can read the retained
@@ -191,6 +198,13 @@ type Display struct {
 // orientation or clip that cannot stay in the source bytes is re-encoded
 // as a PNG on that one operation, which is the bitmap fallback.
 //
+// A print layout is fitted to the canvas width: when the laid-out content
+// draws past it, the document is re-laid out at a uniform scale of
+// width/contentWidth, the print renderers' smart shrink (Chrome print fit,
+// wkhtmltopdf smart shrinking). Without the fit an overflowing composition
+// (a transformed full-page background, a wide table) produces operations
+// that a paginating consumer may split across pages.
+//
 // DisplayList does not apply a raster pixel budget. A caller that paints
 // the list should apply its own size limit.
 func DisplayList(ctx context.Context, doc *css.Document) (*Display, error) {
@@ -219,23 +233,18 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 		return nil, fmt.Errorf("layout: default font: %w", err)
 	}
 
-	res, err := ilayout.LayoutContext(
-		ctx,
-		styled.Root,
-		ilayout.Options{ //nolint:exhaustruct // fixed viewport, backgrounds on
-			Width:      widthPt,
-			Height:     heightPt,
-			Font:       font,
-			Registry:   styled.Registry,
-			Sheets:     styled.Sheets,
-			Media:      styled.Media,
-			State:      styled.State,
-			Images:     options.Images,
-			Background: true,
-		},
-	)
+	layoutOpts := displayLayoutOptions(styled, font, options.Images, widthPt, heightPt)
+
+	res, err := ilayout.LayoutContext(ctx, styled.Root, layoutOpts)
 	if err != nil {
 		return nil, fmt.Errorf("layout: display: %w", err)
+	}
+
+	// Print fit: re-lay out at the scale that fits op content to the canvas
+	// width when the document draws past it. See DisplayList.
+	res, err = fitPrintWidth(ctx, styled, layoutOpts, res, widthPt)
+	if err != nil {
+		return nil, err
 	}
 
 	// CSS perspective is resolved in Blinkless. The public list carries the
@@ -264,6 +273,81 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 		ForcedBreaks:   forced,
 		KeepTogether:   keep,
 	}, nil
+}
+
+// displayLayoutOptions builds the layout options for one display run: the
+// fixed viewport, the document's registry, sheets, media, and state, the
+// caller's image resolver, and backgrounds on.
+func displayLayoutOptions(
+	styled pubstate.Styled,
+	font *pdf.Font,
+	images func(string) ([]byte, error),
+	widthPt, heightPt float64,
+) ilayout.Options {
+	return ilayout.Options{ //nolint:exhaustruct // fixed viewport, backgrounds on
+		Width:      widthPt,
+		Height:     heightPt,
+		Font:       font,
+		Registry:   styled.Registry,
+		Sheets:     styled.Sheets,
+		Media:      styled.Media,
+		State:      styled.State,
+		Images:     images,
+		Background: true,
+	}
+}
+
+// fitPrintWidth re-lays a print result out at width/contentWidth when its
+// content draws past the canvas width, the print renderers' smart shrink.
+// A screen result and a fitting print result return unchanged.
+func fitPrintWidth(
+	ctx context.Context,
+	styled pubstate.Styled,
+	opts ilayout.Options,
+	res *ilayout.Result,
+	widthPt float64,
+) (*ilayout.Result, error) {
+	zoom, fit := printFitZoom(styled.Media, widthPt, res.MaxContentX)
+	if !fit {
+		return res, nil
+	}
+
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("layout: context: %w", err)
+	}
+
+	opts.Zoom = zoom
+
+	fitted, err := ilayout.LayoutContext(ctx, styled.Root, opts)
+	if err != nil {
+		return nil, fmt.Errorf("layout: display: %w", err)
+	}
+
+	return fitted, nil
+}
+
+// printFitZoom returns the uniform scale that fits op content to the canvas
+// width for a print layout, or false when no fit applies. Print renderers
+// shrink an overflowing composition to the paper width (Chrome's print fit,
+// wkhtmltopdf's smart shrinking); the native PDF path applies the same
+// width/contentWidth factor before painting. Only print media fits, because
+// a screen renderer keeps overflowing content at its authored scale.
+func printFitZoom(media string, widthPt, contentX float64) (float64, bool) {
+	if !strings.EqualFold(strings.TrimSpace(media), "print") {
+		return 0, false
+	}
+
+	if widthPt <= 0 || math.IsNaN(widthPt) || math.IsInf(widthPt, 0) ||
+		contentX <= widthPt+printFitMinOverflowPt {
+		return 0, false
+	}
+
+	zoom := widthPt / contentX
+	if zoom <= 0 || zoom >= 1 {
+		return 0, false
+	}
+
+	return zoom, true
 }
 
 // displayViewportPt returns the viewport width and height in points for a
