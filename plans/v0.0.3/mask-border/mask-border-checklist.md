@@ -110,7 +110,7 @@ Gate. Six aliases, one code path. Run `go test ./internal/layout -run 'TestBehav
 ## Phase 4: catalog, WASM, docs, and gates
 
 - [ ] Mark the 13 names Partial, not implemented. The group carries the data and this repo does not apply the mask pixels. Limitations say that, and say gradient sources wait on the mask-source ledger if they are still rejected.
-- [ ] Serialize `MaskBorder` beside `Mask` in the WASM group JSON. The mask copy is `bindings/wasm/drawing_list.go:578-581`. Add the border object next to `drawMaskJSON` (`bindings/wasm/drawing_list.go:212-221`). Proof: a WASM contract test reads slice, width, outset, repeat, mode, and image bytes.
+- [x] Serialize `MaskBorder` beside `Mask` in the WASM group JSON. The mask copy is `bindings/wasm/drawing_list.go:578-581`. Add the border object next to `drawMaskJSON` (`bindings/wasm/drawing_list.go:212-221`). Proof: `TestDrawingGroupSerializesMaskBorderAndImageReference` reads slice, width, outset, repeat, mode, and image bytes; `bash scripts/check-wasm-contract.sh` exits 0.
 - [x] Update `documentation/deferred.md:108` and the group C sentence at `documentation/deferred.md:119`. The aliases are no longer "no consumer" once Phase 3 passes. Pixel replay stays unsupported here.
 - [x] Update `documentation/library-api.md` only to name the new group field. Do not claim the engine masks pixels.
 - [ ] Regenerate the compatibility matrix.

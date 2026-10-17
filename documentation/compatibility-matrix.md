@@ -3,7 +3,7 @@
 > **Parent:** [plans/v0.0.1/phase-wise-checklist.md](../plans/v0.0.1/phase-wise-checklist.md) and [plans/v0.0.1/html-css-json-compatibility-checklist.md](../plans/v0.0.1/html-css-json-compatibility-checklist.md)  
 > **Status:** living contract - amendments go through plan review  
 > **Target:** authored HTML and CSS to a `layout.DisplayList` (the drawing list). **Not** a browser. **Not** a PDF writer. **Not** a page rasterizer.  
-> **Catalog:** `testdata/css/catalog/properties.json` (schema v1), measured 2026-10-10: 785 rows - 389 Implemented / 1 Partial / 387 Unsupported / 8 intentionally ignored. Upstream pin: webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties). Fidelity guide: [fidelity.md](fidelity.md).
+> **Catalog:** `testdata/css/catalog/properties.json` (schema v1), measured 2026-10-17: 785 rows - 499 Implemented / 16 Partial / 262 Unsupported / 8 intentionally ignored. Upstream pin: webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties). Fidelity guide: [fidelity.md](fidelity.md).
 > **Limitations:** Implemented means a handler, a consumer outside the style layer, and a resolvable behavior test. Browser rendering parity, HTML parser conformance, and this property catalog are separate claims with separate evidence. Section 1 is a rendering allowlist for HTML tags, not a parser conformance claim.
 
 This document is the contract for the layout engine. Its output is a drawing
@@ -925,8 +925,8 @@ Status legend: Implemented and Partial as in §2; Not implemented means the sele
 | `@font-face` (remote / WOFF2) | **Partial:** local **and `https://`** TTF/OTF/WOFF1 via `FetchSub` (same load ACL and network policy as other subresources). **`.woff2` / `.eot` / `data:`** skipped. Missing faces fall back to registry / Liberation |
 | Custom XSLT TOC (`--xsl-style-sheet`) | Not implemented (no XSLT in the standard library); this tree has no TOC pipeline |
 | SVG-as-`<img>` / SVG presentation | **Implemented** SVG-as-`<img>` and inline `<svg>` rasterization via `internal/svg`; 5 CSS properties (`fill`, `stroke`, `stroke-width`, `fill-opacity`, `stroke-opacity`) parsed in style; the remaining SVG presentation properties are unsupported (§2.3) |
-| Masking / clipping | **Implemented** `overflow-clip` for descendant box clipping (`overflow_clip.go`) and `clip-path` (§2.1). The 10 standard mask properties and 8 WebKit aliases are **Partial**: they attach mask layers to element groups in the drawing list; a consumer must replay the mask pixels (§2.2). |
-| CSS Regions & Exclusions | **Not implemented** (`flow-from`, `flow-into`, `flow-tolerance`, `region-fragment`, `wrap-after`, `wrap-before`, `wrap-flow`, `wrap-inside`, `wrap-through` are permanent non-goals for this engine) |
+| Masking / clipping | **Implemented** `overflow-clip` for descendant box clipping (`overflow_clip.go`) and `clip-path` (§2.1). The 18 first-wave mask-family rows are registered as element-group mask data: 16 are implemented, `mask-type` and `-webkit-mask-composite` are Partial, and the 13 `mask-border*` rows are Partial: the frame data rides the blend group and the host applies the pixels (§2.2). |
+| CSS Regions & Exclusions | **Implemented** as four one-canvas contracts: named flows (`flow-into`, `flow-from`, `region-fragment`), masonry tolerance (`flow-tolerance`), exclusions (`wrap-flow`, `wrap-through`), and line/flex wrap breaks (`wrap-before`, `wrap-after`, `wrap-inside`). The engine returns one display list; paged fragmentation stays a non-goal (§2.1). |
 | WebP, AVIF | Not implemented; broken-image placeholder or skip |
 | Fixed CSS headers/footers via `position: fixed` alone | `position: fixed` is marked viewport-fixed (`markOpsFixed`, `layout_chrome.go:12`) when not under a transformed ancestor; not a full running-element model. There are no header/footer flags in this tree |
 | Complex-script shaping (Indic, Arabic, CJK) | **Arabic OT** via `go-text/typesetting` when the face has GSUB (+ presentation-form `ShapeText` fallback); Hangul needs a Hangul face. `writing-mode` vertical keywords inherit and rotate glyphs (`RotateDeg == -90`); block/line layout stays horizontal. **Indic Partial** (OT when face/cmap allow; not production-claimed). Optional OT **`halt`/`palt`** for CJK punctuation via `ShapeTextFont` FontFeatures |
@@ -950,10 +950,10 @@ The following 87 properties across three categories were grouped as hard-deferre
 | Category | Count | Status | Description and scope |
 |----------|-------|--------|-----------------------|
 | SVG presentation & geometry (`B_svg_presentation`) | 53 | Not implemented | Remaining SVG presentation and geometry properties. SVG-as-`<img>` is implemented via `internal/svg` rasterizer; 5 CSS properties (`fill`, `stroke`, `stroke-width`, `fill-opacity`, `stroke-opacity`) are parsed in style; remaining 53 SVG presentation properties are unsupported (`alignment-baseline`, `baseline-shift`, `color-interpolation`, `cx`, `cy`, `d`, `dominant-baseline`, `fill-break`, `fill-color`, `fill-image`, `fill-origin`, `fill-position`, `fill-repeat`, `fill-rule`, `fill-size`, `glyph-orientation-vertical`, `image-rendering`, `marker`, `marker-end`, `marker-mid`, `marker-side`, `marker-start`, `paint-order`, `path-length`, `r`, `rx`, `ry`, `shape-rendering`, `stop-color`, `stop-opacity`, `stroke-align`, `stroke-alignment`, `stroke-break`, `stroke-color`, `stroke-dash-corner`, `stroke-dash-justify`, `stroke-dashadjust`, `stroke-dasharray`, `stroke-dashcorner`, `stroke-dashoffset`, `stroke-image`, `stroke-linecap`, `stroke-linejoin`, `stroke-miterlimit`, `stroke-origin`, `stroke-position`, `stroke-repeat`, `stroke-size`, `text-anchor`, `text-rendering`, `vector-effect`, `x`, `y`). |
-| Mask, clip, and filter effects (`B_mask_clip_filter_effects`) | 25 | Mixed | `clip-path` is implemented. The 10 standard mask properties are Partial: `mask`, `mask-clip`, `mask-composite`, `mask-image`, `mask-mode`, `mask-origin`, `mask-position`, `mask-repeat`, `mask-size`, and `mask-type`. They emit element-group mask data for a display-list consumer; this repository has no pixel replay backend. The 14 Unsupported names are `backdrop-filter`, `clip`, `clip-rule`, `color-interpolation-filters`, `flood-color`, `flood-opacity`, `lighting-color`, and the seven `mask-border*` properties. |
-| CSS Regions & Exclusions (`B_regions_exclusions`) | 9 | Not implemented | CSS Regions and Exclusions are permanent non-goals for this engine (`flow-from`, `flow-into`, `flow-tolerance`, `region-fragment`, `wrap-after`, `wrap-before`, `wrap-flow`, `wrap-inside`, `wrap-through`). |
+| Mask, clip, and filter effects (`B_mask_clip_filter_effects`) | 25 | Mixed | `clip-path` is implemented. The 10 standard mask properties are mostly implemented: `mask`, `mask-clip`, `mask-composite`, `mask-image`, `mask-mode`, `mask-origin`, `mask-position`, `mask-repeat`, and `mask-size`; `mask-type` stays Partial. They emit element-group mask data for a display-list consumer; this repository has no pixel replay backend. The 13 `mask-border*` properties are Partial: the descriptor rides the blend group and the host applies the pixels. The seven Unsupported names are `backdrop-filter`, `clip`, `clip-rule`, `color-interpolation-filters`, `flood-color`, `flood-opacity`, and `lighting-color`; the six `-webkit-mask-box-image*` aliases are Partial like their bases. |
+| CSS Regions & Exclusions (`B_regions_exclusions`) | 9 | Implemented | The four one-canvas contracts are implemented: named flows (`flow-from`, `flow-into`, `region-fragment`), masonry tolerance (`flow-tolerance`), exclusions (`wrap-after`, `wrap-before`, `wrap-flow`, `wrap-inside`), and `wrap-through`. Paged fragmentation stays a non-goal; the engine returns one display list. |
 
-Total: 87 names across three Phase 83 categories. Current statuses are in section 2; the mask category includes one Implemented property, 10 Partial properties, and 14 Unsupported properties.
+Total: 87 names across three Phase 83 categories. Current statuses are in section 2; the mask category includes one Implemented property, 10 Partial properties, and 14 Unsupported properties (the 13 mask-border rows moved from Unsupported to Partial; see section 2 for the authoritative per-row status).
 
 Catalog reconciliation: this phase-83 tally counts names with no print
 consumer as unsupported, but several are parsed and stored in the style layer
@@ -961,8 +961,11 @@ and therefore appear as Partial in the catalog with unverified behavior:
 `alignment-baseline`, `color-interpolation`, `dominant-baseline`, `fill-rule`,
 `shape-rendering`, `stroke-dasharray`, `stroke-dashoffset`, `stroke-linecap`,
 `stroke-linejoin`, `stroke-miterlimit`, and `text-anchor`. The 18 first-wave
-mask properties are Partial because the display list leaves pixel replay to
-its consumer. `clip-path` is Implemented. The
+mask properties are mostly implemented, with `mask-type` and
+`-webkit-mask-composite` Partial because the display list leaves pixel replay
+to its consumer; the 13 mask-border rows are Partial because the descriptor
+rides the blend group and the host applies the frame. `clip-path` is
+Implemented. The
 five SVG properties consumed by SVG-as-img (`fill`, `stroke`, `stroke-width`,
 `fill-opacity`, `stroke-opacity`) are Partial as well. The catalog in section 2
 is authoritative for status; this table remains the phase-83 family record.
@@ -1061,17 +1064,20 @@ aliases stay Unsupported
 | `-webkit-background-size` | `background-size` | remap not registered |
 
 **Group C - 6 mask-border aliases:** the eight selected `-webkit-mask*`
-aliases are registered and Partial. These six `-webkit-mask-box-image*`
-aliases still have no mask-border consumer.
+aliases are registered and mostly implemented (`mask-type` and
+`-webkit-mask-composite` stay Partial). These six `-webkit-mask-box-image*`
+aliases normalize onto the `mask-border*` bases, which are Partial: the
+descriptor rides the element's blend group (`MaskBorder`) for the host to
+apply.
 
-| Vendor alias | Blocking base | Reason |
-|--------------|---------------|--------|
-| `-webkit-mask-box-image` | `mask-border` | wait Phase 83 hard defer |
-| `-webkit-mask-box-image-source` | `mask-border-source` | wait Phase 83 hard defer |
-| `-webkit-mask-box-image-slice` | `mask-border-slice` | wait Phase 83 hard defer |
-| `-webkit-mask-box-image-width` | `mask-border-width` | wait Phase 83 hard defer |
-| `-webkit-mask-box-image-outset` | `mask-border-outset` | wait Phase 83 hard defer |
-| `-webkit-mask-box-image-repeat` | `mask-border-repeat` | wait Phase 83 hard defer |
+| Vendor alias | Base | Reason |
+|--------------|------|--------|
+| `-webkit-mask-box-image` | `mask-border` | Partial: descriptor on the blend group, host applies the frame |
+| `-webkit-mask-box-image-source` | `mask-border-source` | Partial: source bytes on the blend group, host applies the frame |
+| `-webkit-mask-box-image-slice` | `mask-border-slice` | Partial: slice insets on the blend group, host applies the frame |
+| `-webkit-mask-box-image-width` | `mask-border-width` | Partial: frame thickness on the blend group, host applies the frame |
+| `-webkit-mask-box-image-outset` | `mask-border-outset` | Partial: outward offsets on the blend group, host applies the frame |
+| `-webkit-mask-box-image-repeat` | `mask-border-repeat` | Partial: repeat pair on the blend group, host applies the frame |
 
 **Group D - 20 animation / transition / 3D / UI print-noop:** bases have no
 layout consumer and stay skipped. Aliases stay Unsupported (permanent
