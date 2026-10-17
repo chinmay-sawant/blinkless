@@ -43,11 +43,11 @@ Paint Y grows downward. 1 CSS pixel is 0.75 points (`layout/displaylist.go:12-14
 | Who applies the alpha? | The host. Same split as `MaskLayer`. |
 | What already shipped? | The `mask` shorthand reset. Not the properties. |
 
-`documentation/deferred.md:108` and the vendor group C note at `documentation/deferred.md:119` still say mask-border has no consumer. Phase 4 updates those sentences after the tests pass.
+`documentation/deferred.md:107` and the vendor group C note at `documentation/deferred.md:119` still say mask-border has no consumer. Phase 4 updates those sentences after the tests pass.
 
 ## Phase 0: contract and the reset that already exists
 
-- [x] All 13 catalog rows are `unsupported` with empty handlers. Standard names start at `testdata/css/catalog/properties.json:10336` (`mask-border`) through `mask-border-width`. Aliases start at line 276 (`-webkit-mask-box-image`) through `-webkit-mask-box-image-width`.
+- [x] All 13 catalog rows are `partial` with handlers. Standard names start at `testdata/css/catalog/properties.json:11236` (`mask-border`) through `mask-border-width`. Aliases start at line 284 (`-webkit-mask-box-image`) through `-webkit-mask-box-image-width`.
 - [x] The `mask` shorthand resets the seven longhands to the initial values listed above. Proof: `internal/layout/style_cascade.go:908-914` and `TestMaskShorthandExpansionAndBorderReset` (`internal/layout/style_cascade_test.go:76-110`).
 - [x] `border-image` paints `OpImage` cells. Proof: `newBorderImageOp` (`internal/layout/border_image.go:361-370`) and `TestBehaviorBorderImageShorthandPaintsFrame`.
 - [x] The group gains `MaskBorder` next to `Mask` on `BlendGroup` (`internal/layout/blend_group.go:20-36`). Nil means no mask-border. The descriptor holds source token, image bytes, pixel size, slice offsets, widths, outsets, repeat pair, fill flag, and mode `alpha` or `luminance`. Values that are lengths are in points, matching the rest of the list. Path: `internal/layout/mask_border.go` for the type, field added on `BlendGroup` in `internal/layout/blend_group.go`.
@@ -111,7 +111,7 @@ Gate. Six aliases, one code path. Run `go test ./internal/layout -run 'TestBehav
 
 - [x] Mark the 13 names Partial, not implemented. The group carries the data and this repo does not apply the mask pixels. Limitations say that, and say gradient sources wait on the mask-source ledger if they are still rejected. Proof: all 13 catalog rows are `partial` with limitations, handlers, and tests; `make catalog-check` exits 0.
 - [x] Serialize `MaskBorder` beside `Mask` in the WASM group JSON. The mask copy is `bindings/wasm/drawing_list.go:578-581`. Add the border object next to `drawMaskJSON` (`bindings/wasm/drawing_list.go:212-221`). Proof: `TestDrawingGroupSerializesMaskBorderAndImageReference` reads slice, width, outset, repeat, mode, and image bytes; `bash scripts/check-wasm-contract.sh` exits 0.
-- [x] Update `documentation/deferred.md:108` and the group C sentence at `documentation/deferred.md:119`. The aliases are no longer "no consumer" once Phase 3 passes. Pixel replay stays unsupported here.
+- [x] Update `documentation/deferred.md:107` and the group C sentence at `documentation/deferred.md:119`. The aliases are no longer "no consumer" once Phase 3 passes. Pixel replay stays unsupported here.
 - [x] Update `documentation/library-api.md` only to name the new group field. Do not claim the engine masks pixels.
 - [x] Regenerate the compatibility matrix. Proof: `make matrix-check` exits 0 on the merged branch.
 - [ ] Update the local knowledge-base mask page in the implementation session. Out of scope for this tree: no knowledge-base page lives in this repository.

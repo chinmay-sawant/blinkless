@@ -41,7 +41,7 @@ Paged fragmentation is a non-goal in Phase 0.
 
 ## Phase 0: what kind of split this is
 
-- [x] Confirm the nine catalog rows are `unsupported` with empty handlers. Name lines in `testdata/css/catalog/properties.json`: `flow-from` 7321, `flow-into` 7337, `flow-tolerance` 7353, `region-fragment` 13032, `wrap-after` 17592, `wrap-before` 17608, `wrap-flow` 17624, `wrap-inside` 17640, `wrap-through` 17656.
+- [x] Confirm the nine catalog rows are `implemented` with handlers and tests. Name lines in `testdata/css/catalog/properties.json`: `flow-from` 8146, `flow-into` 8188, `flow-tolerance` 8230, `region-fragment` 14163, `wrap-after` 19070, `wrap-before` 19103, `wrap-flow` 19148, `wrap-inside` 19188, `wrap-through` 19222. (They were `unsupported` when this row was first written; the promotion landed in the same branch.)
 - [x] Confirm the engine does not return pages. `DisplayList` returns one `Display` of ops (`layout/displaylist.go:137-142`). `break-before: page` leaves the second box at the in-flow Y (`internal/layout/css_behavior_backface_breaks_test.go:146-159`).
 - [x] Regions are a named-flow move on one canvas, not a drawing-list comment and not a page split. `flow-into: ident` on box A takes A's children out of normal flow. `flow-from: ident` on box B lays those children inside B's content box. Their paint ops use B's coordinates. If B is shorter than the content and box C has the same `flow-from`, the remainder starts at C. If C is absent, the remainder stays unpainted past B rather than inventing a page. Record this in the package comment of `internal/layout/named_flow.go`.
 - [x] `region-fragment: auto` may slice one child across B and C. `region-fragment: break` moves that whole child to C when it does not fit in B. Both stay on one canvas.
