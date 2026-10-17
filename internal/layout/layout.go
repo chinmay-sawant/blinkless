@@ -1114,6 +1114,13 @@ func (e *engine) patchGroupMark(idx int, posX, posY, width, height float64) {
 // end marker is emitted here so the markers stay balanced even when the
 // subtree build emitted no paint operations.
 func (e *engine) popZ(scope blendScope, boxNode *box) {
+	// A mask-border frame raster is composed here, while the element's box
+	// size and its group are both known, so repeat/round/space can tile
+	// against the real destination box.
+	if boxNode != nil {
+		e.composeMaskBorderOnGroup(e.blendGroup, boxNode)
+	}
+
 	if scope.beginMark >= 0 {
 		if boxNode != nil {
 			e.patchGroupMark(scope.beginMark, boxNode.x, boxNode.y, boxNode.w, boxNode.height)

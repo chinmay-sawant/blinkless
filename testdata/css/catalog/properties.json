@@ -11,8 +11,8 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 499,
-      "partial": 16,
+      "implemented": 512,
+      "partial": 3,
       "unsupported": 262,
       "intentionally ignored": 8
     },
@@ -287,13 +287,14 @@
         "alias of mask-border"
       ],
       "limitations": [
-        "Partial: the alias normalizes onto mask-border. The descriptor rides the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Gradient sources are rejected until the mask-source ledger accepts them; percentage width and outset values are rejected because the descriptor is written before the element box exists."
+        "The shorthand expands into the six longhands and composes a nine-slice frame raster on the element's blend group; the host applies it as a soft mask. Gradient sources are rejected until the mask-source ledger accepts them; percentage width and outset values are rejected because the frame is written before the element box exists; the frame-outset expansion is recorded but not yet painted."
       ],
       "source": [
         "internal/layout/mask_border.go",
         "internal/layout/style_cascade.go",
         "internal/layout/style_value_accept.go",
-        "internal/layout/inline.go"
+        "internal/layout/inline.go",
+        "internal/layout/mask_border_raster.go"
       ],
       "handlers": [
         "normalizeWebkitMaskBoxImageAlias",
@@ -312,9 +313,13 @@
         {
           "file": "internal/layout/css_behavior_mask_border_test.go",
           "name": "TestBehaviorMaskBorderSupportsAcceptedValues"
+        },
+        {
+          "file": "internal/layout/mask_border_raster_test.go",
+          "name": "TestComposeMaskBorderRasterOnGroup"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
@@ -324,13 +329,14 @@
         "alias of mask-border-outset"
       ],
       "limitations": [
-        "Partial: the alias normalizes onto mask-border-outset. The resolved outward offsets ride the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Percentage outsets are rejected because the descriptor is written before the element box exists."
+        "The resolved outward offsets ride the element's blend group; the frame-outset expansion is recorded but not yet painted."
       ],
       "source": [
         "internal/layout/mask_border.go",
         "internal/layout/style_cascade.go",
         "internal/layout/style_value_accept.go",
-        "internal/layout/inline.go"
+        "internal/layout/inline.go",
+        "internal/layout/mask_border_raster.go"
       ],
       "handlers": [
         "normalizeWebkitMaskBoxImageAlias",
@@ -341,9 +347,13 @@
         {
           "file": "internal/layout/css_behavior_mask_border_test.go",
           "name": "TestBehaviorMaskBorderAliasReachesGroup"
+        },
+        {
+          "file": "internal/layout/mask_border_raster_test.go",
+          "name": "TestComposeMaskBorderRasterOnGroup"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
@@ -353,13 +363,14 @@
         "alias of mask-border-repeat"
       ],
       "limitations": [
-        "Partial: the alias normalizes onto mask-border-repeat. The used repeat pair rides the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels."
+        "The used repeat pair tiles the composed frame raster (stretch, repeat, round, and space); the host applies it as a soft mask."
       ],
       "source": [
         "internal/layout/mask_border.go",
         "internal/layout/style_cascade.go",
         "internal/layout/style_value_accept.go",
-        "internal/layout/inline.go"
+        "internal/layout/inline.go",
+        "internal/layout/mask_border_raster.go"
       ],
       "handlers": [
         "normalizeWebkitMaskBoxImageAlias",
@@ -370,9 +381,13 @@
         {
           "file": "internal/layout/css_behavior_mask_border_test.go",
           "name": "TestBehaviorMaskBorderAliasReachesGroup"
+        },
+        {
+          "file": "internal/layout/mask_border_raster_test.go",
+          "name": "TestComposeMaskBorderRasterOnGroup"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
@@ -382,13 +397,14 @@
         "alias of mask-border-slice"
       ],
       "limitations": [
-        "Partial: the alias normalizes onto mask-border-slice. The resolved source-pixel insets ride the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels."
+        "The resolved source-pixel insets ride the element's blend group and compose into the frame raster; the host applies it as a soft mask."
       ],
       "source": [
         "internal/layout/mask_border.go",
         "internal/layout/style_cascade.go",
         "internal/layout/style_value_accept.go",
-        "internal/layout/inline.go"
+        "internal/layout/inline.go",
+        "internal/layout/mask_border_raster.go"
       ],
       "handlers": [
         "normalizeWebkitMaskBoxImageAlias",
@@ -407,9 +423,13 @@
         {
           "file": "internal/layout/css_behavior_mask_border_test.go",
           "name": "TestBehaviorMaskBorderSupportsAcceptedValues"
+        },
+        {
+          "file": "internal/layout/mask_border_raster_test.go",
+          "name": "TestComposeMaskBorderRasterOnGroup"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
@@ -419,13 +439,14 @@
         "alias of mask-border-source"
       ],
       "limitations": [
-        "Partial: the alias normalizes onto mask-border-source. The source and its encoded bytes ride the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Gradient sources are rejected until the mask-source ledger accepts them."
+        "The source and its encoded bytes ride the element's blend group and compose into the frame raster; the host applies it as a soft mask. Gradient sources are rejected until the mask-source ledger accepts them."
       ],
       "source": [
         "internal/layout/mask_border.go",
         "internal/layout/style_cascade.go",
         "internal/layout/style_value_accept.go",
-        "internal/layout/inline.go"
+        "internal/layout/inline.go",
+        "internal/layout/mask_border_raster.go"
       ],
       "handlers": [
         "normalizeWebkitMaskBoxImageAlias",
@@ -444,9 +465,13 @@
         {
           "file": "internal/layout/css_behavior_mask_border_test.go",
           "name": "TestBehaviorMaskBorderSupportsAcceptedValues"
+        },
+        {
+          "file": "internal/layout/mask_border_raster_test.go",
+          "name": "TestComposeMaskBorderRasterOnGroup"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
@@ -456,13 +481,14 @@
         "alias of mask-border-width"
       ],
       "limitations": [
-        "Partial: the alias normalizes onto mask-border-width. The resolved frame thickness rides the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Percentage widths are rejected because the descriptor is written before the element box exists."
+        "The resolved frame thickness rides the element's blend group and composes into the frame raster; percentage widths are rejected because the frame is written before the element box exists."
       ],
       "source": [
         "internal/layout/mask_border.go",
         "internal/layout/style_cascade.go",
         "internal/layout/style_value_accept.go",
-        "internal/layout/inline.go"
+        "internal/layout/inline.go",
+        "internal/layout/mask_border_raster.go"
       ],
       "handlers": [
         "normalizeWebkitMaskBoxImageAlias",
@@ -473,9 +499,13 @@
         {
           "file": "internal/layout/css_behavior_mask_border_test.go",
           "name": "TestBehaviorMaskBorderAliasReachesGroup"
+        },
+        {
+          "file": "internal/layout/mask_border_raster_test.go",
+          "name": "TestComposeMaskBorderRasterOnGroup"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
@@ -11239,13 +11269,14 @@
         "<'mask-border-source'> || <'mask-border-slice'> [ / <'mask-border-width'>? [ / <'mask-border-outset'> ]? ]? || <'mask-border-repeat'> || <'mask-border-mode'>"
       ],
       "limitations": [
-        "Partial: the shorthand expands into the six longhands and the descriptor rides the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Gradient sources are rejected until the mask-source ledger accepts them; percentage width and outset values are rejected because the descriptor is written before the element box exists."
+        "The shorthand expands into the six longhands and composes a nine-slice frame raster on the element's blend group; the host applies it as a soft mask. Gradient sources are rejected until the mask-source ledger accepts them; percentage width and outset values are rejected because the frame is written before the element box exists; the frame-outset expansion is recorded but not yet painted."
       ],
       "source": [
         "internal/layout/mask_border.go",
         "internal/layout/style_cascade.go",
         "internal/layout/style_value_accept.go",
-        "internal/layout/inline.go"
+        "internal/layout/inline.go",
+        "internal/layout/mask_border_raster.go"
       ],
       "handlers": [
         "applyMaskBorderProps",
@@ -11269,9 +11300,13 @@
         {
           "file": "internal/layout/css_behavior_mask_border_test.go",
           "name": "TestBehaviorMaskBorderVendorAliasUsesCSSSourceOrder"
+        },
+        {
+          "file": "internal/layout/mask_border_raster_test.go",
+          "name": "TestComposeMaskBorderRasterOnGroup"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'mask-border-source'> || <'mask-border-slice'> [ / <'mask-border-width'>? [ / <'mask-border-outset'> ]? ]? || <'mask-border-repeat'> || <'mask-border-mode'>"
     },
@@ -11282,13 +11317,14 @@
         "alpha | luminance"
       ],
       "limitations": [
-        "Partial: the stored mode rides the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels (only the SVG mask preprocessing bakes a mode)."
+        "The stored mode rides the element's blend group; the frame raster is composed from the source's alpha channel (an SVG mask fragment is preprocessed by the first-wave path)."
       ],
       "source": [
         "internal/layout/mask_border.go",
         "internal/layout/style_cascade.go",
         "internal/layout/style_value_accept.go",
-        "internal/layout/inline.go"
+        "internal/layout/inline.go",
+        "internal/layout/mask_border_raster.go"
       ],
       "handlers": [
         "applyMaskBorderProps",
@@ -11302,9 +11338,13 @@
         {
           "file": "internal/layout/css_behavior_mask_border_test.go",
           "name": "TestBehaviorMaskBorderDescriptorNotPaint"
+        },
+        {
+          "file": "internal/layout/mask_border_raster_test.go",
+          "name": "TestComposeMaskBorderRasterOnGroup"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "luminance | alpha"
     },
@@ -11315,13 +11355,14 @@
         "<length [0,\u221e]> | <number [0,\u221e]>, one to four values"
       ],
       "limitations": [
-        "Partial: the resolved outward offsets ride the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Percentage outsets are rejected because the descriptor is written before the element box exists."
+        "The resolved outward offsets ride the element's blend group; the frame-outset expansion is recorded but not yet painted."
       ],
       "source": [
         "internal/layout/mask_border.go",
         "internal/layout/style_cascade.go",
         "internal/layout/style_value_accept.go",
-        "internal/layout/inline.go"
+        "internal/layout/inline.go",
+        "internal/layout/mask_border_raster.go"
       ],
       "handlers": [
         "applyMaskBorderProps",
@@ -11341,9 +11382,13 @@
         {
           "file": "internal/layout/css_behavior_mask_border_test.go",
           "name": "TestBehaviorMaskBorderInvalidValuesKeepEarlier"
+        },
+        {
+          "file": "internal/layout/mask_border_raster_test.go",
+          "name": "TestComposeMaskBorderRasterOnGroup"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-image-outset'>"
     },
@@ -11354,13 +11399,14 @@
         "stretch | repeat | round | space, one or two values"
       ],
       "limitations": [
-        "Partial: the used repeat pair rides the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels."
+        "The used repeat pair tiles the composed frame raster (stretch, repeat, round, and space); the host applies it as a soft mask."
       ],
       "source": [
         "internal/layout/mask_border.go",
         "internal/layout/style_cascade.go",
         "internal/layout/style_value_accept.go",
-        "internal/layout/inline.go"
+        "internal/layout/inline.go",
+        "internal/layout/mask_border_raster.go"
       ],
       "handlers": [
         "applyMaskBorderProps",
@@ -11378,9 +11424,13 @@
         {
           "file": "internal/layout/css_behavior_mask_border_test.go",
           "name": "TestBehaviorMaskBorderAliasReachesGroup"
+        },
+        {
+          "file": "internal/layout/mask_border_raster_test.go",
+          "name": "TestComposeMaskBorderRasterOnGroup"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-image-repeat'>"
     },
@@ -11391,13 +11441,14 @@
         "one to four non-negative <number> or <percentage> values, plus the optional fill keyword"
       ],
       "limitations": [
-        "Partial: the resolved source-pixel insets ride the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels."
+        "The resolved source-pixel insets ride the element's blend group and compose into the frame raster; the host applies it as a soft mask."
       ],
       "source": [
         "internal/layout/mask_border.go",
         "internal/layout/style_cascade.go",
         "internal/layout/style_value_accept.go",
-        "internal/layout/inline.go"
+        "internal/layout/inline.go",
+        "internal/layout/mask_border_raster.go"
       ],
       "handlers": [
         "applyMaskBorderProps",
@@ -11414,9 +11465,13 @@
         {
           "file": "internal/layout/css_behavior_mask_border_test.go",
           "name": "TestBehaviorMaskBorderAliasReachesGroup"
+        },
+        {
+          "file": "internal/layout/mask_border_raster_test.go",
+          "name": "TestComposeMaskBorderRasterOnGroup"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-image-slice'>"
     },
@@ -11427,13 +11482,14 @@
         "none | url(...) | image-set(...) whose chosen candidate is url(...)"
       ],
       "limitations": [
-        "Partial: the source and its encoded bytes ride the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Gradient sources are rejected until the mask-source ledger accepts them."
+        "The source and its encoded bytes ride the element's blend group and compose into the frame raster; the host applies it as a soft mask. Gradient sources are rejected until the mask-source ledger accepts them."
       ],
       "source": [
         "internal/layout/mask_border.go",
         "internal/layout/style_cascade.go",
         "internal/layout/style_value_accept.go",
-        "internal/layout/inline.go"
+        "internal/layout/inline.go",
+        "internal/layout/mask_border_raster.go"
       ],
       "handlers": [
         "applyMaskBorderProps",
@@ -11454,9 +11510,13 @@
         {
           "file": "internal/layout/css_behavior_mask_border_test.go",
           "name": "TestBehaviorMaskBorderInvalidValuesKeepEarlier"
+        },
+        {
+          "file": "internal/layout/mask_border_raster_test.go",
+          "name": "TestComposeMaskBorderRasterOnGroup"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-image-source'>"
     },
@@ -11467,13 +11527,14 @@
         "auto | <length [0,\u221e]> | <number [0,\u221e]>, one to four values"
       ],
       "limitations": [
-        "Partial: the resolved frame thickness rides the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Percentage widths are rejected because the descriptor is written before the element box exists."
+        "The resolved frame thickness rides the element's blend group and composes into the frame raster; percentage widths are rejected because the frame is written before the element box exists."
       ],
       "source": [
         "internal/layout/mask_border.go",
         "internal/layout/style_cascade.go",
         "internal/layout/style_value_accept.go",
-        "internal/layout/inline.go"
+        "internal/layout/inline.go",
+        "internal/layout/mask_border_raster.go"
       ],
       "handlers": [
         "applyMaskBorderProps",
@@ -11493,9 +11554,13 @@
         {
           "file": "internal/layout/css_behavior_mask_border_test.go",
           "name": "TestBehaviorMaskBorderInvalidValuesKeepEarlier"
+        },
+        {
+          "file": "internal/layout/mask_border_raster_test.go",
+          "name": "TestComposeMaskBorderRasterOnGroup"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-image-width'>"
     },

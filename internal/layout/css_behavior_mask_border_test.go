@@ -35,8 +35,14 @@ func TestBehaviorMaskBorderDescriptorNotPaint(t *testing.T) {
 		borderPNG, "border.png")
 
 	group := onlyMaskBorderGroup(t, res)
-	if group.Mask != nil {
-		t.Fatalf("mask-border-only element gained a first-wave Mask: %+v", group.Mask)
+	if group.Mask == nil || len(group.Mask.RasterBytes()) == 0 {
+		t.Fatal("mask-border frame produced no ready-to-paint raster")
+	}
+
+	// The frame raster rides the group mask slot, but it is not a first-wave
+	// mask layer composition: the descriptor keeps no layers.
+	if len(group.Mask.Layers) != 0 {
+		t.Fatalf("frame raster carries %d first-wave mask layers, want 0", len(group.Mask.Layers))
 	}
 
 	assertMaskBorderSourcePayload(t, group.MaskBorder, borderPNG)

@@ -1,7 +1,7 @@
 # v0.0.3 - Mask border
 
 > **Parent:** `plans/v0.0.3/README.md`
-> **Status:** implemented and merged on `feature/v0.0.3-mask-border-regions-shapes`. Phases 0-3 verified (`TestBehaviorMaskBorder*`, `TestMaskBorder*`, `TestMaskShorthand*` green); Phase 4 catalog (13 rows partial), WASM serialization (`TestDrawingGroupSerializesMaskBorderAndImageReference`), matrix, and docs are merged. Gate rows record the branch-level `make test` / `make golden` / `make lint` / `make claim-scan` / `make catalog-check` / `make matrix-check` results. The local knowledge-base page stays out of scope for this tree.
+> **Status:** implemented, rendered, and merged on `feature/v0.0.3-mask-border-regions-shapes`. Phase 5 composes the nine-slice frame raster at the element box (stretch, repeat, round, space) and the host applies it as a soft mask; golden fixture 68 renders the frame under both `--engine blinkless` and Chrome 155. Phases 0-3 verified (`TestBehaviorMaskBorder*`, `TestMaskBorder*`, `TestMaskShorthand*` green); Phase 4 catalog (13 rows partial), WASM serialization (`TestDrawingGroupSerializesMaskBorderAndImageReference`), matrix, and docs are merged. Gate rows record the branch-level `make test` / `make golden` / `make lint` / `make claim-scan` / `make catalog-check` / `make matrix-check` results. The local knowledge-base page stays out of scope for this tree.
 > **Estimated effort:** 13 property names, 5 phases.
 
 ---
@@ -109,7 +109,7 @@ Gate. Six aliases, one code path. Run `go test ./internal/layout -run 'TestBehav
 
 ## Phase 4: catalog, WASM, docs, and gates
 
-- [x] Mark the 13 names Partial, not implemented. The group carries the data and this repo does not apply the mask pixels. Limitations say that, and say gradient sources wait on the mask-source ledger if they are still rejected. Proof: all 13 catalog rows are `partial` with limitations, handlers, and tests; `make catalog-check` exits 0.
+- [x] Mark the 13 names implemented. Phase 5 composes the frame into a nine-slice raster on the group and the host applies it as a soft mask, so the pixel-replay gap closed. Limitations name the remaining gaps (gradients wait on the mask-source ledger; percentage width/outset rejected; frame-outset expansion recorded but not yet painted). Proof: all 13 catalog rows are `implemented` with limitations, handlers, and tests; `make catalog-check` exits 0.
 - [x] Serialize `MaskBorder` beside `Mask` in the WASM group JSON. The mask copy is `bindings/wasm/drawing_list.go:578-581`. Add the border object next to `drawMaskJSON` (`bindings/wasm/drawing_list.go:212-221`). Proof: `TestDrawingGroupSerializesMaskBorderAndImageReference` reads slice, width, outset, repeat, mode, and image bytes; `bash scripts/check-wasm-contract.sh` exits 0.
 - [x] Update `documentation/deferred.md:107` and the group C sentence at `documentation/deferred.md:119`. The aliases are no longer "no consumer" once Phase 3 passes. Pixel replay stays unsupported here.
 - [x] Update `documentation/library-api.md` only to name the new group field. Do not claim the engine masks pixels.
@@ -124,7 +124,16 @@ Gate. Six aliases, one code path. Run `go test ./internal/layout -run 'TestBehav
 
 GitHub CI runs only `make test` and `make lint`. Do not run bare `go test ./...`.
 
-Gate. Catalog status is Partial for all 13. The reset test from the first wave still passes.
+Gate. Catalog status is implemented for all 13. The reset test from the first wave still passes.
+
+## Phase 5: frame raster composition (landed after the first merge)
+
+- [x] Compose the nine-slice frame into a raster at the element's border-box size in `internal/layout/mask_border_raster.go`; attach it as the group's ready-to-paint mask when no first-wave mask raster exists. The composition runs at the box pop, when the tiling modes know the destination size. Proof: `TestComposeMaskBorderRasterFrame`, `TestComposeMaskBorderRasterFill`, `TestComposeMaskBorderRasterRepeat`, `TestComposeMaskBorderRasterOnGroup`.
+- [x] Full tiling fidelity: stretch scales each slice, repeat copies at the source slice size and clips, round scales the tile count to fill, space distributes equal gaps. Proof: `TestComposeMaskBorderRasterRepeat`.
+- [x] The host applies the raster as a PDF soft mask (gowkhtmltopdf `paint_groups.go` `softMaskImage`); golden fixture 68 renders the frame under `--engine blinkless`, and Chrome 155 renders the `-webkit-mask-box-image` family.
+- [x] `TestBehaviorMaskBorderDescriptorNotPaint` now pins the raster contract: the frame rides the group mask slot with zero first-wave layers, and still emits no border-image cells.
+
+Known gap: the frame-outset expansion is recorded on the descriptor but not yet painted (the raster is composed at the border box).
 
 ## Dependencies
 
