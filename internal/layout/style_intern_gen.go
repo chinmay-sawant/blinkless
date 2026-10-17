@@ -228,6 +228,14 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.BorderRadiusTopRightY == b.BorderRadiusTopRightY &&
 		a.BorderRadiusBottomRightY == b.BorderRadiusBottomRightY &&
 		a.BorderRadiusBottomLeftY == b.BorderRadiusBottomLeftY &&
+		a.CornerShapeTopLeft == b.CornerShapeTopLeft &&
+		a.CornerShapeTopRight == b.CornerShapeTopRight &&
+		a.CornerShapeBottomRight == b.CornerShapeBottomRight &&
+		a.CornerShapeBottomLeft == b.CornerShapeBottomLeft &&
+		a.CornerShapeTopLeftKeyword == b.CornerShapeTopLeftKeyword &&
+		a.CornerShapeTopRightKeyword == b.CornerShapeTopRightKeyword &&
+		a.CornerShapeBottomRightKeyword == b.CornerShapeBottomRightKeyword &&
+		a.CornerShapeBottomLeftKeyword == b.CornerShapeBottomLeftKeyword &&
 		a.Color == b.Color &&
 		a.BGColor == b.BGColor &&
 		a.AccentColor == b.AccentColor &&
@@ -609,6 +617,14 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashFloat64(h, s.BorderRadiusTopRightY)
 	h = styleInternHashFloat64(h, s.BorderRadiusBottomRightY)
 	h = styleInternHashFloat64(h, s.BorderRadiusBottomLeftY)
+	h = styleInternHashFloat64(h, s.CornerShapeTopLeft)
+	h = styleInternHashFloat64(h, s.CornerShapeTopRight)
+	h = styleInternHashFloat64(h, s.CornerShapeBottomRight)
+	h = styleInternHashFloat64(h, s.CornerShapeBottomLeft)
+	h = styleInternHashString(h, s.CornerShapeTopLeftKeyword)
+	h = styleInternHashString(h, s.CornerShapeTopRightKeyword)
+	h = styleInternHashString(h, s.CornerShapeBottomRightKeyword)
+	h = styleInternHashString(h, s.CornerShapeBottomLeftKeyword)
 	for _, e := range s.Color {
 		h = styleInternHashFloat64(h, e)
 	}
@@ -1008,6 +1024,14 @@ func styleInternFields() []string {
 		"BorderRadiusTopRightY",
 		"BorderRadiusBottomRightY",
 		"BorderRadiusBottomLeftY",
+		"CornerShapeTopLeft",
+		"CornerShapeTopRight",
+		"CornerShapeBottomRight",
+		"CornerShapeBottomLeft",
+		"CornerShapeTopLeftKeyword",
+		"CornerShapeTopRightKeyword",
+		"CornerShapeBottomRightKeyword",
+		"CornerShapeBottomLeftKeyword",
 		"Color",
 		"BGColor",
 		"AccentColor",

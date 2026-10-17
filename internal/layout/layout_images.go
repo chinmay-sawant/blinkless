@@ -47,9 +47,15 @@ const (
 )
 
 // imageContainingWidth is the width used by percentage/max-width image
-// constraints. imgMaxW is set by inline, float, and table-cell layout; the
-// viewport is the fallback for ordinary block images.
+// constraints. imgMaxW is set by inline, float, table-cell, and grid-cell
+// layout; the viewport is the fallback for ordinary block images. During an
+// intrinsic sizing pass with no definite containing block (imgCBIndefinite)
+// there is no width to resolve against and zero reports auto.
 func (e *engine) imageContainingWidth() float64 {
+	if e.imgCBIndefinite {
+		return 0
+	}
+
 	if e.imgMaxW > 0 {
 		return e.imgMaxW
 	}
@@ -482,21 +488,13 @@ func (e *engine) paintReplacedImage(
 		alt = boxNode.node.Attribute("alt")
 	}
 
-	imgData := boxNode.img.data
-	isJPEG := boxNode.img.isJPEG
-
-	if sty.Filter != "" {
-		filters := parseFilterList(sty.Filter, sty.Color, sty.FontSize)
-		imgData = applyImageFilterToImageWithInterp(imgData, filters, sty.ColorInterpolationFilters)
-		isJPEG = false
-	}
-
-	intrinsicW, intrinsicH := replacedIntrinsicPt(e, sty, boxNode.img)
-	fitX, fitY, fitW, fitH := applyObjectFitToPaint(sty, imgX, imgY, imgW, imgH, intrinsicW, intrinsicH)
-
-	imgData, isJPEG = applyPaintClipPathMask(
-		sty, imgData, isJPEG, fitX, fitY, fitW, fitH, posX, posY, boxNode.w, boxNode.height,
+	imgData, isJPEG, pixW, pixH, fitX, fitY, fitW, fitH := e.objectFitPaintForImage(
+		boxNode.img, boxNode.img.data, boxNode.img.isJPEG, sty,
+		imgX, imgY, imgW, imgH, posX, posY, boxNode.w, boxNode.height,
 	)
+	if fitW <= 0 || fitH <= 0 {
+		return
+	}
 
 	e.add((Op{ //nolint:exhaustruct // intentional zero fields
 		Kind:   OpImage,
@@ -505,7 +503,7 @@ func (e *engine) paintReplacedImage(
 		W:      fitW,
 		H:      fitH,
 		IsJPEG: isJPEG,
-	}).withImage(imgData, boxNode.img.w, boxNode.img.h, alt))
+	}).withImage(imgData, pixW, pixH, alt))
 
 	if thumbImg {
 		e.emitThumbImageBottomSeparator(sty, posX, posY, size.w, size.h)

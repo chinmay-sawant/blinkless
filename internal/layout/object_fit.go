@@ -1,6 +1,11 @@
 package layout
 
-import "strings"
+import (
+	"image"
+	"image/draw"
+	"math"
+	"strings"
+)
 
 const (
 	objectFitFill      = "fill"
@@ -74,17 +79,131 @@ func objectFitSize(fit string, boxW, boxH, intrinsicW, intrinsicH float64) (floa
 	}
 }
 
-// applyObjectFitToPaint adjusts a content-box paint rect for object-fit /
-// object-position given the image's CSS-px intrinsic size already scaled to pt.
-func applyObjectFitToPaint(
-	sty ResolvedStyle, boxX, boxY, boxW, boxH, intrinsicW, intrinsicH float64,
-) (float64, float64, float64, float64) {
-	fitX, fitY, fitW, fitH, _ := objectFitPaintRect(
+// objectFitPaintForImage prepares one replaced bitmap for painting: it applies
+// the style filter chain, sizes the payload per object-fit / object-position,
+// crops it to the visible region when the fitted rect overflows the content
+// box, and masks it with the element's clip-path. boxX/boxY/boxW/boxH is the
+// content box; clipX/clipY/clipW/clipH is the clip-path reference box. A fully
+// hidden image comes back with a zero-size rect, and the caller emits no op.
+// isJPEG reports whether the returned bytes are still the original JPEG
+// payload; isJPEG flips to false whenever the bytes are re-encoded.
+func (e *engine) objectFitPaintForImage(
+	ref *imageRef, data []byte, isJPEG bool, sty ResolvedStyle,
+	boxX, boxY, boxW, boxH, clipX, clipY, clipW, clipH float64,
+) ([]byte, bool, int, int, float64, float64, float64, float64) {
+	if sty.Filter != "" {
+		filters := parseFilterList(sty.Filter, sty.Color, sty.FontSize)
+		data = applyImageFilterToImageWithInterp(data, filters, sty.ColorInterpolationFilters)
+		isJPEG = false
+	}
+
+	intrinsicW, intrinsicH := replacedIntrinsicPt(e, sty, ref)
+	fitX, fitY, fitW, fitH, clip := objectFitPaintRect(
 		sty.ObjectFit, sty.ObjectPositionX, sty.ObjectPositionY,
 		boxX, boxY, boxW, boxH, intrinsicW, intrinsicH,
 	)
+	pixW, pixH := ref.w, ref.h
 
-	return fitX, fitY, fitW, fitH
+	if clip {
+		var cropped bool
+
+		data, pixW, pixH, fitX, fitY, fitW, fitH, cropped = objectFitImagePaint(
+			ref, data, fitX, fitY, fitW, fitH, boxX, boxY, boxW, boxH,
+		)
+		if fitW <= 0 || fitH <= 0 {
+			return nil, false, 0, 0, 0, 0, 0, 0
+		}
+
+		if cropped {
+			isJPEG = false
+		}
+	}
+
+	data, isJPEG = applyPaintClipPathMask(
+		sty, data, isJPEG, fitX, fitY, fitW, fitH, clipX, clipY, clipW, clipH,
+	)
+
+	return data, isJPEG, pixW, pixH, fitX, fitY, fitW, fitH
+}
+
+// objectFitImagePaint sizes one replaced bitmap per object-fit /
+// object-position and returns the payload, its pixel size, and the canvas
+// rect to draw. When the fitted rect overflows the content box (cover, or
+// none / scale-down pushed outside by object-position), the source pixels of
+// the visible sub-rect are cropped and re-encoded as PNG so the emitted op is
+// exactly the painted region; cropped then reports the re-encode. The display
+// list carries no clip entry for an image: an op spilling past its box paints
+// over sibling content and, in a consumer's paginator, a crossing op drags
+// its whole band across the page boundary. The re-encode is the same
+// one-payload fallback image-orientation and object-view-box already use.
+// An undecodable payload keeps its fitted rect (cropped false), and a fully
+// hidden image returns a zero-size rect.
+func objectFitImagePaint(
+	ref *imageRef, data []byte,
+	fitX, fitY, fitW, fitH,
+	boxX, boxY, boxW, boxH float64,
+) ([]byte, int, int, float64, float64, float64, float64, bool) {
+	if ref == nil || len(data) == 0 {
+		return data, 0, 0, boxX, boxY, 0, 0, false
+	}
+
+	if fitX >= boxX && fitY >= boxY && fitX+fitW <= boxX+boxW && fitY+fitH <= boxY+boxH {
+		return data, ref.w, ref.h, fitX, fitY, fitW, fitH, false
+	}
+
+	vx0 := math.Max(fitX, boxX)
+	vy0 := math.Max(fitY, boxY)
+	vx1 := math.Min(fitX+fitW, boxX+boxW)
+	vy1 := math.Min(fitY+fitH, boxY+boxH)
+
+	if vx1-vx0 <= clipPointTolerance || vy1-vy0 <= clipPointTolerance {
+		return nil, 0, 0, vx0, vy0, 0, 0, false
+	}
+
+	// The fitted rect maps the whole bitmap onto (fitX, fitY, fitW, fitH), so
+	// each source pixel is fitW/ref.w canvas points wide.
+	src := image.Rect(
+		int(math.Round((vx0-fitX)*float64(ref.w)/fitW)),
+		int(math.Round((vy0-fitY)*float64(ref.h)/fitH)),
+		int(math.Round((vx1-fitX)*float64(ref.w)/fitW)),
+		int(math.Round((vy1-fitY)*float64(ref.h)/fitH)),
+	)
+
+	cropped, cw, ch, ok := cropImageRect(data, src)
+	if !ok {
+		return data, ref.w, ref.h, fitX, fitY, fitW, fitH, false
+	}
+
+	return cropped, cw, ch, vx0, vy0, vx1 - vx0, vy1 - vy0, true
+}
+
+// cropImageRect crops encoded image bytes to src (clamped to the decoded
+// bounds) and re-encodes the result as PNG. ok is false when the bytes do not
+// decode or the intersection is empty; callers then keep the uncropped paint.
+func cropImageRect(data []byte, src image.Rectangle) ([]byte, int, int, bool) {
+	if src.Dx() <= 0 || src.Dy() <= 0 {
+		return nil, 0, 0, false
+	}
+
+	decoded, err := decodeImageBytes(data)
+	if err != nil {
+		return nil, 0, 0, false
+	}
+
+	src = src.Intersect(decoded.Bounds())
+	if src.Empty() {
+		return nil, 0, 0, false
+	}
+
+	cropped := image.NewRGBA(image.Rect(0, 0, src.Dx(), src.Dy()))
+	draw.Draw(cropped, cropped.Bounds(), decoded, src.Min, draw.Src)
+
+	out, err := encodePNGImage(cropped)
+	if err != nil {
+		return nil, 0, 0, false
+	}
+
+	return out, src.Dx(), src.Dy(), true
 }
 
 func objectFitScale(boxW, boxH, intrinsicW, intrinsicH float64, cover bool) (float64, float64) {

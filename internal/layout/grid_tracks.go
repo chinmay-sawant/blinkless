@@ -138,6 +138,17 @@ func measureTrackIntrinsics(eng *engine, kids []*html.Node, nTracks int, axisCol
 		return out
 	}
 
+	// Percentage widths on items are cyclic during intrinsic track sizing
+	// (CSS Grid L1 §11.5) and resolve as auto: a width:100% image must
+	// contribute its intrinsic width, not the viewport. Without this the
+	// percentage echo lands in a track's min-content base and an fr track is
+	// floored at it, stretching every item past the grid content box.
+	wasIndefinite := eng.imgCBIndefinite
+
+	if axisColumns {
+		eng.imgCBIndefinite = true
+	}
+
 	for i, kid := range kids {
 		cstate := eng.stylePtr(kid)
 		tidx := i % nTracks
@@ -164,6 +175,10 @@ func measureTrackIntrinsics(eng *engine, kids []*html.Node, nTracks int, axisCol
 		if maxVal > out[tidx].maxContent {
 			out[tidx].maxContent = maxVal
 		}
+	}
+
+	if axisColumns {
+		eng.imgCBIndefinite = wasIndefinite
 	}
 
 	return out

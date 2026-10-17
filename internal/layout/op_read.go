@@ -106,6 +106,18 @@ func (op Op) Outline() bool {
 	return op.opExtra.IsOutline
 }
 
+// IsCanvasBackground reports whether the op is the root canvas default fill
+// (the dark color-scheme canvas rect). It is the canvas background, not an
+// element background: a consumer that paginates the display list paints it
+// across every page, while a single-canvas consumer paints it once.
+func (op Op) IsCanvasBackground() bool {
+	if op.opExtra == nil {
+		return false
+	}
+
+	return op.opExtra.CanvasBackground
+}
+
 // TextTransformValue returns the CSS text-transform value the op carries, or
 // "" when it carries none. It is spelled with a Value suffix rather than
 // TextTransform because a method of that name would shadow the promoted

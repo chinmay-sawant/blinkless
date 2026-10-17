@@ -37,6 +37,19 @@ type opExtra struct {
 	// carry the group without painting.
 	BlendGroup *BlendGroup
 	GroupMark  uint8
+	// CornerPath holds the command list for an OpPath operation. Nil for
+	// every other kind. It lives here, not on the hot Op record, so that
+	// record stays at 256 bytes.
+	CornerPath *CornerPath
+	// CanvasBackground marks the root canvas default fill: the opaque rect a
+	// dark color-scheme root contributes. Read it with IsCanvasBackground.
+	// It is the canvas background, not an element background (CSS
+	// Backgrounds 3 §2.11.2 gives the root's background to the canvas, whose
+	// painting area is the whole canvas), so a consumer that paginates the
+	// display list paints it across every page while a consumer painting one
+	// canvas paints it once. Regular element backgrounds never set it, so
+	// the two stay distinguishable.
+	CanvasBackground bool
 }
 
 func (op *Op) detachExtra() *opExtra {
@@ -58,6 +71,7 @@ func (op Op) detachedExtraCopy() *opExtra {
 	cp := *op.opExtra
 	cp.Image = append([]byte(nil), cp.Image...)
 	cp.Path.Points = append([]DisplayPoint(nil), cp.Path.Points...)
+	cp.CornerPath = cloneCornerPath(cp.CornerPath)
 
 	return &cp
 }
@@ -74,6 +88,11 @@ func (op *Op) setOutline() {
 
 func (op *Op) isOutline() bool {
 	return op != nil && op.opExtra != nil && op.opExtra.IsOutline
+}
+
+// setCanvasBackground marks the op as the root canvas default fill.
+func (op *Op) setCanvasBackground() {
+	op.detachExtra().CanvasBackground = true
 }
 
 // BindEmptyExtra points a nil extra at the shared zero extra so readers in
@@ -390,6 +409,7 @@ func cloneOpExtra(src *opExtra) *opExtra {
 
 	cp := *src
 	cp.Image = append([]byte(nil), src.Image...)
+	cp.CornerPath = cloneCornerPath(src.CornerPath)
 
 	return &cp
 }

@@ -405,7 +405,7 @@ const (
 // OpText and OpBullet, Y is the baseline.
 //
 // Rare payloads (URI, Image, Xform, BlendMode, structure tags, text-transform,
-// and text synthesis gates)
+// text synthesis gates, and the canvas-background marker)
 // live on the embedded *opExtra so the hot record is 256 bytes. Promoted
 // field names stay so readers (paint, tests, bindings) keep op.URI and
 // op.Image. Writers must detachExtra before mutating those fields.
@@ -571,6 +571,12 @@ type engine struct {
 	// imgMaxW > 0 clamps replaced <img> boxes to this containing-block width
 	// (table cell / float / inline formatting context).
 	imgMaxW float64
+	// imgCBIndefinite marks an intrinsic sizing pass with no definite
+	// containing block (grid track sizing): a percentage width on replaced
+	// content is cyclic there and resolves as auto (CSS Grid L1 §11.5), so the
+	// contribution must not echo the viewport or container width back into a
+	// track's base size.
+	imgCBIndefinite bool
 	// inlineCBW is the inline formatting context's content width when > 0;
 	// used so width:% on inline-blocks resolves against the real CB.
 	inlineCBW float64
@@ -1161,7 +1167,7 @@ func censusOps(ops []Op, width float64) (float64, bool) {
 
 	for idx := range ops {
 		switch ops[idx].Kind {
-		case OpFillRect, OpStrokeRect, OpImage:
+		case OpFillRect, OpStrokeRect, OpImage, OpPath:
 			if ext := ops[idx].X + ops[idx].W; ext > maxX {
 				maxX = ext
 			}
@@ -1438,6 +1444,11 @@ type box struct {
 	// rows[i] holds the cell boxes of table row i, in document order. The
 	// row's op range is from rows[i][0].opStart to rows[i][len-1].opEnd.
 	rows [][]*box
+	// rowTops[i] and rowHeights[i] are row i's canvas top and border-box
+	// height after rowspan growth. PageBreaks exports each row as a
+	// keep-together range so a row never straddles a page boundary.
+	rowTops    []float64
+	rowHeights []float64
 	// headerRows is the number of leading rows that came from <thead> /
 	// table-header-group (for repeating headers across pages).
 	headerRows int
