@@ -285,6 +285,10 @@ func maskDeclarationValueAccepted(prop, value string) (bool, bool) {
 		return accepted, true
 	}
 
+	if accepted, handled := maskBorderDeclarationAccepted(prop, value); handled {
+		return accepted, true
+	}
+
 	return maskBoxDeclarationAccepted(prop, value)
 }
 

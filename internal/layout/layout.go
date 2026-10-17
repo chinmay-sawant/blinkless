@@ -1005,7 +1005,7 @@ func (e *engine) pushZ(style ResolvedStyle, owner *ResolvedStyle) blendScope {
 		beginMark:      -1,
 	}
 	createsGroupContext := style.MixBlendMode != blendNormal || style.Isolation == "isolate" ||
-		maskImageEnabled(style.MaskImage)
+		maskGroupRequested(style)
 
 	if style.Position == positionAbsolute || style.Position == positionFixed {
 		e.positioned = true
@@ -1047,14 +1047,14 @@ func (e *engine) enterBlendIsolation(style ResolvedStyle, owner *ResolvedStyle) 
 	// already normalized MixBlendMode, so only "normal"/empty skip.
 	mode := nonNormalBlendMode(style.MixBlendMode)
 
-	hasMask := maskImageEnabled(style.MaskImage)
+	hasMask := maskGroupRequested(style)
 	if mode == "" && style.Isolation != "isolate" && !hasMask {
 		return
 	}
 
 	e.nextGroupID++
 
-	e.blendGroup = &BlendGroup{
+	e.blendGroup = &BlendGroup{ //nolint:exhaustruct // mask frames are attached below
 		ID:      e.nextGroupID,
 		Mode:    mode,
 		Isolate: true,
@@ -1062,7 +1062,7 @@ func (e *engine) enterBlendIsolation(style ResolvedStyle, owner *ResolvedStyle) 
 		Mask:    nil,
 	}
 	if hasMask {
-		e.blendGroup.Mask = e.maskDescriptor(style)
+		e.attachMaskDescriptors(e.blendGroup, style)
 	}
 
 	e.blendGroupOwner = owner

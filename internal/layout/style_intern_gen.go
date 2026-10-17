@@ -343,6 +343,12 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.MaskOrigin == b.MaskOrigin &&
 		a.MaskClip == b.MaskClip &&
 		a.MaskType == b.MaskType &&
+		a.MaskBorderSource == b.MaskBorderSource &&
+		a.MaskBorderSlice == b.MaskBorderSlice &&
+		a.MaskBorderWidth == b.MaskBorderWidth &&
+		a.MaskBorderOutset == b.MaskBorderOutset &&
+		a.MaskBorderRepeat == b.MaskBorderRepeat &&
+		a.MaskBorderMode == b.MaskBorderMode &&
 		a.ClipPath == b.ClipPath &&
 		a.ClipRule == b.ClipRule &&
 		a.BorderImageSource == b.BorderImageSource &&
@@ -744,6 +750,12 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashString(h, s.MaskOrigin)
 	h = styleInternHashString(h, s.MaskClip)
 	h = styleInternHashString(h, s.MaskType)
+	h = styleInternHashString(h, s.MaskBorderSource)
+	h = styleInternHashString(h, s.MaskBorderSlice)
+	h = styleInternHashString(h, s.MaskBorderWidth)
+	h = styleInternHashString(h, s.MaskBorderOutset)
+	h = styleInternHashString(h, s.MaskBorderRepeat)
+	h = styleInternHashString(h, s.MaskBorderMode)
 	h = styleInternHashString(h, s.ClipPath)
 	h = styleInternHashString(h, s.ClipRule)
 	h = styleInternHashString(h, s.BorderImageSource)
@@ -1139,6 +1151,12 @@ func styleInternFields() []string {
 		"MaskOrigin",
 		"MaskClip",
 		"MaskType",
+		"MaskBorderSource",
+		"MaskBorderSlice",
+		"MaskBorderWidth",
+		"MaskBorderOutset",
+		"MaskBorderRepeat",
+		"MaskBorderMode",
 		"ClipPath",
 		"ClipRule",
 		"BorderImageSource",

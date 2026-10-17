@@ -1314,14 +1314,14 @@ func (e *engine) pushInlineBlend(style *ResolvedStyle) inlineBlendScope {
 
 	mode := nonNormalBlendMode(style.MixBlendMode)
 
-	hasMask := maskImageEnabled(style.MaskImage)
+	hasMask := maskGroupRequested(*style)
 	if mode == "" && style.Isolation != "isolate" && !hasMask {
 		return scope
 	}
 
 	e.nextGroupID++
 
-	e.blendGroup = &BlendGroup{
+	e.blendGroup = &BlendGroup{ //nolint:exhaustruct // mask frames are attached below
 		ID:      e.nextGroupID,
 		Mode:    mode,
 		Isolate: true,
@@ -1329,7 +1329,7 @@ func (e *engine) pushInlineBlend(style *ResolvedStyle) inlineBlendScope {
 		Mask:    nil,
 	}
 	if hasMask {
-		e.blendGroup.Mask = e.maskDescriptor(*style)
+		e.attachMaskDescriptors(e.blendGroup, *style)
 	}
 
 	e.blendGroupOwner = style
