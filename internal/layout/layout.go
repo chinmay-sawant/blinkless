@@ -1438,6 +1438,11 @@ type box struct {
 	// rows[i] holds the cell boxes of table row i, in document order. The
 	// row's op range is from rows[i][0].opStart to rows[i][len-1].opEnd.
 	rows [][]*box
+	// rowTops[i] and rowHeights[i] are row i's canvas top and border-box
+	// height after rowspan growth. PageBreaks exports each row as a
+	// keep-together range so a row never straddles a page boundary.
+	rowTops    []float64
+	rowHeights []float64
 	// headerRows is the number of leading rows that came from <thead> /
 	// table-header-group (for repeating headers across pages).
 	headerRows int

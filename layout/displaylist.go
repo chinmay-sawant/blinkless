@@ -176,9 +176,12 @@ type Display struct {
 	// to its own page grid and ignores any at or past the content end.
 	ForcedBreaks []float64
 
-	// KeepTogether holds canvas-point [start, end] ranges from
-	// break-inside avoid. A paginator keeps a range on one page when the
-	// range fits that page and lets taller ranges split.
+	// KeepTogether holds canvas-point [start, end] ranges that must not
+	// straddle a page boundary: break-inside avoid boxes, every table row,
+	// a heading and the content that follows it, and single-line blocks
+	// whose line cannot fit the page it starts on, so a line moves with its
+	// padding, border, and background. A paginator keeps a range on one page
+	// when the range fits that page and lets taller ranges split.
 	KeepTogether [][2]float64
 }
 
@@ -248,7 +251,7 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 		canvasPt = minPt
 	}
 
-	forced, keep := ilayout.PageBreaks(res)
+	forced, keep := ilayout.PageBreaks(res, heightPt)
 
 	return &Display{
 		Ops:            res.Ops,

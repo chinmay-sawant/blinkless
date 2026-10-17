@@ -94,6 +94,7 @@ func (e *engine) layoutTableGrid(
 	}
 
 	tableBox.rows = cellData
+	tableBox.rowTops, tableBox.rowHeights = rowTops, rowHeights
 	tableHeight := e.borderBoxBottom(style, curY)
 	tableBox.height = tableY + tableHeight - tableBox.y
 
