@@ -77,19 +77,15 @@ func TestBehaviorListStyleShorthandImageEmitsImageMarker(t *testing.T) {
 	}
 }
 
-// TestBehaviorShapeInsideNoLayoutEffect documents the current behavior of
-// shape-inside: the declaration is dropped (applyShapeProps in
-// style_shape_props.go has no shape-inside arm and ResolvedStyle carries no
-// ShapeInside field), so the styled document paints identical geometry to
-// the unstyled one. GAP: a shape-inside implementation needs interior
-// exclusion layout, narrowing the container's own line boxes to the shape
-// contour per line. The float-wrapping exclusion integration exists for the
-// mirror feature (floatState.exclusion in float.go consults the
-// shape-outside contour from shape_exclusion.go via lineBounds in
-// inline.go:576), but there is no hook that narrows a block's own content
-// boxes, which would touch inline.go (line-box layout), style.go (new
-// stored field), and style_intern_gen.go (interning). Unobservable in the
-// drawing list: reported as a no-op, never failing. Reference: Chrome
+// TestBehaviorShapeInsideNoLayoutEffect pins the no-op cases on an
+// auto-height box: shape-inside:auto (the initial value, full content
+// width), rejected tokens (polygon(), path(), url(), and display: storage
+// stays at auto, the same rule shape-outside follows), and circle().
+// shape_inside.go builds an inside contour only from a definite content box
+// height; during line layout an auto-height box has no final height yet, so
+// the contour is nil and the lines keep the full content width. A
+// definite-height box does narrow (see
+// TestBehaviorShapeInsideCircleTapersLines). Reference: Chrome
 // 143.0.7499.40 also ignores shape-inside (unsupported, no BCD support).
 func TestBehaviorShapeInsideNoLayoutEffect(t *testing.T) {
 	t.Parallel()
@@ -101,7 +97,15 @@ func TestBehaviorShapeInsideNoLayoutEffect(t *testing.T) {
 	}
 
 	plain := doc("")
-	shaped := doc("shape-inside:circle();")
 
-	behaviorTextRemAssertSameOps(t, plain, shaped)
+	for _, extra := range []string{
+		"shape-inside:auto;",
+		"shape-inside:circle();",
+		"shape-inside:polygon(0 0, 10 0, 10 10);",
+		"shape-inside:path('M 0 0 L 10 10 Z');",
+		"shape-inside:url(pic.png);",
+		"shape-inside:display;",
+	} {
+		behaviorTextRemAssertSameOps(t, plain, doc(extra))
+	}
 }

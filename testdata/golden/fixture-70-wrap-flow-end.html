@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<!--
+  fixture-70-wrap-flow-end
+  Proves: wrap-flow: end on a sized box makes the following paragraph flow
+  beside the box's end edge (LTR: lines start after the box's right edge) and
+  leaves the start side empty. The box itself stays put.
+  Expected: the first line's X is at or after the exclusion's right edge.
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>wrap-flow end</title>
+  <style>
+    body { font-family: monospace; font-size: 10pt; margin: 0; width: 200pt; color: #222; }
+    #exc { wrap-flow: end; width: 60pt; height: 30pt; background: #ddd; }
+    p { margin: 0; }
+  </style>
+</head>
+<body>
+  <div id="exc"></div>
+  <p id="p">alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima</p>
+</body>
+</html>

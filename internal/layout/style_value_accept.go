@@ -145,6 +145,10 @@ func declarationValueAccepted(prop, value string) bool {
 		return accepted
 	}
 
+	if accepted, isRegionProperty := declarationRegionsValueAccepted(prop, value); isRegionProperty {
+		return accepted
+	}
+
 	if accepted, handled := declarationFlowValueAccepted(prop, value); handled {
 		return accepted
 	}
@@ -285,6 +289,10 @@ func maskDeclarationValueAccepted(prop, value string) (bool, bool) {
 		return accepted, true
 	}
 
+	if accepted, handled := maskBorderDeclarationAccepted(prop, value); handled {
+		return accepted, true
+	}
+
 	return maskBoxDeclarationAccepted(prop, value)
 }
 
@@ -320,6 +328,30 @@ func maskBoxDeclarationAccepted(prop, value string) (bool, bool) {
 	default:
 		return false, false
 	}
+}
+
+// declarationRegionsValueAccepted models the named-flow, exclusion, masonry
+// tolerance, and text-wrap-break value grammars. The appliers drop an invalid
+// value, but the gate must reject it here too so a bogus declaration neither
+// wins the cascade over an earlier valid one nor satisfies @supports.
+func declarationRegionsValueAccepted(prop, value string) (bool, bool) {
+	if accepted, handled := namedFlowDeclarationValueAccepted(prop, value); handled {
+		return accepted, true
+	}
+
+	if accepted, handled := flowToleranceDeclarationValueAccepted(prop, value); handled {
+		return accepted, true
+	}
+
+	if accepted, handled := exclusionDeclarationValueAccepted(prop, value); handled {
+		return accepted, true
+	}
+
+	if accepted, handled := wrapBreakDeclarationValueAccepted(prop, value); handled {
+		return accepted, true
+	}
+
+	return false, false
 }
 
 // displayValueAccepted is setDisplayKeyword's keyword set, shared so the

@@ -33,6 +33,10 @@ type BlendGroup struct {
 	// Mask describes the CSS mask applied after the group's operations have
 	// been painted. Nil means the group exists for blending or isolation only.
 	Mask *MaskDescriptor
+	// MaskBorder describes the CSS mask-border frame recorded for this group.
+	// Nil means no mask-border. The engine records the frame; the host
+	// applies it, and the engine emits no border-image cells for it.
+	MaskBorder *MaskBorder
 }
 
 // MaskDescriptor carries both the resolved mask raster for painters and the

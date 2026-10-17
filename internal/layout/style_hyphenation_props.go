@@ -8,6 +8,11 @@ import (
 // applyHyphenationProps owns hanging-punctuation and hyphenate-limit-*.
 // Existing hyphens / hyphenate-character stay in applyTextPropsWave3; this
 // group only adds the limit longhands and hanging punctuation.
+//
+// hangingPunctuationFirst is the shared keyword value the store and the
+// inline consumer match, so goconst sees one declaration per family.
+const hangingPunctuationFirst = "first"
+
 func applyHyphenationProps(
 	style *ResolvedStyle, prop, value string, fsize float64, ctx *styleContext,
 	_ *ResolvedStyle, _ bool,
@@ -46,7 +51,7 @@ func isHangingPunctuationValue(val string) bool {
 
 	for _, tok := range strings.Fields(val) {
 		switch tok {
-		case "first", "last", "allow-end", "force-end":
+		case hangingPunctuationFirst, "last", "allow-end", "force-end":
 			continue
 		default:
 			return false

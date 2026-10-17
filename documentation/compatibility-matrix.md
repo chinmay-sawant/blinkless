@@ -3,7 +3,7 @@
 > **Parent:** [plans/v0.0.1/phase-wise-checklist.md](../plans/v0.0.1/phase-wise-checklist.md) and [plans/v0.0.1/html-css-json-compatibility-checklist.md](../plans/v0.0.1/html-css-json-compatibility-checklist.md)  
 > **Status:** living contract - amendments go through plan review  
 > **Target:** authored HTML and CSS to a `layout.DisplayList` (the drawing list). **Not** a browser. **Not** a PDF writer. **Not** a page rasterizer.  
-> **Catalog:** `testdata/css/catalog/properties.json` (schema v1), measured 2026-10-10: 785 rows - 389 Implemented / 1 Partial / 387 Unsupported / 8 intentionally ignored. Upstream pin: webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties). Fidelity guide: [fidelity.md](fidelity.md).
+> **Catalog:** `testdata/css/catalog/properties.json` (schema v1), measured 2026-10-17: 785 rows - 499 Implemented / 16 Partial / 262 Unsupported / 8 intentionally ignored. Upstream pin: webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties). Fidelity guide: [fidelity.md](fidelity.md).
 > **Limitations:** Implemented means a handler, a consumer outside the style layer, and a resolvable behavior test. Browser rendering parity, HTML parser conformance, and this property catalog are separate claims with separate evidence. Section 1 is a rendering allowlist for HTML tags, not a parser conformance claim.
 
 This document is the contract for the layout engine. Its output is a drawing
@@ -41,7 +41,7 @@ as its inline text (per the note column).
 
 ## 2. Supported CSS properties
 
-The catalog in `testdata/css/catalog/properties.json` (schema v1) is the authoritative property record. Measured 2026-10-17: 785 rows - 488 implemented, 3 partial, 286 unsupported, 8 intentionally ignored. The pinned upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties: 671 draft, 70 vendor, 52 svg, 28 browser-ui). Regenerate the tables below with `python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails on drift between the catalog and the code.
+The catalog in `testdata/css/catalog/properties.json` (schema v1) is the authoritative property record. Measured 2026-10-17: 785 rows - 499 implemented, 16 partial, 262 unsupported, 8 intentionally ignored. The pinned upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties: 671 draft, 70 vendor, 52 svg, 28 browser-ui). Regenerate the tables below with `python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails on drift between the catalog and the code.
 
 Statuses describe the layout pipeline, not browsers:
 
@@ -52,7 +52,7 @@ Statuses describe the layout pipeline, not browsers:
 
 An implemented status is not a browser-parity or parser-conformance claim. Rendering comparisons and HTML parsing carry separate evidence in `plans/v0.0.1/html-css-json-compatibility-checklist.md`.
 
-### 2.1 Implemented (488)
+### 2.1 Implemented (499)
 
 | Property | Accepted values | Source | Behavior tests |
 |---|---|---|---|
@@ -273,6 +273,9 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `float` | left \| right \| none \| inherit | `internal/layout/style_properties.go` | `TestFloatInsideTableCell`, `TestFloatLeftRightClear`, `TestTableClearsFloat`, `TestBehaviorFloatLeftSharesBandWithSibling` |
 | `float-offset` | <length-percentage> | `internal/layout/style_float_page_props.go` | `TestBehaviorFloatOffsetNudgesFloat` |
 | `float-reference` | inline \| column \| region \| page | `internal/layout/style_float_page_props.go` | `TestBehaviorFloatReferencePinsToPage` |
+| `flow-from` | none \| <custom-ident> | `internal/layout/named_flow.go`, `internal/layout/layout_flow.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go` | `TestBehaviorNamedFlowMovesTextIntoSecondBox`, `TestBehaviorNamedFlowContinuesInNextRegion`, `TestBehaviorNamedFlowNoRegionDropsSourceContent`, `TestBehaviorNamedFlowPropertyStorage` |
+| `flow-into` | none \| <custom-ident> [element \| content]? | `internal/layout/named_flow.go`, `internal/layout/layout_flow.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go` | `TestBehaviorNamedFlowPropertyStorage`, `TestBehaviorNamedFlowMovesTextIntoSecondBox`, `TestBehaviorNamedFlowElementMovesWholeSourceBox`, `TestBehaviorNamedFlowContinuesInNextRegion` |
+| `flow-tolerance` | normal \| <length [0,∞]> \| infinite | `internal/layout/masonry_tolerance.go`, `internal/layout/grid_masonry.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go` | `TestBehaviorFlowToleranceChangesMasonryColumn`, `TestBehaviorFlowToleranceNonMasonryGridIgnored`, `TestBehaviorNamedFlowPropertyStorage` |
 | `font` | [ [ <'font-style'> \|\| <'font-variant'> \|\| <'font-weight'> ]? <'font-size'> [ / <'line-height'> ]? <'font-family'> ] \| caption \| icon \| menu \| message-box \| small-caption \| status-bar \| inherit | `internal/layout/style.go`, `internal/layout/style_cascade.go` | `TestFontShorthand`, `TestFontLonghandAfterShorthandWins` |
 | `font-family` | [ [ <family-name> \| <generic-family> ] [, <family-name> \| <generic-family>]* ] \| inherit | `internal/layout/style_cascade.go` | `TestBehaviorFontFamilyFallbackSelectsFace` |
 | `font-feature-settings` | normal \| <feature-tag-value># | `internal/layout/style_font_feature_props.go` | `TestApplyFontVariantPropsIgnoresOtherFontProps`, `TestFontPropsWave4`, `TestBehaviorFontFeatureSettingsSmallCapsTag` |
@@ -434,6 +437,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `position-visibility` | always \| anchor-valid \| anchor-visible \| no-overflow | `internal/layout/anchor_position.go`, `internal/layout/style_cascade.go` | `TestBehaviorPositionVisibilityNoOverflow` |
 | `print-color-adjust` | economy \| exact | `internal/layout/style_color_adjust_props.go` | `TestColorAdjustPropsAcceptLegalKeywords`, `TestColorAdjustPropsReachRestPass`, `TestColorAdjustPropsRejectIllegalKeywords` |
 | `quotes` | [<string> <string>]+ \| none \| inherit | `internal/layout/style_paint_props.go` | `TestQuotes`, `TestBehaviorQuotesEmitGeneratedMarks` |
+| `region-fragment` | auto \| break | `internal/layout/named_flow.go`, `internal/layout/layout_flow.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go` | `TestBehaviorNamedFlowRegionFragmentAutoVsBreak`, `TestBehaviorNamedFlowPropertyStorage` |
 | `right` | <length> \| <percentage> \| auto \| inherit | `internal/layout/style_properties.go` | `TestAuthorOverridesButtonUADefaults`, `TestBackgroundPositionUsesCSSPxIntrinsicSize`, `TestCaptionSideParse`, `TestTableCellClipsTransformedContent`, `TestBehaviorRightShiftsRelativeBox` |
 | `rotate` | none \| <angle> \| [ x \| y \| z \| <number>{3} ] && <angle> | `internal/layout/style_leftovers.go`, `internal/layout/style_properties.go` | `TestBehaviorRotatePropertyBakesMatrix` |
 | `row-gap` | normal \| <length-percentage [0,∞]> \| <line-width> | `internal/layout/style_gap_props.go`, `internal/layout/style_properties.go` | `TestGridRowGapVsColumnGap`, `TestBehaviorRowGapGridUsedSpacing` |
@@ -474,8 +478,10 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `scroll-margin-left` | <length> | `internal/layout/style_paint_props.go` | `TestBehaviorScrollMarginLeftNoPaintEffect` |
 | `scroll-margin-right` | <length> | `internal/layout/style_paint_props.go` | `TestBehaviorScrollMarginRightNoPaintEffect` |
 | `scroll-margin-top` | <length> | `internal/layout/style_paint_props.go` | `TestBehaviorScrollMarginTopNoPaintEffect` |
+| `shape-inside` | auto \| outside-shape \| [ <basic-shape> \|\| <shape-box> ] (circle(), ellipse(), inset(); polygon(), path(), and url() are rejected) | `internal/layout/style_shape_inside.go`, `internal/layout/shape_inside.go`, `internal/layout/style_cascade.go` | `TestBehaviorShapeInsideCircleTapersLines`, `TestBehaviorShapeInsideShapeBoxMovesReference`, `TestBehaviorShapeInsideOutsideShapeCopiesOutside`, `TestBehaviorShapeInsideStacksWithFloatExclusion`, `TestBehaviorShapeInsideDoesNotInherit`, `TestBehaviorShapeInsideNoLayoutEffect` |
 | `shape-margin` | <length-percentage [0,∞]> | `internal/layout/style_shape_props.go` | `TestBehaviorShapeMarginExpandsExclusion` |
 | `shape-outside` | none \| [ <basic-shape> \|\| <shape-box> ] \| <image> | `internal/layout/style_shape_props.go` | `TestBehaviorShapeOutsideNarrowsWrap` |
+| `shape-padding` | <length-percentage [0,∞]> | `internal/layout/style_shape_inside.go`, `internal/layout/shape_inside.go`, `internal/layout/style_cascade.go` | `TestBehaviorShapeInsidePaddingShrinksMiddleLine`, `TestBehaviorShapeInsidePaddingAloneNoEffect`, `TestBehaviorShapeInsideOversizePaddingKeepsZeroWidthLines` |
 | `shape-rendering` | auto \| optimizeSpeed \| crispEdges \| geometricPrecision | `internal/layout/style_paint_props.go` | `TestBehaviorShapeRenderingNoPaintEffect`, `TestBehaviorSvgBakeShapeRenderingGap`, `TestPaintOutputShapeRenderingCrispSnapsRaster` |
 | `stroke` | <paint> | `internal/layout/style_paint_props.go` | `TestBehaviorStrokeBakesPaint` |
 | `stroke-dasharray` | none \| <dasharray> | `internal/layout/style_leftovers.go`, `internal/layout/style_paint_props.go` | `TestLeftoversPropsWave5`, `TestBehaviorSvgBakeDasharrayDashesStroke` |
@@ -542,18 +548,36 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `width` | <length> \| <percentage> \| auto \| inherit | `internal/layout/style_properties.go` | `TestApplyImageKeyBackgroundAlias`, `TestBoxSizingBorderBox`, `TestCascadeEngineSupportsPropertyValues`, `TestImageSet`, `TestOutlineParse`, `TestPseudoElementSelectorDoesNotApplyToHost`, `TestBehaviorWidthContentBoxUsedSize` |
 | `word-break` | normal \| break-all \| keep-all \| manual \| auto-phrase \| break-word | `internal/layout/style_properties.go` | `TestBehaviorWordBreakKeepAllKeepsToken` |
 | `word-spacing` | normal \| <length> \| inherit | `internal/layout/style_properties.go` | `TestWordSpacingInherits`, `TestWordSpacingWidensRuns`, `TestBehaviorWordSpacingWidensText` |
+| `wrap-after` | auto \| line \| avoid \| avoid-line \| flex \| avoid-flex | `internal/layout/wrap_break.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go` | `TestBehaviorWrapBeforeLineBreaks`, `TestBehaviorNamedFlowPropertyStorage` |
+| `wrap-before` | auto \| line \| avoid \| avoid-line \| flex \| avoid-flex | `internal/layout/wrap_break.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go` | `TestBehaviorWrapBeforeLineBreaks`, `TestBehaviorWrapAvoidSkipsSoftWrap`, `TestBehaviorWrapBeforeFlexBreaksLine`, `TestBehaviorWrapBreakNotPageBreak`, `TestBehaviorNamedFlowPropertyStorage` |
+| `wrap-flow` | auto \| both \| start \| end \| minimum \| maximum \| clear | `internal/layout/exclusion.go`, `internal/layout/float.go`, `internal/layout/layout_flow.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go` | `TestBehaviorWrapFlowBothShortensLine`, `TestBehaviorWrapFlowKeywords`, `TestBehaviorNamedFlowPropertyStorage` |
+| `wrap-inside` | auto \| avoid \| avoid-line | `internal/layout/wrap_break.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go` | `TestBehaviorWrapInsideAvoidFitsAndOverflows`, `TestBehaviorNamedFlowPropertyStorage` |
+| `wrap-through` | wrap \| none | `internal/layout/exclusion.go`, `internal/layout/float.go`, `internal/layout/layout_flow.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go` | `TestBehaviorWrapThroughNoneIgnoresExclusion`, `TestBehaviorNamedFlowPropertyStorage` |
 | `writing-mode` | horizontal-tb \| vertical-rl \| vertical-lr \| sideways-rl \| sideways-lr | `internal/layout/style_properties.go` | `TestWritingModeInherits`, `TestBehaviorWritingModeVerticalRotatesRun` |
 | `z-index` | auto \| <integer> \| inherit | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestBehaviorZIndexOrdersOverlappingPaint` |
 
-### 2.2 Partial (3)
+### 2.2 Partial (16)
 
 | Property | Accepted values | Source | Named missing behavior |
 |---|---|---|---|
+| `-webkit-mask-box-image` | alias of mask-border | `internal/layout/mask_border.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go`, `internal/layout/inline.go` | Partial: the alias normalizes onto mask-border. The descriptor rides the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Gradient sources are rejected until the mask-source ledger accepts them; percentage width and outset values are rejected because the descriptor is written before the element box exists. |
+| `-webkit-mask-box-image-outset` | alias of mask-border-outset | `internal/layout/mask_border.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go`, `internal/layout/inline.go` | Partial: the alias normalizes onto mask-border-outset. The resolved outward offsets ride the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Percentage outsets are rejected because the descriptor is written before the element box exists. |
+| `-webkit-mask-box-image-repeat` | alias of mask-border-repeat | `internal/layout/mask_border.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go`, `internal/layout/inline.go` | Partial: the alias normalizes onto mask-border-repeat. The used repeat pair rides the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. |
+| `-webkit-mask-box-image-slice` | alias of mask-border-slice | `internal/layout/mask_border.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go`, `internal/layout/inline.go` | Partial: the alias normalizes onto mask-border-slice. The resolved source-pixel insets ride the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. |
+| `-webkit-mask-box-image-source` | alias of mask-border-source | `internal/layout/mask_border.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go`, `internal/layout/inline.go` | Partial: the alias normalizes onto mask-border-source. The source and its encoded bytes ride the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Gradient sources are rejected until the mask-source ledger accepts them. |
+| `-webkit-mask-box-image-width` | alias of mask-border-width | `internal/layout/mask_border.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go`, `internal/layout/inline.go` | Partial: the alias normalizes onto mask-border-width. The resolved frame thickness rides the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Percentage widths are rejected because the descriptor is written before the element box exists. |
 | `-webkit-mask-composite` | source-over \| source-out \| source-in \| xor | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go` | The engine accepts source-over, source-in, source-out, and xor only; Chrome 155 also accepts source-atop, destination-over, destination-in, destination-out, destination-atop, clear, and copy. Mask pixel replay stays a host contract. |
 | `break-inside` | auto \| avoid \| avoid-page \| avoid-column \| avoid-region | `internal/layout/style_properties.go` | break-inside keywords parse but no layout or paint pass reads them; the engine returns a drawing list without paginating, so avoidance has no observable effect (TestBehaviorBreakInsideAvoidColumnNoPageEffect). break-inside:avoid parses but multicol advances whole items without a straddle test at the distribution call, so avoidance equals auto (TestBreakInsideAvoidBalancedStraddleGap). |
+| `mask-border` | <'mask-border-source'> \|\| <'mask-border-slice'> [ / <'mask-border-width'>? [ / <'mask-border-outset'> ]? ]? \|\| <'mask-border-repeat'> \|\| <'mask-border-mode'> | `internal/layout/mask_border.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go`, `internal/layout/inline.go` | Partial: the shorthand expands into the six longhands and the descriptor rides the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Gradient sources are rejected until the mask-source ledger accepts them; percentage width and outset values are rejected because the descriptor is written before the element box exists. |
+| `mask-border-mode` | alpha \| luminance | `internal/layout/mask_border.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go`, `internal/layout/inline.go` | Partial: the stored mode rides the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels (only the SVG mask preprocessing bakes a mode). |
+| `mask-border-outset` | <length [0,∞]> \| <number [0,∞]>, one to four values | `internal/layout/mask_border.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go`, `internal/layout/inline.go` | Partial: the resolved outward offsets ride the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Percentage outsets are rejected because the descriptor is written before the element box exists. |
+| `mask-border-repeat` | stretch \| repeat \| round \| space, one or two values | `internal/layout/mask_border.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go`, `internal/layout/inline.go` | Partial: the used repeat pair rides the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. |
+| `mask-border-slice` | one to four non-negative <number> or <percentage> values, plus the optional fill keyword | `internal/layout/mask_border.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go`, `internal/layout/inline.go` | Partial: the resolved source-pixel insets ride the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. |
+| `mask-border-source` | none \| url(...) \| image-set(...) whose chosen candidate is url(...) | `internal/layout/mask_border.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go`, `internal/layout/inline.go` | Partial: the source and its encoded bytes ride the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Gradient sources are rejected until the mask-source ledger accepts them. |
+| `mask-border-width` | auto \| <length [0,∞]> \| <number [0,∞]>, one to four values | `internal/layout/mask_border.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go`, `internal/layout/inline.go` | Partial: the resolved frame thickness rides the element's blend group (MaskBorder) for the host to apply; this repository does not replay the mask pixels. Percentage widths are rejected because the descriptor is written before the element box exists. |
 | `mask-type` | luminance \| alpha | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go`, `internal/svg/mask.go` | mask-type cascades into ResolvedStyle.MaskType but no consumer reads it; the SVG rasterizer uses only the mask-type on the SVG source element. Pixel replay stays a host contract. |
 
-### 2.3 Unsupported (286)
+### 2.3 Unsupported (262)
 
 | Property | Named missing behavior |
 |---|---|
@@ -570,12 +594,6 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `-webkit-background-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `-webkit-background-origin` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `-webkit-background-size` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `-webkit-mask-box-image` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `-webkit-mask-box-image-outset` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `-webkit-mask-box-image-repeat` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `-webkit-mask-box-image-slice` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `-webkit-mask-box-image-source` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `-webkit-mask-box-image-width` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `-webkit-text-size-adjust` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `-webkit-text-stroke` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `-webkit-text-stroke-color` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -659,12 +677,9 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `fill-repeat` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `fill-size` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `flex-line-count` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `float-defer` | No page-float defer model. |
+| `float-defer` | No page-float model exists in this engine. Decision recorded in the shapes ledger: support only none (the initial behavior); integer and last stay unsupported. |
 | `flood-color` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `flood-opacity` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `flow-from` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `flow-into` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `flow-tolerance` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `footnote-display` | Standalone collection in footnote.go numbers and groups footnotes; no footnote area exists yet so values move no box. |
 | `footnote-policy` | Standalone grouping in footnote.go (GroupFootnotesByPolicy); no page splitter exists yet so no forced break is emitted. |
 | `frame-sizing` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -691,13 +706,6 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `marker-mid` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `marker-side` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `marker-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `mask-border` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `mask-border-mode` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `mask-border-outset` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `mask-border-repeat` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `mask-border-slice` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `mask-border-source` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `mask-border-width` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `math-depth` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `math-shift` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `math-style` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -732,7 +740,6 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `r` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `reading-flow` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `reading-order` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `region-fragment` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `rest` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `rest-after` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `rest-before` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -769,9 +776,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `scrollbar-color` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `scrollbar-gutter` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `scrollbar-width` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `shape-image-threshold` | No alpha-contour extraction from float images. |
-| `shape-inside` | CSS Shapes 2 interior fitting; Chrome has no BCD support. |
-| `shape-padding` | CSS Shapes 2 interior fitting; Chrome has no BCD support. |
+| `shape-image-threshold` | No image shape is parsed; shape-outside rejects url(), so no alpha contour can feed a threshold. Decision recorded in the shapes ledger: do not add url() shapes here. |
 | `size` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `slider-orientation` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `spatial-navigation-action` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -835,11 +840,6 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `will-change` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `window-drag` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `word-space-transform` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `wrap-after` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `wrap-before` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `wrap-flow` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `wrap-inside` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `wrap-through` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `x` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `y` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `zoom` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -925,8 +925,8 @@ Status legend: Implemented and Partial as in §2; Not implemented means the sele
 | `@font-face` (remote / WOFF2) | **Partial:** local **and `https://`** TTF/OTF/WOFF1 via `FetchSub` (same load ACL and network policy as other subresources). **`.woff2` / `.eot` / `data:`** skipped. Missing faces fall back to registry / Liberation |
 | Custom XSLT TOC (`--xsl-style-sheet`) | Not implemented (no XSLT in the standard library); this tree has no TOC pipeline |
 | SVG-as-`<img>` / SVG presentation | **Implemented** SVG-as-`<img>` and inline `<svg>` rasterization via `internal/svg`; 5 CSS properties (`fill`, `stroke`, `stroke-width`, `fill-opacity`, `stroke-opacity`) parsed in style; the remaining SVG presentation properties are unsupported (§2.3) |
-| Masking / clipping | **Implemented** `overflow-clip` for descendant box clipping (`overflow_clip.go`) and `clip-path` (§2.1). The 10 standard mask properties and 8 WebKit aliases are **Partial**: they attach mask layers to element groups in the drawing list; a consumer must replay the mask pixels (§2.2). |
-| CSS Regions & Exclusions | **Not implemented** (`flow-from`, `flow-into`, `flow-tolerance`, `region-fragment`, `wrap-after`, `wrap-before`, `wrap-flow`, `wrap-inside`, `wrap-through` are permanent non-goals for this engine) |
+| Masking / clipping | **Implemented** `overflow-clip` for descendant box clipping (`overflow_clip.go`) and `clip-path` (§2.1). The 18 first-wave mask-family rows are registered as element-group mask data: 16 are implemented, `mask-type` and `-webkit-mask-composite` are Partial, and the 13 `mask-border*` rows are Partial: the frame data rides the blend group and the host applies the pixels (§2.2). |
+| CSS Regions & Exclusions | **Implemented** as four one-canvas contracts: named flows (`flow-into`, `flow-from`, `region-fragment`), masonry tolerance (`flow-tolerance`), exclusions (`wrap-flow`, `wrap-through`), and line/flex wrap breaks (`wrap-before`, `wrap-after`, `wrap-inside`). The engine returns one display list; paged fragmentation stays a non-goal (§2.1). |
 | WebP, AVIF | Not implemented; broken-image placeholder or skip |
 | Fixed CSS headers/footers via `position: fixed` alone | `position: fixed` is marked viewport-fixed (`markOpsFixed`, `layout_chrome.go:12`) when not under a transformed ancestor; not a full running-element model. There are no header/footer flags in this tree |
 | Complex-script shaping (Indic, Arabic, CJK) | **Arabic OT** via `go-text/typesetting` when the face has GSUB (+ presentation-form `ShapeText` fallback); Hangul needs a Hangul face. `writing-mode` vertical keywords inherit and rotate glyphs (`RotateDeg == -90`); block/line layout stays horizontal. **Indic Partial** (OT when face/cmap allow; not production-claimed). Optional OT **`halt`/`palt`** for CJK punctuation via `ShapeTextFont` FontFeatures |
@@ -950,10 +950,10 @@ The following 87 properties across three categories were grouped as hard-deferre
 | Category | Count | Status | Description and scope |
 |----------|-------|--------|-----------------------|
 | SVG presentation & geometry (`B_svg_presentation`) | 53 | Not implemented | Remaining SVG presentation and geometry properties. SVG-as-`<img>` is implemented via `internal/svg` rasterizer; 5 CSS properties (`fill`, `stroke`, `stroke-width`, `fill-opacity`, `stroke-opacity`) are parsed in style; remaining 53 SVG presentation properties are unsupported (`alignment-baseline`, `baseline-shift`, `color-interpolation`, `cx`, `cy`, `d`, `dominant-baseline`, `fill-break`, `fill-color`, `fill-image`, `fill-origin`, `fill-position`, `fill-repeat`, `fill-rule`, `fill-size`, `glyph-orientation-vertical`, `image-rendering`, `marker`, `marker-end`, `marker-mid`, `marker-side`, `marker-start`, `paint-order`, `path-length`, `r`, `rx`, `ry`, `shape-rendering`, `stop-color`, `stop-opacity`, `stroke-align`, `stroke-alignment`, `stroke-break`, `stroke-color`, `stroke-dash-corner`, `stroke-dash-justify`, `stroke-dashadjust`, `stroke-dasharray`, `stroke-dashcorner`, `stroke-dashoffset`, `stroke-image`, `stroke-linecap`, `stroke-linejoin`, `stroke-miterlimit`, `stroke-origin`, `stroke-position`, `stroke-repeat`, `stroke-size`, `text-anchor`, `text-rendering`, `vector-effect`, `x`, `y`). |
-| Mask, clip, and filter effects (`B_mask_clip_filter_effects`) | 25 | Mixed | `clip-path` is implemented. The 10 standard mask properties are Partial: `mask`, `mask-clip`, `mask-composite`, `mask-image`, `mask-mode`, `mask-origin`, `mask-position`, `mask-repeat`, `mask-size`, and `mask-type`. They emit element-group mask data for a display-list consumer; this repository has no pixel replay backend. The 14 Unsupported names are `backdrop-filter`, `clip`, `clip-rule`, `color-interpolation-filters`, `flood-color`, `flood-opacity`, `lighting-color`, and the seven `mask-border*` properties. |
-| CSS Regions & Exclusions (`B_regions_exclusions`) | 9 | Not implemented | CSS Regions and Exclusions are permanent non-goals for this engine (`flow-from`, `flow-into`, `flow-tolerance`, `region-fragment`, `wrap-after`, `wrap-before`, `wrap-flow`, `wrap-inside`, `wrap-through`). |
+| Mask, clip, and filter effects (`B_mask_clip_filter_effects`) | 25 | Mixed | `clip-path` is implemented. The 10 standard mask properties are mostly implemented: `mask`, `mask-clip`, `mask-composite`, `mask-image`, `mask-mode`, `mask-origin`, `mask-position`, `mask-repeat`, and `mask-size`; `mask-type` stays Partial. They emit element-group mask data for a display-list consumer; this repository has no pixel replay backend. The 13 `mask-border*` properties are Partial: the descriptor rides the blend group and the host applies the pixels. The seven Unsupported names are `backdrop-filter`, `clip`, `clip-rule`, `color-interpolation-filters`, `flood-color`, `flood-opacity`, and `lighting-color`; the six `-webkit-mask-box-image*` aliases are Partial like their bases. |
+| CSS Regions & Exclusions (`B_regions_exclusions`) | 9 | Implemented | The four one-canvas contracts are implemented: named flows (`flow-from`, `flow-into`, `region-fragment`), masonry tolerance (`flow-tolerance`), exclusions (`wrap-after`, `wrap-before`, `wrap-flow`, `wrap-inside`), and `wrap-through`. Paged fragmentation stays a non-goal; the engine returns one display list. |
 
-Total: 87 names across three Phase 83 categories. Current statuses are in section 2; the mask category includes one Implemented property, 10 Partial properties, and 14 Unsupported properties.
+Total: 87 names across three Phase 83 categories. Current statuses are in section 2; in the wider mask family (31 catalog rows: the 18 first-wave mask rows plus the 13 mask-border rows), 16 are implemented and 15 are Partial (`mask-type`, `-webkit-mask-composite`, and the 13 mask-border rows). See section 2 for the authoritative per-row status.
 
 Catalog reconciliation: this phase-83 tally counts names with no print
 consumer as unsupported, but several are parsed and stored in the style layer
@@ -961,8 +961,11 @@ and therefore appear as Partial in the catalog with unverified behavior:
 `alignment-baseline`, `color-interpolation`, `dominant-baseline`, `fill-rule`,
 `shape-rendering`, `stroke-dasharray`, `stroke-dashoffset`, `stroke-linecap`,
 `stroke-linejoin`, `stroke-miterlimit`, and `text-anchor`. The 18 first-wave
-mask properties are Partial because the display list leaves pixel replay to
-its consumer. `clip-path` is Implemented. The
+mask properties are mostly implemented, with `mask-type` and
+`-webkit-mask-composite` Partial because the display list leaves pixel replay
+to its consumer; the 13 mask-border rows are Partial because the descriptor
+rides the blend group and the host applies the frame. `clip-path` is
+Implemented. The
 five SVG properties consumed by SVG-as-img (`fill`, `stroke`, `stroke-width`,
 `fill-opacity`, `stroke-opacity`) are Partial as well. The catalog in section 2
 is authoritative for status; this table remains the phase-83 family record.
@@ -1061,17 +1064,20 @@ aliases stay Unsupported
 | `-webkit-background-size` | `background-size` | remap not registered |
 
 **Group C - 6 mask-border aliases:** the eight selected `-webkit-mask*`
-aliases are registered and Partial. These six `-webkit-mask-box-image*`
-aliases still have no mask-border consumer.
+aliases are registered and mostly implemented (`mask-type` and
+`-webkit-mask-composite` stay Partial). These six `-webkit-mask-box-image*`
+aliases normalize onto the `mask-border*` bases, which are Partial: the
+descriptor rides the element's blend group (`MaskBorder`) for the host to
+apply.
 
-| Vendor alias | Blocking base | Reason |
-|--------------|---------------|--------|
-| `-webkit-mask-box-image` | `mask-border` | wait Phase 83 hard defer |
-| `-webkit-mask-box-image-source` | `mask-border-source` | wait Phase 83 hard defer |
-| `-webkit-mask-box-image-slice` | `mask-border-slice` | wait Phase 83 hard defer |
-| `-webkit-mask-box-image-width` | `mask-border-width` | wait Phase 83 hard defer |
-| `-webkit-mask-box-image-outset` | `mask-border-outset` | wait Phase 83 hard defer |
-| `-webkit-mask-box-image-repeat` | `mask-border-repeat` | wait Phase 83 hard defer |
+| Vendor alias | Base | Reason |
+|--------------|------|--------|
+| `-webkit-mask-box-image` | `mask-border` | Partial: descriptor on the blend group, host applies the frame |
+| `-webkit-mask-box-image-source` | `mask-border-source` | Partial: source bytes on the blend group, host applies the frame |
+| `-webkit-mask-box-image-slice` | `mask-border-slice` | Partial: slice insets on the blend group, host applies the frame |
+| `-webkit-mask-box-image-width` | `mask-border-width` | Partial: frame thickness on the blend group, host applies the frame |
+| `-webkit-mask-box-image-outset` | `mask-border-outset` | Partial: outward offsets on the blend group, host applies the frame |
+| `-webkit-mask-box-image-repeat` | `mask-border-repeat` | Partial: repeat pair on the blend group, host applies the frame |
 
 **Group D - 20 animation / transition / 3D / UI print-noop:** bases have no
 layout consumer and stay skipped. Aliases stay Unsupported (permanent

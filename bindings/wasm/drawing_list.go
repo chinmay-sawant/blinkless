@@ -236,6 +236,8 @@ type drawGroupJSON struct {
 	Isolate bool          `json:"isolate,omitempty"`
 	Parent  *int          `json:"parent,omitempty"`
 	Mask    *drawMaskJSON `json:"mask,omitempty"`
+	// MaskBorder is the group's mask-border frame, absent without one.
+	MaskBorder *drawMaskBorderJSON `json:"maskBorder,omitempty"`
 }
 
 // drawMaskJSON describes the mask composited over one element group.
@@ -255,6 +257,30 @@ type drawMaskLayerJSON struct {
 	Size         string `json:"size"`
 	Origin       string `json:"origin"`
 	Clip         string `json:"clip"`
+}
+
+// drawMaskBorderJSON describes the mask-border frame recorded for one element
+// group: the CSS image source, its image-table reference, the slice insets
+// and fill flag, the frame width and outset, the repeat pair, and the mode.
+// The host applies the frame; the engine emits no border-image cells for it.
+type drawMaskBorderJSON struct {
+	Source  string        `json:"source"`
+	ImageID string        `json:"image,omitempty"`
+	Slice   drawEdgesJSON `json:"slice"`
+	Fill    bool          `json:"fill,omitempty"`
+	Width   drawEdgesJSON `json:"width"`
+	Outset  drawEdgesJSON `json:"outset"`
+	Repeat  string        `json:"repeat"`
+	Mode    string        `json:"mode"`
+}
+
+// drawEdgesJSON is one four-sided value in top, right, bottom, left order.
+// Slice insets count source pixels; width and outset are in points.
+type drawEdgesJSON struct {
+	Top    float64 `json:"top"`
+	Right  float64 `json:"right"`
+	Bottom float64 `json:"bottom"`
+	Left   float64 `json:"left"`
 }
 
 // drawFontJSON is one font face referenced by text and bullet entries.
@@ -655,6 +681,11 @@ func (res *drawingResources) addImage(data []byte, pixelWidth, pixelHeight int) 
 	return id
 }
 
+// drawEdges converts one four-sided descriptor value to its JSON form.
+func drawEdges(edges [4]float64) drawEdgesJSON {
+	return drawEdgesJSON{Top: edges[0], Right: edges[1], Bottom: edges[2], Left: edges[3]}
+}
+
 // addGroup records a group and every ancestor, keyed by the native group ID.
 func (res *drawingResources) addGroup(group *layout.DisplayGroup) {
 	if group == nil {
@@ -688,6 +719,23 @@ func (res *drawingResources) addGroup(group *layout.DisplayGroup) {
 				encoded.ImageID = res.addImage(layer.ImageBytes, layer.PixelWidth, layer.PixelHeight)
 			}
 			entry.Mask.Layers[idx] = encoded
+		}
+	}
+
+	if group.MaskBorder != nil {
+		entry.MaskBorder = &drawMaskBorderJSON{
+			Source: group.MaskBorder.Source,
+			Slice:  drawEdges(group.MaskBorder.Slice),
+			Fill:   group.MaskBorder.SliceFill,
+			Width:  drawEdges(group.MaskBorder.Width),
+			Outset: drawEdges(group.MaskBorder.Outset),
+			Repeat: group.MaskBorder.Repeat,
+			Mode:   group.MaskBorder.Mode,
+		}
+		if len(group.MaskBorder.ImageBytes) > 0 {
+			entry.MaskBorder.ImageID = res.addImage(
+				group.MaskBorder.ImageBytes, group.MaskBorder.PixelWidth, group.MaskBorder.PixelHeight,
+			)
 		}
 	}
 

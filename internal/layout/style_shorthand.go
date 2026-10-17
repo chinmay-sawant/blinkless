@@ -17,6 +17,10 @@ func expandShorthandDeclaration(prop, value string) ([]logicalPropDecl, bool) {
 		return expanded, true
 	}
 
+	if expanded, ok := expandMaskBorderShorthandDeclaration(prop, value); ok {
+		return expanded, true
+	}
+
 	if expanded, ok := expandListStyleDeclaration(prop, value); ok {
 		return expanded, true
 	}
