@@ -536,7 +536,7 @@ func applyBoxGroup(
 
 func applyBoxSizingProps(style *ResolvedStyle, prop, value string, fsize float64, ctx *styleContext) bool {
 	switch prop {
-	case "width", "height":
+	case propWidth, "height":
 		return applyBoxMainSizeProps(style, prop, value, fsize, ctx)
 	case "min-width", "min-height":
 		return applyBoxMinExtentProps(style, prop, value, fsize, ctx)
@@ -566,7 +566,7 @@ func applyBoxSpacingProps(style *ResolvedStyle, prop, value string, fsize, viewp
 
 func applyBoxMainSizeProps(style *ResolvedStyle, prop, value string, fsize float64, ctx *styleContext) bool {
 	switch prop {
-	case "width":
+	case propWidth:
 		return setWidthValue(style, value, fsize, ctx)
 	case "height":
 		return setHeightValue(style, value, fsize, ctx)
@@ -1871,7 +1871,7 @@ func accumulateTranslateYPercent(style *ResolvedStyle, yPercent float64) {
 	style.TranslateYPercent += yPercent
 }
 
-// applyIgnoredGroup parses but ignores the animation/transition family.
+// applyIgnoredGroup is the final no-op for properties without a style owner.
 func applyIgnoredGroup(st *ResolvedStyle, prop, value string) {
 	_ = st
 	_ = prop

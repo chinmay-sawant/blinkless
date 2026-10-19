@@ -604,6 +604,10 @@ type ResolvedStyle struct {
 	// CustomProps holds resolved CSS custom properties (--*) for this element
 	// (inherited). Shared with the parent map when the element declares none.
 	CustomProps map[string]string
+	// Animation and Transition keep declared values until the public payload
+	// aligns their comma-separated lists.
+	Animation  animationStyle
+	Transition transitionStyle
 }
 
 const (

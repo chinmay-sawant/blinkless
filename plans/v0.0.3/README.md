@@ -1,6 +1,6 @@
 # v0.0.3 CSS coverage ledgers
 
-Planning only. No property behavior changed with these files. Each directory holds one phase checklist. Implementation rows are open. A `[x]` row is a baseline a reader checked in the current code on 2026-10-15. A `[~]` row is a deliberate non-goal with a reason and a next gate.
+Each directory holds one canonical phase checklist. Statuses track the current code and its validation evidence. A `[x]` row is complete only after its stated check passes. A `[~]` row records a deliberate non-goal with a reason and a next gate.
 
 The engine result is `layout.DisplayList`. It does not paint a page bitmap (`layout/displaylist.go:129-133`). These ledgers keep that boundary. Animation, transitions, scroll, speech, and masks store values for a host. They do not add a clock, a scrollport, a voice, or an in-repo pixel composite.
 
@@ -10,8 +10,8 @@ SVG presentation is one ledger. Each unsupported attribute has its own subsectio
 
 | Ledger | Names | What is already true | What the open rows add |
 |---|---:|---|---|
-| [Animation](animation/animation-checklist.md) | 32 | No handler. `@keyframes` is not read. | Keyframes and timing on the drawing list. No in-engine clock. |
-| [Transitions](transitions/transitions-checklist.md) | 11 | No handler. | Timing for property changes on the drawing list. No in-engine clock. |
+| [Animation](animation/animation-checklist.md) | 32 | Keyframes and accepted animation values are exposed as host-facing metadata. No in-engine clock. | Complete. See ledger for validation and runtime limits. |
+| [Transitions](transitions/transitions-checklist.md) | 11 | Accepted transition values are exposed as host-facing metadata. No in-engine clock. | Complete. See ledger for validation and runtime limits. |
 | [Scroll](scroll/scroll-checklist.md) | 48 | Five physical `scroll-margin` names are stored (`internal/layout/scroll.go:49`). | Snap, padding, overscroll, scrollbar, and timeline values on the box. No scrollport. |
 | [Speech](speech/speech-checklist.md) | 19 | No handler. | Aural values on the element. No synthesizer. |
 | [SVG presentation](svg-presentation/svg-presentation-checklist.md) | 61 | 18 names already change SVG raster or text. | 43 unsupported attributes, one subsection each. |

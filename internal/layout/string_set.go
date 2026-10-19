@@ -129,7 +129,7 @@ func ParseStringSet(raw string) ([]StringSetAssignment, bool) {
 	switch strings.ToLower(trimmed) {
 	case "none", cssKeywordInitial:
 		return nil, true
-	case inheritKeyword, cssKeywordUnset, "default", cssKeywordRevert, stringSetRevertLayer:
+	case inheritKeyword, cssKeywordUnset, flowKeywordDefault, cssKeywordRevert, stringSetRevertLayer:
 		return nil, false
 	}
 

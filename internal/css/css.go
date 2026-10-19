@@ -66,6 +66,7 @@ const (
 type Stylesheet struct {
 	Rules     []Rule
 	FontFaces []FontFace
+	Keyframes []KeyframesRule
 	Page      *PageStyle
 	// Pages holds every @page rule in source order, including :first/:left/:right
 	// and named pages. Page remains the last unnamed @page for older callers.
@@ -300,8 +301,7 @@ func parseNonConditionalAtRule(src string, str *Stylesheet) (string, error) {
 	case hasFoldPrefix(src, "@page"):
 		return parsePageRule(src, str)
 	case hasFoldPrefix(src, "@keyframes"), hasFoldPrefix(src, "@-webkit-keyframes"):
-		// Animations are parse-ignored (static cascaded values only).
-		return skipAtRule(src)
+		return parseKeyframesRule(src, str)
 	case hasFoldPrefix(src, "@font-face"):
 		return parseFontFaceRule(src, str)
 	case hasFoldPrefix(src, "@import"):

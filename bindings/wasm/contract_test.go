@@ -15,7 +15,10 @@ import (
 )
 
 // dotPNG is the same self-contained 1x1 data URL the WASM fixture uses.
-const dotPNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+const dotPNG = "data:image/png;base64," +
+	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+
+const testMaskMode = "luminance"
 
 // richSource exercises every paint kind plus resources, transforms, groups,
 // and z-order in one document.
@@ -47,7 +50,7 @@ const richSource = `<!DOCTYPE html>
 func convertSource(t *testing.T, source string, width, height int) (Result, drawingListJSON) {
 	t.Helper()
 
-	result, err := Convert(context.Background(), Request{HTML: source, Width: width, Height: height}, nil)
+	result, err := Convert(t.Context(), Request{HTML: source, Width: width, Height: height}, nil)
 	if err != nil {
 		t.Fatalf("Convert: %v", err)
 	}
@@ -63,7 +66,7 @@ func convertSource(t *testing.T, source string, width, height int) (Result, draw
 func nativeDisplay(t *testing.T, source string, width, height int) *layout.Display {
 	t.Helper()
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	tree, err := html.Parse([]byte(source))
 	if err != nil {
@@ -87,6 +90,11 @@ func TestConvertReturnsVersionedDrawingList(t *testing.T) {
 	t.Parallel()
 
 	result, list := convertSource(t, `<p>hello</p>`, 640, 480)
+	assertVersionedDrawingList(t, result, list)
+}
+
+func assertVersionedDrawingList(t *testing.T, result Result, list drawingListJSON) {
+	t.Helper()
 
 	if result.Mode != displayMode {
 		t.Fatalf("mode %q, want %q", result.Mode, displayMode)
@@ -127,6 +135,19 @@ func TestDrawingListAgreesWithNativeDisplay(t *testing.T) {
 
 	display := nativeDisplay(t, richSource, width, height)
 	result, list := convertSource(t, richSource, width, height)
+	assertDisplayDimensionsAndUnits(t, result, list, display)
+	assertDrawingOpsMatchNative(t, list, display)
+	assertDrawingBoxesMatchNative(t, list, display)
+	assertReferencesResolve(t, list)
+	assertOrderIsPermutation(t, list)
+
+	if len(list.Groups) == 0 || len(list.Images) == 0 {
+		t.Fatal("rich fixture must produce groups and image resources")
+	}
+}
+
+func assertDisplayDimensionsAndUnits(t *testing.T, result Result, list drawingListJSON, display *layout.Display) {
+	t.Helper()
 
 	if result.Width != display.Width || result.Height != display.Height {
 		t.Fatalf("canvas %dx%d, want %dx%d", list.Width, list.Height, display.Width, display.Height)
@@ -144,6 +165,10 @@ func TestDrawingListAgreesWithNativeDisplay(t *testing.T) {
 	if len(list.Order) != len(display.Order) {
 		t.Fatalf("order %d, want %d", len(list.Order), len(display.Order))
 	}
+}
+
+func assertDrawingOpsMatchNative(t *testing.T, list drawingListJSON, display *layout.Display) {
+	t.Helper()
 
 	for i := range display.Order {
 		if list.Order[i] != display.Order[i] {
@@ -154,6 +179,10 @@ func TestDrawingListAgreesWithNativeDisplay(t *testing.T) {
 	for i := range display.Ops {
 		assertOpMatchesNative(t, &list.Ops[i], &display.Ops[i])
 	}
+}
+
+func assertDrawingBoxesMatchNative(t *testing.T, list drawingListJSON, display *layout.Display) {
+	t.Helper()
 
 	if len(list.Boxes) != len(display.Boxes) {
 		t.Fatalf("boxes %d, want %d", len(list.Boxes), len(display.Boxes))
@@ -167,13 +196,6 @@ func TestDrawingListAgreesWithNativeDisplay(t *testing.T) {
 			got.X != box.X || got.Y != box.Y || got.W != box.W || got.H != box.H {
 			t.Fatalf("box[%d] = %+v, want %+v", i, *got, *box)
 		}
-	}
-
-	assertReferencesResolve(t, list)
-	assertOrderIsPermutation(t, list)
-
-	if len(list.Groups) == 0 || len(list.Images) == 0 {
-		t.Fatal("rich fixture must produce groups and image resources")
 	}
 }
 
@@ -189,7 +211,7 @@ func TestDrawingGroupSerializesMaskAndImageReference(t *testing.T) {
 			PixelWidth:   12,
 			PixelHeight:  8,
 			Preprocessed: true,
-			Mode:         "luminance",
+			Mode:         testMaskMode,
 			Composite:    "add",
 			Position:     "25% 50%",
 			Repeat:       "no-repeat",
@@ -202,34 +224,50 @@ func TestDrawingGroupSerializesMaskAndImageReference(t *testing.T) {
 	resources := newDrawingResources()
 	resources.addGroup(group)
 	entry := resources.groups[group.ID]
+	assertMaskLayerAndImage(t, entry, resources)
+	assertSerializedMask(t, entry)
+}
+
+func assertMaskLayerAndImage(t *testing.T, entry drawGroupJSON, resources *drawingResources) {
+	t.Helper()
+
 	if entry.Mask == nil || len(entry.Mask.Layers) != 1 {
 		t.Fatalf("group mask = %+v, want one mask layer", entry.Mask)
 	}
+
 	layer := entry.Mask.Layers[0]
-	if layer.Source != `url("mask.png")` || layer.Mode != "luminance" ||
+	if layer.Source != `url("mask.png")` || layer.Mode != testMaskMode ||
 		layer.Composite != "add" || layer.Position != "25% 50%" ||
 		layer.Repeat != "no-repeat" || layer.Size != "contain" ||
 		layer.Origin != "padding-box" || layer.Clip != "content-box" {
 		t.Fatalf("mask layer = %+v", layer)
 	}
+
 	if len(resources.images) != 1 || layer.ImageID != resources.images[0].ID ||
 		resources.images[0].PixelWidth != 12 || resources.images[0].PixelHeight != 8 {
 		t.Fatalf("mask image ref = %q, images = %+v", layer.ImageID, resources.images)
 	}
+
 	if !layer.Preprocessed {
 		t.Fatal("SVG mask payload should be marked as preprocessed")
 	}
+}
+
+func assertSerializedMask(t *testing.T, entry drawGroupJSON) {
+	t.Helper()
 
 	data, err := json.Marshal(entry)
 	if err != nil {
 		t.Fatalf("json.Marshal: %v", err)
 	}
+
 	var wire map[string]any
 	if err := json.Unmarshal(data, &wire); err != nil {
 		t.Fatalf("json.Unmarshal: %v", err)
 	}
-	mask, ok := wire["mask"].(map[string]any)
-	if !ok || mask["layers"] == nil {
+
+	mask, isMap := wire["mask"].(map[string]any)
+	if !isMap || mask["layers"] == nil {
 		t.Fatalf("serialized group has no mask layers: %s", data)
 	}
 }
@@ -253,71 +291,100 @@ func TestDrawingGroupSerializesMaskBorderAndImageReference(t *testing.T) {
 			Width:       [4]float64{7.5, 7.5, 7.5, 7.5},
 			Outset:      [4]float64{0, 0, 0, 0},
 			Repeat:      "repeat space",
-			Mode:        "luminance",
+			Mode:        testMaskMode,
 		},
 	}
 
 	resources := newDrawingResources()
 	resources.addGroup(group)
 	entry := resources.groups[group.ID]
+	assertMaskBorderModel(t, entry)
+	assertMaskBorderImage(t, entry, resources, borderPNG)
+	assertMaskBorderWire(t, entry)
+}
+
+func assertMaskBorderModel(t *testing.T, entry drawGroupJSON) {
+	t.Helper()
+
 	if entry.MaskBorder == nil {
 		t.Fatalf("group maskBorder = %+v, want one border frame", entry.MaskBorder)
 	}
 
 	border := entry.MaskBorder
 	if border.Source != `url("border.png")` || border.Repeat != "repeat space" ||
-		border.Mode != "luminance" || !border.Fill {
+		border.Mode != testMaskMode || !border.Fill {
 		t.Fatalf("mask border = %+v", border)
 	}
+
 	if border.Slice != (drawEdgesJSON{Top: 30, Right: 30, Bottom: 30, Left: 30}) {
 		t.Fatalf("mask border slice = %+v", border.Slice)
 	}
+
 	if border.Width != (drawEdgesJSON{Top: 7.5, Right: 7.5, Bottom: 7.5, Left: 7.5}) {
 		t.Fatalf("mask border width = %+v", border.Width)
 	}
+
 	if border.Outset != (drawEdgesJSON{}) {
 		t.Fatalf("mask border outset = %+v", border.Outset)
 	}
+}
+
+func assertMaskBorderImage(t *testing.T, entry drawGroupJSON, resources *drawingResources, borderPNG []byte) {
+	t.Helper()
+
+	border := entry.MaskBorder
 	if len(resources.images) != 1 || border.ImageID != resources.images[0].ID ||
 		resources.images[0].PixelWidth != 24 || resources.images[0].PixelHeight != 16 {
 		t.Fatalf("mask border image ref = %q, images = %+v", border.ImageID, resources.images)
 	}
+
 	raw, err := base64.StdEncoding.DecodeString(resources.images[0].Bytes)
 	if err != nil || string(raw) != string(borderPNG) {
 		t.Fatalf("mask border image bytes = %q, err %v", raw, err)
 	}
+}
+
+func assertMaskBorderWire(t *testing.T, entry drawGroupJSON) {
+	t.Helper()
 
 	data, err := json.Marshal(entry)
 	if err != nil {
 		t.Fatalf("json.Marshal: %v", err)
 	}
+
 	var wire map[string]any
 	if err := json.Unmarshal(data, &wire); err != nil {
 		t.Fatalf("json.Unmarshal: %v", err)
 	}
-	borderWire, ok := wire["maskBorder"].(map[string]any)
-	if !ok {
+
+	borderWire, isMap := wire["maskBorder"].(map[string]any)
+	if !isMap {
 		t.Fatalf("serialized group has no maskBorder object: %s", data)
 	}
+
 	if borderWire["source"] != `url("border.png")` || borderWire["repeat"] != "repeat space" ||
-		borderWire["mode"] != "luminance" || borderWire["fill"] != true {
+		borderWire["mode"] != testMaskMode || borderWire["fill"] != true {
 		t.Fatalf("maskBorder wire = %s", data)
 	}
-	if borderWire["image"] != border.ImageID {
-		t.Fatalf("maskBorder image %v, want %q", borderWire["image"], border.ImageID)
+
+	if borderWire["image"] != entry.MaskBorder.ImageID {
+		t.Fatalf("maskBorder image %v, want %q", borderWire["image"], entry.MaskBorder.ImageID)
 	}
-	sliceWire, ok := borderWire["slice"].(map[string]any)
-	if !ok || sliceWire["top"] != float64(30) || sliceWire["right"] != float64(30) ||
+
+	sliceWire, isMap := borderWire["slice"].(map[string]any)
+	if !isMap || sliceWire["top"] != float64(30) || sliceWire["right"] != float64(30) ||
 		sliceWire["bottom"] != float64(30) || sliceWire["left"] != float64(30) {
 		t.Fatalf("maskBorder slice wire = %v", borderWire["slice"])
 	}
-	widthWire, ok := borderWire["width"].(map[string]any)
-	if !ok || widthWire["top"] != 7.5 || widthWire["right"] != 7.5 ||
+
+	widthWire, isMap := borderWire["width"].(map[string]any)
+	if !isMap || widthWire["top"] != 7.5 || widthWire["right"] != 7.5 ||
 		widthWire["bottom"] != 7.5 || widthWire["left"] != 7.5 {
 		t.Fatalf("maskBorder width wire = %v", borderWire["width"])
 	}
-	outsetWire, ok := borderWire["outset"].(map[string]any)
-	if !ok || outsetWire["top"] != float64(0) || outsetWire["right"] != float64(0) ||
+
+	outsetWire, isMap := borderWire["outset"].(map[string]any)
+	if !isMap || outsetWire["top"] != float64(0) || outsetWire["right"] != float64(0) ||
 		outsetWire["bottom"] != float64(0) || outsetWire["left"] != float64(0) {
 		t.Fatalf("maskBorder outset wire = %v", borderWire["outset"])
 	}
@@ -333,15 +400,19 @@ func TestConvertSerializesSVGMaskInGroupContract(t *testing.T) {
 	_, list := convertSource(t, source, 100, 60)
 
 	var maskGroup *drawGroupJSON
+
 	for idx := range list.Groups {
 		if list.Groups[idx].Mask != nil {
 			maskGroup = &list.Groups[idx]
+
 			break
 		}
 	}
+
 	if maskGroup == nil || len(maskGroup.Mask.Layers) != 1 {
 		t.Fatalf("groups contain no one-layer mask: %+v", list.Groups)
 	}
+
 	layer := maskGroup.Mask.Layers[0]
 	if layer.Mode != "match-source" || !layer.Preprocessed || layer.ImageID == "" {
 		t.Fatalf("serialized SVG mask layer = %+v", layer)
@@ -353,6 +424,16 @@ func TestConvertSerializesSVGMaskInGroupContract(t *testing.T) {
 }
 
 func assertOpMatchesNative(t *testing.T, got *drawOpJSON, op *layout.DisplayOp) {
+	t.Helper()
+	assertOpIdentityAndGeometry(t, got, op)
+	assertOpTextAndStyling(t, got, op)
+	assertOpPaintState(t, got, op)
+	assertOpTransform(t, got, op)
+	assertOpResourceReferences(t, got, op)
+	assertOpGroupAndGeometry(t, got, op)
+}
+
+func assertOpIdentityAndGeometry(t *testing.T, got *drawOpJSON, op *layout.DisplayOp) {
 	t.Helper()
 
 	if got.ID != op.ID || got.KindValue != uint8(op.Kind) {
@@ -367,6 +448,10 @@ func assertOpMatchesNative(t *testing.T, got *drawOpJSON, op *layout.DisplayOp) 
 		t.Fatalf("op %d geometry (%v,%v,%v,%v), want (%v,%v,%v,%v)",
 			op.ID, got.X, got.Y, got.W, got.H, op.X, op.Y, op.W, op.H)
 	}
+}
+
+func assertOpTextAndStyling(t *testing.T, got *drawOpJSON, op *layout.DisplayOp) {
+	t.Helper()
 
 	if got.R != op.R || got.G != op.G || got.B != op.B || got.Alpha != op.Alpha {
 		t.Fatalf("op %d color (%v,%v,%v,%v), want (%v,%v,%v,%v)",
@@ -395,6 +480,10 @@ func assertOpMatchesNative(t *testing.T, got *drawOpJSON, op *layout.DisplayOp) 
 		t.Fatalf("op %d stroke mask %d inset %d, want %d/%d",
 			op.ID, got.StrokeMask, got.LineInset, op.StrokeMask, op.LineInset)
 	}
+}
+
+func assertOpPaintState(t *testing.T, got *drawOpJSON, op *layout.DisplayOp) {
+	t.Helper()
 
 	if got.Bold != op.Bold || got.FakeOblique != op.FakeOblique ||
 		got.NoFakeBold != op.NoFakeBoldValue() || got.Outline != op.Outline() {
@@ -410,6 +499,10 @@ func assertOpMatchesNative(t *testing.T, got *drawOpJSON, op *layout.DisplayOp) 
 		got.ZIndex != op.ZIndex || got.ZIndexSet != op.ZIndexSet {
 		t.Fatalf("op %d paint layer mismatch: %+v", op.ID, *got)
 	}
+}
+
+func assertOpTransform(t *testing.T, got *drawOpJSON, op *layout.DisplayOp) {
+	t.Helper()
 
 	if op.XformSet {
 		matrix := op.Transform()
@@ -422,6 +515,10 @@ func assertOpMatchesNative(t *testing.T, got *drawOpJSON, op *layout.DisplayOp) 
 	} else if got.Transform != nil {
 		t.Fatalf("op %d has a transform but xformSet is false", op.ID)
 	}
+}
+
+func assertOpResourceReferences(t *testing.T, got *drawOpJSON, op *layout.DisplayOp) {
+	t.Helper()
 
 	if op.Font != nil && got.FontID == "" {
 		t.Fatalf("op %d carries a face but no font reference", op.ID)
@@ -438,6 +535,10 @@ func assertOpMatchesNative(t *testing.T, got *drawOpJSON, op *layout.DisplayOp) 
 	if data, _, _ := op.ImageBytes(); data == nil && got.ImageID != "" {
 		t.Fatalf("op %d has image reference %q with no native payload", op.ID, got.ImageID)
 	}
+}
+
+func assertOpGroupAndGeometry(t *testing.T, got *drawOpJSON, op *layout.DisplayOp) {
+	t.Helper()
 
 	if group := op.Group(); group != nil {
 		if got.GroupID == nil || *got.GroupID != group.ID {
@@ -467,11 +568,7 @@ func assertOpMatchesNative(t *testing.T, got *drawOpJSON, op *layout.DisplayOp) 
 func assertRadiiMatch(t *testing.T, got *drawOpJSON, op *layout.DisplayOp) {
 	t.Helper()
 
-	hasRadii := op.Radius != 0 || op.RadiusY != 0 || op.RadiusTopLeft != 0 || op.RadiusTopRight != 0 ||
-		op.RadiusBottomRight != 0 || op.RadiusBottomLeft != 0 || op.RadiusTopLeftY != 0 ||
-		op.RadiusTopRightY != 0 || op.RadiusBottomRightY != 0 || op.RadiusBottomLeftY != 0
-
-	if !hasRadii {
+	if !displayHasRadii(op) {
 		if got.Radii != nil {
 			t.Fatalf("op %d has radii but native has none", op.ID)
 		}
@@ -497,6 +594,22 @@ func assertRadiiMatch(t *testing.T, got *drawOpJSON, op *layout.DisplayOp) {
 	}
 }
 
+func displayHasRadii(op *layout.DisplayOp) bool {
+	radii := [...]float64{
+		op.Radius, op.RadiusY, op.RadiusTopLeft, op.RadiusTopRight,
+		op.RadiusBottomRight, op.RadiusBottomLeft, op.RadiusTopLeftY,
+		op.RadiusTopRightY, op.RadiusBottomRightY, op.RadiusBottomLeftY,
+	}
+
+	for _, radius := range radii {
+		if radius != 0 {
+			return true
+		}
+	}
+
+	return false
+}
+
 func assertSegmentsMatch(t *testing.T, got *drawOpJSON, op *layout.DisplayOp) {
 	t.Helper()
 
@@ -512,14 +625,14 @@ func assertSegmentsMatch(t *testing.T, got *drawOpJSON, op *layout.DisplayOp) {
 		t.Fatalf("op %d segments %d, want %d", op.ID, len(got.Segments), len(op.Grid.Segs))
 	}
 
-	for i := range op.Grid.Segs {
-		seg := &op.Grid.Segs[i]
-		gotSeg := &got.Segments[i]
+	for segmentIndex := range op.Grid.Segs {
+		seg := &op.Grid.Segs[segmentIndex]
+		gotSeg := &got.Segments[segmentIndex]
 
 		if gotSeg.X != seg.X || gotSeg.Y != seg.Y || gotSeg.W != seg.W || gotSeg.H != seg.H ||
 			gotSeg.Width != seg.Width || gotSeg.R != seg.R || gotSeg.G != seg.G ||
 			gotSeg.B != seg.B || gotSeg.LineInset != seg.LineInset {
-			t.Fatalf("op %d segment[%d] = %+v, want %+v", op.ID, i, *gotSeg, *seg)
+			t.Fatalf("op %d segment[%d] = %+v, want %+v", op.ID, segmentIndex, *gotSeg, *seg)
 		}
 	}
 }
@@ -527,35 +640,31 @@ func assertSegmentsMatch(t *testing.T, got *drawOpJSON, op *layout.DisplayOp) {
 // expectedKindName is the test's independent copy of the kind contract. A bug
 // in the serializer's own mapping must not hide behind a shared helper.
 func expectedKindName(op *layout.DisplayOp) string {
-	switch {
-	case op.IsGroupBegin():
+	if op.IsGroupBegin() {
 		return kindGroupBegin
-	case op.IsGroupEnd():
+	}
+
+	if op.IsGroupEnd() {
 		return kindGroupEnd
 	}
 
-	switch op.Kind {
-	case layout.DisplayOpNoop:
-		return kindNoop
-	case layout.DisplayOpFillRect:
-		return kindFillRect
-	case layout.DisplayOpStrokeRect:
-		return kindStrokeRect
-	case layout.DisplayOpLine:
-		return kindLine
-	case layout.DisplayOpText:
-		return kindText
-	case layout.DisplayOpImage:
-		return kindImage
-	case layout.DisplayOpLinkURI:
-		return kindLinkURI
-	case layout.DisplayOpBullet:
-		return kindBullet
-	case layout.DisplayOpGridRun:
-		return kindGridRun
-	default:
-		return kindUnknown
+	kindNames := map[layout.DisplayKind]string{
+		layout.DisplayOpNoop:     kindNoop,
+		layout.DisplayOpFillRect: kindFillRect,
+		layout.DisplayOpStrokeRect: kindStrokeRect,
+		layout.DisplayOpLine:     kindLine,
+		layout.DisplayOpText:     kindText,
+		layout.DisplayOpImage:    kindImage,
+		layout.DisplayOpLinkURI:  kindLinkURI,
+		layout.DisplayOpBullet:   kindBullet,
+		layout.DisplayOpGridRun:  kindGridRun,
 	}
+
+	if kindName, exists := kindNames[op.Kind]; exists {
+		return kindName
+	}
+
+	return kindUnknown
 }
 
 func assertReferencesResolve(t *testing.T, list drawingListJSON) {
@@ -576,41 +685,68 @@ func assertReferencesResolve(t *testing.T, list drawingListJSON) {
 		groupIDs[group.ID] = struct{}{}
 	}
 
-	for _, group := range list.Groups {
-		if group.Parent == nil {
-		} else if _, ok := groupIDs[*group.Parent]; !ok {
-			t.Fatalf("group %d references missing parent %d", group.ID, *group.Parent)
+	assertGroupReferencesResolve(t, list.Groups, imageIDs, groupIDs)
+	assertOpReferencesResolve(t, list.Ops, fontIDs, imageIDs, groupIDs)
+}
+
+func assertGroupReferencesResolve(
+	t *testing.T,
+	groups []drawGroupJSON,
+	imageIDs map[string]struct{},
+	groupIDs map[int]struct{},
+) {
+	t.Helper()
+
+	for _, group := range groups {
+		if group.Parent != nil {
+			if _, exists := groupIDs[*group.Parent]; !exists {
+				t.Fatalf("group %d references missing parent %d", group.ID, *group.Parent)
+			}
 		}
-		if group.Mask != nil {
-			for _, layer := range group.Mask.Layers {
-				if layer.ImageID == "" {
-					continue
-				}
-				if _, ok := imageIDs[layer.ImageID]; !ok {
-					t.Fatalf("group %d mask references missing image %q", group.ID, layer.ImageID)
-				}
+
+		if group.Mask == nil {
+			continue
+		}
+
+		for _, layer := range group.Mask.Layers {
+			if layer.ImageID == "" {
+				continue
+			}
+
+			if _, exists := imageIDs[layer.ImageID]; !exists {
+				t.Fatalf("group %d mask references missing image %q", group.ID, layer.ImageID)
 			}
 		}
 	}
+}
 
-	for i := range list.Ops {
-		op := &list.Ops[i]
+func assertOpReferencesResolve(
+	t *testing.T,
+	ops []drawOpJSON,
+	fontIDs map[string]struct{},
+	imageIDs map[string]struct{},
+	groupIDs map[int]struct{},
+) {
+	t.Helper()
 
-		if op.FontID != "" {
-			if _, ok := fontIDs[op.FontID]; !ok {
-				t.Fatalf("op %d references missing font %q", i, op.FontID)
+	for opIndex := range ops {
+		opJSON := &ops[opIndex]
+
+		if opJSON.FontID != "" {
+			if _, exists := fontIDs[opJSON.FontID]; !exists {
+				t.Fatalf("op %d references missing font %q", opIndex, opJSON.FontID)
 			}
 		}
 
-		if op.ImageID != "" {
-			if _, ok := imageIDs[op.ImageID]; !ok {
-				t.Fatalf("op %d references missing image %q", i, op.ImageID)
+		if opJSON.ImageID != "" {
+			if _, exists := imageIDs[opJSON.ImageID]; !exists {
+				t.Fatalf("op %d references missing image %q", opIndex, opJSON.ImageID)
 			}
 		}
 
-		if op.GroupID != nil {
-			if _, ok := groupIDs[*op.GroupID]; !ok {
-				t.Fatalf("op %d references missing group %d", i, *op.GroupID)
+		if opJSON.GroupID != nil {
+			if _, exists := groupIDs[*opJSON.GroupID]; !exists {
+				t.Fatalf("op %d references missing group %d", opIndex, *opJSON.GroupID)
 			}
 		}
 	}
@@ -645,6 +781,13 @@ func TestUnitsAndBaselineSemantics(t *testing.T) {
 
 	display := nativeDisplay(t, source, 640, 480)
 	_, list := convertSource(t, source, 640, 480)
+	assertUnitsAndCanvas(t, list, display)
+	assertCSSPixelBox(t, list)
+	assertTextBaselineMatches(t, list, display)
+}
+
+func assertUnitsAndCanvas(t *testing.T, list drawingListJSON, display *layout.Display) {
+	t.Helper()
 
 	if list.PxPerPt <= 1 || list.PtPerPx >= 1 || list.PxPerPt*list.PtPerPx != 1 {
 		t.Fatalf("unit factors pxPerPt=%v ptPerPx=%v", list.PxPerPt, list.PtPerPx)
@@ -653,6 +796,10 @@ func TestUnitsAndBaselineSemantics(t *testing.T) {
 	if list.Width != display.Width || list.Height != display.Height {
 		t.Fatalf("canvas %dx%d, want %dx%d", list.Width, list.Height, display.Width, display.Height)
 	}
+}
+
+func assertCSSPixelBox(t *testing.T, list drawingListJSON) {
+	t.Helper()
 
 	var fill *drawOpJSON
 
@@ -683,15 +830,20 @@ func TestUnitsAndBaselineSemantics(t *testing.T) {
 	if !boxFound {
 		t.Fatal("no div border box at 100 CSS pixels")
 	}
+}
+
+func assertTextBaselineMatches(t *testing.T, list drawingListJSON, display *layout.Display) {
+	t.Helper()
 
 	baselineFound := false
 
-	for i := range display.Ops {
-		if display.Ops[i].Kind != layout.DisplayOpText {
+	for opIndex := range display.Ops {
+		if display.Ops[opIndex].Kind != layout.DisplayOpText {
 			continue
 		}
 
-		baselineFound = list.Ops[i].Y == display.Ops[i].Y && list.Ops[i].H == display.Ops[i].H
+		baselineFound = list.Ops[opIndex].Y == display.Ops[opIndex].Y &&
+			list.Ops[opIndex].H == display.Ops[opIndex].H
 
 		break
 	}
@@ -713,150 +865,171 @@ func TestKindCoverage(t *testing.T) {
 		{
 			name:   "fillRect",
 			source: `<div style="width:40px;height:20px;background:#123456"></div>`,
-			check: func(t *testing.T, op *drawOpJSON) {
-				t.Helper()
-
-				if op.W <= 0 || op.H <= 0 || op.R+op.G+op.B == 0 {
-					t.Fatalf("fill payload %+v", *op)
-				}
-			},
+			check: assertFillRectCoverage,
 		},
 		{
 			name:   "strokeRect",
 			source: `<div style="width:40px;height:20px;border:3px solid #f00;border-radius:4px;box-sizing:border-box"></div>`,
-			check: func(t *testing.T, op *drawOpJSON) {
-				t.Helper()
-
-				if op.Width <= 0 || op.Radii == nil || op.Radii.Radius <= 0 {
-					t.Fatalf("stroke payload %+v", *op)
-				}
-			},
+			check: assertStrokeRectCoverage,
 		},
 		{
 			name:   "line",
 			source: `<div style="width:40px;height:20px;border-left:3px solid #00f;box-sizing:border-box"></div>`,
-			check: func(t *testing.T, op *drawOpJSON) {
-				t.Helper()
-
-				if op.Width <= 0 || op.LineInset == 0 {
-					t.Fatalf("line payload %+v", *op)
-				}
-			},
+			check: assertLineCoverage,
 		},
 		{
 			name:   "text",
 			source: `<p style="font-weight:bold">hello</p>`,
-			check: func(t *testing.T, op *drawOpJSON) {
-				t.Helper()
-
-				if op.Text == "" || op.FontID == "" || op.Size <= 0 {
-					t.Fatalf("text payload %+v", *op)
-				}
-			},
+			check: assertTextCoverage,
 		},
 		{
 			name:   "image",
 			source: `<img alt="dot" src="` + dotPNG + `">`,
-			check: func(t *testing.T, op *drawOpJSON) {
-				t.Helper()
-
-				if op.ImageID == "" || op.Alt != "dot" || op.W <= 0 || op.H <= 0 {
-					t.Fatalf("image payload %+v", *op)
-				}
-			},
+			check: assertImageCoverage,
 		},
 		{
 			name:   "linkURI",
 			source: `<a href="https://example.com/page">go</a>`,
-			check: func(t *testing.T, op *drawOpJSON) {
-				t.Helper()
-
-				if op.URI != "https://example.com/page" {
-					t.Fatalf("link payload %+v", *op)
-				}
-			},
+			check: assertLinkCoverage,
 		},
 		{
 			name:   "bullet",
 			source: `<ul><li>item</li></ul>`,
-			check: func(t *testing.T, op *drawOpJSON) {
-				t.Helper()
-
-				if op.Text == "" || op.FontID == "" {
-					t.Fatalf("bullet payload %+v", *op)
-				}
-			},
+			check: assertBulletCoverage,
 		},
 		{
 			name:   "gridRun",
 			source: `<table style="border-collapse:collapse"><tr><td style="border:1px solid #000">cell</td></tr></table>`,
-			check: func(t *testing.T, op *drawOpJSON) {
-				t.Helper()
-
-				if len(op.Segments) == 0 || op.Width <= 0 {
-					t.Fatalf("grid payload %+v", *op)
-				}
-			},
+			check: assertGridCoverage,
 		},
 		{
 			name:   "groupBegin",
 			source: `<div style="isolation:isolate"><p>in</p></div>`,
-			check: func(t *testing.T, op *drawOpJSON) {
-				t.Helper()
-
-				if op.GroupMark != "begin" || op.GroupID == nil {
-					t.Fatalf("group payload %+v", *op)
-				}
-			},
+			check: assertGroupBeginCoverage,
 		},
 		{
 			name:   "groupEnd",
 			source: `<div style="mix-blend-mode:multiply"><p>in</p></div>`,
-			check: func(t *testing.T, op *drawOpJSON) {
-				t.Helper()
-
-				if op.GroupMark != "end" || op.GroupID == nil {
-					t.Fatalf("group payload %+v", *op)
-				}
-			},
+			check: assertGroupEndCoverage,
 		},
 		{
 			name:   "transform",
 			kind:   "fillRect",
 			source: `<div style="transform:rotate(30deg);transform-origin:0 0;width:40px;height:20px;background:#0aa"></div>`,
-			check: func(t *testing.T, op *drawOpJSON) {
-				t.Helper()
-
-				if op.Transform == nil || op.Transform.A == 1 {
-					t.Fatalf("transform payload %+v", *op)
-				}
-			},
+			check: assertTransformCoverage,
 		},
 	}
 
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
-
-			_, list := convertSource(t, testCase.source, 640, 480)
-
-			wantKind := testCase.kind
-			if wantKind == "" {
-				wantKind = testCase.name
-			}
-
-			for i := range list.Ops {
-				if list.Ops[i].Kind != wantKind {
-					continue
-				}
-
-				testCase.check(t, &list.Ops[i])
-
-				return
-			}
-
-			t.Fatalf("no %s operation in %+v", wantKind, list.Ops)
+			assertKindCoverageCase(t, testCase.name, testCase.kind, testCase.source, testCase.check)
 		})
+	}
+}
+
+func assertKindCoverageCase(
+	t *testing.T,
+	name string,
+	kind string,
+	source string,
+	check func(*testing.T, *drawOpJSON),
+) {
+	t.Helper()
+
+	_, list := convertSource(t, source, 640, 480)
+
+	wantKind := kind
+	if wantKind == "" {
+		wantKind = name
+	}
+
+	for opIndex := range list.Ops {
+		if list.Ops[opIndex].Kind != wantKind {
+			continue
+		}
+
+		check(t, &list.Ops[opIndex])
+		return
+	}
+
+	t.Fatalf("no %s operation in %+v", wantKind, list.Ops)
+}
+
+func assertFillRectCoverage(t *testing.T, op *drawOpJSON) {
+	t.Helper()
+	if op.W <= 0 || op.H <= 0 || op.R+op.G+op.B == 0 {
+		t.Fatalf("fill payload %+v", *op)
+	}
+}
+
+func assertStrokeRectCoverage(t *testing.T, op *drawOpJSON) {
+	t.Helper()
+	if op.Width <= 0 || op.Radii == nil || op.Radii.Radius <= 0 {
+		t.Fatalf("stroke payload %+v", *op)
+	}
+}
+
+func assertLineCoverage(t *testing.T, op *drawOpJSON) {
+	t.Helper()
+	if op.Width <= 0 || op.LineInset == 0 {
+		t.Fatalf("line payload %+v", *op)
+	}
+}
+
+func assertTextCoverage(t *testing.T, op *drawOpJSON) {
+	t.Helper()
+	if op.Text == "" || op.FontID == "" || op.Size <= 0 {
+		t.Fatalf("text payload %+v", *op)
+	}
+}
+
+func assertImageCoverage(t *testing.T, op *drawOpJSON) {
+	t.Helper()
+	if op.ImageID == "" || op.Alt != "dot" || op.W <= 0 || op.H <= 0 {
+		t.Fatalf("image payload %+v", *op)
+	}
+}
+
+func assertLinkCoverage(t *testing.T, op *drawOpJSON) {
+	t.Helper()
+	if op.URI != "https://example.com/page" {
+		t.Fatalf("link payload %+v", *op)
+	}
+}
+
+func assertBulletCoverage(t *testing.T, op *drawOpJSON) {
+	t.Helper()
+	if op.Text == "" || op.FontID == "" {
+		t.Fatalf("bullet payload %+v", *op)
+	}
+}
+
+func assertGridCoverage(t *testing.T, op *drawOpJSON) {
+	t.Helper()
+	if len(op.Segments) == 0 || op.Width <= 0 {
+		t.Fatalf("grid payload %+v", *op)
+	}
+}
+
+func assertGroupBeginCoverage(t *testing.T, op *drawOpJSON) {
+	t.Helper()
+	if op.GroupMark != "begin" || op.GroupID == nil {
+		t.Fatalf("group payload %+v", *op)
+	}
+}
+
+func assertGroupEndCoverage(t *testing.T, op *drawOpJSON) {
+	t.Helper()
+	if op.GroupMark != "end" || op.GroupID == nil {
+		t.Fatalf("group payload %+v", *op)
+	}
+}
+
+func assertTransformCoverage(t *testing.T, op *drawOpJSON) {
+	t.Helper()
+	if op.Transform == nil || op.Transform.A == 1 {
+		t.Fatalf("transform payload %+v", *op)
 	}
 }
 
@@ -866,14 +1039,27 @@ func TestResourcesAreSharedAndStable(t *testing.T) {
 	source := `<p>one</p><p>two</p><img src="` + dotPNG + `"><img src="` + dotPNG + `">`
 	_, first := convertSource(t, source, 640, 480)
 	_, second := convertSource(t, source, 640, 480)
+	assertResourceCounts(t, first)
+	assertResourceIDsStable(t, first, second)
+	assertResourcePayloadsValid(t, first)
+	assertImageOperationsShared(t, first)
+	assertReferencesResolve(t, first)
+}
 
-	if len(first.Fonts) != 1 {
-		t.Fatalf("fonts %d, want 1 shared face", len(first.Fonts))
+func assertResourceCounts(t *testing.T, list drawingListJSON) {
+	t.Helper()
+
+	if len(list.Fonts) != 1 {
+		t.Fatalf("fonts %d, want 1 shared face", len(list.Fonts))
 	}
 
-	if len(first.Images) != 1 {
-		t.Fatalf("images %d, want 1 shared payload", len(first.Images))
+	if len(list.Images) != 1 {
+		t.Fatalf("images %d, want 1 shared payload", len(list.Images))
 	}
+}
+
+func assertResourceIDsStable(t *testing.T, first drawingListJSON, second drawingListJSON) {
+	t.Helper()
 
 	if len(second.Fonts) != 1 || second.Fonts[0].ID != first.Fonts[0].ID {
 		t.Fatalf("font ID not stable across runs: %v vs %v", second.Fonts, first.Fonts)
@@ -882,8 +1068,12 @@ func TestResourcesAreSharedAndStable(t *testing.T) {
 	if len(second.Images) != 1 || second.Images[0].ID != first.Images[0].ID {
 		t.Fatalf("image ID not stable across runs: %v vs %v", second.Images, first.Images)
 	}
+}
 
-	face := first.Fonts[0]
+func assertResourcePayloadsValid(t *testing.T, list drawingListJSON) {
+	t.Helper()
+
+	face := list.Fonts[0]
 	if face.UnitsPerEm <= 0 || face.ByteLength <= 0 {
 		t.Fatalf("font metrics %+v", face)
 	}
@@ -893,7 +1083,7 @@ func TestResourcesAreSharedAndStable(t *testing.T) {
 		t.Fatalf("font bytes do not decode: %v", err)
 	}
 
-	image := first.Images[0]
+	image := list.Images[0]
 	if image.Format != "png" || image.PixelWidth != 1 || image.PixelHeight != 1 {
 		t.Fatalf("image metadata %+v", image)
 	}
@@ -902,15 +1092,20 @@ func TestResourcesAreSharedAndStable(t *testing.T) {
 	if err != nil || len(raw) != image.ByteLength {
 		t.Fatalf("image bytes do not decode: %v", err)
 	}
+}
 
+func assertImageOperationsShared(t *testing.T, list drawingListJSON) {
+	t.Helper()
+
+	image := list.Images[0]
 	imageOps := 0
 
-	for i := range first.Ops {
-		if first.Ops[i].Kind == kindImage {
+	for opIndex := range list.Ops {
+		if list.Ops[opIndex].Kind == kindImage {
 			imageOps++
 
-			if first.Ops[i].ImageID != image.ID {
-				t.Fatalf("image op references %q, want %q", first.Ops[i].ImageID, image.ID)
+			if list.Ops[opIndex].ImageID != image.ID {
+				t.Fatalf("image op references %q, want %q", list.Ops[opIndex].ImageID, image.ID)
 			}
 		}
 	}
@@ -918,8 +1113,6 @@ func TestResourcesAreSharedAndStable(t *testing.T) {
 	if imageOps != 2 {
 		t.Fatalf("image ops %d, want 2", imageOps)
 	}
-
-	assertReferencesResolve(t, first)
 }
 
 func TestInlineImageResolverRejectsNonDataSources(t *testing.T) {
@@ -946,53 +1139,65 @@ func TestInlineImageResolverRejectsNonDataSources(t *testing.T) {
 func TestPaintOrderMatchesNative(t *testing.T) {
 	t.Parallel()
 
-	const source = `<div style="position:relative;z-index:3;height:8px;background:#ccc">hi</div><div style="height:8px;background:#999">lo</div>`
+	const source = `<div style="position:relative;z-index:3;height:8px;background:#ccc">hi</div>` +
+		`<div style="height:8px;background:#999">lo</div>`
 
 	display := nativeDisplay(t, source, 640, 480)
 	_, list := convertSource(t, source, 640, 480)
 
 	assertOrderIsPermutation(t, list)
+	assertPaintOrderMatchesNative(t, display, list)
+	assertZIndexPaintsLast(t, list)
+}
+
+func assertPaintOrderMatchesNative(t *testing.T, display *layout.Display, list drawingListJSON) {
+	t.Helper()
 
 	nativeOrder := layout.DisplayOrder(display.Ops)
 	if len(nativeOrder) != len(list.Order) {
 		t.Fatalf("order length %d, want %d", len(list.Order), len(nativeOrder))
 	}
 
-	for i := range nativeOrder {
-		if nativeOrder[i] != list.Order[i] {
-			t.Fatalf("order[%d] = %d, want %d", i, list.Order[i], nativeOrder[i])
+	for orderIndex := range nativeOrder {
+		if nativeOrder[orderIndex] != list.Order[orderIndex] {
+			t.Fatalf("order[%d] = %d, want %d", orderIndex, list.Order[orderIndex], nativeOrder[orderIndex])
 		}
 	}
+}
 
-	highIndex, lowIndex := -1, -1
+func assertZIndexPaintsLast(t *testing.T, list drawingListJSON) {
+	t.Helper()
 
-	for i := range list.Ops {
-		if list.Ops[i].Text == "hi" {
-			highIndex = i
-		}
-
-		if list.Ops[i].Text == "lo" {
-			lowIndex = i
-		}
-	}
+	highIndex := findPaintTextOp(list.Ops, "hi")
+	lowIndex := findPaintTextOp(list.Ops, "lo")
 
 	if highIndex < 0 || lowIndex < 0 {
 		t.Fatal("z-index fixture text ops missing")
 	}
 
-	positionOf := func(index int) int {
-		for position, candidate := range list.Order {
-			if candidate == index {
-				return position
-			}
-		}
-
-		return -1
-	}
-
-	if positionOf(highIndex) <= positionOf(lowIndex) {
+	if paintPosition(list.Order, highIndex) <= paintPosition(list.Order, lowIndex) {
 		t.Fatal("z-index:3 op must paint after the in-flow op")
 	}
+}
+
+func findPaintTextOp(ops []drawOpJSON, text string) int {
+	for opIndex := range ops {
+		if ops[opIndex].Text == text {
+			return opIndex
+		}
+	}
+
+	return -1
+	}
+
+func paintPosition(order []int, opIndex int) int {
+	for position, candidate := range order {
+		if candidate == opIndex {
+			return position
+		}
+	}
+
+	return -1
 }
 
 func TestDecodeRequestRejectsMalformedInput(t *testing.T) {

@@ -1617,8 +1617,8 @@ type styleGroupFn func(
 ) bool
 
 // styleGroups is the immutable dispatch order for applyStyleProp.
-// Package-level so applyStyleProp does not rebuild the 40-entry array on
-// every cascaded property of every element.
+// Package-level so applyStyleProp does not rebuild this dispatch table for
+// every cascaded property on every element.
 var styleGroups = [...]styleGroupFn{ //nolint:gochecknoglobals // static dispatch table
 	applyDisplayGroup,
 	applyPositionGroup,
@@ -1662,6 +1662,8 @@ var styleGroups = [...]styleGroupFn{ //nolint:gochecknoglobals // static dispatc
 	applyFlowToleranceProps,
 	applyExclusionProps,
 	applyWrapBreakProps,
+	applyAnimationProps,
+	applyTransitionProps,
 }
 
 func normalizeVendorPrefix(prop string) string {
@@ -1728,6 +1730,10 @@ func normalizeOtherWebkitProperty(prop string) string {
 	}
 
 	if normalized, ok := normalizeWebkitMiscProperty(prop); ok {
+		return normalized
+	}
+
+	if normalized, ok := normalizeWebkitAnimationTransitionProperty(prop); ok {
 		return normalized
 	}
 

@@ -40,8 +40,8 @@ const (
 )
 
 // applyScrollProps owns the scroll-margin shorthand and its four physical
-// longhands. It runs last in styleGroups (style_cascade.go) so no earlier
-// group can claim these names; applySVGPresentationProps in
+// longhands. It runs near the end of styleGroups (style_cascade.go) so no
+// earlier group can claim these names; applySVGPresentationProps in
 // style_paint_props.go already routes them to applyLeftoversProps, which
 // declines them, so dispatch reaches this group. Negative lengths are invalid
 // per CSS Scroll Snap 1: the declaration is dropped and the previous value
