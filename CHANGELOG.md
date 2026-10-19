@@ -59,7 +59,8 @@ There is no v0.0.3 tag or release note yet.
 - **C shared-library binding.** `bindings/c`, `make c-shared`,
   `BINDINGS_VERSION`, and the generated `libblinkless` artifacts are
   removed. The engine is consumed through the Go packages and the WASM
-  binding. This removal is in the working tree and has not shipped in a tag.
+  binding. This removal is committed on the current branch and has not
+  shipped in a tag.
 
 ### Documentation and data
 
