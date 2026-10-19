@@ -1,7 +1,61 @@
 {
   "source": "testdata/css/catalog/properties.json",
-  "updated": "2026-10-17",
+  "updated": "2026-10-19",
   "properties": [
+    {
+      "name": "-webkit-animation",
+      "status": "partial",
+      "values": "comma-separated keyframe names with optional duration, easing, delay, iteration count, direction, fill mode, play state, and timeline",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "-webkit-animation-delay",
+      "status": "partial",
+      "values": "signed start \u003ctime\u003e with optional non-negative end \u003ctime\u003e; comma-separated",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "-webkit-animation-direction",
+      "status": "partial",
+      "values": "normal | reverse | alternate | alternate-reverse; comma-separated",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "-webkit-animation-duration",
+      "status": "partial",
+      "values": "auto | non-negative \u003ctime\u003e; comma-separated",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "-webkit-animation-fill-mode",
+      "status": "partial",
+      "values": "none | forwards | backwards | both; comma-separated",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "-webkit-animation-iteration-count",
+      "status": "partial",
+      "values": "infinite | non-negative \u003cnumber\u003e; comma-separated",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "-webkit-animation-name",
+      "status": "partial",
+      "values": "none | custom-ident | quoted keyframes name; comma-separated",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "-webkit-animation-play-state",
+      "status": "partial",
+      "values": "running | paused; comma-separated",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "-webkit-animation-timing-function",
+      "status": "partial",
+      "values": "linear | ease | ease-in | ease-out | ease-in-out | step-start | step-end | cubic-bezier() | steps() | linear()",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
     {
       "name": "-webkit-backface-visibility",
       "status": "implemented",
@@ -12,6 +66,42 @@
       "status": "implemented",
       "values": "url(...) | none; supported mask mode, position, size, repeat, origin, clip, and composite values",
       "note": "The shorthand expands its supported subset and resets mask-border values. Gradient and image-set sources are accepted and stored on the mask group. Mask-border painting and an i..."
+    },
+    {
+      "name": "-webkit-mask-box-image",
+      "status": "implemented",
+      "values": "alias of mask-border",
+      "note": "The shorthand expands into the six longhands and composes a nine-slice frame raster on the element's blend group; the host applies it as a soft mask. Gradient sources are reject..."
+    },
+    {
+      "name": "-webkit-mask-box-image-outset",
+      "status": "implemented",
+      "values": "alias of mask-border-outset",
+      "note": "The resolved outward offsets ride the element's blend group; the frame-outset expansion is recorded but not yet painted."
+    },
+    {
+      "name": "-webkit-mask-box-image-repeat",
+      "status": "implemented",
+      "values": "alias of mask-border-repeat",
+      "note": "The used repeat pair tiles the composed frame raster (stretch, repeat, round, and space); the host applies it as a soft mask."
+    },
+    {
+      "name": "-webkit-mask-box-image-slice",
+      "status": "implemented",
+      "values": "alias of mask-border-slice",
+      "note": "The resolved source-pixel insets ride the element's blend group and compose into the frame raster; the host applies it as a soft mask."
+    },
+    {
+      "name": "-webkit-mask-box-image-source",
+      "status": "implemented",
+      "values": "alias of mask-border-source",
+      "note": "The source and its encoded bytes ride the element's blend group and compose into the frame raster; the host applies it as a soft mask. Gradient sources are rejected until the ma..."
+    },
+    {
+      "name": "-webkit-mask-box-image-width",
+      "status": "implemented",
+      "values": "alias of mask-border-width",
+      "note": "The resolved frame thickness rides the element's blend group and composes into the frame raster; percentage widths are rejected because the frame is written before the element b..."
     },
     {
       "name": "-webkit-mask-clip",
@@ -71,6 +161,36 @@
       "values": "alias of the unprefixed property"
     },
     {
+      "name": "-webkit-transition",
+      "status": "partial",
+      "values": "comma-separated property with optional duration, easing, delay, and behavior",
+      "note": "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or gener..."
+    },
+    {
+      "name": "-webkit-transition-delay",
+      "status": "partial",
+      "values": "signed \u003ctime\u003e; comma-separated",
+      "note": "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or gener..."
+    },
+    {
+      "name": "-webkit-transition-duration",
+      "status": "partial",
+      "values": "non-negative \u003ctime\u003e; comma-separated",
+      "note": "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or gener..."
+    },
+    {
+      "name": "-webkit-transition-property",
+      "status": "partial",
+      "values": "all | none | custom-ident; comma-separated except none stands alone",
+      "note": "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or gener..."
+    },
+    {
+      "name": "-webkit-transition-timing-function",
+      "status": "partial",
+      "values": "linear | ease | ease-in | ease-out | ease-in-out | step-start | step-end | cubic-bezier() | steps() | linear()",
+      "note": "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or gener..."
+    },
+    {
       "name": "accent-color",
       "status": "implemented",
       "values": "auto | \u003ccolor\u003e"
@@ -106,6 +226,114 @@
       "status": "implemented",
       "values": "none | all | \u003canchor-name\u003e#",
       "note": "none is initial and hides nothing; all hides every name on the element from outside descendants; name list hides only those. Lookup only, no containing block."
+    },
+    {
+      "name": "animation",
+      "status": "partial",
+      "values": "comma-separated keyframe names with optional duration, easing, delay, iteration count, direction, fill mode, play state, and timeline",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "animation-composition",
+      "status": "partial",
+      "values": "replace | add | accumulate",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "animation-delay",
+      "status": "partial",
+      "values": "signed start \u003ctime\u003e with optional non-negative end \u003ctime\u003e; comma-separated",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "animation-delay-end",
+      "status": "partial",
+      "values": "non-negative \u003ctime\u003e; comma-separated",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "animation-delay-start",
+      "status": "partial",
+      "values": "signed \u003ctime\u003e; comma-separated",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "animation-direction",
+      "status": "partial",
+      "values": "normal | reverse | alternate | alternate-reverse; comma-separated",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "animation-duration",
+      "status": "partial",
+      "values": "auto | non-negative \u003ctime\u003e; comma-separated",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "animation-fill-mode",
+      "status": "partial",
+      "values": "none | forwards | backwards | both; comma-separated",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "animation-iteration-count",
+      "status": "partial",
+      "values": "infinite | non-negative \u003cnumber\u003e; comma-separated",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "animation-name",
+      "status": "partial",
+      "values": "none | custom-ident | quoted keyframes name; comma-separated",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "animation-play-state",
+      "status": "partial",
+      "values": "running | paused; comma-separated",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "animation-range",
+      "status": "partial",
+      "values": "start timeline-range edge with optional end edge; comma-separated",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "animation-range-center",
+      "status": "partial",
+      "values": "normal | source | target | \u003clength-percentage\u003e | source/target with \u003clength-percentage\u003e",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "animation-range-end",
+      "status": "partial",
+      "values": "normal | timeline-range-name with optional \u003clength-percentage\u003e | \u003clength-percentage\u003e",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "animation-range-start",
+      "status": "partial",
+      "values": "normal | timeline-range-name with optional \u003clength-percentage\u003e | \u003clength-percentage\u003e",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "animation-timeline",
+      "status": "partial",
+      "values": "auto | none | \u003cdashed-ident\u003e | scroll() | view() with accepted argument forms; comma-separated",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "animation-timing-function",
+      "status": "partial",
+      "values": "linear | ease | ease-in | ease-out | ease-in-out | step-start | step-end | cubic-bezier() | steps() | linear()",
+      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+    },
+    {
+      "name": "animation-trigger",
+      "status": "partial",
+      "values": "none | \u003cdashed-ident\u003e followed by one or more none/play/play-once/play-forwards/play-backwards/pause/reset/replay actions",
+      "note": "The value is parsed, cascaded, and exported as metadata. Blinkless does not activate animation triggers from events, maintain trigger state, sample timelines, or generate frames."
     },
     {
       "name": "aspect-ratio",
@@ -1155,6 +1383,24 @@
       "values": "inline | column | region | page"
     },
     {
+      "name": "flow-from",
+      "status": "implemented",
+      "values": "none | \u003ccustom-ident\u003e",
+      "note": "One canvas: the engine returns one display list and never allocates Result.Pages, so named flows are not fragmented across pages (paged fragmentation is a non-goal). Overflow co..."
+    },
+    {
+      "name": "flow-into",
+      "status": "implemented",
+      "values": "none | \u003ccustom-ident\u003e [element | content]?",
+      "note": "One canvas: the engine returns one display list and never allocates Result.Pages, so named flows are not fragmented across pages (paged fragmentation is a non-goal)."
+    },
+    {
+      "name": "flow-tolerance",
+      "status": "implemented",
+      "values": "normal | \u003clength [0,∞]\u003e | infinite",
+      "note": "Read only by the row-masonry packer (grid-template-rows: masonry); a non-masonry grid ignores it (TestBehaviorFlowToleranceNonMasonryGridIgnored). The item is measured once at t..."
+    },
+    {
       "name": "font",
       "status": "implemented",
       "values": "[ [ \u003c'font-style'\u003e || \u003c'font-variant'\u003e || \u003c'font-weight'\u003e ]? \u003c'font-size'\u003e [ / \u003c'line-height'\u003e ]? \u003c'font-family'\u003e ] | caption | icon | menu | message-box | small-caption | status-bar | inherit"
@@ -1606,6 +1852,48 @@
       "note": "The shorthand expands its supported subset and resets mask-border values. Gradient and image-set sources are accepted and stored on the mask group. Mask-border painting and an i..."
     },
     {
+      "name": "mask-border",
+      "status": "implemented",
+      "values": "\u003c'mask-border-source'\u003e || \u003c'mask-border-slice'\u003e [ / \u003c'mask-border-width'\u003e? [ / \u003c'mask-border-outset'\u003e ]? ]? || \u003c'mask-border-repeat'\u003e || \u003c'mask-border-mode'\u003e",
+      "note": "The shorthand expands into the six longhands and composes a nine-slice frame raster on the element's blend group; the host applies it as a soft mask. Gradient sources are reject..."
+    },
+    {
+      "name": "mask-border-mode",
+      "status": "implemented",
+      "values": "alpha | luminance",
+      "note": "The stored mode rides the element's blend group; the frame raster is composed from the source's alpha channel (an SVG mask fragment is preprocessed by the first-wave path)."
+    },
+    {
+      "name": "mask-border-outset",
+      "status": "implemented",
+      "values": "\u003clength [0,∞]\u003e | \u003cnumber [0,∞]\u003e, one to four values",
+      "note": "The resolved outward offsets ride the element's blend group; the frame-outset expansion is recorded but not yet painted."
+    },
+    {
+      "name": "mask-border-repeat",
+      "status": "implemented",
+      "values": "stretch | repeat | round | space, one or two values",
+      "note": "The used repeat pair tiles the composed frame raster (stretch, repeat, round, and space); the host applies it as a soft mask."
+    },
+    {
+      "name": "mask-border-slice",
+      "status": "implemented",
+      "values": "one to four non-negative \u003cnumber\u003e or \u003cpercentage\u003e values, plus the optional fill keyword",
+      "note": "The resolved source-pixel insets ride the element's blend group and compose into the frame raster; the host applies it as a soft mask."
+    },
+    {
+      "name": "mask-border-source",
+      "status": "implemented",
+      "values": "none | url(...) | image-set(...) whose chosen candidate is url(...)",
+      "note": "The source and its encoded bytes ride the element's blend group and compose into the frame raster; the host applies it as a soft mask. Gradient sources are rejected until the ma..."
+    },
+    {
+      "name": "mask-border-width",
+      "status": "implemented",
+      "values": "auto | \u003clength [0,∞]\u003e | \u003cnumber [0,∞]\u003e, one to four values",
+      "note": "The resolved frame thickness rides the element's blend group and composes into the frame raster; percentage widths are rejected because the frame is written before the element b..."
+    },
+    {
       "name": "mask-clip",
       "status": "implemented",
       "values": "border-box | padding-box | content-box | fill-box | stroke-box | view-box | no-clip",
@@ -1981,6 +2269,12 @@
       "values": "[\u003cstring\u003e \u003cstring\u003e]+ | none | inherit"
     },
     {
+      "name": "region-fragment",
+      "status": "implemented",
+      "values": "auto | break",
+      "note": "One canvas: the engine returns one display list and never allocates Result.Pages, so region-fragment slices a region chain at op granularity and is not page fragmentation (a non..."
+    },
+    {
       "name": "right",
       "status": "implemented",
       "values": "\u003clength\u003e | \u003cpercentage\u003e | auto | inherit"
@@ -2181,6 +2475,12 @@
       "values": "\u003clength\u003e"
     },
     {
+      "name": "shape-inside",
+      "status": "implemented",
+      "values": "auto | outside-shape | [ \u003cbasic-shape\u003e || \u003cshape-box\u003e ] (circle(), ellipse(), inset(); polygon(), path(), and url() are rejected)",
+      "note": "Chrome has no BCD support for shape-inside. Lite rule: the inside contour needs a definite content height, so an auto-height box is a no-op (TestBehaviorShapeInsideNoLayoutEffect)."
+    },
+    {
       "name": "shape-margin",
       "status": "implemented",
       "values": "\u003clength-percentage [0,∞]\u003e"
@@ -2189,6 +2489,12 @@
       "name": "shape-outside",
       "status": "implemented",
       "values": "none | [ \u003cbasic-shape\u003e || \u003cshape-box\u003e ] | \u003cimage\u003e"
+    },
+    {
+      "name": "shape-padding",
+      "status": "implemented",
+      "values": "\u003clength-percentage [0,∞]\u003e",
+      "note": "Chrome has no BCD support for shape-padding. The padding shrinks the inside contour only; without a shape-inside contour it has no effect (TestBehaviorShapeInsidePaddingAloneNoE..."
     },
     {
       "name": "shape-rendering",
@@ -2467,9 +2773,51 @@
       "values": "flat | preserve-3d"
     },
     {
+      "name": "transition",
+      "status": "partial",
+      "values": "comma-separated property with optional duration, easing, delay, and behavior",
+      "note": "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or gener..."
+    },
+    {
+      "name": "transition-behavior",
+      "status": "partial",
+      "values": "normal | allow-discrete; comma-separated",
+      "note": "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or gener..."
+    },
+    {
+      "name": "transition-delay",
+      "status": "partial",
+      "values": "signed \u003ctime\u003e; comma-separated",
+      "note": "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or gener..."
+    },
+    {
+      "name": "transition-duration",
+      "status": "partial",
+      "values": "non-negative \u003ctime\u003e; comma-separated",
+      "note": "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or gener..."
+    },
+    {
+      "name": "transition-property",
+      "status": "partial",
+      "values": "all | none | custom-ident; comma-separated except none stands alone",
+      "note": "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or gener..."
+    },
+    {
+      "name": "transition-timing-function",
+      "status": "partial",
+      "values": "linear | ease | ease-in | ease-out | ease-in-out | step-start | step-end | cubic-bezier() | steps() | linear()",
+      "note": "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or gener..."
+    },
+    {
       "name": "translate",
       "status": "implemented",
       "values": "none | \u003clength-percentage\u003e [ \u003clength-percentage\u003e \u003clength\u003e? ]?"
+    },
+    {
+      "name": "trigger-scope",
+      "status": "partial",
+      "values": "none | all | one or more \u003cdashed-ident\u003e values",
+      "note": "The value is parsed, cascaded, and exported as metadata. Blinkless does not activate animation triggers from events, maintain trigger state, sample timelines, or generate frames."
     },
     {
       "name": "unicode-bidi",
@@ -2480,6 +2828,30 @@
       "name": "vertical-align",
       "status": "implemented",
       "values": "baseline | sub | super | top | text-top | middle | bottom | text-bottom | \u003cpercentage\u003e | \u003clength\u003e | inherit"
+    },
+    {
+      "name": "view-transition-class",
+      "status": "partial",
+      "values": "none | one or more custom-ident values",
+      "note": "The value is parsed, cascaded, and exported as view-transition metadata. Blinkless does not capture old and new snapshots, build view-transition pseudo-elements, or run view-tra..."
+    },
+    {
+      "name": "view-transition-group",
+      "status": "partial",
+      "values": "normal | contain | nearest | custom-ident",
+      "note": "The value is parsed, cascaded, and exported as view-transition metadata. Blinkless does not capture old and new snapshots, build view-transition pseudo-elements, or run view-tra..."
+    },
+    {
+      "name": "view-transition-name",
+      "status": "partial",
+      "values": "none | custom-ident",
+      "note": "The value is parsed, cascaded, and exported as view-transition metadata. Blinkless does not capture old and new snapshots, build view-transition pseudo-elements, or run view-tra..."
+    },
+    {
+      "name": "view-transition-scope",
+      "status": "partial",
+      "values": "none | all",
+      "note": "The value is parsed, cascaded, and exported as view-transition metadata. Blinkless does not capture old and new snapshots, build view-transition pseudo-elements, or run view-tra..."
     },
     {
       "name": "visibility",
@@ -2520,6 +2892,36 @@
       "name": "word-spacing",
       "status": "implemented",
       "values": "normal | \u003clength\u003e | inherit"
+    },
+    {
+      "name": "wrap-after",
+      "status": "implemented",
+      "values": "auto | line | avoid | avoid-line | flex | avoid-flex",
+      "note": "avoid and avoid-line skip a soft wrap only within one em of slack; longer content wraps anyway. flex ends the current flex line for a flex item; it is ignored on an inline-level..."
+    },
+    {
+      "name": "wrap-before",
+      "status": "implemented",
+      "values": "auto | line | avoid | avoid-line | flex | avoid-flex",
+      "note": "avoid and avoid-line skip a soft wrap only within one em of slack; longer content wraps anyway. flex forces a new flex line on a flex item; it is ignored on an inline-level box ..."
+    },
+    {
+      "name": "wrap-flow",
+      "status": "implemented",
+      "values": "auto | both | start | end | minimum | maximum | clear",
+      "note": "One-interval line model: both and maximum pick the side with the larger free gap and minimum the smaller; two-sided shortening needs two exclusion boxes (TestBehaviorWrapFlowBot..."
+    },
+    {
+      "name": "wrap-inside",
+      "status": "implemented",
+      "values": "auto | avoid | avoid-line",
+      "note": "Only avoid and avoid-line change layout; line, flex, and avoid-flex are stored but have no wrap-inside consumer. avoid keeps a fitting inline run on one line; wider text wraps n..."
+    },
+    {
+      "name": "wrap-through",
+      "status": "implemented",
+      "values": "wrap | none",
+      "note": "A wrap-through: none subtree builds against a scratch floatState, so floats inside it do not leak to later siblings (lite deviation from CSS2.1 float scope)."
     },
     {
       "name": "writing-mode",

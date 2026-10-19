@@ -23,8 +23,8 @@ export const BLINK_COMPARISONS: ComparisonDimension[] = [
   {
     title: 'CGO Status',
     blink: 'Tightly coupled to platform C++ binaries. Complex cross-compilation matrix.',
-    blinkless: 'The default build sets CGO_ENABLED=0. An opt-in c-shared build exists.',
-    advantage: 'CGO stays off unless you opt in.',
+    blinkless: 'The default build sets CGO_ENABLED=0. There is no C shared library target.',
+    advantage: 'CGO stays off.',
   },
   {
     title: 'JavaScript Engine',

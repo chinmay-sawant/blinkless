@@ -61,7 +61,7 @@ Obsolete modes (`png`, `jpeg`) and writer fields (`pageSize`, `orientation`,
 
 ```json
 { "ok": true, "mode": "display", "mime": "application/json",
-  "schema": "blinkless.drawinglist/1", "version": "0.0.1",
+  "schema": "blinkless.drawinglist/1", "version": "0.0.2",
   "width": 640, "height": 480, "bytes": "<Uint8Array>" }
 ```
 

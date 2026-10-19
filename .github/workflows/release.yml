@@ -2,7 +2,7 @@
 # The only gates are make test and make lint.
 #
 # Trigger: push of a v* tag only (never PR / ordinary branch push).
-#   git tag v0.2.6 && git push origin v0.2.6
+#   git tag v0.0.2 && git push origin v0.0.2
 # Creates or updates the GitHub Release with generated notes. No binaries
 # are attached.
 name: release

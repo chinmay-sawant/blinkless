@@ -46,7 +46,7 @@ Parser compliance, CSS coverage, and rendering comparisons are three claims with
 
 ### CSS coverage
 
-`testdata/css/catalog/properties.json` is the normative record. Measured 2026-10-09: 785 rows, 90 implemented, 301 partial, 387 unsupported, 7 intentionally ignored. The upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties). `make catalog-check` fails when the catalog disagrees with the code, and `make matrix-check` fails when the matrix section drifts from the catalog. A test-strength pass over some implemented rows is still open in the checklist. A catalog status is not a browser-parity claim.
+`testdata/css/catalog/properties.json` is the normative record. Measured 2026-10-19: 785 rows, 512 implemented, 46 partial, 219 unsupported, 8 intentionally ignored. The upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties). `make catalog-check` fails when the catalog disagrees with the code, and `make matrix-check` fails when the matrix section drifts from the catalog. A test-strength pass over some implemented rows is still open in the checklist. A catalog status is not a browser-parity claim.
 
 ### HTML parser compliance
 

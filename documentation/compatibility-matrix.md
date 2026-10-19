@@ -3,7 +3,7 @@
 > **Parent:** [plans/v0.0.1/phase-wise-checklist.md](../plans/v0.0.1/phase-wise-checklist.md) and [plans/v0.0.1/html-css-json-compatibility-checklist.md](../plans/v0.0.1/html-css-json-compatibility-checklist.md)  
 > **Status:** living contract - amendments go through plan review  
 > **Target:** authored HTML and CSS to a `layout.DisplayList` (the drawing list). **Not** a browser. **Not** a PDF writer. **Not** a page rasterizer.  
-> **Catalog:** `testdata/css/catalog/properties.json` (schema v1), measured 2026-10-17: 785 rows - 512 Implemented / 3 Partial / 262 Unsupported / 8 intentionally ignored. Upstream pin: webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties). Fidelity guide: [fidelity.md](fidelity.md).
+> **Catalog:** `testdata/css/catalog/properties.json` (schema v1), measured 2026-10-19: 785 rows - 512 Implemented / 46 Partial / 219 Unsupported / 8 intentionally ignored. Upstream pin: webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties). Fidelity guide: [fidelity.md](fidelity.md).
 > **Limitations:** Implemented means a handler, a consumer outside the style layer, and a resolvable behavior test. Browser rendering parity, HTML parser conformance, and this property catalog are separate claims with separate evidence. Section 1 is a rendering allowlist for HTML tags, not a parser conformance claim.
 
 This document is the contract for the layout engine. Its output is a drawing
@@ -1185,9 +1185,8 @@ current record.
 
 The `bin/blinkless` CLI and its flag matrix from earlier revisions are not part
 of this tree: there is no `cmd/` package and no `internal/cli`. The engine is
-consumed through the Go packages (`html`, `css`, `layout`), the C binding in
-`bindings/c`, and the WASM binding in `bindings/wasm` (see
-[library-api.md](library-api.md)). A CLI would need its
+consumed through the Go packages (`html`, `css`, `layout`) and the WASM binding
+in `bindings/wasm` (see [library-api.md](library-api.md)). A CLI would need its
 own flag contract; this matrix makes no flag claims.
 
 ---

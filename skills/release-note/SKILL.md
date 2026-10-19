@@ -43,12 +43,12 @@ Honesty that always stays true unless the engine change says otherwise:
 
 ## 2. Version files
 
-There is no `VERSION` file and no tag-vs-source check. The bindings carry
-their own `BINDINGS_VERSION` / `WASM_VERSION` in the Makefile.
+There is no `VERSION` file and no tag-vs-source check. The WASM binding
+carries its own `WASM_VERSION` in the Makefile.
 
 | File | What to set |
 |------|-------------|
-| [`CHANGELOG.md`](../../CHANGELOG.md) | Move `## Unreleased` into a dated `## <ver> (YYYY-MM-DD)` section. Leave an empty `## Unreleased` on top |
+| [`CHANGELOG.md`](../../CHANGELOG.md) | Add a dated `## <ver> (YYYY-MM-DD)` section above the previous release. Keep the newest release first |
 | [`RELEASE.md`](../../RELEASE.md) | Update the version line and the gate list if they moved |
 
 Do **not** touch the bindings version stamps unless the user asks.

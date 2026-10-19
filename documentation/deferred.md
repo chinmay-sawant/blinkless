@@ -1,13 +1,13 @@
 # Deferred features and workload priority
 
 This page is the product-facing inventory of work that is **partial**,
-**not implemented**, or **not planned**. The live post-MVP ledger is
-[`plans/0.2.0/10-canonical-post-mvp-roadmap.md`](../plans/0.2.0/10-canonical-post-mvp-roadmap.md).
-Leftover print CSS is tracked in
-[`plans/0.2.6/48-canonical-0.2.6-css-coverage.md`](../plans/0.2.6/48-canonical-0.2.6-css-coverage.md)
-(phases 48-53 landed; 54-56 closing). Fidelity language and degrade rules:
-[fidelity.md](fidelity.md). The normative per-property contract is
-[compatibility-matrix.md](compatibility-matrix.md).
+**not implemented**, or **not planned**. The current planning index is
+[`plans/README.md`](../plans/README.md). CSS coverage work is tracked in
+[`plans/v0.0.3/README.md`](../plans/v0.0.3/README.md), with the active
+capability checklist in
+[`plans/v0.0.1/html-css-json-compatibility-checklist.md`](../plans/v0.0.1/html-css-json-compatibility-checklist.md).
+Fidelity language and degrade rules: [fidelity.md](fidelity.md). The
+normative per-property contract is [compatibility-matrix.md](compatibility-matrix.md).
 
 Status here is about layout and CSS. PDF writing, PDF/A, and PDF/UA are not deferred. They are not in the product.
 
@@ -83,8 +83,7 @@ native file, arbitrary network, or Chrome-parity behavior. See
 | PDF 2.0 (ISO 32000-2) | **Removed with the PDF writer** in the 0.0.1 renderer cut. Version keys still parse and round-trip; nothing consumes them. | Not in the product |
 | PDF/A-4 / PDF/UA-2 (PDF 2.0 conformance profiles) | **Removed with the PDF writer** in the 0.0.1 renderer cut. Profile keys still parse and round-trip; nothing consumes them. | Not in the product |
 | PDF encryption / AcroForm / signatures | Out of scope; there is no writer. | Not planned |
-| C ABI (`blinkless_*` c-shared exports) | **Shipped in 0.2.5**: opt-in c-shared exports under `bindings/c` (`-buildmode=c-shared`). Default Go builds stay `CGO_ENABLED=0`; cgo lives only in the isolated shared-library target. There is no Python package. | Opt-in local `make c-shared`, not a CI job |
-| Browser WASM preview | **Shipped in 0.2.6**: opt-in `make wasm` build for inline HTML, returning a versioned drawing-list JSON document (schema `blinkless.drawinglist/1`, documented under [WASM drawing-list JSON](library-api.md#wasm-drawing-list-json)). The adapter runs in a worker with bounded input, output, image dimensions, and request lifetime; obsolete PDF/PNG/JPEG output modes and writer fields are rejected. | Future resource bridge with explicit origin, CORS, size, timeout, and cancellation rules |
+| Browser WASM preview | **Shipped in 0.0.2**: opt-in `make wasm` build for inline HTML, returning a versioned drawing-list JSON document (schema `blinkless.drawinglist/1`, documented under [WASM drawing-list JSON](library-api.md#wasm-drawing-list-json)). The adapter runs in a worker with bounded input, output, image dimensions, and request lifetime; obsolete PDF/PNG/JPEG output modes and writer fields are rejected. | Future resource bridge with explicit origin, CORS, size, timeout, and cancellation rules |
 | `--read-args-from-stdin` | **Not implemented.** No CLI; the `readargsfromstdin` key is inert. | Not planned |
 | Stdin HTML input (`-`) | **Not implemented.** No CLI. `load.GuessURL("-")` falls through to **`http://-`**. Library callers should pass inline HTML. | Document honestly; not a hidden feature |
 | WOFF2 / `data:` `@font-face` | Skipped (WOFF2 needs Brotli, not allowlisted; `data:` src rejected). Local TTF/OTF/WOFF1 under ACL works. | No Brotli module |
@@ -95,7 +94,7 @@ native file, arbitrary network, or Chrome-parity behavior. See
 | `@page size` | Parsed into the sheet; the writer-era `applyCSSPageMargins` consumer is gone, so nothing applies it. | Not in the product |
 | `background-image` / gradients | **Implemented** multi-layer background images with pure-Go linear and radial gradient rasterization (`background_image.go`, `gradient.go`). | Phase 52 [x] |
 | Overflow clip | **Partial**: `hidden`/`clip`/`auto`/`scroll` clip descendant paint to the padding box (`overflow_clip.go`). Sticky still uses overflow as scrollport at offset 0. | Phase 52 |
-| Leftover print CSS | Active ledger: [`plans/0.2.6/48-canonical-0.2.6-css-coverage.md`](../plans/0.2.6/48-canonical-0.2.6-css-coverage.md). Do not treat `plans/0.2.0/phases/pending-phase-items/` as the live CSS list. | 0.2.6 leftovers: float wrap, duplex size, GCPM |
+| Leftover print CSS | Current ledgers: [`plans/v0.0.3/README.md`](../plans/v0.0.3/README.md) and [`plans/v0.0.1/html-css-json-compatibility-checklist.md`](../plans/v0.0.1/html-css-json-compatibility-checklist.md). The catalog is authoritative for per-property status. | Remaining gaps include float defer, box-decoration-break, break-inside, footnotes, margin-break, and generated-content names |
 | `box-shadow` | **Partial** un-inset offset fill plus lite stacked-rect blur (`box_shadow.go`). Inset and spread ignored. | 52.5 `[x]` |
 | `list-style-image` | Paints via the img fetch path; type marker fallback. | 53.4 `[x]` |
 | `@page :first` / `:left` / `:right` | Parsed into the sheet; no page-rule consumer in this tree. | 54.1.2 `[x]` (parser only) |
@@ -115,7 +114,7 @@ native file, arbitrary network, or Chrome-parity behavior. See
 | 3D transform and perspective properties (4 properties: backface-visibility, perspective, perspective-origin, transform-style) | Implemented as a baked 2D matrix on each paint op. The host draws that matrix. Perspective foreshortens rotateY, preserve-3d composes before one flatten, and hidden backface zeroes a face turned away from the viewer. | Drawing-list matrix, not a page bitmap |
 | Vendor aliases - Implemented slice A (6) | **Implemented** via `normalizeVendorPrefix` `internal/layout/style_cascade.go:1680` plus `display` value remaps at `internal/layout/style_properties.go:92` and value remaps at `internal/layout/style_cascade.go:1826` (`box-align`/`pack`/`orient`/`ordinal-group`). 6 new + 22 from Phase 69 = **28 total Implemented** (`TestWebkitPrefixAliases` `internal/layout/style_cascade_test.go:508`). List: `-webkit-box-align` -> `align-items`, `-webkit-box-flex` -> `flex-grow`, `-webkit-box-ordinal-group` -> `order` (N-1), `-webkit-box-orient` -> `flex-direction` (horizontal/vertical), `-webkit-box-pack` -> `justify-content` (justify->space-between), `-webkit-text-fill-color` -> `color`; plus `display: -webkit-box` -> `flex` and `-webkit-inline-box` -> `inline-flex`. | Phase 82 slice A [x] |
 | Vendor aliases - Unsupported group B (3) | **Not implemented** - unprefixed `background-clip` / `background-origin` / `background-size` are Implemented; the `-webkit-background-clip` / `-origin` / `-size` aliases still do not remap. | matrix 5.3 |
-| v0.2.7 next-72 leftovers (17) | **Not implemented** by choice. Borders-4 / Round Display drafts (14: `border-clip` family, `border-limit`, `border-shape`, `border-boundary`). Plus `text-fit` (store-only, no scale-search), `shape-image-threshold`, and `float-defer` stay unsupported. `shape-inside` and `shape-padding` now carry the lite subset (`internal/layout/style_shape_inside.go`); Chrome has no BCD support, so this is no parity claim. | 87.4 / 87.6 / 87.7; matrix §2.1, §2.3, §5.5 |
+| Next-72 leftovers (17) | **Not implemented** by choice. Borders-4 / Round Display drafts (14: `border-clip` family, `border-limit`, `border-shape`, `border-boundary`). Plus `text-fit` (store-only, no scale-search), `shape-image-threshold`, and `float-defer` stay unsupported. `shape-inside` and `shape-padding` now carry the lite subset (`internal/layout/style_shape_inside.go`); Chrome has no BCD support, so this is no parity claim. | 87.4 / 87.6 / 87.7; matrix §2.1, §2.3, §5.5 |
 | Vendor aliases - Unsupported group C (6) | **Mixed.** The six `-webkit-mask-box-image*` aliases now have a consumer: they normalize onto `mask-border*`, the frame composes into a raster on the group `MaskBorder`, and the host applies it as a soft mask (the mask-border rows are implemented). The eight selected `-webkit-mask*` aliases share the mask group path; seven are implemented and `-webkit-mask-composite` stays partial (source-over/source-in/source-out/xor only). | Phase 83 scope, updated by the CSS masking first-wave checklist and the mask acceptance wave |
 | Vendor aliases - mixed group D (20) | **Mixed.** `-webkit-backface-visibility`, `-webkit-perspective`, `-webkit-perspective-origin`, and `-webkit-transform-style` map to implemented unprefixed properties and use the tested 3D-to-2D paint path. The host draws the matrix. The nine `-webkit-animation*` and five `-webkit-transition*` aliases map to the same host-facing metadata as their unprefixed properties. That payload does not make Blinkless advance animation time or interpolate transitions. `-webkit-appearance` and `-webkit-user-select` stay unsupported. | Animation and transition runtime remains outside the v0.0.3 metadata scope |
 | Vendor aliases - Unsupported group E (5) | **Not implemented** - WebKit-native with no print consumer. `-webkit-line-clamp`, `-webkit-text-size-adjust`, `-webkit-text-stroke`, `-webkit-text-stroke-color`, `-webkit-text-stroke-width`. Left unsupported unless a base plus consumer lands. | No consumer planned |

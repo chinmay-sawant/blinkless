@@ -1,4 +1,4 @@
-.PHONY: test test-unit test-quick test-serial test-race lint lint-frontend size-check build wasm wasm-test fmt golden golden-update samples clean claim-scan catalog-check matrix-check final-evidence bench bench-engine bench-lib bench-inprocess bench-cli-compare c-shared print-bindings-version bindings-clean
+.PHONY: test test-unit test-quick test-serial test-race lint lint-frontend size-check build wasm wasm-test fmt golden golden-update samples clean claim-scan catalog-check matrix-check final-evidence bench bench-engine bench-lib bench-inprocess bench-cli-compare
 # Pure-Go runtime: the standard library plus the allowlisted direct modules
 # below. No cgo, browser, or native converter process is required.
 # Direct third-party requires must stay ⊆ {
@@ -72,11 +72,9 @@ size-check:
 lint-frontend:
 	@echo "frontend/ is not in this tree; lint-frontend is a no-op"
 
-# Stamps the c-shared library (bindings/c) with the repo version. bindings/c
-# is package main, so X must target main.libVersion.
-BINDINGS_VERSION := 0.0.1
-WASM_VERSION := 0.0.1
-BINDINGS_VERSION_LDFLAGS := -X main.libVersion=$(BINDINGS_VERSION)
+# Stamps the WASM binding (bindings/wasm) with the repo version. The binding
+# is package main, so X must target main.wasmVersion.
+WASM_VERSION := 0.0.2
 WASM_VERSION_LDFLAGS := -X main.wasmVersion=$(WASM_VERSION)
 WASM_DIR := dist/wasm
 WASM_EXEC := $(shell go env GOROOT)/lib/wasm/wasm_exec.js
@@ -205,23 +203,6 @@ bench-cli-compare: build
 
 clean:
 	rm -rf testdata/golden/out
-	rm -rf dist
-
-# --- C shared library (opt-in only; never part of build/test/golden) --------
-
-# Builds the opt-in C shared library under bindings/c. Requires an
-# explicit CGO_ENABLED=1; the guard refuses to run otherwise so the default
-# pure-Go targets can never drift into a cgo build. Emits dist/libblinkless.so
-# plus the generated header, then smokes exports via nm (grep -c fails on 0).
-c-shared:
-	[ "$(CGO_ENABLED)" = "1" ] || { echo "refusing: c-shared needs CGO_ENABLED=1 (pure-Go default stays CGO_ENABLED=0)" >&2; exit 2; }
-	mkdir -p dist && CGO_ENABLED=1 go build -buildmode=c-shared -ldflags "$(BINDINGS_VERSION_LDFLAGS) -s -w" -o dist/libblinkless.so ./bindings/c && file dist/libblinkless.so && nm -D dist/libblinkless.so | grep -c blinkless_
-
-# Prints the stamp used by the c-shared ldflags.
-print-bindings-version:
-	@echo $(BINDINGS_VERSION)
-
-bindings-clean:
 	rm -rf dist
 
 
