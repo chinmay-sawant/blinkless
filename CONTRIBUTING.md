@@ -209,8 +209,7 @@ sync only when you close a phase item.
 
 Include:
 
-- Commit hash (and `BLINKLESS_VERSION` from `bindings/c/include/blinkless.h`
-  when you use the C binding)
+- Commit hash
 - Minimal HTML (or fixture path) and the exact library call
 - Expected vs actual; for layout bugs, a drawing-list diff or the matching
   browser case under `test/chrome/` helps

@@ -1,6 +1,6 @@
 # Entry points
 
-There is no CLI in this tree. `cmd/` is empty and no Makefile target writes a CLI binary. The ways into the engine are the public Go packages and the bindings.
+There is no CLI in this tree. `cmd/` is empty and no Makefile target writes a CLI binary. The ways into the engine are the public Go packages and the WASM binding.
 
 ## Public Go packages
 
@@ -24,10 +24,6 @@ There is no CLI in this tree. `cmd/` is empty and no Makefile target writes a CL
 `bindings/wasm` is the browser entry. It exposes `blinklessWASM` (`bindings/wasm/main_js_wasm.go:15`). The request is JSON: `html`, `mode`, `width`, `height` (`bindings/wasm/contract.go:46-51`). `mode` accepts only `"display"`, and the old writer fields (pageSize, orientation, padding, quality) are rejected as unknown (`contract.go:43-45`). The response is the versioned drawing list, schema `blinkless.drawinglist/1` (`bindings/wasm/drawing_list.go:21`). Images resolve from `data:` URLs only (`bindings/wasm/resources.go:24-51`).
 
 `make wasm` builds `dist/wasm/blinkless.wasm` and copies `wasm_exec.js`, `testdata/wasm/sample.html`, and `testdata/wasm/manifest.json` (Makefile `wasm` target). `make wasm-test` runs `scripts/check-wasm-contract.sh` first.
-
-## C binding
-
-`bindings/c` builds the c-shared library with `make c-shared` (needs `CGO_ENABLED=1`). It exposes the frozen ABI in `bindings/c/include/blinkless.h`: version and ABI queries, status codes, and a process-wide last-error slot (`bindings/c/main.go`). A drawing-list entry point is not wired yet; `exports_stub.go` keeps the package compiling under `CGO_ENABLED=0`. `make c-shared` is an opt-in local build, not a CI job. There is no Python package.
 
 ## Build targets
 

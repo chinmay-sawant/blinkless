@@ -1,6 +1,7 @@
 package layout_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/chinmay-sawant/blinkless/layout"
@@ -23,7 +24,7 @@ func compareDisplays(t *testing.T, got, want *layout.Display) {
 	}
 
 	for i := range want.Boxes {
-		if got.Boxes[i] != want.Boxes[i] {
+		if !reflect.DeepEqual(got.Boxes[i], want.Boxes[i]) {
 			t.Fatalf("box %d: %+v, want %+v", i, got.Boxes[i], want.Boxes[i])
 		}
 	}

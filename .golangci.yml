@@ -19,7 +19,7 @@ linters:
     # reports; standalone gofumpt/gofmt on the same tree is clean). Prefer gofmt
     # (still enabled) until golangci-lint ships a gofumpt that supports go1.26.
     - gofumpt
-    # Import allow-list is TestDirectModuleAllowlist (internal/pdf). Default
+    # Import allow-list is TestDirectModuleAllowlist (internal/fonts). Default
     # depguard only allows $gostd and then accidentally matched the old module
     # path blinkless* via the stdlib prefix "go". Not worth //nolint noise.
     - depguard
@@ -43,13 +43,13 @@ issues:
       linters:
         - paralleltest
   # npm install drops a vendored Go file under flatted; never lint that tree.
-  # bindings/c is cgo glue. Its C interop, unsafe, and struct-mirroring
-  # patterns are validated via go vet + c-shared build + tests, not via
-  # enable-all style linters. The bindings tree stays excluded.
   exclude-dirs:
     - node_modules
     - frontend/dist
-    - bindings
+    # bindings/wasm is a js/wasm entry point: enable-all style linters flag
+    # its struct mirrors, short locals, and unused-on-native version stamp.
+    # It is validated by make wasm-test and the WASM contract script.
+    - bindings/wasm
     # Scratch programs under temps are exploratory artifacts, not product
     # packages. They have never been part of the supported build or test path.
     - temps

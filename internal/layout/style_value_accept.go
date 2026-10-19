@@ -141,23 +141,7 @@ func cssWideKeyword(value string) bool {
 // not model yet; rejecting a valid value would break layout, while the
 // applier already drops an invalid one.
 func declarationValueAccepted(prop, value string) bool {
-	if accepted, isMaskProperty := maskDeclarationValueAccepted(prop, value); isMaskProperty {
-		return accepted
-	}
-
-	if accepted, isRegionProperty := declarationRegionsValueAccepted(prop, value); isRegionProperty {
-		return accepted
-	}
-
-	if accepted, handled := declarationFlowValueAccepted(prop, value); handled {
-		return accepted
-	}
-
-	if accepted, handled := declarationBoxValueAccepted(prop, value); handled {
-		return accepted
-	}
-
-	if accepted, handled := declarationTextValueAccepted(prop, value); handled {
+	if accepted, handled := specialDeclarationValueAccepted(prop, value); handled {
 		return accepted
 	}
 
@@ -175,6 +159,34 @@ func declarationValueAccepted(prop, value string) bool {
 	default:
 		return extendedDeclarationValueAccepted(prop, value)
 	}
+}
+
+func specialDeclarationValueAccepted(prop, value string) (bool, bool) {
+	if accepted, handled := animationDeclarationValueAccepted(prop, value); handled {
+		return accepted, true
+	}
+
+	if accepted, handled := transitionDeclarationValueAccepted(prop, value); handled {
+		return accepted, true
+	}
+
+	if accepted, handled := maskDeclarationValueAccepted(prop, value); handled {
+		return accepted, true
+	}
+
+	if accepted, handled := declarationRegionsValueAccepted(prop, value); handled {
+		return accepted, true
+	}
+
+	if accepted, handled := declarationFlowValueAccepted(prop, value); handled {
+		return accepted, true
+	}
+
+	if accepted, handled := declarationBoxValueAccepted(prop, value); handled {
+		return accepted, true
+	}
+
+	return declarationTextValueAccepted(prop, value)
 }
 
 func declarationFlowValueAccepted(prop, value string) (bool, bool) {

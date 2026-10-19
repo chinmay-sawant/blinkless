@@ -61,7 +61,7 @@ Obsolete modes (`png`, `jpeg`) and writer fields (`pageSize`, `orientation`,
 
 ```json
 { "ok": true, "mode": "display", "mime": "application/json",
-  "schema": "blinkless.drawinglist/1", "version": "0.0.1",
+  "schema": "blinkless.drawinglist/1", "version": "0.0.2",
   "width": 640, "height": 480, "bytes": "<Uint8Array>" }
 ```
 
@@ -83,7 +83,8 @@ code: `invalid_request`, `resource_limit`, `timeout`, `render_error`, or
 | `ptPerPx` | number | Reciprocal of `pxPerPt`, value 72/96, the same number as `layout.Display.PointsPerPixel` |
 | `ops` | array | Operations in source order, one entry per `layout.DisplayOp` |
 | `order` | array | Indexes into `ops` in paint order |
-| `boxes` | array | Element border boxes in CSS pixels, document order |
+| `boxes` | array | Element border boxes and host-facing animation, transition, trigger, and view-transition metadata in CSS pixels, document order |
+| `keyframes` | array, omitted when empty | Parsed `@keyframes` rules in stylesheet source order |
 | `groups` | array | Blend and isolation groups referenced by `ops` |
 | `fonts` | array | Font faces referenced by text and bullet entries |
 | `images` | array | Encoded image payloads referenced by image entries |
@@ -178,10 +179,49 @@ entries with `radii` and never uses `path`. The kind constant lives at
 
 ### Element boxes
 
-Each box is `{ id, tag, action, text, x, y, w, h }` in CSS pixels, in document
-order, from the same placement as the operations; empty optional fields are
-omitted. `action` is the `data-action` attribute and `text` is descendant
-text. Use boxes for hit testing; use operations for painting.
+Each box has `id`, `tag`, `x`, `y`, `w`, and `h`. Coordinates and sizes are
+CSS pixels in document order, from the same placement as the operations.
+`action` is the `data-action` attribute and `text` is descendant text. Empty
+optional fields are omitted. Use boxes for hit testing; use operations for
+painting. The public fields are defined by `layout.Box` in
+`layout/layout.go:10-28` and encoded by `drawBoxJSON` in
+`bindings/wasm/drawing_list.go:221-238`.
+
+When present, `animations` and `transitions` are arrays of CSS list items.
+Animation entries contain `name`, `durationMs`, `timingFunction`,
+`iterationCount`, `direction`, `fillMode`, `playState`, `composition`,
+`delayStartMs`, `delayEndMs`, `timeline`, `rangeStart`, `rangeEnd`, and
+`rangeCenter`. `durationAuto` and `iterationInfinite` are optional flags;
+`trigger` is optional. Transition entries contain `property`, `durationMs`,
+`delayMs`, `timingFunction`, and `behavior`. All `*Ms` values are
+milliseconds. The numeric time values are converted from CSS `s` or `ms`
+values; timing functions, timelines, and range values remain CSS strings.
+The fields and units come from `layout.Animation` and `layout.Transition`
+(`layout/layout.go:30-59`), with list alignment and time conversion in
+`internal/layout/animation_transition.go:78-140`.
+
+`triggerScope`, `viewTransitionName`, `viewTransitionClass`,
+`viewTransitionGroup`, and `viewTransitionScope` carry the accepted cascaded CSS value
+on the box. These strings do not activate triggers or run a view transition.
+The engine returns a static drawing list: it does not advance animation time,
+compare two layouts, interpolate transition values, dispatch events, or
+capture and compose view-transition snapshots. A host must provide that work
+if it uses these fields.
+
+### Keyframes
+
+The optional top-level `keyframes` array contains rules in stylesheet source
+order. Each rule is `{ name, keyframes }`; each keyframe is
+`{ offset, declarations }`, where `offset` is a number from 0 through 1 and
+each declaration is `{ property, value }` with the raw CSS value. Repeated
+names remain in the array; a consumer selects the last rule with a matching name.
+Declarations marked `!important` are omitted. The public types are in
+`layout/layout.go:62-79`; `layout/displaylist.go:286-313` copies the rules to
+the display list and filters important declarations. The WASM result encodes
+that list as `keyframes` in `bindings/wasm/drawing_list.go:47-72,379-394`.
+
+Keyframes and timing data are inputs for a host. Blinkless does not sample
+them to produce changing frames.
 
 ### Blend and isolation groups
 

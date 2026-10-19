@@ -149,7 +149,7 @@ The two complementary roles are worth distinguishing early:
 
 | Symbol | Location | Why it exists |
 |--------|----------|---------------|
-| `parseAtRule` | css.go:262 | Dispatch: `@media`/`@container`/`@supports`/`@layer` parsed into rules; `@property`/`@page`/`@font-face`/`@import` side channels; `@keyframes` and anything unknown **parse-ignored** (static cascade only; there is no animation) |
+| `parseAtRule` | css.go:262 | Dispatch: `@media`/`@container`/`@supports`/`@layer` parsed into rules; `@property`/`@page`/`@font-face`/`@import`/`@keyframes` use stylesheet side channels; unknown at-rules are skipped |
 | `stripComments` | css.go:799 | Removes `/* */`, preserving `\n` so line numbers stay stable |
 | `findBlock`/`takeBlock` | css.go:834/914 | Brace finding with quote/paren tracking; the only source of real parse errors (`errUnbalanced`, `errNoBlock` at css.go:789-790) |
 | `splitTopLevel` | css.go:968 | Splits selector lists and declaration blocks on top-level `,`/`;` outside parens/brackets/quotes |
@@ -498,11 +498,12 @@ imports layout, convert, load, or settings. All viewport/media/container
 - **At-rules taxonomy**: `@media`/`@container`/`@supports` flatten into the
   rule list with a gate (`Rule.Media`, `Rule.Container`, `Rule.Supports`;
   dispatch css.go:264-270); `@layer` stamps a cascade rank on each rule
-  (`Rule.Layer`, at_layer.go:22); `@page`/`@font-face`/`@property` are
-  side-channel structs (`PageStyle`, `FontFace`, `Stylesheet.Properties`,
-  at_property.go:19); `@import` is recorded in `Stylesheet.Imports` for the
-  collection layer to fetch; `@keyframes`, `@charset`, CSS nesting, and unknown
-  at-rules are skipped.
+  (`Rule.Layer`, at_layer.go:22); `@page`/`@font-face`/`@property` and
+  `@keyframes` are kept as stylesheet side-channel data; `@import` is recorded
+  in `Stylesheet.Imports` for the collection layer to fetch. `@charset`, CSS
+  nesting, and unknown at-rules are skipped. Keyframe declarations and
+  animation/transition metadata are exported in the display list; Blinkless
+  does not sample time or generate changing frames.
 - **Inline is strongest**: layout gives `style=""` the sentinel specificity
   `1<<maxIntShift`, stronger than any sheet rule including `!important`
   (style_cascade.go:655). `!important` in inline style is parsed by
@@ -615,9 +616,11 @@ and documentation/deferred.md. Confirmed gaps in css itself:
    prepare/styles.go:20; `fetchImports` at prepare/styles.go:235, cap check at
    prepare/styles.go:239-240). `@supports`, `@layer`, and `@property` are
    parsed (`at_supports.go`, `at_layer.go`, `at_property.go`); CSS nesting,
-   `@charset`, `@keyframes`, and unknown at-rules are skipped.
-   Animations/transitions are out of scope (static cascaded values only;
-   `@keyframes` is skip-parsed at css.go:285; deferred.md §4).
+   `@charset` and unknown at-rules are skipped. `@keyframes` is parsed into
+   stylesheet data by `internal/css/keyframes.go` and copied to the public
+   display list. Animations and transitions carry host-facing timing metadata;
+   frame sampling and interpolation remain outside the engine scope
+   (`documentation/deferred.md`).
 3. **Values**: `%` and viewport units (`vw`/`vh`) parse but `LengthToPt`
    returns `false` for them (container.go:116): layout decides policy. The
    named-color table is the CSS Color 4 list (color_names.go:10). `var()`

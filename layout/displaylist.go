@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/chinmay-sawant/blinkless/css"
+	icss "github.com/chinmay-sawant/blinkless/internal/css"
 	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
 	ilayout "github.com/chinmay-sawant/blinkless/internal/layout"
 	"github.com/chinmay-sawant/blinkless/internal/pubstate"
@@ -167,6 +168,10 @@ type Display struct {
 	// order, in CSS pixels. A caller uses them for hit testing.
 	Boxes []Box
 
+	// Keyframes are parsed @keyframes rules in stylesheet source order. When
+	// names repeat, the last rule with that name is the selected rule.
+	Keyframes []KeyframesRule
+
 	// Width and Height are the canvas size in CSS pixels. Height is the
 	// taller of the laid-out content and the requested minimum, converted
 	// straight from points. An unset requested height does not raise the
@@ -268,6 +273,7 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 		Ops:            res.Ops,
 		Order:          ilayout.PaintOrder(res.Ops),
 		Boxes:          boxesFrom(ilayout.PlacedElements(res)),
+		Keyframes:      keyframesFrom(styled.Sheets),
 		Width:          int(res.Width * ptToPx),
 		Height:         int(canvasPt * ptToPx),
 		PointsPerPixel: 1 / ptToPx,
@@ -275,6 +281,41 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 		ForcedBreaks:   forced,
 		KeepTogether:   keep,
 	}, nil
+}
+
+func keyframesFrom(sheets []*icss.Stylesheet) []KeyframesRule {
+	var rules []KeyframesRule
+
+	for _, sheet := range sheets {
+		if sheet == nil {
+			continue
+		}
+
+		for _, source := range sheet.Keyframes {
+			rule := KeyframesRule{Name: source.Name, Keyframes: make([]Keyframe, len(source.Keyframes))}
+
+			for frameIndex, frame := range source.Keyframes {
+				declarations := make([]KeyframeDeclaration, 0, len(frame.Declarations))
+
+				for _, declaration := range frame.Declarations {
+					if declaration.Important {
+						continue
+					}
+
+					declarations = append(declarations, KeyframeDeclaration{
+						Property: declaration.Prop,
+						Value:    declaration.Value,
+					})
+				}
+
+				rule.Keyframes[frameIndex] = Keyframe{Offset: frame.Offset, Declarations: declarations}
+			}
+
+			rules = append(rules, rule)
+		}
+	}
+
+	return rules
 }
 
 // displayLayoutOptions builds the layout options for one display run: the

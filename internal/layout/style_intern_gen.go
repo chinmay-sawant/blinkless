@@ -495,7 +495,9 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.WrapBefore == b.WrapBefore &&
 		a.WrapAfter == b.WrapAfter &&
 		a.WrapInside == b.WrapInside &&
-		maps.Equal(a.CustomProps, b.CustomProps)
+		maps.Equal(a.CustomProps, b.CustomProps) &&
+		a.Animation == b.Animation &&
+		a.Transition == b.Transition
 }
 
 // styleInternFingerprint hashes every ResolvedStyle field. Equal styles
@@ -927,6 +929,8 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashString(h, s.WrapAfter)
 	h = styleInternHashString(h, s.WrapInside)
 	h = styleInternHashStringMap(h, s.CustomProps)
+	h = styleInternHashAnimationStyle(h, s.Animation)
+	h = styleInternHashTransitionStyle(h, s.Transition)
 
 	return h
 }
@@ -1336,6 +1340,8 @@ func styleInternFields() []string {
 		"WrapAfter",
 		"WrapInside",
 		"CustomProps",
+		"Animation",
+		"Transition",
 	}
 }
 
@@ -1346,6 +1352,32 @@ func styleInternHashMatrix2D(h uint64, v Matrix2D) uint64 {
 	h = styleInternHashFloat64(h, v.D)
 	h = styleInternHashFloat64(h, v.E)
 	h = styleInternHashFloat64(h, v.F)
+
+	return h
+}
+
+func styleInternHashAnimationStyle(h uint64, v animationStyle) uint64 {
+	h = styleInternHashBool(h, v.Set)
+	h = styleInternHashString(h, v.Duration)
+	h = styleInternHashString(h, v.TimingFunction)
+	h = styleInternHashString(h, v.IterationCount)
+	h = styleInternHashString(h, v.Direction)
+	h = styleInternHashString(h, v.FillMode)
+	h = styleInternHashString(h, v.PlayState)
+	h = styleInternHashString(h, v.Composition)
+	h = styleInternHashString(h, v.DelayStart)
+	h = styleInternHashString(h, v.DelayEnd)
+	h = styleInternHashString(h, v.Name)
+	h = styleInternHashString(h, v.Timeline)
+	h = styleInternHashString(h, v.RangeStart)
+	h = styleInternHashString(h, v.RangeEnd)
+	h = styleInternHashString(h, v.RangeCenter)
+	h = styleInternHashString(h, v.Trigger)
+	h = styleInternHashString(h, v.TriggerScope)
+	h = styleInternHashString(h, v.ViewTransitionName)
+	h = styleInternHashString(h, v.ViewTransitionClass)
+	h = styleInternHashString(h, v.ViewTransitionGroup)
+	h = styleInternHashString(h, v.ViewTransitionScope)
 
 	return h
 }
@@ -1375,6 +1407,17 @@ func styleInternHashTransformOriginSpec(h uint64, v transformOriginSpec) uint64 
 	h = styleInternHashFloat64(h, v.Y)
 	h = styleInternHashBool(h, v.XPercent)
 	h = styleInternHashBool(h, v.YPercent)
+
+	return h
+}
+
+func styleInternHashTransitionStyle(h uint64, v transitionStyle) uint64 {
+	h = styleInternHashBool(h, v.Set)
+	h = styleInternHashString(h, v.Property)
+	h = styleInternHashString(h, v.Duration)
+	h = styleInternHashString(h, v.Delay)
+	h = styleInternHashString(h, v.TimingFunction)
+	h = styleInternHashString(h, v.Behavior)
 
 	return h
 }

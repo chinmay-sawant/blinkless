@@ -110,9 +110,10 @@ or doc first. Report the pass count when invoked as `/feynman`.
 
 ## Documentation
 
-`documentation/` is the committed reference. There is no `frontend/`
-site and no built `docs/` in this tree; the only prose surface to edit is
-the markdown under `documentation/`.
+`documentation/` is the committed reference. `frontend/` holds the site
+source and `docs/` holds the Vite build; neither is part of the engine
+build or `make test`. Product claims live in `documentation/`, `README.md`,
+and `doc.go`; `claim-scan` does not scan the site.
 
 ## Verification gates
 
@@ -145,8 +146,7 @@ Run targeted single-package tests during a session (`go test ./internal/<pkg>`
 or `go test ./internal/<pkg> -run '<TestName>'`); run the full gate set once
 at session end before claiming done. GitHub CI (`.github/workflows/ci.yml`)
 runs only `make test` and `make lint`. It does not run claim-scan,
-catalog-check, matrix-check, race, wasm, final-evidence, or a c-shared job.
-`make c-shared` stays an opt-in local C build.
+catalog-check, matrix-check, race, wasm, or final-evidence.
 
 ## Things to AVOID (paid-for lessons)
 
@@ -227,15 +227,15 @@ catalog-check, matrix-check, race, wasm, final-evidence, or a c-shared job.
   tag is not compared to a version file. `.github/workflows/release.yml` runs
   `make test` and `make lint`, then creates or updates the GitHub Release.
   The Python package and `.github/workflows/publish-pypi.yml` are gone.
-  `bindings/c` and `bindings/wasm` stay. The bindings carry their own
-  `BINDINGS_VERSION` / `WASM_VERSION` stamps in the Makefile; leave them
-  alone unless the user asks. Release records live in `CHANGELOG.md` and the
-  ledger under `plans/<ver>/`.
-- **The frontend site is not in this tree.** There is no `frontend/` source
-  and no built `docs/`; `make lint-frontend` is a no-op that says so, and
-  `make lint` does not chain it. `claim-scan` reads only `doc.go`, `README.md`,
-  and `documentation/*.md` (`documentation/architecture/*.md` included), so
-  keep product claims there honest.
+  `bindings/wasm` stays. The WASM binding carries its own `WASM_VERSION`
+  stamp in the Makefile; leave it alone unless the user asks. Release records
+  live in `CHANGELOG.md` and the ledger under `plans/<ver>/`.
+- **The frontend site lives outside the engine.** `frontend/` holds the
+  source and `docs/` holds the Vite build; `frontend/vite.config.ts` writes
+  the build to `../docs`. `make lint-frontend` is a no-op, and `make lint`
+  does not chain it. `claim-scan` reads only `doc.go`, `README.md`, and
+  `documentation/*.md` (`documentation/architecture/*.md` included), so keep
+  product claims there honest.
 - **No CLI ships in this tree.** There is no `cmd/` package and no
   `bin/blinkless`; the drawing-list tests are headless by construction. What
   bites instead is environment drift: pin expectations via the Makefile

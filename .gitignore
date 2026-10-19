@@ -18,14 +18,8 @@ testdata/golden/out/
 # per-mode summaries. Reports derived from these live under plans/.
 output/profiles/
 
-# c-shared build artifacts for bindings/c (.so/.dylib/.dll and /dist/).
-# The committed vendored header include/gowkhtmltopdf.h stays trackable:
-# no include/*.h rule is added here.
+# Generated bindings and build artifacts.
 /dist/
-bindings/c/libgowkhtmltopdf.h
-bindings/**/*.so
-bindings/**/*.dylib
-bindings/**/*.dll
 
 # Leftover PDFs from the removed samples-python target under output/python/.
 # Ignore the bulk fixture-*.pdf set; keep top-level fixture-55 / fixture-56 as
@@ -72,12 +66,6 @@ __pycache__/
 .vscode
 pen/
 
-
-plans/0.2.6/perf-review/results/*
-/plans/0.2.6/perf-improve/profiles/*
-/plans/0.2.6/perf-improve/results/*
-plans/0.2.6/perf-time/profiles/raw/*
-/plans/0.2.6/perf-time/results/*
 
 # Agent batch proof notes (local only; not committed)
 plans/**/phases/_proof-*.md

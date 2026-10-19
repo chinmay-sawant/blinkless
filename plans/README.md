@@ -10,10 +10,10 @@ Native view proposal: [native web view checklist](v0.0.1/native-window/native-we
 
 CSS masking first wave: [CSS masking checklist](v0.0.1/css-masking/css-masking-checklist.md). It targets 10 standard mask properties and 8 WebKit-prefixed forms. The display-list group contract and property behavior are implemented; all final gates passed on 2026-10-13.
 
-v0.0.3 CSS coverage ledgers: [index](v0.0.3/README.md). Thirteen phase checklists, written 2026-10-15, still open. They plan animation, transitions, scroll, speech, SVG presentation, corner shape, interior shapes, row rules, anchors, regions, mask gradient sources, mask borders, and the remaining 3D aliases. No implementation has started. The masking first wave stays the finished mask contract. These ledgers do not replace it.
+v0.0.3 CSS coverage ledgers: [index](v0.0.3/README.md). Thirteen phase checklists were written 2026-10-15. Several are implemented and closed; the index lists the open rows. They cover animation, transitions, scroll, speech, SVG presentation, corner shape, interior shapes, row rules, anchors, regions, mask gradient sources, mask borders, and the remaining 3D aliases. The masking first wave stays the finished mask contract. These ledgers do not replace it.
 
 Security hardening: [security checklist](v0.0.1/security/security-checklist.md). Ledgers 01 through 09 are closed. The rescan rows in 06 through 09 landed on 2026-10-15.
 
 Release note: [v0.0.1 release note](v0.0.1/release-note/v0.0.1.md), with the [54-commit ledger](v0.0.1/release-note/commits.md). It covers `master` from `23061d8` through `c085b34`. Tag `v0.0.1` is `108c2c9`.
 
-Security release: [v0.0.2 release note](v0.0.2/release-note/v0.0.2.md), with the [commits after v0.0.1](v0.0.2/release-note/commits.md). Tag `v0.0.2`. `Makefile` binding stamps stay `0.0.1`.
+Security release: [v0.0.2 release note](v0.0.2/release-note/v0.0.2.md), with the [commits after v0.0.1](v0.0.2/release-note/commits.md). Tag `v0.0.2`. At the tag, the `Makefile` binding stamps stayed `0.0.1`.

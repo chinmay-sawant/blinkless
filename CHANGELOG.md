@@ -1,354 +1,180 @@
 # Changelog
 
-All notable changes to blinkless are recorded here. This project follows
+All notable changes to blinkless are recorded here. The project follows
 semantic versioning. There is no `VERSION` file, and GitHub CI does not
 compare tags to source version stamps.
 
-## Unreleased
+The imported 0.1.x through 0.2.x changelog entries predate this repository
+and are not listed here.
+
+## Unreleased (after 0.0.2)
+
+Work after tag `v0.0.2`, tracked in [`plans/v0.0.3/`](plans/v0.0.3/README.md).
+There is no v0.0.3 tag or release note yet.
+
+### Added
+
+- **Corner shapes.** `border-radius` corners accept the `corner-shape`
+  family and paint through a path operation (`4896ac9`, with fixes
+  `bc917a2` and `20606e1`).
+- **Anchor positioning.** Absolute and fixed boxes can place against a named
+  anchor, with `position-area`, `position-try`, fallbacks, and
+  `position-visibility` (`dbc98fa`, `bb06e35`).
+- **3D aliases, gradient mask sources, and row rules.** The `-webkit-` 3D
+  aliases, gradient and `image-set()` mask sources, and `row-rule*` /
+  `rule*` gap lines are implemented (`c13a036`, with fixes `9882877`,
+  `7cc73fc`, and `2d1a7c8`). Junction-aware gap rules and mask parity
+  followed in `91dc0a0`.
+- **Mask borders.** The `mask-border` descriptor, shorthand, and WebKit
+  aliases compose a nine-slice frame raster on the element group, and the
+  WASM drawing list carries the frame data (`ac4b438`, `06de259`,
+  `361e5e1`).
+- **Interior shapes.** `shape-inside` and `shape-padding` now wrap content
+  inside a shape (`b66ed39`).
+- **Named flows and regions.** Named flows, masonry tolerance, exclusions,
+  and wrap breaks are implemented on the single drawing list (`e6abe07`).
+- **Animation and transition metadata.** Accepted animation and transition
+  values, keyframes, and aligned timing records are exposed on the public
+  element boxes and the display list. Blinkless does not advance time or
+  interpolate values (`b26de13`).
+- **Frontend site.** The `frontend/` source and the built `docs/` site were
+  re-added and expanded, with generated catalog and specimen data
+  (`04c167a`, `eba3139`).
+- **CSS catalog expansion.** The catalog moved from 389 implemented rows at
+  `v0.0.2` to 512 implemented, 46 partial, 219 unsupported, and 8
+  intentionally ignored. The catalog is dated 2026-10-19 and the upstream
+  pin is unchanged.
+
+### Fixed
+
+- Root canvas background painting (`320dc96`).
+- Table rows, headings, and one-line blocks stay whole (`fbde5d6`).
+- Print width fit on the canvas (`7a948be`).
+- Grid percentage widths (`16d26a3`).
+- `object-fit` clipping (`b3d9123`).
+- Remainder-short avoid groups and tolerance defaults (`26f54ec`).
+
+### Removed
+
+- **C shared-library binding.** `bindings/c`, `make c-shared`,
+  `BINDINGS_VERSION`, and the generated `libblinkless` artifacts are
+  removed. The engine is consumed through the Go packages and the WASM
+  binding. This removal is committed on the current branch and has not
+  shipped in a tag.
+
+### Documentation and data
+
+- Catalog counts in `documentation/fidelity.md` and
+  `documentation/compatibility-matrix.md` now match
+  `testdata/css/catalog/properties.json`: 785 rows, 512 implemented,
+  46 partial, 219 unsupported, 8 intentionally ignored.
+- `documentation/deferred.md` now points at the live `plans/` index and the
+  v0.0.3 ledgers instead of the removed 0.2.x plans.
+- The frontend catalog and specimen data were regenerated, and the built
+  site under `docs/` was rebuilt.
 
 ## 0.0.2 (2026-10-15)
 
-Security release after `v0.0.1`. The output is still `layout.DisplayList`.
+Security release after `v0.0.1`, tag `23cc975`. The output is still
+`layout.DisplayList`. This release adds no CSS or layout features, and the
+catalog is unchanged from 0.0.1.
 
 ### Security
 
-- Stylesheet source over 32 MiB is rejected. HTML element depth and the active formatting list stop at 1024. `html.Parse` still does not cap its own byte length. `ParseWithLimit` does, with a 64 MiB default.
-- Dashed edges, text-decoration steps, and border-image tiles stop at 1024. Decoded images stop at 16 million pixels. SVG `text`, `tspan`, and `textPath` are removed before raster.
-- Local files open through `os.Root`. Restricted mode refuses private addresses and a proxied hostname. The C binding caps the allow list and the last-error buffer, rejects an HTML length at or above 2^63, and recovers panics. WASM applies the JSON and HTML byte caps.
-- Records: `plans/v0.0.1/security/` ledgers 01 through 09. Note: `plans/v0.0.2/release-note/v0.0.2.md`.
+- Stylesheet source over 32 MiB is rejected. HTML element depth and the
+  active formatting list stop at 1024. `html.Parse` still does not cap its
+  own byte length. `ParseWithLimit` does, with a 64 MiB default.
+- Dashed edges, text-decoration steps, and border-image tiles stop at 1024.
+  Decoded images stop at 16,777,216 pixels (16 Mi pixels). SVG `text`,
+  `tspan`, and `textPath` are removed before raster.
+- Restricted local-file reads use `os.Root`; the unrestricted path opens the
+  file directly. FIFOs are rejected. Restricted mode refuses private
+  addresses unless explicitly allowlisted, and refuses a proxied hostname.
+- The C binding caps the allow list and the last-error buffer, rejects an
+  HTML length at or above 2^63, and recovers panics. WASM applies the JSON
+  and HTML byte caps.
+- Other caps cover `:has` inspection, grid repeat, font metrics and
+  composite glyphs, nested `var()`, fetch and header budgets, SVG tag
+  rewriting, multicast and broadcast addresses, redirect `Location`
+  redaction, CPAL offsets, and regular-file checks.
+- At this tag the C binding is a rendering stub: it validates arguments and
+  returns the image-encoding removal error. It has no drawing-list export.
+- Records: `plans/v0.0.1/security/` ledgers 01 through 09. Release note:
+  [`plans/v0.0.2/release-note/v0.0.2.md`](plans/v0.0.2/release-note/v0.0.2.md).
 
 ### Removed
 
-- **Python package, PyPI publish, and the tag-vs-source version gate** are removed: `bindings/python`, `.github/workflows/publish-pypi.yml`, `scripts/check_versions.sh`, and `make check-versions`. `bindings/c` and `bindings/wasm` stay. GitHub CI runs `make test` and `make lint` only.
+- **Python package, PyPI publish, and the tag-vs-source version gate.**
+  `bindings/python`, `.github/workflows/publish-pypi.yml`,
+  `scripts/check_versions.sh`, and `make check-versions` are removed.
+  `bindings/c` and `bindings/wasm` stay at this tag. GitHub CI runs
+  `make test` and `make lint` only, and there is no `VERSION` file.
+
+### Version strings
+
+At `v0.0.2`, the C header still reported `BLINKLESS_VERSION "0.2.6"` and the
+Makefile binding stamps were `0.0.1`. The C binding was removed after this
+tag; see Unreleased.
 
 ## 0.0.1 (2026-10-15)
 
-Renderer cut, published as tag `v0.0.1` at `108c2c9`.
+Renderer cut, tag `108c2c9`. The release note covers 54 engine commits from
+`23061d8` through `c085b34`; six release-doc commits follow through the tag.
+HTML and CSS go in, and a `layout.DisplayList` drawing list comes out. This
+tree does not write a PDF, does not encode a page as PNG or JPEG, and does
+not ship a `blinkless` command.
 
 ### Added
 
-- **Display-list output:** `layout.DisplayList` returns the retained display
-  list of vector operations for a document instead of a flattened bitmap, so a
-  caller can replay the placement on its own canvas and keep text as glyphs
-  rather than pixels. The public surface is
-  `Display`, `DisplayOp`, `DisplayGroup`, `DisplayKind`, `DisplayOrder`,
-  `DisplayFakeBold`, `DisplayTransformText`, the `DisplayOp*` kind constants
-  including `DisplayOpNoop`, and the nil-safe accessors on an operation
-  (`LinkURI`, `ImageBytes`, `ImageAlt`, `Transform`, `BlendModeName`,
-  `Opacity`, `Outline`, `TextTransformValue`, and `NoFakeBoldValue`).
-  `op.Font.Bytes()` hands the raw SFNT face to an independent shaper. The
-  canvas height is converted from points rather than read off a picture.
-  `DisplayList` also skips the raster budget, so a canvas too large to
-  rasterize still returns a display list. `layout.SnapDisplayToDevicePixels`
-  optionally snaps painted stroke widths to whole device pixels for screen
-  consumers.
+- **Drawing-list output and public API.** `layout.DisplayList` returns a
+  retained list of vector operations instead of a flattened bitmap. The
+  public surface includes `Display`, `DisplayOp`, `DisplayGroup`,
+  `DisplayKind`, `DisplayOrder`, `DisplayFakeBold`,
+  `DisplayTransformText`, the `DisplayOp*` constants, the nil-safe accessors
+  on an operation, and `layout.SnapDisplayToDevicePixels` for optional
+  screen stroke snapping. The public packages are `html`, `css`, `layout`,
+  and `markup`.
+- **HTML parser work.** The tokenizer and tree construction gained input
+  preprocessing, NUL replacement, raw-text and script-data states, doctypes,
+  foreign namespaces, foster parenting, the adoption agency, templates,
+  `select`, fragment parsing, ruby recovery, and frameset recovery
+  (`a9381bf`, `c6ff6dc`, `9bd5d38`, `6f1a31a`).
+- **CSS catalog and layout coverage.** The catalog reached 785 rows, with
+  389 implemented, 19 partial, 369 unsupported, and 8 intentionally
+  ignored. Layout work covered flex gaps, `fr` grid tracks, `line-height:
+  normal`, margin collapse, `text-wrap-style`, border-image tiling,
+  `text-justify`, `white-space-trim`, inline SVG stroke, ruby, `clip-rule`,
+  dark `color-scheme`, variable fonts, 2D-projected 3D transforms, multicol
+  breaks, and wide-gamut color.
+- **First-wave masks.** Ten standard mask properties and eight `-webkit-`
+  aliases are carried as group metadata on the drawing list. The host
+  composites the pixels; there is no mask operation kind and no in-engine
+  pixel replay (`30971e1`, merged at `c085b34`).
+- **Drawing-list JSON.** The WASM binding returns schema
+  `blinkless.drawinglist/1` with operations, paint order, boxes, groups,
+  fonts, and images.
+
+### Fixed
+
+- A border shorthand with no width defaults to `medium` (3 CSS pixels,
+  2.25 points). Explicit `0` stays `0`; `thin` is 1 CSS pixel and `thick`
+  is 5 (`6892dc5`).
+- The swapped `PointsPerPixel` and `PixelPerPoint` field names were
+  corrected (`a9381bf`).
 
 ### Removed
 
-- **PDF writer, page rasterizer, CLI, and frontend are gone.** The engine
-  returns `layout.DisplayList`: there is no PDF file output, no page PNG or
-  JPEG encoder, no `cmd/blinkless`, no `internal/cli`, and no `frontend/`.
-  The public packages are `html`, `css`, and `layout`; the WASM binding
-  returns the versioned drawing-list JSON. An image operation keeps its
-  encoded bytes and re-encodes that one payload as a PNG when orientation or
-  a clip requires it.
-- **`layout.Lay`, `screen.Render`, `ImageDocument`, and the PDF settings
-  consumers** were removed with the writer.
-
-## 0.2.6 (2026-09-13)
-
-### Added
-
-- **Extended CSS Coverage (354 properties implemented):** full coverage program over W3C webref catalog (818 properties), bringing pure-Go layout and paint support to 354 properties with zero partial states and honest unsupported tracking for 464 non-goals.
-- **Logical Box & Border Radii:** full support for logical border longhands (`border-block-start/end`, `border-inline-start/end`) and logical corner radii (`border-start-start-radius`, `border-start-end-radius`, `border-end-start-radius`, `border-end-end-radius`) mapping onto physical display geometry across horizontal and vertical writing modes.
-- **Advanced Backgrounds & Borders:** support for multi-layer background images, `background-size` (`contain`, `cover`, explicit dimensions), `background-position`, `background-repeat`, `background-clip`, and `background-origin`, plus multi-layer `box-shadow` with `inset` and `border-image`.
-- **Text Styling & Typography:** added `text-shadow` rendering, `text-decoration-thickness`, `text-decoration-color`, `text-underline-offset`, `text-align-last`, `tab-size`, and `hyphens` (manual).
-- **2D Transform Extensions:** individual transform properties (`translate`, `rotate`, `scale`, `transform-box`) alongside matrix operations with full PDF CTM integration.
-- **Vendor-Prefix Compatibility:** added automatic remaps for common `-webkit-*` prefix aliases (`-webkit-box-sizing`, `-webkit-text-fill-color`, `-webkit-box-shadow`, `-webkit-border-radius`, etc.).
-- **Golden Test Corpus:** split into fixture 57 (vanguard telemetry report proving all 354 implemented properties) and fixture 58 (unsupported worklist audit proving safe degradation for all 464 unsupported properties); total golden corpus stands at 63 verified fixtures.
-
-### Changed
-
-- **Catalog & Documentation Honesty:** reconciled `documentation/compatibility-matrix.md` and `documentation/deferred.md` with explicit non-goal classifications for screen-only UI, animation timelines, and 3D scenes.
-- **Mechanical Honesty Verification:** enforced catalog mapping integrity via `scripts/css-catalog-map.py --check` and `make claim-scan`.
-
-## 0.2.5 (2026-08-26)
-
-### Added
-
-- **Python bindings (in-process, [#35](https://github.com/chinmay-sawant/blinkless/issues/35)):** new `bindings/c` frozen C ABI v1 (`BLINKLESS_VERSION 0.2.5`, `BLINKLESS_ABI_VERSION 1`, 7 status codes, `abi_version`+`struct_size` gate, borrowed inputs, `malloc`/`free` ownership) and `bindings/c/include/blinkless.h` as committed header. `CGO_ENABLED=1 -buildmode=c-shared` exports `blinkless_html_to_pdf` / `html_to_image` over `Document.WritePDF` / `ImageDocument.WriteImage` with timeout/context.
-- **Python package `blinkless` on PyPI:** `bindings/python` (`pyproject.toml`, `src` layout, `setup.py` `VERSION` shim, `py.typed`, zero runtime deps, `requires-python >=3.8`) with `ctypes` loader (`_lib.py` search `BLINKLESS_LIBRARY_PATH` then wheel then `dist/`, `RTLD_LOCAL`, pinned `argtypes`, `ABI_VERSION` check, keepalive, `GIL` released during render), `Document`/`ImageDocument` snake_case parity plus `PDFOptions`/`ImageOptions`, `convert_html_to_pdf` / `convert_file_to_pdf` (file parent `file://` base for linked CSS) / `convert_html_to_image`, and typed errors with sentinels. `make c-shared`, `make python-binding-test`, and `scripts/build_cshared_for_wheel.sh` for wheels.
-- **Wheels and publish:** `tool.cibuildwheel` `manylinux_2_28` `x86_64`+`aarch64`, single `macos-latest` (arm64), and `windows-latest` in `.github/workflows/publish-pypi.yml` (tag `v*` + `workflow_dispatch`, `id-token: write` Trusted Publishing, `check` with `scripts/check_versions.sh` + `twine check --strict` before `pypa/gh-action-pypi-publish`).
-- **Docs:** new `documentation/python.md` (install, both snippet styles, options/mapping, errors 0-6, timeouts, security, ABI stability, self-build, platforms) plus `README.md` teaser and `documentation/README.md` / `getting-started.md` / `deferred.md` updates.
-
-### Changed
-
-- Bumped `VERSION` / `internal/cli.Version` / `bindings/python` / `bindings/c/include/blinkless.h` to `0.2.5` and aligned `scripts/check_versions.sh` single source.
-- `Makefile` now has `BINDINGS_VERSION_LDFLAGS`, guarded `c-shared` / `bindings-clean` / `check-versions` / `python-binding-test` targets; `.golangci.yml` excludes `bindings` (cgo glue via `go vet`); `.gitignore` ignores `dist/` and `bindings/**/*.so/.dylib/.dll`; `ci.yml` adds purity guard and `build-shared` + `python-binding` jobs.
-
-## 0.2.4 (2026-08-18)
-
-### Breaking
-
-- Replaced the public wkhtml-shaped `Converter`, dotted settings, and typed
-  request wrappers with `Document` / `ImageDocument`, explicit `Content`
-  sources, validation, writer-first methods, and `PDF` / `Image` helpers.
-- Redesigned both command binaries around `-o/--output`, explicit
-  `--html`/`--url` sources, positional page files, and `--cover`/`--toc`.
-  The old `page`/`cover`/`toc` object grammar is no longer accepted.
-- Added [the 0.2.4 migration guide](documentation/MIGRATION-0.2.4.md).
-
-### Changed
-
-- External comparison paths are frozen as `bench-cli-compare` for
-  wkhtmltopdf and `bench` for WeasyPrint/Puppeteer; optional host tools are
-  skipped with explicit evidence.
-- The benchmark and sample commands now use the native 0.2.4 CLI grammar.
-
-## 0.2.3 (2026-08-15)
-
-Same engine as [0.2.2](#022-2026-08-15). Module path is
-`github.com/chinmay-sawant/blinkless` so `go install` works.
-
-```sh
-go install github.com/chinmay-sawant/blinkless/cmd/blinkless@v0.2.3
-go install github.com/chinmay-sawant/blinkless/cmd/blinkless@v0.2.3
-```
-
-PRs: [#50](https://github.com/chinmay-sawant/blinkless/pull/50),
-[#51](https://github.com/chinmay-sawant/blinkless/pull/51).
-Compare:
-[v0.2.2...v0.2.3](https://github.com/chinmay-sawant/blinkless/compare/v0.2.2...v0.2.3).
-
-### Changed
-
-- **Module path ([#51](https://github.com/chinmay-sawant/blinkless/pull/51)):**
-  `go.mod` is `github.com/chinmay-sawant/blinkless`. Library import and
-  `go install` / `go get` use that path. Nested stub modules keep `frontend/`,
-  `output/`, and `docs/` out of the parent module zip.
-
-## 0.2.2 (2026-08-15)
-
-PDF version and conformance-profile release after [0.2.1](#021-2026-08-14).
-Default output remains **unclaimed PDF 1.4**. `--pdf-version` `1.4` / `1.7` /
-`2.0` is a version header, **not** a conformance claim. The claim is
-`--pdf-profile` / `WithPDFProfile`. Encryption, AcroForm, and JavaScript
-remain out of scope.
-
-PRs: [#44](https://github.com/chinmay-sawant/blinkless/pull/44),
-[#45](https://github.com/chinmay-sawant/blinkless/pull/45),
-[#46](https://github.com/chinmay-sawant/blinkless/pull/46),
-[#47](https://github.com/chinmay-sawant/blinkless/pull/47),
-[#48](https://github.com/chinmay-sawant/blinkless/pull/48),
-[#49](https://github.com/chinmay-sawant/blinkless/pull/49).
-Compare:
-[v0.2.1...v0.2.2](https://github.com/chinmay-sawant/blinkless/compare/v0.2.1...v0.2.2).
-
-### Added
-
-- **PDF 1.7 profiles ([#45](https://github.com/chinmay-sawant/blinkless/pull/45)):**
-  Opt-in PDF/A-3a, PDF/UA-1, and dual `a3a-ua1` via `--pdf-profile` /
-  `WithPDFProfile` (implies PDF 1.7). Claiming XMP (`pdfaid:part=3`,
-  `pdfaid:conformance=A`, `pdfuaid:part=1`), sRGB OutputIntent, `/DefaultRGB`,
-  MarkInfo, and a logical structure tree. Multi-page structure elements emit
-  MCR dictionaries; CIDFontType2 `/FontName` matches parent `/BaseFont`.
-- **PDF 2.0 and 2.0 profiles ([#46](https://github.com/chinmay-sawant/blinkless/pull/46)):**
-  Opt-in `%PDF-2.0` via `--pdf-version 2.0` / `WithPDFVersion("2.0")`
-  (trailer `/ID`, UTF-8 document strings, non-claiming XMP). Opt-in PDF/A-4,
-  PDF/UA-2, and dual `a4-ua2` via `--pdf-profile` / `WithPDFProfile` (implies
-  PDF 2.0). Claiming XMP (`pdfaid:part=4` / `rev=2020`, `pdfuaid:part=2` /
-  `rev=2024`), sRGB+Gray OutputIntent, structure `/Namespace`, ListNumbering,
-  and dual named destinations (`/D` page + `/SD` structure).
-
-### Changed
-
-- **Profile Get and sentinels ([#47](https://github.com/chinmay-sawant/blinkless/pull/47)):**
-  `Get("pdfprofile")` returns the canonical token (`a3a-ua1` →
-  `PDF/A-3a+PDF/UA-1`; `ua1` → `PDF/UA-1`; `a4-ua2` → `PDF/A-4+PDF/UA-2`;
-  and so on). Profile + wrong-version conflicts use unified
-  `ErrConformanceRequiresPDF17` / `ErrConformanceRequiresPDF20` (with
-  `ErrProfileRequiresPDF17` / `ErrProfileRequiresPDF20` aliases).
-  `ErrProfilePDF20Unsupported` remains defined for source compatibility but
-  is never returned - 2.0 profiles are supported.
-
-### Fixed
-
-- **Tagged PDF wiring ([#45](https://github.com/chinmay-sawant/blinkless/pull/45),
-  [#47](https://github.com/chinmay-sawant/blinkless/pull/47)):**
-  Structure-tree and Arlington CIDFontType2 FontName issues on the 1.7 path;
-  cloned-page MCIDs, link/outline `/SD` identity, single `/Document`, and
-  header/footer isolation from the body tree. List tags nest
-  `L` → `LI` → `LBody` → `Link` (inline links inside `<li>` are no longer
-  siblings of `LI`).
-
-## 0.2.1 (2026-08-14)
-
-Contracts, print layout, and verification release. Tightens embedder public
-APIs, unifies error/panic policies, enhances table and float layout handling,
-and adds parser fuzzing and CI integration.
-
-### Added
-
-- **Library & Settings:** Unified `NetworkPolicy` definition between root
-  `api` and `internal/load`. Added `EnableLocalFileAccess()` helpers on
-  `PDFRequest`, `ImageRequest`, `Converter`, `GlobalSettings`, and `ObjectSettings`.
-  Fluent builder `PdfGlobalOptions` stores options without panicking and validates
-  at request boundary (`ValidatePDF` / `RunPDF`). Safe nil-receiver handling on `AddHTML`.
-- **Flow & Tables:** Consecutive same-side float vertical stacking when
-  overlapping; margin collapse through empty block elements; `flex-shrink`
-  assertion testing; content-based grid row height calculations.
-  Deterministic table continuation edge rendering for multi-page collapsed tables.
-- **Verification & Fuzzing:** Continuous fuzz targets `FuzzParseHTML`,
-  `FuzzParseCSS`, and `FuzzConvertHTML`. Added `master` branch to GitHub Actions CI workflow.
-
-## 0.2.0 (2026-08-14)
-
-Post-MVP release after [0.1.0](#010-2026-08-03). Still a **no-cgo, no-browser**
-HTML template engine (HTML→PDF / HTML→image) for **structured templates and
-documents**: invoices, receipts, certificates, storybooks, posters, boarding
-passes, letters, statements, tables, and multi-page documents with headers,
-footers, TOC, and PDF outlines. **Tier 1** (template quality) and **Tier 2**
-(leave wkhtmltopdf for most template jobs) are closed. This is **not** Chrome
-print parity.
-
-PRs: [#7](https://github.com/chinmay-sawant/blinkless/pull/7)–[#34](https://github.com/chinmay-sawant/blinkless/pull/34)
-(engine, docs, samples), [#36](https://github.com/chinmay-sawant/blinkless/pull/36)
-(release prep), [#37](https://github.com/chinmay-sawant/blinkless/pull/37)
-(docs site), [#38](https://github.com/chinmay-sawant/blinkless/pull/38)
-(CONTRIBUTING). Compare:
-[v0.1.0...v0.2.0](https://github.com/chinmay-sawant/blinkless/compare/v0.1.0...v0.2.0).
-
-### Added
-
-- **Typography:** Liberation Sans/Serif/Mono Regular/Bold/Italic/BoldItalic
-  plus DejaVu Sans Unicode fallback. CSS `font-weight` / `font-style` select
-  real faces. Image mode rasterizes TTF outlines (coverage AA) instead of the
-  0.1.0 5×7 bitmap font.
-- **Fonts / Unicode:** `--font-path` / `--use-system-fonts`; Type0/CID
-  Identity-H for runes above U+00FF; local/HTTPS `@font-face` TTF/OTF/WOFF1
-  (PDF and image). OpenType GSUB via allowlisted `go-text/typesetting` when
-  the face has it; Arabic presentation-form + Lam-Alef fallback. No bundled
-  Noto CJK - pass a capable face or you still get tofu.
-- **Print CSS for templates:** attribute / `:nth-child` / sibling selectors; float
-  lite; real `inline-block`; `box-sizing`; `text-align: justify`; cell
-  `vertical-align`; flex Stage A; grid Stage B + Stage C lite (named areas,
-  dense, copy-inherit subgrid, one-axis masonry); `position`
-  relative/absolute/fixed lite; print-scoped sticky; repeating `<thead>`;
-  CSS `orphans`/`widows`; nested HTML headers/footers; multicol lite;
-  static 2D transforms + opacity; `:has()`; size-only `@container`; print
-  `@media` subset; HTML entity decoding; SVG-as-`<img>` via allowlisted
-  `tdewolff/canvas`.
-- **Library:** `ConvertHTML`; typed `PDFRequest` / `RunPDF` and
-  `ImageRequest` / `RunImage` (string `Converter` API kept); `GuessURL`
-  `inline:` prefix; `web.images=false` skips image XObjects; settings
-  cloned at ownership boundaries; context cancellation through layout,
-  HF paint, and raster.
-- **CLI / ops:** mode-invalid flags fail at parse; Restricted dial pinning;
-  opt-in `--simplify-dom` chrome-strip (default off); `v*` tag workflow
-  publishes linux/windows/darwin × amd64/arm64 binaries + `SHA256SUMS`.
-- **Documentation site:** https://chinmay-sawant.github.io/blinkless/
-  - Overview, Getting Started, sidebar docs, Issue Dossier (1,329 open
-  wkhtmltopdf issues classified), Showcase gallery, Benchmarks tab.
-- **Docs:** fidelity guide, fonts guide, performance snapshots,
-  comparison with SebastiaanKlippert/go-wkhtmltopdf, 2026 landscape note,
-  architecture deep-dives, `CONTRIBUTING.md`, versioned `plans/0.1.0/` and
-  `plans/0.2.0/`.
-- **Samples:** fixtures 21–56 (detailed report, float chrome, thead, flex,
-  CJK, sticky, nested HF, posters, storybooks, boarding pass, architecture
-  diagram). Regenerated `output/` PDFs and showcase thumbs.
-- **Benchmarks:** `make bench` / `make bench-cli-compare`. 2026-08-14
-  generic CLI vs wkhtmltopdf 0.12.6.1: **16x** at 2 pages, **1.6x** at
-  500 pages. Faster at every tested size. See
-  `documentation/performance.md`.
-
-### Changed
-
-- `box-sizing: content-box` is now the default. Explicit `width` + padding
-  without `box-sizing` grows vs 0.1.0; add `box-sizing: border-box` to keep
-  the old visual size.
-- Direct modules are the allowlisted `go-text/typesetting` and
-  `tdewolff/canvas` (0.1.0 was stdlib-only). Still `CGO_ENABLED=0`.
-- User docs rewritten from source; root README slimmed to landing +
-  quick start + index.
-- `CONTRIBUTIONS.md` renamed to `CONTRIBUTING.md` so GitHub surfaces it.
-
-### Fixed
-
-- Backgrounds and borders paint **under** text; unique multi-image
-  XObjects; `tr` row backgrounds; `rgba()` composite; nested-table document
-  order and `%` widths vs the parent containing block.
-- Table cell height at final column width; empty-row collapse; per-row
-  border-collapse; rowspan cite alignment; continuation-page table chrome.
-- Long tokens / URLs honor `overflow-wrap` / `word-break`; emergency wrap;
-  float tails clear; caption wrap; link-underline coalesce (skip bare URLs
-  in ref lists).
-- Pagination: `page-break-before:always` lands at next-page top; multi-section
-  reports paginate 1:1; `preferSplitOverBlank` for short avoid-boxes;
-  **disabled** document-global gap packing that interleaved body and
-  reference text.
-- `display:flex` / `grid` restored after lint adoption; sticky chrome no
-  longer clones like `fixed`; dashed / left borders no longer stretch into
-  solid stubs.
-- Original-template typography: `letter-spacing`, `text-transform`, and
-  `border-radius` survive into the PDF.
-
-### Known limitations
-
-- **Not a browser.** No JavaScript (`<script>` stripped; JS flags are
-  unknown options). No Chrome / Wikipedia visual parity.
-- Flex/grid/float/sticky are a **print CSS subset**, not full CSS3.
-- CJK/Arabic **Partial** (operator-supplied faces + OT when present).
-  `writing-mode: vertical-*` is parsed but lays out horizontal. No WOFF2.
-- No AcroForm, no PDF encryption / PDF/A / 1.7 / 2.0 / UA (tickets
-  #29–#33 remain open).
-- Full list: [`documentation/deferred.md`](documentation/deferred.md).
-
-## 0.1.0 (2026-08-03)
-
-First MVP release: a pure-Go HTML-to-PDF engine (no cgo, no browser) with a
-wkhtmltopdf-compatible CLI and library API. Direct module dependencies are
-the allowlisted `github.com/go-text/typesetting` and `github.com/tdewolff/canvas`
-modules recorded in `go.mod`.
-
-### Added
-
-- **Settings + CLI (phases 0-1):** wkhtmltopdf-compatible flag surface  - 
-  global options, `page`/`cover`/`toc` object grammar, `-V`/`--version`,
-  exit-code mapping; dotted-name settings model with defaults matching
-  pdfsettings.cc.
-- **Resource loader (phase 2):** URL guess, HTTP(S) with auth/cookies/POST,
-  local-file ACL (deny by default) and `--allow` list, `data:`/`inline:`
-  sources.
-- **PDF writer (phase 3):** object model, xref, content streams, Flate
-  compression, TTF subset embedding, JPEG/PNG images, link annotations,
-  outlines; PDF/A, encryption and AcroForm intentionally out of scope.
-- **HTML + CSS layout (phase 4):** stdlib HTML parser, CSS subset with
-  cascade/important, block/inline boxes, tables (colspan), lists, images,
-  colors/backgrounds/borders, `page-break-*`.
-- **Pagination (phase 5):** fragment-level pagination, multi-object
-  assembly, copies/collate, TOC page reordering, smart-shrinking
-  over-width warning.
-- **Headers/footers, TOC, outline, links (phase 6):** text headers/footers
-  with `[page]`/`[frompage]`/`[title]`/… placeholders, table of contents,
-  PDF outline, internal/external links.
-- **Image converter (phase 7):** `blinkless` PNG/JPEG raster output
-  (bitmap-font text, no anti-aliasing - see limits).
-- **Library API (phase 8):** `blinkless` root package  - 
-  `NewConverter`/`AddObject`/`Convert`/`Output`,
-  `NewImageConverter`, settings `Set`/`Get`.
-- **Release gates (phase 9):** 10-page table-report performance budget
-  test, GitHub Actions CI (test + lint + `CGO_ENABLED=0` builds), `VERSION`
-  file with ldflags stamping, this changelog, README rewrite.
-
-### Known limitations
-
-- No JavaScript/WebKit features; no floats/positioned layout, flex or grid;
-  subset CSS selectors only.
-- Single embedded font (Liberation Sans subset) for all font families; no
-  CJK/complex-script shaping; italics render upright, `ol` markers are
-  bullets.
-- Image mode renders text with a 5x7 bitmap font - no anti-aliasing, no
-  glyph rasterizer.
-- No XSLT TOC stylesheets, no AcroForm forms, no SVG/BMP output, no SOCKS5
-  proxy, no PDF encryption/PDF-A.
-- Full list: README → "Deferred / not planned".
+- **PDF writer, page rasterizer, and CLI.** `internal/pdf`,
+  `internal/pdfprofile`, the PDF paint path, `internal/imageout`,
+  `screen.Render`, `ImageDocument`, `layout.Lay`, `cmd/blinkless`, and
+  `internal/cli` are gone. One image operation keeps its encoded bytes and
+  re-encodes that one payload as a PNG when orientation or a clip requires
+  it.
+- **Old frontend and docs.** `frontend/` and the built `docs/` site were
+  removed at 0.0.1. The site returned after 0.0.2; see Unreleased.
+- **Old plans and `VERSION`.** The imported plan trees and the `VERSION`
+  file were removed.
+- **PDF exports and Python helpers.** The C header dropped
+  `blinkless_html_to_pdf` and `GwkPdfOptions`. `blinkless_html_to_image`
+  reports that image encoding was removed. The Python PDF helpers raise
+  `RuntimeError` with the same removal message.

@@ -3,6 +3,7 @@ package layout_test
 import (
 	"errors"
 	"math"
+	"reflect"
 	"testing"
 
 	"github.com/chinmay-sawant/blinkless/layout"
@@ -236,7 +237,7 @@ func assertStructurePreserved(
 	}
 
 	for idx, box := range boxesBefore {
-		if snapped.Boxes[idx] != box {
+		if !reflect.DeepEqual(snapped.Boxes[idx], box) {
 			t.Errorf("box %d = %+v, want %+v", idx, snapped.Boxes[idx], box)
 		}
 	}

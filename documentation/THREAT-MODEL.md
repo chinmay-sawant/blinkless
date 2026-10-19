@@ -29,8 +29,8 @@ return a drawing list. SVG images use `tdewolff/canvas` to produce an image
 payload. These boundaries remove the need to embed a browser runtime.
 
 They do not prove that code execution is impossible or that isolation is
-unnecessary. The C bindings use `unsafe` and rely on valid caller-owned memory.
-Go, its runtime, and the dependency parsers remain part of the trusted code.
+unnecessary. Go, its runtime, and the dependency parsers remain part of the
+trusted code.
 A missing JavaScript engine is a statement about supported behavior, not a
 proof about every possible vulnerability.
 
@@ -46,8 +46,8 @@ The controls in this document address the risks visible in the current code:
 - The loader checks network destinations and local-file permissions. Its
   compatible default allows private-network HTTP destinations, so a service
   must select restricted mode explicitly when it accepts untrusted HTML.
-- C and WASM exports recover from ordinary Go panics. Recovery cannot contain
-  every process failure, such as exhausted memory or invalid C pointers.
+- The WASM export recovers from ordinary Go panics. Recovery cannot contain
+  every process failure, such as exhausted memory.
 - HTML parsing, selector matching, and SVG rasterization run in the caller's
   process. SVG lock waits stop when the caller context ends or after 30
   seconds, and drawing does not start after cancellation. A canvas Draw
@@ -58,8 +58,7 @@ Use process isolation and external resource limits when a service needs a
 hard boundary around conversions of untrusted documents.
 
 Source checkpoints: public parsing at `html/parse.go:36`; in-process SVG
-rasterization at `internal/svg/raster.go:102`; C pointer obligations at
-`bindings/c/include/blinkless.h:63`.
+rasterization at `internal/svg/raster.go:102`.
 
 ## 2. Assets
 
@@ -260,7 +259,6 @@ substitute for not letting strangers drive server-side fetches.
 | Layout amplification caps | `internal/layout` - `maxBuildDepth` 2048, `maxTableSpan` 1024, `maxMulticolColumns` 4096, grid row/cell/visit budgets, 16 MP image budget |
 | Font parse bounds | `internal/fonts` - `maxFontTables` 64 + overlap rejection, Unicode ranges and cumulative cmap work cap, unsigned offset checks, `locaOffsets` validation, 1 MiB shaping-run cap |
 | SVG mask and raster limits | `internal/svg/mask.go` - `maxMaskDepth` 1024; `raster.go` bounds both raster axes before allocation, at most 4096 pixels per side |
-| C ABI recovery + buffer clamp | `bindings/c` - panic recovery on all exports, `maxLastErrorBufLen` 1 MiB, NUL-termination contract in `blinkless.h` |
 | WASM request caps | `bindings/wasm/main_js_wasm.go` - boxed-string length preflight at 5 MiB UTF-16 units; `DecodeRequest` caps JSON at 5 MiB bytes and HTML at 4 MiB bytes |
 
 ## 9. Parser and namespace boundaries (no-JS posture)

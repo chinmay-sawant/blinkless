@@ -67,6 +67,8 @@ type drawingListJSON struct {
 	Order []int `json:"order"`
 	// Boxes are element border boxes in CSS pixels, in document order.
 	Boxes []drawBoxJSON `json:"boxes"`
+	// Keyframes stores parsed @keyframes rules in stylesheet source order.
+	Keyframes []layout.KeyframesRule `json:"keyframes,omitempty"`
 	// Groups describes the blend and isolation groups Ops reference.
 	Groups []drawGroupJSON `json:"groups"`
 	// Fonts is the face table text and bullet entries reference. Bytes are the
@@ -218,14 +220,21 @@ type drawPointJSON struct {
 
 // drawBoxJSON is one element border box in CSS pixels.
 type drawBoxJSON struct {
-	ID     string  `json:"id"`
-	Tag    string  `json:"tag"`
-	Action string  `json:"action,omitempty"`
-	Text   string  `json:"text,omitempty"`
-	X      float64 `json:"x"`
-	Y      float64 `json:"y"`
-	W      float64 `json:"w"`
-	H      float64 `json:"h"`
+	ID                  string              `json:"id"`
+	Tag                 string              `json:"tag"`
+	Action              string              `json:"action,omitempty"`
+	Text                string              `json:"text,omitempty"`
+	Animations          []layout.Animation  `json:"animations,omitempty"`
+	Transitions         []layout.Transition `json:"transitions,omitempty"`
+	TriggerScope        string              `json:"triggerScope,omitempty"`
+	ViewTransitionName  string              `json:"viewTransitionName,omitempty"`
+	ViewTransitionClass string              `json:"viewTransitionClass,omitempty"`
+	ViewTransitionGroup string              `json:"viewTransitionGroup,omitempty"`
+	ViewTransitionScope string              `json:"viewTransitionScope,omitempty"`
+	X                   float64             `json:"x"`
+	Y                   float64             `json:"y"`
+	W                   float64             `json:"w"`
+	H                   float64             `json:"h"`
 }
 
 // drawGroupJSON is one blend or isolation group. Parent is absent at the page
@@ -349,31 +358,39 @@ func newDrawingList(display *layout.Display) drawingListJSON {
 	for i := range display.Boxes {
 		box := &display.Boxes[i]
 		boxes[i] = drawBoxJSON{
-			ID:     box.ID,
-			Tag:    box.Tag,
-			Action: box.Action,
-			Text:   box.Text,
-			X:      box.X,
-			Y:      box.Y,
-			W:      box.W,
-			H:      box.H,
+			ID:                  box.ID,
+			Tag:                 box.Tag,
+			Action:              box.Action,
+			Text:                box.Text,
+			Animations:          box.Animations,
+			Transitions:         box.Transitions,
+			TriggerScope:        box.TriggerScope,
+			ViewTransitionName:  box.ViewTransitionName,
+			ViewTransitionClass: box.ViewTransitionClass,
+			ViewTransitionGroup: box.ViewTransitionGroup,
+			ViewTransitionScope: box.ViewTransitionScope,
+			X:                   box.X,
+			Y:                   box.Y,
+			W:                   box.W,
+			H:                   box.H,
 		}
 	}
 
 	return drawingListJSON{
-		Schema:  drawingListSchema,
-		Version: drawingListSchemaVersion,
-		Units:   drawingListUnits,
-		Width:   display.Width,
-		Height:  display.Height,
-		PxPerPt: display.PixelPerPoint,
-		PtPerPx: display.PointsPerPixel,
-		Ops:     ops,
-		Order:   order,
-		Boxes:   boxes,
-		Groups:  resources.sortedGroups(),
-		Fonts:   resources.sortedFonts(),
-		Images:  resources.sortedImages(),
+		Schema:    drawingListSchema,
+		Version:   drawingListSchemaVersion,
+		Units:     drawingListUnits,
+		Width:     display.Width,
+		Height:    display.Height,
+		PxPerPt:   display.PixelPerPoint,
+		PtPerPx:   display.PointsPerPixel,
+		Ops:       ops,
+		Order:     order,
+		Boxes:     boxes,
+		Keyframes: display.Keyframes,
+		Groups:    resources.sortedGroups(),
+		Fonts:     resources.sortedFonts(),
+		Images:    resources.sortedImages(),
 	}
 }
 
