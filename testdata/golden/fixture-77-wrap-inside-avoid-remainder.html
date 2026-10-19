@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<!--
+  fixture-77-wrap-inside-avoid-remainder
+  Proves: a wrap-inside: avoid group that fits the content width but not the
+  remainder of the current line moves to the next line as one unit. The
+  paragraph prefix fills the line to 120.02pt; the span group (180.03pt) fits
+  the 200pt content box but not the 79.98pt remainder. Expected: the group's
+  first word X is 0 (moved whole), not the 120.02 remainder start, and no
+  word of the group paints past the content box.
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>wrap-inside avoid moves the group whole</title>
+  <style>
+    body { font-family: monospace; font-size: 10pt; line-height: 12pt; margin: 0; width: 200pt; }
+    p { margin: 0; }
+  </style>
+</head>
+<body>
+  <p id="p">aaaa aaaa aaaa aaaa aaaa aaaa aaaa aaaa aaaa aaaa aaaa aaaa aaaa aaaa aaaa aaaa aaaa aaaa aaaa aaaa aaaa aaaa <span id="s" style="wrap-inside:avoid">cccccccccccc dddddddddddd eeee</span></p>
+</body>
+</html>

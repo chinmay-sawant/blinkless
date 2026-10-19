@@ -379,6 +379,12 @@ type ResolvedStyle struct {
 	MaskOrigin             string
 	MaskClip               string
 	MaskType               string
+	MaskBorderSource       string
+	MaskBorderSlice        string
+	MaskBorderWidth        string
+	MaskBorderOutset       string
+	MaskBorderRepeat       string
+	MaskBorderMode         string
 	// ClipPath is the canonical clip-path value: inset() | circle() | ellipse()
 	// | polygon(). Empty means no clip (none / unsupported / invalid).
 	ClipPath string
@@ -491,6 +497,14 @@ type ResolvedStyle struct {
 	FloatOffset        float64 // pt nudge on placeFloat when FloatOffsetPercent < 0
 	FloatOffsetPercent float64 // >=0 means % of float border-box height; -1 = length
 	FloatReference     string  // "inline" | "column" | "region" | "page"
+	// CSS Shapes inside (v0.0.3 shapes ledger): shape-inside storage plus
+	// shape-padding. shape-inside is not inherited, so children keep the
+	// initial auto while the element's own inline content carries the contour.
+	ShapeInside         string  // "auto" | circle()/ellipse()/inset() canonical
+	ShapeInsideBox      string  // "" = content-box reference; margin/border/padding/content-box
+	ShapeInsideOutside  bool    // shape-inside: outside-shape copies ShapeOutside
+	ShapePadding        float64 // pt when ShapePaddingPercent < 0
+	ShapePaddingPercent float64 // >=0 means % of reference diagonal/√2; -1 = length
 	// Advanced text support.
 	TextCombineUpright       string  // "none" | "all" | "digits N"
 	TextDecorationInset      float64 // pt
@@ -562,6 +576,31 @@ type ResolvedStyle struct {
 	Clip                      string
 	ColorInterpolation        string
 	ColorInterpolationFilters string
+	// Named flows (css-regions-1 lite, one canvas). FlowInto is "" (none) or
+	// the flow custom ident; FlowIntoElement selects the element keyword
+	// (the source box moves with its content) over the initial content
+	// keyword. FlowFrom is the region's flow ident ("" = none).
+	// RegionFragment is "" (auto) or "break" (move a straddling block child
+	// whole into the next region instead of slicing it).
+	FlowInto        string
+	FlowIntoElement bool
+	FlowFrom        string
+	RegionFragment  string
+	// FlowTolerancePt is the css-grid-3 masonry placement slack in pt;
+	// < 0 means normal (resolved to one em when the packer runs).
+	// FlowToleranceInfinite keeps the shortest-column choice.
+	FlowTolerancePt       float64
+	FlowToleranceInfinite bool
+	// Exclusions (css-exclusions-1 lite). WrapFlow is "" (auto) or both /
+	// start / end / minimum / maximum / clear. WrapThrough is "" (wrap) or
+	// none (ignore exclusions from outside the element).
+	WrapFlow    string
+	WrapThrough string
+	// Line and flex wrap opportunities (css-text-4 lite): "" (auto) or line
+	// / avoid / avoid-line / flex / avoid-flex.
+	WrapBefore string
+	WrapAfter  string
+	WrapInside string
 	// CustomProps holds resolved CSS custom properties (--*) for this element
 	// (inherited). Shared with the parent map when the element declares none.
 	CustomProps map[string]string
@@ -589,30 +628,32 @@ type border struct {
 // initialStyle returns the CSS initial values.
 func initialStyle() ResolvedStyle { //nolint:funlen // complete CSS initial-value record
 	return ResolvedStyle{ //nolint:exhaustruct // intentional zero fields
-		Display:            "inline",
-		Position:           "static",
-		Float:              cssDisplayNone,
-		FlexGrow:           0,
-		FlexShrink:         1,
-		FlexBasis:          -1,
-		FlexBasisPercent:   -1,
-		Clear:              cssDisplayNone,
-		BoxSizing:          "content-box",
-		TopAuto:            true,
-		RightAuto:          true,
-		BottomAuto:         true,
-		LeftAuto:           true,
-		FlexDirection:      "row",
-		FlexWrap:           "nowrap",
-		JustifyContent:     "flex-start",
-		AlignItems:         "stretch",
-		AlignContent:       "stretch",
-		AlignSelf:          overflowAuto,
-		JustifyItems:       "stretch",
-		JustifySelf:        overflowAuto,
-		ColumnGapNormal:    true,
-		ColumnWidth:        -1,
-		ColumnHeight:       -1,
+		Display:          "inline",
+		Position:         "static",
+		Float:            cssDisplayNone,
+		FlexGrow:         0,
+		FlexShrink:       1,
+		FlexBasis:        -1,
+		FlexBasisPercent: -1,
+		Clear:            cssDisplayNone,
+		BoxSizing:        "content-box",
+		TopAuto:          true,
+		RightAuto:        true,
+		BottomAuto:       true,
+		LeftAuto:         true,
+		FlexDirection:    "row",
+		FlexWrap:         "nowrap",
+		JustifyContent:   "flex-start",
+		AlignItems:       "stretch",
+		AlignContent:     "stretch",
+		AlignSelf:        overflowAuto,
+		JustifyItems:     "stretch",
+		JustifySelf:      overflowAuto,
+		ColumnGapNormal:  true,
+		ColumnWidth:      -1,
+		ColumnHeight:     -1,
+		// Initial flow-tolerance is normal, resolved to one em at pack time.
+		FlowTolerancePt:    -1,
 		ColumnWrap:         columnWrapAuto,
 		ColumnSpan:         cssDisplayNone,
 		ColumnFill:         "balance",
@@ -689,6 +730,12 @@ func initialStyle() ResolvedStyle { //nolint:funlen // complete CSS initial-valu
 		MaskOrigin:                    "border-box",
 		MaskClip:                      "border-box",
 		MaskType:                      "luminance",
+		MaskBorderSource:              "none",
+		MaskBorderSlice:               "0",
+		MaskBorderWidth:               "auto",
+		MaskBorderOutset:              "0",
+		MaskBorderRepeat:              "stretch",
+		MaskBorderMode:                "alpha",
 		Orphans:                       2,
 		Widows:                        2,
 		EmptyCells:                    "",
@@ -735,6 +782,8 @@ func initialStyle() ResolvedStyle { //nolint:funlen // complete CSS initial-valu
 		ObjectPositionY:            "50%",
 		ShapeOutside:               shapeOutsideNone,
 		ShapeMarginPercent:         -1,
+		ShapeInside:                shapeInsideAuto,
+		ShapePaddingPercent:        -1,
 		FloatOffsetPercent:         -1,
 		FloatReference:             floatRefInline,
 		TextCombineUpright:         "none",

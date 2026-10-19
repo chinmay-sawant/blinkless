@@ -182,7 +182,6 @@ type Result struct {
 	flowBoxes   [][]int
 	flowBoxPage []int
 	flowBoxPos  []int
-
 	// pageSnapHeight records the page content height that multicol column
 	// snapping used during Layout (Options.Height). Paint compares it with
 	// its own content height so columns cannot snap to one boundary while
@@ -646,6 +645,11 @@ type engine struct {
 	// rejects a mismatch instead of splitting ops at a boundary the layout
 	// never snapped to.
 	pageSnapHeight float64
+	// namedFlows maps one flow ident to its source for this Layout run
+	// (css-regions-1 lite, see named_flow.go). namedFlowScanDone records the
+	// one-time document scan that registers sources ahead of their regions.
+	namedFlows        map[string]*namedFlow
+	namedFlowScanDone bool
 }
 
 // styleOverride temporarily substitutes one node's resolved style while that
@@ -1005,7 +1009,7 @@ func (e *engine) pushZ(style ResolvedStyle, owner *ResolvedStyle) blendScope {
 		beginMark:      -1,
 	}
 	createsGroupContext := style.MixBlendMode != blendNormal || style.Isolation == "isolate" ||
-		maskImageEnabled(style.MaskImage)
+		maskGroupRequested(style)
 
 	if style.Position == positionAbsolute || style.Position == positionFixed {
 		e.positioned = true
@@ -1047,14 +1051,14 @@ func (e *engine) enterBlendIsolation(style ResolvedStyle, owner *ResolvedStyle) 
 	// already normalized MixBlendMode, so only "normal"/empty skip.
 	mode := nonNormalBlendMode(style.MixBlendMode)
 
-	hasMask := maskImageEnabled(style.MaskImage)
+	hasMask := maskGroupRequested(style)
 	if mode == "" && style.Isolation != "isolate" && !hasMask {
 		return
 	}
 
 	e.nextGroupID++
 
-	e.blendGroup = &BlendGroup{
+	e.blendGroup = &BlendGroup{ //nolint:exhaustruct // mask frames are attached below
 		ID:      e.nextGroupID,
 		Mode:    mode,
 		Isolate: true,
@@ -1062,7 +1066,7 @@ func (e *engine) enterBlendIsolation(style ResolvedStyle, owner *ResolvedStyle) 
 		Mask:    nil,
 	}
 	if hasMask {
-		e.blendGroup.Mask = e.maskDescriptor(style)
+		e.attachMaskDescriptors(e.blendGroup, style)
 	}
 
 	e.blendGroupOwner = owner
@@ -1110,6 +1114,13 @@ func (e *engine) patchGroupMark(idx int, posX, posY, width, height float64) {
 // end marker is emitted here so the markers stay balanced even when the
 // subtree build emitted no paint operations.
 func (e *engine) popZ(scope blendScope, boxNode *box) {
+	// A mask-border frame raster is composed here, while the element's box
+	// size and its group are both known, so repeat/round/space can tile
+	// against the real destination box.
+	if boxNode != nil {
+		e.composeMaskBorderOnGroup(e.blendGroup, boxNode)
+	}
+
 	if scope.beginMark >= 0 {
 		if boxNode != nil {
 			e.patchGroupMark(scope.beginMark, boxNode.x, boxNode.y, boxNode.w, boxNode.height)

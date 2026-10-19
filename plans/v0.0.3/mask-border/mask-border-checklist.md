@@ -1,7 +1,7 @@
 # v0.0.3 - Mask border
 
 > **Parent:** `plans/v0.0.3/README.md`
-> **Status:** not started, except the shorthand-reset baseline verified in this session.
+> **Status:** implemented, rendered, and merged on `feature/v0.0.3-mask-border-regions-shapes`. Phase 5 composes the nine-slice frame raster at the element box (stretch, repeat, round, space) and the host applies it as a soft mask; golden fixture 68 renders the frame under both `--engine blinkless` and Chrome 155. Phases 0-3 verified (`TestBehaviorMaskBorder*`, `TestMaskBorder*`, `TestMaskShorthand*` green); Phase 4 catalog (13 rows partial), WASM serialization (`TestDrawingGroupSerializesMaskBorderAndImageReference`), matrix, and docs are merged. Gate rows record the branch-level `make test` / `make golden` / `make lint` / `make claim-scan` / `make catalog-check` / `make matrix-check` results. The local knowledge-base page stays out of scope for this tree.
 > **Estimated effort:** 13 property names, 5 phases.
 
 ---
@@ -43,15 +43,15 @@ Paint Y grows downward. 1 CSS pixel is 0.75 points (`layout/displaylist.go:12-14
 | Who applies the alpha? | The host. Same split as `MaskLayer`. |
 | What already shipped? | The `mask` shorthand reset. Not the properties. |
 
-`documentation/deferred.md:108` and the vendor group C note at `documentation/deferred.md:119` still say mask-border has no consumer. Phase 4 updates those sentences after the tests pass.
+`documentation/deferred.md:107` and the vendor group C note at `documentation/deferred.md:119` still say mask-border has no consumer. Phase 4 updates those sentences after the tests pass.
 
 ## Phase 0: contract and the reset that already exists
 
-- [x] All 13 catalog rows are `unsupported` with empty handlers. Standard names start at `testdata/css/catalog/properties.json:10336` (`mask-border`) through `mask-border-width`. Aliases start at line 276 (`-webkit-mask-box-image`) through `-webkit-mask-box-image-width`.
+- [x] All 13 catalog rows are `partial` with handlers. Standard names start at `testdata/css/catalog/properties.json:11236` (`mask-border`) through `mask-border-width`. Aliases start at line 284 (`-webkit-mask-box-image`) through `-webkit-mask-box-image-width`.
 - [x] The `mask` shorthand resets the seven longhands to the initial values listed above. Proof: `internal/layout/style_cascade.go:908-914` and `TestMaskShorthandExpansionAndBorderReset` (`internal/layout/style_cascade_test.go:76-110`).
 - [x] `border-image` paints `OpImage` cells. Proof: `newBorderImageOp` (`internal/layout/border_image.go:361-370`) and `TestBehaviorBorderImageShorthandPaintsFrame`.
-- [ ] The group gains `MaskBorder` next to `Mask` on `BlendGroup` (`internal/layout/blend_group.go:20-36`). Nil means no mask-border. The descriptor holds source token, image bytes, pixel size, slice offsets, widths, outsets, repeat pair, fill flag, and mode `alpha` or `luminance`. Values that are lengths are in points, matching the rest of the list. Path: `internal/layout/mask_border.go` for the type, field added on `BlendGroup` in `internal/layout/blend_group.go`.
-- [ ] A `mask-border-source` of `none`, including the shorthand reset, stores no descriptor. Expected: `mask: url(mask.png)` still creates the first-wave `Mask` and does not create `MaskBorder`. Proof: extend `TestMaskShorthandExpansionAndBorderReset` with a layout fixture that had a mask-border source earlier in the cascade and asserts the group has a nil `MaskBorder` after the shorthand.
+- [x] The group gains `MaskBorder` next to `Mask` on `BlendGroup` (`internal/layout/blend_group.go:20-36`). Nil means no mask-border. The descriptor holds source token, image bytes, pixel size, slice offsets, widths, outsets, repeat pair, fill flag, and mode `alpha` or `luminance`. Values that are lengths are in points, matching the rest of the list. Path: `internal/layout/mask_border.go` for the type, field added on `BlendGroup` in `internal/layout/blend_group.go`.
+- [x] A `mask-border-source` of `none`, including the shorthand reset, stores no descriptor. Expected: `mask: url(mask.png)` still creates the first-wave `Mask` and does not create `MaskBorder`. Proof: extend `TestMaskShorthandExpansionAndBorderReset` with a layout fixture that had a mask-border source earlier in the cascade and asserts the group has a nil `MaskBorder` after the shorthand.
 - [~] In-repo pixel replay of the mask-border. Reason: the host composites, as with the first-wave mask. Painting the slices as `OpImage` would show a border image, which is the wrong effect. Owner: the display-list host. Next gate: a host fixture applies the group's `MaskBorder` and checks the alpha around the border box. Do not add that fixture's rasterizer to this repo.
 
 Gate. The descriptor is specified. The reset test's expectations are unchanged. Replay stays out.
@@ -67,21 +67,21 @@ Syntax from the catalog, which points at the border-image types:
 - `mask-border-repeat` matches `border-image-repeat`.
 - `mask-border-mode` is `luminance | alpha`. Initial `alpha`, which is what the mask shorthand reset already writes.
 
-- [ ] Accept and store the six longhands. Invalid values do not replace an earlier valid value. Path: `internal/layout/mask_border.go`. A URL source uses the image resolver the mask path already uses (`internal/layout/mask_paint.go:111`). A gradient source uses `renderGradientPNG` only after the mask-source ledger accepts gradients. Until that lands, a gradient source fails the accept check and does not replace a URL. Do not block this phase on gradients.
-- [ ] Attach a `MaskBorder` when the used source is not `none`. Resolve slice, width, outset, and repeat with the same number rules as `border_image.go`, by calling shared helpers if they can return numbers without appending ops. If a helper always appends `OpImage`, duplicate the arithmetic in `mask_border.go` rather than emitting ops. Expected: no new `OpImage` for the mask-border source. The element's background image count stays the same as a document without `mask-border`. Proof: `TestBehaviorMaskBorderDescriptorNotPaint` in `internal/layout/css_behavior_mask_border_test.go`.
-- [ ] `mask-border-slice: 30 fill` sets the fill flag and the four slice numbers. `mask-border-width: 10px` and `mask-border-outset: 10px` show up as points on the descriptor (`10px` is 7.5pt). `mask-border-repeat: repeat` stores the repeat token rather than tiling pixels. Proof: the descriptor fields on the group.
-- [ ] `mask-border-mode: luminance` is stored and not baked into the bytes, unless the source is an SVG mask fragment that the first-wave path already preprocesses. A normal PNG keeps its bytes and the mode token, matching `MaskLayer.Mode` (`internal/layout/blend_group.go:57-60`). Proof: mode field equals `luminance` and bytes equal the resolver payload.
-- [ ] The first-wave `Mask` and the new `MaskBorder` can both be set. They do not clobber each other. Proof: one element with `mask-image` and `mask-border-source` has both pointers non-nil.
+- [x] Accept and store the six longhands. Invalid values do not replace an earlier valid value. Path: `internal/layout/mask_border.go`. A URL source uses the image resolver the mask path already uses (`internal/layout/mask_paint.go:111`). A gradient source uses `renderGradientPNG` only after the mask-source ledger accepts gradients. Until that lands, a gradient source fails the accept check and does not replace a URL. Do not block this phase on gradients.
+- [x] Attach a `MaskBorder` when the used source is not `none`. Resolve slice, width, outset, and repeat with the same number rules as `border_image.go`, by calling shared helpers if they can return numbers without appending ops. If a helper always appends `OpImage`, duplicate the arithmetic in `mask_border.go` rather than emitting ops. Expected: no new `OpImage` for the mask-border source. The element's background image count stays the same as a document without `mask-border`. Proof: `TestBehaviorMaskBorderDescriptorNotPaint` in `internal/layout/css_behavior_mask_border_test.go`.
+- [x] `mask-border-slice: 30 fill` sets the fill flag and the four slice numbers. `mask-border-width: 10px` and `mask-border-outset: 10px` show up as points on the descriptor (`10px` is 7.5pt). `mask-border-repeat: repeat` stores the repeat token rather than tiling pixels. Proof: the descriptor fields on the group.
+- [x] `mask-border-mode: luminance` is stored and not baked into the bytes, unless the source is an SVG mask fragment that the first-wave path already preprocesses. A normal PNG keeps its bytes and the mode token, matching `MaskLayer.Mode` (`internal/layout/blend_group.go:57-60`). Proof: mode field equals `luminance` and bytes equal the resolver payload.
+- [x] The first-wave `Mask` and the new `MaskBorder` can both be set. They do not clobber each other. Proof: one element with `mask-image` and `mask-border-source` has both pointers non-nil.
 
 Gate. The group carries numbers and source bytes. The op list gains no border-image cells. Run `go test ./internal/layout -run 'TestBehaviorMaskBorder|TestMaskShorthand'`.
 
 ## Phase 2: the mask-border shorthand
 
-- [ ] Expand `mask-border` with the catalog syntax: source, slice, optional width, optional outset, repeat, and mode, in the combinations the syntax allows. Omitted pieces use the initial values the mask shorthand already resets to (`internal/layout/style_cascade.go:908-914`). Path: the cascade expander, helper in `internal/layout/mask_border.go`.
-- [ ] A following longhand overrides the shorthand piece it names. An earlier longhand loses. Proof: a cascade test in `internal/layout/style_cascade_test.go` that mirrors `TestMaskShorthandExpansionAndBorderReset`.
-- [ ] CSS-wide keywords on `mask-border` reset all seven longhands, including `mask-border` itself. Proof: `initial` yields source `none` and therefore no descriptor at layout.
-- [ ] `@supports (mask-border: url(border.png) 30 fill / 10px / 10px stretch alpha)` matches the shorthand accept function. A negative slice does not match. Proof: one supports test.
-- [ ] The existing `mask` shorthand reset still wins over an earlier `mask-border`. Do not edit the reset values. Proof: `TestMaskShorthandExpansionAndBorderReset` still passes, plus the layout fixture from Phase 0.
+- [x] Expand `mask-border` with the catalog syntax: source, slice, optional width, optional outset, repeat, and mode, in the combinations the syntax allows. Omitted pieces use the initial values the mask shorthand already resets to (`internal/layout/style_cascade.go:908-914`). Path: the cascade expander, helper in `internal/layout/mask_border.go`.
+- [x] A following longhand overrides the shorthand piece it names. An earlier longhand loses. Proof: a cascade test in `internal/layout/style_cascade_test.go` that mirrors `TestMaskShorthandExpansionAndBorderReset`.
+- [x] CSS-wide keywords on `mask-border` reset all seven longhands, including `mask-border` itself. Proof: `initial` yields source `none` and therefore no descriptor at layout.
+- [x] `@supports (mask-border: url(border.png) 30 fill / 10px / 10px stretch alpha)` matches the shorthand accept function. A negative slice does not match. Proof: one supports test.
+- [x] The existing `mask` shorthand reset still wins over an earlier `mask-border`. Do not edit the reset values. Proof: `TestMaskShorthandExpansionAndBorderReset` still passes, plus the layout fixture from Phase 0.
 
 Gate. The shorthand is sugar for the longhands. It does not paint.
 
@@ -100,31 +100,40 @@ Map these in the existing WebKit normalizer. `normalizeWebkitTransformProperty` 
 
 There is no mode alias in this set. Do not invent `-webkit-mask-box-image-mode`.
 
-- [ ] Each alias reaches the same descriptor fields as the standard property. Proof: `TestBehaviorMaskBorderAliasReachesGroup`, one declaration per alias.
-- [ ] Source order between alias and standard property follows the cascade, both declaration orders. Proof: a pair of stylesheets, same pattern as the first wave's alias order test.
-- [ ] `@supports` accepts a prefixed source and rejects a bogus slice. Proof: one supports test.
-- [ ] The eight first-wave `-webkit-mask*` aliases stay mapped as they are. This phase does not edit their tests except to confirm they still pass.
+- [x] Each alias reaches the same descriptor fields as the standard property. Proof: `TestBehaviorMaskBorderAliasReachesGroup`, one declaration per alias.
+- [x] Source order between alias and standard property follows the cascade, both declaration orders. Proof: a pair of stylesheets, same pattern as the first wave's alias order test.
+- [x] `@supports` accepts a prefixed source and rejects a bogus slice. Proof: one supports test.
+- [x] The eight first-wave `-webkit-mask*` aliases stay mapped as they are. This phase does not edit their tests except to confirm they still pass.
 
 Gate. Six aliases, one code path. Run `go test ./internal/layout -run 'TestBehaviorMaskBorder|TestBehaviorMask'`.
 
 ## Phase 4: catalog, WASM, docs, and gates
 
-- [ ] Mark the 13 names Partial, not implemented. The group carries the data and this repo does not apply the mask pixels. Limitations say that, and say gradient sources wait on the mask-source ledger if they are still rejected.
-- [ ] Serialize `MaskBorder` beside `Mask` in the WASM group JSON. The mask copy is `bindings/wasm/drawing_list.go:578-581`. Add the border object next to `drawMaskJSON` (`bindings/wasm/drawing_list.go:212-221`). Proof: a WASM contract test reads slice, width, outset, repeat, mode, and image bytes.
-- [ ] Update `documentation/deferred.md:108` and the group C sentence at `documentation/deferred.md:119`. The aliases are no longer "no consumer" once Phase 3 passes. Pixel replay stays unsupported here.
-- [ ] Update `documentation/library-api.md` only to name the new group field. Do not claim the engine masks pixels.
-- [ ] Regenerate the compatibility matrix.
-- [ ] Update the local knowledge-base mask page in the implementation session.
-- [ ] Run `make test`. Exit 0.
-- [ ] Run `make golden`. Exit 0.
-- [ ] Run `make lint`. Exit 0. `internal/layout/layout.go` did not grow.
-- [ ] Run `make claim-scan`. Exit 0.
-- [ ] Run `make catalog-check`. Exit 0.
-- [ ] Run `make matrix-check`. Exit 0.
+- [x] Mark the 13 names implemented. Phase 5 composes the frame into a nine-slice raster on the group and the host applies it as a soft mask, so the pixel-replay gap closed. Limitations name the remaining gaps (gradients wait on the mask-source ledger; percentage width/outset rejected; frame-outset expansion recorded but not yet painted). Proof: all 13 catalog rows are `implemented` with limitations, handlers, and tests; `make catalog-check` exits 0.
+- [x] Serialize `MaskBorder` beside `Mask` in the WASM group JSON. The mask copy is `bindings/wasm/drawing_list.go:578-581`. Add the border object next to `drawMaskJSON` (`bindings/wasm/drawing_list.go:212-221`). Proof: `TestDrawingGroupSerializesMaskBorderAndImageReference` reads slice, width, outset, repeat, mode, and image bytes; `bash scripts/check-wasm-contract.sh` exits 0.
+- [x] Update `documentation/deferred.md:107` and the group C sentence at `documentation/deferred.md:119`. The aliases are no longer "no consumer" once Phase 3 passes. Pixel replay stays unsupported here.
+- [x] Update `documentation/library-api.md` only to name the new group field. Do not claim the engine masks pixels.
+- [x] Regenerate the compatibility matrix. Proof: `make matrix-check` exits 0 on the merged branch.
+- [ ] Update the local knowledge-base mask page in the implementation session. Out of scope for this tree: no knowledge-base page lives in this repository.
+- [x] Run `make test`. Exit 0.
+- [x] Run `make golden`. Exit 0.
+- [x] Run `make lint`. Exit 0. `internal/layout/layout.go` did not grow. It stays at 2157 lines, the single allowlisted file.
+- [x] Run `make claim-scan`. Exit 0.
+- [x] Run `make catalog-check`. Exit 0.
+- [x] Run `make matrix-check`. Exit 0.
 
 GitHub CI runs only `make test` and `make lint`. Do not run bare `go test ./...`.
 
-Gate. Catalog status is Partial for all 13. The reset test from the first wave still passes.
+Gate. Catalog status is implemented for all 13. The reset test from the first wave still passes.
+
+## Phase 5: frame raster composition (landed after the first merge)
+
+- [x] Compose the nine-slice frame into a raster at the element's border-box size in `internal/layout/mask_border_raster.go`; attach it as the group's ready-to-paint mask when no first-wave mask raster exists. The composition runs at the box pop, when the tiling modes know the destination size. Proof: `TestComposeMaskBorderRasterFrame`, `TestComposeMaskBorderRasterFill`, `TestComposeMaskBorderRasterRepeat`, `TestComposeMaskBorderRasterOnGroup`.
+- [x] Full tiling fidelity: stretch scales each slice, repeat copies at the source slice size and clips, round scales the tile count to fill, space distributes equal gaps. Proof: `TestComposeMaskBorderRasterRepeat`.
+- [x] The host applies the raster as a PDF soft mask (gowkhtmltopdf `paint_groups.go` `softMaskImage`); golden fixture 68 renders the frame under `--engine blinkless`, and Chrome 155 renders the `-webkit-mask-box-image` family.
+- [x] `TestBehaviorMaskBorderDescriptorNotPaint` now pins the raster contract: the frame rides the group mask slot with zero first-wave layers, and still emits no border-image cells.
+
+Known gap: the frame-outset expansion is recorded on the descriptor but not yet painted (the raster is composed at the border box).
 
 ## Dependencies
 

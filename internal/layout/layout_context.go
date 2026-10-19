@@ -50,6 +50,9 @@ func finalizeResult(eng *engine, root *html.Node, opts Options) (*Result, error)
 	// position-try-order and position-visibility. Runs before chrome merge
 	// so shifted boxes carry their backgrounds and borders.
 	eng.resolveAnchorPositions(boxNode)
+	// Named-flow remainders with no later region are hidden before the chrome
+	// merge (op indices are still valid here).
+	eng.finishNamedFlows()
 	// Merge deferred background/border ops before stamping sticky/fixed flags
 	// and CSS transforms (those passes need final op indices).
 	eng.finalizeChrome(boxNode)

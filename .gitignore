@@ -88,3 +88,6 @@ plans/**/report/
 
 frontend/node_modules/
 
+# Local git worktrees created for parallel agent sessions.
+.worktrees/
+

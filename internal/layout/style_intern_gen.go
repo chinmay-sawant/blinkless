@@ -343,6 +343,12 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.MaskOrigin == b.MaskOrigin &&
 		a.MaskClip == b.MaskClip &&
 		a.MaskType == b.MaskType &&
+		a.MaskBorderSource == b.MaskBorderSource &&
+		a.MaskBorderSlice == b.MaskBorderSlice &&
+		a.MaskBorderWidth == b.MaskBorderWidth &&
+		a.MaskBorderOutset == b.MaskBorderOutset &&
+		a.MaskBorderRepeat == b.MaskBorderRepeat &&
+		a.MaskBorderMode == b.MaskBorderMode &&
 		a.ClipPath == b.ClipPath &&
 		a.ClipRule == b.ClipRule &&
 		a.BorderImageSource == b.BorderImageSource &&
@@ -438,6 +444,11 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.FloatOffset == b.FloatOffset &&
 		a.FloatOffsetPercent == b.FloatOffsetPercent &&
 		a.FloatReference == b.FloatReference &&
+		a.ShapeInside == b.ShapeInside &&
+		a.ShapeInsideBox == b.ShapeInsideBox &&
+		a.ShapeInsideOutside == b.ShapeInsideOutside &&
+		a.ShapePadding == b.ShapePadding &&
+		a.ShapePaddingPercent == b.ShapePaddingPercent &&
 		a.TextCombineUpright == b.TextCombineUpright &&
 		a.TextDecorationInset == b.TextDecorationInset &&
 		a.TextDecorationSkip == b.TextDecorationSkip &&
@@ -473,6 +484,17 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.Clip == b.Clip &&
 		a.ColorInterpolation == b.ColorInterpolation &&
 		a.ColorInterpolationFilters == b.ColorInterpolationFilters &&
+		a.FlowInto == b.FlowInto &&
+		a.FlowIntoElement == b.FlowIntoElement &&
+		a.FlowFrom == b.FlowFrom &&
+		a.RegionFragment == b.RegionFragment &&
+		a.FlowTolerancePt == b.FlowTolerancePt &&
+		a.FlowToleranceInfinite == b.FlowToleranceInfinite &&
+		a.WrapFlow == b.WrapFlow &&
+		a.WrapThrough == b.WrapThrough &&
+		a.WrapBefore == b.WrapBefore &&
+		a.WrapAfter == b.WrapAfter &&
+		a.WrapInside == b.WrapInside &&
 		maps.Equal(a.CustomProps, b.CustomProps)
 }
 
@@ -744,6 +766,12 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashString(h, s.MaskOrigin)
 	h = styleInternHashString(h, s.MaskClip)
 	h = styleInternHashString(h, s.MaskType)
+	h = styleInternHashString(h, s.MaskBorderSource)
+	h = styleInternHashString(h, s.MaskBorderSlice)
+	h = styleInternHashString(h, s.MaskBorderWidth)
+	h = styleInternHashString(h, s.MaskBorderOutset)
+	h = styleInternHashString(h, s.MaskBorderRepeat)
+	h = styleInternHashString(h, s.MaskBorderMode)
 	h = styleInternHashString(h, s.ClipPath)
 	h = styleInternHashString(h, s.ClipRule)
 	h = styleInternHashString(h, s.BorderImageSource)
@@ -845,6 +873,11 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashFloat64(h, s.FloatOffset)
 	h = styleInternHashFloat64(h, s.FloatOffsetPercent)
 	h = styleInternHashString(h, s.FloatReference)
+	h = styleInternHashString(h, s.ShapeInside)
+	h = styleInternHashString(h, s.ShapeInsideBox)
+	h = styleInternHashBool(h, s.ShapeInsideOutside)
+	h = styleInternHashFloat64(h, s.ShapePadding)
+	h = styleInternHashFloat64(h, s.ShapePaddingPercent)
 	h = styleInternHashString(h, s.TextCombineUpright)
 	h = styleInternHashFloat64(h, s.TextDecorationInset)
 	h = styleInternHashString(h, s.TextDecorationSkip)
@@ -882,6 +915,17 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashString(h, s.Clip)
 	h = styleInternHashString(h, s.ColorInterpolation)
 	h = styleInternHashString(h, s.ColorInterpolationFilters)
+	h = styleInternHashString(h, s.FlowInto)
+	h = styleInternHashBool(h, s.FlowIntoElement)
+	h = styleInternHashString(h, s.FlowFrom)
+	h = styleInternHashString(h, s.RegionFragment)
+	h = styleInternHashFloat64(h, s.FlowTolerancePt)
+	h = styleInternHashBool(h, s.FlowToleranceInfinite)
+	h = styleInternHashString(h, s.WrapFlow)
+	h = styleInternHashString(h, s.WrapThrough)
+	h = styleInternHashString(h, s.WrapBefore)
+	h = styleInternHashString(h, s.WrapAfter)
+	h = styleInternHashString(h, s.WrapInside)
 	h = styleInternHashStringMap(h, s.CustomProps)
 
 	return h
@@ -1139,6 +1183,12 @@ func styleInternFields() []string {
 		"MaskOrigin",
 		"MaskClip",
 		"MaskType",
+		"MaskBorderSource",
+		"MaskBorderSlice",
+		"MaskBorderWidth",
+		"MaskBorderOutset",
+		"MaskBorderRepeat",
+		"MaskBorderMode",
 		"ClipPath",
 		"ClipRule",
 		"BorderImageSource",
@@ -1234,6 +1284,11 @@ func styleInternFields() []string {
 		"FloatOffset",
 		"FloatOffsetPercent",
 		"FloatReference",
+		"ShapeInside",
+		"ShapeInsideBox",
+		"ShapeInsideOutside",
+		"ShapePadding",
+		"ShapePaddingPercent",
 		"TextCombineUpright",
 		"TextDecorationInset",
 		"TextDecorationSkip",
@@ -1269,6 +1324,17 @@ func styleInternFields() []string {
 		"Clip",
 		"ColorInterpolation",
 		"ColorInterpolationFilters",
+		"FlowInto",
+		"FlowIntoElement",
+		"FlowFrom",
+		"RegionFragment",
+		"FlowTolerancePt",
+		"FlowToleranceInfinite",
+		"WrapFlow",
+		"WrapThrough",
+		"WrapBefore",
+		"WrapAfter",
+		"WrapInside",
 		"CustomProps",
 	}
 }

@@ -227,6 +227,11 @@ func (e *engine) flowChildren(
 		return curY + e.scalePt(intrinsicH)
 	}
 
+	// css-regions-1 lite (named_flow.go): a source withholds its children, a
+	// region swaps in the named flow's content, and the frame carries the
+	// region cut to the post-hook below.
+	namedFlowFrame := e.namedFlowBegin(parent, &children, sty, contentX, posY, curY)
+
 	// contain: paint clips descendant paint to the padding box. Stamp the box
 	// so the existing overflow:clip pass (overflow_clip.go) applies it.
 	e.stampContainmentClip(parent, sty)
@@ -309,6 +314,10 @@ func (e *engine) flowChildren(
 	// not apply either.
 	if !sizeContained && (sty.PaddingBottom > 0 || sty.BorderBottom.Width > 0 || establishesBFC(sty)) {
 		curY += prevBottom
+	}
+
+	if namedFlowFrame != nil {
+		curY = e.namedFlowFinish(namedFlowFrame, parent, posY, curY)
 	}
 
 	return curY
@@ -674,13 +683,17 @@ func (e *engine) stampContainmentClip(boxNode *box, sty ResolvedStyle) {
 // layoutBlockChild builds one block-level child: it clears floats, collapses
 // margins with the previous sibling, applies the BFC float exclusion, and
 // returns the advanced cy, the next margin accumulator, and the built box.
-// parentTrim/isFirst/isLast implement margin-trim lite for horizontal-tb:
+// A wrap-flow exclusion box is laid out, contributed to the wrapping context,
+// and removed from flow (its Y is not consumed). parentTrim/isFirst/isLast
+// implement margin-trim lite for horizontal-tb:
 // block-start => top of first, block-end => bottom of last,
 // inline-start => left of first, inline-end => right of last.
 func (e *engine) layoutBlockChild(
 	node *html.Node, floats *floatState, contentW, contentX, posY, curY, prevBottom float64,
 	parentTrim string, isFirst, isLast bool,
 ) (float64, float64, *box) {
+	entryCurY := curY
+
 	// margin-trim lite: override child margins at container edges.
 	if trim := e.marginTrimOverride(node, parentTrim, isFirst, isLast); trim != nil {
 		e.styleOverrides = append(e.styleOverrides, styleOverride{node: node, style: trim})
@@ -726,9 +739,23 @@ func (e *engine) layoutBlockChild(
 	// (Chrome 130+; fixture-61 #102 justify-self:center in a table cell).
 	boxX, boxW = e.applyJustifySelfFitContent(node, cstate, boxX, boxW)
 
+	// wrap-through: none (css-exclusions-1 lite) builds the child against a
+	// scratch floatState so outside exclusions do not shorten its lines.
+	bypass := e.beginWrapThroughBypass(floats, cstate)
 	cblock := e.build(node, boxW, boxX, posY+curY)
+
+	endWrapThroughBypass(floats, bypass)
+
 	if cblock == nil {
 		return curY, 0, nil
+	}
+
+	// A wrap-flow box becomes an exclusion and leaves the flow: later
+	// content keeps the same Y and wraps around it (exclusion.go).
+	if exclusionApplies(cstate) && floats != nil {
+		floats.placeExclusion(cblock, cstate.WrapFlow, contentX, contentW)
+
+		return entryCurY, prevBottom, cblock
 	}
 
 	return curY + cblock.height, e.scalePt(cstate.MarginBottom), cblock

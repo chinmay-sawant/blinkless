@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<!--
+  fixture-68-named-flow-region-fragment-break
+  Proves: region-fragment: break on the source's block child moves that child
+  whole into the next region when the remaining space in the first region is
+  shorter than the child. Expected: no paint op of the paragraph sits inside
+  region B; every paragraph line paints inside region C.
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Named flow region-fragment break</title>
+  <style>
+    body { font-family: monospace; font-size: 10pt; margin: 0; color: #222; }
+    #b { flow-from: article; height: 24pt; border: 1pt solid #888; }
+    #c { flow-from: article; border: 1pt solid #888; }
+    p { margin: 0; }
+  </style>
+</head>
+<body>
+  <div id="src" style="flow-into: article content"><p id="p" style="region-fragment: break">alpha bravo charlie delta
+    echo foxtrot golf hotel india juliet kilo lima mike november oscar papa
+    quebec romeo sierra tango uniform victor whiskey xray yankee zulu</p></div>
+  <div id="b"></div>
+  <div id="c"></div>
+</body>
+</html>

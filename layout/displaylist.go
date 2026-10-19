@@ -104,10 +104,12 @@ const (
 // DisplayGroup is the CSS element compositing group an operation belongs to.
 type DisplayGroup = ilayout.BlendGroup
 
-// MaskDescriptor and MaskLayer describe the mask carried by a display group.
+// MaskDescriptor, MaskRaster, MaskLayer, and MaskBorder describe the mask
+// frames carried by a display group.
 type MaskDescriptor = ilayout.MaskDescriptor
 type MaskRaster = ilayout.MaskRaster
 type MaskLayer = ilayout.MaskLayer
+type MaskBorder = ilayout.MaskBorder
 
 // DisplayKind is the operation kind. It is a distinct type, so a consumer
 // working with kinds declares values of this type rather than plain integers.
