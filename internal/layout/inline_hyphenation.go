@@ -93,6 +93,12 @@ func (e *engine) shyBreakIndex(
 		return -1
 	}
 
+	// No soft hyphen means there is no legal break point, so skip the rune
+	// scan and the per-rune face lookup that only looks for one.
+	if !strings.ContainsRune(text, softHyphenRune) {
+		return -1
+	}
+
 	runes := []rune(text)
 	hyphen := hyphenateCharacterOf(style)
 	hyphenW := 0.0

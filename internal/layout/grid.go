@@ -107,6 +107,12 @@ func (e *engine) layoutStandardGrid(
 		return boxNode
 	}
 
+	if canBuildSingleColumnGrid(e, sty, placed) {
+		return e.layoutSingleColumnGrid(
+			boxNode, sty, placed, contentX, contentW, curY, posY, contentH, contentStart,
+		)
+	}
+
 	numRows := gridRowCount(placed, areas)
 
 	rowTemplate := strings.TrimSpace(sty.GridTemplateRows)

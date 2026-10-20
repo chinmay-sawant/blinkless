@@ -630,6 +630,11 @@ type engine struct {
 	// faceByStyle caches faceFor results for this Layout run (family hash +
 	// weight/italic). Avoids repeating registry lookups on every measure call.
 	faceByStyle map[faceStyleKey]*pdf.Font
+	// lastFaceKey/lastFace are a one-entry cache for the common case of an
+	// inline run reusing one face for every rune.
+	lastFaceKey faceStyleKey
+	lastFace    *pdf.Font
+	hasLastFace bool
 	// faceByRune caches faceForRune fallback results for this Layout run
 	// (only glyphs missing from the primary face). Key uses a family hash so
 	// lookups allocate no joined family string.
@@ -713,8 +718,13 @@ func (e *engine) faceFor(sty *ResolvedStyle) *pdf.Font {
 		opticalSize: sizeBits,
 	}
 
+	if e.hasLastFace && e.lastFaceKey == key && e.lastFace != nil {
+		return e.lastFace
+	}
+
 	if e.faceByStyle != nil {
 		if f, ok := e.faceByStyle[key]; ok {
+			e.lastFaceKey, e.lastFace, e.hasLastFace = key, f, true
 			return f
 		}
 	}
@@ -726,6 +736,7 @@ func (e *engine) faceFor(sty *ResolvedStyle) *pdf.Font {
 	}
 
 	e.faceByStyle[key] = face
+	e.lastFaceKey, e.lastFace, e.hasLastFace = key, face, true
 
 	return face
 }
