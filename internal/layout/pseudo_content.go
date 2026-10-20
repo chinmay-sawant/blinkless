@@ -36,6 +36,9 @@ func (e *engine) pseudoContent(node *html.Node, pseudoEl string) string {
 	if e == nil || node == nil || (pseudoEl != pseudoBefore && pseudoEl != pseudoAfter) {
 		return ""
 	}
+	if !e.hasPseudoContent() {
+		return ""
+	}
 
 	ctx := e.pseudoStyleContext()
 	best := selectContentDecl(ctx, node, pseudoEl)
@@ -53,6 +56,9 @@ func (e *engine) pseudoContent(node *html.Node, pseudoEl string) string {
 
 func (e *engine) pseudoContentURL(node *html.Node, pseudoEl string) string {
 	if e == nil || node == nil || (pseudoEl != pseudoBefore && pseudoEl != pseudoAfter) {
+		return ""
+	}
+	if !e.hasPseudoContent() {
 		return ""
 	}
 
@@ -86,7 +92,32 @@ func (e *engine) pseudoStyleContext() *styleContext {
 		viewportW:  e.opts.Width,
 		viewportH:  e.opts.Height,
 		containers: e.containers,
+		index:      e.styleRuleIndex(),
 	}
+}
+
+// styleRuleIndex returns the selector index for this layout's sheets, built
+// once and shared by the cascade and every pseudo-content context. It is nil
+// when the layout carries no sheets.
+func (e *engine) styleRuleIndex() *ruleIndex {
+	if e == nil || len(e.opts.Sheets) == 0 {
+		return nil
+	}
+
+	if e.styleIndex == nil {
+		e.styleIndex = newRuleIndex(e.opts.Sheets)
+	}
+
+	return e.styleIndex
+}
+
+// hasPseudoContent reports whether any rule can generate ::before/::after
+// content. No such rule means every generated-content lookup can answer empty
+// without walking selectors.
+func (e *engine) hasPseudoContent() bool {
+	index := e.styleRuleIndex()
+
+	return index != nil && index.content
 }
 
 // pseudoStyle resolves the used style of generated content against the host

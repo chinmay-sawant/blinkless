@@ -543,9 +543,12 @@ type engine struct {
 	styles          map[*html.Node]*ResolvedStyle
 	syntheticStyles map[*html.Node]*ResolvedStyle
 	styleOverrides  []styleOverride
-	ops             []Op
-	gridScratch     []GridSeg // reusable row-grid collector storage
-	noEmit          bool      // measurement mode: compute geometry without emitting ops
+	// styleIndex narrows selector matching for this layout's sheets. It is
+	// built once and shared by the cascade and every pseudo-content lookup.
+	styleIndex  *ruleIndex
+	ops         []Op
+	gridScratch []GridSeg // reusable row-grid collector storage
+	noEmit      bool      // measurement mode: compute geometry without emitting ops
 	// maxRotatedRunW is the widest rotated (sideways) text advance seen in the
 	// current build subtree. verticalWritingHeight consumes it instead of
 	// scanning e.ops so measured geometry matches emitted geometry when

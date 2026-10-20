@@ -848,6 +848,12 @@ type styleContext struct {
 	// ruleHits is reused between sequential cascade lookups. A lookup consumes
 	// the returned slice before the next element is resolved.
 	ruleHits []ruleHit
+	// ruleCands is the candidate selector buffer that feeds ruleHits. It is
+	// reused between sequential lookups like ruleHits.
+	ruleCands []ruleSel
+	// index narrows selector matching to rules that can match the node. It is
+	// built once per pass from sheets; a pass with no sheets leaves it nil.
+	index *ruleIndex
 	// Cascade maps are reused between sequential element lookups. Their values
 	// are consumed before the next element is resolved.
 	cascadeWins  map[string]cascadeWin

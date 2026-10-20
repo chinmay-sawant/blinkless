@@ -549,35 +549,21 @@ func (ctx *styleContext) matchedRules(node *html.Node, pseudoElem string) []rule
 		return nil
 	}
 
-	// Reuse one growable buffer across sequential element lookups. The caller
-	// consumes the returned slice before resolving the next element.
+	index := ctx.ruleIndex()
+	if index == nil {
+		return nil
+	}
+
+	ctx.ruleCands = index.candidates(ctx.ruleCands[:0], node, pseudoElem)
+	sortCandidates(ctx.ruleCands)
 	hits := ctx.ruleHits[:0]
-	for _, sheet := range ctx.sheets {
+
+	for _, cand := range ctx.ruleCands {
 		if ctx.pollContext() {
 			return nil
 		}
-		hits = ctx.appendSheetRuleHits(hits, sheet, node, pseudoElem)
-	}
 
-	ctx.ruleHits = hits
-
-	return hits
-}
-
-// appendSheetRuleHits appends matches from one stylesheet into hits.
-func (ctx *styleContext) appendSheetRuleHits(
-	hits []ruleHit, sheet *css.Stylesheet, node *html.Node, pseudoElem string,
-) []ruleHit {
-	if sheet == nil {
-		return hits
-	}
-
-	for idx := range sheet.Rules {
-		if ctx.pollContext() {
-			return hits
-		}
-
-		rule := &sheet.Rules[idx]
+		rule := cand.rule
 		if !css.MediaMatches(rule.Media, ctx.media, ctx.viewportW, ctx.viewportH) {
 			continue
 		}
@@ -590,22 +576,7 @@ func (ctx *styleContext) appendSheetRuleHits(
 			continue
 		}
 
-		hits = ctx.appendRuleSelectorHits(hits, rule, node, pseudoElem)
-	}
-
-	return hits
-}
-
-// appendRuleSelectorHits appends matching selectors of one rule into hits.
-//
-//nolint:wsl // selector gates are intentionally evaluated in source order.
-func (ctx *styleContext) appendRuleSelectorHits(
-	hits []ruleHit, rule *css.Rule, node *html.Node, pseudoElem string,
-) []ruleHit {
-	for _, sel := range rule.Selectors {
-		if ctx.pollContext() {
-			return hits
-		}
+		sel := rule.Selectors[cand.sel]
 		if !ctx.selectorMatches(sel, node, pseudoElem) {
 			continue
 		}
@@ -614,7 +585,23 @@ func (ctx *styleContext) appendRuleSelectorHits(
 		hits = append(hits, ruleHit{rule: rule, a: a, b: b, c: c})
 	}
 
+	ctx.ruleHits = hits
+
 	return hits
+}
+
+// ruleIndex returns the pass's selector index, building it from the sheets on
+// first use. A context with no sheets has nothing to index.
+func (ctx *styleContext) ruleIndex() *ruleIndex {
+	if ctx == nil || len(ctx.sheets) == 0 {
+		return nil
+	}
+
+	if ctx.index == nil {
+		ctx.index = newRuleIndex(ctx.sheets)
+	}
+
+	return ctx.index
 }
 
 // selectorMatches reports whether sel matches node, using the pseudo-shape
