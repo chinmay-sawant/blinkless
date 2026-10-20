@@ -635,13 +635,16 @@ func (e *engine) spliceInlineParts(items *[]inlineItem, idx int, parts []inlineI
 	oldLen := len(*items)
 	extra := len(parts) - 1
 
-	if oldLen+extra > cap(*items) {
-		grown := make([]inlineItem, oldLen+extra)
+	if need := oldLen + extra; need > cap(*items) {
+		grownCap := cap(*items) * 2
+		if grownCap < need {
+			grownCap = need
+		}
+		grown := make([]inlineItem, oldLen, grownCap)
 		copy(grown, *items)
 		*items = grown
-	} else {
-		*items = (*items)[:oldLen+extra]
 	}
+	*items = (*items)[:oldLen+extra]
 
 	copy((*items)[idx+len(parts):], (*items)[idx+1:oldLen])
 	copy((*items)[idx:idx+len(parts)], parts)

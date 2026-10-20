@@ -112,6 +112,12 @@ func (e *engine) layoutStandardGrid(
 			boxNode, sty, placed, contentX, contentW, curY, posY, contentH, contentStart,
 		)
 	}
+	if canBuildAutoRowGrid(e, sty, placed, cols) {
+		return e.layoutAutoRowGrid(
+			boxNode, sty, placed, cols, columnGap, rowGap, contentX, contentW,
+			curY, posY, contentH, contentStart,
+		)
+	}
 
 	numRows := gridRowCount(placed, areas)
 
