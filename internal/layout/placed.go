@@ -9,6 +9,8 @@ type PlacedElement struct {
 	Tag                 string
 	Action              string
 	Text                string
+	ParentIndex         int
+	OperationIDs        []uint64
 	Animations          []AnimationRecord
 	Transitions         []TransitionRecord
 	TriggerScope        string
@@ -30,22 +32,27 @@ func PlacedElements(res *Result) []PlacedElement {
 	}
 
 	out := make([]PlacedElement, 0, len(res.boxes))
-	walkPlaced(res.root, &out)
+	walkPlaced(res.root, res.Ops, -1, &out)
 
 	return out
 }
 
-func walkPlaced(boxNode *box, out *[]PlacedElement) {
+func walkPlaced(boxNode *box, ops []Op, parentIndex int, out *[]PlacedElement) {
 	if boxNode == nil {
 		return
 	}
 
+	childParent := parentIndex
+
 	if boxNode.node != nil && boxNode.node.Type == html.ElementNode {
+		index := len(*out)
 		*out = append(*out, PlacedElement{
 			ID:                  boxNode.node.Attribute("id"),
 			Tag:                 boxNode.node.Name,
 			Action:              boxNode.node.Attribute("data-action"),
 			Text:                boxNode.node.TextContent(),
+			ParentIndex:         parentIndex,
+			OperationIDs:        operationIDs(ops, boxNode.opStart, boxNode.opEnd),
 			Animations:          animationRecordsFromStyle(boxNode.style.Animation),
 			Transitions:         transitionRecordsFromStyle(boxNode.style.Transition),
 			TriggerScope:        boxNode.style.Animation.TriggerScope,
@@ -58,9 +65,26 @@ func walkPlaced(boxNode *box, out *[]PlacedElement) {
 			W:                   boxNode.w,
 			H:                   boxNode.height,
 		})
+		childParent = index
 	}
 
 	for _, child := range boxNode.children {
-		walkPlaced(child, out)
+		walkPlaced(child, ops, childParent, out)
 	}
+}
+
+func operationIDs(ops []Op, start, end int) []uint64 {
+	if start < 0 || end < start {
+		return make([]uint64, 0)
+	}
+
+	ids := make([]uint64, 0, end-start+1)
+
+	for index := start; index <= end && index < len(ops); index++ {
+		if ops[index].ID != 0 {
+			ids = append(ids, ops[index].ID)
+		}
+	}
+
+	return ids
 }

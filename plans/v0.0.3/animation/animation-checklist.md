@@ -1,12 +1,12 @@
 # v0.0.3 - Animation metadata and view-transition data
 
 > **Parent:** `plans/v0.0.3/README.md`
-> **Status:** validated on 2026-10-19.
+> **Status:** validated on 2026-10-20.
 > **Scope:** 23 standard properties and 9 `-webkit-animation*` aliases.
 
 ## Result
 
-Blinkless keeps animation values for a host that may sample them later. It also keeps parsed `@keyframes` rules on the display list. Blinkless does not advance time, apply keyframe values, activate triggers, or build view-transition snapshots.
+Blinkless keeps animation values and parsed `@keyframes` rules on the display list. It also exports box ancestry and paint ownership so a host can target nested content (`internal/layout/placed.go:7-25`, `layout/displaylist.go:157-170`). OwnFrame samples animation and trigger records and builds view-transition frames from host-provided inputs (`../ownframe/internal/animation/player.go:22-64`, `../ownframe/internal/csstrigger/dispatch.go:11-22`, `../ownframe/internal/viewtransition/new.go:5-66`). The host supplies time, timeline progress, trigger events, and old and new snapshots; Blinkless does not run these frames in its layout pass.
 
 The parser and cascade code lives in `internal/css/keyframes.go` and `internal/layout/animation_style.go`. The per-item records are built in `internal/layout/animation_transition.go` and carried by `internal/layout/placed.go`. The public boxes and keyframe table are in `layout/layout.go` and `layout/displaylist.go`. WASM encodes the same values in `bindings/wasm/drawing_list.go`.
 
@@ -17,10 +17,10 @@ The parser and cascade code lives in `internal/css/keyframes.go` and `internal/l
 - [x] Normalize the 9 aliases `-webkit-animation`, `-webkit-animation-delay`, `-webkit-animation-direction`, `-webkit-animation-duration`, `-webkit-animation-fill-mode`, `-webkit-animation-iteration-count`, `-webkit-animation-name`, `-webkit-animation-play-state`, and `-webkit-animation-timing-function`. Keep declaration source order when prefixed and standard names are mixed. Proof: `TestWebkitAnimationTransitionAliasesMatchStandardProperties` and `TestWebkitAnimationTransitionAliasesRespectCascadeOrder`.
 - [x] Keep each comma-list item aligned in one `layout.Animation` record. Preserve time values in milliseconds, the `auto` duration flag, infinite iteration, timeline and range text, and trigger text. Keep trigger-scope and view-transition identity values on the matching `layout.Box`. Proof: `TestDisplayAnimationAndTransitionMetadata` and `TestDisplayAnimationTriggerMetadata`.
 - [x] Carry animation records and keyframes through the public Go display list and the WASM JSON document. Keep the drawing-list schema at `blinkless.drawinglist/1`. Proof: `TestDisplayAnimationAndTransitionMetadata`, `TestDrawingListAnimationAndTransition`, and `make wasm-test`.
-- [x] Record parser limits without claiming full CSS parser conformance. `css.IsIdentToken` accepts ASCII identifier characters only (`internal/css/css.go:413`). Length-percentage math uses `css.EvalMath`, which evaluates numeric values without checking CSS dimensions (`internal/layout/animation_style.go`, `internal/css/math_expr.go:29`). CSS escape decoding, non-ASCII identifiers, dimensional math validation, runtime sampling, event activation, and view-transition snapshots are outside this metadata result.
-- [x] Keep the catalog and reference docs aligned with the shipped Partial status and the runtime limits. Proof: `make catalog-check`, `make matrix-check`, and `make claim-scan` passed.
-- [x] Pass the final code gates: `GOCACHE=/tmp/blinkless-v003-gocache make test`, `GOCACHE=/tmp/blinkless-v003-gocache make golden`, `GOCACHE=/tmp/blinkless-v003-gocache make lint`, and `GOCACHE=/tmp/blinkless-v003-gocache make wasm-test`.
+- [x] Record parser limits without claiming full CSS parser conformance. `css.IsIdentToken` accepts ASCII identifier characters only (`internal/css/css.go:413`). Length-percentage math uses `css.EvalMath`, which evaluates numeric values without checking CSS dimensions (`internal/layout/animation_style.go`, `internal/css/math_expr.go:29`). CSS escape decoding, non-ASCII identifiers, and dimensional math validation remain outside the parser contract. Blinkless exports metadata; the host supplies runtime inputs.
+- [x] Sample the 12 animation, trigger, and view-transition rows that were metadata-only. OwnFrame tests cover composition, four range properties, timelines, trigger actions and scope, named captures, classes, groups, and scope using Blinkless display lists. Proof: `make catalog-ownframe-check` passed all 43 motion cases; OwnFrame `make test` and `make build` passed with the local Blinkless workspace; `make catalog-check` reported 555 implemented and 3 partial.
+- [x] Pass the final code and documentation gates on 2026-10-20. Blinkless passed `make test`, `make claim-scan`, `make lint`, `make golden`, `make wasm-test`, `make catalog-check`, `make catalog-ownframe-check`, and `make matrix-check`. OwnFrame passed `make test` and `make build`. Updated motion documentation in both repositories; reran Blinkless `make claim-scan` and `make matrix-check` successfully. The catalog reports 785 properties: 555 implemented, 3 partial, 219 unsupported, and 8 intentionally ignored.
 
 ## Scope decision
 
-The in-engine clock, frame sampling, interpolation, animation and transition events, trigger activation, and view-transition snapshots are not part of this version's metadata contract. This is a completed scope decision, not pending work.
+Blinkless v0.0.3 still exports animation metadata without an in-engine clock. OwnFrame now samples all 32 animation properties and aliases through explicit host inputs. It also handles trigger actions and scope, and builds named view-transition frames from snapshots supplied by the host. The OwnFrame Page loop does not automatically collect these inputs or start the transitions.

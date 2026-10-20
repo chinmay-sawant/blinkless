@@ -82,6 +82,170 @@ func TestDisplayReturnsOpsAndCanvas(t *testing.T) {
 	}
 }
 
+func TestDisplayBoxesExposeTreeAndPaintOwnership(t *testing.T) {
+	t.Parallel()
+
+	display := displayOf(t, `<div id="parent" style="background:#eeeeee">
+		<div id="child" style="background:#ff0000">child text</div>
+	</div>`)
+	parentIndex, childIndex := boxIndexByID(display, "parent"), boxIndexByID(display, "child")
+
+	if parentIndex < 0 || childIndex < 0 {
+		t.Fatalf("parent/child boxes missing: %#v", display.Boxes)
+	}
+
+	if display.Boxes[parentIndex].ParentIndex < 0 {
+		t.Fatalf("parent index = %d, want an element ancestor", display.Boxes[parentIndex].ParentIndex)
+	}
+
+	if got := display.Boxes[childIndex].ParentIndex; got != parentIndex {
+		t.Fatalf("child parent index = %d, want %d", got, parentIndex)
+	}
+
+	if len(display.Boxes[childIndex].OperationIDs) == 0 {
+		t.Fatal("child has no operation IDs")
+	}
+
+	assertSubtreeContainsChildOperations(t, display, parentIndex, childIndex)
+}
+
+func assertSubtreeContainsChildOperations(t *testing.T, display *layout.Display, parentIndex, childIndex int) {
+	t.Helper()
+
+	parentIDs := make(map[uint64]bool, len(display.Boxes[parentIndex].OperationIDs))
+
+	for _, operationID := range display.Boxes[parentIndex].OperationIDs {
+		parentIDs[operationID] = true
+	}
+
+	for _, operationID := range display.Boxes[childIndex].OperationIDs {
+		if !parentIDs[operationID] {
+			t.Errorf("parent operation IDs do not include child operation %d", operationID)
+		}
+	}
+
+	for _, operationID := range display.Boxes[childIndex].OperationIDs {
+		if !displayHasOperationID(display, operationID) {
+			t.Errorf("child operation ID %d does not resolve in display", operationID)
+		}
+	}
+}
+
+func TestDisplayOpsExposeNearestElementOwner(t *testing.T) {
+	t.Parallel()
+
+	display := displayOf(t, `<div id="parent" style="background:#eeeeee;padding:4px">
+		<div id="child" style="background:#ff0000">child text</div>
+	</div>`)
+	parentIndex, childIndex := boxIndexByID(display, "parent"), boxIndexByID(display, "child")
+
+	if parentIndex < 0 || childIndex < 0 {
+		t.Fatalf("parent/child boxes missing: %#v", display.Boxes)
+	}
+
+	if len(display.OpOwners) != len(display.Ops) {
+		t.Fatalf("operation owner count = %d, want %d", len(display.OpOwners), len(display.Ops))
+	}
+
+	assertFillColorOwner(t, display, parentIndex, 238.0/255, 238.0/255, 238.0/255, "parent background")
+	assertFillColorOwner(t, display, childIndex, 1, 0, 0, "child background")
+}
+
+func assertFillColorOwner(t *testing.T, display *layout.Display, owner int, red, green, blue float64, label string) {
+	t.Helper()
+
+	found := false
+
+	for operationIndex, operation := range display.Ops {
+		matchesColor := operation.R == red && operation.G == green && operation.B == blue
+		if operation.Kind != layout.DisplayOpFillRect || !matchesColor {
+			continue
+		}
+
+		found = true
+
+		if got := display.OpOwners[operationIndex]; got != owner {
+			t.Errorf("%s owner = %d, want box %d", label, got, owner)
+		}
+	}
+
+	if !found {
+		t.Errorf("%s paint was not found", label)
+	}
+}
+
+func TestDisplayBoxWithNoPaintHasExplicitEmptyOwnership(t *testing.T) {
+	t.Parallel()
+
+	display := displayOf(t, `<div id="empty" style="width:0;height:0"></div>`)
+	index := boxIndexByID(display, "empty")
+
+	if index < 0 {
+		t.Fatal("empty box missing")
+	}
+
+	if display.Boxes[index].OperationIDs == nil {
+		t.Fatal("empty box has nil operation IDs, want explicit empty ownership")
+	}
+
+	if len(display.Boxes[index].OperationIDs) != 0 {
+		t.Fatalf("empty box operation IDs = %v, want none", display.Boxes[index].OperationIDs)
+	}
+}
+
+func TestDisplayBoxChromePaintHasStableOperationID(t *testing.T) {
+	t.Parallel()
+
+	display := displayOf(t, `<div id="target" style="width:40px;height:20px;background:#123456"></div>`)
+	index := boxIndexByID(display, "target")
+
+	if index < 0 || len(display.Boxes[index].OperationIDs) == 0 {
+		t.Fatalf("target chrome IDs = %#v, want at least one", display.Boxes)
+	}
+
+	for _, operationID := range display.Boxes[index].OperationIDs {
+		if operationID == 0 {
+			t.Fatal("chrome operation has reserved zero ID")
+		}
+
+		found := false
+
+		for operationIndex, operation := range display.Ops {
+			if operation.ID == operationID {
+				found = true
+
+				if display.OpOwners[operationIndex] != index {
+					t.Errorf("operation %d owner = %d, want box %d", operationID, display.OpOwners[operationIndex], index)
+				}
+			}
+		}
+
+		if !found {
+			t.Errorf("chrome operation ID %d does not resolve", operationID)
+		}
+	}
+}
+
+func boxIndexByID(display *layout.Display, id string) int {
+	for index := range display.Boxes {
+		if display.Boxes[index].ID == id {
+			return index
+		}
+	}
+
+	return -1
+}
+
+func displayHasOperationID(display *layout.Display, id uint64) bool {
+	for index := range display.Ops {
+		if display.Ops[index].ID == id {
+			return true
+		}
+	}
+
+	return false
+}
+
 // TestDisplayUnitFactorsMatchTheirNames pins the point/pixel conversion
 // fields to their names and the 96/72 ratio. PointsPerPixel is points per CSS
 // pixel (72/96), PixelPerPoint is CSS pixels per point (96/72), and the two

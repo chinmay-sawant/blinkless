@@ -1,18 +1,18 @@
 {
   "catalog": "blinkless-css-properties",
-  "schema_version": 1,
-  "updated": "2026-10-19",
-  "scope": "Engine-registered CSS properties plus every property in the pinned upstream inventory. A property not listed here is unsupported by default.",
+  "schema_version": 2,
+  "updated": "2026-10-20",
+  "scope": "Engine-registered CSS properties plus every property in the pinned upstream inventory. Motion rows marked blinkless+ownframe include tested runtime behavior in OwnFrame; rows marked blinkless-only describe Blinkless metadata without a runtime consumer.",
   "seed": {
     "date": "2026-10-09",
-    "method": "Statuses seeded from the 2026-09-21 compatibility-matrix audit, handler discovery in scripts/css-catalog-map.py, and resolvable behavior tests. CAT-05 (2026-10-09) reconciled the rows against temps/catalog-audit/report.md: storage-only rows were downgraded and every partial or unsupported row names its missing behavior.",
-    "conservative_rule": "implemented requires a consumer outside the style layer and at least one resolvable behavior test; handler-backed rows with a named gap are partial; parsed or stored rows with no consumer are unsupported."
+    "method": "Statuses are reconciled against the pinned upstream inventory, handler discovery, and resolvable behavior tests. On 2026-10-20, thirteen animation, transition, trigger, and view-transition rows moved to blinkless+ownframe only after named OwnFrame tests sampled Blinkless display-list values.",
+    "conservative_rule": "implemented requires a consumer outside the style layer and at least one resolvable behavior test. Motion rows with implementation_scope blinkless+ownframe also require a downstream OwnFrame test case; handler-backed rows with a named gap remain partial; parsed or stored rows with no consumer are unsupported."
   },
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 512,
-      "partial": 46,
+      "implemented": 555,
+      "partial": 3,
       "unsupported": 219,
       "intentionally ignored": 8
     },
@@ -39,9 +39,7 @@
       "values": [
         "comma-separated keyframe names with optional duration, easing, delay, iteration count, direction, fill mode, play state, and timeline"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames. This -webkit alias maps to its standard property before cascade handling."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_transition.go",
         "internal/layout/animation_style.go",
@@ -66,8 +64,17 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
-      "upstream_class": "vendor"
+      "status": "implemented",
+      "upstream_class": "vendor",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_runtime_test.go",
+          "name": "TestCatalogAnimationPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_animation_cases_webkit_test.go",
+          "case": "-webkit-animation"
+        }
+      ]
     },
     {
       "name": "-webkit-animation-delay",
@@ -75,9 +82,7 @@
       "values": [
         "signed start <time> with optional non-negative end <time>; comma-separated"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames. This -webkit alias maps to its standard property before cascade handling."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_transition.go",
         "internal/layout/animation_style.go",
@@ -102,8 +107,17 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
-      "upstream_class": "vendor"
+      "status": "implemented",
+      "upstream_class": "vendor",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_runtime_test.go",
+          "name": "TestCatalogAnimationPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_animation_cases_webkit_test.go",
+          "case": "-webkit-animation-delay"
+        }
+      ]
     },
     {
       "name": "-webkit-animation-direction",
@@ -111,9 +125,7 @@
       "values": [
         "normal | reverse | alternate | alternate-reverse; comma-separated"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames. This -webkit alias maps to its standard property before cascade handling."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_transition.go",
         "internal/layout/animation_style.go",
@@ -138,8 +150,17 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
-      "upstream_class": "vendor"
+      "status": "implemented",
+      "upstream_class": "vendor",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_runtime_test.go",
+          "name": "TestCatalogAnimationPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_animation_cases_webkit_test.go",
+          "case": "-webkit-animation-direction"
+        }
+      ]
     },
     {
       "name": "-webkit-animation-duration",
@@ -147,9 +168,7 @@
       "values": [
         "auto | non-negative <time>; comma-separated"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames. This -webkit alias maps to its standard property before cascade handling."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_transition.go",
         "internal/layout/animation_style.go",
@@ -174,8 +193,17 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
-      "upstream_class": "vendor"
+      "status": "implemented",
+      "upstream_class": "vendor",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_runtime_test.go",
+          "name": "TestCatalogAnimationPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_animation_cases_webkit_test.go",
+          "case": "-webkit-animation-duration"
+        }
+      ]
     },
     {
       "name": "-webkit-animation-fill-mode",
@@ -183,9 +211,7 @@
       "values": [
         "none | forwards | backwards | both; comma-separated"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames. This -webkit alias maps to its standard property before cascade handling."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_transition.go",
         "internal/layout/animation_style.go",
@@ -210,8 +236,17 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
-      "upstream_class": "vendor"
+      "status": "implemented",
+      "upstream_class": "vendor",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_runtime_test.go",
+          "name": "TestCatalogAnimationPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_animation_cases_webkit_test.go",
+          "case": "-webkit-animation-fill-mode"
+        }
+      ]
     },
     {
       "name": "-webkit-animation-iteration-count",
@@ -219,9 +254,7 @@
       "values": [
         "infinite | non-negative <number>; comma-separated"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames. This -webkit alias maps to its standard property before cascade handling."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_transition.go",
         "internal/layout/animation_style.go",
@@ -246,8 +279,17 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
-      "upstream_class": "vendor"
+      "status": "implemented",
+      "upstream_class": "vendor",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_runtime_test.go",
+          "name": "TestCatalogAnimationPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_animation_cases_webkit_test.go",
+          "case": "-webkit-animation-iteration-count"
+        }
+      ]
     },
     {
       "name": "-webkit-animation-name",
@@ -255,9 +297,7 @@
       "values": [
         "none | custom-ident | quoted keyframes name; comma-separated"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames. This -webkit alias maps to its standard property before cascade handling."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_transition.go",
         "internal/layout/animation_style.go",
@@ -282,8 +322,17 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
-      "upstream_class": "vendor"
+      "status": "implemented",
+      "upstream_class": "vendor",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_runtime_test.go",
+          "name": "TestCatalogAnimationPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_animation_cases_webkit_test.go",
+          "case": "-webkit-animation-name"
+        }
+      ]
     },
     {
       "name": "-webkit-animation-play-state",
@@ -291,9 +340,7 @@
       "values": [
         "running | paused; comma-separated"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames. This -webkit alias maps to its standard property before cascade handling."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_transition.go",
         "internal/layout/animation_style.go",
@@ -318,8 +365,17 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
-      "upstream_class": "vendor"
+      "status": "implemented",
+      "upstream_class": "vendor",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_runtime_test.go",
+          "name": "TestCatalogAnimationPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_animation_cases_webkit_test.go",
+          "case": "-webkit-animation-play-state"
+        }
+      ]
     },
     {
       "name": "-webkit-animation-timing-function",
@@ -327,9 +383,7 @@
       "values": [
         "linear | ease | ease-in | ease-out | ease-in-out | step-start | step-end | cubic-bezier() | steps() | linear()"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames. This -webkit alias maps to its standard property before cascade handling."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_transition.go",
         "internal/layout/animation_style.go",
@@ -354,8 +408,17 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
-      "upstream_class": "vendor"
+      "status": "implemented",
+      "upstream_class": "vendor",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_runtime_test.go",
+          "name": "TestCatalogAnimationPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_animation_cases_webkit_test.go",
+          "case": "-webkit-animation-timing-function"
+        }
+      ]
     },
     {
       "name": "-webkit-appearance",
@@ -1046,9 +1109,7 @@
       "values": [
         "comma-separated property with optional duration, easing, delay, and behavior"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or generate frames. This -webkit alias maps to its standard property before cascade handling."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_transition.go",
         "internal/layout/transition_style.go",
@@ -1073,8 +1134,17 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
-      "upstream_class": "vendor"
+      "status": "implemented",
+      "upstream_class": "vendor",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_transition_runtime_test.go",
+          "name": "TestCatalogTransitionPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_transition_cases_webkit_test.go",
+          "case": "-webkit-transition"
+        }
+      ]
     },
     {
       "name": "-webkit-transition-delay",
@@ -1082,9 +1152,7 @@
       "values": [
         "signed <time>; comma-separated"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or generate frames. This -webkit alias maps to its standard property before cascade handling."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_transition.go",
         "internal/layout/transition_style.go",
@@ -1109,8 +1177,17 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
-      "upstream_class": "vendor"
+      "status": "implemented",
+      "upstream_class": "vendor",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_transition_runtime_test.go",
+          "name": "TestCatalogTransitionPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_transition_cases_webkit_test.go",
+          "case": "-webkit-transition-delay"
+        }
+      ]
     },
     {
       "name": "-webkit-transition-duration",
@@ -1118,9 +1195,7 @@
       "values": [
         "non-negative <time>; comma-separated"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or generate frames. This -webkit alias maps to its standard property before cascade handling."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_transition.go",
         "internal/layout/transition_style.go",
@@ -1145,8 +1220,17 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
-      "upstream_class": "vendor"
+      "status": "implemented",
+      "upstream_class": "vendor",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_transition_runtime_test.go",
+          "name": "TestCatalogTransitionPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_transition_cases_webkit_test.go",
+          "case": "-webkit-transition-duration"
+        }
+      ]
     },
     {
       "name": "-webkit-transition-property",
@@ -1154,9 +1238,7 @@
       "values": [
         "all | none | custom-ident; comma-separated except none stands alone"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or generate frames. This -webkit alias maps to its standard property before cascade handling."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_transition.go",
         "internal/layout/transition_style.go",
@@ -1181,8 +1263,17 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
-      "upstream_class": "vendor"
+      "status": "implemented",
+      "upstream_class": "vendor",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_transition_runtime_test.go",
+          "name": "TestCatalogTransitionPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_transition_cases_webkit_test.go",
+          "case": "-webkit-transition-property"
+        }
+      ]
     },
     {
       "name": "-webkit-transition-timing-function",
@@ -1190,9 +1281,7 @@
       "values": [
         "linear | ease | ease-in | ease-out | ease-in-out | step-start | step-end | cubic-bezier() | steps() | linear()"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or generate frames. This -webkit alias maps to its standard property before cascade handling."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_transition.go",
         "internal/layout/transition_style.go",
@@ -1217,8 +1306,17 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
-      "upstream_class": "vendor"
+      "status": "implemented",
+      "upstream_class": "vendor",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_transition_runtime_test.go",
+          "name": "TestCatalogTransitionPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_transition_cases_webkit_test.go",
+          "case": "-webkit-transition-timing-function"
+        }
+      ]
     },
     {
       "name": "-webkit-user-select",
@@ -1462,9 +1560,7 @@
       "values": [
         "comma-separated keyframe names with optional duration, easing, delay, iteration count, direction, fill mode, play state, and timeline"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_style.go",
         "internal/layout/placed.go",
@@ -1493,9 +1589,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<single-animation>#"
+      "upstream_syntax": "<single-animation>#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_runtime_test.go",
+          "name": "TestCatalogAnimationPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_animation_cases_standard_test.go",
+          "case": "animation"
+        }
+      ]
     },
     {
       "name": "animation-composition",
@@ -1504,7 +1609,7 @@
         "replace | add | accumulate"
       ],
       "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames."
+        "Blinkless exports animation metadata. OwnFrame samples transform, opacity, and background-color keyframes; keyframe properties without a cssmotion paint field do not change."
       ],
       "source": [
         "internal/layout/animation_style.go",
@@ -1528,9 +1633,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<single-animation-composition>#"
+      "upstream_syntax": "<single-animation-composition>#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_composition_test.go",
+          "name": "TestCatalogAnimationCompositionChangesOwnFrameSample",
+          "case_file": "examples/css-preview/catalog_animation_composition_test.go",
+          "case": "add"
+        }
+      ]
     },
     {
       "name": "animation-delay",
@@ -1538,9 +1652,7 @@
       "values": [
         "signed start <time> with optional non-negative end <time>; comma-separated"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_style.go",
         "internal/layout/placed.go",
@@ -1567,9 +1679,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "[ <'animation-delay-start'> <'animation-delay-end'>? ]#"
+      "upstream_syntax": "[ <'animation-delay-start'> <'animation-delay-end'>? ]#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_runtime_test.go",
+          "name": "TestCatalogAnimationPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_animation_cases_standard_test.go",
+          "case": "animation-delay"
+        }
+      ]
     },
     {
       "name": "animation-delay-end",
@@ -1577,9 +1698,7 @@
       "values": [
         "non-negative <time>; comma-separated"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_style.go",
         "internal/layout/placed.go",
@@ -1602,9 +1721,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<time [0s,∞]>#"
+      "upstream_syntax": "<time [0s,∞]>#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_runtime_test.go",
+          "name": "TestCatalogAnimationPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_animation_cases_standard_test.go",
+          "case": "animation-delay-end"
+        }
+      ]
     },
     {
       "name": "animation-delay-start",
@@ -1612,9 +1740,7 @@
       "values": [
         "signed <time>; comma-separated"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_style.go",
         "internal/layout/placed.go",
@@ -1637,9 +1763,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<time>#"
+      "upstream_syntax": "<time>#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_runtime_test.go",
+          "name": "TestCatalogAnimationPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_animation_cases_standard_test.go",
+          "case": "animation-delay-start"
+        }
+      ]
     },
     {
       "name": "animation-direction",
@@ -1647,9 +1782,7 @@
       "values": [
         "normal | reverse | alternate | alternate-reverse; comma-separated"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_style.go",
         "internal/layout/placed.go",
@@ -1672,9 +1805,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<single-animation-direction>#"
+      "upstream_syntax": "<single-animation-direction>#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_runtime_test.go",
+          "name": "TestCatalogAnimationPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_animation_cases_standard_test.go",
+          "case": "animation-direction"
+        }
+      ]
     },
     {
       "name": "animation-duration",
@@ -1682,9 +1824,7 @@
       "values": [
         "auto | non-negative <time>; comma-separated"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_style.go",
         "internal/layout/placed.go",
@@ -1707,9 +1847,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "[ auto | <time [0s,∞]> ]#"
+      "upstream_syntax": "[ auto | <time [0s,∞]> ]#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_runtime_test.go",
+          "name": "TestCatalogAnimationPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_animation_cases_standard_test.go",
+          "case": "animation-duration"
+        }
+      ]
     },
     {
       "name": "animation-fill-mode",
@@ -1717,9 +1866,7 @@
       "values": [
         "none | forwards | backwards | both; comma-separated"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_style.go",
         "internal/layout/placed.go",
@@ -1742,9 +1889,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<single-animation-fill-mode>#"
+      "upstream_syntax": "<single-animation-fill-mode>#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_runtime_test.go",
+          "name": "TestCatalogAnimationPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_animation_cases_standard_test.go",
+          "case": "animation-fill-mode"
+        }
+      ]
     },
     {
       "name": "animation-iteration-count",
@@ -1752,9 +1908,7 @@
       "values": [
         "infinite | non-negative <number>; comma-separated"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_style.go",
         "internal/layout/placed.go",
@@ -1777,9 +1931,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<single-animation-iteration-count>#"
+      "upstream_syntax": "<single-animation-iteration-count>#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_runtime_test.go",
+          "name": "TestCatalogAnimationPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_animation_cases_standard_test.go",
+          "case": "animation-iteration-count"
+        }
+      ]
     },
     {
       "name": "animation-name",
@@ -1787,9 +1950,7 @@
       "values": [
         "none | custom-ident | quoted keyframes name; comma-separated"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_style.go",
         "internal/layout/placed.go",
@@ -1814,9 +1975,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "[ none | <keyframes-name> ]#"
+      "upstream_syntax": "[ none | <keyframes-name> ]#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_runtime_test.go",
+          "name": "TestCatalogAnimationPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_animation_cases_standard_test.go",
+          "case": "animation-name"
+        }
+      ]
     },
     {
       "name": "animation-play-state",
@@ -1824,9 +1994,7 @@
       "values": [
         "running | paused; comma-separated"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_style.go",
         "internal/layout/placed.go",
@@ -1849,9 +2017,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<single-animation-play-state>#"
+      "upstream_syntax": "<single-animation-play-state>#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_runtime_test.go",
+          "name": "TestCatalogAnimationPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_animation_cases_standard_test.go",
+          "case": "animation-play-state"
+        }
+      ]
     },
     {
       "name": "animation-range",
@@ -1860,7 +2037,7 @@
         "start timeline-range edge with optional end edge; comma-separated"
       ],
       "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames."
+        "OwnFrame receives scroll/view progress and resolved named range edges from its host. Blinkless does not derive scroll geometry or advance a clock."
       ],
       "source": [
         "internal/layout/animation_style.go",
@@ -1888,9 +2065,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "[ <'animation-range-start'> <'animation-range-end'>? ]#"
+      "upstream_syntax": "[ <'animation-range-start'> <'animation-range-end'>? ]#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_ranges_test.go",
+          "name": "TestCatalogAnimationRangeReachesOwnFrameFrame",
+          "case_file": "examples/css-preview/catalog_animation_ranges_test.go",
+          "case": "entry 10px exit 90px"
+        }
+      ]
     },
     {
       "name": "animation-range-center",
@@ -1899,7 +2085,7 @@
         "normal | source | target | <length-percentage> | source/target with <length-percentage>"
       ],
       "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames."
+        "OwnFrame receives source/target progress and resolved range positions from its host. Blinkless does not derive element geometry or advance a clock."
       ],
       "source": [
         "internal/layout/animation_style.go",
@@ -1923,9 +2109,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "[ normal | [ <length-percentage> | <timeline-range-center-subject> <length-percentage>? ] ]#"
+      "upstream_syntax": "[ normal | [ <length-percentage> | <timeline-range-center-subject> <length-percentage>? ] ]#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_ranges_test.go",
+          "name": "TestCatalogAnimationRangeCenterReachesOwnFrameFrame",
+          "case_file": "examples/css-preview/catalog_animation_ranges_test.go",
+          "case": "source 50%"
+        }
+      ]
     },
     {
       "name": "animation-range-end",
@@ -1934,7 +2129,7 @@
         "normal | timeline-range-name with optional <length-percentage> | <length-percentage>"
       ],
       "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames."
+        "OwnFrame receives scroll/view progress and resolved named range edges from its host. Blinkless does not derive scroll geometry or advance a clock."
       ],
       "source": [
         "internal/layout/animation_style.go",
@@ -1958,9 +2153,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "[ normal | <length-percentage> | <timeline-range-name> <length-percentage>? ]#"
+      "upstream_syntax": "[ normal | <length-percentage> | <timeline-range-name> <length-percentage>? ]#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_ranges_test.go",
+          "name": "TestCatalogAnimationRangeEndReachesOwnFrameFrame",
+          "case_file": "examples/css-preview/catalog_animation_ranges_test.go",
+          "case": "75%"
+        }
+      ]
     },
     {
       "name": "animation-range-start",
@@ -1969,7 +2173,7 @@
         "normal | timeline-range-name with optional <length-percentage> | <length-percentage>"
       ],
       "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames."
+        "OwnFrame receives scroll/view progress and resolved named range edges from its host. Blinkless does not derive scroll geometry or advance a clock."
       ],
       "source": [
         "internal/layout/animation_style.go",
@@ -1993,9 +2197,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "[ normal | <length-percentage> | <timeline-range-name> <length-percentage>? ]#"
+      "upstream_syntax": "[ normal | <length-percentage> | <timeline-range-name> <length-percentage>? ]#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_ranges_test.go",
+          "name": "TestCatalogAnimationRangeStartReachesOwnFrameFrame",
+          "case_file": "examples/css-preview/catalog_animation_ranges_test.go",
+          "case": "25%"
+        }
+      ]
     },
     {
       "name": "animation-timeline",
@@ -2004,7 +2217,7 @@
         "auto | none | <dashed-ident> | scroll() | view() with accepted argument forms; comma-separated"
       ],
       "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames."
+        "OwnFrame samples host-supplied scroll(), view(), and named timeline progress. Blinkless does not observe scrolling or calculate timeline progress."
       ],
       "source": [
         "internal/layout/animation_style.go",
@@ -2028,9 +2241,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<single-animation-timeline>#"
+      "upstream_syntax": "<single-animation-timeline>#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_timeline_test.go",
+          "name": "TestCatalogAnimationTimelineSamplesHostProgress",
+          "case_file": "examples/css-preview/catalog_animation_timeline_test.go",
+          "case": "scroll()"
+        }
+      ]
     },
     {
       "name": "animation-timing-function",
@@ -2038,9 +2260,7 @@
       "values": [
         "linear | ease | ease-in | ease-out | ease-in-out | step-start | step-end | cubic-bezier() | steps() | linear()"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layout or paint, or generate animation frames."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/animation_style.go",
         "internal/layout/placed.go",
@@ -2063,9 +2283,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<easing-function>#"
+      "upstream_syntax": "<easing-function>#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_runtime_test.go",
+          "name": "TestCatalogAnimationPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_animation_cases_standard_test.go",
+          "case": "animation-timing-function"
+        }
+      ]
     },
     {
       "name": "animation-trigger",
@@ -2074,7 +2303,7 @@
         "none | <dashed-ident> followed by one or more none/play/play-once/play-forwards/play-backwards/pause/reset/replay actions"
       ],
       "limitations": [
-        "The value is parsed, cascaded, and exported as metadata. Blinkless does not activate animation triggers from events, maintain trigger state, sample timelines, or generate frames."
+        "OwnFrame dispatches named active/inactive events to animation actions. Blinkless does not listen for DOM input or timeline events automatically."
       ],
       "source": [
         "internal/layout/animation_style.go",
@@ -2098,9 +2327,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "[ none | [ <dashed-ident> <animation-action>+ ]+ ]#"
+      "upstream_syntax": "[ none | [ <dashed-ident> <animation-action>+ ]+ ]#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_animation_trigger_test.go",
+          "name": "TestCatalogAnimationTriggerChangesOwnFrameAfterHostEvent",
+          "case_file": "examples/css-preview/catalog_animation_trigger_test.go",
+          "case": "play reset"
+        }
+      ]
     },
     {
       "name": "appearance",
@@ -19002,9 +19240,7 @@
       "values": [
         "comma-separated property with optional duration, easing, delay, and behavior"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or generate frames."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/transition_style.go",
         "internal/layout/placed.go",
@@ -19031,9 +19267,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<single-transition>#"
+      "upstream_syntax": "<single-transition>#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_transition_runtime_test.go",
+          "name": "TestCatalogTransitionPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_transition_cases_standard_test.go",
+          "case": "transition"
+        }
+      ]
     },
     {
       "name": "transition-behavior",
@@ -19042,7 +19287,7 @@
         "normal | allow-discrete; comma-separated"
       ],
       "limitations": [
-        "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or generate frames."
+        "OwnFrame samples allow-discrete for the supported position paint value. Blinkless emits no visibility paint operation, so visibility transitions are not supported."
       ],
       "source": [
         "internal/layout/transition_style.go",
@@ -19066,9 +19311,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<transition-behavior-value>#"
+      "upstream_syntax": "<transition-behavior-value>#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_transition_behavior_runtime_test.go",
+          "name": "TestCatalogTransitionBehaviorReachesOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_transition_behavior_runtime_test.go",
+          "case": "allow-discrete"
+        }
+      ]
     },
     {
       "name": "transition-delay",
@@ -19076,9 +19330,7 @@
       "values": [
         "signed <time>; comma-separated"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or generate frames."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/transition_style.go",
         "internal/layout/placed.go",
@@ -19101,9 +19353,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<time>#"
+      "upstream_syntax": "<time>#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_transition_runtime_test.go",
+          "name": "TestCatalogTransitionPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_transition_cases_standard_test.go",
+          "case": "transition-delay"
+        }
+      ]
     },
     {
       "name": "transition-duration",
@@ -19111,9 +19372,7 @@
       "values": [
         "non-negative <time>; comma-separated"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or generate frames."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/transition_style.go",
         "internal/layout/placed.go",
@@ -19136,9 +19395,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<time [0s,∞]>#"
+      "upstream_syntax": "<time [0s,∞]>#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_transition_runtime_test.go",
+          "name": "TestCatalogTransitionPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_transition_cases_standard_test.go",
+          "case": "transition-duration"
+        }
+      ]
     },
     {
       "name": "transition-property",
@@ -19146,9 +19414,7 @@
       "values": [
         "all | none | custom-ident; comma-separated except none stands alone"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or generate frames."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/transition_style.go",
         "internal/layout/placed.go",
@@ -19171,9 +19437,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "none | <single-transition-property>#"
+      "upstream_syntax": "none | <single-transition-property>#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_transition_runtime_test.go",
+          "name": "TestCatalogTransitionPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_transition_cases_standard_test.go",
+          "case": "transition-property"
+        }
+      ]
     },
     {
       "name": "transition-timing-function",
@@ -19181,9 +19456,7 @@
       "values": [
         "linear | ease | ease-in | ease-out | ease-in-out | step-start | step-end | cubic-bezier() | steps() | linear()"
       ],
-      "limitations": [
-        "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or generate frames."
-      ],
+      "limitations": [],
       "source": [
         "internal/layout/transition_style.go",
         "internal/layout/placed.go",
@@ -19206,9 +19479,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<easing-function>#"
+      "upstream_syntax": "<easing-function>#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_transition_runtime_test.go",
+          "name": "TestCatalogTransitionPropertiesReachOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_transition_cases_standard_test.go",
+          "case": "transition-timing-function"
+        }
+      ]
     },
     {
       "name": "translate",
@@ -19242,7 +19524,7 @@
         "none | all | one or more <dashed-ident> values"
       ],
       "limitations": [
-        "The value is parsed, cascaded, and exported as metadata. Blinkless does not activate animation triggers from events, maintain trigger state, sample timelines, or generate frames."
+        "OwnFrame resolves trigger-name scope against Blinkless box ancestry. The host dispatches each event; Blinkless does not generate DOM events or shadow-tree scopes."
       ],
       "source": [
         "internal/layout/animation_style.go",
@@ -19266,9 +19548,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "none | all | <dashed-ident>#"
+      "upstream_syntax": "none | all | <dashed-ident>#",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_trigger_scope_test.go",
+          "name": "TestCatalogTriggerScopeLimitsOwnFrameActions",
+          "case_file": "examples/css-preview/catalog_trigger_scope_test.go",
+          "case": "--fire"
+        }
+      ]
     },
     {
       "name": "unicode-bidi",
@@ -19433,7 +19724,7 @@
         "none | one or more custom-ident values"
       ],
       "limitations": [
-        "The value is parsed, cascaded, and exported as view-transition metadata. Blinkless does not capture old and new snapshots, build view-transition pseudo-elements, or run view-transition frames."
+        "OwnFrame records classes on named transition groups and accepts host-supplied opacity/scale styles for them. It does not parse ::view-transition-* CSS selectors."
       ],
       "source": [
         "internal/layout/animation_style.go",
@@ -19457,9 +19748,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "none | <custom-ident>+"
+      "upstream_syntax": "none | <custom-ident>+",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_view_transition_class_test.go",
+          "name": "TestCatalogViewTransitionClassChangesOwnFrameFrame",
+          "case_file": "examples/css-preview/catalog_view_transition_class_test.go",
+          "case": "promo"
+        }
+      ]
     },
     {
       "name": "view-transition-group",
@@ -19468,7 +19768,7 @@
         "normal | contain | nearest | custom-ident"
       ],
       "limitations": [
-        "The value is parsed, cascaded, and exported as view-transition metadata. Blinkless does not capture old and new snapshots, build view-transition pseudo-elements, or run view-transition frames."
+        "OwnFrame builds and exposes parent relationships for normal, contain, nearest, and custom group values. The host must style or clip the hierarchy; ::view-transition-* selectors are not parsed."
       ],
       "source": [
         "internal/layout/animation_style.go",
@@ -19492,9 +19792,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "normal | contain | nearest | <custom-ident>"
+      "upstream_syntax": "normal | contain | nearest | <custom-ident>",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_view_transition_group_test.go",
+          "name": "TestCatalogViewTransitionGroupBuildsOwnFrameHierarchy",
+          "case_file": "examples/css-preview/catalog_view_transition_group_test.go",
+          "case": "nearest"
+        }
+      ]
     },
     {
       "name": "view-transition-name",
@@ -19503,7 +19812,7 @@
         "none | custom-ident"
       ],
       "limitations": [
-        "The value is parsed, cascaded, and exported as view-transition metadata. Blinkless does not capture old and new snapshots, build view-transition pseudo-elements, or run view-transition frames."
+        "OwnFrame captures matching old/new named paint and returns sampled transition frames. The host supplies both snapshots and controls when the transition starts."
       ],
       "source": [
         "internal/layout/animation_style.go",
@@ -19527,9 +19836,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "none | <custom-ident>"
+      "upstream_syntax": "none | <custom-ident>",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_view_transition_name_test.go",
+          "name": "TestCatalogViewTransitionNameReachesOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_view_transition_name_test.go",
+          "case": "card"
+        }
+      ]
     },
     {
       "name": "view-transition-scope",
@@ -19538,7 +19856,7 @@
         "none | all"
       ],
       "limitations": [
-        "The value is parsed, cascaded, and exported as view-transition metadata. Blinkless does not capture old and new snapshots, build view-transition pseudo-elements, or run view-transition frames."
+        "OwnFrame limits name discovery to the requested element subtree and view-transition-scope:all roots. The host chooses the snapshot root and timing."
       ],
       "source": [
         "internal/layout/animation_style.go",
@@ -19562,9 +19880,18 @@
           "name": "TestDisplayAnimationAndTransitionMetadata"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "none | all"
+      "upstream_syntax": "none | all",
+      "implementation_scope": "blinkless+ownframe",
+      "downstream_tests": [
+        {
+          "file": "examples/css-preview/catalog_view_transition_scope_test.go",
+          "name": "TestCatalogViewTransitionScopeLimitsOwnFrameFrames",
+          "case_file": "examples/css-preview/catalog_view_transition_scope_test.go",
+          "case": "all"
+        }
+      ]
     },
     {
       "name": "visibility",

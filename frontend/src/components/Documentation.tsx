@@ -15,6 +15,9 @@ type CatalogStatus = 'all' | 'implemented' | 'partial';
 const catalogRows = catalog.properties;
 const implementedCount = catalogRows.filter((row) => row.status === 'implemented').length;
 const partialCount = catalogRows.filter((row) => row.status === 'partial').length;
+const pairedImplementationCount = catalogRows.filter(
+  (row) => 'implementation_scope' in row && row.implementation_scope === 'blinkless+ownframe',
+).length;
 
 const NAV_GROUPS: { label: string; items: { id: string; label: string }[] }[] = [
   {
@@ -291,7 +294,7 @@ export const Documentation: React.FC<DocumentationProps> = ({ initialSection = '
             <div className="space-y-6">
               <SectionHeader kicker="CSS" title="CSS catalog" />
               <p className="text-base text-muted leading-relaxed max-w-2xl">
-                {implementedCount} implemented and {partialCount} partial. This list is those {catalogRows.length} names, from {catalog.source}, updated {catalog.updated}.
+                {implementedCount} implemented and {partialCount} partial. {pairedImplementationCount} properties are implemented across Blinkless and OwnFrame: Blinkless supplies CSS data, and OwnFrame samples it into frames. Their cards are marked “Blinkless + OwnFrame”. This list is those {catalogRows.length} names, from {catalog.source}, updated {catalog.updated}.
               </p>
               <div className="space-y-3">
                 <div>
@@ -332,15 +335,22 @@ export const Documentation: React.FC<DocumentationProps> = ({ initialSection = '
                 <ul className="divide-y divide-line border border-line rounded-md bg-sheet">
                   {filteredProperties.map((prop) => (
                     <li key={prop.name} className="px-4 py-3">
-                      <div className="flex items-center justify-between gap-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
                         <span className="font-mono text-sm text-ink">{prop.name}</span>
-                        <span
-                          className={`shrink-0 text-xs px-2 py-0.5 rounded-sm ${
-                            prop.status === 'implemented' ? 'text-moss bg-moss-soft' : 'text-warn bg-warn-soft'
-                          }`}
-                        >
-                          {prop.status}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`shrink-0 text-xs px-2 py-0.5 rounded-sm ${
+                              prop.status === 'implemented' ? 'text-moss bg-moss-soft' : 'text-warn bg-warn-soft'
+                            }`}
+                          >
+                            {prop.status}
+                          </span>
+                          {'implementation_scope' in prop && prop.implementation_scope === 'blinkless+ownframe' ? (
+                            <span className="shrink-0 text-xs px-2 py-0.5 rounded-sm text-muted bg-paper-deep">
+                              Blinkless + OwnFrame
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                       {prop.values ? <p className="text-sm text-muted mt-1 break-words">{prop.values}</p> : null}
                       {prop.note ? <p className="text-sm text-muted mt-1">{prop.note}</p> : null}

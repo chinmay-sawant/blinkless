@@ -17,7 +17,7 @@ flags, but never rewrites, catalog problems:
   - registered handlers that no catalog row or alias covers
   - implemented/partial rows whose property has no discovered handler
   - invalid statuses or malformed rows
-  - missing or unresolvable source and behavior-test references
+  - missing or unresolvable source, local behavior-test, or downstream-test references
   - rows that are neither a handler nor a pinned upstream property
   - pinned upstream properties that no row or alias covers
   - stored summary counts that disagree with the rows
@@ -45,6 +45,7 @@ VALID_STATUSES = ("implemented", "partial", "unsupported", "intentionally ignore
 HANDLER_STATUSES = ("implemented", "partial")
 UPSTREAM_CLASSES = ("draft", "vendor", "svg", "browser-ui")
 VENDOR_PREFIXES = ("-webkit-", "-moz-", "-ms-", "-o-")
+MOTION_SCOPES = ("blinkless-only", "blinkless+ownframe")
 
 LAYOUT_DIR = Path("internal/layout")
 CATALOG_DIR = Path("testdata/css/catalog")
@@ -500,6 +501,63 @@ def check_rows(
                 problems.append(
                     f"unresolvable test: {name} -> {ref['file']} has no func {ref['name']}"
                 )
+        is_motion = (
+            name.startswith(("animation", "-webkit-animation", "transition", "-webkit-transition"))
+            or name == "trigger-scope"
+            or name.startswith("view-transition-")
+        )
+        scope = row.get("implementation_scope")
+        downstream = row.get("downstream_tests", [])
+        if is_motion:
+            if scope not in MOTION_SCOPES:
+                problems.append(f"missing or invalid implementation_scope: {name} -> {scope!r}")
+            elif scope == "blinkless+ownframe":
+                if status != "implemented":
+                    problems.append(f"blinkless+ownframe row must be implemented: {name}")
+                if not isinstance(downstream, list) or not downstream:
+                    problems.append(f"missing downstream behavior test: {name}")
+                    downstream = []
+            else:
+                if status != "partial":
+                    problems.append(f"blinkless-only row must remain partial: {name}")
+                if downstream:
+                    problems.append(f"blinkless-only row has downstream tests: {name}")
+        elif scope is not None or downstream:
+            problems.append(f"unexpected motion scope or downstream tests: {name}")
+        for ref in downstream if isinstance(downstream, list) else []:
+            if not isinstance(ref, dict) or not all(
+                key in ref for key in ("file", "name", "case_file", "case")
+            ):
+                problems.append(f"invalid downstream test reference: {name} -> {ref!r}")
+                continue
+            relative_paths = (ref["file"], ref["case_file"])
+            if any(
+                not isinstance(path, str)
+                or Path(path).is_absolute()
+                or ".." in Path(path).parts
+                for path in relative_paths
+            ):
+                problems.append(f"invalid downstream test path: {name} -> {relative_paths!r}")
+                continue
+            if not all(isinstance(ref[key], str) and ref[key] for key in ("name", "case")):
+                problems.append(f"invalid downstream test name or case: {name} -> {ref!r}")
+                continue
+            ownframe = root.parent / "ownframe"
+            if ownframe.is_dir():
+                test_file = ownframe / ref["file"]
+                case_file = ownframe / ref["case_file"]
+                if not test_file.is_file():
+                    problems.append(f"unresolvable OwnFrame test file: {name} -> {ref['file']}")
+                    continue
+                pattern = re.compile(r"^func\s+" + re.escape(ref["name"]) + r"\s*\(", re.M)
+                if not pattern.search(test_file.read_text()):
+                    problems.append(
+                        f"unresolvable OwnFrame test: {name} -> {ref['file']} has no func {ref['name']}"
+                    )
+                if not case_file.is_file() or f'"{ref["case"]}"' not in case_file.read_text():
+                    problems.append(
+                        f"unresolvable OwnFrame case: {name} -> {ref['case_file']} lacks {ref['case']!r}"
+                    )
         class_value = row.get("upstream_class")
         if class_value is not None and class_value not in UPSTREAM_CLASSES:
             problems.append(f"invalid upstream_class: {name} -> {class_value!r}")
@@ -796,7 +854,12 @@ def render_matrix(root: Path) -> int:
         return names(row.get("source", []))
 
     def tests(row: dict[str, Any]) -> str:
-        return names([t.get("name", "?") for t in row.get("tests", [])])
+        local = names([t.get("name", "?") for t in row.get("tests", [])])
+        downstream = row.get("downstream_tests", [])
+        if not downstream:
+            return local
+        cases = names([f"{t.get('name', '?')} ({t.get('case', '?')})" for t in downstream])
+        return f"{local}; OwnFrame cases: {cases}"
 
     def limitations(row: dict[str, Any]) -> str:
         return md_cell(" ".join(row.get("limitations", []))) or "-"
@@ -817,18 +880,21 @@ def render_matrix(root: Path) -> int:
         + ", ".join(f"{count} {cls}" for cls, count in up["by_class"].items())
         + "). Regenerate the tables below with "
         "`python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails "
-        "on drift between the catalog and the code."
+        "on drift between the catalog and the code. Rows scoped to "
+        "`blinkless+ownframe` have sampled runtime evidence in OwnFrame; "
+        "Blinkless supplies their CSS metadata."
     )
     add("")
-    add("Statuses describe the layout pipeline, not browsers:")
+    add("Statuses describe the stated layout pipeline scope, not browsers:")
     add("")
     add(
         "- **Implemented** - a handler parses the value, a consumer outside the "
-        "style layer reads it, and at least one behavior test resolves."
+        "style layer reads it, and at least one behavior test resolves. Motion "
+        "rows scoped to `blinkless+ownframe` are sampled by OwnFrame."
     )
     add(
         "- **Partial** - a handler and a consumer exist, but a named behavior is "
-        "missing or unverified; the limitation column names it."
+        "missing or unverified in the stated scope; the limitation column names it."
     )
     add(
         "- **Unsupported** - no consumer and no observable behavior. The "
