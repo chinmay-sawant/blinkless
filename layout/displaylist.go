@@ -160,6 +160,10 @@ type Display struct {
 	// DisplayOrder returns, not in this order, so z-index, the outline paint
 	// layer, and the chrome-below-content rule are honored.
 	Ops []DisplayOp
+	// OpOwners maps each operation index in Ops to the nearest element box
+	// that owns it. Shared operations spanning sibling boxes map to their
+	// nearest common element ancestor. -1 means no element owns the operation.
+	OpOwners []int
 
 	// Order indexes Ops in paint order, ready to iterate.
 	Order []int
@@ -271,6 +275,7 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 
 	return &Display{
 		Ops:            res.Ops,
+		OpOwners:       ilayout.OperationOwners(res),
 		Order:          ilayout.PaintOrder(res.Ops),
 		Boxes:          boxesFrom(ilayout.PlacedElements(res)),
 		Keyframes:      keyframesFrom(styled.Sheets),

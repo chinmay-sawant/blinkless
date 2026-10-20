@@ -540,6 +540,7 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty ResolvedStyle, po
 	if len(chrome) == 0 {
 		return
 	}
+	e.assignChromeOpIDs(chrome)
 
 	for i := range chrome {
 		chrome[i].bindEmptyExtra()
@@ -570,6 +571,17 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty ResolvedStyle, po
 	for i := range e.deferredChrome {
 		if e.deferredChrome[i].at >= insertAt {
 			e.deferredChrome[i].at += n
+		}
+	}
+}
+
+func (e *engine) assignChromeOpIDs(ops []Op) {
+	for index := range ops {
+		if ops[index].ID == 0 {
+			e.nextOpID++
+			ops[index].ID = e.nextOpID
+		} else if ops[index].ID > e.nextOpID {
+			e.nextOpID = ops[index].ID
 		}
 	}
 }

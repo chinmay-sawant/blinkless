@@ -1,11 +1,11 @@
 {
   "schema": "blinkless-css-catalog-schema",
-  "version": 1,
+  "version": 2,
   "catalog_file": "properties.json",
-  "description": "Versioned schema for the engine CSS property catalog. One row per property; every row is checked against internal/layout handler discovery and the pinned upstream inventory by scripts/css-catalog-map.py.",
+  "description": "Versioned schema for the engine CSS property catalog. Every row is checked against internal/layout handler discovery and the pinned upstream inventory by scripts/css-catalog-map.py. Selected motion rows also record behavior tests in OwnFrame.",
   "statuses": {
-    "implemented": "A handler exists, a consumer outside the style layer reads the value, and at least one resolvable behavior test covers the property. tests must be non-empty.",
-    "partial": "A handler and a consumer exist, but at least one named behavior is missing or unverified. limitations names the gap; tests may be empty.",
+    "implemented": "A handler exists, a consumer outside the style layer reads the value, and at least one resolvable behavior test covers the property. tests must be non-empty. Motion rows scoped to blinkless+ownframe also require downstream_tests in OwnFrame.",
+    "partial": "A handler and a consumer exist, but at least one named behavior is missing or unverified in implementation_scope. limitations names the gap; tests may be empty.",
     "unsupported": "No consumer and no observable behavior. The declaration may be parsed and stored or dropped entirely; either way it degrades gracefully. limitations names the missing behavior.",
     "intentionally ignored": "The engine deliberately ignores the property (print-noop UI chrome or similar). limitations names the reason."
   },
@@ -16,9 +16,11 @@
     "upstream_syntax": "Optional verbatim value syntax from the pinned upstream inventory for cross-checking. Not an engine claim by itself.",
     "upstream_class": "Optional provenance class from the pinned inventory: draft, vendor, svg, or browser-ui.",
     "limitations": "Named missing or unverified behaviors. Non-empty for partial, unsupported, and intentionally ignored rows.",
+    "implementation_scope": "For CSS motion rows, blinkless-only means Blinkless exports metadata without runtime sampling; blinkless+ownframe means the downstream OwnFrame sampler is covered by tests.",
     "source": "Repo-relative code paths that contain the handler, or the pinned upstream file for rows with no handler. Every path must exist.",
     "handlers": "Informational list of discovered handler functions for this property. Checked only for existence, not for status promotion.",
     "tests": "Behavior-test references as {file, name}. Each file must define func name. Non-empty for implemented rows.",
+    "downstream_tests": "For blinkless+ownframe rows, OwnFrame test references as {file, name, case_file, case}; paths are relative to the OwnFrame checkout, and the named case must be present in case_file.",
     "status": "One of the status keys above."
   },
   "summary_fields": {
@@ -37,6 +39,7 @@
       "missing handler for an implemented or partial row",
       "invalid statuses and malformed rows",
       "missing or unresolvable source and behavior-test references",
+      "missing or malformed scope and downstream-test evidence for CSS motion rows",
       "rows neither in the pinned upstream inventory nor a discovered handler",
       "pinned upstream properties not cataloged",
       "summary-count drift"

@@ -27,12 +27,12 @@ Controlled templates (invoices, receipts, statements, reports) can rely on what 
 
 ## How to read the matrix
 
-Status labels in [compatibility-matrix.md](compatibility-matrix.md) come from `testdata/css/catalog/properties.json` (schema v1):
+Status labels in [compatibility-matrix.md](compatibility-matrix.md) come from `testdata/css/catalog/properties.json` (schema v2):
 
 | Label | Meaning |
 |-------|---------|
-| **Implemented** | A handler parses the value, a consumer outside the style layer reads it, and a behavior test resolves |
-| **Partial** | A handler and a consumer exist, but a named behavior is missing or unverified |
+| **Implemented** | A handler parses the value, a consumer outside the style layer reads it, and a behavior test resolves. Motion rows scoped to `blinkless+ownframe` also pass an OwnFrame sampling test |
+| **Partial** | A named behavior is missing or unverified in the row's implementation scope |
 | **Unsupported** | No consumer and no observable behavior. The declaration may be parsed and stored, or dropped entirely |
 | **Intentionally ignored** | Deliberately ignored print-noop UI chrome |
 
@@ -46,7 +46,11 @@ Parser compliance, CSS coverage, and rendering comparisons are three claims with
 
 ### CSS coverage
 
-`testdata/css/catalog/properties.json` is the normative record. Measured 2026-10-19: 785 rows, 512 implemented, 46 partial, 219 unsupported, 8 intentionally ignored. The upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties). `make catalog-check` fails when the catalog disagrees with the code, and `make matrix-check` fails when the matrix section drifts from the catalog. A test-strength pass over some implemented rows is still open in the checklist. A catalog status is not a browser-parity claim.
+`testdata/css/catalog/properties.json` is the normative record. Measured 2026-10-20: 785 rows, 555 implemented, 3 partial, 219 unsupported, and 8 intentionally ignored. The upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties). `make catalog-check` checks Blinkless handlers and local evidence. `make catalog-ownframe-check` checks 43 animation and transition property cases against both local checkouts. `make matrix-check` checks the generated property tables.
+
+Blinkless stores animation names, timing, transition settings, keyframes, box ancestry, and paint ownership in the drawing list (`internal/layout/animation_transition.go:46-76`, `internal/layout/placed.go:7-25`, `layout/displaylist.go:157-170`). OwnFrame binds those records to paint operations and samples them when the host supplies time and timeline inputs (`ownframe/internal/cssanimation/bind.go:12-43`, `ownframe/internal/animation/player.go:22-26`, `ownframe/internal/animation/timing.go:62-70`). The host sends trigger events, supplies old and new displays for view transitions, and advances their progress (`ownframe/internal/csstrigger/dispatch.go:11-23`, `ownframe/internal/viewtransition/new.go:21-66`, `ownframe/internal/viewtransition/frame.go:23-43`). The Page window does not start these runtimes automatically.
+
+The 13 promoted rows are `animation-composition`, `animation-range`, `animation-range-center`, `animation-range-end`, `animation-range-start`, `animation-timeline`, `animation-trigger`, `transition-behavior`, `trigger-scope`, `view-transition-class`, `view-transition-group`, `view-transition-name`, and `view-transition-scope`. The three Partial rows left in the catalog are `-webkit-mask-composite`, `break-inside`, and `mask-type`. A catalog status is not a browser-parity claim.
 
 ### HTML parser compliance
 

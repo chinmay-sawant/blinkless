@@ -8,10 +8,17 @@ const ptToPx = 96.0 / 72.0
 // Box is one element border box in CSS pixels.
 // Action is the data-action attribute. Text is the descendant text.
 type Box struct {
-	ID                  string
-	Tag                 string
-	Action              string
-	Text                string
+	ID     string
+	Tag    string
+	Action string
+	Text   string
+	// ParentIndex is the index of this element's nearest element ancestor in
+	// Display.Boxes. A top-level element uses -1.
+	ParentIndex int
+	// OperationIDs identifies paint operations emitted by this element's
+	// subtree. A host can use these IDs to capture the element without guessing
+	// ownership from overlapping rectangles.
+	OperationIDs        []uint64
 	Animations          []Animation
 	Transitions         []Transition
 	TriggerScope        string
@@ -97,6 +104,8 @@ func boxesFrom(placed []ilayout.PlacedElement) []Box {
 			Tag:                 item.Tag,
 			Action:              item.Action,
 			Text:                item.Text,
+			ParentIndex:         item.ParentIndex,
+			OperationIDs:        item.OperationIDs,
 			Animations:          animationsFrom(item.Animations),
 			Transitions:         transitionsFrom(item.Transitions),
 			TriggerScope:        item.TriggerScope,
