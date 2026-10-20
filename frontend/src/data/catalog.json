@@ -1,60 +1,60 @@
 {
   "source": "testdata/css/catalog/properties.json",
-  "updated": "2026-10-19",
+  "updated": "2026-10-20",
   "properties": [
     {
       "name": "-webkit-animation",
-      "status": "partial",
+      "status": "implemented",
       "values": "comma-separated keyframe names with optional duration, easing, delay, iteration count, direction, fill mode, play state, and timeline",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "-webkit-animation-delay",
-      "status": "partial",
+      "status": "implemented",
       "values": "signed start \u003ctime\u003e with optional non-negative end \u003ctime\u003e; comma-separated",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "-webkit-animation-direction",
-      "status": "partial",
+      "status": "implemented",
       "values": "normal | reverse | alternate | alternate-reverse; comma-separated",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "-webkit-animation-duration",
-      "status": "partial",
+      "status": "implemented",
       "values": "auto | non-negative \u003ctime\u003e; comma-separated",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "-webkit-animation-fill-mode",
-      "status": "partial",
+      "status": "implemented",
       "values": "none | forwards | backwards | both; comma-separated",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "-webkit-animation-iteration-count",
-      "status": "partial",
+      "status": "implemented",
       "values": "infinite | non-negative \u003cnumber\u003e; comma-separated",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "-webkit-animation-name",
-      "status": "partial",
+      "status": "implemented",
       "values": "none | custom-ident | quoted keyframes name; comma-separated",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "-webkit-animation-play-state",
-      "status": "partial",
+      "status": "implemented",
       "values": "running | paused; comma-separated",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "-webkit-animation-timing-function",
-      "status": "partial",
+      "status": "implemented",
       "values": "linear | ease | ease-in | ease-out | ease-in-out | step-start | step-end | cubic-bezier() | steps() | linear()",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "-webkit-backface-visibility",
@@ -162,33 +162,33 @@
     },
     {
       "name": "-webkit-transition",
-      "status": "partial",
+      "status": "implemented",
       "values": "comma-separated property with optional duration, easing, delay, and behavior",
-      "note": "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or gener..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "-webkit-transition-delay",
-      "status": "partial",
+      "status": "implemented",
       "values": "signed \u003ctime\u003e; comma-separated",
-      "note": "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or gener..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "-webkit-transition-duration",
-      "status": "partial",
+      "status": "implemented",
       "values": "non-negative \u003ctime\u003e; comma-separated",
-      "note": "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or gener..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "-webkit-transition-property",
-      "status": "partial",
+      "status": "implemented",
       "values": "all | none | custom-ident; comma-separated except none stands alone",
-      "note": "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or gener..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "-webkit-transition-timing-function",
-      "status": "partial",
+      "status": "implemented",
       "values": "linear | ease | ease-in | ease-out | ease-in-out | step-start | step-end | cubic-bezier() | steps() | linear()",
-      "note": "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or gener..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "accent-color",
@@ -229,111 +229,118 @@
     },
     {
       "name": "animation",
-      "status": "partial",
+      "status": "implemented",
       "values": "comma-separated keyframe names with optional duration, easing, delay, iteration count, direction, fill mode, play state, and timeline",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "animation-composition",
-      "status": "partial",
+      "status": "implemented",
       "values": "replace | add | accumulate",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "note": "Blinkless exports animation metadata. OwnFrame samples transform, opacity, and background-color keyframes; keyframe properties without a cssmotion paint field do not change.",
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "animation-delay",
-      "status": "partial",
+      "status": "implemented",
       "values": "signed start \u003ctime\u003e with optional non-negative end \u003ctime\u003e; comma-separated",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "animation-delay-end",
-      "status": "partial",
+      "status": "implemented",
       "values": "non-negative \u003ctime\u003e; comma-separated",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "animation-delay-start",
-      "status": "partial",
+      "status": "implemented",
       "values": "signed \u003ctime\u003e; comma-separated",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "animation-direction",
-      "status": "partial",
+      "status": "implemented",
       "values": "normal | reverse | alternate | alternate-reverse; comma-separated",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "animation-duration",
-      "status": "partial",
+      "status": "implemented",
       "values": "auto | non-negative \u003ctime\u003e; comma-separated",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "animation-fill-mode",
-      "status": "partial",
+      "status": "implemented",
       "values": "none | forwards | backwards | both; comma-separated",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "animation-iteration-count",
-      "status": "partial",
+      "status": "implemented",
       "values": "infinite | non-negative \u003cnumber\u003e; comma-separated",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "animation-name",
-      "status": "partial",
+      "status": "implemented",
       "values": "none | custom-ident | quoted keyframes name; comma-separated",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "animation-play-state",
-      "status": "partial",
+      "status": "implemented",
       "values": "running | paused; comma-separated",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "animation-range",
-      "status": "partial",
+      "status": "implemented",
       "values": "start timeline-range edge with optional end edge; comma-separated",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "note": "OwnFrame receives scroll/view progress and resolved named range edges from its host. Blinkless does not derive scroll geometry or advance a clock.",
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "animation-range-center",
-      "status": "partial",
+      "status": "implemented",
       "values": "normal | source | target | \u003clength-percentage\u003e | source/target with \u003clength-percentage\u003e",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "note": "OwnFrame receives source/target progress and resolved range positions from its host. Blinkless does not derive element geometry or advance a clock.",
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "animation-range-end",
-      "status": "partial",
+      "status": "implemented",
       "values": "normal | timeline-range-name with optional \u003clength-percentage\u003e | \u003clength-percentage\u003e",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "note": "OwnFrame receives scroll/view progress and resolved named range edges from its host. Blinkless does not derive scroll geometry or advance a clock.",
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "animation-range-start",
-      "status": "partial",
+      "status": "implemented",
       "values": "normal | timeline-range-name with optional \u003clength-percentage\u003e | \u003clength-percentage\u003e",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "note": "OwnFrame receives scroll/view progress and resolved named range edges from its host. Blinkless does not derive scroll geometry or advance a clock.",
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "animation-timeline",
-      "status": "partial",
+      "status": "implemented",
       "values": "auto | none | \u003cdashed-ident\u003e | scroll() | view() with accepted argument forms; comma-separated",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "note": "OwnFrame samples host-supplied scroll(), view(), and named timeline progress. Blinkless does not observe scrolling or calculate timeline progress.",
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "animation-timing-function",
-      "status": "partial",
+      "status": "implemented",
       "values": "linear | ease | ease-in | ease-out | ease-in-out | step-start | step-end | cubic-bezier() | steps() | linear()",
-      "note": "The value is parsed, cascaded, and exported as animation metadata. Blinkless does not sample timelines or keyframes, apply iterations or composition over time, interpolate layou..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "animation-trigger",
-      "status": "partial",
+      "status": "implemented",
       "values": "none | \u003cdashed-ident\u003e followed by one or more none/play/play-once/play-forwards/play-backwards/pause/reset/replay actions",
-      "note": "The value is parsed, cascaded, and exported as metadata. Blinkless does not activate animation triggers from events, maintain trigger state, sample timelines, or generate frames."
+      "note": "OwnFrame dispatches named active/inactive events to animation actions. Blinkless does not listen for DOM input or timeline events automatically.",
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "aspect-ratio",
@@ -463,7 +470,7 @@
     {
       "name": "border-block-end-radius",
       "status": "implemented",
-      "values": "\u003clength-percentage [0,∞]\u003e{1,2} [ / \u003clength-percentage [0,∞]\u003e{1,2} ]?"
+      "values": "\u003clength-percentage [0,\u221e]\u003e{1,2} [ / \u003clength-percentage [0,\u221e]\u003e{1,2} ]?"
     },
     {
       "name": "border-block-end-style",
@@ -488,7 +495,7 @@
     {
       "name": "border-block-start-radius",
       "status": "implemented",
-      "values": "\u003clength-percentage [0,∞]\u003e{1,2} [ / \u003clength-percentage [0,∞]\u003e{1,2} ]?"
+      "values": "\u003clength-percentage [0,\u221e]\u003e{1,2} [ / \u003clength-percentage [0,\u221e]\u003e{1,2} ]?"
     },
     {
       "name": "border-block-start-style",
@@ -523,17 +530,17 @@
     {
       "name": "border-bottom-left-radius",
       "status": "implemented",
-      "values": "\u003clength-percentage [0,∞]\u003e{1,2}"
+      "values": "\u003clength-percentage [0,\u221e]\u003e{1,2}"
     },
     {
       "name": "border-bottom-radius",
       "status": "implemented",
-      "values": "\u003clength-percentage [0,∞]\u003e{1,2} [ / \u003clength-percentage [0,∞]\u003e{1,2} ]?"
+      "values": "\u003clength-percentage [0,\u221e]\u003e{1,2} [ / \u003clength-percentage [0,\u221e]\u003e{1,2} ]?"
     },
     {
       "name": "border-bottom-right-radius",
       "status": "implemented",
-      "values": "\u003clength-percentage [0,∞]\u003e{1,2}"
+      "values": "\u003clength-percentage [0,\u221e]\u003e{1,2}"
     },
     {
       "name": "border-bottom-style",
@@ -573,7 +580,7 @@
     {
       "name": "border-image-outset",
       "status": "implemented",
-      "values": "[ \u003clength [0,∞]\u003e | \u003cnumber [0,∞]\u003e ]{1,4}"
+      "values": "[ \u003clength [0,\u221e]\u003e | \u003cnumber [0,\u221e]\u003e ]{1,4}"
     },
     {
       "name": "border-image-repeat",
@@ -583,7 +590,7 @@
     {
       "name": "border-image-slice",
       "status": "implemented",
-      "values": "[\u003cnumber [0,∞]\u003e | \u003cpercentage [0,∞]\u003e]{1,4} \u0026\u0026 fill?"
+      "values": "[\u003cnumber [0,\u221e]\u003e | \u003cpercentage [0,\u221e]\u003e]{1,4} \u0026\u0026 fill?"
     },
     {
       "name": "border-image-source",
@@ -593,7 +600,7 @@
     {
       "name": "border-image-width",
       "status": "implemented",
-      "values": "[ \u003clength-percentage [0,∞]\u003e | \u003cnumber [0,∞]\u003e | auto ]{1,4}"
+      "values": "[ \u003clength-percentage [0,\u221e]\u003e | \u003cnumber [0,\u221e]\u003e | auto ]{1,4}"
     },
     {
       "name": "border-inline",
@@ -618,7 +625,7 @@
     {
       "name": "border-inline-end-radius",
       "status": "implemented",
-      "values": "\u003clength-percentage [0,∞]\u003e{1,2} [ / \u003clength-percentage [0,∞]\u003e{1,2} ]?"
+      "values": "\u003clength-percentage [0,\u221e]\u003e{1,2} [ / \u003clength-percentage [0,\u221e]\u003e{1,2} ]?"
     },
     {
       "name": "border-inline-end-style",
@@ -643,7 +650,7 @@
     {
       "name": "border-inline-start-radius",
       "status": "implemented",
-      "values": "\u003clength-percentage [0,∞]\u003e{1,2} [ / \u003clength-percentage [0,∞]\u003e{1,2} ]?"
+      "values": "\u003clength-percentage [0,\u221e]\u003e{1,2} [ / \u003clength-percentage [0,\u221e]\u003e{1,2} ]?"
     },
     {
       "name": "border-inline-start-style",
@@ -678,7 +685,7 @@
     {
       "name": "border-left-radius",
       "status": "implemented",
-      "values": "\u003clength-percentage [0,∞]\u003e{1,2} [ / \u003clength-percentage [0,∞]\u003e{1,2} ]?"
+      "values": "\u003clength-percentage [0,\u221e]\u003e{1,2} [ / \u003clength-percentage [0,\u221e]\u003e{1,2} ]?"
     },
     {
       "name": "border-left-style",
@@ -693,7 +700,7 @@
     {
       "name": "border-radius",
       "status": "implemented",
-      "values": "\u003clength-percentage [0,∞]\u003e{1,4} [ / \u003clength-percentage [0,∞]\u003e{1,4} ]?"
+      "values": "\u003clength-percentage [0,\u221e]\u003e{1,4} [ / \u003clength-percentage [0,\u221e]\u003e{1,4} ]?"
     },
     {
       "name": "border-right",
@@ -708,7 +715,7 @@
     {
       "name": "border-right-radius",
       "status": "implemented",
-      "values": "\u003clength-percentage [0,∞]\u003e{1,2} [ / \u003clength-percentage [0,∞]\u003e{1,2} ]?"
+      "values": "\u003clength-percentage [0,\u221e]\u003e{1,2} [ / \u003clength-percentage [0,\u221e]\u003e{1,2} ]?"
     },
     {
       "name": "border-right-style",
@@ -753,17 +760,17 @@
     {
       "name": "border-top-left-radius",
       "status": "implemented",
-      "values": "\u003clength-percentage [0,∞]\u003e{1,2}"
+      "values": "\u003clength-percentage [0,\u221e]\u003e{1,2}"
     },
     {
       "name": "border-top-radius",
       "status": "implemented",
-      "values": "\u003clength-percentage [0,∞]\u003e{1,2} [ / \u003clength-percentage [0,∞]\u003e{1,2} ]?"
+      "values": "\u003clength-percentage [0,\u221e]\u003e{1,2} [ / \u003clength-percentage [0,\u221e]\u003e{1,2} ]?"
     },
     {
       "name": "border-top-right-radius",
       "status": "implemented",
-      "values": "\u003clength-percentage [0,∞]\u003e{1,2}"
+      "values": "\u003clength-percentage [0,\u221e]\u003e{1,2}"
     },
     {
       "name": "border-top-style",
@@ -793,7 +800,7 @@
     {
       "name": "box-shadow-blur",
       "status": "implemented",
-      "values": "\u003clength [0,∞]\u003e#"
+      "values": "\u003clength [0,\u221e]\u003e#"
     },
     {
       "name": "box-shadow-color",
@@ -895,7 +902,7 @@
     {
       "name": "column-count",
       "status": "implemented",
-      "values": "auto | \u003cinteger [1,∞]\u003e"
+      "values": "auto | \u003cinteger [1,\u221e]\u003e"
     },
     {
       "name": "column-fill",
@@ -905,12 +912,12 @@
     {
       "name": "column-gap",
       "status": "implemented",
-      "values": "normal | \u003clength-percentage [0,∞]\u003e | \u003cline-width\u003e"
+      "values": "normal | \u003clength-percentage [0,\u221e]\u003e | \u003cline-width\u003e"
     },
     {
       "name": "column-height",
       "status": "implemented",
-      "values": "auto | \u003clength [0,∞]\u003e"
+      "values": "auto | \u003clength [0,\u221e]\u003e"
     },
     {
       "name": "column-rule",
@@ -995,12 +1002,12 @@
     {
       "name": "column-span",
       "status": "implemented",
-      "values": "none | \u003cinteger [1,∞]\u003e | all | auto"
+      "values": "none | \u003cinteger [1,\u221e]\u003e | all | auto"
     },
     {
       "name": "column-width",
       "status": "implemented",
-      "values": "auto | \u003clength [0,∞]\u003e"
+      "values": "auto | \u003clength [0,\u221e]\u003e"
     },
     {
       "name": "column-wrap",
@@ -1020,27 +1027,27 @@
     {
       "name": "contain-intrinsic-block-size",
       "status": "implemented",
-      "values": "auto? [ none | \u003clength [0,∞]\u003e ]"
+      "values": "auto? [ none | \u003clength [0,\u221e]\u003e ]"
     },
     {
       "name": "contain-intrinsic-height",
       "status": "implemented",
-      "values": "auto? [ none | \u003clength [0,∞]\u003e ]"
+      "values": "auto? [ none | \u003clength [0,\u221e]\u003e ]"
     },
     {
       "name": "contain-intrinsic-inline-size",
       "status": "implemented",
-      "values": "auto? [ none | \u003clength [0,∞]\u003e ]"
+      "values": "auto? [ none | \u003clength [0,\u221e]\u003e ]"
     },
     {
       "name": "contain-intrinsic-size",
       "status": "implemented",
-      "values": "[ auto? [ none | \u003clength [0,∞]\u003e ] ]{1,2}"
+      "values": "[ auto? [ none | \u003clength [0,\u221e]\u003e ] ]{1,2}"
     },
     {
       "name": "contain-intrinsic-width",
       "status": "implemented",
-      "values": "auto? [ none | \u003clength [0,∞]\u003e ]"
+      "values": "auto? [ none | \u003clength [0,\u221e]\u003e ]"
     },
     {
       "name": "container",
@@ -1355,12 +1362,12 @@
     {
       "name": "flex-grow",
       "status": "implemented",
-      "values": "\u003cnumber [0,∞]\u003e"
+      "values": "\u003cnumber [0,\u221e]\u003e"
     },
     {
       "name": "flex-shrink",
       "status": "implemented",
-      "values": "\u003cnumber [0,∞]\u003e"
+      "values": "\u003cnumber [0,\u221e]\u003e"
     },
     {
       "name": "flex-wrap",
@@ -1397,7 +1404,7 @@
     {
       "name": "flow-tolerance",
       "status": "implemented",
-      "values": "normal | \u003clength [0,∞]\u003e | infinite",
+      "values": "normal | \u003clength [0,\u221e]\u003e | infinite",
       "note": "Read only by the row-masonry packer (grid-template-rows: masonry); a non-masonry grid ignores it (TestBehaviorFlowToleranceNonMasonryGridIgnored). The item is measured once at t..."
     },
     {
@@ -1443,7 +1450,7 @@
     {
       "name": "font-size-adjust",
       "status": "implemented",
-      "values": "none | [ ex-height | cap-height | ch-width | ic-width | ic-height ]? [ from-font | \u003cnumber [0,∞]\u003e ]"
+      "values": "none | [ ex-height | cap-height | ch-width | ic-width | ic-height ]? [ from-font | \u003cnumber [0,\u221e]\u003e ]"
     },
     {
       "name": "font-style",
@@ -1528,7 +1535,7 @@
     {
       "name": "font-width",
       "status": "implemented",
-      "values": "normal | \u003cpercentage [0,∞]\u003e | ultra-condensed | extra-condensed | condensed | semi-condensed | semi-expanded | expanded | extra-expanded | ultra-expanded"
+      "values": "normal | \u003cpercentage [0,\u221e]\u003e | ultra-condensed | extra-condensed | condensed | semi-condensed | semi-expanded | expanded | extra-expanded | ultra-expanded"
     },
     {
       "name": "forced-color-adjust",
@@ -1633,7 +1640,7 @@
     {
       "name": "hyphenate-limit-chars",
       "status": "implemented",
-      "values": "[ auto | \u003cinteger [0,∞]\u003e ]{1,3}"
+      "values": "[ auto | \u003cinteger [0,\u221e]\u003e ]{1,3}"
     },
     {
       "name": "hyphenate-limit-last",
@@ -1643,7 +1650,7 @@
     {
       "name": "hyphenate-limit-lines",
       "status": "implemented",
-      "values": "no-limit | \u003cinteger [0,∞]\u003e"
+      "values": "no-limit | \u003cinteger [0,\u221e]\u003e"
     },
     {
       "name": "hyphenate-limit-zone",
@@ -1668,7 +1675,7 @@
     {
       "name": "initial-letter",
       "status": "implemented",
-      "values": "normal | \u003cnumber [1,∞]\u003e \u003cinteger [1,∞]\u003e | \u003cnumber [1,∞]\u003e \u0026\u0026 [ drop | raise ]?"
+      "values": "normal | \u003cnumber [1,\u221e]\u003e \u003cinteger [1,\u221e]\u003e | \u003cnumber [1,\u221e]\u003e \u0026\u0026 [ drop | raise ]?"
     },
     {
       "name": "initial-letter-align",
@@ -1866,7 +1873,7 @@
     {
       "name": "mask-border-outset",
       "status": "implemented",
-      "values": "\u003clength [0,∞]\u003e | \u003cnumber [0,∞]\u003e, one to four values",
+      "values": "\u003clength [0,\u221e]\u003e | \u003cnumber [0,\u221e]\u003e, one to four values",
       "note": "The resolved outward offsets ride the element's blend group; the frame-outset expansion is recorded but not yet painted."
     },
     {
@@ -1890,7 +1897,7 @@
     {
       "name": "mask-border-width",
       "status": "implemented",
-      "values": "auto | \u003clength [0,∞]\u003e | \u003cnumber [0,∞]\u003e, one to four values",
+      "values": "auto | \u003clength [0,\u221e]\u003e | \u003cnumber [0,\u221e]\u003e, one to four values",
       "note": "The resolved frame thickness rides the element's blend group and composes into the frame raster; percentage widths are rejected because the frame is written before the element b..."
     },
     {
@@ -1965,7 +1972,7 @@
     {
       "name": "max-lines",
       "status": "implemented",
-      "values": "auto || \u003cinteger [1,∞]\u003e"
+      "values": "auto || \u003cinteger [1,\u221e]\u003e"
     },
     {
       "name": "max-width",
@@ -2195,7 +2202,7 @@
     {
       "name": "perspective",
       "status": "implemented",
-      "values": "none | \u003clength [0,∞]\u003e"
+      "values": "none | \u003clength [0,\u221e]\u003e"
     },
     {
       "name": "perspective-origin",
@@ -2287,7 +2294,7 @@
     {
       "name": "row-gap",
       "status": "implemented",
-      "values": "normal | \u003clength-percentage [0,∞]\u003e | \u003cline-width\u003e"
+      "values": "normal | \u003clength-percentage [0,\u221e]\u003e | \u003cline-width\u003e"
     },
     {
       "name": "row-rule",
@@ -2483,7 +2490,7 @@
     {
       "name": "shape-margin",
       "status": "implemented",
-      "values": "\u003clength-percentage [0,∞]\u003e"
+      "values": "\u003clength-percentage [0,\u221e]\u003e"
     },
     {
       "name": "shape-outside",
@@ -2493,7 +2500,7 @@
     {
       "name": "shape-padding",
       "status": "implemented",
-      "values": "\u003clength-percentage [0,∞]\u003e",
+      "values": "\u003clength-percentage [0,\u221e]\u003e",
       "note": "Chrome has no BCD support for shape-padding. The padding shrinks the inside contour only; without a shape-inside contour it has no effect (TestBehaviorShapeInsidePaddingAloneNoE..."
     },
     {
@@ -2544,7 +2551,7 @@
     {
       "name": "tab-size",
       "status": "implemented",
-      "values": "\u003cnumber [0,∞]\u003e | \u003clength [0,∞]\u003e"
+      "values": "\u003cnumber [0,\u221e]\u003e | \u003clength [0,\u221e]\u003e"
     },
     {
       "name": "table-layout",
@@ -2774,39 +2781,40 @@
     },
     {
       "name": "transition",
-      "status": "partial",
+      "status": "implemented",
       "values": "comma-separated property with optional duration, easing, delay, and behavior",
-      "note": "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or gener..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "transition-behavior",
-      "status": "partial",
+      "status": "implemented",
       "values": "normal | allow-discrete; comma-separated",
-      "note": "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or gener..."
+      "note": "OwnFrame samples allow-discrete for the supported position paint value. Blinkless emits no visibility paint operation, so visibility transitions are not supported.",
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "transition-delay",
-      "status": "partial",
+      "status": "implemented",
       "values": "signed \u003ctime\u003e; comma-separated",
-      "note": "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or gener..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "transition-duration",
-      "status": "partial",
+      "status": "implemented",
       "values": "non-negative \u003ctime\u003e; comma-separated",
-      "note": "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or gener..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "transition-property",
-      "status": "partial",
+      "status": "implemented",
       "values": "all | none | custom-ident; comma-separated except none stands alone",
-      "note": "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or gener..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "transition-timing-function",
-      "status": "partial",
+      "status": "implemented",
       "values": "linear | ease | ease-in | ease-out | ease-in-out | step-start | step-end | cubic-bezier() | steps() | linear()",
-      "note": "The value is parsed, cascaded, and exported as transition metadata. Blinkless does not compare before and after styles, start or cancel transitions, interpolate values, or gener..."
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "translate",
@@ -2815,9 +2823,10 @@
     },
     {
       "name": "trigger-scope",
-      "status": "partial",
+      "status": "implemented",
       "values": "none | all | one or more \u003cdashed-ident\u003e values",
-      "note": "The value is parsed, cascaded, and exported as metadata. Blinkless does not activate animation triggers from events, maintain trigger state, sample timelines, or generate frames."
+      "note": "OwnFrame resolves trigger-name scope against Blinkless box ancestry. The host dispatches each event; Blinkless does not generate DOM events or shadow-tree scopes.",
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "unicode-bidi",
@@ -2831,27 +2840,31 @@
     },
     {
       "name": "view-transition-class",
-      "status": "partial",
+      "status": "implemented",
       "values": "none | one or more custom-ident values",
-      "note": "The value is parsed, cascaded, and exported as view-transition metadata. Blinkless does not capture old and new snapshots, build view-transition pseudo-elements, or run view-tra..."
+      "note": "OwnFrame records classes on named transition groups and accepts host-supplied opacity/scale styles for them. It does not parse ::view-transition-* CSS selectors.",
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "view-transition-group",
-      "status": "partial",
+      "status": "implemented",
       "values": "normal | contain | nearest | custom-ident",
-      "note": "The value is parsed, cascaded, and exported as view-transition metadata. Blinkless does not capture old and new snapshots, build view-transition pseudo-elements, or run view-tra..."
+      "note": "OwnFrame builds and exposes parent relationships for normal, contain, nearest, and custom group values. The host must style or clip the hierarchy; ::view-transition-* selectors are not parsed.",
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "view-transition-name",
-      "status": "partial",
+      "status": "implemented",
       "values": "none | custom-ident",
-      "note": "The value is parsed, cascaded, and exported as view-transition metadata. Blinkless does not capture old and new snapshots, build view-transition pseudo-elements, or run view-tra..."
+      "note": "OwnFrame captures matching old/new named paint and returns sampled transition frames. The host supplies both snapshots and controls when the transition starts.",
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "view-transition-scope",
-      "status": "partial",
+      "status": "implemented",
       "values": "none | all",
-      "note": "The value is parsed, cascaded, and exported as view-transition metadata. Blinkless does not capture old and new snapshots, build view-transition pseudo-elements, or run view-tra..."
+      "note": "OwnFrame limits name discovery to the requested element subtree and view-transition-scope:all roots. The host chooses the snapshot root and timing.",
+      "implementation_scope": "blinkless+ownframe"
     },
     {
       "name": "visibility",
