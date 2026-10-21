@@ -1065,6 +1065,11 @@ func countStyleNodesContext(ctx context.Context, root *html.Node) (int, error) {
 // valid even when later chunks are appended.
 const styleStoreChunkSize = 64
 
+// styleStoreFirstChunk is the capacity of the first chunk. The chunks grow
+// from there to styleStoreChunkSize, so a page with a few distinct styles
+// keeps a small backing array instead of a full chunk of unused records.
+const styleStoreFirstChunk = 8
+
 // styleStore owns resolved styles for one resolution pass. It deliberately
 // does not cross Layout calls or @container re-cascade passes.
 //
@@ -1090,8 +1095,8 @@ func (s *styleStore) append(style ResolvedStyle) *ResolvedStyle {
 		}
 	}
 
-	if len(s.chunks) == 0 || len(s.chunks[len(s.chunks)-1]) == styleStoreChunkSize {
-		s.chunks = append(s.chunks, make([]ResolvedStyle, 0, styleStoreChunkSize))
+	if len(s.chunks) == 0 || len(s.chunks[len(s.chunks)-1]) == cap(s.chunks[len(s.chunks)-1]) {
+		s.chunks = append(s.chunks, make([]ResolvedStyle, 0, s.nextChunkSize()))
 	}
 
 	chunk := len(s.chunks) - 1
@@ -1105,6 +1110,22 @@ func (s *styleStore) append(style ResolvedStyle) *ResolvedStyle {
 	s.intern[fingerprint] = append(s.intern[fingerprint], stored)
 
 	return stored
+}
+
+// nextChunkSize returns the capacity of the next chunk. The chunks grow from
+// styleStoreFirstChunk to styleStoreChunkSize, so the backing arrays stay
+// close to the number of distinct styles the page holds.
+func (s *styleStore) nextChunkSize() int {
+	size := styleStoreFirstChunk
+	for range s.chunks {
+		size *= 2
+	}
+
+	if size > styleStoreChunkSize {
+		size = styleStoreChunkSize
+	}
+
+	return size
 }
 
 // zeroResolvedStyle is the empty style for comment/doctype nodes (shared).

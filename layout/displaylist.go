@@ -201,6 +201,23 @@ type Display struct {
 	// padding, border, and background. A paginator keeps a range on one page
 	// when the range fits that page and lets taller ranges split.
 	KeepTogether [][2]float64
+
+	// result keeps the placement this display list was built from. A host
+	// that edits the tree and asks for one element's patch hands it back to
+	// the engine, so the engine re-places that element inside the layout it
+	// already made. It is unexported: the public surface of a display is
+	// the list itself.
+	//
+	// It is kept only when the caller asked for it with
+	// Options.RetainState. Without that the placement is dropped when the
+	// layout returns, and the display keeps nothing but the list a host
+	// draws.
+	result *ilayout.Result
+
+	// zoom is the scale the layout ran at. A print layout fitted to the
+	// canvas width keeps that scale here, so a later element patch uses the
+	// same scale as the page it patches. Zero means no scale.
+	zoom float64
 }
 
 // DisplayList lays doc out and returns its display list. It does not paint
@@ -218,11 +235,22 @@ type Display struct {
 //
 // DisplayList does not apply a raster pixel budget. A caller that paints
 // the list should apply its own size limit.
+//
+// The display keeps no retained layout state, so RelayoutElement refuses it.
+// A host that patches elements lays the page out with
+// DisplayListOptions and Options.RetainState set.
 func DisplayList(ctx context.Context, doc *css.Document) (*Display, error) {
-	return DisplayListOptions(ctx, doc, Options{Images: nil})
+	return DisplayListOptions(ctx, doc, Options{Images: nil, RetainState: false})
 }
 
-// DisplayListOptions is DisplayList with the optional image resolver.
+// DisplayListOptions is DisplayList with the optional image resolver and the
+// optional retained layout state.
+//
+// The image resolver is the one DisplayListOptions has always taken. The
+// retained state is opt-in: set Options.RetainState when the host will patch
+// an element with RelayoutElement. Without it the placement the layout
+// produced is dropped when the layout returns, and the display keeps only
+// the operations and the boxes.
 func DisplayListOptions(ctx context.Context, doc *css.Document, options Options) (*Display, error) {
 	if ctx == nil {
 		return nil, ErrNilContext
@@ -253,7 +281,7 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 
 	// Print fit: re-lay out at the scale that fits op content to the canvas
 	// width when the document draws past it. See DisplayList.
-	res, err = fitPrintWidth(ctx, styled, layoutOpts, res, widthPt)
+	res, zoom, err := fitPrintWidth(ctx, styled, layoutOpts, res, widthPt)
 	if err != nil {
 		return nil, err
 	}
@@ -273,19 +301,45 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 
 	forced, keep := ilayout.PageBreaks(res, heightPt)
 
-	return &Display{
+	return newDisplay(res, styled.Sheets, canvasPt, forced, keep, zoom, options.RetainState), nil
+}
+
+// newDisplay builds the public display list from a placement.
+//
+// The retained layout state is opt-in. Without it the placement is dropped
+// here, so the resolved styles and the box tree the layout built become
+// garbage instead of living as long as the display does.
+func newDisplay(
+	res *ilayout.Result,
+	sheets []*icss.Stylesheet,
+	canvasPt float64,
+	forced []float64,
+	keep [][2]float64,
+	zoom float64,
+	retain bool,
+) *Display {
+	display := &Display{
 		Ops:            res.Ops,
 		OpOwners:       ilayout.OperationOwners(res),
 		Order:          ilayout.PaintOrder(res.Ops),
 		Boxes:          boxesFrom(ilayout.PlacedElements(res)),
-		Keyframes:      keyframesFrom(styled.Sheets),
+		Keyframes:      keyframesFrom(sheets),
 		Width:          int(res.Width * ptToPx),
 		Height:         int(canvasPt * ptToPx),
 		PointsPerPixel: 1 / ptToPx,
 		PixelPerPoint:  ptToPx,
 		ForcedBreaks:   forced,
 		KeepTogether:   keep,
-	}, nil
+		result:         nil,
+		zoom:           0,
+	}
+
+	if retain {
+		display.result = res
+		display.zoom = zoom
+	}
+
+	return display
 }
 
 func keyframesFrom(sheets []*icss.Stylesheet) []KeyframesRule {
@@ -347,31 +401,32 @@ func displayLayoutOptions(
 
 // fitPrintWidth re-lays a print result out at width/contentWidth when its
 // content draws past the canvas width, the print renderers' smart shrink.
-// A screen result and a fitting print result return unchanged.
+// A screen result and a fitting print result return unchanged. The returned
+// scale is the one the layout ran at, zero when no fit applied.
 func fitPrintWidth(
 	ctx context.Context,
 	styled pubstate.Styled,
 	opts ilayout.Options,
 	res *ilayout.Result,
 	widthPt float64,
-) (*ilayout.Result, error) {
+) (*ilayout.Result, float64, error) {
 	zoom, fit := printFitZoom(styled.Media, widthPt, res.MaxContentX)
 	if !fit {
-		return res, nil
+		return res, 0, nil
 	}
 
 	if err := ctx.Err(); err != nil {
-		return nil, fmt.Errorf("layout: context: %w", err)
+		return nil, 0, fmt.Errorf("layout: context: %w", err)
 	}
 
 	opts.Zoom = zoom
 
 	fitted, err := ilayout.LayoutContext(ctx, styled.Root, opts)
 	if err != nil {
-		return nil, fmt.Errorf("layout: display: %w", err)
+		return nil, 0, fmt.Errorf("layout: display: %w", err)
 	}
 
-	return fitted, nil
+	return fitted, zoom, nil
 }
 
 // printFitZoom returns the uniform scale that fits op content to the canvas

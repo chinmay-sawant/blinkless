@@ -35,11 +35,26 @@ func mustApply(t *testing.T, tree *html.Document, width, height int, focus, hove
 	return styled
 }
 
-// layOf lays out one styled document.
+// layOf lays out one styled document without the retained layout state. The
+// display keeps only the operations and the boxes, the way a host that never
+// patches an element gets it.
 func layOf(t *testing.T, styled *css.Document) *layout.Display {
 	t.Helper()
 
 	display, err := layout.DisplayList(t.Context(), styled)
+	if err != nil {
+		t.Fatalf("display: %v", err)
+	}
+
+	return display
+}
+
+// layRetained lays out one styled document and keeps the retained layout
+// state, the way a host that patches elements gets it.
+func layRetained(t *testing.T, styled *css.Document) *layout.Display {
+	t.Helper()
+
+	display, err := layout.DisplayListOptions(t.Context(), styled, layout.Options{RetainState: true})
 	if err != nil {
 		t.Fatalf("display: %v", err)
 	}

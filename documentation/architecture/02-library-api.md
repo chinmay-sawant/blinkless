@@ -81,6 +81,19 @@ encoded image bytes (PNG, JPEG, or SVG) for one source, such as an `<img src>`
 value or a CSS `background-image` target. Nil means no source resolves, so
 image paint is skipped (`layout/layout.go:23-33`).
 
+`layout.RelayoutElement(ctx, doc, prev, elementID, options)` re-places one
+element of a styled document inside a display list the host already holds. It
+returns the element's new operations, its new boxes, and its old and new
+bounds (`layout/relayout_element.go:73`). The host edits the tree first with
+`html.Document.SetAttribute` or `html.Document.SetText`
+(`html/attribute.go:18`, `html/attribute.go:44`), and the element is found by
+id in the styled document's tree. The patch needs the layout state the
+placement produced, so the host asks for it when it lays the page out, with
+`layout.Options.RetainState`; a display without that state cannot be patched
+and the call returns `layout.ErrNoRetainedState`. The host-facing walkthrough,
+including the checks a host makes before it copies the patch into its retained
+display, is in [../library-api.md](../library-api.md).
+
 The `Display` shape (`layout/displaylist.go:99-124`):
 
 | Field | Meaning |

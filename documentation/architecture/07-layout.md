@@ -24,6 +24,50 @@ Layout is exact in CSS points. Border widths, table rules, text decorations, and
 
 A consumer that paints a screen raster opts in at the display-list boundary: `layout.SnapDisplayToDevicePixels` (`layout/displaylist_snap.go:36`) returns a copy whose positive `OpStrokeRect` and `OpLine` widths are quantized to `max(1, floor(cssPx*dsf+1e-6))/dsf` CSS pixels (`layout/displaylist_snap.go:68-81`), converting through `cssPxToPt = 0.75` (`layout/displaylist.go:15`). Coordinates, `Boxes`, `Order`, the canvas size, and payloads are untouched. `OpGridRun` segments keep their exact widths (`layout/displaylist_snap.go:50-63`), because a collapsed table row replays as one batched run. A print consumer replays the unquantized list, so print geometry stays exact. A nil display is `ErrNilDocument` and a non-finite or non-positive device scale factor is `ErrBadDeviceScale` (`layout/errors.go:9-15`).
 
+## Element patches
+
+`internal/layout.RelayoutSubtree` (`internal/layout/relayout_subtree.go:30`)
+places one element's subtree and returns a `Result` that holds only that
+subtree's operations and boxes. The public `layout.RelayoutElement`
+(`layout/relayout_element.go:73`) calls it with the display list the host
+holds, so the element is re-placed inside the layout the page already has.
+`Display` keeps the placement it was built from in an unexported field
+(`layout/displaylist.go:215`) and the scale a print layout was fitted to in
+another (`layout/displaylist.go:220`), so a later patch uses the same scale as
+the page it patches.
+
+That retained placement is opt-in. `layout.Options.RetainState` asks for it,
+and `DisplayListOptions` keeps the placement only when the option is set
+(`layout/displaylist.go:337`). Without it the placement is dropped when the
+layout returns, and the resolved styles and the box tree the layout built
+become garbage instead of living as long as the display does. A host that
+patches asks for it, and `RelayoutElement` refuses a display without it
+(`layout.ErrNoRetainedState`).
+
+The retained state is not free. On a page of 283 elements a display keeps
+579 KB alive with the retention on and 302 KB with it off, so the state costs
+277 KB per laid-out page. Most of that is the resolved styles: the style store
+keeps the distinct styles of a page in backing arrays, one `ResolvedStyle`
+record is 5872 bytes, and the first array holds eight records and the arrays
+grow from there to sixty four (`internal/layout/style.go:1063`). The rest is
+the box tree, about 420 bytes per element. The measurement is
+`BenchmarkDisplayRetainedBytes` in `layout/displaylist_retain_test.go`.
+
+The current `RelayoutSubtree` is a shim: it re-places the whole document and
+keeps the element's part of the result. An engine implementation that patches
+the subtree in place replaces that file and keeps the exported contract.
+
+Two pieces of that work are already in the tree:
+
+- `resolveStylesForSubtree` (`internal/layout/style_subtree.go:27`) cascades
+  one subtree and no other branch, so a host can re-style one branch without
+  re-cascading the document. Its test pins that the subtree pass inherits the
+  same parent style, the same used font size, and the same custom properties
+  as the full-document walk (`internal/layout/style_subtree_test.go:86`).
+- `Result.boxForID` and `Result.nodeForID`
+  (`internal/layout/layout_state.go:14`, `:26`) find the placed box and the
+  laid-out node for one id, searching table cells too.
+
 ## How a document gets there
 
 1. `html.Parse` builds the tree (`internal/html`).
@@ -37,7 +81,7 @@ A consumer that paints a screen raster opts in at the display-list boundary: `la
 - Block, inline, table, flex, grid, multicol, and float placement
 - The drawing list (`Op` / `DisplayOp`)
 - Font choice and glyph positions through `internal/fonts`
-- Paint appearance resolution for replay consumers: `StyleOf` (`internal/layout/paint_style.go:18`) resolves fill color, alpha, stroke width, and fake bold for an op, and `FakeBoldFor` (`:42`) answers the fake-bold question, which `layout.DisplayFakeBold` exposes (`layout/displaylist.go:218`)
+- Paint appearance resolution for replay consumers: `StyleOf` (`internal/layout/paint_style.go:18`) resolves fill color, alpha, stroke width, and fake bold for an op, and `FakeBoldFor` (`:42`) answers the fake-bold question, which `layout.DisplayFakeBold` exposes (`layout/displaylist.go:471`)
 
 ## What it does not own
 
