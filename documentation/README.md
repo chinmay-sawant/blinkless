@@ -19,6 +19,12 @@ Start with [getting-started.md](getting-started.md) and [overview.md](overview.m
 | [deferred.md](deferred.md) | CSS that is still out of scope |
 | [architecture.md](architecture.md) | Package map |
 
+## Site data
+
+| Document | Purpose |
+|----------|---------|
+| [site-data.md](site-data.md) | Frontend catalog and specimen export |
+
 ## Architecture notes
 
 | Document | Purpose |

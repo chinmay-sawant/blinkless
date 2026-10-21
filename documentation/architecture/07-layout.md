@@ -2,19 +2,19 @@
 
 `internal/layout` turns a parsed HTML tree and its CSS into boxes and a drawing list. The public `layout` package exposes that list as `DisplayList`. Nothing here writes a PDF page or paints a page bitmap; the drawing list is the output.
 
-Public boxes are CSS pixels, y down, origin at the top left. `DisplayList` operations are canvas points (1 point is 1/72 inch, and 1 CSS pixel is 0.75 points), y down; for text, Y is the baseline (`layout/displaylist.go:13-15`, `:27-29`).
+Public boxes are CSS pixels, y down, origin at the top left. `DisplayList` operations are canvas points (1 point is 1/72 inch, and 1 CSS pixel is 0.75 points), y down; for text, Y is the baseline (`layout/displaylist.go:16-19`, `:30-44`).
 
 ## The display list
 
-`layout.DisplayList` (`layout/displaylist.go:134`) and `DisplayListOptions` (`:139`) return a `Display` (`:100-124`): `Ops`, an `Order` index in paint order, `Boxes`, the canvas size in CSS pixels, and the point/pixel conversion factors. `DisplayOp` is the internal `Op` type under an exported name (`:55`); the record itself is `internal/layout/layout.go:402`.
+`layout.DisplayList` (`layout/displaylist.go:242`) and `DisplayListOptions` (`:254`) return a `Display` (`:158-221`): `Ops`, `OpOwners`, an `Order` index in paint order, `Boxes`, the canvas size in CSS pixels, and the point/pixel conversion factors. `DisplayOp` is the internal `Op` type under an exported name (`:64`); the record itself is `internal/layout/layout.go:424`.
 
-- Operation kinds (`layout/displaylist.go:67-97`): fill and stroke rectangles, line, text run, image, link URI, list bullet, and table grid run. Two kinds carry no paint: `DisplayOpNoop`, which the overflow clip pass writes when it removes an op, and `DisplayOpUnknown`, the boundary marker for a blend or isolation group.
-- A print layout is fitted to the canvas width before it returns: when the laid-out content draws past it, `DisplayListOptions` re-runs `LayoutContext` with `Zoom = width/contentWidth` (`layout/displaylist.go:220-232`), the same factor the native PDF path applies as smart shrinking. Fixture 47 is the pin: its 1.23x-scaled absolute background drew 86pt past the one-page canvas before the fit, and a paginating consumer split the document (`internal/layout/fixture_47_certificate_test.go`). Screen media does not fit.
-- Paint order comes from `ilayout.PaintOrder` (`internal/layout/paint_order.go:14`). That is the sequence a painter should follow so z-index, the outline layer, and backgrounds below content come out right; `DisplayOrder` exposes it to callers (`layout/displaylist.go:210`).
-- `Boxes` comes from `PlacedElements` (`internal/layout/placed.go:20`) converted to CSS pixels (`layout/layout.go:35-52`).
-- An image op keeps its encoded bytes. When orientation or a clip cannot stay in those bytes, that one op is re-encoded as a PNG (`internal/layout/image_exif.go:497`; callers at `internal/layout/layout_images.go:384` and `internal/layout/clip_path.go:535`). That is the bitmap fallback, not a picture of the page (`layout/displaylist.go:126-133`).
+- Operation kinds (`layout/displaylist.go:122-150`): fill and stroke rectangles, line, text run, image, link URI, list bullet, and table grid run. Two kinds carry no paint: `DisplayOpNoop`, which the overflow clip pass writes when it removes an op, and `DisplayOpUnknown`, the boundary marker for a blend or isolation group.
+- A print layout is fitted to the canvas width before it returns: when the laid-out content draws past it, `DisplayListOptions` re-runs `LayoutContext` with `Zoom = width/contentWidth` (`layout/displaylist.go:406-430`), the same factor the native PDF path applies as smart shrinking. Fixture 47 is the pin: its 1.23x-scaled absolute background drew 86pt past the one-page canvas before the fit, and a paginating consumer split the document (`internal/layout/fixture_47_certificate_test.go`). Screen media does not fit.
+- Paint order comes from `ilayout.PaintOrder` (`internal/layout/paint_order.go:14`). That is the sequence a painter should follow so z-index, the outline layer, and backgrounds below content come out right; `DisplayOrder` exposes it to callers (`layout/displaylist.go:478`).
+- `Boxes` comes from `PlacedElements` (`internal/layout/placed.go:29`) converted to CSS pixels by `boxesFrom` (`layout/layout.go:111-138`).
+- An image op keeps its encoded bytes. When orientation or a clip cannot stay in those bytes, that one op is re-encoded as a PNG (`internal/layout/image_exif.go:497`; callers at `internal/layout/layout_images.go:384` and `internal/layout/clip_path.go:535`). That is the bitmap fallback, not a picture of the page (`layout/displaylist.go:223-241`).
 
-The engine entry is `ilayout.LayoutContext` (`internal/layout/layout.go:1118`). `Result` (`:155`) carries the ops, canvas bounds, the box tree, and fields left from the removed page splitter (`:163-179`). An unset viewport width falls back to 1024 CSS pixels (`layout/displaylist.go:20`, `:153-163`); an unset height uses that width as the percentage-height containing block. Canvas height is the taller of the content and the requested minimum (`:189-194`).
+The engine entry is `ilayout.LayoutContext` (`internal/layout/layout.go:1178`). `Result` (`:167`) carries the ops, canvas bounds, the box tree, and the retained styles and box root (`:167-223`). An unset viewport width falls back to 1024 CSS pixels (`layout/displaylist.go:23`, `:457-470`); an unset height uses that width as the percentage-height containing block. Canvas height is the taller of the content and the requested minimum (`layout/displaylist.go:188-193`).
 
 No page splitter and no PDF writer remain in the tree. `page-break-*` values are still parsed onto the style (`internal/layout/style_properties.go:1594-1595`), but nothing splits the list. One path still treats `Options.Height` as a page boundary. Multicol snaps its column lines there (`internal/layout/multicol.go:360-367`). `IndependentBlocks` (`internal/layout/independent_blocks.go:21`) reports body children that can be laid out one at a time; only tests consume it today.
 
@@ -35,7 +35,7 @@ and updates the box tree and the ancestor ranges. The element keeps its place
 and its size; a change that moves or resizes it is refused, so the boxes after
 it stay valid.
 
-The public `layout.RelayoutElement` (`layout/relayout_element.go:80`) finds the
+The public `layout.RelayoutElement` (`layout/relayout_element.go:82`) finds the
 element by id, calls `RelayoutSubtree`, and returns an `ElementPatch`. The patch
 carries the element's operations, owners, and boxes, its old and new bounds, and
 `Display`, the whole patched page. A host adopts `patch.Display`: a count change
@@ -75,6 +75,61 @@ The patch uses two pieces that already live in the engine:
 - `Result.boxForID` and `Result.nodeForID`
   (`internal/layout/layout_state.go:14`, `:26`) find the placed box and the
   laid-out node for one id, searching table cells too.
+
+## Selector index
+
+`internal/layout/style_rule_index.go` narrows the selectors one style pass has
+to test. `newRuleIndex` (`style_rule_index.go:47`) walks every sheet once and
+puts each selector in the bucket of its rightmost compound: an id, else the
+first class, else the tag, else the universal bucket (`ruleBucket`,
+`style_rule_index.go:35`). One key is enough because every key a selector lists
+must be present for the selector to match.
+
+The index keeps the element cascade and the generated-content pass apart:
+`ruleIndex.host` holds selectors that end on the element, `ruleIndex.pseudo`
+holds selectors that end on `::before` or `::after`, and `ruleIndex.content`
+records whether any pseudo rule declares `content`, so the generated-content
+walk can skip pseudo matching when no rule can generate content
+(`style_rule_index.go:24-32`). `candidates` (`:142`) returns the selectors
+whose rightmost compound can match the node, and `sortCandidates` (`:173`)
+restores the sheet, rule, and selector order the linear walk used, so
+equal-order ties keep their result.
+
+`matchedRules` builds or reuses the index once per pass
+(`internal/layout/style_cascade.go:600`) and asks it for candidates before the
+media, container, and `@supports` gates (`style_cascade.go:542-582`). The
+matcher still walks every part of a candidate. `forEachClass`
+(`style_rule_index.go:190`) splits class attributes on the same Unicode
+whitespace the matcher uses (`internal/css/match.go:789`, `:818`), so the index
+never skips a class the matcher would accept. The generated-content path builds
+its own index (`internal/layout/pseudo_content.go:104`).
+
+`css.Document.UsesStatePseudo` lets a host skip a redraw for `:hover`,
+`:active`, or `:focus` when no selector can match that state
+(`css/state_pseudos.go:13`).
+
+## One-pass grid paths
+
+Two grid fast paths build each item once instead of measuring and then placing.
+`layoutStandardGrid` tries them in order (`internal/layout/grid.go:110`,
+`:116`).
+
+- **Single column.** `canBuildSingleColumnGrid` (`grid_single.go:9`) accepts a
+  one-column grid with no explicit rows or areas, no non-`auto` auto-rows, and
+  one item per row with no column offset or span. `layoutSingleColumnGrid`
+  (`:56`) builds each item once at its final row top from the resolved track
+  width, keeps row gaps and gap rules, applies justify and align-content, and
+  resolves the used height. Explicit rows or areas, placement, spans, and
+  percentage heights stay on the two-pass path.
+- **Multi-column auto rows.** `canBuildAutoRowGrid` (`grid_auto_row.go:30`)
+  accepts a grid with two or more columns, auto-sized rows, one item per cell,
+  and row-major fill order. It builds each row's items at the cell widths,
+  takes the tallest item as the row height, and stretches shorter items by
+  extending the border box and regenerating their background and border chrome.
+  It falls back for percentage heights, explicit placement, out-of-flow items,
+  transforms, blend or isolation groups, clipping, flex, multicol, table,
+  subgrid, vertical writing, and nested grids that need a measure pass
+  (`grid_auto_row.go:56-204`).
 
 ## How a document gets there
 

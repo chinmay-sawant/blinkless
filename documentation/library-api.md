@@ -88,7 +88,7 @@ hand is not the contract: the operation indices and owners after the element
 can move even when the element keeps its size.
 
 `Old` and `New` are whole CSS pixels, because the engine rounds the box when it
-reports the bounds (`layout/relayout_element.go:204`). A successful patch keeps
+reports the bounds (`layout/relayout_element.go:208-212`). A successful patch keeps
 the element in place and keeps its size, so `Old` and `New` are equal. Anything
 that moves or resizes the element is refused, and the caller needs a full
 layout. `Ops`, `OpOwners`, and `Boxes` describe the element subtree on its own,

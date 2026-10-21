@@ -56,6 +56,9 @@ There is no v0.0.3 tag or release note yet.
 
 ### Fixed
 
+- Frontend catalog export keeps `implementation_scope` and the committed
+  ASCII-only JSON style, so regenerating the catalog no longer drops the 43
+  Blinkless+OwnFrame rows (`1c68b28`).
 - Root canvas background painting (`320dc96`).
 - Table rows, headings, and one-line blocks stay whole (`fbde5d6`).
 - Print width fit on the canvas (`7a948be`).
