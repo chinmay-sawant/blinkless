@@ -13,6 +13,7 @@ import (
 	"math"
 	"os"
 	"strings"
+	"unicode/utf16"
 
 	"github.com/chinmay-sawant/blinkless/css"
 	"github.com/chinmay-sawant/blinkless/html"
@@ -38,6 +39,10 @@ const (
 	roundTenths = 10
 	// maxNoteLen is the catalog note cutoff, in bytes.
 	maxNoteLen = 180
+	// asciiMax is the last ASCII code point.
+	asciiMax = 0x7F
+	// utf16Max is the last code point a single \u escape can carry.
+	utf16Max = 0xFFFF
 
 	// Specimen CSS colors as 8-bit channels: #9c3b2e, #1c1915, #f6f4ef.
 	swatchRedR   = 156
@@ -280,19 +285,21 @@ type catalogFile struct {
 }
 
 type catalogEntry struct {
-	Name   string `json:"name"`
-	Status string `json:"status"`
-	Values string `json:"values,omitempty"`
-	Note   string `json:"note,omitempty"`
+	Name                string `json:"name"`
+	Status              string `json:"status"`
+	Values              string `json:"values,omitempty"`
+	Note                string `json:"note,omitempty"`
+	ImplementationScope string `json:"implementation_scope,omitempty"` //nolint:tagliatelle // catalog schema is snake_case
 }
 
 type rawCatalog struct {
 	Updated    string `json:"updated"`
 	Properties []struct {
-		Name        string   `json:"name"`
-		Status      string   `json:"status"`
-		Values      []string `json:"values"`
-		Limitations []string `json:"limitations"`
+		Name                string   `json:"name"`
+		Status              string   `json:"status"`
+		Values              []string `json:"values"`
+		Limitations         []string `json:"limitations"`
+		ImplementationScope string   `json:"implementation_scope"` //nolint:tagliatelle // catalog schema is snake_case
 	} `json:"properties"`
 }
 
@@ -316,10 +323,11 @@ func writeCatalog() error {
 		}
 
 		entries = append(entries, catalogEntry{
-			Name:   row.Name,
-			Status: row.Status,
-			Values: strings.Join(row.Values, " "),
-			Note:   shortNote(row.Limitations),
+			Name:                row.Name,
+			Status:              row.Status,
+			Values:              strings.Join(row.Values, " "),
+			Note:                shortNote(row.Limitations),
+			ImplementationScope: row.ImplementationScope,
 		})
 	}
 
@@ -358,11 +366,34 @@ func writeJSON(path string, payload any) error {
 		return fmt.Errorf("marshal %s: %w", path, err)
 	}
 
-	buf = append(buf, '\n')
+	buf = append(escapeNonASCII(buf), '\n')
 
 	if err := os.WriteFile(path, buf, siteDataPerm); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 
 	return nil
+}
+
+// escapeNonASCII rewrites every rune above ASCII as a \uXXXX escape. The
+// committed site data is ASCII-only, and encoding/json writes UTF-8, so the
+// exporter has to do this to keep regeneration diff-free.
+func escapeNonASCII(buf []byte) []byte {
+	var out strings.Builder
+
+	out.Grow(len(buf))
+
+	for _, codePoint := range string(buf) {
+		switch {
+		case codePoint <= asciiMax:
+			out.WriteRune(codePoint)
+		case codePoint > utf16Max:
+			high, low := utf16.EncodeRune(codePoint)
+			fmt.Fprintf(&out, `\u%04x\u%04x`, high, low)
+		default:
+			fmt.Fprintf(&out, `\u%04x`, codePoint)
+		}
+	}
+
+	return []byte(out.String())
 }

@@ -2849,7 +2849,7 @@
       "name": "view-transition-group",
       "status": "implemented",
       "values": "normal | contain | nearest | custom-ident",
-      "note": "OwnFrame builds and exposes parent relationships for normal, contain, nearest, and custom group values. The host must style or clip the hierarchy; ::view-transition-* selectors are not parsed.",
+      "note": "OwnFrame builds and exposes parent relationships for normal, contain, nearest, and custom group values. The host must style or clip the hierarchy; ::view-transition-* selectors ...",
       "implementation_scope": "blinkless+ownframe"
     },
     {
