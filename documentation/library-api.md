@@ -16,6 +16,129 @@ The root package is the module anchor. The calls live in `html`, `css`, and `lay
 
 An image on the list keeps its encoded bytes. Orientation or a clip that cannot stay in those bytes re-encodes that one operation as a PNG. That is the bitmap fallback.
 
+## Patching one element
+
+A host that keeps a laid out page can edit one element and ask the engine to
+re-place that element only. The tree edit goes through `html`, the re-layout
+goes through `layout`.
+
+The patch needs the layout state the placement produced, so the host asks for
+it when it lays the page out: `layout.Options.RetainState`. A display laid out
+without it carries no layout state, and `RelayoutElement` refuses it with
+`layout.ErrNoRetainedState`. A host that never patches an element leaves the
+option off and keeps the cheaper display.
+
+```go
+tree, _ := html.Parse(source)
+styled, _ := css.Apply(ctx, tree, css.Options{WidthPx: 800, HeightPx: 600})
+page, _ := layout.DisplayListOptions(ctx, styled, layout.Options{RetainState: true})
+
+// later, on a click
+tree.SetAttribute("card", "class", "card selected")
+
+patch, err := layout.RelayoutElement(ctx, styled, page, "card", layout.Options{})
+```
+
+The retained state is the resolved styles of the document and the box tree the
+placement produced. It is not free, so a host that only draws the page should
+leave the option off. The measured live heap one laid-out page keeps alive,
+from `BenchmarkDisplayRetainedBytes` in `layout/displaylist_retain_test.go`:
+
+| Elements in the page | Retention off | Retention on | The retained state costs |
+|----------------------|---------------|--------------|--------------------------|
+| 31 | 34 KB | 201 KB | 167 KB |
+| 283 | 302 KB | 579 KB | 277 KB |
+| 703 | 744 KB | 1198 KB | 454 KB |
+
+Run it with `go test ./layout -run '^$' -bench BenchmarkDisplayRetainedBytes
+-benchtime=5x`. The measurement reads the process heap, so run it alone.
+
+Most of the retained state is the resolved styles. The style store keeps the
+distinct styles of a page in backing arrays, and one `ResolvedStyle` record is
+5872 bytes, so the arrays are what a patch holds on to. The first array holds
+eight records and the arrays grow from there to sixty four, so a page with a
+few distinct styles keeps a small array instead of a full one. The rest of the
+retained state is the box tree, about 420 bytes per element.
+
+`html.Document.SetAttribute(id, name, value)` writes one attribute on the
+element with that id. It returns false when no element has that id, or when the
+attribute name is empty (`html/attribute.go:18`). `html.Document.SetText(id,
+text)` replaces the element's text content the way the DOM `textContent` setter
+does: one text node, every child dropped (`html/attribute.go:44`). Both edit the
+parsed tree in place, so the next cascade and the next layout see the change.
+An attribute the element already carries keeps its stored spelling, a new one
+is stored lowercased, and an empty attribute name changes nothing.
+
+`layout.RelayoutElement(ctx, doc, prev, elementID, options)` returns an
+`ElementPatch` (`layout/relayout_element.go:34`):
+
+| Field | Meaning |
+|-------|---------|
+| `Display *Display` | The whole patched page. Adopt this display; it replaces `prev` |
+| `Ops []DisplayOp` | The patched element subtree's operations, in page coordinates, in source order |
+| `OpOwners []int` | The nearest owner box index for each operation, the rule `Display.OpOwners` uses |
+| `Boxes []Box` | The element's box and its descendants' boxes, in document order, in CSS pixels |
+| `Old image.Rectangle` | Where the element sat in `prev`, in CSS pixels |
+| `New image.Rectangle` | Where it sits after the patch, in CSS pixels |
+
+`Display` is the authoritative result. The engine splices the subtree into the
+retained placement, so the page's operation list, paint order, owners, boxes,
+and page breaks are rebuilt together. Copying `Ops` and `Boxes` into `prev` by
+hand is not the contract: the operation indices and owners after the element
+can move even when the element keeps its size.
+
+`Old` and `New` are whole CSS pixels, because the engine rounds the box when it
+reports the bounds (`layout/relayout_element.go:204`). A successful patch keeps
+the element in place and keeps its size, so `Old` and `New` are equal. Anything
+that moves or resizes the element is refused, and the caller needs a full
+layout. `Ops`, `OpOwners`, and `Boxes` describe the element subtree on its own,
+so its root box has `ParentIndex` -1. They are for inspection and diagnostics;
+a host that adopts `patch.Display` does not rebase them.
+
+The element is found by id in the styled document's tree, so the host edits the
+tree first. `options` carries the image resolver, so a host that resolves
+images passes the same `layout.Options` it gave `DisplayListOptions`; without a
+resolver an image inside the element paints nothing. A missing id gives
+`layout.ErrNoElement`, a missing previous display gives `layout.ErrNilDisplay`,
+a display without the retained layout state gives
+`layout.ErrNoRetainedState`, and a nil document or a nil context gives
+`layout.ErrNilDocument` or `layout.ErrNilContext`.
+
+### When the engine refuses a patch
+
+The engine patches one block subtree in place. It refuses, and returns an
+error, when the element is not a block box, when the document root carries the
+canvas fill, when the subtree holds a float, a sticky box, an anchored element,
+or a named flow, when an anchored box sits outside the subtree, when an
+ancestor carries a transform or an opacity below 1, or when the document uses
+`@container` rules. It also refuses when the placement would move or resize the
+element. Each refusal protects state the kept placement does not carry, so the
+host falls back to a full layout.
+
+The refusal errors come from `internal/layout` and are wrapped by
+`RelayoutElement`. They are not exported sentinels. A host that wants to fall
+back should treat any `RelayoutElement` error as "lay the page out again". The
+exported sentinels cover caller mistakes: a nil display, a missing element, a
+display without retained state, a nil document, and a nil context.
+
+`RelayoutElement` mutates the placement `prev` was built from and returns the
+fresh whole-page display. Use `patch.Display` after the call and treat `prev`
+as stale. The engine does not lock the retained state, so one display must not
+be patched from two goroutines at once.
+
+### What the host does with the patch
+
+1. Replace the display the host holds with `patch.Display`.
+2. Repaint the union of `patch.Old` and `patch.New`. On a successful patch the
+   two rectangles are equal; the union covers the element before and after the
+   change.
+3. If the call returned an error, lay the page out again and replace the
+   display with that result.
+
+The engine hands back the element's part as well, so a host can inspect the
+subtree without walking the whole page. The page the host draws is
+`patch.Display`.
+
 ## Errors
 
 `html.Parse`, `css.Apply`, and `layout.DisplayList` return errors for a bad document, a bad size, or a nil context. `errors.Is` matches `css.ErrBadSize`, `css.ErrNilContext`, `layout.ErrNilContext`, and `layout.ErrNilDocument`.

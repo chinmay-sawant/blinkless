@@ -172,6 +172,15 @@ type Result struct {
 	root  *box   // element box tree, kept for Paint (Locations)
 	boxes []*box // flattened box list for repeated pagination updates
 
+	// styles is the resolved cascade of this layout run, keyed by node. It
+	// lets a later run re-lay out one subtree without resolving the whole
+	// document again.
+	styles map[*html.Node]*ResolvedStyle
+	// rootBox is the root of the element box tree. It is the same box as
+	// root and the entry point for the subtree lookups in layout_state.go
+	// (boxForID, nodeForID).
+	rootBox *box
+
 	// flowPages indexes non-fixed operations by their current canvas page while
 	// pagination is settling. It is rebuilt when the display list is rewritten
 	// and updated in place by shiftFlowY so flow shifts do not rescan operations
@@ -234,6 +243,7 @@ func CloneResult(res *Result) *Result {
 	clone.flowBoxPos = append([]int(nil), res.flowBoxPos...)
 	boxes := make(map[*box]*box, len(res.boxes))
 	clone.root = cloneBoxGraph(res.root, boxes)
+	clone.rootBox = clone.root
 	clone.boxes = make([]*box, len(res.boxes))
 
 	for i, source := range res.boxes {
@@ -329,6 +339,7 @@ func (w *Workspace) Release(res *Result) {
 	w.ops = ops[:0]
 	res.Ops = nil
 	res.root = nil
+	res.rootBox = nil
 	res.boxes = nil
 	res.flowPages = nil
 	res.flowPageOf = nil
@@ -543,9 +554,12 @@ type engine struct {
 	styles          map[*html.Node]*ResolvedStyle
 	syntheticStyles map[*html.Node]*ResolvedStyle
 	styleOverrides  []styleOverride
-	ops             []Op
-	gridScratch     []GridSeg // reusable row-grid collector storage
-	noEmit          bool      // measurement mode: compute geometry without emitting ops
+	// styleIndex narrows selector matching for this layout's sheets. It is
+	// built once and shared by the cascade and every pseudo-content lookup.
+	styleIndex  *ruleIndex
+	ops         []Op
+	gridScratch []GridSeg // reusable row-grid collector storage
+	noEmit      bool      // measurement mode: compute geometry without emitting ops
 	// maxRotatedRunW is the widest rotated (sideways) text advance seen in the
 	// current build subtree. verticalWritingHeight consumes it instead of
 	// scanning e.ops so measured geometry matches emitted geometry when
@@ -627,6 +641,11 @@ type engine struct {
 	// faceByStyle caches faceFor results for this Layout run (family hash +
 	// weight/italic). Avoids repeating registry lookups on every measure call.
 	faceByStyle map[faceStyleKey]*pdf.Font
+	// lastFaceKey/lastFace are a one-entry cache for the common case of an
+	// inline run reusing one face for every rune.
+	lastFaceKey faceStyleKey
+	lastFace    *pdf.Font
+	hasLastFace bool
 	// faceByRune caches faceForRune fallback results for this Layout run
 	// (only glyphs missing from the primary face). Key uses a family hash so
 	// lookups allocate no joined family string.
@@ -710,8 +729,14 @@ func (e *engine) faceFor(sty *ResolvedStyle) *pdf.Font {
 		opticalSize: sizeBits,
 	}
 
+	if e.hasLastFace && e.lastFaceKey == key && e.lastFace != nil {
+		return e.lastFace
+	}
+
 	if e.faceByStyle != nil {
 		if f, ok := e.faceByStyle[key]; ok {
+			e.lastFaceKey, e.lastFace, e.hasLastFace = key, f, true
+
 			return f
 		}
 	}
@@ -723,6 +748,7 @@ func (e *engine) faceFor(sty *ResolvedStyle) *pdf.Font {
 	}
 
 	e.faceByStyle[key] = face
+	e.lastFaceKey, e.lastFace, e.hasLastFace = key, face, true
 
 	return face
 }
@@ -1008,7 +1034,7 @@ func (e *engine) pushZ(style ResolvedStyle, owner *ResolvedStyle) blendScope {
 		prevGroupOwner: e.blendGroupOwner,
 		beginMark:      -1,
 	}
-	createsGroupContext := style.MixBlendMode != blendNormal || style.Isolation == "isolate" ||
+	createsGroupContext := style.MixBlendMode != blendNormal || style.Isolation == unicodeBidiIsolate ||
 		maskGroupRequested(style)
 
 	if style.Position == positionAbsolute || style.Position == positionFixed {

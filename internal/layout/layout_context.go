@@ -66,7 +66,9 @@ func finalizeResult(eng *engine, root *html.Node, opts Options) (*Result, error)
 		Height:         opts.Height,
 		pageSnapHeight: eng.pageSnapHeight,
 		root:           boxNode,
+		rootBox:        boxNode,
 		boxes:          boxes,
+		styles:         eng.styles,
 	}
 	if boxNode != nil {
 		res.Height = boxNode.y + boxNode.height

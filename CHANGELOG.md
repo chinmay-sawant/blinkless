@@ -14,6 +14,15 @@ There is no v0.0.3 tag or release note yet.
 
 ### Added
 
+- **Element patches.** `layout.Options.RetainState` keeps the resolved styles
+  and box tree a patch needs, and `layout.RelayoutElement` re-places one block
+  subtree inside the retained page and returns the whole patched display.
+  `html.Document.SetAttribute` and `html.Document.SetText` edit the tree in
+  place (`6b29cc9`).
+- **Selector index and one-pass grids.** The cascade indexes selectors by
+  their rightmost compound, single-column and multi-column auto-row grids
+  build items in one pass, and inline splitting grows geometrically
+  (`81910e0`, `3fa0a49`, `e0c3c9c`).
 - **Corner shapes.** `border-radius` corners accept the `corner-shape`
   family and paint through a path operation (`4896ac9`, with fixes
   `bc917a2` and `20606e1`).

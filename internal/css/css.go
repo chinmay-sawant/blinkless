@@ -45,21 +45,22 @@ const (
 
 // Pseudo-class and pseudo-element names shared across selector parsing.
 const (
-	pseudoClassHas      = "has"
-	pseudoClassIs       = "is"
-	pseudoClassWhere    = "where"
-	pseudoClassFocus    = "focus"
-	pseudoClassHover    = "hover"
-	pseudoClassActive   = "active"
-	pseudoElemBefore    = "before"
-	pseudoElemAfter     = "after"
-	nthChildPseudo      = "nth-child"
-	firstChildPseudo    = "first-child"
-	lastChildPseudo     = "last-child"
-	nthOfTypePseudo     = "nth-of-type"
-	nthLastOfTypePseudo = "nth-last-of-type"
-	firstOfTypePseudo   = "first-of-type"
-	lastOfTypePseudo    = "last-of-type"
+	pseudoClassHas          = "has"
+	pseudoClassIs           = "is"
+	pseudoClassWhere        = "where"
+	pseudoClassFocus        = "focus"
+	pseudoClassFocusVisible = "focus-visible"
+	pseudoClassHover        = "hover"
+	pseudoClassActive       = "active"
+	pseudoElemBefore        = "before"
+	pseudoElemAfter         = "after"
+	nthChildPseudo          = "nth-child"
+	firstChildPseudo        = "first-child"
+	lastChildPseudo         = "last-child"
+	nthOfTypePseudo         = "nth-of-type"
+	nthLastOfTypePseudo     = "nth-last-of-type"
+	firstOfTypePseudo       = "first-of-type"
+	lastOfTypePseudo        = "last-of-type"
 )
 
 // Stylesheet is a parsed stylesheet. Rules keep their source order.

@@ -474,7 +474,7 @@ func matchPseudo(state MatchState, pseudo PseudoClass, node *html.Node) bool {
 	case "link", "visited":
 		// Print has no link history, so both match any anchor with an href.
 		return isLinkAnchor(node)
-	case pseudoClassFocus, "focus-visible", pseudoClassHover, pseudoClassActive:
+	case pseudoClassFocus, pseudoClassFocusVisible, pseudoClassHover, pseudoClassActive:
 		return matchStatePseudo(state, pseudo.Name, node)
 	case "checked":
 		return matchChecked(node)
@@ -489,7 +489,7 @@ func matchPseudo(state MatchState, pseudo PseudoClass, node *html.Node) bool {
 // focused, hovered, and pressed element ids.
 func matchStatePseudo(state MatchState, name string, node *html.Node) bool {
 	switch name {
-	case pseudoClassFocus, "focus-visible":
+	case pseudoClassFocus, pseudoClassFocusVisible:
 		return matchStateID(state.Focus, node)
 	case pseudoClassHover:
 		return matchStateID(state.Hover, node)

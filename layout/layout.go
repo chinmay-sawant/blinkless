@@ -93,6 +93,19 @@ type Options struct {
 	// image operation. That payload is the bitmap fallback. It is not a
 	// picture of the page.
 	Images func(src string) ([]byte, error)
+
+	// RetainState keeps the layout state an element patch needs: the
+	// resolved styles of the document and the box tree the placement
+	// produced. A display that carries that state can be patched by
+	// RelayoutElement.
+	//
+	// It is off by default. Without it a display keeps nothing beyond the
+	// operations and the boxes a host draws, so a host that never patches
+	// an element does not pay for the retained state. A host that patches
+	// sets it on the DisplayListOptions call that builds the display it
+	// patches, and RelayoutElement refuses a display that was laid out
+	// without it.
+	RetainState bool
 }
 
 func boxesFrom(placed []ilayout.PlacedElement) []Box {
