@@ -32,8 +32,8 @@ var (
 
 // ElementPatch is the result of patching one element of a laid out page.
 type ElementPatch struct {
-	// Ops are the operations the patched element's subtree emits. A host
-	// replays them over the region it repaints.
+	// Ops are the operations the patched element's subtree emits. They are
+	// for inspection; the whole page the host draws is Display.
 	Ops []DisplayOp
 
 	// OpOwners maps each operation index in Ops to the nearest element box
@@ -51,10 +51,10 @@ type ElementPatch struct {
 	New image.Rectangle
 
 	// Display is the patched page: the operations, the paint order, the
-	// owners and the boxes of the whole page after the patch. A host that
-	// keeps its own operation list adopts this one, because a patch that
-	// changes the operation count moves every later operation index and
-	// with it the paint order and the owners.
+	// owners and the boxes of the whole page after the patch. A host adopts
+	// this display and treats the one it passed as stale, because the
+	// engine splices into the retained placement and a count change moves
+	// every later operation index, the paint order, and the owners.
 	Display *Display
 }
 
@@ -63,20 +63,22 @@ type ElementPatch struct {
 //
 // doc is the styled document that holds the element and prev is the display
 // list of that document before the change. The element is found by id in
-// doc's tree, so a host that edited the tree first (html.SetText,
-// html.SetAttribute) gets a patch of the edited element.
+// doc's tree, so a host that edited the tree first (html.Document.SetText,
+// html.Document.SetAttribute) gets a patch of the edited element.
 //
 // prev must carry the retained layout state. The host asks for it when it
 // lays the page out: layout.DisplayListOptions with Options.RetainState set.
 // A display laid out without that state cannot be patched, and
 // RelayoutElement returns ErrNoRetainedState for it.
 //
-// The patch holds the element's own operations and boxes, not the whole
-// page: Ops carries the operations of the element's subtree, Boxes the
-// element boxes of that subtree, and OpOwners maps each operation to the
-// box in Boxes that owns it. Old is where the element sat in prev, New is
-// where it sits after the patch. A host repaints the union of the two
-// rectangles.
+// On success the element keeps its place and its size. A change that would
+// move or resize it is refused, so the boxes after it stay valid. The patch
+// carries the element's own operations and boxes for inspection (Ops, Boxes,
+// and OpOwners), its old and new bounds (Old and New), and Display, the whole
+// patched page. A host adopts Display and treats prev as stale.
+//
+// The engine does not lock the retained state, so one display must not be
+// patched from two goroutines at once.
 func RelayoutElement(
 	ctx context.Context, doc *css.Document, prev *Display, elementID string, options Options,
 ) (*ElementPatch, error) {
@@ -118,12 +120,14 @@ func RelayoutElement(
 // patchedDisplay builds the display list of the patched page. The engine
 // patched the placement the previous display was built from, so the display
 // carries that placement and the operations, the paint order, the owners and
-// the boxes that go with them.
+// the boxes that go with them. Page breaks are recomputed because a style
+// patch can change them.
 func patchedDisplay(styled pubstate.Styled, prev *Display) *Display {
 	canvasPt := float64(prev.Height) / ptToPx
+	forced, keep := ilayout.PageBreaks(prev.result, canvasPt)
 
 	return newDisplay(prev.result, styled.Sheets, canvasPt,
-		prev.ForcedBreaks, prev.KeepTogether, prev.zoom, true)
+		forced, keep, prev.zoom, true)
 }
 
 // checkRelayoutInput rejects the inputs RelayoutElement cannot work with.

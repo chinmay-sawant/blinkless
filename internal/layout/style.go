@@ -1076,7 +1076,7 @@ const styleStoreFirstChunk = 8
 // Stored styles are immutable after insertion. append interns an exact
 // duplicate (styleInternFingerprint bucket plus styleInternEqual verification)
 // instead of storing another copy, so repeated table cells and inherited text
-// styles share one ~3.4 KiB record. The fingerprint is only a bucket key; the
+// styles share one 5872-byte record. The fingerprint is only a bucket key; the
 // equality check is the sharing decision.
 type styleStore struct {
 	candidate ResolvedStyle

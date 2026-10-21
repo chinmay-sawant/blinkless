@@ -65,14 +65,16 @@ between `Apply` and `Relayout`; a source or theme change needs a fresh
 ## Rendering: `layout`
 
 `layout.DisplayList(ctx, doc) (*layout.Display, error)` lays the styled
-document out and returns the display list (`layout/displaylist.go:126-136`).
+document out and returns the display list (`layout/displaylist.go:242`).
 `layout.DisplayListOptions(ctx, doc, options)` is the same call with an image
-resolver (`layout/displaylist.go:138-139`).
+resolver and the opt-in retained layout state (`layout/displaylist.go:254`).
+`layout.Options.RetainState` keeps the placement an element patch needs; it is
+off by default (`layout/layout.go:97-108`).
 
 A print layout is fitted to the canvas width: when the laid-out content draws
 past it, the document is re-laid out at `width/contentWidth`, the print
 renderers' smart shrink (Chrome print fit, wkhtmltopdf smart shrinking;
-`layout/displaylist.go:168-177`, `:220-232`, `:263-286`). Screen media keeps
+`layout/displaylist.go:406-430`). Screen media keeps
 overflowing content at its authored scale, so the browser binding is
 unaffected.
 
@@ -83,8 +85,11 @@ image paint is skipped (`layout/layout.go:23-33`).
 
 `layout.RelayoutElement(ctx, doc, prev, elementID, options)` re-places one
 element of a styled document inside a display list the host already holds. It
-returns the element's new operations, its new boxes, and its old and new
-bounds (`layout/relayout_element.go:73`). The host edits the tree first with
+returns the element's new operations, its new boxes, its old and new bounds,
+and the whole patched page as `ElementPatch.Display`
+(`layout/relayout_element.go:80`). The host adopts that display, because the
+operation count, paint order, and owners can all move. The host edits the tree
+first with
 `html.Document.SetAttribute` or `html.Document.SetText`
 (`html/attribute.go:18`, `html/attribute.go:44`), and the element is found by
 id in the styled document's tree. The patch needs the layout state the
@@ -94,7 +99,7 @@ and the call returns `layout.ErrNoRetainedState`. The host-facing walkthrough,
 including the checks a host makes before it copies the patch into its retained
 display, is in [../library-api.md](../library-api.md).
 
-The `Display` shape (`layout/displaylist.go:99-124`):
+The `Display` shape (`layout/displaylist.go:158-221`):
 
 | Field | Meaning |
 |-------|---------|
@@ -207,9 +212,9 @@ page-image pipelines, and the current API has no one-for-one replacements:
 - The root `ImageDocument`, `WriteImage`, and `Image`. The root package now
   declares the pipeline summary only (`doc.go:1-9`).
 - `layout.Lay` and `screen.Render`. The layout entry points are `DisplayList`
-  and `DisplayListOptions` (`layout/displaylist.go:126-139`); there is no
+  and `DisplayListOptions` (`layout/displaylist.go:242`, `:254`); there is no
   `screen` package.
 
 A caller that needs bytes still has the drawing-list JSON from
 `bindings/wasm`, or can replay `Display.Ops` onto its own canvas and keep text
-as glyphs (`layout/displaylist.go:126-134`).
+as glyphs (`layout/displaylist.go:242`).

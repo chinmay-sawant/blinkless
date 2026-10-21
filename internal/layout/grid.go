@@ -107,11 +107,12 @@ func (e *engine) layoutStandardGrid(
 		return boxNode
 	}
 
-	if canBuildSingleColumnGrid(e, sty, placed) {
+	if canBuildSingleColumnGrid(e, sty, placed, cols) {
 		return e.layoutSingleColumnGrid(
-			boxNode, sty, placed, contentX, contentW, curY, posY, contentH, contentStart,
+			boxNode, sty, placed, cols, columnGap, contentX, contentW, curY, posY, contentH, contentStart,
 		)
 	}
+
 	if canBuildAutoRowGrid(e, sty, placed, cols) {
 		return e.layoutAutoRowGrid(
 			boxNode, sty, placed, cols, columnGap, rowGap, contentX, contentW,
@@ -614,6 +615,27 @@ func applyGridAlignContentOffsets(rowYs, rows []float64, rowGap, contentH float6
 	for i := range rowYs {
 		rowYs[i] += offsets[i]
 	}
+}
+
+// gridRowTops returns each row's block-axis position, applying the align-content
+// free-space offsets when the container height is definite.
+func gridRowTops(curY float64, rows []float64, rowGap, contentH float64, alignContent string) []float64 {
+	rowYs := make([]float64, len(rows))
+	if len(rowYs) == 0 {
+		return rowYs
+	}
+
+	rowYs[0] = curY
+
+	for row := 1; row < len(rowYs); row++ {
+		rowYs[row] = rowYs[row-1] + rows[row-1] + rowGap
+	}
+
+	if contentH >= 0 {
+		applyGridAlignContentOffsets(rowYs, rows, rowGap, contentH, alignContent)
+	}
+
+	return rowYs
 }
 
 // emitGridItem builds one item's box and shifts it into its cell.

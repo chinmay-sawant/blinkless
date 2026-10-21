@@ -426,3 +426,52 @@ func relayoutFirstFill(ops []Op) ([3]float64, bool) {
 
 	return [3]float64{}, false
 }
+
+// TestRelayoutContainingBlockInsideStartsAtParent checks that an out-of-flow
+// box never counts as its own containing block. A fixed box only accepts an
+// ancestor inside the subtree that establishes one.
+func TestRelayoutContainingBlockInsideStartsAtParent(t *testing.T) {
+	t.Parallel()
+
+	document := &html.Node{Type: html.ElementNode, Name: "html"}
+	body := &html.Node{Type: html.ElementNode, Name: "body", Parent: document}
+	card := &html.Node{Type: html.ElementNode, Name: "div", Parent: body}
+	boxNode := &html.Node{Type: html.ElementNode, Name: "span", Parent: card}
+
+	styles := map[*html.Node]*ResolvedStyle{
+		card:     {Position: "static"},
+		body:     {Position: positionRelative},
+		document: {Position: "static"},
+		boxNode:  {Position: positionAbsolute},
+	}
+
+	if relayoutContainingBlockInside(boxNode, card, styles) {
+		t.Fatal("a relative body above the subtree accepted an absolute box")
+	}
+
+	styles[card] = &ResolvedStyle{Position: positionRelative}
+
+	if !relayoutContainingBlockInside(boxNode, card, styles) {
+		t.Fatal("a relative card inside the subtree was not accepted")
+	}
+
+	styles[boxNode] = &ResolvedStyle{Position: positionFixed}
+	styles[card] = &ResolvedStyle{Position: positionRelative}
+
+	if relayoutContainingBlockInside(boxNode, card, styles) {
+		t.Fatal("a relative card accepted a fixed box")
+	}
+
+	styles[card] = &ResolvedStyle{Position: "static", HasTransform: true}
+
+	if !relayoutContainingBlockInside(boxNode, card, styles) {
+		t.Fatal("a transformed card did not accept a fixed box")
+	}
+
+	styles[card] = &ResolvedStyle{Position: "static"}
+	styles[body] = &ResolvedStyle{Position: positionRelative, HasTransform: true}
+
+	if relayoutContainingBlockInside(boxNode, card, styles) {
+		t.Fatal("a transformed body above the subtree accepted a fixed box")
+	}
+}

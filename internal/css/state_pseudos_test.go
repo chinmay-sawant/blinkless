@@ -19,16 +19,16 @@ func TestUsesStatePseudos(t *testing.T) {
 		{"has hover", `div:has(> .item:hover) { color: red }`, true, false, false},
 	}
 
-	for _, c := range cases {
-		sheet, err := Parse(c.source)
+	for _, testCase := range cases {
+		sheet, err := Parse(testCase.source)
 		if err != nil {
-			t.Fatalf("%s: %v", c.name, err)
+			t.Fatalf("%s: %v", testCase.name, err)
 		}
 
 		got := UsesStatePseudos([]*Stylesheet{sheet})
-		if got.Hover != c.hover || got.Active != c.act || got.Focus != c.focus {
+		if got.Hover != testCase.hover || got.Active != testCase.act || got.Focus != testCase.focus {
 			t.Fatalf("%s: got %+v, want hover=%v active=%v focus=%v",
-				c.name, got, c.hover, c.act, c.focus)
+				testCase.name, got, testCase.hover, testCase.act, testCase.focus)
 		}
 	}
 }

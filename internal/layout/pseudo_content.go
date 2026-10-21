@@ -36,6 +36,7 @@ func (e *engine) pseudoContent(node *html.Node, pseudoEl string) string {
 	if e == nil || node == nil || (pseudoEl != pseudoBefore && pseudoEl != pseudoAfter) {
 		return ""
 	}
+
 	if !e.hasPseudoContent() {
 		return ""
 	}
@@ -58,6 +59,7 @@ func (e *engine) pseudoContentURL(node *html.Node, pseudoEl string) string {
 	if e == nil || node == nil || (pseudoEl != pseudoBefore && pseudoEl != pseudoAfter) {
 		return ""
 	}
+
 	if !e.hasPseudoContent() {
 		return ""
 	}

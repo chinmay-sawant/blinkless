@@ -35,11 +35,11 @@ func scanSelectorState(sel Selector, out *StatePseudos) {
 	for _, part := range sel.Parts {
 		for _, pseudo := range part.Pseudos {
 			switch pseudo.Name {
-			case "hover":
+			case pseudoClassHover:
 				out.Hover = true
-			case "active":
+			case pseudoClassActive:
 				out.Active = true
-			case "focus", "focus-visible", "focus-within":
+			case pseudoClassFocus, pseudoClassFocusVisible, "focus-within":
 				out.Focus = true
 			}
 

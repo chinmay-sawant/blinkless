@@ -27,6 +27,8 @@ const gridAbsoluteSource = `
 // item that holds an absolutely positioned child is spliced, that the child
 // keeps its place, and that the rest of the grid is untouched.
 func TestRelayoutElementPatchesAGridItemWithAnAbsoluteChild(t *testing.T) {
+	t.Parallel()
+
 	tree, err := html.Parse([]byte(gridAbsoluteSource))
 	if err != nil {
 		t.Fatal(err)
@@ -58,14 +60,8 @@ func TestRelayoutElementPatchesAGridItemWithAnAbsoluteChild(t *testing.T) {
 	cardAfter := boxOf(t, patch.Display, "card")
 	labelAfter := boxOf(t, patch.Display, "label")
 
-	if cardAfter.X != cardBefore.X || cardAfter.Y != cardBefore.Y ||
-		cardAfter.W != cardBefore.W || cardAfter.H != cardBefore.H {
-		t.Fatalf("the card moved: %+v then %+v", cardBefore, cardAfter)
-	}
-
-	if labelAfter.X != labelBefore.X || labelAfter.Y != labelBefore.Y {
-		t.Fatalf("the label moved: %+v then %+v", labelBefore, labelAfter)
-	}
+	assertBoxUnchanged(t, cardBefore, cardAfter, "the card moved")
+	assertBoxUnchanged(t, labelBefore, labelAfter, "the label moved")
 
 	other := boxOf(t, patch.Display, "other")
 	if other.W == 0 || other.H == 0 {
@@ -74,23 +70,29 @@ func TestRelayoutElementPatchesAGridItemWithAnAbsoluteChild(t *testing.T) {
 
 	full := layOf(t, styled)
 	fullCard := boxOf(t, full, "card")
-	if fullCard.X != cardAfter.X || fullCard.Y != cardAfter.Y ||
-		fullCard.W != cardAfter.W || fullCard.H != cardAfter.H {
-		t.Fatalf("the patched card %+v does not match the full relayout %+v", cardAfter, fullCard)
+	assertBoxUnchanged(t, fullCard, cardAfter, "the patched card does not match the full relayout")
+}
+
+// assertBoxUnchanged fails when the two boxes differ in position or size.
+func assertBoxUnchanged(t *testing.T, want, got layout.Box, message string) {
+	t.Helper()
+
+	if want.X != got.X || want.Y != got.Y || want.W != got.W || want.H != got.H {
+		t.Fatalf("%s: %+v then %+v", message, want, got)
 	}
 }
 
 // boxOf returns the box with the given id in a display.
-func boxOf(t *testing.T, display *layout.Display, id string) layout.Box {
+func boxOf(t *testing.T, display *layout.Display, elementID string) layout.Box {
 	t.Helper()
 
 	for _, box := range display.Boxes {
-		if box.ID == id {
+		if box.ID == elementID {
 			return box
 		}
 	}
 
-	t.Fatalf("no box %q", id)
+	t.Fatalf("no box %q", elementID)
 
 	return layout.Box{}
 }

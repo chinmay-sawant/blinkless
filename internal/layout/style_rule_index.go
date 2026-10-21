@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
 	"github.com/chinmay-sawant/blinkless/internal/html"
@@ -44,23 +45,26 @@ type ruleBucket struct {
 
 // newRuleIndex walks every sheet once and buckets each selector.
 func newRuleIndex(sheets []*css.Stylesheet) *ruleIndex {
-	index := &ruleIndex{host: ruleBucket{}, pseudo: nil, content: false}
-	for si, sheet := range sheets {
+	index := new(ruleIndex)
+
+	for sheetIndex, sheet := range sheets {
 		if sheet == nil {
 			continue
 		}
 
-		for r := range sheet.Rules {
-			rule := &sheet.Rules[r]
-			for s := range rule.Selectors {
-				sel := rule.Selectors[s]
+		for ruleIndex := range sheet.Rules {
+			rule := &sheet.Rules[ruleIndex]
+
+			for selectorIndex := range rule.Selectors {
+				sel := rule.Selectors[selectorIndex]
 				if len(sel.Parts) == 0 {
 					continue
 				}
 
 				last := sel.Parts[len(sel.Parts)-1]
 				bucket := index.bucket(last.PseudoElement)
-				bucket.add(ruleSel{sheet: si, rule: rule, sel: s}, last)
+				bucket.add(ruleSel{sheet: sheetIndex, rule: rule, sel: selectorIndex}, last)
+
 				if last.PseudoElement != "" && declaresContent(rule) {
 					index.content = true
 				}
@@ -82,13 +86,13 @@ func (idx *ruleIndex) bucket(pseudo string) *ruleBucket {
 		idx.pseudo = map[string]*ruleBucket{}
 	}
 
-	b := idx.pseudo[pseudo]
-	if b == nil {
-		b = &ruleBucket{}
-		idx.pseudo[pseudo] = b
+	bucket := idx.pseudo[pseudo]
+	if bucket == nil {
+		bucket = new(ruleBucket)
+		idx.pseudo[pseudo] = bucket
 	}
 
-	return b
+	return bucket
 }
 
 // add places one selector in the bucket its rightmost compound names.
@@ -140,66 +144,66 @@ func (idx *ruleIndex) candidates(dst []ruleSel, node *html.Node, pseudo string) 
 		return dst
 	}
 
-	b := &idx.host
+	bucket := &idx.host
 	if pseudo != "" {
-		b = idx.pseudo[pseudo]
-		if b == nil {
+		bucket = idx.pseudo[pseudo]
+		if bucket == nil {
 			return dst
 		}
 	}
 
 	if id := node.Attribute("id"); id != "" {
-		dst = append(dst, b.byID[id]...)
+		dst = append(dst, bucket.byID[id]...)
 	}
 
 	forEachClass(node.Attribute("class"), func(name string) {
-		dst = append(dst, b.byClass[name]...)
+		dst = append(dst, bucket.byClass[name]...)
 	})
 
-	if len(b.byTag) > 0 {
-		dst = append(dst, b.byTag[strings.ToLower(node.Name)]...)
+	if len(bucket.byTag) > 0 {
+		dst = append(dst, bucket.byTag[strings.ToLower(node.Name)]...)
 	}
 
-	return append(dst, b.universal...)
+	return append(dst, bucket.universal...)
 }
 
 // sortCandidates restores the sheet, rule, and selector order the linear walk
 // used. Rule orders restart in every sheet, so the sheet ordinal comes first;
 // without it a cross-sheet equal-order tie could flip.
 func sortCandidates(cands []ruleSel) {
-	slices.SortFunc(cands, func(a, b ruleSel) int {
-		if a.sheet != b.sheet {
-			return cmp.Compare(a.sheet, b.sheet)
+	slices.SortFunc(cands, func(left, right ruleSel) int {
+		if left.sheet != right.sheet {
+			return cmp.Compare(left.sheet, right.sheet)
 		}
 
-		if a.rule.Order != b.rule.Order {
-			return cmp.Compare(a.rule.Order, b.rule.Order)
+		if left.rule.Order != right.rule.Order {
+			return cmp.Compare(left.rule.Order, right.rule.Order)
 		}
 
-		return cmp.Compare(a.sel, b.sel)
+		return cmp.Compare(left.sel, right.sel)
 	})
 }
 
-// forEachClass calls fn for every class token in an HTML class attribute.
-func forEachClass(value string, fn func(string)) {
+// forEachClass calls visit for every class token in an HTML class attribute.
+// It splits on the same Unicode whitespace the selector matcher uses, so the
+// index never skips a class the matcher would accept.
+func forEachClass(value string, visit func(string)) {
 	for value != "" {
-		value = strings.TrimLeft(value, asciiSpace)
+		value = strings.TrimLeftFunc(value, unicode.IsSpace)
 
 		if value == "" {
 			return
 		}
 
-		end := strings.IndexAny(value, asciiSpace)
+		end := strings.IndexFunc(value, unicode.IsSpace)
 		if end < 0 {
-			fn(value)
+			visit(value)
 
 			return
 		}
 
-		fn(value[:end])
+		visit(value[:end])
 
 		value = value[end:]
 	}
 }
-
-const asciiSpace = " \t\r\n\f"

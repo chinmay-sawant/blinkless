@@ -26,11 +26,22 @@ A consumer that paints a screen raster opts in at the display-list boundary: `la
 
 ## Element patches
 
-`internal/layout.RelayoutSubtree` (`internal/layout/relayout_subtree.go:30`)
-places one element's subtree and returns a `Result` that holds only that
-subtree's operations and boxes. The public `layout.RelayoutElement`
-(`layout/relayout_element.go:73`) calls it with the display list the host
-holds, so the element is re-placed inside the layout the page already has.
+`internal/layout.RelayoutSubtree` (`internal/layout/relayout_subtree.go:55`)
+re-places one element's subtree inside the placement a `Result` already holds.
+It resolves the subtree's styles from the parent's resolved style, lays the
+element out in the width its kept box carries, splices the new operations over
+the range the old box owned, shifts the operation tail when the count changes,
+and updates the box tree and the ancestor ranges. The element keeps its place
+and its size; a change that moves or resizes it is refused, so the boxes after
+it stay valid.
+
+The public `layout.RelayoutElement` (`layout/relayout_element.go:80`) finds the
+element by id, calls `RelayoutSubtree`, and returns an `ElementPatch`. The patch
+carries the element's operations, owners, and boxes, its old and new bounds, and
+`Display`, the whole patched page. A host adopts `patch.Display`: a count change
+moves every later operation index and the paint order and owners with it. The
+element subset is for inspection, not manual splicing.
+
 `Display` keeps the placement it was built from in an unexported field
 (`layout/displaylist.go:215`) and the scale a print layout was fitted to in
 another (`layout/displaylist.go:220`), so a later patch uses the same scale as
@@ -46,18 +57,15 @@ patches asks for it, and `RelayoutElement` refuses a display without it
 
 The retained state is not free. On a page of 283 elements a display keeps
 579 KB alive with the retention on and 302 KB with it off, so the state costs
-277 KB per laid-out page. Most of that is the resolved styles: the style store
-keeps the distinct styles of a page in backing arrays, one `ResolvedStyle`
-record is 5872 bytes, and the first array holds eight records and the arrays
-grow from there to sixty four (`internal/layout/style.go:1063`). The rest is
-the box tree, about 420 bytes per element. The measurement is
-`BenchmarkDisplayRetainedBytes` in `layout/displaylist_retain_test.go`.
+277 KB per laid-out page on the machine that recorded the benchmark. Most of
+that is the resolved styles: the style store keeps the distinct styles of a
+page in backing arrays, one `ResolvedStyle` record is 5872 bytes, and the
+first array holds eight records and the arrays grow from there to sixty four
+(`internal/layout/style.go:1066`). The rest is the box tree, about 420 bytes
+per element. The measurement is `BenchmarkDisplayRetainedBytes` in
+`layout/displaylist_retain_test.go`.
 
-The current `RelayoutSubtree` is a shim: it re-places the whole document and
-keeps the element's part of the result. An engine implementation that patches
-the subtree in place replaces that file and keeps the exported contract.
-
-Two pieces of that work are already in the tree:
+The patch uses two pieces that already live in the engine:
 
 - `resolveStylesForSubtree` (`internal/layout/style_subtree.go:27`) cascades
   one subtree and no other branch, so a host can re-style one branch without
@@ -81,7 +89,7 @@ Two pieces of that work are already in the tree:
 - Block, inline, table, flex, grid, multicol, and float placement
 - The drawing list (`Op` / `DisplayOp`)
 - Font choice and glyph positions through `internal/fonts`
-- Paint appearance resolution for replay consumers: `StyleOf` (`internal/layout/paint_style.go:18`) resolves fill color, alpha, stroke width, and fake bold for an op, and `FakeBoldFor` (`:42`) answers the fake-bold question, which `layout.DisplayFakeBold` exposes (`layout/displaylist.go:471`)
+- Paint appearance resolution for replay consumers: `StyleOf` (`internal/layout/paint_style.go:18`) resolves fill color, alpha, stroke width, and fake bold for an op, and `FakeBoldFor` (`:42`) answers the fake-bold question, which `layout.DisplayFakeBold` exposes (`layout/displaylist.go:486`)
 
 ## What it does not own
 

@@ -539,12 +539,11 @@ type ruleHit struct {
 // matchedRules walks sheets with the cascade's gates (media, @container,
 // selector match, specificity). pseudoElem != "" matches ::before/::after
 // shapes instead of the element (pseudo-content path).
-//
-//nolint:wsl // cascade gates are intentionally evaluated in source order.
 func (ctx *styleContext) matchedRules(node *html.Node, pseudoElem string) []ruleHit {
 	if ctx == nil {
 		return nil
 	}
+
 	if ctx.pollContext() {
 		return nil
 	}
@@ -564,15 +563,7 @@ func (ctx *styleContext) matchedRules(node *html.Node, pseudoElem string) []rule
 		}
 
 		rule := cand.rule
-		if !css.MediaMatches(rule.Media, ctx.media, ctx.viewportW, ctx.viewportH) {
-			continue
-		}
-
-		if !ctx.containerGateMatches(node, rule) {
-			continue
-		}
-
-		if rule.Supports != nil && !css.SupportsMatches(rule.Supports, engineSupportsProperty) {
+		if !ctx.ruleGatesMatch(rule, node) {
 			continue
 		}
 
@@ -588,6 +579,20 @@ func (ctx *styleContext) matchedRules(node *html.Node, pseudoElem string) []rule
 	ctx.ruleHits = hits
 
 	return hits
+}
+
+// ruleGatesMatch reports whether one rule passes the non-selector gates the
+// cascade applies before matching a selector.
+func (ctx *styleContext) ruleGatesMatch(rule *css.Rule, node *html.Node) bool {
+	if !css.MediaMatches(rule.Media, ctx.media, ctx.viewportW, ctx.viewportH) {
+		return false
+	}
+
+	if !ctx.containerGateMatches(node, rule) {
+		return false
+	}
+
+	return rule.Supports == nil || css.SupportsMatches(rule.Supports, engineSupportsProperty)
 }
 
 // ruleIndex returns the pass's selector index, building it from the sheets on

@@ -6,13 +6,16 @@ import "testing"
 // its chunks small at first and that the pointers it handed out stay valid
 // when a later chunk is added.
 func TestStyleStoreChunksGrowAndKeepPointers(t *testing.T) {
+	t.Parallel()
+
 	store := &styleStore{}
 
 	const count = 40
 
 	pointers := make([]*ResolvedStyle, 0, count)
-	for i := range count {
-		style := ResolvedStyle{Color: [3]float64{float64(i), 0, 0}}
+
+	for index := range count {
+		style := ResolvedStyle{Color: [3]float64{float64(index), 0, 0}}
 		pointers = append(pointers, store.append(style))
 	}
 
@@ -20,13 +23,13 @@ func TestStyleStoreChunksGrowAndKeepPointers(t *testing.T) {
 		t.Fatalf("chunks = %d, want more than one for %d styles", len(store.chunks), count)
 	}
 
-	for i, ptr := range pointers {
-		if ptr == nil {
-			t.Fatalf("style %d has no record", i)
+	for index, pointer := range pointers {
+		if pointer == nil {
+			t.Fatalf("style %d has no record", index)
 		}
 
-		if got := ptr.Color[0]; got != float64(i) {
-			t.Fatalf("style %d reads %v, want %v", i, got, float64(i))
+		if got := pointer.Color[0]; got != float64(index) {
+			t.Fatalf("style %d reads %v, want %v", index, got, float64(index))
 		}
 	}
 
@@ -35,9 +38,9 @@ func TestStyleStoreChunksGrowAndKeepPointers(t *testing.T) {
 		t.Fatalf("the first chunk holds %d records, want %d", first, styleStoreFirstChunk)
 	}
 
-	for i, chunk := range store.chunks {
+	for index, chunk := range store.chunks {
 		if cap(chunk) > styleStoreChunkSize {
-			t.Fatalf("chunk %d holds %d records, want at most %d", i, cap(chunk), styleStoreChunkSize)
+			t.Fatalf("chunk %d holds %d records, want at most %d", index, cap(chunk), styleStoreChunkSize)
 		}
 	}
 }
@@ -45,6 +48,8 @@ func TestStyleStoreChunksGrowAndKeepPointers(t *testing.T) {
 // TestStyleStoreSharesDuplicateStyles checks that the store still interns an
 // exact duplicate, so a page with repeated shapes keeps one record.
 func TestStyleStoreSharesDuplicateStyles(t *testing.T) {
+	t.Parallel()
+
 	store := &styleStore{}
 
 	first := store.append(ResolvedStyle{Color: [3]float64{7, 0, 0}})

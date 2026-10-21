@@ -294,18 +294,28 @@ const relayoutOutOfFlowReason = "the subtree holds an out-of-flow box"
 // ancestor that establishes a containing block, so a box under a relative
 // stage inside the subtree is placed again by the subtree layout, while a box
 // under a positioned ancestor above the subtree is not.
+//
+// The walk starts at the box's parent: a box never establishes its own
+// containing block. A fixed box uses the viewport unless an ancestor inside
+// the subtree establishes one through transform or containment.
 func relayoutContainingBlockInside(node, rootNode *html.Node, styles map[*html.Node]*ResolvedStyle) bool {
 	if node == nil || rootNode == nil {
 		return false
 	}
 
-	for current := node; current != nil; current = current.Parent {
+	fixed := false
+
+	if style, ok := styles[node]; ok && style != nil {
+		fixed = style.Position == positionFixed
+	}
+
+	for current := node.Parent; current != nil; current = current.Parent {
 		if current.Type != html.ElementNode {
 			continue
 		}
 
 		style, ok := styles[current]
-		if ok && style != nil && establishesAbsCB(*style) {
+		if ok && relayoutCBAncestor(style, fixed) {
 			return true
 		}
 
@@ -315,6 +325,35 @@ func relayoutContainingBlockInside(node, rootNode *html.Node, styles map[*html.N
 	}
 
 	return false
+}
+
+// relayoutCBAncestor reports whether one ancestor establishes the containing
+// block of the out-of-flow box.
+func relayoutCBAncestor(style *ResolvedStyle, fixed bool) bool {
+	if style == nil {
+		return false
+	}
+
+	if fixed {
+		return fixedContainingBlock(*style)
+	}
+
+	return establishesAbsCB(*style)
+}
+
+// fixedContainingBlock reports whether one ancestor establishes a containing
+// block for a fixed box. Position alone does not: a fixed box against a
+// relative ancestor still uses the viewport.
+func fixedContainingBlock(style ResolvedStyle) bool {
+	if style.HasTransform {
+		return true
+	}
+
+	if containsLayout(style) {
+		return true
+	}
+
+	return containsPaint(style)
 }
 
 // relayoutSubtreeReason names the flow the style leaves, or an empty string

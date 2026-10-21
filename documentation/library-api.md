@@ -61,30 +61,39 @@ few distinct styles keeps a small array instead of a full one. The rest of the
 retained state is the box tree, about 420 bytes per element.
 
 `html.Document.SetAttribute(id, name, value)` writes one attribute on the
-element with that id and reports whether the element exists
-(`html/attribute.go:18`). `html.Document.SetText(id, text)` replaces the
-element's text content the way the DOM `textContent` setter does: one text
-node, every child dropped (`html/attribute.go:44`). Both edit the parsed tree
-in place, so the next cascade and the next layout see the change. An attribute
-the element already carries keeps its stored spelling, a new one is stored
-lowercased, and an empty attribute name changes nothing.
+element with that id. It returns false when no element has that id, or when the
+attribute name is empty (`html/attribute.go:18`). `html.Document.SetText(id,
+text)` replaces the element's text content the way the DOM `textContent` setter
+does: one text node, every child dropped (`html/attribute.go:44`). Both edit the
+parsed tree in place, so the next cascade and the next layout see the change.
+An attribute the element already carries keeps its stored spelling, a new one
+is stored lowercased, and an empty attribute name changes nothing.
 
 `layout.RelayoutElement(ctx, doc, prev, elementID, options)` returns an
 `ElementPatch` (`layout/relayout_element.go:34`):
 
 | Field | Meaning |
 |-------|---------|
+| `Display *Display` | The whole patched page. Adopt this display; it replaces `prev` |
 | `Ops []DisplayOp` | The patched element subtree's operations, in page coordinates, in source order |
 | `OpOwners []int` | The nearest owner box index for each operation, the rule `Display.OpOwners` uses |
 | `Boxes []Box` | The element's box and its descendants' boxes, in document order, in CSS pixels |
 | `Old image.Rectangle` | Where the element sat in `prev`, in CSS pixels |
 | `New image.Rectangle` | Where it sits after the patch, in CSS pixels |
 
-The patch holds the element subtree's operations, not the whole page. `Old` and
-`New` are whole CSS pixels, because the engine rounds the box when it reports
-the bounds (`layout/relayout_element.go:185`). The box list is the subtree on
-its own, so the patched element is the root of that list and its `ParentIndex`
-is -1 there.
+`Display` is the authoritative result. The engine splices the subtree into the
+retained placement, so the page's operation list, paint order, owners, boxes,
+and page breaks are rebuilt together. Copying `Ops` and `Boxes` into `prev` by
+hand is not the contract: the operation indices and owners after the element
+can move even when the element keeps its size.
+
+`Old` and `New` are whole CSS pixels, because the engine rounds the box when it
+reports the bounds (`layout/relayout_element.go:204`). A successful patch keeps
+the element in place and keeps its size, so `Old` and `New` are equal. Anything
+that moves or resizes the element is refused, and the caller needs a full
+layout. `Ops`, `OpOwners`, and `Boxes` describe the element subtree on its own,
+so its root box has `ParentIndex` -1. They are for inspection and diagnostics;
+a host that adopts `patch.Display` does not rebase them.
 
 The element is found by id in the styled document's tree, so the host edits the
 tree first. `options` carries the image resolver, so a host that resolves
@@ -95,41 +104,40 @@ a display without the retained layout state gives
 `layout.ErrNoRetainedState`, and a nil document or a nil context gives
 `layout.ErrNilDocument` or `layout.ErrNilContext`.
 
-### The guards before a host splices
+### When the engine refuses a patch
 
-A patch is safe to copy into the retained display when three things hold. The
-engine hands back the numbers for all three, and the host checks them.
+The engine patches one block subtree in place. It refuses, and returns an
+error, when the element is not a block box, when the document root carries the
+canvas fill, when the subtree holds a float, a sticky box, an anchored element,
+or a named flow, when an anchored box sits outside the subtree, when an
+ancestor carries a transform or an opacity below 1, or when the document uses
+`@container` rules. It also refuses when the placement would move or resize the
+element. Each refusal protects state the kept placement does not carry, so the
+host falls back to a full layout.
 
-1. The element is in both displays. `Old` and `New` are both non-empty. An
-   empty rectangle means the element was not in `prev`, or the patch placed
-   nothing.
-2. The box size did not change. `Old.Dx()` and `Old.Dy()` equal `New.Dx()` and
-   `New.Dy()`. A class that changes the width or the height moves the element,
-   and then the boxes of the elements after it are stale, so the host needs a
-   full relayout instead.
-3. The operation count and the kinds line up. The element's operations in
-   `prev` come from `Display.OpOwners`: an operation belongs to the element
-   when its owner is the element's box or a descendant of it. The count must
-   equal `len(patch.Ops)`, and the kinds must match one for one. A different
-   count shifts every later operation index, which breaks `Display.Order` and
-   `Display.OpOwners`.
+The refusal errors come from `internal/layout` and are wrapped by
+`RelayoutElement`. They are not exported sentinels. A host that wants to fall
+back should treat any `RelayoutElement` error as "lay the page out again". The
+exported sentinels cover caller mistakes: a nil display, a missing element, a
+display without retained state, a nil document, and a nil context.
 
-A patch that changes the background color of a card passes all three. A patch
-that adds a border, a shadow, or a child element does not: it changes the
-operation count, so the host falls back to a full relayout.
+`RelayoutElement` mutates the placement `prev` was built from and returns the
+fresh whole-page display. Use `patch.Display` after the call and treat `prev`
+as stale. The engine does not lock the retained state, so one display must not
+be patched from two goroutines at once.
 
 ### What the host does with the patch
 
-1. Copy `patch.Ops` over the element's operations in the retained display. The
-   count matches, so the operation indices after the element do not move.
-2. Copy `patch.Boxes` over the element's boxes in the retained display, and
-   leave the page's other boxes alone.
-3. Repaint the union of `patch.Old` and `patch.New`. That rectangle covers the
-   element before and after the change, so a restyled element leaves no stale
-   pixels.
+1. Replace the display the host holds with `patch.Display`.
+2. Repaint the union of `patch.Old` and `patch.New`. On a successful patch the
+   two rectangles are equal; the union covers the element before and after the
+   change.
+3. If the call returned an error, lay the page out again and replace the
+   display with that result.
 
-The engine hands back the element's part only, so the rest of the page keeps
-the boxes and the operations the host already had.
+The engine hands back the element's part as well, so a host can inspect the
+subtree without walking the whole page. The page the host draws is
+`patch.Display`.
 
 ## Errors
 

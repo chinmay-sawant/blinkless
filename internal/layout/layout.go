@@ -736,6 +736,7 @@ func (e *engine) faceFor(sty *ResolvedStyle) *pdf.Font {
 	if e.faceByStyle != nil {
 		if f, ok := e.faceByStyle[key]; ok {
 			e.lastFaceKey, e.lastFace, e.hasLastFace = key, f, true
+
 			return f
 		}
 	}
@@ -1033,7 +1034,7 @@ func (e *engine) pushZ(style ResolvedStyle, owner *ResolvedStyle) blendScope {
 		prevGroupOwner: e.blendGroupOwner,
 		beginMark:      -1,
 	}
-	createsGroupContext := style.MixBlendMode != blendNormal || style.Isolation == "isolate" ||
+	createsGroupContext := style.MixBlendMode != blendNormal || style.Isolation == unicodeBidiIsolate ||
 		maskGroupRequested(style)
 
 	if style.Position == positionAbsolute || style.Position == positionFixed {

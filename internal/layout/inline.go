@@ -629,6 +629,10 @@ func (e *engine) packInlineLine(
 	return idx, lineX, lineW, leftY
 }
 
+// inlineItemsGrowFactor grows the inline item slice geometrically when a split
+// needs more room, so repeated splits do not copy the slice every time.
+const inlineItemsGrowFactor = 2
+
 // spliceInlineParts replaces items[idx] with parts in place (grows the slice
 // when needed). Shared by soft-hyphen and overflow mid-token splits.
 func (e *engine) spliceInlineParts(items *[]inlineItem, idx int, parts []inlineItem) {
@@ -636,14 +640,16 @@ func (e *engine) spliceInlineParts(items *[]inlineItem, idx int, parts []inlineI
 	extra := len(parts) - 1
 
 	if need := oldLen + extra; need > cap(*items) {
-		grownCap := cap(*items) * 2
+		grownCap := cap(*items) * inlineItemsGrowFactor
 		if grownCap < need {
 			grownCap = need
 		}
+
 		grown := make([]inlineItem, oldLen, grownCap)
 		copy(grown, *items)
 		*items = grown
 	}
+
 	*items = (*items)[:oldLen+extra]
 
 	copy((*items)[idx+len(parts):], (*items)[idx+1:oldLen])
@@ -1354,8 +1360,6 @@ type inlineBlendScope struct {
 // items do not get their own box-layout pushZ call, so masks, isolation, and
 // mix-blend-mode must be scoped while their text and decorations are emitted.
 // popInlineBlend restores the previous blend mode, group, and owner.
-//
-//nolint:goconst // CSS isolation keyword and scope assignment are explicit
 func (e *engine) pushInlineBlend(style *ResolvedStyle) inlineBlendScope {
 	scope := inlineBlendScope{
 		prevBlend: e.blendMode,
@@ -1377,7 +1381,7 @@ func (e *engine) pushInlineBlend(style *ResolvedStyle) inlineBlendScope {
 	mode := nonNormalBlendMode(style.MixBlendMode)
 
 	hasMask := maskGroupRequested(*style)
-	if mode == "" && style.Isolation != "isolate" && !hasMask {
+	if mode == "" && style.Isolation != unicodeBidiIsolate && !hasMask {
 		return scope
 	}
 
@@ -1412,7 +1416,7 @@ func nonNormalBlendMode(mode string) string {
 }
 
 func (e *engine) applyBlendMode(style *ResolvedStyle, mode string) {
-	if style.Isolation == "isolate" {
+	if style.Isolation == unicodeBidiIsolate {
 		e.blendMode = ""
 	}
 
