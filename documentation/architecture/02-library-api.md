@@ -87,7 +87,7 @@ image paint is skipped (`layout/layout.go:23-33`).
 element of a styled document inside a display list the host already holds. It
 returns the element's new operations, its new boxes, its old and new bounds,
 and the whole patched page as `ElementPatch.Display`
-(`layout/relayout_element.go:80`). The host adopts that display, because the
+(`layout/relayout_element.go:82`). The host adopts that display, because the
 operation count, paint order, and owners can all move. The host edits the tree
 first with
 `html.Document.SetAttribute` or `html.Document.SetText`
@@ -104,35 +104,44 @@ The `Display` shape (`layout/displaylist.go:158-221`):
 | Field | Meaning |
 |-------|---------|
 | `Ops []DisplayOp` | Operations in source order |
+| `OpOwners []int` | Index into `Boxes` of the nearest element box that owns each operation; -1 when no element owns it |
 | `Order []int` | Indexes into `Ops` in paint order, ready to iterate |
 | `Boxes []Box` | Element border boxes in document order, CSS pixels |
+| `Keyframes []KeyframesRule` | Parsed `@keyframes` rules in source order; the last rule with a repeated name wins |
 | `Width`, `Height int` | Canvas size in CSS pixels |
 | `PointsPerPixel`, `PixelPerPoint float64` | Reciprocals converting op coordinates (points) to canvas pixels and back (72/96 and 96/72) |
+| `ForcedBreaks []float64` | Canvas-point Y positions where a page must start, sorted with near duplicates merged |
+| `KeepTogether [][2]float64` | Canvas-point `[start, end]` ranges a paginator should keep on one page |
 
-`Box` is `ID`, `Tag`, `Action`, `Text`, `X`, `Y`, `W`, `H`, with geometry in
-CSS pixels (`layout/layout.go:10-21`). Use boxes for hit testing and
-operations for painting.
+`Box` is `ID`, `Tag`, `Action`, `Text`, `ParentIndex`, `OperationIDs`, `X`,
+`Y`, `W`, `H`, with geometry in CSS pixels (`layout/layout.go:8-35`).
+`ParentIndex` points at the nearest element ancestor in `Display.Boxes`, or
+-1 at the top. `OperationIDs` names the ops the element's subtree emitted, so
+a host can capture an element without inferring ownership from rectangles.
+The same record carries `Animations`, `Transitions`, `TriggerScope`, and the
+`ViewTransition*` fields for hosts that sample motion metadata. Use boxes for
+hit testing and operations for painting.
 
 `DisplayOp` is the internal operation type under an exported alias
-(`layout/displaylist.go:22-55`). Coordinates are canvas points, y down. For
-text and bullet operations, Y is the baseline (`layout/displaylist.go:22-35`).
+(`layout/displaylist.go:64`). Coordinates are canvas points, y down. For
+text and bullet operations, Y is the baseline (`layout/displaylist.go:30-44`).
 The kinds cover rectangles, lines, text, images, link targets, bullets, and
-table grid runs (`layout/displaylist.go:65-97`). `DisplayOpNoop` (deactivated
+table grid runs (`layout/displaylist.go:122-150`). `DisplayOpNoop` (deactivated
 by clipping) and `DisplayOpUnknown` (blend or isolation boundary marker)
-paint nothing and must be skipped (`layout/displaylist.go:31-35`,
-`layout/displaylist.go:67-76`). Rare payloads sit behind accessors such as
+paint nothing and must be skipped (`layout/displaylist.go:122-130`). Rare
+payloads sit behind accessors such as
 `LinkURI`, `ImageBytes`, `ImageAlt`, `Transform`, and `Opacity`; the plain
-fields are safe to read (`layout/displaylist.go:37-49`).
+fields are safe to read (`layout/displaylist.go:46-59`).
 
 An image operation keeps its encoded bytes. When orientation or a clip cannot
 stay in those bytes, that one operation is re-encoded as a PNG. That is the
 bitmap fallback, and it is not a picture of the page (`layout/doc.go:6-9`,
-`layout/layout.go:26-32`).
+`layout/displaylist.go:223-228`).
 
 `DisplayList` and `DisplayListOptions` reject a nil context and a document
 that `css.Apply` did not produce: `layout.ErrNilContext` and
 `layout.ErrNilDocument` (`layout/errors.go:5-11`,
-`layout/displaylist.go:140-151`).
+`layout/displaylist.go:255-268`).
 
 ## Browser binding: `bindings/wasm`
 

@@ -30,3 +30,10 @@ There is no CLI in this tree. `cmd/` is empty and no Makefile target writes a CL
 - `make build`: `CGO_ENABLED=0 go build ./...` (Makefile `build` target). It compiles every package and writes no binary.
 - `make golden`: runs the public drawing-list tests in `./layout` (`TestDisplay`).
 - `make samples`: aliases `make golden` and writes nothing.
+
+## Site data
+
+`scripts/export-frontend-data` writes the two JSON files the site reads:
+`frontend/src/data/specimen.json` and `frontend/src/data/catalog.json`. Run it
+with `go run ./scripts/export-frontend-data`. The site build under `docs/` is
+separate from the engine build. See [../site-data.md](../site-data.md).

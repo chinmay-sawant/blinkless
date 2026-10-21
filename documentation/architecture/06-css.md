@@ -58,6 +58,7 @@ from `wc -l` (2026-10-09):
 | `css.go` | 1045 | Stylesheet/rule/selector/declaration model; top-level parser; at-rule dispatch (`@media`, `@container`, `@supports`, `@layer`, `@page`, `@font-face`, `@property`, `@import`, skip-others); block/paren scanning; `ParseSelectors`; specificity |
 | `selector_parser.go` | 637 | Selector-chain and compound parsing; attribute selectors incl. the ASCII `i` flag; pseudo classification; recursive `:has()`/`:not()`/`:is()`/`:where()` argument parsers (`appendIsWherePseudo`, `isWherePseudo`) |
 | `match.go` | 816 | Right-to-left matching (`Match`, `MatchState.Matches`, `MatchPseudo`, `matchPart`, `matchPseudos`, `matchPseudo` incl. `:is()`/`:where()` via `matchAnySelector`); `:nth-child`/of-type arithmetic; sibling scans (`getSiblingInfo`) |
+| `state_pseudos.go` | 59 | `UsesStatePseudos` scans every selector, including `:is()`, `:not()`, and `:has()` arguments, for `:hover`, `:active`, and `:focus`/`:focus-visible`/`:focus-within`; the public `css.Document.UsesStatePseudo` wraps it |
 | `import.go` | 107 | `@import` prelude parsing into `Stylesheet.Imports` (`parseImportRule`); never fetches |
 | `page_margin.go` | 223 | Lite unnamed `@page` margin-box parsing (`PageMarginBoxes`); quoted content strings only |
 | `values.go` | 825 | Declaration-block splitting (`ParseInline`); `!important`; length/number/color parsing; `var()` fallback + custom-property resolution; font-family splitting |
@@ -140,7 +141,7 @@ The two complementary roles are worth distinguishing early:
 | `ResolveCustomProps(declared, inherited map[string]string) map[string]string` | values.go:696 | The single place custom-property policy lives: overlay + memoized var expansion + cycle guard |
 | `ParseContainerNameValue(value string) string` | container.go:164 | `container-name: none | <custom-ident>+` |
 | `ParseContainerShorthand(value string) (name, ctype string)` | container.go:188 | `container: <name> [ / <type> ]?` |
-| `HasContainerRules(sheets []*Stylesheet) bool` | container.go:760 | Fast gate: does any sheet contain `@container` rules? (layout skips its second style pass when false, internal/layout/layout.go:1235) |
+| `HasContainerRules(sheets []*Stylesheet) bool` | container.go:760 | Fast gate: does any sheet contain `@container` rules? (layout skips its second style pass when false, internal/layout/layout.go:1233) |
 | `FontFaceURLs(src string) []string` | css.go:590 | Extract `url(...)` from an `@font-face src` (case-preserving) |
 | `SupportsMatches(cond *SupportsCondition, supported func(prop, value string) bool) bool` | at_supports.go:238 | Evaluate one parsed `@supports` condition; layout passes `engineSupportsProperty` as the predicate |
 | `EvalMath(value string, env MathEnv) (float64, bool)` | math_expr.go:29 | Evaluate `calc()`, `min()`, `max()`, `clamp()` to CSS pixels |
@@ -193,48 +194,54 @@ The two complementary roles are worth distinguishing early:
 
 The css package reports *matches and specificity*; layout performs the cascade:
 
-1. `matchedRules(node, pseudoElem)` (style_cascade.go:498) iterates every sheet
-   in order through `appendSheetRuleHits` (style_cascade.go:522), which calls
-   `css.MediaMatches(rule.Media, ctx.media, ctx.viewportW, ctx.viewportH)`
-   (style_cascade.go:535), `containerGateMatches` (style_cascade.go:539, using
-   `runic.Container.Cond.Matches(info.inlineSize, info.fontSize)`,
-   style_cascade.go:597), and the `@supports` gate
-   `css.SupportsMatches(rule.Supports, engineSupportsProperty)`
-   (style_cascade.go:543) before selector matching. Media, container, and
-   feature-query filtering is layered *on top of* the css package.
-2. `appendRuleSelectorHits` (style_cascade.go:556) loops selectors through
-   `selectorMatches` (style_cascade.go:576), which calls
-   `ctx.state.Matches`/`MatchesPseudo`, and records `css.Specificity`
-   (style_cascade.go:567) as the `ruleHit` triple.
-3. `cascadeRaw` (style_cascade.go:623) merges three tiers into one winner map:
+1. `matchedRules(node, pseudoElem)` (style_cascade.go:542) asks the pass's
+   `ruleIndex` (style_cascade.go:600) for candidates. The index is built once
+   per pass by `newRuleIndex` (style_rule_index.go:47), which buckets every
+   selector under its rightmost compound: an id, else the first class, else
+   the tag, else the universal bucket (`ruleBucket`, style_rule_index.go:35).
+   `candidates` (style_rule_index.go:142) returns the selectors whose
+   rightmost compound can match the node, and `sortCandidates`
+   (style_rule_index.go:173) restores sheet, rule, and selector order before
+   the cascade compares them.
+2. `ruleGatesMatch` (style_cascade.go:586) applies the `css.MediaMatches`
+   viewport gate, `containerGateMatches` (style_cascade.go:624, using
+   `runic.Container.Cond.Matches(info.inlineSize, info.fontSize)`), and the
+   `@supports` gate `css.SupportsMatches(rule.Supports,
+   engineSupportsProperty)` (style_cascade.go:595). `selectorMatches`
+   (style_cascade.go:614) then runs the full matcher through
+   `ctx.state.Matches`/`MatchesPseudo` (style_cascade.go:616), and
+   `css.Specificity` (style_cascade.go:575) supplies the `ruleHit` triple.
+   Media, container, and feature-query filtering is layered *on top of* the
+   css package.
+3. `cascadeRaw` (style_cascade.go:661) merges three tiers into one winner map:
    - UA sheet rules (hard-coded `uaRules`, priority `(0,0,0)` order `-1`);
    - author-sheet hits with `(a,b,c)` `r.Order` `r.Layer` `d.Important`;
    - inline style via `css.ParseInline(node.Attribute("style"))` with a
      sentinel specificity `1<<maxIntShift` described as "outranks all normal
-     declarations and all sheet important declarations" (style_cascade.go:655).
+     declarations and all sheet important declarations" (style_cascade.go:694).
 4. Every declaration passes the shared acceptance gate before it can win:
    `supportedDeclaration` (`style_value_accept.go:97`) checks the value
    against a per-property table (`declarationValueAccepted`,
    `style_value_accept.go:137`). The gate filters sheet declarations at
-   `style_cascade.go:647`, inline declarations at `style_cascade.go:658`, and
-   pseudo-element declarations at `style_cascade.go:712`, so an invalid later
+   `style_cascade.go:685`, inline declarations at `style_cascade.go:696`, and
+   pseudo-element declarations at `style_cascade.go:750`, so an invalid later
    declaration cannot replace an earlier valid one. The same predicate decides
    `@supports` value support in `engineSupportsProperty`
-   (style_cascade.go:1621): the property must have an apply arm in the
+   (style_cascade.go:1901): the property must have an apply arm in the
    style-group dispatch and its value must pass `supportedDeclaration`
-   (style_cascade.go:1626). The table is partial today; see §10 item 9.
-5. `applyCascadeWin` (style_cascade.go:1194) compares
+   (style_cascade.go:1906). The table is partial today; see §10 item 9.
+5. `applyCascadeWin` (style_cascade.go:1318) compares
    `(important ⇒ @layer rank ⇒ ids/classes/types ⇒ order)`: any `!important`
-   beats any normal value, then `layerBeats` (style_cascade.go:1247) ranks
+   beats any normal value, then `layerBeats` (style_cascade.go:1374) ranks
    layers before specificity. Rank 0 is unlayered and beats every ranked
    layer; among ranked layers, later-declared wins.
-6. Custom properties: `mergeCustomProps` (style_cascade.go:68) inherits parent
+6. Custom properties: `mergeCustomProps` (style_cascade.go:72) inherits parent
    values, extracts `--*` declarations, calls
    `css.ResolveCustomProps(declared, parentProps)`, and folds in `@property`
-   registrations (`applyRegisteredProps`, style_cascade.go:121);
-   `resolveRawVars` (style_cascade.go:170) then expands `var()` in ordinary
+   registrations (`applyRegisteredProps`, style_cascade.go:125);
+   `resolveRawVars` (style_cascade.go:174) then expands `var()` in ordinary
    values via `css.ResolveVars` with a lookup into the resolved custom-prop map
-   (style_cascade.go:212).
+   (style_cascade.go:215).
 7. Typed conversion happens later in `internal/layout` using `css.ParseLength`/
    `css.ParseColor` (style_properties.go:401, 1245), `css.ParseFontFamily`
    (style_values.go:83), and `css.ParseContainerNameValue`/
@@ -246,8 +253,8 @@ The css package reports *matches and specificity*; layout performs the cascade:
 
 - The **last part** must match `n` via `matchPart` (match.go:243): tag
   case-insensitive, `id` exact, every class a whitespace token
-  (`hasClassToken`, match.go:725; non-ASCII whitespace falls back to
-  `hasUnicodeClassToken`, match.go:754), every attribute selector
+  (`hasClassToken`, match.go:789; non-ASCII whitespace falls back to
+  `hasUnicodeClassToken`, match.go:818), every attribute selector
   (`matchAttrs`/`attrValueMatches`, match.go:324/355), every pseudo
   (`matchPseudos`/`matchPseudo`, match.go:298/420).
 - `matchPseudo` dispatches: tree pseudos via `matchTreePseudo`
@@ -324,7 +331,7 @@ whether it wins and what it does to line placement.
    the shorthand: `wrap`/`nowrap` go to `TextWrapMode`, every other token goes
    to `TextWrapStyle` (style_text_props.go:153-163). The longhand stores its
    lowercase value (style_text_props.go:25-26). The fields live on
-   `ResolvedStyle` (style.go:240-242) and inherit (style_cascade.go:279-281).
+   `ResolvedStyle` (style.go:284-285) and inherit (style_cascade.go:284-285).
 3. **Line placement.** `balanceCanApply` decides per paragraph whether
    balancing runs: the style must be `balance`, and the block must have no
    line clamp, no first-line indent, and no active left or right float
@@ -401,8 +408,8 @@ imports layout, convert, load, or settings. All viewport/media/container
 - `Stylesheet.Order` is owned by the parser (single sheet), but the cascade
   needs a document-global order across many sheets. Layout treats the order as
   per-sheet and relies on sheet iteration order for cross-sheet tiebreaks
-  (style_cascade.go:498, with the final `order` comparison in
-  `specificityBeats`, style_cascade.go:1268). Callers who build compound sheet
+  (style_cascade.go:542, with the final `order` comparison in
+  `specificityBeats`, style_cascade.go:1392). Callers who build compound sheet
   lists must keep document order intact (ResourceContext.CollectSheets does).
 - `Selector.spec` cache means **mutating a parsed Selector's parts after
   parsing yields stale specificity**; `Specificity` only falls back to a walk
@@ -469,13 +476,13 @@ imports layout, convert, load, or settings. All viewport/media/container
    (`MediaMatches`), a container's used size (layout), and a base font size
    (em/rem in `LengthToPt`, container.go:116). All are function arguments.
    This purity is what lets layout do container-query gating in two passes
-   (css only *reports* `HasContainerRules`, layout.go:1235) and what keeps css
+   (css only *reports* `HasContainerRules`, layout.go:1233) and what keeps css
    trivially fuzzable.
 
 8. **Micro-allocations matter in the hot path.** `matchPart`, `hasClasses`
    and `matchAttrs` are called once per (element, candidate-selector) pair;
    the class/word token scanning avoids `strings.Fields` allocations
-   (`containsWord`/`hasClassToken`, match.go:412/725, with a Unicode fallback
+   (`containsWord`/`hasClassToken`, match.go:455/789, with a Unicode fallback
    only on non-ASCII whitespace), the color parser scans channels in place
    (`parseRGBColor`, values.go:275), and `namedColorTable` is a cached global
    (color_names.go:10), all with explicit `//nolint:cyclop` notes explaining
@@ -511,7 +518,14 @@ imports layout, convert, load, or settings. All viewport/media/container
 - **Pseudo-element shapes**: `::before/::after` never match the host
   element (match.go:249 checks `part.PseudoElement != ""`), only through
   `MatchPseudo` used by layout's pseudo-content path (`pseudo_content.go`,
-  style_cascade.go:578).
+  style_cascade.go:616).
+- **State pseudo fast path**: `css.Document.UsesStatePseudo(name)`
+  (`css/state_pseudos.go:13`) asks whether any selector in the document can
+  match `hover`, `active`, or `focus`. `focus` covers `focus-visible` and
+  `focus-within` (`internal/css/state_pseudos.go:42`). A host uses it to skip
+  a redraw for state the page cannot paint. An unknown name or a nil document
+  answers true, so a caller that does not understand the state keeps the
+  redraw (`css/state_pseudos.go:15`).
 - **Runtime-state pseudos**: `:hover`/`:focus`/`:active` are kept on the
   compound and match only through the caller-supplied `MatchState` ids
   (match.go:447); `:target` and unknown pseudos stay unmatched (match.go:420).
@@ -584,7 +598,7 @@ Cross-package validation:
 
 - `internal/layout/*_test.go` and the fixtures under `testdata/golden/`
   exercise css end-to-end: `css.Parse` of embedded `<style>`, cascade output,
-  container gating (`layout.go:1235` + `containerGateMatches`), and
+  container gating (`layout.go:1233` + `containerGateMatches`), and
   pseudo-content via `MatchPseudo`. Fixtures 22/29/38 (float), 25/28/32-35
   (flex/grid), and 30/37 (orphans/widows) are cited by the compatibility matrix
   as evidence.
@@ -640,16 +654,25 @@ and documentation/deferred.md. Confirmed gaps in css itself:
    `spec` is set leaves the stale cache (field comment css.go:141-145, cache
    write at css.go:958; no current caller does this).
 7. **Layer rank scope and important ordering**: `!important` is resolved as a
-   single global tier over all normal declarations (style_cascade.go:1210); UA
+   single global tier over all normal declarations (style_cascade.go:1334); UA
    rules are a fixed lowest tier. `@layer` ranks are numbered per sheet
    (`Stylesheet.layerRank`, at_layer.go:64) and compared as integers before
-   specificity (`layerBeats`, style_cascade.go:1247), so layer names that
+   specificity (`layerBeats`, style_cascade.go:1374), so layer names that
    appear in multiple sheets rank independently.
-8. **Performance ceilings**: selector matching is O(selector parts × related
-   nodes) per element with no index (no class/id dispatch table); acceptable
-   for report documents, warned at 25k rules in preparation
-   (styles.go:72). The `ponytail:` notes (e.g. ContainerCond tree
-   simplification, container-name wire form) flag future internal cleanups.
+8. **Performance ceilings**: the cascade no longer tests every rule against
+   every element. `internal/layout/style_rule_index.go` buckets each selector
+   under its rightmost compound (an id, else the first class, else the tag,
+   else the universal bucket) for the element cascade and for `::before` and
+   `::after` (`ruleBucket`, style_rule_index.go:35; `newRuleIndex`, :47).
+   `candidates` (:142) returns the selectors whose rightmost compound can
+   match, and `sortCandidates` (:173) restores the sheet, rule, and selector
+   order so
+   equal-specificity ties keep the linear walk's result. The matcher still
+   walks every part of a candidate, and a universal rightmost compound still
+   lands in the universal bucket, so a page of universal selectors does not
+   benefit. Preparation still warns at 25k rules (styles.go:72). The
+   `ponytail:` notes (e.g. ContainerCond tree simplification, container-name
+   wire form) flag future internal cleanups.
 9. **Declaration acceptance (CSS-01b)**: `declarationValueAccepted`
    (style_value_accept.go:137), `extendedDeclarationValueAccepted`
    (style_value_accept.go:427), and `layoutDeclarationValueAccepted`
