@@ -17,3 +17,5 @@ Security hardening: [security checklist](v0.0.1/security/security-checklist.md).
 Release note: [v0.0.1 release note](v0.0.1/release-note/v0.0.1.md), with the [54-commit ledger](v0.0.1/release-note/commits.md). It covers `master` from `23061d8` through `c085b34`. Tag `v0.0.1` is `108c2c9`.
 
 Security release: [v0.0.2 release note](v0.0.2/release-note/v0.0.2.md), with the [commits after v0.0.1](v0.0.2/release-note/commits.md). Tag `v0.0.2`. At the tag, the `Makefile` binding stamps stayed `0.0.1`.
+
+Feature release draft: [v0.0.3 release note](v0.0.3/release-note/v0.0.3.md), with the [commits after v0.0.2](v0.0.3/release-note/commits.md). Tag `v0.0.3` follows the release PR merge.
