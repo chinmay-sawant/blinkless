@@ -7,10 +7,13 @@ compare tags to source version stamps.
 The imported 0.1.x through 0.2.x changelog entries predate this repository
 and are not listed here.
 
-## Unreleased (after 0.0.2)
+## Unreleased
+
+## 0.0.3 (2026-10-23)
 
 Work after tag `v0.0.2`, tracked in [`plans/v0.0.3/`](plans/v0.0.3/README.md).
-There is no v0.0.3 tag or release note yet.
+Release note:
+[`plans/v0.0.3/release-note/v0.0.3.md`](plans/v0.0.3/release-note/v0.0.3.md).
 
 ### Added
 
@@ -50,8 +53,8 @@ There is no v0.0.3 tag or release note yet.
   re-added and expanded, with generated catalog and specimen data
   (`04c167a`, `eba3139`).
 - **CSS catalog expansion.** The catalog moved from 389 implemented rows at
-  `v0.0.2` to 512 implemented, 46 partial, 219 unsupported, and 8
-  intentionally ignored. The catalog is dated 2026-10-19 and the upstream
+  `v0.0.2` to 555 implemented, 3 partial, 219 unsupported, and 8
+  intentionally ignored. The catalog is dated 2026-10-20 and the upstream
   pin is unchanged.
 
 ### Fixed
@@ -71,15 +74,14 @@ There is no v0.0.3 tag or release note yet.
 - **C shared-library binding.** `bindings/c`, `make c-shared`,
   `BINDINGS_VERSION`, and the generated `libblinkless` artifacts are
   removed. The engine is consumed through the Go packages and the WASM
-  binding. This removal is committed on the current branch and has not
-  shipped in a tag.
+  binding. This removal shipped in `v0.0.3`.
 
 ### Documentation and data
 
 - Catalog counts in `documentation/fidelity.md` and
   `documentation/compatibility-matrix.md` now match
-  `testdata/css/catalog/properties.json`: 785 rows, 512 implemented,
-  46 partial, 219 unsupported, 8 intentionally ignored.
+  `testdata/css/catalog/properties.json`: 785 rows, 555 implemented,
+  3 partial, 219 unsupported, 8 intentionally ignored.
 - `documentation/deferred.md` now points at the live `plans/` index and the
   v0.0.3 ledgers instead of the removed 0.2.x plans.
 - The frontend catalog and specimen data were regenerated, and the built
@@ -126,7 +128,7 @@ catalog is unchanged from 0.0.1.
 
 At `v0.0.2`, the C header still reported `BLINKLESS_VERSION "0.2.6"` and the
 Makefile binding stamps were `0.0.1`. The C binding was removed after this
-tag; see Unreleased.
+tag; see 0.0.3 above.
 
 ## 0.0.1 (2026-10-15)
 
@@ -183,7 +185,7 @@ not ship a `blinkless` command.
   re-encodes that one payload as a PNG when orientation or a clip requires
   it.
 - **Old frontend and docs.** `frontend/` and the built `docs/` site were
-  removed at 0.0.1. The site returned after 0.0.2; see Unreleased.
+  removed at 0.0.1. The site returned after 0.0.2; see 0.0.3 above.
 - **Old plans and `VERSION`.** The imported plan trees and the `VERSION`
   file were removed.
 - **PDF exports and Python helpers.** The C header dropped
