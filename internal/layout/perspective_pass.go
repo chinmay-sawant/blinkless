@@ -14,6 +14,40 @@ package layout
 // boxes are still filled here and skipped there. Reference: Chrome
 // 143.0.7499.40.
 func propagatePerspective(rootBox *box) {
+	walkPerspective(rootBox, nil)
+}
+
+// propagatePerspectiveFrom re-runs the pre-pass for one subtree. seed is the
+// nearest ancestor outside the subtree that carries a perspective, or nil.
+// Every box in the subtree has its computed camera fields cleared first, so an
+// override to none restores the camera the seed carries instead of keeping the
+// distance a previous stamp left on the box.
+func propagatePerspectiveFrom(rootBox, seed *box) {
+	clearPerspectiveFields(rootBox)
+	walkPerspective(rootBox, seed)
+}
+
+// clearPerspectiveFields drops the camera state the pre-pass computed on one
+// subtree. The fields are derived from the styles above the box, so the next
+// fill must start from nothing.
+func clearPerspectiveFields(boxNode *box) {
+	if boxNode == nil {
+		return
+	}
+
+	boxNode.perspDist = 0
+	boxNode.hasPerspDist = false
+	boxNode.perspCX = 0
+	boxNode.perspCY = 0
+
+	for _, child := range boxNode.children {
+		clearPerspectiveFields(child)
+	}
+}
+
+// walkPerspective fills each 3D-bearing descendant with the nearest ancestor
+// camera.
+func walkPerspective(rootBox, seed *box) {
 	if rootBox == nil {
 		return
 	}
@@ -42,7 +76,7 @@ func propagatePerspective(rootBox *box) {
 		}
 	}
 
-	walk(rootBox, nil)
+	walk(rootBox, seed)
 }
 
 // perspectiveFlattenArgs selects the flatten3D camera for one 3D box: the

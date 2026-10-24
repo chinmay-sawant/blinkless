@@ -1262,6 +1262,105 @@ func ApplyTranslate(style *ResolvedStyle, value string, fsize float64) bool {
 	return true
 }
 
+// stampState is the transform state a stamp walk carries into one box. It is
+// the part of a stamp run that a subtree root needs from the boxes above it,
+// so a restamp can start in the middle of the tree with the same state the
+// full walk would have had.
+type stampState struct {
+	// parentAccum is the matrix stamped on the parent's exclusive operations,
+	// the base a flat box composes onto.
+	parentAccum Matrix2D
+	// viewport is the nearest SVG viewport for transform-box:view-box.
+	viewport svgViewport
+	// chain, chainActive, chainBase, and worldChain carry the preserve-3d
+	// state: the composed 3D chain, whether it is active, the 2D base the
+	// chain flattens onto, and the chain in page coordinates.
+	chain       matrix3D
+	chainActive bool
+	chainBase   Matrix2D
+	worldChain  matrix3D
+}
+
+// initialStampState returns the state a stamp run starts in. The root viewport
+// is unset: the root has no SVG ancestor, so a view-box origin on a top-level
+// box falls back to the border box.
+func initialStampState(parentAccum Matrix2D) stampState {
+	return stampState{
+		parentAccum: parentAccum,
+		viewport:    svgViewport{}, //nolint:exhaustruct // unset viewport
+		chain:       identity3D(),
+		chainActive: false,
+		chainBase:   IdentityMatrix(),
+		worldChain:  identity3D(),
+	}
+}
+
+// stampBoxStep is what one box contributes to a stamp run: the matrix its own
+// operations get and the state its children inherit.
+type stampBoxStep struct {
+	accum          Matrix2D
+	parentAccum    Matrix2D
+	viewport       svgViewport
+	worldChain     matrix3D
+	chain          matrix3D
+	chainFacing    float64
+	useChainFacing bool
+	preservePath   bool
+	chainActive    bool
+	isPreserve     bool
+	child          stampState
+}
+
+// advanceStamp computes one box's stamp step and the state its children
+// inherit. The full walk and the subtree seed both go through it, so a restamp
+// cannot drift from the static path.
+func advanceStamp(boxNode *box, state stampState) stampBoxStep {
+	sty := boxNode.style
+	has3D := sty != nil && sty.HasTransform3D
+	isPreserve := isPreserveBox(boxNode)
+
+	markPreserveComposed(boxNode, has3D, state.chainActive, isPreserve)
+
+	preservePath := state.chainActive || isPreserve
+
+	boxWorldChain := state.worldChain
+	if preservePath {
+		boxWorldChain = boxWorldChain.mul(worldTransform3DForBox(boxNode, state.viewport))
+	}
+
+	accum2D := boxTransformAccum(boxNode, state.parentAccum, state.viewport)
+	accum, childChain, childBase, childActive := preserveStep(
+		boxNode, accum2D, state.chain, state.chainActive, isPreserve, state.viewport, state.chainBase)
+
+	childViewport := childViewportForBox(boxNode, state.viewport)
+
+	childParent, childWorldChain := stampChildState(
+		preservePath, state.chainActive, childActive, accum, state.parentAccum, boxWorldChain)
+
+	chainFacing, useChainFacing := composedChainFacing(boxNode, state.chain, state.chainActive, has3D, state.viewport)
+
+	return stampBoxStep{
+		accum:          accum,
+		parentAccum:    state.parentAccum,
+		viewport:       state.viewport,
+		worldChain:     boxWorldChain,
+		chain:          state.chain,
+		chainFacing:    chainFacing,
+		useChainFacing: useChainFacing,
+		preservePath:   preservePath,
+		chainActive:    state.chainActive,
+		isPreserve:     isPreserve,
+		child: stampState{
+			parentAccum: childParent,
+			viewport:    childViewport,
+			chain:       childChain,
+			chainActive: childActive,
+			chainBase:   childBase,
+			worldChain:  childWorldChain,
+		},
+	}
+}
+
 // stampBoxTransforms walks the laid-out tree and stamps composed 2D
 // transform matrices (origin baked) onto display-list ops. Parent transforms
 // compose around children; sibling flow geometry is unchanged. Preserve-3d
@@ -1272,19 +1371,26 @@ func ApplyTranslate(style *ResolvedStyle, value string, fsize float64) bool {
 // multi-page tables allocate tens of thousands of boxes and the map path was
 // a top alloc_space hotspot.
 func stampBoxTransforms(boxNode *box, parentAccum Matrix2D, ops []Op, media string) {
+	stampTree(boxNode, initialStampState(parentAccum), ops, media, false)
+}
+
+// restampBoxTransforms runs the stamp walk on one subtree with a state the
+// full walk produced. restamp keeps opacity out of the pass and leaves a
+// back-face visible: the operations already carry the opacity their first
+// stamp applied, and a culled face cannot be brought back from a rewritten op.
+func restampBoxTransforms(boxNode *box, state stampState, ops []Op, media string) {
+	stampTree(boxNode, state, ops, media, true)
+}
+
+// stampTree allocates the coverage mask and starts one stamp run.
+func stampTree(boxNode *box, state stampState, ops []Op, media string, restamp bool) {
 	if boxNode == nil || len(ops) == 0 {
 		return
 	}
 
 	covered := make([]bool, len(ops))
-	// rootViewport starts unset: the root has no SVG ancestor, so a
-	// view-box origin on a top-level box falls back to the border box.
-	var rootViewport svgViewport
 
-	stampBoxTransformsRec(
-		boxNode, parentAccum, ops, covered, rootViewport, identity3D(),
-		false, IdentityMatrix(), identity3D(), media,
-	)
+	stampBoxTransformsRec(boxNode, state, ops, covered, media, restamp)
 }
 
 // translate3D returns a 3D translation by tx, ty, tz points.
@@ -1493,55 +1599,32 @@ func markPreserveComposed(boxNode *box, has3D, chainActive, isPreserve bool) {
 }
 
 func stampBoxTransformsRec(
-	boxNode *box, parentAccum Matrix2D, ops []Op, covered []bool, viewport svgViewport,
-	chain matrix3D, chainActive bool, chainBase Matrix2D, worldChain matrix3D, media string,
+	boxNode *box, state stampState, ops []Op, covered []bool, media string, restamp bool,
 ) {
 	if boxNode == nil {
 		return
 	}
 
-	sty := boxNode.style
-	has3D := sty != nil && sty.HasTransform3D
-	isPreserve := isPreserveBox(boxNode)
-
-	markPreserveComposed(boxNode, has3D, chainActive, isPreserve)
-
-	preservePath := chainActive || isPreserve
-
-	boxWorldChain := worldChain
-	if preservePath {
-		boxWorldChain = boxWorldChain.mul(worldTransform3DForBox(boxNode, viewport))
-	}
-
-	accum2D := boxTransformAccum(boxNode, parentAccum, viewport)
-	accum, childChain, childBase, childActive := preserveStep(
-		boxNode, accum2D, chain, chainActive, isPreserve, viewport, chainBase)
-
-	// An <svg> box establishes a viewport for its subtree; the box's own
-	// transform still resolves against the ancestor viewport above.
-	childViewport := childViewportForBox(boxNode, viewport)
-
-	childParent, childWorldChain := stampChildState(
-		preservePath, chainActive, childActive, accum, parentAccum, boxWorldChain)
+	step := advanceStamp(boxNode, state)
 
 	for _, c := range boxNode.children {
-		stampBoxTransformsRec(
-			c, childParent, ops, covered, childViewport, childChain,
-			childActive, childBase, childWorldChain, media,
-		)
+		stampBoxTransformsRec(c, step.child, ops, covered, media, restamp)
 	}
 
 	// Mark child-owned ranges, stamp exclusive ops, then clear for siblings.
 	markChildrenOpsCovered(boxNode, ops, covered, true)
 
-	chainFacing, useChainFacing := composedChainFacing(boxNode, chain, chainActive, has3D, viewport)
 	stampBoxTransformOps(
-		boxNode, preservePath, chainActive, isPreserve, accum, parentAccum, boxWorldChain,
-		ops, covered, chainFacing, useChainFacing, viewport, media,
+		boxNode, step, ops, covered, media, restamp,
 	)
 
-	stampExclusiveOpacityOps(boxNode, ops, covered)
-	stampCoveredOpacityOps(boxNode, ops, covered)
+	// The first stamp already folded each element's opacity into its
+	// operations. A restamp changes transforms only, so folding it again
+	// would multiply the same opacity into the same op on every frame.
+	if !restamp {
+		stampExclusiveOpacityOps(boxNode, ops, covered)
+		stampCoveredOpacityOps(boxNode, ops, covered)
+	}
 
 	markChildrenOpsCovered(boxNode, ops, covered, false)
 }
@@ -1587,32 +1670,37 @@ func markChildrenOpsCovered(boxNode *box, ops []Op, covered []bool, record bool)
 // stampBoxTransformOps applies the box's exclusive ops transform: the shared
 // preserve chain when preservePath is set, the per-level 2D accum otherwise.
 func stampBoxTransformOps(
-	boxNode *box, preservePath, chainActive, isPreserve bool, accum, parentAccum Matrix2D,
-	boxWorldChain matrix3D, ops []Op, covered []bool, chainFacing float64,
-	useChainFacing bool, viewport svgViewport, media string,
+	boxNode *box, step stampBoxStep, ops []Op, covered []bool, media string, restamp bool,
 ) {
-	if !preservePath {
-		stampExclusiveTransformOps(boxNode, accum, ops, covered, chainFacing, useChainFacing, media)
-		stampProjectiveTransformOps(boxNode, parentAccum, ops, viewport)
+	if !step.preservePath {
+		stampExclusiveTransformOps(
+			boxNode, step.accum, ops, covered, step.chainFacing, step.useChainFacing, media, !restamp)
+		stampProjectiveTransformOps(boxNode, step.parentAccum, ops, step.viewport)
 
 		return
 	}
 
-	stampExclusiveTransformOps(boxNode, IdentityMatrix(), ops, covered, chainFacing, useChainFacing, media)
+	stampExclusiveTransformOps(
+		boxNode, IdentityMatrix(), ops, covered, step.chainFacing, step.useChainFacing, media, !restamp)
 
 	exclusive := true
-	if chainActive && !isPreserve {
+	if step.chainActive && !step.isPreserve {
 		exclusive = false
 	}
 
-	stampPreserveTransformRange(boxNode, boxWorldChain, parentAccum, ops, covered, exclusive, viewport)
+	stampPreserveTransformRange(
+		boxNode, step.worldChain, step.parentAccum, ops, covered, exclusive, step.viewport)
 }
 
-func stampProjectiveTransformOps(
-	boxNode *box, parentAccum Matrix2D, ops []Op, viewport svgViewport,
-) {
+// projectiveStampForBox returns the projective matrix a box stamps over its
+// whole operation range: its own 3D transform flattened through the inherited
+// camera, its 2D bake, and the parent accumulation. The boolean is false when
+// the box has no 3D transform or no perspective camera to project it with.
+func projectiveStampForBox(
+	boxNode *box, parentAccum Matrix2D, viewport svgViewport,
+) (ProjectiveTransform, bool) {
 	if boxNode == nil || boxNode.style == nil || !boxNode.style.HasTransform3D || boxNode.preserveComposed {
-		return
+		return ProjectiveTransform{}, false //nolint:exhaustruct // no projection
 	}
 
 	style := boxNode.style
@@ -1621,13 +1709,23 @@ func stampProjectiveTransformOps(
 	dist, vanishX, vanishY := perspectiveFlattenArgs(boxNode, transform, originX, originY)
 
 	if dist <= 0 {
-		return
+		return ProjectiveTransform{}, false //nolint:exhaustruct // orthographic: no projective matrix
 	}
 
 	projective := projectiveTransform3D(transform, originX, originY, vanishX, vanishY, dist)
 	local := BakeOrigin(withPercentTranslate(style, boxNode), originX, originY)
 	projective = composeProjectiveAffine(projective, local)
-	projective = composeProjectiveAffine(projective, parentAccum)
+
+	return composeProjectiveAffine(projective, parentAccum), true
+}
+
+func stampProjectiveTransformOps(
+	boxNode *box, parentAccum Matrix2D, ops []Op, viewport svgViewport,
+) {
+	projective, ok := projectiveStampForBox(boxNode, parentAccum, viewport)
+	if !ok {
+		return
+	}
 
 	end := min(boxNode.opEnd, len(ops)-1)
 	for idx := boxNode.opStart; idx <= end; idx++ {
@@ -1674,13 +1772,16 @@ func boxOwnsOps(boxNode *box) bool {
 
 // stampExclusiveTransformOps applies the accumulated transform to ops owned
 // exclusively by boxNode; child-owned ops keep the child's own transform.
+// A restamp passes cull=false: it must not destroy an operation's geometry,
+// because a later frame cannot bring a zeroed op back.
 func stampExclusiveTransformOps(
-	boxNode *box, accum Matrix2D, ops []Op, covered []bool, chainFacing float64, useChainFacing bool, media string,
+	boxNode *box, accum Matrix2D, ops []Op, covered []bool,
+	chainFacing float64, useChainFacing bool, media string, cull bool,
 ) {
 	// Chrome 143.0.7499.40 culls hidden back faces on screen but paints them
 	// in print-to-PDF. Keep screen culling here and preserve those ops for print.
 	isPrint := strings.EqualFold(strings.TrimSpace(media), "print")
-	if !isPrint && backfaceCulled(boxNode, chainFacing, useChainFacing) {
+	if cull && !isPrint && backfaceCulled(boxNode, chainFacing, useChainFacing) {
 		zeroExclusiveOps(boxNode, ops, covered)
 
 		return

@@ -608,6 +608,21 @@ type ResolvedStyle struct {
 	// aligns their comma-separated lists.
 	Animation  animationStyle
 	Transition transitionStyle
+	// Named timeline declarations (CSS Scroll-driven Animations). The names
+	// are dashed idents; "" is the initial none. Neither name is inherited.
+	// Each axis keeps the declared keyword (block | inline | x | y) and
+	// resolves to a physical axis at export, where the writing mode is used.
+	// The insets are layout points; a Set flag is false for the auto initial.
+	// One element may declare both a scroll and a view timeline.
+	ScrollTimelineName string
+	ScrollTimelineAxis string
+	ViewTimelineName   string
+	ViewTimelineAxis   string
+
+	ViewTimelineInsetStart    float64
+	ViewTimelineInsetEnd      float64
+	ViewTimelineInsetStartSet bool
+	ViewTimelineInsetEndSet   bool
 }
 
 const (
@@ -814,6 +829,10 @@ func initialStyle() ResolvedStyle { //nolint:funlen // complete CSS initial-valu
 		AlignmentBaseline:          "auto",
 		ColorInterpolation:         "srgb",
 		ColorInterpolationFilters:  "srgb",
+		// The timeline axes start at the CSS initial block axis; the physical
+		// axis is chosen at export from the writing mode.
+		ScrollTimelineAxis: timelineAxisBlock,
+		ViewTimelineAxis:   timelineAxisBlock,
 	}
 }
 

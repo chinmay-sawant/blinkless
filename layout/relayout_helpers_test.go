@@ -63,6 +63,8 @@ func layRetained(t *testing.T, styled *css.Document) *layout.Display {
 }
 
 // displayAt applies source at one viewport and lays it out.
+//
+//nolint:unparam // focus is part of the shared layout call shape
 func displayAt(t *testing.T, source string, width, height int, focus, hover, active string) *layout.Display {
 	t.Helper()
 

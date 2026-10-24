@@ -166,6 +166,10 @@ func specialDeclarationValueAccepted(prop, value string) (bool, bool) {
 		return accepted, true
 	}
 
+	if accepted, handled := timelineDeclarationValueAccepted(prop, value); handled {
+		return accepted, true
+	}
+
 	if accepted, handled := transitionDeclarationValueAccepted(prop, value); handled {
 		return accepted, true
 	}

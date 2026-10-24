@@ -176,6 +176,10 @@ type Result struct {
 	// lets a later run re-lay out one subtree without resolving the whole
 	// document again.
 	styles map[*html.Node]*ResolvedStyle
+	// svgRasters caches the raster of a serialized inline SVG across paint
+	// restyles. It is created on the first RestyleSVGPaint and dropped with
+	// the Result, so it never outlives the layout it belongs to.
+	svgRasters *svgRasterCache
 	// rootBox is the root of the element box tree. It is the same box as
 	// root and the entry point for the subtree lookups in layout_state.go
 	// (boxForID, nodeForID).
@@ -233,6 +237,9 @@ func CloneResult(res *Result) *Result {
 
 	clone := *res
 	clone.Ops = cloneOps(res.Ops)
+	// A clone is an independent pagination result, so it starts without the
+	// source's raster cache instead of sharing a mutable map of payloads.
+	clone.svgRasters = nil
 	clone.Pages = cloneIndexPages(res.Pages)
 	clone.Locations = append([]ElementLocation(nil), res.Locations...)
 	clone.flowPages = cloneIndexPages(res.flowPages)
@@ -1322,26 +1329,26 @@ func (e *engine) styleVal(node *html.Node) ResolvedStyle {
 }
 
 // HorizChrome returns unscaled horizontal padding plus border width.
-func (s *ResolvedStyle) HorizChrome() float64 {
-	if s == nil {
+func (style *ResolvedStyle) HorizChrome() float64 {
+	if style == nil {
 		return 0
 	}
 
-	return s.PaddingLeft + s.PaddingRight + s.BorderLeft.Width + s.BorderRight.Width
+	return style.PaddingLeft + style.PaddingRight + style.BorderLeft.Width + style.BorderRight.Width
 }
 
 // horizontalChrome returns the scaled horizontal padding and border width for
 // sizing helpers.
-func (s *ResolvedStyle) horizontalChrome(eng *engine) float64 {
-	return eng.scalePt(s.PaddingLeft) + eng.scalePt(s.PaddingRight) +
-		eng.scalePt(s.BorderLeft.Width) + eng.scalePt(s.BorderRight.Width)
+func (style *ResolvedStyle) horizontalChrome(eng *engine) float64 {
+	return eng.scalePt(style.PaddingLeft) + eng.scalePt(style.PaddingRight) +
+		eng.scalePt(style.BorderLeft.Width) + eng.scalePt(style.BorderRight.Width)
 }
 
 // verticalChrome returns the scaled vertical padding and border width for
 // sizing helpers.
-func (s *ResolvedStyle) verticalChrome(eng *engine) float64 {
-	return eng.scalePt(s.PaddingTop) + eng.scalePt(s.PaddingBottom) +
-		eng.scalePt(s.BorderTop.Width) + eng.scalePt(s.BorderBottom.Width)
+func (style *ResolvedStyle) verticalChrome(eng *engine) float64 {
+	return eng.scalePt(style.PaddingTop) + eng.scalePt(style.PaddingBottom) +
+		eng.scalePt(style.BorderTop.Width) + eng.scalePt(style.BorderBottom.Width)
 }
 
 // buildWithStyle builds node with an engine-local style override. The override

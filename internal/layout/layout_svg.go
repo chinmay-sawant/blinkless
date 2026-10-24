@@ -2,10 +2,15 @@
 package layout
 
 import (
+	"context"
 	"fmt"
+	"maps"
+	"math"
+	"slices"
 	"strconv"
 	"strings"
 
+	"github.com/chinmay-sawant/blinkless/internal/errs"
 	"github.com/chinmay-sawant/blinkless/internal/html"
 	"github.com/chinmay-sawant/blinkless/internal/svg"
 )
@@ -120,13 +125,21 @@ func parseSVGLengthPx(raw string) float64 {
 // serializeInlineSVG emits SVG XML for canvas rasterization, baking resolved
 // fill/stroke presentation props onto each element as attributes.
 func (e *engine) serializeInlineSVG(node *html.Node) []byte {
+	return e.serializeInlineSVGWithPaint(node, nil)
+}
+
+// serializeInlineSVGWithPaint is serializeInlineSVG with one restyle pass. The
+// pass carries the used styles of the overridden elements and the paint
+// properties whose authored presentation attribute the override replaces. A
+// nil pass leaves the serialization byte for byte unchanged.
+func (e *engine) serializeInlineSVGWithPaint(node *html.Node, paint *svgPaintPass) []byte {
 	var b strings.Builder
-	e.writeSVGNode(&b, node)
+	e.writeSVGNode(&b, node, paint)
 
 	return []byte(b.String())
 }
 
-func (e *engine) writeSVGNode(b *strings.Builder, node *html.Node) {
+func (e *engine) writeSVGNode(b *strings.Builder, node *html.Node, paint *svgPaintPass) {
 	if node == nil {
 		return
 	}
@@ -146,11 +159,19 @@ func (e *engine) writeSVGNode(b *strings.Builder, node *html.Node) {
 		if node.Name == "path" {
 			_, suppressDAttr = svgCSSPathData(node.Attribute("style"))
 		}
-		for k, v := range node.Attrs {
+		// Attributes are written in sorted order so the serialization is
+		// stable across calls: node.Attrs is a map, and the restyle raster
+		// cache keys on the serialized document, so a random order would let
+		// an unchanged element miss the cache on every pass.
+		for _, k := range slices.Sorted(maps.Keys(node.Attrs)) {
+			v := node.Attrs[k]
 			if k == "style" {
 				continue
 			}
 			if k == "d" && suppressDAttr {
+				continue
+			}
+			if paint.suppresses(node, k) {
 				continue
 			}
 			b.WriteByte(' ')
@@ -163,7 +184,7 @@ func (e *engine) writeSVGNode(b *strings.Builder, node *html.Node) {
 		if node.Name == cssTagSVG && !written["xmlns"] {
 			b.WriteString(` xmlns="http://www.w3.org/2000/svg"`)
 		}
-		e.writeSVGPresentationAttrs(b, node, written)
+		e.writeSVGPresentationAttrs(b, node, written, paint)
 		writeSVGExtraPresentationAttrs(b, node, written)
 		if len(node.Children) == 0 {
 			b.WriteString("/>")
@@ -171,7 +192,7 @@ func (e *engine) writeSVGNode(b *strings.Builder, node *html.Node) {
 		}
 		b.WriteByte('>')
 		for _, c := range node.Children {
-			e.writeSVGNode(b, c)
+			e.writeSVGNode(b, c, paint)
 		}
 		b.WriteString("</")
 		b.WriteString(node.Name)
@@ -179,13 +200,19 @@ func (e *engine) writeSVGNode(b *strings.Builder, node *html.Node) {
 	}
 }
 
-func (e *engine) writeSVGPresentationAttrs(b *strings.Builder, node *html.Node, written map[string]bool) {
+func (e *engine) writeSVGPresentationAttrs(
+	b *strings.Builder, node *html.Node, written map[string]bool, paint *svgPaintPass,
+) {
 	if !e.hasStyle(node) {
 		return
 	}
 
 	st := e.stylePtr(node)
-	if st.FillSet && !written["fill"] {
+	if paint.paintsNoFill(node) {
+		if !written["fill"] {
+			b.WriteString(` fill="none"`)
+		}
+	} else if st.FillSet && !written["fill"] {
 		if st.FillOpacity == 0 && st.Fill == [3]float64{} {
 			b.WriteString(` fill="none"`)
 		} else {
@@ -603,17 +630,958 @@ func escapeXML(s string) string {
 }
 
 // collectInlineSVGItem flattens an inline <svg> into one replaced inline item.
-// paint=false so emitInlineImage places the bitmap at the line position.
+// paint=false so emitInlineImage places the bitmap at the line position. The
+// built box rides along in the item; the line attributes the raster op to it so
+// the element keeps a retained box.
 func (e *engine) collectInlineSVGItem(node *html.Node, sty ResolvedStyle, out *[]inlineItem) {
 	svgBox := e.buildInlineSVG(node, sty, 0, 0, false)
 	*out = append(*out, inlineItem{ //nolint:exhaustruct // intentional zero fields
 		img: true, w: svgBox.w, h: svgBox.height, style: e.stylePtr(node),
 		imgRef:  svgBox.img,
+		svgBox:  svgBox,
 		marginL: e.scalePt(sty.MarginLeft), marginR: e.scalePt(sty.MarginRight),
 		marginT: e.scalePt(sty.MarginTop), marginB: e.scalePt(sty.MarginBottom),
 		// Replaced elements rest their bottom margin edge on the baseline.
 		marginBaseline: true,
 	})
+}
+
+// attributeInlineSVGBox retains the box of an inline-level <svg> and
+// attributes the image op the line just emitted to it. The range starts at the
+// item's first border op and ends on the raster, the same chrome-then-content
+// order a block-level SVG keeps, so boxForID finds the element through the
+// ordinary box tree walk and svgImageOpIndex can replace the payload. Nothing
+// is attached when the line emitted no raster (noEmit, a hidden style, or a
+// failed decode), which keeps a missing SVG missing instead of faking a box.
+func (e *engine) attributeInlineSVGBox(item *inlineItem, parent *box, start int, leftX, top float64) {
+	boxNode := item.svgBox
+	if boxNode == nil || parent == nil || start < 0 || start >= len(e.ops) {
+		return
+	}
+
+	end := len(e.ops) - 1
+	if end < start || e.ops[end].Kind != OpImage {
+		return
+	}
+
+	boxNode.x = leftX
+	boxNode.y = top
+	boxNode.w = item.w
+	boxNode.height = item.h
+	boxNode.opStart = start
+	boxNode.opEnd = end
+	parent.children = append(parent.children, boxNode)
+}
+
+// SVGPaintOverride restyles the used paint of one inline <svg> element or of
+// one SVG part inside it. The Has* flags select the properties the override
+// changes; a field whose flag is false keeps the used value the cascade
+// produced.
+type SVGPaintOverride struct {
+	// ElementID is the id of the <svg> element to restyle.
+	ElementID string
+	// PartID is the id of one element inside the SVG subtree. Empty means
+	// the <svg> root.
+	PartID string
+
+	Fill             string
+	FillOpacity      float64
+	Stroke           string
+	StrokeOpacity    float64
+	StrokeWidth      float64
+	StrokeDashArray  string
+	StrokeDashOffset float64
+
+	HasFill, HasFillOpacity     bool
+	HasStroke, HasStrokeOpacity bool
+	HasStrokeWidth              bool
+	HasStrokeDashArray          bool
+	HasStrokeDashOffset         bool
+}
+
+// SVGPaintRequest is one inline <svg> element and the overrides to apply to
+// it. A request that changes no paint property is skipped.
+type SVGPaintRequest struct {
+	Node      *html.Node
+	Overrides []SVGPaintOverride
+}
+
+// SVGPaintResult is the engine-side outcome of restyling one inline <svg>.
+type SVGPaintResult struct {
+	// Element carries the restyled element's operations and boxes after the
+	// patch. Its operation slice aliases the patched Result.
+	Element *Result
+	// OldImage and NewImage are the image operation before and after the
+	// restyle. A paint change replaces the encoded payload and the raster
+	// pixel bounds, not the painted rectangle.
+	OldImage Op
+	NewImage Op
+}
+
+// RestyleSVGPaint re-serializes and re-rasterizes inline <svg> elements with
+// paint overrides applied to their used styles, then replaces the image
+// payloads in prev. It does not re-cascade CSS and does not re-place the
+// element: a paint change does not change the SVG's intrinsic size.
+//
+// Both a block-level SVG and an inline-level SVG work. An inline-level icon
+// keeps the box the line built at collection time; the line attributes its
+// raster op to that box, so the box tree holds it exactly like a block-level
+// SVG. A hidden SVG, or one whose raster failed to build, keeps no box and is
+// rejected.
+//
+// Each request names one inline <svg> by node, and every override in that
+// request belongs to it. An override with PartID set changes one SVG child by
+// id; the override enters that child's used style before serialization. A
+// root override is inherited by the descendants whose paint the cascade
+// inherited from the root, so a shape with its own paint keeps it.
+//
+// The raster is cached on prev by its serialized document, so a call that
+// repeats the same paint for the same element reuses the previous raster
+// instead of rasterizing again. The cache is bounded and dropped with prev.
+//
+// prev is patched in place. The call is all-or-nothing: every request is
+// serialized and rasterized before any operation is replaced, so a failure
+// leaves prev untouched. A request that changes no paint property produces no
+// result and no raster work. The returned results carry the element's
+// operations and boxes after the patch, and the image operation before and
+// after the change.
+func RestyleSVGPaint(
+	ctx context.Context, prev *Result, requests []SVGPaintRequest, opts Options,
+) ([]SVGPaintResult, error) {
+	if ctx == nil {
+		return nil, errs.ErrNilContext
+	}
+
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("layout: context: %w", err)
+	}
+
+	if prev == nil || prev.boxTreeRoot() == nil {
+		return nil, errNoPreviousLayout
+	}
+
+	if err := opts.validate(); err != nil {
+		return nil, err
+	}
+
+	prepared := make([]svgPaintPrep, 0, len(requests))
+	seen := make(map[*box]bool, len(requests))
+
+	for _, request := range requests {
+		if err := ctx.Err(); err != nil {
+			return nil, fmt.Errorf("layout: context: %w", err)
+		}
+
+		prep, err := prepareSVGPaint(ctx, prev, request, opts)
+		if err != nil {
+			return nil, err
+		}
+
+		if prep == nil {
+			continue
+		}
+
+		if seen[prep.box] {
+			return nil, fmt.Errorf(
+				"layout: inline svg %q is restyled twice in one call",
+				prep.box.node.Attribute("id"),
+			)
+		}
+
+		seen[prep.box] = true
+		prepared = append(prepared, *prep)
+	}
+
+	if len(prepared) == 0 {
+		return nil, nil
+	}
+
+	ops := make([]Op, len(prev.Ops))
+	copy(ops, prev.Ops)
+
+	for index := range prepared {
+		ops[prepared[index].opIndex] = prepared[index].newOp
+	}
+
+	prev.Ops = ops
+
+	results := make([]SVGPaintResult, len(prepared))
+
+	for index := range prepared {
+		data, width, height := prepared[index].newOp.ImageBytes()
+		prepared[index].box.img.data = data
+		prepared[index].box.img.w = width
+		prepared[index].box.img.h = height
+
+		results[index] = SVGPaintResult{
+			Element:  svgPaintElementResult(prev, prepared[index].box),
+			OldImage: prepared[index].oldOp,
+			NewImage: prepared[index].newOp,
+		}
+	}
+
+	return results, nil
+}
+
+// svgPaintPrep is one fully serialized and rasterized element, ready to
+// replace its image operation.
+type svgPaintPrep struct {
+	box     *box
+	opIndex int
+	oldOp   Op
+	newOp   Op
+}
+
+// prepareSVGPaint serializes and rasterizes one element without mutating prev.
+// It returns nil when the request changes no paint property.
+func prepareSVGPaint(
+	ctx context.Context, prev *Result, request SVGPaintRequest, opts Options,
+) (*svgPaintPrep, error) {
+	node := request.Node
+	if node == nil {
+		return nil, errNilElementNode
+	}
+
+	if node.Type != html.ElementNode || node.Name != cssTagSVG {
+		return nil, fmt.Errorf("layout: %q is not an inline svg", node.Name)
+	}
+
+	elementID := node.Attribute("id")
+	if elementID == "" {
+		return nil, fmt.Errorf("%w: the inline svg has no id", errElementNotPlaced)
+	}
+
+	boxNode := prev.boxForID(elementID)
+	if boxNode == nil || boxNode.node != node {
+		return nil, errElementNotPlaced
+	}
+
+	opIndex := svgImageOpIndex(prev.Ops, boxNode)
+	if opIndex < 0 {
+		return nil, fmt.Errorf("layout: inline svg %q emitted no image", elementID)
+	}
+
+	eng := newEngine(ctx, opts, nil, nil, prev.styles, nil, nil)
+
+	pass, err := newSVGPaintPass(eng, node, request.Overrides)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(pass.styles) == 0 {
+		return nil, nil
+	}
+
+	data := eng.serializeInlineSVGWithPaint(node, pass)
+
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("layout: svg paint: %w", err)
+	}
+
+	cache := prev.svgRasterCache()
+	key := string(data)
+
+	png, width, height, cached := cache.get(key)
+	if !cached {
+		var err error
+
+		png, width, height, err = svg.RasterizeContext(eng.rasterContext(), data, svgRasterMaxDim)
+		if err != nil {
+			return nil, fmt.Errorf("layout: rasterize inline svg %q: %w", elementID, err)
+		}
+
+		if len(png) == 0 {
+			return nil, fmt.Errorf("layout: rasterize inline svg %q: empty raster", elementID)
+		}
+
+		cache.put(key, png, width, height)
+	}
+
+	oldOp := prev.Ops[opIndex]
+
+	return &svgPaintPrep{
+		box:     boxNode,
+		opIndex: opIndex,
+		oldOp:   oldOp,
+		newOp:   oldOp.withImage(png, width, height, oldOp.ImageAlt()),
+	}, nil
+}
+
+// svgImageOpIndex returns the index of the raster operation of one inline SVG
+// box. Chrome prepends the box's background and border operations, so the SVG
+// raster is the last image operation in the box's range. The box keeps the
+// pixel slice it baked, so a matching payload identifies the raster even when
+// a later operation in the range is also an image.
+func svgImageOpIndex(ops []Op, boxNode *box) int {
+	if boxNode == nil || boxNode.opStart < 0 ||
+		boxNode.opEnd < boxNode.opStart || boxNode.opEnd >= len(ops) {
+		return -1
+	}
+
+	var source []byte
+
+	if boxNode.img != nil {
+		source = boxNode.img.data
+	}
+
+	fallback := -1
+
+	for index := boxNode.opEnd; index >= boxNode.opStart; index-- {
+		if ops[index].Kind != OpImage {
+			continue
+		}
+
+		data, _, _ := ops[index].ImageBytes()
+		if len(data) == 0 {
+			continue
+		}
+
+		if fallback < 0 {
+			fallback = index
+		}
+
+		if len(source) > 0 && &data[0] == &source[0] {
+			return index
+		}
+	}
+
+	return fallback
+}
+
+// svgPaintElementResult slices one box's operations into a subtree result the
+// public patch reads, with the same shape relayoutSubtreeResult returns.
+func svgPaintElementResult(prev *Result, boxNode *box) *Result {
+	start, end := boxNode.opStart, boxNode.opEnd
+	subRoot := rebaseBox(boxNode, start)
+
+	boxes := make([]*box, 0, 1)
+	flattenBoxes(subRoot, &boxes)
+
+	return &Result{ //nolint:exhaustruct // a subtree result keeps the zero fields
+		Ops:     prev.Ops[start : end+1],
+		Width:   prev.Width,
+		Height:  prev.Height,
+		root:    subRoot,
+		rootBox: subRoot,
+		boxes:   boxes,
+		styles:  prev.styles,
+	}
+}
+
+// svgPaintValues is one override after the engine parsed its strings: colors
+// are used RGB, lengths are points, and the dash list is the cascade's form.
+type svgPaintValues struct {
+	fillSet  bool
+	fillNone bool
+	fill     [3]float64
+
+	fillOpacitySet bool
+	fillOpacity    float64
+
+	strokeSet  bool
+	strokeNone bool
+	stroke     [3]float64
+
+	strokeOpacitySet bool
+	strokeOpacity    float64
+
+	strokeWidthSet bool
+	strokeWidth    float64
+
+	strokeDashArraySet bool
+	strokeDashArray    []float64
+
+	strokeDashOffsetSet bool
+	strokeDashOffset    float64
+}
+
+// svgPaintFields records which paint properties an override sets on one
+// element. The serializer uses it to drop the element's authored presentation
+// attribute so the override's used style wins.
+type svgPaintFields struct {
+	fill             bool
+	fillOpacity      bool
+	stroke           bool
+	strokeOpacity    bool
+	strokeWidth      bool
+	strokeDashArray  bool
+	strokeDashOffset bool
+}
+
+// svgPaintPass carries the used styles and local paint fields of one
+// re-serialization. A nil pass leaves the serializer unchanged.
+type svgPaintPass struct {
+	styles   map[*html.Node]*ResolvedStyle
+	fields   map[*html.Node]svgPaintFields
+	fillNone map[*html.Node]bool
+}
+
+// suppresses reports whether the override on this element replaces the
+// element's authored presentation attribute.
+func (pass *svgPaintPass) suppresses(node *html.Node, attr string) bool {
+	if pass == nil {
+		return false
+	}
+
+	fields, ok := pass.fields[node]
+	if !ok {
+		return false
+	}
+
+	switch attr {
+	case "fill":
+		return fields.fill
+	case "fill-opacity":
+		return fields.fillOpacity
+	case "stroke":
+		return fields.stroke
+	case "stroke-opacity":
+		return fields.strokeOpacity
+	case "stroke-width":
+		return fields.strokeWidth
+	case "stroke-dasharray":
+		return fields.strokeDashArray
+	case "stroke-dashoffset":
+		return fields.strokeDashOffset
+	}
+
+	return false
+}
+
+// paintsNoFill reports whether the override paints the element's fill as
+// none. The serializer writes fill="none" for it without using the
+// fill-opacity zero the cascade keeps for its own fill:none value, so a
+// descendant that states its own fill does not inherit an opacity of zero.
+func (pass *svgPaintPass) paintsNoFill(node *html.Node) bool {
+	if pass == nil {
+		return false
+	}
+
+	return pass.fillNone[node]
+}
+
+// newSVGPaintPass resolves the overrides into used-style copies for the
+// element and every descendant that inherits from an overridden paint. A
+// descendant keeps its own paint when it declares the property itself.
+func newSVGPaintPass(
+	eng *engine, root *html.Node, overrides []SVGPaintOverride,
+) (*svgPaintPass, error) {
+	rootRaw, partRaw := mergeSVGPaintOverrides(overrides)
+
+	if err := validateSVGPaintParts(root, partRaw); err != nil {
+		return nil, err
+	}
+
+	pass := &svgPaintPass{
+		styles:   make(map[*html.Node]*ResolvedStyle),
+		fields:   make(map[*html.Node]svgPaintFields),
+		fillNone: make(map[*html.Node]bool),
+	}
+
+	if !eng.hasStyle(root) {
+		return nil, fmt.Errorf("layout: inline svg has no resolved style")
+	}
+
+	rootBase := eng.stylePtr(root)
+
+	var walk func(node *html.Node, base *ResolvedStyle, inherited svgPaintValues, isRoot bool) error
+
+	walk = func(node *html.Node, base *ResolvedStyle, inherited svgPaintValues, isRoot bool) error {
+		var local svgPaintValues
+
+		if isRoot {
+			values, err := parseSVGPaintValues(base, rootRaw)
+			if err != nil {
+				return err
+			}
+
+			local.overlay(values)
+		}
+
+		if raw, ok := partRaw[node.Attribute("id")]; ok {
+			values, err := parseSVGPaintValues(base, raw)
+			if err != nil {
+				return err
+			}
+
+			local.overlay(values)
+		}
+
+		effective := inherited
+		effective.overlay(local)
+
+		if effective.any() {
+			used := *base
+			effective.apply(&used)
+			pass.styles[node] = &used
+			pass.fields[node] = effective.fields()
+
+			if effective.fillSet && effective.fillNone {
+				pass.fillNone[node] = true
+			}
+		}
+
+		for _, child := range node.Children {
+			if child.Type != html.ElementNode || !eng.hasStyle(child) {
+				continue
+			}
+
+			childBase := eng.stylePtr(child)
+			childInherited := effective.inherit(base, child, childBase)
+
+			if err := walk(child, childBase, childInherited, false); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
+	if err := walk(root, rootBase, svgPaintValues{}, true); err != nil {
+		return nil, err
+	}
+
+	// Register the copies on the engine so the serializer reads them through
+	// stylePtr while it bakes each element's presentation attributes.
+	for node, style := range pass.styles {
+		eng.styleOverrides = append(eng.styleOverrides, styleOverride{node: node, style: style})
+	}
+
+	return pass, nil
+}
+
+// mergeSVGPaintOverrides folds repeated overrides per target in slice order,
+// so the last value of a property wins.
+func mergeSVGPaintOverrides(
+	overrides []SVGPaintOverride,
+) (SVGPaintOverride, map[string]SVGPaintOverride) {
+	var root SVGPaintOverride
+
+	parts := make(map[string]SVGPaintOverride)
+
+	for _, override := range overrides {
+		if override.PartID == "" {
+			root = mergeSVGPaintOverride(root, override)
+
+			continue
+		}
+
+		parts[override.PartID] = mergeSVGPaintOverride(parts[override.PartID], override)
+	}
+
+	return root, parts
+}
+
+// mergeSVGPaintOverride overlays the fields src sets onto dst.
+func mergeSVGPaintOverride(dst, src SVGPaintOverride) SVGPaintOverride {
+	if src.HasFill {
+		dst.HasFill = true
+		dst.Fill = src.Fill
+	}
+
+	if src.HasFillOpacity {
+		dst.HasFillOpacity = true
+		dst.FillOpacity = src.FillOpacity
+	}
+
+	if src.HasStroke {
+		dst.HasStroke = true
+		dst.Stroke = src.Stroke
+	}
+
+	if src.HasStrokeOpacity {
+		dst.HasStrokeOpacity = true
+		dst.StrokeOpacity = src.StrokeOpacity
+	}
+
+	if src.HasStrokeWidth {
+		dst.HasStrokeWidth = true
+		dst.StrokeWidth = src.StrokeWidth
+	}
+
+	if src.HasStrokeDashArray {
+		dst.HasStrokeDashArray = true
+		dst.StrokeDashArray = src.StrokeDashArray
+	}
+
+	if src.HasStrokeDashOffset {
+		dst.HasStrokeDashOffset = true
+		dst.StrokeDashOffset = src.StrokeDashOffset
+	}
+
+	return dst
+}
+
+// validateSVGPaintParts checks that every part id an override names exists in
+// the SVG subtree. A part that does not exist is an error: the caller asked
+// for a shape the serialized document does not have.
+func validateSVGPaintParts(root *html.Node, parts map[string]SVGPaintOverride) error {
+	if len(parts) == 0 {
+		return nil
+	}
+
+	found := make(map[string]bool, len(parts))
+
+	root.Walk(func(node *html.Node) {
+		if node.Type != html.ElementNode {
+			return
+		}
+
+		id := node.Attribute("id")
+		if id == "" {
+			return
+		}
+
+		if _, wanted := parts[id]; wanted {
+			found[id] = true
+		}
+	})
+
+	for id := range parts {
+		if !found[id] {
+			return fmt.Errorf("layout: inline svg has no part with id %q", id)
+		}
+	}
+
+	return nil
+}
+
+// fields reports which paint properties the effective values set. The
+// serializer uses it to drop an authored presentation attribute so the
+// override's used style wins.
+func (values svgPaintValues) fields() svgPaintFields {
+	return svgPaintFields{
+		fill:             values.fillSet,
+		fillOpacity:      values.fillOpacitySet,
+		stroke:           values.strokeSet,
+		strokeOpacity:    values.strokeOpacitySet,
+		strokeWidth:      values.strokeWidthSet,
+		strokeDashArray:  values.strokeDashArraySet,
+		strokeDashOffset: values.strokeDashOffsetSet,
+	}
+}
+
+// parseSVGPaintValues parses one override with the engine's color and dash
+// parsers. The color keywords resolve against the element's used color.
+func parseSVGPaintValues(
+	base *ResolvedStyle, override SVGPaintOverride,
+) (svgPaintValues, error) {
+	var values svgPaintValues
+
+	if override.HasFill {
+		color, none, err := svgPaintColor(base, override.Fill)
+		if err != nil {
+			return values, fmt.Errorf("layout: svg fill: %w", err)
+		}
+
+		values.fillSet = true
+		values.fill = color
+		values.fillNone = none
+	}
+
+	if override.HasFillOpacity {
+		opacity, err := svgPaintOpacity(override.FillOpacity)
+		if err != nil {
+			return values, fmt.Errorf("layout: svg fill-opacity: %w", err)
+		}
+
+		values.fillOpacitySet = true
+		values.fillOpacity = opacity
+	}
+
+	if override.HasStroke {
+		color, none, err := svgPaintColor(base, override.Stroke)
+		if err != nil {
+			return values, fmt.Errorf("layout: svg stroke: %w", err)
+		}
+
+		values.strokeSet = true
+		values.stroke = color
+		values.strokeNone = none
+	}
+
+	if override.HasStrokeOpacity {
+		opacity, err := svgPaintOpacity(override.StrokeOpacity)
+		if err != nil {
+			return values, fmt.Errorf("layout: svg stroke-opacity: %w", err)
+		}
+
+		values.strokeOpacitySet = true
+		values.strokeOpacity = opacity
+	}
+
+	if override.HasStrokeWidth {
+		width, err := svgPaintLength(override.StrokeWidth)
+		if err != nil {
+			return values, fmt.Errorf("layout: svg stroke-width: %w", err)
+		}
+
+		values.strokeWidthSet = true
+		values.strokeWidth = width
+	}
+
+	if override.HasStrokeDashArray {
+		dashed := *base
+		dashed.StrokeDashArray = nil
+		applyStrokeDashArray(&dashed, override.StrokeDashArray, base.FontSize)
+		values.strokeDashArraySet = true
+		values.strokeDashArray = dashed.StrokeDashArray
+	}
+
+	if override.HasStrokeDashOffset {
+		offset, err := svgPaintNumber(override.StrokeDashOffset)
+		if err != nil {
+			return values, fmt.Errorf("layout: svg stroke-dashoffset: %w", err)
+		}
+
+		values.strokeDashOffsetSet = true
+		values.strokeDashOffset = offset
+	}
+
+	return values, nil
+}
+
+// svgPaintColor parses one fill or stroke value. none is the no-paint
+// keyword; every other value is a CSS color resolved against the element's
+// used color.
+func svgPaintColor(base *ResolvedStyle, raw string) ([3]float64, bool, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return [3]float64{}, false, fmt.Errorf("empty value")
+	}
+
+	if strings.EqualFold(value, cssDisplayNone) {
+		return [3]float64{}, true, nil
+	}
+
+	color, ok := parseUsedColor(value, base.Color)
+	if !ok {
+		return [3]float64{}, false, fmt.Errorf("%q is not a color", value)
+	}
+
+	return color, false, nil
+}
+
+// svgPaintOpacity validates an opacity override and clamps it to [0, 1].
+func svgPaintOpacity(value float64) (float64, error) {
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		return 0, fmt.Errorf("%g is not finite", value)
+	}
+
+	return clamp01(value), nil
+}
+
+// svgPaintLength validates a non-negative length override. A negative used
+// value clamps to zero, the used value of a stroke width below the minimum.
+func svgPaintLength(value float64) (float64, error) {
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		return 0, fmt.Errorf("%g is not finite", value)
+	}
+
+	if value < 0 {
+		return 0, nil
+	}
+
+	return value, nil
+}
+
+// svgPaintNumber validates a finite signed number override.
+func svgPaintNumber(value float64) (float64, error) {
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		return 0, fmt.Errorf("%g is not finite", value)
+	}
+
+	return value, nil
+}
+
+// any reports whether the values change any paint property.
+func (values svgPaintValues) any() bool {
+	return values.fillSet || values.fillOpacitySet ||
+		values.strokeSet || values.strokeOpacitySet || values.strokeWidthSet ||
+		values.strokeDashArraySet || values.strokeDashOffsetSet
+}
+
+// overlay replaces the properties local sets.
+func (values *svgPaintValues) overlay(local svgPaintValues) {
+	if local.fillSet {
+		values.fillSet = true
+		values.fill = local.fill
+		values.fillNone = local.fillNone
+	}
+
+	if local.fillOpacitySet {
+		values.fillOpacitySet = true
+		values.fillOpacity = local.fillOpacity
+	}
+
+	if local.strokeSet {
+		values.strokeSet = true
+		values.stroke = local.stroke
+		values.strokeNone = local.strokeNone
+	}
+
+	if local.strokeOpacitySet {
+		values.strokeOpacitySet = true
+		values.strokeOpacity = local.strokeOpacity
+	}
+
+	if local.strokeWidthSet {
+		values.strokeWidthSet = true
+		values.strokeWidth = local.strokeWidth
+	}
+
+	if local.strokeDashArraySet {
+		values.strokeDashArraySet = true
+		values.strokeDashArray = local.strokeDashArray
+	}
+
+	if local.strokeDashOffsetSet {
+		values.strokeDashOffsetSet = true
+		values.strokeDashOffset = local.strokeDashOffset
+	}
+}
+
+// apply writes the values into one used-style copy.
+func (values svgPaintValues) apply(style *ResolvedStyle) {
+	if values.fillSet {
+		// The cascade stores fill:none as black at opacity zero. When an
+		// override replaces the fill, that zero is an artifact of the
+		// representation, not a declared fill-opacity, so start from the
+		// initial one. An explicit fill-opacity override is applied below and
+		// still wins.
+		if style.FillSet && style.FillOpacity == 0 && style.Fill == [3]float64{} {
+			style.FillOpacity = 1
+		}
+
+		style.FillSet = true
+
+		if values.fillNone {
+			style.Fill = [3]float64{}
+		} else {
+			style.Fill = values.fill
+		}
+	}
+
+	if values.fillOpacitySet {
+		style.FillOpacity = values.fillOpacity
+	}
+
+	if values.strokeSet {
+		if values.strokeNone {
+			style.Stroke = [3]float64{}
+			style.StrokeSet = false
+		} else {
+			style.Stroke = values.stroke
+			style.StrokeSet = true
+		}
+	}
+
+	if values.strokeOpacitySet {
+		style.StrokeOpacity = values.strokeOpacity
+	}
+
+	if values.strokeWidthSet {
+		style.StrokeWidth = values.strokeWidth
+		style.StrokeWidthSet = true
+	}
+
+	if values.strokeDashArraySet {
+		style.StrokeDashArray = values.strokeDashArray
+	}
+
+	if values.strokeDashOffsetSet {
+		style.StrokeDashOffset = values.strokeDashOffset
+	}
+}
+
+// inherit returns the properties a child inherits from this element. A child
+// keeps its own paint when it declares the property, and a value the cascade
+// did not inherit (the child differs from the parent's used value) is its
+// own.
+func (values svgPaintValues) inherit(
+	parentBase *ResolvedStyle, child *html.Node, childBase *ResolvedStyle,
+) svgPaintValues {
+	var inherited svgPaintValues
+
+	if values.fillSet && !svgNodeDeclaresPaint(child, "fill") &&
+		parentBase.FillSet == childBase.FillSet && parentBase.Fill == childBase.Fill {
+		inherited.fillSet = true
+		inherited.fill = values.fill
+		inherited.fillNone = values.fillNone
+	}
+
+	if values.fillOpacitySet && !svgNodeDeclaresPaint(child, "fill-opacity") &&
+		childBase.FillOpacity == 1 {
+		inherited.fillOpacitySet = true
+		inherited.fillOpacity = values.fillOpacity
+	}
+
+	if values.strokeSet && !svgNodeDeclaresPaint(child, "stroke") &&
+		parentBase.StrokeSet == childBase.StrokeSet && parentBase.Stroke == childBase.Stroke {
+		inherited.strokeSet = true
+		inherited.stroke = values.stroke
+		inherited.strokeNone = values.strokeNone
+	}
+
+	if values.strokeOpacitySet && !svgNodeDeclaresPaint(child, "stroke-opacity") &&
+		childBase.StrokeOpacity == 1 {
+		inherited.strokeOpacitySet = true
+		inherited.strokeOpacity = values.strokeOpacity
+	}
+
+	if values.strokeWidthSet && !svgNodeDeclaresPaint(child, "stroke-width") &&
+		parentBase.StrokeWidthSet == childBase.StrokeWidthSet &&
+		parentBase.StrokeWidth == childBase.StrokeWidth {
+		inherited.strokeWidthSet = true
+		inherited.strokeWidth = values.strokeWidth
+	}
+
+	if values.strokeDashArraySet && !svgNodeDeclaresPaint(child, "stroke-dasharray") &&
+		slices.Equal(parentBase.StrokeDashArray, childBase.StrokeDashArray) {
+		inherited.strokeDashArraySet = true
+		inherited.strokeDashArray = values.strokeDashArray
+	}
+
+	if values.strokeDashOffsetSet && !svgNodeDeclaresPaint(child, "stroke-dashoffset") &&
+		parentBase.StrokeDashOffset == childBase.StrokeDashOffset {
+		inherited.strokeDashOffsetSet = true
+		inherited.strokeDashOffset = values.strokeDashOffset
+	}
+
+	return inherited
+}
+
+// svgNodeDeclaresPaint reports whether the element states the property itself,
+// either as a presentation attribute or in its inline style. The cascade
+// keeps no declaration provenance, so this check keeps the common authored
+// forms from following an ancestor override. inherit and unset do not declare
+// a value of their own.
+func svgNodeDeclaresPaint(node *html.Node, prop string) bool {
+	if node == nil {
+		return false
+	}
+
+	if value := strings.TrimSpace(node.Attribute(prop)); value != "" {
+		return !svgPaintInheritedKeyword(value)
+	}
+
+	value := strings.TrimSpace(svgInlineStyleProp(node.Attribute("style"), prop))
+	if value == "" {
+		return false
+	}
+
+	return !svgPaintInheritedKeyword(value)
+}
+
+// svgPaintInheritedKeyword reports whether a declaration takes its value from
+// the parent instead of stating one.
+func svgPaintInheritedKeyword(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "inherit", "unset", "revert", "revert-layer":
+		return true
+	default:
+		return false
+	}
 }
 
 // writeSVGExtraPresentationAttrs bakes CSS-only SVG properties that have no

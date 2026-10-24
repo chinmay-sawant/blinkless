@@ -50,6 +50,12 @@ type opExtra struct {
 	// canvas paints it once. Regular element backgrounds never set it, so
 	// the two stay distinguishable.
 	CanvasBackground bool
+	// Pristine is the operation as it stood before FinalizeDisplayOps baked
+	// its 3D projection into final geometry. A restamp pass restores it and
+	// stamps again, because a projective map cannot be recovered from the
+	// flattened path it produced. Nil on every op that was never projected,
+	// so the common op pays one pointer.
+	Pristine *Op
 }
 
 func (op *Op) detachExtra() *opExtra {

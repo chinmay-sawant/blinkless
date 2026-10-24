@@ -26,10 +26,64 @@ type Box struct {
 	ViewTransitionClass string
 	ViewTransitionGroup string
 	ViewTransitionScope string
-	X                   float64
-	Y                   float64
-	W                   float64
-	H                   float64
+	// Timelines holds the named scroll and view timelines this element
+	// declares. Scroll comes before view; a nil slice means no declaration.
+	// See TimelineDef for the resolution rules.
+	Timelines []TimelineDef
+	// Transform carries the resolved transform metadata for this element.
+	Transform TransformInfo
+	X         float64
+	Y         float64
+	W         float64
+	H         float64
+}
+
+// TransformInfo reports the resolved transform metadata for one element box.
+// The engine bakes a matrix into every descendant operation; these fields let a
+// host separate the element's own transform from its ancestors' and animate it
+// without re-running layout.
+//
+// Parent, OriginX, OriginY, and World are populated for every element box, even
+// one whose stylesheet declares no transform, because a keyframe can animate a
+// transform on an otherwise untransformed element. HasMatrix reports whether the
+// stylesheet declares a static transform; Own is the identity when it does not.
+//
+// OriginX and OriginY are in layout points, the same unit as Matrix2D's E and F,
+// not CSS pixels. Multiply by Display.PointsPerPixel when CSS pixels are needed.
+type TransformInfo struct {
+	// OriginX and OriginY are the resolved transform-origin in layout points.
+	OriginX float64
+	OriginY float64
+	// Box is the transform-box reference: border-box, content-box, fill-box,
+	// stroke-box, or view-box.
+	Box string
+
+	// Parent maps the parent coordinate space to device space.
+	Parent Matrix2D
+	// Own is this element's own baked transform, with its origin applied.
+	Own Matrix2D
+	// World is Parent * Own, the matrix the engine stamps on this element's ops.
+	World Matrix2D
+
+	// HasMatrix reports whether the element declares a transform.
+	HasMatrix bool
+	// HasTransform3D reports whether the element participates in a 3D
+	// composition. A host should use a re-projection pass rather than a 2D
+	// matrix for such an element.
+	HasTransform3D bool
+	// Perspective is the resolved perspective distance in layout points. Zero
+	// means none.
+	Perspective float64
+	// PerspectiveOriginX and PerspectiveOriginY are the resolved vanishing point
+	// in layout points.
+	PerspectiveOriginX float64
+	PerspectiveOriginY float64
+	// HasPerspective reports whether the element declares a perspective.
+	HasPerspective bool
+	// Style is flat or preserve-3d.
+	Style string
+	// Backface is visible or hidden.
+	Backface string
 }
 
 // Animation carries one CSS animation list item for a host to sample.
@@ -126,6 +180,8 @@ func boxesFrom(placed []ilayout.PlacedElement) []Box {
 			ViewTransitionClass: item.ViewTransitionClass,
 			ViewTransitionGroup: item.ViewTransitionGroup,
 			ViewTransitionScope: item.ViewTransitionScope,
+			Timelines:           timelinesFrom(item.Timelines),
+			Transform:           transformInfoFrom(item.Transform),
 			X:                   item.X * ptToPx,
 			Y:                   item.Y * ptToPx,
 			W:                   item.W * ptToPx,
@@ -134,6 +190,27 @@ func boxesFrom(placed []ilayout.PlacedElement) []Box {
 	}
 
 	return boxes
+}
+
+// transformInfoFrom maps the engine-side transform metadata to the public one.
+// Matrix2D is an alias, so the matrices assign directly.
+func transformInfoFrom(item ilayout.TransformInfo) TransformInfo {
+	return TransformInfo{
+		OriginX:            item.OriginX,
+		OriginY:            item.OriginY,
+		Box:                item.Box,
+		Parent:             item.Parent,
+		Own:                item.Own,
+		World:              item.World,
+		HasMatrix:          item.HasMatrix,
+		HasTransform3D:     item.HasTransform3D,
+		Perspective:        item.Perspective,
+		PerspectiveOriginX: item.PerspectiveOriginX,
+		PerspectiveOriginY: item.PerspectiveOriginY,
+		HasPerspective:     item.HasPerspective,
+		Style:              item.Style,
+		Backface:           item.Backface,
+	}
 }
 
 func animationsFrom(records []ilayout.AnimationRecord) []Animation {

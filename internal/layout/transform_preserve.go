@@ -48,29 +48,59 @@ func stampPreserveTransformRange(
 		return
 	}
 
-	originX, originY := resolveTransformOriginWithBox(
-		boxNode.style.TransformOrigin, boxNode, boxNode.style.TransformBox, viewport,
-	)
-	dist, vanishX, vanishY := perspectiveFlattenArgs(boxNode, worldChain, originX, originY)
-
 	start, end := boxNode.opStart, min(boxNode.opEnd, len(ops)-1)
 	if start < 0 || start > end {
 		return
 	}
 
-	var (
-		projection ProjectiveTransform
-		affine     Matrix2D
-	)
-
-	if dist > 0 {
-		projection = projectiveTransform3DWorld(worldChain, vanishX, vanishY, dist)
-		projection = composeProjectiveAffine(projection, parentAccum)
-	} else {
-		affine = parentAccum.Mul(matrix2DFromWorld3D(worldChain))
-	}
+	dist, projection, affine := preserveRangePaint(boxNode, worldChain, parentAccum, viewport)
 
 	stampPreserveRangeOps(ops, covered, start, end, exclusive, dist, projection, affine)
+}
+
+// preserveRangePaint returns the camera distance, the projective matrix, and
+// the flattened affine a preserve-range stamp applies. The last two are
+// alternatives: a camera projects, no camera flattens.
+func preserveRangePaint(
+	boxNode *box, worldChain matrix3D, parentAccum Matrix2D, viewport svgViewport,
+) (float64, ProjectiveTransform, Matrix2D) {
+	originX, originY := resolveTransformOriginWithBox(
+		boxNode.style.TransformOrigin, boxNode, boxNode.style.TransformBox, viewport,
+	)
+	dist, vanishX, vanishY := perspectiveFlattenArgs(boxNode, worldChain, originX, originY)
+
+	if dist > 0 {
+		projection := projectiveTransform3DWorld(worldChain, vanishX, vanishY, dist)
+
+		return dist, composeProjectiveAffine(projection, parentAccum), Matrix2D{} //nolint:exhaustruct // projective path
+	}
+
+	// Orthographic: no projective matrix, only the flattened affine.
+	//nolint:exhaustruct // the zero projective is unused on this path
+	return dist, ProjectiveTransform{}, parentAccum.Mul(matrix2DFromWorld3D(worldChain))
+}
+
+// stampPreserveRangeWindow composes one preserve-range stamp onto an explicit
+// operation window. The original walk applies an ancestor's flat-boundary
+// composition over the ancestor's whole range after its children stamped, so a
+// subtree restamp has to re-apply the same composition over the window it
+// rewrote.
+func stampPreserveRangeWindow(
+	boxNode *box, worldChain matrix3D, parentAccum Matrix2D, ops []Op,
+	start, end int, viewport svgViewport,
+) {
+	if boxNode == nil || boxNode.style == nil || len(ops) == 0 {
+		return
+	}
+
+	end = min(end, len(ops)-1)
+	if start < 0 || start > end {
+		return
+	}
+
+	dist, projection, affine := preserveRangePaint(boxNode, worldChain, parentAccum, viewport)
+
+	stampPreserveRangeOps(ops, nil, start, end, false, dist, projection, affine)
 }
 
 // stampPreserveRangeOps stamps every op the range owns, dispatching on the

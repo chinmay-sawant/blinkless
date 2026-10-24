@@ -48,6 +48,7 @@ func animationBaseAcceptanceCases() []animationAcceptanceCase {
 	}
 }
 
+//nolint:dupl // shares the acceptance-case shape with the timeline grammar.
 func animationExtendedAcceptanceCases() []animationAcceptanceCase {
 	return []animationAcceptanceCase{
 		{prop: "animation-timeline", value: "auto, --scroll, scroll(root x), view(block 10%)", want: true},
