@@ -162,6 +162,42 @@ type Options struct {
 	RetainState bool
 }
 
+// Override replaces one layout property of one element for a single
+// RelayoutElementWithOverrides call.
+//
+// The override is applied to the element's used style after the cascade and
+// before placement. It is not written to the parsed tree and is not kept in
+// the cached style, so the next static frame is the one the stylesheet
+// produces. Inherited properties reach the element's descendants as usual; a
+// non-inherited property changes only the element.
+//
+// ElementID may be empty to name the element passed to
+// RelayoutElementWithOverrides. A non-empty ID must name that element; a
+// different element cannot be overridden through this call.
+//
+// Property is a CSS property name, and Value is a CSS value. The path accepts
+// the layout tier: sizes and their logical forms, insets, margins, padding,
+// gap, flex and grid placement, aspect-ratio, border and outline geometry,
+// text metrics, and object-position. A paint property, a transform, an SVG
+// paint value, a display or flow property, a custom property, and a value that
+// is a CSS-wide keyword or contains var() are refused with
+// ErrUnknownOverrideProperty or ErrInvalidOverrideValue.
+//
+// When one list names a shorthand and one of its longhands, the longhand wins,
+// the way the cascade applies them. When it names the same property twice, the
+// later value wins.
+type Override struct {
+	// ElementID names the element the override applies to. Empty means
+	// the element passed to RelayoutElementWithOverrides.
+	ElementID string
+
+	// Property is the CSS property name to replace.
+	Property string
+
+	// Value is the CSS value to use for this pass.
+	Value string
+}
+
 func boxesFrom(placed []ilayout.PlacedElement) []Box {
 	boxes := make([]Box, len(placed))
 

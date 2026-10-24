@@ -28,6 +28,23 @@ var (
 	// styles to re-place the element inside. Lay the page out with
 	// Options.RetainState set and patch that display.
 	ErrNoRetainedState = errors.New("layout: display carries no retained layout state")
+
+	// ErrUnknownOverrideProperty means an override named a property the
+	// relayout path cannot apply to the element's used style. A custom
+	// property, a paint property, a transform, an SVG paint value, and a
+	// display or flow property are refused here. The page is left untouched.
+	ErrUnknownOverrideProperty = errors.New("layout: unknown override property")
+
+	// ErrInvalidOverrideValue means an override value is empty, is a
+	// CSS-wide keyword, contains var(), or is not a value the property's
+	// grammar accepts. The page is left untouched.
+	ErrInvalidOverrideValue = errors.New("layout: invalid override value")
+
+	// ErrOverrideReflow means the override changed the size of the box the
+	// patch would re-place, so the change escapes the containing block the
+	// patch covers. Fall back to a full layout for that frame. The page is
+	// left untouched.
+	ErrOverrideReflow = errors.New("layout: override reflow escapes its containing block")
 )
 
 // ElementPatch is the result of patching one element of a laid out page.
@@ -117,6 +134,128 @@ func RelayoutElement(
 	}, nil
 }
 
+// RelayoutElementWithOverrides lays out one element with a set of property
+// values applied on top of the cascade, and returns the patch for that element.
+//
+// It is the geometry-animation path: a host samples an animated width, a font
+// size, or another layout property, hands the values here, and adopts the
+// returned display. The values are applied to the element's used style after
+// the cascade and before placement, are not written to the parsed tree, and
+// are gone when the call returns. The next patch starts from the base page.
+//
+// An inherited property reaches the element's descendants: the engine resolves
+// the element's subtree against the overridden style, so a font-size override
+// sizes the child text runs the way a stylesheet declaration would.
+//
+// The patch target is the element's containing block, not the element alone,
+// because a width or font-size change can move the element's siblings. Ops and
+// Boxes describe the element's own subtree, the shape RelayoutElement returns;
+// Display is the whole page with the reflowed siblings. Old and New are the
+// element's border box before and after the call.
+//
+// prev must carry the retained layout state, the same rule RelayoutElement
+// has. An empty override list is RelayoutElement exactly.
+//
+// An unknown property is ErrUnknownOverrideProperty, a malformed value is
+// ErrInvalidOverrideValue, and a change that would resize the containing block
+// is ErrOverrideReflow (fall back to a full layout for that frame). Every error
+// leaves prev untouched.
+//
+// The engine does not lock the retained state, so one display must not be
+// patched from two goroutines at once.
+func RelayoutElementWithOverrides(
+	ctx context.Context, doc *css.Document, prev *Display,
+	elementID string, overrides []Override, options Options,
+) (*ElementPatch, error) {
+	if len(overrides) == 0 {
+		return RelayoutElement(ctx, doc, prev, elementID, options)
+	}
+
+	if err := checkRelayoutInput(ctx, doc, prev, elementID); err != nil {
+		return nil, err
+	}
+
+	styled, ok := pubstate.StyledOf(doc)
+	if !ok {
+		return nil, ErrNilDocument
+	}
+
+	node := elementByID(styled.Root, elementID)
+	if node == nil {
+		return nil, ErrNoElement
+	}
+
+	if prev.result == nil {
+		return nil, ErrNoRetainedState
+	}
+
+	engineOverrides, err := engineStyleOverrides(elementID, overrides)
+	if err != nil {
+		return nil, err
+	}
+
+	layoutOpts, err := relayoutOptions(styled, prev, options)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := ilayout.RelayoutSubtreeWithOverrides(ctx, prev.result, node, engineOverrides, layoutOpts)
+	if err != nil {
+		return nil, overrideRelayoutError(err)
+	}
+
+	boxes := boxesFrom(ilayout.PlacedElements(res))
+
+	return &ElementPatch{
+		Ops:      res.Ops,
+		OpOwners: ilayout.OperationOwners(res),
+		Boxes:    boxes,
+		Old:      elementBounds(prev.Boxes, elementID),
+		New:      elementBounds(boxes, elementID),
+		Display:  patchedDisplay(styled, prev),
+	}, nil
+}
+
+// engineStyleOverrides converts the public override list for the engine. An
+// override may name the relayout target or leave the id empty; any other id is
+// a caller error, not a silently ignored entry.
+func engineStyleOverrides(elementID string, overrides []Override) ([]ilayout.StyleOverride, error) {
+	converted := make([]ilayout.StyleOverride, len(overrides))
+
+	for index := range overrides {
+		override := &overrides[index]
+
+		if override.ElementID != "" && override.ElementID != elementID {
+			return nil, fmt.Errorf(
+				"%w: override names %q, the relayout target is %q",
+				ErrNoElement, override.ElementID, elementID,
+			)
+		}
+
+		converted[index] = ilayout.StyleOverride{
+			Property: override.Property,
+			Value:    override.Value,
+		}
+	}
+
+	return converted, nil
+}
+
+// overrideRelayoutError maps the engine's override failures onto the public
+// sentinels.
+func overrideRelayoutError(err error) error {
+	switch {
+	case errors.Is(err, ilayout.ErrUnknownOverrideProperty):
+		return fmt.Errorf("%w: %w", ErrUnknownOverrideProperty, err)
+	case errors.Is(err, ilayout.ErrInvalidOverrideValue):
+		return fmt.Errorf("%w: %w", ErrInvalidOverrideValue, err)
+	case errors.Is(err, ilayout.ErrOverrideReflow):
+		return fmt.Errorf("%w: %w", ErrOverrideReflow, err)
+	default:
+		return err
+	}
+}
+
 // patchedDisplay builds the display list of the patched page. The engine
 // patched the placement the previous display was built from, so the display
 // carries that placement and the operations, the paint order, the owners and
@@ -164,14 +303,10 @@ func subtreeResult(
 	node *ihtml.Node,
 	options Options,
 ) (*ilayout.Result, error) {
-	font, err := pdf.DefaultFont()
+	layoutOpts, err := relayoutOptions(styled, prev, options)
 	if err != nil {
-		return nil, fmt.Errorf("layout: default font: %w", err)
+		return nil, err
 	}
-
-	widthPt, heightPt := displayViewportPt(styled)
-	layoutOpts := displayLayoutOptions(styled, font, options.Images, widthPt, heightPt)
-	layoutOpts.Zoom = prev.zoom
 
 	res, err := ilayout.RelayoutSubtree(ctx, prev.result, node, layoutOpts)
 	if err != nil {
@@ -179,6 +314,24 @@ func subtreeResult(
 	}
 
 	return res, nil
+}
+
+// relayoutOptions builds the engine options a patch pass runs with. The
+// viewport and the media come from the styled document, and the zoom is the
+// one the display was laid out at.
+func relayoutOptions(styled pubstate.Styled, prev *Display, options Options) (ilayout.Options, error) {
+	font, err := pdf.DefaultFont()
+	if err != nil {
+		var empty ilayout.Options
+
+		return empty, fmt.Errorf("layout: default font: %w", err)
+	}
+
+	widthPt, heightPt := displayViewportPt(styled)
+	layoutOpts := displayLayoutOptions(styled, font, options.Images, widthPt, heightPt)
+	layoutOpts.Zoom = prev.zoom
+
+	return layoutOpts, nil
 }
 
 // elementByID returns the element node with the given id in the tree, or nil.
