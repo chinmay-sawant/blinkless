@@ -724,8 +724,14 @@ func resetWindowTransforms(ops []Op, window OpWindow) {
 		ops[idx].XformSet = false
 		ops[idx].clearProjectiveTransform()
 
-		if ops[idx].opExtra != nil {
-			ops[idx].opExtra.Xform = IdentityMatrix()
+		// setXform always detaches before writing, so every op that ever
+		// carried a transform owns its extra. An op still pointing at the
+		// shared zero singleton never had one, and the singleton is the
+		// no-transform value by definition. Skip it: writing the shared
+		// Xform would race with any other display reading Transform(), and
+		// detaching would allocate for every op the restamp never touched.
+		if extra := ops[idx].opExtra; extra != nil && extra != emptyExtra {
+			extra.Xform = IdentityMatrix()
 		}
 	}
 }

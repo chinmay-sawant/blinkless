@@ -7,16 +7,16 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/pubstate"
 )
 
-func registerRoot() {
-	pubstate.RegisterRoot(func(doc any) *html.Node {
-		parsed, ok := doc.(*Document)
-		if !ok || parsed == nil {
-			return nil
-		}
+// The initializer runs before any caller can call Parse. Parse must not write
+// package state, because layout can read pubstate.Root from another goroutine.
+var _ = pubstate.RegisterRoot(func(doc any) *html.Node {
+	parsed, ok := doc.(*Document)
+	if !ok || parsed == nil {
+		return nil
+	}
 
-		return parsed.root
-	})
-}
+	return parsed.root
+})
 
 // Document is one parsed HTML tree.
 // The CSS package reads it. Callers do not see the engine node.
@@ -34,8 +34,6 @@ type Element struct {
 // Parse parses UTF-8 HTML into a document the CSS package can style.
 // A nil source is an empty document.
 func Parse(source []byte) (*Document, error) {
-	registerRoot()
-
 	root, err := html.ParseDocument(source)
 	if err != nil {
 		return nil, fmt.Errorf("html: parse: %w", err)

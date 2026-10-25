@@ -20,25 +20,26 @@ import (
 // 96 dpi.
 const cssPxToPt = 0.75
 
-func registerStyled() {
-	pubstate.RegisterStyled(func(doc any) (pubstate.Styled, bool) {
-		styled, ok := doc.(*Document)
-		if !ok || styled == nil || styled.root == nil {
-			return pubstate.Styled{}, false //nolint:exhaustruct // the document is not styled
-		}
+// The initializer runs before any caller can call Apply. Apply must not write
+// package state, because layout can read pubstate.StyledOf from another
+// goroutine.
+var _ = pubstate.RegisterStyled(func(doc any) (pubstate.Styled, bool) {
+	styled, ok := doc.(*Document)
+	if !ok || styled == nil || styled.root == nil {
+		return pubstate.Styled{}, false //nolint:exhaustruct // the document is not styled
+	}
 
-		return pubstate.Styled{
-			Root:     styled.root,
-			Mode:     styled.root.Mode,
-			Sheets:   styled.sheets,
-			Registry: styled.registry,
-			Media:    styled.media,
-			WidthPx:  styled.widthPx,
-			HeightPx: styled.heightPx,
-			State:    styled.state,
-		}, true
-	})
-}
+	return pubstate.Styled{
+		Root:     styled.root,
+		Mode:     styled.root.Mode,
+		Sheets:   styled.sheets,
+		Registry: styled.registry,
+		Media:    styled.media,
+		WidthPx:  styled.widthPx,
+		HeightPx: styled.heightPx,
+		State:    styled.state,
+	}, true
+})
 
 // Sheet is one parsed stylesheet.
 type Sheet struct {
@@ -96,8 +97,6 @@ func Parse(source string) (*Sheet, error) {
 // The returned document is what layout.DisplayList places. The HTML tree is the
 // one html.Parse produced.
 func Apply(ctx context.Context, doc *html.Document, opts Options) (*Document, error) {
-	registerStyled()
-
 	if ctx == nil {
 		return nil, ErrNilContext
 	}
