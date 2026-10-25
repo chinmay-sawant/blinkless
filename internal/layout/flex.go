@@ -84,6 +84,23 @@ func (e *engine) buildFlex(node *html.Node, sty ResolvedStyle, availW, x, posY f
 
 	kids := e.flexChildren(node, &sty)
 
+	// Absolutely positioned and fixed children do not participate in flex
+	// layout: they take no line space and paint above the in-flow items
+	// against the flex container's padding box (CSS Flexbox §4). Defer them
+	// the way the block path does instead of measuring and placing them as
+	// flex items, which collapses overlays such as sheen sweeps to zero
+	// height at the item's static position.
+	flowKids := make([]*html.Node, 0, len(kids))
+	var deferred []*html.Node
+
+	for _, kid := range kids {
+		if isOutOfFlowNode(kid, e.stylePtr(kid)) {
+			deferred = append(deferred, kid)
+		} else {
+			flowKids = append(flowKids, kid)
+		}
+	}
+
 	rowGap, colGap := e.styleGaps(&sty)
 	previousCB, parentCB := e.setFlowCB(sty)
 	defer func() { e.flowCBHeight = previousCB }()
@@ -94,14 +111,16 @@ func (e *engine) buildFlex(node *html.Node, sty ResolvedStyle, availW, x, posY f
 	}
 
 	if isVerticalWritingMode(sty.WritingMode) && (dir == fxCol || dir == fxColRev) {
-		curY = e.flowFlexVerticalColumn(boxNode, kids, sty, contentW, contentX, posY, curY, rowGap)
+		curY = e.flowFlexVerticalColumn(boxNode, flowKids, sty, contentW, contentX, posY, curY, rowGap)
 	} else if dir == fxCol || dir == fxColRev {
-		curY = e.flowFlexColumn(boxNode, kids, sty, contentW, contentX, posY, curY, rowGap, colGap)
+		curY = e.flowFlexColumn(boxNode, flowKids, sty, contentW, contentX, posY, curY, rowGap, colGap)
 	} else if isVerticalWritingMode(sty.WritingMode) {
-		curY = e.flowFlexVerticalRow(boxNode, kids, sty, contentW, contentX, posY, curY, colGap)
+		curY = e.flowFlexVerticalRow(boxNode, flowKids, sty, contentW, contentX, posY, curY, colGap)
 	} else {
-		curY = e.flowFlexRow(boxNode, kids, sty, contentW, contentX, posY, curY, colGap, rowGap)
+		curY = e.flowFlexRow(boxNode, flowKids, sty, contentW, contentX, posY, curY, colGap, rowGap)
 	}
+
+	flowBottom := curY
 
 	// The shared resolver owns bottom padding, bottom border, and the
 	// height/min-height/max-height constraints for auto-height boxes.
@@ -119,6 +138,24 @@ func (e *engine) buildFlex(node *html.Node, sty ResolvedStyle, availW, x, posY f
 	}
 
 	boxNode.height = curY
+
+	if len(deferred) > 0 {
+		absTop := posY + e.scalePt(sty.PaddingTop) + e.scalePt(sty.BorderTop.Width)
+		absCBX, absCBW, absOriginY, icb := e.flowAbsCB(boxNode, sty, flowKids, deferred, contentX, contentW, absTop)
+		parentHeight := e.applyHeightConstraints(sty, flowBottom+e.scalePt(sty.PaddingBottom))
+		cbHeight := parentHeight - (absOriginY - posY)
+
+		if icb {
+			cbHeight = e.opts.Height
+		}
+
+		if cbHeight < 0 {
+			cbHeight = 0
+		}
+
+		e.flushDeferredFlowChildren(boxNode, deferred, cbHeight, absCBW, absCBX, absOriginY)
+	}
+
 	e.prependChrome(contentStart, boxNode, sty, boxNode.x, posY, boxNode.w, boxNode.height)
 
 	return boxNode
@@ -609,7 +646,12 @@ func (e *engine) flexItemBaseWidth(node *html.Node, style *ResolvedStyle, mainSi
 		intr = pad
 	}
 
-	if intr > capW {
+	// An explicit intrinsic width (max-content or min-content) sizes to
+	// content and may overflow the container; only width:auto shrink-wraps
+	// with the fit-content clamp against the available main size. Clamping
+	// max-content here pins scrolling tracks such as a marquee to the
+	// viewport lane and breaks their -50% loop point.
+	if intr > capW && !isIntrinsicWidth(style.Width) {
 		intr = capW
 	}
 
@@ -1807,7 +1849,54 @@ func (e *engine) flexSpecifiedBaseHeight(style *ResolvedStyle, mainSize, padV fl
 
 // flexMinCrossMainSize is the column-axis content-based min-height floor
 // (Flexbox §4.5 lite). mainSize is the definite flex container content height.
+//
+// The content-based floor is memoized per item and containing sizes for the
+// Layout run. Shrink and clamp query the same floor for every item, and every
+// noEmit ancestor measure re-runs the container that owns them, so without
+// the memo a blotter-thick column (one flex item per row) re-flows each row
+// subtree once per query instead of once per run.
 func (e *engine) flexMinCrossMainSize(node *html.Node, baseH, mainSize float64) float64 {
+	if e.flexMinBypass {
+		return e.flexMinCrossMainSizeUncached(node, baseH, mainSize)
+	}
+
+	key := flexMinKey{
+		node: node, style: e.stylePtr(node),
+		baseBits: math.Float64bits(baseH), mainBits: math.Float64bits(mainSize),
+	}
+	if floor, ok := e.flexMinH[key]; ok {
+		return floor
+	}
+
+	floor := e.flexMinCrossMainSizeUncached(node, baseH, mainSize)
+
+	if e.err == nil {
+		if e.flexMinH == nil {
+			e.flexMinH = make(map[flexMinKey]float64)
+		}
+
+		e.flexMinH[key] = floor
+	}
+
+	return floor
+}
+
+// flexMinKey identifies one column flex auto-minimum measurement. baseBits
+// and mainBits are math.Float64bits of the item base height and the container
+// content height (-1 when indefinite); style pins the resolved style identity
+// so a measurement under a style override never stands in for the
+// base-cascade one.
+type flexMinKey struct {
+	node     *html.Node
+	style    *ResolvedStyle
+	baseBits uint64
+	mainBits uint64
+}
+
+// flexMinCrossMainSizeUncached computes the column-axis content-based
+// min-height floor (Flexbox §4.5 lite). mainSize is the definite flex
+// container content height.
+func (e *engine) flexMinCrossMainSizeUncached(node *html.Node, baseH, mainSize float64) float64 {
 	cstate := e.stylePtr(node)
 	floor := 0.0
 

@@ -881,13 +881,25 @@ func (e *engine) applyColorAdjustPaintPolicy(root *box) {
 	}
 
 	rootScheme := rootStyle.ColorScheme
-	if !colorSchemeHasDark(rootScheme) {
+	dark := colorSchemeHasDark(rootScheme)
+	if !dark {
 		rootScheme = colorSchemeNormal
 	}
 
 	rootAdjust := rootStyle.ForcedColorAdjust
 	rootLimit := rootStyle.DynamicRangeLimit
 	forced := e.forcedColorsForPaint()
+
+	// Fast path for the ordinary document: a light color scheme leaves the
+	// dark default substitution as identity, a calm forced-colors mode keeps
+	// author ink, and any limit outside standard/constrained-high keeps the
+	// clamp as identity (see clampDynamicRangeColor). Then every op keeps its
+	// ink and the per-text-op default lookup (which re-lowercases the scheme
+	// for each black run) is pure overhead, so skip the sweep entirely.
+	if !dark && !forced && rootLimit != dynamicRangeLimitStandard &&
+		rootLimit != dynamicRangeLimitConstrainedHigh {
+		return
+	}
 
 	for i := range e.ops {
 		kind := e.ops[i].Kind

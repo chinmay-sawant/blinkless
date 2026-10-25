@@ -34,6 +34,7 @@ func newEngine(
 		containers:     containers,
 		ops:            ops,
 		gridMemoBypass: opts.gridMemoBypass,
+		flexMinBypass:  opts.flexMinBypass,
 	}
 }
 

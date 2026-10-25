@@ -127,9 +127,25 @@ func (e *engine) layoutStandardGrid(
 		strings.ToLower(rowTemplate) != cssDisplayNone
 
 	rows, numRows, lockRows := resolveGridRows(e, sty, kids, numRows, contentH, rowGap, definiteRows)
-	pboxes := measureGridPreferredHeights(
-		e, placed, cols, columnGap, rowGap, contentX, curY, posY, rows, definiteRows || lockRows,
-	)
+
+	lockedRows := definiteRows || lockRows
+
+	var pboxes []gridPlacedBox
+
+	if lockedRows {
+		// Locked tracks never consume preferred heights: row growth and span
+		// distribution are both gated on unlocked rows, and emit sizes items
+		// from the resolved tracks. Measuring here would rebuild every item
+		// subtree once (then emit rebuilds it again); its only cross-pass
+		// effect is advancing the run-local sticky/group ID counters, whose
+		// absolute values nothing persists, so cells are placed directly and
+		// each item is built once.
+		pboxes = placeGridItemsLocked(e, placed, cols, columnGap, contentX)
+	} else {
+		pboxes = measureGridPreferredHeights(
+			e, placed, cols, columnGap, rowGap, contentX, curY, posY, rows, lockedRows,
+		)
+	}
 
 	rowYs := emitGridBoxes(e, sty, boxNode, pboxes, rows, rowGap, posY, curY, contentH)
 	if rowYs != nil {
@@ -455,6 +471,41 @@ func gridCellExtent(cols []float64, columnGap, contentX float64, page gridCell) 
 	}
 
 	return contW, curX
+}
+
+// placeGridItemsLocked positions grid items in already-resolved tracks without
+// the preferred-height measure pass. Locked rows (a definite template or fixed
+// auto rows) never grow from content, so measured heights are discarded and
+// each item would be built twice for nothing. Cancellation polling mirrors the
+// measure loop so a cancelled context aborts at the same item boundary; item
+// boxes are still built once by the emit pass below.
+func placeGridItemsLocked(
+	eng *engine,
+	placed []gridCell,
+	cols []float64,
+	columnGap, contentX float64,
+) []gridPlacedBox {
+	pboxes := make([]gridPlacedBox, 0, len(placed))
+
+	poll := newCtxPoll(eng.ctx)
+	for _, page := range placed {
+		if poll.poll() {
+			eng.err = poll.err
+
+			return nil
+		}
+
+		contW, curX := gridCellExtent(cols, columnGap, contentX, page)
+		pboxes = append(pboxes, gridPlacedBox{
+			gridCell: page,
+			b:        nil,
+			cellW:    contW,
+			cx:       curX,
+			prefH:    0,
+		})
+	}
+
+	return pboxes
 }
 
 // measureGridPreferredHeights measures items without emitting ops so auto

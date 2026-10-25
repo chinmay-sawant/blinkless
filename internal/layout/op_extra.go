@@ -379,6 +379,46 @@ func (op Op) withTextAutospace(value string) Op {
 	return op
 }
 
+// styleHasShapingFeatures reports whether sty can produce a non-empty
+// OpenType feature list (fontShapingFeatureSettings) or language override
+// (fontShapingLanguage). The common element sets none of the shaping fields,
+// and building those strings costs a map, a slice, a closure, and several
+// small splits per text run, so decorateTextOp checks this first and skips
+// both computations when the answer is empty by construction. A true result
+// only means "compute it"; every shaping keyword still decides the output.
+func styleHasShapingFeatures(sty *ResolvedStyle) bool {
+	if sty == nil {
+		return false
+	}
+
+	if sty.FontKerning == fontKerningNone {
+		return true
+	}
+
+	if sty.FontFeatureSettings != "" && sty.FontFeatureSettings != fontVariantNormal {
+		return true
+	}
+
+	if sty.FontLanguageOverride != "" && sty.FontLanguageOverride != fontVariantNormal {
+		return true
+	}
+
+	return isSetFontVariantValue(sty.FontVariantCaps) ||
+		isSetFontVariantValue(sty.FontVariantLigatures) ||
+		isSetFontVariantValue(sty.FontVariantNumeric) ||
+		isSetFontVariantValue(sty.FontVariantPosition) ||
+		isSetFontVariantValue(sty.FontVariantAlternates) ||
+		isSetFontVariantValue(sty.FontVariantEastAsian)
+}
+
+// isSetFontVariantValue reports whether a font-variant longhand carries a
+// value beyond the initial one. "" and "normal" never produce feature tags,
+// so they skip shaping; anything else falls through to the full computation
+// (which may still find nothing to emit).
+func isSetFontVariantValue(value string) bool {
+	return value != "" && value != fontVariantNormal
+}
+
 // decorateTextOp attaches language, OpenType features, and synthesis gates
 // shared by every OpText emit site.
 func decorateTextOp(paintOp Op, sty *ResolvedStyle) Op {
@@ -386,9 +426,19 @@ func decorateTextOp(paintOp Op, sty *ResolvedStyle) Op {
 		return paintOp
 	}
 
+	// The shaping strings are empty unless the element sets a shaping field
+	// (see styleHasShapingFeatures); computing them unconditionally pays the
+	// map/slice/split garbage on every default text run. The with* setters
+	// are identity on "" so skipping the computation changes nothing.
+	language, features := "", ""
+	if styleHasShapingFeatures(sty) {
+		language = fontShapingLanguage(sty)
+		features = fontShapingFeatureSettings(sty)
+	}
+
 	paintOp = paintOp.withTextTransform(sty.TextTransform).
-		withTextLanguage(fontShapingLanguage(sty)).
-		withFontFeatures(fontShapingFeatureSettings(sty)).
+		withTextLanguage(language).
+		withFontFeatures(features).
 		withTextAutospace(sty.TextAutospace)
 
 	if textOpDisablesFakeBold(sty) {

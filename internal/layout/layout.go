@@ -133,6 +133,11 @@ type Options struct {
 	// default, while in-package tests can prove cached and uncached layouts
 	// produce identical output and benchmark the memo's effect.
 	gridMemoBypass bool
+	// flexMinBypass disables the column flex auto-minimum memo (see flex.go).
+	// Tests only: unexported so external callers keep the default, while
+	// in-package tests can prove cached and uncached layouts produce
+	// identical output and benchmark the memo's effect.
+	flexMinBypass bool
 }
 
 // validate rejects option values that would otherwise be silently clamped
@@ -627,6 +632,17 @@ type engine struct {
 	// container re-measures its items on the rebuild, doubling the work at
 	// every nesting level.
 	flexBaseH map[flexBaseKey]float64
+	// flexMinH memoizes column flex auto-minimum floors for this Layout run,
+	// keyed by item node, resolved style identity, and containing sizes (see
+	// flexMinKey). Shrink and clamp ask for the same floor, and each noEmit
+	// ancestor measure re-runs the owning container, so the memo keeps one
+	// content flow per item per run. The engine is constructed fresh per
+	// Layout, so entries never survive past the run that measured them.
+	flexMinH map[flexMinKey]float64
+	// flexMinBypass disables the column flex auto-minimum memo. Tests only:
+	// an unexported copy of Options.flexMinBypass that proves cached and
+	// uncached layouts produce identical output.
+	flexMinBypass bool
 	// svgInlineCache memoizes inline-<svg> rasters within one Layout run,
 	// keyed by serialized document plus raster resolution. Repeated identical
 	// icons rasterize once per run instead of once per occurrence. The cache
@@ -2117,6 +2133,32 @@ func (e *engine) buildOutOfFlow(node *html.Node, sty ResolvedStyle, availW, x, y
 	start := len(e.ops)
 	chromeFrom := len(e.deferredChrome)
 
+	cbH := e.absCBHeights[node]
+
+	// CSS 2.1 §10.6.4: an absolutely positioned box with auto height and
+	// both top and bottom set stretches to fill the containing block.
+	// Synthesize the used height before building so backgrounds, borders,
+	// and content lay out at the stretched size; without it a top:0;
+	// bottom:0 overlay (such as a sheen sweep) collapses to zero height
+	// and its animation paints nothing. Fixed boxes resolve against the
+	// viewport in resolveAbsY, so only the deferred content height
+	// stretches here.
+	if !viewportFixed && sty.Height < 0 && sty.HeightPercent < 0 && !sty.TopAuto && !sty.BottomAuto && cbH > 0 {
+		stretch := cbH - e.scalePt(sty.Top) - e.scalePt(sty.Bottom) - e.scalePt(sty.MarginTop) - e.scalePt(sty.MarginBottom)
+		if stretch < 0 {
+			stretch = 0
+		}
+
+		if sty.BoxSizing == borderBox {
+			stretch -= sty.verticalChrome(e)
+			if stretch < 0 {
+				stretch = 0
+			}
+		}
+
+		sty.Height = stretch / e.scale
+	}
+
 	buildW := e.absoluteBuildWidth(node, sty, cbW)
 
 	boxNode := e.buildInFlowDisplay(node, sty, buildW, cbX, cbY)
@@ -2133,7 +2175,6 @@ func (e *engine) buildOutOfFlow(node *html.Node, sty ResolvedStyle, availW, x, y
 		absX = cbX + cbW - boxNode.w - e.scalePt(sty.Right)
 	}
 
-	cbH := e.absCBHeights[node]
 	absY := e.resolveAbsY(sty, boxNode, cbY, viewportFixed, cbH)
 
 	dx, dy := absX-boxNode.x, absY-boxNode.y
