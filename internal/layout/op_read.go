@@ -46,6 +46,17 @@ func (op Op) Transform() Matrix2D {
 	return op.opExtra.Xform
 }
 
+// XformValue returns the stored 2D transform without copying the operation.
+// A nil payload returns the zero matrix, which callers treat as no transform.
+// Unlike Transform, it does not allocate or bind the shared empty payload.
+func (op *Op) XformValue() Matrix2D {
+	if op == nil || op.opExtra == nil {
+		return Matrix2D{} //nolint:exhaustruct // no transform payload
+	}
+
+	return op.opExtra.Xform
+}
+
 // PathValue returns the straight-edged path attached to an operation, if any.
 // The returned points belong to the display list and must not be modified.
 func (op Op) PathValue() (DisplayPath, bool) {
