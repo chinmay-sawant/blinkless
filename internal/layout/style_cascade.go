@@ -1656,6 +1656,7 @@ var styleGroups = [...]styleGroupFn{ //nolint:gochecknoglobals // static dispatc
 	applyWrapBreakProps,
 	applyAnimationProps,
 	applyTransitionProps,
+	applyTimelineProps,
 }
 
 func normalizeVendorPrefix(prop string) string {

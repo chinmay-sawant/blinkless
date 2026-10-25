@@ -497,7 +497,15 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.WrapInside == b.WrapInside &&
 		maps.Equal(a.CustomProps, b.CustomProps) &&
 		a.Animation == b.Animation &&
-		a.Transition == b.Transition
+		a.Transition == b.Transition &&
+		a.ScrollTimelineName == b.ScrollTimelineName &&
+		a.ScrollTimelineAxis == b.ScrollTimelineAxis &&
+		a.ViewTimelineName == b.ViewTimelineName &&
+		a.ViewTimelineAxis == b.ViewTimelineAxis &&
+		a.ViewTimelineInsetStart == b.ViewTimelineInsetStart &&
+		a.ViewTimelineInsetEnd == b.ViewTimelineInsetEnd &&
+		a.ViewTimelineInsetStartSet == b.ViewTimelineInsetStartSet &&
+		a.ViewTimelineInsetEndSet == b.ViewTimelineInsetEndSet
 }
 
 // styleInternFingerprint hashes every ResolvedStyle field. Equal styles
@@ -931,6 +939,14 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashStringMap(h, s.CustomProps)
 	h = styleInternHashAnimationStyle(h, s.Animation)
 	h = styleInternHashTransitionStyle(h, s.Transition)
+	h = styleInternHashString(h, s.ScrollTimelineName)
+	h = styleInternHashString(h, s.ScrollTimelineAxis)
+	h = styleInternHashString(h, s.ViewTimelineName)
+	h = styleInternHashString(h, s.ViewTimelineAxis)
+	h = styleInternHashFloat64(h, s.ViewTimelineInsetStart)
+	h = styleInternHashFloat64(h, s.ViewTimelineInsetEnd)
+	h = styleInternHashBool(h, s.ViewTimelineInsetStartSet)
+	h = styleInternHashBool(h, s.ViewTimelineInsetEndSet)
 
 	return h
 }
@@ -1342,6 +1358,14 @@ func styleInternFields() []string {
 		"CustomProps",
 		"Animation",
 		"Transition",
+		"ScrollTimelineName",
+		"ScrollTimelineAxis",
+		"ViewTimelineName",
+		"ViewTimelineAxis",
+		"ViewTimelineInsetStart",
+		"ViewTimelineInsetEnd",
+		"ViewTimelineInsetStartSet",
+		"ViewTimelineInsetEndSet",
 	}
 }
 

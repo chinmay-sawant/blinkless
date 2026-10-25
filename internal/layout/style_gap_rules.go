@@ -221,7 +221,7 @@ func insetSideDecls(value, axes, side string) ([]logicalPropDecl, bool) {
 		)
 	}
 
-	if axes == "both" || axes == "row" {
+	if axes == clearBoth || axes == "row" {
 		add("row")
 	}
 

@@ -34,17 +34,21 @@ func (e *engine) applyInlineImageBorders(item *inlineItem, leftX, top float64) (
 
 // emitInlineImage places an image (or inline-block) item on the line and
 // returns the updated x cursor. Replaced content never receives text
-// underline decorations (that was the thumb hairline source).
+// underline decorations (that was the thumb hairline source). An inline-level
+// <svg> keeps the box built during collection, and the raster op is attributed
+// to that box so the element stays addressable after layout.
 func (e *engine) emitInlineImage(
-	item *inlineItem, leftX, lineY, lineH, baseline, justifyGap float64,
+	boxNode *box, item *inlineItem, leftX, lineY, lineH, baseline, justifyGap float64,
 	gapAfter bool, und *undRun,
 ) float64 {
 	und.flush(e)
 
 	top := e.alignedInlineTop(item, lineY, lineH, baseline)
+	start := len(e.ops)
 	imgX, imgY, imgW, imgH := e.applyInlineImageBorders(item, leftX, top)
 
 	e.paintInlineImageItem(item, leftX, top, imgX, imgY, imgW, imgH)
+	e.attributeInlineSVGBox(item, boxNode, start, leftX, top)
 
 	if item.href != "" {
 		e.add((Op{ //nolint:exhaustruct // intentional zero fields

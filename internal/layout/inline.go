@@ -72,6 +72,10 @@ type inlineItem struct {
 	// leave scoped runs alone; the scope owner already ordered them.
 	bidiScoped bool
 	imgRef     *imageRef
+	// svgBox is the retained box of an inline-level <svg>. The line that
+	// paints the item attributes its raster op to this box, so boxForID finds
+	// the element and RestyleSVGPaint can replace the payload.
+	svgBox     *box
 	alt        string
 	href       string
 	forceBreak bool
@@ -1323,7 +1327,9 @@ func (e *engine) emitLineItems(boxNode *box, line []inlineItem, leftX, baseline,
 				boxNode, item, leftX, lineY, lineH, baseline, justifyGap, idx < len(line)-1, &und,
 			)
 		case item.img:
-			leftX = e.emitInlineImage(item, leftX, lineY, lineH, baseline, justifyGap, idx < len(line)-1, &und)
+			leftX = e.emitInlineImage(
+				boxNode, item, leftX, lineY, lineH, baseline, justifyGap, idx < len(line)-1, &und,
+			)
 		default:
 			// Ruby annotations paint on their stacked baseline (top of the
 			// line box when over, bottom when under) instead of the base

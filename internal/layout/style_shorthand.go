@@ -4,8 +4,18 @@ package layout
 // the longhand declarations that carry its origin and specificity. Each
 // expansion returns false for a prop it does not own or a value it cannot
 // read, so the raw key keeps the post-cascade fallback path.
+//
+//nolint:cyclop // dispatch across unrelated shorthand families
 func expandShorthandDeclaration(prop, value string) ([]logicalPropDecl, bool) {
 	if expanded, ok := expandAnimationDeclaration(prop, value); ok {
+		return expanded, true
+	}
+
+	if expanded, ok := expandScrollTimelineDeclaration(prop, value); ok {
+		return expanded, true
+	}
+
+	if expanded, ok := expandViewTimelineDeclaration(prop, value); ok {
 		return expanded, true
 	}
 

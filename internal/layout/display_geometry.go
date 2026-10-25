@@ -42,6 +42,8 @@ func FinalizeDisplayOps(ops []Op) error {
 			continue
 		}
 
+		operation.savePristineGeometry()
+
 		err := finalizeProjectedOp(operation, projective)
 		if err != nil {
 			return err
