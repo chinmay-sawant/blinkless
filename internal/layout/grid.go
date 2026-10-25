@@ -52,7 +52,7 @@ func (e *engine) buildGrid(node *html.Node, sty ResolvedStyle, availW, posX, pos
 	contentStart := len(e.ops)
 	curY := e.scalePt(sty.PaddingTop) + e.scalePt(sty.BorderTop.Width)
 
-	rowGap, columnGap := e.styleGaps(sty)
+	rowGap, columnGap := e.styleGaps(&sty)
 
 	areas := parseGridTemplateAreas(sty.GridTemplateAreas)
 	colDefs := gridColumnDefs(sty.GridTemplateColumns, areas.cols)
@@ -478,16 +478,7 @@ func measureGridPreferredHeights(
 		}
 
 		contW, curX := gridCellExtent(cols, columnGap, contentX, page)
-
-		was := eng.noEmit
-		eng.noEmit = true
-		mb := eng.build(page.n, contW, curX, posY+curY)
-		eng.noEmit = was
-
-		prefH := 0.0
-		if mb != nil {
-			prefH = mb.height
-		}
+		prefH := measureGridItemPrefH(eng, page.n, contW, curX, posY+curY)
 
 		pboxes = append(pboxes, gridPlacedBox{
 			gridCell: page,
@@ -890,7 +881,7 @@ func resolveContentHeightForWidth(sty ResolvedStyle, engN *engine, contentW floa
 
 // styleGaps returns scaled row/column gaps. When both longhands are unset (0),
 // fall back to the Gap shorthand for both axes. Shared by flex and grid.
-func (e *engine) styleGaps(sty ResolvedStyle) (float64, float64) {
+func (e *engine) styleGaps(sty *ResolvedStyle) (float64, float64) {
 	if sty.RowGap == 0 && sty.ColumnGap == 0 {
 		g := e.scalePt(sty.Gap)
 

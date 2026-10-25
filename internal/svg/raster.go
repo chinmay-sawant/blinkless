@@ -11,9 +11,11 @@ package svg
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"image"
 	"image/png"
 	"io"
 	"math"
@@ -33,8 +35,16 @@ const (
 	maxSVGBytes       = 32 << 20
 	maxSVGProbeBytes  = 4096
 	maxRasterSide     = 4096
+	defaultRasterSide = 512
 	maxEmulateTags    = 100000
 	maxRasterLockWait = 30 * time.Second
+	// rasterMemoMaxEntries bounds the shared raster memo independently of
+	// bytes so many tiny icons cannot grow the map without limit.
+	rasterMemoMaxEntries = 128
+	// rasterMemoMaxBytes bounds the encoded PNG bytes the memo retains. Flat
+	// icons compress to hundreds of bytes, so this holds thousands of them
+	// or a few large rasters.
+	rasterMemoMaxBytes = 8 << 20
 )
 
 var errRasterBusy = errors.New("svg: rasterizer lock wait exceeded")
@@ -54,7 +64,9 @@ var (
 
 // Rasterize decodes SVG XML into a PNG image via tdewolff/canvas only. The
 // returned width and height are logical CSS-pixel dimensions. The PNG may
-// contain more pixels because small SVGs are supersampled before encoding.
+// contain more pixels because small SVGs are supersampled before encoding:
+// targets below smallIconMaxDim supersample at most smallIconSuperSample,
+// larger small targets up to printSuperSample.
 // maxSide caps the longer edge in pixels (default 512).
 // On failure (not SVG, parse/draw error, empty size, or canvas panic),
 // returns err with nil pngBytes and zero w/h - callers must treat error
@@ -83,13 +95,7 @@ func RasterizeContext(ctx context.Context, data []byte, maxSide int) ([]byte, in
 		return nil, 0, 0, fmt.Errorf("%w: %d bytes, limit %d", errSVGTooLarge, len(data), maxSVGBytes)
 	}
 
-	if maxSide <= 0 {
-		maxSide = 512
-	} else if maxSide > maxRasterSide {
-		maxSide = maxRasterSide
-	}
-
-	if !looksLikeSVG(data) {
+	if maxSide = normalizeRasterMaxSide(maxSide); !looksLikeSVG(data) {
 		return nil, 0, 0, errNotSVG
 	}
 
@@ -147,6 +153,22 @@ func lockCanvas(ctx context.Context) error {
 const (
 	printSuperSample  = 4.0
 	minSuperSampleDim = 256
+	// smallIconMaxDim bounds the targets the small-icon supersample cap
+	// applies to. Icons below this CSS-pixel size supersample at most
+	// smallIconSuperSample, so a 16px trade icon encodes 32px, not 64px.
+	smallIconMaxDim = 32
+	// smallIconSuperSample caps the supersample factor for targets below
+	// smallIconMaxDim. Halving the linear factor quarters the encoded
+	// pixels, and PNG encode cost scales with pixels.
+	smallIconSuperSample = 2.0
+	// fastEncodeMinPixels floors the rasters the BestSpeed PNG path handles.
+	// At icon scale the default level measures fastest: below this pixel
+	// count fixed flate setup dominates and BestSpeed is slower as well as
+	// larger (go1.26: 64x64 gradient encodes in ~186us default vs ~245us
+	// BestSpeed at equal bytes). At and above this count BestSpeed measures
+	// ~10-15% faster for tens of bytes (256x256 gradient: ~1438us/764B
+	// default vs ~1250us/824B BestSpeed). Pixels are identical at any level.
+	fastEncodeMinPixels = 128 * 128
 )
 
 func dpmmScaleFactor(targetW, targetH, maxSide int) float64 {
@@ -160,7 +182,173 @@ func dpmmScaleFactor(targetW, targetH, maxSide int) float64 {
 		return 1.0
 	}
 
+	// Icons below smallIconMaxDim stay at or below smallIconSuperSample: the
+	// returned logical size is unchanged, so layout sizes the element
+	// exactly as before while the encoded pixels quarter.
+	if maxDim < smallIconMaxDim && scale > smallIconSuperSample {
+		scale = smallIconSuperSample
+	}
+
 	return scale
+}
+
+// normalizeRasterMaxSide applies the Rasterize maxSide policy: non-positive
+// means the default, above the hard cap clamps. The memo key and the
+// rasterizer share it so one logical request maps to one entry.
+func normalizeRasterMaxSide(maxSide int) int {
+	if maxSide <= 0 {
+		return defaultRasterSide
+	}
+
+	if maxSide > maxRasterSide {
+		return maxRasterSide
+	}
+
+	return maxSide
+}
+
+// encodeRasterPNG encodes one raster to PNG. Rasters at or above
+// fastEncodeMinPixels use BestSpeed, where it measures faster than the
+// default level; smaller rasters keep the default level, which measures
+// fastest at icon scale. Decoded pixels are identical at any level, only
+// the byte count changes by tens of bytes.
+func encodeRasterPNG(buf *bytes.Buffer, img image.Image, pixW, pixH int) error {
+	var err error
+
+	if pixW > 0 && pixH > 0 && pixW*pixH >= fastEncodeMinPixels {
+		err = (&png.Encoder{CompressionLevel: png.BestSpeed, BufferPool: nil}).Encode(buf, img)
+	} else {
+		err = png.Encode(buf, img)
+	}
+
+	if err != nil {
+		return fmt.Errorf("svg raster: encode: %w", err)
+	}
+
+	return nil
+}
+
+// encodeAndMemoize PNG-encodes one drawn raster, stores a copy in the shared
+// memo, and returns the caller-owned bytes. targetW and targetH are the
+// logical CSS-pixel bounds the memo records alongside the PNG.
+func encodeAndMemoize(
+	data []byte, maxSide int, img image.Image, pixW, pixH, targetW, targetH int,
+) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := encodeRasterPNG(&buf, img, pixW, pixH); err != nil {
+		return nil, err
+	}
+
+	// The memo keeps its own copy; the caller owns the returned slice.
+	sharedRasterMemo.put(rasterMemoKeyFor(data, maxSide), bytes.Clone(buf.Bytes()), targetW, targetH)
+
+	return buf.Bytes(), nil
+}
+
+// rasterMemoKey identifies one Rasterize result: the SHA-256 of the input
+// SVG plus the normalized maxSide. Size is part of the key so the same
+// document rasterized under two caps cannot share pixels; caches outside
+// this package that key on the serialized document (for example the layout
+// restyle cache) must include the size the same way.
+type rasterMemoKey struct {
+	sum     [sha256.Size]byte
+	maxSide int
+}
+
+// rasterMemoEntry is one memoized raster: the encoded PNG and its logical
+// CSS-pixel bounds.
+type rasterMemoEntry struct {
+	png  []byte
+	w, h int
+}
+
+// rasterMemo is a bounded LRU of Rasterize results shared across calls, so
+// identical icons (measure and build passes, repeated <img src>, restyle
+// replays) skip canvas draw and PNG encode entirely. Only successes are
+// stored. Stored slices never escape: get hands out copies, so callers own
+// what they receive exactly like the uncached path.
+type rasterMemo struct {
+	mu      sync.Mutex
+	entries map[rasterMemoKey]rasterMemoEntry
+	order   []rasterMemoKey
+	bytes   int
+}
+
+//nolint:gochecknoglobals // cross-call raster memo, bounded by rasterMemoMaxEntries/Bytes
+var sharedRasterMemo = newRasterMemo()
+
+func newRasterMemo() *rasterMemo {
+	return &rasterMemo{ //nolint:exhaustruct // zero-value mutex, map, order, and counter are intentional
+		entries: make(map[rasterMemoKey]rasterMemoEntry),
+		order:   make([]rasterMemoKey, 0, rasterMemoMaxEntries),
+	}
+}
+
+// rasterMemoKeyFor builds the memo key for one request. maxSide must already
+// be normalized so one logical request maps to one entry.
+func rasterMemoKeyFor(data []byte, maxSide int) rasterMemoKey {
+	return rasterMemoKey{sum: sha256.Sum256(data), maxSide: maxSide}
+}
+
+// memoizedRaster returns the raster stored for one request, if a previous
+// call already rasterized the same input under the same cap.
+func memoizedRaster(data []byte, maxSide int) ([]byte, int, int, bool) {
+	return sharedRasterMemo.get(rasterMemoKeyFor(data, maxSide))
+}
+
+// get returns a copy of the raster stored for key and marks it most recently
+// used.
+func (memo *rasterMemo) get(key rasterMemoKey) ([]byte, int, int, bool) {
+	memo.mu.Lock()
+	defer memo.mu.Unlock()
+
+	entry, ok := memo.entries[key]
+	if !ok {
+		return nil, 0, 0, false
+	}
+
+	for index, old := range memo.order {
+		if old == key {
+			memo.order = append(memo.order[:index], memo.order[index+1:]...)
+
+			break
+		}
+	}
+
+	memo.order = append(memo.order, key)
+
+	return bytes.Clone(entry.png), entry.w, entry.h, true
+}
+
+// put stores one raster, evicting least-recently-used entries until both the
+// entry count and the retained byte budget fit. A raster larger than the
+// whole byte budget is not stored: it could never fit and would evict every
+// useful entry first.
+func (memo *rasterMemo) put(key rasterMemoKey, encoded []byte, width, height int) {
+	if len(encoded) == 0 || len(encoded) > rasterMemoMaxBytes || width <= 0 || height <= 0 {
+		return
+	}
+
+	memo.mu.Lock()
+	defer memo.mu.Unlock()
+
+	if _, ok := memo.entries[key]; ok {
+		return
+	}
+
+	size := len(encoded)
+
+	for len(memo.order) >= rasterMemoMaxEntries ||
+		(memo.bytes+size > rasterMemoMaxBytes && len(memo.order) > 0) {
+		oldest := memo.order[0]
+		memo.order = memo.order[1:]
+		memo.bytes -= len(memo.entries[oldest].png)
+		delete(memo.entries, oldest)
+	}
+
+	memo.entries[key] = rasterMemoEntry{png: encoded, w: width, h: height}
+	memo.order = append(memo.order, key)
+	memo.bytes += size
 }
 
 //nolint:nonamedreturns,cyclop // defer-recover must override the result values; SVG raster has inherent branches
@@ -172,6 +360,13 @@ func rasterizeCanvas(ctx context.Context, data []byte, maxSide int) (pngBytes []
 
 	if err = ctx.Err(); err != nil {
 		return nil, 0, 0, fmt.Errorf("svg raster: %w", err)
+	}
+
+	// Identical inputs skip draw and encode. The lookup stays under canvasMu
+	// so lock-wait and deadline semantics never change: a caller that cannot
+	// take the lock still fails instead of being served a hit.
+	if memoPNG, memoW, memoH, ok := memoizedRaster(data, maxSide); ok {
+		return memoPNG, memoW, memoH, nil
 	}
 
 	defer func() {
@@ -195,13 +390,9 @@ func rasterizeCanvas(ctx context.Context, data []byte, maxSide int) (pngBytes []
 		return nil, 0, 0, fmt.Errorf("svg canvas: %w", err)
 	}
 
-	canvasW, canvasH := svgCanvas.Size()
-	// NaN fails <= 0, so both non-finite and non-positive sizes must be
-	// rejected explicitly before they reach the rasterizer.
-	if canvasW <= 0 || canvasH <= 0 ||
-		math.IsNaN(canvasW) || math.IsNaN(canvasH) ||
-		math.IsInf(canvasW, 0) || math.IsInf(canvasH, 0) {
-		return nil, 0, 0, errCanvasEmptySize
+	canvasW, canvasH, err := canvasSize(svgCanvas)
+	if err != nil {
+		return nil, 0, 0, err
 	}
 
 	// Intrinsic CSS-pixel size from viewBox / width / height attributes.
@@ -226,12 +417,27 @@ func rasterizeCanvas(ctx context.Context, data []byte, maxSide int) (pngBytes []
 		return nil, 0, 0, errCanvasZeroPixel
 	}
 
-	var buf bytes.Buffer
-	if err := png.Encode(&buf, img); err != nil {
+	encoded, err := encodeAndMemoize(data, maxSide, img, pixW, pixH, targetW, targetH)
+	if err != nil {
 		return nil, 0, 0, fmt.Errorf("svg canvas: encode: %w", err)
 	}
 
-	return buf.Bytes(), targetW, targetH, nil
+	return encoded, targetW, targetH, nil
+}
+
+// canvasSize returns the parsed canvas size in millimeters, rejecting
+// non-finite and non-positive sizes before they reach the rasterizer. NaN
+// fails <= 0, so every degenerate case needs an explicit check.
+func canvasSize(svgCanvas *canvas.Canvas) (float64, float64, error) {
+	canvasW, canvasH := svgCanvas.Size()
+
+	if canvasW <= 0 || canvasH <= 0 ||
+		math.IsNaN(canvasW) || math.IsNaN(canvasH) ||
+		math.IsInf(canvasW, 0) || math.IsInf(canvasH, 0) {
+		return 0, 0, errCanvasEmptySize
+	}
+
+	return canvasW, canvasH, nil
 }
 
 // canvasDPMM maps the canvas mm size to the target CSS-pixel size: it picks
@@ -255,11 +461,7 @@ func svgCSSPixelSize(data []byte, maxSide int) (int, int) {
 		viewH = 100
 	}
 
-	if maxSide <= 0 {
-		maxSide = 512
-	} else if maxSide > maxRasterSide {
-		maxSide = maxRasterSide
-	}
+	maxSide = normalizeRasterMaxSide(maxSide)
 
 	scale := 1.0
 	if viewW > float64(maxSide) || viewH > float64(maxSide) {

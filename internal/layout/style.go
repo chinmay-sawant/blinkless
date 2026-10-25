@@ -881,6 +881,15 @@ type styleContext struct {
 	// pass-local: every resolution pass builds a fresh styleContext, and
 	// container re-cascade passes do not use it.
 	memo styleResolutionMemo
+	// matchCache memoizes element-local selector outcomes per element
+	// signature for this pass (see matchedRules). A container re-cascade
+	// pass reuses it: entries only cover selectors whose outcome is a pure
+	// function of the signature, and container-gated rules evaluate fresh.
+	matchCache map[matchCacheKey]*matchCacheEntry
+	// gateCache memoizes the node-independent rule gates (media query and
+	// @supports) per rule for this pass, so repeated elements do not
+	// re-parse the same query strings.
+	gateCache map[*css.Rule]bool
 }
 
 // pollContext checks cancellation at bounded work intervals. Style matching is

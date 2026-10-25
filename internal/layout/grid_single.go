@@ -68,7 +68,7 @@ func (e *engine) layoutSingleColumnGrid(
 		containerJustify = fxStretch
 	}
 
-	rowGap, _ := e.styleGaps(sty)
+	rowGap, _ := e.styleGaps(&sty)
 	rows := make([]float64, numRows)
 	children := make([]*box, numRows)
 	rowTop := curY

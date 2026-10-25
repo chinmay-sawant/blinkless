@@ -282,6 +282,42 @@ func matchLeftAncestor(st MatchState, part SelectorPart, cur *html.Node) *html.N
 	return cur
 }
 
+// SelectorIsElementLocal reports whether matching sel against an element depends
+// only on the element's own tag, id, classes, and attributes (plus the
+// pass-constant match state), never on ancestors, siblings, descendants, or
+// sibling position. The layout cascade caches outcomes of element-local
+// selectors per element signature and evaluates every other selector fresh
+// for each element.
+//
+// A selector is element-local when it holds a single compound (no combinator
+// to cross) whose pseudo-classes are element-bound: :link and :visited read
+// the tag and href, :checked reads the tag and attributes, and :hover,
+// :active, :focus, and :focus-visible compare the element id against the pass
+// state. Every other pseudo-class (tree-structural, :root, :has(), :not(),
+// :is(), :where(), and unknown names) makes the selector contextual. The
+// final compound's pseudo-element is ignored: the selector index buckets
+// pseudo rules separately, so it is constant within one lookup.
+func SelectorIsElementLocal(sel Selector) bool {
+	if len(sel.Parts) != 1 {
+		return false
+	}
+
+	for _, pseudo := range sel.Parts[0].Pseudos {
+		if len(pseudo.Has) > 0 || len(pseudo.Not) > 0 || len(pseudo.Is) > 0 {
+			return false
+		}
+
+		switch pseudo.Name {
+		case "link", "visited", "checked",
+			pseudoClassFocus, pseudoClassFocusVisible, pseudoClassHover, pseudoClassActive:
+		default:
+			return false
+		}
+	}
+
+	return true
+}
+
 // matchPart matches one compound against an element.
 func matchPart(state MatchState, part SelectorPart, node *html.Node) bool {
 	if node.Type != html.ElementNode {

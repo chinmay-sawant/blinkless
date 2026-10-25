@@ -8,7 +8,7 @@ func resolveDefiniteWidth(
 	eng *engine, node *html.Node, style *ResolvedStyle, availW float64, width *float64,
 ) (bool, bool) {
 	if isIntrinsicWidth(style.Width) {
-		*width = eng.flexIntrinsicWidth(node, *style, style.Width == widthMinContent)
+		*width = eng.flexIntrinsicWidth(node, style, style.Width == widthMinContent)
 
 		return true, true
 	}

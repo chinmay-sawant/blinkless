@@ -128,6 +128,11 @@ type Options struct {
 	// after cascade, force text-decoration:underline on a[href]. Default off
 	// so author CSS (including inherit → none) is honored.
 	PrintLinkUnderline bool
+	// gridMemoBypass disables the grid preferred-height memo (see
+	// grid_memo.go). Tests only: unexported so external callers keep the
+	// default, while in-package tests can prove cached and uncached layouts
+	// produce identical output and benchmark the memo's effect.
+	gridMemoBypass bool
 }
 
 // validate rejects option values that would otherwise be silently clamped
@@ -563,7 +568,11 @@ type engine struct {
 	styleOverrides  []styleOverride
 	// styleIndex narrows selector matching for this layout's sheets. It is
 	// built once and shared by the cascade and every pseudo-content lookup.
-	styleIndex  *ruleIndex
+	styleIndex *ruleIndex
+	// pseudoCtx is the shared generated-content cascade context, refreshed
+	// per use by pseudoStyleContext so sequential ::before/::after probes
+	// reuse its match buffers instead of allocating.
+	pseudoCtx   *styleContext
 	ops         []Op
 	gridScratch []GridSeg // reusable row-grid collector storage
 	noEmit      bool      // measurement mode: compute geometry without emitting ops
@@ -603,6 +612,26 @@ type engine struct {
 	// imgCache resolves each <img src> at most once per Layout run (measure
 	// and build share the same decode).
 	imgCache map[string]*imageRef
+	// gridMeasureCache memoizes grid-item preferred heights for one Layout
+	// run (see grid_memo.go). The engine is constructed fresh per Layout, so
+	// entries never survive past the run that measured them.
+	gridMeasureCache map[gridMeasureKey]gridMeasureResult
+	// gridMemoBypass disables the grid preferred-height memo. Tests only: an
+	// unexported copy of Options.gridMemoBypass that proves cached and
+	// uncached layouts produce identical output.
+	gridMemoBypass bool
+	// flexBaseH memoizes column flex base heights for this Layout run, keyed
+	// by item node, resolved style identity, and containing sizes. A nested
+	// flex container measures each item subtree once for the hypothetical
+	// size and rebuilds it once for placement; without the memo the inner
+	// container re-measures its items on the rebuild, doubling the work at
+	// every nesting level.
+	flexBaseH map[flexBaseKey]float64
+	// svgInlineCache memoizes inline-<svg> rasters within one Layout run,
+	// keyed by serialized document plus raster resolution. Repeated identical
+	// icons rasterize once per run instead of once per occurrence. The cache
+	// dies with the engine, so it never outlives the layout it describes.
+	svgInlineCache *svgRasterCache
 	// containers is the last size-container map used for cascade (nil if none);
 	// pseudo-content reuses it so @container gates match cascadeRaw.
 	containers map[*html.Node]sizeContainer
@@ -660,6 +689,13 @@ type engine struct {
 	// lineGapByFace caches each face's hhea line gap ratio (lineGap/upem) for
 	// line-height: normal. The font package does not expose the gap.
 	lineGapByFace map[*pdf.Font]float64
+	// textWidthCache memoizes measureTextFace string widths for this Layout
+	// run, keyed by face, size, spacing and text. Trade tables repeat short
+	// mono price labels; the per-rune fallback loop is pure for a fixed key.
+	textWidthCache map[textWidthKey]float64
+	// runeWidthCache memoizes measureRuneFace single-rune widths for this
+	// Layout run (decoration and min-content paths walk rune by rune).
+	runeWidthCache map[runeWidthKey]float64
 	// needsXformStamp is set when any built box has transform≠none or
 	// opacity<1 so stampBoxTransforms can skip the full tree walk.
 	needsXformStamp bool
@@ -1762,6 +1798,11 @@ func (e *engine) buildBlock(node *html.Node, style ResolvedStyle, availW, posX, 
 func (e *engine) paintPositionedPseudo( //nolint:cyclop
 	node *html.Node, host ResolvedStyle, boxNode *box, pseudoElem string,
 ) {
+	// No content rule anywhere means the probe below answers empty.
+	if !e.hasPseudoContent() {
+		return
+	}
+
 	text := e.pseudoContent(node, pseudoElem)
 	if text == "" || boxNode == nil {
 		return
@@ -2074,6 +2115,7 @@ func (e *engine) buildOutOfFlow(node *html.Node, sty ResolvedStyle, availW, x, y
 	}
 
 	start := len(e.ops)
+	chromeFrom := len(e.deferredChrome)
 
 	buildW := e.absoluteBuildWidth(node, sty, cbW)
 
@@ -2096,7 +2138,7 @@ func (e *engine) buildOutOfFlow(node *html.Node, sty ResolvedStyle, availW, x, y
 
 	dx, dy := absX-boxNode.x, absY-boxNode.y
 	boxNode.x, boxNode.y = absX, absY
-	e.shiftBoxOps(boxNode, dx, dy)
+	e.shiftOutOfFlowBox(boxNode, dx, dy, chromeFrom)
 
 	return boxNode
 }

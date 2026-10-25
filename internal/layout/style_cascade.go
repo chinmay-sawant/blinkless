@@ -2,6 +2,7 @@ package layout
 
 import (
 	"maps"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -536,6 +537,78 @@ type ruleHit struct {
 	a, b, c int
 }
 
+// matchCacheKey identifies elements whose element-local selector outcomes are
+// identical: the namespace-qualified tag, the full attribute set, and the
+// pseudo-element pass. Classes and ids ride along inside attrs because the
+// matcher reads them from the attribute map; the inline style attribute rides
+// along too because attribute selectors can test for it. Ancestors, siblings,
+// and measured container sizes are deliberately absent: selectors that read
+// them are contextual and evaluate fresh on every lookup.
+type matchCacheKey struct {
+	tag    string
+	attrs  string
+	pseudo string
+}
+
+// matchCacheEntry is one cached signature: the sorted source-order candidates
+// for the signature, which candidate positions are reusable from the cache
+// (see selectorReusable), and the reusable hits among them in candidate
+// order. A replay walks cands in order, resolves reusable positions from
+// hits, and evaluates the rest fresh, so the merged sequence keeps the order
+// a fresh walk produced.
+type matchCacheEntry struct {
+	cands    []ruleSel
+	reusable []bool
+	hits     []ruleSel
+}
+
+// matchSignature builds the cache key for node in the pseudoElem pass. The
+// attribute encoding is length-prefixed over sorted names so distinct maps
+// never share a key; the tag is lowercased for HTML (whose type selectors
+// match ASCII case-insensitively) and namespace-qualified so foreign elements
+// never alias HTML ones.
+func matchSignature(node *html.Node, pseudoElem string) matchCacheKey {
+	tag := node.Name
+	if node.Namespace == html.NamespaceHTML {
+		tag = "html\x00" + strings.ToLower(tag)
+	} else {
+		tag = "foreign\x00" + strconv.Itoa(int(node.Namespace)) + "\x00" + tag
+	}
+
+	return matchCacheKey{tag: tag, attrs: canonicalAttrKey(node.Attrs), pseudo: pseudoElem}
+}
+
+// canonicalAttrKey encodes the full attribute map with length-prefixed,
+// sorted names so the key is exact and map-iteration order never leaks in.
+func canonicalAttrKey(attrs map[string]string) string {
+	if len(attrs) == 0 {
+		return ""
+	}
+
+	names := make([]string, 0, len(attrs))
+	for name := range attrs {
+		names = append(names, name)
+	}
+
+	slices.Sort(names)
+
+	var out strings.Builder
+
+	for _, name := range names {
+		value := attrs[name]
+		out.WriteString(strconv.Itoa(len(name)))
+		out.WriteByte(':')
+		out.WriteString(name)
+		out.WriteByte('=')
+		out.WriteString(strconv.Itoa(len(value)))
+		out.WriteByte(':')
+		out.WriteString(value)
+		out.WriteByte(';')
+	}
+
+	return out.String()
+}
+
 // matchedRules walks sheets with the cascade's gates (media, @container,
 // selector match, specificity). pseudoElem != "" matches ::before/::after
 // shapes instead of the element (pseudo-content path).
@@ -553,11 +626,46 @@ func (ctx *styleContext) matchedRules(node *html.Node, pseudoElem string) []rule
 		return nil
 	}
 
+	if node == nil {
+		ctx.ruleCands = index.candidates(ctx.ruleCands[:0], node, pseudoElem)
+		sortCandidates(ctx.ruleCands)
+
+		return ctx.scanMatches(node, pseudoElem, matchCacheKey{}, false) //nolint:exhaustruct // zero key: nil nodes never cache
+	}
+
+	key := matchSignature(node, pseudoElem)
+	if entry := ctx.matchCache[key]; entry != nil {
+		return ctx.replayMatches(entry, node, pseudoElem)
+	}
+
 	ctx.ruleCands = index.candidates(ctx.ruleCands[:0], node, pseudoElem)
 	sortCandidates(ctx.ruleCands)
+
+	return ctx.scanMatches(node, pseudoElem, key, true)
+}
+
+// scanMatches evaluates the sorted ctx.ruleCands with the cascade's gates and
+// selector matching, in source order. On a cacheable lookup it also records
+// the reusable selector hits for the signature entry, so a replay can skip
+// their gates and matching while keeping cascade order and specificity
+// identical.
+func (ctx *styleContext) scanMatches(
+	node *html.Node, pseudoElem string, key matchCacheKey, cache bool,
+) []ruleHit {
 	hits := ctx.ruleHits[:0]
 
-	for _, cand := range ctx.ruleCands {
+	var entry *matchCacheEntry
+
+	if cache {
+		entry = &matchCacheEntry{ //nolint:exhaustruct // reusable/hits grow during the scan
+			cands: slices.Clone(ctx.ruleCands),
+		}
+		if len(entry.cands) > 0 {
+			entry.reusable = make([]bool, len(entry.cands))
+		}
+	}
+
+	for i, cand := range ctx.ruleCands {
 		if ctx.pollContext() {
 			return nil
 		}
@@ -574,6 +682,63 @@ func (ctx *styleContext) matchedRules(node *html.Node, pseudoElem string) []rule
 
 		a, b, c := css.Specificity(sel)
 		hits = append(hits, ruleHit{rule: rule, a: a, b: b, c: c})
+
+		if entry != nil && ctx.selectorReusable(rule, sel) {
+			entry.reusable[i] = true
+			entry.hits = append(entry.hits, cand)
+		}
+	}
+
+	ctx.ruleHits = hits
+
+	if entry != nil {
+		if ctx.matchCache == nil {
+			ctx.matchCache = make(map[matchCacheKey]*matchCacheEntry)
+		}
+
+		ctx.matchCache[key] = entry
+	}
+
+	return hits
+}
+
+// replayMatches replays a cached signature: reusable candidates resolve from
+// the stored hits and contextual candidates evaluate fresh. Both sides walk
+// the stored source-order candidates, so the merged sequence (and therefore
+// the cascade) is identical to a fresh scan.
+func (ctx *styleContext) replayMatches(
+	entry *matchCacheEntry, node *html.Node, pseudoElem string,
+) []ruleHit {
+	hits := ctx.ruleHits[:0]
+	next := 0
+
+	for i, cand := range entry.cands {
+		if ctx.pollContext() {
+			return nil
+		}
+
+		if entry.reusable[i] {
+			if next < len(entry.hits) && entry.hits[next] == cand {
+				sel := cand.rule.Selectors[cand.sel]
+				a, b, c := css.Specificity(sel)
+				hits = append(hits, ruleHit{rule: cand.rule, a: a, b: b, c: c})
+				next++
+			}
+
+			continue
+		}
+
+		if !ctx.ruleGatesMatch(cand.rule, node) {
+			continue
+		}
+
+		sel := cand.rule.Selectors[cand.sel]
+		if !ctx.selectorMatches(sel, node, pseudoElem) {
+			continue
+		}
+
+		a, b, c := css.Specificity(sel)
+		hits = append(hits, ruleHit{rule: cand.rule, a: a, b: b, c: c})
 	}
 
 	ctx.ruleHits = hits
@@ -581,18 +746,49 @@ func (ctx *styleContext) matchedRules(node *html.Node, pseudoElem string) []rule
 	return hits
 }
 
+// selectorReusable reports whether one candidate's outcome is a pure function
+// of the element signature for this pass: an element-local selector (see
+// css.SelectorIsElementLocal) whose container gate cannot vary per element.
+// Media and @supports gates are pass-constant and fold into every cached
+// outcome. A container-gated rule is reusable only on passes without measured
+// containers, where its gate fails uniformly.
+func (ctx *styleContext) selectorReusable(rule *css.Rule, sel css.Selector) bool {
+	if rule.Container != nil && ctx.containers != nil {
+		return false
+	}
+
+	return css.SelectorIsElementLocal(sel)
+}
+
 // ruleGatesMatch reports whether one rule passes the non-selector gates the
 // cascade applies before matching a selector.
 func (ctx *styleContext) ruleGatesMatch(rule *css.Rule, node *html.Node) bool {
-	if !css.MediaMatches(rule.Media, ctx.media, ctx.viewportW, ctx.viewportH) {
+	if !ctx.staticGateMatches(rule) {
 		return false
 	}
 
-	if !ctx.containerGateMatches(node, rule) {
-		return false
+	return ctx.containerGateMatches(node, rule)
+}
+
+// staticGateMatches reports whether one rule passes the node-independent
+// gates: the media query and the @supports condition. Both read only
+// pass-constant state, so the outcome is memoized per rule for the pass and
+// shared by every element the pass resolves.
+func (ctx *styleContext) staticGateMatches(rule *css.Rule) bool {
+	if ok, found := ctx.gateCache[rule]; found {
+		return ok
 	}
 
-	return rule.Supports == nil || css.SupportsMatches(rule.Supports, engineSupportsProperty)
+	ok := css.MediaMatches(rule.Media, ctx.media, ctx.viewportW, ctx.viewportH) &&
+		(rule.Supports == nil || css.SupportsMatches(rule.Supports, engineSupportsProperty))
+
+	if ctx.gateCache == nil {
+		ctx.gateCache = make(map[*css.Rule]bool)
+	}
+
+	ctx.gateCache[rule] = ok
+
+	return ok
 }
 
 // ruleIndex returns the pass's selector index, building it from the sheets on

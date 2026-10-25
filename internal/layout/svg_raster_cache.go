@@ -1,5 +1,7 @@
 package layout
 
+import "strconv"
+
 // The restyle path serializes an inline SVG and rasterizes the result on every
 // call. A paint animation that repeats a value (the endpoints, a paused state,
 // two elements with the same icon) asks for the same document twice, so the
@@ -109,6 +111,24 @@ func (cache *svgRasterCache) replace(key string, png []byte, width, height, pixe
 	}
 
 	return false
+}
+
+// svgInlineCacheKey keys one inline-SVG raster by the resolution it was
+// rasterized at and its serialized document, so equal icons rasterized at
+// different maxSide caps never share a raster.
+func svgInlineCacheKey(data []byte, maxSide int) string {
+	return strconv.Itoa(maxSide) + "\x00" + string(data)
+}
+
+// inlineSVGRasterCache returns the engine's inline-SVG raster cache, creating
+// it on first use. It lives for one Layout run: repeated identical icons
+// rasterize once per run instead of once per occurrence.
+func (e *engine) inlineSVGRasterCache() *svgRasterCache {
+	if e.svgInlineCache == nil {
+		e.svgInlineCache = &svgRasterCache{} //nolint:exhaustruct // empty cache
+	}
+
+	return e.svgInlineCache
 }
 
 // svgRasterCache returns the SVG raster cache of this layout, creating it on

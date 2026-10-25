@@ -114,6 +114,12 @@ type Font struct {
 	instMu     sync.Mutex
 	instances  map[string]*Font
 	isInstance bool
+
+	// advMu guards advUnits, the per-rune advance-units cache. Advance,
+	// AdvanceInPoints and GlyphAdvancePoints share it so repeated price
+	// labels pay one cmap lookup per distinct rune, not per occurrence.
+	advMu    sync.RWMutex
+	advUnits map[rune]float64
 }
 
 // ParseTTF parses a TrueType (or OpenType with TrueType outlines) font file.
@@ -898,12 +904,7 @@ func (f *Font) Advance(runeValue rune) float64 {
 		return 0
 	}
 
-	g := f.GlyphID(runeValue)
-	if int(g) >= len(f.advance) {
-		return float64(f.advance[0])
-	}
-
-	return float64(f.advance[g])
+	return f.advanceUnits(runeValue)
 }
 
 // AdvanceInPoints converts an advance from font units to points for a size.
@@ -914,7 +915,7 @@ func (f *Font) AdvanceInPoints(runeValue rune, size float64) float64 {
 		return 0
 	}
 
-	return f.Advance(runeValue) / float64(f.unitsPerEm) * size
+	return f.advanceUnits(runeValue) / float64(f.unitsPerEm) * size
 }
 
 // GlyphAdvancePoints returns the advance width in points for r at size with
@@ -927,14 +928,7 @@ func (f *Font) GlyphAdvancePoints(runeValue rune, size float64) float64 {
 		return 0
 	}
 
-	g := f.GlyphID(runeValue)
-
-	adv := float64(f.advance[0])
-	if int(g) < len(f.advance) {
-		adv = float64(f.advance[g])
-	}
-
-	return adv / float64(f.unitsPerEm) * size
+	return f.advanceUnits(runeValue) / float64(f.unitsPerEm) * size
 }
 
 // glyphOutline returns the glyf bytes for a glyph id (raw, incl. header).

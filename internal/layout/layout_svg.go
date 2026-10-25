@@ -2,13 +2,15 @@
 package layout
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"maps"
 	"math"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/chinmay-sawant/blinkless/internal/errs"
 	"github.com/chinmay-sawant/blinkless/internal/html"
@@ -29,8 +31,13 @@ func (e *engine) buildInlineSVG(node *html.Node, sty ResolvedStyle, posX, posY f
 
 	data := e.serializeInlineSVG(node)
 	ref := &imageRef{src: "#inline-svg"} //nolint:exhaustruct // synthetic raster
-	if png, pw, ph, err := svg.RasterizeContext(e.rasterContext(), data, 1024); err == nil && len(png) > 0 {
+	cache := e.inlineSVGRasterCache()
+	key := svgInlineCacheKey(data, svgRasterMaxDim)
+	if png, pw, ph, ok := cache.get(key); ok {
 		ref.data, ref.w, ref.h = png, pw, ph
+	} else if png, pw, ph, err := svg.RasterizeContext(e.rasterContext(), data, svgRasterMaxDim); err == nil && len(png) > 0 {
+		ref.data, ref.w, ref.h = png, pw, ph
+		cache.put(key, png, pw, ph)
 	}
 	boxNode.img = ref
 
@@ -132,14 +139,135 @@ func (e *engine) serializeInlineSVG(node *html.Node) []byte {
 // pass carries the used styles of the overridden elements and the paint
 // properties whose authored presentation attribute the override replaces. A
 // nil pass leaves the serialization byte for byte unchanged.
+//
+// The writer comes from a shared pool so repeated icons do not allocate a
+// builder buffer per element, and the returned bytes are an exact-size copy:
+// the pooled buffer is reused by the next serialization.
 func (e *engine) serializeInlineSVGWithPaint(node *html.Node, paint *svgPaintPass) []byte {
-	var b strings.Builder
-	e.writeSVGNode(&b, node, paint)
+	buf := svgSerializePool.Get().(*bytes.Buffer)
+	buf.Reset()
+	e.writeSVGNode(buf, node, paint)
+	out := bytes.Clone(buf.Bytes())
+	svgSerializePool.Put(buf)
 
-	return []byte(b.String())
+	return out
 }
 
-func (e *engine) writeSVGNode(b *strings.Builder, node *html.Node, paint *svgPaintPass) {
+// svgSerializePool reuses serialize buffers across inline SVGs. Layout is
+// single-threaded per engine but engines run concurrently, so a pool (not an
+// engine field) owns the shared buffers.
+//
+//nolint:gochecknoglobals // shared buffer pool, reset on every Get
+var svgSerializePool = sync.Pool{New: func() any { return new(bytes.Buffer) }}
+
+// svgWrittenSet tracks serialized attribute names without a per-element map
+// allocation. SVG elements carry few attributes, so a linear scan over a
+// stack array beats hashing; larger elements spill to a map.
+type svgWrittenSet struct {
+	names [16]string
+	n     int
+	spill map[string]bool
+}
+
+func (s *svgWrittenSet) mark(name string) {
+	if s.has(name) {
+		return
+	}
+
+	if s.n < len(s.names) {
+		s.names[s.n] = name
+		s.n++
+
+		return
+	}
+
+	if s.spill == nil {
+		s.spill = make(map[string]bool)
+	}
+
+	s.spill[name] = true
+}
+
+func (s *svgWrittenSet) has(name string) bool {
+	for i := 0; i < s.n; i++ {
+		if s.names[i] == name {
+			return true
+		}
+	}
+
+	return s.spill != nil && s.spill[name]
+}
+
+// svgStyleDecls is one parsed inline style attribute: declaration names and
+// values in source order. Parsing once per serialized element replaces one
+// strings.Split per baked property below.
+type svgStyleDecls struct {
+	names  [8]string
+	values [8]string
+	n      int
+	spillN []string
+	spillV []string
+}
+
+// parseSVGStyleDecls splits styleAttr on ";" and the first ":" exactly like
+// svgInlineStyleProp, preserving first-match order for EqualFold lookups.
+func parseSVGStyleDecls(styleAttr string) svgStyleDecls {
+	var decls svgStyleDecls
+
+	start := 0
+	for i := 0; i <= len(styleAttr); i++ {
+		if i < len(styleAttr) && styleAttr[i] != ';' {
+			continue
+		}
+
+		name, value, ok := strings.Cut(styleAttr[start:i], ":")
+		start = i + 1
+
+		if !ok {
+			continue
+		}
+
+		name = strings.TrimSpace(name)
+		value = strings.TrimSpace(value)
+
+		if decls.n < len(decls.names) {
+			decls.names[decls.n] = name
+			decls.values[decls.n] = value
+			decls.n++
+		} else {
+			decls.spillN = append(decls.spillN, name)
+			decls.spillV = append(decls.spillV, value)
+		}
+	}
+
+	return decls
+}
+
+// prop returns the trimmed value of the first declaration naming prop
+// (case-insensitive), or "" when absent — the parse-once form of
+// svgInlineStyleProp.
+func (d *svgStyleDecls) prop(prop string) string {
+	for i := 0; i < d.n; i++ {
+		if strings.EqualFold(d.names[i], prop) {
+			return d.values[i]
+		}
+	}
+
+	for i := range d.spillN {
+		if strings.EqualFold(d.spillN[i], prop) {
+			return d.spillV[i]
+		}
+	}
+
+	return ""
+}
+
+// empty reports whether the attribute held no name:value declarations.
+func (d *svgStyleDecls) empty() bool {
+	return d.n == 0 && len(d.spillN) == 0
+}
+
+func (e *engine) writeSVGNode(b *bytes.Buffer, node *html.Node, paint *svgPaintPass) {
 	if node == nil {
 		return
 	}
@@ -149,21 +277,41 @@ func (e *engine) writeSVGNode(b *strings.Builder, node *html.Node, paint *svgPai
 	case html.ElementNode:
 		b.WriteByte('<')
 		b.WriteString(node.Name)
-		written := map[string]bool{}
+		var written svgWrittenSet
 		// CSS d overrides the d presentation attribute (CSS wins over
 		// presentation attributes in Chrome 143.0.7499.40), so the attribute
 		// is suppressed here and the baked CSS value is emitted by
 		// writeSVGExtraPresentationAttrs below. Applies to path only: d is
 		// not a valid property on other elements.
 		suppressDAttr := false
+		styleAttr := node.Attribute("style")
+		decls := parseSVGStyleDecls(styleAttr)
 		if node.Name == "path" {
-			_, suppressDAttr = svgCSSPathData(node.Attribute("style"))
+			_, suppressDAttr = svgCSSPathData(&decls)
 		}
 		// Attributes are written in sorted order so the serialization is
 		// stable across calls: node.Attrs is a map, and the restyle raster
 		// cache keys on the serialized document, so a random order would let
-		// an unchanged element miss the cache on every pass.
-		for _, k := range slices.Sorted(maps.Keys(node.Attrs)) {
+		// an unchanged element miss the cache on every pass. Keys sort in a
+		// stack array so the common small-attribute case allocates nothing.
+		var keys [16]string
+		var sorted []string
+		if len(node.Attrs) <= len(keys) {
+			n := 0
+			for k := range node.Attrs {
+				keys[n] = k
+				n++
+			}
+			sorted = keys[:n]
+			sort.Strings(sorted)
+		} else {
+			sorted = make([]string, 0, len(node.Attrs))
+			for k := range node.Attrs {
+				sorted = append(sorted, k)
+			}
+			sort.Strings(sorted)
+		}
+		for _, k := range sorted {
 			v := node.Attrs[k]
 			if k == "style" {
 				continue
@@ -179,13 +327,13 @@ func (e *engine) writeSVGNode(b *strings.Builder, node *html.Node, paint *svgPai
 			b.WriteString(`="`)
 			b.WriteString(escapeXML(v))
 			b.WriteByte('"')
-			written[k] = true
+			written.mark(k)
 		}
-		if node.Name == cssTagSVG && !written["xmlns"] {
+		if node.Name == cssTagSVG && !written.has("xmlns") {
 			b.WriteString(` xmlns="http://www.w3.org/2000/svg"`)
 		}
-		e.writeSVGPresentationAttrs(b, node, written, paint)
-		writeSVGExtraPresentationAttrs(b, node, written)
+		e.writeSVGPresentationAttrs(b, node, &written, &decls, paint)
+		writeSVGExtraPresentationAttrs(b, node, &written, &decls)
 		if len(node.Children) == 0 {
 			b.WriteString("/>")
 			return
@@ -201,7 +349,7 @@ func (e *engine) writeSVGNode(b *strings.Builder, node *html.Node, paint *svgPai
 }
 
 func (e *engine) writeSVGPresentationAttrs(
-	b *strings.Builder, node *html.Node, written map[string]bool, paint *svgPaintPass,
+	b *bytes.Buffer, node *html.Node, written *svgWrittenSet, decls *svgStyleDecls, paint *svgPaintPass,
 ) {
 	if !e.hasStyle(node) {
 		return
@@ -209,29 +357,29 @@ func (e *engine) writeSVGPresentationAttrs(
 
 	st := e.stylePtr(node)
 	if paint.paintsNoFill(node) {
-		if !written["fill"] {
+		if !written.has("fill") {
 			b.WriteString(` fill="none"`)
 		}
-	} else if st.FillSet && !written["fill"] {
+	} else if st.FillSet && !written.has("fill") {
 		if st.FillOpacity == 0 && st.Fill == [3]float64{} {
 			b.WriteString(` fill="none"`)
 		} else {
 			fmt.Fprintf(b, ` fill="%s"`, cssColorHex(st.Fill))
 		}
 	}
-	if st.FillOpacity >= 0 && st.FillOpacity < 1 && !written["fill-opacity"] {
+	if st.FillOpacity >= 0 && st.FillOpacity < 1 && !written.has("fill-opacity") {
 		fmt.Fprintf(b, ` fill-opacity="%g"`, st.FillOpacity)
 	}
-	if st.StrokeSet && !written["stroke"] {
+	if st.StrokeSet && !written.has("stroke") {
 		fmt.Fprintf(b, ` stroke="%s"`, cssColorHex(st.Stroke))
 	}
-	if st.StrokeWidthSet && st.StrokeWidth > 0 && !written["stroke-width"] {
+	if st.StrokeWidthSet && st.StrokeWidth > 0 && !written.has("stroke-width") {
 		fmt.Fprintf(b, ` stroke-width="%g"`, st.StrokeWidth)
 	}
-	if st.StrokeOpacity >= 0 && st.StrokeOpacity < 1 && !written["stroke-opacity"] {
+	if st.StrokeOpacity >= 0 && st.StrokeOpacity < 1 && !written.has("stroke-opacity") {
 		fmt.Fprintf(b, ` stroke-opacity="%g"`, st.StrokeOpacity)
 	}
-	if len(st.StrokeDashArray) > 0 && !written["stroke-dasharray"] {
+	if len(st.StrokeDashArray) > 0 && !written.has("stroke-dasharray") {
 		parts := make([]string, 0, len(st.StrokeDashArray))
 		for _, d := range st.StrokeDashArray {
 			parts = append(parts, strconv.FormatFloat(d, 'g', -1, 64))
@@ -240,10 +388,10 @@ func (e *engine) writeSVGPresentationAttrs(
 		b.WriteString(escapeXML(strings.Join(parts, " ")))
 		b.WriteByte('"')
 	}
-	if st.StrokeDashOffset != 0 && !written["stroke-dashoffset"] {
+	if st.StrokeDashOffset != 0 && !written.has("stroke-dashoffset") {
 		fmt.Fprintf(b, ` stroke-dashoffset="%g"`, st.StrokeDashOffset)
 	}
-	if st.StrokeLineCap != "" && !written["stroke-linecap"] {
+	if st.StrokeLineCap != "" && !written.has("stroke-linecap") {
 		switch st.StrokeLineCap {
 		case "butt", "round", "square":
 			fmt.Fprintf(b, ` stroke-linecap="%s"`, st.StrokeLineCap)
@@ -253,10 +401,10 @@ func (e *engine) writeSVGPresentationAttrs(
 	// pinned canvas parser keeps the limit in its state and only reads it
 	// when a later linejoin value builds the miter joiner, so the reverse
 	// order would leave a bare miterlimit with no observable effect.
-	if st.StrokeMiterLimit >= 1 && !written["stroke-miterlimit"] {
+	if st.StrokeMiterLimit >= 1 && !written.has("stroke-miterlimit") {
 		fmt.Fprintf(b, ` stroke-miterlimit="%g"`, st.StrokeMiterLimit)
 	}
-	if st.StrokeLineJoin != "" && !written["stroke-linejoin"] {
+	if st.StrokeLineJoin != "" && !written.has("stroke-linejoin") {
 		switch st.StrokeLineJoin {
 		case "miter", "miter-clip", "round", "bevel", "arcs":
 			fmt.Fprintf(b, ` stroke-linejoin="%s"`, st.StrokeLineJoin)
@@ -267,16 +415,16 @@ func (e *engine) writeSVGPresentationAttrs(
 	// presentation attribute already passed through above (written map) and
 	// wins by the no-duplicate guard. Stylesheet rules for these two need a
 	// stored field owned elsewhere and stay unbaked.
-	if !written["fill-rule"] {
-		if rule := svgInlineStyleProp(node.Attribute("style"), "fill-rule"); rule != "" {
+	if !written.has("fill-rule") {
+		if rule := decls.prop("fill-rule"); rule != "" {
 			switch strings.ToLower(rule) {
 			case "nonzero", "evenodd":
 				fmt.Fprintf(b, ` fill-rule="%s"`, strings.ToLower(rule))
 			}
 		}
 	}
-	if !written["shape-rendering"] {
-		if hint := svgInlineStyleProp(node.Attribute("style"), "shape-rendering"); hint != "" {
+	if !written.has("shape-rendering") {
+		if hint := decls.prop("shape-rendering"); hint != "" {
 			switch strings.ToLower(hint) {
 			case "auto":
 				b.WriteString(` shape-rendering="auto"`)
@@ -298,39 +446,38 @@ func (e *engine) writeSVGPresentationAttrs(
 	// presentation attribute already passed through above (written map) and
 	// wins by the no-duplicate guard. Stylesheet rules for these need a
 	// stored field owned elsewhere and stay unbaked.
-	styleAttr := node.Attribute("style")
-	if !written["cx"] {
-		if v, ok := svgBakeLengthValue(svgInlineStyleProp(styleAttr, "cx")); ok {
+	if !written.has("cx") {
+		if v, ok := svgBakeLengthValue(decls.prop("cx")); ok {
 			fmt.Fprintf(b, ` cx="%s"`, escapeXML(v))
 		}
 	}
-	if !written["cy"] {
-		if v, ok := svgBakeLengthValue(svgInlineStyleProp(styleAttr, "cy")); ok {
+	if !written.has("cy") {
+		if v, ok := svgBakeLengthValue(decls.prop("cy")); ok {
 			fmt.Fprintf(b, ` cy="%s"`, escapeXML(v))
 		}
 	}
-	if !written["r"] {
-		if v, ok := svgBakeNonNegativeLength(svgInlineStyleProp(styleAttr, "r")); ok {
+	if !written.has("r") {
+		if v, ok := svgBakeNonNegativeLength(decls.prop("r")); ok {
 			fmt.Fprintf(b, ` r="%s"`, escapeXML(v))
 		}
 	}
-	if !written["rx"] {
-		if v, ok := svgBakeNonNegativeLength(svgInlineStyleProp(styleAttr, "rx")); ok {
+	if !written.has("rx") {
+		if v, ok := svgBakeNonNegativeLength(decls.prop("rx")); ok {
 			fmt.Fprintf(b, ` rx="%s"`, escapeXML(v))
 		}
 	}
-	if !written["ry"] {
-		if v, ok := svgBakeNonNegativeLength(svgInlineStyleProp(styleAttr, "ry")); ok {
+	if !written.has("ry") {
+		if v, ok := svgBakeNonNegativeLength(decls.prop("ry")); ok {
 			fmt.Fprintf(b, ` ry="%s"`, escapeXML(v))
 		}
 	}
-	if !written["x"] {
-		if v, ok := svgBakeLengthValue(svgInlineStyleProp(styleAttr, "x")); ok {
+	if !written.has("x") {
+		if v, ok := svgBakeLengthValue(decls.prop("x")); ok {
 			fmt.Fprintf(b, ` x="%s"`, escapeXML(v))
 		}
 	}
-	if !written["y"] {
-		if v, ok := svgBakeLengthValue(svgInlineStyleProp(styleAttr, "y")); ok {
+	if !written.has("y") {
+		if v, ok := svgBakeLengthValue(decls.prop("y")); ok {
 			fmt.Fprintf(b, ` y="%s"`, escapeXML(v))
 		}
 	}
@@ -338,13 +485,13 @@ func (e *engine) writeSVGPresentationAttrs(
 	// parseDefs reads them from the stop tag attributes, so baking them on
 	// any other element would be noise that the rasterizer ignores.
 	if node.Name == "stop" {
-		if !written["stop-color"] {
-			if v := strings.TrimSpace(svgInlineStyleProp(styleAttr, "stop-color")); svgBakeStopColorValid(v) {
+		if !written.has("stop-color") {
+			if v := strings.TrimSpace(decls.prop("stop-color")); svgBakeStopColorValid(v) {
 				fmt.Fprintf(b, ` stop-color="%s"`, escapeXML(v))
 			}
 		}
-		if !written["stop-opacity"] {
-			if v, ok := svgBakeOpacityValue(svgInlineStyleProp(styleAttr, "stop-opacity")); ok {
+		if !written.has("stop-opacity") {
+			if v, ok := svgBakeOpacityValue(decls.prop("stop-opacity")); ok {
 				fmt.Fprintf(b, ` stop-opacity="%s"`, escapeXML(v))
 			}
 		}
@@ -354,18 +501,18 @@ func (e *engine) writeSVGPresentationAttrs(
 	// setAttribute has no case for any of them, so the raster cannot
 	// observe them. Each gap is pinned in css_behavior_svg_geo_test.go with
 	// a serialize-only assertion, never a pixel assertion.
-	if !written["paint-order"] {
-		if v, ok := svgBakePaintOrder(svgInlineStyleProp(styleAttr, "paint-order")); ok {
+	if !written.has("paint-order") {
+		if v, ok := svgBakePaintOrder(decls.prop("paint-order")); ok {
 			fmt.Fprintf(b, ` paint-order="%s"`, escapeXML(v))
 		}
 	}
-	if !written["vector-effect"] {
-		if v, ok := svgBakeVectorEffect(svgInlineStyleProp(styleAttr, "vector-effect")); ok {
+	if !written.has("vector-effect") {
+		if v, ok := svgBakeVectorEffect(decls.prop("vector-effect")); ok {
 			fmt.Fprintf(b, ` vector-effect="%s"`, escapeXML(v))
 		}
 	}
-	if !written["text-rendering"] {
-		if v, ok := svgBakeTextRendering(svgInlineStyleProp(styleAttr, "text-rendering")); ok {
+	if !written.has("text-rendering") {
+		if v, ok := svgBakeTextRendering(decls.prop("text-rendering")); ok {
 			fmt.Fprintf(b, ` text-rendering="%s"`, escapeXML(v))
 		}
 	}
@@ -879,7 +1026,9 @@ func prepareSVGPaint(
 	}
 
 	cache := prev.svgRasterCache()
-	key := string(data)
+	// The key carries the cap that sized the raster, so the same document
+	// restyled under a different svgRasterMaxDim cannot share pixels.
+	key := svgInlineCacheKey(data, svgRasterMaxDim)
 
 	png, width, height, cached := cache.get(key)
 	if !cached {
@@ -1592,25 +1741,24 @@ func svgPaintInheritedKeyword(value string) bool {
 // Kept as free functions in this section so the geometry+paint bake arms
 // owned elsewhere stay untouched. Reference browser for every branch:
 // Chrome 143.0.7499.40.
-func writeSVGExtraPresentationAttrs(b *strings.Builder, node *html.Node, written map[string]bool) {
+func writeSVGExtraPresentationAttrs(b *bytes.Buffer, node *html.Node, written *svgWrittenSet, decls *svgStyleDecls) {
 	if node == nil || node.Type != html.ElementNode {
 		return
 	}
 
-	styleAttr := node.Attribute("style")
-	if strings.TrimSpace(styleAttr) == "" {
+	if decls.empty() {
 		return
 	}
 
-	writeSVGMarkerAttrs(b, styleAttr, written)
-	writeSVGTextAnchorAttr(b, node, styleAttr, written)
+	writeSVGMarkerAttrs(b, decls, written)
+	writeSVGTextAnchorAttr(b, node, decls, written)
 
 	// CSS d (SVG2 geometry property, Chrome 121+) sets path data. The pinned
 	// canvas rasterizer reads path data only from the d attribute, so the
 	// property value is baked as one. Restricted to path: d is invalid
 	// elsewhere and canvas ignores it there too.
 	if node.Name == "path" {
-		if d, ok := svgCSSPathData(styleAttr); ok && !written["d"] {
+		if d, ok := svgCSSPathData(decls); ok && !written.has("d") {
 			b.WriteString(` d="`)
 			b.WriteString(escapeXML(d))
 			b.WriteByte('"')
@@ -1626,8 +1774,8 @@ func writeSVGExtraPresentationAttrs(b *strings.Builder, node *html.Node, written
 // skipped above), so without this bake the declaration never moves pixels.
 // An authored text-anchor attribute wins by the no-duplicate guard, and
 // stylesheet rules stay unbaked like the fill-rule precedent above.
-func writeSVGTextAnchorAttr(b *strings.Builder, node *html.Node, styleAttr string, written map[string]bool) {
-	if written["text-anchor"] {
+func writeSVGTextAnchorAttr(b *bytes.Buffer, node *html.Node, decls *svgStyleDecls, written *svgWrittenSet) {
+	if written.has("text-anchor") {
 		return
 	}
 	switch node.Name {
@@ -1636,7 +1784,7 @@ func writeSVGTextAnchorAttr(b *strings.Builder, node *html.Node, styleAttr strin
 	default:
 		return
 	}
-	if anchor, ok := svgBakeTextAnchor(svgInlineStyleProp(styleAttr, "text-anchor")); ok {
+	if anchor, ok := svgBakeTextAnchor(decls.prop("text-anchor")); ok {
 		b.WriteString(` text-anchor="`)
 		b.WriteString(anchor)
 		b.WriteByte('"')
@@ -1661,15 +1809,15 @@ func svgBakeTextAnchor(raw string) (string, bool) {
 // expands onto every unset longhand because canvas has no shorthand case.
 // A lone "none" stays unbaked: it matches the no-marker initial and there is
 // nothing to emit.
-func writeSVGMarkerAttrs(b *strings.Builder, styleAttr string, written map[string]bool) {
-	shorthand := svgInlineStyleProp(styleAttr, "marker")
+func writeSVGMarkerAttrs(b *bytes.Buffer, decls *svgStyleDecls, written *svgWrittenSet) {
+	shorthand := decls.prop("marker")
 
-	for _, prop := range []string{"marker-start", "marker-mid", "marker-end"} {
-		if written[prop] {
+	for _, prop := range [3]string{"marker-start", "marker-mid", "marker-end"} {
+		if written.has(prop) {
 			continue
 		}
 
-		val := svgInlineStyleProp(styleAttr, prop)
+		val := decls.prop(prop)
 		if val == "" {
 			val = shorthand
 		}
@@ -1701,8 +1849,8 @@ func isSVGMarkerRef(val string) bool {
 // svgCSSPathData returns the path data carried by the CSS d property, which
 // must have the form path("...") (double or single quotes). "none" and any
 // other shape mean no override.
-func svgCSSPathData(styleAttr string) (string, bool) {
-	raw := strings.TrimSpace(svgInlineStyleProp(styleAttr, "d"))
+func svgCSSPathData(decls *svgStyleDecls) (string, bool) {
+	raw := strings.TrimSpace(decls.prop("d"))
 	if raw == "" || strings.EqualFold(raw, "none") {
 		return "", false
 	}

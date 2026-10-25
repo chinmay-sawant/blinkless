@@ -24,15 +24,16 @@ func newEngine(
 	styles map[*html.Node]*ResolvedStyle, containers map[*html.Node]sizeContainer, ops []Op,
 ) *engine {
 	return &engine{ //nolint:exhaustruct // intentional zero fields
-		opts:       opts,
-		ctx:        ctx,
-		font:       font,
-		faces:      faces,
-		registry:   opts.Registry,
-		styles:     styles,
-		scale:      zoomScale(opts.Zoom),
-		containers: containers,
-		ops:        ops,
+		opts:           opts,
+		ctx:            ctx,
+		font:           font,
+		faces:          faces,
+		registry:       opts.Registry,
+		styles:         styles,
+		scale:          zoomScale(opts.Zoom),
+		containers:     containers,
+		ops:            ops,
+		gridMemoBypass: opts.gridMemoBypass,
 	}
 }
 

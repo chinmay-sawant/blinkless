@@ -454,7 +454,7 @@ func alphaMaskPNG(source image.Image, mode, colorSpace string) ([]byte, error) {
 	}
 
 	var output bytes.Buffer
-	if err := png.Encode(&output, mask); err != nil {
+	if err := encodeRasterPNG(&output, mask, bounds.Dx(), bounds.Dy()); err != nil {
 		return nil, fmt.Errorf("svg mask: encode alpha image: %w", err)
 	}
 

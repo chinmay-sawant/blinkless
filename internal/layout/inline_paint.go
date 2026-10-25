@@ -1532,6 +1532,25 @@ func (e *engine) measureTextFace(cssSheet string, sty *ResolvedStyle) float64 {
 	}
 
 	size := usedFontSize(sty, primary) * e.scale
+
+	if len(cssSheet) > maxCachedTextLen {
+		return e.measureTextFaceUncached(cssSheet, sty, primary, size)
+	}
+
+	key := textWidthCacheKey(sty, primary, size, cssSheet)
+	if w, ok := e.lookupTextWidth(key); ok {
+		return w
+	}
+
+	w := e.measureTextFaceUncached(cssSheet, sty, primary, size)
+	e.storeTextWidth(key, w)
+
+	return w
+}
+
+// measureTextFaceUncached sums per-rune advances for cssSheet without
+// consulting the string cache.
+func (e *engine) measureTextFaceUncached(cssSheet string, sty *ResolvedStyle, primary *pdf.Font, size float64) float64 {
 	lstyle := sty.LetterSpacing * e.scale
 	wstyle := sty.WordSpacing * e.scale
 
@@ -1633,6 +1652,19 @@ func (e *engine) measureRuneFace(curRune rune, sty *ResolvedStyle) float64 {
 		return 0
 	}
 
+	key := runeWidthCacheKey(sty, e.scale, curRune)
+	if w, ok := e.lookupRuneWidth(key); ok {
+		return w
+	}
+
+	w := e.measureRuneFaceUncached(curRune, sty)
+	e.storeRuneWidth(key, w)
+
+	return w
+}
+
+// measureRuneFaceUncached measures one rune without consulting the rune cache.
+func (e *engine) measureRuneFaceUncached(curRune rune, sty *ResolvedStyle) float64 {
 	if curRune == '\t' {
 		if isTabSizeLength(sty) {
 			return e.scalePt(sty.TabSize)

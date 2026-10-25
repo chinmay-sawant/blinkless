@@ -202,7 +202,7 @@ func (e *engine) sideCaptionUsedWidth(capNode *html.Node, capStyle *ResolvedStyl
 		st = *capStyle
 	}
 
-	_, maxC := e.measureCellMinMax(capNode, st)
+	_, maxC := e.measureCellMinMax(capNode, &st)
 	if maxC > maxW {
 		return maxW
 	}
@@ -1229,7 +1229,7 @@ func (e *engine) buildCell(node *html.Node, col, span int) *box {
 		span:   span,
 		hasInk: nodeHasTableInk(node),
 	}
-	cellBox.contentMin, cellBox.contentW = e.measureCellMinMax(node, *cellStyle)
+	cellBox.contentMin, cellBox.contentW = e.measureCellMinMax(node, cellStyle)
 
 	return cellBox
 }

@@ -37,7 +37,7 @@ func (e *engine) pseudoContent(node *html.Node, pseudoEl string) string {
 		return ""
 	}
 
-	if !e.hasPseudoContent() {
+	if !e.mayHavePseudoContent(node, pseudoEl) {
 		return ""
 	}
 
@@ -60,7 +60,7 @@ func (e *engine) pseudoContentURL(node *html.Node, pseudoEl string) string {
 		return ""
 	}
 
-	if !e.hasPseudoContent() {
+	if !e.mayHavePseudoContent(node, pseudoEl) {
 		return ""
 	}
 
@@ -81,21 +81,30 @@ func (e *engine) pseudoContentURL(node *html.Node, pseudoEl string) string {
 // pseudoStyleContext is the cascade context used to re-walk sheets for
 // generated content (media + @container gates). When e.styles came from a
 // container pass, non-matching container content is suppressed here the same
-// way colors are.
+// way colors are. The context is cached on the engine and refreshed per use:
+// pseudo lookups run sequentially and consume each matchedRules result before
+// the next lookup, so sharing the scratch buffers is exact and avoids one
+// allocation plus fresh match buffers per ::before/::after probe.
 func (e *engine) pseudoStyleContext() *styleContext {
 	media := e.opts.Media
 	if media == "" {
 		media = "print"
 	}
 
-	return &styleContext{ //nolint:exhaustruct // generated-content cascade context
-		sheets:     e.opts.Sheets,
-		media:      media,
-		viewportW:  e.opts.Width,
-		viewportH:  e.opts.Height,
-		containers: e.containers,
-		index:      e.styleRuleIndex(),
+	ctx := e.pseudoCtx
+	if ctx == nil {
+		ctx = &styleContext{} //nolint:exhaustruct // refreshed below on every use
+		e.pseudoCtx = ctx
 	}
+
+	ctx.sheets = e.opts.Sheets
+	ctx.media = media
+	ctx.viewportW = e.opts.Width
+	ctx.viewportH = e.opts.Height
+	ctx.containers = e.containers
+	ctx.index = e.styleRuleIndex()
+
+	return ctx
 }
 
 // styleRuleIndex returns the selector index for this layout's sheets, built
@@ -122,6 +131,23 @@ func (e *engine) hasPseudoContent() bool {
 	return index != nil && index.content
 }
 
+// mayHavePseudoContent reports whether node could generate content for one
+// pseudo-element: some rule for that name declares content and some selector
+// for that name could match node. False means the pseudo walk would find no
+// rule, so callers skip the cascade without changing the result.
+func (e *engine) mayHavePseudoContent(node *html.Node, pseudoEl string) bool {
+	if e == nil || node == nil || (pseudoEl != pseudoBefore && pseudoEl != pseudoAfter) {
+		return false
+	}
+
+	index := e.styleRuleIndex()
+	if index == nil || !index.contentPseudo[pseudoEl] {
+		return false
+	}
+
+	return index.mayMatchPseudo(node, pseudoEl)
+}
+
 // pseudoStyle resolves the used style of generated content against the host
 // style. Generated content inherits from its host, then applies declarations
 // from the matching pseudo-element rules through the same raw-to-used
@@ -130,6 +156,10 @@ func (e *engine) hasPseudoContent() bool {
 func (e *engine) pseudoStyle(node *html.Node, pseudoEl string, host ResolvedStyle) *ResolvedStyle {
 	if e == nil || node == nil {
 		return &host
+	}
+
+	if !e.mayHavePseudoContent(node, pseudoEl) {
+		return e.stylePtr(node)
 	}
 
 	ctx := e.pseudoStyleContext()

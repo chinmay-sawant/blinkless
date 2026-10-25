@@ -25,11 +25,14 @@ type ruleSel struct {
 // that end on the element itself; pseudo holds selectors that end on
 // ::before or ::after, keyed by that name. content records that a pseudo rule
 // declares content, which lets the generated-content walk skip pseudo
-// matching when no rule can generate content at all.
+// matching when no rule can generate content at all. contentPseudo records
+// the same per pseudo-element name so a ::before lookup skips when only
+// ::after rules declare content (and vice versa).
 type ruleIndex struct {
-	host    ruleBucket
-	pseudo  map[string]*ruleBucket
-	content bool
+	host          ruleBucket
+	pseudo        map[string]*ruleBucket
+	content       bool
+	contentPseudo map[string]bool
 }
 
 // ruleBucket groups selectors by the rightmost compound's strongest key: an
@@ -67,6 +70,12 @@ func newRuleIndex(sheets []*css.Stylesheet) *ruleIndex {
 
 				if last.PseudoElement != "" && declaresContent(rule) {
 					index.content = true
+
+					if index.contentPseudo == nil {
+						index.contentPseudo = map[string]bool{}
+					}
+
+					index.contentPseudo[last.PseudoElement] = true
 				}
 			}
 		}
@@ -165,6 +174,45 @@ func (idx *ruleIndex) candidates(dst []ruleSel, node *html.Node, pseudo string) 
 	}
 
 	return append(dst, bucket.universal...)
+}
+
+// mayMatchPseudo reports whether any indexed ::before/::after selector for
+// pseudo could match node. It mirrors the bucket lookups of candidates
+// without building, sorting, or matching the candidate list, so callers can
+// skip the generated-content cascade when the walk would find no rule. A
+// true result still needs the full matcher (gates and combinators may
+// reject); a false result means matchedRules would return no hits.
+func (idx *ruleIndex) mayMatchPseudo(node *html.Node, pseudo string) bool {
+	if idx == nil || node == nil || pseudo == "" {
+		return false
+	}
+
+	bucket := idx.pseudo[pseudo]
+	if bucket == nil {
+		return false
+	}
+
+	if id := node.Attribute("id"); id != "" && len(bucket.byID[id]) > 0 {
+		return true
+	}
+
+	matched := false
+
+	forEachClass(node.Attribute("class"), func(name string) {
+		if !matched && len(bucket.byClass[name]) > 0 {
+			matched = true
+		}
+	})
+
+	if matched {
+		return true
+	}
+
+	if len(bucket.byTag) > 0 && len(bucket.byTag[strings.ToLower(node.Name)]) > 0 {
+		return true
+	}
+
+	return len(bucket.universal) > 0
 }
 
 // sortCandidates restores the sheet, rule, and selector order the linear walk

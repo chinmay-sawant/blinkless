@@ -720,6 +720,11 @@ func (e *engine) collectInlineSpan(node *html.Node, sty ResolvedStyle, out *[]in
 // appendPseudoItem appends the ::before/::after pseudo content of node: an
 // image item for url() content, otherwise a decorated text item.
 func (e *engine) appendPseudoItem(node *html.Node, sty ResolvedStyle, pseudo string, out *[]inlineItem) {
+	// No content rule anywhere means neither probe can produce an item.
+	if !e.hasPseudoContent() {
+		return
+	}
+
 	if src := e.pseudoContentURL(node, pseudo); src != "" {
 		if ref := e.resolveImage(src); ref != nil && ref.data != nil {
 			e.appendPseudoImage(node, sty, pseudo, ref, out)
@@ -795,7 +800,7 @@ func (e *engine) inlineBlockAvail(nodeN *html.Node, sty ResolvedStyle, cbW float
 	// adding the chrome again makes inline-block pills grow by a second set of
 	// padding/border widths and leaves misleading empty space on the right.
 	// An empty box measures 0 and stays 0 wide, matching Chrome.
-	intr := e.measureCellContent(nodeN, sty) +
+	intr := e.measureCellContent(nodeN, &sty) +
 		e.scalePt(sty.MarginLeft) + e.scalePt(sty.MarginRight) +
 		e.nestedBlockHChrome(nodeN)
 
@@ -848,7 +853,7 @@ func (e *engine) nestedBlockHChrome(node *html.Node) float64 {
 		// A specified-width blockish child was already counted with its
 		// margins by measureCellMinMax (specifiedBlockOuterWidth); adding the
 		// chrome here doubled the wrapper width (case-13 inline-block).
-		if countedBySpecifiedBlockMeasure(child, *childStyle) {
+		if countedBySpecifiedBlockMeasure(child, childStyle) {
 			continue
 		}
 

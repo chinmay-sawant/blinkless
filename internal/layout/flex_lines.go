@@ -26,6 +26,12 @@ func (e *engine) flexWrapLines(
 	var lines [][]flexMeas
 
 	line := make([]flexMeas, 0, len(items))
+	// Trial, width, and frozen scratches are sized once per container. Every
+	// wrap trial reuses them instead of allocating a trial line plus width
+	// and clamp slices per item.
+	trial := make([]flexMeas, len(items))
+	widthScratch := make([]float64, len(items))
+	frozenScratch := make([]bool, len(items))
 
 	poll := newCtxPoll(e.ctx)
 	for _, item := range items {
@@ -35,7 +41,7 @@ func (e *engine) flexWrapLines(
 			return nil
 		}
 
-		line = e.flexWrapPlaceItem(&lines, line, item, reverse, colGap, contentW)
+		line = e.flexWrapPlaceItem(&lines, line, item, reverse, colGap, contentW, trial, widthScratch, frozenScratch)
 	}
 
 	if len(line) > 0 {
@@ -56,6 +62,7 @@ func (e *engine) flexWrapLines(
 func (e *engine) flexWrapPlaceItem(
 	lines *[][]flexMeas, line []flexMeas, item flexMeas,
 	reverse bool, colGap, contentW float64,
+	trial []flexMeas, widthScratch []float64, frozenScratch []bool,
 ) []flexMeas {
 	// wrap-before: flex forces a new flex line even when the item fits
 	// (wrap_break.go; nowrap returns before this loop).
@@ -64,8 +71,11 @@ func (e *engine) flexWrapPlaceItem(
 		line = nil
 	}
 
-	trial := append(append([]flexMeas(nil), line...), item)
-	if len(line) > 0 && !e.flexLineFits(trial, contentW, colGap) {
+	// The fit trial copies the committed line plus the candidate into the
+	// container-owned scratch instead of allocating a trial slice per item.
+	n := copy(trial, line)
+	trial[n] = item
+	if len(line) > 0 && !e.flexLineFitsInto(trial[:n+1], contentW, colGap, widthScratch[:n+1], frozenScratch[:n+1]) {
 		*lines = append(*lines, finalizeFlexLine(line, reverse))
 		line = nil
 	}
@@ -81,8 +91,8 @@ func (e *engine) flexWrapPlaceItem(
 	return line
 }
 
-func (e *engine) flexLineFits(items []flexMeas, contentW, gap float64) bool {
-	widths := e.flexLineWidths(items, contentW, gap)
+func (e *engine) flexLineFitsInto(items []flexMeas, contentW, gap float64, widths []float64, frozen []bool) bool {
+	e.flexLineWidthsInto(items, contentW, gap, widths, frozen)
 	total := gap * float64(len(widths)-1)
 
 	for idx, width := range widths {
