@@ -132,7 +132,7 @@ func RestampTransforms(
 		return &ElementPatch{Display: prev}, nil //nolint:exhaustruct // no damage, no work
 	}
 
-	return restampElementPatch(styled, prev, overrides, restamped), nil
+	return restampElementPatch(prev, overrides, restamped), nil
 }
 
 // engineOverrides converts the public override list for the engine.
@@ -163,9 +163,9 @@ func engineOverrides(overrides []TransformOverride) []ilayout.RestampOverride {
 // the re-stamped operations, the patched element boxes, and the damage the
 // old and new painted areas cover.
 func restampElementPatch(
-	styled pubstate.Styled, prev *Display, overrides []TransformOverride, restamped *ilayout.RestampPatch,
+	prev *Display, overrides []TransformOverride, restamped *ilayout.RestampPatch,
 ) *ElementPatch {
-	display := patchedDisplay(styled, prev)
+	display := restampedDisplay(prev)
 
 	ops := make([]DisplayOp, 0)
 	owners := make([]int, 0)
@@ -188,6 +188,19 @@ func restampElementPatch(
 		New:      pointBoundsToRect(restamped.NewX, restamped.NewY, restamped.NewW, restamped.NewH),
 		Display:  display,
 	}
+}
+
+// restampedDisplay copies prev without rebuilding the metadata a re-stamp
+// cannot change. The pass mutates the operation slice in place; the operation
+// owners, paint order, keyframes, boxes, and dimensions stay as they were.
+// Rebuilding them with newDisplay on every animated frame dominated the 3D
+// profile, so the patch shares those slices with prev and treats prev as stale.
+func restampedDisplay(prev *Display) *Display {
+	next := *prev
+	next.Ops = prev.result.Ops
+	next.result = prev.result
+
+	return &next
 }
 
 // checkRestampInput rejects the inputs a restamp cannot work with. It mirrors
