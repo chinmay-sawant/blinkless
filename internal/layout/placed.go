@@ -21,6 +21,13 @@ type PlacedElement struct {
 	// Timelines holds the named scroll and view timelines this element
 	// declares. Scroll comes before view; a nil slice means no declaration.
 	Timelines []TimelineDef
+	// OverflowClip is the accumulated ancestor overflow padding box in
+	// canvas points, empty with HasOverflowClip false when no ancestor
+	// clips. A host painting this element through a transform intersects
+	// the paint with it; geometry-baked clipping alone moves with the
+	// matrix and cannot hold transformed paint inside the box.
+	OverflowClip    [4]float64
+	HasOverflowClip bool
 	// Transform carries the resolved transform metadata for this element. It is
 	// the zero value when the element declares no transform.
 	Transform TransformInfo
@@ -77,6 +84,8 @@ func walkPlaced(
 			ViewTransitionGroup: boxNode.style.Animation.ViewTransitionGroup,
 			ViewTransitionScope: boxNode.style.Animation.ViewTransitionScope,
 			Timelines:           timelineDefsFromStyle(boxNode.style, elementID),
+			OverflowClip:        elementOverflowClip(boxNode),
+			HasOverflowClip:     boxNode.overflowClip != nil,
 			Transform:           info,
 			X:                   boxNode.x,
 			Y:                   boxNode.y,
@@ -94,6 +103,18 @@ func walkPlaced(
 	for _, child := range boxNode.children {
 		walkPlaced(child, ops, childParent, childAccum, childViewport, out)
 	}
+}
+
+// elementOverflowClip reads the ancestor overflow box clipOverflowTree
+// recorded, in canvas points. Zero with no clip.
+func elementOverflowClip(boxNode *box) [4]float64 {
+	if boxNode == nil || boxNode.overflowClip == nil {
+		return [4]float64{}
+	}
+
+	c := boxNode.overflowClip
+
+	return [4]float64{c.x, c.y, c.w, c.h}
 }
 
 func operationIDs(ops []Op, start, end int) []uint64 {

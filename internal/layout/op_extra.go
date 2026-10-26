@@ -56,6 +56,14 @@ type opExtra struct {
 	// flattened path it produced. Nil on every op that was never projected,
 	// so the common op pays one pointer.
 	Pristine *Op
+	// OverflowClip is the nearest ancestor overflow padding box in canvas
+	// points. Geometry clipping bakes the clip into the op bounds, which a
+	// later transform moves away; a host painting the op through a matrix
+	// must intersect the paint with this rect instead. Set only for ops the
+	// motion driver stamps (see SetOverflowClip); the common op pays
+	// nothing.
+	ClipX, ClipY, ClipW, ClipH float64
+	HasClip                    bool
 }
 
 func (op *Op) detachExtra() *opExtra {
@@ -131,6 +139,26 @@ func (op *Op) SetBlendMode(mode string) { op.setBlendMode(mode) }
 func (op *Op) SetXform(matrix Matrix2D) {
 	op.setXform(matrix)
 	op.XformSet = true
+}
+
+// SetOverflowClip records the ancestor overflow padding box in canvas points.
+// A host painting the op through a transform intersects the paint with this
+// rect; geometry baking alone cannot hold the clip still while the matrix
+// moves the op. Nil-safe on read; writing allocates a unique extra.
+func (op *Op) SetOverflowClip(x, y, w, h float64) {
+	extra := op.detachExtra()
+	extra.ClipX, extra.ClipY, extra.ClipW, extra.ClipH = x, y, w, h
+	extra.HasClip = true
+}
+
+// OverflowClip reads the clip SetOverflowClip recorded. It reports false
+// when no clip was recorded or the op carries no extra.
+func (op *Op) OverflowClip() (x, y, w, h float64, ok bool) {
+	if op == nil || op.opExtra == nil || !op.opExtra.HasClip {
+		return 0, 0, 0, 0, false
+	}
+
+	return op.opExtra.ClipX, op.opExtra.ClipY, op.opExtra.ClipW, op.opExtra.ClipH, true
 }
 
 // setProjectiveTransform keeps the plane projection inside Blinkless until

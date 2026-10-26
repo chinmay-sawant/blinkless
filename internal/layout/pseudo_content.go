@@ -42,7 +42,7 @@ func (e *engine) pseudoContent(node *html.Node, pseudoEl string) string {
 	}
 
 	ctx := e.pseudoStyleContext()
-	best := selectContentDecl(ctx, node, pseudoEl)
+	best := e.cachedContentDecl(ctx, node, pseudoEl)
 
 	if best == nil {
 		return ""
@@ -66,7 +66,7 @@ func (e *engine) pseudoContentURL(node *html.Node, pseudoEl string) string {
 
 	ctx := e.pseudoStyleContext()
 
-	best := selectContentDecl(ctx, node, pseudoEl)
+	best := e.cachedContentDecl(ctx, node, pseudoEl)
 	if best == nil {
 		return ""
 	}
@@ -181,6 +181,59 @@ type contentHit struct {
 	value          string
 	a, b, c, order int
 	important      bool
+}
+
+// pseudoContentKey identifies one cached content-declaration lookup: the
+// element plus the before/after pass. The cascade is fixed for a Layout run,
+// so the winning declaration cannot change between probes in the run.
+type pseudoContentKey struct {
+	node   *html.Node
+	pseudo string
+}
+
+// pseudoContentEntry is one cached lookup: the winning declaration, or
+// found false when no content rule wins for the element.
+type pseudoContentEntry struct {
+	hit   contentHit
+	found bool
+}
+
+// cachedContentDecl returns the winning content declaration for the element's
+// pseudo-element, running the selector match once per element per run and
+// serving every later probe from the memo.
+func (e *engine) cachedContentDecl(ctx *styleContext, n *html.Node, pseudoEl string) *contentHit {
+	if e == nil || n == nil {
+		return selectContentDecl(ctx, n, pseudoEl)
+	}
+
+	if e.pseudoContentCache == nil {
+		e.pseudoContentCache = make(map[pseudoContentKey]pseudoContentEntry)
+	}
+
+	key := pseudoContentKey{node: n, pseudo: pseudoEl}
+
+	if cached, ok := e.pseudoContentCache[key]; ok {
+		if !cached.found {
+			return nil
+		}
+
+		hit := cached.hit
+
+		return &hit
+	}
+
+	best := selectContentDecl(ctx, n, pseudoEl)
+
+	if best == nil {
+		e.pseudoContentCache[key] = pseudoContentEntry{}
+		return nil
+	}
+
+	e.pseudoContentCache[key] = pseudoContentEntry{hit: *best, found: true}
+
+	hit := *best
+
+	return &hit
 }
 
 // selectContentDecl picks the winning content declaration for the pseudo

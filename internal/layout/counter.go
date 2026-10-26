@@ -338,11 +338,49 @@ func (e *engine) contentEnvAt(target *html.Node, pseudo string) *contentEnv {
 		return env
 	}
 
+	key := contentEnvKey{target: target, pseudo: pseudo}
+
+	if e.contentEnvCache == nil {
+		e.contentEnvCache = make(map[contentEnvKey]*contentEnv)
+	} else if cached, ok := e.contentEnvCache[key]; ok {
+		return cached.cloneContentEnv()
+	}
+
 	ctx := e.pseudoStyleContext()
 	env.quotes = e.quotesFor(ctx, target)
 	e.walkContentEnv(ctx, documentRoot(target), target, pseudo, env)
+	e.contentEnvCache[key] = env
 
-	return env
+	return env.cloneContentEnv()
+}
+
+// contentEnvKey identifies one cached counter/quote environment: the element
+// whose generated content is evaluated plus the before/after pass.
+type contentEnvKey struct {
+	target *html.Node
+	pseudo string
+}
+
+// cloneContentEnv copies the environment so a probe can mutate quote depth
+// without corrupting the cached canonical state for the next probe.
+func (env *contentEnv) cloneContentEnv() *contentEnv {
+	if env == nil {
+		return defaultContentEnv()
+	}
+
+	out := &contentEnv{
+		counters:   newCounterMap(),
+		quotes:     env.quotes,
+		quoteDepth: env.quoteDepth,
+	}
+
+	if env.counters != nil {
+		for name, stack := range env.counters.byName {
+			out.counters.byName[name] = append([]int(nil), stack...)
+		}
+	}
+
+	return out
 }
 
 func (e *engine) quotesFor(ctx *styleContext, node *html.Node) quoteStyle {

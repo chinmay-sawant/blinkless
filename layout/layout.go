@@ -30,6 +30,12 @@ type Box struct {
 	// declares. Scroll comes before view; a nil slice means no declaration.
 	// See TimelineDef for the resolution rules.
 	Timelines []TimelineDef
+	// OverflowClip is the accumulated ancestor overflow padding box in CSS
+	// pixels, with HasOverflowClip false when no ancestor clips. A host
+	// painting this element through a transform intersects the paint with
+	// it; geometry-baked clipping alone moves with the matrix.
+	OverflowClip    [4]float64
+	HasOverflowClip bool
 	// Transform carries the resolved transform metadata for this element.
 	Transform TransformInfo
 	X         float64
@@ -218,10 +224,17 @@ func boxesFrom(placed []ilayout.PlacedElement) []Box {
 			ViewTransitionScope: item.ViewTransitionScope,
 			Timelines:           timelinesFrom(item.Timelines),
 			Transform:           transformInfoFrom(item.Transform),
-			X:                   item.X * ptToPx,
-			Y:                   item.Y * ptToPx,
-			W:                   item.W * ptToPx,
-			H:                   item.H * ptToPx,
+			OverflowClip: [4]float64{
+				item.OverflowClip[0] * ptToPx,
+				item.OverflowClip[1] * ptToPx,
+				item.OverflowClip[2] * ptToPx,
+				item.OverflowClip[3] * ptToPx,
+			},
+			HasOverflowClip: item.HasOverflowClip,
+			X:               item.X * ptToPx,
+			Y:               item.Y * ptToPx,
+			W:               item.W * ptToPx,
+			H:               item.H * ptToPx,
 		}
 	}
 

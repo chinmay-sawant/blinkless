@@ -639,6 +639,21 @@ type engine struct {
 	// content flow per item per run. The engine is constructed fresh per
 	// Layout, so entries never survive past the run that measured them.
 	flexMinH map[flexMinKey]float64
+	// pseudoContentCache memoizes the winning content declaration per
+	// (element, pseudo-element) for one Layout run. Every block probes
+	// ::before/::after during inline collection and every inline element
+	// probes both again for pseudo items, so without the memo the same
+	// selector match runs several times per element per run although the
+	// cascade is fixed for the run.
+	pseudoContentCache map[pseudoContentKey]pseudoContentEntry
+	// contentEnvCache memoizes the counter/quote environment per (target
+	// element, pseudo-element) for one Layout run. Resolving a counter()
+	// walks the document from the root, so without the memo every row of
+	// a counter-numbered list rewalks the same prefix per probe although
+	// the cascade and the tree are fixed for the run. Entries are
+	// canonical: callers receive a clone because evaluation mutates
+	// quote depth.
+	contentEnvCache map[contentEnvKey]*contentEnv
 	// flexMinBypass disables the column flex auto-minimum memo. Tests only:
 	// an unexported copy of Options.flexMinBypass that proves cached and
 	// uncached layouts produce identical output.
@@ -1508,6 +1523,12 @@ type box struct {
 	// box's subtree emitted. opEnd < opStart means the box emitted nothing
 	// (e.g. boxes built during a noEmit measure pass).
 	opStart, opEnd int
+	// overflowClip is the accumulated ancestor overflow padding box in
+	// canvas points recorded by clipOverflowTree. A host painting this
+	// element's ops through a transform intersects the paint with it,
+	// because geometry-baked clipping moves with the matrix. Nil when no
+	// ancestor clips.
+	overflowClip *clipRect
 	// Gap-L 3D contracts. perspDist/hasPerspDist carry the inherited
 	// perspective camera distance for stamp time: the perspective
 	// workstream fills them in a pre-pass over the box tree (nearest
