@@ -153,7 +153,7 @@ func (op *Op) SetOverflowClip(x, y, w, h float64) {
 
 // OverflowClip reads the clip SetOverflowClip recorded. It reports false
 // when no clip was recorded or the op carries no extra.
-func (op *Op) OverflowClip() (x, y, w, h float64, ok bool) {
+func (op *Op) OverflowClip() (float64, float64, float64, float64, bool) {
 	if op == nil || op.opExtra == nil || !op.opExtra.HasClip {
 		return 0, 0, 0, 0, false
 	}
@@ -431,6 +431,13 @@ func styleHasShapingFeatures(sty *ResolvedStyle) bool {
 		return true
 	}
 
+	return fontVariantShapingSet(sty)
+}
+
+// fontVariantShapingSet reports whether any font-variant longhand carries a
+// value beyond the initial one. Split from styleHasShapingFeatures so the
+// per-run fast path stays a flat sequence of early returns.
+func fontVariantShapingSet(sty *ResolvedStyle) bool {
 	return isSetFontVariantValue(sty.FontVariantCaps) ||
 		isSetFontVariantValue(sty.FontVariantLigatures) ||
 		isSetFontVariantValue(sty.FontVariantNumeric) ||

@@ -45,11 +45,38 @@ Four rounds of engine-only layout work driven by an example trade-terminal profi
 - New: `flex_base_cache_test.go`, `grid_memo_test.go`, `pseudo_content_cache_test.go`, `counter_env_cache_test.go`, `style_match_cache_test.go`, `svg_inline_cache_test.go`, `svg_raster_cache_test.go`, `overflow_clip_placed_test.go`, `internal/css/match_element_local_test.go`, `internal/svg/raster_perf_test.go`, `layout/flex_absolute_test.go`, `layout/flex_intrinsic_test.go`, `layout/absolute_stretch_test.go` — covering the marquee width, abspos stretch, flex overlay, pill intrinsic width, cache isolation, and placed overflow records.
 - Updated: `css_partial_remaining_test.go`, `style_advanced_props_test.go` expectations for the new memo/fast paths.
 
+### Area 5: CI-driven refactors and file splits
+
+- No behavior change: every refactor below is a pure move or a behavior-preserving
+  extraction, verified by the unchanged layout, css, fonts, svg, and golden suites.
+- Complexity budget: `buildFlex`, `flexIntrinsicWidth`, `flexClampMainWidthsInto`,
+  `scanMatches`, `layoutBlockChild`, `buildOutOfFlow`, `shiftOutOfFlowBox`,
+  `layoutStandardGrid`, `mayMatchPseudo`, and `styleHasShapingFeatures` each shed a
+  decision branch into a named helper (`partitionFlexOutOfFlow`,
+  `resolveFlexContentHeight`, `flushFlexDeferredOutOfFlow`,
+  `accumulateIntrinsicElementWidth`, `applyIntrinsicGapsAndMax`,
+  `redistributeClampedWidths`, `storeMatchEntry`, `marginTrimForChild`,
+  `insetImageMargins`, `finishBlockChild`, `absStretchUsedHeight`,
+  `shiftDeferredFrom`, `gridUsedHeightFromRows`, `pseudoBucketMatchesClass`,
+  `fontVariantShapingSet`); dead wrapper `flexClampMainWidths` deleted.
+- Lint hygiene: pseudo-class link/visited/checked literals folded into the shared
+  `pseudoClass*` constants; `cell` test comparisons use the existing
+  `tableCellKind`; the pseudo-element replay test uses black/white so no color
+  literal repeats across the package; short test locals renamed; `t.Context()`
+  replaces `context.Background()`; `//nolint` directives that the refactors made
+  stale removed.
+- File splits per the ~2,000-line soft limit (no behavior change, new files are
+  same-package seams): intrinsic flex measurement to `flex_intrinsic.go`,
+  match-cache machinery to `style_match_cache.go`, engine face resolution to
+  `layout_faces.go`, and rune measurement beside its cache in
+  `text_measure_cache.go`. `scripts/file-size-allowlist.txt` records the new
+  `layout.go` count (2133, down from 2197).
+
 ## Impact
 
 | Area | Impact |
 |------|--------|
-| **Performance** | News redraw down about 32% at 1080p / 42% at 900p (pixel-identical); orders fixture layout about 31% faster with identical ops; about 14% fewer allocs on a flex-heavy bench; about 4% less per-layout alloc from measure/paint fast paths. |
+| **Performance** | News redraw down about 32% at 1080p / 42% at 900p (pixel-identical); orders fixture layout about 31% faster with identical ops; about 14% fewer allocs on a flex-heavy bench; about 4% less per-layout alloc from measure/paint fast paths. Refactors in Area 5 add no new work to the hot path. |
 | **Memory** | Per-run memos live for one Layout run and are released after; serialize pool caps pooled buffers at 64 KiB so megabyte-scale documents fall through to the GC. |
 | **Behavior / correctness** | Marquee loop point, sheen stretch height, pill/badge intrinsic widths, flex abspos flushing, radii snapping, and transformed overflow clipping corrected; all covered by layout regression tests. |
 | **API / CLI** | Additive: `PlacedElement`/public `Box` overflow record and `SetOverflowClip`/`OverflowClip` on the display op. No CLI in this tree. |

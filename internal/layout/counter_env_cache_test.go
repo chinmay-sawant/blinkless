@@ -53,16 +53,16 @@ html, body { margin: 0; padding: 0; }
 #w::after { content: close-quote; }
 `))
 
-	var b strings.Builder
+	var builder strings.Builder
 
 	for _, op := range res.Ops {
 		if op.Kind == OpText {
-			b.WriteString(op.Text)
-			b.WriteString("|")
+			builder.WriteString(op.Text)
+			builder.WriteString("|")
 		}
 	}
 
-	got := b.String()
+	got := builder.String()
 
 	if strings.Count(got, "\u201c") != 2 || strings.Count(got, "\u201d") != 2 {
 		t.Fatalf("quote glyphs unbalanced: %q", got)

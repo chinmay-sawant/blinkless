@@ -35,8 +35,6 @@ func ResolveStyles(ctx context.Context, root *html.Node, opts Options) (map[*htm
 
 // NodeWithWorkspace builds one already-styled node into workspace.
 // styles must be the document cascade (same map IndependentBlocks saw).
-//
-//nolint:cyclop // faces, workspace, and Result assembly are one constructor
 func NodeWithWorkspace(
 	ctx context.Context,
 	node *html.Node,
@@ -78,9 +76,7 @@ func NodeWithWorkspace(
 		font = faces.Regular
 	}
 
-	var ops []Op
-
-	ops = workspaceOps(workspace, estimateOpCapacity(node))
+	ops := workspaceOps(workspace, estimateOpCapacity(node))
 
 	eng := newEngine(ctx, opts, faces, font, styles, nil, ops)
 

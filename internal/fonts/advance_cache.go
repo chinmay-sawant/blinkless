@@ -6,6 +6,11 @@ package fonts
 // grow with the document.
 const maxAdvUnitsCacheEntries = 2048
 
+// initialAdvUnitsCacheEntries sizes a fresh per-Font advance-units map. A
+// trade price table reuses a dozen distinct runes; the map grows no further
+// than maxAdvUnitsCacheEntries.
+const initialAdvUnitsCacheEntries = 64
+
 // cachedAdvanceUnits returns the cached advance width in font units for r.
 func (f *Font) cachedAdvanceUnits(runeValue rune) (float64, bool) {
 	f.advMu.RLock()
@@ -27,7 +32,7 @@ func (f *Font) storeAdvanceUnits(runeValue rune, units float64) {
 	defer f.advMu.Unlock()
 
 	if f.advUnits == nil {
-		f.advUnits = make(map[rune]float64, 64)
+		f.advUnits = make(map[rune]float64, initialAdvUnitsCacheEntries)
 	}
 
 	if len(f.advUnits) >= maxAdvUnitsCacheEntries {

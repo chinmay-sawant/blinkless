@@ -146,7 +146,7 @@ func gridMemoCellNode(t *testing.T, root *html.Node) *html.Node {
 	var found *html.Node
 
 	root.Walk(func(node *html.Node) {
-		if found != nil || node.Type != html.ElementNode || node.Attribute("class") != "cell" {
+		if found != nil || node.Type != html.ElementNode || node.Attribute("class") != tableCellKind {
 			return
 		}
 

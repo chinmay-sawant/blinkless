@@ -416,7 +416,7 @@ func appendSimplePseudo(part SelectorPart, name, arg string) (SelectorPart, bool
 	case firstChildPseudo, lastChildPseudo, nthChildPseudo,
 		firstOfTypePseudo, lastOfTypePseudo, nthOfTypePseudo, nthLastOfTypePseudo:
 		part.Pseudos = append(part.Pseudos, pseudoClass(name, arg, nil, nil))
-	case "link", "visited":
+	case pseudoClassLink, pseudoClassVisited:
 		// Print semantics: both mean "a[href]" (no browsing history).
 		part.Pseudos = append(part.Pseudos, pseudoClass(name, "", nil, nil))
 	case pseudoClassHover, pseudoClassActive, pseudoClassFocus, "target":

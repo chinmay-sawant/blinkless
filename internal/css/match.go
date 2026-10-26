@@ -308,7 +308,7 @@ func SelectorIsElementLocal(sel Selector) bool {
 		}
 
 		switch pseudo.Name {
-		case "link", "visited", "checked",
+		case pseudoClassLink, pseudoClassVisited, pseudoClassChecked,
 			pseudoClassFocus, pseudoClassFocusVisible, pseudoClassHover, pseudoClassActive:
 		default:
 			return false
@@ -507,12 +507,12 @@ func matchPseudo(state MatchState, pseudo PseudoClass, node *html.Node) bool {
 		return matchNone(state, pseudo.Not, node)
 	case pseudoClassIs, pseudoClassWhere:
 		return matchAnySelector(state, pseudo.Is, node)
-	case "link", "visited":
+	case pseudoClassLink, pseudoClassVisited:
 		// Print has no link history, so both match any anchor with an href.
 		return isLinkAnchor(node)
 	case pseudoClassFocus, pseudoClassFocusVisible, pseudoClassHover, pseudoClassActive:
 		return matchStatePseudo(state, pseudo.Name, node)
-	case "checked":
+	case pseudoClassChecked:
 		return matchChecked(node)
 	default:
 		// Unknown pseudo-classes never match (kept on the compound so

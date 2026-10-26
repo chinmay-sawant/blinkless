@@ -519,6 +519,7 @@ func (e *engine) flexColumnItemOverride(
 	// One 6KB copy per item: both axes mutate the same override in place.
 	override := *itemStyle
 	e.forceFlexItemCrossSize(&override, height)
+
 	if flexItemColumnCrossStretch(containerStyle, itemStyle) || itemStyle.Width >= 0 || itemStyle.WidthPercent >= 0 {
 		return override
 	}

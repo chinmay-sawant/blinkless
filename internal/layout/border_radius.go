@@ -196,23 +196,27 @@ const radiiSnapEpsilon = 1e-9
 // snapRadiiXY circularizes corners whose axes differ only by float noise so
 // a dusty width cannot flip a circle into an ellipse.
 func snapRadiiXY(radiusX, radiusY [4]float64) ([4]float64, [4]float64) {
-	for i := range radiusX {
-		x, y := radiusX[i], radiusY[i]
-		if x == y {
+	for idx := range radiusX {
+		axisX, axisY := radiusX[idx], radiusY[idx]
+		if axisX == axisY {
 			continue
 		}
-		m := x
-		if y > m {
-			m = y
+
+		scale := axisX
+		if axisY > scale {
+			scale = axisY
 		}
-		if m < 0 {
-			m = -m
+
+		if scale < 0 {
+			scale = -scale
 		}
-		if m < 1 {
-			m = 1
+
+		if scale < 1 {
+			scale = 1
 		}
-		if (x-y) < radiiSnapEpsilon*m && (y-x) < radiiSnapEpsilon*m {
-			radiusY[i] = x
+
+		if (axisX-axisY) < radiiSnapEpsilon*scale && (axisY-axisX) < radiiSnapEpsilon*scale {
+			radiusY[idx] = axisX
 		}
 	}
 

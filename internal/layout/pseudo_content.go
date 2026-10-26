@@ -201,16 +201,16 @@ type pseudoContentEntry struct {
 // cachedContentDecl returns the winning content declaration for the element's
 // pseudo-element, running the selector match once per element per run and
 // serving every later probe from the memo.
-func (e *engine) cachedContentDecl(ctx *styleContext, n *html.Node, pseudoEl string) *contentHit {
-	if e == nil || n == nil {
-		return selectContentDecl(ctx, n, pseudoEl)
+func (e *engine) cachedContentDecl(ctx *styleContext, node *html.Node, pseudoEl string) *contentHit {
+	if e == nil || node == nil {
+		return selectContentDecl(ctx, node, pseudoEl)
 	}
 
 	if e.pseudoContentCache == nil {
 		e.pseudoContentCache = make(map[pseudoContentKey]pseudoContentEntry)
 	}
 
-	key := pseudoContentKey{node: n, pseudo: pseudoEl}
+	key := pseudoContentKey{node: node, pseudo: pseudoEl}
 
 	if cached, ok := e.pseudoContentCache[key]; ok {
 		if !cached.found {
@@ -222,10 +222,14 @@ func (e *engine) cachedContentDecl(ctx *styleContext, n *html.Node, pseudoEl str
 		return &hit
 	}
 
-	best := selectContentDecl(ctx, n, pseudoEl)
+	best := selectContentDecl(ctx, node, pseudoEl)
 
 	if best == nil {
-		e.pseudoContentCache[key] = pseudoContentEntry{}
+		e.pseudoContentCache[key] = pseudoContentEntry{
+			hit:   contentHit{value: "", a: 0, b: 0, c: 0, order: 0, important: false},
+			found: false,
+		}
+
 		return nil
 	}
 
@@ -237,11 +241,11 @@ func (e *engine) cachedContentDecl(ctx *styleContext, n *html.Node, pseudoEl str
 }
 
 // selectContentDecl picks the winning content declaration for the pseudo
-// element pe on n.
-func selectContentDecl(ctx *styleContext, n *html.Node, pseudoEl string) *contentHit {
+// element pe on node.
+func selectContentDecl(ctx *styleContext, node *html.Node, pseudoEl string) *contentHit {
 	var best *contentHit
 
-	for _, rowH := range ctx.matchedRules(n, pseudoEl) {
+	for _, rowH := range ctx.matchedRules(node, pseudoEl) {
 		for _, d := range rowH.rule.Decls {
 			if !strings.EqualFold(d.Prop, "content") {
 				continue

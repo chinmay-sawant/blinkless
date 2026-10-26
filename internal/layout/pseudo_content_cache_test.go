@@ -1,12 +1,47 @@
 package layout
 
 import (
-	"context"
 	"testing"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
+
+// findContentProbeNodes returns the #marked and #plain fixture nodes,
+// failing the test when either is absent.
+func findContentProbeNodes(t *testing.T, root *html.Node) (*html.Node, *html.Node) {
+	t.Helper()
+
+	var marked, plain *html.Node
+
+	var walk func(node *html.Node)
+	walk = func(node *html.Node) {
+		if node == nil {
+			return
+		}
+
+		if node.Type == html.ElementNode {
+			switch node.Attribute("id") {
+			case "marked":
+				marked = node
+			case "plain":
+				plain = node
+			}
+		}
+
+		for _, c := range node.Children {
+			walk(c)
+		}
+	}
+
+	walk(root)
+
+	if marked == nil || plain == nil {
+		t.Fatal("test nodes not found")
+	}
+
+	return marked, plain
+}
 
 // TestCachedContentDeclAgreesAcrossProbes pins the pseudo-content memo: the
 // first probe runs the selector match and later probes for the same element
@@ -25,40 +60,14 @@ html, body { margin: 0; padding: 0; }
 #marked::before { content: "M"; }
 `)}
 
-	ctx := &styleContext{ //nolint:exhaustruct // unit harness fills what the matcher reads
-		ctx:    context.Background(),
+	ctx := &styleContext{
+		ctx:    t.Context(),
 		sheets: sheets,
 	}
 
-	var marked, plain *html.Node
+	marked, plain := findContentProbeNodes(t, root)
 
-	var walk func(n *html.Node)
-	walk = func(n *html.Node) {
-		if n == nil {
-			return
-		}
-
-		if n.Type == html.ElementNode {
-			switch n.Attribute("id") {
-			case "marked":
-				marked = n
-			case "plain":
-				plain = n
-			}
-		}
-
-		for _, c := range n.Children {
-			walk(c)
-		}
-	}
-
-	walk(root)
-
-	if marked == nil || plain == nil {
-		t.Fatal("test nodes not found")
-	}
-
-	eng := &engine{} //nolint:exhaustruct // memo starts empty, like a fresh Layout run
+	eng := &engine{}
 
 	first := eng.cachedContentDecl(ctx, marked, pseudoBefore)
 	second := eng.cachedContentDecl(ctx, marked, pseudoBefore)

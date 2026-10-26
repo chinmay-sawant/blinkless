@@ -196,15 +196,7 @@ func (idx *ruleIndex) mayMatchPseudo(node *html.Node, pseudo string) bool {
 		return true
 	}
 
-	matched := false
-
-	forEachClass(node.Attribute("class"), func(name string) {
-		if !matched && len(bucket.byClass[name]) > 0 {
-			matched = true
-		}
-	})
-
-	if matched {
+	if pseudoBucketMatchesClass(bucket, node) {
 		return true
 	}
 
@@ -213,6 +205,21 @@ func (idx *ruleIndex) mayMatchPseudo(node *html.Node, pseudo string) bool {
 	}
 
 	return len(bucket.universal) > 0
+}
+
+// pseudoBucketMatchesClass reports whether any class on node selects into
+// the pseudo bucket. Split from mayMatchPseudo so the bucket probe stays a
+// flat sequence of early returns.
+func pseudoBucketMatchesClass(bucket *ruleBucket, node *html.Node) bool {
+	matched := false
+
+	forEachClass(node.Attribute("class"), func(name string) {
+		if !matched && len(bucket.byClass[name]) > 0 {
+			matched = true
+		}
+	})
+
+	return matched
 }
 
 // sortCandidates restores the sheet, rule, and selector order the linear walk

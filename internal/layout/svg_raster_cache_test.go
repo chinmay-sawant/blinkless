@@ -21,19 +21,39 @@ func TestSVGRasterCacheKeyIncludesSize(t *testing.T) {
 	if again := svgInlineCacheKey(doc, 64); again != small {
 		t.Fatal("cache key is not deterministic")
 	}
+}
+
+// TestSVGRasterCacheServesBothCaps pins the two-entry behavior behind the
+// key contract: the small- and large-cap rasters coexist and each get
+// returns its own pixels.
+func TestSVGRasterCacheServesBothCaps(t *testing.T) {
+	t.Parallel()
+
+	doc := []byte(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"></svg>`)
+
+	small := svgInlineCacheKey(doc, 64)
+	large := svgInlineCacheKey(doc, 1024)
 
 	cache := &svgRasterCache{}
 
 	cache.put(small, []byte{1}, 8, 8)
 	cache.put(large, []byte{2}, 16, 16)
 
-	gotSmall, wSmall, hSmall, okSmall := cache.get(small)
-	if !okSmall || len(gotSmall) != 1 || gotSmall[0] != 1 || wSmall != 8 || hSmall != 8 {
-		t.Fatal("small-cap raster missing or replaced by the large-cap entry")
-	}
+	requireCachedRaster(t, cache, small, 1, 8, 8)
+	requireCachedRaster(t, cache, large, 2, 16, 16)
+}
 
-	gotLarge, wLarge, hLarge, okLarge := cache.get(large)
-	if !okLarge || len(gotLarge) != 1 || gotLarge[0] != 2 || wLarge != 16 || hLarge != 16 {
-		t.Fatal("large-cap raster missing or replaced by the small-cap entry")
+// requireCachedRaster fails the test unless key resolves to the expected
+// payload and dimensions. Shared by the two-cap tests so each pin stays a
+// flat sequence of puts and checks.
+func requireCachedRaster(
+	t *testing.T, cache *svgRasterCache, key string, wantByte byte, wantW, wantH int,
+) {
+	t.Helper()
+
+	got, w, h, ok := cache.get(key)
+	if !ok || len(got) != 1 || got[0] != wantByte || w != wantW || h != wantH {
+		t.Fatalf("raster for cap = %v %dx%d ok=%v, want [%d] %dx%d",
+			got, w, h, ok, wantByte, wantW, wantH)
 	}
 }

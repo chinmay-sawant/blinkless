@@ -20,6 +20,7 @@ func TestFlexAbsoluteChildOverlays(t *testing.T) {
 	display := displayOf(t, source)
 
 	boxes := make(map[string]struct{ x, y, w, h float64 })
+
 	for index := range display.Boxes {
 		box := &display.Boxes[index]
 		if box.ID == "row" || box.ID == "sheen" || box.ID == "label" {

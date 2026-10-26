@@ -24,6 +24,7 @@ func TestAbsoluteTopBottomStretches(t *testing.T) {
 	display := displayOf(t, source)
 
 	heights := make(map[string]float64)
+
 	for index := range display.Boxes {
 		box := &display.Boxes[index]
 		heights[box.ID] = box.H

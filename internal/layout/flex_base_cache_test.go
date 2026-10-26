@@ -1,7 +1,6 @@
 package layout
 
 import (
-	"context"
 	"reflect"
 	"testing"
 
@@ -10,29 +9,10 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
-// TestFlexColumnBaseHeightMemoized pins the per-run memo for column flex
-// base heights: measuring the same items twice under the same containing
-// size returns identical heights without re-laying-out the subtrees.
-func TestFlexColumnBaseHeightMemoized(t *testing.T) {
-	t.Parallel()
-
-	root := mustParse(t, `<div id="outer"><div class="cell"><span>alpha</span></div><div class="cell"><span>beta</span></div></div>`)
-	opts := Options{
-		Width: testViewport, Height: 800, Background: true,
-		Sheets: []*css.Stylesheet{sheet(t, `#outer{display:flex;flex-direction:column}.cell{display:flex;flex-direction:column}`)},
-	}
-
-	styles, containers, err := resolveStylesForLayoutContext(context.Background(), root, opts)
-	if err != nil {
-		t.Fatalf("resolve styles: %v", err)
-	}
-
-	faces, err := pdf.LoadDefaultFaces()
-	if err != nil {
-		t.Fatalf("load faces: %v", err)
-	}
-
-	eng := newEngine(context.Background(), opts, faces, faces.Regular, styles, containers, nil)
+// findOuterByID returns the #outer element of the memo fixtures, failing the
+// test when it is absent.
+func findOuterByID(t *testing.T, root *html.Node) *html.Node {
+	t.Helper()
 
 	var outer *html.Node
 
@@ -45,6 +25,37 @@ func TestFlexColumnBaseHeightMemoized(t *testing.T) {
 	if outer == nil {
 		t.Fatal("missing #outer element")
 	}
+
+	return outer
+}
+
+// TestFlexColumnBaseHeightMemoized pins the per-run memo for column flex
+// base heights: measuring the same items twice under the same containing
+// size returns identical heights without re-laying-out the subtrees.
+func TestFlexColumnBaseHeightMemoized(t *testing.T) {
+	t.Parallel()
+
+	root := mustParse(t, `<div id="outer"><div class="cell"><span>alpha</span></div>`+
+		`<div class="cell"><span>beta</span></div></div>`)
+	opts := Options{
+		Width: testViewport, Height: 800, Background: true,
+		Sheets: []*css.Stylesheet{
+			sheet(t, `#outer{display:flex;flex-direction:column}.cell{display:flex;flex-direction:column}`),
+		},
+	}
+
+	styles, containers, err := resolveStylesForLayoutContext(t.Context(), root, opts)
+	if err != nil {
+		t.Fatalf("resolve styles: %v", err)
+	}
+
+	faces, err := pdf.LoadDefaultFaces()
+	if err != nil {
+		t.Fatalf("load faces: %v", err)
+	}
+
+	eng := newEngine(t.Context(), opts, faces, faces.Regular, styles, containers, nil)
+	outer := findOuterByID(t, root)
 
 	kids := eng.flexChildren(outer, eng.stylePtr(outer))
 	if len(kids) != 2 {
@@ -59,6 +70,7 @@ func TestFlexColumnBaseHeightMemoized(t *testing.T) {
 	}
 
 	second := eng.flexColumnItems(kids, testViewport, -1)
+
 	if len(eng.flexBaseH) != cached {
 		t.Fatalf("second flexColumnItems grew the memo %d -> %d", cached, len(eng.flexBaseH))
 	}
@@ -79,7 +91,7 @@ func TestFlexColumnBaseHeightMemoized(t *testing.T) {
 func flexMinTestEngine(t *testing.T, root *html.Node, opts Options) (*engine, *html.Node) {
 	t.Helper()
 
-	styles, containers, err := resolveStylesForLayoutContext(context.Background(), root, opts)
+	styles, containers, err := resolveStylesForLayoutContext(t.Context(), root, opts)
 	if err != nil {
 		t.Fatalf("resolve styles: %v", err)
 	}
@@ -89,19 +101,8 @@ func flexMinTestEngine(t *testing.T, root *html.Node, opts Options) (*engine, *h
 		t.Fatalf("load faces: %v", err)
 	}
 
-	eng := newEngine(context.Background(), opts, faces, faces.Regular, styles, containers, nil)
-
-	var outer *html.Node
-
-	root.Walk(func(node *html.Node) {
-		if outer == nil && node.Type == html.ElementNode && node.Attribute("id") == "outer" {
-			outer = node
-		}
-	})
-
-	if outer == nil {
-		t.Fatal("missing #outer element")
-	}
+	eng := newEngine(t.Context(), opts, faces, faces.Regular, styles, containers, nil)
+	outer := findOuterByID(t, root)
 
 	return eng, outer
 }
@@ -123,7 +124,7 @@ func TestFlexColumnAutoMinMemoized(t *testing.T) {
 	var cell *html.Node
 
 	outer.Walk(func(node *html.Node) {
-		if cell == nil && node.Type == html.ElementNode && node.Attribute("class") == "cell" {
+		if cell == nil && node.Type == html.ElementNode && node.Attribute("class") == tableCellKind {
 			cell = node
 		}
 	})
@@ -165,6 +166,7 @@ func TestFlexColumnAutoMinIdenticalOutput(t *testing.T) {
 
 	const doc = `<html><body><div class="col"><div class="item"><span>alpha beta gamma delta</span></div>` +
 		`<div class="item"><div class="inner"><span>epsilon zeta eta theta</span></div></div></div></body></html>`
+
 	const cssSrc = `body{margin:0}` +
 		`.col{display:flex;flex-direction:column;width:400pt;height:300pt}` +
 		`.item{flex:1 1 auto;overflow:visible}` +
@@ -209,27 +211,27 @@ func TestFlexColumnAutoMinIdenticalOutput(t *testing.T) {
 // Layout calls, so they are cleared before comparing; opExtra payloads are
 // compared by value instead of by pointer for the same reason. Geometry,
 // text, and paint payloads stay fully compared.
-func opsDeeplyEqual(a, b []Op) bool {
-	if len(a) != len(b) {
+func opsDeeplyEqual(first, second []Op) bool {
+	if len(first) != len(second) {
 		return false
 	}
 
-	for i := range a {
-		x, y := a[i], b[i]
-		x.Font, y.Font = nil, nil
+	for i := range first {
+		left, right := first[i], second[i]
+		left.Font, right.Font = nil, nil
 
-		var xe, ye any
-		if x.opExtra != nil {
-			xe = *x.opExtra
+		var leftExtra, rightExtra any
+		if left.opExtra != nil {
+			leftExtra = *left.opExtra
 		}
 
-		if y.opExtra != nil {
-			ye = *y.opExtra
+		if right.opExtra != nil {
+			rightExtra = *right.opExtra
 		}
 
-		x.opExtra, y.opExtra = nil, nil
+		left.opExtra, right.opExtra = nil, nil
 
-		if x != y || !reflect.DeepEqual(xe, ye) {
+		if left != right || !reflect.DeepEqual(leftExtra, rightExtra) {
 			return false
 		}
 	}

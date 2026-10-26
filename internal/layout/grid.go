@@ -152,17 +152,27 @@ func (e *engine) layoutStandardGrid(
 		e.paintGridGapRules(sty, placed, contentX, contentW, cols, columnGap, rowYs, rows, posY)
 	}
 
-	usedH := curY
-	if numRows > 0 && rowYs != nil {
-		usedH = rowYs[numRows-1] + rows[numRows-1]
-	}
-
-	usedH = resolveGridUsedHeight(e, sty, usedH, contentH)
+	usedH := e.gridUsedHeightFromRows(sty, curY, rowYs, rows, numRows, contentH)
 
 	boxNode.height = usedH
 	e.prependChrome(contentStart, boxNode, sty, boxNode.x, posY, boxNode.w, boxNode.height)
 
 	return boxNode
+}
+
+// gridUsedHeightFromRows resolves the used height from the emitted row
+// bottoms, keeping the locked-row fast path beside the measuring path.
+// Split from layoutStandardGrid so the grid dispatch stays within the
+// complexity budget.
+func (e *engine) gridUsedHeightFromRows(
+	sty ResolvedStyle, curY float64, rowYs []float64, rows []float64, numRows int, contentH float64,
+) float64 {
+	usedH := curY
+	if numRows > 0 && rowYs != nil {
+		usedH = rowYs[numRows-1] + rows[numRows-1]
+	}
+
+	return resolveGridUsedHeight(e, sty, usedH, contentH)
 }
 
 func inheritSubgridTracksAndGaps(sty, parentStyle *ResolvedStyle) {

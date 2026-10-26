@@ -75,6 +75,7 @@ func (e *engine) flexWrapPlaceItem(
 	// container-owned scratch instead of allocating a trial slice per item.
 	n := copy(trial, line)
 	trial[n] = item
+
 	if len(line) > 0 && !e.flexLineFitsInto(trial[:n+1], contentW, colGap, widthScratch[:n+1], frozenScratch[:n+1]) {
 		*lines = append(*lines, finalizeFlexLine(line, reverse))
 		line = nil

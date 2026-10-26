@@ -34,11 +34,11 @@ func TestSelectorIsElementLocal(t *testing.T) {
 		{name: "unknown", rule: `span:unknown-thing { color: red }`, local: false},
 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			sheet, err := Parse(tc.rule)
+			sheet, err := Parse(testCase.rule)
 			if err != nil {
 				t.Fatalf("Parse: %v", err)
 			}
@@ -47,8 +47,8 @@ func TestSelectorIsElementLocal(t *testing.T) {
 				t.Fatalf("fixture parsed to %d rules", len(sheet.Rules))
 			}
 
-			if got := SelectorIsElementLocal(sheet.Rules[0].Selectors[0]); got != tc.local {
-				t.Fatalf("SelectorIsElementLocal(%q) = %v, want %v", tc.rule, got, tc.local)
+			if got := SelectorIsElementLocal(sheet.Rules[0].Selectors[0]); got != testCase.local {
+				t.Fatalf("SelectorIsElementLocal(%q) = %v, want %v", testCase.rule, got, testCase.local)
 			}
 		})
 	}

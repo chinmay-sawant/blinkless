@@ -16,6 +16,11 @@ const (
 	// maxCachedTextLen caps cached strings by bytes. Short mono labels hit;
 	// long paragraphs compute uncached so the key map cannot pin them.
 	maxCachedTextLen = 128
+	// initialWidthCacheEntries sizes a fresh per-Layout string width cache.
+	// Thousands of repeated price labels share a few dozen distinct strings,
+	// so a small initial map covers the steady state; the bounds above cap
+	// growth for documents with all-distinct text.
+	initialWidthCacheEntries = 256
 )
 
 // textWidthKey identifies one measureTextFace result. sizeBits is the scaled
@@ -67,7 +72,7 @@ type runeWidthKey struct {
 func textWidthCacheKey(sty *ResolvedStyle, primary *pdf.Font, size float64, text string) textWidthKey {
 	optical, variations, sizeBits := variationCacheBits(sty)
 
-	return textWidthKey{ //nolint:exhaustruct // zero tab flag is a valid key member
+	return textWidthKey{
 		face:        primary,
 		famHash:     sty.famHash,
 		weight:      sty.FontWeight,
@@ -92,29 +97,29 @@ func (e *engine) lookupTextWidth(key textWidthKey) (float64, bool) {
 		return 0, false
 	}
 
-	w, ok := e.textWidthCache[key]
+	width, ok := e.textWidthCache[key]
 
-	return w, ok
+	return width, ok
 }
 
-// storeTextWidth records w under key unless the cache is full.
-func (e *engine) storeTextWidth(key textWidthKey, w float64) {
+// storeTextWidth records width under key unless the cache is full.
+func (e *engine) storeTextWidth(key textWidthKey, width float64) {
 	if e.textWidthCache == nil {
-		e.textWidthCache = make(map[textWidthKey]float64, 256)
+		e.textWidthCache = make(map[textWidthKey]float64, initialWidthCacheEntries)
 	}
 
 	if len(e.textWidthCache) >= maxTextWidthCacheEntries {
 		return
 	}
 
-	e.textWidthCache[key] = w
+	e.textWidthCache[key] = width
 }
 
-// runeWidthCacheKey builds the measureRuneFace key for sty and r.
-func runeWidthCacheKey(sty *ResolvedStyle, scale float64, r rune) runeWidthKey {
+// runeWidthCacheKey builds the measureRuneFace key for sty and runeValue.
+func runeWidthCacheKey(sty *ResolvedStyle, scale float64, runeValue rune) runeWidthKey {
 	optical, variations, sizeBits := variationCacheBits(sty)
 
-	return runeWidthKey{ //nolint:exhaustruct // zero tab flag is a valid key member
+	return runeWidthKey{
 		famHash:       sty.famHash,
 		weight:        sty.FontWeight,
 		italic:        sty.FontItalic,
@@ -128,7 +133,7 @@ func runeWidthCacheKey(sty *ResolvedStyle, scale float64, r rune) runeWidthKey {
 		tabIsLength:   isTabSizeLength(sty),
 		emoji:         sty.FontVariantEmoji,
 		widthScaleBit: math.Float64bits(fontWidthScale(sty)),
-		r:             r,
+		r:             runeValue,
 	}
 }
 
@@ -143,15 +148,87 @@ func (e *engine) lookupRuneWidth(key runeWidthKey) (float64, bool) {
 	return w, ok
 }
 
-// storeRuneWidth records w under key unless the cache is full.
-func (e *engine) storeRuneWidth(key runeWidthKey, w float64) {
+// storeRuneWidth records width under key unless the cache is full.
+func (e *engine) storeRuneWidth(key runeWidthKey, width float64) {
 	if e.runeWidthCache == nil {
-		e.runeWidthCache = make(map[runeWidthKey]float64, 256)
+		e.runeWidthCache = make(map[runeWidthKey]float64, initialWidthCacheEntries)
 	}
 
 	if len(e.runeWidthCache) >= maxRuneWidthCacheEntries {
 		return
 	}
 
-	e.runeWidthCache[key] = w
+	e.runeWidthCache[key] = width
+}
+
+// measureRuneFace measures a single rune with the same face selection as
+// measureTextFace, without allocating string(r).
+func (e *engine) measureRuneFace(curRune rune, sty *ResolvedStyle) float64 {
+	if sty == nil {
+		return 0
+	}
+
+	if curRune == softHyphenRune || isVariationSelector(curRune) {
+		return 0
+	}
+
+	key := runeWidthCacheKey(sty, e.scale, curRune)
+	if w, ok := e.lookupRuneWidth(key); ok {
+		return w
+	}
+
+	w := e.measureRuneFaceUncached(curRune, sty)
+	e.storeRuneWidth(key, w)
+
+	return w
+}
+
+// measureRuneFaceUncached measures one rune without consulting the rune cache.
+func (e *engine) measureRuneFaceUncached(curRune rune, sty *ResolvedStyle) float64 {
+	if curRune == '\t' {
+		if isTabSizeLength(sty) {
+			return e.scalePt(sty.TabSize)
+		}
+
+		tabSize := sty.TabSize
+		if tabSize <= 0 {
+			tabSize = 8
+		}
+
+		// \t expands to TabSize * space width per CSS tab-size.
+		spaceW := e.measureRuneFace(' ', sty)
+		if spaceW <= 0 {
+			spaceW = sty.FontSize * e.scale * tabSpaceRatio
+		}
+
+		return spaceW * tabSize
+	}
+
+	size := sty.FontSize * e.scale
+	face := e.faceForRune(sty, curRune)
+
+	if face == nil {
+		face = e.font
+	}
+
+	advance := face.GlyphAdvancePoints(curRune, size)
+	if em := emojiPresentationAdvance(sty, curRune, size); em > advance {
+		advance = em
+	}
+
+	if sty.LetterSpacing != 0 {
+		advance += sty.LetterSpacing * e.scale
+	}
+
+	if curRune == ' ' && sty.WordSpacing != 0 {
+		advance += sty.WordSpacing * e.scale
+	}
+
+	return advance * fontWidthScale(sty)
+}
+
+type faceRun struct {
+	text string
+	face *pdf.Font
+	w    float64
 }

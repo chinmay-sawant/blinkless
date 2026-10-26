@@ -1,6 +1,7 @@
 package layout_test
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -11,20 +12,25 @@ import (
 func TestFlexItemMaxContentOverflowsLane(t *testing.T) {
 	t.Parallel()
 
-	const source = `<style>
+	const tickSpan = `<span class="tick"></span>`
+
+	source := `<style>
 .lane{width:500px;display:flex;overflow:hidden;}
 .track{flex:0 0 auto;width:max-content;display:flex;}
 .set{display:flex;flex-shrink:0;}
 .tick{flex:0 0 auto;display:inline-block;width:60px;height:10px;}
 .fit{flex:0 0 auto;width:auto;display:flex;}
 </style><div class="lane"><div class="track" id="track"><div class="set" id="set1">` +
-		`<span class="tick"></span><span class="tick"></span><span class="tick"></span><span class="tick"></span></div>` +
-		`<div class="set" id="set2"><span class="tick"></span><span class="tick"></span><span class="tick"></span><span class="tick"></span></div>` +
-		`</div></div><div class="lane"><div class="fit" id="fit"><div class="set"><span class="tick"></span><span class="tick"></span><span class="tick"></span><span class="tick"></span><span class="tick"></span><span class="tick"></span><span class="tick"></span><span class="tick"></span><span class="tick"></span><span class="tick"></span></div></div></div>`
+		strings.Repeat(tickSpan, 4) + `</div>` +
+		`<div class="set" id="set2">` + strings.Repeat(tickSpan, 4) + `</div>` +
+		`</div></div><div class="lane"><div class="fit" id="fit"><div class="set">` +
+		strings.Repeat(tickSpan, 10) +
+		`</div></div></div>`
 
 	display := displayOf(t, source)
 
 	byID := make(map[string]float64)
+
 	var set1X, set1W, set2X float64
 
 	for index := range display.Boxes {

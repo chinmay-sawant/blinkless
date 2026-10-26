@@ -37,10 +37,10 @@ func tickSpans(t *testing.T, root *html.Node) []*html.Node {
 func TestMatchCacheKeepsContextualOutcomes(t *testing.T) {
 	t.Parallel()
 
-	s := sheet(t, `.tick { color: red } section .tick { color: blue } .tick + .tick { color: lime }`)
+	styleSheet := sheet(t, `.tick { color: red } section .tick { color: blue } .tick + .tick { color: lime }`)
 	root := mustParse(t, `<html><body><section><span class="tick">a</span></section>`+
 		`<div><span class="tick">b</span><span class="tick">c</span></div></body></html>`)
-	styles := resolveStyles(root, []*css.Stylesheet{s}, "print", testViewport, 800)
+	styles := resolveStyles(root, []*css.Stylesheet{styleSheet}, "print", testViewport, 800)
 	spans := tickSpans(t, root)
 
 	// All three spans share one element signature, so the second and third
@@ -62,14 +62,14 @@ func TestMatchCacheKeepsContextualOutcomes(t *testing.T) {
 func TestMatchedRulesCacheReplayMatchesFreshScan(t *testing.T) {
 	t.Parallel()
 
-	s := sheet(t, `.tick { color: red } section .tick { color: blue } `+
+	styleSheet := sheet(t, `.tick { color: red } section .tick { color: blue } `+
 		`.tick + .tick { color: lime } span:first-child { color: black } `+
 		`div:has(.tick) { color: white } .tick:not(.other) { color: gray }`)
 	root := mustParse(t, `<html><body><section><span class="tick">a</span></section>`+
 		`<div><span class="tick">b</span><span class="tick">c</span></div></body></html>`)
 	spans := tickSpans(t, root)
 
-	ctx := &styleContext{sheets: []*css.Stylesheet{s}}
+	ctx := &styleContext{sheets: []*css.Stylesheet{styleSheet}}
 	got := make([][]ruleHit, len(spans))
 
 	for i, span := range spans {
@@ -96,13 +96,13 @@ func TestMatchedRulesCacheReplayMatchesFreshScan(t *testing.T) {
 		t.Fatal("div spans share hits despite different sibling and child positions")
 	}
 
-	if ctx.matchCache == nil || len(ctx.matchCache) == 0 {
+	if len(ctx.matchCache) == 0 {
 		t.Fatal("match cache is empty after resolving repeated signatures")
 	}
 
 	// A fresh context without any cache must produce identical hit sequences.
 	for i, span := range spans {
-		fresh := &styleContext{sheets: []*css.Stylesheet{s}}
+		fresh := &styleContext{sheets: []*css.Stylesheet{styleSheet}}
 		if dup := fresh.matchedRules(span, ""); !ruleHitsEqual(got[i], dup) {
 			t.Fatalf("span %d replay hits differ from a fresh scan", i)
 		}
@@ -112,7 +112,7 @@ func TestMatchedRulesCacheReplayMatchesFreshScan(t *testing.T) {
 func TestMatchCachePseudoElementReplay(t *testing.T) {
 	t.Parallel()
 
-	s := sheet(t, `p.note::before { color: red } section p.note::before { color: blue }`)
+	styleSheet := sheet(t, `p.note::before { color: white } section p.note::before { color: black }`)
 	root := mustParse(t, `<html><body><section><p class="note">a</p></section>`+
 		`<div><p class="note">b</p></div></body></html>`)
 
@@ -135,15 +135,15 @@ func TestMatchCachePseudoElementReplay(t *testing.T) {
 		t.Fatalf("fixture has %d paragraphs, want 2", len(paras))
 	}
 
-	ctx := &styleContext{sheets: []*css.Stylesheet{s}}
+	ctx := &styleContext{sheets: []*css.Stylesheet{styleSheet}}
 	first := cascadePseudoRaw(ctx, paras[0], "before")
 	second := cascadePseudoRaw(ctx, paras[1], "before")
 
-	if first["color"] != "blue" {
-		t.Fatalf("section paragraph ::before color = %q, want blue", first["color"])
+	if first["color"] != "black" {
+		t.Fatalf("section paragraph ::before color = %q, want black", first["color"])
 	}
 
-	if second["color"] != "red" {
-		t.Fatalf("div paragraph ::before color = %q, want red", second["color"])
+	if second["color"] != "white" {
+		t.Fatalf("div paragraph ::before color = %q, want white", second["color"])
 	}
 }
