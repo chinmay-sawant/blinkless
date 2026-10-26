@@ -4,7 +4,6 @@ package layout
 import (
 	"math"
 	"sort"
-	"strings"
 
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
@@ -208,12 +207,42 @@ func (e *engine) emitBorderLine(posX, posY, boxW, boxH, width float64, style str
 
 // borderOps returns the four border line ops for the given border box.
 func (e *engine) borderOps(sty ResolvedStyle, posX, posY, wid, height float64) []Op {
-	return e.borderOpsSides(sty, posX, posY, wid, height, true, true, true, true)
+	return e.appendBorderOps(nil, sty, posX, posY, wid, height)
+}
+
+// appendBorderOps appends the four border line ops for the given border box
+// into dst, so chrome assembly reuses one backing array instead of copying
+// a per-side temporary into it.
+func (e *engine) appendBorderOps(dst []Op, sty ResolvedStyle, posX, posY, wid, height float64) []Op {
+	return e.appendBorderOpsSides(dst, sty, posX, posY, wid, height, true, true, true, true)
 }
 
 // borderOpsSides emits the requested sides of a border box.
 func (e *engine) borderOpsSides(
 	sty ResolvedStyle, posX, posY, wid, height float64, top, right, bottom, left bool,
+) []Op {
+	return e.appendBorderOpsSides(nil, sty, posX, posY, wid, height, top, right, bottom, left)
+}
+
+// growChromeOps ensures dst has room for need more ops with a single
+// allocation, so the sequential chrome appends for one box do not leave a
+// chain of discarded growth backings behind.
+func growChromeOps(dst []Op, need int) []Op {
+	if need <= 0 || cap(dst)-len(dst) >= need {
+		return dst
+	}
+
+	grown := make([]Op, len(dst), len(dst)+need)
+	copy(grown, dst)
+
+	return grown
+}
+
+// appendBorderOpsSides appends the requested sides of a border box into dst,
+// growing it at most once for the dashed-segment bound. A nil dst behaves
+// exactly like the old allocating form.
+func (e *engine) appendBorderOpsSides(
+	dst []Op, sty ResolvedStyle, posX, posY, wid, height float64, top, right, bottom, left bool,
 ) []Op {
 	wTop := 0.0
 	if top && sty.BorderTop.Style != cssDisplayNone && !sty.BorderTop.Transparent && borderPaint(sty.BorderTop) > 0 {
@@ -264,7 +293,13 @@ func (e *engine) borderOpsSides(
 		capHint += borderSideOpCount(height, wLeft, sty.BorderLeft.Style)
 	}
 
-	ops := make([]Op, 0, capHint)
+	if dst == nil && capHint > 0 {
+		dst = make([]Op, 0, capHint)
+	} else {
+		dst = growChromeOps(dst, capHint)
+	}
+
+	ops := dst
 
 	if wTop > 0 {
 		adjL := 0.0
@@ -490,8 +525,8 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty ResolvedStyle, po
 			RadiusTopLeft: radii[0], RadiusTopRight: radii[1], RadiusBottomRight: radii[2], RadiusBottomLeft: radii[3],
 		}
 
-		bgClip := strings.ToLower(strings.TrimSpace(sty.BackgroundClip))
-		if bgClip == "content-box" || bgClip == "padding-box" {
+		bgClip := sty.BackgroundClip
+		if backgroundClipIsPaddingBox(bgClip) || backgroundClipIsContentBox(bgClip) {
 			cx, cy, cw, ch := resolveBackgroundClipBox(sty, posX, posY, width, height)
 			clip := clipRect{x: cx, y: cy, w: cw, h: ch}
 			if !clip.empty() {
@@ -524,18 +559,18 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty ResolvedStyle, po
 	} else {
 		switch {
 		case hasRoundedRadii(radii) && roundedSolidBorder(sty):
-			chrome = append(chrome, e.roundedBorderOps(sty, posX, posY, width, height, radii)...)
+			chrome = e.appendRoundedBorderOps(chrome, sty, posX, posY, width, height, radii)
 		case hasRoundedRadii(radii) && roundedAccentBorder(sty):
-			chrome = append(chrome, e.roundedAccentBorderOps(sty, posX, posY, width, height, radii)...)
+			chrome = e.appendRoundedAccentBorderOps(chrome, sty, posX, posY, width, height, radii)
 		default:
-			chrome = append(chrome, e.collapsedOrFullBorderOps(boxNode, sty, posX, posY, width, height)...)
+			chrome = e.appendCollapsedOrFullBorderOps(chrome, boxNode, sty, posX, posY, width, height)
 		}
 	}
 	if boxNode != nil && outlinePaints(&sty) {
 		effW, _ := effectiveOutline(&sty)
 		boxNode.outlineInflate = e.scalePt(outlineInflate(effW, sty.OutlineOffset))
 	}
-	chrome = append(chrome, e.outlineOps(&sty, posX, posY, width, height)...)
+	chrome = e.appendOutlineOpsForStyle(chrome, &sty, posX, posY, width, height)
 	stampOpRadiiY(chrome, radiiY)
 	if len(chrome) == 0 {
 		return
@@ -606,21 +641,77 @@ func shiftDescendantOpRanges(boxNode *box, insertAt, count int) {
 	}
 }
 
-// collapsedOrFullBorderOps paints a single joined frame for a collapsed
-// figure/figcaption thumb: the figure already owns the vertical rails, so the
-// caption emits only the closing bottom edge at the figure's border-box width.
-func (e *engine) collapsedOrFullBorderOps(
-	boxNode *box, sty ResolvedStyle, posX, posY, width, height float64,
+// backgroundClipIsContentBox reports a content-box background clip without
+// allocating: the keyword comparison folds ASCII case and trims ASCII
+// whitespace on subslices, so the hot per-box path keeps no strings.
+func backgroundClipIsContentBox(clip string) bool {
+	return asciiFoldEqual(trimSpaceASCII(clip), "content-box")
+}
+
+// backgroundClipIsPaddingBox reports a padding-box background clip without
+// allocating (see backgroundClipIsContentBox).
+func backgroundClipIsPaddingBox(clip string) bool {
+	return asciiFoldEqual(trimSpaceASCII(clip), "padding-box")
+}
+
+// trimSpaceASCII trims ASCII whitespace from both ends, returning a subslice
+// of s. Unlike strings.TrimSpace it never allocates and never decodes UTF-8.
+func trimSpaceASCII(s string) string {
+	start := 0
+	for start < len(s) {
+		if c := s[start]; c != ' ' && c != '\t' && c != '\n' && c != '\r' && c != '\f' {
+			break
+		}
+		start++
+	}
+	end := len(s)
+	for end > start {
+		if c := s[end-1]; c != ' ' && c != '\t' && c != '\n' && c != '\r' && c != '\f' {
+			break
+		}
+		end--
+	}
+	return s[start:end]
+}
+
+// asciiFoldEqual reports whether s equals want under ASCII case folding,
+// without allocating. CSS keywords are ASCII, so full Unicode folding is
+// unnecessary on this hot per-box path.
+func asciiFoldEqual(s, want string) bool {
+	if len(s) != len(want) {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c, w := s[i], want[i]
+		if c == w {
+			continue
+		}
+		if 'A' <= c && c <= 'Z' {
+			c += 'a' - 'A'
+		}
+		if c != w {
+			return false
+		}
+	}
+	return true
+}
+
+// appendCollapsedOrFullBorderOps appends a single joined frame for a
+// collapsed figure/figcaption thumb into dst: the figure already owns the
+// vertical rails, so the caption emits only the closing bottom edge at the
+// figure's border-box width.
+func (e *engine) appendCollapsedOrFullBorderOps(
+	dst []Op, boxNode *box, sty ResolvedStyle, posX, posY, width, height float64,
 ) []Op {
 	parentStyle, ok := e.collapsedThumbCaption(boxNode)
 	if !ok {
-		return e.borderOps(sty, posX, posY, width, height)
+		return e.appendBorderOps(dst, sty, posX, posY, width, height)
 	}
 
 	padL := e.scalePt(parentStyle.PaddingLeft + parentStyle.BorderLeft.Width)
 	padR := e.scalePt(parentStyle.PaddingRight + parentStyle.BorderRight.Width)
 
-	return e.borderOpsSides(sty, posX-padL, posY, width+padL+padR, height, false, false, true, false)
+	return e.appendBorderOpsSides(dst, sty, posX-padL, posY, width+padL+padR, height, false, false, true, false)
 }
 
 // isNeutralFrameSection recognizes a generic frame pattern rather than a
@@ -695,19 +786,27 @@ func squareSideBorderRadii(side border, radii [4]float64, left bool) [4]float64 
 	return radii
 }
 
-// roundedBorderOps keeps the rounded outer geometry for a solid border whose
+// mixedChromeSide pairs one border with the stroke mask its overlay paints.
+type mixedChromeSide struct {
+	border border
+	mask   uint8
+}
+
+// appendRoundedBorderOps keeps the rounded outer geometry for a solid border whose
 // sides differ in width or color. The base stroke supplies the corner arcs;
 // differing sides are overlaid as masked OpStrokeRect sides so accent rails
 // keep corner arcs without a second OpLine rewrite.
-func (e *engine) roundedBorderOps(
-	sty ResolvedStyle, posX, posY, width, height float64, radii [4]float64,
+func (e *engine) appendRoundedBorderOps(
+	dst []Op, sty ResolvedStyle, posX, posY, width, height float64, radii [4]float64,
 ) []Op {
 	// Use the bottom side as the base geometry. CSS frequently uses an
 	// accented top rail (for example the architecture pipeline cards); using
 	// BorderTop here would spread that accent across the rounded stroke on all
 	// four sides before the per-side overlays are painted.
 	base := sty.BorderBottom
-	var ops []Op
+	// At most one base stroke plus one overlay per side; growing once keeps
+	// the sequential appends below from leaving growth garbage.
+	ops := growChromeOps(dst, 5)
 	if !base.Transparent {
 		ops = append(ops, Op{ //nolint:exhaustruct // intentional zero fields
 			Kind: OpStrokeRect, X: posX, Y: posY, W: width, H: height,
@@ -717,17 +816,11 @@ func (e *engine) roundedBorderOps(
 		})
 	}
 
-	type mixedSide struct {
-		border border
-		mask   uint8
-	}
-
-	sides := []mixedSide{
-		{border: sty.BorderTop, mask: StrokeMaskTop},
-		{border: sty.BorderRight, mask: StrokeMaskRight},
-		{border: sty.BorderBottom, mask: StrokeMaskBottom},
-		{border: sty.BorderLeft, mask: StrokeMaskLeft},
-	}
+	var sides [4]mixedChromeSide
+	sides[0] = mixedChromeSide{border: sty.BorderTop, mask: StrokeMaskTop}
+	sides[1] = mixedChromeSide{border: sty.BorderRight, mask: StrokeMaskRight}
+	sides[2] = mixedChromeSide{border: sty.BorderBottom, mask: StrokeMaskBottom}
+	sides[3] = mixedChromeSide{border: sty.BorderLeft, mask: StrokeMaskLeft}
 
 	for _, side := range sides {
 		if side.border == base || side.border.Style != solidKeyword || side.border.Transparent {
@@ -752,16 +845,17 @@ func (e *engine) roundedBorderOps(
 	return ops
 }
 
-// roundedAccentBorderOps keeps a solid accent rail curved when the remaining
+// appendRoundedAccentBorderOps keeps a solid accent rail curved when the remaining
 // border sides are absent or use dotted/dashed styles.
 // Solid remnant sides use StrokeMask* overlays; dashed/dotted sides stay as
 // segmented OpLines that stop at the corner radii.
-func (e *engine) roundedAccentBorderOps(
-	sty ResolvedStyle,
+func (e *engine) appendRoundedAccentBorderOps(
+	dst []Op, sty ResolvedStyle,
 	posX, posY, width, height float64,
 	radii [4]float64,
 ) []Op {
-	var ops []Op
+	// At most one overlay per side; dashed segments append after.
+	ops := growChromeOps(dst, 4)
 
 	appendSolidMask := func(side border, mask uint8, sideRadii [4]float64) {
 		if side.Transparent || borderPaint(side) <= 0 || side.Style != solidKeyword {

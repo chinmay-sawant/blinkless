@@ -79,11 +79,7 @@ func layoutContextWithStyles(
 
 	var ops []Op
 
-	if workspace == nil || cap(workspace.ops) == 0 {
-		ops = make([]Op, 0, estimateOpCapacity(root))
-	} else {
-		ops = workspace.ops[:0]
-	}
+	ops = workspaceOps(workspace, estimateOpCapacity(root))
 
 	//nolint:contextcheck // ctx is stored on the engine and read by SVG calls
 	return finalizeResult(newEngine(ctx, opts, faces, font, styles, containers, ops), root, opts)

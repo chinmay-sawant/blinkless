@@ -340,9 +340,39 @@ type Workspace struct {
 	ops []Op
 }
 
+const (
+	// workspaceReuseFloor keeps small workspaces reusable without churn:
+	// below this backing capacity the ops slice is always retained and
+	// reused for the next run.
+	workspaceReuseFloor = 4096
+	// workspaceReuseRatio bounds how oversized a retained backing may be
+	// relative to what a run holds or needs before it is dropped. A huge
+	// page followed by small ones must not pin the huge backing across
+	// every later run.
+	workspaceReuseRatio = 4
+)
+
+// workspaceOps returns reusable display-list storage for one run estimated
+// to need need entries. A retained backing that dwarfs the estimate is
+// dropped instead of reused so the workspace does not pin the largest page
+// ever laid out.
+func workspaceOps(workspace *Workspace, need int) []Op {
+	if workspace == nil || cap(workspace.ops) == 0 {
+		return make([]Op, 0, need)
+	}
+
+	if backed := cap(workspace.ops); backed > workspaceReuseFloor && need > 0 &&
+		backed > workspaceReuseRatio*need {
+		return make([]Op, 0, need)
+	}
+
+	return workspace.ops[:0]
+}
+
 // Release returns a painted Result's display-list backing storage to w and
-// clears Result references that would otherwise retain its box tree and paint
-// indexes. It is a no-op for nil inputs.
+// clears Result references that would otherwise retain its box tree, its
+// cascade, its raster cache, and its paint indexes. It is a no-op for nil
+// inputs.
 func (w *Workspace) Release(res *Result) {
 	if w == nil || res == nil {
 		return
@@ -353,11 +383,24 @@ func (w *Workspace) Release(res *Result) {
 		ops[i] = Op{} //nolint:exhaustruct // drop extra pointers so Release can GC rare payloads
 	}
 
+	// Drop a backing that dwarfs what it holds so one huge page does not pin
+	// its storage across every later run; the next acquire allocates fresh.
+	if backed, used := cap(ops), len(ops); backed > workspaceReuseFloor && used > 0 &&
+		backed > workspaceReuseRatio*used {
+		ops = nil
+	}
+
 	w.ops = ops[:0]
 	res.Ops = nil
 	res.root = nil
 	res.rootBox = nil
 	res.boxes = nil
+	// The cascade and the restyle raster cache die with the Result: a
+	// released Result keeps no box tree to patch, so keeping them would pin
+	// the whole style map and up to svgRasterCacheMaxPixels of decoded
+	// rasters across every later run of the workspace.
+	res.styles = nil
+	res.svgRasters = nil
 	res.flowPages = nil
 	res.flowPageOf = nil
 	res.flowPos = nil
@@ -743,6 +786,48 @@ type engine struct {
 	// one-time document scan that registers sources ahead of their regions.
 	namedFlows        map[string]*namedFlow
 	namedFlowScanDone bool
+}
+
+// releaseScratch drops every per-run cache the Result does not adopt, so
+// nothing but Ops and styles outlives the run. Ops and styles move into the
+// Result and are left alone; the maps below die with the engine either way,
+// and nil-ing them here releases their backing the moment the run ends
+// instead of at GC. Call it after the Result is built and never touch the
+// engine again.
+func (e *engine) releaseScratch() {
+	if e == nil {
+		return
+	}
+
+	e.syntheticStyles = nil
+	e.styleOverrides = nil
+	e.styleIndex = nil
+	e.pseudoCtx = nil
+	e.gridScratch = nil
+	e.imgCache = nil
+	e.gridMeasureCache = nil
+	e.flexBaseH = nil
+	e.flexMinH = nil
+	e.pseudoContentCache = nil
+	e.contentEnvCache = nil
+	e.svgInlineCache = nil
+	e.containers = nil
+	e.bfcFloats = nil
+	e.bfcStack = nil
+	e.bfcPool = nil
+	e.savedBFCFloats = nil
+	e.absCBHeights = nil
+	e.inlineItemPool = nil
+	e.deferredChrome = nil
+	e.faceByStyle = nil
+	e.lastFace = nil
+	e.hasLastFace = false
+	e.faceByRune = nil
+	e.lineGapByFace = nil
+	e.textWidthCache = nil
+	e.runeWidthCache = nil
+	e.namedFlows = nil
+	e.namedFlowScanDone = false
 }
 
 // styleOverride temporarily substitutes one node's resolved style while that
@@ -2236,7 +2321,10 @@ func (e *engine) absoluteBuildWidth(node *html.Node, sty ResolvedStyle, cbW floa
 		avail = 0
 	}
 
-	return e.floatIntrinsicAvail(node, sty, avail)
+	// Shrink-to-fit resolves against the remaining space, then CSS 2.1 §10.4
+	// clamps it by min/max-width. Without the clamp a min-width badge
+	// shrink-wraps to its text and paints as an oval instead of a circle.
+	return clampBlockMinMax(e, &sty, cbW, e.floatIntrinsicAvail(node, sty, avail))
 }
 
 // resolveAbsY places the out-of-flow box vertically: top wins, then bottom

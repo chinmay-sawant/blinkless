@@ -181,9 +181,9 @@ func (e *engine) roundedOutlineOp(
 	return outlineOp, true
 }
 
-func (e *engine) outlineOps(sty *ResolvedStyle, posX, posY, width, height float64) []Op {
+func (e *engine) appendOutlineOpsForStyle(dst []Op, sty *ResolvedStyle, posX, posY, width, height float64) []Op {
 	if e == nil || !outlinePaints(sty) {
-		return nil
+		return dst
 	}
 
 	effW, effStyle := effectiveOutline(sty)
@@ -193,17 +193,25 @@ func (e *engine) outlineOps(sty *ResolvedStyle, posX, posY, width, height float6
 
 	if effStyle == solidKeyword && hasRoundedCorners(sty) {
 		if op, ok := e.roundedOutlineOp(sty, posX, posY, width, height, outlineWidth, outlineOff, red, green, blue); ok {
-			return []Op{op}
+			return append(dst, op)
 		}
 	}
 
-	ops := appendOutlineOps(
-		make([]Op, 0, outlineSideHint),
-		posX, posY, width, height, outlineWidth, outlineOff, effStyle, red, green, blue,
-	)
-	for idx := range ops {
-		ops[idx].setOutline()
+	if dst == nil {
+		dst = make([]Op, 0, outlineSideHint)
 	}
 
-	return ops
+	dst = growChromeOps(dst, outlineSideHint)
+
+	start := len(dst)
+
+	dst = appendOutlineOps(
+		dst,
+		posX, posY, width, height, outlineWidth, outlineOff, effStyle, red, green, blue,
+	)
+	for idx := start; idx < len(dst); idx++ {
+		dst[idx].setOutline()
+	}
+
+	return dst
 }

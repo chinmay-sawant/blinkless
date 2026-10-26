@@ -98,5 +98,8 @@ func finalizeResult(eng *engine, root *html.Node, opts Options) (*Result, error)
 
 	res.MaxContentX, res.HasFragmentLinks = censusOps(res.Ops, opts.Width)
 
+	// The run is over: drop the per-run caches the Result did not adopt.
+	eng.releaseScratch()
+
 	return res, nil
 }

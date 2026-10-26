@@ -567,46 +567,106 @@ type matchCacheEntry struct {
 // never share a key; the tag is lowercased for HTML (whose type selectors
 // match ASCII case-insensitively) and namespace-qualified so foreign elements
 // never alias HTML ones.
-func matchSignature(node *html.Node, pseudoElem string) matchCacheKey {
-	tag := node.Name
-	if node.Namespace == html.NamespaceHTML {
-		tag = "html\x00" + strings.ToLower(tag)
-	} else {
-		tag = "foreign\x00" + strconv.Itoa(int(node.Namespace)) + "\x00" + tag
+func (ctx *styleContext) matchSignature(node *html.Node, pseudoElem string) matchCacheKey {
+	return matchCacheKey{tag: ctx.matchTag(node), attrs: canonicalAttrKey(node.Attrs), pseudo: pseudoElem}
+}
+
+// matchTag interns the namespaced tag for one cascade pass. Element probes
+// run two to three times per element (element plus ::before/::after, plus
+// counter and content probes), and the matchCacheKey holds the tag string,
+// so sharing one copy per distinct tag removes a concatenation per probe.
+// Tags are fixed at parse time, so a pass-local cache cannot go stale.
+func (ctx *styleContext) matchTag(node *html.Node) string {
+	if node.Namespace != html.NamespaceHTML {
+		return "foreign\x00" + strconv.Itoa(int(node.Namespace)) + "\x00" + node.Name
 	}
 
-	return matchCacheKey{tag: tag, attrs: canonicalAttrKey(node.Attrs), pseudo: pseudoElem}
+	lowered := strings.ToLower(node.Name)
+
+	if interned, ok := ctx.matchTags[lowered]; ok {
+		return interned
+	}
+
+	if ctx.matchTags == nil {
+		ctx.matchTags = make(map[string]string)
+	}
+
+	tag := "html\x00" + lowered
+	ctx.matchTags[lowered] = tag
+
+	return tag
 }
 
 // canonicalAttrKey encodes the full attribute map with length-prefixed,
 // sorted names so the key is exact and map-iteration order never leaks in.
+// Single-attribute elements skip the name slice and the sort; the builder is
+// pre-sized so the common shapes allocate exactly the result string.
 func canonicalAttrKey(attrs map[string]string) string {
-	if len(attrs) == 0 {
+	switch len(attrs) {
+	case 0:
 		return ""
+	case 1:
+		for name, value := range attrs {
+			var out strings.Builder
+
+			out.Grow(len(name) + len(value) + attrKeyOverhead)
+			writeAttrKeyInt(&out, len(name))
+			out.WriteByte(':')
+			out.WriteString(name)
+			out.WriteByte('=')
+			writeAttrKeyInt(&out, len(value))
+			out.WriteByte(':')
+			out.WriteString(value)
+			out.WriteByte(';')
+
+			return out.String()
+		}
 	}
 
 	names := make([]string, 0, len(attrs))
-	for name := range attrs {
+
+	sizes := 0
+
+	for name, value := range attrs {
 		names = append(names, name)
+		sizes += len(name) + len(value)
 	}
 
 	slices.Sort(names)
 
 	var out strings.Builder
 
+	out.Grow(sizes + len(names)*attrKeyOverhead)
+
 	for _, name := range names {
 		value := attrs[name]
-		out.WriteString(strconv.Itoa(len(name)))
+		writeAttrKeyInt(&out, len(name))
 		out.WriteByte(':')
 		out.WriteString(name)
 		out.WriteByte('=')
-		out.WriteString(strconv.Itoa(len(value)))
+		writeAttrKeyInt(&out, len(value))
 		out.WriteByte(':')
 		out.WriteString(value)
 		out.WriteByte(';')
 	}
 
 	return out.String()
+}
+
+// attrKeyOverhead is the separator and length-prefix budget per attribute in
+// a canonical attribute key (two length fields plus ":…=…:;" framing).
+const attrKeyOverhead = 8
+
+// attrKeyBase is the decimal base for the length prefixes in a canonical
+// attribute key.
+const attrKeyBase = 10
+
+// writeAttrKeyInt appends n in decimal without the strconv.Itoa allocation
+// on the per-element match-signature path.
+func writeAttrKeyInt(out *strings.Builder, n int) {
+	var buf [20]byte
+
+	out.Write(strconv.AppendInt(buf[:0], int64(n), attrKeyBase))
 }
 
 // matchedRules walks sheets with the cascade's gates (media, @container,
@@ -633,7 +693,7 @@ func (ctx *styleContext) matchedRules(node *html.Node, pseudoElem string) []rule
 		return ctx.scanMatches(node, pseudoElem, matchCacheKey{}, false) //nolint:exhaustruct // zero key: nil nodes never cache
 	}
 
-	key := matchSignature(node, pseudoElem)
+	key := ctx.matchSignature(node, pseudoElem)
 	if entry := ctx.matchCache[key]; entry != nil {
 		return ctx.replayMatches(entry, node, pseudoElem)
 	}

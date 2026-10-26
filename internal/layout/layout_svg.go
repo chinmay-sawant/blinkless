@@ -148,10 +148,19 @@ func (e *engine) serializeInlineSVGWithPaint(node *html.Node, paint *svgPaintPas
 	buf.Reset()
 	e.writeSVGNode(buf, node, paint)
 	out := bytes.Clone(buf.Bytes())
-	svgSerializePool.Put(buf)
+	// A huge inline SVG must not pin its buffer across every later run:
+	// oversized buffers are dropped for the GC instead of pooled.
+	if buf.Cap() <= maxPooledSerializeBytes {
+		svgSerializePool.Put(buf)
+	}
 
 	return out
 }
+
+// maxPooledSerializeBytes bounds the serialize buffers the shared pool
+// keeps. Repeated icons serialize to a few kilobytes, so this covers the
+// steady state while a megabyte-scale document falls through to the GC.
+const maxPooledSerializeBytes = 64 << 10
 
 // svgSerializePool reuses serialize buffers across inline SVGs. Layout is
 // single-threaded per engine but engines run concurrently, so a pool (not an

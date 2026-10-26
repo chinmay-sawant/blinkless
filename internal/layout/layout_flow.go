@@ -1525,9 +1525,11 @@ func shiftDeferredChrome(entries []chromeEntry, boxNode *box, deltaX, deltaY flo
 	}
 }
 
-// markBoxSubtree returns the set of boxes in b's subtree (b included).
+// markBoxSubtree returns the set of boxes in b's subtree (b included). The
+// map is pre-sized with one counting walk so a large shifted subtree does
+// not leave a chain of discarded growth tables behind.
 func markBoxSubtree(boxNode *box) map[*box]struct{} {
-	inSubtree := map[*box]struct{}{}
+	inSubtree := make(map[*box]struct{}, countSubtreeBoxes(boxNode))
 
 	var mark func(*box)
 	mark = func(posX *box) {
@@ -1544,6 +1546,21 @@ func markBoxSubtree(boxNode *box) map[*box]struct{} {
 	mark(boxNode)
 
 	return inSubtree
+}
+
+// countSubtreeBoxes counts the boxes in b's subtree (b included) without
+// allocating, so markBoxSubtree can size its set exactly.
+func countSubtreeBoxes(boxNode *box) int {
+	if boxNode == nil {
+		return 0
+	}
+
+	n := 1
+	for _, c := range boxNode.children {
+		n += countSubtreeBoxes(c)
+	}
+
+	return n
 }
 
 func collapseMargins(acc, boxN float64) float64 {

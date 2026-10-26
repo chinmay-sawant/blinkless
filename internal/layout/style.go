@@ -886,6 +886,9 @@ type styleContext struct {
 	// pass reuses it: entries only cover selectors whose outcome is a pure
 	// function of the signature, and container-gated rules evaluate fresh.
 	matchCache map[matchCacheKey]*matchCacheEntry
+	// matchTags interns the namespaced tag strings matchSignature builds, so
+	// repeated probes of the same tag share one copy for this pass.
+	matchTags map[string]string
 	// gateCache memoizes the node-independent rule gates (media query and
 	// @supports) per rule for this pass, so repeated elements do not
 	// re-parse the same query strings.

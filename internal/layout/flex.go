@@ -639,9 +639,10 @@ func (e *engine) flexItemBaseWidth(node *html.Node, style *ResolvedStyle, mainSi
 	// measureFlexItemMaxContent already returns the border-box contribution,
 	// including the item's horizontal padding and borders. Adding pad here a
 	// second time widens every auto-sized flex item and can force a final pill
-	// onto a new row (fixture-56 d01-flow).
-	intr := e.measureFlexItemMaxContent(node, style) +
-		e.scalePt(style.MarginLeft) + e.scalePt(style.MarginRight)
+	// onto a new row (fixture-56 d01-flow). Margins stay out for the same
+	// reason: flexDistributeWidths and placement add them separately, so
+	// folding them into the base shrinks every margined item's siblings.
+	intr := e.measureFlexItemMaxContent(node, style)
 	if intr <= 0 {
 		intr = pad
 	}
@@ -741,13 +742,44 @@ func (e *engine) flexIntrinsicWidth(node *html.Node, style *ResolvedStyle, _ boo
 
 	childW := 0.0
 	childCount := 0
+	// Bare text forms anonymous flex items in layout (flexChildren); the
+	// intrinsic sum must count the same items, or a pill with an orb and a
+	// text run shrink-wraps to the orb alone and the text overflows the box.
+	// Non-flex callers (block width:max-content) keep the historical element
+	// walk so their line formation does not gain flex gaps.
+	isFlexItems := style.Display == displayFlex || style.Display == displayInlineFlex
+	var run *cellMeasure
+	nowrap := style.WhiteSpace == cssWhiteSpaceNowrap || style.WhiteSpace == cssWhiteSpacePre
+	flushRun := func() {
+		if run == nil {
+			return
+		}
+		w := run.lineW
+		run = nil
+		if w <= 0 || !rowFlex || !isFlexItems {
+			return
+		}
+		childW += w
+		childCount++
+	}
 	for _, child := range node.Children {
+		if child.Type == html.TextNode {
+			if !isFlexItems || !rowFlex || strings.TrimSpace(child.Text) == "" {
+				continue
+			}
+			if run == nil {
+				run = &cellMeasure{engine: e, em: style.FontSize, root: node}
+			}
+			run.measureText(child.Text, style, nowrap)
+			continue
+		}
 		if child.Type != html.ElementNode {
 			continue
 		}
+		flushRun()
 
 		childStyle := e.stylePtr(child)
-		if childStyle.Display == cssDisplayNone {
+		if childStyle.Display == cssDisplayNone || isOutOfFlowNode(child, childStyle) {
 			continue
 		}
 
@@ -767,6 +799,7 @@ func (e *engine) flexIntrinsicWidth(node *html.Node, style *ResolvedStyle, _ boo
 			childW = contribution
 		}
 	}
+	flushRun()
 
 	if rowFlex {
 		_, columnGap := e.styleGaps(style)
