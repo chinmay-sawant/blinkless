@@ -94,6 +94,9 @@ Four rounds of engine-only layout work driven by an example trade-terminal profi
 - [x] `gofmt -l` on touched trees (clean)
 - [x] `go vet` on `internal/layout`, `internal/css`, `internal/fonts`, `internal/svg` (clean)
 - [x] `go test ./internal/css/ ./internal/fonts/ ./internal/svg/ ./internal/layout/ ./layout/` (pass)
+- [x] `go test ./...` full tree after the refactors and file splits (pass, no failures)
+- [x] `golangci-lint run ./...` full tree (clean) plus `make size-check` (clean)
+- [x] `make build` (pass)
 - [x] `make golden` equivalent: `go test ./layout/ -run TestDisplay` (pass)
 - [ ] `make test` (CI)
 - [ ] `make lint` (CI)
@@ -152,6 +155,7 @@ None. This branch does not close an open issue (the only open issue, #18 mask-bo
 
 | Extension | Files | Insertions | Deletions |
 | --- | ---: | ---: | ---: |
-| `.go` | 57 | 3952 | 412 |
-| `.md` | 1 | 6 | 3 |
-| **Total** | **58** | **3958** | **415** |
+| `.go` | 62 | 4773 | 986 |
+| `.md` | 2 | 163 | 3 |
+| `.txt` | 1 | 1 | 1 |
+| **Total** | **65** | **4937** | **990** |
