@@ -156,6 +156,6 @@ None. This branch does not close an open issue (the only open issue, #18 mask-bo
 | Extension | Files | Insertions | Deletions |
 | --- | ---: | ---: | ---: |
 | `.go` | 62 | 4773 | 986 |
-| `.md` | 2 | 163 | 3 |
+| `.md` | 2 | 167 | 3 |
 | `.txt` | 1 | 1 | 1 |
-| **Total** | **65** | **4937** | **990** |
+| **Total** | **65** | **4941** | **990** |
