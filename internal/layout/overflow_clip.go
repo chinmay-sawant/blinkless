@@ -154,6 +154,15 @@ func (e *engine) clipOverflowTree(boxNode *box, clip *clipRect) {
 		return
 	}
 
+	// Record the ancestor clip on the box for hosts: transformed
+	// descendants must intersect their paint with it at draw time.
+	if clip == nil {
+		boxNode.overflowClip = nil
+	} else {
+		kept := *clip
+		boxNode.overflowClip = &kept
+	}
+
 	next := e.computeBoxOverflowClip(boxNode, clip)
 
 	switch {

@@ -1532,6 +1532,25 @@ func (e *engine) measureTextFace(cssSheet string, sty *ResolvedStyle) float64 {
 	}
 
 	size := usedFontSize(sty, primary) * e.scale
+
+	if len(cssSheet) > maxCachedTextLen {
+		return e.measureTextFaceUncached(cssSheet, sty, primary, size)
+	}
+
+	key := textWidthCacheKey(sty, primary, size, cssSheet)
+	if w, ok := e.lookupTextWidth(key); ok {
+		return w
+	}
+
+	w := e.measureTextFaceUncached(cssSheet, sty, primary, size)
+	e.storeTextWidth(key, w)
+
+	return w
+}
+
+// measureTextFaceUncached sums per-rune advances for cssSheet without
+// consulting the string cache.
+func (e *engine) measureTextFaceUncached(cssSheet string, sty *ResolvedStyle, primary *pdf.Font, size float64) float64 {
 	lstyle := sty.LetterSpacing * e.scale
 	wstyle := sty.WordSpacing * e.scale
 
@@ -1618,67 +1637,6 @@ func (e *engine) tabStopAdvance(sty *ResolvedStyle, primary *pdf.Font, size floa
 	}
 
 	return spaceW * tabSize
-}
-
-// measureRuneFace measures a single rune with the same face selection as
-// measureTextFace, without allocating string(r).
-//
-//nolint:cyclop // rune measurement has separate tab, fallback, and spacing cases
-func (e *engine) measureRuneFace(curRune rune, sty *ResolvedStyle) float64 {
-	if sty == nil {
-		return 0
-	}
-
-	if curRune == softHyphenRune || isVariationSelector(curRune) {
-		return 0
-	}
-
-	if curRune == '\t' {
-		if isTabSizeLength(sty) {
-			return e.scalePt(sty.TabSize)
-		}
-
-		tabSize := sty.TabSize
-		if tabSize <= 0 {
-			tabSize = 8
-		}
-
-		// \t expands to TabSize * space width per CSS tab-size.
-		spaceW := e.measureRuneFace(' ', sty)
-		if spaceW <= 0 {
-			spaceW = sty.FontSize * e.scale * tabSpaceRatio
-		}
-
-		return spaceW * tabSize
-	}
-
-	size := sty.FontSize * e.scale
-	face := e.faceForRune(sty, curRune)
-
-	if face == nil {
-		face = e.font
-	}
-
-	advance := face.GlyphAdvancePoints(curRune, size)
-	if em := emojiPresentationAdvance(sty, curRune, size); em > advance {
-		advance = em
-	}
-
-	if sty.LetterSpacing != 0 {
-		advance += sty.LetterSpacing * e.scale
-	}
-
-	if curRune == ' ' && sty.WordSpacing != 0 {
-		advance += sty.WordSpacing * e.scale
-	}
-
-	return advance * fontWidthScale(sty)
-}
-
-type faceRun struct {
-	text string
-	face *pdf.Font
-	w    float64
 }
 
 // splitTextByFace splits s into contiguous runs that share the same face

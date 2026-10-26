@@ -49,7 +49,7 @@ func TestWordBreakOfLineBreakAnywhere(t *testing.T) {
 	t.Parallel()
 
 	st := ResolvedStyle{LineBreak: "anywhere", WhiteSpace: "normal"}
-	if got := wordBreakOf(st); got != breakAll {
+	if got := wordBreakOf(&st); got != breakAll {
 		t.Fatalf("wordBreakOf(line-break:anywhere)=%v, want breakAll", got)
 	}
 }

@@ -159,7 +159,7 @@ func measureTrackIntrinsics(eng *engine, kids []*html.Node, nTracks int, axisCol
 			// fr track is min-content, while auto/max-content maxes grow to
 			// max-content. Using max-content for both sized 1fr tracks from
 			// their content instead of the equal free-space share (C2).
-			minVal, maxVal = eng.measureCellMinMax(kid, *cstate)
+			minVal, maxVal = eng.measureCellMinMax(kid, cstate)
 		} else {
 			// Height intrinsic: single-line text approximation via font size.
 			maxVal = eng.scalePt(cstate.FontSize) * textLineHeightFactor

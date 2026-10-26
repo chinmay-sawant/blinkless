@@ -224,6 +224,11 @@ func (e *engine) injectBlockPseudos(boxNode *box, items []inlineItem) []inlineIt
 		return items
 	}
 
+	// No content rule anywhere means neither probe can produce an item.
+	if !e.hasPseudoContent() {
+		return items
+	}
+
 	if item, ok := e.makeInflowPseudoItem(boxNode.node, pseudoBefore, *boxNode.style); ok {
 		items = append([]inlineItem{item}, items...)
 	}
@@ -846,7 +851,7 @@ func (e *engine) breakOverflowItem(
 		return nil
 	}
 
-	pol := wordBreakOf(*item.style)
+	pol := wordBreakOf(item.style)
 	if pol == breakNever {
 		return nil
 	}
@@ -970,7 +975,7 @@ func (e *engine) breakToken(cssSheet string, sty ResolvedStyle, firstMax, restMa
 		return nil
 	}
 
-	pol := wordBreakOf(sty)
+	pol := wordBreakOf(&sty)
 	if pol == breakNever {
 		return []string{cssSheet}
 	}

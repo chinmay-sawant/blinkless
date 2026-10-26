@@ -74,7 +74,7 @@ func sortBandsTopDown(bands []band) {
 // (longest unwrapped line, not longest word). Using min-content here made
 // auto tables shrink-wrap to a rivulet of columns and inflate row heights
 // via forced wraps (wiki filmography / any dense multi-column table).
-func (e *engine) measureCellContent(n *html.Node, st ResolvedStyle) float64 {
+func (e *engine) measureCellContent(n *html.Node, st *ResolvedStyle) float64 {
 	minW, maxW := e.measureCellMinMax(n, st)
 	_ = minW
 
@@ -91,13 +91,13 @@ func (e *engine) measureCellContent(n *html.Node, st ResolvedStyle) float64 {
 // Short nowrap-only lines (wiki Ref cells with [127][128]) use the full line
 // as min-content so adjacent cite markers stay on one horizontal line instead
 // of wrapping into a stacked, overlapping pair in a one-marker-wide column.
-func (e *engine) measureCellMinMax(node *html.Node, style ResolvedStyle) (float64, float64) {
+func (e *engine) measureCellMinMax(node *html.Node, style *ResolvedStyle) (float64, float64) {
 	// Size containment (and content-visibility: hidden) sizes intrinsic widths
 	// as if the descendants were absent: contain-intrinsic inline size (else
 	// 0) plus box chrome. A fixed intrinsic length contributes the same to
 	// min-content and max-content.
-	if containsSize(style) || style.ContentVisibility == contentVisibilityHidden {
-		intrinsicW := containmentIntrinsicWidth(style)
+	if containsSize(*style) || style.ContentVisibility == contentVisibilityHidden {
+		intrinsicW := containmentIntrinsicWidth(*style)
 		if intrinsicW < 0 {
 			intrinsicW = 0
 		}
@@ -117,7 +117,6 @@ func (e *engine) measureCellMinMax(node *html.Node, style ResolvedStyle) (float6
 	cellMeas := &cellMeasure{ //nolint:exhaustruct // zero fields are the flushed-line state
 		engine: e,
 		em:     style.FontSize,
-		style:  style,
 		root:   node,
 	}
 	cellMeas.walk(node, style, style.WhiteSpace == cssWhiteSpaceNowrap || style.WhiteSpace == cssWhiteSpacePre)
@@ -144,10 +143,11 @@ func (e *engine) measureCellMinMax(node *html.Node, style ResolvedStyle) (float6
 }
 
 // cellMeasure accumulates min/max-content width contributions while walking a
-// table cell's subtree (see measureCellMinMax).
+// table cell's subtree (see measureCellMinMax). It keeps only the scalar
+// metrics: the resolved style is read through pointers, so a measurement
+// never copies the 6KB record per node.
 type cellMeasure struct {
 	engine         *engine
-	style          ResolvedStyle
 	root           *html.Node
 	em             float64
 	lineW          float64
@@ -182,14 +182,14 @@ func (m *cellMeasure) flushLine() {
 }
 
 // walk measures one node's contribution to the current line.
-func (m *cellMeasure) walk(nodeN *html.Node, cstate ResolvedStyle, nowrap bool) {
+func (m *cellMeasure) walk(nodeN *html.Node, cstate *ResolvedStyle, nowrap bool) {
 	if nodeN == nil {
 		return
 	}
 
 	switch nodeN.Type {
 	case html.TextNode:
-		m.measureText(nodeN.Text, &cstate, nowrap)
+		m.measureText(nodeN.Text, cstate, nowrap)
 	case html.ElementNode:
 		m.measureElement(nodeN, cstate, nowrap)
 	case html.CommentNode, html.DoctypeNode:
@@ -218,7 +218,7 @@ func (m *cellMeasure) measureText(text string, cstate *ResolvedStyle, nowrap boo
 		}
 
 		col := verticalWritingColumnWidth(eng, cstate)
-		chromeW := inlineMeasurementChromeWidth(eng, *cstate)
+		chromeW := inlineMeasurementChromeWidth(eng, cstate)
 		m.lineW += col + chromeW
 		m.noteWord(col + chromeW)
 		m.lineHasInk = true
@@ -236,7 +236,7 @@ func (m *cellMeasure) measureText(text string, cstate *ResolvedStyle, nowrap boo
 
 		m.lineOnlyNowrap = false
 		m.lineHasInk = true
-		chromeW := inlineMeasurementChromeWidth(eng, *cstate)
+		chromeW := inlineMeasurementChromeWidth(eng, cstate)
 		m.lineW += chromeW
 
 		spaceW := m.engine.measureTextFace(" ", cstate)
@@ -281,7 +281,7 @@ func (m *cellMeasure) measureText(text string, cstate *ResolvedStyle, nowrap boo
 	}
 
 	full := eng.measureTextFace(transformInlineText(text, cstate.TextTransform), cstate) +
-		inlineMeasurementChromeWidth(eng, *cstate)
+		inlineMeasurementChromeWidth(eng, cstate)
 	m.lineW += full
 	m.noteWord(eng.minContentWidth(text, cstate, full))
 
@@ -309,7 +309,7 @@ func verticalWritingColumnWidth(eng *engine, style *ResolvedStyle) float64 {
 // lockstep with inline paint. Without the padding and border contribution,
 // flex items containing code/mark spans receive a box that is just narrower
 // than their painted inline chrome and wrap unexpectedly.
-func inlineMeasurementChromeWidth(eng *engine, style ResolvedStyle) float64 {
+func inlineMeasurementChromeWidth(eng *engine, style *ResolvedStyle) float64 {
 	if eng == nil || style.Display != cssDisplayInline {
 		return 0
 	}
@@ -326,7 +326,7 @@ func (m *cellMeasure) noteWord(uw float64) {
 }
 
 // measureElement handles br, replaced images, and block-level in-cell boxes.
-func (m *cellMeasure) measureElement(nodeN *html.Node, childCS ResolvedStyle, nowrap bool) {
+func (m *cellMeasure) measureElement(nodeN *html.Node, childCS *ResolvedStyle, nowrap bool) {
 	if childCS.Display == cssDisplayNone {
 		return
 	}
@@ -335,7 +335,7 @@ func (m *cellMeasure) measureElement(nodeN *html.Node, childCS ResolvedStyle, no
 	// replaces the descendant-derived intrinsic width with contain-intrinsic
 	// inline size (else 0) plus box chrome, exactly like the measureCellMinMax
 	// root guard. Descendant content must not contribute.
-	if containsSize(childCS) || childCS.ContentVisibility == contentVisibilityHidden {
+	if containsSize(*childCS) || childCS.ContentVisibility == contentVisibilityHidden {
 		m.measureSizeContained(childCS)
 
 		return
@@ -348,7 +348,7 @@ func (m *cellMeasure) measureElement(nodeN *html.Node, childCS ResolvedStyle, no
 	}
 	// Replaced images contribute their used CSS-pixel width (wiki thumbs).
 	if nodeN.Name == cssTagImg {
-		innerW := m.engine.measureImageWidth(nodeN, childCS)
+		innerW := m.engine.measureImageWidth(nodeN, *childCS)
 		m.noteWord(innerW)
 		m.lineOnlyNowrap = false
 		m.lineHasInk = true
@@ -360,7 +360,7 @@ func (m *cellMeasure) measureElement(nodeN *html.Node, childCS ResolvedStyle, no
 		// Reuse the used-size policy so the intrinsic width floor sees the same
 		// max-width/max-height clamp and ratio transfer as the build: max-height
 		// 100pt on a 200x200 svg contributes 100, not the raw 200px attribute.
-		innerW := m.engine.usedInlineSVGSize(nodeN, childCS, nil).w
+		innerW := m.engine.usedInlineSVGSize(nodeN, *childCS, nil).w
 		m.noteWord(innerW)
 		m.lineOnlyNowrap = false
 		m.lineHasInk = true
@@ -370,7 +370,7 @@ func (m *cellMeasure) measureElement(nodeN *html.Node, childCS ResolvedStyle, no
 	}
 
 	if isInputCheckbox(nodeN) {
-		innerW := defaultCheckboxSize(m.engine, childCS)
+		innerW := defaultCheckboxSize(m.engine, *childCS)
 		m.noteWord(innerW)
 		m.lineOnlyNowrap = false
 		m.lineHasInk = true
@@ -398,7 +398,7 @@ func (m *cellMeasure) measureElement(nodeN *html.Node, childCS ResolvedStyle, no
 // measureSpecifiedInlineBlock treats a definite-width inline-block as one
 // atomic advance (specified width, content-box chrome, and margins).
 // Percentage widths stay auto: intrinsic measure has no definite CB.
-func (m *cellMeasure) measureSpecifiedInlineBlock(style ResolvedStyle) bool {
+func (m *cellMeasure) measureSpecifiedInlineBlock(style *ResolvedStyle) bool {
 	if style.Display != cssDisplayInlineBlock || style.WidthPercent >= 0 || style.Width < 0 {
 		return false
 	}
@@ -416,8 +416,8 @@ func (m *cellMeasure) measureSpecifiedInlineBlock(style ResolvedStyle) bool {
 // measure as an atomic placeholder: its contain-intrinsic inline size (else 0)
 // plus box chrome, never its descendant content. Block-level boxes occupy
 // their own measured line.
-func (m *cellMeasure) measureSizeContained(style ResolvedStyle) {
-	intrinsicW := containmentIntrinsicWidth(style)
+func (m *cellMeasure) measureSizeContained(style *ResolvedStyle) {
+	intrinsicW := containmentIntrinsicWidth(*style)
 	if intrinsicW < 0 {
 		intrinsicW = 0
 	}
@@ -445,7 +445,7 @@ func (m *cellMeasure) measureSizeContained(style ResolvedStyle) {
 	}
 }
 
-func specifiedInlineBlockOuterWidth(eng *engine, style ResolvedStyle) float64 {
+func specifiedInlineBlockOuterWidth(eng *engine, style *ResolvedStyle) float64 {
 	width := eng.scalePt(style.Width)
 	if style.BoxSizing != borderBox {
 		width += eng.scalePt(style.PaddingLeft) + eng.scalePt(style.PaddingRight) +
@@ -457,7 +457,7 @@ func specifiedInlineBlockOuterWidth(eng *engine, style ResolvedStyle) float64 {
 
 // specifiedBlockOuterWidth is the margin-box width of a blockish child with a
 // specified width, the contribution measureElement records for that arm.
-func specifiedBlockOuterWidth(eng *engine, style ResolvedStyle) float64 {
+func specifiedBlockOuterWidth(eng *engine, style *ResolvedStyle) float64 {
 	width := eng.scalePt(style.Width)
 	if style.BoxSizing != borderBox {
 		width += style.horizontalChrome(eng)
@@ -471,12 +471,12 @@ func specifiedBlockOuterWidth(eng *engine, style ResolvedStyle) float64 {
 // contained nodes are measured by earlier arms that omit outer margins, so
 // callers must still add their horizontal chrome. Shared by measureElement and
 // nestedBlockHChrome so the two dispatch sites cannot drift apart.
-func countedBySpecifiedBlockMeasure(node *html.Node, style ResolvedStyle) bool {
+func countedBySpecifiedBlockMeasure(node *html.Node, style *ResolvedStyle) bool {
 	if node == nil || node.Type != html.ElementNode {
 		return false
 	}
 
-	if containsSize(style) || style.ContentVisibility == contentVisibilityHidden {
+	if containsSize(*style) || style.ContentVisibility == contentVisibilityHidden {
 		return false
 	}
 
@@ -499,7 +499,7 @@ func isCellBlockish(display string) bool {
 
 // walkBlockChildren walks an element's children, flushing the line before and
 // after block-level boxes.
-func (m *cellMeasure) walkBlockChildren(nodeN *html.Node, childCS ResolvedStyle, nowrap, blockish bool) {
+func (m *cellMeasure) walkBlockChildren(nodeN *html.Node, childCS *ResolvedStyle, nowrap, blockish bool) {
 	if blockish {
 		m.flushLine()
 	}
@@ -517,7 +517,7 @@ func (m *cellMeasure) walkBlockChildren(nodeN *html.Node, childCS ResolvedStyle,
 		childStyle := childCS
 
 		if child.Type == html.ElementNode {
-			childStyle = *m.engine.stylePtr(child)
+			childStyle = m.engine.stylePtr(child)
 		}
 
 		m.walk(child, childStyle, childNowrap || childStyle.WhiteSpace == cssWhiteSpaceNowrap ||
@@ -548,7 +548,7 @@ const (
 	breakKeepAll                 // word-break:keep-all
 )
 
-func wordBreakOf(sty ResolvedStyle) wordBreakPolicy {
+func wordBreakOf(sty *ResolvedStyle) wordBreakPolicy {
 	if sty.WhiteSpace == cssWhiteSpaceNowrap || sty.WhiteSpace == cssWhiteSpacePre {
 		return breakNever
 	}
@@ -600,7 +600,7 @@ func (e *engine) minContentWidth(cssSheet string, sty *ResolvedStyle, full float
 		return 0
 	}
 
-	switch wordBreakOf(*sty) {
+	switch wordBreakOf(sty) {
 	case breakNever:
 		return full
 	case breakAll:

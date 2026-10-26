@@ -123,12 +123,12 @@ func wrapBreakInsideAvoid(sty ResolvedStyle) bool {
 }
 
 // wrapBreakForcesFlexBefore reports wrap-before: flex on a flex item.
-func wrapBreakForcesFlexBefore(sty ResolvedStyle) bool {
+func wrapBreakForcesFlexBefore(sty *ResolvedStyle) bool {
 	return sty.WrapBefore == wrapBreakFlex
 }
 
 // wrapBreakForcesFlexAfter reports wrap-after: flex on a flex item.
-func wrapBreakForcesFlexAfter(sty ResolvedStyle) bool {
+func wrapBreakForcesFlexAfter(sty *ResolvedStyle) bool {
 	return sty.WrapAfter == wrapBreakFlex
 }
 
@@ -136,14 +136,14 @@ func wrapBreakForcesFlexAfter(sty ResolvedStyle) bool {
 func (e *engine) flexWrapBreakBefore(item flexMeas) bool {
 	st := e.stylePtr(item.n)
 
-	return st != nil && wrapBreakForcesFlexBefore(*st)
+	return st != nil && wrapBreakForcesFlexBefore(st)
 }
 
 // flexWrapBreakAfter reports wrap-after: flex on one measured flex item.
 func (e *engine) flexWrapBreakAfter(item flexMeas) bool {
 	st := e.stylePtr(item.n)
 
-	return st != nil && wrapBreakForcesFlexAfter(*st)
+	return st != nil && wrapBreakForcesFlexAfter(st)
 }
 
 // applyWrapBreakFlags marks the items one inline element contributed:

@@ -22,7 +22,7 @@ func (e *engine) flowFlexVerticalRow(
 	}
 	if style.FlexWrap == fxWrap || style.FlexWrap == fxWrapRev {
 		mapped := style
-		if flexRowPhysicalReverse(style) {
+		if flexRowPhysicalReverse(&style) {
 			mapped.FlexDirection = fxColRev
 		} else {
 			mapped.FlexDirection = fxCol
@@ -35,7 +35,7 @@ func (e *engine) flowFlexVerticalRow(
 		return e.flowFlexColumnWrapped(parent, mapped, items, contentW, contentX, topY, curY, gap, 0, contentH)
 	}
 
-	if flexRowPhysicalReverse(style) {
+	if flexRowPhysicalReverse(&style) {
 		slices.Reverse(items)
 	}
 
@@ -51,14 +51,14 @@ func (e *engine) flowFlexVerticalRow(
 	}
 
 	startY, justifyGap := justifyColumnStart(
-		flexMainJustify(style), contentH, curY, sumH+gaps, sumH, gaps, gap, len(items),
+		flexMainJustify(&style), contentH, curY, sumH+gaps, sumH, gaps, gap, len(items),
 	)
-	if flexRowPhysicalReverse(style) && flexStartJustify(flexMainJustify(style)) &&
+	if flexRowPhysicalReverse(&style) && flexStartJustify(flexMainJustify(&style)) &&
 		contentH >= 0 && !flexColumnHasAutoMargins(items, e) {
 		startY = curY + contentH - sumH - gaps
 	}
 	endY := e.buildVerticalRowItems(
-		parent, style, items, heights, contentW, contentX, topY, curY, startY, justifyGap, contentH,
+		parent, &style, items, heights, contentW, contentX, topY, curY, startY, justifyGap, contentH,
 	)
 
 	if contentH >= 0 && endY < curY+contentH {
@@ -125,9 +125,9 @@ func (e *engine) flowFlexVerticalColumn(
 		gaps = 0
 	}
 	startX, justifyGap := justifyRowStart(
-		flexMainJustify(style), contentX, contentW, sumW, gaps, gap, len(items),
+		flexMainJustify(&style), contentX, contentW, sumW, gaps, gap, len(items),
 	)
-	if mainReverse && flexStartJustify(flexMainJustify(style)) {
+	if mainReverse && flexStartJustify(flexMainJustify(&style)) {
 		startX = contentX + contentW - sumW
 	}
 	if flexRowAutoMarginCount(items, e) > 0 {
@@ -141,7 +141,7 @@ func (e *engine) flowFlexVerticalColumn(
 	}
 
 	e.buildVerticalColumnItems(
-		parent, style, items, widths, contentW, contentX, topY, curY, startX, justifyGap, lineCross,
+		parent, &style, items, widths, contentW, contentX, topY, curY, startX, justifyGap, lineCross,
 		contentH >= 0,
 	)
 
@@ -176,7 +176,7 @@ func (e *engine) measureVerticalColumnCrossMax(
 //
 //nolint:cyclop,funlen,gocognit,nlreturn,wsl
 func (e *engine) buildVerticalColumnItems(
-	parent *box, style ResolvedStyle, items []flexMeas, widths []float64,
+	parent *box, style *ResolvedStyle, items []flexMeas, widths []float64,
 	contentW, _ /* contentX */, topY, curY, startX, justifyGap, lineCross float64, definiteCross bool,
 ) {
 	autoMainMargins := flexRowAutoMarginCount(items, e)
@@ -212,8 +212,8 @@ func (e *engine) buildVerticalColumnItems(
 			leftX += e.scalePt(itemStyle.MarginLeft)
 		}
 
-		forceStretch := definiteCross && flexItemCrossStretchNode(item.n, style, *itemStyle) &&
-			!flexVerticalColumnCrossAutoMargin(*itemStyle)
+		forceStretch := definiteCross && flexItemCrossStretchNode(item.n, style, itemStyle) &&
+			!flexVerticalColumnCrossAutoMargin(itemStyle)
 		crossSize := lineCross
 		if forceStretch {
 			crossSize -= e.scalePt(itemStyle.MarginTop) + e.scalePt(itemStyle.MarginBottom)
@@ -226,15 +226,17 @@ func (e *engine) buildVerticalColumnItems(
 			itemCross = e.measureVerticalColumnItemCross(item.n, itemStyle, widths[idx], leftX, topY+curY)
 		}
 
-		override := e.forceFlexItemMainSize(*itemStyle, widths[idx])
+		// One 6KB copy per item: both axes mutate the same override in place.
+		override := *itemStyle
+		e.forceFlexItemMainSize(&override, widths[idx])
 		if forceStretch {
-			override = e.forceFlexItemCrossSize(override, crossSize)
+			e.forceFlexItemCrossSize(&override, crossSize)
 		}
 		baselineY := -1.0
 		if baselineTarget != nil {
 			baselineY = baselineTarget[item.n]
 		}
-		crossY := verticalColumnCrossY(style, *itemStyle, topY+curY, lineCross, itemCross, crossReverse, baselineY, e)
+		crossY := verticalColumnCrossY(style, itemStyle, topY+curY, lineCross, itemCross, crossReverse, baselineY, e)
 		cblock := e.buildWithStyle(item.n, &override, widths[idx], leftX, crossY)
 		if cblock != nil {
 			dx := leftX - cblock.x
@@ -261,7 +263,7 @@ func (e *engine) buildVerticalColumnItems(
 
 // flexVerticalColumnCrossAutoMargin reports auto margins on the physical
 // vertical cross axis of a column in vertical writing mode.
-func flexVerticalColumnCrossAutoMargin(style ResolvedStyle) bool {
+func flexVerticalColumnCrossAutoMargin(style *ResolvedStyle) bool {
 	return style.MarginTopAuto || style.MarginBottomAuto
 }
 
@@ -282,7 +284,7 @@ func (e *engine) measureVerticalColumnItemCross(
 
 //nolint:wsl // baseline target collection keeps each item decision adjacent
 func verticalColumnBaselineTarget(
-	container ResolvedStyle, items []flexMeas, lineTop float64, eng *engine,
+	container *ResolvedStyle, items []flexMeas, lineTop float64, eng *engine,
 ) map[*html.Node]float64 {
 	maxOffset := 0.0
 	baselineItems := make(map[*html.Node]float64)
@@ -315,7 +317,7 @@ func verticalColumnBaselineTarget(
 
 //nolint:cyclop,wsl,nlreturn // vertical cross-axis alignment keeps CSS branches together
 func verticalColumnCrossY(
-	containerStyle, itemStyle ResolvedStyle, lineTop, lineCross, itemCross float64,
+	containerStyle, itemStyle *ResolvedStyle, lineTop, lineCross, itemCross float64,
 	crossReverse bool, baselineTarget float64, e *engine,
 ) float64 {
 	top := e.scalePt(itemStyle.MarginTop)
@@ -372,7 +374,7 @@ func verticalColumnCrossY(
 
 //nolint:cyclop,funlen,wsl // vertical row placement mirrors the column placement phases
 func (e *engine) buildVerticalRowItems(
-	parent *box, style ResolvedStyle, items []flexColMeas, heights []float64,
+	parent *box, style *ResolvedStyle, items []flexColMeas, heights []float64,
 	contentW, contentX, topY, curY, startY, justifyGap float64,
 	contentH float64,
 ) float64 {
@@ -419,10 +421,10 @@ func (e *engine) buildVerticalRowItems(
 			leftY += e.scalePt(cstate.MarginTop)
 		}
 
-		override := e.flexColumnItemOverride(item.n, *cstate, style, heights[idx], contentW)
+		override := e.flexColumnItemOverride(item.n, cstate, style, heights[idx], contentW)
 		cblock := e.buildWithStyle(item.n, &override, contentW, contentX, topY+leftY)
 		if cblock != nil {
-			targetX := verticalRowCrossX(style, contentX, contentW, *cstate, cblock.w, e)
+			targetX := verticalRowCrossX(style, contentX, contentW, cstate, cblock.w, e)
 			dx := targetX - cblock.x
 			dy := (topY + leftY) - cblock.y
 			e.shiftBoxOps(cblock, dx, dy)
@@ -452,8 +454,8 @@ func (e *engine) buildVerticalRowItems(
 
 //nolint:cyclop,nlreturn,varnamelen,wsl // vertical writing maps cross-axis alignment explicitly
 func verticalRowCrossX(
-	containerStyle ResolvedStyle, contentX, contentW float64,
-	itemStyle ResolvedStyle, itemW float64,
+	containerStyle *ResolvedStyle, contentX, contentW float64,
+	itemStyle *ResolvedStyle, itemW float64,
 	e *engine,
 ) float64 {
 	align := containerStyle.AlignItems
@@ -510,7 +512,7 @@ func verticalRowCrossX(
 // flexRowPhysicalReverse reports whether the row main axis progresses toward
 // the physical left or top edge when the logical direction is applied.
 // direction reverses row and row-reverse in horizontal and vertical writing.
-func flexRowPhysicalReverse(style ResolvedStyle) bool {
+func flexRowPhysicalReverse(style *ResolvedStyle) bool {
 	reverse := style.FlexDirection == fxRowRev
 	if style.Direction == cssDirectionRTL {
 		return !reverse

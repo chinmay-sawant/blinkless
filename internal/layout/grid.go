@@ -52,7 +52,7 @@ func (e *engine) buildGrid(node *html.Node, sty ResolvedStyle, availW, posX, pos
 	contentStart := len(e.ops)
 	curY := e.scalePt(sty.PaddingTop) + e.scalePt(sty.BorderTop.Width)
 
-	rowGap, columnGap := e.styleGaps(sty)
+	rowGap, columnGap := e.styleGaps(&sty)
 
 	areas := parseGridTemplateAreas(sty.GridTemplateAreas)
 	colDefs := gridColumnDefs(sty.GridTemplateColumns, areas.cols)
@@ -127,26 +127,52 @@ func (e *engine) layoutStandardGrid(
 		strings.ToLower(rowTemplate) != cssDisplayNone
 
 	rows, numRows, lockRows := resolveGridRows(e, sty, kids, numRows, contentH, rowGap, definiteRows)
-	pboxes := measureGridPreferredHeights(
-		e, placed, cols, columnGap, rowGap, contentX, curY, posY, rows, definiteRows || lockRows,
-	)
+
+	lockedRows := definiteRows || lockRows
+
+	var pboxes []gridPlacedBox
+
+	if lockedRows {
+		// Locked tracks never consume preferred heights: row growth and span
+		// distribution are both gated on unlocked rows, and emit sizes items
+		// from the resolved tracks. Measuring here would rebuild every item
+		// subtree once (then emit rebuilds it again); its only cross-pass
+		// effect is advancing the run-local sticky/group ID counters, whose
+		// absolute values nothing persists, so cells are placed directly and
+		// each item is built once.
+		pboxes = placeGridItemsLocked(e, placed, cols, columnGap, contentX)
+	} else {
+		pboxes = measureGridPreferredHeights(
+			e, placed, cols, columnGap, rowGap, contentX, curY, posY, rows, lockedRows,
+		)
+	}
 
 	rowYs := emitGridBoxes(e, sty, boxNode, pboxes, rows, rowGap, posY, curY, contentH)
 	if rowYs != nil {
 		e.paintGridGapRules(sty, placed, contentX, contentW, cols, columnGap, rowYs, rows, posY)
 	}
 
-	usedH := curY
-	if numRows > 0 && rowYs != nil {
-		usedH = rowYs[numRows-1] + rows[numRows-1]
-	}
-
-	usedH = resolveGridUsedHeight(e, sty, usedH, contentH)
+	usedH := e.gridUsedHeightFromRows(sty, curY, rowYs, rows, numRows, contentH)
 
 	boxNode.height = usedH
 	e.prependChrome(contentStart, boxNode, sty, boxNode.x, posY, boxNode.w, boxNode.height)
 
 	return boxNode
+}
+
+// gridUsedHeightFromRows resolves the used height from the emitted row
+// bottoms, keeping the locked-row fast path beside the measuring path.
+// Split from layoutStandardGrid so the grid dispatch stays within the
+// complexity budget.
+func (e *engine) gridUsedHeightFromRows(
+	sty ResolvedStyle, curY float64, rowYs []float64, rows []float64, numRows int, contentH float64,
+) float64 {
+	usedH := curY
+	if numRows > 0 && rowYs != nil {
+		usedH = rowYs[numRows-1] + rows[numRows-1]
+	}
+
+	return resolveGridUsedHeight(e, sty, usedH, contentH)
 }
 
 func inheritSubgridTracksAndGaps(sty, parentStyle *ResolvedStyle) {
@@ -457,6 +483,41 @@ func gridCellExtent(cols []float64, columnGap, contentX float64, page gridCell) 
 	return contW, curX
 }
 
+// placeGridItemsLocked positions grid items in already-resolved tracks without
+// the preferred-height measure pass. Locked rows (a definite template or fixed
+// auto rows) never grow from content, so measured heights are discarded and
+// each item would be built twice for nothing. Cancellation polling mirrors the
+// measure loop so a cancelled context aborts at the same item boundary; item
+// boxes are still built once by the emit pass below.
+func placeGridItemsLocked(
+	eng *engine,
+	placed []gridCell,
+	cols []float64,
+	columnGap, contentX float64,
+) []gridPlacedBox {
+	pboxes := make([]gridPlacedBox, 0, len(placed))
+
+	poll := newCtxPoll(eng.ctx)
+	for _, page := range placed {
+		if poll.poll() {
+			eng.err = poll.err
+
+			return nil
+		}
+
+		contW, curX := gridCellExtent(cols, columnGap, contentX, page)
+		pboxes = append(pboxes, gridPlacedBox{
+			gridCell: page,
+			b:        nil,
+			cellW:    contW,
+			cx:       curX,
+			prefH:    0,
+		})
+	}
+
+	return pboxes
+}
+
 // measureGridPreferredHeights measures items without emitting ops so auto
 // row tracks can be sized before final placement.
 func measureGridPreferredHeights(
@@ -478,16 +539,7 @@ func measureGridPreferredHeights(
 		}
 
 		contW, curX := gridCellExtent(cols, columnGap, contentX, page)
-
-		was := eng.noEmit
-		eng.noEmit = true
-		mb := eng.build(page.n, contW, curX, posY+curY)
-		eng.noEmit = was
-
-		prefH := 0.0
-		if mb != nil {
-			prefH = mb.height
-		}
+		prefH := measureGridItemPrefH(eng, page.n, contW, curX, posY+curY)
 
 		pboxes = append(pboxes, gridPlacedBox{
 			gridCell: page,
@@ -890,7 +942,7 @@ func resolveContentHeightForWidth(sty ResolvedStyle, engN *engine, contentW floa
 
 // styleGaps returns scaled row/column gaps. When both longhands are unset (0),
 // fall back to the Gap shorthand for both axes. Shared by flex and grid.
-func (e *engine) styleGaps(sty ResolvedStyle) (float64, float64) {
+func (e *engine) styleGaps(sty *ResolvedStyle) (float64, float64) {
 	if sty.RowGap == 0 && sty.ColumnGap == 0 {
 		g := e.scalePt(sty.Gap)
 

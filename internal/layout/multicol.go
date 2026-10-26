@@ -170,7 +170,7 @@ func multicolKids(n *html.Node, e *engine) []*html.Node {
 // anonymousMulticolItemStyle inherits text props from the multicol container
 // and resets the box/layout props so the anonymous item is a plain block.
 func anonymousMulticolItemStyle(parent ResolvedStyle) ResolvedStyle {
-	style := anonymousFlexItemStyle(parent)
+	style := anonymousFlexItemStyle(&parent)
 	style.ColumnCount = 0
 	style.ColumnWidth = -1
 	style.ColumnSpan = ""

@@ -8,6 +8,16 @@ import (
 )
 
 func maskImageEnabled(value string) bool {
+	// Fast path for the initial value: every element carries mask-image:none
+	// unless the author declares otherwise, and splitting that one keyword
+	// through splitParenArgs only to rediscover "none" costs a slice per
+	// box (maskGroupRequested runs in pushZ and pushInlineBlend). "" and a
+	// lone "none" can never enable a mask, so answer without parsing.
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" || strings.EqualFold(trimmed, "none") {
+		return false
+	}
+
 	layers, ok := splitMaskLayerList(value)
 	if !ok {
 		return false

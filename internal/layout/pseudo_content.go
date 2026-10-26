@@ -37,12 +37,12 @@ func (e *engine) pseudoContent(node *html.Node, pseudoEl string) string {
 		return ""
 	}
 
-	if !e.hasPseudoContent() {
+	if !e.mayHavePseudoContent(node, pseudoEl) {
 		return ""
 	}
 
 	ctx := e.pseudoStyleContext()
-	best := selectContentDecl(ctx, node, pseudoEl)
+	best := e.cachedContentDecl(ctx, node, pseudoEl)
 
 	if best == nil {
 		return ""
@@ -60,13 +60,13 @@ func (e *engine) pseudoContentURL(node *html.Node, pseudoEl string) string {
 		return ""
 	}
 
-	if !e.hasPseudoContent() {
+	if !e.mayHavePseudoContent(node, pseudoEl) {
 		return ""
 	}
 
 	ctx := e.pseudoStyleContext()
 
-	best := selectContentDecl(ctx, node, pseudoEl)
+	best := e.cachedContentDecl(ctx, node, pseudoEl)
 	if best == nil {
 		return ""
 	}
@@ -81,21 +81,30 @@ func (e *engine) pseudoContentURL(node *html.Node, pseudoEl string) string {
 // pseudoStyleContext is the cascade context used to re-walk sheets for
 // generated content (media + @container gates). When e.styles came from a
 // container pass, non-matching container content is suppressed here the same
-// way colors are.
+// way colors are. The context is cached on the engine and refreshed per use:
+// pseudo lookups run sequentially and consume each matchedRules result before
+// the next lookup, so sharing the scratch buffers is exact and avoids one
+// allocation plus fresh match buffers per ::before/::after probe.
 func (e *engine) pseudoStyleContext() *styleContext {
 	media := e.opts.Media
 	if media == "" {
 		media = "print"
 	}
 
-	return &styleContext{ //nolint:exhaustruct // generated-content cascade context
-		sheets:     e.opts.Sheets,
-		media:      media,
-		viewportW:  e.opts.Width,
-		viewportH:  e.opts.Height,
-		containers: e.containers,
-		index:      e.styleRuleIndex(),
+	ctx := e.pseudoCtx
+	if ctx == nil {
+		ctx = &styleContext{} //nolint:exhaustruct // refreshed below on every use
+		e.pseudoCtx = ctx
 	}
+
+	ctx.sheets = e.opts.Sheets
+	ctx.media = media
+	ctx.viewportW = e.opts.Width
+	ctx.viewportH = e.opts.Height
+	ctx.containers = e.containers
+	ctx.index = e.styleRuleIndex()
+
+	return ctx
 }
 
 // styleRuleIndex returns the selector index for this layout's sheets, built
@@ -122,6 +131,23 @@ func (e *engine) hasPseudoContent() bool {
 	return index != nil && index.content
 }
 
+// mayHavePseudoContent reports whether node could generate content for one
+// pseudo-element: some rule for that name declares content and some selector
+// for that name could match node. False means the pseudo walk would find no
+// rule, so callers skip the cascade without changing the result.
+func (e *engine) mayHavePseudoContent(node *html.Node, pseudoEl string) bool {
+	if e == nil || node == nil || (pseudoEl != pseudoBefore && pseudoEl != pseudoAfter) {
+		return false
+	}
+
+	index := e.styleRuleIndex()
+	if index == nil || !index.contentPseudo[pseudoEl] {
+		return false
+	}
+
+	return index.mayMatchPseudo(node, pseudoEl)
+}
+
 // pseudoStyle resolves the used style of generated content against the host
 // style. Generated content inherits from its host, then applies declarations
 // from the matching pseudo-element rules through the same raw-to-used
@@ -130,6 +156,10 @@ func (e *engine) hasPseudoContent() bool {
 func (e *engine) pseudoStyle(node *html.Node, pseudoEl string, host ResolvedStyle) *ResolvedStyle {
 	if e == nil || node == nil {
 		return &host
+	}
+
+	if !e.mayHavePseudoContent(node, pseudoEl) {
+		return e.stylePtr(node)
 	}
 
 	ctx := e.pseudoStyleContext()
@@ -153,12 +183,69 @@ type contentHit struct {
 	important      bool
 }
 
+// pseudoContentKey identifies one cached content-declaration lookup: the
+// element plus the before/after pass. The cascade is fixed for a Layout run,
+// so the winning declaration cannot change between probes in the run.
+type pseudoContentKey struct {
+	node   *html.Node
+	pseudo string
+}
+
+// pseudoContentEntry is one cached lookup: the winning declaration, or
+// found false when no content rule wins for the element.
+type pseudoContentEntry struct {
+	hit   contentHit
+	found bool
+}
+
+// cachedContentDecl returns the winning content declaration for the element's
+// pseudo-element, running the selector match once per element per run and
+// serving every later probe from the memo.
+func (e *engine) cachedContentDecl(ctx *styleContext, node *html.Node, pseudoEl string) *contentHit {
+	if e == nil || node == nil {
+		return selectContentDecl(ctx, node, pseudoEl)
+	}
+
+	if e.pseudoContentCache == nil {
+		e.pseudoContentCache = make(map[pseudoContentKey]pseudoContentEntry)
+	}
+
+	key := pseudoContentKey{node: node, pseudo: pseudoEl}
+
+	if cached, ok := e.pseudoContentCache[key]; ok {
+		if !cached.found {
+			return nil
+		}
+
+		hit := cached.hit
+
+		return &hit
+	}
+
+	best := selectContentDecl(ctx, node, pseudoEl)
+
+	if best == nil {
+		e.pseudoContentCache[key] = pseudoContentEntry{
+			hit:   contentHit{value: "", a: 0, b: 0, c: 0, order: 0, important: false},
+			found: false,
+		}
+
+		return nil
+	}
+
+	e.pseudoContentCache[key] = pseudoContentEntry{hit: *best, found: true}
+
+	hit := *best
+
+	return &hit
+}
+
 // selectContentDecl picks the winning content declaration for the pseudo
-// element pe on n.
-func selectContentDecl(ctx *styleContext, n *html.Node, pseudoEl string) *contentHit {
+// element pe on node.
+func selectContentDecl(ctx *styleContext, node *html.Node, pseudoEl string) *contentHit {
 	var best *contentHit
 
-	for _, rowH := range ctx.matchedRules(n, pseudoEl) {
+	for _, rowH := range ctx.matchedRules(node, pseudoEl) {
 		for _, d := range rowH.rule.Decls {
 			if !strings.EqualFold(d.Prop, "content") {
 				continue

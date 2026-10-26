@@ -35,8 +35,6 @@ func ResolveStyles(ctx context.Context, root *html.Node, opts Options) (map[*htm
 
 // NodeWithWorkspace builds one already-styled node into workspace.
 // styles must be the document cascade (same map IndependentBlocks saw).
-//
-//nolint:cyclop // faces, workspace, and Result assembly are one constructor
 func NodeWithWorkspace(
 	ctx context.Context,
 	node *html.Node,
@@ -78,12 +76,7 @@ func NodeWithWorkspace(
 		font = faces.Regular
 	}
 
-	var ops []Op
-	if workspace == nil || cap(workspace.ops) == 0 {
-		ops = make([]Op, 0, estimateOpCapacity(node))
-	} else {
-		ops = workspace.ops[:0]
-	}
+	ops := workspaceOps(workspace, estimateOpCapacity(node))
 
 	eng := newEngine(ctx, opts, faces, font, styles, nil, ops)
 
@@ -137,6 +130,9 @@ func assembleNodeResult(eng *engine, rootBox *box, opts Options, workspace *Work
 
 	res.MaxContentX, res.HasFragmentLinks = censusOps(res.Ops, opts.Width)
 	res.skipInitialBeforeAlways = true
+
+	// The run is over: drop the per-run caches the Result did not adopt.
+	eng.releaseScratch()
 
 	if workspace != nil {
 		workspace.ops = res.Ops

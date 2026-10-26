@@ -170,7 +170,7 @@ func TestCSSPartialRemainingTextContent(t *testing.T) {
 	t.Run("word-break-keep-all", func(t *testing.T) {
 		t.Parallel()
 		st := ResolvedStyle{WordBreak: "keep-all"}
-		pol := wordBreakOf(st)
+		pol := wordBreakOf(&st)
 		if pol != breakKeepAll {
 			t.Fatalf("wordBreakOf = %v, want breakKeepAll", pol)
 		}

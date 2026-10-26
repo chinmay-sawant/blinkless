@@ -56,6 +56,14 @@ type opExtra struct {
 	// flattened path it produced. Nil on every op that was never projected,
 	// so the common op pays one pointer.
 	Pristine *Op
+	// OverflowClip is the nearest ancestor overflow padding box in canvas
+	// points. Geometry clipping bakes the clip into the op bounds, which a
+	// later transform moves away; a host painting the op through a matrix
+	// must intersect the paint with this rect instead. Set only for ops the
+	// motion driver stamps (see SetOverflowClip); the common op pays
+	// nothing.
+	ClipX, ClipY, ClipW, ClipH float64
+	HasClip                    bool
 }
 
 func (op *Op) detachExtra() *opExtra {
@@ -131,6 +139,26 @@ func (op *Op) SetBlendMode(mode string) { op.setBlendMode(mode) }
 func (op *Op) SetXform(matrix Matrix2D) {
 	op.setXform(matrix)
 	op.XformSet = true
+}
+
+// SetOverflowClip records the ancestor overflow padding box in canvas points.
+// A host painting the op through a transform intersects the paint with this
+// rect; geometry baking alone cannot hold the clip still while the matrix
+// moves the op. Nil-safe on read; writing allocates a unique extra.
+func (op *Op) SetOverflowClip(x, y, w, h float64) {
+	extra := op.detachExtra()
+	extra.ClipX, extra.ClipY, extra.ClipW, extra.ClipH = x, y, w, h
+	extra.HasClip = true
+}
+
+// OverflowClip reads the clip SetOverflowClip recorded. It reports false
+// when no clip was recorded or the op carries no extra.
+func (op *Op) OverflowClip() (float64, float64, float64, float64, bool) {
+	if op == nil || op.opExtra == nil || !op.opExtra.HasClip {
+		return 0, 0, 0, 0, false
+	}
+
+	return op.opExtra.ClipX, op.opExtra.ClipY, op.opExtra.ClipW, op.opExtra.ClipH, true
 }
 
 // setProjectiveTransform keeps the plane projection inside Blinkless until
@@ -379,6 +407,53 @@ func (op Op) withTextAutospace(value string) Op {
 	return op
 }
 
+// styleHasShapingFeatures reports whether sty can produce a non-empty
+// OpenType feature list (fontShapingFeatureSettings) or language override
+// (fontShapingLanguage). The common element sets none of the shaping fields,
+// and building those strings costs a map, a slice, a closure, and several
+// small splits per text run, so decorateTextOp checks this first and skips
+// both computations when the answer is empty by construction. A true result
+// only means "compute it"; every shaping keyword still decides the output.
+func styleHasShapingFeatures(sty *ResolvedStyle) bool {
+	if sty == nil {
+		return false
+	}
+
+	if sty.FontKerning == fontKerningNone {
+		return true
+	}
+
+	if sty.FontFeatureSettings != "" && sty.FontFeatureSettings != fontVariantNormal {
+		return true
+	}
+
+	if sty.FontLanguageOverride != "" && sty.FontLanguageOverride != fontVariantNormal {
+		return true
+	}
+
+	return fontVariantShapingSet(sty)
+}
+
+// fontVariantShapingSet reports whether any font-variant longhand carries a
+// value beyond the initial one. Split from styleHasShapingFeatures so the
+// per-run fast path stays a flat sequence of early returns.
+func fontVariantShapingSet(sty *ResolvedStyle) bool {
+	return isSetFontVariantValue(sty.FontVariantCaps) ||
+		isSetFontVariantValue(sty.FontVariantLigatures) ||
+		isSetFontVariantValue(sty.FontVariantNumeric) ||
+		isSetFontVariantValue(sty.FontVariantPosition) ||
+		isSetFontVariantValue(sty.FontVariantAlternates) ||
+		isSetFontVariantValue(sty.FontVariantEastAsian)
+}
+
+// isSetFontVariantValue reports whether a font-variant longhand carries a
+// value beyond the initial one. "" and "normal" never produce feature tags,
+// so they skip shaping; anything else falls through to the full computation
+// (which may still find nothing to emit).
+func isSetFontVariantValue(value string) bool {
+	return value != "" && value != fontVariantNormal
+}
+
 // decorateTextOp attaches language, OpenType features, and synthesis gates
 // shared by every OpText emit site.
 func decorateTextOp(paintOp Op, sty *ResolvedStyle) Op {
@@ -386,9 +461,19 @@ func decorateTextOp(paintOp Op, sty *ResolvedStyle) Op {
 		return paintOp
 	}
 
+	// The shaping strings are empty unless the element sets a shaping field
+	// (see styleHasShapingFeatures); computing them unconditionally pays the
+	// map/slice/split garbage on every default text run. The with* setters
+	// are identity on "" so skipping the computation changes nothing.
+	language, features := "", ""
+	if styleHasShapingFeatures(sty) {
+		language = fontShapingLanguage(sty)
+		features = fontShapingFeatureSettings(sty)
+	}
+
 	paintOp = paintOp.withTextTransform(sty.TextTransform).
-		withTextLanguage(fontShapingLanguage(sty)).
-		withFontFeatures(fontShapingFeatureSettings(sty)).
+		withTextLanguage(language).
+		withFontFeatures(features).
 		withTextAutospace(sty.TextAutospace)
 
 	if textOpDisablesFakeBold(sty) {

@@ -186,6 +186,43 @@ func clearCornerRadiiY(style *ResolvedStyle) {
 
 const borderRadiusPercentBasis = 100.0
 
+// radiiSnapEpsilon collapses sub-pixel corner-axis noise: percentage radii
+// resolve against used box sizes, and flex distribution can leave those a
+// ULP apart on a square box (border-radius:50% of 3px). A relative gap this
+// small paints identically either way, but an exact rx != ry comparison
+// downstream treats the corner as elliptical and drops the page to bitmap.
+const radiiSnapEpsilon = 1e-9
+
+// snapRadiiXY circularizes corners whose axes differ only by float noise so
+// a dusty width cannot flip a circle into an ellipse.
+func snapRadiiXY(radiusX, radiusY [4]float64) ([4]float64, [4]float64) {
+	for idx := range radiusX {
+		axisX, axisY := radiusX[idx], radiusY[idx]
+		if axisX == axisY {
+			continue
+		}
+
+		scale := axisX
+		if axisY > scale {
+			scale = axisY
+		}
+
+		if scale < 0 {
+			scale = -scale
+		}
+
+		if scale < 1 {
+			scale = 1
+		}
+
+		if (axisX-axisY) < radiiSnapEpsilon*scale && (axisY-axisX) < radiiSnapEpsilon*scale {
+			radiusY[idx] = axisX
+		}
+	}
+
+	return radiusX, radiusY
+}
+
 // usedBorderRadiiXY resolves both axes of a box's corner ellipses together.
 // Percent radii resolve against width on X and height on Y. Absolute circular
 // shorthand (Y left 0) copies X onto Y before a unified CSS overlap scale so
@@ -205,7 +242,7 @@ func usedBorderRadiiXY(sty ResolvedStyle, width, height float64) ([4]float64, [4
 
 		scaleRadiiXY(radiusX[:], radiusY[:], width, height)
 
-		return radiusX, radiusY
+		return snapRadiiXY(radiusX, radiusY)
 	}
 
 	radiusX = borderRadiusValues(sty, width, height)
@@ -231,7 +268,7 @@ func usedBorderRadiiXY(sty ResolvedStyle, width, height float64) ([4]float64, [4
 
 	scaleRadiiXY(radiusX[:], radiusY[:], width, height)
 
-	return radiusX, radiusY
+	return snapRadiiXY(radiusX, radiusY)
 }
 
 func usedBorderRadii(sty ResolvedStyle, width, height float64) [4]float64 {

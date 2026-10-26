@@ -84,9 +84,9 @@ func (e *engine) flowFlexColumnWrapped(
 			gaps = 0
 		}
 		startY, justifyGap := justifyColumnStart(
-			flexMainJustify(style), contentH, curY, sumH+gaps, sumH, gaps, gap, len(heights),
+			flexMainJustify(&style), contentH, curY, sumH+gaps, sumH, gaps, gap, len(heights),
 		)
-		if style.FlexDirection == fxColRev && flexStartJustify(flexMainJustify(style)) &&
+		if style.FlexDirection == fxColRev && flexStartJustify(flexMainJustify(&style)) &&
 			!flexColumnHasAutoMargins(line.items, e) {
 			startY = curY + contentH - sumH - gaps
 		}
@@ -97,7 +97,7 @@ func (e *engine) flowFlexColumnWrapped(
 
 		lineEndY := e.buildColumnItems(
 			parent,
-			style,
+			&style,
 			line.items,
 			heights,
 			lineWidth,
@@ -168,11 +168,11 @@ func (e *engine) flexColumnLineCrossWidth(items []flexColMeas) float64 {
 		case style.Width >= 0:
 			chrome := e.scalePt(style.PaddingLeft + style.PaddingRight +
 				style.BorderLeft.Width + style.BorderRight.Width)
-			itemWidth = e.flexBoxSized(*style, e.scalePt(style.Width), chrome)
+			itemWidth = e.flexBoxSized(style, e.scalePt(style.Width), chrome)
 		case style.MinWidth > 0:
 			itemWidth = e.scalePt(style.MinWidth)
 		default:
-			itemWidth = e.measureFlexItemMaxContent(item.n, *style)
+			itemWidth = e.measureFlexItemMaxContent(item.n, style)
 		}
 
 		itemWidth += e.scalePt(style.MarginLeft + style.MarginRight)
@@ -290,7 +290,7 @@ func (e *engine) flexColumnItems(kids []*html.Node, contentW, contentH float64) 
 		}
 
 		items = append(items, flexColMeas{
-			n: kid, baseH: e.flexItemBaseHeight(kid, *cstate, contentW, contentH),
+			n: kid, baseH: e.flexItemBaseHeight(kid, cstate, contentW, contentH),
 			grow: grow, shrink: shrink,
 		})
 	}
@@ -417,7 +417,7 @@ func justifyColumnStart(
 
 //nolint:cyclop,funlen,gocognit,wsl // column placement keeps CSS auto-margin and alignment phases together
 func (e *engine) buildColumnItems(
-	parent *box, style ResolvedStyle, items []flexColMeas, heights []float64,
+	parent *box, style *ResolvedStyle, items []flexColMeas, heights []float64,
 	contentW, contentX, topY, curY, startY, justifyGap, contentH float64,
 ) float64 {
 	leftY := startY
@@ -462,7 +462,8 @@ func (e *engine) buildColumnItems(
 			leftY += e.scalePt(cstate.MarginTop)
 		}
 		// Force border-box height so grow/shrink targets stick through build.
-		override := e.flexColumnItemOverride(item.n, *cstate, style, heights[idx], contentW)
+		// One 6KB copy per item: both axes mutate the same override in place.
+		override := e.flexColumnItemOverride(item.n, cstate, style, heights[idx], contentW)
 		cblock := e.buildWithStyle(item.n, &override, contentW, contentX, topY+leftY)
 
 		if cblock == nil {
@@ -489,7 +490,7 @@ func (e *engine) buildColumnItems(
 		cblock.x += dx
 		cblock.y += dy
 
-		e.alignColumnItem(cblock, style, *cstate, contentX, contentW)
+		e.alignColumnItem(cblock, style, cstate, contentX, contentW)
 
 		if parent != nil {
 			parent.children = append(parent.children, cblock)
@@ -513,9 +514,12 @@ func (e *engine) buildColumnItems(
 }
 
 func (e *engine) flexColumnItemOverride(
-	node *html.Node, itemStyle, containerStyle ResolvedStyle, height, contentW float64,
+	node *html.Node, itemStyle, containerStyle *ResolvedStyle, height, contentW float64,
 ) ResolvedStyle {
-	override := e.forceFlexItemCrossSize(itemStyle, height)
+	// One 6KB copy per item: both axes mutate the same override in place.
+	override := *itemStyle
+	e.forceFlexItemCrossSize(&override, height)
+
 	if flexItemColumnCrossStretch(containerStyle, itemStyle) || itemStyle.Width >= 0 || itemStyle.WidthPercent >= 0 {
 		return override
 	}
@@ -525,7 +529,9 @@ func (e *engine) flexColumnItemOverride(
 		crossW = contentW
 	}
 
-	return e.forceFlexItemCrossWidth(override, crossW)
+	e.forceFlexItemCrossWidth(&override, crossW)
+
+	return override
 }
 
 // alignColumnItem places a column item on the cross axis. Auto cross-axis
@@ -534,7 +540,7 @@ func (e *engine) flexColumnItemOverride(
 //
 //nolint:wsl // column alignment keeps auto-margin and keyword branches together
 func (e *engine) alignColumnItem(
-	cblock *box, containerStyle, itemStyle ResolvedStyle, contentX, contentW float64,
+	cblock *box, containerStyle, itemStyle *ResolvedStyle, contentX, contentW float64,
 ) {
 	if flexColumnCrossAutoMargin(itemStyle) {
 		if offset, absorbed := columnCrossAutoMarginOffset(itemStyle, contentW-cblock.w); absorbed {
@@ -568,7 +574,7 @@ func (e *engine) alignColumnItem(
 // columnCrossAutoMarginOffset resolves the cross-axis offset a column item
 // takes from the line's positive free space. absorbed is false when free space
 // is not positive, so the caller still applies align-items / align-self.
-func columnCrossAutoMarginOffset(itemStyle ResolvedStyle, free float64) (float64, bool) {
+func columnCrossAutoMarginOffset(itemStyle *ResolvedStyle, free float64) (float64, bool) {
 	if free <= 0 {
 		return 0, false
 	}
@@ -589,7 +595,7 @@ func columnCrossAutoMarginOffset(itemStyle ResolvedStyle, free float64) (float64
 //
 //nolint:wsl // alignment keyword mapping is easiest to audit as one switch
 func columnAlignOffset(
-	align string, cblock *box, itemStyle ResolvedStyle, contentX, contentW float64,
+	align string, cblock *box, itemStyle *ResolvedStyle, contentX, contentW float64,
 	reverse bool, e *engine,
 ) float64 {
 	left := e.scalePt(itemStyle.MarginLeft)
@@ -631,7 +637,7 @@ func columnAlignOffset(
 
 // flexColumnCrossAutoMargin reports whether a column item has an auto
 // cross-axis (horizontal) margin.
-func flexColumnCrossAutoMargin(style ResolvedStyle) bool {
+func flexColumnCrossAutoMargin(style *ResolvedStyle) bool {
 	return style.MarginLeftAuto || style.MarginRightAuto
 }
 
@@ -640,7 +646,7 @@ func flexColumnCrossAutoMargin(style ResolvedStyle) bool {
 // width instead, so alignColumnItem can place it at start, center, or end.
 // Auto cross-axis margins also suppress stretch (CSS Flexbox L1 8.5): the
 // item keeps its hypothetical cross size and the margins absorb the rest.
-func flexItemColumnCrossStretch(cstate, cstate2 ResolvedStyle) bool {
+func flexItemColumnCrossStretch(cstate, cstate2 *ResolvedStyle) bool {
 	if flexColumnCrossAutoMargin(cstate2) {
 		return false
 	}

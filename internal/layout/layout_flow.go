@@ -254,7 +254,6 @@ func (e *engine) flowChildren(
 	// Absolute/fixed containing-block origin is the content edge at entry.
 	// Do not use the post-flow cy or deferred boxes sit below in-flow siblings.
 	absTop := posY + curY
-	absCBX, absCBW, absOriginY, icb := e.flowAbsCB(parent, sty, children, contentX, contentW, absTop)
 
 	// margin-trim lite: find first/last in-flow block child for trimming.
 	parentTrim := sty.MarginTrim
@@ -291,19 +290,23 @@ func (e *engine) flowChildren(
 		}
 	}
 
-	parentHeight := e.applyHeightConstraints(sty, curY+e.scalePt(sty.PaddingBottom))
-	cbHeight := parentHeight - (absOriginY - posY)
+	if len(deferred) > 0 {
+		absCBX, absCBW, absOriginY, icb := e.flowAbsCB(parent, sty, children, deferred, contentX, contentW, absTop)
 
-	if icb {
-		// The initial containing block's height is the viewport height.
-		cbHeight = e.opts.Height
+		parentHeight := e.applyHeightConstraints(sty, curY+e.scalePt(sty.PaddingBottom))
+		cbHeight := parentHeight - (absOriginY - posY)
+
+		if icb {
+			// The initial containing block's height is the viewport height.
+			cbHeight = e.opts.Height
+		}
+
+		if cbHeight < 0 {
+			cbHeight = 0
+		}
+
+		e.flushDeferredFlowChildren(parent, deferred, cbHeight, absCBW, absCBX, absOriginY)
 	}
-
-	if cbHeight < 0 {
-		cbHeight = 0
-	}
-
-	e.flushDeferredFlowChildren(parent, deferred, cbHeight, absCBW, absCBX, absOriginY)
 
 	// A final child margin is inside a parent that has bottom padding or a
 	// bottom border, or that establishes a BFC: an inline-block, flow-root,
@@ -330,15 +333,20 @@ func (e *engine) flowChildren(
 // containing block when the root body has no containing-block ancestor, else
 // the content box. absOriginY is the content edge at flow entry. icb reports
 // an initial-containing-block origin so the caller can use the viewport height.
+// deferred carries the out-of-flow children found by the flow loop; when one
+// of them already forces the padding box the full children re-walk is skipped.
 func (e *engine) flowAbsCB(
-	parent *box, sty ResolvedStyle, children []*html.Node, contentX, contentW, absOriginY float64,
+	parent *box, sty ResolvedStyle, children []*html.Node, deferred []*html.Node,
+	contentX, contentW, absOriginY float64,
 ) (float64, float64, float64, bool) {
 	absCBX, absCBW := contentX, contentW
 
 	paddingBoxCB := sty.HasTransform || containsLayout(sty) || containsPaint(sty)
 
-	if sty.Position == positionRelative && e.relativeAbsChildNeedsPaddingBox(children) {
-		paddingBoxCB = true
+	if sty.Position == positionRelative && !paddingBoxCB {
+		if e.deferredNeedsPaddingBox(deferred) || e.relativeAbsChildNeedsPaddingBox(children) {
+			paddingBoxCB = true
+		}
 	}
 
 	if paddingBoxCB {
@@ -363,6 +371,23 @@ func (e *engine) flowAbsCB(
 	}
 
 	return absCBX, absCBW, absOriginY, false
+}
+
+// deferredNeedsPaddingBox reports whether the deferred out-of-flow children
+// already force a relative parent's padding box as their containing block.
+// It scans only the deferred list (typically a handful of overlays) so the
+// common absolute-overlay case skips the full children re-walk in
+// relativeAbsChildNeedsPaddingBox. The condition mirrors that helper exactly.
+func (e *engine) deferredNeedsPaddingBox(deferred []*html.Node) bool {
+	for _, child := range deferred {
+		childStyle := e.stylePtr(child)
+		if childStyle.Position == positionAbsolute &&
+			(!childStyle.BottomAuto || (childStyle.Height < 0 && childStyle.HeightPercent < 0)) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // relativeAbsChildNeedsPaddingBox reports whether a relative parent's
@@ -446,22 +471,41 @@ func (e *engine) isTrimmableBlock(child *html.Node) bool {
 }
 
 // flushDeferredFlowChildren builds deferred out-of-flow children against the
-// resolved containing block and attaches them to the parent.
+// resolved containing block and attaches them to the parent. The heights are
+// batched into absCBHeights up front so the per-child map nil-check and the
+// parent slice growth happen once, and an empty list returns without touching
+// the map at all (the common block without absolute descendants).
 func (e *engine) flushDeferredFlowChildren(
 	parent *box, deferred []*html.Node, cbHeight, absCBW, absCBX, absOriginY float64,
 ) {
-	for _, target := range deferred {
-		if e.absCBHeights == nil {
-			e.absCBHeights = make(map[*html.Node]float64, len(deferred))
-		}
+	if len(deferred) == 0 {
+		return
+	}
 
+	if e.absCBHeights == nil {
+		e.absCBHeights = make(map[*html.Node]float64, len(deferred))
+	}
+
+	for _, target := range deferred {
 		e.absCBHeights[target] = cbHeight
+	}
+
+	if parent != nil && cap(parent.children) < len(parent.children)+len(deferred) {
+		grown := make([]*box, len(parent.children), len(parent.children)+len(deferred))
+		copy(grown, parent.children)
+		parent.children = grown
+	}
+
+	for _, target := range deferred {
 		ab := e.build(target, absCBW, absCBX, absOriginY)
-		delete(e.absCBHeights, target)
 
 		if ab != nil && parent != nil {
 			parent.children = append(parent.children, ab)
 		}
+	}
+
+	for _, target := range deferred {
+		delete(e.absCBHeights, target)
 	}
 }
 
@@ -508,7 +552,7 @@ func (e *engine) flowOneChild(
 		isLast := idx == lastBlockIdx && lastBlockIdx != -1
 
 		curY, prevBottom, cblock = e.layoutBlockChild(
-			node, floats, contentW, contentX, posY, curY, prevBottom,
+			node, cst, floats, contentW, contentX, posY, curY, prevBottom,
 			parentTrim, isFirst, isLast,
 		)
 		attachFlowBox(parent, cblock, e)
@@ -680,6 +724,42 @@ func (e *engine) stampContainmentClip(boxNode *box, sty ResolvedStyle) {
 	boxNode.style = &clipped
 }
 
+// insetImageMargins shrinks the img build slot by its horizontal margins so
+// replaced elements clear preceding floats with their margin box. Split from
+// layoutBlockChild so the child assembly stays within the complexity budget.
+func (e *engine) insetImageMargins(
+	node *html.Node, cstate ResolvedStyle, boxX, boxW float64,
+) (float64, float64) {
+	if node.Name != cssTagImg {
+		return boxX, boxW
+	}
+
+	marginL := e.scalePt(cstate.MarginLeft)
+	marginR := e.scalePt(cstate.MarginRight)
+	boxX += marginL
+	boxW -= marginL + marginR
+
+	if boxW < 0 {
+		boxW = 0
+	}
+
+	return boxX, boxW
+}
+
+// marginTrimForChild resolves the margin-trimmed style override for a block
+// child at a container edge, or nil when no trim applies. Split from
+// layoutBlockChild so the child assembly stays within the complexity budget;
+// the defer that pops the pushed override stays with the caller.
+func (e *engine) marginTrimForChild(
+	node *html.Node, parentTrim string, isFirst, isLast bool,
+) *ResolvedStyle {
+	if !marginTrimApplies(parentTrim, isFirst, isLast) {
+		return nil
+	}
+
+	return e.marginTrimOverride(node, parentTrim, isFirst, isLast)
+}
+
 // layoutBlockChild builds one block-level child: it clears floats, collapses
 // margins with the previous sibling, applies the BFC float exclusion, and
 // returns the advanced cy, the next margin accumulator, and the built box.
@@ -689,18 +769,30 @@ func (e *engine) stampContainmentClip(boxNode *box, sty ResolvedStyle) {
 // block-start => top of first, block-end => bottom of last,
 // inline-start => left of first, inline-end => right of last.
 func (e *engine) layoutBlockChild(
-	node *html.Node, floats *floatState, contentW, contentX, posY, curY, prevBottom float64,
+	node *html.Node, hint *ResolvedStyle, floats *floatState, contentW, contentX, posY, curY, prevBottom float64,
 	parentTrim string, isFirst, isLast bool,
 ) (float64, float64, *box) {
 	entryCurY := curY
 
-	// margin-trim lite: override child margins at container edges.
-	if trim := e.marginTrimOverride(node, parentTrim, isFirst, isLast); trim != nil {
+	// margin-trim lite: override child margins at container edges. The hint
+	// is the style flowOneChild already fetched; reuse it when no override
+	// is pushed so each block child costs one style lookup instead of two.
+	trim := e.marginTrimForChild(node, parentTrim, isFirst, isLast)
+	if trim != nil {
 		e.styleOverrides = append(e.styleOverrides, styleOverride{node: node, style: trim})
 		defer e.popStyleOverride()
 	}
 
-	cstate := e.styleVal(node)
+	var cstate ResolvedStyle
+
+	switch {
+	case trim != nil:
+		cstate = e.styleVal(node)
+	case hint != nil:
+		cstate = *hint
+	default:
+		cstate = e.styleVal(node)
+	}
 	// In-flow tables always clear below preceding floats (deterministic
 	// report policy). Shrink-to-fit / squeeze-beside is unsupported.
 	clearVal := cstate.Clear
@@ -723,16 +815,7 @@ func (e *engine) layoutBlockChild(
 		boxX, boxW = floats.exclusion(contentX, contentW, posY, curY)
 	}
 
-	if node.Name == cssTagImg {
-		marginL := e.scalePt(cstate.MarginLeft)
-		marginR := e.scalePt(cstate.MarginRight)
-		boxX += marginL
-		boxW -= marginL + marginR
-
-		if boxW < 0 {
-			boxW = 0
-		}
-	}
+	boxX, boxW = e.insetImageMargins(node, cstate, boxX, boxW)
 
 	// CSS Align: non-stretch justify-self on a width:auto block treats the
 	// size as fit-content and aligns that margin box in the containing block
@@ -750,8 +833,17 @@ func (e *engine) layoutBlockChild(
 		return curY, 0, nil
 	}
 
-	// A wrap-flow box becomes an exclusion and leaves the flow: later
-	// content keeps the same Y and wraps around it (exclusion.go).
+	return e.finishBlockChild(cblock, cstate, floats, entryCurY, prevBottom, curY, contentX, contentW)
+}
+
+// finishBlockChild returns the flow position after a built block child. A
+// wrap-flow box becomes an exclusion and leaves the flow: later content keeps
+// the same Y and wraps around it (exclusion.go). Split from layoutBlockChild
+// so the child assembly stays within the complexity budget.
+func (e *engine) finishBlockChild(
+	cblock *box, cstate ResolvedStyle, floats *floatState,
+	entryCurY, prevBottom, curY, contentX, contentW float64,
+) (float64, float64, *box) {
 	if exclusionApplies(cstate) && floats != nil {
 		floats.placeExclusion(cblock, cstate.WrapFlow, contentX, contentW)
 
@@ -861,9 +953,9 @@ func (e *engine) blockFitContentMarginBox(node *html.Node, style ResolvedStyle) 
 
 	switch style.Display {
 	case displayFlex, displayInlineFlex:
-		borderBox = e.measureFlexItemMaxContent(node, style)
+		borderBox = e.measureFlexItemMaxContent(node, &style)
 	default:
-		_, maxW := e.measureCellMinMax(node, style)
+		_, maxW := e.measureCellMinMax(node, &style)
 		borderBox = maxW
 	}
 
@@ -1336,7 +1428,7 @@ func (e *engine) floatIntrinsicAvail(node *html.Node, style ResolvedStyle, avail
 	} else {
 		// measureCellContent is already the border-box max-content (content +
 		// padding + border). Only add outer margins (and nested block chrome).
-		intr = e.measureCellContent(node, style) +
+		intr = e.measureCellContent(node, &style) +
 			e.scalePt(style.MarginLeft) + e.scalePt(style.MarginRight) +
 			e.nestedBlockHChrome(node)
 	}
@@ -1411,6 +1503,47 @@ func shiftBoxGeometry(boxNode *box, deltaX, deltaY float64) {
 	}
 }
 
+// shiftOutOfFlowBox translates a freshly built absolute/fixed subtree by
+// (dx, dy). Only deferred chrome appended while building this subtree (at
+// indexes >= chromeFrom) can belong to it, so the global deferred list scan
+// and the subtree membership map in shiftDeferredChrome are skipped: with N
+// overlay layers that scan is O(N^2). Earlier entries keep their coordinates
+// even when an immediate splice inside this build moved their `at` indices.
+func (e *engine) shiftOutOfFlowBox(boxNode *box, deltaX, deltaY float64, chromeFrom int) {
+	if deltaX == 0 && deltaY == 0 || boxNode == nil {
+		return
+	}
+
+	if boxNode.opEnd >= boxNode.opStart {
+		for k := boxNode.opStart; k <= boxNode.opEnd && k < len(e.ops); k++ {
+			shiftOpX(&e.ops[k], deltaX)
+			shiftOpY(&e.ops[k], deltaY)
+		}
+	}
+
+	if chromeFrom < len(e.deferredChrome) {
+		shiftDeferredChromeFrom(e.deferredChrome[chromeFrom:], deltaX, deltaY)
+	}
+
+	// Callers move boxNode itself. Descendants keep absolute canvas
+	// coordinates, so they move with the parent.
+	for _, child := range boxNode.children {
+		shiftBoxGeometry(child, deltaX, deltaY)
+	}
+}
+
+// shiftDeferredChromeFrom translates deferred chrome appended at or after
+// chromeFrom by the out-of-flow delta. Split from shiftOutOfFlowBox so the
+// subtree shift stays within the complexity budget.
+func shiftDeferredChromeFrom(entries []chromeEntry, deltaX, deltaY float64) {
+	for idx := range entries {
+		for j := range entries[idx].ops {
+			entries[idx].ops[j].X += deltaX
+			entries[idx].ops[j].Y += deltaY
+		}
+	}
+}
+
 // shiftDeferredChrome translates the chrome ops of every deferred entry owned
 // by b's subtree so finalizeChrome places backgrounds/borders at the new
 // geometry.
@@ -1433,9 +1566,11 @@ func shiftDeferredChrome(entries []chromeEntry, boxNode *box, deltaX, deltaY flo
 	}
 }
 
-// markBoxSubtree returns the set of boxes in b's subtree (b included).
+// markBoxSubtree returns the set of boxes in b's subtree (b included). The
+// map is pre-sized with one counting walk so a large shifted subtree does
+// not leave a chain of discarded growth tables behind.
 func markBoxSubtree(boxNode *box) map[*box]struct{} {
-	inSubtree := map[*box]struct{}{}
+	inSubtree := make(map[*box]struct{}, countSubtreeBoxes(boxNode))
 
 	var mark func(*box)
 	mark = func(posX *box) {
@@ -1452,6 +1587,21 @@ func markBoxSubtree(boxNode *box) map[*box]struct{} {
 	mark(boxNode)
 
 	return inSubtree
+}
+
+// countSubtreeBoxes counts the boxes in b's subtree (b included) without
+// allocating, so markBoxSubtree can size its set exactly.
+func countSubtreeBoxes(boxNode *box) int {
+	if boxNode == nil {
+		return 0
+	}
+
+	n := 1
+	for _, c := range boxNode.children {
+		n += countSubtreeBoxes(c)
+	}
+
+	return n
 }
 
 func collapseMargins(acc, boxN float64) float64 {

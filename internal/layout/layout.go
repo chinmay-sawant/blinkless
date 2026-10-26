@@ -128,6 +128,16 @@ type Options struct {
 	// after cascade, force text-decoration:underline on a[href]. Default off
 	// so author CSS (including inherit → none) is honored.
 	PrintLinkUnderline bool
+	// gridMemoBypass disables the grid preferred-height memo (see
+	// grid_memo.go). Tests only: unexported so external callers keep the
+	// default, while in-package tests can prove cached and uncached layouts
+	// produce identical output and benchmark the memo's effect.
+	gridMemoBypass bool
+	// flexMinBypass disables the column flex auto-minimum memo (see flex.go).
+	// Tests only: unexported so external callers keep the default, while
+	// in-package tests can prove cached and uncached layouts produce
+	// identical output and benchmark the memo's effect.
+	flexMinBypass bool
 }
 
 // validate rejects option values that would otherwise be silently clamped
@@ -330,9 +340,39 @@ type Workspace struct {
 	ops []Op
 }
 
+const (
+	// workspaceReuseFloor keeps small workspaces reusable without churn:
+	// below this backing capacity the ops slice is always retained and
+	// reused for the next run.
+	workspaceReuseFloor = 4096
+	// workspaceReuseRatio bounds how oversized a retained backing may be
+	// relative to what a run holds or needs before it is dropped. A huge
+	// page followed by small ones must not pin the huge backing across
+	// every later run.
+	workspaceReuseRatio = 4
+)
+
+// workspaceOps returns reusable display-list storage for one run estimated
+// to need entries. A retained backing that dwarfs the estimate is
+// dropped instead of reused so the workspace does not pin the largest page
+// ever laid out.
+func workspaceOps(workspace *Workspace, need int) []Op {
+	if workspace == nil || cap(workspace.ops) == 0 {
+		return make([]Op, 0, need)
+	}
+
+	if backed := cap(workspace.ops); backed > workspaceReuseFloor && need > 0 &&
+		backed > workspaceReuseRatio*need {
+		return make([]Op, 0, need)
+	}
+
+	return workspace.ops[:0]
+}
+
 // Release returns a painted Result's display-list backing storage to w and
-// clears Result references that would otherwise retain its box tree and paint
-// indexes. It is a no-op for nil inputs.
+// clears Result references that would otherwise retain its box tree, its
+// cascade, its raster cache, and its paint indexes. It is a no-op for nil
+// inputs.
 func (w *Workspace) Release(res *Result) {
 	if w == nil || res == nil {
 		return
@@ -343,11 +383,24 @@ func (w *Workspace) Release(res *Result) {
 		ops[i] = Op{} //nolint:exhaustruct // drop extra pointers so Release can GC rare payloads
 	}
 
+	// Drop a backing that dwarfs what it holds so one huge page does not pin
+	// its storage across every later run; the next acquire allocates fresh.
+	if backed, used := cap(ops), len(ops); backed > workspaceReuseFloor && used > 0 &&
+		backed > workspaceReuseRatio*used {
+		ops = nil
+	}
+
 	w.ops = ops[:0]
 	res.Ops = nil
 	res.root = nil
 	res.rootBox = nil
 	res.boxes = nil
+	// The cascade and the restyle raster cache die with the Result: a
+	// released Result keeps no box tree to patch, so keeping them would pin
+	// the whole style map and up to svgRasterCacheMaxPixels of decoded
+	// rasters across every later run of the workspace.
+	res.styles = nil
+	res.svgRasters = nil
 	res.flowPages = nil
 	res.flowPageOf = nil
 	res.flowPos = nil
@@ -563,7 +616,11 @@ type engine struct {
 	styleOverrides  []styleOverride
 	// styleIndex narrows selector matching for this layout's sheets. It is
 	// built once and shared by the cascade and every pseudo-content lookup.
-	styleIndex  *ruleIndex
+	styleIndex *ruleIndex
+	// pseudoCtx is the shared generated-content cascade context, refreshed
+	// per use by pseudoStyleContext so sequential ::before/::after probes
+	// reuse its match buffers instead of allocating.
+	pseudoCtx   *styleContext
 	ops         []Op
 	gridScratch []GridSeg // reusable row-grid collector storage
 	noEmit      bool      // measurement mode: compute geometry without emitting ops
@@ -603,6 +660,52 @@ type engine struct {
 	// imgCache resolves each <img src> at most once per Layout run (measure
 	// and build share the same decode).
 	imgCache map[string]*imageRef
+	// gridMeasureCache memoizes grid-item preferred heights for one Layout
+	// run (see grid_memo.go). The engine is constructed fresh per Layout, so
+	// entries never survive past the run that measured them.
+	gridMeasureCache map[gridMeasureKey]gridMeasureResult
+	// gridMemoBypass disables the grid preferred-height memo. Tests only: an
+	// unexported copy of Options.gridMemoBypass that proves cached and
+	// uncached layouts produce identical output.
+	gridMemoBypass bool
+	// flexBaseH memoizes column flex base heights for this Layout run, keyed
+	// by item node, resolved style identity, and containing sizes. A nested
+	// flex container measures each item subtree once for the hypothetical
+	// size and rebuilds it once for placement; without the memo the inner
+	// container re-measures its items on the rebuild, doubling the work at
+	// every nesting level.
+	flexBaseH map[flexBaseKey]float64
+	// flexMinH memoizes column flex auto-minimum floors for this Layout run,
+	// keyed by item node, resolved style identity, and containing sizes (see
+	// flexMinKey). Shrink and clamp ask for the same floor, and each noEmit
+	// ancestor measure re-runs the owning container, so the memo keeps one
+	// content flow per item per run. The engine is constructed fresh per
+	// Layout, so entries never survive past the run that measured them.
+	flexMinH map[flexMinKey]float64
+	// pseudoContentCache memoizes the winning content declaration per
+	// (element, pseudo-element) for one Layout run. Every block probes
+	// ::before/::after during inline collection and every inline element
+	// probes both again for pseudo items, so without the memo the same
+	// selector match runs several times per element per run although the
+	// cascade is fixed for the run.
+	pseudoContentCache map[pseudoContentKey]pseudoContentEntry
+	// contentEnvCache memoizes the counter/quote environment per (target
+	// element, pseudo-element) for one Layout run. Resolving a counter()
+	// walks the document from the root, so without the memo every row of
+	// a counter-numbered list rewalks the same prefix per probe although
+	// the cascade and the tree are fixed for the run. Entries are
+	// canonical: callers receive a clone because evaluation mutates
+	// quote depth.
+	contentEnvCache map[contentEnvKey]*contentEnv
+	// flexMinBypass disables the column flex auto-minimum memo. Tests only:
+	// an unexported copy of Options.flexMinBypass that proves cached and
+	// uncached layouts produce identical output.
+	flexMinBypass bool
+	// svgInlineCache memoizes inline-<svg> rasters within one Layout run,
+	// keyed by serialized document plus raster resolution. Repeated identical
+	// icons rasterize once per run instead of once per occurrence. The cache
+	// dies with the engine, so it never outlives the layout it describes.
+	svgInlineCache *svgRasterCache
 	// containers is the last size-container map used for cascade (nil if none);
 	// pseudo-content reuses it so @container gates match cascadeRaw.
 	containers map[*html.Node]sizeContainer
@@ -660,6 +763,13 @@ type engine struct {
 	// lineGapByFace caches each face's hhea line gap ratio (lineGap/upem) for
 	// line-height: normal. The font package does not expose the gap.
 	lineGapByFace map[*pdf.Font]float64
+	// textWidthCache memoizes measureTextFace string widths for this Layout
+	// run, keyed by face, size, spacing and text. Trade tables repeat short
+	// mono price labels; the per-rune fallback loop is pure for a fixed key.
+	textWidthCache map[textWidthKey]float64
+	// runeWidthCache memoizes measureRuneFace single-rune widths for this
+	// Layout run (decoration and min-content paths walk rune by rune).
+	runeWidthCache map[runeWidthKey]float64
 	// needsXformStamp is set when any built box has transform≠none or
 	// opacity<1 so stampBoxTransforms can skip the full tree walk.
 	needsXformStamp bool
@@ -678,35 +788,54 @@ type engine struct {
 	namedFlowScanDone bool
 }
 
+// releaseScratch drops every per-run cache the Result does not adopt, so
+// nothing but Ops and styles outlives the run. Ops and styles move into the
+// Result and are left alone; the maps below die with the engine either way,
+// and nil-ing them here releases their backing the moment the run ends
+// instead of at GC. Call it after the Result is built and never touch the
+// engine again.
+func (e *engine) releaseScratch() {
+	if e == nil {
+		return
+	}
+
+	e.syntheticStyles = nil
+	e.styleOverrides = nil
+	e.styleIndex = nil
+	e.pseudoCtx = nil
+	e.gridScratch = nil
+	e.imgCache = nil
+	e.gridMeasureCache = nil
+	e.flexBaseH = nil
+	e.flexMinH = nil
+	e.pseudoContentCache = nil
+	e.contentEnvCache = nil
+	e.svgInlineCache = nil
+	e.containers = nil
+	e.bfcFloats = nil
+	e.bfcStack = nil
+	e.bfcPool = nil
+	e.savedBFCFloats = nil
+	e.absCBHeights = nil
+	e.inlineItemPool = nil
+	e.deferredChrome = nil
+	e.faceByStyle = nil
+	e.lastFace = nil
+	e.hasLastFace = false
+	e.faceByRune = nil
+	e.lineGapByFace = nil
+	e.textWidthCache = nil
+	e.runeWidthCache = nil
+	e.namedFlows = nil
+	e.namedFlowScanDone = false
+}
+
 // styleOverride temporarily substitutes one node's resolved style while that
 // node is built. Overrides are engine-local and form a stack so nested builds
 // always observe the most recent override for the same node.
 type styleOverride struct {
 	node  *html.Node
 	style *ResolvedStyle
-}
-
-// faceStyleKey is the faceFor cache key for one CSS face identity, including
-// variation axes so instanced faces are not reused across settings.
-type faceStyleKey struct {
-	famHash     uint64
-	weight      int
-	italic      bool
-	optical     string
-	variations  string
-	opticalSize uint64
-}
-
-// faceRuneKey is the faceForRune fallback cache key for one (style face
-// identity, rune). famHash is FNV-1a over FontFamily tokens (no Join alloc).
-type faceRuneKey struct {
-	famHash     uint64
-	weight      int
-	italic      bool
-	r           rune
-	optical     string
-	variations  string
-	opticalSize uint64
 }
 
 // chromeEntry records one box's background/border ops for insertion before
@@ -716,251 +845,6 @@ type chromeEntry struct {
 	at  int
 	ops []Op
 	b   *box
-}
-
-// faceFor selects the TrueType face for a resolved style (bold/italic),
-// preferring CSS font-family matches from the opt-in registry, then the
-// bundled Liberation FaceSet.
-func (e *engine) faceFor(sty *ResolvedStyle) *pdf.Font {
-	if sty == nil {
-		return e.font
-	}
-
-	optical, variations, sizeBits := variationCacheBits(sty)
-	key := faceStyleKey{
-		famHash:     sty.famHash,
-		weight:      sty.FontWeight,
-		italic:      sty.FontItalic,
-		optical:     optical,
-		variations:  variations,
-		opticalSize: sizeBits,
-	}
-
-	if e.hasLastFace && e.lastFaceKey == key && e.lastFace != nil {
-		return e.lastFace
-	}
-
-	if e.faceByStyle != nil {
-		if f, ok := e.faceByStyle[key]; ok {
-			e.lastFaceKey, e.lastFace, e.hasLastFace = key, f, true
-
-			return f
-		}
-	}
-
-	face := e.lookupFaceFor(sty)
-
-	if e.faceByStyle == nil {
-		e.faceByStyle = make(map[faceStyleKey]*pdf.Font)
-	}
-
-	e.faceByStyle[key] = face
-	e.lastFaceKey, e.lastFace, e.hasLastFace = key, face, true
-
-	return face
-}
-
-// lookupFaceFor is the uncached faceFor path.
-func (e *engine) lookupFaceFor(sty *ResolvedStyle) *pdf.Font {
-	if sty == nil {
-		return e.font
-	}
-
-	return resolveFontVariants(sty, e.lookupBaseFaceFor(sty))
-}
-
-// lookupBaseFaceFor resolves the CSS family/weight/italic face without the
-// font-variation family consumer.
-func (e *engine) lookupBaseFaceFor(sty *ResolvedStyle) *pdf.Font {
-	if e.registry != nil {
-		if f := e.registry.Lookup(sty.FontFamily, sty.FontWeight, sty.FontItalic); f != nil {
-			return f
-		}
-	}
-
-	if e.faces != nil {
-		if f := e.faces.ResolveFamily(sty.FontFamily, sty.FontWeight, sty.FontItalic); f != nil {
-			return f
-		}
-
-		if f := e.faces.Resolve(sty.FontWeight, sty.FontItalic); f != nil {
-			return f
-		}
-	}
-
-	return e.font
-}
-
-// faceForRune picks the first CSS font-family face (then defaults) that has a
-// glyph for r — browser-like fallback so Hangul/Latin/CJK can come from
-// different faces in one run.
-//
-// Fast path: when the primary face covers r (common for Latin/report text),
-// return it without a map lookup. Fallback faces are cached under a hash key
-// that does not allocate a joined family string.
-func (e *engine) faceForRune(sty *ResolvedStyle, runeValue rune) *pdf.Font {
-	if sty == nil {
-		return e.font
-	}
-
-	primary := e.faceFor(sty)
-
-	if isRuneWhitespace(runeValue) {
-		return primary
-	}
-
-	if primary != nil && primary.GlyphID(runeValue) != 0 {
-		return primary
-	}
-
-	return e.faceForRuneFallback(sty, runeValue, primary)
-}
-
-// faceForRuneFallback resolves and caches a non-primary face for a missing glyph.
-func (e *engine) faceForRuneFallback(sty *ResolvedStyle, runeValue rune, primary *pdf.Font) *pdf.Font {
-	if sty == nil {
-		return primary
-	}
-
-	optical, variations, sizeBits := variationCacheBits(sty)
-	key := faceRuneKey{
-		famHash:     sty.famHash,
-		weight:      sty.FontWeight,
-		italic:      sty.FontItalic,
-		r:           runeValue,
-		optical:     optical,
-		variations:  variations,
-		opticalSize: sizeBits,
-	}
-
-	if e.faceByRune != nil {
-		if f, ok := e.faceByRune[key]; ok {
-			return f
-		}
-	}
-
-	face := e.lookupFaceForRune(sty, runeValue)
-	if face == nil {
-		face = primary
-	}
-
-	if e.faceByRune == nil {
-		e.faceByRune = make(map[faceRuneKey]*pdf.Font)
-	}
-
-	e.faceByRune[key] = face
-
-	return face
-}
-
-// lookupFaceForRune is the uncached face resolution path.
-func (e *engine) lookupFaceForRune(sty *ResolvedStyle, runeValue rune) *pdf.Font {
-	if sty == nil {
-		return e.font
-	}
-
-	return resolveFontVariants(sty, e.lookupBaseFaceForRune(sty, runeValue))
-}
-
-// lookupBaseFaceForRune resolves a per-rune fallback face without instancing.
-func (e *engine) lookupBaseFaceForRune(sty *ResolvedStyle, runeValue rune) *pdf.Font {
-	if f := e.registryFamilyWithGlyph(sty, runeValue); f != nil {
-		return f
-	}
-
-	if f := e.facesWithGlyph(sty, runeValue); f != nil {
-		return f
-	}
-
-	if e.font != nil && e.font.GlyphID(runeValue) != 0 {
-		return e.font
-	}
-
-	// Last resort: any opt-in registry face that covers this codepoint
-	// (DejaVu/Noto when --font-path / --use-system-fonts scanned them).
-	if f := e.registryGlyphFallback(sty, runeValue); f != nil {
-		return f
-	}
-
-	return e.faceFor(sty)
-}
-
-// isRuneWhitespace reports whether r is a rune that inline layout trims.
-func isRuneWhitespace(r rune) bool {
-	return r == ' ' || r == '\t' || r == '\n' || r == '\r'
-}
-
-// registryGlyphFallback is the last-resort registry lookup: any opt-in face
-// covering r, regardless of CSS font-family.
-func (e *engine) registryGlyphFallback(st *ResolvedStyle, r rune) *pdf.Font {
-	if e.registry == nil || st == nil {
-		return nil
-	}
-
-	return e.registry.FindWithGlyph(r, st.FontWeight, st.FontItalic)
-}
-
-// registryFamilyWithGlyph looks up the first CSS font-family face that has a
-// glyph for runeValue.
-func (e *engine) registryFamilyWithGlyph(style *ResolvedStyle, runeValue rune) *pdf.Font {
-	if e.registry == nil || style == nil {
-		return nil
-	}
-
-	// Reuse a one-element slice header so Lookup does not allocate per family.
-	var one [1]string
-
-	for _, fam := range style.FontFamily {
-		one[0] = fam
-
-		f := e.registry.Lookup(one[:], style.FontWeight, style.FontItalic)
-		if f != nil && f.GlyphID(runeValue) != 0 {
-			return f
-		}
-	}
-
-	return nil
-}
-
-// facesWithGlyph resolves the default faces and returns the first that has a
-// glyph for runeValue.
-//
-//nolint:cyclop,lll // ordered fallback search is intentionally explicit
-func (e *engine) facesWithGlyph(style *ResolvedStyle, runeValue rune) *pdf.Font {
-	if e.faces == nil || style == nil {
-		return nil
-	}
-
-	if f := e.faces.ResolveFamily(style.FontFamily, style.FontWeight, style.FontItalic); f != nil && f.GlyphID(runeValue) != 0 {
-		return f
-	}
-
-	if f := e.faces.Resolve(style.FontWeight, style.FontItalic); f != nil && f.GlyphID(runeValue) != 0 {
-		return f
-	}
-
-	if style.FontWeight >= fontWeightBoldValue && e.faces.UnicodeFallbackBold != nil && e.faces.UnicodeFallbackBold.GlyphID(runeValue) != 0 {
-		return e.faces.UnicodeFallbackBold
-	}
-
-	if e.faces.UnicodeFallback != nil && e.faces.UnicodeFallback.GlyphID(runeValue) != 0 {
-		return e.faces.UnicodeFallback
-	}
-
-	return nil
-}
-
-// scalePt applies the engine zoom factor to a style length in points.
-func (e *engine) scalePt(v float64) float64 { return v * e.scale }
-
-// zoomScale returns the effective zoom factor: any positive opts.Zoom
-// (values below 1 shrink; 0 means no zoom).
-func zoomScale(z float64) float64 {
-	if z > 0 {
-		return z
-	}
-
-	return 1
 }
 
 func (e *engine) add(paintOp Op) {
@@ -1456,6 +1340,12 @@ type box struct {
 	// box's subtree emitted. opEnd < opStart means the box emitted nothing
 	// (e.g. boxes built during a noEmit measure pass).
 	opStart, opEnd int
+	// overflowClip is the accumulated ancestor overflow padding box in
+	// canvas points recorded by clipOverflowTree. A host painting this
+	// element's ops through a transform intersects the paint with it,
+	// because geometry-baked clipping moves with the matrix. Nil when no
+	// ancestor clips.
+	overflowClip *clipRect
 	// Gap-L 3D contracts. perspDist/hasPerspDist carry the inherited
 	// perspective camera distance for stamp time: the perspective
 	// workstream fills them in a pre-pass over the box tree (nearest
@@ -1762,6 +1652,11 @@ func (e *engine) buildBlock(node *html.Node, style ResolvedStyle, availW, posX, 
 func (e *engine) paintPositionedPseudo( //nolint:cyclop
 	node *html.Node, host ResolvedStyle, boxNode *box, pseudoElem string,
 ) {
+	// No content rule anywhere means the probe below answers empty.
+	if !e.hasPseudoContent() {
+		return
+	}
+
 	text := e.pseudoContent(node, pseudoElem)
 	if text == "" || boxNode == nil {
 		return
@@ -2074,6 +1969,16 @@ func (e *engine) buildOutOfFlow(node *html.Node, sty ResolvedStyle, availW, x, y
 	}
 
 	start := len(e.ops)
+	chromeFrom := len(e.deferredChrome)
+
+	cbH := e.absCBHeights[node]
+
+	// CSS 2.1 §10.6.4: an absolutely positioned box with auto height and
+	// both top and bottom set stretches to fill the containing block (see
+	// absStretchUsedHeight). The synthesized height feeds the build below.
+	if stretch, stretched := e.absStretchUsedHeight(sty, cbH, viewportFixed); stretched {
+		sty.Height = stretch
+	}
 
 	buildW := e.absoluteBuildWidth(node, sty, cbW)
 
@@ -2091,14 +1996,42 @@ func (e *engine) buildOutOfFlow(node *html.Node, sty ResolvedStyle, availW, x, y
 		absX = cbX + cbW - boxNode.w - e.scalePt(sty.Right)
 	}
 
-	cbH := e.absCBHeights[node]
 	absY := e.resolveAbsY(sty, boxNode, cbY, viewportFixed, cbH)
 
 	dx, dy := absX-boxNode.x, absY-boxNode.y
 	boxNode.x, boxNode.y = absX, absY
-	e.shiftBoxOps(boxNode, dx, dy)
+	e.shiftOutOfFlowBox(boxNode, dx, dy, chromeFrom)
 
 	return boxNode
+}
+
+// absStretchUsedHeight synthesizes the used height for an abspos box with
+// auto height and both top and bottom set (CSS 2.1 §10.6.4). Backgrounds,
+// borders, and content lay out at the stretched size; without it a top:0;
+// bottom:0 overlay (such as a sheen sweep) collapses to zero height and its
+// animation paints nothing. Fixed boxes resolve against the viewport in
+// resolveAbsY, so only the deferred content height stretches here. It
+// reports the height in style units, or false when the box does not stretch.
+// Split from buildOutOfFlow so the placement sequence stays within the
+// complexity budget.
+func (e *engine) absStretchUsedHeight(sty ResolvedStyle, cbH float64, viewportFixed bool) (float64, bool) {
+	if viewportFixed || sty.Height >= 0 || sty.HeightPercent >= 0 || sty.TopAuto || sty.BottomAuto || cbH <= 0 {
+		return 0, false
+	}
+
+	stretch := cbH - e.scalePt(sty.Top) - e.scalePt(sty.Bottom) - e.scalePt(sty.MarginTop) - e.scalePt(sty.MarginBottom)
+	if stretch < 0 {
+		stretch = 0
+	}
+
+	if sty.BoxSizing == borderBox {
+		stretch -= sty.verticalChrome(e)
+		if stretch < 0 {
+			stretch = 0
+		}
+	}
+
+	return stretch / e.scale, true
 }
 
 // absoluteBuildWidth is the width available while building an abspos/fixed box.
@@ -2132,7 +2065,10 @@ func (e *engine) absoluteBuildWidth(node *html.Node, sty ResolvedStyle, cbW floa
 		avail = 0
 	}
 
-	return e.floatIntrinsicAvail(node, sty, avail)
+	// Shrink-to-fit resolves against the remaining space, then CSS 2.1 §10.4
+	// clamps it by min/max-width. Without the clamp a min-width badge
+	// shrink-wraps to its text and paints as an oval instead of a circle.
+	return clampBlockMinMax(e, &sty, cbW, e.floatIntrinsicAvail(node, sty, avail))
 }
 
 // resolveAbsY places the out-of-flow box vertically: top wins, then bottom

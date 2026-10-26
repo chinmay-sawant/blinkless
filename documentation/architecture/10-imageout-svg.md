@@ -46,7 +46,9 @@ Related files owned by other domains (consumed, not part of this package): `inte
 | `svgCSSPixelSize` | `raster.go:170` | Intrinsic CSS-pixel size from the root `viewBox` or `width`/`height`, capped by `maxSide` (hard cap 4096), default 100. |
 | `rootSVGSize` / `svgSizeAttrs` | `raster.go:210` / `raster.go:243` | XML-decode only the first `<svg>` start tag; viewBox wins over width/height. |
 | `looksLikeSVG` | `raster.go:272` | Inspects at most the first 4 KiB for `<?xml` or `<svg`. |
-| `dpmmScaleFactor` | `raster.go:84` | Supersamples small SVGs up to 4x for print quality. |
+| `dpmmScaleFactor` | `raster.go` | Supersamples small SVGs up to 4x for print quality; targets below 32 CSS px cap at 2x, so a 16px icon encodes 32px, not 64px. |
+| `rasterMemo` | `raster.go` | Bounded cross-call LRU (128 entries, 8 MiB) keyed by SHA-256 of the input plus the normalized `maxSide`, so identical icons skip canvas draw and PNG encode. Only successes are stored; lookups stay under `canvasMu` so lock-wait semantics never change. |
+| `encodeRasterPNG` | `raster.go` | PNG encode shared by the rasterizer and the mask path. Rasters at or above 128x128 px use BestSpeed (measured ~10-15% faster there); smaller rasters keep the default level, which measures fastest at icon scale. Decoded pixels are identical at any level. |
 | static errors | `raster.go:36-41` | `errNotSVG`, `errCanvasEmptySize`, `errCanvasPanic`, `errCanvasZeroPixel`, `errSVGTooLarge`; callers treat any error as "no image". |
 
 ## 4. Data & control flow
@@ -83,8 +85,9 @@ The Makefile lists canvas as an allowlisted direct module (`github.com/tdewolff/
 1. Canvas is the sole SVG path. No second rasterizer and no ImageMagick shell fallback. Exotic SVG may fail, in which case the element is skipped.
 2. Canvas panic containment. `defer recover()` in `rasterizeCanvas` (`raster.go:103-108`) turns a panic into a clean error, so one bad `<img src="bad.svg">` cannot kill the process.
 3. A mutex serializes canvas calls (`canvasMu`, `raster.go:45`) because canvas path intersection uses mutable package globals.
-4. Supersampling small SVGs (`dpmmScaleFactor`, `raster.go:84`) keeps small logos crisp; the returned width/height stay logical CSS pixels, so layout sizes the element correctly.
-5. Hard caps: 32 MiB input (`maxSVGBytes`, `raster.go:31`), 4 KiB sniff prefix (`maxSVGProbeBytes`, `raster.go:32`), and a 4096 px `maxSide` cap.
+4. Supersampling small SVGs (`dpmmScaleFactor`) keeps small logos crisp; the returned width/height stay logical CSS pixels, so layout sizes the element correctly. Targets below 32 CSS px supersample at most 2x: the encoded pixels quarter while the layout size is unchanged.
+5. Raster caches key on content plus size. The `rasterMemo` key is (SHA-256, normalized `maxSide`), and the layout caches key on (serialized document, cap) via `svgInlineCacheKey`, so the same document requested under two caps can never share pixels.
+6. Hard caps: 32 MiB input (`maxSVGBytes`, `raster.go:31`), 4 KiB sniff prefix (`maxSVGProbeBytes`, `raster.go:32`), and a 4096 px `maxSide` cap.
 6. Errors mean "no image". `Rasterize` returns nil bytes and a zero size on failure (`raster.go:48-54`), and callers skip the element instead of failing the document.
 
 ## 7. Notable patterns & invariants
