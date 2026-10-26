@@ -47,7 +47,14 @@ const relayoutEpsilon = 1e-6
 // The element keeps its size and its place: it is laid out in the width the
 // kept box carries, so a grid item is placed in its own track and a flex
 // item in its own line. That width is the kept one, so a width the content
-// drives is not seen as a change; the height is the check that catches it.
+// drives is not seen as a change.
+//
+// The height is the check that catches a content change. The one exception
+// is a block size the containing block assigned: a flex container gives an
+// item its used main or cross size before the item is built, and that size
+// can be larger than the item's content. The kept style carries the
+// assignment, so the build carries the kept height as a definite size and
+// the content change check stays in force for every other element.
 //
 // A subtree that holds an out-of-flow box, a float, an anchored element, or
 // a named-flow region, and a subtree whose size changed, are reported as
@@ -561,7 +568,7 @@ func relayoutBuild(
 ) (*box, error) {
 	availW, posX, posY := relayoutOrigin(eng, target, opts)
 
-	newBox := eng.build(node, availW, posX, posY)
+	newBox := eng.buildWithStyle(node, relayoutBlockSizeOverride(eng, target), availW, posX, posY)
 
 	if eng.err != nil {
 		return nil, eng.err
@@ -594,6 +601,174 @@ func relayoutBuild(
 	}
 
 	return newBox, nil
+}
+
+// relayoutBlockSizeOverride returns the style the subtree build carries when
+// the containing block assigned the element's used block size, or nil when
+// the element's own style decides it.
+//
+// A flex container sizes its items before they are built: a column item gets
+// the flex-used main size and a stretched row item gets the line's cross
+// size, which the container writes into the item's style. The standalone
+// build has no parent flex pass to repeat that, so the retained height is
+// installed as a definite size. The override is the one the flex pass writes:
+// the block size and the max block size in the box's own sizing, so a taller
+// content still overflows the assigned box instead of growing it.
+func relayoutBlockSizeOverride(eng *engine, target *relayoutTarget) *ResolvedStyle {
+	if target == nil || target.box == nil || target.box.node == nil {
+		return nil
+	}
+
+	fresh := eng.styles[target.box.node]
+	if fresh == nil {
+		return nil
+	}
+
+	height, ok := relayoutAssignedBlockSize(eng, target, fresh)
+	if !ok {
+		return nil
+	}
+
+	override := *fresh
+	eng.forceFlexItemCrossSize(&override, height)
+
+	return &override
+}
+
+// relayoutAssignedBlockSize returns the block size the containing block
+// assigned the element, when the element's own cascade leaves the size auto.
+//
+// The kept style carries the fingerprint of that assignment: the flex pass
+// writes the used border-box height into both Height and MaxHeight and
+// clears both percentages, a pair the cascade does not produce on its own.
+// The parent must be the formatting context that assigns it: a column flex
+// container with a definite content height, or a row flex container whose
+// align stretch applies to the item.
+//
+// A content-sized element keeps no such fingerprint, and a flex item in an
+// indefinite column keeps the size its content chose, so both still fail the
+// size check when their content changes.
+func relayoutAssignedBlockSize(
+	eng *engine, target *relayoutTarget, fresh *ResolvedStyle,
+) (float64, bool) {
+	if target.parent == nil || target.parent.style == nil || fresh == nil {
+		return 0, false
+	}
+
+	// The element's own cascade decides the size when it names one. The
+	// guard keeps its power over a class that changes that size.
+	if fresh.Height >= 0 || fresh.HeightPercent >= 0 {
+		return 0, false
+	}
+
+	if !relayoutFlexAssignedHeight(target.box.style) {
+		return 0, false
+	}
+
+	if !relayoutFlexAssignsBlockSize(eng, target, fresh) {
+		return 0, false
+	}
+
+	return target.box.height, true
+}
+
+// relayoutFlexAssignedHeight reports whether style carries the block size a
+// flex container assigned an item. forceFlexItemCrossSize writes the used
+// border-box height into Height and MaxHeight and clears both percentages.
+func relayoutFlexAssignedHeight(style *ResolvedStyle) bool {
+	if style == nil || style.Height < 0 || style.MaxHeight < 0 {
+		return false
+	}
+
+	if style.HeightPercent >= 0 || style.MaxHeightPercent >= 0 {
+		return false
+	}
+
+	return relayoutNear(style.Height, style.MaxHeight)
+}
+
+// relayoutFlexAssignsBlockSize reports whether the parent flex container
+// assigned the item's used block size. The assignment is expressed on the
+// physical block axis, so a vertical writing mode keeps the full layout.
+func relayoutFlexAssignsBlockSize(
+	eng *engine, target *relayoutTarget, fresh *ResolvedStyle,
+) bool {
+	parentStyle := target.parent.style
+
+	if isVerticalWritingMode(parentStyle.WritingMode) || isVerticalWritingMode(fresh.WritingMode) {
+		return false
+	}
+
+	if parentStyle.Display != displayFlex && parentStyle.Display != displayInlineFlex {
+		return false
+	}
+
+	switch relayoutFlexDirection(parentStyle) {
+	case fxRow, fxRowRev:
+		// The line's cross size is the item's used block size, whatever the
+		// item's content measures.
+		return flexItemCrossStretchNode(target.box.node, parentStyle, fresh)
+	case fxCol, fxColRev:
+		// The flex main size is definite only when the container's content
+		// height is and the retained line consumed it. A content-sized
+		// column, or one that leaves free space, keeps every item at its
+		// content height, so the check must not claim an assignment there.
+		return relayoutFlexColumnFilled(eng, target.parent)
+	}
+
+	return false
+}
+
+// relayoutFlexColumnFilled reports whether the retained column consumed its
+// definite content height with flex sizing. When the items leave free space,
+// no grow or shrink ran and every used main size is the item's content-based
+// base, so the kept height is not an assignment and the size check keeps its
+// power. Wrapped lines have per-line free space the sum does not expose, so
+// they keep the full layout.
+func relayoutFlexColumnFilled(eng *engine, parent *box) bool {
+	if parent.style.FlexWrap == fxWrap || parent.style.FlexWrap == fxWrapRev {
+		return false
+	}
+
+	contentH := resolveFlexColumnContentHeight(*parent.style, eng)
+	if contentH < 0 {
+		return false
+	}
+
+	used := 0.0
+	items := 0
+
+	for _, child := range parent.children {
+		if child == nil || child.style == nil {
+			continue
+		}
+
+		if child.style.Position == positionAbsolute || child.style.Position == positionFixed {
+			continue
+		}
+
+		used += child.height + eng.scalePt(child.style.MarginTop) + eng.scalePt(child.style.MarginBottom)
+		items++
+	}
+
+	if items == 0 {
+		return false
+	}
+
+	rowGap, _ := eng.styleGaps(parent.style)
+	used += rowGap * float64(items-1)
+
+	return relayoutNear(used, contentH)
+}
+
+// relayoutFlexDirection returns the container's main axis, applying the
+// initial row direction when the declaration is absent.
+func relayoutFlexDirection(style *ResolvedStyle) string {
+	if style.FlexDirection == "" {
+		return fxRow
+	}
+
+	return style.FlexDirection
 }
 
 // relayoutOrigin returns the width the element is laid out in, the x it is

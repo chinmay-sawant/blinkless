@@ -353,7 +353,14 @@ func relayoutAssertRestUnchanged(
 func relayoutOptions(t *testing.T) Options {
 	t.Helper()
 
-	parsed, err := css.Parse(relayoutFixtureCSS)
+	return relayoutOptionsForCSS(t, relayoutFixtureCSS)
+}
+
+// relayoutOptionsForCSS parses cssText and builds layout options around it.
+func relayoutOptionsForCSS(t *testing.T, cssText string) Options {
+	t.Helper()
+
+	parsed, err := css.Parse(cssText)
 	if err != nil {
 		t.Fatalf("css.Parse: %v", err)
 	}

@@ -4,8 +4,6 @@ import (
 	"errors"
 	"reflect"
 	"testing"
-
-	"github.com/chinmay-sawant/blinkless/internal/css"
 )
 
 // relayoutGridCSS lays the cards out in a grid with two columns. The card
@@ -35,17 +33,7 @@ const relayoutSelectedClass = "card selected"
 func relayoutGridOptions(t *testing.T) Options {
 	t.Helper()
 
-	parsed, err := css.Parse(relayoutGridCSS)
-	if err != nil {
-		t.Fatalf("css.Parse: %v", err)
-	}
-
-	return Options{
-		Width:      testViewport,
-		Height:     800,
-		Sheets:     []*css.Stylesheet{parsed},
-		Background: true,
-	}
+	return relayoutOptionsForCSS(t, relayoutGridCSS)
 }
 
 // TestRelayoutSubtreePatchesAGridItem proves the splice places a grid item
