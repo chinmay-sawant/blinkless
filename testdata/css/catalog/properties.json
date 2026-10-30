@@ -2580,7 +2580,7 @@
       "name": "background-image",
       "aliases": [],
       "values": [
-        "<uri> | none | inherit"
+        "<uri> | linear-gradient() | radial-gradient() | none | inherit"
       ],
       "limitations": [],
       "source": [
@@ -8234,7 +8234,7 @@
       "name": "display",
       "aliases": [],
       "values": [
-        "inline | block | list-item | inline-block | table | inline-table | table-row-group | table-header-group | table-footer-group | table-row | table-column-group | table-column | table-cell | table-caption | none | inherit"
+        "inline | block | list-item | inline-block | flex | inline-flex | grid | inline-grid | table | inline-table | table-row-group | table-header-group | table-footer-group | table-row | table-column-group | table-column | table-cell | table-caption | none | inherit"
       ],
       "limitations": [],
       "source": [
@@ -13621,7 +13621,7 @@
       "name": "overflow",
       "aliases": [],
       "values": [
-        "visible | hidden | scroll | auto | inherit"
+        "visible | hidden | clip | scroll | auto | inherit"
       ],
       "limitations": [],
       "source": [
