@@ -52,6 +52,12 @@ func isGradientFunc(val string) bool {
 }
 
 func isPureLinear1D(val string) (is1D bool, isVert bool) {
+	if !strings.Contains(val, "to bottom") && !strings.Contains(val, "to top") &&
+		!strings.Contains(val, "to right") && !strings.Contains(val, "to left") &&
+		!strings.Contains(val, "0deg") && !strings.Contains(val, "180deg") &&
+		!strings.Contains(val, "90deg") && !strings.Contains(val, "270deg") {
+		return false, false
+	}
 	if lin, ok := parseLinearGradient(val, [3]float64{}); ok && !lin.repeating {
 		if lin.angleDeg == 0 || lin.angleDeg == 180 {
 			return true, true

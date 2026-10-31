@@ -54,6 +54,9 @@ func normalizeBlendMode(value string) (string, bool) {
 }
 
 func backgroundBlendModeForLayer(value string, layerIndex int) string {
+	if value == "" {
+		return blendNormal
+	}
 	parts := splitCommaLayers(value)
 	if len(parts) == 0 {
 		return blendNormal

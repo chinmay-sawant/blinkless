@@ -14,6 +14,7 @@ import (
 	"bytes"
 	"errors"
 	"strings"
+	"sync"
 	"unicode/utf8"
 )
 
@@ -79,6 +80,24 @@ func (n *Node) FirstChild(name string) *Node {
 	return nil
 }
 
+var textBuilderPool = sync.Pool{
+	New: func() any {
+		return &strings.Builder{}
+	},
+}
+
+func (n *Node) hasAnyText() bool {
+	for _, c := range n.Children {
+		if c.Type == TextNode && len(c.Text) > 0 {
+			return true
+		}
+		if len(c.Children) > 0 && c.hasAnyText() {
+			return true
+		}
+	}
+	return false
+}
+
 // TextContent concatenates all descendant text. Template contents are a
 // separate fragment and contribute nothing, matching DOM textContent.
 func (n *Node) TextContent() string {
@@ -94,11 +113,17 @@ func (n *Node) TextContent() string {
 	if len(n.Children) == 1 && n.Children[0].Type == TextNode {
 		return n.Children[0].Text
 	}
+	if !n.hasAnyText() {
+		return ""
+	}
 
-	var b strings.Builder
-	n.appendText(&b)
+	b := textBuilderPool.Get().(*strings.Builder)
+	b.Reset()
+	n.appendText(b)
+	res := b.String()
+	textBuilderPool.Put(b)
 
-	return b.String()
+	return res
 }
 
 // Walk visits n and every descendant in pre-order (document order). Template

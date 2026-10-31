@@ -4,7 +4,7 @@ import (
 	"math"
 	"slices"
 	"sort"
-	"strings"
+	"sync"
 
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
@@ -80,7 +80,10 @@ func (e *engine) buildFlex(node *html.Node, sty ResolvedStyle, availW, x, posY f
 	contentStart := len(e.ops)
 	curY := e.scalePt(sty.PaddingTop) + e.scalePt(sty.BorderTop.Width)
 
-	kids := e.flexChildren(node, &sty)
+	kids, pKids := e.flexChildrenPooled(node, &sty)
+	if pKids != nil {
+		defer putFlexKids(pKids)
+	}
 
 	// Absolutely positioned and fixed children do not participate in flex
 	// layout: they take no line space and paint above the in-flow items
@@ -88,7 +91,10 @@ func (e *engine) buildFlex(node *html.Node, sty ResolvedStyle, availW, x, posY f
 	// the way the block path does instead of measuring and placing them as
 	// flex items, which collapses overlays such as sheen sweeps to zero
 	// height at the item's static position.
-	flowKids, deferred := e.partitionFlexOutOfFlow(kids)
+	flowKids, deferred, pFlow := e.partitionFlexOutOfFlow(kids)
+	if pFlow != nil {
+		defer putFlexKids(pFlow)
+	}
 
 	rowGap, colGap := e.styleGaps(&sty)
 	previousCB, parentCB := e.setFlowCB(sty)
@@ -124,7 +130,7 @@ func (e *engine) buildFlex(node *html.Node, sty ResolvedStyle, availW, x, posY f
 // partitionFlexOutOfFlow splits flex children into in-flow items and
 // deferred out-of-flow nodes. Split from buildFlex so the container assembly
 // stays within the length budget; the partition order is unchanged.
-func (e *engine) partitionFlexOutOfFlow(kids []*html.Node) ([]*html.Node, []*html.Node) {
+func (e *engine) partitionFlexOutOfFlow(kids []*html.Node) ([]*html.Node, []*html.Node, *[]*html.Node) {
 	hasOutOfFlow := false
 	for _, kid := range kids {
 		if isOutOfFlowNode(kid, e.stylePtr(kid)) {
@@ -133,10 +139,11 @@ func (e *engine) partitionFlexOutOfFlow(kids []*html.Node) ([]*html.Node, []*htm
 		}
 	}
 	if !hasOutOfFlow {
-		return kids, nil
+		return kids, nil, nil
 	}
 
-	flowKids := make([]*html.Node, 0, len(kids))
+	p := getFlexKids(len(kids))
+	flowKids := *p
 
 	var deferred []*html.Node
 
@@ -148,7 +155,8 @@ func (e *engine) partitionFlexOutOfFlow(kids []*html.Node) ([]*html.Node, []*htm
 		}
 	}
 
-	return flowKids, deferred
+	*p = flowKids
+	return flowKids, deferred, p
 }
 
 // resolveFlexContentHeight applies the definite-height or constraint path to
@@ -206,7 +214,37 @@ func (e *engine) flushFlexDeferredOutOfFlow(
 // direct text runs. CSS turns non-whitespace text directly under a flex
 // container into anonymous block-level flex items; dropping those nodes makes
 // prose after an inline marker disappear from the display list.
+var flexKidPool = sync.Pool{
+	New: func() any {
+		s := make([]*html.Node, 0, 32)
+		return &s
+	},
+}
+
+func getFlexKids(n int) *[]*html.Node {
+	p := flexKidPool.Get().(*[]*html.Node)
+	*p = (*p)[:0]
+	if cap(*p) < n {
+		*p = make([]*html.Node, 0, n)
+	}
+	return p
+}
+
+func putFlexKids(p *[]*html.Node) {
+	if p == nil || cap(*p) > 2048 {
+		return
+	}
+	clear(*p)
+	*p = (*p)[:0]
+	flexKidPool.Put(p)
+}
+
 func (e *engine) flexChildren(node *html.Node, parentStyle *ResolvedStyle) []*html.Node {
+	kids, _ := e.flexChildrenPooled(node, parentStyle)
+	return kids
+}
+
+func (e *engine) flexChildrenPooled(node *html.Node, parentStyle *ResolvedStyle) ([]*html.Node, *[]*html.Node) {
 	allElements := true
 	for _, child := range node.Children {
 		if child.Type != html.ElementNode {
@@ -219,10 +257,11 @@ func (e *engine) flexChildren(node *html.Node, parentStyle *ResolvedStyle) []*ht
 		}
 	}
 	if allElements {
-		return node.Children
+		return node.Children, nil
 	}
 
-	kids := make([]*html.Node, 0, len(node.Children))
+	p := getFlexKids(len(node.Children))
+	kids := *p
 
 	for idx := 0; idx < len(node.Children); idx++ {
 		child := node.Children[idx]
@@ -234,7 +273,7 @@ func (e *engine) flexChildren(node *html.Node, parentStyle *ResolvedStyle) []*ht
 			continue
 		}
 
-		if child.Type != html.TextNode || strings.TrimSpace(child.Text) == "" {
+		if child.Type != html.TextNode || isAllWhitespace(child.Text) {
 			continue
 		}
 
@@ -242,7 +281,7 @@ func (e *engine) flexChildren(node *html.Node, parentStyle *ResolvedStyle) []*ht
 
 		for idx+1 < len(node.Children) && node.Children[idx+1].Type == html.TextNode {
 			idx++
-			if strings.TrimSpace(node.Children[idx].Text) != "" {
+			if !isAllWhitespace(node.Children[idx].Text) {
 				textNodes = append(textNodes, node.Children[idx])
 			}
 		}
@@ -250,21 +289,21 @@ func (e *engine) flexChildren(node *html.Node, parentStyle *ResolvedStyle) []*ht
 		anonymous := &html.Node{ //nolint:exhaustruct // synthetic anonymous flex item
 			Type: html.ElementNode, Name: "span", Parent: node, Children: textNodes,
 		}
-		anonymousStyle := anonymousFlexItemStyle(parentStyle)
-		e.setSyntheticStyle(anonymous, &anonymousStyle)
+		anonymousStyle := e.allocAnonymousFlexItemStyle(parentStyle)
+		e.setSyntheticStyle(anonymous, anonymousStyle)
 
 		kids = append(kids, anonymous)
 	}
 
-	return kids
+	*p = kids
+	return kids, p
 }
 
 // anonymousFlexItemStyle preserves inherited text properties while removing
 // the flex container's own box and layout properties from the anonymous item.
 //
 //nolint:funlen // resets the complete anonymous box model
-func anonymousFlexItemStyle(parent *ResolvedStyle) ResolvedStyle {
-	style := *parent
+func applyAnonymousFlexItemStyle(style *ResolvedStyle) {
 	style.Display = displayBlock
 	style.Position = positionStatic
 	style.Float = cssDisplayNone
@@ -316,7 +355,20 @@ func anonymousFlexItemStyle(parent *ResolvedStyle) ResolvedStyle {
 	style.PageBreakAfter = ""
 	style.PageBreakInside = ""
 	style.HasTransform = false
+}
 
+func (e *engine) allocAnonymousFlexItemStyle(parent *ResolvedStyle) *ResolvedStyle {
+	style := e.allocStyle(parent)
+	applyAnonymousFlexItemStyle(style)
+	return style
+}
+
+func anonymousFlexItemStyle(parent *ResolvedStyle) ResolvedStyle {
+	var style ResolvedStyle
+	if parent != nil {
+		style = *parent
+	}
+	applyAnonymousFlexItemStyle(&style)
 	return style
 }
 

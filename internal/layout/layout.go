@@ -239,6 +239,14 @@ type Result struct {
 	skipInitialBeforeAlways bool
 }
 
+// BoxCount returns the number of element boxes in the layout result.
+func (r *Result) BoxCount() int {
+	if r == nil {
+		return 0
+	}
+	return len(r.boxes)
+}
+
 // CloneResult returns an independent pagination result. Display-list image
 // bytes, page/index slices, and the layout-owned box graph are copied so a
 // second paint or pagination pass cannot mutate the source result through a

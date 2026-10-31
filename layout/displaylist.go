@@ -322,12 +322,23 @@ func newDisplay(
 	zoom float64,
 	retain bool,
 ) *Display {
-	placed := ilayout.PlacedElements(res)
+	boxCount := 0
+	if res != nil {
+		boxCount = res.BoxCount()
+	}
+	boxes := make([]Box, 0, boxCount)
+	parents := make([]int, 0, boxCount)
+
+	ilayout.WalkPlaced(res, func(item *ilayout.PlacedElement) {
+		boxes = append(boxes, boxFrom(item))
+		parents = append(parents, item.ParentIndex)
+	})
+
 	display := &Display{
 		Ops:            res.Ops,
-		OpOwners:       ilayout.OperationOwnersPlaced(res, placed),
+		OpOwners:       ilayout.OperationOwnersFromParents(res, parents),
 		Order:          ilayout.PaintOrder(res.Ops),
-		Boxes:          boxesFrom(placed),
+		Boxes:          boxes,
 		Keyframes:      keyframesFrom(sheets),
 		Width:          int(res.Width * ptToPx),
 		Height:         int(canvasPt * ptToPx),

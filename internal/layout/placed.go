@@ -37,26 +37,24 @@ type PlacedElement struct {
 	H         float64
 }
 
-// PlacedElements walks the laid-out element boxes in document order.
-// A nil result returns nil. Paint and pagination are not required.
-func PlacedElements(res *Result) []PlacedElement {
+// WalkPlaced walks laid-out element boxes in document order, invoking fn for each element.
+// A nil result does nothing.
+func WalkPlaced(res *Result, fn func(elem *PlacedElement)) {
 	if res == nil || res.root == nil {
-		return nil
+		return
 	}
 
-	out := make([]PlacedElement, 0, len(res.boxes))
 	allIDs := make([]uint64, 0, len(res.Ops))
-	walkPlaced(res.root, res.Ops, -1, IdentityMatrix(), svgViewport{}, &out, &allIDs) //nolint:exhaustruct // identity root viewport
-
-	return out
+	var item PlacedElement
+	walkPlacedFunc(res.root, res.Ops, -1, IdentityMatrix(), svgViewport{}, fn, &allIDs, 0, &item)
 }
 
-func walkPlaced(
+func walkPlacedFunc(
 	boxNode *box, ops []Op, parentIndex int, parentAccum Matrix2D, viewport svgViewport,
-	out *[]PlacedElement, allIDs *[]uint64,
-) {
+	fn func(elem *PlacedElement), allIDs *[]uint64, index int, item *PlacedElement,
+) int {
 	if boxNode == nil {
-		return
+		return index
 	}
 
 	childParent := parentIndex
@@ -68,9 +66,8 @@ func walkPlaced(
 	}
 
 	if boxNode.node != nil && boxNode.node.Type == html.ElementNode {
-		index := len(*out)
 		elementID := boxNode.node.Attribute("id")
-		*out = append(*out, PlacedElement{
+		*item = PlacedElement{
 			ID:                  elementID,
 			Tag:                 boxNode.node.Name,
 			Action:              boxNode.node.Attribute("data-action"),
@@ -92,8 +89,10 @@ func walkPlaced(
 			Y:                   boxNode.y,
 			W:                   boxNode.w,
 			H:                   boxNode.height,
-		})
+		}
 		childParent = index
+		index++
+		fn(item)
 	}
 
 	// An <svg> box establishes a viewport for its subtree; the box's own
@@ -102,8 +101,25 @@ func walkPlaced(
 	childViewport := childViewportForBox(boxNode, viewport)
 
 	for _, child := range boxNode.children {
-		walkPlaced(child, ops, childParent, childAccum, childViewport, out, allIDs)
+		index = walkPlacedFunc(child, ops, childParent, childAccum, childViewport, fn, allIDs, index, item)
 	}
+
+	return index
+}
+
+// PlacedElements walks the laid-out element boxes in document order.
+// A nil result returns nil. Paint and pagination are not required.
+func PlacedElements(res *Result) []PlacedElement {
+	if res == nil || res.root == nil {
+		return nil
+	}
+
+	out := make([]PlacedElement, 0, len(res.boxes))
+	WalkPlaced(res, func(elem *PlacedElement) {
+		out = append(out, *elem)
+	})
+
+	return out
 }
 
 // elementOverflowClip reads the ancestor overflow box clipOverflowTree

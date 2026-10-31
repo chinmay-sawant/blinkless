@@ -204,40 +204,42 @@ type Override struct {
 	Value string
 }
 
+func boxFrom(item *ilayout.PlacedElement) Box {
+	return Box{
+		ID:                  item.ID,
+		Tag:                 item.Tag,
+		Action:              item.Action,
+		Text:                item.Text,
+		ParentIndex:         item.ParentIndex,
+		OperationIDs:        item.OperationIDs,
+		Animations:          animationsFrom(item.Animations),
+		Transitions:         transitionsFrom(item.Transitions),
+		TriggerScope:        item.TriggerScope,
+		ViewTransitionName:  item.ViewTransitionName,
+		ViewTransitionClass: item.ViewTransitionClass,
+		ViewTransitionGroup: item.ViewTransitionGroup,
+		ViewTransitionScope: item.ViewTransitionScope,
+		Timelines:           timelinesFrom(item.Timelines),
+		Transform:           transformInfoFrom(item.Transform),
+		OverflowClip: [4]float64{
+			item.OverflowClip[0] * ptToPx,
+			item.OverflowClip[1] * ptToPx,
+			item.OverflowClip[2] * ptToPx,
+			item.OverflowClip[3] * ptToPx,
+		},
+		HasOverflowClip: item.HasOverflowClip,
+		X:               item.X * ptToPx,
+		Y:               item.Y * ptToPx,
+		W:               item.W * ptToPx,
+		H:               item.H * ptToPx,
+	}
+}
+
 func boxesFrom(placed []ilayout.PlacedElement) []Box {
 	boxes := make([]Box, len(placed))
-
-	for i, item := range placed {
-		boxes[i] = Box{
-			ID:                  item.ID,
-			Tag:                 item.Tag,
-			Action:              item.Action,
-			Text:                item.Text,
-			ParentIndex:         item.ParentIndex,
-			OperationIDs:        item.OperationIDs,
-			Animations:          animationsFrom(item.Animations),
-			Transitions:         transitionsFrom(item.Transitions),
-			TriggerScope:        item.TriggerScope,
-			ViewTransitionName:  item.ViewTransitionName,
-			ViewTransitionClass: item.ViewTransitionClass,
-			ViewTransitionGroup: item.ViewTransitionGroup,
-			ViewTransitionScope: item.ViewTransitionScope,
-			Timelines:           timelinesFrom(item.Timelines),
-			Transform:           transformInfoFrom(item.Transform),
-			OverflowClip: [4]float64{
-				item.OverflowClip[0] * ptToPx,
-				item.OverflowClip[1] * ptToPx,
-				item.OverflowClip[2] * ptToPx,
-				item.OverflowClip[3] * ptToPx,
-			},
-			HasOverflowClip: item.HasOverflowClip,
-			X:               item.X * ptToPx,
-			Y:               item.Y * ptToPx,
-			W:               item.W * ptToPx,
-			H:               item.H * ptToPx,
-		}
+	for i := range placed {
+		boxes[i] = boxFrom(&placed[i])
 	}
-
 	return boxes
 }
 

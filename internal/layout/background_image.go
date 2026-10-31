@@ -176,9 +176,10 @@ func (e *engine) appendGradientLayer(
 		H:            destH,
 		IsJPEG:       false,
 		IsBackground: true,
-	}).withImage(pngData, imgW, imgH, "").withBlendMode(
-		backgroundBlendModeForLayer(sty.BackgroundBlendMode, layerIndex),
-	)
+	}).withImage(pngData, imgW, imgH, "")
+	if blendMode := backgroundBlendModeForLayer(sty.BackgroundBlendMode, layerIndex); blendMode != "" && blendMode != blendNormal {
+		baseOp = baseOp.withBlendMode(blendMode)
+	}
 	if sty.Filter != "" {
 		filters := parseFilterList(sty.Filter, sty.Color, sty.FontSize)
 		filtered := applyImageFilterToImageWithInterp(baseOp.Image, filters, sty.ColorInterpolationFilters)
@@ -191,6 +192,12 @@ func (e *engine) appendGradientLayer(
 // backgroundSizeForLayer picks the comma-separated background-size token for
 // layer index (0 = first declared layer, topmost, per CSS Backgrounds).
 func backgroundSizeForLayer(sizeSpec string, layerIndex int) string {
+	if sizeSpec == "" {
+		return ""
+	}
+	if !strings.Contains(sizeSpec, ",") {
+		return strings.TrimSpace(sizeSpec)
+	}
 	parts := splitCommaLayers(sizeSpec)
 	if len(parts) == 0 {
 		return sizeSpec
