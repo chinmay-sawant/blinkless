@@ -159,6 +159,7 @@ func (e *engine) measureVerticalColumnCrossMax(
 	was := e.noEmit
 	e.noEmit = true
 	mark := e.markStyles()
+	bmark := e.markBoxes()
 	maxH := 0.0
 	leftX := startX
 	for idx, item := range items {
@@ -168,6 +169,7 @@ func (e *engine) measureVerticalColumnCrossMax(
 		}
 		leftX += widths[idx] + flexRowNormalMargins(e, item)
 	}
+	e.resetBoxes(bmark)
 	e.resetStyles(mark)
 	e.noEmit = was
 

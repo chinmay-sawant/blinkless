@@ -423,9 +423,7 @@ func orientedPaintImage(ref *imageRef, deg float64, mirror bool, cropRect image.
 }
 
 func (e *engine) buildImage(node *html.Node, sty ResolvedStyle, posX, posY float64, paint bool) *box {
-	boxNode := &box{ //nolint:exhaustruct // intentional zero fields
-		node: node, style: e.stylePtr(node), kind: boxKindReplaced, x: posX, y: posY,
-	}
+	boxNode := e.allocBox(node, e.stylePtr(node), boxKindReplaced, posX, posY)
 	boxNode.img = e.resolveImage(node.Attribute("src"))
 	size := e.usedImageSize(node, sty, boxNode.img)
 	// The paint copy carries orientation and object-view-box pixels; sizing
@@ -584,9 +582,8 @@ func (e *engine) isGridOrFlexItem(n *html.Node) bool {
 }
 
 func (e *engine) buildHR(n *html.Node, sty ResolvedStyle, availW, posX, posY float64) *box {
-	boxNode := &box{ //nolint:exhaustruct // intentional zero fields
-		node: n, style: e.stylePtr(n), kind: boxKindReplaced, x: posX, y: posY, w: availW,
-	}
+	boxNode := e.allocBox(n, e.stylePtr(n), boxKindReplaced, posX, posY)
+	boxNode.w = availW
 	if sty.Width >= 0 {
 		boxNode.w = e.scalePt(sty.Width)
 	}

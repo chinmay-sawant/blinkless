@@ -13,9 +13,8 @@ func (e *engine) buildTable(node *html.Node, style ResolvedStyle, availW, posX, 
 	rows = stripEmptyTableRows(rows)
 	headerRows = resolveHeaderRows(rows, headerRows)
 
-	tableBox := &box{ //nolint:exhaustruct // intentional zero fields
-		node: node, style: e.stylePtr(node), kind: boxKindTable, x: posX, y: posY, headerRows: headerRows,
-	}
+	tableBox := e.allocBox(node, e.stylePtr(node), boxKindTable, posX, posY)
+	tableBox.headerRows = headerRows
 	if len(rows) == 0 {
 		return tableBox
 	}
@@ -1221,14 +1220,10 @@ func rowspanCellCovers(tableBox *box, rowIdx, leftCol, rightCol int) bool {
 // and inflate row heights (empty bands under single-line cell text).
 func (e *engine) buildCell(node *html.Node, col, span int) *box {
 	cellStyle := e.stylePtr(node)
-	cellBox := &box{ //nolint:exhaustruct // intentional zero fields
-		node:   node,
-		style:  cellStyle,
-		kind:   boxKindCell,
-		col:    col,
-		span:   span,
-		hasInk: nodeHasTableInk(node),
-	}
+	cellBox := e.allocBox(node, cellStyle, boxKindCell, 0, 0)
+	cellBox.col = col
+	cellBox.span = span
+	cellBox.hasInk = nodeHasTableInk(node)
 	cellBox.contentMin, cellBox.contentW = e.measureCellMinMax(node, cellStyle)
 
 	return cellBox

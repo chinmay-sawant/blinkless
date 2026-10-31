@@ -213,6 +213,7 @@ type Result struct {
 	// ran, so any paint height is acceptable.
 	pageSnapHeight float64
 	styleChunks    []*[]ResolvedStyle
+	boxChunks      []*[]box
 
 	// Pages maps page index → indices into Ops of the ops painted on that
 	// page. Filled by Paint using its pagination semantics (an op goes to
@@ -618,6 +619,8 @@ type engine struct {
 	styleOverrides  []styleOverride
 	styleChunks     []*[]ResolvedStyle
 	spareChunks     []*[]ResolvedStyle
+	boxChunks       []*[]box
+	spareBoxChunks  []*[]box
 	// styleIndex narrows selector matching for this layout's sheets. It is
 	// built once and shared by the cascade and every pseudo-content lookup.
 	styleIndex *ruleIndex
@@ -1279,6 +1282,89 @@ func (r *Result) Release() {
 		putStyleChunk(c)
 	}
 	r.styleChunks = nil
+	for _, c := range r.boxChunks {
+		putBoxChunk(c)
+	}
+	r.boxChunks = nil
+}
+
+var boxChunkPool = sync.Pool{
+	New: func() any {
+		b := make([]box, 0, 64)
+		return &b
+	},
+}
+
+func getBoxChunk() *[]box {
+	c := boxChunkPool.Get().(*[]box)
+	*c = (*c)[:0]
+	return c
+}
+
+func putBoxChunk(c *[]box) {
+	if c == nil {
+		return
+	}
+	clear(*c)
+	*c = (*c)[:0]
+	boxChunkPool.Put(c)
+}
+
+type boxMark struct {
+	chunkIdx int
+	itemIdx  int
+}
+
+func (e *engine) markBoxes() boxMark {
+	if len(e.boxChunks) == 0 {
+		return boxMark{0, 0}
+	}
+	last := len(e.boxChunks) - 1
+	return boxMark{chunkIdx: last, itemIdx: len(*e.boxChunks[last])}
+}
+
+func (e *engine) resetBoxes(m boxMark) {
+	if len(e.boxChunks) == 0 {
+		return
+	}
+	if m.chunkIdx < len(e.boxChunks) {
+		for i := m.chunkIdx + 1; i < len(e.boxChunks); i++ {
+			clear(*e.boxChunks[i])
+			*e.boxChunks[i] = (*e.boxChunks[i])[:0]
+			e.spareBoxChunks = append(e.spareBoxChunks, e.boxChunks[i])
+		}
+		e.boxChunks = e.boxChunks[:m.chunkIdx+1]
+		chunk := e.boxChunks[m.chunkIdx]
+		if m.itemIdx < len(*chunk) {
+			clear((*chunk)[m.itemIdx:])
+			*chunk = (*chunk)[:m.itemIdx]
+		}
+	}
+}
+
+func (e *engine) allocBox(node *html.Node, sty *ResolvedStyle, kind boxKind, x, y float64) *box {
+	const chunkSize = 64
+	if len(e.boxChunks) == 0 || len(*e.boxChunks[len(e.boxChunks)-1]) == cap(*e.boxChunks[len(e.boxChunks)-1]) {
+		if len(e.spareBoxChunks) > 0 {
+			last := len(e.spareBoxChunks) - 1
+			c := e.spareBoxChunks[last]
+			*c = (*c)[:0]
+			e.spareBoxChunks = e.spareBoxChunks[:last]
+			e.boxChunks = append(e.boxChunks, c)
+		} else {
+			e.boxChunks = append(e.boxChunks, getBoxChunk())
+		}
+	}
+	last := len(e.boxChunks) - 1
+	chunk := e.boxChunks[last]
+	*chunk = append(*chunk, box{ //nolint:exhaustruct // intentional zero fields
+		node:  node,
+		style: sty,
+		kind:  kind,
+		x:     x,
+		y:     y,
+	})
+	return &(*chunk)[len(*chunk)-1]
 }
 
 var styleChunkPool = sync.Pool{
@@ -1393,7 +1479,7 @@ func estimateOpCapacity(root *html.Node) int {
 	// append growth still covers documents that emit more than the estimate.
 	const gridLinesPerCell = 2
 
-	capacity := nodes*three/two - gridLinesPerCell*cells
+	capacity := nodes*two + 16
 	if capacity < minOpCapacity {
 		capacity = minOpCapacity
 	}
@@ -1662,9 +1748,7 @@ func useBlockForTableDisplay(node *html.Node) bool {
 //
 //nolint:cyclop // block layout owns ordered CSS flow phases
 func (e *engine) buildBlock(node *html.Node, style ResolvedStyle, availW, posX, posY float64) *box {
-	boxNode := &box{ //nolint:exhaustruct // intentional zero fields
-		node: node, style: e.stylePtr(node), kind: boxKindBlock, x: posX, y: posY,
-	}
+	boxNode := e.allocBox(node, e.stylePtr(node), boxKindBlock, posX, posY)
 	boxStyle := &style
 	w, margL := resolveBlockWidth(e, node, boxStyle, availW)
 	boxNode.w = w

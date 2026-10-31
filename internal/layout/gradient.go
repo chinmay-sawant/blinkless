@@ -51,6 +51,18 @@ func isGradientFunc(val string) bool {
 		strings.HasPrefix(low, "repeating-conic-gradient(")
 }
 
+func isPureLinear1D(val string) (is1D bool, isVert bool) {
+	if lin, ok := parseLinearGradient(val, [3]float64{}); ok && !lin.repeating {
+		if lin.angleDeg == 0 || lin.angleDeg == 180 {
+			return true, true
+		}
+		if lin.angleDeg == 90 || lin.angleDeg == 270 {
+			return true, false
+		}
+	}
+	return false, false
+}
+
 func parseGradientStops(parts []string, current [3]float64) []gradientStop {
 	var rawStops []gradientStop
 	for _, part := range parts {
@@ -469,7 +481,25 @@ func sampleStopsWithInterp(stops []gradientStop, t float64, linear bool) (r, g, 
 	return stops[n-1].r, stops[n-1].g, stops[n-1].b, stops[n-1].a
 }
 
-var fastPNGEncoder = png.Encoder{CompressionLevel: png.BestSpeed}
+type gradPNGPool struct {
+	p sync.Pool
+}
+
+func (p *gradPNGPool) Get() *png.EncoderBuffer {
+	if v := p.p.Get(); v != nil {
+		return v.(*png.EncoderBuffer)
+	}
+	return nil
+}
+
+func (p *gradPNGPool) Put(b *png.EncoderBuffer) {
+	p.p.Put(b)
+}
+
+var fastPNGEncoder = png.Encoder{
+	CompressionLevel: png.BestSpeed,
+	BufferPool:       &gradPNGPool{},
+}
 
 type gradCacheKey struct {
 	raw     string

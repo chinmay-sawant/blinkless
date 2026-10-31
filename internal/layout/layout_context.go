@@ -59,13 +59,22 @@ func finalizeResult(eng *engine, root *html.Node, opts Options) (*Result, error)
 	// and CSS transforms (those passes need final op indices).
 	eng.finalizeChrome(boxNode)
 
-	boxes := make([]*box, 0)
+	boxesCap := len(eng.boxChunks) * 64
+	if boxesCap < 16 {
+		boxesCap = 16
+	}
+	boxes := make([]*box, 0, boxesCap)
 	flattenBoxes(boxNode, &boxes)
 
 	for _, c := range eng.spareChunks {
 		putStyleChunk(c)
 	}
 	eng.spareChunks = nil
+
+	for _, c := range eng.spareBoxChunks {
+		putBoxChunk(c)
+	}
+	eng.spareBoxChunks = nil
 
 	res := &Result{ //nolint:exhaustruct // intentional zero fields
 		Ops:            eng.ops,
@@ -77,6 +86,7 @@ func finalizeResult(eng *engine, root *html.Node, opts Options) (*Result, error)
 		boxes:          boxes,
 		styles:         eng.styles,
 		styleChunks:    eng.styleChunks,
+		boxChunks:      eng.boxChunks,
 	}
 	if boxNode != nil {
 		res.Height = boxNode.y + boxNode.height

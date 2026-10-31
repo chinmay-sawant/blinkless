@@ -155,7 +155,15 @@ func (e *engine) appendGradientLayer(
 	destX, destY := resolveBackgroundPosition(
 		sty.BackgroundPosX, sty.BackgroundPosY, originX, originY, originW, originH, destW, destH,
 	)
-	pngData, imgW, imgH, ok := renderGradientPNGWithInterp(layer, destW, destH, sty.Color, sty.ColorInterpolation)
+	reqW, reqH := destW, destH
+	if is1D, isVert := isPureLinear1D(layer); is1D {
+		if isVert {
+			reqW = 1
+		} else {
+			reqH = 1
+		}
+	}
+	pngData, imgW, imgH, ok := renderGradientPNGWithInterp(layer, reqW, reqH, sty.Color, sty.ColorInterpolation)
 	if !ok {
 		return dst
 	}

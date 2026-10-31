@@ -45,14 +45,15 @@ func PlacedElements(res *Result) []PlacedElement {
 	}
 
 	out := make([]PlacedElement, 0, len(res.boxes))
-	walkPlaced(res.root, res.Ops, -1, IdentityMatrix(), svgViewport{}, &out) //nolint:exhaustruct // identity root viewport
+	allIDs := make([]uint64, 0, len(res.Ops))
+	walkPlaced(res.root, res.Ops, -1, IdentityMatrix(), svgViewport{}, &out, &allIDs) //nolint:exhaustruct // identity root viewport
 
 	return out
 }
 
 func walkPlaced(
 	boxNode *box, ops []Op, parentIndex int, parentAccum Matrix2D, viewport svgViewport,
-	out *[]PlacedElement,
+	out *[]PlacedElement, allIDs *[]uint64,
 ) {
 	if boxNode == nil {
 		return
@@ -75,7 +76,7 @@ func walkPlaced(
 			Action:              boxNode.node.Attribute("data-action"),
 			Text:                boxNode.node.TextContent(),
 			ParentIndex:         parentIndex,
-			OperationIDs:        operationIDs(ops, boxNode.opStart, boxNode.opEnd),
+			OperationIDs:        appendOperationIDs(ops, boxNode.opStart, boxNode.opEnd, allIDs),
 			Animations:          animationRecordsFromStyle(boxNode.style.Animation),
 			Transitions:         transitionRecordsFromStyle(boxNode.style.Transition),
 			TriggerScope:        boxNode.style.Animation.TriggerScope,
@@ -101,7 +102,7 @@ func walkPlaced(
 	childViewport := childViewportForBox(boxNode, viewport)
 
 	for _, child := range boxNode.children {
-		walkPlaced(child, ops, childParent, childAccum, childViewport, out)
+		walkPlaced(child, ops, childParent, childAccum, childViewport, out, allIDs)
 	}
 }
 
@@ -119,28 +120,26 @@ func elementOverflowClip(boxNode *box) [4]float64 {
 
 var emptyOperationIDs = make([]uint64, 0)
 
-func operationIDs(ops []Op, start, end int) []uint64 {
+func appendOperationIDs(ops []Op, start, end int, allIDs *[]uint64) []uint64 {
 	if start < 0 || end < start {
 		return emptyOperationIDs
 	}
 
-	count := 0
+	startIdx := len(*allIDs)
 	for index := start; index <= end && index < len(ops); index++ {
 		if ops[index].ID != 0 {
-			count++
+			*allIDs = append(*allIDs, ops[index].ID)
 		}
 	}
 
-	if count == 0 {
+	if len(*allIDs) == startIdx {
 		return emptyOperationIDs
 	}
 
-	ids := make([]uint64, 0, count)
-	for index := start; index <= end && index < len(ops); index++ {
-		if ops[index].ID != 0 {
-			ids = append(ids, ops[index].ID)
-		}
-	}
+	return (*allIDs)[startIdx:]
+}
 
-	return ids
+func operationIDs(ops []Op, start, end int) []uint64 {
+	var ids []uint64
+	return appendOperationIDs(ops, start, end, &ids)
 }

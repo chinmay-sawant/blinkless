@@ -62,9 +62,7 @@ type flexPlacedItem struct {
 //nolint:cyclop,gocritic,wsl // dispatch also installs the containing-block scope
 func (e *engine) buildFlex(node *html.Node, sty ResolvedStyle, availW, x, posY float64) *box {
 	ml := e.scalePt(sty.MarginLeft)
-	boxNode := &box{ //nolint:exhaustruct // intentional zero fields
-		node: node, style: e.stylePtr(node), kind: boxKindBlock, x: x + ml, y: posY,
-	}
+	boxNode := e.allocBox(node, e.stylePtr(node), boxKindBlock, x+ml, posY)
 	boxNode.w = resolveUsedWidth(sty, availW, e)
 	if isIntrinsicWidth(sty.Width) {
 		boxNode.w = e.flexIntrinsicWidth(node, &sty, sty.Width == widthMinContent)
@@ -1266,6 +1264,7 @@ func (e *engine) measureFlexCrossMax(
 	was := e.noEmit
 	e.noEmit = true
 	mark := e.markStyles()
+	bmark := e.markBoxes()
 	maxH := 0.0
 	maxX := startX
 
@@ -1285,6 +1284,7 @@ func (e *engine) measureFlexCrossMax(
 		}
 	}
 
+	e.resetBoxes(bmark)
 	e.resetStyles(mark)
 	e.noEmit = was
 

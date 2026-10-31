@@ -43,9 +43,7 @@ func (e *engine) buildGrid(node *html.Node, sty ResolvedStyle, availW, posX, pos
 	masonryRows := prepareGridTemplateStyles(&sty)
 
 	ml := e.scalePt(sty.MarginLeft)
-	boxNode := &box{ //nolint:exhaustruct // intentional zero fields
-		node: node, style: e.stylePtr(node), kind: boxKindBlock, x: posX + ml, y: posY,
-	}
+	boxNode := e.allocBox(node, e.stylePtr(node), boxKindBlock, posX+ml, posY)
 	boxNode.w = resolveUsedWidth(sty, availW, e)
 	contentX, contentW := e.contentBox(boxNode.x, boxNode.w, &sty)
 
