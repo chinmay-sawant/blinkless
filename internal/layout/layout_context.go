@@ -38,8 +38,12 @@ func newEngine(
 	}
 }
 
+const minBoxesCap = 16
+
 // finalizeResult builds the display list and Result from the constructed
 // engine (extracted from LayoutContext for clarity).
+//
+//nolint:funlen // constructs and finalizes engine result
 func finalizeResult(eng *engine, root *html.Node, opts Options) (*Result, error) {
 	eng.seedInitialContainingBlock()
 	boxNode := eng.build(root, opts.Width, 0, 0)
@@ -59,21 +63,24 @@ func finalizeResult(eng *engine, root *html.Node, opts Options) (*Result, error)
 	// and CSS transforms (those passes need final op indices).
 	eng.finalizeChrome(boxNode)
 
-	boxesCap := len(eng.boxChunks) * 64
-	if boxesCap < 16 {
-		boxesCap = 16
+	boxesCap := len(eng.boxChunks) * defaultBoxChunkSize
+	if boxesCap < minBoxesCap {
+		boxesCap = minBoxesCap
 	}
+
 	boxes := make([]*box, 0, boxesCap)
 	flattenBoxes(boxNode, &boxes)
 
 	for _, c := range eng.spareChunks {
 		putStyleChunk(c)
 	}
+
 	eng.spareChunks = nil
 
 	for _, c := range eng.spareBoxChunks {
 		putBoxChunk(c)
 	}
+
 	eng.spareBoxChunks = nil
 
 	res := &Result{ //nolint:exhaustruct // intentional zero fields

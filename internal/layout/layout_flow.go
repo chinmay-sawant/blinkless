@@ -1547,15 +1547,45 @@ func shiftDeferredChromeFrom(entries []chromeEntry, deltaX, deltaY float64) {
 // shiftDeferredChrome translates the chrome ops of every deferred entry owned
 // by b's subtree so finalizeChrome places backgrounds/borders at the new
 // geometry.
+func boxContains(root, target *box) bool {
+	if root == nil || target == nil {
+		return false
+	}
+
+	if root == target {
+		return true
+	}
+
+	for _, child := range root.children {
+		if boxContains(child, target) {
+			return true
+		}
+	}
+
+	return false
+}
+
+//nolint:cyclop // handles single-box and subtree chrome coordinate translation
 func shiftDeferredChrome(entries []chromeEntry, boxNode *box, deltaX, deltaY float64) {
-	if len(entries) == 0 {
+	if len(entries) == 0 || (deltaX == 0 && deltaY == 0) || boxNode == nil {
 		return
 	}
 
-	inSubtree := markBoxSubtree(boxNode)
+	if len(boxNode.children) == 0 {
+		for idx := range entries {
+			if entries[idx].b == boxNode {
+				for j := range entries[idx].ops {
+					entries[idx].ops[j].X += deltaX
+					entries[idx].ops[j].Y += deltaY
+				}
+			}
+		}
+
+		return
+	}
 
 	for idx := range entries {
-		if _, ok := inSubtree[entries[idx].b]; !ok {
+		if !boxContains(boxNode, entries[idx].b) {
 			continue
 		}
 
@@ -1566,9 +1596,7 @@ func shiftDeferredChrome(entries []chromeEntry, boxNode *box, deltaX, deltaY flo
 	}
 }
 
-// markBoxSubtree returns the set of boxes in b's subtree (b included). The
-// map is pre-sized with one counting walk so a large shifted subtree does
-// not leave a chain of discarded growth tables behind.
+// markBoxSubtree returns the set of boxes in b's subtree (b included).
 func markBoxSubtree(boxNode *box) map[*box]struct{} {
 	inSubtree := make(map[*box]struct{}, countSubtreeBoxes(boxNode))
 

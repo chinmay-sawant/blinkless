@@ -37,18 +37,27 @@ type PlacedElement struct {
 	H         float64
 }
 
+const defaultOpIDsMultiplier = 4
+
 // WalkPlaced walks laid-out element boxes in document order, invoking fn for each element.
 // A nil result does nothing.
+//
+//nolint:varnamelen // fn is standard callback identifier
 func WalkPlaced(res *Result, fn func(elem *PlacedElement)) {
 	if res == nil || res.root == nil {
 		return
 	}
 
-	allIDs := make([]uint64, 0, len(res.Ops))
+	allIDs := make([]uint64, 0, len(res.Ops)*defaultOpIDsMultiplier)
+
 	var item PlacedElement
-	walkPlacedFunc(res.root, res.Ops, -1, IdentityMatrix(), svgViewport{}, fn, &allIDs, 0, &item)
+
+	viewport := svgViewport{x: 0, y: 0, w: 0, h: 0, set: false}
+
+	walkPlacedFunc(res.root, res.Ops, -1, IdentityMatrix(), viewport, fn, &allIDs, 0, &item)
 }
 
+//nolint:varnamelen // fn is standard callback identifier
 func walkPlacedFunc(
 	boxNode *box, ops []Op, parentIndex int, parentAccum Matrix2D, viewport svgViewport,
 	fn func(elem *PlacedElement), allIDs *[]uint64, index int, item *PlacedElement,
@@ -92,6 +101,7 @@ func walkPlacedFunc(
 		}
 		childParent = index
 		index++
+
 		fn(item)
 	}
 
@@ -134,15 +144,36 @@ func elementOverflowClip(boxNode *box) [4]float64 {
 	return [4]float64{c.x, c.y, c.w, c.h}
 }
 
-var emptyOperationIDs = make([]uint64, 0)
+//nolint:gochecknoglobals // non-nil empty slice for elements without operation ownership
+var emptyOperationIDs = []uint64{}
 
+//nolint:cyclop // extracts valid non-zero operation IDs within range
 func appendOperationIDs(ops []Op, start, end int, allIDs *[]uint64) []uint64 {
-	if start < 0 || end < start {
+	if start < 0 || end < start || start >= len(ops) {
+		return emptyOperationIDs
+	}
+
+	if end >= len(ops) {
+		end = len(ops) - 1
+	}
+
+	hasAny := false
+
+	for index := start; index <= end; index++ {
+		if ops[index].ID != 0 {
+			hasAny = true
+
+			break
+		}
+	}
+
+	if !hasAny {
 		return emptyOperationIDs
 	}
 
 	startIdx := len(*allIDs)
-	for index := start; index <= end && index < len(ops); index++ {
+
+	for index := start; index <= end; index++ {
 		if ops[index].ID != 0 {
 			*allIDs = append(*allIDs, ops[index].ID)
 		}
@@ -153,9 +184,4 @@ func appendOperationIDs(ops []Op, start, end int, allIDs *[]uint64) []uint64 {
 	}
 
 	return (*allIDs)[startIdx:]
-}
-
-func operationIDs(ops []Op, start, end int) []uint64 {
-	var ids []uint64
-	return appendOperationIDs(ops, start, end, &ids)
 }

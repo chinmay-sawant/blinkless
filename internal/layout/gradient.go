@@ -491,20 +491,24 @@ type gradPNGPool struct {
 	p sync.Pool
 }
 
-func (p *gradPNGPool) Get() *png.EncoderBuffer {
-	if v := p.p.Get(); v != nil {
-		return v.(*png.EncoderBuffer)
+func (pool *gradPNGPool) Get() *png.EncoderBuffer {
+	if v := pool.p.Get(); v != nil {
+		if buf, ok := v.(*png.EncoderBuffer); ok {
+			return buf
+		}
 	}
+
 	return nil
 }
 
-func (p *gradPNGPool) Put(b *png.EncoderBuffer) {
-	p.p.Put(b)
+func (pool *gradPNGPool) Put(b *png.EncoderBuffer) {
+	pool.p.Put(b)
 }
 
+//nolint:gochecknoglobals // global encoder buffer pool for rasterizing CSS gradients
 var fastPNGEncoder = png.Encoder{
 	CompressionLevel: png.BestSpeed,
-	BufferPool:       &gradPNGPool{},
+	BufferPool:       &gradPNGPool{p: sync.Pool{New: nil}},
 }
 
 type gradCacheKey struct {
@@ -520,6 +524,7 @@ type gradCacheVal struct {
 	ok   bool
 }
 
+//nolint:gochecknoglobals // global memoization cache for rasterized gradient textures
 var (
 	gradCacheMu sync.RWMutex
 	gradCache   = make(map[gradCacheKey]gradCacheVal, 256)
@@ -606,6 +611,7 @@ const (
 	maxRGBFloat    = 255.0
 )
 
+//nolint:gochecknoglobals // global buffer pool for PNG encoded bytes
 var gradBufPool = sync.Pool{
 	New: func() any {
 		return new(bytes.Buffer)
@@ -613,12 +619,18 @@ var gradBufPool = sync.Pool{
 }
 
 func encodeGradPNG(img image.Image) []byte {
-	buf := gradBufPool.Get().(*bytes.Buffer)
+	buf, ok := gradBufPool.Get().(*bytes.Buffer)
+	if !ok {
+		buf = new(bytes.Buffer)
+	}
+
 	buf.Reset()
 	defer gradBufPool.Put(buf)
+
 	if err := fastPNGEncoder.Encode(buf, img); err != nil {
 		return nil
 	}
+
 	return append([]byte(nil), buf.Bytes()...)
 }
 

@@ -4,7 +4,6 @@ import (
 	"math"
 	"slices"
 	"sort"
-	"sync"
 
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
@@ -132,18 +131,21 @@ func (e *engine) buildFlex(node *html.Node, sty ResolvedStyle, availW, x, posY f
 // stays within the length budget; the partition order is unchanged.
 func (e *engine) partitionFlexOutOfFlow(kids []*html.Node) ([]*html.Node, []*html.Node, *[]*html.Node) {
 	hasOutOfFlow := false
+
 	for _, kid := range kids {
 		if isOutOfFlowNode(kid, e.stylePtr(kid)) {
 			hasOutOfFlow = true
+
 			break
 		}
 	}
+
 	if !hasOutOfFlow {
 		return kids, nil, nil
 	}
 
-	p := getFlexKids(len(kids))
-	flowKids := *p
+	kidPoolBuf := getFlexKids(len(kids))
+	flowKids := *kidPoolBuf
 
 	var deferred []*html.Node
 
@@ -155,8 +157,9 @@ func (e *engine) partitionFlexOutOfFlow(kids []*html.Node) ([]*html.Node, []*htm
 		}
 	}
 
-	*p = flowKids
-	return flowKids, deferred, p
+	*kidPoolBuf = flowKids
+
+	return flowKids, deferred, kidPoolBuf
 }
 
 // resolveFlexContentHeight applies the definite-height or constraint path to
@@ -208,168 +211,6 @@ func (e *engine) flushFlexDeferredOutOfFlow(
 	}
 
 	e.flushDeferredFlowChildren(boxNode, deferred, cbHeight, absCBW, absCBX, absOriginY)
-}
-
-// flexChildren returns the element flex items plus anonymous flex items for
-// direct text runs. CSS turns non-whitespace text directly under a flex
-// container into anonymous block-level flex items; dropping those nodes makes
-// prose after an inline marker disappear from the display list.
-var flexKidPool = sync.Pool{
-	New: func() any {
-		s := make([]*html.Node, 0, 32)
-		return &s
-	},
-}
-
-func getFlexKids(n int) *[]*html.Node {
-	p := flexKidPool.Get().(*[]*html.Node)
-	*p = (*p)[:0]
-	if cap(*p) < n {
-		*p = make([]*html.Node, 0, n)
-	}
-	return p
-}
-
-func putFlexKids(p *[]*html.Node) {
-	if p == nil || cap(*p) > 2048 {
-		return
-	}
-	clear(*p)
-	*p = (*p)[:0]
-	flexKidPool.Put(p)
-}
-
-func (e *engine) flexChildren(node *html.Node, parentStyle *ResolvedStyle) []*html.Node {
-	kids, _ := e.flexChildrenPooled(node, parentStyle)
-	return kids
-}
-
-func (e *engine) flexChildrenPooled(node *html.Node, parentStyle *ResolvedStyle) ([]*html.Node, *[]*html.Node) {
-	allElements := true
-	for _, child := range node.Children {
-		if child.Type != html.ElementNode {
-			allElements = false
-			break
-		}
-		if cs := e.stylePtr(child); cs.Display == cssDisplayNone {
-			allElements = false
-			break
-		}
-	}
-	if allElements {
-		return node.Children, nil
-	}
-
-	p := getFlexKids(len(node.Children))
-	kids := *p
-
-	for idx := 0; idx < len(node.Children); idx++ {
-		child := node.Children[idx]
-		if child.Type == html.ElementNode {
-			if cs := e.stylePtr(child); cs.Display != cssDisplayNone {
-				kids = append(kids, child)
-			}
-
-			continue
-		}
-
-		if child.Type != html.TextNode || isAllWhitespace(child.Text) {
-			continue
-		}
-
-		textNodes := []*html.Node{child}
-
-		for idx+1 < len(node.Children) && node.Children[idx+1].Type == html.TextNode {
-			idx++
-			if !isAllWhitespace(node.Children[idx].Text) {
-				textNodes = append(textNodes, node.Children[idx])
-			}
-		}
-
-		anonymous := &html.Node{ //nolint:exhaustruct // synthetic anonymous flex item
-			Type: html.ElementNode, Name: "span", Parent: node, Children: textNodes,
-		}
-		anonymousStyle := e.allocAnonymousFlexItemStyle(parentStyle)
-		e.setSyntheticStyle(anonymous, anonymousStyle)
-
-		kids = append(kids, anonymous)
-	}
-
-	*p = kids
-	return kids, p
-}
-
-// anonymousFlexItemStyle preserves inherited text properties while removing
-// the flex container's own box and layout properties from the anonymous item.
-//
-//nolint:funlen // resets the complete anonymous box model
-func applyAnonymousFlexItemStyle(style *ResolvedStyle) {
-	style.Display = displayBlock
-	style.Position = positionStatic
-	style.Float = cssDisplayNone
-	style.Clear = cssDisplayNone
-	style.FlexDirection = fxRow
-	style.FlexWrap = cssWhiteSpaceNowrap
-	style.FlexGrow = 0
-	style.FlexShrink = 1
-	style.FlexBasis = -1
-	style.FlexBasisPercent = -1
-	style.FlexOrder = 0
-	style.Width = -1
-	style.WidthPercent = -1
-	style.Height = -1
-	style.HeightPercent = -1
-	style.MinWidth = 0
-	style.MinWidthPercent = -1
-	style.MinWidthSet = false
-	style.MaxWidth = -1
-	style.MaxWidthPercent = -1
-	style.MinHeight = 0
-	style.MinHeightPercent = -1
-	style.MaxHeight = -1
-	style.MarginTop = 0
-	style.MarginRight = 0
-	style.MarginBottom = 0
-	style.MarginLeft = 0
-	style.MarginTopAuto = false
-	style.MarginRightAuto = false
-	style.MarginBottomAuto = false
-	style.MarginLeftAuto = false
-	style.PaddingTop = 0
-	style.PaddingRight = 0
-	style.PaddingBottom = 0
-	style.PaddingLeft = 0
-	style.BorderTop = border{}    //nolint:exhaustruct // zero border
-	style.BorderRight = border{}  //nolint:exhaustruct // zero border
-	style.BorderBottom = border{} //nolint:exhaustruct // zero border
-	style.BorderLeft = border{}   //nolint:exhaustruct // zero border
-	style.BorderRadius = 0
-	style.BorderRadiusPercent = 0
-	style.BorderRadiusTopLeft = 0
-	style.BorderRadiusTopRight = 0
-	style.BorderRadiusBottomRight = 0
-	style.BorderRadiusBottomLeft = 0
-	style.BGColor = [4]float64{}
-	style.ListStyleType = cssDisplayNone
-	style.PageBreakBefore = ""
-	style.PageBreakAfter = ""
-	style.PageBreakInside = ""
-	style.HasTransform = false
-}
-
-func (e *engine) allocAnonymousFlexItemStyle(parent *ResolvedStyle) *ResolvedStyle {
-	style := e.allocStyle(parent)
-	applyAnonymousFlexItemStyle(style)
-	return style
-}
-
-func anonymousFlexItemStyle(parent *ResolvedStyle) ResolvedStyle {
-	var style ResolvedStyle
-	if parent != nil {
-		style = *parent
-	}
-	applyAnonymousFlexItemStyle(&style)
-	return style
 }
 
 //nolint:funlen // row flow combines line formation, sizing, and placement
@@ -1778,6 +1619,8 @@ func (e *engine) flexItemBaseHeight(node *html.Node, style *ResolvedStyle, conte
 		return height
 	}
 
+	bmark := e.markBoxes()
+	smark := e.markStyles()
 	was := e.noEmit
 	e.noEmit = true
 	measured := e.build(node, contentW, 0, 0)
@@ -1786,6 +1629,8 @@ func (e *engine) flexItemBaseHeight(node *html.Node, style *ResolvedStyle, conte
 	if measured != nil {
 		height = measured.height
 	}
+	e.resetBoxes(bmark)
+	e.resetStyles(smark)
 
 	if height <= 0 {
 		height = padV
@@ -1888,12 +1733,16 @@ func (e *engine) flexMinCrossMainSizeUncached(node *html.Node, baseH, mainSize f
 	// truncation below cannot drop it: finalizeChrome splices the stale entry
 	// back at its old index (case-05 painted its percentage child a second
 	// time at the container origin). Same contract as measureCellHeight.
+	bmark := e.markBoxes()
+	smark := e.markStyles()
 	was := e.noEmit
 	e.noEmit = true
 	start := len(e.ops)
 	contentSug := e.layoutCell(node, *cstate, indefiniteContentCap)
 	e.ops = e.ops[:start]
 	e.noEmit = was
+	e.resetBoxes(bmark)
+	e.resetStyles(smark)
 
 	if contentSug < padV {
 		contentSug = padV + e.scalePt(cstate.FontSize)*textLineHeightFactor

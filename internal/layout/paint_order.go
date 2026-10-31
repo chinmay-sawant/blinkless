@@ -1,6 +1,8 @@
 package layout
 
-import "sort"
+import (
+	"slices"
+)
 
 const (
 	paintLayerChrome = iota
@@ -34,8 +36,12 @@ func paintOrderSubset(ops []Op, idxs []int) []int {
 
 // sortPaintIndices sorts an existing operation subset without changing which
 // operations it contains. Pagination tests use this compatibility helper for
-// fixed and per-page lists; the comparison itself lives in paintOrderBefore.
+// fixed and per-page lists; the comparison itself lives in comparePaintOrder.
 func sortPaintIndices(ops []Op, idxs []int) {
+	if len(idxs) <= 1 {
+		return
+	}
+
 	if hasGroups(ops, idxs) {
 		ordered := groupedPaintOrder(ops, idxs)
 		copy(idxs, ordered)
@@ -43,8 +49,22 @@ func sortPaintIndices(ops []Op, idxs []int) {
 		return
 	}
 
-	sort.SliceStable(idxs, func(i, j int) bool {
-		return paintOrderBefore(ops, idxs[i], idxs[j])
+	alreadySorted := true
+
+	for i := range len(idxs) - 1 {
+		if comparePaintOrder(ops, idxs[i], idxs[i+1]) > 0 {
+			alreadySorted = false
+
+			break
+		}
+	}
+
+	if alreadySorted {
+		return
+	}
+
+	slices.SortStableFunc(idxs, func(a, b int) int {
+		return comparePaintOrder(ops, a, b)
 	})
 }
 
@@ -218,6 +238,10 @@ func (builder *paintOrderBuilder) collectGroupOperation(
 }
 
 func appendSortedPaintItems(ops []Op, items []paintOrderItem, out *[]int) {
+	if len(items) == 0 {
+		return
+	}
+
 	itemIndex := func(item paintOrderItem) int {
 		if item.group == nil {
 			return item.op
@@ -226,8 +250,8 @@ func appendSortedPaintItems(ops []Op, items []paintOrderItem, out *[]int) {
 		return item.group.anchor
 	}
 
-	sort.SliceStable(items, func(i, j int) bool {
-		return paintOrderBefore(ops, itemIndex(items[i]), itemIndex(items[j]))
+	slices.SortStableFunc(items, func(a, b paintOrderItem) int {
+		return comparePaintOrder(ops, itemIndex(a), itemIndex(b))
 	})
 
 	for _, item := range items {
@@ -254,7 +278,8 @@ func appendSortedPaintItems(ops []Op, items []paintOrderItem, out *[]int) {
 	}
 }
 
-func paintOrderBefore(ops []Op, left, right int) bool {
+//nolint:cyclop // compares z-index, position, and chrome layers
+func comparePaintOrder(ops []Op, left, right int) int {
 	leftOp, rightOp := &ops[left], &ops[right]
 
 	leftZ, rightZ := 0, 0
@@ -267,19 +292,39 @@ func paintOrderBefore(ops []Op, left, right int) bool {
 	}
 
 	if leftZ != rightZ {
-		return leftZ < rightZ
+		if leftZ < rightZ {
+			return -1
+		}
+
+		return 1
 	}
 
 	if leftOp.Positioned != rightOp.Positioned {
-		return !leftOp.Positioned
+		if !leftOp.Positioned {
+			return -1
+		}
+
+		return 1
 	}
 
 	leftLayer, rightLayer := paintLayer(leftOp), paintLayer(rightOp)
 	if leftLayer != rightLayer {
-		return leftLayer < rightLayer
+		if leftLayer < rightLayer {
+			return -1
+		}
+
+		return 1
 	}
 
-	return left < right
+	if left < right {
+		return -1
+	}
+
+	if left > right {
+		return 1
+	}
+
+	return 0
 }
 
 // paintLayer orders ops within a z-index band: ordinary chrome under content,

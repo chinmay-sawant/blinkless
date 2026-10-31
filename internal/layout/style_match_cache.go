@@ -4,9 +4,18 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
 	"github.com/chinmay-sawant/blinkless/internal/html"
+)
+
+const maxSingleAttrCacheSize = 1024
+
+//nolint:gochecknoglobals // class attribute key memoization cache
+var (
+	singleAttrCacheMu sync.RWMutex
+	singleAttrCache   = make(map[string]string)
 )
 
 // ruleHit is one selector match from the shared cascade rule walk. rule
@@ -82,12 +91,24 @@ func (ctx *styleContext) matchTag(node *html.Node) string {
 // sorted names so the key is exact and map-iteration order never leaks in.
 // Single-attribute elements skip the name slice and the sort; the builder is
 // pre-sized so the common shapes allocate exactly the result string.
+//
+//nolint:funlen // encodes attribute map with fast paths for small maps
 func canonicalAttrKey(attrs map[string]string) string {
 	switch len(attrs) {
 	case 0:
 		return ""
 	case 1:
 		for name, value := range attrs {
+			if name == "class" {
+				singleAttrCacheMu.RLock()
+				cached, ok := singleAttrCache[value]
+				singleAttrCacheMu.RUnlock()
+
+				if ok {
+					return cached
+				}
+			}
+
 			var out strings.Builder
 
 			out.Grow(len(name) + len(value) + attrKeyOverhead)
@@ -99,8 +120,17 @@ func canonicalAttrKey(attrs map[string]string) string {
 			out.WriteByte(':')
 			out.WriteString(value)
 			out.WriteByte(';')
+			res := out.String()
 
-			return out.String()
+			if name == "class" {
+				singleAttrCacheMu.Lock()
+				if len(singleAttrCache) < maxSingleAttrCacheSize {
+					singleAttrCache[value] = res
+				}
+				singleAttrCacheMu.Unlock()
+			}
+
+			return res
 		}
 	}
 

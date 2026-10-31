@@ -484,6 +484,24 @@ func chromeMustSpliceImmediately(st ResolvedStyle) bool {
 	return false
 }
 
+func hasPotentialChrome(sty *ResolvedStyle, boxNode *box) bool {
+	if sty.BGColor[3] > 0 || sty.BackgroundImage != "" || sty.BoxShadowSet || sty.BoxShadowRaw != "" {
+		return true
+	}
+	if sty.BorderTop.Width > 0 || sty.BorderRight.Width > 0 ||
+		sty.BorderBottom.Width > 0 || sty.BorderLeft.Width > 0 ||
+		sty.BorderImageSource != "" {
+		return true
+	}
+	if sty.OutlineWidth > 0 && sty.OutlineStyle != "" && sty.OutlineStyle != cssDisplayNone {
+		return true
+	}
+	if boxNode != nil && isColorSchemeCanvasRoot(boxNode) {
+		return true
+	}
+	return false
+}
+
 // prependChrome inserts background + border ops at insertAt so they paint
 // under any content ops already appended for this box.
 //
@@ -502,6 +520,10 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty ResolvedStyle, po
 
 	if overflowClipsPaint(sty.Overflow) && insertAt >= 0 && insertAt <= len(e.ops) {
 		clipOpsSlice(e.ops[insertAt:], e.paddingBoxRect(posX, posY, width, height, sty))
+	}
+
+	if !hasPotentialChrome(&sty, boxNode) {
+		return
 	}
 
 	var chrome []Op
