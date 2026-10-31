@@ -462,9 +462,8 @@ func (e *engine) buildColumnItems(
 			leftY += e.scalePt(cstate.MarginTop)
 		}
 		// Force border-box height so grow/shrink targets stick through build.
-		// One 6KB copy per item: both axes mutate the same override in place.
 		override := e.flexColumnItemOverride(item.n, cstate, style, heights[idx], contentW)
-		cblock := e.buildWithStyle(item.n, &override, contentW, contentX, topY+leftY)
+		cblock := e.buildWithStyle(item.n, override, contentW, contentX, topY+leftY)
 
 		if cblock == nil {
 			leftY += heights[idx]
@@ -515,10 +514,9 @@ func (e *engine) buildColumnItems(
 
 func (e *engine) flexColumnItemOverride(
 	node *html.Node, itemStyle, containerStyle *ResolvedStyle, height, contentW float64,
-) ResolvedStyle {
-	// One 6KB copy per item: both axes mutate the same override in place.
-	override := *itemStyle
-	e.forceFlexItemCrossSize(&override, height)
+) *ResolvedStyle {
+	override := e.allocStyle(itemStyle)
+	e.forceFlexItemCrossSize(override, height)
 
 	if flexItemColumnCrossStretch(containerStyle, itemStyle) || itemStyle.Width >= 0 || itemStyle.WidthPercent >= 0 {
 		return override
@@ -529,7 +527,7 @@ func (e *engine) flexColumnItemOverride(
 		crossW = contentW
 	}
 
-	e.forceFlexItemCrossWidth(&override, crossW)
+	e.forceFlexItemCrossWidth(override, crossW)
 
 	return override
 }

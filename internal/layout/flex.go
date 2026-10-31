@@ -127,6 +127,17 @@ func (e *engine) buildFlex(node *html.Node, sty ResolvedStyle, availW, x, posY f
 // deferred out-of-flow nodes. Split from buildFlex so the container assembly
 // stays within the length budget; the partition order is unchanged.
 func (e *engine) partitionFlexOutOfFlow(kids []*html.Node) ([]*html.Node, []*html.Node) {
+	hasOutOfFlow := false
+	for _, kid := range kids {
+		if isOutOfFlowNode(kid, e.stylePtr(kid)) {
+			hasOutOfFlow = true
+			break
+		}
+	}
+	if !hasOutOfFlow {
+		return kids, nil
+	}
+
 	flowKids := make([]*html.Node, 0, len(kids))
 
 	var deferred []*html.Node
@@ -198,6 +209,21 @@ func (e *engine) flushFlexDeferredOutOfFlow(
 // container into anonymous block-level flex items; dropping those nodes makes
 // prose after an inline marker disappear from the display list.
 func (e *engine) flexChildren(node *html.Node, parentStyle *ResolvedStyle) []*html.Node {
+	allElements := true
+	for _, child := range node.Children {
+		if child.Type != html.ElementNode {
+			allElements = false
+			break
+		}
+		if cs := e.stylePtr(child); cs.Display == cssDisplayNone {
+			allElements = false
+			break
+		}
+	}
+	if allElements {
+		return node.Children
+	}
+
 	kids := make([]*html.Node, 0, len(node.Children))
 
 	for idx := 0; idx < len(node.Children); idx++ {
@@ -1239,6 +1265,7 @@ func (e *engine) measureFlexCrossMax(
 ) float64 {
 	was := e.noEmit
 	e.noEmit = true
+	mark := e.markStyles()
 	maxH := 0.0
 	maxX := startX
 
@@ -1258,6 +1285,7 @@ func (e *engine) measureFlexCrossMax(
 		}
 	}
 
+	e.resetStyles(mark)
 	e.noEmit = was
 
 	return maxH
@@ -1339,15 +1367,14 @@ func (e *engine) buildFlexRowItem(
 	node *html.Node, style *ResolvedStyle, forceStretch bool,
 	targetCross, availW, posX, posY float64,
 ) *box {
-	// One 6KB copy per item: both axes mutate the same override in place.
-	override := *style
-	e.forceFlexItemMainSize(&override, availW)
+	override := e.allocStyle(style)
+	e.forceFlexItemMainSize(override, availW)
 
 	if forceStretch {
-		e.forceFlexItemCrossSize(&override, targetCross)
+		e.forceFlexItemCrossSize(override, targetCross)
 	}
 
-	return e.buildWithStyle(node, &override, availW, posX, posY)
+	return e.buildWithStyle(node, override, availW, posX, posY)
 }
 
 //nolint:cyclop,funlen,gocognit,wsl // row placement keeps main- and cross-axis phases together

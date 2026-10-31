@@ -21,6 +21,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
 	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
@@ -211,6 +212,7 @@ type Result struct {
 	// paint splits at another. Zero means no page-height-dependent snapping
 	// ran, so any paint height is acceptable.
 	pageSnapHeight float64
+	styleChunks    []*[]ResolvedStyle
 
 	// Pages maps page index → indices into Ops of the ops painted on that
 	// page. Filled by Paint using its pagination semantics (an op goes to
@@ -614,6 +616,8 @@ type engine struct {
 	styles          map[*html.Node]*ResolvedStyle
 	syntheticStyles map[*html.Node]*ResolvedStyle
 	styleOverrides  []styleOverride
+	styleChunks     []*[]ResolvedStyle
+	spareChunks     []*[]ResolvedStyle
 	// styleIndex narrows selector matching for this layout's sheets. It is
 	// built once and shared by the cascade and every pseudo-content lookup.
 	styleIndex *ruleIndex
@@ -1264,6 +1268,94 @@ func (e *engine) popStyleOverrides(n int) {
 	}
 
 	e.styleOverrides = e.styleOverrides[:len(e.styleOverrides)-n]
+}
+
+// Release releases resources associated with Result back to pools.
+func (r *Result) Release() {
+	if r == nil {
+		return
+	}
+	for _, c := range r.styleChunks {
+		putStyleChunk(c)
+	}
+	r.styleChunks = nil
+}
+
+var styleChunkPool = sync.Pool{
+	New: func() any {
+		b := make([]ResolvedStyle, 0, 64)
+		return &b
+	},
+}
+
+func getStyleChunk() *[]ResolvedStyle {
+	c := styleChunkPool.Get().(*[]ResolvedStyle)
+	*c = (*c)[:0]
+	return c
+}
+
+func putStyleChunk(c *[]ResolvedStyle) {
+	if c == nil {
+		return
+	}
+	clear(*c)
+	*c = (*c)[:0]
+	styleChunkPool.Put(c)
+}
+
+type styleMark struct {
+	chunkIdx int
+	itemIdx  int
+}
+
+func (e *engine) markStyles() styleMark {
+	if len(e.styleChunks) == 0 {
+		return styleMark{0, 0}
+	}
+	last := len(e.styleChunks) - 1
+	return styleMark{chunkIdx: last, itemIdx: len(*e.styleChunks[last])}
+}
+
+func (e *engine) resetStyles(m styleMark) {
+	if len(e.styleChunks) == 0 {
+		return
+	}
+	if m.chunkIdx < len(e.styleChunks) {
+		for i := m.chunkIdx + 1; i < len(e.styleChunks); i++ {
+			clear(*e.styleChunks[i])
+			*e.styleChunks[i] = (*e.styleChunks[i])[:0]
+			e.spareChunks = append(e.spareChunks, e.styleChunks[i])
+		}
+		e.styleChunks = e.styleChunks[:m.chunkIdx+1]
+		chunk := e.styleChunks[m.chunkIdx]
+		if m.itemIdx < len(*chunk) {
+			clear((*chunk)[m.itemIdx:])
+			*chunk = (*chunk)[:m.itemIdx]
+		}
+	}
+}
+
+func (e *engine) allocStyle(base *ResolvedStyle) *ResolvedStyle {
+	const chunkSize = 64
+	if len(e.styleChunks) == 0 || len(*e.styleChunks[len(e.styleChunks)-1]) == cap(*e.styleChunks[len(e.styleChunks)-1]) {
+		if len(e.spareChunks) > 0 {
+			last := len(e.spareChunks) - 1
+			c := e.spareChunks[last]
+			*c = (*c)[:0]
+			e.spareChunks = e.spareChunks[:last]
+			e.styleChunks = append(e.styleChunks, c)
+		} else {
+			e.styleChunks = append(e.styleChunks, getStyleChunk())
+		}
+	}
+	last := len(e.styleChunks) - 1
+	chunk := e.styleChunks[last]
+	if base != nil {
+		*chunk = append(*chunk, *base)
+	} else {
+		*chunk = append(*chunk, zeroResolvedStyle)
+	}
+	return &(*chunk)[len(*chunk)-1]
 }
 
 func flattenBoxes(boxNode *box, out *[]*box) {

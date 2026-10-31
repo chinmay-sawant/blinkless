@@ -9,6 +9,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
 )
@@ -468,6 +469,26 @@ func sampleStopsWithInterp(stops []gradientStop, t float64, linear bool) (r, g, 
 	return stops[n-1].r, stops[n-1].g, stops[n-1].b, stops[n-1].a
 }
 
+var fastPNGEncoder = png.Encoder{CompressionLevel: png.BestSpeed}
+
+type gradCacheKey struct {
+	raw     string
+	w, h    int
+	r, g, b float64
+	interp  string
+}
+
+type gradCacheVal struct {
+	data []byte
+	w, h int
+	ok   bool
+}
+
+var (
+	gradCacheMu sync.RWMutex
+	gradCache   = make(map[gradCacheKey]gradCacheVal, 256)
+)
+
 func renderGradientPNG(raw string, width, height float64, current [3]float64) ([]byte, int, int, bool) {
 	return renderGradientPNGWithInterp(raw, width, height, current, "srgb")
 }
@@ -504,19 +525,43 @@ func renderGradientPNGWithInterp(
 		imgH = maxGradDim
 	}
 
-	if lin, ok := parseLinearGradient(raw, current); ok {
-		return rasterizeLinearGradient(lin, imgW, imgH, gradientUsesLinearLight(interp))
+	key := gradCacheKey{
+		raw:    raw,
+		w:      imgW,
+		h:      imgH,
+		r:      current[0],
+		g:      current[1],
+		b:      current[2],
+		interp: interp,
 	}
 
-	if rad, ok := parseRadialGradient(raw, current); ok {
-		return rasterizeRadialGradient(rad, imgW, imgH, gradientUsesLinearLight(interp))
+	gradCacheMu.RLock()
+	cached, found := gradCache[key]
+	gradCacheMu.RUnlock()
+	if found {
+		return cached.data, cached.w, cached.h, cached.ok
 	}
 
-	if con, ok := parseConicGradient(raw, current); ok {
-		return rasterizeConicGradient(con, imgW, imgH, gradientUsesLinearLight(interp))
+	var data []byte
+	var ok bool
+	if lin, parsed := parseLinearGradient(raw, current); parsed {
+		data, imgW, imgH, ok = rasterizeLinearGradient(lin, imgW, imgH, gradientUsesLinearLight(interp))
+	} else if rad, parsed := parseRadialGradient(raw, current); parsed {
+		data, imgW, imgH, ok = rasterizeRadialGradient(rad, imgW, imgH, gradientUsesLinearLight(interp))
+	} else if con, parsed := parseConicGradient(raw, current); parsed {
+		data, imgW, imgH, ok = rasterizeConicGradient(con, imgW, imgH, gradientUsesLinearLight(interp))
 	}
 
-	return nil, 0, 0, false
+	if ok && data != nil {
+		gradCacheMu.Lock()
+		if len(gradCache) > 1024 {
+			clear(gradCache)
+		}
+		gradCache[key] = gradCacheVal{data: data, w: imgW, h: imgH, ok: ok}
+		gradCacheMu.Unlock()
+	}
+
+	return data, imgW, imgH, ok
 }
 
 const (
@@ -524,6 +569,22 @@ const (
 	degToRadFactor = 180.0
 	maxRGBFloat    = 255.0
 )
+
+var gradBufPool = sync.Pool{
+	New: func() any {
+		return new(bytes.Buffer)
+	},
+}
+
+func encodeGradPNG(img image.Image) []byte {
+	buf := gradBufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer gradBufPool.Put(buf)
+	if err := fastPNGEncoder.Encode(buf, img); err != nil {
+		return nil
+	}
+	return append([]byte(nil), buf.Bytes()...)
+}
 
 func rasterizeLinearGradient(lin *linearGradientSpec, imgW, imgH int, linear bool) ([]byte, int, int, bool) {
 	img := image.NewNRGBA(image.Rect(0, 0, imgW, imgH))
@@ -576,12 +637,12 @@ func rasterizeLinearGradient(lin *linearGradientSpec, imgW, imgH int, linear boo
 		}
 	}
 
-	var buf bytes.Buffer
-	if err := png.Encode(&buf, img); err != nil {
+	data := encodeGradPNG(img)
+	if data == nil {
 		return nil, 0, 0, false
 	}
 
-	return buf.Bytes(), imgW, imgH, true
+	return data, imgW, imgH, true
 }
 
 func rasterizeRadialGradient(rad *radialGradientSpec, imgW, imgH int, linear bool) ([]byte, int, int, bool) {
@@ -636,12 +697,12 @@ func rasterizeRadialGradient(rad *radialGradientSpec, imgW, imgH int, linear boo
 		}
 	}
 
-	var buf bytes.Buffer
-	if err := png.Encode(&buf, img); err != nil {
+	data := encodeGradPNG(img)
+	if data == nil {
 		return nil, 0, 0, false
 	}
 
-	return buf.Bytes(), imgW, imgH, true
+	return data, imgW, imgH, true
 }
 
 func rasterizeConicGradient(con *conicGradientSpec, imgW, imgH int, linear bool) ([]byte, int, int, bool) {
@@ -691,10 +752,10 @@ func rasterizeConicGradient(con *conicGradientSpec, imgW, imgH int, linear bool)
 		}
 	}
 
-	var buf bytes.Buffer
-	if err := png.Encode(&buf, img); err != nil {
+	data := encodeGradPNG(img)
+	if data == nil {
 		return nil, 0, 0, false
 	}
 
-	return buf.Bytes(), imgW, imgH, true
+	return data, imgW, imgH, true
 }

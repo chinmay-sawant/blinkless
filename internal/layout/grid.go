@@ -721,11 +721,11 @@ func emitGridItem(
 	var cblock *box
 
 	if buildH > 0 {
-		override := *cstate
+		override := eng.allocStyle(cstate)
 		override.Height = buildH
 		override.HeightPercent = -1
 		override.BoxSizing = borderBox
-		cblock = eng.buildWithStyle(pbox.n, &override, buildW, pbox.cx, targetY)
+		cblock = eng.buildWithStyle(pbox.n, override, buildW, pbox.cx, targetY)
 	} else {
 		cblock = eng.build(pbox.n, buildW, pbox.cx, targetY)
 	}

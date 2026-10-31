@@ -10,12 +10,21 @@ func OperationOwners(res *Result) []int {
 		return nil
 	}
 
+	return OperationOwnersPlaced(res, PlacedElements(res))
+}
+
+// OperationOwnersPlaced calculates operation owners using an already computed
+// slice of PlacedElements, avoiding a redundant tree walk.
+func OperationOwnersPlaced(res *Result, placed []PlacedElement) []int {
+	if res == nil {
+		return nil
+	}
+
 	owners := make([]int, len(res.Ops))
 	for index := range owners {
 		owners[index] = -1
 	}
 
-	placed := PlacedElements(res)
 	placedIndex := 0
 	walkOperationOwners(res.root, -1, &placedIndex, owners, placed)
 

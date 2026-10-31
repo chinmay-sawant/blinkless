@@ -62,6 +62,11 @@ func finalizeResult(eng *engine, root *html.Node, opts Options) (*Result, error)
 	boxes := make([]*box, 0)
 	flattenBoxes(boxNode, &boxes)
 
+	for _, c := range eng.spareChunks {
+		putStyleChunk(c)
+	}
+	eng.spareChunks = nil
+
 	res := &Result{ //nolint:exhaustruct // intentional zero fields
 		Ops:            eng.ops,
 		Width:          opts.Width,
@@ -71,6 +76,7 @@ func finalizeResult(eng *engine, root *html.Node, opts Options) (*Result, error)
 		rootBox:        boxNode,
 		boxes:          boxes,
 		styles:         eng.styles,
+		styleChunks:    eng.styleChunks,
 	}
 	if boxNode != nil {
 		res.Height = boxNode.y + boxNode.height

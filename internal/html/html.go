@@ -82,8 +82,20 @@ func (n *Node) FirstChild(name string) *Node {
 // TextContent concatenates all descendant text. Template contents are a
 // separate fragment and contribute nothing, matching DOM textContent.
 func (n *Node) TextContent() string {
-	var b strings.Builder
+	if n == nil {
+		return ""
+	}
+	if len(n.Children) == 0 {
+		if n.Type == TextNode {
+			return n.Text
+		}
+		return ""
+	}
+	if len(n.Children) == 1 && n.Children[0].Type == TextNode {
+		return n.Children[0].Text
+	}
 
+	var b strings.Builder
 	n.appendText(&b)
 
 	return b.String()

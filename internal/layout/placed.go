@@ -117,13 +117,25 @@ func elementOverflowClip(boxNode *box) [4]float64 {
 	return [4]float64{c.x, c.y, c.w, c.h}
 }
 
+var emptyOperationIDs = make([]uint64, 0)
+
 func operationIDs(ops []Op, start, end int) []uint64 {
 	if start < 0 || end < start {
-		return make([]uint64, 0)
+		return emptyOperationIDs
 	}
 
-	ids := make([]uint64, 0, end-start+1)
+	count := 0
+	for index := start; index <= end && index < len(ops); index++ {
+		if ops[index].ID != 0 {
+			count++
+		}
+	}
 
+	if count == 0 {
+		return emptyOperationIDs
+	}
+
+	ids := make([]uint64, 0, count)
 	for index := start; index <= end && index < len(ops); index++ {
 		if ops[index].ID != 0 {
 			ids = append(ids, ops[index].ID)

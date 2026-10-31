@@ -158,6 +158,7 @@ func (e *engine) measureVerticalColumnCrossMax(
 ) float64 {
 	was := e.noEmit
 	e.noEmit = true
+	mark := e.markStyles()
 	maxH := 0.0
 	leftX := startX
 	for idx, item := range items {
@@ -167,6 +168,7 @@ func (e *engine) measureVerticalColumnCrossMax(
 		}
 		leftX += widths[idx] + flexRowNormalMargins(e, item)
 	}
+	e.resetStyles(mark)
 	e.noEmit = was
 
 	return maxH
@@ -226,18 +228,17 @@ func (e *engine) buildVerticalColumnItems(
 			itemCross = e.measureVerticalColumnItemCross(item.n, itemStyle, widths[idx], leftX, topY+curY)
 		}
 
-		// One 6KB copy per item: both axes mutate the same override in place.
-		override := *itemStyle
-		e.forceFlexItemMainSize(&override, widths[idx])
+		override := e.allocStyle(itemStyle)
+		e.forceFlexItemMainSize(override, widths[idx])
 		if forceStretch {
-			e.forceFlexItemCrossSize(&override, crossSize)
+			e.forceFlexItemCrossSize(override, crossSize)
 		}
 		baselineY := -1.0
 		if baselineTarget != nil {
 			baselineY = baselineTarget[item.n]
 		}
 		crossY := verticalColumnCrossY(style, itemStyle, topY+curY, lineCross, itemCross, crossReverse, baselineY, e)
-		cblock := e.buildWithStyle(item.n, &override, widths[idx], leftX, crossY)
+		cblock := e.buildWithStyle(item.n, override, widths[idx], leftX, crossY)
 		if cblock != nil {
 			dx := leftX - cblock.x
 			dy := crossY - cblock.y
@@ -422,7 +423,7 @@ func (e *engine) buildVerticalRowItems(
 		}
 
 		override := e.flexColumnItemOverride(item.n, cstate, style, heights[idx], contentW)
-		cblock := e.buildWithStyle(item.n, &override, contentW, contentX, topY+leftY)
+		cblock := e.buildWithStyle(item.n, override, contentW, contentX, topY+leftY)
 		if cblock != nil {
 			targetX := verticalRowCrossX(style, contentX, contentW, cstate, cblock.w, e)
 			dx := targetX - cblock.x

@@ -301,7 +301,11 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 
 	forced, keep := ilayout.PageBreaks(res, heightPt)
 
-	return newDisplay(res, styled.Sheets, canvasPt, forced, keep, zoom, options.RetainState), nil
+	d := newDisplay(res, styled.Sheets, canvasPt, forced, keep, zoom, options.RetainState)
+	if !options.RetainState {
+		res.Release()
+	}
+	return d, nil
 }
 
 // newDisplay builds the public display list from a placement.
@@ -318,11 +322,12 @@ func newDisplay(
 	zoom float64,
 	retain bool,
 ) *Display {
+	placed := ilayout.PlacedElements(res)
 	display := &Display{
 		Ops:            res.Ops,
-		OpOwners:       ilayout.OperationOwners(res),
+		OpOwners:       ilayout.OperationOwnersPlaced(res, placed),
 		Order:          ilayout.PaintOrder(res.Ops),
-		Boxes:          boxesFrom(ilayout.PlacedElements(res)),
+		Boxes:          boxesFrom(placed),
 		Keyframes:      keyframesFrom(sheets),
 		Width:          int(res.Width * ptToPx),
 		Height:         int(canvasPt * ptToPx),
