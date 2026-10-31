@@ -584,6 +584,7 @@ func (e *engine) isGridOrFlexItem(n *html.Node) bool {
 func (e *engine) buildHR(n *html.Node, sty ResolvedStyle, availW, posX, posY float64) *box {
 	boxNode := e.allocBox(n, e.stylePtr(n), boxKindReplaced, posX, posY)
 	boxNode.w = availW
+
 	if sty.Width >= 0 {
 		boxNode.w = e.scalePt(sty.Width)
 	}

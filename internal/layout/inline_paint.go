@@ -1827,9 +1827,11 @@ func (e *engine) inlineFontMetrics(text string, style *ResolvedStyle) (float64, 
 
 	size := style.FontSize * e.scale
 	primary := e.faceFor(style)
+
 	if primary == nil {
 		primary = e.font
 	}
+
 	if text == "" || (primary != nil && faceRunAllPrimary(text, primary)) {
 		return e.fontAscentFace(primary, size), e.fontDescentFace(primary, size)
 	}

@@ -177,7 +177,8 @@ func (e *engine) appendGradientLayer(
 		IsJPEG:       false,
 		IsBackground: true,
 	}).withImage(pngData, imgW, imgH, "")
-	if blendMode := backgroundBlendModeForLayer(sty.BackgroundBlendMode, layerIndex); blendMode != "" && blendMode != blendNormal {
+	blendMode := backgroundBlendModeForLayer(sty.BackgroundBlendMode, layerIndex)
+	if blendMode != "" && blendMode != blendNormal {
 		baseOp = baseOp.withBlendMode(blendMode)
 	}
 	if sty.Filter != "" {

@@ -1551,17 +1551,21 @@ func boxContains(root, target *box) bool {
 	if root == nil || target == nil {
 		return false
 	}
+
 	if root == target {
 		return true
 	}
-	for _, c := range root.children {
-		if boxContains(c, target) {
+
+	for _, child := range root.children {
+		if boxContains(child, target) {
 			return true
 		}
 	}
+
 	return false
 }
 
+//nolint:cyclop // handles single-box and subtree chrome coordinate translation
 func shiftDeferredChrome(entries []chromeEntry, boxNode *box, deltaX, deltaY float64) {
 	if len(entries) == 0 || (deltaX == 0 && deltaY == 0) || boxNode == nil {
 		return
@@ -1576,6 +1580,7 @@ func shiftDeferredChrome(entries []chromeEntry, boxNode *box, deltaX, deltaY flo
 				}
 			}
 		}
+
 		return
 	}
 

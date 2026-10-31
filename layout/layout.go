@@ -240,6 +240,7 @@ func boxesFrom(placed []ilayout.PlacedElement) []Box {
 	for i := range placed {
 		boxes[i] = boxFrom(&placed[i])
 	}
+
 	return boxes
 }
 

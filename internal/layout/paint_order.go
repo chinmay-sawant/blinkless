@@ -36,11 +36,12 @@ func paintOrderSubset(ops []Op, idxs []int) []int {
 
 // sortPaintIndices sorts an existing operation subset without changing which
 // operations it contains. Pagination tests use this compatibility helper for
-// fixed and per-page lists; the comparison itself lives in paintOrderBefore.
+// fixed and per-page lists; the comparison itself lives in comparePaintOrder.
 func sortPaintIndices(ops []Op, idxs []int) {
 	if len(idxs) <= 1 {
 		return
 	}
+
 	if hasGroups(ops, idxs) {
 		ordered := groupedPaintOrder(ops, idxs)
 		copy(idxs, ordered)
@@ -49,12 +50,15 @@ func sortPaintIndices(ops []Op, idxs []int) {
 	}
 
 	alreadySorted := true
-	for i := 0; i < len(idxs)-1; i++ {
+
+	for i := range len(idxs) - 1 {
 		if comparePaintOrder(ops, idxs[i], idxs[i+1]) > 0 {
 			alreadySorted = false
+
 			break
 		}
 	}
+
 	if alreadySorted {
 		return
 	}
@@ -237,6 +241,7 @@ func appendSortedPaintItems(ops []Op, items []paintOrderItem, out *[]int) {
 	if len(items) == 0 {
 		return
 	}
+
 	itemIndex := func(item paintOrderItem) int {
 		if item.group == nil {
 			return item.op
@@ -273,6 +278,7 @@ func appendSortedPaintItems(ops []Op, items []paintOrderItem, out *[]int) {
 	}
 }
 
+//nolint:cyclop // compares z-index, position, and chrome layers
 func comparePaintOrder(ops []Op, left, right int) int {
 	leftOp, rightOp := &ops[left], &ops[right]
 
@@ -280,13 +286,16 @@ func comparePaintOrder(ops []Op, left, right int) int {
 	if leftOp.ZIndexSet {
 		leftZ = leftOp.ZIndex
 	}
+
 	if rightOp.ZIndexSet {
 		rightZ = rightOp.ZIndex
 	}
+
 	if leftZ != rightZ {
 		if leftZ < rightZ {
 			return -1
 		}
+
 		return 1
 	}
 
@@ -294,6 +303,7 @@ func comparePaintOrder(ops []Op, left, right int) int {
 		if !leftOp.Positioned {
 			return -1
 		}
+
 		return 1
 	}
 
@@ -302,20 +312,19 @@ func comparePaintOrder(ops []Op, left, right int) int {
 		if leftLayer < rightLayer {
 			return -1
 		}
+
 		return 1
 	}
 
 	if left < right {
 		return -1
 	}
+
 	if left > right {
 		return 1
 	}
-	return 0
-}
 
-func paintOrderBefore(ops []Op, left, right int) bool {
-	return comparePaintOrder(ops, left, right) < 0
+	return 0
 }
 
 // paintLayer orders ops within a z-index band: ordinary chrome under content,

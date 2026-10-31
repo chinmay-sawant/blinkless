@@ -301,11 +301,13 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 
 	forced, keep := ilayout.PageBreaks(res, heightPt)
 
-	d := newDisplay(res, styled.Sheets, canvasPt, forced, keep, zoom, options.RetainState)
+	displayList := newDisplay(res, styled.Sheets, canvasPt, forced, keep, zoom, options.RetainState)
+
 	if !options.RetainState {
 		res.Release()
 	}
-	return d, nil
+
+	return displayList, nil
 }
 
 // newDisplay builds the public display list from a placement.
@@ -326,6 +328,7 @@ func newDisplay(
 	if res != nil {
 		boxCount = res.BoxCount()
 	}
+
 	boxes := make([]Box, 0, boxCount)
 	parents := make([]int, 0, boxCount)
 

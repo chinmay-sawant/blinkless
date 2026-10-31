@@ -21,7 +21,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
 	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
@@ -244,6 +243,7 @@ func (r *Result) BoxCount() int {
 	if r == nil {
 		return 0
 	}
+
 	return len(r.boxes)
 }
 
@@ -1281,177 +1281,6 @@ func (e *engine) popStyleOverrides(n int) {
 	e.styleOverrides = e.styleOverrides[:len(e.styleOverrides)-n]
 }
 
-// Release releases resources associated with Result back to pools.
-func (r *Result) Release() {
-	if r == nil {
-		return
-	}
-	for _, c := range r.styleChunks {
-		putStyleChunk(c)
-	}
-	r.styleChunks = nil
-	for _, c := range r.boxChunks {
-		putBoxChunk(c)
-	}
-	r.boxChunks = nil
-}
-
-var boxChunkPool = sync.Pool{
-	New: func() any {
-		b := make([]box, 0, 64)
-		return &b
-	},
-}
-
-func getBoxChunk() *[]box {
-	c := boxChunkPool.Get().(*[]box)
-	*c = (*c)[:0]
-	return c
-}
-
-func putBoxChunk(c *[]box) {
-	if c == nil {
-		return
-	}
-	clear(*c)
-	*c = (*c)[:0]
-	boxChunkPool.Put(c)
-}
-
-type boxMark struct {
-	chunkIdx int
-	itemIdx  int
-}
-
-func (e *engine) markBoxes() boxMark {
-	if len(e.boxChunks) == 0 {
-		return boxMark{0, 0}
-	}
-	last := len(e.boxChunks) - 1
-	return boxMark{chunkIdx: last, itemIdx: len(*e.boxChunks[last])}
-}
-
-func (e *engine) resetBoxes(m boxMark) {
-	if len(e.boxChunks) == 0 {
-		return
-	}
-	if m.chunkIdx < len(e.boxChunks) {
-		for i := m.chunkIdx + 1; i < len(e.boxChunks); i++ {
-			clear(*e.boxChunks[i])
-			*e.boxChunks[i] = (*e.boxChunks[i])[:0]
-			e.spareBoxChunks = append(e.spareBoxChunks, e.boxChunks[i])
-		}
-		e.boxChunks = e.boxChunks[:m.chunkIdx+1]
-		chunk := e.boxChunks[m.chunkIdx]
-		if m.itemIdx < len(*chunk) {
-			clear((*chunk)[m.itemIdx:])
-			*chunk = (*chunk)[:m.itemIdx]
-		}
-	}
-}
-
-func (e *engine) allocBox(node *html.Node, sty *ResolvedStyle, kind boxKind, x, y float64) *box {
-	const chunkSize = 64
-	if len(e.boxChunks) == 0 || len(*e.boxChunks[len(e.boxChunks)-1]) == cap(*e.boxChunks[len(e.boxChunks)-1]) {
-		if len(e.spareBoxChunks) > 0 {
-			last := len(e.spareBoxChunks) - 1
-			c := e.spareBoxChunks[last]
-			*c = (*c)[:0]
-			e.spareBoxChunks = e.spareBoxChunks[:last]
-			e.boxChunks = append(e.boxChunks, c)
-		} else {
-			e.boxChunks = append(e.boxChunks, getBoxChunk())
-		}
-	}
-	last := len(e.boxChunks) - 1
-	chunk := e.boxChunks[last]
-	*chunk = append(*chunk, box{ //nolint:exhaustruct // intentional zero fields
-		node:  node,
-		style: sty,
-		kind:  kind,
-		x:     x,
-		y:     y,
-	})
-	return &(*chunk)[len(*chunk)-1]
-}
-
-var styleChunkPool = sync.Pool{
-	New: func() any {
-		b := make([]ResolvedStyle, 0, 64)
-		return &b
-	},
-}
-
-func getStyleChunk() *[]ResolvedStyle {
-	c := styleChunkPool.Get().(*[]ResolvedStyle)
-	*c = (*c)[:0]
-	return c
-}
-
-func putStyleChunk(c *[]ResolvedStyle) {
-	if c == nil {
-		return
-	}
-	clear(*c)
-	*c = (*c)[:0]
-	styleChunkPool.Put(c)
-}
-
-type styleMark struct {
-	chunkIdx int
-	itemIdx  int
-}
-
-func (e *engine) markStyles() styleMark {
-	if len(e.styleChunks) == 0 {
-		return styleMark{0, 0}
-	}
-	last := len(e.styleChunks) - 1
-	return styleMark{chunkIdx: last, itemIdx: len(*e.styleChunks[last])}
-}
-
-func (e *engine) resetStyles(m styleMark) {
-	if len(e.styleChunks) == 0 {
-		return
-	}
-	if m.chunkIdx < len(e.styleChunks) {
-		for i := m.chunkIdx + 1; i < len(e.styleChunks); i++ {
-			clear(*e.styleChunks[i])
-			*e.styleChunks[i] = (*e.styleChunks[i])[:0]
-			e.spareChunks = append(e.spareChunks, e.styleChunks[i])
-		}
-		e.styleChunks = e.styleChunks[:m.chunkIdx+1]
-		chunk := e.styleChunks[m.chunkIdx]
-		if m.itemIdx < len(*chunk) {
-			clear((*chunk)[m.itemIdx:])
-			*chunk = (*chunk)[:m.itemIdx]
-		}
-	}
-}
-
-func (e *engine) allocStyle(base *ResolvedStyle) *ResolvedStyle {
-	const chunkSize = 64
-	if len(e.styleChunks) == 0 || len(*e.styleChunks[len(e.styleChunks)-1]) == cap(*e.styleChunks[len(e.styleChunks)-1]) {
-		if len(e.spareChunks) > 0 {
-			last := len(e.spareChunks) - 1
-			c := e.spareChunks[last]
-			*c = (*c)[:0]
-			e.spareChunks = e.spareChunks[:last]
-			e.styleChunks = append(e.styleChunks, c)
-		} else {
-			e.styleChunks = append(e.styleChunks, getStyleChunk())
-		}
-	}
-	last := len(e.styleChunks) - 1
-	chunk := e.styleChunks[last]
-	if base != nil {
-		*chunk = append(*chunk, *base)
-	} else {
-		*chunk = append(*chunk, zeroResolvedStyle)
-	}
-	return &(*chunk)[len(*chunk)-1]
-}
-
 func flattenBoxes(boxNode *box, out *[]*box) {
 	if boxNode == nil {
 		return
@@ -1471,23 +1300,15 @@ func estimateOpCapacity(root *html.Node) int {
 		return 0
 	}
 
-	nodes, cells := 0, 0
+	nodes := 0
 
-	root.Walk(func(node *html.Node) {
+	root.Walk(func(_ *html.Node) {
 		nodes++
-
-		if node.Type == html.ElementNode && (node.Name == "td" || node.Name == "th") {
-			cells++
-		}
 	})
 
-	// Collapsed table grids batch a row's border lines into one OpGridRun, so
-	// the old 3/2 ops-per-node bound over-reserved by about two entries per
-	// cell (the grid lines a cell used to contribute). Subtract that bound;
-	// append growth still covers documents that emit more than the estimate.
-	const gridLinesPerCell = 2
+	const initialOpPadding = 16
 
-	capacity := nodes + nodes/4 + 16
+	capacity := nodes + nodes/4 + initialOpPadding
 	if capacity < minOpCapacity {
 		capacity = minOpCapacity
 	}

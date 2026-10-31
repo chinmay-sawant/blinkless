@@ -270,24 +270,25 @@ func flexVerticalColumnCrossAutoMargin(style *ResolvedStyle) bool {
 	return style.MarginTopAuto || style.MarginBottomAuto
 }
 
-//nolint:wsl // measurement toggles emission around one recursive build
 func (e *engine) measureVerticalColumnItemCross(
-	node *html.Node, style *ResolvedStyle, width, x, y float64,
+	node *html.Node, style *ResolvedStyle, width, posX, posY float64,
 ) float64 {
 	bmark := e.markBoxes()
 	smark := e.markStyles()
 	was := e.noEmit
 	e.noEmit = true
-	measured := e.buildFlexRowItem(node, style, false, -1, width, x, y)
+	measured := e.buildFlexRowItem(node, style, false, -1, width, posX, posY)
 	e.noEmit = was
-	h := 0.0
+	itemHeight := 0.0
+
 	if measured != nil {
-		h = measured.height
+		itemHeight = measured.height
 	}
+
 	e.resetBoxes(bmark)
 	e.resetStyles(smark)
 
-	return h
+	return itemHeight
 }
 
 //nolint:wsl // baseline target collection keeps each item decision adjacent

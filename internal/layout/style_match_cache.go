@@ -10,6 +10,9 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
+const maxSingleAttrCacheSize = 1024
+
+//nolint:gochecknoglobals // class attribute key memoization cache
 var (
 	singleAttrCacheMu sync.RWMutex
 	singleAttrCache   = make(map[string]string)
@@ -88,6 +91,8 @@ func (ctx *styleContext) matchTag(node *html.Node) string {
 // sorted names so the key is exact and map-iteration order never leaks in.
 // Single-attribute elements skip the name slice and the sort; the builder is
 // pre-sized so the common shapes allocate exactly the result string.
+//
+//nolint:funlen // encodes attribute map with fast paths for small maps
 func canonicalAttrKey(attrs map[string]string) string {
 	switch len(attrs) {
 	case 0:
@@ -98,6 +103,7 @@ func canonicalAttrKey(attrs map[string]string) string {
 				singleAttrCacheMu.RLock()
 				cached, ok := singleAttrCache[value]
 				singleAttrCacheMu.RUnlock()
+
 				if ok {
 					return cached
 				}
@@ -118,7 +124,7 @@ func canonicalAttrKey(attrs map[string]string) string {
 
 			if name == "class" {
 				singleAttrCacheMu.Lock()
-				if len(singleAttrCache) < 1024 {
+				if len(singleAttrCache) < maxSingleAttrCacheSize {
 					singleAttrCache[value] = res
 				}
 				singleAttrCacheMu.Unlock()
