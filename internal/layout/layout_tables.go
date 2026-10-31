@@ -1232,6 +1232,8 @@ func (e *engine) buildCell(node *html.Node, col, span int) *box {
 // measureCellHeight lays out the cell at width (border-box) without emitting
 // paint ops, and stores the result on b.contentH.
 func (e *engine) measureCellHeight(boxNode *box, width float64) {
+	bmark := e.markBoxes()
+	smark := e.markStyles()
 	was := e.noEmit
 	e.noEmit = true
 	// Preserve the caller's noEmit flag. Nested tables call this during an
@@ -1239,6 +1241,8 @@ func (e *engine) measureCellHeight(boxNode *box, width float64) {
 	// positions (fixture-10 nested table borders/text).
 	boxNode.contentH = e.layoutCell(boxNode.node, *boxNode.style, width)
 	e.noEmit = was
+	e.resetBoxes(bmark)
+	e.resetStyles(smark)
 }
 
 // cellBG returns the background to paint for a cell: the cell's own color,

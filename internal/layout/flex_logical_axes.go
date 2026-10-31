@@ -274,15 +274,20 @@ func flexVerticalColumnCrossAutoMargin(style *ResolvedStyle) bool {
 func (e *engine) measureVerticalColumnItemCross(
 	node *html.Node, style *ResolvedStyle, width, x, y float64,
 ) float64 {
+	bmark := e.markBoxes()
+	smark := e.markStyles()
 	was := e.noEmit
 	e.noEmit = true
 	measured := e.buildFlexRowItem(node, style, false, -1, width, x, y)
 	e.noEmit = was
-	if measured == nil {
-		return 0
+	h := 0.0
+	if measured != nil {
+		h = measured.height
 	}
+	e.resetBoxes(bmark)
+	e.resetStyles(smark)
 
-	return measured.height
+	return h
 }
 
 //nolint:wsl // baseline target collection keeps each item decision adjacent

@@ -865,6 +865,8 @@ func multicolForcedColumnBreak(
 
 // measureMulticolChildHeight lays out n at availW without emitting ops.
 func (e *engine) measureMulticolChildHeight(n *html.Node, availW float64) float64 {
+	bmark := e.markBoxes()
+	smark := e.markStyles()
 	prev := e.noEmit
 	e.noEmit = true
 	start := len(e.ops)
@@ -876,11 +878,14 @@ func (e *engine) measureMulticolChildHeight(n *html.Node, availW float64) float6
 
 	e.noEmit = prev
 
-	if boxNode == nil {
-		return 0
+	h := 0.0
+	if boxNode != nil {
+		h = boxNode.height
 	}
+	e.resetBoxes(bmark)
+	e.resetStyles(smark)
 
-	return boxNode.height
+	return h
 }
 
 // emitColumnRules paints the column rules between columns for one multicol

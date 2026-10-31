@@ -1778,6 +1778,8 @@ func (e *engine) flexItemBaseHeight(node *html.Node, style *ResolvedStyle, conte
 		return height
 	}
 
+	bmark := e.markBoxes()
+	smark := e.markStyles()
 	was := e.noEmit
 	e.noEmit = true
 	measured := e.build(node, contentW, 0, 0)
@@ -1786,6 +1788,8 @@ func (e *engine) flexItemBaseHeight(node *html.Node, style *ResolvedStyle, conte
 	if measured != nil {
 		height = measured.height
 	}
+	e.resetBoxes(bmark)
+	e.resetStyles(smark)
 
 	if height <= 0 {
 		height = padV
@@ -1888,12 +1892,16 @@ func (e *engine) flexMinCrossMainSizeUncached(node *html.Node, baseH, mainSize f
 	// truncation below cannot drop it: finalizeChrome splices the stale entry
 	// back at its old index (case-05 painted its percentage child a second
 	// time at the container origin). Same contract as measureCellHeight.
+	bmark := e.markBoxes()
+	smark := e.markStyles()
 	was := e.noEmit
 	e.noEmit = true
 	start := len(e.ops)
 	contentSug := e.layoutCell(node, *cstate, indefiniteContentCap)
 	e.ops = e.ops[:start]
 	e.noEmit = was
+	e.resetBoxes(bmark)
+	e.resetStyles(smark)
 
 	if contentSug < padV {
 		contentSug = padV + e.scalePt(cstate.FontSize)*textLineHeightFactor

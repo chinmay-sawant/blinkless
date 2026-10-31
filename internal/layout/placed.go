@@ -44,7 +44,7 @@ func WalkPlaced(res *Result, fn func(elem *PlacedElement)) {
 		return
 	}
 
-	allIDs := make([]uint64, 0, len(res.Ops))
+	allIDs := make([]uint64, 0, len(res.Ops)*4)
 	var item PlacedElement
 	walkPlacedFunc(res.root, res.Ops, -1, IdentityMatrix(), svgViewport{}, fn, &allIDs, 0, &item)
 }
@@ -137,12 +137,26 @@ func elementOverflowClip(boxNode *box) [4]float64 {
 var emptyOperationIDs = make([]uint64, 0)
 
 func appendOperationIDs(ops []Op, start, end int, allIDs *[]uint64) []uint64 {
-	if start < 0 || end < start {
+	if start < 0 || end < start || start >= len(ops) {
+		return emptyOperationIDs
+	}
+	if end >= len(ops) {
+		end = len(ops) - 1
+	}
+
+	hasAny := false
+	for index := start; index <= end; index++ {
+		if ops[index].ID != 0 {
+			hasAny = true
+			break
+		}
+	}
+	if !hasAny {
 		return emptyOperationIDs
 	}
 
 	startIdx := len(*allIDs)
-	for index := start; index <= end && index < len(ops); index++ {
+	for index := start; index <= end; index++ {
 		if ops[index].ID != 0 {
 			*allIDs = append(*allIDs, ops[index].ID)
 		}

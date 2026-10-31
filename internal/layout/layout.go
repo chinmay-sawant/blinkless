@@ -1487,7 +1487,7 @@ func estimateOpCapacity(root *html.Node) int {
 	// append growth still covers documents that emit more than the estimate.
 	const gridLinesPerCell = 2
 
-	capacity := nodes*two + 16
+	capacity := nodes + nodes/4 + 16
 	if capacity < minOpCapacity {
 		capacity = minOpCapacity
 	}

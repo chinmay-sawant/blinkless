@@ -4,9 +4,15 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
 	"github.com/chinmay-sawant/blinkless/internal/html"
+)
+
+var (
+	singleAttrCacheMu sync.RWMutex
+	singleAttrCache   = make(map[string]string)
 )
 
 // ruleHit is one selector match from the shared cascade rule walk. rule
@@ -88,6 +94,15 @@ func canonicalAttrKey(attrs map[string]string) string {
 		return ""
 	case 1:
 		for name, value := range attrs {
+			if name == "class" {
+				singleAttrCacheMu.RLock()
+				cached, ok := singleAttrCache[value]
+				singleAttrCacheMu.RUnlock()
+				if ok {
+					return cached
+				}
+			}
+
 			var out strings.Builder
 
 			out.Grow(len(name) + len(value) + attrKeyOverhead)
@@ -99,8 +114,17 @@ func canonicalAttrKey(attrs map[string]string) string {
 			out.WriteByte(':')
 			out.WriteString(value)
 			out.WriteByte(';')
+			res := out.String()
 
-			return out.String()
+			if name == "class" {
+				singleAttrCacheMu.Lock()
+				if len(singleAttrCache) < 1024 {
+					singleAttrCache[value] = res
+				}
+				singleAttrCacheMu.Unlock()
+			}
+
+			return res
 		}
 	}
 
