@@ -13,16 +13,17 @@ func TestDisplayBackdropFilterCarriesHostEffect(t *testing.T) {
 			continue
 		}
 
-		op := &display.Ops[index]
-		if !op.IsGroupBegin() || op.Group() == nil || op.Group().BackdropFilter == "" {
+		paintOp := &display.Ops[index]
+		if !paintOp.IsGroupBegin() || paintOp.Group() == nil || paintOp.Group().BackdropFilter == "" {
 			continue
 		}
 
-		if got := op.Group().BackdropFilter; got != "blur(12px) saturate(1.25)" {
+		if got := paintOp.Group().BackdropFilter; got != "blur(12px) saturate(1.25)" {
 			t.Fatalf("backdrop-filter = %q, want blur(12px) saturate(1.25)", got)
 		}
-		if op.W <= 0 || op.H <= 0 {
-			t.Fatalf("backdrop-filter group box = %.2fx%.2f, want non-empty", op.W, op.H)
+
+		if paintOp.W <= 0 || paintOp.H <= 0 {
+			t.Fatalf("backdrop-filter group box = %.2fx%.2f, want non-empty", paintOp.W, paintOp.H)
 		}
 
 		return
@@ -38,13 +39,13 @@ func TestBackdropFilterKeepsContainingZIndex(t *testing.T) {
 		`<div style="position:absolute;left:16px;top:12px;width:160px;height:80px;`+
 		`backdrop-filter:blur(12px);background:rgba(255,255,255,.2)"></div></div>`)
 
-	for _, op := range display.Ops {
-		if !op.IsGroupBegin() || op.Group() == nil || op.Group().BackdropFilter == "" {
+	for _, paintOp := range display.Ops {
+		if !paintOp.IsGroupBegin() || paintOp.Group() == nil || paintOp.Group().BackdropFilter == "" {
 			continue
 		}
 
-		if op.ZIndex != 60 || !op.ZIndexSet {
-			t.Fatalf("backdrop-filter group z-index = %d (set %t), want inherited 60", op.ZIndex, op.ZIndexSet)
+		if paintOp.ZIndex != 60 || !paintOp.ZIndexSet {
+			t.Fatalf("backdrop-filter group z-index = %d (set %t), want inherited 60", paintOp.ZIndex, paintOp.ZIndexSet)
 		}
 
 		return

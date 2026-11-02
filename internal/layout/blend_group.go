@@ -1,5 +1,7 @@
 package layout
 
+import "strings"
+
 // GroupMark values flag display-list operations that only delimit a blend
 // group. A position:sticky or pagination pass may deactivate a marker's Kind,
 // so painters must test the mark, not the op kind.
@@ -139,4 +141,13 @@ func (op *Op) setGroupMark(group *BlendGroup, mark uint8) {
 	extra := op.detachExtra()
 	extra.BlendGroup = group
 	extra.GroupMark = mark
+}
+
+// hasBackdropFilter reports whether a backdrop-filter value creates a group.
+// Empty and "none" paint directly; any other filter list needs a group so the
+// host can blur or saturate the backdrop at one boundary.
+func hasBackdropFilter(value string) bool {
+	value = strings.TrimSpace(value)
+
+	return value != "" && !strings.EqualFold(value, "none")
 }
