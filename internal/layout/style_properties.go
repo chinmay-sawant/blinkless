@@ -174,6 +174,8 @@ func applyDisplayEffectProps(style *ResolvedStyle, prop, value string) bool {
 		setOpacityValue(style, value)
 	case "filter":
 		setFilterValue(style, value)
+	case "backdrop-filter":
+		style.BackdropFilter = strings.TrimSpace(value)
 	case "visibility":
 		setVisibilityValue(style, value)
 	default:

@@ -24,6 +24,10 @@ type BlendGroup struct {
 	// Mode is the CSS mix-blend-mode, "" or "normal" when the element only
 	// declared masking or isolation: isolate.
 	Mode string
+	// BackdropFilter is the computed CSS filter list that a host applies to
+	// the pixels behind this element before replaying the group's own paint.
+	// Empty and "none" mean no backdrop effect.
+	BackdropFilter string
 	// Isolate marks a group whose initial backdrop is transparent. HTML
 	// stacking contexts are always isolated groups (CSS Compositing 3.2), so
 	// engine-created groups set this true.

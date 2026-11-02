@@ -1,7 +1,7 @@
 {
   "catalog": "blinkless-css-properties",
   "schema_version": 2,
-  "updated": "2026-10-20",
+  "updated": "2026-11-02",
   "scope": "Engine-registered CSS properties plus every property in the pinned upstream inventory. Motion rows marked blinkless+ownframe include tested runtime behavior in OwnFrame; rows marked blinkless-only describe Blinkless metadata without a runtime consumer.",
   "seed": {
     "date": "2026-10-09",
@@ -12,13 +12,13 @@
     "properties": 785,
     "by_status": {
       "implemented": 555,
-      "partial": 3,
-      "unsupported": 219,
+      "partial": 4,
+      "unsupported": 218,
       "intentionally ignored": 8
     },
     "aliases": 38,
-    "engine_registered": 576,
-    "upstream_only": 209,
+    "engine_registered": 577,
+    "upstream_only": 208,
     "upstream": {
       "inventory": "webref-ed-css",
       "revision": "1f2ec8f74a80c14066b4c7d6822cee59f69fa03b",
@@ -1723,7 +1723,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<time [0s,∞]>#",
+      "upstream_syntax": "<time [0s,\u221e]>#",
       "implementation_scope": "blinkless+ownframe",
       "downstream_tests": [
         {
@@ -1849,7 +1849,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "[ auto | <time [0s,∞]> ]#",
+      "upstream_syntax": "[ auto | <time [0s,\u221e]> ]#",
       "implementation_scope": "blinkless+ownframe",
       "downstream_tests": [
         {
@@ -2387,16 +2387,30 @@
     {
       "name": "backdrop-filter",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none",
+        "blur(<length>)",
+        "saturate(<number> | <percentage>)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The display list carries the CSS filter list on its element group. OwnFrame supports one pixel-based blur capped at 64px and one saturation operation capped at 3; other length units, duplicate functions, SVG url() filters, and other functions remain unsupported. Rounded clipping uses one radius inferred from the first fill operation."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_properties.go",
+        "internal/layout/blend_group.go",
+        "internal/layout/layout.go",
+        "layout/displaylist.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDisplayEffectProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/backdrop_filter_test.go",
+          "name": "TestDisplayBackdropFilterCarriesHostEffect"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "none | <filter-value-list>"
     },
@@ -3082,7 +3096,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | <length [0,∞]>"
+      "upstream_syntax": "none | <length [0,\u221e]>"
     },
     {
       "name": "bookmark-label",
@@ -3148,7 +3162,7 @@
       ],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | <integer [1,∞]>"
+      "upstream_syntax": "none | <integer [1,\u221e]>"
     },
     {
       "name": "bookmark-state",
@@ -3301,7 +3315,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
     },
     {
       "name": "border-block-end-color",
@@ -3330,7 +3344,7 @@
       "name": "border-block-end-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
       ],
       "limitations": [],
       "source": [
@@ -3349,7 +3363,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
     },
     {
       "name": "border-block-end-style",
@@ -3434,7 +3448,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
     },
     {
       "name": "border-block-start-color",
@@ -3463,7 +3477,7 @@
       "name": "border-block-start-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
       ],
       "limitations": [],
       "source": [
@@ -3486,7 +3500,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
     },
     {
       "name": "border-block-start-style",
@@ -3618,7 +3632,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
     },
     {
       "name": "border-bottom-color",
@@ -3650,7 +3664,7 @@
         "-webkit-border-bottom-left-radius"
       ],
       "values": [
-        "<length-percentage [0,∞]>{1,2}"
+        "<length-percentage [0,\u221e]>{1,2}"
       ],
       "limitations": [],
       "source": [
@@ -3667,13 +3681,13 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2}"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2}"
     },
     {
       "name": "border-bottom-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
       ],
       "limitations": [],
       "source": [
@@ -3690,7 +3704,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
     },
     {
       "name": "border-bottom-right-radius",
@@ -3698,7 +3712,7 @@
         "-webkit-border-bottom-right-radius"
       ],
       "values": [
-        "<length-percentage [0,∞]>{1,2}"
+        "<length-percentage [0,\u221e]>{1,2}"
       ],
       "limitations": [],
       "source": [
@@ -3715,7 +3729,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2}"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2}"
     },
     {
       "name": "border-bottom-style",
@@ -3952,7 +3966,7 @@
       "name": "border-image-outset",
       "aliases": [],
       "values": [
-        "[ <length [0,∞]> | <number [0,∞]> ]{1,4}"
+        "[ <length [0,\u221e]> | <number [0,\u221e]> ]{1,4}"
       ],
       "limitations": [],
       "source": [
@@ -3975,7 +3989,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "[ <length [0,∞]> | <number [0,∞]> ]{1,4}"
+      "upstream_syntax": "[ <length [0,\u221e]> | <number [0,\u221e]> ]{1,4}"
     },
     {
       "name": "border-image-repeat",
@@ -4014,7 +4028,7 @@
       "name": "border-image-slice",
       "aliases": [],
       "values": [
-        "[<number [0,∞]> | <percentage [0,∞]>]{1,4} && fill?"
+        "[<number [0,\u221e]> | <percentage [0,\u221e]>]{1,4} && fill?"
       ],
       "limitations": [],
       "source": [
@@ -4037,7 +4051,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "[<number [0,∞]> | <percentage [0,∞]>]{1,4} && fill?"
+      "upstream_syntax": "[<number [0,\u221e]> | <percentage [0,\u221e]>]{1,4} && fill?"
     },
     {
       "name": "border-image-source",
@@ -4072,7 +4086,7 @@
       "name": "border-image-width",
       "aliases": [],
       "values": [
-        "[ <length-percentage [0,∞]> | <number [0,∞]> | auto ]{1,4}"
+        "[ <length-percentage [0,\u221e]> | <number [0,\u221e]> | auto ]{1,4}"
       ],
       "limitations": [],
       "source": [
@@ -4095,7 +4109,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "[ <length-percentage [0,∞]> | <number [0,∞]> | auto ]{1,4}"
+      "upstream_syntax": "[ <length-percentage [0,\u221e]> | <number [0,\u221e]> | auto ]{1,4}"
     },
     {
       "name": "border-inline",
@@ -4196,7 +4210,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
     },
     {
       "name": "border-inline-end-color",
@@ -4225,7 +4239,7 @@
       "name": "border-inline-end-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
       ],
       "limitations": [],
       "source": [
@@ -4248,7 +4262,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
     },
     {
       "name": "border-inline-end-style",
@@ -4333,7 +4347,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
     },
     {
       "name": "border-inline-start-color",
@@ -4362,7 +4376,7 @@
       "name": "border-inline-start-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
       ],
       "limitations": [],
       "source": [
@@ -4381,7 +4395,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
     },
     {
       "name": "border-inline-start-style",
@@ -4513,7 +4527,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
     },
     {
       "name": "border-left-color",
@@ -4543,7 +4557,7 @@
       "name": "border-left-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
       ],
       "limitations": [],
       "source": [
@@ -4560,7 +4574,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
     },
     {
       "name": "border-left-style",
@@ -4628,7 +4642,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "all | [ sides | corners ] <length-percentage [0,∞]>? | [ top | right | bottom | left ] <length-percentage [0,∞]>"
+      "upstream_syntax": "all | [ sides | corners ] <length-percentage [0,\u221e]>? | [ top | right | bottom | left ] <length-percentage [0,\u221e]>"
     },
     {
       "name": "border-radius",
@@ -4636,7 +4650,7 @@
         "-webkit-border-radius"
       ],
       "values": [
-        "<length-percentage [0,∞]>{1,4} [ / <length-percentage [0,∞]>{1,4} ]?"
+        "<length-percentage [0,\u221e]>{1,4} [ / <length-percentage [0,\u221e]>{1,4} ]?"
       ],
       "limitations": [],
       "source": [
@@ -4665,7 +4679,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,4} [ / <length-percentage [0,∞]>{1,4} ]?"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,4} [ / <length-percentage [0,\u221e]>{1,4} ]?"
     },
     {
       "name": "border-right",
@@ -4705,7 +4719,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
     },
     {
       "name": "border-right-color",
@@ -4735,7 +4749,7 @@
       "name": "border-right-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
       ],
       "limitations": [],
       "source": [
@@ -4752,7 +4766,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
     },
     {
       "name": "border-right-style",
@@ -4970,7 +4984,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      "upstream_syntax": "none | [ <length-percentage [0,\u221e]> | <flex> ]+"
     },
     {
       "name": "border-top-color",
@@ -5006,7 +5020,7 @@
         "-webkit-border-top-left-radius"
       ],
       "values": [
-        "<length-percentage [0,∞]>{1,2}"
+        "<length-percentage [0,\u221e]>{1,2}"
       ],
       "limitations": [],
       "source": [
@@ -5023,13 +5037,13 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2}"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2}"
     },
     {
       "name": "border-top-radius",
       "aliases": [],
       "values": [
-        "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+        "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
       ],
       "limitations": [],
       "source": [
@@ -5046,7 +5060,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2} [ / <length-percentage [0,∞]>{1,2} ]?"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2} [ / <length-percentage [0,\u221e]>{1,2} ]?"
     },
     {
       "name": "border-top-right-radius",
@@ -5054,7 +5068,7 @@
         "-webkit-border-top-right-radius"
       ],
       "values": [
-        "<length-percentage [0,∞]>{1,2}"
+        "<length-percentage [0,\u221e]>{1,2}"
       ],
       "limitations": [],
       "source": [
@@ -5071,7 +5085,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>{1,2}"
+      "upstream_syntax": "<length-percentage [0,\u221e]>{1,2}"
     },
     {
       "name": "border-top-style",
@@ -5236,7 +5250,7 @@
       "name": "box-shadow-blur",
       "aliases": [],
       "values": [
-        "<length [0,∞]>#"
+        "<length [0,\u221e]>#"
       ],
       "limitations": [],
       "source": [
@@ -5253,7 +5267,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length [0,∞]>#"
+      "upstream_syntax": "<length [0,\u221e]>#"
     },
     {
       "name": "box-shadow-color",
@@ -5966,7 +5980,7 @@
       "name": "column-count",
       "aliases": [],
       "values": [
-        "auto | <integer [1,∞]>"
+        "auto | <integer [1,\u221e]>"
       ],
       "limitations": [],
       "source": [
@@ -5987,7 +6001,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <integer [1,∞]>"
+      "upstream_syntax": "auto | <integer [1,\u221e]>"
     },
     {
       "name": "column-fill",
@@ -6018,7 +6032,7 @@
         "grid-column-gap"
       ],
       "values": [
-        "normal | <length-percentage [0,∞]> | <line-width>"
+        "normal | <length-percentage [0,\u221e]> | <line-width>"
       ],
       "limitations": [],
       "source": [
@@ -6045,13 +6059,13 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "normal | <length-percentage [0,∞]> | <line-width>"
+      "upstream_syntax": "normal | <length-percentage [0,\u221e]> | <line-width>"
     },
     {
       "name": "column-height",
       "aliases": [],
       "values": [
-        "auto | <length [0,∞]>"
+        "auto | <length [0,\u221e]>"
       ],
       "limitations": [],
       "source": [
@@ -6068,7 +6082,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length [0,∞]>"
+      "upstream_syntax": "auto | <length [0,\u221e]>"
     },
     {
       "name": "column-rule",
@@ -6447,7 +6461,7 @@
       "name": "column-span",
       "aliases": [],
       "values": [
-        "none | <integer [1,∞]> | all | auto"
+        "none | <integer [1,\u221e]> | all | auto"
       ],
       "limitations": [],
       "source": [
@@ -6464,13 +6478,13 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "none | <integer [1,∞]> | all | auto"
+      "upstream_syntax": "none | <integer [1,\u221e]> | all | auto"
     },
     {
       "name": "column-width",
       "aliases": [],
       "values": [
-        "auto | <length [0,∞]>"
+        "auto | <length [0,\u221e]>"
       ],
       "limitations": [],
       "source": [
@@ -6487,7 +6501,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length [0,∞]>"
+      "upstream_syntax": "auto | <length [0,\u221e]>"
     },
     {
       "name": "column-wrap",
@@ -6570,7 +6584,7 @@
       "name": "contain-intrinsic-block-size",
       "aliases": [],
       "values": [
-        "auto? [ none | <length [0,∞]> ]"
+        "auto? [ none | <length [0,\u221e]> ]"
       ],
       "limitations": [],
       "source": [
@@ -6591,13 +6605,13 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "auto? [ none | <length [0,∞]> ]"
+      "upstream_syntax": "auto? [ none | <length [0,\u221e]> ]"
     },
     {
       "name": "contain-intrinsic-height",
       "aliases": [],
       "values": [
-        "auto? [ none | <length [0,∞]> ]"
+        "auto? [ none | <length [0,\u221e]> ]"
       ],
       "limitations": [],
       "source": [
@@ -6618,13 +6632,13 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "auto? [ none | <length [0,∞]> ]"
+      "upstream_syntax": "auto? [ none | <length [0,\u221e]> ]"
     },
     {
       "name": "contain-intrinsic-inline-size",
       "aliases": [],
       "values": [
-        "auto? [ none | <length [0,∞]> ]"
+        "auto? [ none | <length [0,\u221e]> ]"
       ],
       "limitations": [],
       "source": [
@@ -6645,13 +6659,13 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "auto? [ none | <length [0,∞]> ]"
+      "upstream_syntax": "auto? [ none | <length [0,\u221e]> ]"
     },
     {
       "name": "contain-intrinsic-size",
       "aliases": [],
       "values": [
-        "[ auto? [ none | <length [0,∞]> ] ]{1,2}"
+        "[ auto? [ none | <length [0,\u221e]> ] ]{1,2}"
       ],
       "limitations": [],
       "source": [
@@ -6672,13 +6686,13 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "[ auto? [ none | <length [0,∞]> ] ]{1,2}"
+      "upstream_syntax": "[ auto? [ none | <length [0,\u221e]> ] ]{1,2}"
     },
     {
       "name": "contain-intrinsic-width",
       "aliases": [],
       "values": [
-        "auto? [ none | <length [0,∞]> ]"
+        "auto? [ none | <length [0,\u221e]> ]"
       ],
       "limitations": [],
       "source": [
@@ -6699,7 +6713,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "auto? [ none | <length [0,∞]> ]"
+      "upstream_syntax": "auto? [ none | <length [0,\u221e]> ]"
     },
     {
       "name": "container",
@@ -8837,7 +8851,7 @@
         "-webkit-flex-grow"
       ],
       "values": [
-        "<number [0,∞]>"
+        "<number [0,\u221e]>"
       ],
       "limitations": [],
       "source": [
@@ -8863,7 +8877,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<number [0,∞]>"
+      "upstream_syntax": "<number [0,\u221e]>"
     },
     {
       "name": "flex-line-count",
@@ -8879,7 +8893,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<integer [1,∞]>"
+      "upstream_syntax": "<integer [1,\u221e]>"
     },
     {
       "name": "flex-shrink",
@@ -8887,7 +8901,7 @@
         "-webkit-flex-shrink"
       ],
       "values": [
-        "<number [0,∞]>"
+        "<number [0,\u221e]>"
       ],
       "limitations": [],
       "source": [
@@ -8905,7 +8919,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<number [0,∞]>"
+      "upstream_syntax": "<number [0,\u221e]>"
     },
     {
       "name": "flex-wrap",
@@ -9150,7 +9164,7 @@
       "name": "flow-tolerance",
       "aliases": [],
       "values": [
-        "normal | <length [0,∞]> | infinite"
+        "normal | <length [0,\u221e]> | infinite"
       ],
       "limitations": [
         "Read only by the row-masonry packer (grid-template-rows: masonry); a non-masonry grid ignores it (TestBehaviorFlowToleranceNonMasonryGridIgnored). The item is measured once at the shortest column's width and moved, so unequal track widths do not re-measure it."
@@ -9183,7 +9197,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "normal | <length-percentage [0,∞]> | infinite"
+      "upstream_syntax": "normal | <length-percentage [0,\u221e]> | infinite"
     },
     {
       "name": "font",
@@ -9423,7 +9437,7 @@
       "name": "font-size-adjust",
       "aliases": [],
       "values": [
-        "none | [ ex-height | cap-height | ch-width | ic-width | ic-height ]? [ from-font | <number [0,∞]> ]"
+        "none | [ ex-height | cap-height | ch-width | ic-width | ic-height ]? [ from-font | <number [0,\u221e]> ]"
       ],
       "limitations": [],
       "source": [
@@ -9444,7 +9458,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "none | [ ex-height | cap-height | ch-width | ic-width | ic-height ]? [ from-font | <number [0,∞]> ]"
+      "upstream_syntax": "none | [ ex-height | cap-height | ch-width | ic-width | ic-height ]? [ from-font | <number [0,\u221e]> ]"
     },
     {
       "name": "font-style",
@@ -9872,7 +9886,7 @@
         "font-stretch"
       ],
       "values": [
-        "normal | <percentage [0,∞]> | ultra-condensed | extra-condensed | condensed | semi-condensed | semi-expanded | expanded | extra-expanded | ultra-expanded"
+        "normal | <percentage [0,\u221e]> | ultra-condensed | extra-condensed | condensed | semi-condensed | semi-expanded | expanded | extra-expanded | ultra-expanded"
       ],
       "limitations": [],
       "source": [
@@ -9905,7 +9919,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "normal | <percentage [0,∞]> | ultra-condensed | extra-condensed | condensed | semi-condensed | semi-expanded | expanded | extra-expanded | ultra-expanded"
+      "upstream_syntax": "normal | <percentage [0,\u221e]> | ultra-condensed | extra-condensed | condensed | semi-condensed | semi-expanded | expanded | extra-expanded | ultra-expanded"
     },
     {
       "name": "footnote-display",
@@ -10560,7 +10574,7 @@
       "name": "hyphenate-limit-chars",
       "aliases": [],
       "values": [
-        "[ auto | <integer [0,∞]> ]{1,3}"
+        "[ auto | <integer [0,\u221e]> ]{1,3}"
       ],
       "limitations": [],
       "source": [
@@ -10577,7 +10591,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "[ auto | <integer [0,∞]> ]{1,3}"
+      "upstream_syntax": "[ auto | <integer [0,\u221e]> ]{1,3}"
     },
     {
       "name": "hyphenate-limit-last",
@@ -10606,7 +10620,7 @@
       "name": "hyphenate-limit-lines",
       "aliases": [],
       "values": [
-        "no-limit | <integer [0,∞]>"
+        "no-limit | <integer [0,\u221e]>"
       ],
       "limitations": [],
       "source": [
@@ -10623,7 +10637,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "no-limit | <integer [0,∞]>"
+      "upstream_syntax": "no-limit | <integer [0,\u221e]>"
     },
     {
       "name": "hyphenate-limit-zone",
@@ -10767,7 +10781,7 @@
       "name": "initial-letter",
       "aliases": [],
       "values": [
-        "normal | <number [1,∞]> <integer [1,∞]> | <number [1,∞]> && [ drop | raise ]?"
+        "normal | <number [1,\u221e]> <integer [1,\u221e]> | <number [1,\u221e]> && [ drop | raise ]?"
       ],
       "limitations": [],
       "source": [
@@ -10788,7 +10802,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "normal | <number [1,∞]> <integer [1,∞]> | <number [1,∞]> && [ drop | raise ]?"
+      "upstream_syntax": "normal | <number [1,\u221e]> <integer [1,\u221e]> | <number [1,\u221e]> && [ drop | raise ]?"
     },
     {
       "name": "initial-letter-align",
@@ -11486,7 +11500,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<length [0,∞]>"
+      "upstream_syntax": "<length [0,\u221e]>"
     },
     {
       "name": "line-padding",
@@ -12242,7 +12256,7 @@
       "name": "mask-border-outset",
       "aliases": [],
       "values": [
-        "<length [0,∞]> | <number [0,∞]>, one to four values"
+        "<length [0,\u221e]> | <number [0,\u221e]>, one to four values"
       ],
       "limitations": [
         "The resolved outward offsets ride the element's blend group; the frame-outset expansion is recorded but not yet painted."
@@ -12414,7 +12428,7 @@
       "name": "mask-border-width",
       "aliases": [],
       "values": [
-        "auto | <length [0,∞]> | <number [0,∞]>, one to four values"
+        "auto | <length [0,\u221e]> | <number [0,\u221e]>, one to four values"
       ],
       "limitations": [
         "The resolved frame thickness rides the element's blend group and composes into the frame raster; percentage widths are rejected because the frame is written before the element box exists."
@@ -12887,7 +12901,7 @@
       "name": "max-lines",
       "aliases": [],
       "values": [
-        "auto || <integer [1,∞]>"
+        "auto || <integer [1,\u221e]>"
       ],
       "limitations": [],
       "source": [
@@ -12908,7 +12922,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "auto || <integer [1,∞]>"
+      "upstream_syntax": "auto || <integer [1,\u221e]>"
     },
     {
       "name": "max-size",
@@ -14499,7 +14513,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "svg",
-      "upstream_syntax": "none | <length> [0,∞]"
+      "upstream_syntax": "none | <length> [0,\u221e]"
     },
     {
       "name": "pause",
@@ -14531,7 +14545,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<time [0s,∞]> | none | x-weak | weak | medium | strong | x-strong"
+      "upstream_syntax": "<time [0s,\u221e]> | none | x-weak | weak | medium | strong | x-strong"
     },
     {
       "name": "pause-before",
@@ -14547,13 +14561,13 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<time [0s,∞]> | none | x-weak | weak | medium | strong | x-strong"
+      "upstream_syntax": "<time [0s,\u221e]> | none | x-weak | weak | medium | strong | x-strong"
     },
     {
       "name": "perspective",
       "aliases": [],
       "values": [
-        "none | <length [0,∞]>"
+        "none | <length [0,\u221e]>"
       ],
       "limitations": [],
       "source": [
@@ -14598,7 +14612,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "none | <length [0,∞]>"
+      "upstream_syntax": "none | <length [0,\u221e]>"
     },
     {
       "name": "perspective-origin",
@@ -15199,7 +15213,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<time [0s,∞]> | none | x-weak | weak | medium | strong | x-strong"
+      "upstream_syntax": "<time [0s,\u221e]> | none | x-weak | weak | medium | strong | x-strong"
     },
     {
       "name": "rest-before",
@@ -15215,7 +15229,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<time [0s,∞]> | none | x-weak | weak | medium | strong | x-strong"
+      "upstream_syntax": "<time [0s,\u221e]> | none | x-weak | weak | medium | strong | x-strong"
     },
     {
       "name": "right",
@@ -15287,7 +15301,7 @@
         "grid-row-gap"
       ],
       "values": [
-        "normal | <length-percentage [0,∞]> | <line-width>"
+        "normal | <length-percentage [0,\u221e]> | <line-width>"
       ],
       "limitations": [],
       "source": [
@@ -15310,7 +15324,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "normal | <length-percentage [0,∞]> | <line-width>"
+      "upstream_syntax": "normal | <length-percentage [0,\u221e]> | <line-width>"
     },
     {
       "name": "row-rule",
@@ -16506,7 +16520,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "[ auto | <length-percentage [0,∞]> ]{1,4}"
+      "upstream_syntax": "[ auto | <length-percentage [0,\u221e]> ]{1,4}"
     },
     {
       "name": "scroll-padding-block",
@@ -16522,7 +16536,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "[ auto | <length-percentage [0,∞]> ]{1,2}"
+      "upstream_syntax": "[ auto | <length-percentage [0,\u221e]> ]{1,2}"
     },
     {
       "name": "scroll-padding-block-end",
@@ -16538,7 +16552,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,∞]>"
+      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
     },
     {
       "name": "scroll-padding-block-start",
@@ -16554,7 +16568,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,∞]>"
+      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
     },
     {
       "name": "scroll-padding-bottom",
@@ -16570,7 +16584,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,∞]>"
+      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
     },
     {
       "name": "scroll-padding-inline",
@@ -16586,7 +16600,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "[ auto | <length-percentage [0,∞]> ]{1,2}"
+      "upstream_syntax": "[ auto | <length-percentage [0,\u221e]> ]{1,2}"
     },
     {
       "name": "scroll-padding-inline-end",
@@ -16602,7 +16616,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,∞]>"
+      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
     },
     {
       "name": "scroll-padding-inline-start",
@@ -16618,7 +16632,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,∞]>"
+      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
     },
     {
       "name": "scroll-padding-left",
@@ -16634,7 +16648,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,∞]>"
+      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
     },
     {
       "name": "scroll-padding-right",
@@ -16650,7 +16664,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,∞]>"
+      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
     },
     {
       "name": "scroll-padding-top",
@@ -16666,7 +16680,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <length-percentage [0,∞]>"
+      "upstream_syntax": "auto | <length-percentage [0,\u221e]>"
     },
     {
       "name": "scroll-snap-align",
@@ -16896,7 +16910,7 @@
       "name": "shape-margin",
       "aliases": [],
       "values": [
-        "<length-percentage [0,∞]>"
+        "<length-percentage [0,\u221e]>"
       ],
       "limitations": [],
       "source": [
@@ -16913,7 +16927,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>"
+      "upstream_syntax": "<length-percentage [0,\u221e]>"
     },
     {
       "name": "shape-outside",
@@ -16942,7 +16956,7 @@
       "name": "shape-padding",
       "aliases": [],
       "values": [
-        "<length-percentage [0,∞]>"
+        "<length-percentage [0,\u221e]>"
       ],
       "limitations": [
         "Chrome has no BCD support for shape-padding. The padding shrinks the inside contour only; without a shape-inside contour it has no effect (TestBehaviorShapeInsidePaddingAloneNoEffect). A percentage resolves against the shape reference diagonal."
@@ -16972,7 +16986,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<length-percentage [0,∞]>"
+      "upstream_syntax": "<length-percentage [0,\u221e]>"
     },
     {
       "name": "shape-rendering",
@@ -17624,7 +17638,7 @@
       "name": "tab-size",
       "aliases": [],
       "values": [
-        "<number [0,∞]> | <length [0,∞]>"
+        "<number [0,\u221e]> | <length [0,\u221e]>"
       ],
       "limitations": [],
       "source": [
@@ -17651,7 +17665,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<number [0,∞]> | <length [0,∞]>"
+      "upstream_syntax": "<number [0,\u221e]> | <length [0,\u221e]>"
     },
     {
       "name": "table-layout",
@@ -18616,7 +18630,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | none | <percentage [0,∞]>"
+      "upstream_syntax": "auto | none | <percentage [0,\u221e]>"
     },
     {
       "name": "text-spacing",
@@ -19397,7 +19411,7 @@
       ],
       "status": "implemented",
       "upstream_class": "draft",
-      "upstream_syntax": "<time [0s,∞]>#",
+      "upstream_syntax": "<time [0s,\u221e]>#",
       "implementation_scope": "blinkless+ownframe",
       "downstream_tests": [
         {
@@ -19950,7 +19964,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "auto | <time [0s,∞]>"
+      "upstream_syntax": "auto | <time [0s,\u221e]>"
     },
     {
       "name": "voice-family",
@@ -19982,7 +19996,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<frequency [0Hz,∞]> && absolute | [ [ x-low | low | medium | high | x-high ] || [ <frequency [0Hz,∞]> | <semitones> | <percentage> ] ]"
+      "upstream_syntax": "<frequency [0Hz,\u221e]> && absolute | [ [ x-low | low | medium | high | x-high ] || [ <frequency [0Hz,\u221e]> | <semitones> | <percentage> ] ]"
     },
     {
       "name": "voice-range",
@@ -19998,7 +20012,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<frequency [0Hz,∞]> && absolute | [ [ x-low | low | medium | high | x-high ] || [ <frequency [0Hz,∞]> | <semitones> | <percentage> ] ]"
+      "upstream_syntax": "<frequency [0Hz,\u221e]> && absolute | [ [ x-low | low | medium | high | x-high ] || [ <frequency [0Hz,\u221e]> | <semitones> | <percentage> ] ]"
     },
     {
       "name": "voice-rate",
@@ -20014,7 +20028,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "[ normal | x-slow | slow | medium | fast | x-fast ] || <percentage [0,∞]>"
+      "upstream_syntax": "[ normal | x-slow | slow | medium | fast | x-fast ] || <percentage [0,\u221e]>"
     },
     {
       "name": "voice-stress",
@@ -20621,7 +20635,7 @@
       "tests": [],
       "status": "unsupported",
       "upstream_class": "draft",
-      "upstream_syntax": "<number [0,∞]> | <percentage [0,∞]>"
+      "upstream_syntax": "<number [0,\u221e]> | <percentage [0,\u221e]>"
     }
   ]
 }
