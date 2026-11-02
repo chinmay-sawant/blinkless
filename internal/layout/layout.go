@@ -1007,11 +1007,6 @@ func (e *engine) enterBlendIsolation(style ResolvedStyle, owner *ResolvedStyle) 
 	e.applyBlendMode(&style, mode)
 }
 
-func hasBackdropFilter(value string) bool {
-	value = strings.TrimSpace(value)
-	return value != "" && !strings.EqualFold(value, "none")
-}
-
 // addGroupMark appends a begin/end boundary op for group and returns its op
 // index, or -1 when emission is suppressed.
 func (e *engine) addGroupMark(group *BlendGroup, mark uint8) int {
