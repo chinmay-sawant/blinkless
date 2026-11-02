@@ -179,6 +179,7 @@ type ResolvedStyle struct {
 	// Direction is CSS direction ("ltr" | "rtl").
 	Direction           string
 	Filter              string
+	BackdropFilter      string
 	MixBlendMode        string // normal | multiply | screen | ...
 	BackgroundBlendMode string // comma-separated background layer modes
 	Isolation           string // auto | isolate

@@ -651,7 +651,7 @@ type engine struct {
 	positioned     bool
 	blendMode      string
 	// blendGroup is the CSS element group that owns newly emitted ops
-	// (masking, mix-blend-mode, or isolation). nil means page-level paint.
+	// (masking, blending, isolation, or backdrop filtering). nil means page-level paint.
 	// blendGroupOwner is the style that created the innermost group, so the
 	// same element's inline runs are not wrapped in a second group.
 	blendGroup      *BlendGroup
@@ -928,7 +928,7 @@ type blendScope struct {
 }
 
 // pushZ enters one element's stacking and compositing scope, emitting the
-// group begin marker when masking, blending, or isolation creates a group.
+// group begin marker when masking, blending, isolation, or backdrop filtering creates a group.
 // owner is the resolved style pointer that identifies the element.
 func (e *engine) pushZ(style ResolvedStyle, owner *ResolvedStyle) blendScope {
 	prev := blendScope{
@@ -972,8 +972,8 @@ func (e *engine) enterStackingContext(style ResolvedStyle, createsGroupContext b
 }
 
 // enterBlendIsolation applies the transform stamp and enters the element's
-// paint group. The group starts on a transparent backdrop; descendants inherit
-// its membership so mask, blend, or isolation is applied once to the subtree.
+// paint group. Descendants inherit its membership so the host can apply the
+// element's mask, blend, isolation, or backdrop effect at one boundary.
 func (e *engine) enterBlendIsolation(style ResolvedStyle, owner *ResolvedStyle) {
 	if style.HasTransform || style.Opacity < 1 {
 		e.needsXformStamp = true
@@ -984,18 +984,19 @@ func (e *engine) enterBlendIsolation(style ResolvedStyle, owner *ResolvedStyle) 
 	mode := nonNormalBlendMode(style.MixBlendMode)
 
 	hasMask := maskGroupRequested(style)
-	if mode == "" && style.Isolation != "isolate" && !hasMask {
+	if mode == "" && style.Isolation != "isolate" && !hasMask && !hasBackdropFilter(style.BackdropFilter) {
 		return
 	}
 
 	e.nextGroupID++
 
 	e.blendGroup = &BlendGroup{ //nolint:exhaustruct // mask frames are attached below
-		ID:      e.nextGroupID,
-		Mode:    mode,
-		Isolate: true,
-		Parent:  e.blendGroup,
-		Mask:    nil,
+		ID:             e.nextGroupID,
+		Mode:           mode,
+		BackdropFilter: style.BackdropFilter,
+		Isolate:        true,
+		Parent:         e.blendGroup,
+		Mask:           nil,
 	}
 	if hasMask {
 		e.attachMaskDescriptors(e.blendGroup, style)
@@ -1004,6 +1005,11 @@ func (e *engine) enterBlendIsolation(style ResolvedStyle, owner *ResolvedStyle) 
 	e.blendGroupOwner = owner
 
 	e.applyBlendMode(&style, mode)
+}
+
+func hasBackdropFilter(value string) bool {
+	value = strings.TrimSpace(value)
+	return value != "" && !strings.EqualFold(value, "none")
 }
 
 // addGroupMark appends a begin/end boundary op for group and returns its op

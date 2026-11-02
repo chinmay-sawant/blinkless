@@ -1392,18 +1392,19 @@ func (e *engine) pushInlineBlend(style *ResolvedStyle) inlineBlendScope {
 	mode := nonNormalBlendMode(style.MixBlendMode)
 
 	hasMask := maskGroupRequested(*style)
-	if mode == "" && style.Isolation != unicodeBidiIsolate && !hasMask {
+	if mode == "" && style.Isolation != unicodeBidiIsolate && !hasMask && !hasBackdropFilter(style.BackdropFilter) {
 		return scope
 	}
 
 	e.nextGroupID++
 
 	e.blendGroup = &BlendGroup{ //nolint:exhaustruct // mask frames are attached below
-		ID:      e.nextGroupID,
-		Mode:    mode,
-		Isolate: true,
-		Parent:  e.blendGroup,
-		Mask:    nil,
+		ID:             e.nextGroupID,
+		Mode:           mode,
+		BackdropFilter: style.BackdropFilter,
+		Isolate:        true,
+		Parent:         e.blendGroup,
+		Mask:           nil,
 	}
 	if hasMask {
 		e.attachMaskDescriptors(e.blendGroup, *style)

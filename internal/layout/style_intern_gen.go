@@ -164,6 +164,7 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.WritingMode == b.WritingMode &&
 		a.Direction == b.Direction &&
 		a.Filter == b.Filter &&
+		a.BackdropFilter == b.BackdropFilter &&
 		a.MixBlendMode == b.MixBlendMode &&
 		a.BackgroundBlendMode == b.BackgroundBlendMode &&
 		a.Isolation == b.Isolation &&
@@ -585,6 +586,7 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashString(h, s.WritingMode)
 	h = styleInternHashString(h, s.Direction)
 	h = styleInternHashString(h, s.Filter)
+	h = styleInternHashString(h, s.BackdropFilter)
 	h = styleInternHashString(h, s.MixBlendMode)
 	h = styleInternHashString(h, s.BackgroundBlendMode)
 	h = styleInternHashString(h, s.Isolation)
@@ -1024,6 +1026,7 @@ func styleInternFields() []string {
 		"WritingMode",
 		"Direction",
 		"Filter",
+		"BackdropFilter",
 		"MixBlendMode",
 		"BackgroundBlendMode",
 		"Isolation",

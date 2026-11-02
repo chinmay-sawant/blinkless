@@ -103,6 +103,7 @@ const (
 )
 
 // DisplayGroup is the CSS element compositing group an operation belongs to.
+// BackdropFilter carries CSS backdrop-filter metadata for the host painter.
 type DisplayGroup = ilayout.BlendGroup
 
 // MaskDescriptor, MaskRaster, MaskLayer, and MaskBorder describe the mask
