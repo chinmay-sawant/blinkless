@@ -113,5 +113,5 @@ No visual surface changed. Native framebuffer coverage for the Loglens sidebar i
 | Extension | Files | Insertions | Deletions |
 | --- | ---: | ---: | ---: |
 | `.go` | 5 | 321 | 7 |
-| `.md` | 1 | 116 | 0 |
-| **Total** | **6** | **437** | **7** |
+| `.md` | 1 | 117 | 0 |
+| **Total** | **6** | **438** | **7** |
