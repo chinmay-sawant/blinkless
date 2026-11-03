@@ -56,9 +56,9 @@ const relayoutEpsilon = 1e-6
 // assignment, so the build carries the kept height as a definite size and
 // the content change check stays in force for every other element.
 //
-// A subtree that holds an out-of-flow box, a float, an anchored element, or
-// a named-flow region, and a subtree whose size changed, are reported as
-// errors instead of a wrong result.
+// Out-of-flow boxes need a containing block inside the subtree, or the known
+// viewport for viewport-fixed boxes. Floats, anchored elements, named-flow
+// regions, and a subtree whose size changed are refused.
 func RelayoutSubtree(ctx context.Context, prev *Result, node *html.Node, opts Options) (*Result, error) {
 	if err := relayoutGuards(ctx, prev, node, opts); err != nil {
 		return nil, err
@@ -260,15 +260,15 @@ func checkRelayoutAncestors(target *relayoutTarget) error {
 // checkRelayoutSubtree rejects a subtree that leaves the normal flow, floats,
 // sticks, anchors, or feeds a named flow. Each of those places the box from
 // state the kept result does not carry. An out-of-flow box is the exception
-// when its containing block is inside the subtree, because the subtree lays
-// that block out again and places the box against it.
+// when its containing block is inside the subtree or is the known viewport.
 func checkRelayoutSubtree(root *box, rootNode *html.Node, styles map[*html.Node]*ResolvedStyle) error {
 	var walk func(boxNode *box) error
 
 	walk = func(boxNode *box) error {
 		if reason := relayoutSubtreeReason(boxNode.style); reason != "" {
-			if reason != relayoutOutOfFlowReason ||
-				!relayoutContainingBlockInside(boxNode.node, rootNode, styles) {
+			viewportFixed := relayoutViewportFixed(boxNode, styles)
+			if reason != relayoutOutOfFlowReason || (!viewportFixed &&
+				!relayoutContainingBlockInside(boxNode.node, rootNode, styles)) {
 				return fmt.Errorf("%w: %s", errSubtreeNotSplicable, reason)
 			}
 		}
@@ -291,6 +291,27 @@ func checkRelayoutSubtree(root *box, rootNode *html.Node, styles map[*html.Node]
 	}
 
 	return walk(root)
+}
+
+// A viewport-fixed box uses the known viewport instead of its parent's
+// containing block, so a standalone subtree can place it again.
+func relayoutViewportFixed(root *box, styles map[*html.Node]*ResolvedStyle) bool {
+	if root.style.Position != positionFixed {
+		return false
+	}
+
+	if len(root.style.AnchorNames) > 0 || root.style.PositionAnchor != "" ||
+		root.style.FlowInto != "" || root.style.FlowFrom != "" {
+		return false
+	}
+
+	for node := root.node.Parent; node != nil; node = node.Parent {
+		if style := styles[node]; style != nil && fixedContainingBlock(*style) {
+			return false
+		}
+	}
+
+	return true
 }
 
 // relayoutOutOfFlowReason names an out-of-flow box in a subtree.
@@ -567,6 +588,7 @@ func relayoutBuild(
 	eng *engine, prev *Result, target *relayoutTarget, node *html.Node, opts Options,
 ) (*box, error) {
 	availW, posX, posY := relayoutOrigin(eng, target, opts)
+	viewportFixed := relayoutEnterAncestorPaint(eng, target)
 
 	newBox := eng.buildWithStyle(node, relayoutBlockSizeOverride(eng, target), availW, posX, posY)
 
@@ -582,6 +604,10 @@ func relayoutBuild(
 	// merge is scoped to the subtree's own operation window, and it remaps
 	// the ranges of the boxes it placed.
 	eng.finalizeChrome(newBox)
+
+	if viewportFixed {
+		eng.markOpsFixed(0, len(eng.ops)-1)
+	}
 
 	relayoutApplyDocumentColor(eng, prev, node)
 	relayoutApplyAncestorClip(eng, target)
@@ -601,6 +627,36 @@ func relayoutBuild(
 	}
 
 	return newBox, nil
+}
+
+// The standalone build skips the ancestors' pushZ calls. Seed their stacking
+// level and positioning flag before building, so a child's own scope can still
+// override them exactly as it does during a full layout.
+func relayoutEnterAncestorPaint(eng *engine, target *relayoutTarget) bool {
+	viewportFixed, containingBlock := false, false
+
+	for _, ancestor := range target.ancestors {
+		style := ancestor.style
+		if style == nil {
+			continue
+		}
+
+		if style.Position == positionAbsolute || style.Position == positionFixed {
+			eng.positioned = true
+		}
+
+		createsGroupContext := style.MixBlendMode != blendNormal ||
+			style.Isolation == unicodeBidiIsolate || maskGroupRequested(*style)
+		eng.enterStackingContext(*style, createsGroupContext)
+
+		if style.Position == positionFixed && !containingBlock {
+			viewportFixed = true
+		}
+
+		containingBlock = containingBlock || fixedContainingBlock(*style)
+	}
+
+	return viewportFixed
 }
 
 // relayoutBlockSizeOverride returns the style the subtree build carries when

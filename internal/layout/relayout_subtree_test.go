@@ -49,6 +49,65 @@ const relayoutEmptyHTML = `<html><body>` +
 // selectedBlue is the background the selected class paints.
 var selectedBlue = [3]float64{51.0 / 255, 102.0 / 255, 204.0 / 255} //nolint:gochecknoglobals // a test constant
 
+func TestRelayoutSubtreeInheritsPaintContext(t *testing.T) {
+	t.Parallel()
+
+	for _, position := range []string{"fixed", "absolute", "relative"} {
+		t.Run(position, func(t *testing.T) {
+			t.Parallel()
+			root := mustParse(t, relayoutNestedHTML)
+			opts := relayoutOptionsForCSS(t, relayoutFixtureCSS+
+				"#outer { position: "+position+"; z-index: 30; width: 220px; }")
+
+			prev, err := Layout(root, opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			first := relayoutNodeByID(t, root, "first")
+			first.Attrs["class"] = relayoutSelectedClass
+
+			patch, err := RelayoutSubtree(t.Context(), prev, first, opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			relayoutAssertMatchesFullRelayout(t, root, opts, patch, "first")
+		})
+	}
+}
+
+func TestRelayoutSubtreeViewportFixed(t *testing.T) {
+	t.Parallel()
+
+	for _, targetID := range []string{"outer", "wrapper"} {
+		t.Run(targetID, func(t *testing.T) {
+			t.Parallel()
+
+			root := mustParse(t, `<html><body><div id="wrapper">`+
+				`<div id="outer"><div class="card">Alpha</div></div>`+
+				`<div class="card">Beta</div></div></body></html>`)
+			opts := relayoutOptionsForCSS(t, relayoutFixtureCSS+
+				"#outer { position: fixed; top: 40px; left: 12px; z-index: 30; width: 220px; }")
+
+			prev, err := Layout(root, opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			target := relayoutNodeByID(t, root, targetID)
+			target.Attrs["class"] = "tinted"
+
+			patch, err := RelayoutSubtree(t.Context(), prev, target, opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			relayoutAssertMatchesFullRelayout(t, root, opts, patch, targetID)
+		})
+	}
+}
+
 // TestRelayoutSubtreeKeepsTheRestOfThePage proves the splice is local: the
 // patched element's operations equal the ones a full relayout of the same
 // document produces, and every other operation and box stays byte identical.

@@ -10,6 +10,15 @@ type StatePseudos struct {
 	Focus  bool
 }
 
+// SelectorUsesHover includes hover tests nested in functional pseudo-classes.
+func SelectorUsesHover(selector Selector) bool {
+	var states StatePseudos
+
+	scanSelectorState(selector, &states)
+
+	return states.Hover
+}
+
 // UsesStatePseudos scans every selector, including :is(), :not(), and :has()
 // arguments, for the interactive state pseudo-classes.
 func UsesStatePseudos(sheets []*Stylesheet) StatePseudos {
