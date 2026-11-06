@@ -49,8 +49,6 @@ func (e *engine) simpleFlexBaseHeight(
 // Every condition that can add a line, wrap the text, change a used width,
 // change the line metrics, or paint generated content returns false. The
 // caller then runs the full noEmit build unchanged.
-//
-//nolint:cyclop,funlen // one flat guard walk over the row and every child shape
 func (e *engine) simpleFlexRowHeight(
 	node *html.Node, style *ResolvedStyle, contentW float64,
 ) (float64, bool) {
@@ -68,11 +66,34 @@ func (e *engine) simpleFlexRowHeight(
 	}
 
 	_, rowContentW := e.contentBox(0, rowBoxW, style)
-	if rowContentW <= 0 {
+
+	rowContentH, ok := e.simpleFlexRowContentHeight(node, style, rowContentW)
+	if !ok {
 		return 0, false
 	}
 
-	if len(node.Children) == 0 {
+	rowH := e.scalePt(style.PaddingTop) + e.scalePt(style.BorderTop.Width) +
+		rowContentH +
+		e.scalePt(style.PaddingBottom) + e.scalePt(style.BorderBottom.Width)
+
+	if rowH <= 0 {
+		return 0, false
+	}
+
+	return rowH, true
+}
+
+// simpleFlexRowContentHeight returns the tallest child's outer height for the
+// simple row shape, which is the row's content cross size. rowContentW is the
+// row's already-resolved content-box width, so the caller that knows the used
+// width can skip re-resolving it from an available width.
+//
+//nolint:cyclop // one flat guard walk over the row and every child shape
+func (e *engine) simpleFlexRowContentHeight(
+	node *html.Node, style *ResolvedStyle, rowContentW float64,
+) (float64, bool) {
+	if e == nil || node == nil || node.Type != html.ElementNode || style == nil ||
+		rowContentW <= 0 || len(node.Children) == 0 {
 		return 0, false
 	}
 
@@ -115,15 +136,54 @@ func (e *engine) simpleFlexRowHeight(
 		return 0, false
 	}
 
-	rowH := e.scalePt(style.PaddingTop) + e.scalePt(style.BorderTop.Width) +
-		rowContentH +
-		e.scalePt(style.PaddingBottom) + e.scalePt(style.BorderBottom.Width)
+	return rowContentH, true
+}
 
-	if rowH <= 0 {
+// simpleFlexRowContentCross resolves an indefinite single-line cross size from
+// the simple row guards. It returns the row's content cross size and memoizes
+// it per node, style, and content width in the shared per-run flex map, so the
+// emit pass and any repeated measure pass are one lookup after the first walk.
+// Any other row returns false and keeps the per-item measure.
+//
+//nolint:cyclop // guard list plus the memo read and write stay in one place
+func (e *engine) simpleFlexRowContentCross(
+	parent *box, style *ResolvedStyle, contentW float64,
+) (float64, bool) {
+	if simpleFlexCrossBypass.Load() || e == nil || e.err != nil || parent == nil || style == nil {
 		return 0, false
 	}
 
-	return rowH, true
+	node := parent.node
+	if node == nil || !e.simpleFlexRowStyleOK(style, contentW) {
+		return 0, false
+	}
+
+	key := flexBaseKey{
+		node: node, style: e.stylePtr(node),
+		widthBits: math.Float64bits(contentW) ^ flexRowDomainXor, mainBits: flexRowCrossTag,
+	}
+	if contentH, ok := e.flexBaseH[key]; ok {
+		simpleFlexCrossHits.Add(1)
+
+		return contentH, true
+	}
+
+	contentH, ok := e.simpleFlexRowContentHeight(node, style, contentW)
+	if !ok {
+		return 0, false
+	}
+
+	if e.err == nil {
+		if e.flexBaseH == nil {
+			e.flexBaseH = make(map[flexBaseKey]float64)
+		}
+
+		e.flexBaseH[key] = contentH
+	}
+
+	simpleFlexCrossHits.Add(1)
+
+	return contentH, true
 }
 
 // simpleFlexStackHeight computes the height of a block that stacks simple flex
@@ -467,6 +527,99 @@ func (e *engine) simpleFlexLineHeight(
 	return lineH, true
 }
 
+// simpleFlexMinContentWidth returns the min-content border-box width of a
+// fixed-width flex item that holds exactly one text run, without walking the
+// subtree. measureCellMinMax reduces to the longest word plus the item's
+// horizontal chrome for this shape. Every property that can change the word
+// break, the measured text, or the contribution returns false and keeps the
+// full cell measure.
+//
+//nolint:cyclop // one flat guard list over the accepted single-run shape
+func (e *engine) simpleFlexMinContentWidth(node *html.Node, style *ResolvedStyle) (float64, bool) {
+	if simpleFlexMinBypass.Load() || e == nil || e.err != nil || node == nil ||
+		node.Type != html.ElementNode || style == nil {
+		return 0, false
+	}
+
+	switch style.Display {
+	case cssDisplayInline, displayBlock:
+	default:
+		return 0, false
+	}
+
+	// A fixed width is the shape's licence: the flex auto-minimum keeps the
+	// smaller of this content suggestion and the specified-size suggestion.
+	if style.Width < 0 || style.WidthPercent >= 0 {
+		return 0, false
+	}
+
+	if isSimpleFlexReplacedElement(node) || containsSize(*style) ||
+		style.ContentVisibility == contentVisibilityHidden {
+		return 0, false
+	}
+
+	if style.WhiteSpace != "" && style.WhiteSpace != contentNormal {
+		return 0, false
+	}
+
+	if wordBreakOf(style) != breakNormal {
+		return 0, false
+	}
+
+	if len(node.Children) != 1 || node.Children[0].Type != html.TextNode {
+		return 0, false
+	}
+
+	textNode := node.Children[0]
+	if !singleTextRunStyleOK(style, e.stylePtr(textNode)) {
+		return 0, false
+	}
+
+	longest := e.simpleFlexLongestWord(textNode.Text, style)
+	if longest <= 0 {
+		return 0, false
+	}
+
+	chrome := e.scalePt(style.PaddingLeft) + e.scalePt(style.PaddingRight) +
+		e.scalePt(style.BorderLeft.Width) + e.scalePt(style.BorderRight.Width)
+	// Inline boxes fold that same chrome into every measured word inside the
+	// cell walk, while block boxes add it once at the end; both reduce to the
+	// widest word plus the chrome.
+	simpleFlexMinHits.Add(1)
+
+	return longest + chrome, true
+}
+
+// simpleFlexLongestWord returns the widest HTML-space-delimited word advance in
+// text, matching cellMeasure.measureText under normal white space.
+func (e *engine) simpleFlexLongestWord(text string, style *ResolvedStyle) float64 {
+	longest := 0.0
+
+	for start := 0; start < len(text); {
+		for start < len(text) && isHTMLSpace(text[start]) {
+			start++
+		}
+
+		if start >= len(text) {
+			break
+		}
+
+		end := start
+		for end < len(text) && !isHTMLSpace(text[end]) {
+			end++
+		}
+
+		word := transformInlineText(text[start:end], style.TextTransform)
+		if width := e.measureTextFace(word, style); width > longest {
+			longest = width
+		}
+
+		start = end
+	}
+
+	return longest
+}
+
 // isSimpleFlexReplacedElement reports elements whose box is replaced or atomic
 // and therefore never a plain text run.
 func isSimpleFlexReplacedElement(node *html.Node) bool {
@@ -484,4 +637,18 @@ func isSimpleFlexReplacedElement(node *html.Node) bool {
 // and without the fast path. Production code never calls it.
 func SetSimpleFlexHeightBypassForTest(bypass bool) {
 	simpleFlexHeightBypass.Store(bypass)
+}
+
+// SetSimpleFlexCrossBypassForTest turns the simple row content-cross fast path
+// off or on. Differential tests use it to force the per-item measure.
+// Production code never calls it.
+func SetSimpleFlexCrossBypassForTest(bypass bool) {
+	simpleFlexCrossBypass.Store(bypass)
+}
+
+// SetSimpleFlexMinBypassForTest turns the fixed-width single-run min-content
+// fast path off or on. Differential tests use it to force the full cell walk.
+// Production code never calls it.
+func SetSimpleFlexMinBypassForTest(bypass bool) {
+	simpleFlexMinBypass.Store(bypass)
 }

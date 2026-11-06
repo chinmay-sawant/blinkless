@@ -67,6 +67,10 @@ type flexPlacedItem struct {
 const (
 	flexRowDomainXor uint64 = 0x9e3779b97f4a7c15
 	flexRowBaseTag   uint64 = 0x72006f7700000001
+	// flexRowCrossTag holds the simple row's line cross size under the same
+	// row domain. It stays out of the base-width and base-height domains so a
+	// content height can never stand in for a used size.
+	flexRowCrossTag  uint64 = 0x72006f7700000002
 	multicolWidthXor uint64 = 0xbf58476d1ce4e5b9
 	multicolMainTag  uint64 = 0x4d756c7469000001
 )
@@ -84,9 +88,16 @@ var (
 	flexRowMemoBypass      atomic.Bool
 	simpleFlexHeightBypass atomic.Bool
 	simpleFlexHeightHits   atomic.Int64
-	flexLinePlacePool      = sync.Pool{New: func() any { return make([]flexLinePlace, 0, 16) }}
-	flexPlacedPool         = sync.Pool{New: func() any { return make([]flexPlacedItem, 0, 16) }}
-	flexBoolPool           = sync.Pool{New: func() any { return make([]bool, 16) }}
+	// simpleFlexCrossBypass and simpleFlexMinBypass are test-only switches
+	// that force the full measure for the line-cross and min-content fast
+	// paths so differential tests can compare both layouts.
+	simpleFlexCrossBypass atomic.Bool
+	simpleFlexCrossHits   atomic.Int64
+	simpleFlexMinBypass   atomic.Bool
+	simpleFlexMinHits     atomic.Int64
+	flexLinePlacePool     = sync.Pool{New: func() any { return make([]flexLinePlace, 0, 16) }}
+	flexPlacedPool        = sync.Pool{New: func() any { return make([]flexPlacedItem, 0, 16) }}
+	flexBoolPool          = sync.Pool{New: func() any { return make([]bool, 16) }}
 )
 
 // getFlexLinePlaces rents a zero-length placed-line scratch for one flex
@@ -811,8 +822,13 @@ func (e *engine) flexMinMainSizeUncached(item flexMeas, mainSize float64) float6
 		floor = e.scalePt(cstate.MinWidth)
 	}
 	// Automatic minimum (min-width:auto): min-content size suggestion. The
-	// returned width already includes the item's horizontal chrome.
-	contentSug, _ := e.measureCellMinMax(item.n, cstate)
+	// returned width already includes the item's horizontal chrome. Fixed-width
+	// single-text items derive the same suggestion from the longest word, so
+	// the full cell walk only runs for shapes the helper cannot prove.
+	contentSug, simple := e.simpleFlexMinContentWidth(item.n, cstate)
+	if !simple {
+		contentSug, _ = e.measureCellMinMax(item.n, cstate)
+	}
 	pad := e.scalePt(cstate.PaddingLeft) + e.scalePt(cstate.PaddingRight) +
 		e.scalePt(cstate.BorderLeft.Width) + e.scalePt(cstate.BorderRight.Width)
 	// Specified size suggestion when width/% is definite against mainSize.
@@ -1126,7 +1142,11 @@ func (e *engine) placeFlexLineMeasured(
 
 	targetCross := lineCross
 	if targetCross < 0 {
-		targetCross = e.measureFlexCrossMax(items, widths, startX, topY, curY, justifyGap)
+		if cross, ok := e.simpleFlexRowContentCross(parent, &style, contentW); ok {
+			targetCross = cross
+		} else {
+			targetCross = e.measureFlexCrossMax(items, widths, startX, topY, curY, justifyGap)
+		}
 	}
 
 	built, rowH := e.buildRowItems(
