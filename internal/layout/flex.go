@@ -77,14 +77,16 @@ const maxPooledFlexScratch = 4096
 
 //nolint:gochecknoglobals // test-visible memo state mirrors flexKidPool in flex_children.go
 var (
-	flexRowBaseHits   atomic.Int64
-	flexRowBaseMisses atomic.Int64
-	flexRowMinHits    atomic.Int64
-	flexRowMinMisses  atomic.Int64
-	flexRowMemoBypass atomic.Bool
-	flexLinePlacePool = sync.Pool{New: func() any { return make([]flexLinePlace, 0, 16) }}
-	flexPlacedPool    = sync.Pool{New: func() any { return make([]flexPlacedItem, 0, 16) }}
-	flexBoolPool      = sync.Pool{New: func() any { return make([]bool, 16) }}
+	flexRowBaseHits        atomic.Int64
+	flexRowBaseMisses      atomic.Int64
+	flexRowMinHits         atomic.Int64
+	flexRowMinMisses       atomic.Int64
+	flexRowMemoBypass      atomic.Bool
+	simpleFlexHeightBypass atomic.Bool
+	simpleFlexHeightHits   atomic.Int64
+	flexLinePlacePool      = sync.Pool{New: func() any { return make([]flexLinePlace, 0, 16) }}
+	flexPlacedPool         = sync.Pool{New: func() any { return make([]flexPlacedItem, 0, 16) }}
+	flexBoolPool           = sync.Pool{New: func() any { return make([]bool, 16) }}
 )
 
 // getFlexLinePlaces rents a zero-length placed-line scratch for one flex
@@ -1795,6 +1797,13 @@ func (e *engine) flexItemBaseHeight(node *html.Node, style *ResolvedStyle, conte
 		widthBits: math.Float64bits(contentW), mainBits: math.Float64bits(mainSize),
 	}
 	if height, ok := e.flexBaseH[key]; ok {
+		return height
+	}
+
+	// Simple invoice rows can derive their one-line height from the cell line
+	// metrics, so the subtree measure below never runs for them. Any shape the
+	// helper cannot prove falls through to the unchanged noEmit build.
+	if height, ok := e.simpleFlexBaseHeight(key, node, style, contentW); ok {
 		return height
 	}
 
