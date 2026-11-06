@@ -364,6 +364,68 @@ func newDisplay(
 	return display
 }
 
+// newDisplayForPatch builds the display of a patched placement from the
+// display it replaces. A patch re-places a subtree inside the page it already
+// laid out, so everything the page keeps is carried over from prev instead of
+// being derived again: the @keyframes rules of the document, the canvas size,
+// the point and pixel scale, and the retained zoom.
+//
+// Page breaks are supplied by the caller because a patch can change them and
+// only the caller knows whether it did.
+//
+// deriveOwners says whether this build derives the operation owners and the
+// paint order. The single-element path does. The batch path maintains both
+// incrementally across its splices and installs them on the returned display,
+// so it passes false and pays for neither the placed-parent slice nor the two
+// derivations.
+func newDisplayForPatch(
+	res *ilayout.Result,
+	prev *Display,
+	forced []float64,
+	keep [][2]float64,
+	deriveOwners bool,
+) *Display {
+	boxCount := res.BoxCount()
+
+	var parents []int
+
+	if deriveOwners {
+		parents = make([]int, 0, boxCount)
+	}
+
+	boxes := make([]Box, 0, boxCount)
+
+	ilayout.WalkPlaced(res, func(item *ilayout.PlacedElement) {
+		boxes = append(boxes, boxFrom(item))
+
+		if deriveOwners {
+			parents = append(parents, item.ParentIndex)
+		}
+	})
+
+	display := &Display{
+		Ops:            res.Ops,
+		OpOwners:       nil,
+		Order:          nil,
+		Boxes:          boxes,
+		Keyframes:      prev.Keyframes,
+		Width:          prev.Width,
+		Height:         prev.Height,
+		PointsPerPixel: prev.PointsPerPixel,
+		PixelPerPoint:  prev.PixelPerPoint,
+		ForcedBreaks:   forced,
+		KeepTogether:   keep,
+		result:         res,
+		zoom:           prev.zoom,
+	}
+
+	if deriveOwners {
+		display.OpOwners, display.Order = emitOwnersAndOrder(res, parents)
+	}
+
+	return display
+}
+
 // emitOwnersAndOrder derives the per-operation element owners and the paint
 // order from one shared op slice capture, so display construction sizes both
 // slices from the count known before emission and issues the two derivations

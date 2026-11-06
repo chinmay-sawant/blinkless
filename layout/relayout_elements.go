@@ -94,11 +94,45 @@ func RelayoutElements(
 	atomic.AddInt64(&relayoutFontSkips, int64(batch.Textless))
 
 	// One display build materializes the patched placement; the owners and
-	// the order it derives equal the maintained ones by construction, so the
-	// adopted display carries the incremental slices.
-	display := patchedDisplayOn(styled, prev, clone)
+	// the order the batch maintained are installed on it, so the build skips
+	// both derivations. A paint-only batch carries the previous display's
+	// boxes, breaks, keyframes, and size, and the text of the patched elements
+	// and their ancestors is refreshed in place.
+	display := patchedBatchDisplay(styled, prev, prev.result, clone, batch.PaintOnly)
 	display.OpOwners = batch.Owners
 	display.Order = batch.Order
 
+	if batch.PaintOnly {
+		applyPaintOnlyBoxTexts(display.Boxes, batch.Texts)
+	}
+
 	return display, nil
+}
+
+// applyPaintOnlyBoxTexts refreshes the boxes a paint-only batch patched.
+// Display.Box.Text is the element's subtree text, so a text edit changes the
+// box of the patched element and of every ancestor that contains it. The
+// boxes are the previous display's slice, which the API declares stale once
+// the patched display is adopted, so they are updated in place: a fresh []Box
+// would rebuild the whole list the paint-only path avoids.
+func applyPaintOnlyBoxTexts(boxes []Box, texts []ilayout.PaintOnlyText) {
+	for index := range texts {
+		boxIndex := boxIndexByID(boxes, texts[index].ID)
+		if boxIndex < 0 || len(texts[index].Texts) == 0 {
+			continue
+		}
+
+		chain := texts[index].Texts
+		boxes[boxIndex].Text = chain[0]
+
+		parent := boxes[boxIndex].ParentIndex
+		for step := 1; step < len(chain); step++ {
+			if parent < 0 || parent >= len(boxes) {
+				break
+			}
+
+			boxes[parent].Text = chain[step]
+			parent = boxes[parent].ParentIndex
+		}
+	}
 }

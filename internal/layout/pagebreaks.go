@@ -3,6 +3,8 @@ package layout
 import (
 	"math"
 	"sort"
+
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 // PageBreaks returns the page-break metadata for a finished layout: canvas
@@ -49,6 +51,145 @@ func PageBreaks(res *Result, pageH float64) ([]float64, [][2]float64) {
 	forced := collector.forcedOut()
 
 	return forced, collector.keepOut(forced)
+}
+
+// PageBreaksEqual reports whether two placements produce the same page-break
+// metadata at the same page height. It compares only the fields PageBreaks
+// reads: the geometry, kind, break styles, table row metadata and operation
+// ranges of the element box tree, the operation fields a single-line or row
+// keep measures, and the content height. The walk allocates nothing.
+//
+// A true result is a proof: PageBreaks returns the same forced breaks and keep
+// ranges for both placements at any pageH. A false result only means the
+// caller must run PageBreaks; the breaks may still be equal.
+func PageBreaksEqual(left, right *Result) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+
+	if left.Height != right.Height || len(left.Ops) != len(right.Ops) {
+		return false
+	}
+
+	if left.root == nil || right.root == nil {
+		return left.root == right.root
+	}
+
+	if !sameBreakBoxes(left.root, right.root) {
+		return false
+	}
+
+	for index := range left.Ops {
+		if !sameBreakOp(&left.Ops[index], &right.Ops[index]) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// sameBreakBoxes compares the pagination inputs of two box subtrees: geometry,
+// kind, operation range, break styles, heading tag, table row metadata, and
+// the cell operation ranges a row keep measures. PageBreaks does not descend
+// into table rows, so the cells are compared where it reads them and the walk
+// follows the children track only.
+func sameBreakBoxes(left, right *box) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+
+	if left.y != right.y || left.height != right.height || left.kind != right.kind ||
+		left.opStart != right.opStart || left.opEnd != right.opEnd {
+		return false
+	}
+
+	if !sameBreakStyle(left.style, right.style) || !sameBreakNode(left.node, right.node) {
+		return false
+	}
+
+	if len(left.rowTops) != len(right.rowTops) || len(left.rowHeights) != len(right.rowHeights) {
+		return false
+	}
+
+	for index := range left.rowTops {
+		if left.rowTops[index] != right.rowTops[index] ||
+			left.rowHeights[index] != right.rowHeights[index] {
+			return false
+		}
+	}
+
+	if len(left.rows) != len(right.rows) {
+		return false
+	}
+
+	for rowIndex := range left.rows {
+		leftRow, rightRow := left.rows[rowIndex], right.rows[rowIndex]
+		if len(leftRow) != len(rightRow) {
+			return false
+		}
+
+		for cellIndex := range leftRow {
+			leftCell, rightCell := leftRow[cellIndex], rightRow[cellIndex]
+
+			if leftCell == nil || rightCell == nil {
+				if leftCell != rightCell {
+					return false
+				}
+
+				continue
+			}
+
+			if leftCell.opStart != rightCell.opStart || leftCell.opEnd != rightCell.opEnd {
+				return false
+			}
+		}
+	}
+
+	if len(left.children) != len(right.children) {
+		return false
+	}
+
+	for index := range left.children {
+		if !sameBreakBoxes(left.children[index], right.children[index]) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// sameBreakStyle compares the style fields PageBreaks reads: the three break
+// properties, the out-of-flow position and float, and the display value that
+// decides whether a box is inline-level.
+func sameBreakStyle(left, right *ResolvedStyle) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+
+	return left.PageBreakBefore == right.PageBreakBefore &&
+		left.PageBreakAfter == right.PageBreakAfter &&
+		left.PageBreakInside == right.PageBreakInside &&
+		left.Position == right.Position &&
+		left.Float == right.Float &&
+		left.Display == right.Display
+}
+
+// sameBreakNode compares the tag PageBreaks reads to recognize a heading.
+func sameBreakNode(left, right *html.Node) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+
+	return left.Name == right.Name
+}
+
+// sameBreakOp compares the operation fields PageBreaks measures: the paint
+// kind, the baseline or box top, the recorded line height, the face size that
+// stands in for a missing line height, and the fixed flag that keeps an op out
+// of a row keep.
+func sameBreakOp(left, right *Op) bool {
+	return left.Kind == right.Kind && left.Y == right.Y &&
+		left.H == right.H && left.Size == right.Size && left.Fixed == right.Fixed
 }
 
 // boxOutOfFlow reports whether a box fragments under its own rules rather

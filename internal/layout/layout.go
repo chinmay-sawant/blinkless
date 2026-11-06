@@ -259,10 +259,17 @@ func (r *Result) BoxCount() int {
 	return len(r.boxes)
 }
 
-// CloneResult returns an independent pagination result. Display-list image
-// bytes, page/index slices, and the layout-owned box graph are copied so a
-// second paint or pagination pass cannot mutate the source result through a
-// shallow alias.
+// CloneResult returns an independent placement for a patch pass. The display
+// list, its rare operation payloads, and the layout-owned box graph are copied
+// so a splice cannot mutate the source result through a shallow alias. The
+// operation slice keeps spare capacity, so a batch can overwrite or grow its
+// patched windows in place instead of reallocating the page-wide list once per
+// element.
+//
+// The pagination caches (Pages, Locations, and the flow indexes) stay shared
+// with the source instead of being copied. The layout engine never fills them
+// on a retained placement, and the patch pipeline reads only the operations
+// and the box graph, so copying them would only add work.
 func CloneResult(res *Result) *Result {
 	if res == nil {
 		return nil
@@ -270,35 +277,39 @@ func CloneResult(res *Result) *Result {
 
 	clone := *res
 	clone.Ops = cloneOps(res.Ops)
-	// A clone is an independent pagination result, so it starts without the
-	// source's raster cache instead of sharing a mutable map of payloads.
+	// A clone starts without the source's raster cache instead of sharing a
+	// mutable map of payloads.
 	clone.svgRasters = nil
-	clone.Pages = cloneIndexPages(res.Pages)
-	clone.Locations = append([]ElementLocation(nil), res.Locations...)
-	clone.flowPages = cloneIndexPages(res.flowPages)
-	clone.flowPageOf = append([]int(nil), res.flowPageOf...)
-	clone.flowPos = append([]int(nil), res.flowPos...)
-	clone.flowBoxes = cloneIndexPages(res.flowBoxes)
-	clone.flowBoxPage = append([]int(nil), res.flowBoxPage...)
-	clone.flowBoxPos = append([]int(nil), res.flowBoxPos...)
 	boxes := make(map[*box]*box, len(res.boxes))
-	clone.root = cloneBoxGraph(res.root, boxes)
+	arena := boxArena{}
+	clone.root = cloneBoxGraph(res.root, boxes, &arena)
 	clone.rootBox = clone.root
 	clone.boxes = make([]*box, len(res.boxes))
 
 	for i, source := range res.boxes {
-		clone.boxes[i] = cloneBoxGraph(source, boxes)
+		clone.boxes[i] = cloneBoxGraph(source, boxes, &arena)
 	}
 
 	return &clone
 }
 
+// cloneOpsSpareDivisor and cloneOpsSpareFloor size the spare capacity a cloned
+// display list keeps for the window splices a patch commits. One click patches
+// a handful of ids against thousands of operations, so len/16 plus a small
+// floor covers those windows without pinning another page-sized backing.
+const (
+	cloneOpsSpareDivisor = 16
+	cloneOpsSpareFloor   = 16
+)
+
+// cloneOps returns an independent copy of one operation list with room for the
+// splices a patch pass commits.
 func cloneOps(src []Op) []Op {
 	if src == nil {
 		return nil
 	}
 
-	dst := make([]Op, len(src))
+	dst := make([]Op, len(src), len(src)+len(src)/cloneOpsSpareDivisor+cloneOpsSpareFloor)
 	for i := range src {
 		dst[i] = src[i]
 		dst[i].opExtra = cloneOpExtra(src[i].opExtra)
@@ -307,20 +318,28 @@ func cloneOps(src []Op) []Op {
 	return dst
 }
 
-func cloneIndexPages(src [][]int) [][]int {
-	if src == nil {
-		return nil
-	}
+// boxCloneChunk is how many box copies one arena allocation holds. A clone of
+// a large page allocates a handful of chunks instead of one object per box,
+// while interior pointers keep each chunk alive for the clone's lifetime.
+const boxCloneChunk = 256
 
-	dst := make([][]int, len(src))
-	for i := range src {
-		dst[i] = append([]int(nil), src[i]...)
-	}
-
-	return dst
+// boxArena hands out box copies from chunked backing arrays.
+type boxArena struct {
+	chunks [][]box
 }
 
-func cloneBoxGraph(src *box, seen map[*box]*box) *box {
+func (a *boxArena) alloc() *box {
+	if len(a.chunks) == 0 || len(a.chunks[len(a.chunks)-1]) == boxCloneChunk {
+		a.chunks = append(a.chunks, make([]box, 0, boxCloneChunk))
+	}
+
+	chunk := &a.chunks[len(a.chunks)-1]
+	*chunk = append(*chunk, box{})
+
+	return &(*chunk)[len(*chunk)-1]
+}
+
+func cloneBoxGraph(src *box, seen map[*box]*box, arena *boxArena) *box {
 	if src == nil {
 		return nil
 	}
@@ -329,28 +348,29 @@ func cloneBoxGraph(src *box, seen map[*box]*box) *box {
 		return clone
 	}
 
-	clone := *src
+	clone := arena.alloc()
+	*clone = *src
 	clone.children = nil
 	clone.rows = nil
 	clone.stickyPort = nil
-	seen[src] = &clone
+	seen[src] = clone
 
 	for _, child := range src.children {
-		clone.children = append(clone.children, cloneBoxGraph(child, seen))
+		clone.children = append(clone.children, cloneBoxGraph(child, seen, arena))
 	}
 
 	for _, row := range src.rows {
 		clonedRow := make([]*box, 0, len(row))
 		for _, cell := range row {
-			clonedRow = append(clonedRow, cloneBoxGraph(cell, seen))
+			clonedRow = append(clonedRow, cloneBoxGraph(cell, seen, arena))
 		}
 
 		clone.rows = append(clone.rows, clonedRow)
 	}
 
-	clone.stickyPort = cloneBoxGraph(src.stickyPort, seen)
+	clone.stickyPort = cloneBoxGraph(src.stickyPort, seen, arena)
 
-	return &clone
+	return clone
 }
 
 // Workspace owns reusable display-list storage for sequential internal

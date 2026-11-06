@@ -316,24 +316,66 @@ func overrideRelayoutError(err error) error {
 	}
 }
 
-// patchedDisplay builds the display list of the patched page. The engine
-// patched the placement the previous display was built from, so the display
-// carries that placement and the operations, the paint order, the owners and
-// the boxes that go with them. Page breaks are recomputed because a style
-// patch can change them.
+// patchedDisplay builds the display list of the patched page for one element
+// patch. The engine patched prev.result in place, so the placement the display
+// replaces is gone and page breaks are recomputed; the owners and the paint
+// order are derived from the patched placement.
 func patchedDisplay(styled pubstate.Styled, prev *Display) *Display {
-	return patchedDisplayOn(styled, prev, prev.result)
+	forced, keep := ilayout.PageBreaks(prev.result, pageHeightPt(styled))
+
+	return newDisplayForPatch(prev.result, prev, forced, keep, true)
 }
 
-// patchedDisplayOn builds the display list of a patched placement held
-// outside the display it patches, the shape a batch commits once after
-// threading every id through the same placement.
-func patchedDisplayOn(styled pubstate.Styled, prev *Display, res *ilayout.Result) *Display {
-	canvasPt := float64(prev.Height) / ptToPx
-	forced, keep := ilayout.PageBreaks(res, canvasPt)
+// patchedBatchDisplay builds the display list of a batch commit. base is the
+// placement prev was built from, before the batch patched its private copy,
+// so the page keeps the breaks prev carries when the comparison proves the
+// patch left every field PageBreaks reads alone. The callers install the
+// owners and the paint order the batch maintained.
+//
+// A paint-only batch skips the placed walk, the page-break comparison, and
+// the box allocation: its display is a copy of prev that only swaps in the
+// batch's private operation list and retained result. The boxes, breaks,
+// keyframes, sizes, and zoom are the previous display's, and the caller
+// refreshes the patched box texts in place.
+func patchedBatchDisplay(
+	styled pubstate.Styled, prev *Display, base, res *ilayout.Result, paintOnly bool,
+) *Display {
+	if paintOnly {
+		return paintOnlyBatchDisplay(prev, res)
+	}
 
-	return newDisplay(res, styled.Sheets, canvasPt,
-		forced, keep, prev.zoom, true)
+	forced, keep := prev.ForcedBreaks, prev.KeepTogether
+	if !ilayout.PageBreaksEqual(base, res) {
+		forced, keep = ilayout.PageBreaks(res, pageHeightPt(styled))
+	}
+
+	return newDisplayForPatch(res, prev, forced, keep, false)
+}
+
+// paintOnlyBatchDisplay builds the display of a batch that only changed
+// paint: the operations and the retained result come from the batch, and
+// everything a full build would derive again is the previous display's.
+//
+// The boxes are shared with prev, so the caller must treat prev as stale after
+// adoption and refresh the patched texts in place, the rule
+// applyPaintOnlyBoxTexts follows. The operation slice is the batch's private
+// clone: the previous display keeps reading its own operation backing.
+func paintOnlyBatchDisplay(prev *Display, res *ilayout.Result) *Display {
+	display := *prev
+	display.Ops = res.Ops
+	display.result = res
+
+	return &display
+}
+
+// pageHeightPt returns the page content height the page was laid out for: the
+// value DisplayListOptions hands PageBreaks. A patch passes the same value, so
+// the breaks it computes for a changed page are the ones a full layout of the
+// same document would produce.
+func pageHeightPt(styled pubstate.Styled) float64 {
+	_, heightPt := displayViewportPt(styled)
+
+	return heightPt
 }
 
 // checkRelayoutInput rejects the inputs RelayoutElement cannot work with.

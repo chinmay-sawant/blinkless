@@ -376,11 +376,18 @@ func countOrderingRelevant(ops []Op) (relevant, grouped int) {
 // ones shifted; when neither the removed nor the new window carries an
 // ordering-relevant operation and no operation anywhere belongs to a blend
 // group, the new indices merge into place and the global sort is skipped,
-// provided the new run is itself sorted. Any other change falls back to the
+// provided the new run is itself sorted. A window that kept its length and its
+// ordering-neutral keys leaves the maintained order untouched: the old window
+// was neutral too, so both sorts rank the same indices by index alone and the
+// ops outside the window are unchanged. Any other change falls back to the
 // full paint order.
 func splicePaintOrder(ops []Op, order []int, start, oldCount, newCount int, neutral bool) []int {
 	if !neutral || !windowSorted(ops, start, newCount) {
 		return PaintOrder(ops)
+	}
+
+	if oldCount == newCount && len(order) == len(ops) && windowNeutral(ops, start, newCount) {
+		return order
 	}
 
 	end := start + oldCount - 1
@@ -400,6 +407,27 @@ func splicePaintOrder(ops []Op, order []int, start, oldCount, newCount int, neut
 	}
 
 	return mergePaintOrder(ops, kept, start, newCount)
+}
+
+// windowNeutral reports whether one index run carries no ordering key: no
+// blend group, no explicit z-index, no positioning, and the content layer
+// only. Such ops sort by index alone, so a window of them keeps every one of
+// its indices in the place a neutral window before it held. It reports false
+// for a range outside the op slice.
+func windowNeutral(ops []Op, start, count int) bool {
+	if start < 0 || count < 0 || start+count > len(ops) {
+		return false
+	}
+
+	for index := start; index < start+count; index++ {
+		op := &ops[index]
+
+		if op.Group() != nil || op.ZIndexSet || op.Positioned || paintLayer(op) != paintLayerContent {
+			return false
+		}
+	}
+
+	return true
 }
 
 // mergePaintOrder merges the new window indices into a sorted survivor
