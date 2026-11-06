@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -12,11 +13,133 @@ import (
 
 const maxSingleAttrCacheSize = 1024
 
-//nolint:gochecknoglobals // class attribute key memoization cache
+// maxSharedCompiledEntries bounds the cross-layout bundle map. Layouts that
+// cycle through more distinct sheet sets than this simply rebuild the oldest
+// work; holders keep their own bundle pointer, so eviction never invalidates
+// a running layout.
+const maxSharedCompiledEntries = 16
+
+//nolint:gochecknoglobals // class attribute key memoization cache plus cross-layout bundles
 var (
 	singleAttrCacheMu sync.RWMutex
 	singleAttrCache   = make(map[string]string)
+
+	sharedCompiledMu sync.Mutex
+	sharedCompiledBy = make(map[string]*sharedCompiled)
 )
+
+// sharedCompiled holds the stylesheet-content artifacts that survive across
+// consecutive full layouts of the same sheets: the compiled selector index
+// and the interned tag strings. Both are pure functions of content that never
+// changes mid-layout (the index of the sheet rules, the tags of tag names),
+// so one bundle serves every layout whose sheets match. Per-document outcomes
+// stay strictly per layout and never enter the bundle: matchCache entries
+// (matched rules per element signature, with contextual candidates rechecked
+// against the live tree) and gateCache results (media and @supports outcomes
+// for the pass viewport) live on styleContext and die with it. The
+// single-attribute key memo above is likewise global already: a canonical
+// encoding is a pure function of the attribute value, so it needs no sheet
+// key at all. The index is read-only after construction, and the tag map
+// grows only under the bundle lock, so concurrent layouts share safely.
+type sharedCompiled struct {
+	mu sync.RWMutex
+	// index narrows selector matching to rules that can match a node.
+	// Read-only after the bundle is published.
+	index *ruleIndex
+	// tags interns namespaced tag strings by lowercased HTML tag name.
+	tags map[string]string
+	// sheets retains the exact sheet set this bundle was built from. The
+	// bundle key is pointer identity plus rule count, so without retention
+	// a freed sheet address could be recycled by a different sheet and hit
+	// a stale bundle with silently wrong styles. Retaining the sheets pins
+	// their addresses while the entry lives; eviction drops the entry and
+	// its sheets together, so no stale key can outlive its addresses.
+	// Bounded by maxSharedCompiledEntries.
+	sheets []*css.Stylesheet
+}
+
+// sheetsCacheKey identifies one sheet set by pointer identity plus rule
+// count. A changed stylesheet parses into new objects (new pointers), and an
+// appended rule changes the count, so either misses the previous bundle and
+// rebuilds. The bundle retains its sheets, so a key can never outlive the
+// addresses it names: no recycled address can collide with a live entry.
+// Callers must not mutate a parsed rule in place: ruleHit and the index hold
+// rule pointers, so in-place edits need a fresh parse, the same contract the
+// per-pass index already assumed.
+func sheetsCacheKey(sheets []*css.Stylesheet) string {
+	var out strings.Builder
+
+	out.WriteString(strconv.Itoa(len(sheets)))
+	out.WriteByte(';')
+
+	for _, sheet := range sheets {
+		if sheet == nil {
+			out.WriteString("nil;")
+
+			continue
+		}
+
+		out.WriteString(fmt.Sprintf("%p:%d;", sheet, len(sheet.Rules)))
+	}
+
+	return out.String()
+}
+
+// sharedCompiledFor returns the bundle for sheets, building it once on first
+// use. The build runs under the bundle-map lock so concurrent first layouts
+// of one sheet set still produce exactly one index. A nil sheet set carries
+// nothing worth compiling and bypasses sharing.
+func sharedCompiledFor(sheets []*css.Stylesheet) *sharedCompiled {
+	if len(sheets) == 0 {
+		return nil
+	}
+
+	key := sheetsCacheKey(sheets)
+
+	sharedCompiledMu.Lock()
+	defer sharedCompiledMu.Unlock()
+
+	if bundle, ok := sharedCompiledBy[key]; ok {
+		return bundle
+	}
+
+	bundle := &sharedCompiled{ //nolint:exhaustruct // tags map filled below
+		tags:   make(map[string]string),
+		sheets: sheets,
+	}
+	bundle.index = newRuleIndex(sheets)
+
+	if len(sharedCompiledBy) >= maxSharedCompiledEntries {
+		sharedCompiledBy = make(map[string]*sharedCompiled)
+	}
+
+	sharedCompiledBy[key] = bundle
+
+	return bundle
+}
+
+// sharedRuleIndex returns the pass selector index, reusing the cross-layout
+// bundle for this context's sheets. The bundle index is installed on the
+// context so later lookups take the same fast path a per-pass build would
+// have left behind.
+func (ctx *styleContext) sharedRuleIndex() *ruleIndex {
+	if ctx == nil || len(ctx.sheets) == 0 {
+		return nil
+	}
+
+	if ctx.index != nil {
+		return ctx.index
+	}
+
+	bundle := sharedCompiledFor(ctx.sheets)
+	if bundle == nil || bundle.index == nil {
+		return nil
+	}
+
+	ctx.index = bundle.index
+
+	return ctx.index
+}
 
 // ruleHit is one selector match from the shared cascade rule walk. rule
 // points into its stylesheet, so pointer identity is the exact rule identity
@@ -65,7 +188,10 @@ func (ctx *styleContext) matchSignature(node *html.Node, pseudoElem string) matc
 // run two to three times per element (element plus ::before/::after, plus
 // counter and content probes), and the matchCacheKey holds the tag string,
 // so sharing one copy per distinct tag removes a concatenation per probe.
-// Tags are fixed at parse time, so a pass-local cache cannot go stale.
+// Tags are fixed at parse time, so the interned strings never go stale; the
+// per-pass ctx.matchTags map stays the unsynchronized fast path, and the
+// shared bundle behind it lets consecutive layouts of the same sheets reuse
+// the same interned copies.
 func (ctx *styleContext) matchTag(node *html.Node) string {
 	if node.Namespace != html.NamespaceHTML {
 		return "foreign\x00" + strconv.Itoa(int(node.Namespace)) + "\x00" + node.Name
@@ -75,6 +201,40 @@ func (ctx *styleContext) matchTag(node *html.Node) string {
 
 	if interned, ok := ctx.matchTags[lowered]; ok {
 		return interned
+	}
+
+	if bundle := sharedCompiledFor(ctx.sheets); bundle != nil {
+		bundle.mu.RLock()
+		interned, ok := bundle.tags[lowered]
+		bundle.mu.RUnlock()
+
+		if ok {
+			if ctx.matchTags == nil {
+				ctx.matchTags = make(map[string]string)
+			}
+
+			ctx.matchTags[lowered] = interned
+
+			return interned
+		}
+
+		tag := "html\x00" + lowered
+
+		bundle.mu.Lock()
+		if existing, ok := bundle.tags[lowered]; ok {
+			tag = existing
+		} else {
+			bundle.tags[lowered] = tag
+		}
+		bundle.mu.Unlock()
+
+		if ctx.matchTags == nil {
+			ctx.matchTags = make(map[string]string)
+		}
+
+		ctx.matchTags[lowered] = tag
+
+		return tag
 	}
 
 	if ctx.matchTags == nil {
@@ -192,7 +352,7 @@ func (ctx *styleContext) matchedRules(node *html.Node, pseudoElem string) []rule
 		return nil
 	}
 
-	index := ctx.ruleIndex()
+	index := ctx.sharedRuleIndex()
 	if index == nil {
 		return nil
 	}

@@ -9,6 +9,50 @@ and are not listed here.
 
 ## Unreleased
 
+### Landed and designed
+
+Phase-07-linked engine work streams. Each row names the file that proves
+it. Every figure is TBD pending the benchmark run.
+
+- **Scale benchmark.** Landed harness. `layout/invoice_scale_bench_test.go`
+  builds a deterministic 1000-row invoice page and `BenchmarkInvoiceScale`
+  runs HTML parse plus CSS cascade plus layout. Figures TBD.
+- **Font sharing.** Landed. `internal/fonts/faces.go` caches the bundled
+  face set once (`LoadDefaultFaces`), `internal/fonts/advance_cache.go`
+  shares one scaled face per face and size (`SharedScaledFace`), and
+  `internal/fonts/font_file_cache.go` memoizes parsed font files across
+  conversions. Figures TBD.
+- **Batch relayout API.** Landed. `layout/relayout_elements.go`
+  (`RelayoutElements`) re-places several element subtrees in one call by
+  threading sequential element patches over a private copy of the retained
+  placement, with tests in `layout/relayout_elements_test.go`. Figures TBD.
+- **Display-list allocs.** Landed measurement plus a small fix.
+  `layout/displaylist_alloc_test.go` pins the table golden and the
+  order-path allocs, and `layout/displaylist.go` pre-counts the keyframes
+  capacity. Figures TBD.
+- **Selector cache.** Landed and wired.
+  `internal/layout/style_match_cache.go` caches element-local selector
+  outcomes per cascade pass and replays the reusable hits in source order.
+  Figures TBD.
+- **Tree edit path.** Landed. `html/attribute.go` edits in place
+  (`SetAttribute` keeps the stored spelling and the id index in step;
+  `SetText` reuses the single text node on the common shape), budgeted by
+  `html/attribute_patch_test.go`. Figures TBD.
+- **Subtree fast path.** Landed. `layout/relayout_element.go` skips engine
+  work for identical-value no-ops, cascade-ignored attributes, provably
+  inert overrides, and text-free font loads, pinned by
+  `layout/relayout_element_fast_test.go`. Figures TBD.
+- **Box pooling.** Mixed. Box and style chunk pooling is wired:
+  `internal/layout/layout_chunks.go` rents through `allocBox` and
+  `allocStyle` and returns the chunks in `Result.Release`. The per-box
+  slice and struct rental pool in `internal/layout/box_alloc.go` is
+  designed with unit tests in `internal/layout/box_alloc_test.go`, and its
+  header says the layout call-site change is not wired yet. Figures TBD.
+- **Block memo.** Designed only. The header of
+  `internal/layout/memo_block.go` says "designed, not wired", with unit
+  tests in `internal/layout/memo_block_test.go` and no wired call site.
+  Figures TBD.
+
 ## 0.0.3 (2026-10-23)
 
 Work after tag `v0.0.2`, tracked in [`plans/v0.0.3/`](plans/v0.0.3/README.md).

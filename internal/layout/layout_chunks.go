@@ -12,6 +12,13 @@ func (r *Result) Release() {
 		return
 	}
 
+	// The flattened box list was rented at exact capacity in finalizeResult
+	// and assembleNodeResult. The public display copied box values out of it
+	// before Release, and Release only runs on the non-retained path, so no
+	// live display aliases this backing: hand it back.
+	returnBoxPtrs(r.boxes)
+	r.boxes = nil
+
 	for _, chunk := range r.styleChunks {
 		putStyleChunk(chunk)
 	}

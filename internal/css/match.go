@@ -3,6 +3,8 @@ package css
 import (
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"unicode"
 	"unicode/utf8"
 
@@ -20,10 +22,201 @@ type siblingInfo struct {
 	typeLastIndex int
 }
 
-// getSiblingInfo scans node.Parent's element children once to derive node's
-// sibling metrics. The walk is local to one parent and keeps no state between
-// documents; selector matching visits a parent's children together, so the
-// scan stays short.
+// asciiEqualFold reports whether a and b match ASCII case-insensitively
+// without allocating. HTML type selectors and the Selectors 4 ASCII i flag
+// fold ASCII letters only; non-ASCII bytes compare exactly. A rare non-ASCII
+// mismatch falls back to EqualFold so Unicode tags still behave.
+func asciiEqualFold(a, b string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := 0; i < len(a); i++ {
+		ca := a[i]
+		cb := b[i]
+
+		if ca >= 'A' && ca <= 'Z' {
+			ca += 'a' - 'A'
+		}
+
+		if cb >= 'A' && cb <= 'Z' {
+			cb += 'a' - 'A'
+		}
+
+		if ca != cb {
+			if ca >= 0x80 || cb >= 0x80 {
+				return strings.EqualFold(a, b)
+			}
+
+			return false
+		}
+	}
+
+	return true
+}
+
+// asciiLower returns the ASCII-lowered copy of s, or s itself when already
+// lower (no allocation on the fast path). Only ASCII A-Z folds; this matches
+// the Selectors 4 ASCII i flag and HTML type-selector rules.
+func asciiLower(s string) string {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= 'A' && s[i] <= 'Z' {
+			b := make([]byte, len(s))
+			copy(b, s)
+
+			for j := i; j < len(s); j++ {
+				if b[j] >= 'A' && b[j] <= 'Z' {
+					b[j] += 'a' - 'A'
+				}
+			}
+
+			return string(b)
+		}
+	}
+
+	return s
+}
+
+// sibParentData is one memoized parent: the element children in order plus
+// the sibling metrics for every child. Built once per parent, reused for all
+// candidates. Immutable after publication, so readers use it lock-free.
+type sibParentData struct {
+	elems    []*html.Node
+	infos    map[*html.Node]siblingInfo
+	childLen int
+}
+
+var (
+	sibMu      sync.RWMutex
+	sibParents map[*html.Node]*sibParentData
+	sibHits    int64
+	sibMisses  int64
+)
+
+// siblingTypeKey groups element siblings for of-type indices. HTML names fold
+// ASCII case-insensitively; foreign names stay exact.
+func siblingTypeKey(n *html.Node) string {
+	if n.Namespace == html.NamespaceHTML {
+		return "h\x00" + asciiLower(n.Name)
+	}
+
+	return "f\x00" + strconv.Itoa(int(n.Namespace)) + "\x00" + n.Name
+}
+
+// buildSibEntry scans parent once to collect element children and their
+// 1-based indices plus of-type indices.
+func buildSibEntry(parent *html.Node) *sibParentData {
+	var elems []*html.Node
+
+	for _, child := range parent.Children {
+		if child.Type == html.ElementNode {
+			elems = append(elems, child)
+		}
+	}
+
+	infos := make(map[*html.Node]siblingInfo, len(elems))
+	totals := make(map[string]int, len(elems))
+	keys := make([]string, len(elems))
+
+	for i, elem := range elems {
+		k := siblingTypeKey(elem)
+		keys[i] = k
+		totals[k]++
+	}
+
+	seen := make(map[string]int, len(totals))
+
+	for i, elem := range elems {
+		k := keys[i]
+		seen[k]++
+
+		typeIdx := seen[k]
+		total := totals[k]
+
+		var prev, next *html.Node
+
+		if i > 0 {
+			prev = elems[i-1]
+		}
+
+		if i+1 < len(elems) {
+			next = elems[i+1]
+		}
+
+		infos[elem] = siblingInfo{
+			prev:          prev,
+			next:          next,
+			index:         i + 1,
+			typeIndex:     typeIdx,
+			typeLastIndex: total - typeIdx + 1,
+		}
+	}
+
+	return &sibParentData{elems: elems, infos: infos, childLen: len(parent.Children)}
+}
+
+// siblingEntryFor returns the memoized entry for parent, building it once.
+// Hits and misses are counted for tests via siblingMemoStats.
+func siblingEntryFor(parent *html.Node) *sibParentData {
+	if parent == nil {
+		return nil
+	}
+
+	sibMu.RLock()
+	entry := sibParents[parent]
+	sibMu.RUnlock()
+
+	curLen := len(parent.Children)
+
+	if entry != nil && entry.childLen == curLen {
+		atomic.AddInt64(&sibHits, 1)
+
+		return entry
+	}
+
+	newEntry := buildSibEntry(parent)
+
+	sibMu.Lock()
+
+	if existing, ok := sibParents[parent]; ok && existing.childLen == curLen {
+		sibMu.Unlock()
+		atomic.AddInt64(&sibHits, 1)
+
+		return existing
+	}
+
+	if sibParents == nil {
+		sibParents = make(map[*html.Node]*sibParentData)
+	}
+
+	if len(sibParents) > 16384 {
+		sibParents = make(map[*html.Node]*sibParentData)
+	}
+
+	sibParents[parent] = newEntry
+	sibMu.Unlock()
+	atomic.AddInt64(&sibMisses, 1)
+
+	return newEntry
+}
+
+// resetSiblingMemoForTest clears the sibling cache and counters.
+func resetSiblingMemoForTest() {
+	sibMu.Lock()
+	sibParents = nil
+	sibMu.Unlock()
+	atomic.StoreInt64(&sibHits, 0)
+	atomic.StoreInt64(&sibMisses, 0)
+}
+
+// siblingMemoStatsForTest returns cache hits and misses.
+func siblingMemoStatsForTest() (hits, misses int64) {
+	return atomic.LoadInt64(&sibHits), atomic.LoadInt64(&sibMisses)
+}
+
+// getSiblingInfo returns node's sibling metrics from the memoized parent
+// entry. The parent's children are scanned once; later candidates reuse the
+// stored indices, so a flat list costs O(N) to build plus O(1) per lookup.
 func getSiblingInfo(node *html.Node) siblingInfo {
 	var info siblingInfo
 
@@ -37,47 +230,17 @@ func getSiblingInfo(node *html.Node) siblingInfo {
 		return info
 	}
 
-	var (
-		prev      *html.Node
-		next      *html.Node
-		elemCount int
-		typeCount int
-		found     bool
-	)
-
-	for _, child := range node.Parent.Children {
-		if child.Type != html.ElementNode {
-			continue
-		}
-
-		elemCount++
-
-		if sameElementType(child, node) {
-			typeCount++
-		}
-
-		switch {
-		case child == node:
-			found = true
-			info.index = elemCount
-			info.typeIndex = typeCount
-		case !found:
-			prev = child
-		case next == nil:
-			next = child
-		}
-	}
-
-	if !found {
-		// node is not one of its parent's element children: all-zero
-		// metrics, matching the former cache-miss result.
+	entry := siblingEntryFor(node.Parent)
+	if entry == nil {
 		return info
 	}
 
-	info.prev = prev
-	info.next = next
-	info.typeLastIndex = typeCount - info.typeIndex + 1
+	if cached, ok := entry.infos[node]; ok {
+		return cached
+	}
 
+	// node is not one of its parent's element children: all-zero
+	// metrics, matching the former cache-miss result.
 	return info
 }
 
@@ -108,9 +271,56 @@ func Match(s Selector, n *html.Node) bool {
 	return MatchState{Focus: "", Hover: "", Active: "", budget: nil}.Matches(s, n)
 }
 
+// selectorContainsHas reports whether sel needs a :has() visit budget: it
+// holds :has() itself or nests :has() inside :not()/:is()/:where().
+func selectorContainsHas(sel Selector) bool {
+	for _, part := range sel.Parts {
+		if partContainsHas(part) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// partContainsHas reports whether one compound needs a :has() budget.
+func partContainsHas(part SelectorPart) bool {
+	for _, pseudo := range part.Pseudos {
+		if len(pseudo.Has) > 0 {
+			return true
+		}
+
+		for _, s := range pseudo.Not {
+			if selectorContainsHas(s) {
+				return true
+			}
+		}
+
+		for _, s := range pseudo.Is {
+			if selectorContainsHas(s) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// ensureHasBudget returns st with a visit budget, allocating on the first
+// :has() descent. A nil budget means unlimited (no :has() on the path).
+func (st MatchState) ensureHasBudget() MatchState {
+	if st.budget == nil {
+		st.budget = &hasBudget{left: maxHasVisits}
+	}
+
+	return st
+}
+
 // Matches is Match with pseudo-class state.
 func (st MatchState) Matches(s Selector, n *html.Node) bool {
-	if st.budget == nil {
+	// Keep budget nil when the selector needs no :has(): nil means unlimited
+	// and avoids one allocation per match. Allocate only when :has() may run.
+	if st.budget == nil && selectorContainsHas(s) {
 		st.budget = &hasBudget{left: maxHasVisits}
 	}
 
@@ -147,6 +357,10 @@ func (st MatchState) MatchesPseudo(sel Selector, count *html.Node, pseudo string
 
 	if sel.Parts[len(sel.Parts)-1].PseudoElement != pseudo {
 		return false
+	}
+
+	if st.budget == nil && selectorContainsHas(sel) {
+		st.budget = &hasBudget{left: maxHasVisits}
 	}
 
 	return matchPseudoWalk(st, sel, count)
@@ -249,22 +463,30 @@ func matchLeftAdjacent(st MatchState, part SelectorPart, cur *html.Node) *html.N
 }
 
 // matchLeftSibling returns the nearest previous element sibling of cur that
-// matches part, else nil. One pass over the parent's children remembers the
-// last match, so a wide sibling list stays linear.
+// matches part, else nil. The memoized parent entry supplies the element-only
+// list and cur's position, so the walk visits element siblings only and never
+// rescans the parent's full children per candidate.
 func matchLeftSibling(state MatchState, part SelectorPart, cur *html.Node) *html.Node {
 	if cur == nil || cur.Parent == nil {
 		return nil
 	}
 
-	var last *html.Node
+	entry := siblingEntryFor(cur.Parent)
+	if entry == nil {
+		return nil
+	}
 
-	for _, child := range cur.Parent.Children {
-		if child == cur {
-			return last
-		}
+	info, ok := entry.infos[cur]
+	if !ok {
+		return nil
+	}
 
-		if child.Type == html.ElementNode && matchPart(state, part, child) {
-			last = child
+	idx := info.index - 1
+
+	for i := idx - 1; i >= 0; i-- {
+		cand := entry.elems[i]
+		if matchPart(state, part, cand) {
+			return cand
 		}
 	}
 
@@ -353,7 +575,7 @@ func matchPart(state MatchState, part SelectorPart, node *html.Node) bool {
 // exactly, since their adjusted names are case-sensitive.
 func tagNameMatches(selectorName string, node *html.Node) bool {
 	if node.Namespace == html.NamespaceHTML {
-		return strings.EqualFold(selectorName, node.Name)
+		return asciiEqualFold(selectorName, node.Name)
 	}
 
 	return selectorName == node.Name
@@ -367,7 +589,7 @@ func sameElementType(left, right *html.Node) bool {
 	}
 
 	if left.Namespace == html.NamespaceHTML {
-		return strings.EqualFold(left.Name, right.Name)
+		return asciiEqualFold(left.Name, right.Name)
 	}
 
 	return left.Name == right.Name
@@ -399,6 +621,85 @@ func hasClasses(part SelectorPart, node *html.Node) bool {
 	return true
 }
 
+// attrCacheKey identifies one cached lowered attribute value: the element
+// plus the attribute name. The original value is stored alongside so a
+// mutated attribute misses instead of returning stale text.
+type attrCacheKey struct {
+	node *html.Node
+	name string
+}
+
+// attrCacheVal is the cached original and its ASCII-lowered form.
+type attrCacheVal struct {
+	orig    string
+	lowered string
+}
+
+var (
+	attrCacheMu     sync.RWMutex
+	attrCache       map[attrCacheKey]attrCacheVal
+	attrCacheHits   int64
+	attrCacheMisses int64
+)
+
+// getCachedLoweredAttr returns the ASCII-lowered attribute value, reusing the
+// per-element cache. The fast path returns the original string when already
+// lower, so no allocation happens then; an upper-case value allocates once
+// per element and reuses the copy for later candidates.
+func getCachedLoweredAttr(node *html.Node, name, val string) string {
+	key := attrCacheKey{node: node, name: name}
+
+	attrCacheMu.RLock()
+	if attrCache != nil {
+		if cached, ok := attrCache[key]; ok && cached.orig == val {
+			lowered := cached.lowered
+			attrCacheMu.RUnlock()
+			atomic.AddInt64(&attrCacheHits, 1)
+
+			return lowered
+		}
+	}
+	attrCacheMu.RUnlock()
+
+	lowered := asciiLower(val)
+
+	attrCacheMu.Lock()
+
+	if attrCache == nil {
+		attrCache = make(map[attrCacheKey]attrCacheVal)
+	}
+
+	if len(attrCache) > 16384 {
+		attrCache = make(map[attrCacheKey]attrCacheVal)
+	}
+
+	attrCache[key] = attrCacheVal{orig: val, lowered: lowered}
+	attrCacheMu.Unlock()
+	atomic.AddInt64(&attrCacheMisses, 1)
+
+	return lowered
+}
+
+// resetAttrMemoForTest clears the i-flag lowered-value cache and counters.
+func resetAttrMemoForTest() {
+	attrCacheMu.Lock()
+	attrCache = nil
+	attrCacheMu.Unlock()
+	atomic.StoreInt64(&attrCacheHits, 0)
+	atomic.StoreInt64(&attrCacheMisses, 0)
+}
+
+// attrMemoStatsForTest returns cache hits and misses.
+func attrMemoStatsForTest() (hits, misses int64) {
+	return atomic.LoadInt64(&attrCacheHits), atomic.LoadInt64(&attrCacheMisses)
+}
+
+// resetMatchMemoForTest clears sibling and attribute caches plus counters.
+func resetMatchMemoForTest() {
+	resetSiblingMemoForTest()
+	resetAttrMemoForTest()
+}
+
 // matchAttrs matches every attribute selector of the part against node.
 func matchAttrs(part SelectorPart, node *html.Node) bool {
 	for _, arg := range part.Attrs {
@@ -419,7 +720,7 @@ func matchAttrs(part SelectorPart, node *html.Node) bool {
 			return false
 		}
 
-		if !attrValueMatches(arg, val) {
+		if !attrValueMatches(node, arg, val) {
 			return false
 		}
 	}
@@ -429,14 +730,29 @@ func matchAttrs(part SelectorPart, node *html.Node) bool {
 
 // attrValueMatches evaluates one attribute operator against a value.
 // ignoreCase is the Selectors 4 ASCII i flag; the selector side is pre-lowered
-// at parse time (AttrSelector.valueLower) and only the element side is lowered
-// per call.
-func attrValueMatches(arg AttrSelector, val string) bool {
-	if arg.IgnoreCase {
-		val = strings.ToLower(val)
-	}
-
+// at parse time (AttrSelector.valueLower) and the element side reuses the
+// per-element lowered cache, so no per-check ToLower allocation happens.
+func attrValueMatches(node *html.Node, arg AttrSelector, val string) bool {
 	want := attrWantValue(arg)
+
+	if arg.IgnoreCase {
+		lowered := getCachedLoweredAttr(node, arg.Name, val)
+
+		switch arg.Op {
+		case "=":
+			return lowered == want
+		case "~=":
+			return containsWord(lowered, want)
+		case "*=", "^=", "$=", "|=":
+			if want == "" {
+				return false
+			}
+
+			return matchSubstringOp(arg.Op, lowered, want)
+		}
+
+		return false
+	}
 
 	switch arg.Op {
 	case "=":
@@ -455,7 +771,7 @@ func attrValueMatches(arg AttrSelector, val string) bool {
 }
 
 // attrWantValue resolves the comparison value, using the parse-time lowered
-// cache when available and lowering on the fly for hand-built selectors.
+// cache when available and ASCII-lowering on the fly for hand-built selectors.
 func attrWantValue(arg AttrSelector) string {
 	if !arg.IgnoreCase {
 		return arg.Value
@@ -466,7 +782,7 @@ func attrWantValue(arg AttrSelector) string {
 	}
 
 	// Hand-built selector without the parse-time cache.
-	return strings.ToLower(arg.Value)
+	return asciiLower(arg.Value)
 }
 
 // matchSubstringOp evaluates one substring attribute operator against val.
@@ -542,19 +858,21 @@ func matchStateID(id string, node *html.Node) bool {
 }
 
 // matchChecked reports whether node is a checked checkbox or radio, or a
-// selected option.
+// selected option. Tag and type compare ASCII case-insensitively without
+// allocating lowered copies.
 func matchChecked(node *html.Node) bool {
-	switch strings.ToLower(node.Name) {
-	case "input":
-		t := strings.ToLower(node.Attribute("type"))
-		if t != "checkbox" && t != "radio" {
+	if asciiEqualFold(node.Name, "input") {
+		t := node.Attribute("type")
+		if !asciiEqualFold(t, "checkbox") && !asciiEqualFold(t, "radio") {
 			return false
 		}
 
 		_, ok := node.Attrs["checked"]
 
 		return ok
-	case "option":
+	}
+
+	if asciiEqualFold(node.Name, "option") {
 		_, ok := node.Attrs["selected"]
 
 		return ok
@@ -580,7 +898,11 @@ func matchTreePseudo(pseudo PseudoClass, node *html.Node) bool {
 }
 
 // matchAnyRelative reports whether any relative selector applies to node.
+// The first :has() descent allocates the shared visit budget; nil stays
+// unlimited until then.
 func matchAnyRelative(st MatchState, rels []RelativeSelector, node *html.Node) bool {
+	st = st.ensureHasBudget()
+
 	for _, rs := range rels {
 		if matchRelative(st, rs, node) {
 			return true
@@ -622,15 +944,11 @@ func matchAnySelector(state MatchState, sels []Selector, node *html.Node) bool {
 }
 
 // sharedBudgetState is a match state with no focus, hover, or active id.
-// It keeps the caller's visit budget, or allocates one budget for the list
-// when the caller has none.
+// It keeps the caller's visit budget, or nil when the caller has none: the
+// first :has() descent allocates one budget shared by the whole list, and a
+// :not()/:is()/:where() without :has() allocates nothing.
 func sharedBudgetState(state MatchState) MatchState {
-	budget := state.budget
-	if budget == nil {
-		budget = &hasBudget{left: maxHasVisits}
-	}
-
-	return MatchState{Focus: "", Hover: "", Active: "", budget: budget}
+	return MatchState{Focus: "", Hover: "", Active: "", budget: state.budget}
 }
 
 // isRootElement reports whether node is the document element (html in HTML).
@@ -653,7 +971,7 @@ func isRootElement(node *html.Node) bool {
 // isLinkAnchor reports whether n is an <a> element with a non-empty href
 // (any scheme, including "#" fragments and relative paths).
 func isLinkAnchor(n *html.Node) bool {
-	if n == nil || n.Type != html.ElementNode || !strings.EqualFold(n.Name, "a") {
+	if n == nil || n.Type != html.ElementNode || !asciiEqualFold(n.Name, "a") {
 		return false
 	}
 
@@ -662,48 +980,16 @@ func isLinkAnchor(n *html.Node) bool {
 	return href != ""
 }
 
-// previousElementSibling returns count's nearest element sibling before it,
-// scanning the parent's children directly.
+// previousElementSibling returns count's nearest element sibling before it
+// from the memoized parent entry (O(1) after the one per-parent build).
 func previousElementSibling(count *html.Node) *html.Node {
-	if count == nil || count.Parent == nil {
-		return nil
-	}
-
-	var prev *html.Node
-
-	for _, child := range count.Parent.Children {
-		if child == count {
-			return prev
-		}
-
-		if child.Type == html.ElementNode {
-			prev = child
-		}
-	}
-
-	return nil
+	return getSiblingInfo(count).prev
 }
 
-// nextElementSibling returns count's nearest element sibling after it,
-// scanning the parent's children directly.
+// nextElementSibling returns count's nearest element sibling after it
+// from the memoized parent entry (O(1) after the one per-parent build).
 func nextElementSibling(count *html.Node) *html.Node {
-	if count == nil || count.Parent == nil {
-		return nil
-	}
-
-	found := false
-
-	for _, child := range count.Parent.Children {
-		if found && child.Type == html.ElementNode {
-			return child
-		}
-
-		if child == count {
-			found = true
-		}
-	}
-
-	return nil
+	return getSiblingInfo(count).next
 }
 
 // nthKind discriminates the pre-parsed :nth-child() argument forms.

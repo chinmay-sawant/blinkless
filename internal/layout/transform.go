@@ -1382,15 +1382,182 @@ func restampBoxTransforms(boxNode *box, state stampState, ops []Op, media string
 	stampTree(boxNode, state, ops, media, true)
 }
 
-// stampTree allocates the coverage mask and starts one stamp run.
+// stampTree allocates the coverage mask and starts one stamp run. A tree
+// with no 3D transform and no preserve-3d context stamps through the flat
+// path instead: one top-down walk with no mask, no mark passes, and no
+// per-op covered checks. The mask path below stays for 3D subtrees, where
+// the preserve helpers consume the mask.
 func stampTree(boxNode *box, state stampState, ops []Op, media string, restamp bool) {
 	if boxNode == nil || len(ops) == 0 {
 		return
 	}
 
-	covered := make([]bool, len(ops))
+	if subtreeNeedsCoveredMask(boxNode) {
+		covered := make([]bool, len(ops))
 
-	stampBoxTransformsRec(boxNode, state, ops, covered, media, restamp)
+		stampBoxTransformsRec(boxNode, state, ops, covered, media, restamp)
+
+		return
+	}
+
+	stampFlatBoxTransformsRec(boxNode, state, ops, restamp)
+}
+
+// subtreeNeedsCoveredMask reports whether the stamp walk can reach a box
+// that needs the child-coverage mask: a 3D transform, which culls back
+// faces and stamps projective ranges, or a preserve-3d context, which
+// threads the shared chain. Flat 2D trees never read the mask.
+func subtreeNeedsCoveredMask(boxNode *box) bool {
+	if boxNode == nil {
+		return false
+	}
+
+	if sty := boxNode.style; sty != nil && (sty.HasTransform3D || sty.TransformStyle == "preserve-3d") {
+		return true
+	}
+
+	for _, child := range boxNode.children {
+		if subtreeNeedsCoveredMask(child) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// stampFlatBoxTransformsRec stamps one flat 2D subtree with no coverage
+// mask. The accumulated matrix still threads top-down through advanceStamp,
+// exactly like the mask walk; each box then stamps its exclusive gaps (found
+// by child interval sweep) and folds its opacity over its gaps and child
+// ranges after the children ran, so per-op values match the mask walk bit
+// for bit. Back-face culling cannot fire without a 3D transform, so the
+// cull branch is skipped outright.
+func stampFlatBoxTransformsRec(boxNode *box, state stampState, ops []Op, restamp bool) {
+	if boxNode == nil {
+		return
+	}
+
+	step := advanceStamp(boxNode, state)
+
+	for _, c := range boxNode.children {
+		stampFlatBoxTransformsRec(c, step.child, ops, restamp)
+	}
+
+	end := boxNode.opEnd
+	if end >= len(ops) {
+		end = len(ops) - 1
+	}
+
+	start := boxNode.opStart
+	if start < 0 || start > end || !boxOwnsOps(boxNode) {
+		return
+	}
+
+	cover := childCoverIntervals(boxNode, start, end)
+
+	stampFlatExclusiveTransform(step.accum, ops, cover, start, end)
+
+	// The first stamp already folded each element's opacity into its
+	// operations. A restamp changes transforms only, so folding it again
+	// would multiply the same opacity into the same op on every frame.
+	if !restamp {
+		stampFlatOpacity(boxNode, ops, cover, start, end)
+	}
+}
+
+// stampFlatExclusiveTransform applies the accumulated matrix to the ops a
+// flat box owns exclusively: the gaps between its children's ranges. The
+// identity guard means setXform (which detaches the op extra) runs only for
+// a real matrix, never for a pass-through.
+func stampFlatExclusiveTransform(accum Matrix2D, ops []Op, cover []opInterval, start, end int) {
+	if accum.IsIdentity() {
+		return
+	}
+
+	pos := start
+
+	for _, iv := range cover {
+		stampTransformGap(accum, ops, pos, iv.start-1)
+		pos = iv.end + 1
+	}
+
+	stampTransformGap(accum, ops, pos, end)
+}
+
+// stampTransformGap stamps one gap of exclusively owned ops.
+func stampTransformGap(accum Matrix2D, ops []Op, from, to int) {
+	for idx := from; idx <= to && idx < len(ops); idx++ {
+		if idx < 0 {
+			continue
+		}
+
+		ops[idx].setXform(accum)
+		ops[idx].XformSet = true
+	}
+}
+
+// stampFlatOpacity folds a flat box's opacity into its range: the exclusive
+// gaps through the exclusive formula, child ranges through the covered
+// formula. Both formulas match the mask walk, and each op is visited once,
+// so products come out identical without mark passes.
+func stampFlatOpacity(boxNode *box, ops []Op, cover []opInterval, start, end int) {
+	if boxNode.style == nil || boxNode.style.Opacity >= 1 {
+		return
+	}
+
+	base := boxNode.style.Opacity
+	pos := start
+
+	for _, iv := range cover {
+		foldOpacityGap(ops, pos, iv.start-1, base)
+		foldOpacityCovered(ops, iv.start, iv.end, base)
+		pos = iv.end + 1
+	}
+
+	foldOpacityGap(ops, pos, end, base)
+}
+
+// foldOpacityGap folds base into one gap of exclusively owned ops.
+func foldOpacityGap(ops []Op, from, to int, base float64) {
+	for idx := from; idx <= to && idx < len(ops); idx++ {
+		if idx < 0 {
+			continue
+		}
+
+		applyExclusiveOpacity(&ops[idx], base)
+	}
+}
+
+// foldOpacityCovered folds base into one child-owned range.
+func foldOpacityCovered(ops []Op, from, to int, base float64) {
+	for idx := from; idx <= to && idx < len(ops); idx++ {
+		if idx < 0 {
+			continue
+		}
+
+		applyCoveredOpacity(&ops[idx], base)
+	}
+}
+
+// applyExclusiveOpacity multiplies one op's emission alpha by the element
+// base, the shared body of the mask and flat exclusive passes.
+func applyExclusiveOpacity(op *Op, base float64) {
+	opacity := base
+	if op.PaintOpacity > 0 && op.PaintOpacity < 1 {
+		opacity *= op.PaintOpacity
+	}
+
+	op.setPaintOpacity(opacity)
+}
+
+// applyCoveredOpacity folds the element base through one descendant op, the
+// shared body of the mask and flat covered passes.
+func applyCoveredOpacity(op *Op, base float64) {
+	if op.PaintOpacity > 0 && op.PaintOpacity < 1 {
+		op.setPaintOpacity(base * op.PaintOpacity)
+	} else {
+		op.setPaintOpacity(base)
+	}
 }
 
 // translate3D returns a 3D translation by tx, ty, tz points.
@@ -1903,12 +2070,7 @@ func stampExclusiveOpacityOps(boxNode *box, ops []Op, covered []bool) {
 			continue
 		}
 
-		opacity := opacityBase
-		if ops[idx].PaintOpacity > 0 && ops[idx].PaintOpacity < 1 {
-			opacity *= ops[idx].PaintOpacity
-		}
-
-		ops[idx].setPaintOpacity(opacity)
+		applyExclusiveOpacity(&ops[idx], opacityBase)
 	}
 }
 
@@ -1931,10 +2093,6 @@ func stampCoveredOpacityOps(boxNode *box, ops []Op, covered []bool) {
 			continue
 		}
 
-		if ops[idx].PaintOpacity > 0 && ops[idx].PaintOpacity < 1 {
-			ops[idx].setPaintOpacity(opacityBase * ops[idx].PaintOpacity)
-		} else {
-			ops[idx].setPaintOpacity(opacityBase)
-		}
+		applyCoveredOpacity(&ops[idx], opacityBase)
 	}
 }

@@ -1,9 +1,56 @@
 package css
 
 import (
+	"slices"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+
 	icss "github.com/chinmay-sawant/blinkless/internal/css"
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
+
+const (
+	maxHoverListEntries  = 16
+	maxHoverMemoPerEntry = 4096
+)
+
+//nolint:gochecknoglobals // bounded shared hover caches; entries keep sheets plus signature outcomes only, never document trees.
+var (
+	hoverListMu     sync.Mutex
+	hoverLists      []*hoverListEntry
+	hoverMemoHits   atomic.Uint64
+	hoverMemoMisses atomic.Uint64
+	hoverListHits   atomic.Uint64
+)
+
+// hoverListEntry is one cached hover selector set. sheets is a copy of the
+// document sheet pointers so pointer identity stays valid while cached.
+// selectors shares its selector values read-only across calls and goroutines.
+// local precomputes SelectorIsElementLocal per selector. memo maps an
+// element-local outcome key to its match result.
+type hoverListEntry struct {
+	sheets    []*icss.Stylesheet
+	selectors []icss.Selector
+	local     []bool
+	mu        sync.RWMutex
+	memo      map[hoverMemoKey]bool
+}
+
+// hoverMemoKey identifies one element-local match outcome. sel is the index
+// in the cached selector list, tag and attrs are the element signature,
+// pseudo is the ::before/::after pass, and focus/hover/active is the match
+// state for that single evaluation.
+type hoverMemoKey struct {
+	sel    int
+	tag    string
+	attrs  string
+	pseudo string
+	focus  string
+	hover  string
+	active string
+}
 
 // HoverChangedScopes returns the IDs of subtrees containing elements whose
 // hover-dependent selector matches changed from previous to d's hover state.
@@ -20,7 +67,11 @@ func (d *Document) HoverChangedScopes(previous string) ([]string, bool) {
 
 	old := d.state
 	old.Hover = previous
-	selectors := hoverSelectors(d.sheets)
+	entry := cachedHoverList(d.sheets)
+	if len(entry.selectors) == 0 {
+		return nil, true
+	}
+
 	scopes := make(map[*html.Node]bool)
 	complete := true
 
@@ -31,7 +82,7 @@ func (d *Document) HoverChangedScopes(previous string) ([]string, bool) {
 			return
 		}
 
-		if node.Type == html.ElementNode && hoverMatchChanged(node, selectors, old, d.state) {
+		if node.Type == html.ElementNode && hoverMatchChangedCached(node, entry, old, d.state) {
 			scope := hoverIDScope(node)
 			if scope == nil {
 				complete = false
@@ -41,7 +92,6 @@ func (d *Document) HoverChangedScopes(previous string) ([]string, bool) {
 
 			scopes[scope] = true
 		}
-
 		for _, child := range node.Children {
 			walk(child)
 		}
@@ -54,6 +104,186 @@ func (d *Document) HoverChangedScopes(previous string) ([]string, bool) {
 	}
 
 	return outerHoverScopes(d.root, scopes), true
+}
+
+// cachedHoverList returns the shared hover selector entry for sheets,
+// building it once per distinct sheet set. The entry is read-only except for
+// its memo map, which has its own lock.
+func cachedHoverList(sheets []*icss.Stylesheet) *hoverListEntry {
+	hoverListMu.Lock()
+	defer hoverListMu.Unlock()
+
+	for _, entry := range hoverLists {
+		if sameSheets(entry.sheets, sheets) {
+			hoverListHits.Add(1)
+
+			return entry
+		}
+	}
+
+	selectors := hoverSelectors(sheets)
+	local := make([]bool, len(selectors))
+	for i, sel := range selectors {
+		local[i] = icss.SelectorIsElementLocal(sel)
+	}
+
+	entry := &hoverListEntry{
+		sheets:    append([]*icss.Stylesheet(nil), sheets...),
+		selectors: selectors,
+		local:     local,
+		memo:      make(map[hoverMemoKey]bool),
+	}
+	hoverLists = append(hoverLists, entry)
+	if len(hoverLists) > maxHoverListEntries {
+		copy(hoverLists, hoverLists[1:])
+		hoverLists[len(hoverLists)-1] = nil
+		hoverLists = hoverLists[:len(hoverLists)-1]
+	}
+
+	return entry
+}
+
+// hoverMatchChangedCached reports whether any cached hover selector matches
+// node differently under old and next. Element-local selectors resolve through
+// the per-entry memo; every other selector evaluates fresh.
+func hoverMatchChangedCached(node *html.Node, entry *hoverListEntry, old, next icss.MatchState) bool {
+	var tag, attrs string
+	sigReady := false
+
+	for i, sel := range entry.selectors {
+		pseudo := ""
+		if len(sel.Parts) > 0 {
+			pseudo = sel.Parts[len(sel.Parts)-1].PseudoElement
+		}
+
+		if entry.local[i] {
+			if !sigReady {
+				tag = hoverTagName(node)
+				attrs = hoverAttrKey(node.Attrs)
+				sigReady = true
+			}
+
+			oldHit := hoverMemoMatch(entry, i, node, tag, attrs, old, pseudo)
+			newHit := hoverMemoMatch(entry, i, node, tag, attrs, next, pseudo)
+			if oldHit != newHit {
+				return true
+			}
+
+			continue
+		}
+
+		if pseudo != "" {
+			if old.MatchesPseudo(sel, node, pseudo) != next.MatchesPseudo(sel, node, pseudo) {
+				return true
+			}
+		} else if old.Matches(sel, node) != next.Matches(sel, node) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// hoverMemoMatch resolves one element-local selector outcome through the
+// entry memo, evaluating fresh on a miss. The selector values are never
+// mutated, so sharing them across goroutines is safe.
+func hoverMemoMatch(
+	entry *hoverListEntry, idx int, node *html.Node, tag, attrs string, st icss.MatchState, pseudo string,
+) bool {
+	key := hoverMemoKey{
+		sel:    idx,
+		tag:    tag,
+		attrs:  attrs,
+		pseudo: pseudo,
+		focus:  st.Focus,
+		hover:  st.Hover,
+		active: st.Active,
+	}
+
+	entry.mu.RLock()
+	got, ok := entry.memo[key]
+	entry.mu.RUnlock()
+	if ok {
+		hoverMemoHits.Add(1)
+
+		return got
+	}
+
+	sel := entry.selectors[idx]
+	var fresh bool
+	if pseudo != "" {
+		fresh = st.MatchesPseudo(sel, node, pseudo)
+	} else {
+		fresh = st.Matches(sel, node)
+	}
+
+	hoverMemoMisses.Add(1)
+
+	entry.mu.Lock()
+	if len(entry.memo) >= maxHoverMemoPerEntry {
+		clear(entry.memo)
+	}
+	entry.memo[key] = fresh
+	entry.mu.Unlock()
+
+	return fresh
+}
+
+// hoverTagName builds the namespace-aware tag half of an element signature.
+// HTML names match ASCII case-insensitively, so they are lowered; foreign
+// names keep their case.
+func hoverTagName(node *html.Node) string {
+	if node.Namespace != html.NamespaceHTML {
+		return "f\x00" + strconv.Itoa(int(node.Namespace)) + "\x00" + node.Name
+	}
+
+	return "h\x00" + strings.ToLower(node.Name)
+}
+
+// hoverAttrKey encodes the full attribute map with length-prefixed sorted
+// names so distinct maps never share a key.
+func hoverAttrKey(attrs map[string]string) string {
+	if len(attrs) == 0 {
+		return ""
+	}
+
+	names := make([]string, 0, len(attrs))
+	for name := range attrs {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+
+	total := 0
+	for _, name := range names {
+		total += len(name) + len(attrs[name]) + 8
+	}
+
+	var out strings.Builder
+	out.Grow(total)
+	for _, name := range names {
+		value := attrs[name]
+		out.WriteString(strconv.Itoa(len(name)))
+		out.WriteByte(':')
+		out.WriteString(name)
+		out.WriteByte('=')
+		out.WriteString(strconv.Itoa(len(value)))
+		out.WriteByte(':')
+		out.WriteString(value)
+		out.WriteByte(';')
+	}
+
+	return out.String()
+}
+
+// resetHoverCache clears the shared hover caches and stats. Tests use it to
+// isolate hit-rate assertions; it is not part of the public API.
+func resetHoverCache() {
+	hoverListMu.Lock()
+	hoverLists = nil
+	hoverListMu.Unlock()
+	hoverMemoHits.Store(0)
+	hoverMemoMisses.Store(0)
+	hoverListHits.Store(0)
 }
 
 func hoverIDScope(node *html.Node) *html.Node {
@@ -111,7 +341,6 @@ func outerHoverScopes(root *html.Node, scopes map[*html.Node]bool) []string {
 
 			return
 		}
-
 		for _, child := range node.Children {
 			walk(child)
 		}

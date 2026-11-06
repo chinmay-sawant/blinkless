@@ -86,6 +86,38 @@ var textBuilderPool = sync.Pool{
 	},
 }
 
+// tagAttrBuilderPool reuses the name/value scratch builders across tags so a
+// document with many tagged elements does not allocate two builders per tag.
+// A builder that grew past pooledBuilderMaxCap is dropped instead of pooled
+// so one huge attribute cannot pin a large buffer in the pool.
+const pooledBuilderMaxCap = 8192
+
+// tagAttrPreSize is the initial capacity of a tag's interleaved attribute
+// slice: room for four pairs without growth. The slice stays nil for tags
+// with no attributes so bare tags allocate nothing.
+const tagAttrPreSize = 8
+
+var tagAttrBuilderPool = sync.Pool{
+	New: func() any {
+		return &strings.Builder{}
+	},
+}
+
+func getTagAttrBuilder() *strings.Builder {
+	b := tagAttrBuilderPool.Get().(*strings.Builder)
+	b.Reset()
+
+	return b
+}
+
+func putTagAttrBuilder(b *strings.Builder) {
+	if b.Cap() > pooledBuilderMaxCap {
+		return
+	}
+
+	tagAttrBuilderPool.Put(b)
+}
+
 func (n *Node) hasAnyText() bool {
 	for _, c := range n.Children {
 		if c.Type == TextNode && len(c.Text) > 0 {
@@ -230,7 +262,7 @@ func Parse(source string) (*Node, error) {
 
 	scanTokens(source, builder.appendToken, builder.foreignCDATAAllowed)
 	builder.finish()
-	applySelectedContent(builder.root)
+	builder.applySelectedContentIfNeeded()
 
 	return builder.root, nil
 }
@@ -250,14 +282,64 @@ func ParseWithLimit(source string, maxBytes int) (*Node, error) {
 	return Parse(source)
 }
 
+// normalizeBytes strips a leading UTF-8 BOM (mirroring load.IsHTML) and
+// applies the input stream preprocessing rules (CRLF and CR become LF, and
+// invalid UTF-8 bytes become U+FFFD) in one pass over the document bytes, so
+// the document path reaches the tokenizer with a single allocation instead of
+// a string conversion plus a second preprocessing copy. Clean input costs one
+// scan and one conversion; the string-based Parse path keeps the matching
+// preprocessInput fast path. NUL bytes stay in the stream; the tokenizer
+// handles them per state.
+func normalizeBytes(body []byte) string {
+	body = bytes.TrimPrefix(body, []byte("\xef\xbb\xbf"))
+	if bytes.IndexByte(body, '\r') < 0 && utf8.Valid(body) {
+		return string(body)
+	}
+
+	var b strings.Builder
+
+	b.Grow(len(body))
+
+	for i := 0; i < len(body); {
+		c := body[i]
+
+		switch {
+		case c == '\r':
+			b.WriteByte('\n')
+
+			i++
+			if i < len(body) && body[i] == '\n' {
+				i++
+			}
+		case c < utf8.RuneSelf:
+			b.WriteByte(c)
+
+			i++
+		default:
+			r, size := utf8.DecodeRune(body[i:])
+			if r == utf8.RuneError && size == 1 {
+				b.WriteRune(utf8.RuneError)
+
+				i++
+
+				continue
+			}
+
+			b.Write(body[i : i+size])
+
+			i += size
+		}
+	}
+
+	return b.String()
+}
+
 // ParseDocument turns raw document bytes into a tree with a synthetic root,
 // stripping a leading UTF-8 BOM (mirroring load.IsHTML). Only UTF-8/ASCII
 // sources are supported; the charset rule is enforced at the load seam. Size
 // enforcement follows the caller; see ParseWithLimit.
 func ParseDocument(body []byte) (*Node, error) {
-	s := strings.TrimPrefix(string(body), "\ufeff") // BOM, mirroring load.IsHTML
-
-	return Parse(s)
+	return Parse(normalizeBytes(body))
 }
 
 // ParseDocumentWithLimit turns raw document bytes into a tree with an explicit
@@ -270,7 +352,7 @@ func ParseDocumentWithLimit(body []byte, maxBytes int) (*Node, error) {
 	if len(body) > maxBytes {
 		return nil, errors.New("html: source exceeds byte limit")
 	}
-	return Parse(string(body))
+	return Parse(normalizeBytes(body))
 }
 
 // tokenKind discriminates token types.
@@ -692,10 +774,12 @@ const (
 // name/value pairs, the self-closing flag, and the index after the closing
 // '>'. ok is false when the tag runs into EOF before closing.
 func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, next int, ok bool) {
-	var (
-		nameBuf  strings.Builder
-		valueBuf strings.Builder
-	)
+	nameBuf := getTagAttrBuilder()
+	defer putTagAttrBuilder(nameBuf)
+	valueBuf := getTagAttrBuilder()
+	defer putTagAttrBuilder(valueBuf)
+
+	var attrBytes int // running byte total of the stored pairs; see appendCappedAttr
 
 	state := tagStateBeforeAttrName
 
@@ -738,7 +822,7 @@ func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, nex
 				i++
 			default:
 				if nameBuf.Len() < maxAttributeNameBytes {
-					appendNULReplaced(&nameBuf, c)
+					appendNULReplaced(nameBuf, c)
 				}
 
 				i++
@@ -748,7 +832,7 @@ func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, nex
 			case isWhitespace(c):
 				i++
 			case c == '/':
-				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), "")
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, strings.ToLower(nameBuf.String()), "")
 				nameBuf.Reset()
 
 				state = tagStateSelfClosing
@@ -759,11 +843,11 @@ func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, nex
 
 				i++
 			case c == '>':
-				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), "")
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, strings.ToLower(nameBuf.String()), "")
 
 				return attrs, selfClosing, i + 1, true
 			default:
-				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), "")
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, strings.ToLower(nameBuf.String()), "")
 				nameBuf.Reset()
 
 				state = tagStateAttrName
@@ -781,7 +865,7 @@ func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, nex
 
 				i++
 			case c == '>':
-				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), "")
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, strings.ToLower(nameBuf.String()), "")
 
 				return attrs, selfClosing, i + 1, true
 			default:
@@ -821,7 +905,7 @@ func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, nex
 		case tagStateAttrValueUnquoted:
 			switch {
 			case isWhitespace(c):
-				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, strings.ToLower(nameBuf.String()), valueBuf.String())
 				nameBuf.Reset()
 				valueBuf.Reset()
 
@@ -829,7 +913,7 @@ func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, nex
 
 				i++
 			case c == '>':
-				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, strings.ToLower(nameBuf.String()), valueBuf.String())
 
 				return attrs, selfClosing, i + 1, true
 			case c == 0:
@@ -855,7 +939,7 @@ func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, nex
 		case tagStateAfterAttrValueQuoted:
 			switch {
 			case isWhitespace(c):
-				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, strings.ToLower(nameBuf.String()), valueBuf.String())
 				nameBuf.Reset()
 				valueBuf.Reset()
 
@@ -863,7 +947,7 @@ func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, nex
 
 				i++
 			case c == '/':
-				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, strings.ToLower(nameBuf.String()), valueBuf.String())
 				nameBuf.Reset()
 				valueBuf.Reset()
 
@@ -871,11 +955,11 @@ func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, nex
 
 				i++
 			case c == '>':
-				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, strings.ToLower(nameBuf.String()), valueBuf.String())
 
 				return attrs, selfClosing, i + 1, true
 			default:
-				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, strings.ToLower(nameBuf.String()), valueBuf.String())
 				nameBuf.Reset()
 				valueBuf.Reset()
 
@@ -1491,21 +1575,24 @@ func scanScriptData(src string, from int, name string) (string, int, bool) {
 
 // appendCappedAttr appends one attribute unless the per-element count or total
 // byte cap has already been reached; otherwise it returns attrs unchanged.
-func appendCappedAttr(attrs []string, name, value string) []string {
+// total is the running byte count of the pairs already stored, so the cap
+// check stays O(1) instead of rescanning the slice on every attribute. The
+// slice is allocated lazily on the first attribute and pre-sized for the
+// common few-attribute tag, so bare tags allocate nothing.
+func appendCappedAttr(attrs []string, total int, name, value string) ([]string, int) {
 	if len(attrs)/2 >= maxAttributesPerElement {
-		return attrs
-	}
-
-	total := 0
-	for _, entry := range attrs {
-		total += len(entry)
+		return attrs, total
 	}
 
 	if total+len(name)+len(value) > maxAttributeBytesPerElement {
-		return attrs
+		return attrs, total
 	}
 
-	return append(attrs, name, value)
+	if attrs == nil {
+		attrs = make([]string, 0, tagAttrPreSize)
+	}
+
+	return append(attrs, name, value), total + len(name) + len(value)
 }
 
 // lowerASCII lowercases one ASCII letter byte.

@@ -1515,7 +1515,9 @@ func (e *engine) truncateForEllipsis(text string, budget float64, sty *ResolvedS
 }
 
 // measureTextFace measures s using per-rune CSS font-family fallback
-// (same face selection as paint).
+// (same face selection as paint). The per-layout map serves repeats inside
+// one run; the shared cache serves repeats across full layouts and subtree
+// relayouts. A long string bypasses both caches but still measures correctly.
 //
 // Primary-face fast path: resolve the style face once and only consult the
 // fallback cache when a glyph is missing — Latin report text almost never
@@ -1542,8 +1544,15 @@ func (e *engine) measureTextFace(cssSheet string, sty *ResolvedStyle) float64 {
 		return w
 	}
 
+	if w, ok := lookupSharedTextWidth(key, e.scale); ok {
+		e.storeTextWidth(key, w)
+
+		return w
+	}
+
 	w := e.measureTextFaceUncached(cssSheet, sty, primary, size)
 	e.storeTextWidth(key, w)
+	storeSharedTextWidth(key, e.scale, w)
 
 	return w
 }
@@ -1600,7 +1609,7 @@ func (e *engine) accumulateTextFaceWidth(
 			}
 		}
 
-		adv := face.GlyphAdvancePoints(runic, size)
+		adv := scaledAdvance(face, size, runic)
 		if em := emojiPresentationAdvance(sty, runic, size); em > adv {
 			adv = em
 		}
@@ -1631,7 +1640,7 @@ func (e *engine) tabStopAdvance(sty *ResolvedStyle, primary *pdf.Font, size floa
 		tabSize = 8
 	}
 
-	spaceW := primary.GlyphAdvancePoints(' ', size)
+	spaceW := scaledAdvance(primary, size, ' ')
 	if spaceW <= 0 {
 		spaceW = size * tabSpaceRatio
 	}
@@ -1708,7 +1717,7 @@ func (e *engine) splitTextByFace(cssSheet string, sty *ResolvedStyle) []faceRun 
 
 		current = face
 		if face != nil {
-			width += face.AdvanceInPoints(runic, size)
+			width += scaledAdvance(face, size, runic)
 		}
 
 		width += gap
@@ -1760,7 +1769,7 @@ func (e *engine) primaryFaceRun(cssSheet string, sty *ResolvedStyle) (faceRun, b
 		if runic == '\t' {
 			width += e.tabStopAdvance(sty, primary, size)
 		} else {
-			width += primary.AdvanceInPoints(runic, size)
+			width += scaledAdvance(primary, size, runic)
 		}
 		width += textAutospaceGap(sty, prev, runic, size)
 		runeCount++

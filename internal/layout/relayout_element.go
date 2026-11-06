@@ -79,6 +79,10 @@ func RelayoutSubtreeWithOverrides(
 		return nil, err
 	}
 
+	if res, ok := trySubtreeReuse(ctx, prev, node, overrides, opts); ok {
+		return res, nil
+	}
+
 	if len(overrides) == 0 {
 		return RelayoutSubtree(ctx, prev, node, opts)
 	}

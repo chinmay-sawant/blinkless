@@ -78,26 +78,27 @@ const (
 
 // treeBuilder accumulates parsed tokens into a node tree.
 type treeBuilder struct {
-	root             *Node
-	stack            []*Node
-	mode             insertionMode
-	textReturn       insertionMode // mode to restore after a raw-text element
-	head             *Node         // head element pointer
-	form             *Node         // form element pointer
-	docMode          DocumentMode
-	docModeSet       bool
-	ignoreNextLF     bool // swallow the LF after <pre>, <listing>, <textarea>
-	fosterParenting  bool // route insertions around the open table
-	pendingTableText []string
-	activeFormatting []*Node         // nil entries are scope markers
-	templateModes    []insertionMode // stack of template insertion modes
-	framesetOK       bool            // whether a frameset start tag may replace body
-	fragment         bool            // fragment parsing: the synthetic root holds the context
-	fragmentContext  *Node           // context element for a fragment parse (nil for documents)
-	reparseRawText   bool            // next text token holds foreign raw-text content; re-tokenize in Data state
-	reparseDepth     int             // nested foreign raw-text reparses; capped by maxForeignReparse
-	textAccum        *Node           // text node whose bytes are still in textBytes
-	textBytes        []byte          // pending text for textAccum; flushed onto Node.Text
+	root               *Node
+	stack              []*Node
+	mode               insertionMode
+	textReturn         insertionMode // mode to restore after a raw-text element
+	head               *Node         // head element pointer
+	form               *Node         // form element pointer
+	docMode            DocumentMode
+	docModeSet         bool
+	ignoreNextLF       bool // swallow the LF after <pre>, <listing>, <textarea>
+	fosterParenting    bool // route insertions around the open table
+	pendingTableText   []string
+	activeFormatting   []*Node         // nil entries are scope markers
+	templateModes      []insertionMode // stack of template insertion modes
+	framesetOK         bool            // whether a frameset start tag may replace body
+	fragment           bool            // fragment parsing: the synthetic root holds the context
+	fragmentContext    *Node           // context element for a fragment parse (nil for documents)
+	reparseRawText     bool            // next text token holds foreign raw-text content; re-tokenize in Data state
+	reparseDepth       int             // nested foreign raw-text reparses; capped by maxForeignReparse
+	sawSelectedContent bool            // a selectedcontent start tag was seen; gates the post-pass
+	textAccum          *Node           // text node whose bytes are still in textBytes
+	textBytes          []byte          // pending text for textAccum; flushed onto Node.Text
 }
 
 func newTreeBuilder() *treeBuilder {
@@ -136,6 +137,14 @@ func (b *treeBuilder) top() *Node {
 // appendToken applies one scanned token, reprocessing it through insertion
 // modes as the standard requires.
 func (b *treeBuilder) appendToken(tokItem token) {
+	// Selectedcontent mirroring runs as a post-pass, but only when the tree
+	// can contain a selectedcontent element: one start tag sets the flag.
+	// Elements arise only from start tags, so a document without one makes
+	// the pass a proven no-op and skips the whole-tree walk.
+	if tokItem.kind == tokStart && tokItem.data == "selectedcontent" {
+		b.sawSelectedContent = true
+	}
+
 	// A raw-text element inserted in foreign content is not raw text there:
 	// the tokenizer consumed its content by tag name, so re-tokenize the
 	// captured run in the Data state. The flag clears on the next token
@@ -1450,16 +1459,25 @@ func (b *treeBuilder) flushTextAccum() {
 // applyAttributes stores the interleaved name/value pairs on node, keeping
 // the first value of a duplicated attribute. Names are already lowercased and
 // values already character-reference decoded by the tokenizer; foreign
-// elements additionally adjust names per the standard's tables.
+// elements additionally adjust names per the standard's tables. AttrList is
+// the ordered store filled in one pass; Attrs mirrors it for lookup. Both are
+// pre-sized from the token pair count so the fill performs no growth
+// reallocation, and attribute-free nodes keep both stores nil. Map contents
+// stay complete for every element: narrowing the map to hot keys would change
+// Attribute lookups, whose paths belong to the attribute owner.
 func applyAttributes(node *Node, attrs []string) {
 	if len(attrs) == 0 {
 		return
 	}
 
-	if node.Attrs == nil {
-		const attrPairSize = 2 // attrs slice interleaves name and value
+	const attrPairSize = 2 // attrs slice interleaves name and value
 
+	if node.Attrs == nil {
 		node.Attrs = make(map[string]string, len(attrs)/attrPairSize)
+	}
+
+	if node.AttrList == nil {
+		node.AttrList = make([]Attr, 0, len(attrs)/attrPairSize)
 	}
 
 	totalBytes := 0

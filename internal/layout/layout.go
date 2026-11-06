@@ -138,6 +138,11 @@ type Options struct {
 	// in-package tests can prove cached and uncached layouts produce
 	// identical output and benchmark the memo's effect.
 	flexMinBypass bool
+	// blockMemoBypass disables the block-container intrinsic-height memo (see
+	// memo_block.go). Tests only: unexported so external callers keep the
+	// default, while in-package tests prove cached and uncached measurements
+	// agree.
+	blockMemoBypass bool
 }
 
 // validate rejects option values that would otherwise be silently clamped
@@ -611,6 +616,14 @@ func (paintOp Op) PaintLineGeometry() (float64, float64, float64, float64, float
 	return lineX, lineY, lineW, lineH, width
 }
 
+// blockCounterDelta carries the engine counter deltas a skipped block
+// intrinsic build would have consumed. Stored beside the height memo under
+// the same key so a hit replays both counters exactly.
+type blockCounterDelta struct {
+	sticky int
+	groups int
+}
+
 type engine struct {
 	opts     Options
 	ctx      context.Context //nolint:containedctx // ctx is checked at recursion boundaries (checkContext)
@@ -716,6 +729,24 @@ type engine struct {
 	// an unexported copy of Options.flexMinBypass that proves cached and
 	// uncached layouts produce identical output.
 	flexMinBypass bool
+	// blockIntrinsicMemo memoizes block-container intrinsic heights for one
+	// Layout run (see memo_block.go). The engine is constructed fresh per
+	// Layout, so entries never survive past the run that measured them.
+	blockIntrinsicMemo *blockIntrinsicMemo
+	// blockIntrinsicDeltas replays the engine counters a skipped noEmit build
+	// would have consumed (sticky IDs, blend-group IDs), mirroring
+	// gridMeasureResult. Counter audit: noEmit builds still run tagSticky
+	// (sticky.go) and enterBlendIsolation (layout.go, inline.go), which bump
+	// stickySeq and nextGroupID unconditionally, while op IDs stay put
+	// because add/addGroupMark/addGridRun return early when noEmit is set.
+	// Every memo Store pairs with a delta Store under the same key, so a hit
+	// replays exactly the counters the skipped build would have consumed.
+	blockIntrinsicDeltas     map[blockIntrinsicKey]blockCounterDelta
+	blockIntrinsicDeltaOrder []blockIntrinsicKey
+	// blockMemoBypass disables the block intrinsic-height memo. Tests only:
+	// an unexported copy of Options.blockMemoBypass that proves cached and
+	// uncached measurements agree.
+	blockMemoBypass bool
 	// svgInlineCache memoizes inline-<svg> rasters within one Layout run,
 	// keyed by serialized document plus raster resolution. Repeated identical
 	// icons rasterize once per run instead of once per occurrence. The cache
@@ -823,6 +854,9 @@ func (e *engine) releaseScratch() {
 	e.gridMeasureCache = nil
 	e.flexBaseH = nil
 	e.flexMinH = nil
+	e.blockIntrinsicMemo = nil
+	e.blockIntrinsicDeltas = nil
+	e.blockIntrinsicDeltaOrder = nil
 	e.pseudoContentCache = nil
 	e.contentEnvCache = nil
 	e.svgInlineCache = nil
@@ -1291,6 +1325,166 @@ func flattenBoxes(boxNode *box, out *[]*box) {
 	for _, child := range boxNode.children {
 		flattenBoxes(child, out)
 	}
+}
+
+// blockFPMixUint folds one integer into a FNV-1a content hash.
+func blockFPMixUint(h, v uint64) uint64 {
+	const prime = uint64(1099511628211)
+	h ^= v
+	return h * prime
+}
+
+// blockFPMixStr folds one string into a FNV-1a content hash.
+func blockFPMixStr(h uint64, s string) uint64 {
+	const prime = uint64(1099511628211)
+	for i := 0; i < len(s); i++ {
+		h ^= uint64(s[i])
+		h *= prime
+	}
+	return h
+}
+
+// blockContentFP pins the subtree an intrinsic measurement flows, folded with
+// the run ambients that can move a height at a fixed width (the replaced
+// image clamp and the percentage-height basis, mirroring the cbBits and
+// imgMaxBits grid_memo.go pins). The DOM is immutable for a Layout run, so a
+// hash over tag names, attributes, and text pins the measured content: any
+// content change that can move intrinsic size changes the hash. The
+// container's own style is pinned separately by styleFP at the call site;
+// descendant styles are fixed for the run by the cascade.
+func (e *engine) blockContentFP(node *html.Node) uint64 {
+	const offset = uint64(1469598103934665603)
+	h := offset
+
+	if e != nil {
+		h = blockFPMixUint(h, math.Float64bits(e.imgMaxW))
+		if e.flowCBHeight != nil {
+			h = blockFPMixUint(h, math.Float64bits(*e.flowCBHeight))
+		} else {
+			h = blockFPMixUint(h, 0x9e3779b97f4a7c15)
+		}
+	}
+
+	var walk func(n *html.Node)
+	walk = func(n *html.Node) {
+		if n == nil {
+			return
+		}
+
+		h = blockFPMixUint(h, uint64(n.Type))
+		h = blockFPMixStr(h, n.Name)
+		h = blockFPMixStr(h, n.Text)
+
+		for _, a := range n.AttrList {
+			h = blockFPMixStr(h, a.Name)
+			h = blockFPMixStr(h, a.Value)
+		}
+
+		for _, c := range n.Children {
+			walk(c)
+		}
+	}
+	walk(node)
+
+	return h
+}
+
+// storeBlockDelta records the counter deltas beside a memo Store under the
+// same key with the same FIFO bound, so the sidecar never outgrows the memo.
+// A re-stored key updates in place without moving the eviction order.
+func (e *engine) storeBlockDelta(key blockIntrinsicKey, sticky, groups int) {
+	if e.blockIntrinsicDeltas == nil {
+		e.blockIntrinsicDeltas = make(map[blockIntrinsicKey]blockCounterDelta)
+	}
+
+	if _, exists := e.blockIntrinsicDeltas[key]; exists {
+		e.blockIntrinsicDeltas[key] = blockCounterDelta{sticky: sticky, groups: groups}
+		return
+	}
+
+	if len(e.blockIntrinsicDeltaOrder) >= blockIntrinsicMemoCap {
+		oldest := e.blockIntrinsicDeltaOrder[0]
+		delete(e.blockIntrinsicDeltas, oldest)
+		e.blockIntrinsicDeltaOrder = e.blockIntrinsicDeltaOrder[1:]
+	}
+
+	e.blockIntrinsicDeltas[key] = blockCounterDelta{sticky: sticky, groups: groups}
+	e.blockIntrinsicDeltaOrder = append(e.blockIntrinsicDeltaOrder, key)
+}
+
+// measureBlockIntrinsicHeight builds node once without emitting ops and
+// returns its border-box height. Repeated measurements of the same subtree at
+// the same width hit the per-run memo and skip the rebuild, replaying the
+// sticky and blend-group counter deltas the skipped build would have consumed
+// so later IDs stay identical to an uncached run. A miss runs the existing
+// noEmit build unchanged and stores only when the run has no error, mirroring
+// measureGridItemPrefH.
+func (e *engine) measureBlockIntrinsicHeight(node *html.Node, width float64) float64 {
+	if e == nil || node == nil {
+		return 0
+	}
+
+	if e.blockMemoBypass || e.blockIntrinsicMemo == nil {
+		return e.measureBlockIntrinsicHeightUncached(node, width)
+	}
+
+	styleFP := styleInternFingerprint(e.stylePtr(node))
+	contentFP := e.blockContentFP(node)
+
+	key, valid := makeBlockIntrinsicKey(styleFP, contentFP, width)
+	if !valid {
+		return e.measureBlockIntrinsicHeightUncached(node, width)
+	}
+
+	if height, hit := e.blockIntrinsicMemo.Lookup(styleFP, contentFP, width); hit {
+		if delta, ok := e.blockIntrinsicDeltas[key]; ok {
+			e.stickySeq += delta.sticky
+			e.nextGroupID += delta.groups
+
+			return height
+		}
+		// Sidecar missed while the memo hit: fall through and rebuild so the
+		// counters stay exact rather than trusting a half entry.
+	}
+
+	was := e.noEmit
+	e.noEmit = true
+	stickyBefore, groupsBefore := e.stickySeq, e.nextGroupID
+	measured := e.build(node, width, 0, 0)
+	stickyDelta := e.stickySeq - stickyBefore
+	groupsDelta := e.nextGroupID - groupsBefore
+	e.noEmit = was
+
+	height := 0.0
+	if measured != nil {
+		height = measured.height
+	}
+
+	if e.err == nil {
+		e.blockIntrinsicMemo.Store(styleFP, contentFP, width, height)
+		e.storeBlockDelta(key, stickyDelta, groupsDelta)
+	}
+
+	return height
+}
+
+// measureBlockIntrinsicHeightUncached runs the noEmit build without touching
+// the memo. Bypassed runs and uncacheable widths go through here.
+func (e *engine) measureBlockIntrinsicHeightUncached(node *html.Node, width float64) float64 {
+	if e == nil || node == nil {
+		return 0
+	}
+
+	was := e.noEmit
+	e.noEmit = true
+	measured := e.build(node, width, 0, 0)
+	e.noEmit = was
+
+	if measured == nil {
+		return 0
+	}
+
+	return measured.height
 }
 
 // minOpCapacity floors the preallocated op display list.

@@ -338,10 +338,12 @@ func newDisplay(
 		parents = append(parents, item.ParentIndex)
 	})
 
+	owners, order := emitOwnersAndOrder(res, parents)
+
 	display := &Display{
 		Ops:            res.Ops,
-		OpOwners:       ilayout.OperationOwnersFromParents(res, parents),
-		Order:          ilayout.PaintOrder(res.Ops),
+		OpOwners:       owners,
+		Order:          order,
 		Boxes:          boxes,
 		Keyframes:      keyframesFrom(sheets),
 		Width:          int(res.Width * ptToPx),
@@ -362,8 +364,36 @@ func newDisplay(
 	return display
 }
 
+// emitOwnersAndOrder derives the per-operation element owners and the paint
+// order from one shared op slice capture, so display construction sizes both
+// slices from the count known before emission and issues the two derivations
+// as one emission step. The owners mapping is the one
+// OperationOwnersFromParents computes and the order is the one PaintOrder
+// computes; fusing the step changes no op, ID, owner, order, or box.
+func emitOwnersAndOrder(res *ilayout.Result, parents []int) (owners, order []int) {
+	ops := res.Ops
+	owners = ilayout.OperationOwnersFromParents(res, parents)
+	order = ilayout.PaintOrder(ops)
+
+	return owners, order
+}
+
 func keyframesFrom(sheets []*icss.Stylesheet) []KeyframesRule {
+	total := 0
+
+	for _, sheet := range sheets {
+		if sheet == nil {
+			continue
+		}
+
+		total += len(sheet.Keyframes)
+	}
+
 	var rules []KeyframesRule
+
+	if total > 0 {
+		rules = make([]KeyframesRule, 0, total)
+	}
 
 	for _, sheet := range sheets {
 		if sheet == nil {

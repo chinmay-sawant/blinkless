@@ -48,14 +48,51 @@ func Parse(source []byte) (*Document, error) {
 
 // Find returns the element with the given id.
 // The text is the element's descendant text.
+//
+// The lookup goes through the per-document id index under its lock, so a
+// Find running beside SetAttribute or SetText sees one state of the tree.
+// A cached hit is validated (same root, id still matches, still attached)
+// while holding the read lock; a miss or stale hit falls back to one
+// authoritative walk under the write lock, which also heals the table.
+// The walk stays in document order with template contents excluded, so the
+// result matches a direct tree search.
 func (d *Document) Find(elementID string) (Element, bool) {
 	if d == nil || d.root == nil || elementID == "" {
 		return Element{}, false //nolint:exhaustruct // no element was found
 	}
 
-	node := d.root.FindFirst(func(candidate *html.Node) bool {
-		return candidate.Type == html.ElementNode && candidate.Attribute("id") == elementID
-	})
+	idx := elementIndexFor(d)
+
+	idx.mu.RLock()
+
+	node, ok := idx.byID[elementID]
+	if ok && (node == nil || idx.root != d.root ||
+		node.Attribute("id") != elementID || !attachedTo(node, d.root)) {
+		ok = false
+		node = nil
+	}
+
+	var tag, text string
+
+	if ok {
+		tag = node.Name
+		text = node.TextContent()
+	}
+
+	idx.mu.RUnlock()
+
+	if ok {
+		return Element{
+			Tag:  tag,
+			ID:   elementID,
+			Text: text,
+		}, true
+	}
+
+	idx.mu.Lock()
+	defer idx.mu.Unlock()
+
+	node = idx.findLocked(d.root, elementID)
 	if node == nil {
 		return Element{}, false //nolint:exhaustruct // no element was found
 	}

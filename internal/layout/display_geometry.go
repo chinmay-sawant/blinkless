@@ -34,6 +34,13 @@ type GlyphBasis struct {
 // Consumers receive paths and final text positions instead of CSS projection
 // matrices for those operations.
 func FinalizeDisplayOps(ops []Op) error {
+	// The common document carries no 3D projection at all. Count first with
+	// a flag-only scan (no per-op struct copies, no pristine saves) and
+	// return before the finalizing walk when there is nothing to project.
+	if countProjectedOps(ops) == 0 {
+		return nil
+	}
+
 	for idx := range ops {
 		operation := &ops[idx]
 
@@ -56,6 +63,21 @@ func FinalizeDisplayOps(ops []Op) error {
 	}
 
 	return nil
+}
+
+// countProjectedOps tracks how many ops carry a 3D projection the stamp walk
+// left behind. It reads only the extra pointer and the flag, so the scan
+// stays cheap on documents where the answer is zero.
+func countProjectedOps(ops []Op) int {
+	count := 0
+
+	for i := range ops {
+		if extra := ops[i].opExtra; extra != nil && extra.HasProjective {
+			count++
+		}
+	}
+
+	return count
 }
 
 // finalizeProjectedOp rewrites one projected operation into final display
@@ -123,6 +145,22 @@ const (
 	pathCubicPointCount = 3
 )
 
+// countCornerPathPoints returns how many points a corner path holds, so the
+// projection pass sizes its bounds slice once instead of growing it.
+func countCornerPathPoints(path *CornerPath) int {
+	if path == nil {
+		return 0
+	}
+
+	total := 0
+
+	for idx := range path.Cmds {
+		total += pathCmdPointCount(path.Cmds[idx].Verb)
+	}
+
+	return total
+}
+
 // finalizeProjectedCornerPath projects every corner-path command point and
 // re-bounds the op. The verb and stroke flag survive the rewrite.
 func finalizeProjectedCornerPath(operation *Op, projective ProjectiveTransform) {
@@ -133,7 +171,7 @@ func finalizeProjectedCornerPath(operation *Op, projective ProjectiveTransform) 
 
 	commands := make([]PathCmd, len(path.Cmds))
 
-	var bounds []DisplayPoint
+	bounds := make([]DisplayPoint, 0, countCornerPathPoints(path))
 
 	for idx := range path.Cmds {
 		command := path.Cmds[idx]

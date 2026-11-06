@@ -1,9 +1,11 @@
 package layout
 
 import (
+	"context"
 	"maps"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
 	"github.com/chinmay-sawant/blinkless/internal/html"
@@ -69,6 +71,10 @@ func internalCustomPropWriters(raw map[string]string) bool {
 // registered holds @property registrations: a property not declared here
 // takes its initial value unless it inherits and the parent supplied one,
 // and a non-inherited registered property never inherits the parent's value.
+//
+// The parent map is shared until an actual write: no declared properties and
+// no effective registration returns the parent map itself, and a var-free
+// overlay clones once instead of building the resolver work and memo maps.
 func mergeCustomProps(parentProps, raw map[string]string, registered map[string]css.PropertyRule) map[string]string {
 	declared := declaredCustomProps(raw)
 
@@ -81,6 +87,14 @@ func mergeCustomProps(parentProps, raw map[string]string, registered map[string]
 	}
 
 	if len(declared) == 0 {
+		if registeredPropsNoop(parentProps, registered) {
+			if len(parentProps) > 0 && internalCustomPropWriters(raw) {
+				return maps.Clone(parentProps)
+			}
+
+			return parentProps
+		}
+
 		out := make(map[string]string, len(parentProps)+len(registered))
 		for name, value := range parentProps {
 			out[name] = value
@@ -91,12 +105,68 @@ func mergeCustomProps(parentProps, raw map[string]string, registered map[string]
 		return out
 	}
 
+	if len(registered) == 0 && !customValuesNeedResolve(parentProps) && !customValuesNeedResolve(declared) {
+		out := make(map[string]string, len(parentProps)+len(declared))
+		for name, value := range parentProps {
+			out[name] = value
+		}
+
+		for name, value := range declared {
+			out[name] = value
+		}
+
+		return out
+	}
+
 	resolved := css.ResolveCustomProps(declared, parentProps)
 	if len(registered) > 0 {
 		applyRegisteredProps(resolved, registered, declared)
 	}
 
 	return resolved
+}
+
+// registeredPropsNoop reports whether folding registered @property rules over
+// parentProps changes nothing, so the caller can share the parent map instead
+// of cloning it. declared is empty on this path: a registration changes the
+// map when it writes an initial value the parent lacks (or that differs) or
+// drops an inherited value the parent holds.
+func registeredPropsNoop(parentProps map[string]string, registered map[string]css.PropertyRule) bool {
+	for name, reg := range registered {
+		if reg.Inherits {
+			if value, ok := parentProps[name]; ok && strings.TrimSpace(value) != "" {
+				continue
+			}
+		}
+
+		if reg.Initial != "" {
+			if value, ok := parentProps[name]; !ok || value != reg.Initial {
+				return false
+			}
+
+			continue
+		}
+
+		if _, ok := parentProps[name]; ok {
+			return false
+		}
+	}
+
+	return true
+}
+
+// customValuesNeedResolve reports whether any custom-property value carries a
+// var() reference, in which case css.ResolveCustomProps must run its work and
+// memo maps with per-key cycle stacks. Values without var() merge by plain
+// overlay, so the caller skips those maps with one clone.
+func customValuesNeedResolve(values map[string]string) bool {
+	for _, value := range values {
+		if containsVarFunc(value) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // declaredCustomProps collects the --* declarations from raw. It returns nil
@@ -170,6 +240,10 @@ func registeredProperties(sheets []*css.Stylesheet) map[string]css.PropertyRule 
 // Custom property keys (--*) are left unchanged (already resolved in the map).
 // When no value contains var(), raw is returned as-is (no map copy).
 //
+// raw is cascade scratch owned by this pass (cascadeRaw/cascadePseudoRaw
+// output or a caller-local map): values carrying var() expand in place
+// instead of cloning the whole map when one value references a variable.
+//
 //nolint:cyclop // hot path; flat scan then expand of var() refs stays readable
 func resolveRawVars(raw map[string]string, customProps map[string]string) map[string]string {
 	if len(raw) == 0 {
@@ -203,23 +277,18 @@ func resolveRawVars(raw map[string]string, customProps map[string]string) map[st
 
 		return v, ok && strings.TrimSpace(v) != ""
 	}
-	out := make(map[string]string, len(raw))
 
 	for prop, val := range raw {
 		if strings.HasPrefix(prop, "--") {
-			out[prop] = val
-
 			continue
 		}
 
 		if containsVarFunc(val) {
-			out[prop] = css.ResolveVars(val, lookup)
-		} else {
-			out[prop] = val
+			raw[prop] = css.ResolveVars(val, lookup)
 		}
 	}
 
-	return out
+	return raw
 }
 
 // containsVarFunc reports whether s has a CSS var( function (ASCII, case-insensitive)
@@ -583,6 +652,86 @@ type cascadeWin struct {
 	important           bool
 }
 
+// maxInlineDeclEntries bounds the interned inline-style cache. Entries are
+// pure functions of the attribute text, so eviction only costs a re-parse.
+const maxInlineDeclEntries = 1024
+
+// maxSupportsMemoEntries bounds the @supports verdict cache. Verdicts are
+// pure functions of (prop, value), so eviction only costs a re-probe.
+const maxSupportsMemoEntries = 4096
+
+//nolint:gochecknoglobals // pass-shared caches with test counters
+var (
+	inlineDeclsMu    sync.RWMutex
+	inlineDecls      = make(map[string][]css.Declaration)
+	inlineDeclParses uint64
+
+	supportsMemoMu     sync.RWMutex
+	supportsMemos      = make(map[string]bool)
+	supportsProbeEvals uint64
+	supportsProbeHits  uint64
+)
+
+// cachedInlineDecls returns the parsed declarations for one inline style
+// attribute, parsing once per unique attribute text. The returned slice is
+// shared: callers must range over it without mutating it.
+func cachedInlineDecls(style string) []css.Declaration {
+	inlineDeclsMu.RLock()
+	decls, ok := inlineDecls[style]
+	inlineDeclsMu.RUnlock()
+
+	if ok {
+		return decls
+	}
+
+	parsed := css.ParseInline(style)
+
+	inlineDeclsMu.Lock()
+	if _, ok := inlineDecls[style]; !ok {
+		inlineDeclParses++
+
+		if len(inlineDecls) < maxInlineDeclEntries {
+			inlineDecls[style] = parsed
+		}
+	}
+	inlineDeclsMu.Unlock()
+
+	return parsed
+}
+
+// resetCascadeCachesForTest clears the inline-declaration intern cache, the
+// @supports verdict cache, and their counters. Tests using it must stay
+// sequential (no t.Parallel): parallel cascade tests share these caches.
+func resetCascadeCachesForTest() {
+	inlineDeclsMu.Lock()
+	inlineDecls = make(map[string][]css.Declaration)
+	inlineDeclParses = 0
+	inlineDeclsMu.Unlock()
+
+	supportsMemoMu.Lock()
+	supportsMemos = make(map[string]bool)
+	supportsProbeEvals = 0
+	supportsProbeHits = 0
+	supportsMemoMu.Unlock()
+}
+
+// inlineDeclParseCountForTest reports actual css.ParseInline calls.
+func inlineDeclParseCountForTest() uint64 {
+	inlineDeclsMu.RLock()
+	defer inlineDeclsMu.RUnlock()
+
+	return inlineDeclParses
+}
+
+// supportsProbeStatsForTest reports full @supports evaluations (cache
+// misses) and hits.
+func supportsProbeStatsForTest() (evals, hits uint64) {
+	supportsMemoMu.RLock()
+	defer supportsMemoMu.RUnlock()
+
+	return supportsProbeEvals, supportsProbeHits
+}
+
 // cascadeRaw returns the winning declaration per property for the element
 // across UA sheet, the already matched author rules and the inline style
 // attribute. Uses one winner map (value+spec+order+important) instead of six
@@ -623,13 +772,17 @@ func cascadeRaw( //nolint:funlen // cascade tiers are deliberately visible in on
 	}
 
 	// inline style attribute: outranks all normal declarations and all sheet
-	// important declarations (spec 1<<maxIntShift).
-	for _, d := range css.ParseInline(node.Attribute("style")) {
-		if !supportedDeclaration(d.Prop, d.Value) {
-			continue
-		}
+	// important declarations (spec 1<<maxIntShift). Elements without a style
+	// attribute skip the inline parse entirely; repeated identical attributes
+	// share one interned parse (see cachedInlineDecls).
+	if styleAttr := strings.TrimSpace(node.Attribute("style")); styleAttr != "" {
+		for _, d := range cachedInlineDecls(styleAttr) {
+			if !supportedDeclaration(d.Prop, d.Value) {
+				continue
+			}
 
-		applyCascadeDeclaration(wins, d.Prop, d.Value, inlineStylePriority, 0, 0, inlineStylePriority, 0, d.Important)
+			applyCascadeDeclaration(wins, d.Prop, d.Value, inlineStylePriority, 0, 0, inlineStylePriority, 0, d.Important)
+		}
 	}
 
 	if len(wins) == 0 {
@@ -663,7 +816,9 @@ func cascadeRaw( //nolint:funlen // cascade tiers are deliberately visible in on
 // cascadePseudoRaw returns the winning declarations for a generated
 // ::before/::after box. Pseudo-elements have no inline attribute or UA rule of
 // their own; their declarations come from the author rules that matched the
-// host and pseudo shape.
+// host and pseudo shape. The winner buffer is the shared ctx scratch, but the
+// output map stays freshly allocated: callers can hold two pseudo results
+// from one context at once, so reusing the output buffer would alias them.
 func cascadePseudoRaw(ctx *styleContext, node *html.Node, pseudoElem string) map[string]string {
 	if ctx == nil || node == nil {
 		return nil
@@ -1831,11 +1986,47 @@ func applyStyleProp(
 // owns display but ignores display:bogus, so that declaration must not
 // satisfy the query. Custom properties are supported by definition; their
 // values resolve in mergeCustomProps.
+//
+// The verdict is a pure function of (prop, value), so it is memoized: a
+// repeated probe skips both the acceptance parse and the scratch-style
+// dispatch instead of rebuilding a full ResolvedStyle per probe.
 func engineSupportsProperty(prop, value string) bool {
 	if strings.HasPrefix(prop, "--") {
 		return true
 	}
 
+	key := prop + "\x00" + value
+
+	supportsMemoMu.RLock()
+	verdict, ok := supportsMemos[key]
+	supportsMemoMu.RUnlock()
+
+	if ok {
+		supportsMemoMu.Lock()
+		supportsProbeHits++
+		supportsMemoMu.Unlock()
+
+		return verdict
+	}
+
+	verdict = engineSupportsPropertyUncached(prop, value)
+
+	supportsMemoMu.Lock()
+	if _, ok := supportsMemos[key]; !ok {
+		if len(supportsMemos) < maxSupportsMemoEntries {
+			supportsMemos[key] = verdict
+		}
+
+		supportsProbeEvals++
+	}
+	supportsMemoMu.Unlock()
+
+	return verdict
+}
+
+// engineSupportsPropertyUncached runs the @supports probe without consulting
+// the verdict memo.
+func engineSupportsPropertyUncached(prop, value string) bool {
 	if !supportedDeclaration(prop, value) {
 		return false
 	}
@@ -1922,3 +2113,135 @@ func remapWebkitValue(prop, value string) string {
 }
 
 // applyDisplayGroup handles display, position-adjacent flow and stacking props.
+
+// resolveStylesRetainedWithContext is the dirty-subtree re-resolve entry.
+// When a dirty set is present, the retainer is warm, and nothing structural
+// changed, it re-resolves only dirty subtrees: a dirty subtree re-resolves
+// itself and its descendants, reading inherited values from the retained
+// parent chain. A clean id-bearing subtree reuses its retained style
+// verbatim (same pointer). Structural edits (element count or id set
+// change, duplicate ids, moved subtrees, unknown dirty ids), changed style
+// inputs (sheets, media, viewport, pseudo-class state, operator policy), a
+// container pass, or any other doubt falls back to the existing full resolve
+// path unchanged and restocks the retainer from it.
+func resolveStylesRetainedWithContext(
+	ctx context.Context, root *html.Node, opts Options,
+	containers map[*html.Node]sizeContainer, dirty styleDirtySet, ret *styleRetainer,
+) (map[*html.Node]*ResolvedStyle, error) {
+	if ret == nil || dirty == nil || containers != nil {
+		return resolveStylesWithContext(ctx, root, opts, containers)
+	}
+
+	inputs := retainInputsOf(opts)
+	byID, total, dup := retainIndexIDs(root)
+
+	dirtyIDs := make(map[string]struct{})
+	for _, id := range dirty.Snapshot() {
+		dirtyIDs[id] = struct{}{}
+	}
+
+	if dup || !ret.check(root, byID, total, inputs, dirtyIDs) {
+		styles, err := resolveStylesWithContext(ctx, root, opts, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		ret.restock(root, styles, inputs, total)
+		ret.noteFullResolve()
+
+		return styles, nil
+	}
+
+	return retainedIncremental(ctx, root, opts, dirtyIDs, ret, inputs, total)
+}
+
+// retainedIncremental resolves one pass reusing retained styles for clean
+// id-bearing subtrees. dirtyIDs names the dirty subtree roots; every
+// descendant of a dirty root re-resolves, and every element rechecks its
+// ancestor chain and parent fingerprint against the live tree, so an
+// inherited-value change through a clean child is impossible: the parent
+// fingerprint comparison fails first and the child re-resolves.
+func retainedIncremental(
+	ctx context.Context, root *html.Node, opts Options,
+	dirtyIDs map[string]struct{}, ret *styleRetainer, inputs styleRetainInputs, total int,
+) (map[*html.Node]*ResolvedStyle, error) {
+	sctx := &styleContext{ //nolint:exhaustruct // fresh pass context, caches fill on use
+		ctx:                ctx,
+		sheets:             opts.Sheets,
+		properties:         registeredProperties(opts.Sheets),
+		media:              opts.Media,
+		viewportW:          opts.Width,
+		viewportH:          opts.Height,
+		printLinkUnderline: opts.PrintLinkUnderline,
+		state:              opts.State,
+	}
+
+	store := styleStore{} //nolint:exhaustruct // intentional zero-value store
+	out := make(map[*html.Node]*ResolvedStyle)
+
+	var reused uint64
+
+	var walk func(node *html.Node, parent *ResolvedStyle, inheritedDirty bool)
+	walk = func(node *html.Node, parent *ResolvedStyle, inheritedDirty bool) {
+		if sctx.pollContext() {
+			return
+		}
+
+		var style *ResolvedStyle
+
+		dirty := inheritedDirty
+
+		switch node.Type {
+		case html.ElementNode:
+			id := node.Attribute("id")
+			if id != "" {
+				if _, hit := dirtyIDs[id]; hit {
+					dirty = true
+				}
+			}
+
+			if id != "" && !dirty {
+				if entry, ok := ret.lookup(id); ok &&
+					entry.chain == retainChain(node) &&
+					entry.parentFP == retainStyleFP(parent) {
+					style = entry.style
+					reused++
+				}
+			}
+
+			if style == nil {
+				style = resolveElementStyleMemo(node, sctx, parent, &store)
+			}
+		case html.TextNode:
+			style = parent
+			if style == nil {
+				style = &defaultTextStyle
+			}
+		case html.CommentNode, html.DoctypeNode:
+			style = &zeroResolvedStyle
+		}
+
+		out[node] = style
+
+		for _, child := range node.Children {
+			if child.Type == html.TextNode {
+				out[child] = style
+
+				continue
+			}
+
+			walk(child, style, dirty)
+		}
+	}
+
+	walk(root, nil, false)
+
+	if sctx.err != nil {
+		return nil, sctx.err
+	}
+
+	ret.restock(root, out, inputs, total)
+	ret.noteRetainedResolve(reused)
+
+	return out, nil
+}

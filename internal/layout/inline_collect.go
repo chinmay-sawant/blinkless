@@ -211,7 +211,7 @@ func (e *engine) collectInlineText(node *html.Node, sty ResolvedStyle, out *[]in
 
 	start := len(*out)
 	parent := node.Parent
-	vertical := parent != nil && parent.Type == html.ElementNode && isVerticalWritingMode(e.styleVal(parent).WritingMode)
+	vertical := parent != nil && parent.Type == html.ElementNode && isVerticalWritingMode(e.stylePtr(parent).WritingMode)
 
 	if vertical {
 		verticalStyle := sty
@@ -466,6 +466,19 @@ func (e *engine) collectWrappedText(node *html.Node, sty ResolvedStyle, out *[]i
 	}
 
 	startOut := len(*out)
+	// Hoist run invariants out of the per-fragment loop: the line height
+	// resolves the face on the normal path, and the vertical column width
+	// does face math too. Every word shares nodeStyle, so hoisting the
+	// pure reads changes no value.
+	lineH := e.lineHeightOf(nodeStyle) * e.scale
+	verticalRun := isVerticalWritingMode(nodeStyle.WritingMode)
+
+	var vertW float64
+
+	if verticalRun {
+		vertW = verticalWritingColumnWidth(e, nodeStyle)
+	}
+
 	wordStart := 0
 
 	for wordStart < len(text) {
@@ -495,13 +508,13 @@ func (e *engine) collectWrappedText(node *html.Node, sty ResolvedStyle, out *[]i
 			word = " " + word
 		}
 
-		*out = append(*out, e.textItem(word, nodeStyle))
+		*out = append(*out, e.wrappedWordItem(word, nodeStyle, lineH, vertW, verticalRun))
 		wordStart = end
 	}
 	// Preserve a trailing word-separator when the source text node
 	// ended with whitespace (so "foo <b>bar</b>" keeps the gap).
 	if len(*out) > startOut {
-		e.preserveTrailingGap(node, out)
+		e.preserveTrailingGap(node, nodeStyle, out)
 	}
 }
 
@@ -516,8 +529,12 @@ func isWSSpaceByte(b byte) bool {
 }
 
 // preserveTrailingGap keeps a trailing word separator when the source text
-// node ended with whitespace.
-func (e *engine) preserveTrailingGap(node *html.Node, out *[]inlineItem) {
+// node ended with whitespace. The appended space reuses the cached
+// single-space advance instead of remeasuring the lengthened word: advances,
+// letter-spacing, and word-spacing all decompose additively across the
+// split, and the dropped adjacent pair carries no autospace gap while the
+// ideograph gate is off. Autospace text keeps the full remeasure.
+func (e *engine) preserveTrailingGap(node *html.Node, nodeStyle *ResolvedStyle, out *[]inlineItem) {
 	if len(*out) == 0 || len(node.Text) == 0 {
 		return
 	}
@@ -533,7 +550,14 @@ func (e *engine) preserveTrailingGap(node *html.Node, out *[]inlineItem) {
 	}
 
 	item.text += " "
-	item.w = e.inlineTextWidth(item.text, e.stylePtr(node), item.chrome)
+
+	if !autospaceIdeographAlpha(nodeStyle.TextAutospace) {
+		item.w += e.measureTextFace(" ", nodeStyle)
+
+		return
+	}
+
+	item.w = e.inlineTextWidth(item.text, nodeStyle, item.chrome)
 }
 
 // collectInlineElement flattens one element node into inline items. The
@@ -553,11 +577,22 @@ func (e *engine) collectInlineElement(node *html.Node, sty ResolvedStyle, out *[
 
 	e.collectInlineElementInner(node, sty, out)
 
-	e.applyWrapBreakFlags(sty, *out, start)
+	// Fast path: without any wrap-before/after/inside property the hook
+	// provably writes nothing, so the common table-cell path skips it.
+	if hasWrapBreakProps(sty) {
+		e.applyWrapBreakFlags(sty, *out, start)
+	}
 
 	if wrapBreakLineAfter(sty) {
 		*out = append(*out, inlineItem{forceBreak: true}) //nolint:exhaustruct // intentional zero fields
 	}
+}
+
+// hasWrapBreakProps reports whether sty carries any css-text-4 lite wrap
+// property. applyWrapBreakFlags only writes for avoid/avoid-line/line
+// values, so an element without these properties skips the hook entirely.
+func hasWrapBreakProps(sty ResolvedStyle) bool {
+	return sty.WrapBefore != "" || sty.WrapAfter != "" || sty.WrapInside != ""
 }
 
 // collectInlineElementInner is the unwrapped inline element collection (kept
@@ -882,6 +917,21 @@ func (e *engine) textItem(text string, style *ResolvedStyle) inlineItem {
 
 	return inlineItem{ //nolint:exhaustruct // intentional zero fields
 		text: text, style: style, w: textWidth, h: lineHeight,
+	}
+}
+
+// wrappedWordItem builds one wrapped word item. It mirrors textItem exactly
+// for the wrapped-word loop, with the run-invariant line height and vertical
+// column width hoisted by the caller so the per-fragment loop pays no repeat
+// face or writing-mode work.
+func (e *engine) wrappedWordItem(word string, style *ResolvedStyle, lineH, vertW float64, vertical bool) inlineItem {
+	w := e.measureTextFace(transformInlineText(word, style.TextTransform), style)
+	if vertical {
+		w = vertW
+	}
+
+	return inlineItem{ //nolint:exhaustruct // intentional zero fields
+		text: word, style: style, w: w, h: lineH,
 	}
 }
 

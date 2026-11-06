@@ -24,17 +24,19 @@ func newEngine(
 	styles map[*html.Node]*ResolvedStyle, containers map[*html.Node]sizeContainer, ops []Op,
 ) *engine {
 	return &engine{ //nolint:exhaustruct // intentional zero fields
-		opts:           opts,
-		ctx:            ctx,
-		font:           font,
-		faces:          faces,
-		registry:       opts.Registry,
-		styles:         styles,
-		scale:          zoomScale(opts.Zoom),
-		containers:     containers,
-		ops:            ops,
-		gridMemoBypass: opts.gridMemoBypass,
-		flexMinBypass:  opts.flexMinBypass,
+		opts:               opts,
+		ctx:                ctx,
+		font:               font,
+		faces:              faces,
+		registry:           opts.Registry,
+		styles:             styles,
+		scale:              zoomScale(opts.Zoom),
+		containers:         containers,
+		ops:                ops,
+		gridMemoBypass:     opts.gridMemoBypass,
+		flexMinBypass:      opts.flexMinBypass,
+		blockIntrinsicMemo: newBlockIntrinsicMemo(),
+		blockMemoBypass:    opts.blockMemoBypass,
 	}
 }
 
@@ -68,7 +70,14 @@ func finalizeResult(eng *engine, root *html.Node, opts Options) (*Result, error)
 		boxesCap = minBoxesCap
 	}
 
-	boxes := make([]*box, 0, boxesCap)
+	// The flattened box list is rented from the box pool at exact capacity
+	// and handed to the Result, which owns it past this run. Oversized runs
+	// bypass the pool inside rentBoxPtrs and allocate directly, so one huge
+	// document cannot pin memory for later small ones. Result.Release hands
+	// the backing back; until then it is released with the Result by the
+	// garbage collector.
+	rented := rentBoxPtrs(boxesCap)
+	boxes := rented[:0]
 	flattenBoxes(boxNode, &boxes)
 
 	for _, c := range eng.spareChunks {

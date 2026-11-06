@@ -9,6 +9,16 @@
 //nolint:all // post-pass over the custom Node model; same conventions as tree.go
 package html
 
+// applySelectedContentIfNeeded runs the selectedcontent mirroring post-pass
+// only when a selectedcontent start tag was seen. Without one the pass is a
+// proven no-op, so most documents skip the whole-tree walk. Fragment parsing
+// routes every token through appendToken too, so the same flag covers it.
+func (b *treeBuilder) applySelectedContentIfNeeded() {
+	if b.sawSelectedContent {
+		applySelectedContent(b.root)
+	}
+}
+
 // applySelectedContent fills every selectedcontent element with a clone of
 // the selected option's children.
 func applySelectedContent(root *Node) {

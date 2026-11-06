@@ -60,6 +60,13 @@ eight records and the arrays grow from there to sixty four, so a page with a
 few distinct styles keeps a small array instead of a full one. The rest of the
 retained state is the box tree, about 420 bytes per element.
 
+The scale benchmark and the batch element relayout API are landed.
+`layout/invoice_scale_bench_test.go` records layout cost on a
+deterministic 1000-row invoice page, and `layout/relayout_elements.go`
+re-places several element subtrees in one call for hosts that edit more
+than one element at a time. Figures are TBD pending the benchmark run;
+the retained-bytes table above stays the committed reference until then.
+
 `html.Document.SetAttribute(id, name, value)` writes one attribute on the
 element with that id. It returns false when no element has that id, or when the
 attribute name is empty (`html/attribute.go:18`). `html.Document.SetText(id,

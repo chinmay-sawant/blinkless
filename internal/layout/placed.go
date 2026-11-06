@@ -39,11 +39,29 @@ type PlacedElement struct {
 
 const defaultOpIDsMultiplier = 4
 
+// WalkPlacedOptions tunes what WalkPlacedWithOptions computes per element.
+// The zero value is the lean path: geometry and ownership without text.
+type WalkPlacedOptions struct {
+	// IncludeText fills PlacedElement.Text with the element subtree text.
+	// TextContent walks the whole subtree per element, so bulk walks that
+	// only need boxes leave it off.
+	IncludeText bool
+}
+
 // WalkPlaced walks laid-out element boxes in document order, invoking fn for each element.
 // A nil result does nothing.
 //
 //nolint:varnamelen // fn is standard callback identifier
 func WalkPlaced(res *Result, fn func(elem *PlacedElement)) {
+	WalkPlacedWithOptions(res, WalkPlacedOptions{IncludeText: true}, fn)
+}
+
+// WalkPlacedWithOptions walks like WalkPlaced, computing only what opts
+// requests. Callers that need boxes, transforms, and operation ownership
+// without text use the zero value.
+//
+//nolint:varnamelen // fn is standard callback identifier
+func WalkPlacedWithOptions(res *Result, opts WalkPlacedOptions, fn func(elem *PlacedElement)) {
 	if res == nil || res.root == nil {
 		return
 	}
@@ -54,13 +72,13 @@ func WalkPlaced(res *Result, fn func(elem *PlacedElement)) {
 
 	viewport := svgViewport{x: 0, y: 0, w: 0, h: 0, set: false}
 
-	walkPlacedFunc(res.root, res.Ops, -1, IdentityMatrix(), viewport, fn, &allIDs, 0, &item)
+	walkPlacedFunc(res.root, res.Ops, -1, IdentityMatrix(), viewport, fn, &allIDs, 0, &item, opts)
 }
 
 //nolint:varnamelen // fn is standard callback identifier
 func walkPlacedFunc(
 	boxNode *box, ops []Op, parentIndex int, parentAccum Matrix2D, viewport svgViewport,
-	fn func(elem *PlacedElement), allIDs *[]uint64, index int, item *PlacedElement,
+	fn func(elem *PlacedElement), allIDs *[]uint64, index int, item *PlacedElement, opts WalkPlacedOptions,
 ) int {
 	if boxNode == nil {
 		return index
@@ -68,7 +86,7 @@ func walkPlacedFunc(
 
 	childParent := parentIndex
 	childAccum := parentAccum
-	info := transformInfoForBox(boxNode, parentAccum, viewport)
+	info := placedTransformInfo(boxNode, parentAccum, viewport)
 
 	if info.HasMatrix {
 		childAccum = info.World
@@ -80,7 +98,6 @@ func walkPlacedFunc(
 			ID:                  elementID,
 			Tag:                 boxNode.node.Name,
 			Action:              boxNode.node.Attribute("data-action"),
-			Text:                boxNode.node.TextContent(),
 			ParentIndex:         parentIndex,
 			OperationIDs:        appendOperationIDs(ops, boxNode.opStart, boxNode.opEnd, allIDs),
 			Animations:          animationRecordsFromStyle(boxNode.style.Animation),
@@ -99,6 +116,11 @@ func walkPlacedFunc(
 			W:                   boxNode.w,
 			H:                   boxNode.height,
 		}
+
+		if opts.IncludeText {
+			item.Text = boxNode.node.TextContent()
+		}
+
 		childParent = index
 		index++
 
@@ -111,10 +133,56 @@ func walkPlacedFunc(
 	childViewport := childViewportForBox(boxNode, viewport)
 
 	for _, child := range boxNode.children {
-		index = walkPlacedFunc(child, ops, childParent, childAccum, childViewport, fn, allIDs, index, item)
+		index = walkPlacedFunc(child, ops, childParent, childAccum, childViewport, fn, allIDs, index, item, opts)
 	}
 
 	return index
+}
+
+// placedTransformInfo resolves the transform metadata for one box while
+// computing the box bake once: Own is the single boxTransformAccum call and
+// World is the parent product of it, which is the same multiplication
+// boxTransformAccum performs internally. Boxes without a static transform
+// skip the bake entirely and hand the parent matrix through.
+func placedTransformInfo(boxNode *box, parentAccum Matrix2D, viewport svgViewport) TransformInfo {
+	if boxNode == nil || boxNode.style == nil {
+		return TransformInfo{} //nolint:exhaustruct // no box, no metadata
+	}
+
+	sty := boxNode.style
+	originX, originY := resolveTransformOriginWithBox(sty.TransformOrigin, boxNode, sty.TransformBox, viewport)
+
+	own := IdentityMatrix()
+	world := parentAccum
+
+	if sty.HasTransform {
+		own = boxTransformAccum(boxNode, IdentityMatrix(), viewport)
+		world = parentAccum.Mul(own)
+	}
+
+	info := TransformInfo{
+		OriginX:            originX,
+		OriginY:            originY,
+		Box:                sty.TransformBox,
+		Parent:             parentAccum,
+		Own:                own,
+		World:              world,
+		HasMatrix:          sty.HasTransform,
+		HasTransform3D:     sty.HasTransform3D,
+		Perspective:        0,
+		PerspectiveOriginX: 0,
+		PerspectiveOriginY: 0,
+		HasPerspective:     sty.HasPerspective,
+		Style:              sty.TransformStyle,
+		Backface:           sty.BackfaceVisibility,
+	}
+
+	if sty.HasPerspective {
+		info.Perspective = sty.PerspectiveDist
+		info.PerspectiveOriginX, info.PerspectiveOriginY = perspectiveCenter(boxNode)
+	}
+
+	return info
 }
 
 // PlacedElements walks the laid-out element boxes in document order.
@@ -147,7 +215,8 @@ func elementOverflowClip(boxNode *box) [4]float64 {
 //nolint:gochecknoglobals // non-nil empty slice for elements without operation ownership
 var emptyOperationIDs = []uint64{}
 
-//nolint:cyclop // extracts valid non-zero operation IDs within range
+// appendOperationIDs collects the non-zero operation IDs in range in one
+// pass, handing the caller a subslice of the shared backing.
 func appendOperationIDs(ops []Op, start, end int, allIDs *[]uint64) []uint64 {
 	if start < 0 || end < start || start >= len(ops) {
 		return emptyOperationIDs
@@ -155,20 +224,6 @@ func appendOperationIDs(ops []Op, start, end int, allIDs *[]uint64) []uint64 {
 
 	if end >= len(ops) {
 		end = len(ops) - 1
-	}
-
-	hasAny := false
-
-	for index := start; index <= end; index++ {
-		if ops[index].ID != 0 {
-			hasAny = true
-
-			break
-		}
-	}
-
-	if !hasAny {
-		return emptyOperationIDs
 	}
 
 	startIdx := len(*allIDs)
