@@ -383,6 +383,10 @@ func tokenize(src string) ([]token, error) {
 	toks := make([]token, 0, strings.Count(src, "<")+1)
 
 	scanTokens(src, func(tok token) {
+		if len(tok.attrs) != 0 {
+			tok.attrs = append([]string(nil), tok.attrs...)
+		}
+
 		toks = append(toks, tok)
 	}, nil)
 
@@ -464,6 +468,10 @@ func scanTokens(src string, emit tokenSink, allowCDATA cdataPolicy) {
 
 	pos := 0
 	srcLen := len(src)
+	// attrScratch reuses the interleaved name/value slice between start tags.
+	// parse sinks consume the token before the next tag, so only tokenize has
+	// to copy the slice it keeps.
+	var attrScratch []string
 
 	for pos < srcLen {
 		if src[pos] != '<' {
@@ -494,7 +502,7 @@ func scanTokens(src string, emit tokenSink, allowCDATA cdataPolicy) {
 		case src[pos+1] == '?':
 			next = scanBogusComment(src, pos+2, "?", emit)
 		case isASCIILetter(src[pos+1]):
-			next = scanStartTag(src, pos, emit)
+			next = scanStartTag(src, pos, emit, &attrScratch)
 		default:
 			emit(token{kind: tokText, data: "<"}) //nolint:exhaustruct
 
@@ -774,6 +782,17 @@ const (
 // name/value pairs, the self-closing flag, and the index after the closing
 // '>'. ok is false when the tag runs into EOF before closing.
 func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, next int, ok bool) {
+	return scanTagAttributesInto(src, i, nil)
+}
+
+// scanTagAttributesInto is scanTagAttributes with a reusable attribute slice.
+// The parser passes a scratch buffer so consecutive start tags do not allocate
+// a fresh slice; the emitted token is consumed before the next tag reuses it.
+func scanTagAttributesInto(
+	src string, i int, attrs []string,
+) ([]string, bool, int, bool) {
+	attrs = attrs[:0]
+	selfClosing := false
 	nameBuf := getTagAttrBuilder()
 	defer putTagAttrBuilder(nameBuf)
 	valueBuf := getTagAttrBuilder()
@@ -1003,7 +1022,7 @@ func decodeAttributeReference(src string, i int) (string, int) {
 // scanStartTag tokenizes a start tag at pos, including the raw-text content
 // of script/style/title/textarea and the other raw-text elements up to their
 // closing tag.
-func scanStartTag(src string, pos int, emit tokenSink) int {
+func scanStartTag(src string, pos int, emit tokenSink, attrScratch *[]string) int {
 	i := pos + 1
 	nameStart := i
 
@@ -1017,9 +1036,18 @@ func scanStartTag(src string, pos int, emit tokenSink) int {
 
 	name := strings.ToLower(replaceNUL(src[nameStart:i]))
 
-	attrs, selfClosing, next, ok := scanTagAttributes(src, i)
+	var attrs []string
+	if attrScratch != nil {
+		attrs = *attrScratch
+	}
+
+	attrs, selfClosing, next, ok := scanTagAttributesInto(src, i, attrs)
 	if !ok {
 		return len(src) // EOF inside the tag: drop the token
+	}
+
+	if attrScratch != nil {
+		*attrScratch = attrs
 	}
 
 	emit(token{kind: tokStart, data: name, attrs: attrs, selfClosing: selfClosing})
