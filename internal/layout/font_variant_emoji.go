@@ -107,12 +107,18 @@ func emojiPresentationAdvance(sty *ResolvedStyle, r rune, size float64) float64 
 
 // fontVariantEmojiFill applies the lite emoji presentation fill when every
 // non-space, non-VS rune in text is an emoji candidate under emoji
-// presentation. Mixed runs keep CSS color.
+// presentation. Mixed runs keep CSS color. A text-variant run can never
+// qualify, so it exits before the per-rune scan.
 func fontVariantEmojiFill(sty *ResolvedStyle, text string) (float64, float64, float64, bool) {
 	if sty == nil || text == "" {
 		return 0, 0, 0, false
 	}
 
+	if sty.FontVariantEmoji == fontVariantTextKW {
+		return 0, 0, 0, false
+	}
+
+	variant := sty.FontVariantEmoji
 	hasEmoji := false
 
 	for _, r := range text {
@@ -120,7 +126,7 @@ func fontVariantEmojiFill(sty *ResolvedStyle, text string) (float64, float64, fl
 			continue
 		}
 
-		if !wantsEmojiPresentation(r, sty.FontVariantEmoji) {
+		if !wantsEmojiPresentation(r, variant) {
 			return 0, 0, 0, false
 		}
 
@@ -132,4 +138,78 @@ func fontVariantEmojiFill(sty *ResolvedStyle, text string) (float64, float64, fl
 	}
 
 	return liteEmojiFillR, liteEmojiFillG, liteEmojiFillB, true
+}
+
+// emojiAdvanceActive reports whether emoji presentation can raise an advance
+// for sty: font-variant-emoji:text never presents emoji, every other value
+// may for at least one codepoint. Callers hoist this per run and skip the
+// per-rune presentation check entirely when it is false.
+func emojiAdvanceActive(sty *ResolvedStyle) bool {
+	if sty == nil {
+		return false
+	}
+
+	return sty.FontVariantEmoji != fontVariantTextKW
+}
+
+// emojiRunState is the per-run hoisted form of the emoji presentation
+// decision: one variant read and one active check serve the whole run.
+type emojiRunState struct {
+	variant string
+	size    float64
+	active  bool
+}
+
+// emojiRunFor hoists the emoji presentation decision for sty at size.
+func emojiRunFor(sty *ResolvedStyle, size float64) emojiRunState {
+	if sty == nil {
+		return emojiRunState{}
+	}
+
+	return emojiRunState{
+		variant: sty.FontVariantEmoji,
+		size:    size,
+		active:  emojiAdvanceActive(sty),
+	}
+}
+
+// advance returns the emoji presentation minimum for r, or 0 when the caller
+// keeps the glyph width. It matches emojiPresentationAdvance exactly.
+func (s emojiRunState) advance(r rune) float64 {
+	if !s.active || isVariationSelector(r) {
+		return 0
+	}
+
+	if !wantsEmojiPresentation(r, s.variant) {
+		return 0
+	}
+
+	return s.size
+}
+
+// textHasVariantSelector reports whether text holds a variation selector.
+// The cached string width skips variation selectors while the per-word
+// paint loop advances them, so such runs keep the loop.
+func textHasVariantSelector(text string) bool {
+	for _, r := range text {
+		if isVariationSelector(r) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// textHasEmojiCandidate reports whether text holds an emoji candidate. The
+// cached string width folds the emoji presentation minimum while the
+// per-word paint loop does not, so such runs keep the loop when emoji
+// presentation is active.
+func textHasEmojiCandidate(text string) bool {
+	for _, r := range text {
+		if isEmojiCandidate(r) {
+			return true
+		}
+	}
+
+	return false
 }

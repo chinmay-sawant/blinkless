@@ -4,6 +4,8 @@ import (
 	"math"
 	"slices"
 	"sort"
+	"sync"
+	"sync/atomic"
 
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
@@ -54,6 +56,105 @@ type flexPlacedItem struct {
 	box *box
 	h   float64
 	n   *html.Node
+}
+
+// Row-path memo domains. The column path stores base heights in e.flexBaseH
+// (flexBaseKey) and auto-minimum floors in e.flexMinH (flexMinKey). The row
+// path shares those per-run maps so no engine struct change is needed, with
+// XOR domain tags on the size bits so a row base width or min floor can never
+// collide with a column entry for the same node and sizes. Multicol
+// child-height entries (multicol.go) use the third domain in the same map.
+const (
+	flexRowDomainXor uint64 = 0x9e3779b97f4a7c15
+	flexRowBaseTag   uint64 = 0x72006f7700000001
+	multicolWidthXor uint64 = 0xbf58476d1ce4e5b9
+	multicolMainTag  uint64 = 0x4d756c7469000001
+)
+
+// maxPooledFlexScratch bounds one pooled flex scratch slice. Larger rents
+// allocate directly and larger returns are dropped, matching box_alloc.go.
+const maxPooledFlexScratch = 4096
+
+//nolint:gochecknoglobals // test-visible memo state mirrors flexKidPool in flex_children.go
+var (
+	flexRowBaseHits   atomic.Int64
+	flexRowBaseMisses atomic.Int64
+	flexRowMinHits    atomic.Int64
+	flexRowMinMisses  atomic.Int64
+	flexRowMemoBypass atomic.Bool
+	flexLinePlacePool = sync.Pool{New: func() any { return make([]flexLinePlace, 0, 16) }}
+	flexPlacedPool    = sync.Pool{New: func() any { return make([]flexPlacedItem, 0, 16) }}
+	flexBoolPool      = sync.Pool{New: func() any { return make([]bool, 16) }}
+)
+
+// getFlexLinePlaces rents a zero-length placed-line scratch for one flex
+// container. The caller owns it until putFlexLinePlaces.
+func getFlexLinePlaces(n int) []flexLinePlace {
+	if n <= maxPooledFlexScratch {
+		if v, ok := flexLinePlacePool.Get().([]flexLinePlace); ok && cap(v) >= n {
+			return v[:0]
+		}
+	}
+
+	return make([]flexLinePlace, 0, n)
+}
+
+// putFlexLinePlaces returns a placed-line scratch. Entries hold no pointers,
+// so no clearing is needed for GC.
+func putFlexLinePlaces(s []flexLinePlace) {
+	if cap(s) == 0 || cap(s) > maxPooledFlexScratch {
+		return
+	}
+
+	flexLinePlacePool.Put(s[:0])
+}
+
+// getFlexPlacedItems rents a zero-length built-item scratch for one flex line.
+// Ownership transfers to the caller of buildRowItems, which must return it
+// with putFlexPlacedItems after alignment.
+func getFlexPlacedItems(n int) []flexPlacedItem {
+	if n <= maxPooledFlexScratch {
+		if v, ok := flexPlacedPool.Get().([]flexPlacedItem); ok && cap(v) >= n {
+			return v[:0]
+		}
+	}
+
+	return make([]flexPlacedItem, 0, n)
+}
+
+// putFlexPlacedItems returns a built-item scratch. The backing is cleared so
+// retained box and node pointers cannot outlive the layout run.
+func putFlexPlacedItems(s []flexPlacedItem) {
+	if cap(s) == 0 || cap(s) > maxPooledFlexScratch {
+		return
+	}
+
+	clear(s)
+	flexPlacedPool.Put(s[:0])
+}
+
+// getFlexBools rents a zeroed bool scratch of length n for clamp phases.
+func getFlexBools(n int) []bool {
+	if n <= maxPooledFlexScratch {
+		if v, ok := flexBoolPool.Get().([]bool); ok && cap(v) >= n {
+			s := v[:n]
+			clear(s)
+
+			return s
+		}
+	}
+
+	return make([]bool, n)
+}
+
+// putFlexBools returns a bool scratch.
+func putFlexBools(s []bool) {
+	if cap(s) == 0 || cap(s) > maxPooledFlexScratch {
+		return
+	}
+
+	clear(s)
+	flexBoolPool.Put(s[:0])
 }
 
 // buildFlex lays out a flex container with justify, align, gap, grow, and wrap.
@@ -237,7 +338,8 @@ func (e *engine) flowFlexRow(
 		style, lines, contentW, colGap, rowGap, contentX, topY, curY,
 	)
 
-	placed := make([]flexLinePlace, 0, len(lines))
+	placed := getFlexLinePlaces(len(lines))
+	defer putFlexLinePlaces(placed)
 
 	poll := newCtxPoll(e.ctx)
 	for lidx, line := range lines {
@@ -480,7 +582,8 @@ func (e *engine) alignContentStretchLineCross(
 		return nil
 	}
 
-	heights := make([]float64, len(lines))
+	heights := rentFloats(len(lines))
+	defer returnFloats(heights)
 	sum := 0.0
 
 	for i, line := range lines {
@@ -504,7 +607,11 @@ func (e *engine) alignContentStretchLineCross(
 func (e *engine) flexLineNaturalCross(
 	style ResolvedStyle, items []flexMeas, contentW, gap, contentX, topY, curY float64,
 ) float64 {
-	widths := e.flexLineWidths(items, contentW, gap)
+	widths := rentFloats(len(items))
+	defer returnFloats(widths)
+	frozen := getFlexBools(len(items))
+	defer putFlexBools(frozen)
+	e.flexLineWidthsInto(items, contentW, gap, widths, frozen)
 	sumW := 0.0
 
 	for idx, width := range widths {
@@ -580,6 +687,22 @@ func (e *engine) flexItemBaseWidth(node *html.Node, style *ResolvedStyle, mainSi
 		return defaultCheckboxSize(e, *style) + e.scalePt(style.MarginLeft) + e.scalePt(style.MarginRight)
 	}
 
+	// Row-path base-width memo. The intrinsic subtree walk below repeats for
+	// every wrap trial and again on the emit pass; the base width is a pure
+	// function of node, style, and containing width for the run, so it is
+	// stored in the shared per-run map under the row domain.
+	if !flexRowMemoBypass.Load() {
+		key := flexBaseKey{
+			node: node, style: style,
+			widthBits: math.Float64bits(mainSize) ^ flexRowDomainXor, mainBits: flexRowBaseTag,
+		}
+		if baseW, ok := e.flexBaseH[key]; ok {
+			flexRowBaseHits.Add(1)
+
+			return baseW
+		}
+	}
+
 	capW := mainSize
 	if capW < 0 {
 		capW = indefiniteContentCap
@@ -605,20 +728,63 @@ func (e *engine) flexItemBaseWidth(node *html.Node, style *ResolvedStyle, mainSi
 		intr = capW
 	}
 
+	if !flexRowMemoBypass.Load() && e.err == nil {
+		key := flexBaseKey{
+			node: node, style: style,
+			widthBits: math.Float64bits(mainSize) ^ flexRowDomainXor, mainBits: flexRowBaseTag,
+		}
+		if e.flexBaseH == nil {
+			e.flexBaseH = make(map[flexBaseKey]float64)
+		}
+
+		e.flexBaseH[key] = intr
+		flexRowBaseMisses.Add(1)
+	}
+
 	return intr
 }
 
-// flexMinMainSize is the content-based minimum main size (Flexbox §4.5 lite /
-// css-sizing-3): max(specified min-width, min(min-content suggestion,
-// specified size suggestion when definite)). Used as the shrink floor so text
-// does not crush to 0 while ordinary wrapping text can still share a flex row.
-// measureCellMinMax already returns border-box widths, so padding and borders
-// must not be added a second time here. mainSize is the definite flex
-// container content main size, or <0 when indefinite (then % min-width is
-// ignored — cyclic honesty).
+// flexMinMainSize is the content-based minimum main size on the row axis.
+// Shrink, clamp, and wrap-fit trials ask for the same floor for every item,
+// and each noEmit ancestor measure re-runs the owning container, so the memo
+// keeps one content measure per item per run. Entries share the per-run
+// column auto-minimum map under the row domain (see flexRowDomainXor).
+func (e *engine) flexMinMainSize(item flexMeas, mainSize float64) float64 {
+	if e.flexMinBypass || flexRowMemoBypass.Load() {
+		return e.flexMinMainSizeUncached(item, mainSize)
+	}
+
+	key := flexMinKey{
+		node: item.n, style: e.stylePtr(item.n),
+		baseBits: math.Float64bits(item.baseW) ^ flexRowDomainXor,
+		mainBits: math.Float64bits(mainSize) ^ flexRowDomainXor,
+	}
+	if floor, ok := e.flexMinH[key]; ok {
+		flexRowMinHits.Add(1)
+
+		return floor
+	}
+
+	floor := e.flexMinMainSizeUncached(item, mainSize)
+
+	if e.err == nil {
+		if e.flexMinH == nil {
+			e.flexMinH = make(map[flexMinKey]float64)
+		}
+
+		e.flexMinH[key] = floor
+		flexRowMinMisses.Add(1)
+	}
+
+	return floor
+}
+
+// flexMinMainSizeUncached computes the row-axis content-based minimum
+// main size (Flexbox §4.5 lite / css-sizing-3): max(specified min-width,
+// min(min-content suggestion, specified size suggestion when definite)).
 //
 //nolint:cyclop // CSS min-size decision tree
-func (e *engine) flexMinMainSize(item flexMeas, mainSize float64) float64 {
+func (e *engine) flexMinMainSizeUncached(item flexMeas, mainSize float64) float64 {
 	cstate := e.stylePtr(item.n)
 	floor := 0.0
 
@@ -922,7 +1088,13 @@ func (e *engine) placeFlexLineMeasured(
 	contentW, contentX, topY, curY, gap, lineCross float64,
 	crossReverse, mainReverse bool,
 ) float64 {
-	widths := e.flexLineWidths(items, contentW, gap)
+	// Pooled line scratch: widths and clamp state rent here and return on
+	// exit instead of allocating per line on the emit pass.
+	widths := rentFloats(len(items))
+	defer returnFloats(widths)
+	frozen := getFlexBools(len(items))
+	defer putFlexBools(frozen)
+	e.flexLineWidthsInto(items, contentW, gap, widths, frozen)
 	gaps := gap * float64(len(items)-1)
 	if gaps < 0 {
 		gaps = 0
@@ -971,6 +1143,7 @@ func (e *engine) placeFlexLineMeasured(
 	}
 
 	e.alignRowItems(style, built, topY, curY, alignH, crossReverse)
+	putFlexPlacedItems(built)
 
 	if lineCross > rowH {
 		return curY + lineCross
@@ -1275,7 +1448,9 @@ func (e *engine) buildRowItems(
 	parent *box, style ResolvedStyle, items []flexMeas, widths []float64,
 	contentW, topY, curY, startX, justifyGap, targetCross float64,
 ) ([]flexPlacedItem, float64) {
-	built := make([]flexPlacedItem, 0, len(items))
+	// Built-item scratch is rented here; ownership transfers to the caller,
+	// which returns it after cross-axis alignment.
+	built := getFlexPlacedItems(len(items))
 	rowH := 0.0
 	leftX := startX
 	autoMainMargins := flexRowAutoMarginCount(items, e)
@@ -1295,6 +1470,7 @@ func (e *engine) buildRowItems(
 	for idx, item := range items {
 		if poll.poll() {
 			e.err = poll.err
+			putFlexPlacedItems(built)
 
 			return nil, rowH
 		}

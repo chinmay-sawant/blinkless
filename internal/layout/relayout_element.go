@@ -126,13 +126,21 @@ func RelayoutSubtreeWithOverrides(
 	restoreOverrideStyles(styles, restore)
 	restoreOverrideBoxStyles(newBox, restore)
 
+	start, oldCount, err := relayoutWindow(prev, target)
+	if err != nil {
+		return nil, err
+	}
+
+	oldMax, oldFrag := censusOpsWindow(prev.Ops, start, oldCount)
+
 	if err := spliceOverridePatch(prev, target, newBox, newOps); err != nil {
 		return nil, err
 	}
 
 	relayoutKeepBoxes(prev)
 	relayoutKeepStyles(prev, styles)
-	prev.MaxContentX, prev.HasFragmentLinks = censusOps(prev.Ops, prev.Width)
+	refreshCensusSpliced(prev, oldMax, oldFrag, start, len(newOps))
+	storeOpIDHighWater(prev, newOps)
 
 	return elementSubtreeResult(prev, elementBox, styles), nil
 }

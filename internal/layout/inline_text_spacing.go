@@ -68,6 +68,40 @@ func autospaceIdeographAlpha(val string) bool {
 	return false
 }
 
+// autospaceRun is the per-run hoisted form of the text-autospace decision:
+// one style read serves the whole run instead of one per rune boundary.
+type autospaceRun struct {
+	enabled bool
+}
+
+// autospaceForRun hoists the ideograph-alpha autospace decision for sty.
+// A nil style never inserts gaps, matching textAutospaceGap.
+func autospaceForRun(sty *ResolvedStyle) autospaceRun {
+	if sty == nil {
+		return autospaceRun{}
+	}
+
+	return autospaceRun{enabled: autospaceIdeographAlpha(sty.TextAutospace)}
+}
+
+// gap returns the extra advance between prev and cur, matching
+// textAutospaceGap exactly without re-reading the style.
+func (a autospaceRun) gap(prev, cur rune, emSize float64) float64 {
+	if !a.enabled {
+		return 0
+	}
+
+	if prev == 0 || cur == 0 || prev == softHyphenRune || cur == softHyphenRune {
+		return 0
+	}
+
+	if IsIdeographAlphaBoundary(prev, cur) {
+		return emSize * autospaceGapEm
+	}
+
+	return 0
+}
+
 func ideographAlphaPair(a, b rune) bool {
 	return isIdeographicRune(a) && isLatinAlphaRune(b)
 }

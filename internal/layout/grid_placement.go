@@ -15,8 +15,12 @@ type gridCell struct {
 
 // gridOccupation tracks placed grid cells so auto-flow items skip overlaps.
 type gridOccupation struct {
-	nCols    int
-	byRow    map[int]map[int]bool
+	nCols int
+	// byRow maps row index to that row's occupancy bitset (nCols bits). One
+	// map entry per row replaces the old per-cell maps; the field name stays
+	// because security_caps_test.go reads its length to prove the work
+	// budget bounds allocation.
+	byRow    map[int][]uint64
 	workLeft int
 	err      error
 }
@@ -27,12 +31,34 @@ type gridOccupation struct {
 const maxGridPlacementAttempts = 1 << 16
 
 func newGridOccupation(nCols int) *gridOccupation {
-	return &gridOccupation{nCols: nCols, byRow: map[int]map[int]bool{}, workLeft: maxGridChecks, err: nil}
+	return &gridOccupation{nCols: nCols, byRow: map[int][]uint64{}, workLeft: maxGridChecks, err: nil}
+}
+
+// occWords returns the bitset words per row, at least one so mark on an
+// empty grid cannot index a zero-length slice.
+func (o *gridOccupation) occWords() int {
+	words := (o.nCols + 63) / 64
+	if words < 1 {
+		return 1
+	}
+
+	return words
 }
 
 func (o *gridOccupation) ensure(row int) {
-	if o.byRow[row] == nil {
-		o.byRow[row] = map[int]bool{}
+	if o.byRow[row] != nil {
+		return
+	}
+
+	o.byRow[row] = rentUint64s(o.occWords())
+}
+
+// release returns every rented row bitset to the pool. placeGridItems calls
+// it on every exit; placed cells carry their own coordinates.
+func (o *gridOccupation) release() {
+	for row, bits := range o.byRow {
+		returnUint64s(bits)
+		delete(o.byRow, row)
 	}
 }
 
@@ -40,6 +66,7 @@ func (o *gridOccupation) freeAt(row, col, rowSpan, colSpan int) bool {
 	for rowOffset := range rowSpan {
 		o.ensure(row + rowOffset)
 
+		bits := o.byRow[row+rowOffset]
 		for colOffset := range colSpan {
 			if o.workLeft == 0 {
 				o.err = errGridExtentExceeded
@@ -51,7 +78,7 @@ func (o *gridOccupation) freeAt(row, col, rowSpan, colSpan int) bool {
 			o.workLeft--
 
 			column := col + colOffset
-			if column >= o.nCols || o.byRow[row+rowOffset][column] {
+			if column >= o.nCols || column < 0 || bits[column>>6]>>(uint(column)&63)&1 != 0 {
 				return false
 			}
 		}
@@ -64,8 +91,10 @@ func (o *gridOccupation) mark(row, col, rowSpan, colSpan int) {
 	for r := range rowSpan {
 		o.ensure(row + r)
 
+		bits := o.byRow[row+r]
 		for i := range colSpan {
-			o.byRow[row+r][col+i] = true
+			column := col + i
+			bits[column>>6] |= 1 << (uint(column) & 63)
 		}
 	}
 }
@@ -83,6 +112,10 @@ func placeGridItems(
 	// Implicit row band for column-major auto flow (grid-template-rows empty).
 	implicitRows := gridImplicitRowCount(len(kids), nCols, areas.rows, explicitRows)
 	minRows := max(implicitRows, 1)
+
+	// Row bitsets rent from the uint64 pool and return here; placement
+	// results are coordinates, so nothing escapes.
+	defer occ.release()
 
 	placed := make([]gridCell, 0, len(kids))
 	cursorRow, cursorCol := 0, 0

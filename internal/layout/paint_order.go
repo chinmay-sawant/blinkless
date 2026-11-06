@@ -347,3 +347,101 @@ func paintLayer(paintOp *Op) int {
 
 	return paintLayerContent
 }
+
+// countOrderingRelevant counts the operations that can move under paint
+// order: explicitly z-indexed or positioned operations, non-content layers,
+// and blend group members. The batch tracks both counts incrementally and
+// only re-sorts globally when the spliced window or the page needs it.
+func countOrderingRelevant(ops []Op) (relevant, grouped int) {
+	for index := range ops {
+		op := &ops[index]
+
+		if op.Group() != nil {
+			relevant++
+			grouped++
+
+			continue
+		}
+
+		if op.ZIndexSet || op.Positioned || paintLayer(op) != paintLayerContent {
+			relevant++
+		}
+	}
+
+	return relevant, grouped
+}
+
+// splicePaintOrder maintains a paint order over one committed op window. The
+// survivors keep their relative order with removed indices dropped and later
+// ones shifted; when neither the removed nor the new window carries an
+// ordering-relevant operation and no operation anywhere belongs to a blend
+// group, the new indices merge into place and the global sort is skipped,
+// provided the new run is itself sorted. Any other change falls back to the
+// full paint order.
+func splicePaintOrder(ops []Op, order []int, start, oldCount, newCount int, neutral bool) []int {
+	if !neutral || !windowSorted(ops, start, newCount) {
+		return PaintOrder(ops)
+	}
+
+	end := start + oldCount - 1
+	shift := newCount - oldCount
+
+	kept := make([]int, 0, len(order)-oldCount+newCount)
+
+	for _, index := range order {
+		switch {
+		case index >= start && index <= end:
+			continue
+		case index > end:
+			kept = append(kept, index+shift)
+		default:
+			kept = append(kept, index)
+		}
+	}
+
+	return mergePaintOrder(ops, kept, start, newCount)
+}
+
+// mergePaintOrder merges the new window indices into a sorted survivor
+// order. A neutral window shares one rank, so its indices are sorted, and
+// the survivors stay sorted through the remap; the linear merge is the full
+// sort.
+func mergePaintOrder(ops []Op, kept []int, start, newCount int) []int {
+	merged := make([]int, 0, len(kept)+newCount)
+	pos, next := 0, start
+
+	for pos < len(kept) && next < start+newCount {
+		if comparePaintOrder(ops, kept[pos], next) <= 0 {
+			merged = append(merged, kept[pos])
+			pos++
+		} else {
+			merged = append(merged, next)
+			next++
+		}
+	}
+
+	merged = append(merged, kept[pos:]...)
+
+	for ; next < start+newCount; next++ {
+		merged = append(merged, next)
+	}
+
+	return merged
+}
+
+// windowSorted reports whether one index run is already sorted under the
+// paint order. Adjacent pairs decide it: the comparison is a total order,
+// so a run with every neighbor in order is sorted.
+func windowSorted(ops []Op, start, newCount int) bool {
+	for next := start + 1; next < start+newCount; next++ {
+		if next <= 0 || next >= len(ops) || next-1 < 0 || next-1 >= len(ops) {
+			return false
+		}
+
+		if comparePaintOrder(ops, next-1, next) > 0 {
+			return false
+		}
+	}
+
+	return true
+}

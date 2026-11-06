@@ -421,13 +421,7 @@ func (e *engine) measureRuneFace(curRune rune, sty *ResolvedStyle) float64 {
 	}
 
 	key := runeWidthCacheKey(sty, e.scale, curRune)
-	if w, ok := e.lookupRuneWidth(key); ok {
-		return w
-	}
-
-	if w, ok := lookupSharedRuneWidth(key, e.scale); ok {
-		e.storeRuneWidth(key, w)
-
+	if w, ok := e.fetchRuneWidth(key, e.scale); ok {
 		return w
 	}
 
@@ -467,7 +461,7 @@ func (e *engine) measureRuneFaceUncached(curRune rune, sty *ResolvedStyle) float
 	}
 
 	advance := scaledAdvance(face, size, curRune)
-	if em := emojiPresentationAdvance(sty, curRune, size); em > advance {
+	if em := emojiRunFor(sty, size).advance(curRune); em > advance {
 		advance = em
 	}
 
@@ -486,4 +480,314 @@ type faceRun struct {
 	text string
 	face *pdf.Font
 	w    float64
+	// paint is the post-transform paint string (text-transform applied,
+	// soft hyphens stripped) when it differs from text. primaryFaceRun
+	// stores it so paint reuses the collect-time string instead of
+	// transforming again; empty means paint derives text the old way.
+	paint string
+}
+
+// textCoverageKey identifies one face-coverage bit: the face that must
+// cover every non-whitespace rune plus the source text. Coverage is pure
+// for a fixed face and text, so metrics (inlineFontMetrics) and paint
+// (primaryFaceRun, splitTextByFace) share one bit instead of each scanning
+// GlyphIDs per item.
+type textCoverageKey struct {
+	face *pdf.Font
+	text string
+}
+
+type textCoverageStore struct {
+	mu      sync.RWMutex
+	entries map[textCoverageKey]bool
+}
+
+//nolint:gochecknoglobals,exhaustruct // cross-layout coverage cache, guarded by RWMutex.
+var sharedTextCoverage = &textCoverageStore{
+	entries: make(map[textCoverageKey]bool, initialWidthCacheEntries),
+}
+
+//nolint:gochecknoglobals // cross-layout coverage hit counter for tests, updated atomically.
+var sharedCoverageHits atomic.Uint64
+
+//nolint:gochecknoglobals // cross-layout coverage miss counter for tests, updated atomically.
+var sharedCoverageMisses atomic.Uint64
+
+// lookupTextCoverage returns the cached all-primary bit for face and text.
+// Long strings bypass the cache but still report correctly.
+func lookupTextCoverage(face *pdf.Font, text string) (bool, bool) {
+	if face == nil || len(text) > maxCachedTextLen {
+		return false, false
+	}
+
+	sharedTextCoverage.mu.RLock()
+	covered, ok := sharedTextCoverage.entries[textCoverageKey{face: face, text: text}]
+	sharedTextCoverage.mu.RUnlock()
+
+	if ok {
+		sharedCoverageHits.Add(1)
+	} else {
+		sharedCoverageMisses.Add(1)
+	}
+
+	return covered, ok
+}
+
+// storeTextCoverage records the all-primary bit unless the text is too long
+// or the shared cache is bypassed. A full cache evicts one arbitrary entry
+// so the size stays bounded across layouts.
+func storeTextCoverage(face *pdf.Font, text string, covered bool) {
+	if face == nil || len(text) > maxCachedTextLen {
+		return
+	}
+
+	key := textCoverageKey{face: face, text: text}
+
+	sharedTextCoverage.mu.Lock()
+	defer sharedTextCoverage.mu.Unlock()
+
+	if sharedTextCoverage.entries == nil {
+		sharedTextCoverage.entries = make(map[textCoverageKey]bool, initialWidthCacheEntries)
+	}
+
+	if _, ok := sharedTextCoverage.entries[key]; ok {
+		sharedTextCoverage.entries[key] = covered
+
+		return
+	}
+
+	if len(sharedTextCoverage.entries) >= sharedTextBound() {
+		for evict := range sharedTextCoverage.entries {
+			delete(sharedTextCoverage.entries, evict)
+
+			break
+		}
+	}
+
+	sharedTextCoverage.entries[key] = covered
+}
+
+// clearCoverageCache drops every cross-layout coverage entry. Tests use it
+// to isolate cases; layouts never call it.
+func clearCoverageCache() {
+	sharedTextCoverage.mu.Lock()
+	sharedTextCoverage.entries = make(map[textCoverageKey]bool, initialWidthCacheEntries)
+	sharedTextCoverage.mu.Unlock()
+}
+
+// resetCoverageCounters zeroes the cross-layout coverage hit and miss counters.
+func resetCoverageCounters() {
+	sharedCoverageHits.Store(0)
+	sharedCoverageMisses.Store(0)
+}
+
+// fetchTextWidth is the single combined string-width lookup: the per-layout
+// map first (no locking), then the shared cache, filling the per-layout map
+// on a shared hit so a repeat word pays one map read. A cold per-layout map
+// skips straight to the shared cache.
+func (e *engine) fetchTextWidth(key textWidthKey, scale float64) (float64, bool) {
+	if len(e.textWidthCache) > 0 {
+		if width, ok := e.textWidthCache[key]; ok {
+			return width, true
+		}
+	}
+
+	if width, ok := lookupSharedTextWidth(key, scale); ok {
+		e.storeTextWidth(key, width)
+
+		return width, true
+	}
+
+	return 0, false
+}
+
+// fetchRuneWidth is the single combined single-rune lookup with the same
+// local-first, shared-second, fill-local-on-hit shape as fetchTextWidth.
+func (e *engine) fetchRuneWidth(key runeWidthKey, scale float64) (float64, bool) {
+	if len(e.runeWidthCache) > 0 {
+		if width, ok := e.runeWidthCache[key]; ok {
+			return width, true
+		}
+	}
+
+	if width, ok := lookupSharedRuneWidth(key, scale); ok {
+		e.storeRuneWidth(key, width)
+
+		return width, true
+	}
+
+	return 0, false
+}
+
+// runeKeyPrefix is the style-fixed half of a runeWidthKey, precomputed once
+// per multi-rune walk so the loop pays no repeat style hashing. The per-rune
+// key is prefix.key(runeValue).
+type runeKeyPrefix struct {
+	famHash       uint64
+	weight        int
+	italic        bool
+	optical       string
+	variations    string
+	opticalSize   uint64
+	sizeBits      uint64
+	lsBits        uint64
+	wsBits        uint64
+	tabBits       uint64
+	tabIsLength   bool
+	emoji         string
+	widthScaleBit uint64
+}
+
+// makeRuneKeyPrefix precomputes the style-fixed cache key half for sty at
+// scale. It mirrors runeWidthCacheKey field for field.
+func makeRuneKeyPrefix(sty *ResolvedStyle, scale float64) runeKeyPrefix {
+	optical, variations, sizeBits := variationCacheBits(sty)
+
+	return runeKeyPrefix{
+		famHash:       sty.famHash,
+		weight:        sty.FontWeight,
+		italic:        sty.FontItalic,
+		optical:       optical,
+		variations:    variations,
+		opticalSize:   sizeBits,
+		sizeBits:      math.Float64bits(sty.FontSize * scale),
+		lsBits:        math.Float64bits(sty.LetterSpacing),
+		wsBits:        math.Float64bits(sty.WordSpacing),
+		tabBits:       math.Float64bits(sty.TabSize),
+		tabIsLength:   isTabSizeLength(sty),
+		emoji:         sty.FontVariantEmoji,
+		widthScaleBit: math.Float64bits(fontWidthScale(sty)),
+	}
+}
+
+// key completes the prefix with one rune.
+func (p runeKeyPrefix) key(runeValue rune) runeWidthKey {
+	return runeWidthKey{
+		famHash:       p.famHash,
+		weight:        p.weight,
+		italic:        p.italic,
+		optical:       p.optical,
+		variations:    p.variations,
+		opticalSize:   p.opticalSize,
+		sizeBits:      p.sizeBits,
+		lsBits:        p.lsBits,
+		wsBits:        p.wsBits,
+		tabBits:       p.tabBits,
+		tabIsLength:   p.tabIsLength,
+		emoji:         p.emoji,
+		widthScaleBit: p.widthScaleBit,
+		r:             runeValue,
+	}
+}
+
+// primeRuneBatch resolves every rune of text into the per-layout rune cache
+// with one shared-cache read lock for the whole run: per-layout hits stay,
+// shared hits fill the per-layout map, and leftovers measure uncached. After
+// it returns, an in-order walk pays only per-layout map reads. Values match
+// sequential measureRuneFace calls exactly.
+func (e *engine) primeRuneBatch(sty *ResolvedStyle, prefix runeKeyPrefix, text string) {
+	var missKeys []runeWidthKey
+
+	var missRunes []rune
+
+	for _, runic := range text {
+		if runic == softHyphenRune || isVariationSelector(runic) {
+			continue
+		}
+
+		key := prefix.key(runic)
+		if _, ok := e.lookupRuneWidth(key); ok {
+			continue
+		}
+
+		missKeys = append(missKeys, key)
+		missRunes = append(missRunes, runic)
+	}
+
+	if len(missKeys) == 0 {
+		return
+	}
+
+	if !isValidSharedScale(e.scale) {
+		e.measureRuneLeftovers(sty, missKeys, missRunes)
+
+		return
+	}
+
+	scaleBits := math.Float64bits(e.scale)
+
+	var pendingKeys []runeWidthKey
+
+	var pendingRunes []rune
+
+	sharedRuneWidths.mu.RLock()
+
+	for i, key := range missKeys {
+		width, ok := sharedRuneWidths.entries[sharedRuneWidthKey{base: key, scaleBits: scaleBits}]
+		if !ok {
+			pendingKeys = append(pendingKeys, key)
+			pendingRunes = append(pendingRunes, missRunes[i])
+
+			continue
+		}
+
+		sharedRuneHits.Add(1)
+		e.storeRuneWidth(key, width)
+	}
+
+	sharedRuneWidths.mu.RUnlock()
+	sharedRuneMisses.Add(uint64(len(pendingKeys)))
+	e.measureRuneLeftovers(sty, pendingKeys, pendingRunes)
+}
+
+// measureRuneLeftovers measures runes that missed both caches and stores
+// them in both, mirroring the measureRuneFace tail. A duplicate rune that
+// an earlier leftover already stored is skipped via the per-layout map.
+func (e *engine) measureRuneLeftovers(sty *ResolvedStyle, keys []runeWidthKey, runes []rune) {
+	for i, key := range keys {
+		if _, ok := e.lookupRuneWidth(key); ok {
+			continue
+		}
+
+		width := e.measureRuneFaceUncached(runes[i], sty)
+		e.storeRuneWidth(key, width)
+		storeSharedRuneWidth(key, e.scale, width)
+	}
+}
+
+// eachRuneAdvance walks text in order, calling fn per rune with the same
+// advance measureRuneFace would return. Returning false from fn stops the
+// walk. The batch prime above keeps the whole run to one shared-cache read
+// lock however many runes the text holds.
+func (e *engine) eachRuneAdvance(text string, sty *ResolvedStyle, fn func(rune, float64) bool) {
+	if text == "" || sty == nil {
+		return
+	}
+
+	prefix := makeRuneKeyPrefix(sty, e.scale)
+	e.primeRuneBatch(sty, prefix, text)
+
+	for _, runic := range text {
+		if runic == softHyphenRune || isVariationSelector(runic) {
+			if !fn(runic, 0) {
+				return
+			}
+
+			continue
+		}
+
+		if width, ok := e.lookupRuneWidth(prefix.key(runic)); ok {
+			if !fn(runic, width) {
+				return
+			}
+
+			continue
+		}
+
+		// Full caches skip stores; fall back to the single path so the
+		// value is still exact.
+		if !fn(runic, e.measureRuneFace(runic, sty)) {
+			return
+		}
+	}
 }

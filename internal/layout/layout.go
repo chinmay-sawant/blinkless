@@ -237,6 +237,13 @@ type Result struct {
 	HasIDs bool
 	// HasFragmentLinks is set during Layout when any OpLinkURI starts with '#'.
 	HasFragmentLinks bool
+	// nextOpID is the high-water mark of the operation identities handed out
+	// for this placement. A subtree splice seeds its fresh engine from it
+	// instead of scanning every operation for the maximum identity, and
+	// stores the new mark back after committing. Zero means unknown (a
+	// placement built before the mark existed); the next splice scans once
+	// and then stores.
+	nextOpID uint64
 	// skipInitialBeforeAlways is set for independently painted body blocks.
 	// Those results already start a fresh page, so page-break-before:always
 	// on the block itself would insert a blank page.
@@ -1621,7 +1628,7 @@ func (e *engine) build(node *html.Node, availW, posX, posY float64) *box {
 	e.buildDepth++
 	defer func() { e.buildDepth-- }()
 
-	sty := e.styleVal(node)
+	sty := e.stylePtr(node)
 
 	if sty.Display == cssDisplayNone {
 		return nil
@@ -1634,7 +1641,7 @@ func (e *engine) build(node *html.Node, availW, posX, posY float64) *box {
 		e.beginMeasureFloats()
 	}
 
-	scope := e.pushZ(sty, e.stylePtr(node))
+	scope := e.pushZ(*sty, sty)
 	// Ancestor transforms only (own transform does not change this box's CB).
 	underXformCB := e.transformCBDepth > 0
 	start := len(e.ops)
@@ -1669,17 +1676,17 @@ func (e *engine) build(node *html.Node, availW, posX, posY float64) *box {
 // transform containing-block depth is owned here so descendants built by the
 // in-flow branch see this box exactly as build did before the extraction.
 func (e *engine) buildDisplayBox(
-	node *html.Node, sty ResolvedStyle, availW, posX, posY float64, underXformCB bool,
+	node *html.Node, sty *ResolvedStyle, availW, posX, posY float64, underXformCB bool,
 ) *box {
 	var boxNode *box
 
 	switch node.Name {
 	case cssTagImg:
-		boxNode = e.buildImage(node, sty, posX, posY, true)
+		boxNode = e.buildImage(node, *sty, posX, posY, true)
 	case cssTagSVG:
-		boxNode = e.buildInlineSVG(node, sty, posX, posY, true)
+		boxNode = e.buildInlineSVG(node, *sty, posX, posY, true)
 	case "hr":
-		boxNode = e.buildHR(node, sty, availW, posX, posY)
+		boxNode = e.buildHR(node, *sty, availW, posX, posY)
 	}
 	// Out-of-flow positioning wraps the display type so fixed/absolute flex
 	// and grid containers still get the right formatting context.
@@ -1702,7 +1709,7 @@ func (e *engine) buildDisplayBox(
 
 // finishBuiltBox applies position post-processing to a built box: relative
 // offset, sticky tagging, and the viewport-fixed op stamp.
-func (e *engine) finishBuiltBox(boxNode *box, sty ResolvedStyle, underXformCB bool) {
+func (e *engine) finishBuiltBox(boxNode *box, sty *ResolvedStyle, underXformCB bool) {
 	if sty.Position == positionRelative {
 		e.applyRelativeOffset(boxNode)
 	}
@@ -1720,7 +1727,7 @@ func (e *engine) finishBuiltBox(boxNode *box, sty ResolvedStyle, underXformCB bo
 // buildOutOfFlowIfPositioned wraps fixed/absolute boxes in an out-of-flow
 // formatting context (fixed under a transformed ancestor is absolute).
 func (e *engine) buildOutOfFlowIfPositioned(
-	node *html.Node, sty ResolvedStyle, availW, posX, posY float64, underXformCB bool,
+	node *html.Node, sty *ResolvedStyle, availW, posX, posY float64, underXformCB bool,
 ) *box {
 	if sty.Position == positionFixed {
 		return e.buildOutOfFlow(node, sty, availW, posX, posY, !underXformCB)
@@ -1771,9 +1778,9 @@ func useBlockForTableDisplay(node *html.Node) bool {
 // buildBlock lays out a block-level box.
 //
 //nolint:cyclop // block layout owns ordered CSS flow phases
-func (e *engine) buildBlock(node *html.Node, style ResolvedStyle, availW, posX, posY float64) *box {
+func (e *engine) buildBlock(node *html.Node, style *ResolvedStyle, availW, posX, posY float64) *box {
 	boxNode := e.allocBox(node, e.stylePtr(node), boxKindBlock, posX, posY)
-	boxStyle := &style
+	boxStyle := style
 	w, margL := resolveBlockWidth(e, node, boxStyle, availW)
 	boxNode.w = w
 
@@ -1786,16 +1793,16 @@ func (e *engine) buildBlock(node *html.Node, style ResolvedStyle, availW, posX, 
 	contentStart := len(e.ops)
 
 	curY := e.scalePt(boxStyle.PaddingTop) + e.scalePt(borderLayoutWidth(boxStyle, boxStyle.BorderTop))
-	enclose := e.pushBFCFloatsForce(style, contentX, contentW, e.isFlexItemNode(node))
+	enclose := e.pushBFCFloatsForcePtr(style, contentX, contentW, e.isFlexItemNode(node))
 	widget := node.Name == htmlMeter || node.Name == "progress"
 	chkWidget := isInputCheckbox(node)
 	children := blockFlowChildren(node, widget || chkWidget)
 
 	if chkWidget {
-		curY = applyCheckboxAutoSize(e, style, boxNode, curY)
+		curY = applyCheckboxAutoSize(e, *style, boxNode, curY)
 	}
 
-	previousCB, _ := e.setFlowCB(style)
+	previousCB, _ := e.setFlowCB(*style)
 	// The synthetic document box has an auto height, so setFlowCB drops the
 	// viewport. The html element's containing block is that viewport.
 	if node.Name == "#document" && e.flowCBHeight == nil {
@@ -1805,9 +1812,9 @@ func (e *engine) buildBlock(node *html.Node, style ResolvedStyle, availW, posX, 
 	// Root body: place the body and its first-child margin chain on the
 	// collapsed top margin before the children flow, so descendants,
 	// positioned boxes, and floats all share the final edge.
-	posY, marginOverrides := e.absorbRootBodyTopMargin(node, boxNode, style, posY)
+	posY, marginOverrides := e.absorbRootBodyTopMargin(node, boxNode, *style, posY)
 
-	curY = e.flowChildren(boxNode, children, style, contentW, contentX, posY, curY)
+	curY = e.flowChildrenPtr(boxNode, children, style, contentW, contentX, posY, curY)
 	e.popStyleOverrides(marginOverrides)
 	e.flowCBHeight = previousCB
 	curY = e.autoSizedControlContentBottom(node, boxStyle, widget, curY)
@@ -1821,7 +1828,7 @@ func (e *engine) buildBlock(node *html.Node, style ResolvedStyle, availW, posX, 
 	curY = e.applyRootBoxMargins(node, boxNode, curY)
 
 	if isVerticalWritingMode(style.WritingMode) && style.Height < 0 && style.HeightPercent < 0 {
-		curY = e.verticalWritingHeight(curY, style)
+		curY = e.verticalWritingHeight(curY, *style)
 	}
 
 	// list marker (outside the principal box content — in the marker area)
@@ -1833,15 +1840,15 @@ func (e *engine) buildBlock(node *html.Node, style ResolvedStyle, availW, posX, 
 	// bottom border / letterhead rules - fixture-07/16). The shared resolver
 	// adds them once for every formatting context and then applies
 	// height/min-height/max-height.
-	resolvedHeightStyle := withAspectRatioHeight(style, contentW, e)
+	resolvedHeightStyle := withAspectRatioHeight(*style, contentW, e)
 	boxNode.height = e.applyHeightConstraintsWithCB(&resolvedHeightStyle,
 		e.borderBoxBottom(resolvedHeightStyle, curY), e.containingBlockHeight())
-	e.paintWidgetControl(node, style, boxNode, widget, chkWidget, posY)
+	e.paintWidgetControl(node, *style, boxNode, widget, chkWidget, posY)
 
 	e.paintPositionedPseudo(node, style, boxNode, pseudoBefore)
 	e.paintPositionedPseudo(node, style, boxNode, pseudoAfter)
 
-	e.prependChrome(contentStart, boxNode, style, boxNode.x, boxNode.y, boxNode.w, boxNode.height)
+	e.prependChrome(contentStart, boxNode, *style, boxNode.x, boxNode.y, boxNode.w, boxNode.height)
 
 	return boxNode
 }
@@ -1850,7 +1857,7 @@ func (e *engine) buildBlock(node *html.Node, style ResolvedStyle, availW, posX, 
 // out of the host's normal inline flow. This covers block and flex-item hosts
 // such as diagram cards; inline hosts continue through collectInlineSpan.
 func (e *engine) paintPositionedPseudo( //nolint:cyclop
-	node *html.Node, host ResolvedStyle, boxNode *box, pseudoElem string,
+	node *html.Node, host *ResolvedStyle, boxNode *box, pseudoElem string,
 ) {
 	// No content rule anywhere means the probe below answers empty.
 	if !e.hasPseudoContent() {
@@ -1862,7 +1869,7 @@ func (e *engine) paintPositionedPseudo( //nolint:cyclop
 		return
 	}
 
-	style := e.pseudoStyle(node, pseudoElem, host)
+	style := e.pseudoStyle(node, pseudoElem, *host)
 	if style.Position != positionAbsolute && style.Position != positionFixed {
 		return
 	}
@@ -1874,7 +1881,7 @@ func (e *engine) paintPositionedPseudo( //nolint:cyclop
 		return
 	}
 
-	contentX, contentW := e.contentBox(boxNode.x, boxNode.w, &host)
+	contentX, contentW := e.contentBox(boxNode.x, boxNode.w, host)
 	pseudoX := contentX + e.scalePt(style.MarginLeft)
 
 	if !style.LeftAuto {
@@ -2157,7 +2164,7 @@ func resolveUsedHeight(sty *ResolvedStyle, cbH float64, engN *engine) (float64, 
 // buildOutOfFlow places absolute (viewportFixed=false) or fixed
 // (viewportFixed=true) boxes. Fixed under a transformed ancestor is absolute
 // (caller passes viewportFixed=false). Fixed ops are marked by build().
-func (e *engine) buildOutOfFlow(node *html.Node, sty ResolvedStyle, availW, x, y float64, viewportFixed bool) *box {
+func (e *engine) buildOutOfFlow(node *html.Node, sty *ResolvedStyle, availW, x, y float64, viewportFixed bool) *box {
 	cbX, cbY, cbW := x, y, availW
 	if viewportFixed {
 		cbX, cbY = 0, 0
@@ -2176,8 +2183,12 @@ func (e *engine) buildOutOfFlow(node *html.Node, sty ResolvedStyle, availW, x, y
 	// CSS 2.1 §10.6.4: an absolutely positioned box with auto height and
 	// both top and bottom set stretches to fill the containing block (see
 	// absStretchUsedHeight). The synthesized height feeds the build below.
+	// The stretch copies the 6KB style once (rare abspos path) instead of
+	// mutating the shared cascade record.
 	if stretch, stretched := e.absStretchUsedHeight(sty, cbH, viewportFixed); stretched {
-		sty.Height = stretch
+		stretchCopy := *sty
+		stretchCopy.Height = stretch
+		sty = &stretchCopy
 	}
 
 	buildW := e.absoluteBuildWidth(node, sty, cbW)
@@ -2214,7 +2225,7 @@ func (e *engine) buildOutOfFlow(node *html.Node, sty ResolvedStyle, availW, x, y
 // reports the height in style units, or false when the box does not stretch.
 // Split from buildOutOfFlow so the placement sequence stays within the
 // complexity budget.
-func (e *engine) absStretchUsedHeight(sty ResolvedStyle, cbH float64, viewportFixed bool) (float64, bool) {
+func (e *engine) absStretchUsedHeight(sty *ResolvedStyle, cbH float64, viewportFixed bool) (float64, bool) {
 	if viewportFixed || sty.Height >= 0 || sty.HeightPercent >= 0 || sty.TopAuto || sty.BottomAuto || cbH <= 0 {
 		return 0, false
 	}
@@ -2238,7 +2249,7 @@ func (e *engine) absStretchUsedHeight(sty ResolvedStyle, cbH float64, viewportFi
 // Specified width uses the containing block as the build ceiling. When left and
 // right are both set, width fills the remaining space. Otherwise width is
 // shrink-to-fit capped by the remaining CB space (CSS 2.1 §10.3.7).
-func (e *engine) absoluteBuildWidth(node *html.Node, sty ResolvedStyle, cbW float64) float64 {
+func (e *engine) absoluteBuildWidth(node *html.Node, sty *ResolvedStyle, cbW float64) float64 {
 	if sty.Width >= 0 || sty.WidthPercent >= 0 {
 		return cbW
 	}
@@ -2268,7 +2279,7 @@ func (e *engine) absoluteBuildWidth(node *html.Node, sty ResolvedStyle, cbW floa
 	// Shrink-to-fit resolves against the remaining space, then CSS 2.1 §10.4
 	// clamps it by min/max-width. Without the clamp a min-width badge
 	// shrink-wraps to its text and paints as an oval instead of a circle.
-	return clampBlockMinMax(e, &sty, cbW, e.floatIntrinsicAvail(node, sty, avail))
+	return clampBlockMinMax(e, sty, cbW, e.floatIntrinsicAvail(node, sty, avail))
 }
 
 // resolveAbsY places the out-of-flow box vertically: top wins, then bottom
@@ -2276,7 +2287,7 @@ func (e *engine) absoluteBuildWidth(node *html.Node, sty ResolvedStyle, cbW floa
 // block's bottom when its deferred height is known).
 //
 //nolint:wsl // ordered absolute-positioning cases mirror CSS precedence
-func (e *engine) resolveAbsY(sty ResolvedStyle, boxNode *box, cbY float64, viewportFixed bool, cbH float64) float64 {
+func (e *engine) resolveAbsY(sty *ResolvedStyle, boxNode *box, cbY float64, viewportFixed bool, cbH float64) float64 {
 	if !sty.TopAuto {
 		return cbY + e.scalePt(sty.Top)
 	}
@@ -2303,17 +2314,17 @@ func (e *engine) resolveAbsY(sty ResolvedStyle, boxNode *box, cbY float64, viewp
 // buildInFlowDisplay builds flex/grid/multicol/table/block ignoring position.
 // Single display dispatch shared with build() so abspos/fixed get the same
 // formatting context (including table display:table-as-block heuristic).
-func (e *engine) buildInFlowDisplay(nodeN *html.Node, sty ResolvedStyle, availW, posX, posY float64) *box {
+func (e *engine) buildInFlowDisplay(nodeN *html.Node, sty *ResolvedStyle, availW, posX, posY float64) *box {
 	if sty.Display == displayFlex || sty.Display == displayInlineFlex {
-		return e.buildFlex(nodeN, sty, availW, posX, posY)
+		return e.buildFlex(nodeN, *sty, availW, posX, posY)
 	}
 
 	if sty.Display == displayGrid || sty.Display == displayInlineGrid || sty.Display == displaySubgrid {
 		return e.buildGrid(nodeN, sty, availW, posX, posY)
 	}
 
-	if isMulticol(sty) {
-		return e.buildMulticol(nodeN, sty, availW, posX, posY)
+	if isMulticol(*sty) {
+		return e.buildMulticol(nodeN, *sty, availW, posX, posY)
 	}
 
 	if isTableDisplay(sty.Display) {
@@ -2326,7 +2337,7 @@ func (e *engine) buildInFlowDisplay(nodeN *html.Node, sty ResolvedStyle, availW,
 			return e.buildBlock(nodeN, sty, availW, posX, posY)
 		}
 
-		return e.buildTable(nodeN, sty, availW, posX, posY)
+		return e.buildTable(nodeN, *sty, availW, posX, posY)
 	}
 
 	return e.buildBlock(nodeN, sty, availW, posX, posY)

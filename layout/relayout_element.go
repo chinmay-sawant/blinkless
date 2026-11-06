@@ -322,10 +322,17 @@ func overrideRelayoutError(err error) error {
 // the boxes that go with them. Page breaks are recomputed because a style
 // patch can change them.
 func patchedDisplay(styled pubstate.Styled, prev *Display) *Display {
-	canvasPt := float64(prev.Height) / ptToPx
-	forced, keep := ilayout.PageBreaks(prev.result, canvasPt)
+	return patchedDisplayOn(styled, prev, prev.result)
+}
 
-	return newDisplay(prev.result, styled.Sheets, canvasPt,
+// patchedDisplayOn builds the display list of a patched placement held
+// outside the display it patches, the shape a batch commits once after
+// threading every id through the same placement.
+func patchedDisplayOn(styled pubstate.Styled, prev *Display, res *ilayout.Result) *Display {
+	canvasPt := float64(prev.Height) / ptToPx
+	forced, keep := ilayout.PageBreaks(res, canvasPt)
+
+	return newDisplay(res, styled.Sheets, canvasPt,
 		forced, keep, prev.zoom, true)
 }
 
@@ -400,11 +407,22 @@ func relayoutOptions(styled pubstate.Styled, prev *Display, options Options, nod
 		font = loaded
 	}
 
-	widthPt, heightPt := displayViewportPt(styled)
-	layoutOpts := displayLayoutOptions(styled, font, options.Images, widthPt, heightPt)
-	layoutOpts.Zoom = prev.zoom
+	layoutOpts := batchBaseOptions(styled, prev, options)
+	layoutOpts.Font = font
 
 	return layoutOpts, nil
+}
+
+// batchBaseOptions builds the engine options one batch shares: the viewport,
+// the media, and the zoom of the display it patches. The font stays unset;
+// the batch installs its font per element only when that subtree shapes
+// text, the rule relayoutOptions applies one element at a time.
+func batchBaseOptions(styled pubstate.Styled, prev *Display, options Options) ilayout.Options {
+	widthPt, heightPt := displayViewportPt(styled)
+	layoutOpts := displayLayoutOptions(styled, nil, options.Images, widthPt, heightPt)
+	layoutOpts.Zoom = prev.zoom
+
+	return layoutOpts
 }
 
 // elementByID returns the element node with the given id in the tree, or nil.
