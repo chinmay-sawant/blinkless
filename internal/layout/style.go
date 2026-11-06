@@ -1132,7 +1132,7 @@ func (s *styleStore) append(style ResolvedStyle) *ResolvedStyle {
 	}
 
 	if len(s.chunks) == 0 || len(s.chunks[len(s.chunks)-1]) == cap(s.chunks[len(s.chunks)-1]) {
-		s.chunks = append(s.chunks, make([]ResolvedStyle, 0, s.nextChunkSize()))
+		s.chunks = append(s.chunks, s.newChunk())
 	}
 
 	chunk := len(s.chunks) - 1
@@ -1162,6 +1162,26 @@ func (s *styleStore) nextChunkSize() int {
 	}
 
 	return size
+}
+
+// newChunk returns the backing for the next style chunk. When the growth
+// schedule asks for exactly the pooled chunk size, the backing comes from
+// the same global pool the engine's mark/reset scopes recycle through, so a
+// patch resolution (which builds a fresh store per element patch) reuses a
+// backing a full layout already released instead of allocating one. Every
+// other size keeps a dedicated backing: the pool only retains
+// defaultStyleChunkSize backings, and the first-chunk-doubling schedule is
+// the pointer-stability contract the chunk test pins.
+func (s *styleStore) newChunk() []ResolvedStyle {
+	if want := s.nextChunkSize(); want == defaultStyleChunkSize {
+		if spare := getStyleChunk(); cap(*spare) == want {
+			return (*spare)[:0]
+		} else {
+			putStyleChunk(spare)
+		}
+	}
+
+	return make([]ResolvedStyle, 0, s.nextChunkSize())
 }
 
 // zeroResolvedStyle is the empty style for comment/doctype nodes (shared).

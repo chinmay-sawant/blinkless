@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
 	"github.com/chinmay-sawant/blinkless/internal/errs"
@@ -433,11 +435,177 @@ func checkRelayoutAnchors(root *box, patched *box) error {
 	return walk(root)
 }
 
+// maxSubtreeStyleStores bounds the pooled subtree style stores: one entry
+// per recently patched document. maxSubtreeStyleStoreChunks bounds one
+// entry: four chunks hold 8+16+32+64 records, about 700 KB of 5872-byte
+// styles. A store that grows past the chunk bound is dropped instead of
+// pooled, so one large subtree cannot pin memory for later small patches;
+// the live result keeps its own records through its pointers either way.
+const (
+	maxSubtreeStyleStores      = 4
+	maxSubtreeStyleStoreChunks = 4
+)
+
+// subtreeStyleDocTag identifies the document a pooled style store resolved:
+// the document root and the stylesheet list. The addresses are kept as
+// integers so the tag never pins the document or its sheets. A reused
+// address can only waste sharing, never share wrongly, because
+// styleStore.append verifies every record with styleInternEqual before it
+// shares one.
+type subtreeStyleDocTag struct {
+	root   uintptr
+	sheet  uintptr
+	sheets int
+}
+
+// pooledSubtreeStyleStore is one retained resolution store with the document
+// tag it resolved.
+type pooledSubtreeStyleStore struct {
+	tag   subtreeStyleDocTag
+	store *styleStore
+}
+
+// subtreeStyleStorePool is a bounded process-wide free list of subtree
+// resolution stores. Entries leave the pool on rent and re-enter on put, so
+// one store is never resolved into from two goroutines at once.
+type subtreeStyleStorePool struct {
+	mu      sync.Mutex
+	entries []pooledSubtreeStyleStore
+}
+
+//nolint:gochecknoglobals,exhaustruct // process-wide bounded style-store free list, guarded by mu
+var subtreeStyleStores = &subtreeStyleStorePool{}
+
+// subtreeStyleDocTagOf tags the document a patch resolves. Hover state is
+// deliberately not part of the tag: a state change only appends records for
+// styles that differ, while identical styles keep sharing the pooled ones.
+func subtreeStyleDocTagOf(prev *Result, opts Options) subtreeStyleDocTag {
+	tag := subtreeStyleDocTag{} //nolint:exhaustruct // unknown document until proven
+
+	if prev != nil {
+		if root := prev.documentRootNode(); root != nil {
+			tag.root = reflect.ValueOf(root).Pointer()
+		}
+	}
+
+	if len(opts.Sheets) > 0 && opts.Sheets[0] != nil {
+		tag.sheet = reflect.ValueOf(opts.Sheets[0]).Pointer()
+	}
+
+	tag.sheets = len(opts.Sheets)
+
+	return tag
+}
+
+// rentSubtreeStyleStore returns the pooled store that resolved tag, or a
+// fresh store when no entry matches. A match keeps the entry's chunks and
+// its intern map, so a repeated patch shares records instead of appending
+// fresh ones; a mismatch rents empty, because another document's intern map
+// must never be consulted.
+func rentSubtreeStyleStore(tag subtreeStyleDocTag) *styleStore {
+	subtreeStyleStores.mu.Lock()
+	defer subtreeStyleStores.mu.Unlock()
+
+	for index := range subtreeStyleStores.entries {
+		if subtreeStyleStores.entries[index].tag != tag {
+			continue
+		}
+
+		store := subtreeStyleStores.entries[index].store
+		subtreeStyleStores.entries = slices.Delete(subtreeStyleStores.entries, index, index+1)
+
+		if store == nil {
+			break
+		}
+
+		return store
+	}
+
+	return &styleStore{} //nolint:exhaustruct // intentional zero-value store
+}
+
+// putSubtreeStyleStore returns a store to the pool after a patch resolved
+// into it. The candidate scratch is cleared so the next rent starts clean;
+// the chunks and the intern map stay, because the live result still points
+// into them and the next patch for the same document shares them by
+// appending only, never by overwriting. A store past the chunk bound, or a
+// pool that is full, drops the store instead of retaining it.
+func putSubtreeStyleStore(tag subtreeStyleDocTag, store *styleStore) {
+	if store == nil {
+		return
+	}
+
+	store.candidate = ResolvedStyle{} //nolint:exhaustruct // scratch must not leak into the next rent
+
+	if len(store.chunks) > maxSubtreeStyleStoreChunks {
+		return
+	}
+
+	subtreeStyleStores.mu.Lock()
+	defer subtreeStyleStores.mu.Unlock()
+
+	if len(subtreeStyleStores.entries) >= maxSubtreeStyleStores {
+		subtreeStyleStores.entries = slices.Delete(subtreeStyleStores.entries, 0, 1)
+	}
+
+	subtreeStyleStores.entries = append(subtreeStyleStores.entries, pooledSubtreeStyleStore{tag: tag, store: store})
+}
+
+// resolveSubtreeStylesPooled resolves the styles of node's subtree into the
+// pooled store. It mirrors resolveStylesForSubtree in style_subtree.go, which
+// builds a fresh styleStore per call; the walk is repeated here because the
+// store must come from the pool on this file's patch path. Keep the two walks
+// in sync: every element goes through subtreeNodeStyle, text nodes are
+// skipped, and cancellation is polled every 64 visits.
+func resolveSubtreeStylesPooled(
+	ctx context.Context,
+	styleCtx *styleContext,
+	node *html.Node,
+	parent *ResolvedStyle,
+	store *styleStore,
+) error {
+	if styleCtx == nil || node == nil || store == nil {
+		return nil
+	}
+
+	visited := 0
+
+	var walk func(elem *html.Node, inherited *ResolvedStyle) error
+
+	walk = func(elem *html.Node, inherited *ResolvedStyle) error {
+		visited++
+
+		if visited&63 == 0 && ctx != nil {
+			if err := ctx.Err(); err != nil {
+				return fmt.Errorf("layout: style subtree: %w", err)
+			}
+		}
+
+		sty := subtreeNodeStyle(elem, styleCtx, inherited, store)
+
+		for _, child := range elem.Children {
+			if child.Type == html.TextNode {
+				continue
+			}
+
+			if err := walk(child, sty); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
+	return walk(node, parent)
+}
+
 // relayoutSubtreeStyles resolves the styles of the patched subtree and hands
 // back the map the fresh engine reads. The subtree inherits from the style
 // its parent box carries, and rem lengths resolve against the root's used
 // font size, so the branch comes out with the same values a full cascade
-// would give it.
+// would give it. The pass rents a pooled styleStore for the document, so a
+// repeated patch shares already interned records instead of appending fresh
+// ones.
 func relayoutSubtreeStyles(
 	ctx context.Context, prev *Result, target *relayoutTarget, node *html.Node, opts Options,
 ) (map[*html.Node]*ResolvedStyle, error) {
@@ -455,7 +623,21 @@ func relayoutSubtreeStyles(
 	parent := relayoutParentStyle(target)
 	remBase := relayoutRemBase(prev)
 
-	if err := resolveStylesForSubtree(ctx, styleCtx, node, parent, remBase); err != nil {
+	// Rem lengths resolve against the root's used font size, the assignment
+	// resolveStylesForSubtree makes for its own pass.
+	if remBase > 0 {
+		styleCtx.remBase = remBase
+	}
+
+	// The pooled store carries the chunks and the intern map of the last
+	// patch for this document, so a repeated hover patch shares its records
+	// through styleStore.append instead of appending fresh 5872-byte copies.
+	tag := subtreeStyleDocTagOf(prev, opts)
+	store := rentSubtreeStyleStore(tag)
+
+	// A failed pass is dropped, never pooled: only a complete pass owns
+	// records the next patch may share.
+	if err := resolveSubtreeStylesPooled(ctx, styleCtx, node, parent, store); err != nil {
 		return nil, err
 	}
 
@@ -478,6 +660,8 @@ func relayoutSubtreeStyles(
 			styles[ancestor.node] = ancestor.style
 		}
 	}
+
+	putSubtreeStyleStore(tag, store)
 
 	return styles, nil
 }

@@ -149,8 +149,13 @@ type Selector struct {
 	// spec caches the specificity of parsed selectors (see Specificity).
 	// The zero value means "not yet computed": Specificity falls back to a
 	// walk so hand-built selectors keep working unchanged.
-	spec      [3]int `exhaustruct:"optional"`
-	specValid bool   `exhaustruct:"optional"`
+	spec [3]int `exhaustruct:"optional"`
+	// has caches whether the selector needs a :has() visit budget (see
+	// selectorContainsHas). hasValid false means "not yet computed": the
+	// predicate falls back to a walk so hand-built selectors keep working.
+	specValid bool `exhaustruct:"optional"`
+	has       bool `exhaustruct:"optional"`
+	hasValid  bool `exhaustruct:"optional"`
 }
 
 // SelectorPart is one compound selector. Combinator describes how it links to

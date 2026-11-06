@@ -274,6 +274,10 @@ func Match(s Selector, n *html.Node) bool {
 // selectorContainsHas reports whether sel needs a :has() visit budget: it
 // holds :has() itself or nests :has() inside :not()/:is()/:where().
 func selectorContainsHas(sel Selector) bool {
+	if sel.hasValid {
+		return sel.has
+	}
+
 	for _, part := range sel.Parts {
 		if partContainsHas(part) {
 			return true
@@ -555,7 +559,10 @@ func matchPart(state MatchState, part SelectorPart, node *html.Node) bool {
 		return false
 	}
 
-	if part.ID != "" && node.Attribute("id") != part.ID {
+	// "id" is ASCII lower-case, so the direct map read equals
+	// node.Attribute("id"): Attribute tries the exact key first and its
+	// lower-case fallback is the same key. One lookup, no case scan.
+	if part.ID != "" && node.Attrs["id"] != part.ID {
 		return false
 	}
 
@@ -612,8 +619,13 @@ func hasClasses(part SelectorPart, node *html.Node) bool {
 		return true
 	}
 
+	// Fetch once: the old per-class node.Attribute("class") repeated the
+	// map lookup and the upper-case scan for every class. "class" is lower-
+	// case, so the direct read equals Attribute (missing key reads as "").
+	classVal := node.Attrs["class"]
+
 	for _, c := range part.Classes {
-		if !hasClassToken(node.Attribute("class"), c) {
+		if !hasClassToken(classVal, c) {
 			return false
 		}
 	}
@@ -813,23 +825,26 @@ func containsWord(val, want string) bool {
 }
 
 func matchPseudo(state MatchState, pseudo PseudoClass, node *html.Node) bool {
+	// State, link, and checked cases first: hover evaluation hits them on
+	// every node, so they precede the tree/:has/:not/:is cases (names are
+	// disjoint, order changes no result).
 	switch pseudo.Name {
-	case firstChildPseudo, lastChildPseudo, nthChildPseudo, "root",
-		firstOfTypePseudo, lastOfTypePseudo, nthOfTypePseudo, nthLastOfTypePseudo:
-		return matchTreePseudo(pseudo, node)
+	case pseudoClassFocus, pseudoClassFocusVisible, pseudoClassHover, pseudoClassActive:
+		return matchStatePseudo(state, pseudo.Name, node)
+	case pseudoClassLink, pseudoClassVisited:
+		// Print has no link history, so both match any anchor with an href.
+		return isLinkAnchor(node)
+	case pseudoClassChecked:
+		return matchChecked(node)
 	case pseudoClassHas:
 		return matchAnyRelative(state, pseudo.Has, node)
 	case condKindNot:
 		return matchNone(state, pseudo.Not, node)
 	case pseudoClassIs, pseudoClassWhere:
 		return matchAnySelector(state, pseudo.Is, node)
-	case pseudoClassLink, pseudoClassVisited:
-		// Print has no link history, so both match any anchor with an href.
-		return isLinkAnchor(node)
-	case pseudoClassFocus, pseudoClassFocusVisible, pseudoClassHover, pseudoClassActive:
-		return matchStatePseudo(state, pseudo.Name, node)
-	case pseudoClassChecked:
-		return matchChecked(node)
+	case firstChildPseudo, lastChildPseudo, nthChildPseudo, "root",
+		firstOfTypePseudo, lastOfTypePseudo, nthOfTypePseudo, nthLastOfTypePseudo:
+		return matchTreePseudo(pseudo, node)
 	default:
 		// Unknown pseudo-classes never match (kept on the compound so
 		// selectors do not degrade to the host).
@@ -854,7 +869,8 @@ func matchStatePseudo(state MatchState, name string, node *html.Node) bool {
 
 // matchStateID reports whether node carries the given runtime-state id.
 func matchStateID(id string, node *html.Node) bool {
-	return id != "" && node.Attribute("id") == id
+	// Direct read: "id" is lower-case, identical to Attribute("id").
+	return id != "" && node.Attrs["id"] == id
 }
 
 // matchChecked reports whether node is a checked checkbox or radio, or a
@@ -862,7 +878,8 @@ func matchStateID(id string, node *html.Node) bool {
 // allocating lowered copies.
 func matchChecked(node *html.Node) bool {
 	if asciiEqualFold(node.Name, "input") {
-		t := node.Attribute("type")
+		// Direct read: "type" is lower-case, identical to Attribute.
+		t := node.Attrs["type"]
 		if !asciiEqualFold(t, "checkbox") && !asciiEqualFold(t, "radio") {
 			return false
 		}
@@ -975,7 +992,7 @@ func isLinkAnchor(n *html.Node) bool {
 		return false
 	}
 
-	href := strings.TrimSpace(n.Attribute("href"))
+	href := strings.TrimSpace(n.Attrs["href"])
 
 	return href != ""
 }

@@ -29,13 +29,17 @@ var (
 // document sheet pointers so pointer identity stays valid while cached.
 // selectors shares its selector values read-only across calls and goroutines.
 // local precomputes SelectorIsElementLocal per selector. memo maps an
-// element-local outcome key to its match result.
+// element-local outcome key to its match result. intern pools canonical tag
+// and attrs strings so repeated evaluations of the same node share one
+// backing string instead of duplicating it per hover id; it is guarded by mu
+// alongside memo and is cleared together with memo on overflow.
 type hoverListEntry struct {
 	sheets    []*icss.Stylesheet
 	selectors []icss.Selector
 	local     []bool
 	mu        sync.RWMutex
 	memo      map[hoverMemoKey]bool
+	intern    map[string]string
 }
 
 // hoverMemoKey identifies one element-local match outcome. sel is the index
@@ -132,6 +136,7 @@ func cachedHoverList(sheets []*icss.Stylesheet) *hoverListEntry {
 		selectors: selectors,
 		local:     local,
 		memo:      make(map[hoverMemoKey]bool),
+		intern:    make(map[string]string),
 	}
 	hoverLists = append(hoverLists, entry)
 	if len(hoverLists) > maxHoverListEntries {
@@ -222,11 +227,35 @@ func hoverMemoMatch(
 	entry.mu.Lock()
 	if len(entry.memo) >= maxHoverMemoPerEntry {
 		clear(entry.memo)
+		clear(entry.intern)
 	}
+	key.sel = idx
+	key.tag = internHoverString(entry, tag)
+	key.attrs = internHoverString(entry, attrs)
 	entry.memo[key] = fresh
 	entry.mu.Unlock()
 
 	return fresh
+}
+
+// internHoverString returns the canonical pooled copy of s, storing s on
+// first sight. The caller must hold entry.mu for writing. Empty strings have
+// no backing to share and bypass the pool. Canonicalization preserves exact
+// string equality: equal contents map to one shared backing, and unequal
+// contents never compare equal.
+func internHoverString(entry *hoverListEntry, s string) string {
+	if s == "" {
+		return s
+	}
+	if v, ok := entry.intern[s]; ok {
+		return v
+	}
+	if entry.intern == nil {
+		entry.intern = make(map[string]string)
+	}
+	entry.intern[s] = s
+
+	return s
 }
 
 // hoverTagName builds the namespace-aware tag half of an element signature.
