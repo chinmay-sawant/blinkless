@@ -175,7 +175,9 @@ func (e *engine) buildFlex(node *html.Node, sty ResolvedStyle, availW, x, posY f
 	}
 
 	contentX, contentW := e.contentBox(boxNode.x, boxNode.w, &sty)
-	sty = withAspectRatioHeight(sty, contentW, e)
+	if sty.AspectRatio > 0 {
+		sty = withAspectRatioHeight(sty, contentW, e)
+	}
 
 	contentStart := len(e.ops)
 	curY := e.scalePt(sty.PaddingTop) + e.scalePt(sty.BorderTop.Width)
@@ -197,7 +199,7 @@ func (e *engine) buildFlex(node *html.Node, sty ResolvedStyle, availW, x, posY f
 	}
 
 	rowGap, colGap := e.styleGaps(&sty)
-	previousCB, parentCB := e.setFlowCB(sty)
+	previousCB, parentCB := e.setFlowCB(&sty)
 	defer func() { e.flowCBHeight = previousCB }()
 
 	dir := sty.FlexDirection
@@ -269,21 +271,26 @@ func (e *engine) partitionFlexOutOfFlow(kids []*html.Node) ([]*html.Node, []*htm
 // boxes. Split from buildFlex so the container assembly stays within the
 // length budget.
 func (e *engine) resolveFlexContentHeight(sty ResolvedStyle, contentW, curY, parentCB float64) float64 {
-	resolvedHeightStyle := withAspectRatioHeight(sty, contentW, e)
-	contentBottom := e.borderBoxBottom(resolvedHeightStyle, curY)
+	// withAspectRatioHeight copies the whole style record, so only the boxes
+	// that declare a ratio pay for it; the common path keeps sty in place.
+	if sty.AspectRatio > 0 {
+		sty = withAspectRatioHeight(sty, contentW, e)
+	}
 
-	if usedHeight, definite := resolveUsedHeight(&resolvedHeightStyle, parentCB, e); definite {
+	contentBottom := e.borderBoxBottom(sty, curY)
+
+	if usedHeight, definite := resolveUsedHeight(&sty, parentCB, e); definite {
 		// A definite flex-container height is a used size, not a minimum. Its
 		// flex items may overflow the container when shrink is disabled.
-		vChrome := resolvedHeightStyle.verticalChrome(e)
+		vChrome := sty.verticalChrome(e)
 		curY = usedHeight
-		curY = e.clampBlockMaxHeight(&resolvedHeightStyle, curY, parentCB, vChrome)
-		curY = e.clampBlockMinHeight(&resolvedHeightStyle, curY, parentCB, vChrome)
+		curY = e.clampBlockMaxHeight(&sty, curY, parentCB, vChrome)
+		curY = e.clampBlockMinHeight(&sty, curY, parentCB, vChrome)
 
 		return curY
 	}
 
-	return e.applyHeightConstraintsWithCB(&resolvedHeightStyle, contentBottom, parentCB)
+	return e.applyHeightConstraintsWithCB(&sty, contentBottom, parentCB)
 }
 
 // flushFlexDeferredOutOfFlow lays out the deferred abspos children of a flex
@@ -1433,12 +1440,8 @@ func (e *engine) buildFlexRowItem(
 	node *html.Node, style *ResolvedStyle, forceStretch bool,
 	targetCross, availW, posX, posY float64,
 ) *box {
-	override := e.allocStyle(style)
-	e.forceFlexItemMainSize(override, availW)
-
-	if forceStretch {
-		e.forceFlexItemCrossSize(override, targetCross)
-	}
+	override := e.flexRowStyleOverride(style, e.flexBaseStyleStable(node, style),
+		forceStretch, targetCross, availW)
 
 	return e.buildWithStyle(node, override, availW, posX, posY)
 }

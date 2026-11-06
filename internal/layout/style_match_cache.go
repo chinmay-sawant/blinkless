@@ -181,7 +181,35 @@ type matchCacheEntry struct {
 // match ASCII case-insensitively) and namespace-qualified so foreign elements
 // never alias HTML ones.
 func (ctx *styleContext) matchSignature(node *html.Node, pseudoElem string) matchCacheKey {
-	return matchCacheKey{tag: ctx.matchTag(node), attrs: canonicalAttrKey(node.Attrs), pseudo: pseudoElem}
+	return matchCacheKey{tag: ctx.matchTag(node), attrs: ctx.canonicalAttrKey(node.Attrs), pseudo: pseudoElem}
+}
+
+// canonicalAttrKey interns the canonical key for one element's attributes for
+// this pass. The common single-class element reads its key from the pass-local
+// map after the first occurrence instead of taking the shared cache lock on
+// every row of a table.
+func (ctx *styleContext) canonicalAttrKey(attrs map[string]string) string {
+	if ctx == nil {
+		return canonicalAttrKey(attrs)
+	}
+
+	if len(attrs) == 1 {
+		if value, ok := attrs["class"]; ok {
+			if key, cached := ctx.classKeys[value]; cached {
+				return key
+			}
+
+			key := canonicalAttrKey(attrs)
+			if ctx.classKeys == nil {
+				ctx.classKeys = make(map[string]string)
+			}
+			ctx.classKeys[value] = key
+
+			return key
+		}
+	}
+
+	return canonicalAttrKey(attrs)
 }
 
 // matchTag interns the namespaced tag for one cascade pass. Element probes

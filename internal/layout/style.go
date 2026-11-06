@@ -890,6 +890,10 @@ type styleContext struct {
 	// matchTags interns the namespaced tag strings matchSignature builds, so
 	// repeated probes of the same tag share one copy for this pass.
 	matchTags map[string]string
+	// classKeys interns the canonical single-class attribute key for this
+	// pass. Tables repeat a handful of classes across thousands of elements,
+	// so the pass-local map avoids taking the shared cache lock per element.
+	classKeys map[string]string
 	// gateCache memoizes the node-independent rule gates (media query and
 	// @supports) per rule for this pass, so repeated elements do not
 	// re-parse the same query strings.

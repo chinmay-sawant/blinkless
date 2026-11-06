@@ -39,7 +39,20 @@ func (e *engine) normalLineHeight(style *ResolvedStyle) float64 {
 		return defaultLineHeightRatio * style.FontSize
 	}
 
+	key := lineHeightKey{
+		face:     face,
+		sizeBits: math.Float64bits(style.FontSize),
+		scaleBit: math.Float64bits(e.scale),
+	}
+	if last := lastLineHeight.Load(); last != nil && last.key == key {
+		sharedLineHeightHits.Add(1)
+
+		return last.height
+	}
+
 	if height, ok := lookupLineHeight(face, style.FontSize, e.scale); ok {
+		lastLineHeight.Store(&lastLineHeightEntry{key: key, height: height})
+
 		return height
 	}
 
@@ -58,6 +71,7 @@ func (e *engine) normalLineHeight(style *ResolvedStyle) float64 {
 
 	height := pxToPt(linePx) / e.scale
 	storeLineHeight(face, style.FontSize, e.scale, height)
+	lastLineHeight.Store(&lastLineHeightEntry{key: key, height: height})
 
 	return height
 }
@@ -168,6 +182,17 @@ type lineHeightStore struct {
 var sharedLineHeights = &lineHeightStore{
 	entries: make(map[lineHeightKey]float64, maxLineHeightCacheEntries),
 }
+
+// lastLineHeight is the most recent result. A table repeats one text style
+// across thousands of cells, so the atomic read serves almost every call
+// without taking the shared cache's RWMutex.
+type lastLineHeightEntry struct {
+	key    lineHeightKey
+	height float64
+}
+
+//nolint:gochecknoglobals // one-entry read-mostly cache, replaced atomically
+var lastLineHeight atomic.Pointer[lastLineHeightEntry]
 
 //nolint:gochecknoglobals // cross-layout line-height hit counter for tests, updated atomically.
 var sharedLineHeightHits atomic.Uint64

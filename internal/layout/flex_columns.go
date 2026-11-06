@@ -515,21 +515,19 @@ func (e *engine) buildColumnItems(
 func (e *engine) flexColumnItemOverride(
 	node *html.Node, itemStyle, containerStyle *ResolvedStyle, height, contentW float64,
 ) *ResolvedStyle {
-	override := e.allocStyle(itemStyle)
-	e.forceFlexItemCrossSize(override, height)
+	forceCrossWidth := !(flexItemColumnCrossStretch(containerStyle, itemStyle) ||
+		itemStyle.Width >= 0 || itemStyle.WidthPercent >= 0)
 
-	if flexItemColumnCrossStretch(containerStyle, itemStyle) || itemStyle.Width >= 0 || itemStyle.WidthPercent >= 0 {
-		return override
+	crossW := 0.0
+	if forceCrossWidth {
+		crossW = e.measureFlexItemMaxContent(node, itemStyle)
+		if crossW > contentW {
+			crossW = contentW
+		}
 	}
 
-	crossW := e.measureFlexItemMaxContent(node, itemStyle)
-	if crossW > contentW {
-		crossW = contentW
-	}
-
-	e.forceFlexItemCrossWidth(override, crossW)
-
-	return override
+	return e.flexColumnStyleOverride(itemStyle, e.flexBaseStyleStable(node, itemStyle),
+		height, crossW, forceCrossWidth)
 }
 
 // alignColumnItem places a column item on the cross axis. Auto cross-axis

@@ -270,76 +270,63 @@ func sharedRuneCacheLen() int {
 	return len(sharedRuneWidths.entries)
 }
 
-// textWidthKey identifies one measureTextFace result. sizeBits is the scaled
-// used size; lsBits/wsBits are the scaled spacing already added per rune;
-// tabBits/tabIsLength select the tab-stop path; autospace and emoji select
-// the per-rune gap and emoji-minimum paths; the family/weight/italic/optical
-// fields select the fallback face for glyphs missing from the primary face.
+// textWidthKey is the cross-layout measureTextFace key: one interned style ID
+// plus the text. The style descriptor behind the ID carries the face, size,
+// spacing, tab, autospace, and emoji fields, so hashing a measurement no
+// longer hashes four style strings.
 type textWidthKey struct {
-	face        *pdf.Font
-	famHash     uint64
-	weight      int
-	italic      bool
-	optical     string
-	variations  string
-	opticalSize uint64
-	sizeBits    uint64
-	lsBits      uint64
-	wsBits      uint64
-	tabBits     uint64
-	tabIsLength bool
-	autospace   bool
-	emoji       string
-	text        string
+	styleID uint64
+	text    string
 }
 
-// runeWidthKey identifies one measureRuneFace result. Size here is the raw
-// scaled FontSize (measureRuneFace does not apply font-size-adjust);
-// widthScaleBits carries fontWidthScale; other fields mirror textWidthKey.
+// textWidthLocalKey is the per-layout string-width key. The fallback fields
+// are set only when the intern table could not return an ID (styleID == 0),
+// keeping the shared cache bypassed while the per-layout cache stays exact.
+type textWidthLocalKey struct {
+	key      textWidthKey
+	style    *ResolvedStyle
+	sizeBits uint64
+}
+
+// runeWidthKey is the cross-layout measureRuneFace key: one interned style ID,
+// the rune, and font-width-scale bits. Size here is the raw scaled FontSize
+// (measureRuneFace does not apply font-size-adjust).
 type runeWidthKey struct {
-	famHash       uint64
-	weight        int
-	italic        bool
-	optical       string
-	variations    string
-	opticalSize   uint64
-	sizeBits      uint64
-	lsBits        uint64
-	wsBits        uint64
-	tabBits       uint64
-	tabIsLength   bool
-	emoji         string
-	widthScaleBit uint64
-	r             rune
+	styleID        uint64
+	r              rune
+	widthScaleBits uint64
 }
 
-// textWidthCacheKey builds the measureTextFace key for sty and text. primary
-// must be the already-resolved e.faceFor(sty) face and size the already
-// scaled used size.
-func textWidthCacheKey(sty *ResolvedStyle, primary *pdf.Font, size float64, text string) textWidthKey {
-	optical, variations, sizeBits := variationCacheBits(sty)
+// runeWidthLocalKey is the per-layout rune-width key with the same fallback
+// shape as textWidthLocalKey.
+type runeWidthLocalKey struct {
+	key      runeWidthKey
+	style    *ResolvedStyle
+	sizeBits uint64
+}
 
-	return textWidthKey{
-		face:        primary,
-		famHash:     sty.famHash,
-		weight:      sty.FontWeight,
-		italic:      sty.FontItalic,
-		optical:     optical,
-		variations:  variations,
-		opticalSize: sizeBits,
-		sizeBits:    math.Float64bits(size),
-		lsBits:      math.Float64bits(sty.LetterSpacing),
-		wsBits:      math.Float64bits(sty.WordSpacing),
-		tabBits:     math.Float64bits(sty.TabSize),
-		tabIsLength: isTabSizeLength(sty),
-		autospace:   autospaceIdeographAlpha(sty.TextAutospace),
-		emoji:       sty.FontVariantEmoji,
-		text:        text,
+// textWidthCacheKey builds the per-layout measureTextFace key for sty and
+// text. primary must be the already-resolved e.faceFor(sty) face and size the
+// already scaled used size.
+func (e *engine) textWidthCacheKey(
+	sty *ResolvedStyle, primary *pdf.Font, size float64, text string,
+) textWidthLocalKey {
+	sizeBits := math.Float64bits(size)
+	styleID := e.measureStyleID(sty, primary, sizeBits)
+
+	local := textWidthLocalKey{
+		key: textWidthKey{styleID: styleID, text: text},
 	}
+	if styleID == 0 {
+		local.style = sty
+		local.sizeBits = sizeBits
+	}
+
+	return local
 }
 
 // lookupTextWidth returns the cached string width for key.
-func (e *engine) lookupTextWidth(key textWidthKey) (float64, bool) {
+func (e *engine) lookupTextWidth(key textWidthLocalKey) (float64, bool) {
 	if len(e.textWidthCache) == 0 {
 		return 0, false
 	}
@@ -350,9 +337,9 @@ func (e *engine) lookupTextWidth(key textWidthKey) (float64, bool) {
 }
 
 // storeTextWidth records width under key unless the cache is full.
-func (e *engine) storeTextWidth(key textWidthKey, width float64) {
+func (e *engine) storeTextWidth(key textWidthLocalKey, width float64) {
 	if e.textWidthCache == nil {
-		e.textWidthCache = make(map[textWidthKey]float64, initialWidthCacheEntries)
+		e.textWidthCache = make(map[textWidthLocalKey]float64, initialWidthCacheEntries)
 	}
 
 	if len(e.textWidthCache) >= maxTextWidthCacheEntries {
@@ -362,30 +349,34 @@ func (e *engine) storeTextWidth(key textWidthKey, width float64) {
 	e.textWidthCache[key] = width
 }
 
-// runeWidthCacheKey builds the measureRuneFace key for sty and runeValue.
-func runeWidthCacheKey(sty *ResolvedStyle, scale float64, runeValue rune) runeWidthKey {
-	optical, variations, sizeBits := variationCacheBits(sty)
-
-	return runeWidthKey{
-		famHash:       sty.famHash,
-		weight:        sty.FontWeight,
-		italic:        sty.FontItalic,
-		optical:       optical,
-		variations:    variations,
-		opticalSize:   sizeBits,
-		sizeBits:      math.Float64bits(sty.FontSize * scale),
-		lsBits:        math.Float64bits(sty.LetterSpacing),
-		wsBits:        math.Float64bits(sty.WordSpacing),
-		tabBits:       math.Float64bits(sty.TabSize),
-		tabIsLength:   isTabSizeLength(sty),
-		emoji:         sty.FontVariantEmoji,
-		widthScaleBit: math.Float64bits(fontWidthScale(sty)),
-		r:             runeValue,
+// runeWidthCacheKey builds the per-layout measureRuneFace key for sty and
+// runeValue.
+func (e *engine) runeWidthCacheKey(
+	sty *ResolvedStyle, scale float64, runeValue rune,
+) runeWidthLocalKey {
+	sizeBits := math.Float64bits(sty.FontSize * scale)
+	styleID, ok := e.cachedMeasureStyleID(sty, sizeBits)
+	if !ok {
+		styleID = e.measureStyleID(sty, e.faceFor(sty), sizeBits)
 	}
+
+	local := runeWidthLocalKey{
+		key: runeWidthKey{
+			styleID:        styleID,
+			r:              runeValue,
+			widthScaleBits: math.Float64bits(fontWidthScale(sty)),
+		},
+	}
+	if styleID == 0 {
+		local.style = sty
+		local.sizeBits = sizeBits
+	}
+
+	return local
 }
 
 // lookupRuneWidth returns the cached single-rune width for key.
-func (e *engine) lookupRuneWidth(key runeWidthKey) (float64, bool) {
+func (e *engine) lookupRuneWidth(key runeWidthLocalKey) (float64, bool) {
 	if len(e.runeWidthCache) == 0 {
 		return 0, false
 	}
@@ -396,9 +387,9 @@ func (e *engine) lookupRuneWidth(key runeWidthKey) (float64, bool) {
 }
 
 // storeRuneWidth records width under key unless the cache is full.
-func (e *engine) storeRuneWidth(key runeWidthKey, width float64) {
+func (e *engine) storeRuneWidth(key runeWidthLocalKey, width float64) {
 	if e.runeWidthCache == nil {
-		e.runeWidthCache = make(map[runeWidthKey]float64, initialWidthCacheEntries)
+		e.runeWidthCache = make(map[runeWidthLocalKey]float64, initialWidthCacheEntries)
 	}
 
 	if len(e.runeWidthCache) >= maxRuneWidthCacheEntries {
@@ -406,6 +397,26 @@ func (e *engine) storeRuneWidth(key runeWidthKey, width float64) {
 	}
 
 	e.runeWidthCache[key] = width
+}
+
+// storeSharedTextWidthFor records a string width in the shared cache only when
+// the key carries an interned style ID.
+func storeSharedTextWidthFor(key textWidthLocalKey, scale, width float64) {
+	if key.key.styleID == 0 {
+		return
+	}
+
+	storeSharedTextWidth(key.key, scale, width)
+}
+
+// storeSharedRuneWidthFor records a rune width in the shared cache only when
+// the key carries an interned style ID.
+func storeSharedRuneWidthFor(key runeWidthLocalKey, scale, width float64) {
+	if key.key.styleID == 0 {
+		return
+	}
+
+	storeSharedRuneWidth(key.key, scale, width)
 }
 
 // measureRuneFace measures a single rune with the same face selection as
@@ -420,14 +431,14 @@ func (e *engine) measureRuneFace(curRune rune, sty *ResolvedStyle) float64 {
 		return 0
 	}
 
-	key := runeWidthCacheKey(sty, e.scale, curRune)
+	key := e.runeWidthCacheKey(sty, e.scale, curRune)
 	if w, ok := e.fetchRuneWidth(key, e.scale); ok {
 		return w
 	}
 
 	w := e.measureRuneFaceUncached(curRune, sty)
 	e.storeRuneWidth(key, w)
-	storeSharedRuneWidth(key, e.scale, w)
+	storeSharedRuneWidthFor(key, e.scale, w)
 
 	return w
 }
@@ -585,14 +596,18 @@ func resetCoverageCounters() {
 // map first (no locking), then the shared cache, filling the per-layout map
 // on a shared hit so a repeat word pays one map read. A cold per-layout map
 // skips straight to the shared cache.
-func (e *engine) fetchTextWidth(key textWidthKey, scale float64) (float64, bool) {
+func (e *engine) fetchTextWidth(key textWidthLocalKey, scale float64) (float64, bool) {
 	if len(e.textWidthCache) > 0 {
 		if width, ok := e.textWidthCache[key]; ok {
 			return width, true
 		}
 	}
 
-	if width, ok := lookupSharedTextWidth(key, scale); ok {
+	if key.key.styleID == 0 {
+		return 0, false
+	}
+
+	if width, ok := lookupSharedTextWidth(key.key, scale); ok {
 		e.storeTextWidth(key, width)
 
 		return width, true
@@ -603,14 +618,18 @@ func (e *engine) fetchTextWidth(key textWidthKey, scale float64) (float64, bool)
 
 // fetchRuneWidth is the single combined single-rune lookup with the same
 // local-first, shared-second, fill-local-on-hit shape as fetchTextWidth.
-func (e *engine) fetchRuneWidth(key runeWidthKey, scale float64) (float64, bool) {
+func (e *engine) fetchRuneWidth(key runeWidthLocalKey, scale float64) (float64, bool) {
 	if len(e.runeWidthCache) > 0 {
 		if width, ok := e.runeWidthCache[key]; ok {
 			return width, true
 		}
 	}
 
-	if width, ok := lookupSharedRuneWidth(key, scale); ok {
+	if key.key.styleID == 0 {
+		return 0, false
+	}
+
+	if width, ok := lookupSharedRuneWidth(key.key, scale); ok {
 		e.storeRuneWidth(key, width)
 
 		return width, true
@@ -621,63 +640,54 @@ func (e *engine) fetchRuneWidth(key runeWidthKey, scale float64) (float64, bool)
 
 // runeKeyPrefix is the style-fixed half of a runeWidthKey, precomputed once
 // per multi-rune walk so the loop pays no repeat style hashing. The per-rune
-// key is prefix.key(runeValue).
+// key is prefix.localKey(runeValue).
 type runeKeyPrefix struct {
-	famHash       uint64
-	weight        int
-	italic        bool
-	optical       string
-	variations    string
-	opticalSize   uint64
-	sizeBits      uint64
-	lsBits        uint64
-	wsBits        uint64
-	tabBits       uint64
-	tabIsLength   bool
-	emoji         string
-	widthScaleBit uint64
+	styleID        uint64
+	widthScaleBits uint64
+	// Fallback identity used only when styleID is 0 (intern table full).
+	style    *ResolvedStyle
+	sizeBits uint64
 }
 
 // makeRuneKeyPrefix precomputes the style-fixed cache key half for sty at
 // scale. It mirrors runeWidthCacheKey field for field.
-func makeRuneKeyPrefix(sty *ResolvedStyle, scale float64) runeKeyPrefix {
-	optical, variations, sizeBits := variationCacheBits(sty)
-
-	return runeKeyPrefix{
-		famHash:       sty.famHash,
-		weight:        sty.FontWeight,
-		italic:        sty.FontItalic,
-		optical:       optical,
-		variations:    variations,
-		opticalSize:   sizeBits,
-		sizeBits:      math.Float64bits(sty.FontSize * scale),
-		lsBits:        math.Float64bits(sty.LetterSpacing),
-		wsBits:        math.Float64bits(sty.WordSpacing),
-		tabBits:       math.Float64bits(sty.TabSize),
-		tabIsLength:   isTabSizeLength(sty),
-		emoji:         sty.FontVariantEmoji,
-		widthScaleBit: math.Float64bits(fontWidthScale(sty)),
+func (e *engine) makeRuneKeyPrefix(sty *ResolvedStyle, scale float64) runeKeyPrefix {
+	sizeBits := math.Float64bits(sty.FontSize * scale)
+	styleID, ok := e.cachedMeasureStyleID(sty, sizeBits)
+	if !ok {
+		styleID = e.measureStyleID(sty, e.faceFor(sty), sizeBits)
 	}
+
+	prefix := runeKeyPrefix{
+		styleID:        styleID,
+		widthScaleBits: math.Float64bits(fontWidthScale(sty)),
+	}
+	if styleID == 0 {
+		prefix.style = sty
+		prefix.sizeBits = sizeBits
+	}
+
+	return prefix
 }
 
 // key completes the prefix with one rune.
 func (p runeKeyPrefix) key(runeValue rune) runeWidthKey {
 	return runeWidthKey{
-		famHash:       p.famHash,
-		weight:        p.weight,
-		italic:        p.italic,
-		optical:       p.optical,
-		variations:    p.variations,
-		opticalSize:   p.opticalSize,
-		sizeBits:      p.sizeBits,
-		lsBits:        p.lsBits,
-		wsBits:        p.wsBits,
-		tabBits:       p.tabBits,
-		tabIsLength:   p.tabIsLength,
-		emoji:         p.emoji,
-		widthScaleBit: p.widthScaleBit,
-		r:             runeValue,
+		styleID:        p.styleID,
+		r:              runeValue,
+		widthScaleBits: p.widthScaleBits,
 	}
+}
+
+// localKey completes the prefix with one rune for the per-layout cache.
+func (p runeKeyPrefix) localKey(runeValue rune) runeWidthLocalKey {
+	local := runeWidthLocalKey{key: p.key(runeValue)}
+	if p.styleID == 0 {
+		local.style = p.style
+		local.sizeBits = p.sizeBits
+	}
+
+	return local
 }
 
 // primeRuneBatch resolves every rune of text into the per-layout rune cache
@@ -686,7 +696,7 @@ func (p runeKeyPrefix) key(runeValue rune) runeWidthKey {
 // it returns, an in-order walk pays only per-layout map reads. Values match
 // sequential measureRuneFace calls exactly.
 func (e *engine) primeRuneBatch(sty *ResolvedStyle, prefix runeKeyPrefix, text string) {
-	var missKeys []runeWidthKey
+	var missKeys []runeWidthLocalKey
 
 	var missRunes []rune
 
@@ -695,7 +705,7 @@ func (e *engine) primeRuneBatch(sty *ResolvedStyle, prefix runeKeyPrefix, text s
 			continue
 		}
 
-		key := prefix.key(runic)
+		key := prefix.localKey(runic)
 		if _, ok := e.lookupRuneWidth(key); ok {
 			continue
 		}
@@ -708,7 +718,8 @@ func (e *engine) primeRuneBatch(sty *ResolvedStyle, prefix runeKeyPrefix, text s
 		return
 	}
 
-	if !isValidSharedScale(e.scale) {
+	// An uninterned style or an invalid scale bypasses the shared cache.
+	if !isValidSharedScale(e.scale) || prefix.styleID == 0 {
 		e.measureRuneLeftovers(sty, missKeys, missRunes)
 
 		return
@@ -716,14 +727,14 @@ func (e *engine) primeRuneBatch(sty *ResolvedStyle, prefix runeKeyPrefix, text s
 
 	scaleBits := math.Float64bits(e.scale)
 
-	var pendingKeys []runeWidthKey
+	var pendingKeys []runeWidthLocalKey
 
 	var pendingRunes []rune
 
 	sharedRuneWidths.mu.RLock()
 
 	for i, key := range missKeys {
-		width, ok := sharedRuneWidths.entries[sharedRuneWidthKey{base: key, scaleBits: scaleBits}]
+		width, ok := sharedRuneWidths.entries[sharedRuneWidthKey{base: key.key, scaleBits: scaleBits}]
 		if !ok {
 			pendingKeys = append(pendingKeys, key)
 			pendingRunes = append(pendingRunes, missRunes[i])
@@ -743,7 +754,7 @@ func (e *engine) primeRuneBatch(sty *ResolvedStyle, prefix runeKeyPrefix, text s
 // measureRuneLeftovers measures runes that missed both caches and stores
 // them in both, mirroring the measureRuneFace tail. A duplicate rune that
 // an earlier leftover already stored is skipped via the per-layout map.
-func (e *engine) measureRuneLeftovers(sty *ResolvedStyle, keys []runeWidthKey, runes []rune) {
+func (e *engine) measureRuneLeftovers(sty *ResolvedStyle, keys []runeWidthLocalKey, runes []rune) {
 	for i, key := range keys {
 		if _, ok := e.lookupRuneWidth(key); ok {
 			continue
@@ -751,7 +762,7 @@ func (e *engine) measureRuneLeftovers(sty *ResolvedStyle, keys []runeWidthKey, r
 
 		width := e.measureRuneFaceUncached(runes[i], sty)
 		e.storeRuneWidth(key, width)
-		storeSharedRuneWidth(key, e.scale, width)
+		storeSharedRuneWidthFor(key, e.scale, width)
 	}
 }
 
@@ -764,7 +775,7 @@ func (e *engine) eachRuneAdvance(text string, sty *ResolvedStyle, fn func(rune, 
 		return
 	}
 
-	prefix := makeRuneKeyPrefix(sty, e.scale)
+	prefix := e.makeRuneKeyPrefix(sty, e.scale)
 	e.primeRuneBatch(sty, prefix, text)
 
 	for _, runic := range text {
@@ -776,7 +787,7 @@ func (e *engine) eachRuneAdvance(text string, sty *ResolvedStyle, fn func(rune, 
 			continue
 		}
 
-		if width, ok := e.lookupRuneWidth(prefix.key(runic)); ok {
+		if width, ok := e.lookupRuneWidth(prefix.localKey(runic)); ok {
 			if !fn(runic, width) {
 				return
 			}

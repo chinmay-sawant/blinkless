@@ -717,6 +717,12 @@ type engine struct {
 	// content flow per item per run. The engine is constructed fresh per
 	// Layout, so entries never survive past the run that measured them.
 	flexMinH map[flexMinKey]float64
+	// flexStyleOverrides memoizes finished flex item style overrides for this
+	// Layout run, keyed by the interned base style and the forced sizes (see
+	// flex_override_cache.go). Repeated invoice rows share one 5872-byte
+	// record instead of copying it per item. The cache dies with the engine,
+	// so entries never outlive the run that built them.
+	flexStyleOverrides map[flexStyleOverrideKey]*ResolvedStyle
 	// pseudoContentCache memoizes the winning content declaration per
 	// (element, pseudo-element) for one Layout run. Every block probes
 	// ::before/::after during inline collection and every inline element
@@ -816,13 +822,16 @@ type engine struct {
 	// lineGapByFace caches each face's hhea line gap ratio (lineGap/upem) for
 	// line-height: normal. The font package does not expose the gap.
 	lineGapByFace map[*pdf.Font]float64
+	// measureStyleIDs maps one resolved style at one scaled size to its
+	// process-wide interned measurement-style ID, so the global intern lock
+	// and descriptor hashing run once per style instead of once per text.
+	measureStyleIDs map[measureStyleRef]uint64
 	// textWidthCache memoizes measureTextFace string widths for this Layout
-	// run, keyed by face, size, spacing and text. Trade tables repeat short
-	// mono price labels; the per-rune fallback loop is pure for a fixed key.
-	textWidthCache map[textWidthKey]float64
+	// run, keyed by interned style ID and text.
+	textWidthCache map[textWidthLocalKey]float64
 	// runeWidthCache memoizes measureRuneFace single-rune widths for this
 	// Layout run (decoration and min-content paths walk rune by rune).
-	runeWidthCache map[runeWidthKey]float64
+	runeWidthCache map[runeWidthLocalKey]float64
 	// needsXformStamp is set when any built box has transform≠none or
 	// opacity<1 so stampBoxTransforms can skip the full tree walk.
 	needsXformStamp bool
@@ -861,6 +870,7 @@ func (e *engine) releaseScratch() {
 	e.gridMeasureCache = nil
 	e.flexBaseH = nil
 	e.flexMinH = nil
+	e.flexStyleOverrides = nil
 	e.blockIntrinsicMemo = nil
 	e.blockIntrinsicDeltas = nil
 	e.blockIntrinsicDeltaOrder = nil
@@ -882,6 +892,7 @@ func (e *engine) releaseScratch() {
 	e.lineGapByFace = nil
 	e.textWidthCache = nil
 	e.runeWidthCache = nil
+	e.measureStyleIDs = nil
 	e.namedFlows = nil
 	e.namedFlowScanDone = false
 }
@@ -970,8 +981,9 @@ type blendScope struct {
 
 // pushZ enters one element's stacking and compositing scope, emitting the
 // group begin marker when masking, blending, isolation, or backdrop filtering creates a group.
-// owner is the resolved style pointer that identifies the element.
-func (e *engine) pushZ(style ResolvedStyle, owner *ResolvedStyle) blendScope {
+// style is the element's resolved style; pushZ reads it without copying the
+// 5872-byte record, and owner is the same pointer that identifies the element.
+func (e *engine) pushZ(style *ResolvedStyle, owner *ResolvedStyle) blendScope {
 	prev := blendScope{
 		prevZ:          e.zIndex,
 		prevZSet:       e.zIndexSet,
@@ -1001,7 +1013,7 @@ func (e *engine) pushZ(style ResolvedStyle, owner *ResolvedStyle) blendScope {
 // enterStackingContext applies CSS stacking-context creation: an explicit
 // z-index wins, otherwise transform, opacity, masking, blending, or isolation
 // reset the level to zero.
-func (e *engine) enterStackingContext(style ResolvedStyle, createsGroupContext bool) {
+func (e *engine) enterStackingContext(style *ResolvedStyle, createsGroupContext bool) {
 	if style.ZIndexSet {
 		e.zIndex = style.ZIndex
 		e.zIndexSet = true
@@ -1015,7 +1027,7 @@ func (e *engine) enterStackingContext(style ResolvedStyle, createsGroupContext b
 // enterBlendIsolation applies the transform stamp and enters the element's
 // paint group. Descendants inherit its membership so the host can apply the
 // element's mask, blend, isolation, or backdrop effect at one boundary.
-func (e *engine) enterBlendIsolation(style ResolvedStyle, owner *ResolvedStyle) {
+func (e *engine) enterBlendIsolation(style *ResolvedStyle, owner *ResolvedStyle) {
 	if style.HasTransform || style.Opacity < 1 {
 		e.needsXformStamp = true
 	}
@@ -1045,7 +1057,7 @@ func (e *engine) enterBlendIsolation(style ResolvedStyle, owner *ResolvedStyle) 
 
 	e.blendGroupOwner = owner
 
-	e.applyBlendMode(&style, mode)
+	e.applyBlendMode(style, mode)
 }
 
 // addGroupMark appends a begin/end boundary op for group and returns its op
@@ -1641,7 +1653,7 @@ func (e *engine) build(node *html.Node, availW, posX, posY float64) *box {
 		e.beginMeasureFloats()
 	}
 
-	scope := e.pushZ(*sty, sty)
+	scope := e.pushZ(sty, sty)
 	// Ancestor transforms only (own transform does not change this box's CB).
 	underXformCB := e.transformCBDepth > 0
 	start := len(e.ops)
@@ -1802,7 +1814,7 @@ func (e *engine) buildBlock(node *html.Node, style *ResolvedStyle, availW, posX,
 		curY = applyCheckboxAutoSize(e, *style, boxNode, curY)
 	}
 
-	previousCB, _ := e.setFlowCB(*style)
+	previousCB, _ := e.setFlowCB(style)
 	// The synthetic document box has an auto height, so setFlowCB drops the
 	// viewport. The html element's containing block is that viewport.
 	if node.Name == "#document" && e.flowCBHeight == nil {
@@ -1840,10 +1852,17 @@ func (e *engine) buildBlock(node *html.Node, style *ResolvedStyle, availW, posX,
 	// bottom border / letterhead rules - fixture-07/16). The shared resolver
 	// adds them once for every formatting context and then applies
 	// height/min-height/max-height.
-	resolvedHeightStyle := withAspectRatioHeight(*style, contentW, e)
-	boxNode.height = e.applyHeightConstraintsWithCB(&resolvedHeightStyle,
-		e.borderBoxBottom(resolvedHeightStyle, curY), e.containingBlockHeight())
-	e.paintWidgetControl(node, *style, boxNode, widget, chkWidget, posY)
+	// withAspectRatioHeight copies the whole style record, so only the boxes
+	// that declare a ratio pay for it; the common path keeps the shared style.
+	heightStyle := style
+	if style.AspectRatio > 0 {
+		aspectStyle := withAspectRatioHeight(*style, contentW, e)
+		heightStyle = &aspectStyle
+	}
+
+	boxNode.height = e.applyHeightConstraintsWithCB(heightStyle,
+		e.borderBoxBottom(*heightStyle, curY), e.containingBlockHeight())
+	e.paintWidgetControl(node, style, boxNode, widget, chkWidget, posY)
 
 	e.paintPositionedPseudo(node, style, boxNode, pseudoBefore)
 	e.paintPositionedPseudo(node, style, boxNode, pseudoAfter)
@@ -1913,7 +1932,7 @@ func (e *engine) paintPositionedPseudo( //nolint:cyclop
 		baseline = pseudoY
 	}
 
-	scope := e.pushZ(*style, style)
+	scope := e.pushZ(style, style)
 	e.add(Op{ //nolint:exhaustruct // generated pseudo text has no DOM box
 		Kind: OpText, X: pseudoX, Y: baseline, W: e.measureTextFace(text, style),
 		H: style.LineHeight * e.scale, Text: text, Font: face, Size: size,

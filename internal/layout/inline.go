@@ -293,8 +293,25 @@ func (e *engine) inflowPseudoImage(
 // baseline on the box. When floats is non-nil, each line re-queries exclusion
 // at its canvas Y so text widens again after a float ends mid-paragraph.
 //
-//nolint:cyclop,gocognit,gocyclo,funlen,mnd,wsl,maintidx // hot path: per-line wrap against float exclusion zones
+// The single-text-run fast path handles the common report cell (one text item
+// that fits on one line) without the generic collector; every uncertain case
+// falls back to layoutInlineFloatsGeneric.
 func (e *engine) layoutInlineFloats(
+	boxNode *box, nodes []*html.Node, contentW, contentX, lineY float64,
+	floats *floatState,
+) float64 {
+	if h, ok := e.layoutSingleTextRun(boxNode, nodes, contentW, contentX, lineY, floats); ok {
+		return h
+	}
+
+	return e.layoutInlineFloatsGeneric(boxNode, nodes, contentW, contentX, lineY, floats)
+}
+
+// layoutInlineFloatsGeneric is the general inline collector and packer. The
+// fast path calls it whenever any guard in layoutSingleTextRun is uncertain.
+//
+//nolint:cyclop,gocognit,gocyclo,funlen,mnd,wsl,maintidx // hot path: per-line wrap against float exclusion zones
+func (e *engine) layoutInlineFloatsGeneric(
 	boxNode *box, nodes []*html.Node, contentW, contentX, lineY float64,
 	floats *floatState,
 ) float64 {
@@ -1325,7 +1342,12 @@ func (e *engine) emitLineItems(boxNode *box, line []inlineItem, leftX, baseline,
 		}
 
 		itemX := leftX
-		blendScope := e.pushInlineBlend(item.style)
+		blendScope := inlineBlendScope{markStart: -1, endMark: -1}
+		pushedBlend := inlineBlendWork(item.style)
+		if pushedBlend {
+			blendScope = e.pushInlineBlend(item.style)
+		}
+
 		switch {
 		case item.blockBox != nil:
 			leftX = e.emitInlineBlock(
@@ -1347,7 +1369,10 @@ func (e *engine) emitLineItems(boxNode *box, line []inlineItem, leftX, baseline,
 
 			leftX = e.emitInlineText(item, leftX, paintBaseline, justifyGap, idx < len(line)-1, &und)
 		}
-		e.popInlineBlend(&blendScope)
+
+		if pushedBlend {
+			e.popInlineBlend(&blendScope)
+		}
 
 		if blendScope.markStart >= 0 {
 			e.patchGroupMark(blendScope.markStart, itemX, lineY, item.w, lineH)
@@ -1372,6 +1397,14 @@ type inlineBlendScope struct {
 // mix-blend-mode must be scoped while their text and decorations are emitted.
 // popInlineBlend restores the previous blend mode, group, and owner.
 func (e *engine) pushInlineBlend(style *ResolvedStyle) inlineBlendScope {
+	// Fast path: an item with no inline compositing field cannot open a group,
+	// and with no enclosing group there is no state to restore. Return before
+	// the scope setup and the style-record copy in maskGroupRequested.
+	if !inlineBlendWork(style) && e.blendGroup == nil &&
+		e.blendGroupOwner == nil && e.blendMode == "" {
+		return inlineBlendScope{markStart: -1, endMark: -1}
+	}
+
 	scope := inlineBlendScope{
 		prevBlend: e.blendMode,
 		prevGroup: e.blendGroup,
@@ -1391,7 +1424,7 @@ func (e *engine) pushInlineBlend(style *ResolvedStyle) inlineBlendScope {
 
 	mode := nonNormalBlendMode(style.MixBlendMode)
 
-	hasMask := maskGroupRequested(*style)
+	hasMask := maskGroupRequested(style)
 	if mode == "" && style.Isolation != unicodeBidiIsolate && !hasMask && !hasBackdropFilter(style.BackdropFilter) {
 		return scope
 	}
@@ -1407,7 +1440,7 @@ func (e *engine) pushInlineBlend(style *ResolvedStyle) inlineBlendScope {
 		Mask:           nil,
 	}
 	if hasMask {
-		e.attachMaskDescriptors(e.blendGroup, *style)
+		e.attachMaskDescriptors(e.blendGroup, style)
 	}
 
 	e.blendGroupOwner = style
@@ -1417,6 +1450,28 @@ func (e *engine) pushInlineBlend(style *ResolvedStyle) inlineBlendScope {
 	scope.markStart = e.addGroupMark(e.blendGroup, groupMarkBegin)
 
 	return scope
+}
+
+// inlineBlendWork reports whether an item's style can request an inline
+// compositing group. It is the cheap gate for pushInlineBlend: a false result
+// proves the function would return its scope without touching engine state.
+// A mask value of "none" reports true here and is rejected by the precise
+// check after the scope is set up; this gate only needs to be conservative.
+func inlineBlendWork(style *ResolvedStyle) bool {
+	if style == nil {
+		return false
+	}
+
+	if style.MixBlendMode != "" && style.MixBlendMode != blendNormal {
+		return true
+	}
+
+	if style.Isolation == unicodeBidiIsolate ||
+		maskImageEnabled(style.MaskImage) || maskBorderEnabled(style.MaskBorderSource) {
+		return true
+	}
+
+	return hasBackdropFilter(style.BackdropFilter)
 }
 
 func nonNormalBlendMode(mode string) string {

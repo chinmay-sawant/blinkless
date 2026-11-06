@@ -37,8 +37,6 @@ type PlacedElement struct {
 	H         float64
 }
 
-const defaultOpIDsMultiplier = 4
-
 // WalkPlacedOptions tunes what WalkPlacedWithOptions computes per element.
 // The zero value is the lean path: geometry and ownership without text.
 type WalkPlacedOptions struct {
@@ -66,7 +64,7 @@ func WalkPlacedWithOptions(res *Result, opts WalkPlacedOptions, fn func(elem *Pl
 		return
 	}
 
-	allIDs := make([]uint64, 0, len(res.Ops)*defaultOpIDsMultiplier)
+	allIDs := make([]uint64, 0, len(res.Ops))
 
 	var item PlacedElement
 

@@ -636,8 +636,8 @@ func relayoutEnterAncestorPaint(eng *engine, target *relayoutTarget) bool {
 		}
 
 		createsGroupContext := style.MixBlendMode != blendNormal ||
-			style.Isolation == unicodeBidiIsolate || maskGroupRequested(*style)
-		eng.enterStackingContext(*style, createsGroupContext)
+			style.Isolation == unicodeBidiIsolate || maskGroupRequested(style)
+		eng.enterStackingContext(style, createsGroupContext)
 
 		if style.Position == positionFixed && !containingBlock {
 			viewportFixed = true

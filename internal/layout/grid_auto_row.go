@@ -98,7 +98,7 @@ func autoRowOutOfFlowHazard(child *ResolvedStyle) bool {
 // autoRowCompositingHazard reports boxes that create their own paint group.
 func autoRowCompositingHazard(child *ResolvedStyle) bool {
 	return child.HasTransform || child.Isolation == unicodeBidiIsolate ||
-		nonNormalBlendMode(child.MixBlendMode) != "" || maskGroupRequested(*child)
+		nonNormalBlendMode(child.MixBlendMode) != "" || maskGroupRequested(child)
 }
 
 // autoRowLayoutHazard reports boxes whose used height depends on a second
@@ -424,7 +424,7 @@ func (e *engine) stretchGridItemToHeight(itemBox *box, style ResolvedStyle, heig
 		return
 	}
 
-	scope := e.pushZ(style, itemBox.style)
+	scope := e.pushZ(&style, itemBox.style)
 	e.prependChrome(chromeAt, itemBox, style, itemBox.x, itemBox.y, itemBox.w, height)
 	e.popZ(scope, nil)
 }

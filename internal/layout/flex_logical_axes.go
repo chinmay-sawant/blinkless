@@ -230,11 +230,8 @@ func (e *engine) buildVerticalColumnItems(
 			itemCross = e.measureVerticalColumnItemCross(item.n, itemStyle, widths[idx], leftX, topY+curY)
 		}
 
-		override := e.allocStyle(itemStyle)
-		e.forceFlexItemMainSize(override, widths[idx])
-		if forceStretch {
-			e.forceFlexItemCrossSize(override, crossSize)
-		}
+		override := e.flexRowStyleOverride(itemStyle, e.flexBaseStyleStable(item.n, itemStyle),
+			forceStretch, crossSize, widths[idx])
 		baselineY := -1.0
 		if baselineTarget != nil {
 			baselineY = baselineTarget[item.n]

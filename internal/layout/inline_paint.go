@@ -1563,14 +1563,14 @@ func (e *engine) measureTextFace(cssSheet string, sty *ResolvedStyle) float64 {
 		return e.measureTextFaceUncached(cssSheet, sty, primary, size)
 	}
 
-	key := textWidthCacheKey(sty, primary, size, cssSheet)
+	key := e.textWidthCacheKey(sty, primary, size, cssSheet)
 	if w, ok := e.fetchTextWidth(key, e.scale); ok {
 		return w
 	}
 
 	w := e.measureTextFaceUncached(cssSheet, sty, primary, size)
 	e.storeTextWidth(key, w)
-	storeSharedTextWidth(key, e.scale, w)
+	storeSharedTextWidthFor(key, e.scale, w)
 
 	return w
 }
@@ -1862,9 +1862,9 @@ func (e *engine) primaryFaceRun(cssSheet string, sty *ResolvedStyle) (faceRun, b
 	// gate holds; then the fallback result is worth storing for the next
 	// identical run. Long strings stay uncached, matching the measure path.
 	if len(paintText) <= maxCachedTextLen && paintRunWidthReusable(sty, paintText) {
-		key := textWidthCacheKey(sty, primary, size, paintText)
+		key := e.textWidthCacheKey(sty, primary, size, paintText)
 		e.storeTextWidth(key, width)
-		storeSharedTextWidth(key, e.scale, width)
+		storeSharedTextWidthFor(key, e.scale, width)
 	}
 
 	return run, true
@@ -1895,7 +1895,7 @@ func (e *engine) cachedPaintRunWidth(
 		return 0, false
 	}
 
-	return e.fetchTextWidth(textWidthCacheKey(sty, primary, size, paintText), e.scale)
+	return e.fetchTextWidth(e.textWidthCacheKey(sty, primary, size, paintText), e.scale)
 }
 
 // faceRunAllPrimary reports that every non-whitespace rune in s is covered by
