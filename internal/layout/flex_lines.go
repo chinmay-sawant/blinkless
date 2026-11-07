@@ -29,9 +29,12 @@ func (e *engine) flexWrapLines(
 	// Trial, width, and frozen scratches are sized once per container. Every
 	// wrap trial reuses them instead of allocating a trial line plus width
 	// and clamp slices per item.
-	trial := make([]flexMeas, len(items))
-	widthScratch := make([]float64, len(items))
-	frozenScratch := make([]bool, len(items))
+	trial := getFlexMeas(len(items))[:len(items)]
+	defer putFlexMeas(trial)
+	widthScratch := rentFloats(len(items))
+	defer returnFloats(widthScratch)
+	frozenScratch := getFlexBools(len(items))
+	defer putFlexBools(frozenScratch)
 
 	poll := newCtxPoll(e.ctx)
 	for _, item := range items {

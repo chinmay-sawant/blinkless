@@ -167,6 +167,11 @@ func cachedHoverList(sheets []*icss.Stylesheet) *hoverListEntry {
 func hoverMatchChangedCached(node *html.Node, entry *hoverListEntry, old, next icss.MatchState) bool {
 	var tag, attrs string
 	sigReady := false
+	nodeID := ""
+	if node.Attrs != nil {
+		nodeID = node.Attrs["id"]
+	}
+	isHoverEndpoint := nodeID != "" && (nodeID == old.Hover || nodeID == next.Hover)
 
 	for i, sel := range entry.selectors {
 		pseudo := ""
@@ -175,6 +180,9 @@ func hoverMatchChangedCached(node *html.Node, entry *hoverListEntry, old, next i
 		}
 
 		if entry.local[i] {
+			if !isHoverEndpoint {
+				continue
+			}
 			if !sigReady {
 				tag = hoverTagName(node)
 				attrs = hoverAttrKey(node.Attrs)

@@ -600,20 +600,20 @@ func checkRelayoutAnchors(root *box, patched *box) error {
 	return walk(root)
 }
 
-// maxSubtreeStyleStores bounds the pooled subtree style stores: one entry
-// per recently patched document. maxSubtreeStyleStoreChunks bounds one
-// entry: thirty-two chunks hold up to 1912 records, about 11 MB of 5872-byte
+// maxSubtreeStyleStores bounds the pooled subtree style stores: up to two
+// entries per recently patched document. maxSubtreeStyleStoreChunks bounds one
+// entry: four chunks hold 8+16+32+64 records, about 700 KB of 5872-byte
 // styles. maxSubtreeStyleStoreInternLen bounds one entry's intern map:
 // a pathological document could otherwise grow one pooled store's buckets
 // without bound and the pool slot would pin them. A store past either bound
-// is dropped instead of pooled, returning its chunk backings to the free list
-// so one large subtree cannot pin memory for later small patches; the live
-// result keeps its own records through its pointers either way, and the next
-// patch simply rents fresh.
+// is rejected from the pool, transferring its chunk backings to the containing
+// result so they are recycled when the result finishes rather than pinned in
+// the global pool or prematurely cleared while live styles still reference them;
+// the next patch simply rents fresh.
 const (
-	maxSubtreeStyleStores         = 4
-	maxSubtreeStyleStoreChunks    = 32
-	maxSubtreeStyleStoreInternLen = 4096
+	maxSubtreeStyleStores         = 2
+	maxSubtreeStyleStoreChunks    = 4
+	maxSubtreeStyleStoreInternLen = 1024
 )
 
 // subtreeStyleDocTag identifies the document a pooled style store resolved:
@@ -700,11 +700,10 @@ func rentSubtreeStyleStore(tag subtreeStyleDocTag) *styleStore {
 // into them and the next patch for the same document shares them by
 // appending only, never by overwriting. A store past the chunk or intern
 // bound, a store whose tag carries no document address to match cheaply, or
-// a pool that is full, drops the store instead of retaining it. Dropping
-// never changes a resolved style: sharing still requires content equality
-// through styleInternEqual, so the next patch rents fresh and resolves the
-// same styles by content.
-func putSubtreeStyleStore(tag subtreeStyleDocTag, store *styleStore) {
+// a pool that is full, drops the store instead of retaining it. When dropped,
+// its chunks transfer to prev so they are recycled when the result finishes
+// rather than cleared immediately while live styles still reference them.
+func putSubtreeStyleStore(prev *Result, tag subtreeStyleDocTag, store *styleStore) {
 	if store == nil {
 		return
 	}
@@ -713,30 +712,53 @@ func putSubtreeStyleStore(tag subtreeStyleDocTag, store *styleStore) {
 	// document cheaply, so the store is not pooled. Rent keeps the existing
 	// tag equality and never consults another document's intern map.
 	if tag.root == 0 {
+		if prev != nil {
+			prev.storeChunks = append(prev.storeChunks, store.chunks...)
+			store.chunks = nil
+			store.intern = nil
+		}
+
 		return
 	}
 
 	store.candidate = ResolvedStyle{} //nolint:exhaustruct // scratch must not leak into the next rent
 
-	if len(store.chunks) > maxSubtreeStyleStoreChunks {
-		return
-	}
+	reject := false
+	if len(store.chunks) > maxSubtreeStyleStoreChunks || len(store.intern) > maxSubtreeStyleStoreInternLen {
+		reject = true
+	} else {
+		total := 0
 
-	if len(store.intern) > maxSubtreeStyleStoreInternLen {
-		return
-	}
+		for _, bucket := range store.intern {
+			total += len(bucket)
+			if total > maxSubtreeStyleStoreInternLen {
+				reject = true
 
-	total := 0
-
-	for _, bucket := range store.intern {
-		total += len(bucket)
-		if total > maxSubtreeStyleStoreInternLen {
-			return
+				break
+			}
 		}
+	}
+
+	if reject {
+		if prev != nil {
+			prev.storeChunks = append(prev.storeChunks, store.chunks...)
+			store.chunks = nil
+			store.intern = nil
+		}
+
+		return
 	}
 
 	subtreeStyleStores.mu.Lock()
 	defer subtreeStyleStores.mu.Unlock()
+
+	for index := range subtreeStyleStores.entries {
+		if subtreeStyleStores.entries[index].tag == tag {
+			subtreeStyleStores.entries[index].store = store
+
+			return
+		}
+	}
 
 	if len(subtreeStyleStores.entries) >= maxSubtreeStyleStores {
 		subtreeStyleStores.entries = slices.Delete(subtreeStyleStores.entries, 0, 1)
@@ -855,7 +877,7 @@ func relayoutSubtreeStyles(
 		}
 	}
 
-	putSubtreeStyleStore(tag, store)
+	putSubtreeStyleStore(prev, tag, store)
 
 	return styles, nil
 }

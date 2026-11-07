@@ -966,11 +966,8 @@ func (e *engine) measureMulticolChildHeight(n *html.Node, availW float64) float6
 	e.resetStyles(smark)
 
 	if !multicolMemoBypass.Load() && e.err == nil {
-		if e.flexBaseH == nil {
-			e.flexBaseH = make(map[flexBaseKey]float64)
-		}
-
-		e.flexBaseH[key] = h
+		m := e.ensureFlexBaseH()
+		m[key] = h
 		multicolMemoMisses.Add(1)
 	}
 

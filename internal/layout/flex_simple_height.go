@@ -27,11 +27,8 @@ func (e *engine) simpleFlexBaseHeight(
 	}
 
 	if e.err == nil {
-		if e.flexBaseH == nil {
-			e.flexBaseH = make(map[flexBaseKey]float64)
-		}
-
-		e.flexBaseH[key] = height
+		m := e.ensureFlexBaseH()
+		m[key] = height
 	}
 
 	simpleFlexHeightHits.Add(1)
@@ -174,11 +171,8 @@ func (e *engine) simpleFlexRowContentCross(
 	}
 
 	if e.err == nil {
-		if e.flexBaseH == nil {
-			e.flexBaseH = make(map[flexBaseKey]float64)
-		}
-
-		e.flexBaseH[key] = contentH
+		m := e.ensureFlexBaseH()
+		m[key] = contentH
 	}
 
 	simpleFlexCrossHits.Add(1)

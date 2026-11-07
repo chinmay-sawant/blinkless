@@ -883,6 +883,9 @@ type styleContext struct {
 	// container re-cascade passes do not use it.
 	memo styleResolutionMemo
 	// matchCache memoizes element-local selector outcomes per element
+	// storeChunks collects the style chunk backings allocated during this
+	// pass so they can be transferred to the engine and Result for pooling.
+	storeChunks [][]ResolvedStyle
 	// signature for this pass (see matchedRules). A container re-cascade
 	// pass reuses it: entries only cover selectors whose outcome is a pure
 	// function of the signature, and container-gated rules evaluate fresh.
@@ -959,7 +962,15 @@ func resolveStylesWith(
 func resolveStylesWithContext(
 	ctx context.Context, root *html.Node, opts Options, containers map[*html.Node]sizeContainer,
 ) (map[*html.Node]*ResolvedStyle, error) {
-	return resolveStylesCtx(root, &styleContext{ //nolint:exhaustruct // intentional zero fields
+	styles, _, err := resolveStylesWithContextChunks(ctx, root, opts, containers)
+
+	return styles, err
+}
+
+func resolveStylesWithContextChunks(
+	ctx context.Context, root *html.Node, opts Options, containers map[*html.Node]sizeContainer,
+) (map[*html.Node]*ResolvedStyle, [][]ResolvedStyle, error) {
+	sc := &styleContext{ //nolint:exhaustruct // intentional zero fields
 		ctx:                ctx,
 		sheets:             opts.Sheets,
 		properties:         registeredProperties(opts.Sheets),
@@ -969,7 +980,14 @@ func resolveStylesWithContext(
 		printLinkUnderline: opts.PrintLinkUnderline,
 		containers:         containers,
 		state:              opts.State,
-	})
+	}
+
+	styles, err := resolveStylesCtx(root, sc)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return styles, sc.storeChunks, nil
 }
 
 // resolveStyles walks the tree top-down (test helper; no operator policies).
@@ -1048,6 +1066,10 @@ func resolveStylesCtx(root *html.Node, ctx *styleContext) (map[*html.Node]*Resol
 		return nil, ctx.err
 	}
 
+	if ctx != nil {
+		ctx.storeChunks = append(ctx.storeChunks, store.chunks...)
+	}
+
 	return out, nil
 }
 
@@ -1113,12 +1135,40 @@ const styleStoreFirstChunk = 8
 // retains defaultStyleChunkSize backings. Each list only holds backings with
 // its exact capacity, and both get and put verify the capacity before reuse.
 //
+const (
+	maxStyleStoreChunksFree8  = 16
+	maxStyleStoreChunksFree32 = 8
+	maxStyleStoreChunksFree64 = 4
+)
+
 //nolint:gochecknoglobals // per-size free lists for styleStore backings
 var (
-	styleStoreChunkFree8  = make(chan *[]ResolvedStyle, maxStyleChunksRetained)
-	styleStoreChunkFree32 = make(chan *[]ResolvedStyle, maxStyleChunksRetained)
-	styleStoreChunkFree64 = make(chan *[]ResolvedStyle, maxStyleChunksRetained)
+	styleStoreChunkFree8  = make(chan *[]ResolvedStyle, maxStyleStoreChunksFree8)
+	styleStoreChunkFree32 = make(chan *[]ResolvedStyle, maxStyleStoreChunksFree32)
+	styleStoreChunkFree64 = make(chan *[]ResolvedStyle, maxStyleStoreChunksFree64)
 )
+
+// drainStyleStoreChunkPools drains all segregated style store chunk channels
+// and clears their buffers so no lingering pointers remain.
+func drainStyleStoreChunkPools() {
+	drain := func(free chan *[]ResolvedStyle) {
+		for {
+			select {
+			case chunk := <-free:
+				if chunk != nil {
+					clear((*chunk)[:cap(*chunk)])
+					*chunk = (*chunk)[:0]
+				}
+			default:
+				return
+			}
+		}
+	}
+
+	drain(styleStoreChunkFree8)
+	drain(styleStoreChunkFree32)
+	drain(styleStoreChunkFree64)
+}
 
 // getStyleStoreChunk returns a pooled backing with exactly cap want, or nil
 // when the per-size list is empty. A backing with any other capacity is never
@@ -1153,7 +1203,9 @@ func getStyleStoreChunk(want int) *[]ResolvedStyle {
 	select {
 	case chunk := <-free:
 		if chunk == nil || cap(*chunk) != want {
-			putStyleStoreChunk(chunk)
+			if chunk != nil {
+				putStyleStoreChunk(chunk)
+			}
 
 			return nil
 		}
@@ -1199,6 +1251,28 @@ func putStyleStoreChunk(chunk *[]ResolvedStyle) {
 	case free <- chunk:
 	default:
 	}
+}
+
+// putStyleStoreChunkSlice is putStyleStoreChunk for slice values.
+func putStyleStoreChunkSlice(chunk []ResolvedStyle) {
+	putStyleStoreChunk(&chunk)
+}
+
+// recycle returns all chunks allocated by this store back to their per-size
+// free lists with zeroed buffers, and resets the store.
+func (s *styleStore) recycle() {
+	if s == nil {
+		return
+	}
+
+	for i := range s.chunks {
+		c := s.chunks[i]
+		putStyleStoreChunk(&c)
+	}
+
+	s.chunks = nil
+	s.intern = nil
+	s.candidate = zeroResolvedStyle
 }
 
 // styleStore owns resolved styles for one resolution pass. It deliberately

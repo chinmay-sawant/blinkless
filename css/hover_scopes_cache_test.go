@@ -39,7 +39,7 @@ func hoverCacheTestStyled(t *testing.T, styleRules string, rows int) *Document {
 		t.Fatal(err)
 	}
 
-	styled, err := Apply(t.Context(), doc, Options{WidthPx: 320, HeightPx: 200, Hover: "r150"})
+	styled, err := Apply(t.Context(), doc, Options{WidthPx: 320, HeightPx: 200, Hover: "r20"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestHoverCacheParityMultiHundred(t *testing.T) {
 		`div.inv-row:hover + div.inv-row{color:black}`
 	styled := hoverCacheTestStyled(t, rules, 400)
 
-	for _, previous := range []string{"r050", "", "r399"} {
+	for _, previous := range []string{"r50", "", "r399"} {
 		got, ok := styled.HoverChangedScopes(previous)
 		if !ok {
 			t.Fatalf("previous %q: HoverChangedScopes returned false", previous)
@@ -109,7 +109,7 @@ func TestHoverCacheSecondCallHitsMemo(t *testing.T) {
 	rules := `.inv-row:hover{color:red}.inv-alt:hover{color:blue}.inv-sel:hover{color:green}`
 	styled := hoverCacheTestStyled(t, rules, 100)
 
-	first, ok := styled.HoverChangedScopes("r010")
+	first, ok := styled.HoverChangedScopes("r10")
 	if !ok {
 		t.Fatal("first call returned false")
 	}
@@ -118,11 +118,8 @@ func TestHoverCacheSecondCallHitsMemo(t *testing.T) {
 	if missesAfterFirst == 0 {
 		t.Fatal("first call recorded no memo misses")
 	}
-	if hitsAfterFirst == 0 {
-		t.Fatal("repeated class signatures should hit within the first call")
-	}
 
-	second, ok := styled.HoverChangedScopes("r010")
+	second, ok := styled.HoverChangedScopes("r10")
 	if !ok {
 		t.Fatal("second call returned false")
 	}
@@ -140,6 +137,22 @@ func TestHoverCacheSecondCallHitsMemo(t *testing.T) {
 	}
 	if hoverListHits.Load() == 0 {
 		t.Fatal("selector list was not reused across calls")
+	}
+
+	third, ok := styled.HoverChangedScopes("r30")
+	if !ok {
+		t.Fatal("third call returned false")
+	}
+	if len(third) == 0 {
+		t.Fatal("third call returned no scopes")
+	}
+	hitsAfterThird := hoverMemoHits.Load()
+	missesAfterThird := hoverMemoMisses.Load()
+	if hitsAfterThird <= hitsAfterSecond {
+		t.Fatalf("third call added no hits for cached endpoint: %d then %d", hitsAfterSecond, hitsAfterThird)
+	}
+	if missesAfterThird <= missesAfterSecond {
+		t.Fatalf("third call added no misses for new endpoint: %d then %d", missesAfterSecond, missesAfterThird)
 	}
 }
 
@@ -163,7 +176,7 @@ func TestHoverCacheConcurrentRace(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for range perWorker {
-				got, ok := styled.HoverChangedScopes("r010")
+				got, ok := styled.HoverChangedScopes("r10")
 				if !ok {
 					t.Error("concurrent call returned false")
 

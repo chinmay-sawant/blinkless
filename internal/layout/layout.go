@@ -218,6 +218,7 @@ type Result struct {
 	pageSnapHeight float64
 	styleChunks    []*[]ResolvedStyle
 	boxChunks      []*[]box
+	storeChunks    [][]ResolvedStyle
 
 	// Pages maps page index → indices into Ops of the ops painted on that
 	// page. Filled by Paint using its pagination semantics (an op goes to
@@ -669,6 +670,7 @@ type engine struct {
 	spareChunks     []*[]ResolvedStyle
 	boxChunks       []*[]box
 	spareBoxChunks  []*[]box
+	storeChunks     [][]ResolvedStyle
 	// styleIndex narrows selector matching for this layout's sheets. It is
 	// built once and shared by the cascade and every pseudo-content lookup.
 	styleIndex *ruleIndex
@@ -888,8 +890,20 @@ func (e *engine) releaseScratch() {
 	e.gridScratch = nil
 	e.imgCache = nil
 	e.gridMeasureCache = nil
-	e.flexBaseH = nil
-	e.flexMinH = nil
+	if e.flexBaseH != nil {
+		if len(e.flexBaseH) <= maxPooledFlexScratch {
+			clear(e.flexBaseH)
+			flexBaseMapPool.Put(e.flexBaseH)
+		}
+		e.flexBaseH = nil
+	}
+	if e.flexMinH != nil {
+		if len(e.flexMinH) <= maxPooledFlexScratch {
+			clear(e.flexMinH)
+			flexMinMapPool.Put(e.flexMinH)
+		}
+		e.flexMinH = nil
+	}
 	e.flexStyleOverrides = nil
 	e.blockIntrinsicMemo = nil
 	e.blockIntrinsicDeltas = nil
@@ -1201,48 +1215,64 @@ func censusOps(ops []Op, width float64) (float64, bool) {
 }
 
 //nolint:wsl // container remount gates are intentionally kept in lifecycle order.
-func resolveStylesForLayoutContext(
+func resolveStylesForLayoutContextChunks(
 	ctx context.Context, root *html.Node, opts Options,
-) (map[*html.Node]*ResolvedStyle, map[*html.Node]sizeContainer, error) {
+) (map[*html.Node]*ResolvedStyle, map[*html.Node]sizeContainer, [][]ResolvedStyle, error) {
 	// Pass 1: cascade without @container (used sizes unknown).
-	styles, err := resolveStylesWithContext(ctx, root, opts, nil)
+	styles, chunks, err := resolveStylesWithContextChunks(ctx, root, opts, nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	if !css.HasContainerRules(opts.Sheets) {
-		return styles, nil, nil
+		return styles, nil, chunks, nil
 	}
 	// After definite inline sizes of size containers are known, re-cascade so
 	// matching @container rules apply, then lay out once with final styles.
 	cinfo, err := measureSizeContainersContext(ctx, root, styles, opts.Width)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if len(cinfo) == 0 {
-		return styles, nil, nil
+		return styles, nil, chunks, nil
 	}
 
-	styles, err = resolveStylesWithContext(ctx, root, opts, cinfo)
+	for i := range chunks {
+		putStyleStoreChunk(&chunks[i])
+	}
+
+	styles, chunks, err = resolveStylesWithContextChunks(ctx, root, opts, cinfo)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// One nested remount: @container may change nested container-type.
 	cinfo2, err := measureSizeContainersContext(ctx, root, styles, opts.Width)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if len(cinfo2) != len(cinfo) || !sameSizeContainers(cinfo, cinfo2) {
-		styles, err = resolveStylesWithContext(ctx, root, opts, cinfo2)
-		if err != nil {
-			return nil, nil, err
+		for i := range chunks {
+			putStyleStoreChunk(&chunks[i])
 		}
 
-		return styles, cinfo2, nil
+		styles, chunks, err = resolveStylesWithContextChunks(ctx, root, opts, cinfo2)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+
+		return styles, cinfo2, chunks, nil
 	}
 
-	return styles, cinfo, nil
+	return styles, cinfo, chunks, nil
+}
+
+func resolveStylesForLayoutContext(
+	ctx context.Context, root *html.Node, opts Options,
+) (map[*html.Node]*ResolvedStyle, map[*html.Node]sizeContainer, error) {
+	styles, containers, _, err := resolveStylesForLayoutContextChunks(ctx, root, opts)
+
+	return styles, containers, err
 }
 
 // sameSizeContainers reports whether two container measurements agree for

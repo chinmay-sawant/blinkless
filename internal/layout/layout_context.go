@@ -103,6 +103,7 @@ func finalizeResult(eng *engine, root *html.Node, opts Options) (*Result, error)
 		styles:         eng.styles,
 		styleChunks:    eng.styleChunks,
 		boxChunks:      eng.boxChunks,
+		storeChunks:    eng.storeChunks,
 	}
 	if boxNode != nil {
 		res.Height = boxNode.y + boxNode.height

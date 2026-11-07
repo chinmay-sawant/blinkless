@@ -30,6 +30,12 @@ func (r *Result) Release() {
 	}
 
 	r.boxChunks = nil
+
+	for i := range r.storeChunks {
+		putStyleStoreChunk(&r.storeChunks[i])
+	}
+
+	r.storeChunks = nil
 }
 
 const (

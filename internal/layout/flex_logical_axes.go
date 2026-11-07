@@ -17,6 +17,7 @@ func (e *engine) flowFlexVerticalRow(
 ) float64 {
 	contentH := resolveFlexColumnContentHeight(style, e)
 	items := e.flexColumnItems(kids, contentW, contentH)
+	defer putFlexColMeas(items)
 	if len(items) == 0 {
 		return curY
 	}
@@ -39,7 +40,9 @@ func (e *engine) flowFlexVerticalRow(
 		slices.Reverse(items)
 	}
 
-	heights := e.flexColumnHeights(items, contentH, gap)
+	heights := rentFloats(len(items))
+	defer returnFloats(heights)
+	e.flexColumnHeightsInto(items, contentH, gap, heights)
 	sumH := 0.0
 	for idx, height := range heights {
 		sumH += height + flexColumnMainMargins(e, items[idx])
@@ -79,6 +82,7 @@ func (e *engine) flowFlexVerticalColumn(
 ) float64 {
 	contentH := resolveContentHeight(style, e)
 	items := e.flexRowItems(kids, contentW, contentH)
+	defer putFlexMeas(items)
 	if len(items) == 0 {
 		return curY
 	}
@@ -114,7 +118,11 @@ func (e *engine) flowFlexVerticalColumn(
 		slices.Reverse(items)
 	}
 
-	widths := e.flexLineWidths(items, contentW, gap)
+	widths := rentFloats(len(items))
+	defer returnFloats(widths)
+	frozen := getFlexBools(len(items))
+	defer putFlexBools(frozen)
+	e.flexLineWidthsInto(items, contentW, gap, widths, frozen)
 	sumW := 0.0
 	for idx, width := range widths {
 		sumW += width + flexRowNormalMargins(e, items[idx])
@@ -292,6 +300,22 @@ func (e *engine) measureVerticalColumnItemCross(
 func verticalColumnBaselineTarget(
 	container *ResolvedStyle, items []flexMeas, lineTop float64, eng *engine,
 ) map[*html.Node]float64 {
+	hasBaseline := false
+	for _, item := range items {
+		style := eng.stylePtr(item.n)
+		align := container.AlignItems
+		if style.AlignSelf != "" && style.AlignSelf != fxAuto {
+			align = style.AlignSelf
+		}
+		if align == "baseline" {
+			hasBaseline = true
+			break
+		}
+	}
+	if !hasBaseline {
+		return nil
+	}
+
 	maxOffset := 0.0
 	baselineItems := make(map[*html.Node]float64)
 	for _, item := range items {
