@@ -231,6 +231,10 @@ func inlineLevelBox(style *ResolvedStyle) bool {
 // instead of leaving an empty leading fragment behind. Boxes taller than one
 // page cannot be kept whole and split between lines instead.
 func singleLineKeepRange(res *Result, boxNode *box, pageH float64) ([2]float64, bool) {
+	return singleLineKeepRangeWithBuf(res, boxNode, pageH, nil)
+}
+
+func singleLineKeepRangeWithBuf(res *Result, boxNode *box, pageH float64, buf []float64) ([2]float64, bool) {
 	var none [2]float64
 
 	if boxNode == nil || pageH <= 0 || boxNode.height <= 0 || boxNode.height > pageH+layoutCoordEpsilon {
@@ -241,7 +245,7 @@ func singleLineKeepRange(res *Result, boxNode *box, pageH float64) ([2]float64, 
 		return none, false
 	}
 
-	baselines := stripLineBaselines(res.Ops, boxNode.opStart, boxNode.opEnd+1)
+	baselines := stripLineBaselinesInto(res.Ops, boxNode.opStart, boxNode.opEnd+1, buf)
 	if len(baselines) != 1 {
 		return none, false
 	}
@@ -328,9 +332,10 @@ func lineExtendsPast(ops []Op, boxNode *box, baseline, boundary float64) bool {
 }
 
 type breakCollector struct {
-	ops    []Op
-	forced []float64
-	keep   [][2]float64
+	ops             []Op
+	forced          []float64
+	keep            [][2]float64
+	baselineScratch []float64
 }
 
 func (c *breakCollector) add(boxNode *box, canvasH float64) {
@@ -369,7 +374,7 @@ func (c *breakCollector) addSingleLineKeep(res *Result, pageH float64, boxNode *
 		return
 	}
 
-	if keepRange, ok := singleLineKeepRange(res, boxNode, pageH); ok {
+	if keepRange, ok := singleLineKeepRangeWithBuf(res, boxNode, pageH, c.baselineScratch); ok {
 		c.keep = append(c.keep, keepRange)
 	}
 }

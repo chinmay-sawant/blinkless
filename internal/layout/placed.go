@@ -64,13 +64,60 @@ func WalkPlacedWithOptions(res *Result, opts WalkPlacedOptions, fn func(elem *Pl
 		return
 	}
 
-	allIDs := make([]uint64, 0, len(res.Ops))
+	capIDs := estimatePlacedOpIDs(res)
+	if capIDs < len(res.Ops) {
+		capIDs = len(res.Ops)
+	}
+	allIDs := make([]uint64, 0, capIDs)
 
 	var item PlacedElement
 
 	viewport := svgViewport{x: 0, y: 0, w: 0, h: 0, set: false}
 
 	walkPlacedFunc(res.root, res.Ops, -1, IdentityMatrix(), viewport, fn, &allIDs, 0, &item, opts)
+}
+
+func estimatePlacedOpIDs(res *Result) int {
+	if len(res.boxes) > 0 {
+		total := 0
+		nOps := len(res.Ops)
+		for _, b := range res.boxes {
+			if b.node != nil && b.node.Type == html.ElementNode && b.opEnd >= b.opStart && b.opStart >= 0 {
+				end := b.opEnd
+				if end >= nOps {
+					end = nOps - 1
+				}
+				if end >= b.opStart {
+					total += end - b.opStart + 1
+				}
+			}
+		}
+		return total
+	}
+	if res.root != nil {
+		return countSubtreeOpIDs(res.root, len(res.Ops))
+	}
+	return len(res.Ops)
+}
+
+func countSubtreeOpIDs(b *box, nOps int) int {
+	if b == nil {
+		return 0
+	}
+	total := 0
+	if b.node != nil && b.node.Type == html.ElementNode && b.opEnd >= b.opStart && b.opStart >= 0 {
+		end := b.opEnd
+		if end >= nOps {
+			end = nOps - 1
+		}
+		if end >= b.opStart {
+			total += end - b.opStart + 1
+		}
+	}
+	for _, child := range b.children {
+		total += countSubtreeOpIDs(child, nOps)
+	}
+	return total
 }
 
 //nolint:varnamelen // fn is standard callback identifier
@@ -222,6 +269,25 @@ func appendOperationIDs(ops []Op, start, end int, allIDs *[]uint64) []uint64 {
 
 	if end >= len(ops) {
 		end = len(ops) - 1
+	}
+
+	if allIDs == nil {
+		count := 0
+		for index := start; index <= end; index++ {
+			if ops[index].ID != 0 {
+				count++
+			}
+		}
+		if count == 0 {
+			return emptyOperationIDs
+		}
+		res := make([]uint64, 0, count)
+		for index := start; index <= end; index++ {
+			if ops[index].ID != 0 {
+				res = append(res, ops[index].ID)
+			}
+		}
+		return res
 	}
 
 	startIdx := len(*allIDs)

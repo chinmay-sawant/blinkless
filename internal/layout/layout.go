@@ -219,6 +219,7 @@ type Result struct {
 	styleChunks    []*[]ResolvedStyle
 	boxChunks      []*[]box
 	storeChunks    [][]ResolvedStyle
+	refs           int32
 
 	// Pages maps page index → indices into Ops of the ops painted on that
 	// page. Filled by Paint using its pagination semantics (an op goes to
@@ -277,6 +278,7 @@ func CloneResult(res *Result) *Result {
 	}
 
 	clone := *res
+	clone.refs = 0
 	clone.Ops = cloneOps(res.Ops)
 	// A clone starts without the source's raster cache instead of sharing a
 	// mutable map of payloads.
@@ -745,6 +747,13 @@ type engine struct {
 	// record instead of copying it per item. The cache dies with the engine,
 	// so entries never outlive the run that built them.
 	flexStyleOverrides map[flexStyleOverrideKey]*ResolvedStyle
+	// overrideStyleChunks holds ResolvedStyle chunks used exclusively by
+	// flexStyleOverrides so measure scopes that unwind e.styleChunks cannot
+	// invalidate cached overrides.
+	overrideStyleChunks []*[]ResolvedStyle
+	// baselineScratch is reusable scratch storage for stripLineBaselines in
+	// multicol orphan splitting.
+	baselineScratch []float64
 	// pseudoContentCache memoizes the winning content declaration per
 	// (element, pseudo-element) for one Layout run. Every block probes
 	// ::before/::after during inline collection and every inline element
@@ -904,7 +913,18 @@ func (e *engine) releaseScratch() {
 		}
 		e.flexMinH = nil
 	}
-	e.flexStyleOverrides = nil
+	if e.flexStyleOverrides != nil {
+		if len(e.flexStyleOverrides) <= flexOverrideMaxEntries {
+			clear(e.flexStyleOverrides)
+			flexOverrideMapPool.Put(e.flexStyleOverrides)
+		}
+		e.flexStyleOverrides = nil
+	}
+	for _, c := range e.overrideStyleChunks {
+		putStyleChunk(c)
+	}
+	e.overrideStyleChunks = nil
+	e.baselineScratch = nil
 	e.blockIntrinsicMemo = nil
 	e.blockIntrinsicDeltas = nil
 	e.blockIntrinsicDeltaOrder = nil

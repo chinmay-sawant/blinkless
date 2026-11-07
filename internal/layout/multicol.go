@@ -575,8 +575,9 @@ func (e *engine) placeMulticolAnonColumns(
 	// Never past a finite maxColH (definite height or remaining page),
 	// where the column box cannot grow. Reference: Chrome 143.0.7499.40
 	// keeps orphans lines together before a column break.
+	e.baselineScratch = stripLineBaselinesInto(e.ops, cblock.opStart, cblock.opEnd+1, e.baselineScratch)
 	if snapped, ok := snapAnonBandForOrphans(top, totalH, bandH, maxColH,
-		stripLineBaselines(e.ops, cblock.opStart, cblock.opEnd+1), style.Orphans); ok {
+		e.baselineScratch, style.Orphans); ok {
 		bandH = snapped
 	}
 

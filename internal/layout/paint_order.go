@@ -14,14 +14,27 @@ const (
 // order. Display-list consumers share this same policy; backend drawing
 // remains responsible for interpreting each operation.
 func PaintOrder(ops []Op) []int {
-	idx := make([]int, len(ops))
-	for i := range ops {
-		idx[i] = i
+	return PaintOrderBuf(ops, nil)
+}
+
+// PaintOrderBuf returns operation indices in the canonical display-list paint
+// order into the provided destination buffer, allocating or growing only if
+// cap(buf) < len(ops).
+func PaintOrderBuf(ops []Op, buf []int) []int {
+	n := len(ops)
+	if cap(buf) < n {
+		buf = make([]int, n)
+	} else {
+		buf = buf[:n]
 	}
 
-	sortPaintIndices(ops, idx)
+	for i := range ops {
+		buf[i] = i
+	}
 
-	return idx
+	sortPaintIndices(ops, buf)
+
+	return buf
 }
 
 // paintOrderSubset returns an ordered copy of an operation subset. All

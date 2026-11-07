@@ -30,19 +30,32 @@ func OperationOwnersPlaced(res *Result, placed []PlacedElement) []int {
 
 // OperationOwnersFromParents calculates operation owners using element parent indices.
 func OperationOwnersFromParents(res *Result, parents []int) []int {
+	return OperationOwnersFromParentsBuf(res, parents, nil)
+}
+
+// OperationOwnersFromParentsBuf calculates operation owners using element parent
+// indices into the provided destination buffer, allocating or growing only if
+// cap(buf) < len(res.Ops).
+func OperationOwnersFromParentsBuf(res *Result, parents []int, buf []int) []int {
 	if res == nil {
 		return nil
 	}
 
-	owners := make([]int, len(res.Ops))
-	for index := range owners {
-		owners[index] = -1
+	n := len(res.Ops)
+	if cap(buf) < n {
+		buf = make([]int, n)
+	} else {
+		buf = buf[:n]
+	}
+
+	for index := range buf {
+		buf[index] = -1
 	}
 
 	placedIndex := 0
-	walkOperationOwnersParents(res.root, -1, &placedIndex, owners, parents)
+	walkOperationOwnersParents(res.root, -1, &placedIndex, buf, parents)
 
-	return owners
+	return buf
 }
 
 func walkOperationOwnersParents(boxNode *box, parent int, placedIndex *int, owners []int, parents []int) {

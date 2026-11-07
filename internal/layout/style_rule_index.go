@@ -46,10 +46,146 @@ type ruleBucket struct {
 	universal []ruleSel
 }
 
+type keyCounts struct {
+	byID      map[string]int
+	byClass   map[string]int
+	byTag     map[string]int
+	universal int
+}
+
 // newRuleIndex walks every sheet once and buckets each selector.
 func newRuleIndex(sheets []*css.Stylesheet) *ruleIndex {
 	index := new(ruleIndex)
 
+	var (
+		hostCounts   keyCounts
+		pseudoCounts map[string]*keyCounts
+		totalSels    int
+	)
+
+	// Pass 1: count selectors per bucket and key, and detect pseudo content.
+	for _, sheet := range sheets {
+		if sheet == nil {
+			continue
+		}
+
+		for ruleIndex := range sheet.Rules {
+			rule := &sheet.Rules[ruleIndex]
+
+			for selectorIndex := range rule.Selectors {
+				sel := rule.Selectors[selectorIndex]
+				if len(sel.Parts) == 0 {
+					continue
+				}
+
+				totalSels++
+				last := sel.Parts[len(sel.Parts)-1]
+
+				counts := &hostCounts
+				if last.PseudoElement != "" {
+					if pseudoCounts == nil {
+						pseudoCounts = map[string]*keyCounts{}
+					}
+
+					counts = pseudoCounts[last.PseudoElement]
+					if counts == nil {
+						counts = new(keyCounts)
+						pseudoCounts[last.PseudoElement] = counts
+					}
+
+					if declaresContent(rule) {
+						index.content = true
+
+						if index.contentPseudo == nil {
+							index.contentPseudo = map[string]bool{}
+						}
+
+						index.contentPseudo[last.PseudoElement] = true
+					}
+				}
+
+				switch {
+				case last.ID != "":
+					if counts.byID == nil {
+						counts.byID = map[string]int{}
+					}
+
+					counts.byID[last.ID]++
+				case len(last.Classes) > 0:
+					if counts.byClass == nil {
+						counts.byClass = map[string]int{}
+					}
+
+					counts.byClass[last.Classes[0]]++
+				case last.Tag != "" && last.Tag != "*":
+					if counts.byTag == nil {
+						counts.byTag = map[string]int{}
+					}
+
+					counts.byTag[strings.ToLower(last.Tag)]++
+				default:
+					counts.universal++
+				}
+			}
+		}
+	}
+
+	if totalSels == 0 {
+		return index
+	}
+
+	// Preallocate a single contiguous backing array for all rule slices.
+	allSels := make([]ruleSel, totalSels)
+	offset := 0
+
+	initBucket := func(b *ruleBucket, counts *keyCounts) {
+		if counts == nil {
+			return
+		}
+
+		if len(counts.byID) > 0 {
+			b.byID = make(map[string][]ruleSel, len(counts.byID))
+			for k, n := range counts.byID {
+				b.byID[k] = allSels[offset : offset : offset+n]
+				offset += n
+			}
+		}
+
+		if len(counts.byClass) > 0 {
+			b.byClass = make(map[string][]ruleSel, len(counts.byClass))
+			for k, n := range counts.byClass {
+				b.byClass[k] = allSels[offset : offset : offset+n]
+				offset += n
+			}
+		}
+
+		if len(counts.byTag) > 0 {
+			b.byTag = make(map[string][]ruleSel, len(counts.byTag))
+			for k, n := range counts.byTag {
+				b.byTag[k] = allSels[offset : offset : offset+n]
+				offset += n
+			}
+		}
+
+		if counts.universal > 0 {
+			b.universal = allSels[offset : offset : offset+counts.universal]
+			offset += counts.universal
+		}
+	}
+
+	initBucket(&index.host, &hostCounts)
+
+	if len(pseudoCounts) > 0 {
+		index.pseudo = make(map[string]*ruleBucket, len(pseudoCounts))
+		for pseudo, pcounts := range pseudoCounts {
+			bucket := new(ruleBucket)
+			initBucket(bucket, pcounts)
+			index.pseudo[pseudo] = bucket
+		}
+	}
+
+	// Pass 2: populate the preallocated slices. Each append writes into
+	// the reserved capacity in allSels with zero reallocations.
 	for sheetIndex, sheet := range sheets {
 		if sheet == nil {
 			continue
@@ -67,16 +203,6 @@ func newRuleIndex(sheets []*css.Stylesheet) *ruleIndex {
 				last := sel.Parts[len(sel.Parts)-1]
 				bucket := index.bucket(last.PseudoElement)
 				bucket.add(ruleSel{sheet: sheetIndex, rule: rule, sel: selectorIndex}, last)
-
-				if last.PseudoElement != "" && declaresContent(rule) {
-					index.content = true
-
-					if index.contentPseudo == nil {
-						index.contentPseudo = map[string]bool{}
-					}
-
-					index.contentPseudo[last.PseudoElement] = true
-				}
 			}
 		}
 	}

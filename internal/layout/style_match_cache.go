@@ -110,7 +110,10 @@ func sharedCompiledFor(sheets []*css.Stylesheet) *sharedCompiled {
 	bundle.index = newRuleIndex(sheets)
 
 	if len(sharedCompiledBy) >= maxSharedCompiledEntries {
-		sharedCompiledBy = make(map[string]*sharedCompiled)
+		for k := range sharedCompiledBy {
+			delete(sharedCompiledBy, k)
+			break
+		}
 	}
 
 	sharedCompiledBy[key] = bundle

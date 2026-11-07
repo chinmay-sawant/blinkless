@@ -262,11 +262,12 @@ func TestParseAllocReduction(t *testing.T) {
 		t.Fatalf("bench doc has %d divs, want 500", divs)
 	}
 
-	// Pre-edit baseline: 9037 allocs per Parse. The tokenizer scratch pooling
-	// (item 5), running attr-byte total (item 9), and pre-sized attribute
-	// stores (items 1-2) cut this to ~7035. The ceiling leaves headroom for
-	// allocator noise while still failing if the pooling regresses.
-	const allocCeiling = 8000.0
+	// Pre-edit baseline: 9037 allocs per Parse. Tokenizer scratch pooling
+	// and pre-sized attribute stores cut this to ~7035. Zero-copy attribute
+	// slicing, 0-attr tag fast-paths, and treeBuilder scratch pooling further
+	// cut this to ~3531. The ceiling leaves headroom for allocator noise
+	// while still failing if the optimizations regress.
+	const allocCeiling = 4500.0
 
 	if got := testing.AllocsPerRun(100, func() {
 		if _, err := Parse(doc); err != nil {
@@ -298,3 +299,13 @@ func TestParseNoAttrNilMaps(t *testing.T) {
 		}
 	})
 }
+
+func BenchmarkParse(b *testing.B) {
+	doc := allocBenchDoc()
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		_, _ = Parse(doc)
+	}
+}
+

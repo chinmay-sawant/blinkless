@@ -365,9 +365,13 @@ func patchedBatchDisplay(
 // applyPaintOnlyBoxTexts follows. The operation slice is the batch's private
 // clone: the previous display keeps reading its own operation backing.
 func paintOnlyBatchDisplay(prev *Display, res *ilayout.Result) *Display {
+	if prev != nil && prev.result != nil && prev.result != res {
+		prev.result.DisownChunks()
+	}
 	display := *prev
 	display.Ops = res.Ops
 	display.result = res
+	res.Retain()
 
 	return &display
 }

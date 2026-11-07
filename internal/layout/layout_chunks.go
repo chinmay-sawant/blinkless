@@ -2,13 +2,38 @@ package layout
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
-// Release returns resources associated with Result back to pools.
+// Retain increments the reference counter of r.
+func (r *Result) Retain() {
+	if r == nil {
+		return
+	}
+	atomic.AddInt32(&r.refs, 1)
+}
+
+// DisownChunks clears the chunk slices on r without returning them to pools,
+// transferring ownership of those chunks to a clone.
+func (r *Result) DisownChunks() {
+	if r == nil {
+		return
+	}
+	r.styleChunks = nil
+	r.boxChunks = nil
+	r.storeChunks = nil
+}
+
+// Release returns resources associated with Result back to pools
+// when the reference count reaches zero.
 func (r *Result) Release() {
 	if r == nil {
+		return
+	}
+
+	if atomic.AddInt32(&r.refs, -1) > 0 {
 		return
 	}
 

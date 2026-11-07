@@ -199,6 +199,9 @@ func restampedDisplay(prev *Display) *Display {
 	next := *prev
 	next.Ops = prev.result.Ops
 	next.result = prev.result
+	if next.result != nil {
+		next.result.Retain()
+	}
 
 	return &next
 }

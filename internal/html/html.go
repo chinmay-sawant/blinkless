@@ -258,13 +258,17 @@ const maxParseInputBytes = 64 * 1024 * 1024
 // ParseDocument for the bytes-to-tree path (it strips the BOM), or
 // ParseWithLimit when an explicit bound is needed.
 func Parse(source string) (*Node, error) {
-	builder := newTreeBuilder()
+	root := &Node{Type: ElementNode, Name: "#document"} //nolint:exhaustruct
+	builder := getTreeBuilder(root)
 
 	scanTokens(source, builder.appendToken, builder.foreignCDATAAllowed)
 	builder.finish()
 	builder.applySelectedContentIfNeeded()
 
-	return builder.root, nil
+	res := builder.root
+	putTreeBuilder(builder)
+
+	return res, nil
 }
 
 // ParseWithLimit turns HTML source into a tree, rejecting input larger than
@@ -739,16 +743,21 @@ func scanEndTag(src string, pos int, emit tokenSink) int {
 		return len(src) // EOF in tag name: drop the token
 	}
 
-	if src[j] == '>' {
-		emit(token{kind: tokEnd, data: name}) //nolint:exhaustruct
-
-		return j + 1
+	w := j
+	for w < len(src) && isWhitespace(src[w]) {
+		w++
 	}
 
-	if src[j] == '/' && j+1 < len(src) && src[j+1] == '>' {
+	if w < len(src) && src[w] == '>' {
 		emit(token{kind: tokEnd, data: name}) //nolint:exhaustruct
 
-		return j + 2 // end tag with trailing solidus
+		return w + 1
+	}
+
+	if w+1 < len(src) && src[w] == '/' && src[w+1] == '>' {
+		emit(token{kind: tokEnd, data: name}) //nolint:exhaustruct
+
+		return w + 2 // end tag with trailing solidus
 	}
 
 	// Attributes on end tags are parsed and ignored.
@@ -799,6 +808,29 @@ func scanTagAttributesInto(
 	defer putTagAttrBuilder(valueBuf)
 
 	var attrBytes int // running byte total of the stored pairs; see appendCappedAttr
+	var nameStr, valStr string
+
+	getAttrName := func() string {
+		if nameBuf.Len() > 0 {
+			s := strings.ToLower(nameBuf.String())
+			nameBuf.Reset()
+			return s
+		}
+		s := strings.ToLower(nameStr)
+		nameStr = ""
+		return s
+	}
+
+	getAttrVal := func() string {
+		if valueBuf.Len() > 0 {
+			s := valueBuf.String()
+			valueBuf.Reset()
+			return s
+		}
+		s := valStr
+		valStr = ""
+		return s
+	}
 
 	state := tagStateBeforeAttrName
 
@@ -824,10 +856,41 @@ func scanTagAttributesInto(
 				i++
 			default:
 				nameBuf.Reset()
+				nameStr = ""
 
 				state = tagStateAttrName
 			}
 		case tagStateAttrName:
+			start := i
+			for i < len(src) && !isWhitespace(src[i]) && src[i] != '/' && src[i] != '>' && src[i] != '=' && src[i] != 0 {
+				i++
+			}
+			if i > start {
+				run := src[start:i]
+				if nameBuf.Len() == 0 && nameStr == "" {
+					if len(run) > maxAttributeNameBytes {
+						run = run[:maxAttributeNameBytes]
+					}
+					nameStr = run
+				} else {
+					if nameStr != "" {
+						nameBuf.WriteString(nameStr)
+						nameStr = ""
+					}
+					if nameBuf.Len()+len(run) <= maxAttributeNameBytes {
+						nameBuf.WriteString(run)
+					} else if nameBuf.Len() < maxAttributeNameBytes {
+						nameBuf.WriteString(run[:maxAttributeNameBytes-nameBuf.Len()])
+					}
+				}
+				continue
+			}
+
+			if i >= len(src) {
+				break
+			}
+			c = src[i]
+
 			switch {
 			case isWhitespace(c):
 				state = tagStateAfterAttrName
@@ -839,9 +902,13 @@ func scanTagAttributesInto(
 				state = tagStateBeforeAttrValue
 
 				i++
-			default:
-				if nameBuf.Len() < maxAttributeNameBytes {
-					appendNULReplaced(nameBuf, c)
+			case c == 0:
+				if nameStr != "" {
+					nameBuf.WriteString(nameStr)
+					nameStr = ""
+				}
+				if nameBuf.Len()+len(nulReplacement) <= maxAttributeNameBytes {
+					nameBuf.WriteString(nulReplacement)
 				}
 
 				i++
@@ -851,8 +918,7 @@ func scanTagAttributesInto(
 			case isWhitespace(c):
 				i++
 			case c == '/':
-				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, strings.ToLower(nameBuf.String()), "")
-				nameBuf.Reset()
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), "")
 
 				state = tagStateSelfClosing
 
@@ -862,12 +928,11 @@ func scanTagAttributesInto(
 
 				i++
 			case c == '>':
-				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, strings.ToLower(nameBuf.String()), "")
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), "")
 
 				return attrs, selfClosing, i + 1, true
 			default:
-				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, strings.ToLower(nameBuf.String()), "")
-				nameBuf.Reset()
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), "")
 
 				state = tagStateAttrName
 			}
@@ -877,18 +942,21 @@ func scanTagAttributesInto(
 				i++
 			case c == '"':
 				state = tagStateAttrValueDouble
+				valStr = ""
 
 				i++
 			case c == '\'':
 				state = tagStateAttrValueSingle
+				valStr = ""
 
 				i++
 			case c == '>':
-				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, strings.ToLower(nameBuf.String()), "")
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), "")
 
 				return attrs, selfClosing, i + 1, true
 			default:
 				state = tagStateAttrValueUnquoted
+				valStr = ""
 			}
 		case tagStateAttrValueDouble, tagStateAttrValueSingle:
 			quote := byte('"')
@@ -896,91 +964,147 @@ func scanTagAttributesInto(
 				quote = '\''
 			}
 
+			start := i
+			for i < len(src) && src[i] != quote && src[i] != 0 && src[i] != '&' {
+				i++
+			}
+			if i > start {
+				run := src[start:i]
+				if valueBuf.Len() == 0 && valStr == "" {
+					if len(run) > maxAttributeValueBytes {
+						run = run[:maxAttributeValueBytes]
+					}
+					valStr = run
+				} else {
+					if valStr != "" {
+						valueBuf.WriteString(valStr)
+						valStr = ""
+					}
+					if valueBuf.Len()+len(run) <= maxAttributeValueBytes {
+						valueBuf.WriteString(run)
+					} else if valueBuf.Len() < maxAttributeValueBytes {
+						valueBuf.WriteString(run[:maxAttributeValueBytes-valueBuf.Len()])
+					}
+				}
+				continue
+			}
+
+			if i >= len(src) {
+				break
+			}
+			c = src[i]
+
 			switch {
 			case c == quote:
 				state = tagStateAfterAttrValueQuoted
 
 				i++
 			case c == 0:
+				if valStr != "" {
+					valueBuf.WriteString(valStr)
+					valStr = ""
+				}
 				if valueBuf.Len()+len(nulReplacement) <= maxAttributeValueBytes {
 					valueBuf.WriteString(nulReplacement)
 				}
 
 				i++
 			case c == '&':
+				if valStr != "" {
+					valueBuf.WriteString(valStr)
+					valStr = ""
+				}
 				decoded, consumed := decodeAttributeReference(src, i)
 				if valueBuf.Len()+len(decoded) <= maxAttributeValueBytes {
 					valueBuf.WriteString(decoded)
 				}
 
 				i += consumed
-			default:
-				if valueBuf.Len() < maxAttributeValueBytes {
-					valueBuf.WriteByte(c)
-				}
-
-				i++
 			}
 		case tagStateAttrValueUnquoted:
+			start := i
+			for i < len(src) && !isWhitespace(src[i]) && src[i] != '>' && src[i] != 0 && src[i] != '&' {
+				i++
+			}
+			if i > start {
+				run := src[start:i]
+				if valueBuf.Len() == 0 && valStr == "" {
+					if len(run) > maxAttributeValueBytes {
+						run = run[:maxAttributeValueBytes]
+					}
+					valStr = run
+				} else {
+					if valStr != "" {
+						valueBuf.WriteString(valStr)
+						valStr = ""
+					}
+					if valueBuf.Len()+len(run) <= maxAttributeValueBytes {
+						valueBuf.WriteString(run)
+					} else if valueBuf.Len() < maxAttributeValueBytes {
+						valueBuf.WriteString(run[:maxAttributeValueBytes-valueBuf.Len()])
+					}
+				}
+				continue
+			}
+
+			if i >= len(src) {
+				break
+			}
+			c = src[i]
+
 			switch {
 			case isWhitespace(c):
-				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, strings.ToLower(nameBuf.String()), valueBuf.String())
-				nameBuf.Reset()
-				valueBuf.Reset()
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), getAttrVal())
 
 				state = tagStateBeforeAttrName
 
 				i++
 			case c == '>':
-				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, strings.ToLower(nameBuf.String()), valueBuf.String())
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), getAttrVal())
 
 				return attrs, selfClosing, i + 1, true
 			case c == 0:
+				if valStr != "" {
+					valueBuf.WriteString(valStr)
+					valStr = ""
+				}
 				if valueBuf.Len()+len(nulReplacement) <= maxAttributeValueBytes {
 					valueBuf.WriteString(nulReplacement)
 				}
 
 				i++
 			case c == '&':
+				if valStr != "" {
+					valueBuf.WriteString(valStr)
+					valStr = ""
+				}
 				decoded, consumed := decodeAttributeReference(src, i)
 				if valueBuf.Len()+len(decoded) <= maxAttributeValueBytes {
 					valueBuf.WriteString(decoded)
 				}
 
 				i += consumed
-			default:
-				if valueBuf.Len() < maxAttributeValueBytes {
-					valueBuf.WriteByte(c)
-				}
-
-				i++
 			}
 		case tagStateAfterAttrValueQuoted:
 			switch {
 			case isWhitespace(c):
-				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, strings.ToLower(nameBuf.String()), valueBuf.String())
-				nameBuf.Reset()
-				valueBuf.Reset()
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), getAttrVal())
 
 				state = tagStateBeforeAttrName
 
 				i++
 			case c == '/':
-				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, strings.ToLower(nameBuf.String()), valueBuf.String())
-				nameBuf.Reset()
-				valueBuf.Reset()
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), getAttrVal())
 
 				state = tagStateSelfClosing
 
 				i++
 			case c == '>':
-				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, strings.ToLower(nameBuf.String()), valueBuf.String())
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), getAttrVal())
 
 				return attrs, selfClosing, i + 1, true
 			default:
-				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, strings.ToLower(nameBuf.String()), valueBuf.String())
-				nameBuf.Reset()
-				valueBuf.Reset()
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), getAttrVal())
 
 				state = tagStateBeforeAttrName
 			}
@@ -1036,18 +1160,36 @@ func scanStartTag(src string, pos int, emit tokenSink, attrScratch *[]string) in
 
 	name := strings.ToLower(replaceNUL(src[nameStart:i]))
 
-	var attrs []string
-	if attrScratch != nil {
-		attrs = *attrScratch
+	var (
+		attrs       []string
+		selfClosing bool
+		next        int
+	)
+
+	w := i
+	for w < len(src) && isWhitespace(src[w]) {
+		w++
 	}
 
-	attrs, selfClosing, next, ok := scanTagAttributesInto(src, i, attrs)
-	if !ok {
-		return len(src) // EOF inside the tag: drop the token
-	}
+	if w < len(src) && src[w] == '>' {
+		next = w + 1
+	} else if w+1 < len(src) && src[w] == '/' && src[w+1] == '>' {
+		selfClosing = true
+		next = w + 2
+	} else {
+		if attrScratch != nil {
+			attrs = *attrScratch
+		}
 
-	if attrScratch != nil {
-		*attrScratch = attrs
+		var ok bool
+		attrs, selfClosing, next, ok = scanTagAttributesInto(src, i, attrs)
+		if !ok {
+			return len(src) // EOF inside the tag: drop the token
+		}
+
+		if attrScratch != nil {
+			*attrScratch = attrs
+		}
 	}
 
 	emit(token{kind: tokStart, data: name, attrs: attrs, selfClosing: selfClosing})

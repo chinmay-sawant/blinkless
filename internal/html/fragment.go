@@ -56,7 +56,10 @@ func parseFragment(contextName string, contextNS Namespace, contextAttrs []strin
 	context := &Node{Type: ElementNode, Name: contextName, Namespace: contextNS} //nolint:exhaustruct
 	applyAttributes(context, contextAttrs)
 
-	builder := newFragmentTreeBuilder(context)
+	root := &Node{Type: ElementNode, Name: "html"} //nolint:exhaustruct
+	builder := getTreeBuilder(root)
+	builder.fragment = true
+	builder.fragmentContext = context
 
 	if isTemplateElement(context) {
 		builder.pushTemplateMode(modeInTemplate)
@@ -68,7 +71,10 @@ func parseFragment(contextName string, contextNS Namespace, contextAttrs []strin
 	builder.finish()
 	applySelectedContent(builder.root)
 
-	return builder.root
+	res := builder.root
+	putTreeBuilder(builder)
+
+	return res
 }
 
 // scanFragmentTokens tokenizes fragment input under the context's tokenizer

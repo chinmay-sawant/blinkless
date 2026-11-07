@@ -2,6 +2,7 @@ package layout
 
 import (
 	"math"
+	"sync"
 	"sync/atomic"
 
 	"github.com/chinmay-sawant/blinkless/internal/html"
@@ -115,6 +116,41 @@ func (e *engine) flexBaseStyleStable(node *html.Node, style *ResolvedStyle) bool
 	return e.styles[node] == style
 }
 
+//nolint:gochecknoglobals // global pool for reusable flex style override maps
+var flexOverrideMapPool = sync.Pool{
+	New: func() any {
+		return make(map[flexStyleOverrideKey]*ResolvedStyle, 16)
+	},
+}
+
+// allocFlexOverrideStyle allocates a ResolvedStyle from a chunk that survives
+// until finalizeResult adopts it, ensuring speculative measure scopes that
+// unwind e.styleChunks cannot invalidate cached overrides.
+func (e *engine) allocFlexOverrideStyle(base *ResolvedStyle) *ResolvedStyle {
+	if len(e.overrideStyleChunks) == 0 || len(*e.overrideStyleChunks[len(e.overrideStyleChunks)-1]) == cap(*e.overrideStyleChunks[len(e.overrideStyleChunks)-1]) {
+		if len(e.spareChunks) > 0 {
+			last := len(e.spareChunks) - 1
+			spare := e.spareChunks[last]
+			*spare = (*spare)[:0]
+			e.spareChunks = e.spareChunks[:last]
+			e.overrideStyleChunks = append(e.overrideStyleChunks, spare)
+		} else {
+			e.overrideStyleChunks = append(e.overrideStyleChunks, getStyleChunk())
+		}
+	}
+
+	last := len(e.overrideStyleChunks) - 1
+	chunk := e.overrideStyleChunks[last]
+
+	if base != nil {
+		*chunk = append(*chunk, *base)
+	} else {
+		*chunk = append(*chunk, zeroResolvedStyle)
+	}
+
+	return &(*chunk)[len(*chunk)-1]
+}
+
 // flexRowStyleOverride returns the immutable override of base used to build a
 // row or logical-axis flex item: the main width forced to availW and, when
 // forceStretch, the cross height forced to targetCross. Repeated items that
@@ -130,18 +166,21 @@ func (e *engine) flexRowStyleOverride(
 	}
 
 	if !flexOverrideBypass.Load() {
-		if cached, ok := e.flexStyleOverrides[key]; ok {
-			flexOverrideHits.Add(1)
+		if e.flexStyleOverrides != nil {
+			if cached, ok := e.flexStyleOverrides[key]; ok {
+				flexOverrideHits.Add(1)
 
-			return cached
+				return cached
+			}
 		}
 	}
 
 	// The override is owned by the cache and outlives the measure scopes that
-	// reclaim allocStyle chunks, so it cannot come from a style chunk: a
-	// resetStyles later in the run would clear and reuse that memory.
-	override := new(ResolvedStyle)
-	*override = *base
+	// reclaim allocStyle chunks, so it cannot come from e.styleChunks: a
+	// resetStyles later in the run would clear and reuse that memory. Instead,
+	// it comes from overrideStyleChunks, which survives until finalizeResult
+	// merges them into Result.styleChunks.
+	override := e.allocFlexOverrideStyle(base)
 	e.forceFlexItemMainSize(override, availW)
 
 	if forceStretch {
@@ -166,15 +205,16 @@ func (e *engine) flexColumnStyleOverride(
 	}
 
 	if !flexOverrideBypass.Load() {
-		if cached, ok := e.flexStyleOverrides[key]; ok {
-			flexOverrideHits.Add(1)
+		if e.flexStyleOverrides != nil {
+			if cached, ok := e.flexStyleOverrides[key]; ok {
+				flexOverrideHits.Add(1)
 
-			return cached
+				return cached
+			}
 		}
 	}
 
-	override := new(ResolvedStyle)
-	*override = *base
+	override := e.allocFlexOverrideStyle(base)
 	e.forceFlexItemCrossSize(override, height)
 
 	if forceCrossWidth {
@@ -225,7 +265,12 @@ func (e *engine) storeFlexStyleOverride(key flexStyleOverrideKey, override *Reso
 	}
 
 	if e.flexStyleOverrides == nil {
-		e.flexStyleOverrides = make(map[flexStyleOverrideKey]*ResolvedStyle)
+		if m, ok := flexOverrideMapPool.Get().(map[flexStyleOverrideKey]*ResolvedStyle); ok {
+			clear(m)
+			e.flexStyleOverrides = m
+		} else {
+			e.flexStyleOverrides = make(map[flexStyleOverrideKey]*ResolvedStyle, 16)
+		}
 	} else if len(e.flexStyleOverrides) >= flexOverrideMaxEntries {
 		return
 	}

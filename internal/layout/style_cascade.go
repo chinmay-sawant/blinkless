@@ -596,18 +596,11 @@ func inheritGapBProps(dst *ResolvedStyle, parent *ResolvedStyle, raw map[string]
 	}
 }
 
-// ruleIndex returns the pass's selector index, building it from the sheets on
-// first use. A context with no sheets has nothing to index.
+// ruleIndex returns the pass's selector index, reusing the cross-layout
+// bundle for this context's sheets. A context with no sheets has nothing to
+// index.
 func (ctx *styleContext) ruleIndex() *ruleIndex {
-	if ctx == nil || len(ctx.sheets) == 0 {
-		return nil
-	}
-
-	if ctx.index == nil {
-		ctx.index = newRuleIndex(ctx.sheets)
-	}
-
-	return ctx.index
+	return ctx.sharedRuleIndex()
 }
 
 // selectorMatches reports whether sel matches node, using the pseudo-shape

@@ -86,6 +86,11 @@ func finalizeResult(eng *engine, root *html.Node, opts Options) (*Result, error)
 
 	eng.spareChunks = nil
 
+	if len(eng.overrideStyleChunks) > 0 {
+		eng.styleChunks = append(eng.styleChunks, eng.overrideStyleChunks...)
+		eng.overrideStyleChunks = nil
+	}
+
 	for _, c := range eng.spareBoxChunks {
 		putBoxChunk(c)
 	}

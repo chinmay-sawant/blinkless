@@ -3,7 +3,10 @@
 //nolint:all // insertion-mode tree builder; same custom Node model and
 package html
 
-import "strings"
+import (
+	"strings"
+	"sync"
+)
 
 // maxElementDepth caps element nesting. Elements that would nest deeper are
 // dropped by insertNode, so recursive walks stay bounded on adversarial input
@@ -103,12 +106,92 @@ type treeBuilder struct {
 
 func newTreeBuilder() *treeBuilder {
 	root := &Node{Type: ElementNode, Name: "#document"} //nolint:exhaustruct
+	stack := make([]*Node, 1, 32)
+	stack[0] = root
 
 	return &treeBuilder{
-		root:       root,
-		stack:      []*Node{root},
-		framesetOK: true,
+		root:             root,
+		stack:            stack,
+		framesetOK:       true,
+		activeFormatting: make([]*Node, 0, 16),
+		templateModes:    make([]insertionMode, 0, 4),
+		pendingTableText: make([]string, 0, 8),
+		textBytes:        make([]byte, 0, 256),
 	}
+}
+
+var treeBuilderPool = sync.Pool{
+	New: func() any {
+		return &treeBuilder{
+			stack:            make([]*Node, 0, 32),
+			activeFormatting: make([]*Node, 0, 16),
+			templateModes:    make([]insertionMode, 0, 4),
+			pendingTableText: make([]string, 0, 8),
+			textBytes:        make([]byte, 0, 256),
+		}
+	},
+}
+
+func getTreeBuilder(root *Node) *treeBuilder {
+	b := treeBuilderPool.Get().(*treeBuilder)
+	b.reset(root)
+
+	return b
+}
+
+func putTreeBuilder(b *treeBuilder) {
+	if b == nil {
+		return
+	}
+
+	b.root = nil
+	b.head = nil
+	b.form = nil
+	b.fragmentContext = nil
+	b.textAccum = nil
+	clear(b.stack)
+	b.stack = b.stack[:0]
+	clear(b.activeFormatting)
+	b.activeFormatting = b.activeFormatting[:0]
+	b.templateModes = b.templateModes[:0]
+	b.pendingTableText = b.pendingTableText[:0]
+	b.textBytes = b.textBytes[:0]
+
+	if cap(b.stack) > 1024 {
+		b.stack = make([]*Node, 0, 32)
+	}
+	if cap(b.activeFormatting) > 512 {
+		b.activeFormatting = make([]*Node, 0, 16)
+	}
+	if cap(b.textBytes) > 65536 {
+		b.textBytes = make([]byte, 0, 256)
+	}
+
+	treeBuilderPool.Put(b)
+}
+
+func (b *treeBuilder) reset(root *Node) {
+	b.root = root
+	b.stack = append(b.stack[:0], root)
+	b.mode = modeInitial
+	b.textReturn = modeInitial
+	b.head = nil
+	b.form = nil
+	b.docMode = 0
+	b.docModeSet = false
+	b.ignoreNextLF = false
+	b.fosterParenting = false
+	b.pendingTableText = b.pendingTableText[:0]
+	b.activeFormatting = b.activeFormatting[:0]
+	b.templateModes = b.templateModes[:0]
+	b.framesetOK = true
+	b.fragment = false
+	b.fragmentContext = nil
+	b.reparseRawText = false
+	b.reparseDepth = 0
+	b.sawSelectedContent = false
+	b.textAccum = nil
+	b.textBytes = b.textBytes[:0]
 }
 
 // insertMarker pushes a scope marker onto the active formatting list.
@@ -127,7 +210,7 @@ func (b *treeBuilder) clearActiveFormattingToMarker() {
 		}
 	}
 
-	b.activeFormatting = nil
+	b.activeFormatting = b.activeFormatting[:0]
 }
 
 func (b *treeBuilder) top() *Node {
@@ -1376,7 +1459,7 @@ func (b *treeBuilder) appendCommentTo(parent *Node, data string) {
 func (b *treeBuilder) appendTextToken(data string) {
 	if b.currentIsForeignText() {
 		data = replaceNUL(data)
-	} else {
+	} else if strings.IndexByte(data, 0) >= 0 {
 		data = strings.ReplaceAll(data, "\x00", "")
 	}
 
@@ -1466,18 +1549,22 @@ func (b *treeBuilder) flushTextAccum() {
 // stay complete for every element: narrowing the map to hot keys would change
 // Attribute lookups, whose paths belong to the attribute owner.
 func applyAttributes(node *Node, attrs []string) {
-	if len(attrs) == 0 {
+	const attrPairSize = 2 // attrs slice interleaves name and value
+	numPairs := len(attrs) / attrPairSize
+	if numPairs == 0 {
 		return
 	}
 
-	const attrPairSize = 2 // attrs slice interleaves name and value
+	// Fast path for elements with exactly 1 attribute (very common: class or id).
+	if numPairs == 1 && len(attrs) == 2 && node.Attrs == nil && node.AttrList == nil {
+		key, attr := adjustAttributeName(node.Namespace, attrs[0], attrs[1])
+		pairBytes := len(key) + len(attr.Value)
+		if pairBytes <= maxAttributeBytesPerElement {
+			node.Attrs = map[string]string{key: attr.Value}
+			node.AttrList = []Attr{attr}
 
-	if node.Attrs == nil {
-		node.Attrs = make(map[string]string, len(attrs)/attrPairSize)
-	}
-
-	if node.AttrList == nil {
-		node.AttrList = make([]Attr, 0, len(attrs)/attrPairSize)
+			return
+		}
 	}
 
 	totalBytes := 0
@@ -1494,8 +1581,17 @@ func applyAttributes(node *Node, attrs []string) {
 			break
 		}
 
-		if _, dup := node.Attrs[key]; dup {
-			continue
+		if node.Attrs != nil {
+			if _, dup := node.Attrs[key]; dup {
+				continue
+			}
+		}
+
+		if node.Attrs == nil {
+			node.Attrs = make(map[string]string, numPairs)
+		}
+		if node.AttrList == nil {
+			node.AttrList = make([]Attr, 0, numPairs)
 		}
 
 		node.Attrs[key] = attr.Value
