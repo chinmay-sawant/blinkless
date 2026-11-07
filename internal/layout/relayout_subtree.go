@@ -603,12 +603,16 @@ func checkRelayoutAnchors(root *box, patched *box) error {
 // maxSubtreeStyleStores bounds the pooled subtree style stores: one entry
 // per recently patched document. maxSubtreeStyleStoreChunks bounds one
 // entry: four chunks hold 8+16+32+64 records, about 700 KB of 5872-byte
-// styles. A store that grows past the chunk bound is dropped instead of
-// pooled, so one large subtree cannot pin memory for later small patches;
-// the live result keeps its own records through its pointers either way.
+// styles. maxSubtreeStyleStoreInternLen bounds one entry's intern map:
+// a pathological document could otherwise grow one pooled store's buckets
+// without bound and the pool slot would pin them. A store past either bound
+// is dropped instead of pooled, so one large subtree cannot pin memory for
+// later small patches; the live result keeps its own records through its
+// pointers either way, and the next patch simply rents fresh.
 const (
-	maxSubtreeStyleStores      = 4
-	maxSubtreeStyleStoreChunks = 4
+	maxSubtreeStyleStores         = 4
+	maxSubtreeStyleStoreChunks    = 4
+	maxSubtreeStyleStoreInternLen = 4096
 )
 
 // subtreeStyleDocTag identifies the document a pooled style store resolved:
@@ -693,10 +697,21 @@ func rentSubtreeStyleStore(tag subtreeStyleDocTag) *styleStore {
 // into it. The candidate scratch is cleared so the next rent starts clean;
 // the chunks and the intern map stay, because the live result still points
 // into them and the next patch for the same document shares them by
-// appending only, never by overwriting. A store past the chunk bound, or a
-// pool that is full, drops the store instead of retaining it.
+// appending only, never by overwriting. A store past the chunk or intern
+// bound, a store whose tag carries no document address to match cheaply, or
+// a pool that is full, drops the store instead of retaining it. Dropping
+// never changes a resolved style: sharing still requires content equality
+// through styleInternEqual, so the next patch rents fresh and resolves the
+// same styles by content.
 func putSubtreeStyleStore(tag subtreeStyleDocTag, store *styleStore) {
 	if store == nil {
+		return
+	}
+
+	// Without a document address the tag equality cannot identify the
+	// document cheaply, so the store is not pooled. Rent keeps the existing
+	// tag equality and never consults another document's intern map.
+	if tag.root == 0 {
 		return
 	}
 
@@ -704,6 +719,19 @@ func putSubtreeStyleStore(tag subtreeStyleDocTag, store *styleStore) {
 
 	if len(store.chunks) > maxSubtreeStyleStoreChunks {
 		return
+	}
+
+	if len(store.intern) > maxSubtreeStyleStoreInternLen {
+		return
+	}
+
+	total := 0
+
+	for _, bucket := range store.intern {
+		total += len(bucket)
+		if total > maxSubtreeStyleStoreInternLen {
+			return
+		}
 	}
 
 	subtreeStyleStores.mu.Lock()

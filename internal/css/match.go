@@ -93,6 +93,20 @@ var (
 	sibMisses  int64
 )
 
+// Sibling memo capacity: each entry pins its parent's whole DOM tree, so an
+// unbounded map keeps every full parse's old tree reachable. Past the soft
+// cap an insert evicts roughly a quarter of the entries; the hard cap keeps
+// the previous clear-all as a backstop. The attribute lowered-value cache
+// below pins elements the same way, so it shares the soft-cap discipline.
+const (
+	sibParentsSoftCap = 2048
+	sibParentsHardCap = 16384
+	sibEvictDivisor   = 4
+
+	attrParentsSoftCap = 2048
+	attrEvictDivisor   = 4
+)
+
 // siblingTypeKey groups element siblings for of-type indices. HTML names fold
 // ASCII case-insensitively; foreign names stay exact.
 func siblingTypeKey(n *html.Node) string {
@@ -189,7 +203,22 @@ func siblingEntryFor(parent *html.Node) *sibParentData {
 		sibParents = make(map[*html.Node]*sibParentData)
 	}
 
-	if len(sibParents) > 16384 {
+	if len(sibParents) >= sibParentsSoftCap {
+		// Soft cap: drop roughly a quarter of the entries via map range.
+		// Range order is arbitrary, so the victims are arbitrary; a miss
+		// rebuilds from the live tree, so eviction is always safe.
+		victims := len(sibParents) / sibEvictDivisor
+		for key := range sibParents {
+			delete(sibParents, key)
+
+			victims--
+			if victims <= 0 {
+				break
+			}
+		}
+	}
+
+	if len(sibParents) > sibParentsHardCap {
 		sibParents = make(map[*html.Node]*sibParentData)
 	}
 
@@ -679,6 +708,21 @@ func getCachedLoweredAttr(node *html.Node, name, val string) string {
 
 	if attrCache == nil {
 		attrCache = make(map[attrCacheKey]attrCacheVal)
+	}
+
+	if len(attrCache) >= attrParentsSoftCap {
+		// Soft cap: the key holds the element, so an unbounded map pins
+		// every parsed tree. Drop roughly a quarter via map range; a miss
+		// recomputes from the live attribute, so eviction is always safe.
+		victims := len(attrCache) / attrEvictDivisor
+		for key := range attrCache {
+			delete(attrCache, key)
+
+			victims--
+			if victims <= 0 {
+				break
+			}
+		}
 	}
 
 	if len(attrCache) > 16384 {

@@ -14,6 +14,11 @@ import (
 const (
 	maxHoverListEntries  = 16
 	maxHoverMemoPerEntry = 4096
+	// maxHoverMemoBytes caps retained memo key strings at ~4MB. Keys carry
+	// full attribute strings (style attrs run to kilobytes), so the 4096-entry
+	// count cap alone retains ~16MB worst case. The byte cap trips first for
+	// large keys while small keys still fill the count cap.
+	maxHoverMemoBytes = 4 * 1024 * 1024
 )
 
 //nolint:gochecknoglobals // bounded shared hover caches; entries keep sheets plus signature outcomes only, never document trees.
@@ -29,16 +34,21 @@ var (
 // document sheet pointers so pointer identity stays valid while cached.
 // selectors shares its selector values read-only across calls and goroutines.
 // local precomputes SelectorIsElementLocal per selector. memo maps an
-// element-local outcome key to its match result. intern pools canonical tag
-// and attrs strings so repeated evaluations of the same node share one
-// backing string instead of duplicating it per hover id; it is guarded by mu
-// alongside memo and is cleared together with memo on overflow.
+// element-local outcome key to its match result. memoBytes tracks the
+// approximate retained key bytes (sum of len(tag)+len(attrs) at insert,
+// ignoring map overhead and sharing), guarded by mu alongside memo, and
+// trips a clear at maxHoverMemoBytes alongside the count cap. intern pools
+// canonical tag and attrs strings so repeated evaluations of the same node
+// share one backing string instead of duplicating it per hover id; it is
+// guarded by mu alongside memo and is cleared together with memo on either
+// cap tripping.
 type hoverListEntry struct {
 	sheets    []*icss.Stylesheet
 	selectors []icss.Selector
 	local     []bool
 	mu        sync.RWMutex
 	memo      map[hoverMemoKey]bool
+	memoBytes int
 	intern    map[string]string
 }
 
@@ -225,13 +235,17 @@ func hoverMemoMatch(
 	hoverMemoMisses.Add(1)
 
 	entry.mu.Lock()
-	if len(entry.memo) >= maxHoverMemoPerEntry {
+	if len(entry.memo) >= maxHoverMemoPerEntry || entry.memoBytes >= maxHoverMemoBytes {
 		clear(entry.memo)
 		clear(entry.intern)
+		entry.memoBytes = 0
 	}
 	key.sel = idx
 	key.tag = internHoverString(entry, tag)
 	key.attrs = internHoverString(entry, attrs)
+	if _, dup := entry.memo[key]; !dup {
+		entry.memoBytes += len(key.tag) + len(key.attrs)
+	}
 	entry.memo[key] = fresh
 	entry.mu.Unlock()
 

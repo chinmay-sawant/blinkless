@@ -1106,6 +1106,88 @@ const styleStoreChunkSize = 64
 // keeps a small backing array instead of a full chunk of unused records.
 const styleStoreFirstChunk = 8
 
+// styleStore chunk backings are pooled per capacity so an 8-cap backing can
+// never serve a 16-cap request and vice versa. The 16-cap step keeps using
+// the shared engine pool (its producer is full-layout spare chunks); the
+// 8/32/64-cap steps use these segregated lists because the shared pool only
+// retains defaultStyleChunkSize backings. Each list only holds backings with
+// its exact capacity, and both get and put verify the capacity before reuse.
+//
+//nolint:gochecknoglobals // per-size free lists for styleStore backings
+var (
+	styleStoreChunkFree8  = make(chan *[]ResolvedStyle, maxStyleChunksRetained)
+	styleStoreChunkFree32 = make(chan *[]ResolvedStyle, maxStyleChunksRetained)
+	styleStoreChunkFree64 = make(chan *[]ResolvedStyle, maxStyleChunksRetained)
+)
+
+// getStyleStoreChunk returns a pooled backing with exactly cap want, or nil
+// when the per-size list is empty. A backing with any other capacity is never
+// served: it is routed back to its own list and the caller allocates fresh.
+func getStyleStoreChunk(want int) *[]ResolvedStyle {
+	var free chan *[]ResolvedStyle
+
+	switch want {
+	case styleStoreFirstChunk:
+		free = styleStoreChunkFree8
+	case styleStoreFirstChunk * 4:
+		free = styleStoreChunkFree32
+	case styleStoreChunkSize:
+		free = styleStoreChunkFree64
+	default:
+		return nil
+	}
+
+	select {
+	case chunk := <-free:
+		if chunk == nil || cap(*chunk) != want {
+			putStyleStoreChunk(chunk)
+
+			return nil
+		}
+
+		*chunk = (*chunk)[:0]
+
+		return chunk
+	default:
+		return nil
+	}
+}
+
+// putStyleStoreChunk retains chunk in its capacity's list. Backings with a
+// capacity outside the growth schedule are dropped, and a full list drops
+// the return, so one large patch cannot pin memory for later small ones.
+// A 16-cap backing belongs to the shared engine pool and is returned there.
+func putStyleStoreChunk(chunk *[]ResolvedStyle) {
+	if chunk == nil {
+		return
+	}
+
+	var free chan *[]ResolvedStyle
+
+	switch cap(*chunk) {
+	case styleStoreFirstChunk:
+		free = styleStoreChunkFree8
+	case styleStoreFirstChunk * 4:
+		free = styleStoreChunkFree32
+	case styleStoreChunkSize:
+		free = styleStoreChunkFree64
+	case defaultStyleChunkSize:
+		putStyleChunk(chunk)
+
+		return
+	default:
+		return
+	}
+
+	clear(*chunk)
+	*chunk = (*chunk)[:0]
+
+	select {
+	case free <- chunk:
+	default:
+	}
+}
+
 // styleStore owns resolved styles for one resolution pass. It deliberately
 // does not cross Layout calls or @container re-cascade passes.
 //
@@ -1164,24 +1246,32 @@ func (s *styleStore) nextChunkSize() int {
 	return size
 }
 
-// newChunk returns the backing for the next style chunk. When the growth
-// schedule asks for exactly the pooled chunk size, the backing comes from
-// the same global pool the engine's mark/reset scopes recycle through, so a
-// patch resolution (which builds a fresh store per element patch) reuses a
-// backing a full layout already released instead of allocating one. Every
-// other size keeps a dedicated backing: the pool only retains
-// defaultStyleChunkSize backings, and the first-chunk-doubling schedule is
-// the pointer-stability contract the chunk test pins.
+// newChunk returns the backing for the next style chunk. The 16-cap step
+// reuses the shared engine pool the mark/reset scopes recycle through, so a
+// patch resolution reuses a backing a full layout already released. The
+// 8/32/64-cap steps reuse their segregated per-size lists, so a patch reuses
+// a backing a dropped store returned instead of allocating one. Every list
+// only serves its exact capacity with a cap check on both get and put, and
+// the first-chunk-doubling schedule is the pointer-stability contract the
+// chunk test pins.
 func (s *styleStore) newChunk() []ResolvedStyle {
-	if want := s.nextChunkSize(); want == defaultStyleChunkSize {
-		if spare := getStyleChunk(); cap(*spare) == want {
+	want := s.nextChunkSize()
+	if want == defaultStyleChunkSize {
+		spare := getStyleChunk()
+		if cap(*spare) == want {
 			return (*spare)[:0]
-		} else {
-			putStyleChunk(spare)
 		}
+
+		putStyleChunk(spare)
+
+		return make([]ResolvedStyle, 0, want)
 	}
 
-	return make([]ResolvedStyle, 0, s.nextChunkSize())
+	if spare := getStyleStoreChunk(want); spare != nil {
+		return (*spare)[:0]
+	}
+
+	return make([]ResolvedStyle, 0, want)
 }
 
 // zeroResolvedStyle is the empty style for comment/doctype nodes (shared).
