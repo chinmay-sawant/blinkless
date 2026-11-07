@@ -385,23 +385,29 @@ func newDisplayForPatch(
 	keep [][2]float64,
 	deriveOwners bool,
 ) *Display {
+	if res == nil {
+		return nil
+	}
+
 	boxCount := res.BoxCount()
 
 	var parents []int
 
-	if deriveOwners {
+	if deriveOwners && boxCount > 0 {
 		parents = make([]int, 0, boxCount)
 	}
 
 	boxes := make([]Box, 0, boxCount)
 
-	ilayout.WalkPlaced(res, func(item *ilayout.PlacedElement) {
-		boxes = append(boxes, boxFrom(item))
+	if boxCount > 0 {
+		ilayout.WalkPlaced(res, func(item *ilayout.PlacedElement) {
+			boxes = append(boxes, boxFrom(item))
 
-		if deriveOwners {
-			parents = append(parents, item.ParentIndex)
-		}
-	})
+			if deriveOwners {
+				parents = append(parents, item.ParentIndex)
+			}
+		})
+	}
 
 	display := &Display{
 		Ops:            res.Ops,

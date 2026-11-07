@@ -12,13 +12,13 @@ import (
 )
 
 const (
-	maxHoverListEntries  = 16
-	maxHoverMemoPerEntry = 4096
-	// maxHoverMemoBytes caps retained memo key strings at ~4MB. Keys carry
-	// full attribute strings (style attrs run to kilobytes), so the 4096-entry
-	// count cap alone retains ~16MB worst case. The byte cap trips first for
+	maxHoverListEntries  = 4
+	maxHoverMemoPerEntry = 1024
+	// maxHoverMemoBytes caps retained memo key strings at ~512KB. Keys carry
+	// full attribute strings (style attrs run to kilobytes), so the 1024-entry
+	// count cap alone retains ~1MB worst case. The byte cap trips first for
 	// large keys while small keys still fill the count cap.
-	maxHoverMemoBytes = 4 * 1024 * 1024
+	maxHoverMemoBytes = 512 * 1024
 )
 
 //nolint:gochecknoglobals // bounded shared hover caches; entries keep sheets plus signature outcomes only, never document trees.
@@ -77,6 +77,9 @@ type hoverMemoKey struct {
 func (d *Document) HoverChangedScopes(previous string) ([]string, bool) {
 	if d == nil || d.root == nil {
 		return nil, false
+	}
+	if previous == d.state.Hover {
+		return nil, true
 	}
 
 	old := d.state
@@ -236,8 +239,8 @@ func hoverMemoMatch(
 
 	entry.mu.Lock()
 	if len(entry.memo) >= maxHoverMemoPerEntry || entry.memoBytes >= maxHoverMemoBytes {
-		clear(entry.memo)
-		clear(entry.intern)
+		entry.memo = make(map[hoverMemoKey]bool, 64)
+		entry.intern = make(map[string]string, 64)
 		entry.memoBytes = 0
 	}
 	key.sel = idx

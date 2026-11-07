@@ -170,7 +170,7 @@ func (p *styleChunkFreeList) put(chunk *[]ResolvedStyle) {
 		return
 	}
 
-	clear(*chunk)
+	clear((*chunk)[:cap(*chunk)])
 	*chunk = (*chunk)[:0]
 
 	select {

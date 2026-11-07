@@ -1129,6 +1129,19 @@ func getStyleStoreChunk(want int) *[]ResolvedStyle {
 	switch want {
 	case styleStoreFirstChunk:
 		free = styleStoreChunkFree8
+	case defaultStyleChunkSize:
+		spare := getStyleChunk()
+		if spare == nil || cap(*spare) != want {
+			if spare != nil {
+				putStyleChunk(spare)
+			}
+
+			return nil
+		}
+
+		*spare = (*spare)[:0]
+
+		return spare
 	case styleStoreFirstChunk * 4:
 		free = styleStoreChunkFree32
 	case styleStoreChunkSize:
@@ -1179,7 +1192,7 @@ func putStyleStoreChunk(chunk *[]ResolvedStyle) {
 		return
 	}
 
-	clear(*chunk)
+	clear((*chunk)[:cap(*chunk)])
 	*chunk = (*chunk)[:0]
 
 	select {
@@ -1256,17 +1269,6 @@ func (s *styleStore) nextChunkSize() int {
 // chunk test pins.
 func (s *styleStore) newChunk() []ResolvedStyle {
 	want := s.nextChunkSize()
-	if want == defaultStyleChunkSize {
-		spare := getStyleChunk()
-		if cap(*spare) == want {
-			return (*spare)[:0]
-		}
-
-		putStyleChunk(spare)
-
-		return make([]ResolvedStyle, 0, want)
-	}
-
 	if spare := getStyleStoreChunk(want); spare != nil {
 		return (*spare)[:0]
 	}

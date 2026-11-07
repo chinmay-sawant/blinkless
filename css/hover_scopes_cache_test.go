@@ -107,7 +107,7 @@ func TestHoverCacheSecondCallHitsMemo(t *testing.T) {
 	resetHoverCache()
 
 	rules := `.inv-row:hover{color:red}.inv-alt:hover{color:blue}.inv-sel:hover{color:green}`
-	styled := hoverCacheTestStyled(t, rules, 300)
+	styled := hoverCacheTestStyled(t, rules, 100)
 
 	first, ok := styled.HoverChangedScopes("r010")
 	if !ok {

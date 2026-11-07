@@ -602,16 +602,17 @@ func checkRelayoutAnchors(root *box, patched *box) error {
 
 // maxSubtreeStyleStores bounds the pooled subtree style stores: one entry
 // per recently patched document. maxSubtreeStyleStoreChunks bounds one
-// entry: four chunks hold 8+16+32+64 records, about 700 KB of 5872-byte
+// entry: thirty-two chunks hold up to 1912 records, about 11 MB of 5872-byte
 // styles. maxSubtreeStyleStoreInternLen bounds one entry's intern map:
 // a pathological document could otherwise grow one pooled store's buckets
 // without bound and the pool slot would pin them. A store past either bound
-// is dropped instead of pooled, so one large subtree cannot pin memory for
-// later small patches; the live result keeps its own records through its
-// pointers either way, and the next patch simply rents fresh.
+// is dropped instead of pooled, returning its chunk backings to the free list
+// so one large subtree cannot pin memory for later small patches; the live
+// result keeps its own records through its pointers either way, and the next
+// patch simply rents fresh.
 const (
 	maxSubtreeStyleStores         = 4
-	maxSubtreeStyleStoreChunks    = 4
+	maxSubtreeStyleStoreChunks    = 32
 	maxSubtreeStyleStoreInternLen = 4096
 )
 
