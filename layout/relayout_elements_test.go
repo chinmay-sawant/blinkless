@@ -104,9 +104,11 @@ func TestRelayoutElementsMatchesSequentialChain(t *testing.T) {
 	compareOpSlices(t, "batch against sequential", batched.Ops, sequential.Ops)
 }
 
-// TestRelayoutElementsRefusalLeavesPrevUntouched pins atomicity: a refused
-// middle id aborts the batch with the same error the single call returns,
-// and the input display keeps its operations and boxes.
+// TestRelayoutElementsRefusalLeavesPrevUntouched proves a size-changing
+// middle id now splices the way the single call does: widening the middle
+// card escalates to the nearest size-stable ancestor instead of refusing, so
+// the batch and the sequential chain both succeed, agree with each other,
+// and match a full relayout of the same document.
 func TestRelayoutElementsRefusalLeavesPrevUntouched(t *testing.T) {
 	t.Parallel()
 
@@ -130,8 +132,7 @@ func TestRelayoutElementsRefusalLeavesPrevUntouched(t *testing.T) {
 	batchStart := layRetained(t, styled)
 	singleStart := layRetained(t, styled)
 
-	beforeOps := len(batchStart.Ops)
-	beforeBoxes := len(batchStart.Boxes)
+	beforeW := boxByID(t, batchStart, "b").W
 
 	if !tree.SetAttribute("a", "class", "card selected") {
 		t.Fatal("SetAttribute found no element with id a")
@@ -145,26 +146,43 @@ func TestRelayoutElementsRefusalLeavesPrevUntouched(t *testing.T) {
 		t.Fatal("SetAttribute found no element with id c")
 	}
 
-	_, batchErr := layout.RelayoutElements(t.Context(), styled, batchStart, []string{"a", "b", "c"}, layout.Options{})
-	if batchErr == nil {
-		t.Fatal("RelayoutElements succeeded, want the refusal of the middle id")
+	ids := []string{"a", "b", "c"}
+
+	batched, err := layout.RelayoutElements(t.Context(), styled, batchStart, ids, layout.Options{})
+	if err != nil {
+		t.Fatalf("RelayoutElements: %v", err)
 	}
 
-	_, singleErr := layout.RelayoutElement(t.Context(), styled, singleStart, "b", layout.Options{})
-	if singleErr == nil {
-		t.Fatal("RelayoutElement succeeded on the wide card, want a refusal")
+	current := singleStart
+
+	for _, id := range ids {
+		patch, err := layout.RelayoutElement(t.Context(), styled, current, id, layout.Options{})
+		if err != nil {
+			t.Fatalf("RelayoutElement %s: %v", id, err)
+		}
+
+		current = patch.Display
 	}
 
-	if batchErr.Error() != singleErr.Error() {
-		t.Fatalf("batch error = %v, want the single-call error %v", batchErr, singleErr)
+	sequential := current
+
+	compareDisplays(t, batched, sequential)
+
+	if !reflect.DeepEqual(batched.OpOwners, sequential.OpOwners) {
+		t.Fatalf("batch owners differ from the sequential chain")
 	}
 
-	if len(batchStart.Ops) != beforeOps {
-		t.Fatalf("batch changed %d operations to %d", beforeOps, len(batchStart.Ops))
+	if !reflect.DeepEqual(batched.Order, sequential.Order) {
+		t.Fatalf("batch paint order differs from the sequential chain")
 	}
 
-	if len(batchStart.Boxes) != beforeBoxes {
-		t.Fatalf("batch changed %d boxes to %d", beforeBoxes, len(batchStart.Boxes))
+	compareOpSlices(t, "batch against sequential", batched.Ops, sequential.Ops)
+
+	full := layOf(t, styled)
+	compareDisplays(t, batched, full)
+
+	if got := boxByID(t, batched, "b").W; got <= beforeW {
+		t.Fatalf("widened card width = %g, want more than the kept %g", got, beforeW)
 	}
 }
 

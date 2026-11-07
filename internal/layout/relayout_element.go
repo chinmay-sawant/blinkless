@@ -58,9 +58,9 @@ type StyleOverride struct {
 // The patch target is the element's containing block, not the element itself:
 // a width or font-size change can move and resize the element's siblings, and
 // only a re-place of the containing block reflows them. The target must be a
-// block box that is not the document root and whose own border box keeps its
+// block or table box that is not the document root and whose own border box keeps its
 // geometry; when it does not, the pass returns ErrOverrideReflow so the host
-// can fall back to a full layout. A table box, a float, a sticky box, or an
+// can fall back to a full layout. A float, a sticky box, or an
 // anchored box inside the target is refused for the same reasons
 // RelayoutSubtree refuses them.
 //

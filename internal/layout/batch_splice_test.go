@@ -194,9 +194,11 @@ func TestBatchSpliceIncrementalOwnersOrderEqualFullRebuild(t *testing.T) {
 	}
 }
 
-// TestBatchSpliceRefusalMatchesSingleError proves a refused middle id aborts
-// the batch with the same error the single call returns, and the committed
-// prefix matches the sequential prefix exactly.
+// TestBatchSpliceRefusalMatchesSingleError proves a size-changing middle id
+// now splices the way the single call does: widening the middle card
+// escalates to the nearest size-stable ancestor instead of refusing, so the
+// batch and the sequential splices both succeed, agree with each other, and
+// match a full relayout of the same document.
 func TestBatchSpliceRefusalMatchesSingleError(t *testing.T) {
 	t.Parallel()
 
@@ -213,43 +215,64 @@ func TestBatchSpliceRefusalMatchesSingleError(t *testing.T) {
 	batchPrev := layoutBatchPrev(t, rootBatch, opts)
 	seqPrev := layoutBatchPrev(t, rootSeq, opts)
 
+	before := relayoutBoxByID(t, batchPrev, "b").w
+
 	roots := []*html.Node{rootBatch, rootSeq}
 	editBatchAttr(t, roots, "a", "class", relayoutSelectedClass)
 	editBatchAttr(t, roots, "b", "class", "card wide")
 	editBatchAttr(t, roots, "c", "class", relayoutSelectedClass)
 
-	nodeA := relayoutNodeByID(t, rootSeq, "a")
-
-	if _, err := RelayoutSubtree(t.Context(), seqPrev, nodeA, opts); err != nil {
-		t.Fatalf("RelayoutSubtree a: %v", err)
+	for _, id := range []string{"a", "b", "c"} {
+		if _, err := RelayoutSubtree(t.Context(), seqPrev, relayoutNodeByID(t, rootSeq, id), opts); err != nil {
+			t.Fatalf("RelayoutSubtree %s: %v", id, err)
+		}
 	}
 
-	nodeB := relayoutNodeByID(t, rootSeq, "b")
-	_, singleErr := RelayoutSubtree(t.Context(), seqPrev, nodeB, opts)
-
-	if singleErr == nil {
-		t.Fatal("RelayoutSubtree succeeded on the wide card, want a refusal")
-	}
-
-	_, batchErr := RelayoutSubtrees(t.Context(), batchPrev,
+	out, err := RelayoutSubtrees(t.Context(), batchPrev,
 		[]string{"a", "b", "c"}, opts, OperationOwners(batchPrev), PaintOrder(batchPrev.Ops))
-	if batchErr == nil {
-		t.Fatal("RelayoutSubtrees succeeded, want the refusal of the middle id")
-	}
-
-	// The batch wraps each splice failure the way the public element patch
-	// wraps the engine error, so the driver reports the single-call error.
-	if batchErr.Error() != relayoutSpliceError(singleErr).Error() {
-		t.Fatalf("batch error = %v, want the wrapped single-call error %v", batchErr, singleErr)
+	if err != nil {
+		t.Fatalf("RelayoutSubtrees: %v", err)
 	}
 
 	if !reflect.DeepEqual(batchPrev.Ops, seqPrev.Ops) {
-		t.Fatal("committed batch prefix differs from the sequential prefix")
+		t.Fatal("batched operations differ from the sequential splices")
 	}
 
 	if batchPrev.MaxContentX != seqPrev.MaxContentX ||
 		batchPrev.HasFragmentLinks != seqPrev.HasFragmentLinks {
-		t.Fatal("committed batch census differs from the sequential prefix")
+		t.Fatal("batched census differs from the sequential splices")
+	}
+
+	if !reflect.DeepEqual(out.Owners, OperationOwners(batchPrev)) {
+		t.Fatal("incremental owners differ from a full rebuild")
+	}
+
+	if !reflect.DeepEqual(out.Order, PaintOrder(batchPrev.Ops)) {
+		t.Fatal("incremental paint order differs from a full rebuild")
+	}
+
+	full, err := Layout(rootBatch, opts)
+	if err != nil {
+		t.Fatalf("Layout (full relayout): %v", err)
+	}
+
+	if !reflect.DeepEqual(relayoutStripIDs(batchPrev.Ops), relayoutStripIDs(full.Ops)) {
+		t.Fatal("batched operations differ from a full relayout")
+	}
+
+	for _, id := range []string{"a", "b", "c"} {
+		got, want := relayoutBoxByID(t, batchPrev, id), relayoutBoxByID(t, full, id)
+		if !relayoutSameGeometry(got, want) {
+			t.Fatalf("box %q = %+v, want the full relayout's %+v", id, *got, *want)
+		}
+	}
+
+	if wide := relayoutBoxByID(t, batchPrev, "b").w; wide <= before {
+		t.Fatalf("widened card width = %g, want more than the kept %g", wide, before)
+	}
+
+	if len(out.Windows) != 3 {
+		t.Fatalf("windows = %d, want one per id (3)", len(out.Windows))
 	}
 }
 

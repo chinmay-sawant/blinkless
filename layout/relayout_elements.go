@@ -27,7 +27,8 @@ import (
 // A missing or refused id aborts the whole batch with the same error the
 // matching RelayoutElement call would return, and prev is left untouched:
 // the batch works on a private copy of the retained placement, so no
-// partial patch is adopted when a later id fails. Adopt the returned
+// partial patch is adopted when a later id fails. A resizing id widens to
+// the nearest size-stable ancestor like RelayoutElement. Adopt the returned
 // display only when the error is nil and treat prev as stale, the same
 // rule RelayoutElement documents.
 //

@@ -113,8 +113,10 @@ a display without the retained layout state gives
 
 ### When the engine refuses a patch
 
-The engine patches one block subtree in place. It refuses, and returns an
-error, when the element is not a block box, when the document root carries the
+The engine patches one block or table subtree in place. Table-internal
+elements (a cell, a row, or inline content in a cell) patch through the
+owning table and splice only when the grid does not move. It refuses, and returns an
+error, when the element is neither a block nor a table box, when the document root carries the
 canvas fill, when the subtree holds a float, a sticky box, an anchored element,
 or a named flow, when an anchored box sits outside the subtree, when an
 ancestor carries a transform or an opacity below 1, or when the document uses

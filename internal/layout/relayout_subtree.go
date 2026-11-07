@@ -48,21 +48,23 @@ const relayoutEpsilon = 1e-6
 // its boxes, and the operation ranges that point into that slice. A caller
 // repaints that region and leaves the rest of the page alone.
 //
-// The element keeps its size and its place: it is laid out in the width the
-// kept box carries, so a grid item is placed in its own track and a flex
-// item in its own line. That width is the kept one, so a width the content
-// drives is not seen as a change.
+// The element is first laid out in the width the kept box carries, so a grid
+// item is placed in its own track and a flex item in its own line. That width
+// is the kept one, so a width the content drives is not seen as a change.
 //
-// The height is the check that catches a content change. The one exception
-// is a block size the containing block assigned: a flex container gives an
-// item its used main or cross size before the item is built, and that size
-// can be larger than the item's content. The kept style carries the
+// The height is the check that catches a content change, and a size change
+// widens the patch instead of refusing it: the element's parent is re-placed
+// instead, repeating up the tree until an ancestor keeps its size. The one
+// exception is a block size the containing block assigned: a flex container
+// gives an item its used main or cross size before the item is built, and
+// that size can be larger than the item's content. The kept style carries the
 // assignment, so the build carries the kept height as a definite size and
 // the content change check stays in force for every other element.
 //
 // Out-of-flow boxes need a containing block inside the subtree, or the known
 // viewport for viewport-fixed boxes. Floats, anchored elements, named-flow
-// regions, and a subtree whose size changed are refused.
+// regions, a document using @container rules, and a size change that reaches
+// the document root are refused: no wider range can place them either.
 func RelayoutSubtree(ctx context.Context, prev *Result, node *html.Node, opts Options) (*Result, error) {
 	if err := relayoutGuards(ctx, prev, node, opts); err != nil {
 		return nil, err
@@ -70,37 +72,145 @@ func RelayoutSubtree(ctx context.Context, prev *Result, node *html.Node, opts Op
 
 	target := findRelayoutTarget(prev.boxTreeRoot(), node)
 	if target == nil {
-		return nil, errElementNotPlaced
+		table, ok := tableAncestorTarget(prev.boxTreeRoot(), node)
+		if !ok {
+			return nil, errElementNotPlaced
+		}
+
+		target, node = table, table.box.node
+	} else if target.box.kind == boxKindCell {
+		table, ok := tableOwnerTarget(target)
+		if !ok {
+			return nil, fmt.Errorf("%w: table cell with no owning table", errSubtreeNotSplicable)
+		}
+
+		target, node = table, table.box.node
 	}
 
-	if err := checkRelayoutTarget(prev, target); err != nil {
-		return nil, err
-	}
-
-	styles, err := relayoutSubtreeStyles(ctx, prev, target, node, opts)
+	built, err := relayoutBuildEscalating(ctx, prev, target, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	eng, err := relayoutEngine(ctx, prev, opts, styles)
+	start, oldCount, err := relayoutWindow(prev, built.target)
 	if err != nil {
 		return nil, err
 	}
 
-	//nolint:contextcheck // the engine keeps the context and reads it at its recursion boundaries
-	newBox, err := relayoutBuild(eng, prev, target, node, opts)
-	if err != nil {
-		return nil, err
+	commitSubtreeSplice(prev, built.box, built.target, built.styles, start, oldCount, built.eng.ops, false, nil)
+
+	return relayoutSubtreeResult(prev, built.box, start, len(built.eng.ops), built.styles), nil
+}
+
+// relayoutBuiltTarget is one winning escalation attempt: the target whose
+// subtree kept its size, with the styles and the engine that built it and the
+// box they produced.
+type relayoutBuiltTarget struct {
+	target *relayoutTarget
+	styles map[*html.Node]*ResolvedStyle
+	eng    *engine
+	box    *box
+}
+
+// relayoutBuildEscalating builds target's subtree, widening the patched range
+// to the holder while the build reports a size change. Each attempt builds
+// the range from the kept placement, so nothing is committed until an
+// ancestor keeps its size; the rest of the page then keeps its boxes and its
+// operations, and only the winning range is re-laid out.
+//
+// A wider range the splice cannot place ends the escalation with the size
+// change the host must handle: the original errSubtreeResized is what a full
+// layout resolves. Anything else (context, engine) is reported as is, and a
+// first attempt that never resized keeps its own error.
+func relayoutBuildEscalating(
+	ctx context.Context, prev *Result, target *relayoutTarget, opts Options,
+) (*relayoutBuiltTarget, error) {
+	var firstResize error
+
+	for {
+		if target == nil || target.box == nil || target.box.node == nil {
+			if firstResize != nil {
+				return nil, firstResize
+			}
+
+			return nil, errElementNotPlaced
+		}
+
+		if err := checkRelayoutTarget(prev, target); err != nil {
+			if firstResize != nil && isRelayoutStructural(err) {
+				return nil, firstResize
+			}
+
+			return nil, err
+		}
+
+		styles, err := relayoutSubtreeStyles(ctx, prev, target, target.box.node, opts)
+		if err != nil {
+			if firstResize != nil && isRelayoutStructural(err) {
+				return nil, firstResize
+			}
+
+			return nil, err
+		}
+
+		eng, err := relayoutEngine(ctx, prev, opts, styles)
+		if err != nil {
+			return nil, err
+		}
+
+		//nolint:contextcheck // the engine keeps the context and reads it at its recursion boundaries
+		newBox, err := relayoutBuild(eng, prev, target, target.box.node, opts)
+		if err == nil {
+			return &relayoutBuiltTarget{target: target, styles: styles, eng: eng, box: newBox}, nil
+		}
+
+		if !errors.Is(err, errSubtreeResized) {
+			return nil, err
+		}
+
+		if firstResize == nil {
+			firstResize = err
+		}
+
+		// A moved grid refuses instead of widening: the table check compares
+		// the whole grid, and a wider range would re-place the table without
+		// that check, so the size change ends here.
+		if target.box != nil && target.box.kind == boxKindTable {
+			return nil, firstResize
+		}
+
+		target = relayoutWiderTarget(target)
+		if target == nil {
+			return nil, firstResize
+		}
+	}
+}
+
+// isRelayoutStructural reports whether err refuses a splice range for a
+// reason a wider range inherits: the range cannot be placed, so the
+// escalation ends with the size change instead of the wider refusal.
+func isRelayoutStructural(err error) bool {
+	return errors.Is(err, errSubtreeNotSplicable) || errors.Is(err, errElementNotPlaced)
+}
+
+// relayoutWiderTarget returns the patch target one level above target: the
+// box that holds it becomes the patched box. It returns nil when target is
+// already the outermost box, so the escalation ends with the size error.
+func relayoutWiderTarget(target *relayoutTarget) *relayoutTarget {
+	if target == nil || len(target.ancestors) == 0 {
+		return nil
 	}
 
-	start, oldCount, err := relayoutWindow(prev, target)
-	if err != nil {
-		return nil, err
+	ancestors := target.ancestors
+	grand := ancestors[:len(ancestors)-1]
+
+	var holder *box
+
+	if len(grand) > 0 {
+		holder = grand[len(grand)-1]
 	}
 
-	commitSubtreeSplice(prev, newBox, target, styles, start, oldCount, eng.ops, false, nil)
-
-	return relayoutSubtreeResult(prev, newBox, start, len(eng.ops), styles), nil
+	return &relayoutTarget{box: ancestors[len(ancestors)-1], parent: holder, ancestors: grand}
 }
 
 // relayoutGuards rejects the inputs the splice cannot work with.
@@ -207,8 +317,8 @@ func checkRelayoutTarget(prev *Result, target *relayoutTarget) error {
 }
 
 // checkRelayoutBox rejects the element itself: the document root carries the
-// canvas fill, and a table box is placed by the table layout, not by the
-// block flow the splice uses.
+// canvas fill. A table box re-runs the whole table and keeps only unmoved
+// grids (see relayoutSameTable).
 func checkRelayoutBox(target *relayoutTarget) error {
 	if target.parent == nil {
 		return fmt.Errorf("%w: the element is the root of the document", errSubtreeNotSplicable)
@@ -223,11 +333,66 @@ func checkRelayoutBox(target *relayoutTarget) error {
 		return fmt.Errorf("%w: the element is the document root", errSubtreeNotSplicable)
 	}
 
-	if target.box.kind != boxKindBlock {
-		return fmt.Errorf("%w: the element is not a block box", errSubtreeNotSplicable)
+	if target.box.kind != boxKindBlock && target.box.kind != boxKindTable {
+		return fmt.Errorf("%w: the element is not a block or table box", errSubtreeNotSplicable)
 	}
 
 	return nil
+}
+
+// tableOwnerTarget returns the owning table of a cell target: the nearest
+// table in its ancestor chain, keeping the holder and the chain above it.
+func tableOwnerTarget(target *relayoutTarget) (*relayoutTarget, bool) {
+	if target == nil {
+		return nil, false
+	}
+
+	for index := len(target.ancestors) - 1; index >= 0; index-- {
+		ancestor := target.ancestors[index]
+		if ancestor == nil || ancestor.kind != boxKindTable {
+			continue
+		}
+
+		var parent *box
+
+		var ancestors []*box
+
+		if index > 0 {
+			parent = target.ancestors[index-1]
+			ancestors = target.ancestors[:index]
+		}
+
+		return &relayoutTarget{box: ancestor, parent: parent, ancestors: ancestors}, true
+	}
+
+	return nil, false
+}
+
+// tableAncestorTarget returns the owning table of a box-less element: it
+// climbs the document parents past cells to the nearest table. Any other
+// placed box stops the climb with false.
+func tableAncestorTarget(root *box, node *html.Node) (*relayoutTarget, bool) {
+	if root == nil || node == nil {
+		return nil, false
+	}
+
+	for current := node.Parent; current != nil; current = current.Parent {
+		target := findRelayoutTarget(root, current)
+		if target == nil || target.box == nil {
+			continue
+		}
+
+		switch target.box.kind {
+		case boxKindTable:
+			return target, true
+		case boxKindCell:
+			continue
+		default:
+			return nil, false
+		}
+	}
+
+	return nil, false
 }
 
 // checkRelayoutAncestors rejects a subtree under an ancestor that transforms
@@ -792,7 +957,7 @@ func relayoutBuild(
 		stampBoxTransforms(newBox, IdentityMatrix(), eng.ops, opts.Media)
 	}
 
-	if !relayoutSameBox(newBox, target.box) {
+	if !relayoutSameTable(newBox, target.box) {
 		return nil, fmt.Errorf(
 			"%w: the element is %gx%g at (%g, %g), the patch makes it %gx%g at (%g, %g)",
 			errSubtreeResized,
@@ -1060,6 +1225,25 @@ func relayoutSameBox(left, right *box) bool {
 
 	return relayoutNear(left.x, right.x) && relayoutNear(left.y, right.y) &&
 		relayoutNear(left.w, right.w) && relayoutNear(left.height, right.height)
+}
+
+// relayoutSameTable reports whether a rebuilt subtree keeps its place: a
+// non-table delegates to relayoutSameBox, a table compares the whole grid
+// with sameBoxGeometry so only an unmoved grid splices.
+func relayoutSameTable(newBox, kept *box) bool {
+	if newBox == nil || kept == nil {
+		return false
+	}
+
+	if kept.kind != boxKindTable && newBox.kind != boxKindTable {
+		return relayoutSameBox(newBox, kept)
+	}
+
+	if kept.kind != boxKindTable || newBox.kind != boxKindTable {
+		return false
+	}
+
+	return sameBoxGeometry(newBox, kept)
 }
 
 // relayoutNear reports whether two lengths are the same length.
@@ -2234,7 +2418,7 @@ func RelayoutSubtrees(
 	}
 
 	if out.PaintOnly {
-		out.Texts = paintOnlyTexts(thread, elementIDs)
+		out.Texts = paintOnlyTexts(thread, prev, elementIDs)
 	}
 
 	return out, nil
@@ -2279,28 +2463,33 @@ func relayoutSpliceOne(
 	}
 
 	target, ok := thread.lookup(elementID)
-	if !ok || target.box.node != node {
+	if !ok {
+		table, ok := tableAncestorTarget(prev.boxTreeRoot(), node)
+		if !ok {
+			return relayoutSpliceError(errElementNotPlaced)
+		}
+
+		target, node = table, table.box.node
+	} else if target.box == nil || target.box.node != node {
 		return relayoutSpliceError(errElementNotPlaced)
+	} else if target.box.kind == boxKindCell {
+		table, ok := tableOwnerTarget(target)
+		if !ok {
+			return relayoutSpliceError(fmt.Errorf("%w: table cell with no owning table", errSubtreeNotSplicable))
+		}
+
+		target, node = table, table.box.node
 	}
 
-	if err := checkRelayoutTarget(prev, target); err != nil {
-		return relayoutSpliceError(err)
-	}
-
-	styles, err := relayoutSubtreeStyles(ctx, prev, target, node, opts)
+	// A size-changing id widens to the nearest ancestor that keeps its size,
+	// the same escalation the single-element call runs, so a batch carrying
+	// one resized element still commits instead of aborting.
+	built, err := relayoutBuildEscalating(ctx, prev, target, opts)
 	if err != nil {
 		return relayoutSpliceError(err)
 	}
 
-	eng, err := relayoutEngine(ctx, prev, opts, styles)
-	if err != nil {
-		return relayoutSpliceError(err)
-	}
-
-	newBox, err := relayoutBuild(eng, prev, target, node, opts)
-	if err != nil {
-		return relayoutSpliceError(err)
-	}
+	target, styles, eng, newBox := built.target, built.styles, built.eng, built.box
 
 	start, oldCount, err := relayoutWindow(prev, target)
 	if err != nil {
@@ -2395,13 +2584,22 @@ func fullOwnersFor(prev *Result) []int {
 // it reuses by walking ParentIndex, so a text edit refreshes the element and
 // its ancestors without a full placed walk. Ancestor texts are cached by node,
 // because a batch of rows shares the same table, body, and document nodes.
-func paintOnlyTexts(thread *boxThread, elementIDs []string) []PaintOnlyText {
+func paintOnlyTexts(thread *boxThread, prev *Result, elementIDs []string) []PaintOnlyText {
 	cache := make(map[*html.Node]string)
 	texts := make([]PaintOnlyText, 0, len(elementIDs))
 
 	for _, elementID := range elementIDs {
 		target, ok := thread.lookup(elementID)
-		if !ok || target.box == nil || target.box.node == nil {
+		if !ok {
+			ancestor, ok := paintOnlyAncestorTarget(thread, prev, elementID)
+			if !ok {
+				continue
+			}
+
+			target = ancestor
+		}
+
+		if target.box == nil || target.box.node == nil {
 			continue
 		}
 
@@ -2421,6 +2619,37 @@ func paintOnlyTexts(thread *boxThread, elementIDs []string) []PaintOnlyText {
 	}
 
 	return texts
+}
+
+// paintOnlyAncestorTarget returns the nearest ancestor with an addressed box
+// for a box-less id: it resolves the id to its document node and climbs to
+// the nearest ancestor whose id addresses a box in the thread.
+func paintOnlyAncestorTarget(thread *boxThread, prev *Result, elementID string) (*relayoutTarget, bool) {
+	if thread == nil || prev == nil || elementID == "" {
+		return nil, false
+	}
+
+	node := findNodeByID(prev.documentRootNode(), elementID)
+	if node == nil {
+		return nil, false
+	}
+
+	for current := node.Parent; current != nil; current = current.Parent {
+		if current.Type != html.ElementNode {
+			continue
+		}
+
+		id := current.Attribute("id")
+		if id == "" {
+			continue
+		}
+
+		if target, ok := thread.lookup(id); ok && target.box != nil && target.box.node != nil {
+			return target, true
+		}
+	}
+
+	return nil, false
 }
 
 // cachedNodeText returns one node's subtree text, computing it once per node.

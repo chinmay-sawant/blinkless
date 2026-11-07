@@ -119,8 +119,12 @@ type ElementPatch struct {
 // A display laid out without that state cannot be patched, and
 // RelayoutElement returns ErrNoRetainedState for it.
 //
-// On success the element keeps its place and its size. A change that would
-// move or resize it is refused, so the boxes after it stay valid. The patch
+// On success the winning range keeps its place and its size: usually the
+// element itself, else the nearest size-stable ancestor that contains the
+// size change. A change is refused when no ancestor contains it (a
+// root-reaching size change, a float, a box outside its containing block,
+// or a document with container queries), so the boxes after the patched
+// range stay valid. The patch
 // carries the element's own operations and boxes for inspection (Ops, Boxes,
 // and OpOwners), its old and new bounds (Old and New), and Display, the whole
 // patched page. A host adopts Display and treats prev as stale.
@@ -181,8 +185,8 @@ func RelayoutElement(
 		Ops:      res.Ops,
 		OpOwners: ilayout.OperationOwners(res),
 		Boxes:    boxes,
-		Old:      elementBounds(prev.Boxes, elementID),
-		New:      elementBounds(boxes, elementID),
+		Old:      patchOldBounds(prev.Boxes, boxes, elementID),
+		New:      patchNewBounds(boxes, elementID),
 		Display:  patchedDisplay(styled, prev),
 	}, nil
 }
@@ -270,8 +274,8 @@ func RelayoutElementWithOverrides(
 		Ops:      res.Ops,
 		OpOwners: ilayout.OperationOwners(res),
 		Boxes:    boxes,
-		Old:      elementBounds(prev.Boxes, elementID),
-		New:      elementBounds(boxes, elementID),
+		Old:      patchOldBounds(prev.Boxes, boxes, elementID),
+		New:      patchNewBounds(boxes, elementID),
 		Display:  patchedDisplay(styled, prev),
 	}, nil
 }
@@ -478,16 +482,45 @@ func elementByID(root *ihtml.Node, elementID string) *ihtml.Node {
 	})
 }
 
-// elementBounds returns the border box of the element with the given id, in
-// CSS pixels. A missing element gives the empty rectangle.
-func elementBounds(boxes []Box, elementID string) image.Rectangle {
-	for i := range boxes {
-		if boxes[i].ID == elementID {
-			return boxBounds(boxes[i])
-		}
+// patchNewBounds returns the border box of the element with the given id
+// after the patch, in CSS pixels. A patched subtree that widened to the
+// nearest size-stable ancestor may not carry the element's own box, so a
+// missing element falls back to the first box of the patched range. No box
+// at all gives the empty rectangle.
+func patchNewBounds(boxes []Box, elementID string) image.Rectangle {
+	if box, ok := elementBox(boxes, elementID); ok {
+		return boxBounds(box)
+	}
+
+	if len(boxes) > 0 {
+		return boxBounds(boxes[0])
 	}
 
 	return image.Rectangle{} //nolint:exhaustruct // the zero rectangle marks a missing element
+}
+
+// patchOldBounds returns the border box of the element with the given id
+// before the patch, in CSS pixels. A missing element falls back to the new
+// bounds, so Old stays usable when the previous display carries no box for
+// the id.
+func patchOldBounds(prev, next []Box, elementID string) image.Rectangle {
+	if box, ok := elementBox(prev, elementID); ok {
+		return boxBounds(box)
+	}
+
+	return patchNewBounds(next, elementID)
+}
+
+// elementBox returns the element box with the given id, or false when no
+// box carries it.
+func elementBox(boxes []Box, elementID string) (Box, bool) {
+	for i := range boxes {
+		if boxes[i].ID == elementID {
+			return boxes[i], true
+		}
+	}
+
+	return Box{}, false //nolint:exhaustruct // the zero box marks a missing element
 }
 
 // boxBounds converts one element box to a rectangle in CSS pixels.
