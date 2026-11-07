@@ -110,6 +110,74 @@ func RelayoutElements(
 	return display, nil
 }
 
+// RelayoutElementsInPlace lays several elements out exactly like
+// RelayoutElements but commits directly into prev instead of a private
+// clone, so a batch pays no whole-display copy. The trade is atomicity: on
+// success the returned display is the patched prev; on failure prev may be
+// partially patched and must be treated as stale — adopt the returned
+// display only when the error is nil and rebuild (do not reuse prev) when
+// it is not. Callers whose failure path discards the display anyway (a full
+// reload on refusal) prefer this entry; callers that keep reading prev
+// after an error must use RelayoutElements.
+func RelayoutElementsInPlace(
+	ctx context.Context, doc *css.Document, prev *Display, elementIDs []string, options Options,
+) (*Display, error) {
+	if len(elementIDs) == 0 {
+		return prev, nil
+	}
+
+	if ctx == nil {
+		return nil, ErrNilContext
+	}
+
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("layout: context: %w", err)
+	}
+
+	if doc == nil {
+		return nil, ErrNilDocument
+	}
+
+	if prev == nil {
+		return nil, ErrNilDisplay
+	}
+
+	styled, ok := pubstate.StyledOf(doc)
+	if !ok {
+		return nil, ErrNilDocument
+	}
+
+	if prev.result == nil {
+		return nil, ErrNoRetainedState
+	}
+
+	baseOpts := batchBaseOptions(styled, prev, options)
+	owners := append([]int(nil), prev.OpOwners...)
+	order := append([]int(nil), prev.Order...)
+
+	batch, err := ilayout.RelayoutSubtrees(ctx, prev.result, elementIDs, baseOpts, owners, order)
+	if err != nil {
+		if errors.Is(err, ilayout.ErrBatchUnknownID) {
+			return nil, ErrNoElement
+		}
+
+		return nil, err
+	}
+
+	atomic.AddInt64(&relayoutEngineCalls, int64(len(elementIDs)))
+	atomic.AddInt64(&relayoutFontSkips, int64(batch.Textless))
+
+	display := patchedBatchDisplay(styled, prev, prev.result, prev.result, batch.PaintOnly)
+	display.OpOwners = batch.Owners
+	display.Order = batch.Order
+
+	if batch.PaintOnly {
+		applyPaintOnlyBoxTexts(display.Boxes, batch.Texts)
+	}
+
+	return display, nil
+}
+
 // applyPaintOnlyBoxTexts refreshes the boxes a paint-only batch patched.
 // Display.Box.Text is the element's subtree text, so a text edit changes the
 // box of the patched element and of every ancestor that contains it. The

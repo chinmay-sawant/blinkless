@@ -894,6 +894,13 @@ type styleContext struct {
 	// pass. Tables repeat a handful of classes across thousands of elements,
 	// so the pass-local map avoids taking the shared cache lock per element.
 	classKeys map[string]string
+	// attrKeys interns the canonical keys for the 1-attr id and the 2-attr
+	// id+class shapes the patch path repeats: one entry per distinct id or
+	// id+class pair, so the repeated element plus ::before/::after probes of
+	// the same row hit instead of rebuilding the key with a Builder. Keys are
+	// pure functions of the attribute map, so interning returns identical
+	// strings and full layouts cannot observe it.
+	attrKeys map[attrPair]string
 	// gateCache memoizes the node-independent rule gates (media query and
 	// @supports) per rule for this pass, so repeated elements do not
 	// re-parse the same query strings.

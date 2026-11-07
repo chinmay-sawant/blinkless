@@ -72,6 +72,13 @@ func RelayoutSubtree(ctx context.Context, prev *Result, node *html.Node, opts Op
 
 	target := findRelayoutTarget(prev.boxTreeRoot(), node)
 	if target == nil {
+		// A box-less element inside a table row splices at row granularity
+		// when the row rebuild keeps its geometry; otherwise the patch
+		// widens to the owning table below.
+		if res, ok := tryRelayoutTableRowPatch(ctx, prev, node, nil, opts); ok {
+			return res, nil
+		}
+
 		table, ok := tableAncestorTarget(prev.boxTreeRoot(), node)
 		if !ok {
 			return nil, errElementNotPlaced
@@ -79,6 +86,11 @@ func RelayoutSubtree(ctx context.Context, prev *Result, node *html.Node, opts Op
 
 		target, node = table, table.box.node
 	} else if target.box.kind == boxKindCell {
+		// A patched cell splices its row alone under the same rule.
+		if res, ok := tryRelayoutTableRowPatch(ctx, prev, node, target, opts); ok {
+			return res, nil
+		}
+
 		table, ok := tableOwnerTarget(target)
 		if !ok {
 			return nil, fmt.Errorf("%w: table cell with no owning table", errSubtreeNotSplicable)
@@ -1646,13 +1658,26 @@ func relayoutSwapBox(target *relayoutTarget, newBox *box) {
 // relayoutShiftRanges moves the operation ranges of the boxes outside the
 // patched subtree. The ranges after the window shift by delta, and the ranges
 // that cover the window grow or shrink with it.
+//
+// A table cell is reachable twice — through its parent's children and through
+// the table's row grid — so the walk visits each box once: a second visit
+// would shift the same range twice and corrupt every window located after a
+// count-changing splice in the same batch.
 func relayoutShiftRanges(root *box, patched *box, start, end, delta int) {
+	seen := make(map[*box]struct{})
+
 	var walk func(boxNode *box)
 
 	walk = func(boxNode *box) {
 		if boxNode == patched {
 			return
 		}
+
+		if _, ok := seen[boxNode]; ok {
+			return
+		}
+
+		seen[boxNode] = struct{}{}
 
 		shiftBoxRange(boxNode, start, end, delta)
 
@@ -1827,7 +1852,10 @@ func rebaseBox(src *box, shift int) *box {
 // high-water mark advance from the window alone, rescanning the page only
 // when the removed window could have carried the maximum extent or the only
 // fragment link. privateOps selects the in-place splice for a caller that owns
-// prev exclusively, the batch on its clone. pos collects the placed position
+// prev exclusively, the batch on its clone. A batch splice skips the
+// page-sized flat-list rebuild: the batch rebuilds the list once after its
+// last splice, and the shifting, re-widening, and position recording run
+// either way. pos collects the placed position
 // of the splice for the incremental owners update, or nil when the caller
 // keeps no owners.
 func commitSubtreeSplice(
@@ -1858,7 +1886,7 @@ func commitSubtreeSplice(
 
 	relayoutRebaseTree(newBox, start)
 	relayoutSwapBox(target, newBox)
-	relayoutFuseSplice(prev, newBox, start, start+oldCount-1, delta, boxCapacity, pos)
+	relayoutFuseSplice(prev, newBox, start, start+oldCount-1, delta, boxCapacity, pos, !privateOps)
 	relayoutKeepStyles(prev, styles)
 	refreshCensusSpliced(prev, oldMax, oldFrag, start, len(newOps))
 	storeOpIDHighWater(prev, newOps)
@@ -1940,13 +1968,23 @@ func noteSplicePosition(pos *splicePosition, node *box) {
 // over the window, rebuilds the flattened box list, and records the placed
 // position of the splice for the incremental owners update. boxCapacity is the
 // length the rebuilt list will have, so the walk does not grow it from zero.
+// collectBoxes selects whether the walk rebuilds the flattened box list. A
+// batch splice passes false: the batch owns prev exclusively and rebuilds the
+// list once after its last splice, so intermediate splices skip the
+// page-sized rebuild while the shifting, re-widening, and position recording
+// run either way. No mid-batch reader needs the list: the rem-base scan only
+// reads the document root, which no splice replaces.
 // The rows track only shifts: table cells keep their ranges but never join the
 // owner, placed, or flattened walks, the rule the three passes it replaces
 // followed.
 func relayoutFuseSplice(
-	prev *Result, patched *box, start, end, delta, boxCapacity int, pos *splicePosition,
+	prev *Result, patched *box, start, end, delta, boxCapacity int, pos *splicePosition, collectBoxes bool,
 ) {
-	boxes := make([]*box, 0, boxCapacity)
+	var boxes []*box
+
+	if collectBoxes {
+		boxes = make([]*box, 0, boxCapacity)
+	}
 
 	var fuse func(node *box)
 	var shiftRow func(node *box)
@@ -1962,14 +2000,20 @@ func relayoutFuseSplice(
 			}
 
 			unionPatchedSubtree(node)
-			flattenBoxes(node, &boxes)
+
+			if collectBoxes {
+				flattenBoxes(node, &boxes)
+			}
 
 			return
 		}
 
 		shiftBoxRange(node, start, end, delta)
 		noteSplicePosition(pos, node)
-		boxes = append(boxes, node)
+
+		if collectBoxes {
+			boxes = append(boxes, node)
+		}
 
 		for _, child := range node.children {
 			fuse(child)
@@ -2003,7 +2047,9 @@ func relayoutFuseSplice(
 
 	fuse(prev.boxTreeRoot())
 
-	prev.boxes = boxes
+	if collectBoxes {
+		prev.boxes = boxes
+	}
 }
 
 // unionPatchedSubtree re-widens the committed subtree over its own children,
@@ -2439,14 +2485,40 @@ func RelayoutSubtrees(
 		PaintOnly: true,
 	}
 
+	// ownersDirty marks a deferred owners derivation: a row-granular splice
+	// replaces out.Owners with a full derivation, so consecutive row splices
+	// would each pay a page-sized derivation the next splice overwrites
+	// unread. The derivation is a pure function of the committed placement,
+	// so the batch defers it until the owners are read or the batch ends. A
+	// full splice flushes the deferred derivation before it maintains the
+	// owners incrementally.
+	var ownersDirty bool
+
+	// paintTextChanged marks whether any committed paint-only window changed
+	// text payloads. A background-only toggle keeps every OpText identical, so
+	// the box texts the previous display already carries stay correct and the
+	// refreshed chain can skip the whole-table ancestor copies.
+	var paintTextChanged bool
+
 	for _, elementID := range elementIDs {
-		if err := relayoutSpliceOne(ctx, prev, thread, elementID, baseOpts, out, &relevant, &grouped); err != nil {
+		if err := relayoutSpliceOne(ctx, prev, thread, elementID, baseOpts, out, &relevant, &grouped, &ownersDirty, &paintTextChanged); err != nil {
 			return nil, err
 		}
 	}
 
+	if ownersDirty {
+		out.Owners = fullOwnersFor(prev)
+	}
+
+	// Intermediate batch splices skip the page-sized flat-list rebuild; one
+	// rebuild here covers every full splice. A paint-only batch never
+	// rebuilds, the rule commitPaintOnlySplice follows.
+	if !out.PaintOnly {
+		relayoutKeepBoxes(prev)
+	}
+
 	if out.PaintOnly {
-		out.Texts = paintOnlyTexts(thread, prev, elementIDs)
+		out.Texts = paintOnlyTexts(thread, prev, elementIDs, paintTextChanged)
 	}
 
 	return out, nil
@@ -2456,10 +2528,14 @@ func RelayoutSubtrees(
 // splice, maintaining the working owners and order and recording the window
 // it replaced. Errors match the single-splice call: an unknown id is
 // ErrBatchUnknownID, and every other failure is wrapped the way the public
-// element patch wraps the engine error.
+// element patch wraps the engine error. ownersDirty marks a deferred owners
+// derivation a row-granular splice left behind; a full splice flushes it
+// before it maintains the owners. paintTextChanged reports whether any
+// committed paint-only window changed text payloads, so the final text refresh
+// can skip the ancestor copies when every window kept its text.
 func relayoutSpliceOne(
 	ctx context.Context, prev *Result, thread *boxThread, elementID string,
-	baseOpts Options, out *SubtreeBatchResult, relevant, grouped *int,
+	baseOpts Options, out *SubtreeBatchResult, relevant, grouped *int, ownersDirty *bool, paintTextChanged *bool,
 ) error {
 	if elementID == "" {
 		return ErrBatchUnknownID
@@ -2492,6 +2568,10 @@ func relayoutSpliceOne(
 
 	target, ok := thread.lookup(elementID)
 	if !ok {
+		if tryRelayoutTableRowBatch(ctx, prev, thread, node, nil, opts, out, relevant, grouped, ownersDirty) {
+			return nil
+		}
+
 		table, ok := tableAncestorTarget(prev.boxTreeRoot(), node)
 		if !ok {
 			return relayoutSpliceError(errElementNotPlaced)
@@ -2501,6 +2581,10 @@ func relayoutSpliceOne(
 	} else if target.box == nil || target.box.node != node {
 		return relayoutSpliceError(errElementNotPlaced)
 	} else if target.box.kind == boxKindCell {
+		if tryRelayoutTableRowBatch(ctx, prev, thread, node, target, opts, out, relevant, grouped, ownersDirty) {
+			return nil
+		}
+
 		table, ok := tableOwnerTarget(target)
 		if !ok {
 			return relayoutSpliceError(fmt.Errorf("%w: table cell with no owning table", errSubtreeNotSplicable))
@@ -2530,6 +2614,10 @@ func relayoutSpliceOne(
 	// window in place: the box list, the ranges, the owners, and the order all
 	// stay put, so the host can build the display by reusing the previous one.
 	if relayoutPaintOnlyWindow(prev, target, newBox, start, oldCount, eng.ops) {
+		if paintTextChanged != nil && !samePaintOnlyText(prev.Ops[start:start+oldCount], eng.ops) {
+			*paintTextChanged = true
+		}
+
 		commitPaintOnlySplice(prev, newBox, target, styles, start, oldCount, eng.ops)
 		thread.replace(target.box, newBox, target.parent)
 
@@ -2563,7 +2651,15 @@ func relayoutSpliceOne(
 	*relevant += newRel - oldRel
 	*grouped += newGrp - oldGrp
 
-	if pos.foundBase {
+	if *ownersDirty {
+		// A row-granular splice left the owners derivation deferred, so the
+		// working slice is stale. Derive from the committed placement: the
+		// derivation is the same fullOwnersFor the deferred splice would
+		// have run, and the incremental maintenance below would reproduce
+		// it from a fresh slice.
+		out.Owners = fullOwnersFor(prev)
+		*ownersDirty = false
+	} else if pos.foundBase {
 		out.Owners = spliceOwnerWindow(out.Owners, start, oldCount, len(eng.ops), pos.seed, pos.base, oldElem, newBox)
 	} else {
 		out.Owners = fullOwnersFor(prev)
@@ -2612,7 +2708,40 @@ func fullOwnersFor(prev *Result) []int {
 // it reuses by walking ParentIndex, so a text edit refreshes the element and
 // its ancestors without a full placed walk. Ancestor texts are cached by node,
 // because a batch of rows shares the same table, body, and document nodes.
-func paintOnlyTexts(thread *boxThread, prev *Result, elementIDs []string) []PaintOnlyText {
+// When no committed paint-only window changed text payloads, every box text
+// the previous display carries is already correct: Box.Text is a pure function
+// of the subtree and a class-only toggle leaves every text node alone, so the
+// refresh returns one entry per resolved id with no texts and the caller keeps
+// the previous boxes in place instead of copying whole-table strings.
+func paintOnlyTexts(thread *boxThread, prev *Result, elementIDs []string, textChanged bool) []PaintOnlyText {
+	if !textChanged {
+		texts := make([]PaintOnlyText, 0, len(elementIDs))
+
+		for _, elementID := range elementIDs {
+			target, ok := thread.lookup(elementID)
+			if !ok {
+				ancestor, ok := paintOnlyAncestorTarget(thread, prev, elementID)
+				if !ok {
+					continue
+				}
+
+				if ancestor.box == nil || ancestor.box.node == nil {
+					continue
+				}
+
+				texts = append(texts, PaintOnlyText{ID: elementID, Texts: nil})
+			} else {
+				if target.box == nil || target.box.node == nil {
+					continue
+				}
+
+				texts = append(texts, PaintOnlyText{ID: elementID, Texts: nil})
+			}
+		}
+
+		return texts
+	}
+
 	cache := make(map[*html.Node]string)
 	texts := make([]PaintOnlyText, 0, len(elementIDs))
 
@@ -2690,4 +2819,29 @@ func cachedNodeText(cache map[*html.Node]string, node *html.Node) string {
 	cache[node] = text
 
 	return text
+}
+
+// samePaintOnlyText reports whether a committed paint-only window kept every
+// text payload: the same number of operations with identical Text at each
+// index. A background-only toggle repaints fills while leaving every text run
+// alone, so equality proves no text node the window covers changed. An empty
+// window on either side reports false: an element that emits no operation can
+// still carry descendant text (the hidden-box path), so only the full text
+// chain the caller builds today stays correct there.
+func samePaintOnlyText(oldOps, newOps []Op) bool {
+	if len(oldOps) == 0 || len(newOps) == 0 {
+		return false
+	}
+
+	if len(oldOps) != len(newOps) {
+		return false
+	}
+
+	for index := range oldOps {
+		if oldOps[index].Text != newOps[index].Text {
+			return false
+		}
+	}
+
+	return true
 }

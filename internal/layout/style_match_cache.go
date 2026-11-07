@@ -175,6 +175,14 @@ type matchCacheEntry struct {
 	hits     []ruleSel
 }
 
+// attrPair identifies one interned 1-2-attr id/class shape: a single id, or an
+// id plus its class. It is a pure function of the attribute map, so sharing
+// one canonical key per distinct pair returns identical strings.
+type attrPair struct {
+	id, class string
+	hasClass  bool
+}
+
 // matchSignature builds the cache key for node in the pseudoElem pass. The
 // attribute encoding is length-prefixed over sorted names so distinct maps
 // never share a key; the tag is lowercased for HTML (whose type selectors
@@ -187,7 +195,10 @@ func (ctx *styleContext) matchSignature(node *html.Node, pseudoElem string) matc
 // canonicalAttrKey interns the canonical key for one element's attributes for
 // this pass. The common single-class element reads its key from the pass-local
 // map after the first occurrence instead of taking the shared cache lock on
-// every row of a table.
+// every row of a table. The 1-attr id and 2-attr id+class shapes the patch
+// path repeats share the pass-local attrKeys map the same way, so the repeated
+// element plus ::before/::after probes of one row hit instead of rebuilding
+// the key with a Builder.
 func (ctx *styleContext) canonicalAttrKey(attrs map[string]string) string {
 	if ctx == nil {
 		return canonicalAttrKey(attrs)
@@ -206,6 +217,40 @@ func (ctx *styleContext) canonicalAttrKey(attrs map[string]string) string {
 			ctx.classKeys[value] = key
 
 			return key
+		}
+
+		if id, ok := attrs["id"]; ok {
+			pair := attrPair{id: id}
+			if key, cached := ctx.attrKeys[pair]; cached {
+				return key
+			}
+
+			key := canonicalAttrKey(attrs)
+			if ctx.attrKeys == nil {
+				ctx.attrKeys = make(map[attrPair]string)
+			}
+			ctx.attrKeys[pair] = key
+
+			return key
+		}
+	}
+
+	if len(attrs) == 2 {
+		if id, ok := attrs["id"]; ok {
+			if class, ok := attrs["class"]; ok {
+				pair := attrPair{id: id, class: class, hasClass: true}
+				if key, cached := ctx.attrKeys[pair]; cached {
+					return key
+				}
+
+				key := canonicalAttrKey(attrs)
+				if ctx.attrKeys == nil {
+					ctx.attrKeys = make(map[attrPair]string)
+				}
+				ctx.attrKeys[pair] = key
+
+				return key
+			}
 		}
 	}
 
