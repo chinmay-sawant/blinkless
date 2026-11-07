@@ -1332,6 +1332,15 @@ func (e *engine) emitLineItems(boxNode *box, line []inlineItem, leftX, baseline,
 		if hidesPaint(item.style) {
 			und.flush(e)
 
+			// A hidden atomic inline keeps its box in the tree: only its
+			// paint is skipped. Dropping the box would make a visibility
+			// toggle add or remove boxes without moving anything, so the
+			// subtree splice sees a shape change at identical geometry
+			// (block children already attach unconditionally).
+			if item.blockBox != nil {
+				e.placeInlineBlock(boxNode, item, leftX, lineY, lineH, baseline)
+			}
+
 			leftX += item.w + item.marginR
 
 			if idx < len(line)-1 && isJustifyGapAfter(*item) {

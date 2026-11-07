@@ -114,6 +114,22 @@ func (e *engine) emitInlineBlock(
 ) float64 {
 	und.flush(e)
 
+	leftX = e.placeInlineBlock(boxNode, item, leftX, lineY, lineH, baseline)
+
+	leftX += item.blockBox.w + item.marginR
+	if gapAfter && isJustifyGapAfter(*item) {
+		leftX += justifyGap
+	}
+
+	return leftX
+}
+
+// placeInlineBlock moves a block-in-inline box onto its line position and
+// attaches it to the parent, without painting anything. The hidden-item path
+// shares it so a visibility toggle keeps the box tree while skipping paint.
+func (e *engine) placeInlineBlock(
+	boxNode *box, item *inlineItem, leftX, lineY, lineH, baseline float64,
+) float64 {
 	dx := leftX - item.blockBox.x
 	dy := e.alignedInlineTop(item, lineY, lineH, baseline) - item.blockBox.y
 	e.shiftBoxOps(item.blockBox, dx, dy)
@@ -122,11 +138,6 @@ func (e *engine) emitInlineBlock(
 	// Attach to parent so paint-time transforms/opacity stamp the subtree.
 	if boxNode != nil {
 		boxNode.children = append(boxNode.children, item.blockBox)
-	}
-
-	leftX += item.blockBox.w + item.marginR
-	if gapAfter && isJustifyGapAfter(*item) {
-		leftX += justifyGap
 	}
 
 	return leftX
