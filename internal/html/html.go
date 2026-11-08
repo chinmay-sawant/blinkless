@@ -713,6 +713,132 @@ func scanComment(src string, pos int, emit tokenSink) int {
 	return len(src)
 }
 
+func internLowerAttrName(s string) string {
+	switch s {
+	case "class", "CLASS", "Class":
+		return "class"
+	case "id", "ID", "Id":
+		return "id"
+	case "style", "STYLE", "Style":
+		return "style"
+	case "type", "TYPE", "Type":
+		return "type"
+	case "name", "NAME", "Name":
+		return "name"
+	case "value", "VALUE", "Value":
+		return "value"
+	case "href", "HREF", "Href":
+		return "href"
+	case "src", "SRC", "Src":
+		return "src"
+	case "width", "WIDTH", "Width":
+		return "width"
+	case "height", "HEIGHT", "Height":
+		return "height"
+	case "role", "ROLE", "Role":
+		return "role"
+	case "tabindex", "TABINDEX", "TabIndex":
+		return "tabindex"
+	case "placeholder", "PLACEHOLDER", "Placeholder":
+		return "placeholder"
+	case "disabled", "DISABLED", "Disabled":
+		return "disabled"
+	case "checked", "CHECKED", "Checked":
+		return "checked"
+	case "selected", "SELECTED", "Selected":
+		return "selected"
+	case "data-action":
+		return "data-action"
+	case "aria-label", "ARIA-LABEL", "Aria-Label":
+		return "aria-label"
+	case "aria-hidden", "ARIA-HIDDEN", "Aria-Hidden":
+		return "aria-hidden"
+	default:
+		return strings.ToLower(s)
+	}
+}
+
+func internTagName(s string) string {
+	switch s {
+	case "div", "DIV", "Div":
+		return "div"
+	case "span", "SPAN", "Span":
+		return "span"
+	case "p", "P":
+		return "p"
+	case "table", "TABLE", "Table":
+		return "table"
+	case "tr", "TR", "Tr":
+		return "tr"
+	case "td", "TD", "Td":
+		return "td"
+	case "th", "TH", "Th":
+		return "th"
+	case "tbody", "TBODY", "Tbody":
+		return "tbody"
+	case "thead", "THEAD", "Thead":
+		return "thead"
+	case "tfoot", "TFOOT", "Tfoot":
+		return "tfoot"
+	case "button", "BUTTON", "Button":
+		return "button"
+	case "input", "INPUT", "Input":
+		return "input"
+	case "label", "LABEL", "Label":
+		return "label"
+	case "form", "FORM", "Form":
+		return "form"
+	case "svg", "SVG", "Svg":
+		return "svg"
+	case "path", "PATH", "Path":
+		return "path"
+	case "header", "HEADER", "Header":
+		return "header"
+	case "footer", "FOOTER", "Footer":
+		return "footer"
+	case "nav", "NAV", "Nav":
+		return "nav"
+	case "section", "SECTION", "Section":
+		return "section"
+	case "main", "MAIN", "Main":
+		return "main"
+	case "ul", "UL", "Ul":
+		return "ul"
+	case "ol", "OL", "Ol":
+		return "ol"
+	case "li", "LI", "Li":
+		return "li"
+	case "a", "A":
+		return "a"
+	case "h1", "H1":
+		return "h1"
+	case "h2", "H2":
+		return "h2"
+	case "h3", "H3":
+		return "h3"
+	case "h4", "H4":
+		return "h4"
+	case "h5", "H5":
+		return "h5"
+	case "h6", "H6":
+		return "h6"
+	case "img", "IMG", "Img":
+		return "img"
+	case "head", "HEAD", "Head":
+		return "head"
+	case "body", "BODY", "Body":
+		return "body"
+	case "html", "HTML", "Html":
+		return "html"
+	case "style", "STYLE", "Style":
+		return "style"
+	case "script", "SCRIPT", "Script":
+		return "script"
+	default:
+		return strings.ToLower(s)
+	}
+}
+
 // scanEndTag tokenizes a closing tag at pos. Malformed input follows the
 // spec's recovery: a non-letter name becomes a bogus comment, EOF inside the
 // tag drops the token, and a stray "</" stays text.
@@ -738,7 +864,7 @@ func scanEndTag(src string, pos int, emit tokenSink) int {
 		j++
 	}
 
-	name := strings.ToLower(replaceNUL(src[i:j]))
+	name := internTagName(replaceNUL(src[i:j]))
 	if j >= len(src) {
 		return len(src) // EOF in tag name: drop the token
 	}
@@ -812,11 +938,11 @@ func scanTagAttributesInto(
 
 	getAttrName := func() string {
 		if nameBuf.Len() > 0 {
-			s := strings.ToLower(nameBuf.String())
+			s := internLowerAttrName(nameBuf.String())
 			nameBuf.Reset()
 			return s
 		}
-		s := strings.ToLower(nameStr)
+		s := internLowerAttrName(nameStr)
 		nameStr = ""
 		return s
 	}
@@ -1158,7 +1284,7 @@ func scanStartTag(src string, pos int, emit tokenSink, attrScratch *[]string) in
 		return len(src) // EOF in tag name: drop the token
 	}
 
-	name := strings.ToLower(replaceNUL(src[nameStart:i]))
+	name := internTagName(replaceNUL(src[nameStart:i]))
 
 	var (
 		attrs       []string

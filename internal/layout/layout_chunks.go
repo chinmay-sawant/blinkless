@@ -70,8 +70,8 @@ const (
 	// while allocStyle only needs a chunk for flex and grid override styles.
 	defaultStyleChunkSize = 16
 	// maxStyleChunksRetained bounds the style free list. At 16 entries a
-	// retained chunk is about 94 KB, so the list holds at most about 3 MB.
-	maxStyleChunksRetained = 32
+	// retained chunk is about 94 KB, so 8 chunks hold at most about 750 KB.
+	maxStyleChunksRetained = 8
 )
 
 //nolint:gochecknoglobals // global pool for contiguous box chunks

@@ -17,7 +17,7 @@ const maxSingleAttrCacheSize = 1024
 // cycle through more distinct sheet sets than this simply rebuild the oldest
 // work; holders keep their own bundle pointer, so eviction never invalidates
 // a running layout.
-const maxSharedCompiledEntries = 16
+const maxSharedCompiledEntries = 64
 
 //nolint:gochecknoglobals // class attribute key memoization cache plus cross-layout bundles
 var (

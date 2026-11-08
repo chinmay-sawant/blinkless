@@ -1136,9 +1136,9 @@ const styleStoreFirstChunk = 8
 // its exact capacity, and both get and put verify the capacity before reuse.
 //
 const (
-	maxStyleStoreChunksFree8  = 16
-	maxStyleStoreChunksFree32 = 8
-	maxStyleStoreChunksFree64 = 4
+	maxStyleStoreChunksFree8  = 8
+	maxStyleStoreChunksFree32 = 4
+	maxStyleStoreChunksFree64 = 2
 )
 
 //nolint:gochecknoglobals // per-size free lists for styleStore backings
