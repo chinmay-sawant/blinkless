@@ -87,7 +87,7 @@ image paint is skipped (`layout/layout.go:23-33`).
 element of a styled document inside a display list the host already holds. It
 returns the element's new operations, its new boxes, its old and new bounds,
 and the whole patched page as `ElementPatch.Display`
-(`layout/relayout_element.go:82`). The host adopts that display, because the
+(`layout/relayout_element.go:83`). The host adopts that display, because the
 operation count, paint order, and owners can all move. The host edits the tree
 first with
 `html.Document.SetAttribute` or `html.Document.SetText`
