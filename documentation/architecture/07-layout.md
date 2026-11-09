@@ -214,3 +214,24 @@ The HTML parser inserts an implicit `tbody` when it sees `tr`, `td`, or `th` dir
 - Geometry runs (2026-10-09): 11 flex, grid, logical-property, and text fixtures compared against Chrome `143.0.7499.40` at 1024x768 with a 1.0 px tolerance. The wave A baseline had 101 of 215 like-for-like units within tolerance, where a unit is one element box measured in both engines; the wave D recheck after the C1-C5 fixes had 151 of 215 (`documentation/fidelity.md:57`). These are per-case comparisons, not a parity claim.
 - Chrome cases: `test/chrome` holds 40 selected Flexbox targets. The manifest records 26 completed and 14 blocked (`test/chrome/README.md:26`). The blocked root causes are clustered in `temps/chrome-cases/blocked-dossier.md`; the CAT-07 row points there (`plans/v0.0.1/html-css-json-compatibility-checklist.md:116`). The dossier notes that the C6 fix closed the panel deltas in cases 17, 18, and 19, and that everything else was still open at its date (`temps/chrome-cases/blocked-dossier.md:15-20`).
 - Defect rows and evidence: `plans/v0.0.1/html-css-json-compatibility-checklist.md:141-146` for C1 through C6.
+
+## Cache lifetime during interactive layout
+
+Grid intrinsic measurements belong to one layout pass. Their keys contain node
+and resolved-style pointers, so a process-wide map kept obsolete document trees
+and style chunks alive. `gridCaches` now lives on the engine and is cleared when
+the pass finishes. Nested grid measurements in that pass can still reuse it.
+See `internal/layout/grid_memo.go`, `internal/layout/grid_tracks.go`, and
+`internal/layout/layout.go`.
+
+Flex container builds borrow the resolved style. Only an aspect ratio that
+supplies an auto height needs a private copy. This avoids a heap-allocated copy
+of the large style record for every flex container. The original cascade record
+stays immutable. See `internal/layout/flex.go` and
+`internal/layout/aspect_ratio.go`.
+
+The public element-patch fingerprint memo uses weak result and document keys.
+The sibling-selector memo also uses weak keys and values. These caches can lose
+entries during garbage collection; a miss recomputes from the live document.
+They do not own the document's lifetime. Collection tests cover discarded grid
+trees, selector trees, CSS documents, and released layout results.

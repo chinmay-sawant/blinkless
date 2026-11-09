@@ -6,6 +6,13 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
+// gridCaches belong to one placement pass. Node and style identities only
+// describe that pass, so a shared cache would pin obsolete trees and chunks.
+type gridCaches struct {
+	gridMeasureCache map[gridMeasureKey]gridMeasureResult
+	trackKidMemo     map[trackKidKey]trackKidVal
+}
+
 // gridMeasureKey identifies one grid-item preferred-height measurement. It
 // mirrors flexBaseKey: node pins the subtree, style pins the resolved style
 // identity so a measurement under a style override never stands in for the

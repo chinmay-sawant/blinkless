@@ -262,29 +262,29 @@ func putFlexBools(scratch []bool) {
 // buildFlex lays out a flex container with justify, align, gap, grow, and wrap.
 //
 //nolint:cyclop,gocritic,wsl // dispatch also installs the containing-block scope
-func (e *engine) buildFlex(node *html.Node, sty ResolvedStyle, availW, x, posY float64) *box {
+func (e *engine) buildFlex(node *html.Node, sty *ResolvedStyle, availW, x, posY float64) *box {
 	ml := e.scalePt(sty.MarginLeft)
 	boxNode := e.allocBox(node, e.stylePtr(node), boxKindBlock, x+ml, posY)
-	boxNode.w = resolveUsedWidth(sty, availW, e)
+	boxNode.w = resolveUsedWidth(*sty, availW, e)
 	if isIntrinsicWidth(sty.Width) {
-		boxNode.w = e.flexIntrinsicWidth(node, &sty, sty.Width == widthMinContent)
+		boxNode.w = e.flexIntrinsicWidth(node, sty, sty.Width == widthMinContent)
 	}
 
 	if sty.IsWebkitBox && sty.Width < 0 && sty.WidthPercent < 0 {
-		if intr := e.measureFlexItemMaxContent(node, &sty); intr > 0 && intr < boxNode.w {
+		if intr := e.measureFlexItemMaxContent(node, sty); intr > 0 && intr < boxNode.w {
 			boxNode.w = intr
 		}
 	}
 
-	contentX, contentW := e.contentBox(boxNode.x, boxNode.w, &sty)
+	contentX, contentW := e.contentBox(boxNode.x, boxNode.w, sty)
 	if sty.AspectRatio > 0 {
-		sty = withAspectRatioHeight(sty, contentW, e)
+		sty = e.flexAspectRatioStyle(sty, contentW)
 	}
 
 	contentStart := len(e.ops)
 	curY := e.scalePt(sty.PaddingTop) + e.scalePt(sty.BorderTop.Width)
 
-	kids, pKids := e.flexChildrenPooled(node, &sty)
+	kids, pKids := e.flexChildrenPooled(node, sty)
 	if pKids != nil {
 		defer putFlexKids(pKids)
 	}
@@ -300,8 +300,8 @@ func (e *engine) buildFlex(node *html.Node, sty ResolvedStyle, availW, x, posY f
 		defer putFlexKids(pFlow)
 	}
 
-	rowGap, colGap := e.styleGaps(&sty)
-	previousCB, parentCB := e.setFlowCB(&sty)
+	rowGap, colGap := e.styleGaps(sty)
+	previousCB, parentCB := e.setFlowCB(sty)
 	defer func() { e.flowCBHeight = previousCB }()
 
 	dir := sty.FlexDirection
@@ -310,23 +310,23 @@ func (e *engine) buildFlex(node *html.Node, sty ResolvedStyle, availW, x, posY f
 	}
 
 	if isVerticalWritingMode(sty.WritingMode) && (dir == fxCol || dir == fxColRev) {
-		curY = e.flowFlexVerticalColumn(boxNode, flowKids, sty, contentW, contentX, posY, curY, rowGap)
+		curY = e.flowFlexVerticalColumn(boxNode, flowKids, *sty, contentW, contentX, posY, curY, rowGap)
 	} else if dir == fxCol || dir == fxColRev {
-		curY = e.flowFlexColumn(boxNode, flowKids, sty, contentW, contentX, posY, curY, rowGap, colGap)
+		curY = e.flowFlexColumn(boxNode, flowKids, *sty, contentW, contentX, posY, curY, rowGap, colGap)
 	} else if isVerticalWritingMode(sty.WritingMode) {
-		curY = e.flowFlexVerticalRow(boxNode, flowKids, sty, contentW, contentX, posY, curY, colGap)
+		curY = e.flowFlexVerticalRow(boxNode, flowKids, *sty, contentW, contentX, posY, curY, colGap)
 	} else {
-		curY = e.flowFlexRow(boxNode, flowKids, sty, contentW, contentX, posY, curY, colGap, rowGap)
+		curY = e.flowFlexRow(boxNode, flowKids, *sty, contentW, contentX, posY, curY, colGap, rowGap)
 	}
 
 	flowBottom := curY
-	curY = e.resolveFlexContentHeight(sty, contentW, curY, parentCB)
+	curY = e.resolveFlexContentHeight(*sty, contentW, curY, parentCB)
 
 	boxNode.height = curY
 
-	e.flushFlexDeferredOutOfFlow(boxNode, sty, flowKids, deferred, contentX, contentW, flowBottom, posY)
+	e.flushFlexDeferredOutOfFlow(boxNode, *sty, flowKids, deferred, contentX, contentW, flowBottom, posY)
 
-	e.prependChrome(contentStart, boxNode, sty, boxNode.x, posY, boxNode.w, boxNode.height)
+	e.prependChrome(contentStart, boxNode, *sty, boxNode.x, posY, boxNode.w, boxNode.height)
 
 	return boxNode
 }

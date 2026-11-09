@@ -2,6 +2,7 @@ package css
 
 import (
 	"testing"
+	"weak"
 
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
@@ -98,7 +99,7 @@ func TestSiblingEntryEvictedParentRebuilds(t *testing.T) {
 	// have been dropped already. Evict it explicitly — the same delete the
 	// cap path performs — so the rebuild assertions below are deterministic.
 	sibMu.Lock()
-	delete(sibParents, victim)
+	delete(sibParents, weak.Make(victim))
 	sibMu.Unlock()
 
 	_, missesBefore := siblingMemoStatsForTest()
