@@ -669,6 +669,7 @@ func applyGridAlignContentOffsets(rowYs, rows []float64, rowGap, contentH float6
 	offsets := rentFloats(count)
 	defer returnFloats(offsets)
 	alignContentOffsetsInto(offsets, align, free)
+
 	for i := range rowYs {
 		rowYs[i] += offsets[i]
 	}

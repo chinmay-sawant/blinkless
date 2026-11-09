@@ -606,100 +606,21 @@ func (s *decoSegSet) get(i int) decoSeg { return s.segs[i] }
 // are skipped per the policy; inset trims the outer endpoints of the whole
 // span (positive) or extends them (negative). Advances come from rune
 // measurement, not glyph ink.
-//
-//nolint:cyclop,funlen // per-rune spacer skip and segment accumulation in one pass
 func (e *engine) decorationSegments(
 	item *inlineItem, runStart, runSpan float64, policy textDecorationSkipPolicy, inset float64,
 ) decoSegSet {
-	var segs decoSegSet
+	var none decoSegSet
 
 	if item.text == "" || runSpan <= emptyRunEpsilon {
-		return segs
+		return none
 	}
 
-	firstInk, lastInk := -1, -1
-
-	idx := 0
-
-	for _, r := range item.text {
-		if !isDecorationSpacer(r) {
-			if firstInk < 0 {
-				firstInk = idx
-			}
-
-			lastInk = idx
-		}
-
-		idx++
-	}
-
+	firstInk, lastInk := decorationInkBounds(item.text)
 	if firstInk < 0 {
-		return segs
+		return none
 	}
 
-	spanEnd := runStart + runSpan
-
-	cur := runStart
-	segStart := -1.0
-
-	flush := func() {
-		if segStart < 0 {
-			return
-		}
-
-		end := cur
-		if end > spanEnd {
-			end = spanEnd
-		}
-
-		if end > segStart {
-			segs.add(segStart, end)
-		}
-
-		segStart = -1
-	}
-
-	idx = 0
-
-	// One batched advance walk serves every spacer check in order; values
-	// match sequential skipInkAdvance calls exactly.
-	e.eachRuneAdvance(item.text, item.style, func(char rune, adv float64) bool {
-		if adv <= 0 {
-			adv = item.style.FontSize * fallbackAdvanceRatio
-			if adv <= 0 {
-				adv = fallbackMinAdvance
-			}
-		}
-
-		if cur+adv > spanEnd {
-			adv = spanEnd - cur
-		}
-
-		if adv < 0 {
-			adv = 0
-		}
-
-		if isDecorationSpacer(char) && skipDecorationSpacer(idx, firstInk, lastInk, policy) {
-			flush()
-
-			cur += adv
-			idx++
-
-			return true
-		}
-
-		if segStart < 0 {
-			segStart = cur
-		}
-
-		cur += adv
-		idx++
-
-		return true
-	})
-
-	flush()
-
+	segs := e.decorationRuns(item, runStart, runSpan, firstInk, lastInk, policy)
 	if segs.n == 0 {
 		return segs
 	}
@@ -718,6 +639,110 @@ func (e *engine) decorationSegments(
 	}
 
 	return out
+}
+
+// decorationInkBounds returns the rune indexes of the first and last
+// non-spacer runes, or -1 for the first when the text is all spacers.
+func decorationInkBounds(text string) (int, int) {
+	firstInk, lastInk := -1, -1
+
+	idx := 0
+
+	for _, r := range text {
+		if !isDecorationSpacer(r) {
+			if firstInk < 0 {
+				firstInk = idx
+			}
+
+			lastInk = idx
+		}
+
+		idx++
+	}
+
+	return firstInk, lastInk
+}
+
+// decorationRuns walks the item's advances and accumulates the segments the
+// decoration covers, flushing at every skipped spacer.
+func (e *engine) decorationRuns(
+	item *inlineItem, runStart, runSpan float64, firstInk, lastInk int, policy textDecorationSkipPolicy,
+) decoSegSet {
+	var segs decoSegSet
+
+	spanEnd := runStart + runSpan
+	cur := runStart
+	segStart := -1.0
+
+	idx := 0
+
+	// One batched advance walk serves every spacer check in order; values
+	// match sequential skipInkAdvance calls exactly.
+	e.eachRuneAdvance(item.text, item.style, func(char rune, adv float64) bool {
+		adv = decorationAdvance(item, adv, cur, spanEnd)
+
+		if isDecorationSpacer(char) && skipDecorationSpacer(idx, firstInk, lastInk, policy) {
+			segs.flush(&segStart, cur, spanEnd)
+
+			cur += adv
+			idx++
+
+			return true
+		}
+
+		if segStart < 0 {
+			segStart = cur
+		}
+
+		cur += adv
+		idx++
+
+		return true
+	})
+
+	segs.flush(&segStart, cur, spanEnd)
+
+	return segs
+}
+
+// flush adds the pending segment from segStart to cur, clamped to spanEnd,
+// and clears the pending start.
+func (s *decoSegSet) flush(segStart *float64, cur, spanEnd float64) {
+	if *segStart < 0 {
+		return
+	}
+
+	end := cur
+	if end > spanEnd {
+		end = spanEnd
+	}
+
+	if end > *segStart {
+		s.add(*segStart, end)
+	}
+
+	*segStart = -1
+}
+
+// decorationAdvance clamps one rune advance to the remaining span, falling
+// back to the font size when the face reported none.
+func decorationAdvance(item *inlineItem, adv, cur, spanEnd float64) float64 {
+	if adv <= 0 {
+		adv = item.style.FontSize * fallbackAdvanceRatio
+		if adv <= 0 {
+			adv = fallbackMinAdvance
+		}
+	}
+
+	if cur+adv > spanEnd {
+		adv = spanEnd - cur
+	}
+
+	if adv < 0 {
+		return 0
+	}
+
+	return adv
 }
 
 // skipDecorationSpacer reports whether the spacer at rune index idx is
@@ -1001,21 +1026,6 @@ func endSkipInkGap(gap *skipInkGap, curX, adv, gapPad float64) {
 	}
 
 	gap.inGap = false
-}
-
-// skipInkAdvance measures one rune for skip-ink gaps with fallback widths.
-func (e *engine) skipInkAdvance(runic rune, style *ResolvedStyle) float64 {
-	adv := e.measureRuneFace(runic, style)
-	if adv > 0 {
-		return adv
-	}
-
-	adv = style.FontSize * fallbackAdvanceRatio
-	if adv > 0 {
-		return adv
-	}
-
-	return fallbackMinAdvance
 }
 
 // paintUnderlineSkipInk draws per-glyph underline segments, omitting strokes
@@ -1741,6 +1751,7 @@ func (e *engine) splitTextByFace(cssSheet string, sty *ResolvedStyle) []faceRun 
 				face: current,
 				w: width + sty.LetterSpacing*e.scale*float64(runeCount) +
 					sty.WordSpacing*e.scale*float64(spaceCount),
+				paint: "", // paint derives the string from text on this path
 			})
 			start = idx
 			width = 0
@@ -1773,6 +1784,7 @@ func (e *engine) splitTextByFace(cssSheet string, sty *ResolvedStyle) []faceRun 
 			face: current,
 			w: width + sty.LetterSpacing*e.scale*float64(runeCount) +
 				sty.WordSpacing*e.scale*float64(spaceCount),
+			paint: "", // paint derives the string from text on this path
 		})
 	}
 
@@ -1791,7 +1803,6 @@ func paintTextOf(runText, transform string) string {
 	return stripSoftHyphens(transformInlineText(runText, transform))
 }
 
-//nolint:wsl // hot path keeps the primary-face fast path compact
 func (e *engine) primaryFaceRun(cssSheet string, sty *ResolvedStyle) (faceRun, bool) {
 	if cssSheet == "" || sty == nil {
 		return faceRun{}, false //nolint:exhaustruct // intentional zero fields
@@ -1808,66 +1819,16 @@ func (e *engine) primaryFaceRun(cssSheet string, sty *ResolvedStyle) (faceRun, b
 
 	size := sty.FontSize * e.scale
 	paintText := paintTextOf(cssSheet, sty.TextTransform)
-
-	// The stored paint string follows the original order (strip, then
-	// transform) so it matches what paint derived before: transform-then-
-	// strip would lose a capitalize trigger after a leading soft hyphen.
-	painted := paintText
-	if sty.TextTransform != "" && sty.TextTransform != textTransformNone {
-		painted = transformInlineText(stripSoftHyphens(cssSheet), sty.TextTransform)
-	}
+	painted := primaryPaintedText(cssSheet, paintText, sty)
 
 	// Paint consults the collect-time width: collect measured the same
 	// transformed string through the same cache, so a hit skips the
 	// per-rune loop below. The loop stays as the miss fallback.
 	if width, ok := e.cachedPaintRunWidth(sty, primary, size, paintText); ok {
-		run := faceRun{
-			text: cssSheet,
-			face: primary,
-			w:    width,
-		}
-		if painted != cssSheet {
-			run.paint = painted
-		}
-
-		return run, true
+		return primaryFaceRunValue(cssSheet, primary, width, painted), true
 	}
 
-	// One autospace read serves every boundary in this run.
-	auto := autospaceForRun(sty)
-
-	var width float64
-	runeCount := 0
-	spaceCount := 0
-	var prev rune
-
-	for _, runic := range paintText {
-		if runic == '\t' {
-			width += e.tabStopAdvance(sty, primary, size)
-		} else {
-			width += scaledAdvance(primary, size, runic)
-		}
-		width += auto.gap(prev, runic, size)
-		runeCount++
-
-		if runic == ' ' {
-			spaceCount++
-		}
-
-		prev = runic
-	}
-
-	width += sty.LetterSpacing*e.scale*float64(runeCount) +
-		sty.WordSpacing*e.scale*float64(spaceCount)
-
-	run := faceRun{
-		text: cssSheet,
-		face: primary,
-		w:    width,
-	}
-	if painted != cssSheet {
-		run.paint = painted
-	}
+	width := e.primaryRunWidth(primary, paintText, sty, size)
 
 	// The loop width equals the cached measure semantics only when the reuse
 	// gate holds; then the fallback result is worth storing for the next
@@ -1878,7 +1839,63 @@ func (e *engine) primaryFaceRun(cssSheet string, sty *ResolvedStyle) (faceRun, b
 		storeSharedTextWidthFor(key, e.scale, width)
 	}
 
-	return run, true
+	return primaryFaceRunValue(cssSheet, primary, width, painted), true
+}
+
+// primaryPaintedText returns the stored paint string. It follows the original
+// order (strip, then transform) so it matches what paint derived before:
+// transform-then-strip would lose a capitalize trigger after a leading soft
+// hyphen.
+func primaryPaintedText(cssSheet, paintText string, sty *ResolvedStyle) string {
+	if sty.TextTransform == "" || sty.TextTransform == textTransformNone {
+		return paintText
+	}
+
+	return transformInlineText(stripSoftHyphens(cssSheet), sty.TextTransform)
+}
+
+// primaryFaceRunValue builds one primary-face run, carrying the paint string
+// only when it differs from the source text.
+func primaryFaceRunValue(cssSheet string, primary *pdf.Font, width float64, painted string) faceRun {
+	if painted != cssSheet {
+		return faceRun{text: cssSheet, face: primary, w: width, paint: painted}
+	}
+
+	return faceRun{text: cssSheet, face: primary, w: width, paint: ""}
+}
+
+// primaryRunWidth sums the advances, autospace gaps, and letter/word spacing
+// of one primary-face run.
+func (e *engine) primaryRunWidth(primary *pdf.Font, paintText string, sty *ResolvedStyle, size float64) float64 {
+	// One autospace read serves every boundary in this run.
+	auto := autospaceForRun(sty)
+
+	var width float64
+
+	runeCount := 0
+	spaceCount := 0
+
+	var prev rune
+
+	for _, runic := range paintText {
+		if runic == '\t' {
+			width += e.tabStopAdvance(sty, primary, size)
+		} else {
+			width += scaledAdvance(primary, size, runic)
+		}
+
+		width += auto.gap(prev, runic, size)
+		runeCount++
+
+		if runic == ' ' {
+			spaceCount++
+		}
+
+		prev = runic
+	}
+
+	return width + sty.LetterSpacing*e.scale*float64(runeCount) +
+		sty.WordSpacing*e.scale*float64(spaceCount)
 }
 
 // paintRunWidthReusable reports whether the collect-time string width may

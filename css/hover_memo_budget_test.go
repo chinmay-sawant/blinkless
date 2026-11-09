@@ -35,10 +35,11 @@ func budgetEntryInternBytes(entry *hoverListEntry) int {
 	return total
 }
 
+//nolint:paralleltest // resetHoverCache drives the process-wide hover caches and counters
 func TestHoverMemoByteBudgetFloodStaysBoundedAndCorrect(t *testing.T) {
 	resetHoverCache()
 
-	styled := internTestStyled(t, `.u:hover{color:red}`, `<div id="panel"><button class="u" id="a">A</button></div>`)
+	styled := internTestStyled(t, `<div id="panel"><button class="u" id="a">A</button></div>`)
 	entry := cachedHoverList(styled.sheets)
 	idx, pseudo := internTestLocalSelector(t, entry)
 	node := internTestNodeByID(t, styled.root, "a")
@@ -103,10 +104,11 @@ func TestHoverMemoByteBudgetFloodStaysBoundedAndCorrect(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // resetHoverCache drives the process-wide hover caches and counters
 func TestHoverMemoFatNodeSharesOneCanonicalSignature(t *testing.T) {
 	resetHoverCache()
 
-	styled := internTestStyled(t, `.u:hover{color:red}`, `<div id="panel"><button class="u" id="a">A</button></div>`)
+	styled := internTestStyled(t, `<div id="panel"><button class="u" id="a">A</button></div>`)
 	entry := cachedHoverList(styled.sheets)
 	idx, pseudo := internTestLocalSelector(t, entry)
 	node := internTestNodeByID(t, styled.root, "a")

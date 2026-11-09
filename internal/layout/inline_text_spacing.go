@@ -78,7 +78,7 @@ type autospaceRun struct {
 // A nil style never inserts gaps, matching textAutospaceGap.
 func autospaceForRun(sty *ResolvedStyle) autospaceRun {
 	if sty == nil {
-		return autospaceRun{}
+		return autospaceRun{enabled: false}
 	}
 
 	return autospaceRun{enabled: autospaceIdeographAlpha(sty.TextAutospace)}

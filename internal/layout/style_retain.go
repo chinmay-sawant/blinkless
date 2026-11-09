@@ -67,7 +67,7 @@ type styleRetainer struct {
 // newStyleRetainer returns an empty retainer. The first resolve with it
 // always takes the full path and stocks the map.
 func newStyleRetainer() *styleRetainer {
-	return &styleRetainer{}
+	return new(styleRetainer)
 }
 
 // retainInputsOf folds the style inputs of one resolve into a comparable key.
@@ -76,7 +76,7 @@ func newStyleRetainer() *styleRetainer {
 // the key: the existing contract (fresh parse required, no in-place edits)
 // is preserved, not weakened.
 func retainInputsOf(opts Options) styleRetainInputs {
-	return styleRetainInputs{ //nolint:exhaustruct // zero value has no meaning here
+	return styleRetainInputs{
 		sheetsKey:          sheetsCacheKey(opts.Sheets),
 		media:              opts.Media,
 		viewportW:          opts.Width,
@@ -131,8 +131,10 @@ func retainChain(node *html.Node) string {
 // elements. dup reports a repeated id attribute: ambiguous keys can never
 // reuse, so the caller falls back to full resolve while any duplicate
 // exists.
-func retainIndexIDs(root *html.Node) (byID map[string]*html.Node, total int, dup bool) {
-	byID = make(map[string]*html.Node)
+func retainIndexIDs(root *html.Node) (map[string]*html.Node, int, bool) {
+	byID := make(map[string]*html.Node)
+	total := 0
+	dup := false
 
 	var walk func(node *html.Node)
 	walk = func(node *html.Node) {
@@ -176,7 +178,7 @@ func (r *styleRetainer) lookup(id string) (retainedStyleEntry, bool) {
 // id-bearing node's ancestor chain unchanged. Any doubt returns false and
 // the caller takes the existing full resolve path unchanged.
 func (r *styleRetainer) check(
-	root *html.Node,
+	_ *html.Node,
 	byID map[string]*html.Node,
 	total int,
 	inputs styleRetainInputs,
@@ -185,11 +187,7 @@ func (r *styleRetainer) check(
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	if len(r.entries) == 0 || r.elements != total || len(r.entries) != len(byID) {
-		return false
-	}
-
-	if r.inputs != inputs {
+	if !r.matchesShape(byID, total, inputs) {
 		return false
 	}
 
@@ -217,6 +215,16 @@ func (r *styleRetainer) check(
 	return true
 }
 
+// matchesShape reports whether the retained map has the same size, element
+// count, and inputs as the current pass.
+func (r *styleRetainer) matchesShape(byID map[string]*html.Node, total int, inputs styleRetainInputs) bool {
+	if len(r.entries) == 0 || r.elements != total || len(r.entries) != len(byID) {
+		return false
+	}
+
+	return r.inputs == inputs
+}
+
 // restock rebuilds the map from a finished resolve. It runs after both the
 // full and the incremental paths, so the next layout always reads the
 // latest styles, chains, and inputs.
@@ -231,24 +239,13 @@ func (r *styleRetainer) restock(
 
 		switch node.Type {
 		case html.ElementNode:
-			style = styles[node]
-			if style != nil {
-				if id := node.Attribute("id"); id != "" {
-					if _, taken := fresh[id]; !taken {
-						fresh[id] = retainedStyleEntry{
-							style:    style,
-							chain:    retainChain(node),
-							parentFP: retainStyleFP(parent),
-						}
-					}
-				}
-			}
+			style = stockRetainedEntry(fresh, node, styles[node], parent)
 		case html.TextNode:
 			style = parent
 			if style == nil {
 				style = &defaultTextStyle
 			}
-		case html.CommentNode, html.DoctypeNode:
+		case html.CommentNode, html.DoctypeNode, html.NodeUnknown:
 			style = &zeroResolvedStyle
 		}
 
@@ -271,6 +268,33 @@ func (r *styleRetainer) restock(
 	r.entries = fresh
 	r.inputs = inputs
 	r.elements = total
+}
+
+// stockRetainedEntry records one id-bearing element style and returns the
+// style its children inherit.
+func stockRetainedEntry(
+	fresh map[string]retainedStyleEntry, node *html.Node, style, parent *ResolvedStyle,
+) *ResolvedStyle {
+	if style == nil {
+		return nil
+	}
+
+	styleID := node.Attribute("id")
+	if styleID == "" {
+		return style
+	}
+
+	if _, taken := fresh[styleID]; taken {
+		return style
+	}
+
+	fresh[styleID] = retainedStyleEntry{
+		style:    style,
+		chain:    retainChain(node),
+		parentFP: retainStyleFP(parent),
+	}
+
+	return style
 }
 
 // noteFullResolve records one fallback to the existing full path.

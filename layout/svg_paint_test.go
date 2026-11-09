@@ -49,7 +49,7 @@ func svgPaintDisplay(t *testing.T) (*layout.Display, *css.Document) {
 // TestRestyleInlineSVGPatchesTheImage pins the block-level path: the SVG is
 // laid out as its own box and the patch replaces the image payload.
 //
-//nolint:cyclop // the fixture checks the boxes, bounds, and payload together
+
 func TestRestyleInlineSVGPatchesTheImage(t *testing.T) {
 	t.Parallel()
 
@@ -178,7 +178,7 @@ func svgInlineDisplay(t *testing.T) (*layout.Display, *css.Document) {
 // paragraph, the case that used to return ErrSVGNotLaidOut. A second call with
 // the same paint reuses the cached raster and leaves the payload identical.
 //
-//nolint:cyclop // one fixture proves discovery, the patch, and the cached repeat
+
 func TestRestyleInlineSVGInlineIcon(t *testing.T) {
 	t.Parallel()
 

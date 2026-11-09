@@ -57,6 +57,8 @@ func memoMustParse(t *testing.T, src string) Selector {
 // :has, sibling pseudos, and i-flag attributes. Expected values are the
 // long-standing correct outcomes (same as the focused existing tests), so a
 // semantic change fails here.
+//
+//nolint:paralleltest // shares the process-wide match memo and its counters
 func TestMemoGoldenMatches(t *testing.T) {
 	resetMatchMemoForTest()
 
@@ -149,6 +151,8 @@ func TestMemoGoldenMatches(t *testing.T) {
 
 // TestMemoSiblingHits proves the per-parent memo is built once and reused:
 // after matching many siblings, hits are nonzero and results stay correct.
+//
+//nolint:paralleltest // shares the process-wide match memo and its counters
 func TestMemoSiblingHits(t *testing.T) {
 	resetMatchMemoForTest()
 
@@ -219,6 +223,8 @@ func TestMemoSiblingHits(t *testing.T) {
 
 // TestMemoNoBudgetAllocs proves a match without :has allocates nothing for
 // the budget, while a :has match allocates. Nil budget means unlimited.
+//
+//nolint:paralleltest // shares the process-wide match memo and its counters
 func TestMemoNoBudgetAllocs(t *testing.T) {
 	resetMatchMemoForTest()
 

@@ -368,6 +368,7 @@ func paintOnlyBatchDisplay(prev *Display, res *ilayout.Result) *Display {
 	if prev != nil && prev.result != nil && prev.result != res {
 		prev.result.DisownChunks()
 	}
+
 	display := *prev
 	display.Ops = res.Ops
 	display.result = res
@@ -439,7 +440,9 @@ func subtreeResult(
 // so the default font load is skipped and the engine falls back to its regular
 // face; a nil node means an unknown scope (the override containing block), so
 // the font is always loaded there.
-func relayoutOptions(styled pubstate.Styled, prev *Display, options Options, node *ihtml.Node) (ilayout.Options, error) {
+func relayoutOptions(
+	styled pubstate.Styled, prev *Display, options Options, node *ihtml.Node,
+) (ilayout.Options, error) {
 	atomic.AddInt64(&relayoutEngineCalls, 1)
 
 	var font *pdf.Font
@@ -566,15 +569,15 @@ func relayoutSubtreeFingerprint(styled pubstate.Styled, node *ihtml.Node) string
 // writeRelayoutSubtree hashes one subtree in document order. Text nodes hash
 // their content; other nodes hash their tag and their relevant attributes.
 // Comments and doctypes hash nothing: they never reach paint.
-func writeRelayoutSubtree(b *strings.Builder, node *ihtml.Node, useAttrs, inSVG bool) {
+func writeRelayoutSubtree(builder *strings.Builder, node *ihtml.Node, useAttrs, inSVG bool) {
 	if node == nil {
 		return
 	}
 
 	if node.Type == ihtml.TextNode {
-		b.WriteString("t:")
-		b.WriteString(node.Text)
-		b.WriteByte(';')
+		builder.WriteString("t:")
+		builder.WriteString(node.Text)
+		builder.WriteByte(';')
 
 		return
 	}
@@ -584,23 +587,24 @@ func writeRelayoutSubtree(b *strings.Builder, node *ihtml.Node, useAttrs, inSVG 
 	}
 
 	svg := inSVG || node.Name == "svg"
-	b.WriteString("e:")
-	b.WriteString(node.Name)
-	b.WriteByte(';')
+
+	builder.WriteString("e:")
+	builder.WriteString(node.Name)
+	builder.WriteByte(';')
 
 	for _, name := range slices.Sorted(maps.Keys(node.Attrs)) {
 		if !relayoutAttrRelevant(name, useAttrs, svg) {
 			continue
 		}
 
-		b.WriteString(name)
-		b.WriteByte('=')
-		b.WriteString(node.Attrs[name])
-		b.WriteByte(';')
+		builder.WriteString(name)
+		builder.WriteByte('=')
+		builder.WriteString(node.Attrs[name])
+		builder.WriteByte(';')
 	}
 
 	for _, child := range node.Children {
-		writeRelayoutSubtree(b, child, useAttrs, svg)
+		writeRelayoutSubtree(builder, child, useAttrs, svg)
 	}
 }
 
@@ -640,32 +644,57 @@ func relayoutSheetsUseAttrs(sheets []*icss.Stylesheet) bool {
 			continue
 		}
 
-		for _, rule := range sheet.Rules {
-			for _, selector := range rule.Selectors {
-				if selectorUsesAttrs(selector) {
-					return true
-				}
-			}
-
-			for _, decl := range rule.Decls {
-				if strings.Contains(strings.ToLower(decl.Value), "attr(") {
-					return true
-				}
+		for ruleIndex := range sheet.Rules {
+			if ruleUsesAttrs(&sheet.Rules[ruleIndex]) {
+				return true
 			}
 		}
 
-		for _, keyframes := range sheet.Keyframes {
-			for _, frame := range keyframes.Keyframes {
-				for _, decl := range frame.Declarations {
-					if strings.Contains(strings.ToLower(decl.Value), "attr(") {
-						return true
-					}
+		if sheetKeyframesUseAttrs(sheet) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// ruleUsesAttrs reports whether a rule's selectors or declarations read an
+// attribute.
+func ruleUsesAttrs(rule *icss.Rule) bool {
+	for _, selector := range rule.Selectors {
+		if selectorUsesAttrs(selector) {
+			return true
+		}
+	}
+
+	for _, decl := range rule.Decls {
+		if declValueUsesAttr(decl) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// sheetKeyframesUseAttrs reports whether a keyframe declaration reads an
+// attribute through attr().
+func sheetKeyframesUseAttrs(sheet *icss.Stylesheet) bool {
+	for _, keyframes := range sheet.Keyframes {
+		for _, frame := range keyframes.Keyframes {
+			for _, decl := range frame.Declarations {
+				if declValueUsesAttr(decl) {
+					return true
 				}
 			}
 		}
 	}
 
 	return false
+}
+
+// declValueUsesAttr reports whether a declaration value calls attr().
+func declValueUsesAttr(decl icss.Declaration) bool {
+	return strings.Contains(strings.ToLower(decl.Value), "attr(")
 }
 
 // selectorUsesAttrs reports whether a selector names an attribute, including
@@ -850,31 +879,37 @@ func isReplacedElement(node *ihtml.Node) bool {
 // deliberately coarse (any declaration, not just matching ones): a false
 // positive only skips the font-size fast path, never claims an unsafe one.
 func subtreeUsesRelativeUnits(styled pubstate.Styled, node *ihtml.Node) bool {
-	var walk func(current *ihtml.Node) bool
-
-	walk = func(current *ihtml.Node) bool {
-		if current == nil {
-			return false
-		}
-
-		if current.Type == ihtml.ElementNode && hasRelativeToken(current.Attribute("style")) {
-			return true
-		}
-
-		for _, child := range current.Children {
-			if walk(child) {
-				return true
-			}
-		}
-
-		return false
-	}
-
-	if walk(node) {
+	if subtreeStyleUsesRelativeUnits(node) {
 		return true
 	}
 
-	for _, sheet := range styled.Sheets {
+	return sheetsUseRelativeUnits(styled.Sheets)
+}
+
+// subtreeStyleUsesRelativeUnits reports whether a node or descendant carries
+// an inline style with a relative length token.
+func subtreeStyleUsesRelativeUnits(node *ihtml.Node) bool {
+	if node == nil {
+		return false
+	}
+
+	if node.Type == ihtml.ElementNode && hasRelativeToken(node.Attribute("style")) {
+		return true
+	}
+
+	for _, child := range node.Children {
+		if subtreeStyleUsesRelativeUnits(child) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// sheetsUseRelativeUnits reports whether any declaration in sheets holds a
+// relative length token.
+func sheetsUseRelativeUnits(sheets []*icss.Stylesheet) bool {
+	for _, sheet := range sheets {
 		if sheet == nil {
 			continue
 		}

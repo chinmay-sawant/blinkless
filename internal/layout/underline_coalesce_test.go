@@ -26,7 +26,7 @@ func countHorizUnderlines(ops []Op) int {
 // TestUnderlineCoalesceMultiFaceSameHref: bold + normal chunks inside one
 // <a href> on a single line must produce ONE underline OpLine, not one per
 // nested style item / face run.
-func TestUnderlineCoalesceMultiFaceSameHref(t *testing.T) { //nolint:cyclop
+func TestUnderlineCoalesceMultiFaceSameHref(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `
@@ -164,7 +164,7 @@ World</a></p></body></html>`)
 }
 
 // TestUnderlineStrokeWidthClamp: large and small font sizes stay in [0.25, 0.45].
-func TestUnderlineStrokeWidthClamp(t *testing.T) { //nolint:cyclop
+func TestUnderlineStrokeWidthClamp(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -285,7 +285,7 @@ func TestUnderlineWrappedURLOnePerLine(t *testing.T) {
 
 // Wiki print CSS uses border-bottom on body links and text-decoration:none.
 // The href force-underline must not stack a second stroke on that border.
-func TestLinkBorderBottomNotDoubleUnderlined(t *testing.T) { //nolint:cyclop,funlen,gocognit
+func TestLinkBorderBottomNotDoubleUnderlined(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `

@@ -5,7 +5,7 @@ import (
 )
 
 // Empty <tr></tr> must not invent a bordered band above real headers.
-func TestEmptyTableRowCollapsed(t *testing.T) { //nolint:cyclop,funlen
+func TestEmptyTableRowCollapsed(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `

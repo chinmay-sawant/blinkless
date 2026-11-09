@@ -30,6 +30,14 @@ type gridOccupation struct {
 // without end.
 const maxGridPlacementAttempts = 1 << 16
 
+// gridBitsetWord is one occupancy bitset word; a column bit inside it is
+// addressed with gridBitsetShift and masked with gridBitsetMask.
+const (
+	gridBitsetWord  = 64
+	gridBitsetShift = 6
+	gridBitsetMask  = gridBitsetWord - 1
+)
+
 func newGridOccupation(nCols int) *gridOccupation {
 	return &gridOccupation{nCols: nCols, byRow: map[int][]uint64{}, workLeft: maxGridChecks, err: nil}
 }
@@ -37,7 +45,7 @@ func newGridOccupation(nCols int) *gridOccupation {
 // occWords returns the bitset words per row, at least one so mark on an
 // empty grid cannot index a zero-length slice.
 func (o *gridOccupation) occWords() int {
-	words := (o.nCols + 63) / 64
+	words := (o.nCols + gridBitsetMask) / gridBitsetWord
 	if words < 1 {
 		return 1
 	}
@@ -67,6 +75,7 @@ func (o *gridOccupation) freeAt(row, col, rowSpan, colSpan int) bool {
 		o.ensure(row + rowOffset)
 
 		bits := o.byRow[row+rowOffset]
+
 		for colOffset := range colSpan {
 			if o.workLeft == 0 {
 				o.err = errGridExtentExceeded
@@ -78,7 +87,7 @@ func (o *gridOccupation) freeAt(row, col, rowSpan, colSpan int) bool {
 			o.workLeft--
 
 			column := col + colOffset
-			if column >= o.nCols || column < 0 || bits[column>>6]>>(uint(column)&63)&1 != 0 {
+			if column >= o.nCols || column < 0 || bits[column>>gridBitsetShift]>>(column&gridBitsetMask)&1 != 0 {
 				return false
 			}
 		}
@@ -92,9 +101,10 @@ func (o *gridOccupation) mark(row, col, rowSpan, colSpan int) {
 		o.ensure(row + r)
 
 		bits := o.byRow[row+r]
+
 		for i := range colSpan {
 			column := col + i
-			bits[column>>6] |= 1 << (uint(column) & 63)
+			bits[column>>gridBitsetShift] |= uint64(1) << (column & gridBitsetMask)
 		}
 	}
 }

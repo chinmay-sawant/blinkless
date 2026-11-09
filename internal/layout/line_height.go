@@ -214,16 +214,16 @@ func lookupLineHeight(face *pdf.Font, size, scale float64) (float64, bool) {
 	}
 
 	sharedLineHeights.mu.RLock()
-	height, ok := sharedLineHeights.entries[key]
+	height, found := sharedLineHeights.entries[key]
 	sharedLineHeights.mu.RUnlock()
 
-	if ok {
+	if found {
 		sharedLineHeightHits.Add(1)
 	} else {
 		sharedLineHeightMisses.Add(1)
 	}
 
-	return height, ok
+	return height, found
 }
 
 // storeLineHeight records height unless the cache is full. A full cache

@@ -182,6 +182,8 @@ func TestDisplaylistTableGolden(t *testing.T) {
 // takes the already-sorted fast path here, so this documents zero regression
 // on the owner/order path. It must not be parallel: AllocsPerRun refuses to
 // run inside a parallel test.
+//
+//nolint:paralleltest // AllocsPerRun measures process-wide allocation counters; must stay serial
 func TestDisplaylistOrderAllocs(t *testing.T) {
 	display := renderAllocTable(t, allocTableRows, allocTableCols)
 

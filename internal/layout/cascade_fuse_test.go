@@ -16,7 +16,7 @@ import (
 // exercises custom-property substitution, generated content, and @supports
 // gating, and pins the used values. It is the behavior golden for the fuse
 // work: identical input must produce identical output with the memos on.
-func TestFuseGoldenCascadeVarsPseudosSupports(t *testing.T) {
+func TestFuseGoldenCascadeVarsPseudosSupports(t *testing.T) { //nolint:paralleltest // global cascade memos
 	root := mustParse(t, `<html><body>`+
 		`<div id="a" class="box" style="width: 80px">a</div>`+
 		`<div id="b" class="box">b</div></body></html>`)
@@ -70,7 +70,7 @@ func TestFuseGoldenCascadeVarsPseudosSupports(t *testing.T) {
 // per unique declaration no matter how many elements carry it. The second
 // identical call must hit the verdict memo, and neighboring prop/value pairs
 // must not alias each other.
-func TestFuseAcceptVerdictParsesOnce(t *testing.T) {
+func TestFuseAcceptVerdictParsesOnce(t *testing.T) { //nolint:paralleltest // global cascade memos
 	resetAcceptVerdictForTest()
 
 	if supportedDeclaration("display", "bogus") {
@@ -114,7 +114,7 @@ func TestFuseAcceptVerdictParsesOnce(t *testing.T) {
 
 // TestFuseEmptyStyleSkipsInlineParse resolves elements with no style
 // attribute (or a blank one) and requires zero inline parses.
-func TestFuseEmptyStyleSkipsInlineParse(t *testing.T) {
+func TestFuseEmptyStyleSkipsInlineParse(t *testing.T) { //nolint:paralleltest // global cascade memos
 	resetCascadeCachesForTest()
 	before := inlineDeclParseCountForTest()
 
@@ -128,7 +128,7 @@ func TestFuseEmptyStyleSkipsInlineParse(t *testing.T) {
 
 // TestFuseInlineDeclsInternedPerStyle resolves two elements sharing one
 // inline style string and requires a single parse with identical winners.
-func TestFuseInlineDeclsInternedPerStyle(t *testing.T) {
+func TestFuseInlineDeclsInternedPerStyle(t *testing.T) { //nolint:paralleltest // global cascade memos
 	resetCascadeCachesForTest()
 	before := inlineDeclParseCountForTest()
 
@@ -156,7 +156,7 @@ func TestFuseInlineDeclsInternedPerStyle(t *testing.T) {
 // TestFuseSupportsProbeMemoized proves the @supports probe runs once per
 // unique prop and value: the repeat hits the verdict memo instead of
 // rebuilding the scratch style and dispatching every group again.
-func TestFuseSupportsProbeMemoized(t *testing.T) {
+func TestFuseSupportsProbeMemoized(t *testing.T) { //nolint:paralleltest // global cascade memos
 	resetCascadeCachesForTest()
 
 	if !engineSupportsProperty("display", "grid") {
@@ -180,8 +180,9 @@ func TestFuseSupportsProbeMemoized(t *testing.T) {
 // TestFuseCustomPropsShareParentMap pins the copy-on-write rule: a child
 // that declares no custom properties shares the parent map (no clone), while
 // a child that declares one gets its own map (the parent is untouched).
-func TestFuseCustomPropsShareParentMap(t *testing.T) {
-	root := mustParse(t, `<html><body><div id="p"><div id="c" class="tint">x</div><div id="w" style="--x: 1">y</div></div></body></html>`)
+func TestFuseCustomPropsShareParentMap(t *testing.T) { //nolint:paralleltest // global cascade memos
+	root := mustParse(t, `<html><body><div id="p"><div id="c" class="tint">x</div>`+
+		`<div id="w" style="--x: 1">y</div></div></body></html>`)
 	styles := resolveStyles(root, []*css.Stylesheet{sheet(t, `:root { --brand: teal } .tint { color: #ff0000 }`)},
 		"print", testViewport, 800)
 

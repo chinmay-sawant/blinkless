@@ -53,7 +53,7 @@ type simpleFlexRowCase struct {
 // simpleFlexRowCases covers every accepted ingredient once and the shapes the
 // guards must refuse.
 //
-//nolint:funlen // one table of independent shape fixtures reads better together
+
 func simpleFlexRowCases() []simpleFlexRowCase {
 	const outerCSS = `#outer{display:flex;flex-direction:column;width:400pt}`
 
@@ -410,7 +410,7 @@ type simpleFlexStackCase struct {
 // simpleFlexStackCases covers every accepted ingredient once and the shapes the
 // line-cross guards must refuse.
 //
-//nolint:funlen // one table of independent shape fixtures reads better together
+
 func simpleFlexStackCases() []simpleFlexStackCase {
 	const rowOpen = `<div class="stack" id="stack"><div class="row" id="row">`
 
@@ -418,11 +418,11 @@ func simpleFlexStackCases() []simpleFlexStackCase {
 		return rowOpen + inner + `</div></div>`
 	}
 
-	cells := func(count int, class string) string {
+	cells := func(count int) string {
 		var body strings.Builder
 
 		for i := range count {
-			fmt.Fprintf(&body, `<span class="cell %s">cell%d</span>`, class, i)
+			fmt.Fprintf(&body, `<span class="cell plain">cell%d</span>`, i)
 		}
 
 		return body.String()
@@ -432,62 +432,62 @@ func simpleFlexStackCases() []simpleFlexStackCase {
 		{
 			name: "fixed-width-cells",
 			css:  `.row{display:flex}.cell{width:80pt}`,
-			body: row(cells(3, "plain")), wantFast: true,
+			body: row(cells(3)), wantFast: true,
 		},
 		{
 			name: "padding",
 			css:  `.row{display:flex}.cell{width:80pt;padding:3pt 5pt}`,
-			body: row(cells(3, "plain")), wantFast: true,
+			body: row(cells(3)), wantFast: true,
 		},
 		{
 			name: "borders",
 			css:  `.row{display:flex}.cell{width:80pt;border:1.5pt solid #000}`,
-			body: row(cells(3, "plain")), wantFast: true,
+			body: row(cells(3)), wantFast: true,
 		},
 		{
 			name: "gap",
 			css:  `.row{display:flex;gap:10pt}.cell{width:80pt}`,
-			body: row(cells(3, "plain")), wantFast: true,
+			body: row(cells(3)), wantFast: true,
 		},
 		{
 			name: "margins",
 			css:  `.row{display:flex}.cell{width:80pt;margin:4pt 6pt}`,
-			body: row(cells(3, "plain")), wantFast: true,
+			body: row(cells(3)), wantFast: true,
 		},
 		{
 			name: "mixed-font-sizes",
 			css:  `.row{display:flex}.cell{width:80pt}.tall{font-size:20pt}`,
-			body: row(cells(2, "plain") + `<span class="cell tall">tall</span>`), wantFast: true,
+			body: row(cells(2) + `<span class="cell tall">tall</span>`), wantFast: true,
 		},
 		{
 			name: "row-line-height",
 			css:  `.row{display:flex;line-height:30pt}.cell{width:80pt}`,
-			body: row(cells(3, "plain")), wantFast: true,
+			body: row(cells(3)), wantFast: true,
 		},
 		{
 			name: "border-box",
 			css:  `.row{display:flex}.cell{box-sizing:border-box;width:90pt;padding:4pt}`,
-			body: row(cells(3, "plain")), wantFast: true,
+			body: row(cells(3)), wantFast: true,
 		},
 		{
 			name: "align-start",
 			css:  `.row{display:flex;align-items:flex-start}.cell{width:80pt}`,
-			body: row(cells(3, "plain")), wantFast: true,
+			body: row(cells(3)), wantFast: true,
 		},
 		{
 			name: "wrapping-row",
 			css:  `.row{display:flex;flex-wrap:wrap}.cell{width:80pt}`,
-			body: row(cells(3, "plain")), wantFast: false,
+			body: row(cells(3)), wantFast: false,
 		},
 		{
 			name: "column-direction",
 			css:  `.row{display:flex;flex-direction:column}.cell{width:80pt}`,
-			body: row(cells(3, "plain")), wantFast: false,
+			body: row(cells(3)), wantFast: false,
 		},
 		{
 			name: "nested-flex-row",
 			css:  `.row{display:flex}.cell{display:flex;width:80pt}`,
-			body: row(cells(3, "plain")), wantFast: false,
+			body: row(cells(3)), wantFast: false,
 		},
 		{
 			name:     "image",
@@ -498,7 +498,7 @@ func simpleFlexStackCases() []simpleFlexStackCase {
 		{
 			name: "auto-width",
 			css:  `.row{display:flex}.cell{padding:2pt}`,
-			body: row(cells(3, "plain")), wantFast: false,
+			body: row(cells(3)), wantFast: false,
 		},
 		{
 			name:     "text-does-not-fit",
@@ -509,12 +509,12 @@ func simpleFlexStackCases() []simpleFlexStackCase {
 		{
 			name: "positioned-child",
 			css:  `.row{display:flex}.cell{width:80pt;position:relative}`,
-			body: row(cells(3, "plain")), wantFast: false,
+			body: row(cells(3)), wantFast: false,
 		},
 		{
 			name: "percentage-height-row",
 			css:  `.row{display:flex;height:50%}.cell{width:80pt}`,
-			body: row(cells(3, "plain")), wantFast: false,
+			body: row(cells(3)), wantFast: false,
 		},
 	}
 }
@@ -623,7 +623,7 @@ type simpleFlexMinCase struct {
 // simpleFlexMinCases covers the fixed-width single-run shapes the min-content
 // fast path accepts and every wrap-affecting shape it must refuse.
 //
-//nolint:funlen // one table of independent shape fixtures reads better together
+
 func simpleFlexMinCases() []simpleFlexMinCase {
 	const rowCSS = `.row{display:flex;width:300pt}`
 

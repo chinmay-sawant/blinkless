@@ -18,11 +18,7 @@ import (
 // The change lands on the parsed tree, so the next style cascade and the
 // next layout see it.
 func (d *Document) SetAttribute(elementID, name, value string) bool {
-	if name == "" {
-		return false
-	}
-
-	if d == nil || d.root == nil || elementID == "" {
+	if name == "" || d == nil || d.root == nil || elementID == "" {
 		return false
 	}
 
@@ -50,24 +46,32 @@ func (d *Document) SetAttribute(elementID, name, value string) bool {
 	// The element's identity changed. Drop the cached resolutions that may
 	// now point at the wrong node; the next lookup re-resolves by walk.
 	// Identity edits are rare, so lazy repair keeps the common path O(1).
-	if strings.EqualFold(name, "id") {
-		if node.Attribute("id") != elementID {
-			delete(idx.byID, elementID)
-		}
-
-		if value != elementID {
-			delete(idx.byID, value)
-		}
+	renamedID := strings.EqualFold(name, "id")
+	if renamedID {
+		invalidateIDLocked(idx, node, elementID, value)
 	}
 
 	// The write landed: the target is dirty, and an id rename dirties the
 	// new id too so both resolutions re-resolve. Mark is a no-op for "".
 	dirty.Mark(elementID)
-	if strings.EqualFold(name, "id") {
+
+	if renamedID {
 		dirty.Mark(value)
 	}
 
 	return true
+}
+
+// invalidateIDLocked drops the cached resolutions that may now point at the
+// wrong node after an id attribute write. The caller holds idx.mu.
+func invalidateIDLocked(idx *elementIndex, node *html.Node, elementID, value string) {
+	if node.Attribute("id") != elementID {
+		delete(idx.byID, elementID)
+	}
+
+	if value != elementID {
+		delete(idx.byID, value)
+	}
 }
 
 // SetText replaces the element's text content and reports whether the
@@ -97,64 +101,93 @@ func (d *Document) SetText(elementID, text string) bool {
 		return false
 	}
 
+	structural := setTextLocked(idx, node, text)
+
+	// The write landed: the target and the chain up to the nearest block are
+	// dirty, because new text can resize the line and shift siblings. Only a
+	// changed child shape sets the structural flag.
+	markTextChain(dirty, node, elementID)
+
+	if structural {
+		dirty.MarkStructural()
+	}
+
+	return true
+}
+
+// setTextLocked replaces node's text content and reports whether the child
+// shape changed. The caller holds idx.mu and marks the dirty chain.
+func setTextLocked(idx *elementIndex, node *html.Node, text string) bool {
 	// The common patch shape is an element that already holds one text
 	// node. Reuse that node instead of dropping and rebuilding it.
 	if len(node.Children) == 1 && node.Children[0].Type == html.TextNode {
-		structural := false
-
-		if text == "" {
-			node.Children[0].Parent = nil
-			node.Children = nil
-			structural = true
-		} else {
-			node.Children[0].Text = text
-		}
-
-		// The write landed: the target and the chain up to the nearest
-		// block are dirty, because new text can resize the line and shift
-		// siblings. Only a changed child shape sets the structural flag.
-		markTextChain(dirty, node, elementID)
-		if structural {
-			dirty.MarkStructural()
-		}
-
-		return true
+		return setSingleTextChild(node, text)
 	}
 
 	if len(node.Children) == 0 {
 		if text == "" {
-			markTextChain(dirty, node, elementID)
-
-			return true
+			return false
 		}
 
-		node.Children = []*html.Node{{
-			Type:   html.TextNode,
-			Text:   text,
-			Parent: node,
-		}}
-
-		markTextChain(dirty, node, elementID)
-		dirty.MarkStructural()
+		node.Children = textChild(node, text)
 
 		return true
 	}
 
+	dropChildrenLocked(idx, node)
+
+	if text == "" {
+		return true
+	}
+
+	node.Children = textChild(node, text)
+
+	return true
+}
+
+// setSingleTextChild rewrites the element's only text node, dropping it when
+// text is empty. It reports whether the child shape changed.
+func setSingleTextChild(node *html.Node, text string) bool {
+	if text == "" {
+		node.Children[0].Parent = nil
+		node.Children = nil
+
+		return true
+	}
+
+	node.Children[0].Text = text
+
+	return false
+}
+
+// textChild returns the single text node holding text under parent.
+func textChild(parent *html.Node, text string) []*html.Node {
+	return []*html.Node{{
+		Type:   html.TextNode,
+		Text:   text,
+		Parent: parent,
+	}}
+}
+
+// dropChildrenLocked detaches every child of node and forgets the ids that
+// pointed inside the dropped subtrees. The caller holds idx.mu.
+func dropChildrenLocked(idx *elementIndex, node *html.Node) {
 	old := node.Children
 	node.Children = nil
 
 	dropped := make(map[*html.Node]bool)
+
 	var droppedIDs []string
 
 	for _, child := range old {
-		child.Walk(func(n *html.Node) {
-			if n.Type != html.ElementNode {
+		child.Walk(func(inner *html.Node) {
+			if inner.Type != html.ElementNode {
 				return
 			}
 
-			dropped[n] = true
+			dropped[inner] = true
 
-			if id := n.Attribute("id"); id != "" {
+			if id := inner.Attribute("id"); id != "" {
 				droppedIDs = append(droppedIDs, id)
 			}
 		})
@@ -170,24 +203,6 @@ func (d *Document) SetText(elementID, text string) bool {
 			delete(idx.byID, id)
 		}
 	}
-
-	if text == "" {
-		markTextChain(dirty, node, elementID)
-		dirty.MarkStructural()
-
-		return true
-	}
-
-	node.Children = []*html.Node{{
-		Type:   html.TextNode,
-		Text:   text,
-		Parent: node,
-	}}
-
-	markTextChain(dirty, node, elementID)
-	dirty.MarkStructural()
-
-	return true
 }
 
 // elementByID returns the element node with the given id, or nil.
@@ -229,24 +244,26 @@ type elementIndex struct {
 }
 
 var (
-	elementRegistryMu sync.RWMutex
-	elementRegistry   = map[*Document]*elementIndex{}
+	// elementRegistryMu guards the per-document id tables.
+	elementRegistryMu sync.RWMutex                    //nolint:gochecknoglobals // document-keyed registry
+	elementRegistry   = map[*Document]*elementIndex{} //nolint:gochecknoglobals // document-keyed registry
 )
 
 var (
-	dirtyRegistryMu sync.RWMutex //nolint:gochecknoglobals // per-document dirty sets; entries drop with the document.
-	dirtyRegistry   = map[*Document]*html.DirtySet{}
+	// dirtyRegistryMu guards the per-document dirty sets.
+	dirtyRegistryMu sync.RWMutex                     //nolint:gochecknoglobals // document-keyed dirty sets
+	dirtyRegistry   = map[*Document]*html.DirtySet{} //nolint:gochecknoglobals // document-keyed dirty sets
 )
 
-// dirtyFor returns the dirty set for d, creating it on first use. A nil
+// dirtyFor returns the dirty set for doc, creating it on first use. A nil
 // document gets a detached set so marking helpers never need a nil branch.
-func dirtyFor(d *Document) *html.DirtySet {
-	if d == nil {
+func dirtyFor(doc *Document) *html.DirtySet {
+	if doc == nil {
 		return html.NewDirtySet()
 	}
 
 	dirtyRegistryMu.RLock()
-	set := dirtyRegistry[d]
+	set := dirtyRegistry[doc]
 	dirtyRegistryMu.RUnlock()
 
 	if set != nil {
@@ -256,12 +273,12 @@ func dirtyFor(d *Document) *html.DirtySet {
 	dirtyRegistryMu.Lock()
 	defer dirtyRegistryMu.Unlock()
 
-	if set = dirtyRegistry[d]; set != nil {
+	if set = dirtyRegistry[doc]; set != nil {
 		return set
 	}
 
 	set = html.NewDirtySet()
-	dirtyRegistry[d] = set
+	dirtyRegistry[doc] = set
 
 	return set
 }
@@ -305,6 +322,9 @@ func (d *Document) ClearDirty() {
 	set.Clear()
 }
 
+// tagDiv is the block-level div tag name.
+const tagDiv = "div"
+
 // isBlockElement reports whether name is a default block-level HTML element.
 // The cascade can promote or demote any element through display, and that
 // resolution belongs to the style run. This is only the structural heuristic
@@ -313,7 +333,7 @@ func (d *Document) ClearDirty() {
 func isBlockElement(name string) bool {
 	switch name {
 	case "address", "article", "aside", "blockquote", "body", "dd", "details",
-		"dialog", "div", "dl", "dt", "fieldset", "figcaption", "figure",
+		"dialog", tagDiv, "dl", "dt", "fieldset", "figcaption", "figure",
 		"footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "header",
 		"hgroup", "hr", "html", "li", "main", "nav", "ol", "p", "pre",
 		"section", "table", "ul":
@@ -334,16 +354,16 @@ func markTextChain(set *html.DirtySet, node *html.Node, elementID string) {
 
 	set.Mark(elementID)
 
-	for p := node.Parent; p != nil; p = p.Parent {
-		if p.Type != html.ElementNode {
+	for parent := node.Parent; parent != nil; parent = parent.Parent {
+		if parent.Type != html.ElementNode {
 			continue
 		}
 
-		if id := p.Attribute("id"); id != "" {
+		if id := parent.Attribute("id"); id != "" {
 			set.Mark(id)
 		}
 
-		if isBlockElement(p.Name) {
+		if isBlockElement(parent.Name) {
 			return
 		}
 	}
@@ -352,9 +372,9 @@ func markTextChain(set *html.DirtySet, node *html.Node, elementID string) {
 // elementIndexFor returns the lookup table for d, building it on first use.
 // The table lives beside the document (keyed by it) because Document is
 // defined in parse.go and this file may not grow it.
-func elementIndexFor(d *Document) *elementIndex {
+func elementIndexFor(doc *Document) *elementIndex {
 	elementRegistryMu.RLock()
-	idx := elementRegistry[d]
+	idx := elementRegistry[doc]
 	elementRegistryMu.RUnlock()
 
 	if idx != nil {
@@ -364,30 +384,31 @@ func elementIndexFor(d *Document) *elementIndex {
 	elementRegistryMu.Lock()
 	defer elementRegistryMu.Unlock()
 
-	if idx = elementRegistry[d]; idx != nil {
+	if idx = elementRegistry[doc]; idx != nil {
 		return idx
 	}
 
-	idx = &elementIndex{byID: map[string]*html.Node{}}
-	idx.build(d.root)
-	elementRegistry[d] = idx
+	idx = new(elementIndex)
+	idx.byID = map[string]*html.Node{}
+	idx.build(doc.root)
+	elementRegistry[doc] = idx
 
 	// Drop the table when the document goes away so parsed-and-discarded
 	// pages do not pin their id maps.
-	runtime.SetFinalizer(d, dropElementIndex)
+	runtime.SetFinalizer(doc, dropElementIndex)
 
 	return idx
 }
 
 // dropElementIndex forgets the lookup table and the dirty set for a collected
 // document.
-func dropElementIndex(d *Document) {
+func dropElementIndex(doc *Document) {
 	elementRegistryMu.Lock()
-	delete(elementRegistry, d)
+	delete(elementRegistry, doc)
 	elementRegistryMu.Unlock()
 
 	dirtyRegistryMu.Lock()
-	delete(dirtyRegistry, d)
+	delete(dirtyRegistry, doc)
 	dirtyRegistryMu.Unlock()
 }
 
@@ -401,13 +422,13 @@ func (idx *elementIndex) build(root *html.Node) {
 			return
 		}
 
-		id := node.Attribute("id")
-		if id == "" {
+		nodeID := node.Attribute("id")
+		if nodeID == "" {
 			return
 		}
 
-		if _, ok := byID[id]; !ok {
-			byID[id] = node
+		if _, ok := byID[nodeID]; !ok {
+			byID[nodeID] = node
 		}
 	})
 

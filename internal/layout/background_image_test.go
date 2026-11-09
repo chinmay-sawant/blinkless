@@ -1,4 +1,4 @@
-//nolint:wsl,varnamelen,err113,usetesting,goconst // image chrome probes
+//nolint:err113,usetesting // image chrome probes
 package layout
 
 import (

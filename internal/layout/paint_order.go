@@ -365,18 +365,21 @@ func paintLayer(paintOp *Op) int {
 // order: explicitly z-indexed or positioned operations, non-content layers,
 // and blend group members. The batch tracks both counts incrementally and
 // only re-sorts globally when the spliced window or the page needs it.
-func countOrderingRelevant(ops []Op) (relevant, grouped int) {
-	for index := range ops {
-		op := &ops[index]
+func countOrderingRelevant(ops []Op) (int, int) {
+	relevant := 0
+	grouped := 0
 
-		if op.Group() != nil {
+	for index := range ops {
+		paintOp := &ops[index]
+
+		if paintOp.Group() != nil {
 			relevant++
 			grouped++
 
 			continue
 		}
 
-		if op.ZIndexSet || op.Positioned || paintLayer(op) != paintLayerContent {
+		if paintOp.ZIndexSet || paintOp.Positioned || paintLayer(paintOp) != paintLayerContent {
 			relevant++
 		}
 	}
@@ -403,6 +406,14 @@ func splicePaintOrder(ops []Op, order []int, start, oldCount, newCount int, neut
 		return order
 	}
 
+	kept := spliceSurvivors(order, start, oldCount, newCount)
+
+	return mergePaintOrder(ops, kept, start, newCount)
+}
+
+// spliceSurvivors drops the replaced index window and shifts the indices after
+// it by the window's size change.
+func spliceSurvivors(order []int, start, oldCount, newCount int) []int {
 	end := start + oldCount - 1
 	shift := newCount - oldCount
 
@@ -419,7 +430,7 @@ func splicePaintOrder(ops []Op, order []int, start, oldCount, newCount int, neut
 		}
 	}
 
-	return mergePaintOrder(ops, kept, start, newCount)
+	return kept
 }
 
 // windowNeutral reports whether one index run carries no ordering key: no

@@ -467,8 +467,9 @@ func TestSplicePaintOrderMatchesFullSort(t *testing.T) {
 	changedGrouped := append([]Op(nil), grouped...)
 	changedGrouped[2].R = 0.9
 
-	if got, want := splicePaintOrder(changedGrouped, groupedOrder, 2, 1, 1, false), PaintOrder(changedGrouped); !reflect.DeepEqual(got, want) {
-		t.Fatalf("grouped fallback = %v, want the full sort %v", got, want)
+	gotSplice, wantOrder := splicePaintOrder(changedGrouped, groupedOrder, 2, 1, 1, false), PaintOrder(changedGrouped)
+	if !reflect.DeepEqual(gotSplice, wantOrder) {
+		t.Fatalf("grouped fallback = %v, want the full sort %v", gotSplice, wantOrder)
 	}
 
 	if relevant, groupedCount := countOrderingRelevant(grouped); relevant == 0 || groupedCount == 0 {

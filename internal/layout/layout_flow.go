@@ -202,8 +202,6 @@ func marginTrimTrimsInlineEnd(trim string) bool {
 // Returns the advanced content height (cy end − cy start contribution is
 // encoded as the final cy relative to start; callers pass starting cy).
 // Float enclosure (extentCy) is the caller's job when it owns a BFC.
-//
-//nolint:cyclop,funlen // containment short-circuits plus the inline/block alternation
 func (e *engine) flowChildren(
 	parent *box, children []*html.Node, sty ResolvedStyle,
 	contentW, contentX, posY, curY float64,
@@ -214,6 +212,8 @@ func (e *engine) flowChildren(
 // flowChildrenPtr is the pointer-based flow used by internal callers so one
 // block lays out without copying its 6KB style record. The value wrapper
 // above preserves the external table, multicol, and measure call sites.
+//
+//nolint:funlen // containment short-circuits plus the inline/block alternation
 func (e *engine) flowChildrenPtr(
 	parent *box, children []*html.Node, sty *ResolvedStyle,
 	contentW, contentX, posY, curY float64,
@@ -229,12 +229,7 @@ func (e *engine) flowChildrenPtr(
 	// paint entirely. The box keeps its own chrome and uses the
 	// contain-intrinsic height (0 when unset) as its content size.
 	if sty.ContentVisibility == contentVisibilityHidden {
-		intrinsicH := containmentIntrinsicHeight(*sty)
-		if intrinsicH < 0 {
-			intrinsicH = 0
-		}
-
-		return curY + e.scalePt(intrinsicH)
+		return curY + e.containmentHiddenHeight(sty)
 	}
 
 	// css-regions-1 lite (named_flow.go): a source withholds its children, a
@@ -280,42 +275,11 @@ func (e *engine) flowChildrenPtr(
 	}
 
 	if sizeContained {
-		// Size containment: the block-axis size is the as-if-empty intrinsic
-		// size, not the measured children. Children still paint and may
-		// overflow the box.
-		intrinsicH := containmentIntrinsicHeight(*sty)
-		if intrinsicH < 0 {
-			intrinsicH = 0
-		}
-
-		curY = e.scalePt(sty.PaddingTop) + e.scalePt(borderLayoutWidth(sty, sty.BorderTop)) +
-			e.scalePt(intrinsicH)
-
-		// Drop this box's own float extents so the caller's BFC enclosure
-		// (buildBlock extentCy) cannot expand an as-if-empty height. Only a
-		// fresh state installed by pushBFCFloats is cleared: those are the
-		// styles for which pushBFCFloats opened a new formatting context.
-		if (establishesBFC(*sty) || containsLayout(*sty)) && e.bfcFloats != nil {
-			*e.bfcFloats = newFloatState(e.bfcFloats.contentX, e.bfcFloats.contentW)
-		}
+		curY = e.sizeContainedHeight(sty)
 	}
 
 	if len(deferred) > 0 {
-		absCBX, absCBW, absOriginY, icb := e.flowAbsCBPtr(parent, sty, children, deferred, contentX, contentW, absTop)
-
-		parentHeight := e.applyHeightConstraints(*sty, curY+e.scalePt(sty.PaddingBottom))
-		cbHeight := parentHeight - (absOriginY - posY)
-
-		if icb {
-			// The initial containing block's height is the viewport height.
-			cbHeight = e.opts.Height
-		}
-
-		if cbHeight < 0 {
-			cbHeight = 0
-		}
-
-		e.flushDeferredFlowChildren(parent, deferred, cbHeight, absCBW, absCBX, absOriginY)
+		e.finishDeferredFlowChildren(parent, sty, children, deferred, contentX, contentW, absTop, posY, curY)
 	}
 
 	// A final child margin is inside a parent that has bottom padding or a
@@ -325,7 +289,7 @@ func (e *engine) flowChildrenPtr(
 	// making padded cards and diagram boxes shorter than HTML.
 	// A size-contained box is sized as empty, so that trailing margin does
 	// not apply either.
-	if !sizeContained && (sty.PaddingBottom > 0 || sty.BorderBottom.Width > 0 || establishesBFC(*sty)) {
+	if flowKeepsTrailingMargin(sty, sizeContained) {
 		curY += prevBottom
 	}
 
@@ -334,6 +298,72 @@ func (e *engine) flowChildrenPtr(
 	}
 
 	return curY
+}
+
+// containmentHiddenHeight is the block-axis content height of a
+// content-visibility:hidden box: its contain-intrinsic height, or zero.
+func (e *engine) containmentHiddenHeight(sty *ResolvedStyle) float64 {
+	intrinsicH := containmentIntrinsicHeight(*sty)
+	if intrinsicH < 0 {
+		intrinsicH = 0
+	}
+
+	return e.scalePt(intrinsicH)
+}
+
+// sizeContainedHeight applies size containment: the block-axis size is the
+// as-if-empty intrinsic size, not the measured children. Children still paint
+// and may overflow the box.
+func (e *engine) sizeContainedHeight(sty *ResolvedStyle) float64 {
+	intrinsicH := containmentIntrinsicHeight(*sty)
+	if intrinsicH < 0 {
+		intrinsicH = 0
+	}
+
+	// Drop this box's own float extents so the caller's BFC enclosure
+	// (buildBlock extentCy) cannot expand an as-if-empty height. Only a fresh
+	// state installed by pushBFCFloats is cleared: those are the styles for
+	// which pushBFCFloats opened a new formatting context.
+	if (establishesBFC(*sty) || containsLayout(*sty)) && e.bfcFloats != nil {
+		*e.bfcFloats = newFloatState(e.bfcFloats.contentX, e.bfcFloats.contentW)
+	}
+
+	return e.scalePt(sty.PaddingTop) + e.scalePt(borderLayoutWidth(sty, sty.BorderTop)) +
+		e.scalePt(intrinsicH)
+}
+
+// finishDeferredFlowChildren resolves the containing block of the deferred
+// out-of-flow children and lays them out.
+func (e *engine) finishDeferredFlowChildren(
+	parent *box, sty *ResolvedStyle, children, deferred []*html.Node,
+	contentX, contentW, absTop, posY, curY float64,
+) {
+	absCBX, absCBW, absOriginY, icb := e.flowAbsCBPtr(parent, sty, children, deferred, contentX, contentW, absTop)
+
+	parentHeight := e.applyHeightConstraints(*sty, curY+e.scalePt(sty.PaddingBottom))
+	cbHeight := parentHeight - (absOriginY - posY)
+
+	if icb {
+		// The initial containing block's height is the viewport height.
+		cbHeight = e.opts.Height
+	}
+
+	if cbHeight < 0 {
+		cbHeight = 0
+	}
+
+	e.flushDeferredFlowChildren(parent, deferred, cbHeight, absCBW, absCBX, absOriginY)
+}
+
+// flowKeepsTrailingMargin reports whether the final child margin stays inside
+// the parent: a bottom padding or border, or a BFC. A size-contained box is
+// sized as empty, so the margin never applies.
+func flowKeepsTrailingMargin(sty *ResolvedStyle, sizeContained bool) bool {
+	if sizeContained {
+		return false
+	}
+
+	return sty.PaddingBottom > 0 || sty.BorderBottom.Width > 0 || establishesBFC(*sty)
 }
 
 // flowAbsCB resolves the containing block for absolute/fixed descendants:
@@ -942,12 +972,6 @@ func (e *engine) applyJustifySelfFitContent(
 	}
 
 	return boxX + gridAlignOffset(style.JustifySelf, boxW, fit), fit
-}
-
-// justifySelfUsesFitContent reports CSS Align "auto width becomes fit-content"
-// for block-level justify-self keywords other than stretch/auto/normal.
-func justifySelfUsesFitContent(style ResolvedStyle) bool {
-	return justifySelfUsesFitContentPtr(&style)
 }
 
 // justifySelfUsesFitContentPtr is the pointer-based fit-content test used by

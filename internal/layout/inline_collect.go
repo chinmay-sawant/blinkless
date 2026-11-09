@@ -254,7 +254,7 @@ func inlineChromeAppliesStyles(parentStyle, containerStyle *ResolvedStyle) bool 
 		return false
 	}
 
-	if parentStyle.Display != cssDisplayInline || parentStyle.Position != "static" ||
+	if parentStyle.Display != cssDisplayInline || parentStyle.Position != positionStatic ||
 		isVerticalWritingMode(parentStyle.WritingMode) {
 		return false
 	}
@@ -300,6 +300,7 @@ func (e *engine) collectInlineText(node *html.Node, sty *ResolvedStyle, out *[]i
 			(*out)[idx].style = &verticalCopy
 			(*out)[idx].noSplit = true
 		}
+
 		if !ctx.chromeApplies {
 			return
 		}
@@ -339,24 +340,6 @@ func (e *engine) collectInlineText(node *html.Node, sty *ResolvedStyle, out *[]i
 
 func isVerticalWritingMode(mode string) bool {
 	return mode == writingModeVerticalRL || mode == writingModeVerticalLR
-}
-
-// inlineChromeApplies reports whether text belongs to an inline formatting
-// context whose decoration must be painted by the inline text emitter. A
-// flex/grid item is laid out as a blockified box even when its authored
-// display value is inline; that box already owns its padding, background, and
-// border. Painting inline chrome for its text would emit a second rounded
-// frame and inflate the item's measured size.
-func (e *engine) inlineChromeApplies(node *html.Node) bool {
-	ctx := e.resolveInlineTextCtx(node)
-
-	return ctx.chromeApplies
-}
-
-func (e *engine) inlineChromeIsAtomic(node *html.Node) bool {
-	ctx := e.resolveInlineTextCtx(node)
-
-	return ctx.atomic
 }
 
 // collectPreservingNewlines splits on newlines for pre / pre-wrap / pre-line.
@@ -467,8 +450,6 @@ func (e *engine) emitPreservedWrap(line string, style *ResolvedStyle, out *[]inl
 }
 
 // collectWrappedText flattens a normal white-space text node into word items.
-//
-//nolint:cyclop,funlen // hot path: word-scan with whitespace/nowrap edge cases
 func (e *engine) collectWrappedText(node *html.Node, sty ResolvedStyle, out *[]inlineItem) {
 	e.collectWrappedTextPtr(node, &sty, out)
 }
@@ -484,11 +465,7 @@ func (e *engine) collectWrappedTextPtr(node *html.Node, sty *ResolvedStyle, out 
 	// replaced element so `<img>\n<span margin-left>` does not add
 	// a space on top of the margin (TestLogoTitleGap).
 	if !hasNonHTMLSpace(node.Text) {
-		if node.Text != "" {
-			if len(*out) == 0 || !(*out)[len(*out)-1].img || (*out)[len(*out)-1].blockBox != nil {
-				*out = append(*out, e.textItem(" ", sty))
-			}
-		}
+		e.appendWhitespaceSeparator(node, sty, out)
 
 		return
 	}
@@ -498,85 +475,123 @@ func (e *engine) collectWrappedTextPtr(node *html.Node, sty *ResolvedStyle, out 
 		return
 	}
 
-	nodeStyle := sty
 	// white-space:nowrap — keep the run unbreakable (wiki .reference
 	// cite markers in narrow table columns).
 	if sty.WhiteSpace == cssWhiteSpaceNowrap {
-		*out = append(*out, e.textItem(text, nodeStyle))
+		*out = append(*out, e.textItem(text, sty))
 
 		return
 	}
 
-	// Walk collapsed words without strings.Fields / word+" " copies.
-	// Substrings of `text` share the underlying bytes; inter-word spaces
-	// stay attached to the preceding word ("hello ", "world") so paint
-	// and justify see the same trailing-space convention as before.
-	//
-	// collapseWS strips a leading space that still separates this node
-	// from the previous inline ("</a> in" → "Reeves"+"in"). Re-introduce
-	// one when the source began with whitespace and the prior item does
-	// not already end with a space. Do not insert a space before attaching
-	// punctuation (", . ) ]") — pretty-printed "</a>\n," must stay "Award,".
-	needLead := false
-
-	if len(node.Text) > 0 && isWSSpaceByte(node.Text[0]) && len(*out) > 0 {
-		prev := &(*out)[len(*out)-1]
-		if !prev.forceBreak && !strings.HasSuffix(prev.text, " ") {
-			needLead = true
-		}
-	}
-
 	startOut := len(*out)
+	needLead := needsLeadingSpace(node.Text, *out)
+
 	// Hoist run invariants out of the per-fragment loop: the line height
 	// resolves the face on the normal path, and the vertical column width
-	// does face math too. Every word shares nodeStyle, so hoisting the
-	// pure reads changes no value.
-	lineH := e.lineHeightOf(nodeStyle) * e.scale
-	verticalRun := isVerticalWritingMode(nodeStyle.WritingMode)
+	// does face math too. Every word shares sty, so hoisting the pure reads
+	// changes no value.
+	lineH := e.lineHeightOf(sty) * e.scale
+	verticalRun := isVerticalWritingMode(sty.WritingMode)
 
 	var vertW float64
 
 	if verticalRun {
-		vertW = verticalWritingColumnWidth(e, nodeStyle)
+		vertW = verticalWritingColumnWidth(e, sty)
 	}
 
-	wordStart := 0
+	e.appendCollapsedWords(text, sty, lineH, vertW, verticalRun, needLead, startOut, out)
 
-	for wordStart < len(text) {
-		// Skip any residual spaces (collapseWS normally leaves single
-		// separators only between words).
-		for wordStart < len(text) && text[wordStart] == ' ' {
-			wordStart++
-		}
-
-		if wordStart >= len(text) {
-			break
-		}
-
-		wordEnd := wordStart
-		for wordEnd < len(text) && text[wordEnd] != ' ' {
-			wordEnd++
-		}
-
-		// Include one trailing space when another word follows.
-		end := wordEnd
-		if wordEnd < len(text) {
-			end = wordEnd + 1
-		}
-
-		word := text[wordStart:end]
-		if startOut == len(*out) && needLead && !isAttachPunct(word) {
-			word = " " + word
-		}
-
-		*out = append(*out, e.wrappedWordItem(word, nodeStyle, lineH, vertW, verticalRun))
-		wordStart = end
-	}
 	// Preserve a trailing word-separator when the source text node
 	// ended with whitespace (so "foo <b>bar</b>" keeps the gap).
 	if len(*out) > startOut {
-		e.preserveTrailingGap(node, nodeStyle, out)
+		e.preserveTrailingGap(node, sty, out)
 	}
+}
+
+// appendWhitespaceSeparator keeps a whitespace-only text node as one space so
+// adjacent inlines stay apart. A run right after a replaced element adds none.
+func (e *engine) appendWhitespaceSeparator(node *html.Node, sty *ResolvedStyle, out *[]inlineItem) {
+	if node.Text == "" {
+		return
+	}
+
+	if len(*out) > 0 && (*out)[len(*out)-1].img && (*out)[len(*out)-1].blockBox == nil {
+		return
+	}
+
+	*out = append(*out, e.textItem(" ", sty))
+}
+
+// needsLeadingSpace reports whether collapseWS stripped a separator that the
+// previous item still needs.
+func needsLeadingSpace(source string, out []inlineItem) bool {
+	if source == "" || !isWSSpaceByte(source[0]) || len(out) == 0 {
+		return false
+	}
+
+	prev := &out[len(out)-1]
+
+	return !prev.forceBreak && !strings.HasSuffix(prev.text, " ")
+}
+
+// appendCollapsedWords appends one item per collapsed word. Substrings of text
+// share the underlying bytes; inter-word spaces stay attached to the preceding
+// word ("hello ", "world") so paint and justify see the same trailing-space
+// convention as before.
+func (e *engine) appendCollapsedWords(
+	text string, sty *ResolvedStyle, lineH, vertW float64,
+	verticalRun, needLead bool, startOut int, out *[]inlineItem,
+) {
+	wordStart := 0
+
+	for wordStart < len(text) {
+		wordStart = e.appendCollapsedWord(text, wordStart, sty, lineH, vertW, verticalRun, needLead, startOut, out)
+	}
+}
+
+// appendCollapsedWord skips separators, appends the next word, and returns the
+// offset after it.
+func (e *engine) appendCollapsedWord(
+	text string, wordStart int, sty *ResolvedStyle, lineH, vertW float64,
+	verticalRun, needLead bool, startOut int, out *[]inlineItem,
+) int {
+	// Skip any residual spaces (collapseWS normally leaves single separators
+	// only between words).
+	for wordStart < len(text) && text[wordStart] == ' ' {
+		wordStart++
+	}
+
+	if wordStart >= len(text) {
+		return wordStart
+	}
+
+	wordEnd := wordStart
+	for wordEnd < len(text) && text[wordEnd] != ' ' {
+		wordEnd++
+	}
+
+	// Include one trailing space when another word follows.
+	end := wordEnd
+	if wordEnd < len(text) {
+		end = wordEnd + 1
+	}
+
+	word := wordWithLeadSpace(text[wordStart:end], needLead, startOut, len(*out))
+
+	*out = append(*out, e.wrappedWordItem(word, sty, lineH, vertW, verticalRun))
+
+	return end
+}
+
+// wordWithLeadSpace re-introduces the separator collapseWS stripped when the
+// run starts a line and the previous item does not already end with a space.
+// Attaching punctuation stays glued to the previous word.
+func wordWithLeadSpace(word string, needLead bool, startOut, outLen int) string {
+	if startOut == outLen && needLead && !isAttachPunct(word) {
+		return " " + word
+	}
+
+	return word
 }
 
 // isWSSpaceByte reports that b is one of the CSS white-space characters.
@@ -683,15 +698,9 @@ func (e *engine) applyWrapBreakFlagsPtr(sty *ResolvedStyle, items []inlineItem, 
 		return
 	}
 
-	if (sty.WrapBefore == wrapBreakAvoid || sty.WrapBefore == wrapBreakAvoidLine) && !items[start].forceBreak {
-		items[start].avoidBefore = true
-	}
+	markWrapBoundaries(sty, items, start)
 
-	if (sty.WrapAfter == wrapBreakAvoid || sty.WrapAfter == wrapBreakAvoidLine) && !items[len(items)-1].forceBreak {
-		items[len(items)-1].avoidAfter = true
-	}
-
-	if sty.WrapInside != wrapBreakAvoid && sty.WrapInside != wrapBreakAvoidLine {
+	if !wrapBreakAvoids(sty.WrapInside) {
 		return
 	}
 
@@ -702,6 +711,24 @@ func (e *engine) applyWrapBreakFlagsPtr(sty *ResolvedStyle, items []inlineItem, 
 	for idx := start; idx < len(items); idx++ {
 		items[idx].avoidInside = true
 	}
+}
+
+// markWrapBoundaries flags the first and last item when the element's
+// wrap-before or wrap-after asks to avoid a break there.
+func markWrapBoundaries(sty *ResolvedStyle, items []inlineItem, start int) {
+	if wrapBreakAvoids(sty.WrapBefore) && !items[start].forceBreak {
+		items[start].avoidBefore = true
+	}
+
+	if wrapBreakAvoids(sty.WrapAfter) && !items[len(items)-1].forceBreak {
+		items[len(items)-1].avoidAfter = true
+	}
+}
+
+// wrapBreakAvoids reports whether value is one of the css-text-4 avoid
+// keywords the inline wrapper honours.
+func wrapBreakAvoids(value string) bool {
+	return value == wrapBreakAvoid || value == wrapBreakAvoidLine
 }
 
 // collectInlineElementInner is the unwrapped inline element collection (kept
@@ -1043,13 +1070,13 @@ func (e *engine) textItem(text string, style *ResolvedStyle) inlineItem {
 // column width hoisted by the caller so the per-fragment loop pays no repeat
 // face or writing-mode work.
 func (e *engine) wrappedWordItem(word string, style *ResolvedStyle, lineH, vertW float64, vertical bool) inlineItem {
-	w := e.measureTextFace(transformInlineText(word, style.TextTransform), style)
+	advance := e.measureTextFace(transformInlineText(word, style.TextTransform), style)
 	if vertical {
-		w = vertW
+		advance = vertW
 	}
 
 	return inlineItem{ //nolint:exhaustruct // intentional zero fields
-		text: word, style: style, w: w, h: lineH,
+		text: word, style: style, w: advance, h: lineH,
 	}
 }
 

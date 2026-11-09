@@ -41,7 +41,7 @@ const (
 // content box like the browser, every hero copy op sits inside page 1, and
 // the cover paint op is cropped to the content box instead of spilling.
 // Reference: Chrome 143.0.7499.40 print layout of the same fixture.
-func TestFixture59HeroCopyStaysOnFirstPage(t *testing.T) { //nolint:cyclop,funlen // fixture assertions
+func TestFixture59HeroCopyStaysOnFirstPage(t *testing.T) {
 	t.Parallel()
 
 	res := layoutFixture59(t)

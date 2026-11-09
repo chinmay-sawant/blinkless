@@ -1,4 +1,3 @@
-//nolint:wsl,varnamelen,nlreturn // direct fixture traversal keeps the source-to-box mapping visible
 package layout
 
 import (

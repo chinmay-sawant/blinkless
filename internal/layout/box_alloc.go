@@ -67,72 +67,138 @@ const (
 	maxBoxAllocClips = 4096
 )
 
-// exactSlicePool retains slices keyed by capacity so a rent for n reuses a
-// backing with cap n and nothing else. Each capacity has its own sync.Pool;
-// the outer pool only tracks how many slices are retained and drops returns
-// once any bound is hit.
+// sliceHolder boxes one backing so a sync.Pool stores a pointer-like value. A
+// slice header stored directly would box a fresh header on every Put.
+type sliceHolder[T any] struct {
+	slice []T
+}
+
+// holderPool recycles sliceHolder values with their backings. take hands the
+// backing to the caller and parks the empty holder, and put reuses a parked
+// holder, so a rent/return cycle allocates nothing once warm.
+type holderPool[T any] struct {
+	stored  sync.Pool // *sliceHolder[T] with a backing
+	holders sync.Pool // *sliceHolder[T] without a backing
+}
+
+// take returns a stored backing with cap exactly size.
+func (p *holderPool[T]) take(size int) ([]T, bool) {
+	holder, ok := p.takeHolder()
+	if !ok || cap(holder.slice) != size {
+		return nil, false
+	}
+
+	slice := holder.slice
+	holder.slice = nil
+	p.holders.Put(holder)
+
+	return slice, true
+}
+
+// takeAtLeast returns a stored backing with cap at least size.
+func (p *holderPool[T]) takeAtLeast(size int) ([]T, bool) {
+	holder, ok := p.takeHolder()
+	if !ok || cap(holder.slice) < size {
+		return nil, false
+	}
+
+	slice := holder.slice
+	holder.slice = nil
+	p.holders.Put(holder)
+
+	return slice, true
+}
+
+func (p *holderPool[T]) takeHolder() (*sliceHolder[T], bool) {
+	raw := p.stored.Get()
+	if raw == nil {
+		return nil, false
+	}
+
+	holder, ok := raw.(*sliceHolder[T])
+	if !ok || holder == nil {
+		return nil, false
+	}
+
+	return holder, true
+}
+
+func (p *holderPool[T]) put(slice []T) {
+	holder := p.holder()
+	holder.slice = slice
+	p.stored.Put(holder)
+}
+
+func (p *holderPool[T]) holder() *sliceHolder[T] {
+	raw := p.holders.Get()
+	if raw == nil {
+		return new(sliceHolder[T])
+	}
+
+	holder, ok := raw.(*sliceHolder[T])
+	if !ok || holder == nil {
+		return new(sliceHolder[T])
+	}
+
+	return holder
+}
+
+// exactSlicePool retains slices keyed by capacity so a rent for size reuses a
+// backing with cap size and nothing else. Each capacity has its own holder
+// pool; the outer pool only tracks how many slices are retained and drops
+// returns once any bound is hit.
 type exactSlicePool[T any] struct {
 	mu       sync.Mutex
-	buckets  map[int]*sync.Pool
+	buckets  map[int]*holderPool[T]
 	retained atomic.Int64
 }
 
-// rent returns a zeroed slice with len n and cap n. Sizes at or below zero
-// return nil. Sizes above maxBoxAllocSliceCap allocate directly and bypass
-// the pool so one outlier cannot pin a huge backing.
-func (p *exactSlicePool[T]) rent(n int) []T {
-	if n <= 0 {
+// rent returns a zeroed slice with len size and cap size. Sizes at or below
+// zero return nil. Sizes above maxBoxAllocSliceCap allocate directly and
+// bypass the pool so one outlier cannot pin a huge backing.
+func (p *exactSlicePool[T]) rent(size int) []T {
+	if size <= 0 {
 		return nil
 	}
 
-	if n > maxBoxAllocSliceCap {
-		return make([]T, n)
+	if size > maxBoxAllocSliceCap {
+		return make([]T, size)
 	}
 
-	p.mu.Lock()
+	if slice, ok := p.take(size); ok {
+		slice = slice[:size]
+		clear(slice)
 
-	var bucket *sync.Pool
-	if p.buckets != nil {
-		bucket = p.buckets[n]
+		return slice
 	}
 
-	p.mu.Unlock()
-
-	if bucket != nil {
-		if v, ok := bucket.Get().([]T); ok && v != nil {
-			p.retained.Add(-1)
-			// Buckets only hold backings stored with cap n, but a pooled
-			// value may have any length up to n. Re-slice before use.
-			v = v[:cap(v)]
-			if len(v) != n {
-				// Defensive: a foreign backing must never surface with the
-				// wrong length. Drop it and allocate the exact size.
-				if cap(v) == n {
-					v = v[:n]
-					clear(v)
-
-					return v
-				}
-
-				p.put(cap(v), v[:0])
-
-				return make([]T, n)
-			}
-
-			v = v[:n]
-			clear(v)
-
-			return v
-		}
-	}
-
-	return make([]T, n)
+	return make([]T, size)
 }
 
-// put stores s for bucket c. The caller must have cleared s and sliced it to
-// zero length already.
-func (p *exactSlicePool[T]) put(c int, s []T) {
-	if c <= 0 || c > maxBoxAllocSliceCap {
+// take removes one retained backing for size and reports whether it had one.
+func (p *exactSlicePool[T]) take(size int) ([]T, bool) {
+	p.mu.Lock()
+	bucket := p.buckets[size]
+	p.mu.Unlock()
+
+	if bucket == nil {
+		return nil, false
+	}
+
+	slice, ok := bucket.take(size)
+	if !ok {
+		return nil, false
+	}
+
+	p.retained.Add(-1)
+
+	return slice, true
+}
+
+// put stores slice for bucket capacity. The caller must have cleared slice and
+// sliced it to zero length already.
+func (p *exactSlicePool[T]) put(capacity int, slice []T) {
+	if capacity <= 0 || capacity > maxBoxAllocSliceCap {
 		return
 	}
 
@@ -143,23 +209,23 @@ func (p *exactSlicePool[T]) put(c int, s []T) {
 	p.mu.Lock()
 
 	if p.buckets == nil {
-		p.buckets = make(map[int]*sync.Pool)
+		p.buckets = make(map[int]*holderPool[T])
 	}
 
-	bucket, ok := p.buckets[c]
-	if !ok {
+	bucket := p.buckets[capacity]
+	if bucket == nil {
 		if len(p.buckets) >= maxBoxAllocBuckets {
 			p.mu.Unlock()
 
 			return
 		}
-		bucket = &sync.Pool{}
-		p.buckets[c] = bucket
-	}
 
+		bucket = new(holderPool[T])
+		p.buckets[capacity] = bucket
+	}
 	p.mu.Unlock()
 
-	bucket.Put(s)
+	bucket.put(slice)
 	p.retained.Add(1)
 }
 
@@ -178,21 +244,21 @@ func (p *exactSlicePool[T]) count() int {
 // returnSlice clears the full backing and retains the zero-length slice when
 // the bounds allow. Values with capacity outside (0, maxBoxAllocSliceCap]
 // are dropped.
-func (p *exactSlicePool[T]) returnSlice(s []T) {
-	if s == nil {
+func (p *exactSlicePool[T]) returnSlice(slice []T) {
+	if slice == nil {
 		return
 	}
 
-	c := cap(s)
-	if c <= 0 || c > maxBoxAllocSliceCap {
+	capacity := cap(slice)
+	if capacity <= 0 || capacity > maxBoxAllocSliceCap {
 		return
 	}
 
 	// Clear the whole backing, not just the live length, so a slice returned
 	// with len < cap cannot keep appended pointers alive in the pool.
-	full := s[:cap(s)]
+	full := slice[:capacity]
 	clear(full)
-	p.put(c, full[:0])
+	p.put(capacity, full[:0])
 }
 
 //nolint:gochecknoglobals // package-level pools are the point of this file
@@ -201,18 +267,22 @@ var (
 	floatSlicePool  exactSlicePool[float64]
 	uint64SlicePool exactSlicePool[uint64]
 	boxRowSlicePool exactSlicePool[[]*box]
+	// opIDSlicePool and placedSlicePool belong to the adopt contract below
+	// and are reported by boxAllocRetained; no layout path rents them yet.
 	opIDSlicePool   exactSlicePool[uint64]
 	placedSlicePool exactSlicePool[PlacedElement]
 )
 
-//nolint:gochecknoglobals // package-level struct pools match the slice pools
+//nolint:gochecknoglobals // package-level struct pools and immutable zero sentinels
 var (
 	boxStructPool = sync.Pool{
-		New: func() any { return &box{} },
+		New: func() any { return new(box) },
 	}
 	clipRectPool = sync.Pool{
-		New: func() any { return &clipRect{} },
+		New: func() any { return new(clipRect) },
 	}
+	zeroBoxValue      box
+	zeroClipRectValue clipRect
 )
 
 //nolint:gochecknoglobals // retained counters bound the struct pools
@@ -223,130 +293,109 @@ var (
 
 // rentBox returns a zeroed box struct. The caller owns it until returnBox.
 func rentBox() *box {
-	if v, ok := boxStructPool.Get().(*box); ok && v != nil {
+	if value, ok := boxStructPool.Get().(*box); ok && value != nil {
 		retainedBoxes.Add(-1)
-		*v = box{}
 
-		return v
+		*value = zeroBoxValue
+
+		return value
 	}
 
-	return &box{}
+	return new(box)
 }
 
-// returnBox zeroes b and hands it back when the pool has room. A retained
-// alias observes the zero value after this call, so callers must drop b.
-func returnBox(b *box) {
-	if b == nil {
+// returnBox zeroes target and hands it back when the pool has room. A retained
+// alias observes the zero value after this call, so callers must drop target.
+func returnBox(target *box) {
+	if target == nil {
 		return
 	}
 
-	*b = box{}
+	*target = zeroBoxValue
 
 	if retainedBoxes.Load() >= maxBoxAllocBoxes {
 		return
 	}
 
-	boxStructPool.Put(b)
+	boxStructPool.Put(target)
 	retainedBoxes.Add(1)
 }
 
 // rentClipRect returns a zeroed clip rect. The caller owns it until return.
 func rentClipRect() *clipRect {
-	if v, ok := clipRectPool.Get().(*clipRect); ok && v != nil {
+	if value, ok := clipRectPool.Get().(*clipRect); ok && value != nil {
 		retainedClips.Add(-1)
-		*v = clipRect{}
 
-		return v
+		*value = zeroClipRectValue
+
+		return value
 	}
 
-	return &clipRect{}
+	return new(clipRect)
 }
 
-// returnClipRect zeroes c and hands it back when the pool has room.
-func returnClipRect(c *clipRect) {
-	if c == nil {
+// returnClipRect zeroes rect and hands it back when the pool has room.
+func returnClipRect(rect *clipRect) {
+	if rect == nil {
 		return
 	}
 
-	*c = clipRect{}
+	*rect = zeroClipRectValue
 
 	if retainedClips.Load() >= maxBoxAllocClips {
 		return
 	}
 
-	clipRectPool.Put(c)
+	clipRectPool.Put(rect)
 	retainedClips.Add(1)
 }
 
-// rentBoxPtrs returns len n with cap exactly n for children lists, flattened
-// box lists, and table cell rows.
-func rentBoxPtrs(n int) []*box {
-	return boxPtrSlicePool.rent(n)
+// rentBoxPtrs returns len size with cap exactly size for children lists,
+// flattened box lists, and table cell rows.
+func rentBoxPtrs(size int) []*box {
+	return boxPtrSlicePool.rent(size)
 }
 
-// returnBoxPtrs clears s and retains its backing when the bounds allow.
-// Callers must not retain s after this call.
-func returnBoxPtrs(s []*box) {
-	boxPtrSlicePool.returnSlice(s)
+// returnBoxPtrs clears boxes and retains its backing when the bounds allow.
+// Callers must not retain boxes after this call.
+func returnBoxPtrs(boxes []*box) {
+	boxPtrSlicePool.returnSlice(boxes)
 }
 
-// rentFloats returns len n with cap exactly n for rowTops, rowHeights, and
-// table measure work slices.
-func rentFloats(n int) []float64 {
-	return floatSlicePool.rent(n)
+// rentFloats returns len size with cap exactly size for rowTops, rowHeights,
+// and table measure work slices.
+func rentFloats(size int) []float64 {
+	return floatSlicePool.rent(size)
 }
 
-// returnFloats clears s and retains its backing when the bounds allow.
-// Callers must not retain s after this call.
-func returnFloats(s []float64) {
-	floatSlicePool.returnSlice(s)
+// returnFloats clears values and retains their backing when the bounds allow.
+// Callers must not retain values after this call.
+func returnFloats(values []float64) {
+	floatSlicePool.returnSlice(values)
 }
 
-// rentUint64s returns len n with cap exactly n for operation ID lists.
-func rentUint64s(n int) []uint64 {
-	return uint64SlicePool.rent(n)
+// rentUint64s returns len size with cap exactly size for operation ID lists.
+func rentUint64s(size int) []uint64 {
+	return uint64SlicePool.rent(size)
 }
 
-// returnUint64s clears s and retains its backing when the bounds allow.
-// Callers must not retain s after this call.
-func returnUint64s(s []uint64) {
-	uint64SlicePool.returnSlice(s)
+// returnUint64s clears values and retains their backing when the bounds allow.
+// Callers must not retain values after this call.
+func returnUint64s(values []uint64) {
+	uint64SlicePool.returnSlice(values)
 }
 
-// rentBoxRows returns len n with cap exactly n for the rows table on a table
-// box. Each row remains nil until the caller fills it.
-func rentBoxRows(n int) [][]*box {
-	return boxRowSlicePool.rent(n)
+// rentBoxRows returns len size with cap exactly size for the rows table on a
+// table box. Each row remains nil until the caller fills it.
+func rentBoxRows(size int) [][]*box {
+	return boxRowSlicePool.rent(size)
 }
 
-// returnBoxRows clears s and retains its backing when the bounds allow.
+// returnBoxRows clears rows and retains their backing when the bounds allow.
 // It does not return the per-row slices; the caller must return each row
-// with returnBoxPtrs first. Callers must not retain s after this call.
-func returnBoxRows(s [][]*box) {
-	boxRowSlicePool.returnSlice(s)
-}
-
-// rentOpIDs returns len n with cap exactly n for one element operation range.
-// It has its own pool so table ID traffic cannot evict box child backings.
-func rentOpIDs(n int) []uint64 {
-	return opIDSlicePool.rent(n)
-}
-
-// returnOpIDs clears s and retains its backing when the bounds allow.
-func returnOpIDs(s []uint64) {
-	opIDSlicePool.returnSlice(s)
-}
-
-// rentPlaced returns len n with cap exactly n for PlacedElements results.
-func rentPlaced(n int) []PlacedElement {
-	return placedSlicePool.rent(n)
-}
-
-// returnPlaced clears s and retains its backing when the bounds allow.
-// Clearing drops per-element OperationIDs references, so callers that keep
-// those subslices alive must copy them before returning the outer slice.
-func returnPlaced(s []PlacedElement) {
-	placedSlicePool.returnSlice(s)
+// with returnBoxPtrs first. Callers must not retain rows after this call.
+func returnBoxRows(rows [][]*box) {
+	boxRowSlicePool.returnSlice(rows)
 }
 
 // boxAllocStats reports retained pool sizes for tests and future metrics.

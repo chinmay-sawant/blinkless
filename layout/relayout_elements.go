@@ -45,29 +45,9 @@ func RelayoutElements(
 		return prev, nil
 	}
 
-	if ctx == nil {
-		return nil, ErrNilContext
-	}
-
-	if err := ctx.Err(); err != nil {
-		return nil, fmt.Errorf("layout: context: %w", err)
-	}
-
-	if doc == nil {
-		return nil, ErrNilDocument
-	}
-
-	if prev == nil {
-		return nil, ErrNilDisplay
-	}
-
-	styled, ok := pubstate.StyledOf(doc)
-	if !ok {
-		return nil, ErrNilDocument
-	}
-
-	if prev.result == nil {
-		return nil, ErrNoRetainedState
+	styled, err := relayoutElementsReady(ctx, doc, prev)
+	if err != nil {
+		return nil, err
 	}
 
 	clone := ilayout.CloneResult(prev.result)
@@ -85,7 +65,7 @@ func RelayoutElements(
 			return nil, ErrNoElement
 		}
 
-		return nil, err
+		return nil, fmt.Errorf("layout: relayout subtrees: %w", err)
 	}
 
 	// The batch ran one engine pass per id, the count the per-element
@@ -108,6 +88,39 @@ func RelayoutElements(
 	}
 
 	return display, nil
+}
+
+// relayoutElementsReady validates the batch inputs and returns the styled
+// document the batch re-resolves from.
+func relayoutElementsReady(ctx context.Context, doc *css.Document, prev *Display) (pubstate.Styled, error) {
+	var none pubstate.Styled
+
+	if ctx == nil {
+		return none, ErrNilContext
+	}
+
+	if err := ctx.Err(); err != nil {
+		return none, fmt.Errorf("layout: context: %w", err)
+	}
+
+	if doc == nil {
+		return none, ErrNilDocument
+	}
+
+	if prev == nil {
+		return none, ErrNilDisplay
+	}
+
+	styled, ok := pubstate.StyledOf(doc)
+	if !ok {
+		return none, ErrNilDocument
+	}
+
+	if prev.result == nil {
+		return none, ErrNoRetainedState
+	}
+
+	return styled, nil
 }
 
 // applyPaintOnlyBoxTexts refreshes the boxes a paint-only batch patched.

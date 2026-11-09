@@ -6,12 +6,14 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
-// evictProbeParent builds a synthetic parent with n span element children,
+// evictProbeParent builds a synthetic parent with four span element children,
 // wiring Parent links the way the parser would so the sibling memo treats it
 // like a real row. It returns the parent and its children in order.
-func evictProbeParent(n int) (*html.Node, []*html.Node) {
+func evictProbeParent() (*html.Node, []*html.Node) {
+	const childCount = 4
+
 	parent := &html.Node{Type: html.ElementNode, Namespace: html.NamespaceHTML, Name: "div"}
-	kids := make([]*html.Node, n)
+	kids := make([]*html.Node, childCount)
 	for i := range kids {
 		kids[i] = &html.Node{Type: html.ElementNode, Namespace: html.NamespaceHTML, Name: "span", Parent: parent}
 	}
@@ -43,6 +45,8 @@ func evictProbeParse(t *testing.T, src string) Selector {
 // TestSiblingEntryEvictionBounded inserts past the soft cap through the public
 // matching path and pins the memo size: without eviction it would hold one
 // entry per distinct parent, with it the map stays at or under the soft cap.
+//
+//nolint:paralleltest // shares the process-wide sibling memo and its counters
 func TestSiblingEntryEvictionBounded(t *testing.T) {
 	resetMatchMemoForTest()
 
@@ -50,7 +54,7 @@ func TestSiblingEntryEvictionBounded(t *testing.T) {
 
 	total := sibParentsSoftCap + 256
 	for i := 0; i < total; i++ {
-		_, kids := evictProbeParent(4)
+		_, kids := evictProbeParent()
 		if !Match(firstSel, kids[0]) {
 			t.Fatalf("parent %d: span:first-child should match the first child", i)
 		}
@@ -69,6 +73,8 @@ func TestSiblingEntryEvictionBounded(t *testing.T) {
 // TestSiblingEntryEvictedParentRebuilds pins rebuild-on-demand: a parent whose
 // entry the cap evicted still matches correctly, the rematch re-populates the
 // memo (miss counter moves), and the map stays bounded afterwards.
+//
+//nolint:paralleltest // shares the process-wide sibling memo and its counters
 func TestSiblingEntryEvictedParentRebuilds(t *testing.T) {
 	resetMatchMemoForTest()
 
@@ -76,13 +82,13 @@ func TestSiblingEntryEvictedParentRebuilds(t *testing.T) {
 	secondSel := evictProbeParse(t, "span:nth-child(2)")
 	lastSel := evictProbeParse(t, "span:last-child")
 
-	victim, vkids := evictProbeParent(4)
+	victim, vkids := evictProbeParent()
 	if !Match(firstSel, vkids[0]) {
 		t.Fatal("setup: span:first-child should match the victim's first child")
 	}
 
 	for i := 0; i < sibParentsSoftCap+512; i++ {
-		_, kids := evictProbeParent(4)
+		_, kids := evictProbeParent()
 		if !Match(firstSel, kids[0]) {
 			t.Fatalf("parent %d: span:first-child should match the first child", i)
 		}
@@ -135,6 +141,8 @@ func TestSiblingEntryEvictedParentRebuilds(t *testing.T) {
 // not accumulate without bound: waves of distinct synthetic trees whose only
 // remaining reference is the memo itself still leave the map bounded, and a
 // witness from the live wave keeps matching.
+//
+//nolint:paralleltest // shares the process-wide sibling memo and its counters
 func TestSiblingEntryDroppedTreesBounded(t *testing.T) {
 	resetMatchMemoForTest()
 
@@ -155,7 +163,7 @@ func TestSiblingEntryDroppedTreesBounded(t *testing.T) {
 		// batches are dropped trees pinned only by the memo, modelling
 		// documents the caller has discarded.
 		for i := 0; i < perBatch; i++ {
-			_, kids := evictProbeParent(4)
+			_, kids := evictProbeParent()
 			if !Match(nthSel, kids[2]) {
 				t.Fatalf("batch %d parent %d: span:nth-child(3) should match the third child", b, i)
 			}

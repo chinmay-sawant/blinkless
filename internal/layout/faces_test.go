@@ -7,7 +7,7 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
-func TestRealBoldFaceOps(t *testing.T) { //nolint:cyclop
+func TestRealBoldFaceOps(t *testing.T) {
 	t.Parallel()
 
 	root, err := html.Parse(`<html><body><p>plain <b>bold</b> <i>italic</i></p></body></html>`)

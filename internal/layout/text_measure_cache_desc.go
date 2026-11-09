@@ -76,16 +76,17 @@ func (e *engine) measureStyleID(sty *ResolvedStyle, primary *pdf.Font, sizeBits 
 		}
 	}
 
-	id := internMeasureStyle(measureStyleDescOf(sty, primary, sizeBits))
+	styleID := internMeasureStyle(measureStyleDescOf(sty, primary, sizeBits))
+
 	if e.measureStyleIDs == nil {
 		e.measureStyleIDs = make(map[measureStyleRef]uint64, initialWidthCacheEntries)
 	}
 
 	// Cache the zero too: a full table stays full, so retrying would only
 	// repeat the lock and descriptor hash on every text run.
-	e.measureStyleIDs[ref] = id
+	e.measureStyleIDs[ref] = styleID
 
-	return id
+	return styleID
 }
 
 // cachedMeasureStyleID returns the engine-local ID for sty at sizeBits without

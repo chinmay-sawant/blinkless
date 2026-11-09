@@ -62,7 +62,7 @@ body { margin: 0; font-size: 12pt; }
 // TestWikiInfoboxFloatLeavesReadableTextColumn reproduces the Ana/wiki print
 // layout bug: a floated .infobox { width:22em } must leave a usable text
 // column (Chrome ~360pt on A4), not a ~120pt ribbon.
-func TestWikiInfoboxFloatLeavesReadableTextColumn(t *testing.T) { //nolint:gocognit,cyclop,funlen
+func TestWikiInfoboxFloatLeavesReadableTextColumn(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `
@@ -178,7 +178,7 @@ p { font-size: 12pt; line-height: 16pt; text-align: left; }
 	}
 }
 
-func TestWikiInfoboxFloatWithWideImage(t *testing.T) { //nolint:cyclop,funlen
+func TestWikiInfoboxFloatWithWideImage(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `

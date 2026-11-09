@@ -78,9 +78,7 @@ func fastChildSize(t *testing.T, ops []DisplayOp, want string) float64 {
 // TestFastNoopIdenticalReturnsPrev proves the identical-value fast path: a
 // second patch with no edit in between hands the same display back, the
 // engine counter stays flat, and the operations and boxes are untouched.
-func TestFastNoopIdenticalReturnsPrev(t *testing.T) {
-	//nolint:paralleltest // exact global counter deltas need a serial test
-
+func TestFastNoopIdenticalReturnsPrev(t *testing.T) { //nolint:paralleltest // reads process-wide engine counters
 	tree := fastTree(t, `<div id="box" style="width:120px;height:40px">Hello</div>`)
 	styled := fastStyled(t, tree)
 	display := fastRetained(t, styled)
@@ -120,9 +118,7 @@ func TestFastNoopIdenticalReturnsPrev(t *testing.T) {
 // TestFastIgnoredAttributeNoop proves the ignored-attribute fast path: editing
 // title, which no selector names, keeps the fingerprint, so the patch hands
 // the same display back with no engine work.
-func TestFastIgnoredAttributeNoop(t *testing.T) {
-	//nolint:paralleltest // exact global counter deltas need a serial test
-
+func TestFastIgnoredAttributeNoop(t *testing.T) { //nolint:paralleltest // reads process-wide engine counters
 	tree := fastTree(t, `<div id="box" style="width:120px;height:40px">Hello</div>`)
 	styled := fastStyled(t, tree)
 	display := fastRetained(t, styled)
@@ -160,9 +156,7 @@ func TestFastIgnoredAttributeNoop(t *testing.T) {
 // TestFastFontSkipTextFree proves the text-free phase skip: a patch of an
 // element without text skips the default font load, keeps its bounds, and
 // still carries paint.
-func TestFastFontSkipTextFree(t *testing.T) {
-	//nolint:paralleltest // exact global counter deltas need a serial test
-
+func TestFastFontSkipTextFree(t *testing.T) { //nolint:paralleltest // reads process-wide engine counters
 	tree := fastTree(t, `<div id="box" style="width:120px;height:40px;background-color:#ff0000"></div>`)
 	styled := fastStyled(t, tree)
 	display := fastRetained(t, styled)
@@ -366,7 +360,8 @@ func TestFastInertOverrideFontSize(t *testing.T) {
 func TestFastInertOverrideFontSizeNegative(t *testing.T) {
 	t.Parallel()
 
-	tree := fastTree(t, `<div id="card" style="width:200px;height:40px;font-size:12px">Base <span id="child">Child</span></div>`)
+	tree := fastTree(t,
+		`<div id="card" style="width:200px;height:40px;font-size:12px">Base <span id="child">Child</span></div>`)
 	styled := fastStyled(t, tree)
 	display := fastRetained(t, styled)
 

@@ -315,7 +315,7 @@ func applyDominantBaselineProperty(style *ResolvedStyle, value string) {
 // style_cascade.go. Reference: Chrome 143.0.7499.40.
 func applyAlignmentBaselineProperty(style *ResolvedStyle, value string) {
 	switch normalized := normalizeCSSValue(value); normalized {
-	case "auto", "baseline", "alphabetic", "hanging", "ideographic", "middle", "central",
+	case "auto", baselineName, "alphabetic", "hanging", "ideographic", "middle", "central",
 		"mathematical", "text-before-edge", "text-after-edge", "before-edge", "after-edge":
 		style.AlignmentBaseline = normalized
 	}

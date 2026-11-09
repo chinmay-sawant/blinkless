@@ -77,14 +77,14 @@ func RelayoutSubtree(ctx context.Context, prev *Result, node *html.Node, opts Op
 			return nil, errElementNotPlaced
 		}
 
-		target, node = table, table.box.node
+		target = table
 	} else if target.box.kind == boxKindCell {
 		table, ok := tableOwnerTarget(target)
 		if !ok {
 			return nil, fmt.Errorf("%w: table cell with no owning table", errSubtreeNotSplicable)
 		}
 
-		target, node = table, table.box.node
+		target = table
 	}
 
 	built, err := relayoutBuildEscalating(ctx, prev, target, opts)
@@ -122,6 +122,8 @@ type relayoutBuiltTarget struct {
 // change the host must handle: the original errSubtreeResized is what a full
 // layout resolves. Anything else (context, engine) is reported as is, and a
 // first attempt that never resized keeps its own error.
+//
+//nolint:cyclop // the retry loop repeats the same guarded build for a wider target
 func relayoutBuildEscalating(
 	ctx context.Context, prev *Result, target *relayoutTarget, opts Options,
 ) (*relayoutBuiltTarget, error) {
@@ -137,20 +139,12 @@ func relayoutBuildEscalating(
 		}
 
 		if err := checkRelayoutTarget(prev, target); err != nil {
-			if firstResize != nil && isRelayoutStructural(err) {
-				return nil, firstResize
-			}
-
-			return nil, err
+			return nil, escalatingError(firstResize, err)
 		}
 
 		styles, err := relayoutSubtreeStyles(ctx, prev, target, target.box.node, opts)
 		if err != nil {
-			if firstResize != nil && isRelayoutStructural(err) {
-				return nil, firstResize
-			}
-
-			return nil, err
+			return nil, escalatingError(firstResize, err)
 		}
 
 		eng, err := relayoutEngine(ctx, prev, opts, styles)
@@ -184,6 +178,16 @@ func relayoutBuildEscalating(
 			return nil, firstResize
 		}
 	}
+}
+
+// escalatingError picks the size-change error when a wider range inherits the
+// refusal, and the fresh error otherwise.
+func escalatingError(firstResize, err error) error {
+	if firstResize != nil && isRelayoutStructural(err) {
+		return firstResize
+	}
+
+	return err
 }
 
 // isRelayoutStructural reports whether err refuses a splice range for a
@@ -387,7 +391,7 @@ func tableAncestorTarget(root *box, node *html.Node) (*relayoutTarget, bool) {
 			return target, true
 		case boxKindCell:
 			continue
-		default:
+		case boxKindBlock, boxKindReplaced:
 			return nil, false
 		}
 	}
@@ -712,39 +716,15 @@ func putSubtreeStyleStore(prev *Result, tag subtreeStyleDocTag, store *styleStor
 	// document cheaply, so the store is not pooled. Rent keeps the existing
 	// tag equality and never consults another document's intern map.
 	if tag.root == 0 {
-		if prev != nil {
-			prev.storeChunks = append(prev.storeChunks, store.chunks...)
-			store.chunks = nil
-			store.intern = nil
-		}
+		dropSubtreeStyleStore(prev, store)
 
 		return
 	}
 
 	store.candidate = ResolvedStyle{} //nolint:exhaustruct // scratch must not leak into the next rent
 
-	reject := false
-	if len(store.chunks) > maxSubtreeStyleStoreChunks || len(store.intern) > maxSubtreeStyleStoreInternLen {
-		reject = true
-	} else {
-		total := 0
-
-		for _, bucket := range store.intern {
-			total += len(bucket)
-			if total > maxSubtreeStyleStoreInternLen {
-				reject = true
-
-				break
-			}
-		}
-	}
-
-	if reject {
-		if prev != nil {
-			prev.storeChunks = append(prev.storeChunks, store.chunks...)
-			store.chunks = nil
-			store.intern = nil
-		}
+	if subtreeStoreRejected(store) {
+		dropSubtreeStyleStore(prev, store)
 
 		return
 	}
@@ -765,6 +745,37 @@ func putSubtreeStyleStore(prev *Result, tag subtreeStyleDocTag, store *styleStor
 	}
 
 	subtreeStyleStores.entries = append(subtreeStyleStores.entries, pooledSubtreeStyleStore{tag: tag, store: store})
+}
+
+// subtreeStoreRejected reports whether a store outgrew the chunk or intern
+// bound the pool keeps.
+func subtreeStoreRejected(store *styleStore) bool {
+	if len(store.chunks) > maxSubtreeStyleStoreChunks || len(store.intern) > maxSubtreeStyleStoreInternLen {
+		return true
+	}
+
+	total := 0
+
+	for _, bucket := range store.intern {
+		total += len(bucket)
+		if total > maxSubtreeStyleStoreInternLen {
+			return true
+		}
+	}
+
+	return false
+}
+
+// dropSubtreeStyleStore hands the store's chunks to prev so they recycle with
+// the result, then clears the references the pool would reuse.
+func dropSubtreeStyleStore(prev *Result, store *styleStore) {
+	if prev == nil {
+		return
+	}
+
+	prev.storeChunks = append(prev.storeChunks, store.chunks...)
+	store.chunks = nil
+	store.intern = nil
 }
 
 // resolveSubtreeStylesPooled resolves the styles of node's subtree into the
@@ -1340,23 +1351,37 @@ func sameBoxGeometry(left, right *box) bool {
 		return left == right
 	}
 
-	if !relayoutNear(left.x, right.x) || !relayoutNear(left.y, right.y) ||
-		!relayoutNear(left.w, right.w) || !relayoutNear(left.height, right.height) {
+	if !sameBoxRect(left, right) {
 		return false
 	}
 
-	if len(left.children) != len(right.children) || len(left.rows) != len(right.rows) {
+	if len(left.children) != len(right.children) || !sameRowShapes(left, right) {
+		return false
+	}
+
+	for index := range left.children {
+		if !sameBoxGeometry(left.children[index], right.children[index]) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// sameBoxRect compares the placed border box coordinates.
+func sameBoxRect(left, right *box) bool {
+	return relayoutNear(left.x, right.x) && relayoutNear(left.y, right.y) &&
+		relayoutNear(left.w, right.w) && relayoutNear(left.height, right.height)
+}
+
+// sameRowShapes compares the row count and each row's cell count.
+func sameRowShapes(left, right *box) bool {
+	if len(left.rows) != len(right.rows) {
 		return false
 	}
 
 	for index := range left.rows {
 		if len(left.rows[index]) != len(right.rows[index]) {
-			return false
-		}
-	}
-
-	for index := range left.children {
-		if !sameBoxGeometry(left.children[index], right.children[index]) {
 			return false
 		}
 	}
@@ -1408,6 +1433,15 @@ func sameBoxOpWindow(left, right *box, shift int) bool {
 // sameRowBreakMetadata compares the table row tops and heights PageBreaks
 // reads, plus the operation ranges of the row's cells.
 func sameRowBreakMetadata(left, right *box, shift int) bool {
+	if !sameRowExtents(left, right) {
+		return false
+	}
+
+	return sameRowCellOpWindows(left, right, shift)
+}
+
+// sameRowExtents compares the row tops and heights PageBreaks reads.
+func sameRowExtents(left, right *box) bool {
 	if len(left.rowTops) != len(right.rowTops) || len(left.rowHeights) != len(right.rowHeights) {
 		return false
 	}
@@ -1419,6 +1453,11 @@ func sameRowBreakMetadata(left, right *box, shift int) bool {
 		}
 	}
 
+	return true
+}
+
+// sameRowCellOpWindows compares the operation ranges of every row's cells.
+func sameRowCellOpWindows(left, right *box, shift int) bool {
 	if len(left.rows) != len(right.rows) {
 		return false
 	}
@@ -1614,6 +1653,7 @@ func spliceOpsInPlace(ops []Op, start, oldCount int, newOps []Op) ([]Op, bool) {
 	}
 
 	oldLen := len(ops)
+
 	newLen := oldLen - oldCount + len(newOps)
 	if newLen > cap(ops) {
 		return nil, false
@@ -1972,7 +2012,6 @@ func relayoutFuseSplice(
 	boxes := make([]*box, 0, boxCapacity)
 
 	var fuse func(node *box)
-	var shiftRow func(node *box)
 
 	fuse = func(node *box) {
 		if node == nil {
@@ -2001,25 +2040,7 @@ func relayoutFuseSplice(
 
 		for _, row := range node.rows {
 			for _, cell := range row {
-				shiftRow(cell)
-			}
-		}
-	}
-
-	shiftRow = func(node *box) {
-		if node == nil || node == patched {
-			return
-		}
-
-		shiftBoxRange(node, start, end, delta)
-
-		for _, child := range node.children {
-			shiftRow(child)
-		}
-
-		for _, row := range node.rows {
-			for _, cell := range row {
-				shiftRow(cell)
+				shiftRowRanges(cell, patched, start, end, delta)
 			}
 		}
 	}
@@ -2027,6 +2048,26 @@ func relayoutFuseSplice(
 	fuse(prev.boxTreeRoot())
 
 	prev.boxes = boxes
+}
+
+// shiftRowRanges shifts every row cell range under node, skipping the patched
+// subtree: a cell keeps its range but its children shift with the splice.
+func shiftRowRanges(node, patched *box, start, end, delta int) {
+	if node == nil || node == patched {
+		return
+	}
+
+	shiftBoxRange(node, start, end, delta)
+
+	for _, child := range node.children {
+		shiftRowRanges(child, patched, start, end, delta)
+	}
+
+	for _, row := range node.rows {
+		for _, cell := range row {
+			shiftRowRanges(cell, patched, start, end, delta)
+		}
+	}
 }
 
 // unionPatchedSubtree re-widens the committed subtree over its own children,
@@ -2042,7 +2083,7 @@ func unionPatchedSubtree(node *box) {
 // censusOpsWindow summarizes one operation window the way censusOps does:
 // the right edge of fill, stroke, image, and path operations, and whether
 // any link operation targets a same-document fragment.
-func censusOpsWindow(ops []Op, start, count int) (maxExtent float64, hasFrag bool) {
+func censusOpsWindow(ops []Op, start, count int) (float64, bool) {
 	if start < 0 {
 		count += start
 		start = 0
@@ -2052,6 +2093,10 @@ func censusOpsWindow(ops []Op, start, count int) (maxExtent float64, hasFrag boo
 	if end > len(ops) {
 		end = len(ops)
 	}
+
+	var maxExtent float64
+
+	hasFrag := false
 
 	for index := start; index < end; index++ {
 		switch ops[index].Kind {
@@ -2172,42 +2217,47 @@ func spliceDamage(ops []Op, start, count int) ([4]float64, bool) {
 	found := false
 
 	for index := start; index < end; index++ {
-		op := &ops[index]
+		paintOp := &ops[index]
 
-		if op.W <= 0 && op.H <= 0 {
+		if paintOp.W <= 0 && paintOp.H <= 0 {
 			continue
 		}
 
-		x0, y0 := op.X, op.Y
-		x1, y1 := op.X+op.W, op.Y+op.H
-
 		if !found {
-			bounds = [4]float64{x0, y0, x1 - x0, y1 - y0}
+			bounds = [4]float64{paintOp.X, paintOp.Y, paintOp.W, paintOp.H}
 			found = true
 
 			continue
 		}
 
-		if x0 < bounds[0] {
-			bounds[2] += bounds[0] - x0
-			bounds[0] = x0
-		}
-
-		if y0 < bounds[1] {
-			bounds[3] += bounds[1] - y0
-			bounds[1] = y0
-		}
-
-		if x1 > bounds[0]+bounds[2] {
-			bounds[2] = x1 - bounds[0]
-		}
-
-		if y1 > bounds[1]+bounds[3] {
-			bounds[3] = y1 - bounds[1]
-		}
+		unionOpBounds(&bounds, paintOp)
 	}
 
 	return bounds, found
+}
+
+// unionOpBounds grows bounds to include one operation's painted box.
+func unionOpBounds(bounds *[4]float64, paintOp *Op) {
+	left, top := paintOp.X, paintOp.Y
+	right, bottom := paintOp.X+paintOp.W, paintOp.Y+paintOp.H
+
+	if left < bounds[0] {
+		bounds[2] += bounds[0] - left
+		bounds[0] = left
+	}
+
+	if top < bounds[1] {
+		bounds[3] += bounds[1] - top
+		bounds[1] = top
+	}
+
+	if right > bounds[0]+bounds[2] {
+		bounds[2] = right - bounds[0]
+	}
+
+	if bottom > bounds[1]+bounds[3] {
+		bounds[3] = bottom - bounds[1]
+	}
 }
 
 // boxThread threads element ids to their boxes and each box to its parent,
@@ -2445,7 +2495,8 @@ func RelayoutSubtrees(
 	baseOpts Options, owners, order []int,
 ) (*SubtreeBatchResult, error) {
 	if len(elementIDs) == 0 {
-		return &SubtreeBatchResult{Owners: owners, Order: order}, nil //nolint:exhaustruct // an empty batch carries no windows
+		//nolint:exhaustruct // an empty batch carries no windows
+		return &SubtreeBatchResult{Owners: owners, Order: order}, nil
 	}
 
 	if prev == nil || prev.boxTreeRoot() == nil {
@@ -2459,6 +2510,8 @@ func RelayoutSubtrees(
 		Owners:    owners,
 		Order:     order,
 		Windows:   make([]SpliceWindow, 0, len(elementIDs)),
+		Textless:  0,
+		Texts:     nil,
 		PaintOnly: true,
 	}
 
@@ -2473,6 +2526,29 @@ func RelayoutSubtrees(
 	}
 
 	return out, nil
+}
+
+// commitPaintOnlyWindow commits a geometry-neutral batch splice and records
+// the window it replaced, keeping the previous box list and paint metadata.
+func commitPaintOnlyWindow(
+	prev *Result, thread *boxThread, target *relayoutTarget, newBox *box,
+	styles map[*html.Node]*ResolvedStyle, start, oldCount int, newOps []Op,
+	oldDamage [4]float64, hasOld bool, out *SubtreeBatchResult,
+) {
+	commitPaintOnlySplice(prev, newBox, target, styles, start, oldCount, newOps)
+	thread.replace(target.box, newBox, target.parent)
+
+	newDamage, hasNew := spliceDamage(prev.Ops, start, oldCount)
+	out.Windows = append(out.Windows, SpliceWindow{
+		Start:        start,
+		OldCount:     oldCount,
+		NewCount:     oldCount,
+		OldDamage:    oldDamage,
+		NewDamage:    newDamage,
+		HasOldDamage: hasOld,
+		HasNewDamage: hasNew,
+		PaintOnly:    true,
+	})
 }
 
 // relayoutSpliceOne re-lays out one batch id inside prev and commits the
@@ -2493,43 +2569,18 @@ func relayoutSpliceOne(
 		return ErrBatchUnknownID
 	}
 
-	opts := baseOpts
-
-	if subtreeHasTextNode(node) {
-		if opts.Font == nil {
-			loaded, err := pdf.DefaultFont()
-			if err != nil {
-				return fmt.Errorf("layout: default font: %w", err)
-			}
-
-			opts.Font = loaded
-		}
-	} else {
-		opts.Font = nil
-		out.Textless++
+	opts, err := spliceBatchOptions(node, baseOpts, out)
+	if err != nil {
+		return err
 	}
 
 	if err := relayoutGuards(ctx, prev, node, opts); err != nil {
 		return relayoutSpliceError(err)
 	}
 
-	target, ok := thread.lookup(elementID)
-	if !ok {
-		table, ok := tableAncestorTarget(prev.boxTreeRoot(), node)
-		if !ok {
-			return relayoutSpliceError(errElementNotPlaced)
-		}
-
-		target, node = table, table.box.node
-	} else if target.box == nil || target.box.node != node {
-		return relayoutSpliceError(errElementNotPlaced)
-	} else if target.box.kind == boxKindCell {
-		table, ok := tableOwnerTarget(target)
-		if !ok {
-			return relayoutSpliceError(fmt.Errorf("%w: table cell with no owning table", errSubtreeNotSplicable))
-		}
-
-		target, node = table, table.box.node
+	target, err := spliceBatchTarget(prev, thread, elementID, node)
+	if err != nil {
+		return err
 	}
 
 	// A size-changing id widens to the nearest ancestor that keeps its size,
@@ -2553,60 +2604,118 @@ func relayoutSpliceOne(
 	// window in place: the box list, the ranges, the owners, and the order all
 	// stay put, so the host can build the display by reusing the previous one.
 	if relayoutPaintOnlyWindow(prev, target, newBox, start, oldCount, eng.ops) {
-		commitPaintOnlySplice(prev, newBox, target, styles, start, oldCount, eng.ops)
-		thread.replace(target.box, newBox, target.parent)
-
-		newDamage, hasNew := spliceDamage(prev.Ops, start, oldCount)
-		out.Windows = append(out.Windows, SpliceWindow{ //nolint:exhaustruct // damage flags default false
-			Start:        start,
-			OldCount:     oldCount,
-			NewCount:     oldCount,
-			OldDamage:    oldDamage,
-			NewDamage:    newDamage,
-			HasOldDamage: hasOld,
-			HasNewDamage: hasNew,
-			PaintOnly:    true,
-		})
+		commitPaintOnlyWindow(prev, thread, target, newBox, styles, start, oldCount, eng.ops, oldDamage, hasOld, out)
 
 		return nil
 	}
 
+	commitBatchSubtree(prev, thread, target, built, start, oldCount, oldDamage, hasOld, out, relevant, grouped)
+
+	return nil
+}
+
+// commitBatchSubtree commits one full (non paint-only) batch splice: it keeps
+// the owners and the paint order current and records the replaced window.
+func commitBatchSubtree(
+	prev *Result, thread *boxThread, target *relayoutTarget, built *relayoutBuiltTarget,
+	start, oldCount int, oldDamage [4]float64, hasOld bool,
+	out *SubtreeBatchResult, relevant, grouped *int,
+) {
 	out.PaintOnly = false
 
 	oldRel, oldGrp := countOrderingRelevant(prev.Ops[start : start+oldCount])
 	oldElem := countElementBoxes(target.box)
-	pos := &splicePosition{seed: -1, chain: target.ancestors}
+	pos := &splicePosition{base: 0, seed: -1, foundBase: false, count: 0, chain: target.ancestors}
 
 	// The batch owns its private clone, so it splices into the clone's own
 	// operation list instead of copying the page-wide slice once per id.
-	commitSubtreeSplice(prev, newBox, target, styles, start, oldCount, eng.ops, true, pos)
-	thread.replace(target.box, newBox, target.parent)
+	commitSubtreeSplice(prev, built.box, target, built.styles, start, oldCount, built.eng.ops, true, pos)
+	thread.replace(target.box, built.box, target.parent)
 
-	newRel, newGrp := countOrderingRelevant(eng.ops)
+	newRel, newGrp := countOrderingRelevant(built.eng.ops)
 	*relevant += newRel - oldRel
 	*grouped += newGrp - oldGrp
 
 	if pos.foundBase {
-		out.Owners = spliceOwnerWindow(out.Owners, start, oldCount, len(eng.ops), pos.seed, pos.base, oldElem, newBox)
+		out.Owners = spliceOwnerWindow(
+			out.Owners, start, oldCount, len(built.eng.ops), pos.seed, pos.base, oldElem, built.box,
+		)
 	} else {
 		out.Owners = fullOwnersFor(prev)
 	}
 
-	neutral := oldRel == 0 && newRel == 0 && *grouped == 0
-	out.Order = splicePaintOrder(prev.Ops, out.Order, start, oldCount, len(eng.ops), neutral)
+	neutral := spliceOrderNeutral(oldRel, newRel, *grouped)
+	out.Order = splicePaintOrder(prev.Ops, out.Order, start, oldCount, len(built.eng.ops), neutral)
 
-	newDamage, hasNew := spliceDamage(prev.Ops, start, len(eng.ops))
+	newDamage, hasNew := spliceDamage(prev.Ops, start, len(built.eng.ops))
 	out.Windows = append(out.Windows, SpliceWindow{ //nolint:exhaustruct // damage flags default false
 		Start:        start,
 		OldCount:     oldCount,
-		NewCount:     len(eng.ops),
+		NewCount:     len(built.eng.ops),
 		OldDamage:    oldDamage,
 		NewDamage:    newDamage,
 		HasOldDamage: hasOld,
 		HasNewDamage: hasNew,
 	})
+}
 
-	return nil
+// spliceOrderNeutral reports whether a splice leaves no ordering-relevant
+// operation on either side, so the paint order stays flat.
+func spliceOrderNeutral(oldRelevant, newRelevant, grouped int) bool {
+	return oldRelevant == 0 && newRelevant == 0 && grouped == 0
+}
+
+// spliceBatchOptions installs the default font only when the subtree shapes
+// text, so a text-free id keeps the lean walk.
+func spliceBatchOptions(node *html.Node, baseOpts Options, out *SubtreeBatchResult) (Options, error) {
+	if !subtreeHasTextNode(node) {
+		baseOpts.Font = nil
+		out.Textless++
+
+		return baseOpts, nil
+	}
+
+	if baseOpts.Font != nil {
+		return baseOpts, nil
+	}
+
+	loaded, err := pdf.DefaultFont()
+	if err != nil {
+		return baseOpts, fmt.Errorf("layout: default font: %w", err)
+	}
+
+	baseOpts.Font = loaded
+
+	return baseOpts, nil
+}
+
+// spliceBatchTarget resolves one batch id to its patch target, falling back to
+// the owning table for a box-less element or a table cell.
+func spliceBatchTarget(
+	prev *Result, thread *boxThread, elementID string, node *html.Node,
+) (*relayoutTarget, error) {
+	target, ok := thread.lookup(elementID)
+
+	switch {
+	case !ok:
+		table, found := tableAncestorTarget(prev.boxTreeRoot(), node)
+		if !found {
+			return nil, relayoutSpliceError(errElementNotPlaced)
+		}
+
+		return table, nil
+	case target.box == nil || target.box.node != node:
+		return nil, relayoutSpliceError(errElementNotPlaced)
+	case target.box.kind == boxKindCell:
+		table, found := tableOwnerTarget(target)
+		if !found {
+			return nil, relayoutSpliceError(fmt.Errorf("%w: table cell with no owning table", errSubtreeNotSplicable))
+		}
+
+		return table, nil
+	}
+
+	return target, nil
 }
 
 // relayoutSpliceError wraps one batch splice failure the way the public
@@ -2622,7 +2731,7 @@ func relayoutSpliceError(err error) error {
 func fullOwnersFor(prev *Result) []int {
 	var placed []PlacedElement
 
-	WalkPlacedWithOptions(prev, WalkPlacedOptions{IncludeText: false}, func(elem *PlacedElement) { //nolint:exhaustruct // the lean walk computes no text
+	WalkPlacedWithOptions(prev, WalkPlacedOptions{IncludeText: false}, func(elem *PlacedElement) {
 		placed = append(placed, *elem)
 	})
 
@@ -2695,12 +2804,22 @@ func paintOnlyAncestorTarget(thread *boxThread, prev *Result, elementID string) 
 			continue
 		}
 
-		if target, ok := thread.lookup(id); ok && target.box != nil && target.box.node != nil {
+		if target, ok := threadAddressableTarget(thread, id); ok {
 			return target, true
 		}
 	}
 
 	return nil, false
+}
+
+// threadAddressableTarget resolves id to a target whose box owns a node.
+func threadAddressableTarget(thread *boxThread, id string) (*relayoutTarget, bool) {
+	target, ok := thread.lookup(id)
+	if !ok || target.box == nil || target.box.node == nil {
+		return nil, false
+	}
+
+	return target, true
 }
 
 // cachedNodeText returns one node's subtree text, computing it once per node.

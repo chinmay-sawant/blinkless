@@ -60,8 +60,11 @@ func TestInlineCollectParityWideTable(t *testing.T) {
 		t.Fatalf("op count = %d, want %d", len(res.Ops), wantOps)
 	}
 
+	const wantFirst = `kind=4 x=2.25 y=13.16015625 w=136.74609375 h=13.5 size=12 ` +
+		`text="Row 0 alpha beta gamma"`
+
 	first := res.Ops[0]
-	if got := fmtOpFields(first); got != `kind=4 x=2.25 y=13.16015625 w=136.74609375 h=13.5 size=12 text="Row 0 alpha beta gamma"` {
+	if got := fmtOpFields(first); got != wantFirst {
 		t.Fatalf("first op = %s, want golden", got)
 	}
 
@@ -80,7 +83,7 @@ func TestWrapBreakSkipKeepsAvoidSemantics(t *testing.T) {
 
 	doc := func(span string) string {
 		return `<html style="margin:0"><body style="margin:0;font:10pt/12pt monospace;width:200pt">` +
-			`<p id="p" style="margin:0">aaaa aaaa aaaa aaaa aaaa aaaa aa ` +
+			`<p id="p" style="margin:0">` + strings.Repeat("aaaa ", 6) + `aa ` +
 			`<span id="s" style="` + span + `">x</span></p>` +
 			`</body></html>`
 	}
@@ -150,7 +153,6 @@ func TestInlineCollectWrappedWordItemParity(t *testing.T) {
 		"upper":    upper,
 		"vertical": vertical,
 	} {
-		style := style
 		lineH := eng.lineHeightOf(&style) * eng.scale
 		isVert := isVerticalWritingMode(style.WritingMode)
 

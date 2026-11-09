@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -12,7 +13,12 @@ import (
 func loadHotFaces(t *testing.T) (*pdf.FaceSet, error) {
 	t.Helper()
 
-	return pdf.LoadDefaultFaces()
+	faces, err := pdf.LoadDefaultFaces()
+	if err != nil {
+		return nil, fmt.Errorf("load default faces: %w", err)
+	}
+
+	return faces, nil
 }
 
 // hotStyle builds a 12pt test style with the given autospace and emoji
@@ -58,11 +64,13 @@ func hotTabStyle() ResolvedStyle {
 const hotTextGoldenOps = 1230
 
 // hotTextGoldenFirst pins the first op of hotTextDoc(40).
-const hotTextGoldenFirst = `kind=4 x=0 y=11.9755859375 w=336.0546875 h=16.5 size=14 text="Paragraph 0 alpha beta gamma delta with "`
+const hotTextGoldenFirst = `kind=4 x=0 y=11.9755859375 w=336.0546875 h=16.5 size=14 ` +
+	`text="Paragraph 0 alpha beta gamma delta with "`
 
 // hotTextGoldenSample pins one mid-document sample: the first uppercase
 // spaced word op, as kind/x/y/w/h/size/text.
-const hotTextGoldenSample = `kind=4 x=0 y=41.2861328125 w=290.2900390625 h=11.25 size=10 text="spaced upper words 0 repeat repeat repeat"`
+const hotTextGoldenSample = `kind=4 x=0 y=41.2861328125 w=240.783203125 h=11.25 size=10 ` +
+	"text=\"spaced upper words 0 repeat repeat\""
 
 // hotTextDoc builds a generated text-heavy document exercising every
 // hot-path change: repeated words (width/cache reuse), descender links
@@ -80,7 +88,7 @@ func hotTextDoc(paras int) string {
 			` alpha beta gamma delta with <a href="https://example.com/` + n +
 			`">jog pygmy ` + n + `</a> tail jets fypqy glyphs.</p>`)
 		b.WriteString(`<p style="margin:0;letter-spacing:1px;word-spacing:3px;` +
-			`text-transform:uppercase">spaced upper words ` + n + ` repeat repeat repeat</p>`)
+			`text-transform:uppercase">spaced upper words ` + n + " repeat repeat</p>")
 		b.WriteString(`<p style="margin:0;font-size:16pt;text-autospace:ideograph-alpha">` +
 			`mixed 漢A ideograph alpha boundary ` + n + `</p>`)
 		b.WriteString(`<p style="margin:0;font-size:18pt;font-variant-emoji:emoji">` +
@@ -137,6 +145,8 @@ func assertOpsIdentical(t *testing.T, a, b *Result) {
 // TestTextHotWidthsPaintIdentical pins widths and paint on a generated
 // text-heavy doc: golden op count plus sample advances, and byte-identical
 // ops between a cold-cache and a warm-cache layout.
+//
+//nolint:paralleltest // shares process-wide measure caches, counters, and font state
 func TestTextHotWidthsPaintIdentical(t *testing.T) {
 	doc := hotTextDoc(40)
 	clearHotCaches()
@@ -198,6 +208,8 @@ func TestTextHotWidthsPaintIdentical(t *testing.T) {
 // TestTextHotCacheHits proves the reuse paths actually hit: a second layout
 // of the same doc must serve string widths, rune widths, coverage bits, and
 // line heights from the shared caches.
+//
+//nolint:paralleltest // shares process-wide measure caches, counters, and font state
 func TestTextHotCacheHits(t *testing.T) {
 	doc := hotTextDoc(40)
 	clearHotCaches()
@@ -235,6 +247,8 @@ func TestTextHotCacheHits(t *testing.T) {
 // exactly the sequential measureRuneFace values for every style and text
 // shape, including tabs, autospace, emoji, soft hyphens, and variation
 // selectors.
+//
+//nolint:paralleltest // shares process-wide measure caches, counters, and font state
 func TestMeasureHotRuneBatchParity(t *testing.T) {
 	faces, err := loadHotFaces(t)
 	if err != nil {
@@ -251,7 +265,7 @@ func TestMeasureHotRuneBatchParity(t *testing.T) {
 	}
 
 	texts := []string{
-		"hello world repeat repeat",
+		"hello world repeat",
 		"tab\there and\there",
 		"mixed 漢A ideograph alpha",
 		"smile ☺ grin 😀 end",
@@ -297,6 +311,8 @@ func TestMeasureHotRuneBatchParity(t *testing.T) {
 // TestInlineHotPaintWidthReuse requires the primary-face paint path to reuse
 // the collect-time width exactly, including the stored post-transform paint
 // string, on both the cold loop fallback and the warm cache hit.
+//
+//nolint:paralleltest // shares process-wide measure caches, counters, and font state
 func TestInlineHotPaintWidthReuse(t *testing.T) {
 	faces, err := loadHotFaces(t)
 	if err != nil {
@@ -376,6 +392,8 @@ func TestInlineHotPaintWidthReuse(t *testing.T) {
 
 // TestSpacingHotAutospaceParity requires autospace layouts to paint
 // identically cold and warm, and wider than no-autospace.
+//
+//nolint:paralleltest // shares process-wide measure caches, counters, and font state
 func TestSpacingHotAutospaceParity(t *testing.T) {
 	plainDoc := `<html><body style="margin:0">` +
 		`<p style="margin:0;font-size:16pt;text-autospace:no-autospace">漢A mixed</p>` +
@@ -401,6 +419,8 @@ func TestSpacingHotAutospaceParity(t *testing.T) {
 
 // TestEmojiHotParity requires emoji layouts to paint identically cold and
 // warm, with the all-emoji run taking the lite presentation fill.
+//
+//nolint:paralleltest // shares process-wide measure caches, counters, and font state
 func TestEmojiHotParity(t *testing.T) {
 	doc := `<html><body style="margin:0">` +
 		`<p style="margin:0;font-size:18pt;font-variant-emoji:emoji">` +
@@ -429,6 +449,8 @@ func TestEmojiHotParity(t *testing.T) {
 // TestLineHeightHotMemo requires the memoized normal line height to match
 // the direct computation and to hit the shared cache on repeats, while an
 // explicit line height bypasses the cache untouched.
+//
+//nolint:paralleltest // shares process-wide measure caches, counters, and font state
 func TestLineHeightHotMemo(t *testing.T) {
 	faces, err := loadHotFaces(t)
 	if err != nil {

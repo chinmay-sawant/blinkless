@@ -44,7 +44,7 @@ func TestBoxSizingBorderBox(t *testing.T) {
 	}
 }
 
-func TestInlineBlockBesideText(t *testing.T) { //nolint:cyclop
+func TestInlineBlockBesideText(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `
@@ -92,7 +92,7 @@ p { width: 300pt }`)
 	}
 }
 
-func TestFloatLeftRightClear(t *testing.T) { //nolint:cyclop
+func TestFloatLeftRightClear(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `

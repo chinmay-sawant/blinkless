@@ -711,7 +711,7 @@ func initialStyle() ResolvedStyle { //nolint:funlen // complete CSS initial-valu
 		FontSize:                      12, // 16px at 96dpi
 		FontWeight:                    400,
 		TextTransform:                 textTransformNone,
-		VerticalAlign:                 "baseline",
+		VerticalAlign:                 baselineName,
 		WhiteSpace:                    "normal",
 		TabSize:                       defaultTabSize,
 		HyphenateCharacter:            "-",
@@ -1134,7 +1134,6 @@ const styleStoreFirstChunk = 8
 // 8/32/64-cap steps use these segregated lists because the shared pool only
 // retains defaultStyleChunkSize backings. Each list only holds backings with
 // its exact capacity, and both get and put verify the capacity before reuse.
-//
 const (
 	maxStyleStoreChunksFree8  = 8
 	maxStyleStoreChunksFree32 = 4

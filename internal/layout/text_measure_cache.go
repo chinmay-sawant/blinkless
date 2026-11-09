@@ -125,16 +125,16 @@ func lookupSharedTextWidth(base textWidthKey, scale float64) (float64, bool) {
 	key := sharedTextWidthKey{base: base, scaleBits: math.Float64bits(scale)}
 
 	sharedTextWidths.mu.RLock()
-	width, ok := sharedTextWidths.entries[key]
+	width, found := sharedTextWidths.entries[key]
 	sharedTextWidths.mu.RUnlock()
 
-	if ok {
+	if found {
 		sharedTextHits.Add(1)
 	} else {
 		sharedTextMisses.Add(1)
 	}
 
-	return width, ok
+	return width, found
 }
 
 // storeSharedTextWidth records width under base and scale unless the shared
@@ -185,16 +185,16 @@ func lookupSharedRuneWidth(base runeWidthKey, scale float64) (float64, bool) {
 	key := sharedRuneWidthKey{base: base, scaleBits: math.Float64bits(scale)}
 
 	sharedRuneWidths.mu.RLock()
-	width, ok := sharedRuneWidths.entries[key]
+	width, found := sharedRuneWidths.entries[key]
 	sharedRuneWidths.mu.RUnlock()
 
-	if ok {
+	if found {
 		sharedRuneHits.Add(1)
 	} else {
 		sharedRuneMisses.Add(1)
 	}
 
-	return width, ok
+	return width, found
 }
 
 // storeSharedRuneWidth records a rune width with the same bounded eviction
@@ -315,7 +315,9 @@ func (e *engine) textWidthCacheKey(
 	styleID := e.measureStyleID(sty, primary, sizeBits)
 
 	local := textWidthLocalKey{
-		key: textWidthKey{styleID: styleID, text: text},
+		key:      textWidthKey{styleID: styleID, text: text},
+		style:    nil,
+		sizeBits: 0,
 	}
 	if styleID == 0 {
 		local.style = sty
@@ -323,17 +325,6 @@ func (e *engine) textWidthCacheKey(
 	}
 
 	return local
-}
-
-// lookupTextWidth returns the cached string width for key.
-func (e *engine) lookupTextWidth(key textWidthLocalKey) (float64, bool) {
-	if len(e.textWidthCache) == 0 {
-		return 0, false
-	}
-
-	width, ok := e.textWidthCache[key]
-
-	return width, ok
 }
 
 // storeTextWidth records width under key unless the cache is full.
@@ -356,6 +347,7 @@ func (e *engine) runeWidthCacheKey(
 ) runeWidthLocalKey {
 	sizeBits := math.Float64bits(sty.FontSize * scale)
 	styleID, ok := e.cachedMeasureStyleID(sty, sizeBits)
+
 	if !ok {
 		styleID = e.measureStyleID(sty, e.faceFor(sty), sizeBits)
 	}
@@ -366,6 +358,8 @@ func (e *engine) runeWidthCacheKey(
 			r:              runeValue,
 			widthScaleBits: math.Float64bits(fontWidthScale(sty)),
 		},
+		style:    nil,
+		sizeBits: 0,
 	}
 	if styleID == 0 {
 		local.style = sty
@@ -532,16 +526,16 @@ func lookupTextCoverage(face *pdf.Font, text string) (bool, bool) {
 	}
 
 	sharedTextCoverage.mu.RLock()
-	covered, ok := sharedTextCoverage.entries[textCoverageKey{face: face, text: text}]
+	covered, found := sharedTextCoverage.entries[textCoverageKey{face: face, text: text}]
 	sharedTextCoverage.mu.RUnlock()
 
-	if ok {
+	if found {
 		sharedCoverageHits.Add(1)
 	} else {
 		sharedCoverageMisses.Add(1)
 	}
 
-	return covered, ok
+	return covered, found
 }
 
 // storeTextCoverage records the all-primary bit unless the text is too long
@@ -654,6 +648,7 @@ type runeKeyPrefix struct {
 func (e *engine) makeRuneKeyPrefix(sty *ResolvedStyle, scale float64) runeKeyPrefix {
 	sizeBits := math.Float64bits(sty.FontSize * scale)
 	styleID, ok := e.cachedMeasureStyleID(sty, sizeBits)
+
 	if !ok {
 		styleID = e.measureStyleID(sty, e.faceFor(sty), sizeBits)
 	}
@@ -661,6 +656,8 @@ func (e *engine) makeRuneKeyPrefix(sty *ResolvedStyle, scale float64) runeKeyPre
 	prefix := runeKeyPrefix{
 		styleID:        styleID,
 		widthScaleBits: math.Float64bits(fontWidthScale(sty)),
+		style:          nil,
+		sizeBits:       0,
 	}
 	if styleID == 0 {
 		prefix.style = sty
@@ -681,7 +678,7 @@ func (p runeKeyPrefix) key(runeValue rune) runeWidthKey {
 
 // localKey completes the prefix with one rune for the per-layout cache.
 func (p runeKeyPrefix) localKey(runeValue rune) runeWidthLocalKey {
-	local := runeWidthLocalKey{key: p.key(runeValue)}
+	local := runeWidthLocalKey{key: p.key(runeValue), style: nil, sizeBits: 0}
 	if p.styleID == 0 {
 		local.style = p.style
 		local.sizeBits = p.sizeBits
@@ -696,9 +693,8 @@ func (p runeKeyPrefix) localKey(runeValue rune) runeWidthLocalKey {
 // it returns, an in-order walk pays only per-layout map reads. Values match
 // sequential measureRuneFace calls exactly.
 func (e *engine) primeRuneBatch(sty *ResolvedStyle, prefix runeKeyPrefix, text string) {
-	var missKeys []runeWidthLocalKey
-
-	var missRunes []rune
+	missKeys := make([]runeWidthLocalKey, 0, len(text))
+	missRunes := make([]rune, 0, len(text))
 
 	for _, runic := range text {
 		if runic == softHyphenRune || isVariationSelector(runic) {
@@ -770,7 +766,7 @@ func (e *engine) measureRuneLeftovers(sty *ResolvedStyle, keys []runeWidthLocalK
 // advance measureRuneFace would return. Returning false from fn stops the
 // walk. The batch prime above keeps the whole run to one shared-cache read
 // lock however many runes the text holds.
-func (e *engine) eachRuneAdvance(text string, sty *ResolvedStyle, fn func(rune, float64) bool) {
+func (e *engine) eachRuneAdvance(text string, sty *ResolvedStyle, visit func(rune, float64) bool) {
 	if text == "" || sty == nil {
 		return
 	}
@@ -780,7 +776,7 @@ func (e *engine) eachRuneAdvance(text string, sty *ResolvedStyle, fn func(rune, 
 
 	for _, runic := range text {
 		if runic == softHyphenRune || isVariationSelector(runic) {
-			if !fn(runic, 0) {
+			if !visit(runic, 0) {
 				return
 			}
 
@@ -788,7 +784,7 @@ func (e *engine) eachRuneAdvance(text string, sty *ResolvedStyle, fn func(rune, 
 		}
 
 		if width, ok := e.lookupRuneWidth(prefix.localKey(runic)); ok {
-			if !fn(runic, width) {
+			if !visit(runic, width) {
 				return
 			}
 
@@ -797,7 +793,7 @@ func (e *engine) eachRuneAdvance(text string, sty *ResolvedStyle, fn func(rune, 
 
 		// Full caches skip stores; fall back to the single path so the
 		// value is still exact.
-		if !fn(runic, e.measureRuneFace(runic, sty)) {
+		if !visit(runic, e.measureRuneFace(runic, sty)) {
 			return
 		}
 	}

@@ -1,4 +1,3 @@
-//nolint:wsl // white-box background repeat axis coverage
 package layout
 
 import (

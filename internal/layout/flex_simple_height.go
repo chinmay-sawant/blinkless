@@ -22,6 +22,7 @@ func (e *engine) simpleFlexBaseHeight(
 	if !ok {
 		height, ok = e.simpleFlexStackHeight(node, style, contentW)
 	}
+
 	if !ok {
 		return 0, false
 	}
@@ -187,40 +188,7 @@ func (e *engine) simpleFlexRowContentCross(
 func (e *engine) simpleFlexStackHeight(
 	node *html.Node, style *ResolvedStyle, contentW float64,
 ) (float64, bool) {
-	if e == nil || e.err != nil || node == nil || node.Type != html.ElementNode || style == nil {
-		return 0, false
-	}
-
-	if style.Display != "" && style.Display != displayBlock {
-		return 0, false
-	}
-
-	if style.Height >= 0 || style.HeightPercent >= 0 ||
-		style.MinHeight > 0 || style.MinHeightPercent >= 0 ||
-		style.MaxHeight >= 0 || style.MaxHeightPercent >= 0 {
-		return 0, false
-	}
-
-	if style.Float != "" && style.Float != cssDisplayNone {
-		return 0, false
-	}
-
-	if style.Position != "" && style.Position != positionStatic {
-		return 0, false
-	}
-
-	if isVerticalWritingMode(style.WritingMode) || style.Direction == cssDirectionRTL {
-		return 0, false
-	}
-
-	if style.AspectRatio > 0 || style.BorderImageSource != "" ||
-		containsSize(*style) || isMulticol(*style) ||
-		style.ContentVisibility == contentVisibilityHidden ||
-		style.ContentVisibility == contentVisibilityAuto {
-		return 0, false
-	}
-
-	if e.hasPseudoContent() || contentW < 0 {
+	if !e.simpleFlexStackMeasureOK(node, style, contentW) {
 		return 0, false
 	}
 
@@ -234,37 +202,9 @@ func (e *engine) simpleFlexStackHeight(
 		return 0, false
 	}
 
-	contentH := 0.0
-	count := 0
-
-	for _, child := range node.Children {
-		if child.Type != html.ElementNode {
-			return 0, false
-		}
-
-		childStyle := e.stylePtr(child)
-		if childStyle == nil || childStyle.Display == cssDisplayNone {
-			continue
-		}
-
-		if childStyle.Position != "" && childStyle.Position != positionStatic {
-			return 0, false
-		}
-
-		// Block margin collapsing would need the adjoining margins. Rows in
-		// this shape carry no vertical margins, so refuse any that do.
-		if childStyle.MarginTopAuto || childStyle.MarginBottomAuto ||
-			e.scalePt(childStyle.MarginTop) != 0 || e.scalePt(childStyle.MarginBottom) != 0 {
-			return 0, false
-		}
-
-		height, ok := e.simpleFlexRowHeight(child, childStyle, rowContentW)
-		if !ok {
-			return 0, false
-		}
-
-		contentH += height
-		count++
+	contentH, count, ok := e.simpleFlexStackContentHeight(node.Children, rowContentW)
+	if !ok {
+		return 0, false
 	}
 
 	if count == 0 || contentH <= 0 {
@@ -279,6 +219,140 @@ func (e *engine) simpleFlexStackHeight(
 	}
 
 	return boxH, true
+}
+
+// simpleFlexStackMeasureOK reports whether the simple stack measure applies to
+// node: a live engine, an element with a resolved style, no pseudo content, and
+// a definite content width.
+func (e *engine) simpleFlexStackMeasureOK(node *html.Node, style *ResolvedStyle, contentW float64) bool {
+	if e == nil || e.err != nil || node == nil || node.Type != html.ElementNode || style == nil {
+		return false
+	}
+
+	if e.hasPseudoContent() || contentW < 0 {
+		return false
+	}
+
+	return simpleFlexStackStyleOK(style)
+}
+
+// simpleFlexStackContentHeight sums the child rows of the simple stack and
+// reports how many rows it counted. ok is false when a child needs the full
+// path.
+func (e *engine) simpleFlexStackContentHeight(
+	children []*html.Node, rowContentW float64,
+) (float64, int, bool) {
+	contentH := 0.0
+	count := 0
+
+	for _, child := range children {
+		height, counted, ok := e.simpleFlexStackChildHeight(child, rowContentW)
+		if !ok {
+			return 0, 0, false
+		}
+
+		if counted {
+			contentH += height
+			count++
+		}
+	}
+
+	return contentH, count, true
+}
+
+// simpleFlexStackStyleOK lists the container conditions the simple stack path
+// depends on. Every definite or constrained height is refused because the full
+// path applies them after the content flow.
+func simpleFlexStackStyleOK(style *ResolvedStyle) bool {
+	if style.Display != "" && style.Display != displayBlock {
+		return false
+	}
+
+	if simpleFlexOutOfFlowStyleOK(style) {
+		return false
+	}
+
+	if isVerticalWritingMode(style.WritingMode) || style.Direction == cssDirectionRTL {
+		return false
+	}
+
+	return simpleFlexStackBoxOK(style)
+}
+
+// simpleFlexOutOfFlowStyleOK reports a floated or positioned style, which the
+// simple stack measure refuses.
+func simpleFlexOutOfFlowStyleOK(style *ResolvedStyle) bool {
+	if style.Float != "" && style.Float != cssDisplayNone {
+		return true
+	}
+
+	return style.Position != "" && style.Position != positionStatic
+}
+
+// simpleFlexStackBoxOK refuses the height constraints and box properties the
+// simple stack measure cannot reproduce.
+func simpleFlexStackBoxOK(style *ResolvedStyle) bool {
+	if style.Height >= 0 || style.HeightPercent >= 0 ||
+		style.MinHeight > 0 || style.MinHeightPercent >= 0 ||
+		style.MaxHeight >= 0 || style.MaxHeightPercent >= 0 {
+		return false
+	}
+
+	return simpleFlexStackPaintOK(style)
+}
+
+// simpleFlexStackPaintOK refuses the containment and painting properties that
+// make the as-if-empty stack height wrong.
+func simpleFlexStackPaintOK(style *ResolvedStyle) bool {
+	if style.AspectRatio > 0 || style.BorderImageSource != "" ||
+		containsSize(*style) || isMulticol(*style) ||
+		style.ContentVisibility == contentVisibilityHidden ||
+		style.ContentVisibility == contentVisibilityAuto {
+		return false
+	}
+
+	return true
+}
+
+// simpleFlexStackChildHeight resolves one child row of the simple stack. ok is
+// false when the child needs the full path; counted is false for a child the
+// stack skips (non-element or display:none).
+func (e *engine) simpleFlexStackChildHeight(child *html.Node, rowContentW float64) (float64, bool, bool) {
+	if child.Type != html.ElementNode {
+		return 0, false, false
+	}
+
+	childStyle := e.stylePtr(child)
+	if childStyle == nil || childStyle.Display == cssDisplayNone {
+		return 0, false, true
+	}
+
+	if childStyle.Position != "" && childStyle.Position != positionStatic {
+		return 0, false, false
+	}
+
+	// Block margin collapsing would need the adjoining margins. Rows in this
+	// shape carry no vertical margins, so refuse any that do.
+	if !e.simpleFlexRowMarginsZero(childStyle) {
+		return 0, false, false
+	}
+
+	height, ok := e.simpleFlexRowHeight(child, childStyle, rowContentW)
+	if !ok {
+		return 0, false, false
+	}
+
+	return height, true, true
+}
+
+// simpleFlexRowMarginsZero reports whether the row carries no vertical margins,
+// the shape the simple stack's trivial margin collapsing needs.
+func (e *engine) simpleFlexRowMarginsZero(style *ResolvedStyle) bool {
+	if style.MarginTopAuto || style.MarginBottomAuto {
+		return false
+	}
+
+	return e.scalePt(style.MarginTop) == 0 && e.scalePt(style.MarginBottom) == 0
 }
 
 // simpleFlexRowStyleOK lists the container conditions the simple row height

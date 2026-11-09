@@ -228,6 +228,7 @@ func (d *Display) Release() {
 	if d == nil {
 		return
 	}
+
 	if d.result != nil {
 		d.result.Release()
 		d.result = nil
@@ -324,54 +325,53 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 	return displayList, nil
 }
 
-const (
-	maxPooledIntSliceCap = 65536
-	maxPooledBoxSliceCap = 32768
-)
+const maxPooledIntSliceCap = 65536
 
-var intSlicePool = sync.Pool{}
-
-var boxSlicePool = sync.Pool{}
+// intSlicePool stores typed slice headers. It deliberately has no New: an
+// empty pool must fall through to the caller's exact-size make instead of
+// allocating a header and an empty backing on every cold rent.
+var intSlicePool = sync.Pool{} //nolint:exhaustruct,gochecknoglobals // see the comment above
 
 func rentIntSlice(need int) []int {
 	if need <= 0 {
 		return nil
 	}
 
-	if v, ok := intSlicePool.Get().([]int); ok && cap(v) >= need {
-		return v[:need]
+	if scratch, ok := intSlicePool.Get().(*[]int); ok && cap(*scratch) >= need {
+		return (*scratch)[:need]
 	}
 
 	return make([]int, need)
 }
 
-func releaseIntSlice(s []int) {
-	if cap(s) == 0 || cap(s) > maxPooledIntSliceCap {
+// releaseIntSlice returns an int scratch to the pool. The stored header comes
+// back from the pool, or is created once on a cold return, so the slice header
+// is not boxed into a fresh allocation per call.
+func releaseIntSlice(scratch []int) {
+	if cap(scratch) == 0 || cap(scratch) > maxPooledIntSliceCap {
 		return
 	}
 
-	intSlicePool.Put(s[:0])
+	scratch = scratch[:0]
+
+	header, ok := intSlicePool.Get().(*[]int)
+	if !ok {
+		header = new([]int)
+	}
+
+	*header = scratch
+	intSlicePool.Put(header)
 }
 
+// rentBoxSlice allocates the box slice for one display. Boxes stay with the
+// display: a patch shares the backing array with the display it replaced, so
+// the slice cannot go back to a pool while either one may still read it.
 func rentBoxSlice(need int) []Box {
 	if need <= 0 {
 		return nil
 	}
 
-	if v, ok := boxSlicePool.Get().([]Box); ok && cap(v) >= need {
-		return v[:need]
-	}
-
 	return make([]Box, need)
-}
-
-func releaseBoxSlice(b []Box) {
-	if cap(b) == 0 || cap(b) > maxPooledBoxSliceCap {
-		return
-	}
-
-	clear(b[:cap(b)])
-	boxSlicePool.Put(b[:0])
 }
 
 // newDisplay builds the public display list from a placement.
@@ -394,6 +394,7 @@ func newDisplay(
 	}
 
 	boxes := make([]Box, 0, boxCount)
+
 	var parents []int
 
 	if boxCount > 0 {
@@ -406,6 +407,7 @@ func newDisplay(
 	})
 
 	owners, order := emitOwnersAndOrder(res, parents)
+
 	if parents != nil {
 		releaseIntSlice(parents)
 	}
@@ -429,6 +431,7 @@ func newDisplay(
 	if retain {
 		display.result = res
 		display.zoom = zoom
+
 		res.Retain()
 	}
 
@@ -467,33 +470,7 @@ func newDisplayForPatch(
 
 	boxCount := res.BoxCount()
 
-	var parents []int
-
-	if deriveOwners && boxCount > 0 {
-		parents = rentIntSlice(boxCount)[:0]
-	}
-
-	var boxes []Box
-	if deriveOwners && prev != nil && len(prev.Boxes) == boxCount {
-		boxes = prev.Boxes[:0]
-	} else if deriveOwners && prev != nil && cap(prev.Boxes) >= boxCount && cap(prev.Boxes) <= boxCount*2 {
-		clear(prev.Boxes[boxCount:])
-		boxes = prev.Boxes[:0]
-	} else {
-		if boxCount > 0 {
-			boxes = rentBoxSlice(boxCount)[:0]
-		}
-	}
-
-	if boxCount > 0 {
-		ilayout.WalkPlaced(res, func(item *ilayout.PlacedElement) {
-			boxes = append(boxes, boxFrom(item))
-
-			if deriveOwners {
-				parents = append(parents, item.ParentIndex)
-			}
-		})
-	}
+	boxes, parents := collectPatchBoxes(res, deriveOwners, patchBoxes(deriveOwners, prev, boxCount))
 
 	display := &Display{
 		Ops:            res.Ops,
@@ -517,7 +494,9 @@ func newDisplayForPatch(
 			prevOwners = prev.OpOwners
 			prevOrder = prev.Order
 		}
+
 		display.OpOwners, display.Order = emitOwnersAndOrder(res, parents, prevOwners, prevOrder)
+
 		if parents != nil {
 			releaseIntSlice(parents)
 		}
@@ -526,9 +505,56 @@ func newDisplayForPatch(
 	if prev != nil && prev.result != nil && prev.result != res {
 		prev.result.DisownChunks()
 	}
+
 	res.Retain()
 
 	return display
+}
+
+// patchBoxes picks the box slice for a patch: the previous display's boxes in
+// place when their length or near capacity matches, otherwise a fresh slice.
+func patchBoxes(deriveOwners bool, prev *Display, boxCount int) []Box {
+	if deriveOwners && prev != nil {
+		if len(prev.Boxes) == boxCount {
+			return prev.Boxes[:0]
+		}
+
+		if cap(prev.Boxes) >= boxCount && cap(prev.Boxes) <= boxCount*2 {
+			clear(prev.Boxes[boxCount:])
+
+			return prev.Boxes[:0]
+		}
+	}
+
+	if boxCount == 0 {
+		return nil
+	}
+
+	return rentBoxSlice(boxCount)[:0]
+}
+
+// collectPatchBoxes fills the box slice from the placement and, when owners
+// are derived, rents and fills the parent index scratch beside it.
+func collectPatchBoxes(res *ilayout.Result, deriveOwners bool, boxes []Box) ([]Box, []int) {
+	boxCount := res.BoxCount()
+
+	var parents []int
+
+	if deriveOwners && boxCount > 0 {
+		parents = rentIntSlice(boxCount)[:0]
+	}
+
+	if boxCount > 0 {
+		ilayout.WalkPlaced(res, func(item *ilayout.PlacedElement) {
+			boxes = append(boxes, boxFrom(item))
+
+			if deriveOwners {
+				parents = append(parents, item.ParentIndex)
+			}
+		})
+	}
+
+	return boxes, parents
 }
 
 // emitOwnersAndOrder derives the per-operation element owners and the paint
@@ -541,38 +567,43 @@ func newDisplayForPatch(
 // An optional destination buffer pair (owners, order) can be passed in dest;
 // when provided with sufficient capacity, both slices are reused in place
 // without allocating.
-func emitOwnersAndOrder(res *ilayout.Result, parents []int, dest ...[]int) (owners, order []int) {
+func emitOwnersAndOrder(res *ilayout.Result, parents []int, dest ...[]int) ([]int, []int) {
 	if res == nil {
 		return nil, nil
 	}
 
 	ops := res.Ops
-	n := len(ops)
+	opCount := len(ops)
+
+	var owners, order []int
 
 	var ownersBuf, orderBuf []int
 	if len(dest) > 0 {
 		ownersBuf = dest[0]
 	}
+
 	if len(dest) > 1 {
 		orderBuf = dest[1]
 	}
 
-	if cap(ownersBuf) >= n {
-		ownersBuf = ownersBuf[:n]
+	if cap(ownersBuf) >= opCount {
+		ownersBuf = ownersBuf[:opCount]
 	} else {
 		if ownersBuf != nil {
 			releaseIntSlice(ownersBuf)
 		}
-		ownersBuf = rentIntSlice(n)
+
+		ownersBuf = rentIntSlice(opCount)
 	}
 
-	if cap(orderBuf) >= n {
-		orderBuf = orderBuf[:n]
+	if cap(orderBuf) >= opCount {
+		orderBuf = orderBuf[:opCount]
 	} else {
 		if orderBuf != nil {
 			releaseIntSlice(orderBuf)
 		}
-		orderBuf = rentIntSlice(n)
+
+		orderBuf = rentIntSlice(opCount)
 	}
 
 	owners = ilayout.OperationOwnersFromParentsBuf(res, parents, ownersBuf)

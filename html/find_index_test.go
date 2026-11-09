@@ -7,6 +7,8 @@ import (
 )
 
 func TestFindIndexParity(t *testing.T) {
+	t.Parallel()
+
 	doc, err := Parse([]byte(`<div id="dup">aaa</div><div id="dup">bbb</div>` +
 		`<div id="box">Hello <span id="inner">World</span></div>` +
 		`<template><div id="tpl">hidden</div></template>`))
@@ -70,6 +72,8 @@ func TestFindIndexParity(t *testing.T) {
 }
 
 func TestFindIndexConcurrentWithEdits(t *testing.T) {
+	t.Parallel()
+
 	doc := buildPatchDoc(t, 200)
 
 	const readers = 4
@@ -108,6 +112,8 @@ func TestFindIndexConcurrentWithEdits(t *testing.T) {
 }
 
 func TestFindIndexRenameDrop(t *testing.T) {
+	t.Parallel()
+
 	doc, err := Parse([]byte(`<div id="box" class="c">Hi</div>`))
 	if err != nil {
 		t.Fatalf("parse: %v", err)

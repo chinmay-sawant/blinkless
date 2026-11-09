@@ -176,6 +176,8 @@ func TestDisplaylistEmitTableGolden(t *testing.T) {
 // step against the separate calls element by element, so the fuse provably
 // computes the same owners and order. It must not be parallel:
 // AllocsPerRun refuses to run inside a parallel test.
+//
+//nolint:paralleltest // AllocsPerRun refuses to run inside a parallel test
 func TestDisplaylistEmitAllocs(t *testing.T) {
 	display := renderEmitDisplay(t, emitTableRows, emitTableCols, true)
 

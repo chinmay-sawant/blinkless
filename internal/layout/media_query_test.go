@@ -8,7 +8,7 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
-func TestMediaFeatureQueryPrint(t *testing.T) { //nolint:cyclop,funlen
+func TestMediaFeatureQueryPrint(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `

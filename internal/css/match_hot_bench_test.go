@@ -50,20 +50,21 @@ func matchHotFixture(tb testing.TB, count int) (*html.Node, []*html.Node, string
 // matchHotSelectors parses the three hover shapes once: a direct hover
 // compound, a :has() ancestor over a hovered descendant, and a sibling
 // after a hovered sibling.
-func matchHotSelectors(tb testing.TB) (hover, hasHover, afterHover Selector) {
+func matchHotSelectors(tb testing.TB) (Selector, Selector, Selector) {
 	tb.Helper()
 
-	var ok bool
-
-	if hover, ok = parseSelector("span:hover"); !ok {
+	hover, ok := parseSelector("span:hover")
+	if !ok {
 		tb.Fatal("parse span:hover")
 	}
 
-	if hasHover, ok = parseSelector("div:has(:hover)"); !ok {
+	hasHover, ok := parseSelector("div:has(:hover)")
+	if !ok {
 		tb.Fatal("parse div:has(:hover)")
 	}
 
-	if afterHover, ok = parseSelector("span:hover + span"); !ok {
+	afterHover, ok := parseSelector("span:hover + span")
+	if !ok {
 		tb.Fatal("parse span:hover + span")
 	}
 

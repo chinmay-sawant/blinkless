@@ -25,19 +25,37 @@ const relayoutAreachartCSS = `
 const relayoutAreachartHTML = `<html><body>` +
 	`<div id="chart"><div id="plot">` +
 	`<div id="col-0" class="col">` +
-	`<div id="track-0-0" class="track"><div id="dot-0-0" class="dot"></div><div id="sp-0-0" class="sp" style="height:50%"></div></div>` +
-	`<div id="track-0-1" class="track"><div id="dot-0-1" class="dot"></div><div id="sp-0-1" class="sp" style="height:75%"></div></div>` +
-	`<div id="bandtrack-0" class="track"><div id="band-0" class="band" style="height:25%"></div><div id="bandlow-0" class="sp" style="height:50%"></div></div>` +
+	`<div id="track-0-0" class="track">` +
+	`<div id="dot-0-0" class="dot"></div>` +
+	`<div id="sp-0-0" class="sp" style="height:50%"></div></div>` +
+	`<div id="track-0-1" class="track">` +
+	`<div id="dot-0-1" class="dot"></div>` +
+	`<div id="sp-0-1" class="sp" style="height:75%"></div></div>` +
+	`<div id="bandtrack-0" class="track">` +
+	`<div id="band-0" class="band" style="height:25%"></div>` +
+	`<div id="bandlow-0" class="sp" style="height:50%"></div></div>` +
 	`</div>` +
 	`<div id="col-1" class="col">` +
-	`<div id="track-1-0" class="track"><div id="dot-1-0" class="dot"></div><div id="sp-1-0" class="sp" style="height:37.5%"></div></div>` +
-	`<div id="track-1-1" class="track"><div id="dot-1-1" class="dot"></div><div id="sp-1-1" class="sp" style="height:100%"></div></div>` +
-	`<div id="bandtrack-1" class="track"><div id="band-1" class="band" style="height:62.5%"></div><div id="bandlow-1" class="sp" style="height:37.5%"></div></div>` +
+	`<div id="track-1-0" class="track">` +
+	`<div id="dot-1-0" class="dot"></div>` +
+	`<div id="sp-1-0" class="sp" style="height:37.5%"></div></div>` +
+	`<div id="track-1-1" class="track">` +
+	`<div id="dot-1-1" class="dot"></div>` +
+	`<div id="sp-1-1" class="sp" style="height:100%"></div></div>` +
+	`<div id="bandtrack-1" class="track">` +
+	`<div id="band-1" class="band" style="height:62.5%"></div>` +
+	`<div id="bandlow-1" class="sp" style="height:37.5%"></div></div>` +
 	`</div>` +
 	`<div id="col-2" class="col">` +
-	`<div id="track-2-0" class="track"><div id="dot-2-0" class="dot"></div><div id="sp-2-0" class="sp" style="height:62.5%"></div></div>` +
-	`<div id="track-2-1" class="track"><div id="dot-2-1" class="dot"></div><div id="sp-2-1" class="sp" style="height:87.5%"></div></div>` +
-	`<div id="bandtrack-2" class="track"><div id="band-2" class="band" style="height:25%"></div><div id="bandlow-2" class="sp" style="height:62.5%"></div></div>` +
+	`<div id="track-2-0" class="track">` +
+	`<div id="dot-2-0" class="dot"></div>` +
+	`<div id="sp-2-0" class="sp" style="height:62.5%"></div></div>` +
+	`<div id="track-2-1" class="track">` +
+	`<div id="dot-2-1" class="dot"></div>` +
+	`<div id="sp-2-1" class="sp" style="height:87.5%"></div></div>` +
+	`<div id="bandtrack-2" class="track">` +
+	`<div id="band-2" class="band" style="height:25%"></div>` +
+	`<div id="bandlow-2" class="sp" style="height:62.5%"></div></div>` +
 	`</div>` +
 	`</div></div>` +
 	`</body></html>`

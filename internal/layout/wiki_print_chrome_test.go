@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestWikiPrintChromeHidden(t *testing.T) { //nolint:cyclop,funlen
+func TestWikiPrintChromeHidden(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `

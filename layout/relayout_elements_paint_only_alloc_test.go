@@ -7,9 +7,7 @@ import "testing"
 // retained result, so it allocates only the display struct and shares the
 // boxes, breaks, keyframes, sizes, and zoom. A new []Box would be the whole
 // box walk the fast path exists to avoid.
-func TestPaintOnlyBatchDisplayReusesBoxes(t *testing.T) {
-	//nolint:paralleltest // AllocsPerRun refuses to run inside a parallel test
-
+func TestPaintOnlyBatchDisplayReusesBoxes(t *testing.T) { //nolint:paralleltest // AllocsPerRun is not parallel-safe
 	tree := fastTree(t, `<div id="box" style="width:120px;height:40px;background-color:#eeeeee">Hello</div>`)
 	styled := fastStyled(t, tree)
 	prev := fastRetained(t, styled)

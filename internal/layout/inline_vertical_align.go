@@ -172,14 +172,14 @@ func (e *engine) alignmentBaselineShift(style *ResolvedStyle) float64 {
 	}
 
 	switch strings.ToLower(strings.TrimSpace(style.VerticalAlign)) {
-	case "baseline", "":
+	case baselineName, "":
 		// Baseline default: the alignment baseline applies.
 	default:
 		return 0
 	}
 
 	switch selector := strings.ToLower(strings.TrimSpace(style.AlignmentBaseline)); selector {
-	case "", "auto", "baseline":
+	case "", "auto", baselineName:
 		return e.baselineShiftFromMetrics(style, strings.ToLower(strings.TrimSpace(style.DominantBaseline)))
 	default:
 		return e.baselineShiftFromMetrics(style, selector)

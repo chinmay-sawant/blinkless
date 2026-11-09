@@ -181,9 +181,9 @@ func expandGapRuleDeclaration(prop, value string) ([]logicalPropDecl, bool) {
 func expandInsetSideShorthand(prop, value string) ([]logicalPropDecl, bool) {
 	switch prop {
 	case "row-rule-inset-start":
-		return insetSideDecls(value, "row", "start")
+		return insetSideDecls(value, fxRow, "start")
 	case "row-rule-inset-end":
-		return insetSideDecls(value, "row", "end")
+		return insetSideDecls(value, fxRow, "end")
 	case "column-rule-inset-start":
 		return insetSideDecls(value, floatRefColumn, "start")
 	case "column-rule-inset-end":
@@ -221,8 +221,8 @@ func insetSideDecls(value, axes, side string) ([]logicalPropDecl, bool) {
 		)
 	}
 
-	if axes == clearBoth || axes == "row" {
-		add("row")
+	if axes == clearBoth || axes == fxRow {
+		add(fxRow)
 	}
 
 	if axes == "both" || axes == floatRefColumn {
@@ -234,7 +234,7 @@ func insetSideDecls(value, axes, side string) ([]logicalPropDecl, bool) {
 
 // expandBothAxisInsetPair expands a rule-* pair shorthand into both axes.
 func expandBothAxisInsetPair(value, startSuffix, endSuffix string) ([]logicalPropDecl, bool) {
-	decls, ok := expandInsetPair(value, "row"+startSuffix, "row"+endSuffix)
+	decls, ok := expandInsetPair(value, fxRow+startSuffix, fxRow+endSuffix)
 	if !ok {
 		return nil, false
 	}

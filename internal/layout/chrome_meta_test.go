@@ -223,6 +223,39 @@ div { margin: 0; padding: 0; }
 	}
 }
 
+// checkPlacedParity compares one lean-walk element against its full-walk twin.
+// The lean walk skips text and bakes Own/World once, so geometry, operation
+// ownership, transform metadata, and the empty text field must still match.
+func checkPlacedParity(t *testing.T, index int, lean, full PlacedElement) {
+	t.Helper()
+
+	if lean.ID != full.ID || lean.Tag != full.Tag {
+		t.Fatalf("elem %d = %q %q, want %q %q", index, lean.ID, lean.Tag, full.ID, full.Tag)
+	}
+
+	if lean.X != full.X || lean.Y != full.Y || lean.W != full.W || lean.H != full.H {
+		t.Fatalf("elem %q box differs between lean and full walks", full.ID)
+	}
+
+	if len(lean.OperationIDs) != len(full.OperationIDs) {
+		t.Fatalf("elem %q op IDs differ between lean and full walks", full.ID)
+	}
+
+	for j := range lean.OperationIDs {
+		if lean.OperationIDs[j] != full.OperationIDs[j] {
+			t.Fatalf("elem %q op ID %d differs between lean and full walks", full.ID, j)
+		}
+	}
+
+	if lean.Transform != full.Transform {
+		t.Fatalf("elem %q transform differs between lean and full walks", full.ID)
+	}
+
+	if lean.Text != "" {
+		t.Fatalf("elem %q lean Text = %q, want empty", full.ID, lean.Text)
+	}
+}
+
 // TestChromeMetaPlacedLazy checks the lean walk skips text, bakes Own/World
 // once, and reports the same operation ownership as the full walk.
 func TestChromeMetaPlacedLazy(t *testing.T) {
@@ -244,31 +277,7 @@ func TestChromeMetaPlacedLazy(t *testing.T) {
 	sawText := false
 
 	for i := range full {
-		if lean[i].ID != full[i].ID || lean[i].Tag != full[i].Tag {
-			t.Fatalf("elem %d = %q %q, want %q %q", i, lean[i].ID, lean[i].Tag, full[i].ID, full[i].Tag)
-		}
-
-		if lean[i].X != full[i].X || lean[i].Y != full[i].Y || lean[i].W != full[i].W || lean[i].H != full[i].H {
-			t.Fatalf("elem %q box differs between lean and full walks", full[i].ID)
-		}
-
-		if len(lean[i].OperationIDs) != len(full[i].OperationIDs) {
-			t.Fatalf("elem %q op IDs differ between lean and full walks", full[i].ID)
-		}
-
-		for j := range lean[i].OperationIDs {
-			if lean[i].OperationIDs[j] != full[i].OperationIDs[j] {
-				t.Fatalf("elem %q op ID %d differs between lean and full walks", full[i].ID, j)
-			}
-		}
-
-		if lean[i].Transform != full[i].Transform {
-			t.Fatalf("elem %q transform differs between lean and full walks", full[i].ID)
-		}
-
-		if lean[i].Text != "" {
-			t.Fatalf("elem %q lean Text = %q, want empty", full[i].ID, lean[i].Text)
-		}
+		checkPlacedParity(t, i, lean[i], full[i])
 
 		if full[i].Text != "" {
 			sawText = true
@@ -458,17 +467,17 @@ func TestChromeMetaCoverIntervalsFastPaths(t *testing.T) {
 		t.Errorf("childCoverIntervals(nil) = %v, want nil", got)
 	}
 
-	leaf := &box{opStart: 0, opEnd: -1} //nolint:exhaustruct // range-only probe
+	leaf := &box{opStart: 0, opEnd: -1}
 	if got := childCoverIntervals(leaf, 0, 10); got != nil {
 		t.Errorf("childCoverIntervals(no children) = %v, want nil", got)
 	}
 
-	sorted := &box{ //nolint:exhaustruct // range-only probe
+	sorted := &box{
 		opStart: 0,
 		opEnd:   10,
 		children: []*box{
-			{opStart: 0, opEnd: 2}, //nolint:exhaustruct // range-only probe
-			{opStart: 4, opEnd: 6}, //nolint:exhaustruct // range-only probe
+			{opStart: 0, opEnd: 2},
+			{opStart: 4, opEnd: 6},
 		},
 	}
 
@@ -476,12 +485,12 @@ func TestChromeMetaCoverIntervalsFastPaths(t *testing.T) {
 		t.Fatalf("sorted cover intervals = %v, want 2 ranges", got)
 	}
 
-	unsorted := &box{ //nolint:exhaustruct // range-only probe
+	unsorted := &box{
 		opStart: 0,
 		opEnd:   10,
 		children: []*box{
-			{opStart: 6, opEnd: 8}, //nolint:exhaustruct // range-only probe
-			{opStart: 0, opEnd: 2}, //nolint:exhaustruct // range-only probe
+			{opStart: 6, opEnd: 8},
+			{opStart: 0, opEnd: 2},
 		},
 	}
 
@@ -490,12 +499,12 @@ func TestChromeMetaCoverIntervalsFastPaths(t *testing.T) {
 		t.Fatalf("unsorted cover intervals = %v, want [{0 2} {6 8}]", got)
 	}
 
-	overlap := &box{ //nolint:exhaustruct // range-only probe
+	overlap := &box{
 		opStart: 0,
 		opEnd:   10,
 		children: []*box{
-			{opStart: 0, opEnd: 5}, //nolint:exhaustruct // range-only probe
-			{opStart: 3, opEnd: 7}, //nolint:exhaustruct // range-only probe
+			{opStart: 0, opEnd: 5},
+			{opStart: 3, opEnd: 7},
 		},
 	}
 
@@ -504,11 +513,11 @@ func TestChromeMetaCoverIntervalsFastPaths(t *testing.T) {
 		t.Fatalf("overlapping cover intervals = %v, want [{0 7}]", merged)
 	}
 
-	bad := &box{ //nolint:exhaustruct // range-only probe
+	bad := &box{
 		opStart: 0,
 		opEnd:   10,
 		children: []*box{
-			{opStart: 5, opEnd: 3}, //nolint:exhaustruct // inverted range drops
+			{opStart: 5, opEnd: 3},
 		},
 	}
 

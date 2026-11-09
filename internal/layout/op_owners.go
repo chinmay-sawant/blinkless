@@ -177,24 +177,9 @@ func writeOwnerWindow(owners []int, start, newCount, seed, elemBase int, newBox 
 		}
 
 		if node.node != nil && node.node.Type == html.ElementNode {
-			mine := elemBase + local
+			writeOwnerRange(owners, node.opStart, node.opEnd, start, end, elemBase+local)
+
 			local++
-
-			if node.opStart <= node.opEnd {
-				from := node.opStart
-				if from < start {
-					from = start
-				}
-
-				to := node.opEnd
-				if to >= end {
-					to = end - 1
-				}
-
-				for index := from; index <= to; index++ {
-					owners[index] = mine
-				}
-			}
 		}
 
 		for _, child := range node.children {
@@ -205,4 +190,27 @@ func writeOwnerWindow(owners []int, start, newCount, seed, elemBase int, newBox 
 	walk(newBox)
 
 	return local
+}
+
+// writeOwnerRange overwrites owners with owner over the intersection of
+// [opStart, opEnd] and the spliced window [start, end). It mirrors the
+// walkOperationOwnersParents rule that table cells never own operations.
+func writeOwnerRange(owners []int, opStart, opEnd, start, end, owner int) {
+	if opStart > opEnd {
+		return
+	}
+
+	from := opStart
+	if from < start {
+		from = start
+	}
+
+	to := opEnd
+	if to >= end {
+		to = end - 1
+	}
+
+	for index := from; index <= to; index++ {
+		owners[index] = owner
+	}
 }

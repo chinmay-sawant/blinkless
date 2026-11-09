@@ -11,7 +11,7 @@ import (
 
 // TestFloatInsideTableCell: float packs inside a td BFC; neighbor cell uses
 // vertical-align:top; clear:both on a block advances past the float.
-func TestFloatInsideTableCell(t *testing.T) { //nolint:cyclop,funlen
+func TestFloatInsideTableCell(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `
@@ -144,7 +144,7 @@ td { border: 1px solid #000; padding: 4pt }
 
 // TestFloatOnTableCellBlockifies: float ≠ none on table-cell becomes block
 // (CSS2.1 §9.7) and lays out without panic; anonymous table grid is best-effort.
-func TestFloatOnTableCellBlockifies(t *testing.T) { //nolint:cyclop,funlen
+func TestFloatOnTableCellBlockifies(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `

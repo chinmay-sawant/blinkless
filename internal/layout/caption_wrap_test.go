@@ -9,7 +9,7 @@ import (
 
 // Narrow figcaptions must wrap at spaces, not mid-word, when each word fits
 // the caption box (emergency mid-word only if a single token exceeds width).
-func TestCaptionPrefersWordBoundaries(t *testing.T) { //nolint:cyclop,funlen
+func TestCaptionPrefersWordBoundaries(t *testing.T) {
 	t.Parallel()
 
 	png := []byte{
@@ -102,7 +102,7 @@ figcaption { font-size: 8pt; width: 120pt; }
 
 // overflow-wrap:break-word must not mid-break a word that fits the full line
 // width just because remaining space on the current line is tight.
-func TestBreakWordDoesNotMidBreakFittingWord(t *testing.T) { //nolint:cyclop
+func TestBreakWordDoesNotMidBreakFittingWord(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `

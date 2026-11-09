@@ -1,4 +1,3 @@
-//nolint:cyclop,funlen,varnamelen // image adjustment layout tests
 package layout
 
 import (

@@ -230,6 +230,8 @@ func TestDirtyNoMarkOnFailedWrites(t *testing.T) {
 }
 
 func TestDirtyConcurrentMarkingRaceClean(t *testing.T) {
+	t.Parallel()
+
 	var sb strings.Builder
 
 	sb.WriteString("<html><body>")

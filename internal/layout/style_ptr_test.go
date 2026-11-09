@@ -13,15 +13,19 @@ import (
 // vertical writing, bidi scope, wrap-break, grid, and flex.
 func stylePtrDocs() map[string]string {
 	return map[string]string{
-		"inherit":  `<html><body style="font-size:14pt;color:#112233"><p>hello <span>world</span></p></body></html>`,
-		"mark":     `<html><body><p>one <mark style="padding-left:2pt;padding-right:2pt">two three</mark> four</p></body></html>`,
+		"inherit": `<html><body style="font-size:14pt;color:#112233"><p>hello <span>world</span></p></body></html>`,
+		"mark": `<html><body><p>one <mark style="padding-left:2pt;padding-right:2pt">` +
+			`two three</mark> four</p></body></html>`,
 		"vertical": `<html><body><div style="writing-mode:vertical-rl"><p>vertical text run</p></div></body></html>`,
-		"bidi":     `<html><body><p style="direction:rtl">ABC 123</p><p style="unicode-bidi:isolate;direction:rtl">ABC 123</p></body></html>`,
-		"wrap":     `<html><body><p style="wrap-before:avoid">alpha beta</p><p style="wrap-inside:avoid">gamma delta</p></body></html>`,
-		"grid":     `<html><body><div style="display:grid;grid-template-columns:1fr 1fr"><span>a one</span><span>b two</span></div></body></html>`,
-		"flex":     `<html><body><div style="display:flex"><span>left one</span><span>right two</span></div></body></html>`,
-		"table":    `<html><body><table><tr><td>cell one two</td><td>cell three four</td></tr></table></body></html>`,
-		"pre":      "<html><body><pre>keep  spaces\nsecond line</pre></body></html>",
+		"bidi": `<html><body><p style="direction:rtl">ABC 123</p>` +
+			`<p style="unicode-bidi:isolate;direction:rtl">ABC 123</p></body></html>`,
+		"wrap": `<html><body><p style="wrap-before:avoid">alpha beta</p>` +
+			`<p style="wrap-inside:avoid">gamma delta</p></body></html>`,
+		"grid": `<html><body><div style="display:grid;grid-template-columns:1fr 1fr">` +
+			`<span>a one</span><span>b two</span></div></body></html>`,
+		"flex":  `<html><body><div style="display:flex"><span>left one</span><span>right two</span></div></body></html>`,
+		"table": `<html><body><table><tr><td>cell one two</td><td>cell three four</td></tr></table></body></html>`,
+		"pre":   "<html><body><pre>keep  spaces\nsecond line</pre></body></html>",
 	}
 }
 
@@ -177,7 +181,8 @@ func TestStylePtrNoMutationCollect(t *testing.T) {
 func TestStylePtrNoMutationGrid(t *testing.T) {
 	t.Parallel()
 
-	root, err := html.Parse(`<html><body><div style="display:grid;grid-template-columns:1fr 1fr"><span>a</span><span>b</span></div></body></html>`)
+	root, err := html.Parse(`<html><body><div style="display:grid;grid-template-columns:1fr 1fr">` +
+		`<span>a</span><span>b</span></div></body></html>`)
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
 	}

@@ -1,8 +1,7 @@
-//nolint:cyclop,lll,wsl,varnamelen,usetesting // targeted unit tests for Phase 80
+//nolint:lll // targeted unit tests for Phase 80
 package layout
 
 import (
-	"context"
 	"testing"
 )
 
@@ -10,7 +9,7 @@ func TestTextPropsWave3(t *testing.T) {
 	t.Parallel()
 
 	ctx := &styleContext{
-		ctx:       context.Background(),
+		ctx:       t.Context(),
 		err:       nil,
 		work:      0,
 		sheets:    nil,
@@ -56,7 +55,7 @@ func TestTextDecorationPropsWave3(t *testing.T) {
 	t.Parallel()
 
 	ctx := &styleContext{
-		ctx:       context.Background(),
+		ctx:       t.Context(),
 		err:       nil,
 		work:      0,
 		sheets:    nil,
@@ -98,7 +97,7 @@ func TestTextEmphasisPropsReachWave3(t *testing.T) {
 	t.Parallel()
 
 	ctx := &styleContext{
-		ctx:       context.Background(),
+		ctx:       t.Context(),
 		err:       nil,
 		work:      0,
 		sheets:    nil,

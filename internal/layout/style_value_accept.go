@@ -108,16 +108,16 @@ func acceptVerdictKey(prop, value string) string {
 // lookupAcceptVerdict returns the cached verdict for prop and value.
 func lookupAcceptVerdict(prop, value string) (bool, bool) {
 	acceptVerdictMu.RLock()
-	verdict, ok := acceptVerdicts[acceptVerdictKey(prop, value)]
+	verdict, found := acceptVerdicts[acceptVerdictKey(prop, value)]
 	acceptVerdictMu.RUnlock()
 
-	if ok {
+	if found {
 		acceptVerdictMu.Lock()
 		acceptVerdictHits++
 		acceptVerdictMu.Unlock()
 	}
 
-	return verdict, ok
+	return verdict, found
 }
 
 // storeAcceptVerdict records verdict under a bounded map. When the map is
@@ -154,7 +154,7 @@ func resetAcceptVerdictForTest() {
 }
 
 // acceptVerdictStatsForTest reports full evaluations (cache misses) and hits.
-func acceptVerdictStatsForTest() (evals, hits uint64) {
+func acceptVerdictStatsForTest() (uint64, uint64) {
 	acceptVerdictMu.RLock()
 	defer acceptVerdictMu.RUnlock()
 
@@ -642,7 +642,7 @@ func verticalAlignValueAccepted(value string) bool {
 	low := strings.ToLower(trimmed)
 
 	switch low {
-	case "baseline", cssVerticalAlignTop, "middle", cssVerticalAlignBottom, verticalAlignSub, verticalAlignSuper:
+	case baselineName, cssVerticalAlignTop, "middle", cssVerticalAlignBottom, verticalAlignSub, verticalAlignSuper:
 		return true
 	}
 
@@ -1345,7 +1345,7 @@ func lineHeightValueAccepted(value string) bool {
 
 // alignItemsValueAccepted mirrors setAlignItemsValue.
 func alignItemsValueAccepted(value string) bool {
-	return keywordIn(value, fxStretch, flexStartKeyword, fxFlexEnd, fxCenter, fxStart, fxEnd, "baseline")
+	return keywordIn(value, fxStretch, flexStartKeyword, fxFlexEnd, fxCenter, fxStart, fxEnd, baselineName)
 }
 
 // alignContentValueAccepted mirrors setAlignContentValue.
@@ -1356,7 +1356,7 @@ func alignContentValueAccepted(value string) bool {
 
 // alignSelfValueAccepted mirrors setAlignSelfValue.
 func alignSelfValueAccepted(value string) bool {
-	return keywordIn(value, overflowAuto, fxStretch, flexStartKeyword, fxFlexEnd, fxCenter, fxStart, fxEnd, "baseline")
+	return keywordIn(value, overflowAuto, fxStretch, flexStartKeyword, fxFlexEnd, fxCenter, fxStart, fxEnd, baselineName)
 }
 
 // justifyContentValueAccepted mirrors setJustifyContentValue.

@@ -551,7 +551,6 @@ func TestTokenizeNormalizesNewlines(t *testing.T) {
 	}
 }
 
-//nolint:cyclop // sequential scenario assertions, not branch logic
 func TestTokenizeNullHandling(t *testing.T) {
 	t.Parallel()
 
@@ -1444,7 +1443,6 @@ func TestParseClosesParagraphsListsAndDefinitions(t *testing.T) {
 	assertChildren(t, dl, "dt", "dd", "dt")
 }
 
-//nolint:cyclop // sequential scenario assertions, not branch logic
 func TestParseTextMerging(t *testing.T) {
 	t.Parallel()
 

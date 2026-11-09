@@ -19,13 +19,13 @@ type DirtySet struct {
 
 // NewDirtySet returns an empty DirtySet.
 func NewDirtySet() *DirtySet {
-	return &DirtySet{ids: make(map[string]struct{})}
+	return &DirtySet{mu: sync.RWMutex{}, ids: make(map[string]struct{}), structural: false}
 }
 
 // Mark records id as dirty. An empty id is ignored. Calling Mark twice for
 // the same id keeps one entry.
-func (s *DirtySet) Mark(id string) {
-	if s == nil || id == "" {
+func (s *DirtySet) Mark(elementID string) {
+	if s == nil || elementID == "" {
 		return
 	}
 
@@ -36,7 +36,7 @@ func (s *DirtySet) Mark(id string) {
 		s.ids = make(map[string]struct{})
 	}
 
-	s.ids[id] = struct{}{}
+	s.ids[elementID] = struct{}{}
 }
 
 // MarkStructural records a structural change: a tag replace, an insert, or a
@@ -81,15 +81,15 @@ func (s *DirtySet) Snapshot() []string {
 }
 
 // Contains reports whether id is dirty.
-func (s *DirtySet) Contains(id string) bool {
-	if s == nil || id == "" {
+func (s *DirtySet) Contains(elementID string) bool {
+	if s == nil || elementID == "" {
 		return false
 	}
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	_, ok := s.ids[id]
+	_, ok := s.ids[elementID]
 
 	return ok
 }

@@ -132,7 +132,7 @@ func BenchmarkHoverCycle(b *testing.B) {
 	sheets := []*css.Stylesheet{sheet}
 	selectors := hoverCycleHoverSelectors(sheets)
 
-	opts := Options{ //nolint:exhaustruct // benchmark uses the standard layout inputs
+	opts := Options{
 		Width:      testViewport,
 		Height:     800,
 		Sheets:     sheets,

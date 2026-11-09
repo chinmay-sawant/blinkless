@@ -27,6 +27,8 @@ func cloneArenaFixture(count int) *Result {
 // TestCloneResultArenaCopiesEveryBox checks that the chunked clone still gives
 // every box its own storage and preserves the tree links.
 func TestCloneResultArenaCopiesEveryBox(t *testing.T) {
+	t.Parallel()
+
 	res := cloneArenaFixture(1000)
 	clone := CloneResult(res)
 
@@ -60,7 +62,7 @@ func TestCloneResultArenaCopiesEveryBox(t *testing.T) {
 
 // TestCloneResultArenaAllocationBudget pins the reason for the arena: a large
 // clone pays for chunks and slices, not one heap object per box.
-func TestCloneResultArenaAllocationBudget(t *testing.T) {
+func TestCloneResultArenaAllocationBudget(t *testing.T) { //nolint:paralleltest // reads process-wide allocation stats
 	res := cloneArenaFixture(1000)
 
 	allocs := testing.AllocsPerRun(5, func() {

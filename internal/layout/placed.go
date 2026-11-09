@@ -48,8 +48,6 @@ type WalkPlacedOptions struct {
 
 // WalkPlaced walks laid-out element boxes in document order, invoking fn for each element.
 // A nil result does nothing.
-//
-//nolint:varnamelen // fn is standard callback identifier
 func WalkPlaced(res *Result, fn func(elem *PlacedElement)) {
 	WalkPlacedWithOptions(res, WalkPlacedOptions{IncludeText: true}, fn)
 }
@@ -68,6 +66,7 @@ func WalkPlacedWithOptions(res *Result, opts WalkPlacedOptions, fn func(elem *Pl
 	if capIDs < len(res.Ops) {
 		capIDs = len(res.Ops)
 	}
+
 	allIDs := make([]uint64, 0, capIDs)
 
 	var item PlacedElement
@@ -79,44 +78,60 @@ func WalkPlacedWithOptions(res *Result, opts WalkPlacedOptions, fn func(elem *Pl
 
 func estimatePlacedOpIDs(res *Result) int {
 	if len(res.boxes) > 0 {
-		total := 0
-		nOps := len(res.Ops)
-		for _, b := range res.boxes {
-			if b.node != nil && b.node.Type == html.ElementNode && b.opEnd >= b.opStart && b.opStart >= 0 {
-				end := b.opEnd
-				if end >= nOps {
-					end = nOps - 1
-				}
-				if end >= b.opStart {
-					total += end - b.opStart + 1
-				}
-			}
-		}
-		return total
+		return estimateBoxOpIDs(res.boxes, len(res.Ops))
 	}
+
 	if res.root != nil {
 		return countSubtreeOpIDs(res.root, len(res.Ops))
 	}
+
 	return len(res.Ops)
 }
 
-func countSubtreeOpIDs(b *box, nOps int) int {
-	if b == nil {
+// estimateBoxOpIDs sums the op-ID counts of the top-level boxes.
+func estimateBoxOpIDs(boxes []*box, nOps int) int {
+	total := 0
+
+	for _, boxNode := range boxes {
+		if boxNode.node != nil && boxNode.node.Type == html.ElementNode &&
+			boxNode.opEnd >= boxNode.opStart && boxNode.opStart >= 0 {
+			end := boxNode.opEnd
+			if end >= nOps {
+				end = nOps - 1
+			}
+
+			if end >= boxNode.opStart {
+				total += end - boxNode.opStart + 1
+			}
+		}
+	}
+
+	return total
+}
+
+func countSubtreeOpIDs(boxNode *box, nOps int) int {
+	if boxNode == nil {
 		return 0
 	}
+
 	total := 0
-	if b.node != nil && b.node.Type == html.ElementNode && b.opEnd >= b.opStart && b.opStart >= 0 {
-		end := b.opEnd
+
+	if boxNode.node != nil && boxNode.node.Type == html.ElementNode &&
+		boxNode.opEnd >= boxNode.opStart && boxNode.opStart >= 0 {
+		end := boxNode.opEnd
 		if end >= nOps {
 			end = nOps - 1
 		}
-		if end >= b.opStart {
-			total += end - b.opStart + 1
+
+		if end >= boxNode.opStart {
+			total += end - boxNode.opStart + 1
 		}
 	}
-	for _, child := range b.children {
+
+	for _, child := range boxNode.children {
 		total += countSubtreeOpIDs(child, nOps)
 	}
+
 	return total
 }
 
@@ -160,6 +175,7 @@ func walkPlacedFunc(
 			Y:                   boxNode.y,
 			W:                   boxNode.w,
 			H:                   boxNode.height,
+			Text:                "",
 		}
 
 		if opts.IncludeText {
@@ -272,22 +288,7 @@ func appendOperationIDs(ops []Op, start, end int, allIDs *[]uint64) []uint64 {
 	}
 
 	if allIDs == nil {
-		count := 0
-		for index := start; index <= end; index++ {
-			if ops[index].ID != 0 {
-				count++
-			}
-		}
-		if count == 0 {
-			return emptyOperationIDs
-		}
-		res := make([]uint64, 0, count)
-		for index := start; index <= end; index++ {
-			if ops[index].ID != 0 {
-				res = append(res, ops[index].ID)
-			}
-		}
-		return res
+		return collectOperationIDs(ops, start, end)
 	}
 
 	startIdx := len(*allIDs)
@@ -303,4 +304,30 @@ func appendOperationIDs(ops []Op, start, end int, allIDs *[]uint64) []uint64 {
 	}
 
 	return (*allIDs)[startIdx:]
+}
+
+// collectOperationIDs copies the non-zero operation IDs in range into a fresh
+// slice.
+func collectOperationIDs(ops []Op, start, end int) []uint64 {
+	count := 0
+
+	for index := start; index <= end; index++ {
+		if ops[index].ID != 0 {
+			count++
+		}
+	}
+
+	if count == 0 {
+		return emptyOperationIDs
+	}
+
+	res := make([]uint64, 0, count)
+
+	for index := start; index <= end; index++ {
+		if ops[index].ID != 0 {
+			res = append(res, ops[index].ID)
+		}
+	}
+
+	return res
 }

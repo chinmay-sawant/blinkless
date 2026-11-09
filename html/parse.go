@@ -63,37 +63,35 @@ func (d *Document) Find(elementID string) (Element, bool) {
 
 	idx := elementIndexFor(d)
 
-	idx.mu.RLock()
-
-	node, ok := idx.byID[elementID]
-	if ok && (node == nil || idx.root != d.root ||
-		node.Attribute("id") != elementID || !attachedTo(node, d.root)) {
-		ok = false
-		node = nil
-	}
-
-	var tag, text string
-
-	if ok {
-		tag = node.Name
-		text = node.TextContent()
-	}
-
-	idx.mu.RUnlock()
-
-	if ok {
-		return Element{
-			Tag:  tag,
-			ID:   elementID,
-			Text: text,
-		}, true
+	if element, found := idx.cachedFind(d.root, elementID); found {
+		return element, true
 	}
 
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
 
-	node = idx.findLocked(d.root, elementID)
+	node := idx.findLocked(d.root, elementID)
 	if node == nil {
+		return Element{}, false //nolint:exhaustruct // no element was found
+	}
+
+	return Element{
+		Tag:  node.Name,
+		ID:   elementID,
+		Text: node.TextContent(),
+	}, true
+}
+
+// cachedFind returns the validated cached element for elementID while holding
+// the read lock. A miss, a stale entry, or a detached node falls through to
+// the authoritative walk in Find.
+func (idx *elementIndex) cachedFind(root *html.Node, elementID string) (Element, bool) {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+
+	node, found := idx.byID[elementID]
+	if !found || node == nil || idx.root != root ||
+		node.Attribute("id") != elementID || !attachedTo(node, root) {
 		return Element{}, false //nolint:exhaustruct // no element was found
 	}
 

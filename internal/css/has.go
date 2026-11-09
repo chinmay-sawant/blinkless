@@ -293,22 +293,9 @@ func matchRelativeDescendant(state MatchState, sel Selector, subject *html.Node,
 			return false
 		}
 
-		var left *html.Node
-
-		if singleWalk {
-			left = leftmostMatch(state, sel, descendant)
-			if left == nil {
-				continue
-			}
-		} else {
-			if !state.Matches(sel, descendant) {
-				continue
-			}
-
-			left = leftmostMatch(state, sel, descendant)
-			if left == nil {
-				continue
-			}
+		left := relativeLeftmost(state, sel, descendant, singleWalk)
+		if left == nil {
+			continue
 		}
 
 		if (direct && left.Parent == subject) || (!direct && isElementDescendant(left, subject)) {
@@ -317,6 +304,16 @@ func matchRelativeDescendant(state MatchState, sel Selector, subject *html.Node,
 	}
 
 	return false
+}
+
+// relativeLeftmost returns the leftmost match of sel in node's subtree, or nil
+// when the two-walk path rejects node before the leftmost walk.
+func relativeLeftmost(state MatchState, sel Selector, node *html.Node, singleWalk bool) *html.Node {
+	if !singleWalk && !state.Matches(sel, node) {
+		return nil
+	}
+
+	return leftmostMatch(state, sel, node)
 }
 
 // matchRelativeFrom checks whether sel matches with its leftmost compound equal
@@ -336,11 +333,7 @@ func matchRelativeFrom(state MatchState, sel Selector, anchor *html.Node) bool {
 	singleWalk := !selectorContainsHas(sel)
 
 	// The anchor itself is a candidate before any of its descendants.
-	if singleWalk {
-		if leftmostMatch(state, sel, anchor) == anchor {
-			return true
-		}
-	} else if state.Matches(sel, anchor) && leftmostMatch(state, sel, anchor) == anchor {
+	if relativeLeftmost(state, sel, anchor, singleWalk) == anchor {
 		return true
 	}
 
@@ -349,15 +342,7 @@ func matchRelativeFrom(state MatchState, sel Selector, anchor *html.Node) bool {
 			return false
 		}
 
-		if singleWalk {
-			if leftmostMatch(state, sel, descendant) == anchor {
-				return true
-			}
-
-			continue
-		}
-
-		if state.Matches(sel, descendant) && leftmostMatch(state, sel, descendant) == anchor {
+		if relativeLeftmost(state, sel, descendant, singleWalk) == anchor {
 			return true
 		}
 	}

@@ -46,29 +46,8 @@ func (e *engine) layoutSingleTextRun(
 // helpers the collector uses, so its text, style, width, height, chrome,
 // margins, and href match the generic items field for field.
 func (e *engine) singleTextRunItem(boxNode *box, nodes []*html.Node) (inlineItem, bool) {
-	if boxNode == nil || boxNode.style == nil || len(nodes) != 1 {
-		return inlineItem{}, false //nolint:exhaustruct // rejected candidate
-	}
-
-	textNode, element, ok := singleTextRunNodes(nodes[0])
+	textNode, element, textStyle, ok := e.singleTextRunCandidate(boxNode, nodes)
 	if !ok {
-		return inlineItem{}, false //nolint:exhaustruct // rejected candidate
-	}
-
-	// Only display:inline elements reach collectInlineSpanPtr. inline-block,
-	// inline-flex, and inline-grid build an atomic item instead.
-	if element != nil && e.stylePtr(element).Display != cssDisplayInline {
-		return inlineItem{}, false //nolint:exhaustruct // rejected candidate
-	}
-
-	textStyle := e.stylePtr(textNode)
-	if !singleTextRunStyleOK(boxNode.style, textStyle) {
-		return inlineItem{}, false //nolint:exhaustruct // rejected candidate
-	}
-
-	// Pseudo content adds items on either the block or the inline element.
-	// No content rule anywhere proves neither probe can produce one.
-	if e.hasPseudoContent() {
 		return inlineItem{}, false //nolint:exhaustruct // rejected candidate
 	}
 
@@ -87,23 +66,68 @@ func (e *engine) singleTextRunItem(boxNode *box, nodes []*html.Node) (inlineItem
 		e.enableInlineChrome(&item)
 	}
 
-	if element != nil {
-		elementStyle := e.stylePtr(element)
-
-		// collectInlineSpanPtr moves the element's horizontal margins onto
-		// its first and last generated item.
-		item.marginL += e.scalePt(elementStyle.MarginLeft)
-		item.marginR += e.scalePt(elementStyle.MarginRight)
-
-		if element.Name == cssTagA {
-			href := strings.TrimSpace(element.Attribute("href"))
-			if isLinkHref(href) {
-				item.href = href
-			}
-		}
-	}
+	e.applySingleTextRunElement(&item, element)
 
 	return item, true
+}
+
+// singleTextRunCandidate resolves the text node, optional inline element, and
+// text style of a one-run block, or reports false when any fallback condition
+// applies.
+func (e *engine) singleTextRunCandidate(
+	boxNode *box, nodes []*html.Node,
+) (*html.Node, *html.Node, *ResolvedStyle, bool) {
+	if boxNode == nil || boxNode.style == nil || len(nodes) != 1 {
+		return nil, nil, nil, false
+	}
+
+	textNode, element, ok := singleTextRunNodes(nodes[0])
+	if !ok {
+		return nil, nil, nil, false
+	}
+
+	// Only display:inline elements reach collectInlineSpanPtr. inline-block,
+	// inline-flex, and inline-grid build an atomic item instead.
+	if element != nil && e.stylePtr(element).Display != cssDisplayInline {
+		return nil, nil, nil, false
+	}
+
+	textStyle := e.stylePtr(textNode)
+	if !singleTextRunStyleOK(boxNode.style, textStyle) {
+		return nil, nil, nil, false
+	}
+
+	// Pseudo content adds items on either the block or the inline element.
+	// No content rule anywhere proves neither probe can produce one.
+	if e.hasPseudoContent() {
+		return nil, nil, nil, false
+	}
+
+	return textNode, element, textStyle, true
+}
+
+// applySingleTextRunElement moves the inline element's horizontal margins onto
+// the item and copies an anchor href, matching collectInlineSpanPtr.
+func (e *engine) applySingleTextRunElement(item *inlineItem, element *html.Node) {
+	if element == nil {
+		return
+	}
+
+	elementStyle := e.stylePtr(element)
+
+	// collectInlineSpanPtr moves the element's horizontal margins onto its
+	// first and last generated item.
+	item.marginL += e.scalePt(elementStyle.MarginLeft)
+	item.marginR += e.scalePt(elementStyle.MarginRight)
+
+	if element.Name != cssTagA {
+		return
+	}
+
+	href := strings.TrimSpace(element.Attribute("href"))
+	if isLinkHref(href) {
+		item.href = href
+	}
 }
 
 // singleTextRunNodes unwraps the sole node of an inline run to its text node.
@@ -140,34 +164,22 @@ func singleTextRunNodes(node *html.Node) (*html.Node, *html.Node, bool) {
 // and pretty wrapping, floats/shapes, vertical writing, RTL/bidi scopes,
 // initial letters, wrap-break hooks, non-default white space, hidden paint,
 // ellipsis, shadows, emphasis, decorations, and vertical alignment.
-//
-//nolint:cyclop,lll // one flat list of independent fallback predicates
 func singleTextRunStyleOK(blockStyle, textStyle *ResolvedStyle) bool {
 	if blockStyle == nil || textStyle == nil || textStyle.Display == cssDisplayNone {
 		return false
 	}
 
+	return singleTextRunBlockGeometryOK(blockStyle, textStyle) &&
+		singleTextRunWrapOK(blockStyle, textStyle) &&
+		singleTextRunWritingOK(blockStyle, textStyle) &&
+		singleTextRunPaintOK(textStyle) &&
+		singleTextRunAlignmentOK(textStyle)
+}
+
+// singleTextRunBlockGeometryOK rejects indentation, clamps, and shape or
+// initial-letter declarations that narrow or reshape the measured run.
+func singleTextRunBlockGeometryOK(blockStyle, textStyle *ResolvedStyle) bool {
 	if blockStyle.TextIndent != 0 || blockStyle.LineClamp > 0 || blockStyle.MaxLines > 0 {
-		return false
-	}
-
-	switch blockStyle.TextWrapStyle {
-	case "", textWrapStyleAuto, textWrapStyleStable:
-	default:
-		return false
-	}
-
-	if blockStyle.WhiteSpaceTrim != "" {
-		return false
-	}
-
-	// shape-inside narrows the line even on an otherwise simple run.
-	source := blockStyle.ShapeInside
-	if blockStyle.ShapeInsideOutside {
-		source = blockStyle.ShapeOutside
-	}
-
-	if source != "" && source != shapeOutsideNone && source != shapeInsideAuto {
 		return false
 	}
 
@@ -175,6 +187,41 @@ func singleTextRunStyleOK(blockStyle, textStyle *ResolvedStyle) bool {
 		return false
 	}
 
+	return singleTextRunShapeOK(blockStyle)
+}
+
+// singleTextRunShapeOK rejects a shape that narrows or reshapes the line even
+// on an otherwise simple run.
+func singleTextRunShapeOK(blockStyle *ResolvedStyle) bool {
+	source := blockStyle.ShapeInside
+	if blockStyle.ShapeInsideOutside {
+		source = blockStyle.ShapeOutside
+	}
+
+	return source == "" || source == shapeOutsideNone || source == shapeInsideAuto
+}
+
+// singleTextRunWrapOK rejects wrapping, white-space, and break-hook
+// declarations that make the collector split or rewrite the run.
+func singleTextRunWrapOK(blockStyle, textStyle *ResolvedStyle) bool {
+	wrapStyle := blockStyle.TextWrapStyle
+	if wrapStyle != "" && wrapStyle != textWrapStyleAuto && wrapStyle != textWrapStyleStable {
+		return false
+	}
+
+	if blockStyle.WhiteSpaceTrim != "" {
+		return false
+	}
+
+	if hasWrapBreakPropsPtr(blockStyle) || hasWrapBreakPropsPtr(textStyle) {
+		return false
+	}
+
+	return textStyle.WhiteSpace == "" || textStyle.WhiteSpace == contentNormal
+}
+
+// singleTextRunWritingOK rejects vertical writing, RTL, and scoped bidi.
+func singleTextRunWritingOK(blockStyle, textStyle *ResolvedStyle) bool {
 	if isVerticalWritingMode(blockStyle.WritingMode) || isVerticalWritingMode(textStyle.WritingMode) {
 		return false
 	}
@@ -183,18 +230,12 @@ func singleTextRunStyleOK(blockStyle, textStyle *ResolvedStyle) bool {
 		return false
 	}
 
-	if isScopedBidi(blockStyle.UnicodeBidi) || isScopedBidi(textStyle.UnicodeBidi) {
-		return false
-	}
+	return !isScopedBidi(blockStyle.UnicodeBidi) && !isScopedBidi(textStyle.UnicodeBidi)
+}
 
-	if hasWrapBreakPropsPtr(blockStyle) || hasWrapBreakPropsPtr(textStyle) {
-		return false
-	}
-
-	if textStyle.WhiteSpace != "" && textStyle.WhiteSpace != contentNormal {
-		return false
-	}
-
+// singleTextRunPaintOK rejects hidden paint, ellipsis, shadows, emphasis, and
+// decorations that add or hide operations around the run.
+func singleTextRunPaintOK(textStyle *ResolvedStyle) bool {
 	if hidesPaint(textStyle) {
 		return false
 	}
@@ -208,12 +249,13 @@ func singleTextRunStyleOK(blockStyle, textStyle *ResolvedStyle) bool {
 		return false
 	}
 
-	if textStyle.VerticalAlignShift != 0 ||
-		(textStyle.VerticalAlign != "" && textStyle.VerticalAlign != "baseline") {
-		return false
-	}
-
 	return true
+}
+
+// singleTextRunAlignmentOK rejects a non-baseline vertical alignment.
+func singleTextRunAlignmentOK(textStyle *ResolvedStyle) bool {
+	return textStyle.VerticalAlignShift == 0 &&
+		(textStyle.VerticalAlign == "" || textStyle.VerticalAlign == baselineName)
 }
 
 // singleTextRunText returns the one word the collector would emit for raw, or

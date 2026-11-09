@@ -1,4 +1,4 @@
-//nolint:wsl,nlreturn,unparam // compact white-box checks keep each proof direct
+//nolint:unparam // compact white-box checks keep each proof direct
 package layout
 
 import (

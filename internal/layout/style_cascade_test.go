@@ -553,7 +553,6 @@ func TestWritingModeInherits(t *testing.T) {
 	}
 }
 
-//nolint:cyclop // test assertion helper
 func TestTextIndentInheritsAndShiftsFirstLine(t *testing.T) {
 	t.Parallel()
 
@@ -617,7 +616,7 @@ func TestTextIndentInheritsAndShiftsFirstLine(t *testing.T) {
 	}
 }
 
-//nolint:gocognit,cyclop,funlen,gocyclo,lll,wsl // table-driven webkit aliases assertion
+//nolint:gocyclo // table-driven webkit aliases assertion
 func TestWebkitPrefixAliases(t *testing.T) {
 	t.Parallel()
 
@@ -770,12 +769,12 @@ func TestWebkitPrefixAliases(t *testing.T) {
 	if s1, s2 := styleForDecl(t, "display: -webkit-box"), styleForDecl(t, "display: flex"); s1.Display != s2.Display {
 		t.Fatalf("display -webkit-box %q != flex %q", s1.Display, s2.Display)
 	}
-	if s1, s2 := styleForDecl(t, "display: -webkit-inline-box"), styleForDecl(t, "display: inline-flex"); s1.Display != s2.Display {
+	s1, s2 := styleForDecl(t, "display: -webkit-inline-box"), styleForDecl(t, "display: inline-flex")
+	if s1.Display != s2.Display {
 		t.Fatalf("display -webkit-inline-box %q != inline-flex %q", s1.Display, s2.Display)
 	}
 }
 
-//nolint:wsl // test helper
 func styleForDecl(t *testing.T, decl string) *ResolvedStyle {
 	t.Helper()
 	root, err := html.Parse(`<html><body><div style="` + decl + `">x</div></body></html>`)
@@ -815,7 +814,6 @@ func stylesEqualForProp(prop string, first, second *ResolvedStyle) bool {
 	}
 }
 
-//nolint:cyclop // SVG presentation test assertions
 func TestSVGPresentationProps(t *testing.T) {
 	t.Parallel()
 
@@ -1025,7 +1023,7 @@ func TestCascadeVarAcceptanceRules(t *testing.T) {
 // longhand order, specificity, inheritance, @layer, and vendor aliases still
 // select the same values now that the gate validates declarations.
 //
-//nolint:funlen // cascade ordering regression; splitting would hide the sequence under test
+
 func TestCascadeKeepsOrderingAfterAcceptanceGate(t *testing.T) {
 	t.Parallel()
 
@@ -1113,7 +1111,7 @@ func TestCascadeKeepsOrderingAfterAcceptanceGate(t *testing.T) {
 // ownership AND a value the handlers accept. Ownership alone reported true
 // for display:bogus.
 //
-//nolint:funlen // value table plus gating sequence; splitting would hide the pair under test
+
 func TestCascadeEngineSupportsPropertyValues(t *testing.T) {
 	t.Parallel()
 

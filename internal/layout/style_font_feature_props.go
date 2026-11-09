@@ -331,7 +331,7 @@ func normalizeFontVariantAlternates(raw string) (string, bool) {
 
 func normalizeFontVariantEmoji(raw string) (string, bool) {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case fontVariantNormal, "text", "emoji", "unicode":
+	case fontVariantNormal, "text", fontVariantEmojiKW, "unicode":
 		return strings.ToLower(strings.TrimSpace(raw)), true
 	default:
 		return "", false

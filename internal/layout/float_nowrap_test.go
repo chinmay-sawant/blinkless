@@ -10,7 +10,7 @@ import (
 
 // TestNowrapSpanWrapsBesideFloat: white-space:nowrap must not glue a long span
 // onto a shortened line and paint over a right float (wiki .IPA beside infobox).
-func TestNowrapSpanWrapsBesideFloat(t *testing.T) { //nolint:cyclop,funlen
+func TestNowrapSpanWrapsBesideFloat(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `

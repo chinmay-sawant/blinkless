@@ -1,4 +1,3 @@
-//nolint:varnamelen,funlen,wsl,cyclop // css partial-remaining suite
 package layout
 
 import (

@@ -12,6 +12,7 @@ func (r *Result) Retain() {
 	if r == nil {
 		return
 	}
+
 	atomic.AddInt32(&r.refs, 1)
 }
 
@@ -21,6 +22,7 @@ func (r *Result) DisownChunks() {
 	if r == nil {
 		return
 	}
+
 	r.styleChunks = nil
 	r.boxChunks = nil
 	r.storeChunks = nil
@@ -264,20 +266,9 @@ func (e *engine) resetStyles(mark styleMark) {
 }
 
 func (e *engine) allocStyle(base *ResolvedStyle) *ResolvedStyle {
-	if len(e.styleChunks) == 0 || len(*e.styleChunks[len(e.styleChunks)-1]) == cap(*e.styleChunks[len(e.styleChunks)-1]) {
-		if len(e.spareChunks) > 0 {
-			last := len(e.spareChunks) - 1
-			spare := e.spareChunks[last]
-			*spare = (*spare)[:0]
-			e.spareChunks = e.spareChunks[:last]
-			e.styleChunks = append(e.styleChunks, spare)
-		} else {
-			e.styleChunks = append(e.styleChunks, getStyleChunk())
-		}
-	}
+	e.nextStyleChunk(&e.styleChunks)
 
-	last := len(e.styleChunks) - 1
-	chunk := e.styleChunks[last]
+	chunk := e.styleChunks[len(e.styleChunks)-1]
 
 	if base != nil {
 		*chunk = append(*chunk, *base)
@@ -286,4 +277,28 @@ func (e *engine) allocStyle(base *ResolvedStyle) *ResolvedStyle {
 	}
 
 	return &(*chunk)[len(*chunk)-1]
+}
+
+// nextStyleChunk makes sure chunks ends in a chunk with room for one more
+// record, reusing a spare chunk before renting a fresh one.
+func (e *engine) nextStyleChunk(chunks *[]*[]ResolvedStyle) {
+	if len(*chunks) > 0 {
+		lastChunk := (*chunks)[len(*chunks)-1]
+		if len(*lastChunk) < cap(*lastChunk) {
+			return
+		}
+	}
+
+	if len(e.spareChunks) > 0 {
+		last := len(e.spareChunks) - 1
+		spare := e.spareChunks[last]
+		*spare = (*spare)[:0]
+		e.spareChunks = e.spareChunks[:last]
+
+		*chunks = append(*chunks, spare)
+
+		return
+	}
+
+	*chunks = append(*chunks, getStyleChunk())
 }

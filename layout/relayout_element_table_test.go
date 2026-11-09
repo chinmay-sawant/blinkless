@@ -65,7 +65,9 @@ func TestRelayoutElementSplicesFittingCellText(t *testing.T) {
 		t.Fatal("SetText reported no element")
 	}
 
-	patch, err := layout.RelayoutElement(t.Context(), mustApply(t, tree, 400, 300, "", "", ""), display, "cell", layout.Options{})
+	patch, err := layout.RelayoutElement(
+		t.Context(), mustApply(t, tree, 400, 300, "", "", ""), display, "cell", layout.Options{},
+	)
 	if err != nil {
 		t.Fatalf("relayout element: %v", err)
 	}
@@ -98,7 +100,9 @@ func TestRelayoutElementSplicesRowClassChange(t *testing.T) {
 		t.Fatal("SetAttribute reported no element")
 	}
 
-	patch, err := layout.RelayoutElement(t.Context(), mustApply(t, tree, 400, 300, "", "", ""), display, "row", layout.Options{})
+	patch, err := layout.RelayoutElement(
+		t.Context(), mustApply(t, tree, 400, 300, "", "", ""), display, "row", layout.Options{},
+	)
 	if err != nil {
 		t.Fatalf("relayout element: %v", err)
 	}
@@ -124,7 +128,9 @@ func TestRelayoutElementSplicesSpanInsideCell(t *testing.T) {
 		t.Fatal("SetText reported no element")
 	}
 
-	patch, err := layout.RelayoutElement(t.Context(), mustApply(t, tree, 400, 300, "", "", ""), display, "inner", layout.Options{})
+	patch, err := layout.RelayoutElement(
+		t.Context(), mustApply(t, tree, 400, 300, "", "", ""), display, "inner", layout.Options{},
+	)
 	if err != nil {
 		t.Fatalf("relayout element: %v", err)
 	}
@@ -153,7 +159,9 @@ func TestRelayoutElementRefusesMovedTableGrid(t *testing.T) {
 		t.Fatal("SetText reported no element")
 	}
 
-	_, err := layout.RelayoutElement(t.Context(), mustApply(t, tree, 400, 300, "", "", ""), display, "cell", layout.Options{})
+	_, err := layout.RelayoutElement(
+		t.Context(), mustApply(t, tree, 400, 300, "", "", ""), display, "cell", layout.Options{},
+	)
 	if err == nil {
 		t.Fatal("relayout element succeeded, want the grid-move refusal")
 	}

@@ -13,11 +13,13 @@ const (
 // spliceTestOps returns a filled operation list whose entries are easy to tell
 // apart, so a test can compare a splice against the copy it replaced. capacity
 // sizes the backing past the count when a case needs spare room.
-func spliceTestOps(count, capacity, baseID int) []Op {
+func spliceTestOps(count, capacity int, baseID uint64) []Op {
 	ops := make([]Op, count, capacity)
+	id := baseID
 
 	for index := range ops {
-		ops[index] = Op{ID: uint64(baseID + index), X: float64(index), Kind: OpFillRect}
+		ops[index] = Op{ID: id, X: float64(index), Kind: OpFillRect}
+		id++
 	}
 
 	return ops
@@ -92,7 +94,7 @@ func TestRelayoutSpliceOpsMatchesTheAllocatingCopy(t *testing.T) {
 // splice that keeps the operation count overwrites the window and copies
 // nothing page-wide. It is deliberately sequential: AllocsPerRun refuses to run
 // inside a parallel test.
-func TestRelayoutSpliceOpsSameLengthDoesNotAllocate(t *testing.T) {
+func TestRelayoutSpliceOpsSameLengthDoesNotAllocate(t *testing.T) { //nolint:paralleltest // AllocsPerRun needs serial
 	const (
 		total    = 2048
 		start    = 100

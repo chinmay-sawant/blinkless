@@ -27,6 +27,8 @@ import (
 // patch). The batch entry is the same function with overrides: the override
 // allow list is layout only, so an override always changes layout inputs and
 // the attempt falls back to the normal override build.
+//
+//nolint:gochecknoglobals // process-wide reuse counters back ReuseStatsSnapshot
 var (
 	reuseHitCount        atomic.Uint64
 	reuseMissCount       atomic.Uint64
@@ -73,7 +75,7 @@ func trySubtreeReuse(
 		return nil, false
 	}
 
-	if err := ctx.Err(); err != nil {
+	if ctx.Err() != nil {
 		return nil, false
 	}
 
@@ -83,96 +85,46 @@ func trySubtreeReuse(
 		return nil, false
 	}
 
-	target := findRelayoutTarget(prev.boxTreeRoot(), node)
-	if target == nil || target.box == nil {
+	target, start, oldCount, found := subtreeReuseTarget(prev, node, opts)
+	if !found {
 		reuseMissCount.Add(1)
 
 		return nil, false
 	}
 
-	if err := checkRelayoutTarget(prev, target); err != nil {
+	styles, found := subtreeReuseStyles(ctx, prev, target, node, opts, start, oldCount)
+	if !found {
 		reuseMissCount.Add(1)
 
 		return nil, false
 	}
 
-	kept := target.box
-	if kept.style == nil {
+	newOps, newBox, ok := subtreeReuseBuild(ctx, prev, target, node, opts, styles, oldCount)
+	if !ok {
 		reuseMissCount.Add(1)
 
 		return nil, false
 	}
 
-	if !relayoutNear(opts.Width, prev.Width) {
-		reuseMissCount.Add(1)
+	reuseHitCount.Add(1)
 
-		return nil, false
+	return subtreeReuseCommit(prev, target, newBox, newOps, start, oldCount, styles), true
+}
+
+// subtreeReuseCommit installs the rebuilt subtree into prev and returns the
+// patched result.
+func subtreeReuseCommit(
+	prev *Result,
+	target *relayoutTarget,
+	newBox *box,
+	newOps []Op,
+	start, oldCount int,
+	styles map[*html.Node]*ResolvedStyle,
+) *Result {
+	for index := range newOps {
+		newOps[index].ID = prev.Ops[start+index].ID
 	}
 
-	start, oldCount, err := relayoutWindow(prev, target)
-	if err != nil {
-		reuseMissCount.Add(1)
-
-		return nil, false
-	}
-
-	if !keptSubtreeMatchesDOM(kept, node) {
-		reuseMissCount.Add(1)
-
-		return nil, false
-	}
-
-	if fingerprintContentDOM(node) != fingerprintKeptContent(kept, prev.Ops, start, oldCount) {
-		reuseMissCount.Add(1)
-
-		return nil, false
-	}
-
-	styles, err := relayoutSubtreeStyles(ctx, prev, target, node, opts)
-	if err != nil {
-		reuseMissCount.Add(1)
-
-		return nil, false
-	}
-
-	if fingerprintLayoutSubtree(node, prev.styles) != fingerprintLayoutSubtree(node, styles) {
-		reuseMissCount.Add(1)
-
-		return nil, false
-	}
-
-	if basis := widthBasisFor(kept, opts); !(basis > 0) || !finitePositive(basis) {
-		reuseMissCount.Add(1)
-
-		return nil, false
-	}
-
-	eng, err := relayoutEngine(ctx, prev, opts, styles)
-	if err != nil {
-		reuseMissCount.Add(1)
-
-		return nil, false
-	}
-
-	//nolint:contextcheck // the engine keeps the context and reads it at its recursion boundaries
-	newBox, err := relayoutBuild(eng, prev, target, node, opts)
-	if err != nil {
-		reuseMissCount.Add(1)
-
-		return nil, false
-	}
-
-	if len(eng.ops) != oldCount {
-		reuseMissCount.Add(1)
-
-		return nil, false
-	}
-
-	for index := range eng.ops {
-		eng.ops[index].ID = prev.Ops[start+index].ID
-	}
-
-	newOps := eng.ops
 	delta := len(newOps) - oldCount
 
 	relayoutSpliceOps(prev, start, oldCount, newOps)
@@ -185,9 +137,98 @@ func trySubtreeReuse(
 	relayoutKeepStyles(prev, styles)
 	prev.MaxContentX, prev.HasFragmentLinks = censusOps(prev.Ops, prev.Width)
 
-	reuseHitCount.Add(1)
+	return relayoutSubtreeResult(prev, newBox, start, len(newOps), styles)
+}
 
-	return relayoutSubtreeResult(prev, newBox, start, len(newOps), styles), true
+// subtreeReuseTarget resolves the kept box for node and its retained
+// operation window, rejecting an override-sensitive or moved target.
+func subtreeReuseTarget(prev *Result, node *html.Node, opts Options) (*relayoutTarget, int, int, bool) {
+	target := findRelayoutTarget(prev.boxTreeRoot(), node)
+	if target == nil || target.box == nil {
+		return nil, 0, 0, false
+	}
+
+	if checkRelayoutTarget(prev, target) != nil {
+		return nil, 0, 0, false
+	}
+
+	if target.box.style == nil {
+		return nil, 0, 0, false
+	}
+
+	if !relayoutNear(opts.Width, prev.Width) {
+		return nil, 0, 0, false
+	}
+
+	start, oldCount, err := relayoutWindow(prev, target)
+	if err != nil {
+		return nil, 0, 0, false
+	}
+
+	return target, start, oldCount, true
+}
+
+// subtreeReuseStyles resolves the subtree styles and requires both the DOM
+// content hash and the layout-input hash to match the retained side.
+func subtreeReuseStyles(
+	ctx context.Context,
+	prev *Result,
+	target *relayoutTarget,
+	node *html.Node,
+	opts Options,
+	start, oldCount int,
+) (map[*html.Node]*ResolvedStyle, bool) {
+	if !keptSubtreeMatchesDOM(target.box, node) {
+		return nil, false
+	}
+
+	if fingerprintContentDOM(node) != fingerprintKeptContent(target.box, prev.Ops, start, oldCount) {
+		return nil, false
+	}
+
+	styles, err := relayoutSubtreeStyles(ctx, prev, target, node, opts)
+	if err != nil {
+		return nil, false
+	}
+
+	if fingerprintLayoutSubtree(node, prev.styles) != fingerprintLayoutSubtree(node, styles) {
+		return nil, false
+	}
+
+	return styles, true
+}
+
+// subtreeReuseBuild rebuilds the subtree in an isolated engine and requires the
+// operation count to match the retained window.
+func subtreeReuseBuild(
+	ctx context.Context,
+	prev *Result,
+	target *relayoutTarget,
+	node *html.Node,
+	opts Options,
+	styles map[*html.Node]*ResolvedStyle,
+	oldCount int,
+) ([]Op, *box, bool) {
+	if basis := widthBasisFor(target.box, opts); !(basis > 0) || !finitePositive(basis) {
+		return nil, nil, false
+	}
+
+	eng, err := relayoutEngine(ctx, prev, opts, styles)
+	if err != nil {
+		return nil, nil, false
+	}
+
+	//nolint:contextcheck // the engine keeps the context and reads it at its recursion boundaries
+	newBox, err := relayoutBuild(eng, prev, target, node, opts)
+	if err != nil {
+		return nil, nil, false
+	}
+
+	if len(eng.ops) != oldCount {
+		return nil, nil, false
+	}
+
+	return eng.ops, newBox, true
 }
 
 // fingerprintLayoutSubtree hashes the layout inputs of root's subtree: every
@@ -196,6 +237,7 @@ func trySubtreeReuse(
 // spacing change does not.
 func fingerprintLayoutSubtree(root *html.Node, styles map[*html.Node]*ResolvedStyle) uint64 {
 	hash := fnv.New64a()
+
 	var digest [8]byte
 
 	var walk func(node *html.Node)
@@ -261,6 +303,7 @@ func fingerprintContentDOM(root *html.Node) uint64 {
 	}
 
 	walk(root)
+
 	_, _ = hash.Write([]byte{0xff})
 	_, _ = hash.Write([]byte(subtreeText(root)))
 
@@ -297,6 +340,7 @@ func fingerprintKeptContent(kept *box, ops []Op, start, count int) uint64 {
 	}
 
 	walk(kept)
+
 	_, _ = hash.Write([]byte{0xff})
 	_, _ = hash.Write([]byte(opsText(ops, start, count)))
 
@@ -313,6 +357,7 @@ func writeContentElement(hash hash.Hash, nodeType html.NodeType, name string, at
 	_, _ = hash.Write([]byte{0})
 
 	keys := make([]string, 0, len(attrs))
+
 	for key := range attrs {
 		if key == "class" {
 			continue
@@ -464,6 +509,7 @@ func opsText(ops []Op, start, count int) string {
 	}
 
 	out := ""
+
 	for _, op := range ops[start : start+count] {
 		if op.Kind == OpText {
 			out += op.Text
@@ -479,8 +525,8 @@ func opsText(ops []Op, start, count int) string {
 // fixed positioning, where a plain shift would lie. On success it records a
 // translation for the counters and returns true; on refusal it changes
 // nothing and returns false.
-func translateOpsRange(ops []Op, start, end int, dx, dy float64) bool {
-	if dx == 0 && dy == 0 {
+func translateOpsRange(ops []Op, start, end int, deltaX, deltaY float64) bool {
+	if deltaX == 0 && deltaY == 0 {
 		return true
 	}
 
@@ -489,38 +535,47 @@ func translateOpsRange(ops []Op, start, end int, dx, dy float64) bool {
 	}
 
 	for index := start; index <= end; index++ {
-		op := &ops[index]
-
-		if op.Fixed {
+		if !translatableOp(&ops[index]) {
 			return false
-		}
-
-		if op.XformSet || op.HasProjective {
-			return false
-		}
-
-		if op.opExtra != nil && op.opExtra != emptyExtra {
-			extra := op.opExtra
-			if extra.HasPath || extra.CornerPath != nil || extra.HasClip || extra.Pristine != nil {
-				return false
-			}
 		}
 	}
 
 	for index := start; index <= end; index++ {
-		op := &ops[index]
-		op.X += dx
-		op.Y += dy
+		operation := &ops[index]
+		operation.X += deltaX
+		operation.Y += deltaY
 
-		if op.Kind == OpGridRun && op.Grid != nil {
-			for seg := range op.Grid.Segs {
-				op.Grid.Segs[seg].X += dx
-				op.Grid.Segs[seg].Y += dy
-			}
-		}
+		translateGridSegs(operation, deltaX, deltaY)
 	}
 
 	reuseTranslatedCount.Add(1)
 
 	return true
+}
+
+// translatableOp reports whether a plain coordinate shift is honest.
+func translatableOp(operation *Op) bool {
+	if operation.Fixed || operation.XformSet || operation.HasProjective {
+		return false
+	}
+
+	if operation.opExtra == nil || operation.opExtra == emptyExtra {
+		return true
+	}
+
+	extra := operation.opExtra
+
+	return !extra.HasPath && extra.CornerPath == nil && !extra.HasClip && extra.Pristine == nil
+}
+
+// translateGridSegs shifts the segments of a grid run alongside the operation.
+func translateGridSegs(operation *Op, deltaX, deltaY float64) {
+	if operation.Kind != OpGridRun || operation.Grid == nil {
+		return
+	}
+
+	for seg := range operation.Grid.Segs {
+		operation.Grid.Segs[seg].X += deltaX
+		operation.Grid.Segs[seg].Y += deltaY
+	}
 }

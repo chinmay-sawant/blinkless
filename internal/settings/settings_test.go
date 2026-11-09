@@ -567,10 +567,10 @@ func TestEnumStringReportsUnknownForInvalid(t *testing.T) {
 	if got := Orientation(99).String(); got != sUnknown {
 		t.Errorf("Orientation(99).String() = %q, want unknown", got)
 	}
-	if got := LoadErrorHandling(42).String(); got != sUnknown { //nolint:wsl
+	if got := LoadErrorHandling(42).String(); got != sUnknown {
 		t.Errorf("LoadErrorHandling(42).String() = %q, want unknown", got)
 	}
-	if got := MediaType(7).String(); got != sUnknown { //nolint:wsl
+	if got := MediaType(7).String(); got != sUnknown {
 		t.Errorf("MediaType(7).String() = %q, want unknown", got)
 	}
 }
@@ -597,12 +597,12 @@ func TestMarginEdgeUnknown(t *testing.T) {
 	t.Parallel()
 
 	global := DefaultPdfGlobal()
-	m := global.Margin //nolint:varnamelen // short name for margin in test
+	m := global.Margin
 
 	if err := marginSetter(&m, "side")("12mm"); err == nil {
 		t.Fatal("unknown margin edge must error")
 	}
-	if m != global.Margin { //nolint:wsl
+	if m != global.Margin {
 		t.Errorf("unknown edge must not mutate margins, got %+v want %+v", m, global.Margin)
 	}
 
@@ -941,7 +941,6 @@ func TestParsePDFVersion(t *testing.T) {
 	}
 }
 
-//nolint:cyclop // sequential getter/setter checks for multiple versions
 func TestGlobalPdfVersionSetting(t *testing.T) {
 	t.Parallel()
 
@@ -993,7 +992,6 @@ func TestGlobalPdfVersionSetting(t *testing.T) {
 	}
 }
 
-//nolint:cyclop,funlen // comprehensive test matrix for PDF profile settings
 func TestGlobalPdfProfileSetting(t *testing.T) {
 	t.Parallel()
 

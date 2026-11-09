@@ -8,7 +8,7 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
-func TestJustifyDoesNotGapBeforePunctuation(t *testing.T) { //nolint:gocognit,gocyclo,cyclop,funlen
+func TestJustifyDoesNotGapBeforePunctuation(t *testing.T) { //nolint:gocyclo // punctuation boundary walk
 	t.Parallel()
 
 	cssSheet := sheet(t, `
@@ -129,7 +129,7 @@ func absF(v float64) float64 {
 	return v
 }
 
-func TestCiteDoesNotSplitAcrossLines(t *testing.T) { //nolint:cyclop
+func TestCiteDoesNotSplitAcrossLines(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `

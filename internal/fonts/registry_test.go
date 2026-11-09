@@ -2,7 +2,6 @@ package fonts
 
 import "testing"
 
-//nolint:wsl // registry permutations and assertions are intentionally adjacent.
 func TestRegistryFindWithGlyphUsesStableFaceIdentityTieBreak(t *testing.T) {
 	t.Parallel()
 

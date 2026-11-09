@@ -8,8 +8,9 @@ package layout
 // without the memos (golden op counts and key rects), while the per-run
 // memos prove they actually hit.
 //
-// None of the tests in this file use t.Parallel: the bypass switches are
-// process-wide atomics shared with parallel tests in other files. Atomic
+// Only TestGridOccupationBitset runs on the parallel lane: it touches no
+// layout switch. The layout proofs stay serial because the bypass switches
+// are process-wide atomics shared with parallel tests in other files. Atomic
 // access keeps the sharing race-clean; staying off the parallel lane keeps
 // the bypass windows deterministic.
 
@@ -168,6 +169,8 @@ func checkContainerIdentical(t *testing.T, name, doc, cssSrc string) {
 // memo, grid bitset plus intrinsics memo plus pooled defs, and the multicol
 // height memo change no layout result on generated documents. The table doc
 // exercises the untouched table path as a regression guard.
+//
+//nolint:paralleltest // flips process-wide memo bypass switches
 func TestMemoContainerScratchIdenticalOutput(t *testing.T) {
 	checkContainerIdentical(t, "flex", containerScratchFlexDoc, containerScratchFlexCSS)
 	checkContainerIdentical(t, "grid", containerScratchGridDoc, containerScratchGridCSS)
@@ -178,6 +181,8 @@ func TestMemoContainerScratchIdenticalOutput(t *testing.T) {
 // TestFlexRowBaseMemoHit pins the row-path base-width memo: measuring the
 // same row items twice returns identical widths without growing the shared
 // per-run map, and the hit counter moves.
+//
+//nolint:paralleltest // reads memo state inside the bypass window
 func TestFlexRowBaseMemoHit(t *testing.T) {
 	root := mustParse(t, `<div id="outer"><div class="chip"><span>alpha beta</span></div>`+
 		`<div class="chip"><span>gamma delta epsilon</span></div></div>`)
@@ -226,6 +231,8 @@ func TestFlexRowBaseMemoHit(t *testing.T) {
 
 // TestFlexRowMinMemoHit pins the row-path auto-minimum memo the same way:
 // one floor per item and size, with hits on repeat.
+//
+//nolint:paralleltest // reads memo state inside the bypass window
 func TestFlexRowMinMemoHit(t *testing.T) {
 	root := mustParse(t, `<div id="outer"><div class="chip"><span>alpha beta gamma delta</span></div></div>`)
 	opts := Options{
@@ -278,6 +285,8 @@ func TestFlexRowMinMemoHit(t *testing.T) {
 
 // TestTrackKidMemoHit pins the grid intrinsics memo: one contribution per
 // child and axis, with hits on repeat.
+//
+//nolint:paralleltest // reads memo state inside the bypass window
 func TestMemoTrackKidHit(t *testing.T) {
 	root := mustParse(t, `<div id="g"><div class="cell"><span>alpha beta gamma</span></div></div>`)
 	opts := Options{
@@ -314,6 +323,8 @@ func TestMemoTrackKidHit(t *testing.T) {
 // TestGridOccupationBitset pins the bitset placement: spans mark and block,
 // including a 70-column grid that crosses the first 64-bit word.
 func TestGridOccupationBitset(t *testing.T) {
+	t.Parallel()
+
 	occ := newGridOccupation(70)
 	defer occ.release()
 
@@ -343,6 +354,8 @@ func TestGridOccupationBitset(t *testing.T) {
 // TestMulticolHeightMemoHit pins the multicol child-height memo: measuring
 // the same children twice at one column width returns identical heights with
 // hits on the second pass.
+//
+//nolint:paralleltest // reads memo state inside the bypass window
 func TestMulticolHeightMemoHit(t *testing.T) {
 	root := mustParse(t, `<div id="outer"><div><span>alpha beta gamma delta epsilon</span></div>`+
 		`<div><span>zeta eta theta iota kappa lambda</span></div></div>`)
@@ -380,6 +393,8 @@ func TestMulticolHeightMemoHit(t *testing.T) {
 // document: a column flex holds a row flex, a nested grid, and a multicol,
 // so one Layout run hits the row base, track intrinsics, and multicol
 // height memos.
+//
+//nolint:paralleltest // reads memo state inside the bypass window
 func TestMemoContainerCountersFullLayout(t *testing.T) {
 	var doc strings.Builder
 

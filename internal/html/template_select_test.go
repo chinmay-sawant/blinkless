@@ -3,7 +3,7 @@ package html
 import "testing"
 
 //
-//nolint:cyclop // sequential template-content pins; splitting would hide the list
+
 func TestParseTemplateContentsAreSeparate(t *testing.T) {
 	t.Parallel()
 

@@ -1,7 +1,6 @@
 package layout
 
 import (
-	"context"
 	"sync"
 	"testing"
 
@@ -62,7 +61,7 @@ func retainTestRoot(t *testing.T) *html.Node {
 }
 
 func retainTestOpts(sheets []*css.Stylesheet) Options {
-	return Options{ //nolint:exhaustruct // test options: images, fonts, and policies unset
+	return Options{
 		Width: testViewport, Height: 800, Media: "print", Sheets: sheets,
 	}
 }
@@ -97,7 +96,7 @@ func retainFirstPass(
 ) map[*html.Node]*ResolvedStyle {
 	t.Helper()
 
-	styles, err := resolveStylesRetainedWithContext(context.Background(), root, opts, nil, dirty, ret)
+	styles, err := resolveStylesRetainedWithContext(t.Context(), root, opts, nil, dirty, ret)
 	if err != nil {
 		t.Fatalf("retained resolve: %v", err)
 	}
@@ -216,7 +215,7 @@ func TestRetainStructuralFallsBack(t *testing.T) {
 		t.Fatal("no body element")
 	}
 
-	added := &html.Node{ //nolint:exhaustruct // test fixture node: no attrs list, text, or doctype
+	added := &html.Node{
 		Type: html.ElementNode, Name: "p",
 		Attrs:  map[string]string{"id": "n"},
 		Parent: body,
@@ -302,7 +301,7 @@ func TestRetainConcurrentLayouts(t *testing.T) {
 			defer wg.Done()
 
 			styles, err := resolveStylesRetainedWithContext(
-				context.Background(), root, opts, nil, newTestDirtySet(), ret,
+				t.Context(), root, opts, nil, newTestDirtySet(), ret,
 			)
 			if err != nil {
 				errs <- err.Error()

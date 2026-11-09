@@ -1,4 +1,3 @@
-//nolint:all
 package layout
 
 import (
@@ -84,7 +83,7 @@ func TestNestedGridWithSpan(t *testing.T) {
 	}
 }
 
-func TestGridCellsStayInsideBorder(t *testing.T) { //nolint:cyclop
+func TestGridCellsStayInsideBorder(t *testing.T) {
 	t.Parallel()
 
 	src := `<html><body>
@@ -127,7 +126,7 @@ func TestGridCellsStayInsideBorder(t *testing.T) { //nolint:cyclop
 	}
 }
 
-func TestGridTemplateRowsEqualFr(t *testing.T) { //nolint:cyclop
+func TestGridTemplateRowsEqualFr(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `
@@ -169,7 +168,7 @@ func TestGridTemplateRowsEqualFr(t *testing.T) { //nolint:cyclop
 	}
 }
 
-func TestGridStretchKeepsSiblingStyleIndependent(t *testing.T) { //nolint:cyclop
+func TestGridStretchKeepsSiblingStyleIndependent(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `
@@ -220,7 +219,7 @@ func TestGridStretchKeepsSiblingStyleIndependent(t *testing.T) { //nolint:cyclop
 	}
 }
 
-func TestGridRowSpan(t *testing.T) { //nolint:cyclop
+func TestGridRowSpan(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `
@@ -285,7 +284,7 @@ func TestGridRowSpan(t *testing.T) { //nolint:cyclop
 	}
 }
 
-func TestGridRowSpanStretchMatchesFixture32(t *testing.T) { //nolint:cyclop
+func TestGridRowSpanStretchMatchesFixture32(t *testing.T) {
 	t.Parallel()
 	// Mirrors fixture-32 .grid: 100pt content height, 6pt row-gap, span 2.
 	cssSheet := sheet(t, `
@@ -354,7 +353,7 @@ func TestGridRowSpanStretchMatchesFixture32(t *testing.T) { //nolint:cyclop
 	}
 }
 
-func TestGridRowGapVsColumnGap(t *testing.T) { //nolint:cyclop
+func TestGridRowGapVsColumnGap(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `
@@ -464,7 +463,7 @@ func TestParseGridRowSpan(t *testing.T) {
 	}
 }
 
-func TestParseGridTemplateAreas(t *testing.T) { //nolint:cyclop
+func TestParseGridTemplateAreas(t *testing.T) {
 	t.Parallel()
 
 	areas := parseGridTemplateAreas(`"header header" "nav main" "footer footer"`)
@@ -497,7 +496,7 @@ func TestParseGridTemplateAreas(t *testing.T) { //nolint:cyclop
 	}
 }
 
-func TestParseGridAreaAndAutoFlow(t *testing.T) { //nolint:cyclop
+func TestParseGridAreaAndAutoFlow(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `
@@ -550,7 +549,7 @@ func TestParseGridAreaAndAutoFlow(t *testing.T) { //nolint:cyclop
 	}
 }
 
-func TestGridTemplateAreasPlacement(t *testing.T) { //nolint:cyclop,funlen
+func TestGridTemplateAreasPlacement(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `
@@ -621,7 +620,7 @@ func TestGridTemplateAreasPlacement(t *testing.T) { //nolint:cyclop,funlen
 	_ = headX
 }
 
-func TestGridAreasImplyTrackCounts(t *testing.T) { //nolint:cyclop
+func TestGridAreasImplyTrackCounts(t *testing.T) {
 	t.Parallel()
 	// No grid-template-columns — areas alone imply 3 columns.
 	cssSheet := sheet(t, `
@@ -674,7 +673,7 @@ func TestGridAreasImplyTrackCounts(t *testing.T) { //nolint:cyclop
 	}
 }
 
-func TestGridAutoFlowDenseFillsHole(t *testing.T) { //nolint:cyclop
+func TestGridAutoFlowDenseFillsHole(t *testing.T) {
 	t.Parallel()
 	// Item A spans 2 cols in row 0 → hole at (0, missing) then B takes col0?
 	// Layout: 2 cols. First item grid-column: 2 (leaves (0,0) empty).
@@ -735,7 +734,6 @@ func TestGridAutoFlowDenseFillsHole(t *testing.T) { //nolint:cyclop
 	}
 }
 
-//nolint:cyclop // placement proof checks both fills and coordinates
 func TestGridAutoFlowColumn(t *testing.T) {
 	t.Parallel()
 
@@ -840,7 +838,7 @@ func TestParseGridTracksRepeatMinmax(t *testing.T) {
 	}
 }
 
-func TestGridMinmaxFrLayout(t *testing.T) { //nolint:cyclop
+func TestGridMinmaxFrLayout(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `

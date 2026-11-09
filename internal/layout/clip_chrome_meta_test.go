@@ -2,9 +2,9 @@ package layout
 
 import (
 	"encoding/binary"
-	"fmt"
 	"hash/fnv"
 	"math"
+	"strconv"
 	"testing"
 )
 
@@ -85,7 +85,7 @@ func opsDigest(ops []Op) string {
 		put(math.Float64bits(ops[i].H))
 	}
 
-	return fmt.Sprintf("%x", sum.Sum64())
+	return strconv.FormatUint(sum.Sum64(), 16)
 }
 
 func metaGoldenResult(t *testing.T) *Result {
@@ -163,7 +163,7 @@ func fillByHeight(t *testing.T, ops []Op, h float64) Op {
 
 	t.Fatalf("no fill rect with height %.2f", h)
 
-	return Op{} //nolint:exhaustruct // unreachable
+	return Op{}
 }
 
 // TestClipNestedPaintGeometry checks the single-pass clip paints what the
@@ -297,32 +297,7 @@ func TestPlacedLeanWalkParity(t *testing.T) {
 	sawText := false
 
 	for i := range full {
-		if lean[i].ID != full[i].ID || lean[i].Tag != full[i].Tag {
-			t.Fatalf("elem %d = %q %q, want %q %q", i, lean[i].ID, lean[i].Tag, full[i].ID, full[i].Tag)
-		}
-
-		if lean[i].X != full[i].X || lean[i].Y != full[i].Y ||
-			lean[i].W != full[i].W || lean[i].H != full[i].H {
-			t.Fatalf("elem %q box differs between lean and full walks", full[i].ID)
-		}
-
-		if len(lean[i].OperationIDs) != len(full[i].OperationIDs) {
-			t.Fatalf("elem %q op IDs differ between lean and full walks", full[i].ID)
-		}
-
-		for j := range lean[i].OperationIDs {
-			if lean[i].OperationIDs[j] != full[i].OperationIDs[j] {
-				t.Fatalf("elem %q op ID %d differs between lean and full walks", full[i].ID, j)
-			}
-		}
-
-		if lean[i].Transform != full[i].Transform {
-			t.Fatalf("elem %q transform differs between lean and full walks", full[i].ID)
-		}
-
-		if lean[i].Text != "" {
-			t.Fatalf("elem %q lean Text = %q, want empty (text not requested)", full[i].ID, lean[i].Text)
-		}
+		checkPlacedParity(t, i, lean[i], full[i])
 
 		if full[i].Text != "" {
 			sawText = true

@@ -31,8 +31,10 @@ func (e *engine) flexWrapLines(
 	// and clamp slices per item.
 	trial := getFlexMeas(len(items))[:len(items)]
 	defer putFlexMeas(trial)
+
 	widthScratch := rentFloats(len(items))
 	defer returnFloats(widthScratch)
+
 	frozenScratch := getFlexBools(len(items))
 	defer putFlexBools(frozenScratch)
 

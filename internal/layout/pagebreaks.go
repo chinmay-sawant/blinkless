@@ -98,15 +98,28 @@ func sameBreakBoxes(left, right *box) bool {
 		return left == right
 	}
 
-	if left.y != right.y || left.height != right.height || left.kind != right.kind ||
-		left.opStart != right.opStart || left.opEnd != right.opEnd {
+	if !sameBreakGeometry(left, right) || !sameBreakStyle(left.style, right.style) ||
+		!sameBreakNode(left.node, right.node) {
 		return false
 	}
 
-	if !sameBreakStyle(left.style, right.style) || !sameBreakNode(left.node, right.node) {
+	if !sameBreakRows(left, right) {
 		return false
 	}
 
+	return sameBreakChildren(left, right)
+}
+
+// sameBreakGeometry compares the geometry and operation range PageBreaks
+// reads on one box.
+func sameBreakGeometry(left, right *box) bool {
+	return left.y == right.y && left.height == right.height && left.kind == right.kind &&
+		left.opStart == right.opStart && left.opEnd == right.opEnd
+}
+
+// sameBreakRows compares the table row geometry and cell operation ranges
+// PageBreaks reads when it keeps a row together.
+func sameBreakRows(left, right *box) bool {
 	if len(left.rowTops) != len(right.rowTops) || len(left.rowHeights) != len(right.rowHeights) {
 		return false
 	}
@@ -123,28 +136,40 @@ func sameBreakBoxes(left, right *box) bool {
 	}
 
 	for rowIndex := range left.rows {
-		leftRow, rightRow := left.rows[rowIndex], right.rows[rowIndex]
-		if len(leftRow) != len(rightRow) {
+		if !sameBreakRowCells(left.rows[rowIndex], right.rows[rowIndex]) {
 			return false
-		}
-
-		for cellIndex := range leftRow {
-			leftCell, rightCell := leftRow[cellIndex], rightRow[cellIndex]
-
-			if leftCell == nil || rightCell == nil {
-				if leftCell != rightCell {
-					return false
-				}
-
-				continue
-			}
-
-			if leftCell.opStart != rightCell.opStart || leftCell.opEnd != rightCell.opEnd {
-				return false
-			}
 		}
 	}
 
+	return true
+}
+
+// sameBreakRowCells compares two table rows cell by cell.
+func sameBreakRowCells(leftRow, rightRow []*box) bool {
+	if len(leftRow) != len(rightRow) {
+		return false
+	}
+
+	for cellIndex := range leftRow {
+		if !sameBreakCell(leftRow[cellIndex], rightRow[cellIndex]) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// sameBreakCell compares the operation range PageBreaks reads on one cell.
+func sameBreakCell(left, right *box) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+
+	return left.opStart == right.opStart && left.opEnd == right.opEnd
+}
+
+// sameBreakChildren compares the child tracks PageBreaks descends into.
+func sameBreakChildren(left, right *box) bool {
 	if len(left.children) != len(right.children) {
 		return false
 	}
@@ -224,16 +249,12 @@ func inlineLevelBox(style *ResolvedStyle) bool {
 	}
 }
 
-// singleLineKeepRange reports whether boxNode formats exactly one line of
-// text and that line cannot fit the page containing the box top, and returns
-// the canvas range a paginator must keep on one page. The range covers the
-// border box, so the line moves with its padding, border, and background
+// singleLineKeepRangeWithBuf reports whether boxNode formats exactly one line
+// of text and that line cannot fit the page containing the box top, and
+// returns the canvas range a paginator must keep on one page. The range covers
+// the border box, so the line moves with its padding, border, and background
 // instead of leaving an empty leading fragment behind. Boxes taller than one
 // page cannot be kept whole and split between lines instead.
-func singleLineKeepRange(res *Result, boxNode *box, pageH float64) ([2]float64, bool) {
-	return singleLineKeepRangeWithBuf(res, boxNode, pageH, nil)
-}
-
 func singleLineKeepRangeWithBuf(res *Result, boxNode *box, pageH float64, buf []float64) ([2]float64, bool) {
 	var none [2]float64
 

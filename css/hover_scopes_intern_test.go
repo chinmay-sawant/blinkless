@@ -20,10 +20,10 @@ import (
 // and the distinct (tag, attrs) pairs it holds; if hoverListEntry gains a
 // dedicated intern map, repoint entrySigPoolSize at len(entry.<pool>).
 
-func internTestStyled(t *testing.T, rules, body string) *Document {
+func internTestStyled(t *testing.T, body string) *Document {
 	t.Helper()
 
-	doc, err := pubhtml.Parse([]byte(`<style>` + rules + `</style>` + body))
+	doc, err := pubhtml.Parse([]byte(`<style>.u:hover{color:red}</style>` + body))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,10 +107,11 @@ func entrySigPoolSize(entry *hoverListEntry) int {
 	return len(sigs)
 }
 
+//nolint:paralleltest // resets the process-wide hover cache
 func TestHoverMemoSignatureSharedAcrossHoverIDs(t *testing.T) {
 	resetHoverCache()
 
-	styled := internTestStyled(t, `.u:hover{color:red}`, `<div id="panel"><button class="u" id="a">A</button></div>`)
+	styled := internTestStyled(t, `<div id="panel"><button class="u" id="a">A</button></div>`)
 	entry := cachedHoverList(styled.sheets)
 	idx, pseudo := internTestLocalSelector(t, entry)
 	node := internTestNodeByID(t, styled.root, "a")
@@ -155,6 +156,8 @@ func TestHoverMemoSignatureSharedAcrossHoverIDs(t *testing.T) {
 }
 
 func TestHoverAttrKeyNeverAliasesDistinctMaps(t *testing.T) {
+	t.Parallel()
+
 	maps := []map[string]string{
 		{"id": "a"},
 		{"id": "b"},
@@ -192,10 +195,11 @@ func TestHoverAttrKeyNeverAliasesDistinctMaps(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // resets the process-wide hover cache
 func TestHoverMemoDistinctAttrsStayDistinct(t *testing.T) {
 	resetHoverCache()
 
-	styled := internTestStyled(t, `.u:hover{color:red}`,
+	styled := internTestStyled(t,
 		`<div id="panel"><button class="u" id="a">A</button><button class="u" id="b">B</button></div>`)
 	entry := cachedHoverList(styled.sheets)
 	idx, pseudo := internTestLocalSelector(t, entry)
@@ -216,10 +220,11 @@ func TestHoverMemoDistinctAttrsStayDistinct(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // resets the process-wide hover cache
 func TestHoverMemoCapClearStaysBoundedAndCorrect(t *testing.T) {
 	resetHoverCache()
 
-	styled := internTestStyled(t, `.u:hover{color:red}`, `<div id="panel"><button class="u" id="a">A</button></div>`)
+	styled := internTestStyled(t, `<div id="panel"><button class="u" id="a">A</button></div>`)
 	entry := cachedHoverList(styled.sheets)
 	idx, pseudo := internTestLocalSelector(t, entry)
 	node := internTestNodeByID(t, styled.root, "a")

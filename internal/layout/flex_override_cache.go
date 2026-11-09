@@ -13,6 +13,10 @@ import (
 // distinct forced sizes cannot grow the map with its item count.
 const flexOverrideMaxEntries = 256
 
+// flexOverrideMapInitCap sizes a fresh flex override map so one container's
+// repeated items do not grow it entry by entry.
+const flexOverrideMapInitCap = 16
+
 // flexStyleOverrideFlags records which force steps produced one override.
 // The row and logical-axis paths force the main size first and the cross size
 // second; the column path forces the cross size first and the measured cross
@@ -119,7 +123,7 @@ func (e *engine) flexBaseStyleStable(node *html.Node, style *ResolvedStyle) bool
 //nolint:gochecknoglobals // global pool for reusable flex style override maps
 var flexOverrideMapPool = sync.Pool{
 	New: func() any {
-		return make(map[flexStyleOverrideKey]*ResolvedStyle, 16)
+		return make(map[flexStyleOverrideKey]*ResolvedStyle, flexOverrideMapInitCap)
 	},
 }
 
@@ -127,20 +131,9 @@ var flexOverrideMapPool = sync.Pool{
 // until finalizeResult adopts it, ensuring speculative measure scopes that
 // unwind e.styleChunks cannot invalidate cached overrides.
 func (e *engine) allocFlexOverrideStyle(base *ResolvedStyle) *ResolvedStyle {
-	if len(e.overrideStyleChunks) == 0 || len(*e.overrideStyleChunks[len(e.overrideStyleChunks)-1]) == cap(*e.overrideStyleChunks[len(e.overrideStyleChunks)-1]) {
-		if len(e.spareChunks) > 0 {
-			last := len(e.spareChunks) - 1
-			spare := e.spareChunks[last]
-			*spare = (*spare)[:0]
-			e.spareChunks = e.spareChunks[:last]
-			e.overrideStyleChunks = append(e.overrideStyleChunks, spare)
-		} else {
-			e.overrideStyleChunks = append(e.overrideStyleChunks, getStyleChunk())
-		}
-	}
+	e.nextStyleChunk(&e.overrideStyleChunks)
 
-	last := len(e.overrideStyleChunks) - 1
-	chunk := e.overrideStyleChunks[last]
+	chunk := e.overrideStyleChunks[len(e.overrideStyleChunks)-1]
 
 	if base != nil {
 		*chunk = append(*chunk, *base)
@@ -269,7 +262,7 @@ func (e *engine) storeFlexStyleOverride(key flexStyleOverrideKey, override *Reso
 			clear(m)
 			e.flexStyleOverrides = m
 		} else {
-			e.flexStyleOverrides = make(map[flexStyleOverrideKey]*ResolvedStyle, 16)
+			e.flexStyleOverrides = make(map[flexStyleOverrideKey]*ResolvedStyle, flexOverrideMapInitCap)
 		}
 	} else if len(e.flexStyleOverrides) >= flexOverrideMaxEntries {
 		return

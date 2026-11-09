@@ -213,7 +213,6 @@ func TestBehaviorRowRuleMulticolSkipped(t *testing.T) {
 	}
 }
 
-//nolint:wsl // the line list is the assertion subject
 func TestBehaviorRowRuleColorBlue(t *testing.T) {
 	t.Parallel()
 
@@ -228,7 +227,7 @@ func TestBehaviorRowRuleColorBlue(t *testing.T) {
 	}
 }
 
-//nolint:wsl,lll // the two visibility fixtures are one comparison
+//nolint:lll // the two visibility fixtures are one comparison
 func TestBehaviorRowRuleVisibilityAround(t *testing.T) {
 	t.Parallel()
 
@@ -243,7 +242,6 @@ func TestBehaviorRowRuleVisibilityAround(t *testing.T) {
 	}
 }
 
-//nolint:wsl // the line list is the assertion subject
 func TestBehaviorRowRuleInsetCap(t *testing.T) {
 	t.Parallel()
 
@@ -271,7 +269,6 @@ func TestBehaviorRowRuleBreakNoneStillPaints(t *testing.T) {
 	}
 }
 
-//nolint:cyclop,wsl // grid and multicol are checked in one fixture
 func TestBehaviorRulePaintsBothAxes(t *testing.T) {
 	t.Parallel()
 
@@ -311,7 +308,6 @@ func TestBehaviorRulePaintsBothAxes(t *testing.T) {
 	}
 }
 
-//nolint:wsl // the used style follows the line check
 func TestBehaviorRuleLonghandsBothAxes(t *testing.T) {
 	t.Parallel()
 
@@ -328,7 +324,6 @@ func TestBehaviorRuleLonghandsBothAxes(t *testing.T) {
 	}
 }
 
-//nolint:wsl // the two overlap orders are one comparison
 func TestBehaviorRuleOverlapOrdersLines(t *testing.T) {
 	t.Parallel()
 

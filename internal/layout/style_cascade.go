@@ -78,44 +78,12 @@ func internalCustomPropWriters(raw map[string]string) bool {
 func mergeCustomProps(parentProps, raw map[string]string, registered map[string]css.PropertyRule) map[string]string {
 	declared := declaredCustomProps(raw)
 
-	if len(declared) == 0 && len(registered) == 0 {
-		if len(parentProps) > 0 && internalCustomPropWriters(raw) {
-			return maps.Clone(parentProps)
-		}
-
-		return parentProps
-	}
-
 	if len(declared) == 0 {
-		if registeredPropsNoop(parentProps, registered) {
-			if len(parentProps) > 0 && internalCustomPropWriters(raw) {
-				return maps.Clone(parentProps)
-			}
-
-			return parentProps
-		}
-
-		out := make(map[string]string, len(parentProps)+len(registered))
-		for name, value := range parentProps {
-			out[name] = value
-		}
-
-		applyRegisteredProps(out, registered, nil)
-
-		return out
+		return mergeRegisteredOnly(parentProps, raw, registered)
 	}
 
 	if len(registered) == 0 && !customValuesNeedResolve(parentProps) && !customValuesNeedResolve(declared) {
-		out := make(map[string]string, len(parentProps)+len(declared))
-		for name, value := range parentProps {
-			out[name] = value
-		}
-
-		for name, value := range declared {
-			out[name] = value
-		}
-
-		return out
+		return overlayCustomProps(parentProps, declared)
 	}
 
 	resolved := css.ResolveCustomProps(declared, parentProps)
@@ -124,6 +92,53 @@ func mergeCustomProps(parentProps, raw map[string]string, registered map[string]
 	}
 
 	return resolved
+}
+
+// mergeRegisteredOnly merges parent custom properties with @property
+// registrations when the element declares no custom properties of its own.
+// The parent map is shared until an actual write.
+func mergeRegisteredOnly(
+	parentProps, raw map[string]string, registered map[string]css.PropertyRule,
+) map[string]string {
+	if len(registered) == 0 {
+		if len(parentProps) > 0 && internalCustomPropWriters(raw) {
+			return maps.Clone(parentProps)
+		}
+
+		return parentProps
+	}
+
+	if registeredPropsNoop(parentProps, registered) {
+		if len(parentProps) > 0 && internalCustomPropWriters(raw) {
+			return maps.Clone(parentProps)
+		}
+
+		return parentProps
+	}
+
+	out := make(map[string]string, len(parentProps)+len(registered))
+	for name, value := range parentProps {
+		out[name] = value
+	}
+
+	applyRegisteredProps(out, registered, nil)
+
+	return out
+}
+
+// overlayCustomProps copies parentProps and overlays the declared custom
+// properties.
+func overlayCustomProps(parentProps, declared map[string]string) map[string]string {
+	out := make(map[string]string, len(parentProps)+len(declared))
+	for name, value := range parentProps {
+		out[name] = value
+	}
+
+	for name, value := range declared {
+		out[name] = value
+	}
+
+	return out
 }
 
 // registeredPropsNoop reports whether folding registered @property rules over
@@ -596,13 +611,6 @@ func inheritGapBProps(dst *ResolvedStyle, parent *ResolvedStyle, raw map[string]
 	}
 }
 
-// ruleIndex returns the pass's selector index, reusing the cross-layout
-// bundle for this context's sheets. A context with no sheets has nothing to
-// index.
-func (ctx *styleContext) ruleIndex() *ruleIndex {
-	return ctx.sharedRuleIndex()
-}
-
 // selectorMatches reports whether sel matches node, using the pseudo-shape
 // matcher when pe is non-empty and the cascade's runtime state.
 func (ctx *styleContext) selectorMatches(sel css.Selector, node *html.Node, pe string) bool {
@@ -718,7 +726,7 @@ func inlineDeclParseCountForTest() uint64 {
 
 // supportsProbeStatsForTest reports full @supports evaluations (cache
 // misses) and hits.
-func supportsProbeStatsForTest() (evals, hits uint64) {
+func supportsProbeStatsForTest() (uint64, uint64) {
 	supportsMemoMu.RLock()
 	defer supportsMemoMu.RUnlock()
 
@@ -2059,8 +2067,8 @@ func remapWebkitValue(prop, value string) string {
 			return fxCenter
 		case "stretch":
 			return fxStretch
-		case "baseline":
-			return "baseline"
+		case baselineName:
+			return baselineName
 		default:
 			return low
 		}
@@ -2154,6 +2162,8 @@ func resolveStylesRetainedWithContext(
 // ancestor chain and parent fingerprint against the live tree, so an
 // inherited-value change through a clean child is impossible: the parent
 // fingerprint comparison fails first and the child re-resolves.
+//
+//nolint:funlen // one retained walk keeps the switch and recursion together
 func retainedIncremental(
 	ctx context.Context, root *html.Node, opts Options,
 	dirtyIDs map[string]struct{}, ret *styleRetainer, inputs styleRetainInputs, total int,
@@ -2186,45 +2196,29 @@ func retainedIncremental(
 
 		switch node.Type {
 		case html.ElementNode:
-			id := node.Attribute("id")
-			if id != "" {
-				if _, hit := dirtyIDs[id]; hit {
-					dirty = true
-				}
-			}
+			var hit bool
 
-			if id != "" && !dirty {
-				if entry, ok := ret.lookup(id); ok &&
-					entry.chain == retainChain(node) &&
-					entry.parentFP == retainStyleFP(parent) {
-					style = entry.style
-					reused++
-				}
+			style, dirty, hit = retainedElementStyle(node, parent, dirtyIDs, ret, dirty)
+			if hit {
+				reused++
 			}
 
 			if style == nil {
 				style = resolveElementStyleMemo(node, sctx, parent, &store)
 			}
 		case html.TextNode:
-			style = parent
-			if style == nil {
-				style = &defaultTextStyle
-			}
+			style = inheritedTextStyle(parent)
 		case html.CommentNode, html.DoctypeNode:
 			style = &zeroResolvedStyle
+		case html.NodeUnknown:
+			// Parsed trees never produce an unknown node, so it carries no
+			// retained style.
+			break
 		}
 
 		out[node] = style
 
-		for _, child := range node.Children {
-			if child.Type == html.TextNode {
-				out[child] = style
-
-				continue
-			}
-
-			walk(child, style, dirty)
-		}
+		walkRetainedChildren(node, style, dirty, out, walk)
 	}
 
 	walk(root, nil, false)
@@ -2237,4 +2231,59 @@ func retainedIncremental(
 	ret.noteRetainedResolve(reused)
 
 	return out, nil
+}
+
+// inheritedTextStyle is the style a text node inherits: its parent's, or the
+// default text style at the root.
+func inheritedTextStyle(parent *ResolvedStyle) *ResolvedStyle {
+	if parent == nil {
+		return &defaultTextStyle
+	}
+
+	return parent
+}
+
+// walkRetainedChildren records every text child under the parent style and
+// descends into every other child through walk.
+func walkRetainedChildren(
+	node *html.Node, style *ResolvedStyle, dirty bool, out map[*html.Node]*ResolvedStyle,
+	walk func(node *html.Node, parent *ResolvedStyle, inheritedDirty bool),
+) {
+	for _, child := range node.Children {
+		if child.Type == html.TextNode {
+			out[child] = style
+
+			continue
+		}
+
+		walk(child, style, dirty)
+	}
+}
+
+// retainedElementStyle returns the retained style for one element node and
+// updates its dirty flag. hit reports that a retained entry passed the id,
+// chain, and parent-fingerprint checks; a nil style means the element must
+// still re-resolve.
+func retainedElementStyle(
+	node *html.Node, parent *ResolvedStyle, dirtyIDs map[string]struct{}, ret *styleRetainer, inheritedDirty bool,
+) (*ResolvedStyle, bool, bool) {
+	dirty := inheritedDirty
+	elementID := node.Attribute("id")
+
+	if elementID != "" {
+		if _, hit := dirtyIDs[elementID]; hit {
+			dirty = true
+		}
+	}
+
+	if elementID == "" || dirty {
+		return nil, dirty, false
+	}
+
+	entry, ok := ret.lookup(elementID)
+	if !ok || entry.chain != retainChain(node) || entry.parentFP != retainStyleFP(parent) {
+		return nil, dirty, false
+	}
+
+	return entry.style, dirty, true
 }

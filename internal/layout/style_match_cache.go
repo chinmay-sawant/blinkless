@@ -13,6 +13,10 @@ import (
 
 const maxSingleAttrCacheSize = 1024
 
+// classAttrName is the HTML class attribute name, lower-case in the parser's
+// attribute map.
+const classAttrName = "class"
+
 // maxSharedCompiledEntries bounds the cross-layout bundle map. Layouts that
 // cycle through more distinct sheet sets than this simply rebuild the oldest
 // work; holders keep their own bundle pointer, so eviction never invalidates
@@ -112,6 +116,7 @@ func sharedCompiledFor(sheets []*css.Stylesheet) *sharedCompiled {
 	if len(sharedCompiledBy) >= maxSharedCompiledEntries {
 		for k := range sharedCompiledBy {
 			delete(sharedCompiledBy, k)
+
 			break
 		}
 	}
@@ -192,27 +197,28 @@ func (ctx *styleContext) matchSignature(node *html.Node, pseudoElem string) matc
 // map after the first occurrence instead of taking the shared cache lock on
 // every row of a table.
 func (ctx *styleContext) canonicalAttrKey(attrs map[string]string) string {
-	if ctx == nil {
+	if ctx == nil || len(attrs) != 1 {
 		return canonicalAttrKey(attrs)
 	}
 
-	if len(attrs) == 1 {
-		if value, ok := attrs["class"]; ok {
-			if key, cached := ctx.classKeys[value]; cached {
-				return key
-			}
-
-			key := canonicalAttrKey(attrs)
-			if ctx.classKeys == nil {
-				ctx.classKeys = make(map[string]string)
-			}
-			ctx.classKeys[value] = key
-
-			return key
-		}
+	value, ok := attrs[classAttrName]
+	if !ok {
+		return canonicalAttrKey(attrs)
 	}
 
-	return canonicalAttrKey(attrs)
+	if key, cached := ctx.classKeys[value]; cached {
+		return key
+	}
+
+	key := canonicalAttrKey(attrs)
+
+	if ctx.classKeys == nil {
+		ctx.classKeys = make(map[string]string)
+	}
+
+	ctx.classKeys[value] = key
+
+	return key
 }
 
 // matchTag interns the namespaced tag for one cascade pass. Element probes
@@ -235,44 +241,42 @@ func (ctx *styleContext) matchTag(node *html.Node) string {
 	}
 
 	if bundle := sharedCompiledFor(ctx.sheets); bundle != nil {
-		bundle.mu.RLock()
-		interned, ok := bundle.tags[lowered]
-		bundle.mu.RUnlock()
-
-		if ok {
-			if ctx.matchTags == nil {
-				ctx.matchTags = make(map[string]string)
-			}
-
-			ctx.matchTags[lowered] = interned
-
-			return interned
-		}
-
-		tag := "html\x00" + lowered
-
-		bundle.mu.Lock()
-		if existing, ok := bundle.tags[lowered]; ok {
-			tag = existing
-		} else {
-			bundle.tags[lowered] = tag
-		}
-		bundle.mu.Unlock()
-
-		if ctx.matchTags == nil {
-			ctx.matchTags = make(map[string]string)
-		}
-
-		ctx.matchTags[lowered] = tag
-
-		return tag
+		return ctx.internBundleTag(bundle, lowered)
 	}
 
+	return ctx.storeMatchTag(lowered, "html\x00"+lowered)
+}
+
+// internBundleTag resolves one lowercased HTML tag through the shared bundle,
+// storing the canonical copy on first sight and caching it on the pass.
+func (ctx *styleContext) internBundleTag(bundle *sharedCompiled, lowered string) string {
+	bundle.mu.RLock()
+	interned, ok := bundle.tags[lowered]
+	bundle.mu.RUnlock()
+
+	if ok {
+		return ctx.storeMatchTag(lowered, interned)
+	}
+
+	tag := "html\x00" + lowered
+
+	bundle.mu.Lock()
+	if existing, ok := bundle.tags[lowered]; ok {
+		tag = existing
+	} else {
+		bundle.tags[lowered] = tag
+	}
+	bundle.mu.Unlock()
+
+	return ctx.storeMatchTag(lowered, tag)
+}
+
+// storeMatchTag caches the canonical tag under lowered for this pass.
+func (ctx *styleContext) storeMatchTag(lowered, tag string) string {
 	if ctx.matchTags == nil {
 		ctx.matchTags = make(map[string]string)
 	}
 
-	tag := "html\x00" + lowered
 	ctx.matchTags[lowered] = tag
 
 	return tag
@@ -290,7 +294,7 @@ func canonicalAttrKey(attrs map[string]string) string {
 		return ""
 	case 1:
 		for name, value := range attrs {
-			if name == "class" {
+			if name == classAttrName {
 				singleAttrCacheMu.RLock()
 				cached, ok := singleAttrCache[value]
 				singleAttrCacheMu.RUnlock()
@@ -313,7 +317,7 @@ func canonicalAttrKey(attrs map[string]string) string {
 			out.WriteByte(';')
 			res := out.String()
 
-			if name == "class" {
+			if name == classAttrName {
 				singleAttrCacheMu.Lock()
 				if len(singleAttrCache) < maxSingleAttrCacheSize {
 					singleAttrCache[value] = res

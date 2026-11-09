@@ -1541,13 +1541,13 @@ func foldOpacityCovered(ops []Op, from, to int, base float64) {
 
 // applyExclusiveOpacity multiplies one op's emission alpha by the element
 // base, the shared body of the mask and flat exclusive passes.
-func applyExclusiveOpacity(op *Op, base float64) {
+func applyExclusiveOpacity(operation *Op, base float64) {
 	opacity := base
-	if op.PaintOpacity > 0 && op.PaintOpacity < 1 {
-		opacity *= op.PaintOpacity
+	if operation.PaintOpacity > 0 && operation.PaintOpacity < 1 {
+		opacity *= operation.PaintOpacity
 	}
 
-	op.setPaintOpacity(opacity)
+	operation.setPaintOpacity(opacity)
 }
 
 // applyCoveredOpacity folds the element base through one descendant op, the

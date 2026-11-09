@@ -44,6 +44,8 @@ func layoutWiringDoc(t *testing.T) *Result {
 
 // TestWiringGoldenParity pins the pre-edit layout output for the 300-row
 // fixture: the box-pool rent must not move a single operation.
+//
+//nolint:paralleltest // shares the process-wide box pools
 func TestWiringGoldenParity(t *testing.T) {
 	res := layoutWiringDoc(t)
 
@@ -79,6 +81,8 @@ func TestWiringGoldenParity(t *testing.T) {
 
 // TestWiringPoolBounds builds the full fixture repeatedly and requires every
 // retained pool count to stay within its documented cap.
+//
+//nolint:paralleltest // asserts process-wide pool counts
 func TestWiringPoolBounds(t *testing.T) {
 	for range 3 {
 		layoutWiringDoc(t)
@@ -171,6 +175,8 @@ func wiringFindElement(t *testing.T, root *html.Node, id string) *html.Node {
 // hits: same height, one entry, and the second call replays the same sticky
 // and group counter deltas the first build consumed. The fixture uses inline
 // styles and no sheets so the shared selector bundle cannot alias it.
+//
+//nolint:paralleltest // shares the process-wide block intrinsic memo
 func TestWiringBlockMemoHit(t *testing.T) {
 	const src = `<div id="b" style="width:400pt">` +
 		`<div style="position:sticky;top:0">sticky header text</div>` +

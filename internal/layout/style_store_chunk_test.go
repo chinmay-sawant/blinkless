@@ -63,6 +63,8 @@ func TestStyleStoreSharesDuplicateStyles(t *testing.T) {
 // TestStyleStoreChunkFreeListChannelsBoundedAndRecycled tests that putStyleStoreChunk
 // zeroes lingering records and routes chunks to the segregated free channels, and
 // that drainStyleStoreChunkPools drains them cleanly.
+//
+//nolint:paralleltest // drains the process-wide chunk free lists
 func TestStyleStoreChunkFreeListChannelsBoundedAndRecycled(t *testing.T) {
 	drainStyleStoreChunkPools()
 	defer drainStyleStoreChunkPools()
@@ -115,6 +117,8 @@ func TestStyleStoreChunkFreeListChannelsBoundedAndRecycled(t *testing.T) {
 
 // TestResultReleaseRecyclesStoreChunks verifies that Result.Release returns
 // storeChunks to the free lists.
+//
+//nolint:paralleltest // drains the process-wide chunk free lists
 func TestResultReleaseRecyclesStoreChunks(t *testing.T) {
 	drainStyleStoreChunkPools()
 	defer drainStyleStoreChunkPools()
@@ -139,6 +143,8 @@ func TestResultReleaseRecyclesStoreChunks(t *testing.T) {
 // TestSubtreeStyleStoreRejectedChunksTransferredToResult verifies that when a
 // store is rejected from the subtree store pool, its chunks are transferred to
 // prev.storeChunks rather than leaked.
+//
+//nolint:paralleltest // uses the process-wide subtree store pool
 func TestSubtreeStyleStoreRejectedChunksTransferredToResult(t *testing.T) {
 	prev := &Result{}
 	store := &styleStore{}

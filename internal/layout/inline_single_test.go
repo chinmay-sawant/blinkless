@@ -1,7 +1,6 @@
 package layout
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -60,7 +59,7 @@ func newInlineSingleRunEngine(t *testing.T, src, cssText string) (*engine, *html
 	}
 
 	opts := Options{Width: testViewport, Height: 800, Sheets: sheets}
-	eng := newEngine(context.Background(), opts, faces, faces.Regular, styles, nil, nil)
+	eng := newEngine(t.Context(), opts, faces, faces.Regular, styles, nil, nil)
 
 	return eng, root
 }
@@ -84,9 +83,10 @@ func TestSingleTextRunFastPathMatchesGeneric(t *testing.T) {
 		wantFast bool
 	}{
 		{
-			name:     "plain-cell-with-padding-border-and-background",
-			body:     `<div class="cell"><span class="label">R0C0</span></div>`,
-			css:      `.cell{font-size:10pt;color:#223344;padding:1px 4px;border:1px solid #ccc;background-color:#f8f8f8}.label{padding:1px 2px}`,
+			name: "plain-cell-with-padding-border-and-background",
+			body: `<div class="cell"><span class="label">R0C0</span></div>`,
+			css: `.cell{font-size:10pt;color:#223344;padding:1px 4px;border:1px solid #ccc;` +
+				`background-color:#f8f8f8}.label{padding:1px 2px}`,
 			contentW: 180,
 			wantFast: true,
 		},

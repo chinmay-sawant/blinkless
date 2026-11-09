@@ -24,7 +24,8 @@ func invoiceScalePage() string {
 		.row { border-bottom: 1px solid #ddd; padding: 2px 0 }
 		.cell { color: #223344; padding: 1px 4px; border: 1px solid #ccc; background-color: #f8f8f8 }
 		.total { color: #445566; text-align: right }
-	</style><div class="invoice"><div class="header"><span class="title">Invoice INV-2026-001</span></div><div class="table">`)
+	</style><div class="invoice"><div class="header"><span class="title">` +
+		`Invoice INV-2026-001</span></div><div class="table">`)
 
 	for r := range 1000 {
 		page.WriteString(`<div class="row">`)

@@ -436,7 +436,6 @@ func TestBehaviorMaskGradientBytesOnGroup(t *testing.T) {
 	assertGradientMaskRaster(t, "linear-gradient(red, blue)")
 }
 
-//nolint:wsl // the image provider and the layout result stay in one test
 func TestBehaviorMaskImageSetPicks1x(t *testing.T) {
 	t.Parallel()
 
@@ -477,7 +476,6 @@ func TestBehaviorMaskImageSetPicks1x(t *testing.T) {
 	}
 }
 
-//nolint:wsl // the group read follows the layout call
 func TestBehaviorMaskImageSetGradientCandidate(t *testing.T) {
 	t.Parallel()
 
@@ -493,7 +491,6 @@ func TestBehaviorMaskImageSetGradientCandidate(t *testing.T) {
 	}
 }
 
-//nolint:wsl // the style read follows resolveStyles
 func TestBehaviorMaskImageSetEmptyDoesNotReplace(t *testing.T) {
 	t.Parallel()
 
@@ -677,7 +674,6 @@ func layoutGradientMaskBox(t *testing.T, maskImage string) *Result {
 		`<div id="masked" style="`+style+`"></div></body></html>`)
 }
 
-//nolint:cyclop // one helper checks bytes, size, and the unmasked twin
 func assertGradientMaskRaster(t *testing.T, gradient string) {
 	t.Helper()
 

@@ -108,7 +108,13 @@ type blockIntrinsicMemo struct {
 
 // newBlockIntrinsicMemo returns a memo with the default bound.
 func newBlockIntrinsicMemo() *blockIntrinsicMemo {
-	return &blockIntrinsicMemo{max: blockIntrinsicMemoCap}
+	return &blockIntrinsicMemo{
+		mu:      sync.Mutex{},
+		entries: nil,
+		order:   nil,
+		max:     blockIntrinsicMemoCap,
+		bypass:  false,
+	}
 }
 
 // newBlockIntrinsicMemoWithCap returns a memo bounded to maxEntries keys.
@@ -119,7 +125,13 @@ func newBlockIntrinsicMemoWithCap(maxEntries int) *blockIntrinsicMemo {
 		maxEntries = blockIntrinsicMemoCap
 	}
 
-	return &blockIntrinsicMemo{max: maxEntries}
+	return &blockIntrinsicMemo{
+		mu:      sync.Mutex{},
+		entries: nil,
+		order:   nil,
+		max:     maxEntries,
+		bypass:  false,
+	}
 }
 
 // blockIntrinsicWidthBits normalizes an available width for map keys.
@@ -139,7 +151,7 @@ func blockIntrinsicWidthBits(width float64) (uint64, bool) {
 
 // makeBlockIntrinsicKey builds the memo key for a measurement. ok is false
 // when the width is uncacheable, and that measurement must run uncached.
-func makeBlockIntrinsicKey(styleFP, contentFP uint64, width float64) (key blockIntrinsicKey, ok bool) {
+func makeBlockIntrinsicKey(styleFP, contentFP uint64, width float64) (blockIntrinsicKey, bool) {
 	bits, valid := blockIntrinsicWidthBits(width)
 	if !valid {
 		return blockIntrinsicKey{}, false //nolint:exhaustruct // zero key means uncacheable
@@ -185,7 +197,7 @@ func (m *blockIntrinsicMemo) Store(styleFP, contentFP uint64, width, height floa
 		return
 	}
 
-	if math.IsNaN(height) || math.IsInf(height, 0) || height < 0 {
+	if !blockIntrinsicHeightOK(height) {
 		return
 	}
 
@@ -203,16 +215,17 @@ func (m *blockIntrinsicMemo) Store(styleFP, contentFP uint64, width, height floa
 
 	if _, exists := m.entries[key]; exists {
 		m.entries[key] = blockIntrinsicResult{height: height}
+
 		return
 	}
 
-	max := m.max
-	if max <= 0 {
-		max = blockIntrinsicMemoCap
-		m.max = max
+	limit := m.max
+	if limit <= 0 {
+		limit = blockIntrinsicMemoCap
+		m.max = limit
 	}
 
-	if len(m.order) >= max {
+	if len(m.order) >= limit {
 		oldest := m.order[0]
 		delete(m.entries, oldest)
 		m.order = m.order[1:]
@@ -220,6 +233,12 @@ func (m *blockIntrinsicMemo) Store(styleFP, contentFP uint64, width, height floa
 
 	m.entries[key] = blockIntrinsicResult{height: height}
 	m.order = append(m.order, key)
+}
+
+// blockIntrinsicHeightOK reports whether height may be cached: a stored
+// measurement is finite and non-negative.
+func blockIntrinsicHeightOK(height float64) bool {
+	return !math.IsNaN(height) && !math.IsInf(height, 0) && height >= 0
 }
 
 // Len reports the number of cached entries.

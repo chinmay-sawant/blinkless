@@ -1861,13 +1861,13 @@ var uaDecls = map[string][]css.Declaration{ //nolint:gochecknoglobals // static 
 		{Prop: "display", Value: cssDisplayNone}, //nolint:exhaustruct // intentional zero fields
 	},
 	"textarea": {
-		{Prop: "display", Value: "inline-block"},     //nolint:exhaustruct // intentional zero fields
-		{Prop: "vertical-align", Value: "baseline"},  //nolint:exhaustruct // intentional zero fields
-		{Prop: "white-space", Value: "pre-wrap"},     //nolint:exhaustruct // intentional zero fields
-		{Prop: "font-family", Value: "monospace"},    //nolint:exhaustruct // intentional zero fields
-		{Prop: "padding", Value: "2px"},              //nolint:exhaustruct // intentional zero fields
-		{Prop: "border", Value: "1px solid #767676"}, //nolint:exhaustruct // intentional zero fields
-		{Prop: "background-color", Value: "#ffffff"}, //nolint:exhaustruct // intentional zero fields
+		{Prop: "display", Value: "inline-block"},      //nolint:exhaustruct // intentional zero fields
+		{Prop: "vertical-align", Value: baselineName}, //nolint:exhaustruct // intentional zero fields
+		{Prop: "white-space", Value: "pre-wrap"},      //nolint:exhaustruct // intentional zero fields
+		{Prop: "font-family", Value: "monospace"},     //nolint:exhaustruct // intentional zero fields
+		{Prop: "padding", Value: "2px"},               //nolint:exhaustruct // intentional zero fields
+		{Prop: "border", Value: "1px solid #767676"},  //nolint:exhaustruct // intentional zero fields
+		{Prop: "background-color", Value: "#ffffff"},  //nolint:exhaustruct // intentional zero fields
 	},
 	"br": {
 		{Prop: "display", Value: "block"}, //nolint:exhaustruct // intentional zero fields

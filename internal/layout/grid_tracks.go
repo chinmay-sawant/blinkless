@@ -10,8 +10,8 @@ import (
 
 //nolint:gochecknoglobals // pooled scratch and memo state, mirroring box_alloc.go
 var (
-	gridTrackDefPool = sync.Pool{New: func() any { return make([]gridTrackDef, 0, 8) }}
-	gridIntPool      = sync.Pool{New: func() any { return make([]int, 0, 16) }}
+	gridTrackDefPool holderPool[gridTrackDef]
+	gridIntPool      holderPool[int]
 	trackKidMemoMu   sync.Mutex
 	trackKidMemo     = make(map[trackKidKey]trackKidVal)
 	trackIntrHits    atomic.Int64
@@ -19,10 +19,16 @@ var (
 	trackIntrBypass  atomic.Bool
 )
 
-// maxTrackKidMemoEntries bounds the shared per-kid intrinsics memo. Style
-// pointers are per-run, so entries from an old run never match a new one;
-// the bound keeps one pathological document from pinning nodes forever.
-const maxTrackKidMemoEntries = 4096
+const (
+	// maxTrackKidMemoEntries bounds the shared per-kid intrinsics memo. Style
+	// pointers are per-run, so entries from an old run never match a new one;
+	// the bound keeps one pathological document from pinning nodes forever.
+	maxTrackKidMemoEntries = 4096
+	// gridTrackDefPoolCap is the initial track-def scratch capacity.
+	gridTrackDefPoolCap = 8
+	// gridIntPoolCap is the initial int scratch capacity.
+	gridIntPoolCap = 16
+)
 
 // trackKidKey identifies one child's track contribution: node pins the
 // subtree, style pins the resolved style identity, axis separates the
@@ -40,40 +46,40 @@ type trackKidVal struct {
 	max float64
 }
 
-// getGridTrackDefs rents a zero-length track-def scratch.
-func getGridTrackDefs(n int) []gridTrackDef {
-	if v, ok := gridTrackDefPool.Get().([]gridTrackDef); ok && cap(v) >= n {
-		return v[:0]
+// getGridTrackDefs rents a zero-length track-def scratch with room for count.
+func getGridTrackDefs(count int) []gridTrackDef {
+	if defs, ok := gridTrackDefPool.takeAtLeast(count); ok {
+		return defs[:0]
 	}
 
-	return make([]gridTrackDef, 0, n)
+	return make([]gridTrackDef, 0, max(count, gridTrackDefPoolCap))
 }
 
 // putGridTrackDefs returns a track-def scratch. Defs hold no pointers.
-func putGridTrackDefs(s []gridTrackDef) {
-	if cap(s) == 0 || cap(s) > maxPooledFlexScratch {
+func putGridTrackDefs(defs []gridTrackDef) {
+	if cap(defs) == 0 || cap(defs) > maxPooledFlexScratch {
 		return
 	}
 
-	gridTrackDefPool.Put(s[:0])
+	gridTrackDefPool.put(defs[:0])
 }
 
 // getGridInts rents a zero-length int scratch for track distribution.
-func getGridInts(n int) []int {
-	if v, ok := gridIntPool.Get().([]int); ok && cap(v) >= n {
-		return v[:0]
+func getGridInts(count int) []int {
+	if values, ok := gridIntPool.takeAtLeast(count); ok {
+		return values[:0]
 	}
 
-	return make([]int, 0, n)
+	return make([]int, 0, max(count, gridIntPoolCap))
 }
 
 // putGridInts returns an int scratch.
-func putGridInts(s []int) {
-	if cap(s) == 0 || cap(s) > maxPooledFlexScratch {
+func putGridInts(values []int) {
+	if cap(values) == 0 || cap(values) > maxPooledFlexScratch {
 		return
 	}
 
-	gridIntPool.Put(s[:0])
+	gridIntPool.put(values[:0])
 }
 
 // resolveGridRows sizes the row tracks, returning the final row count and
@@ -100,6 +106,7 @@ func resolveGridRows(
 		if len(rowDefs) < numRows {
 			padded := getGridTrackDefs(numRows)
 			padded = append(padded, rowDefs...)
+
 			for len(padded) < numRows {
 				padded = append(padded, gridAutoTrackDef(sty.GridAutoRows))
 			}
@@ -257,9 +264,9 @@ func measureTrackIntrinsics(eng *engine, kids []*html.Node, nTracks int, axisCol
 // shrink-to-fit ancestors remeasure too; the contribution is a pure function
 // of the subtree and style for fixed fonts, so repeats hit instead of
 // rewalking text.
-func (eng *engine) trackKidContribution(kid *html.Node, axisColumns bool) (float64, float64) {
+func (e *engine) trackKidContribution(kid *html.Node, axisColumns bool) (float64, float64) {
 	if !trackIntrBypass.Load() {
-		key := trackKidKey{node: kid, style: eng.stylePtr(kid), axis: axisColumns}
+		key := trackKidKey{node: kid, style: e.stylePtr(kid), axis: axisColumns}
 
 		trackKidMemoMu.Lock()
 		cached, ok := trackKidMemo[key]
@@ -272,10 +279,10 @@ func (eng *engine) trackKidContribution(kid *html.Node, axisColumns bool) (float
 		}
 	}
 
-	minVal, maxVal := eng.trackKidContributionUncached(kid, axisColumns)
+	minVal, maxVal := e.trackKidContributionUncached(kid, axisColumns)
 
 	if !trackIntrBypass.Load() {
-		key := trackKidKey{node: kid, style: eng.stylePtr(kid), axis: axisColumns}
+		key := trackKidKey{node: kid, style: e.stylePtr(kid), axis: axisColumns}
 
 		trackKidMemoMu.Lock()
 		if len(trackKidMemo) < maxTrackKidMemoEntries {
@@ -291,23 +298,23 @@ func (eng *engine) trackKidContribution(kid *html.Node, axisColumns bool) (float
 // trackKidContributionUncached measures one child's min/max-content track
 // contribution. axisColumns=true measures widths; false measures preferred
 // heights.
-func (eng *engine) trackKidContributionUncached(kid *html.Node, axisColumns bool) (float64, float64) {
-	cstate := eng.stylePtr(kid)
+func (e *engine) trackKidContributionUncached(kid *html.Node, axisColumns bool) (float64, float64) {
+	cstate := e.stylePtr(kid)
 
 	if axisColumns {
 		// Column tracks need both contributions: the auto minimum of an
 		// fr track is min-content, while auto/max-content maxes grow to
 		// max-content. Using max-content for both sized 1fr tracks from
 		// their content instead of the equal free-space share (C2).
-		minVal, maxVal := eng.measureCellMinMax(kid, cstate)
+		minVal, maxVal := e.measureCellMinMax(kid, cstate)
 
 		return minVal, maxVal
 	}
 
 	// Height intrinsic: single-line text approximation via font size.
-	maxVal := eng.scalePt(cstate.FontSize) * textLineHeightFactor
-	maxVal += eng.scalePt(cstate.PaddingTop) + eng.scalePt(cstate.PaddingBottom) +
-		eng.scalePt(cstate.BorderTop.Width) + eng.scalePt(cstate.BorderBottom.Width)
+	maxVal := e.scalePt(cstate.FontSize) * textLineHeightFactor
+	maxVal += e.scalePt(cstate.PaddingTop) + e.scalePt(cstate.PaddingBottom) +
+		e.scalePt(cstate.BorderTop.Width) + e.scalePt(cstate.BorderBottom.Width)
 
 	return maxVal, maxVal
 }
@@ -513,6 +520,7 @@ func isAutoTrackKind(kind trackSizeKind) bool {
 // distributeAutoGridTracks shares leftover space equally among auto tracks.
 func distributeAutoGridTracks(defs []gridTrackDef, base, limit []float64, free, frSum float64) []float64 {
 	out := make([]float64, len(defs))
+
 	autoIdx := getGridInts(len(defs))
 	defer putGridInts(autoIdx)
 
@@ -570,8 +578,10 @@ func resolveGridTrackSizes(
 	// copies the result into out, so nothing escapes.
 	base := rentFloats(node)
 	defer returnFloats(base)
+
 	limit := rentFloats(node)
 	defer returnFloats(limit)
+
 	frCoef := rentFloats(node)
 	defer returnFloats(frCoef)
 	plan := gridTrackPlan{

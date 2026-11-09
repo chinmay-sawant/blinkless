@@ -201,28 +201,16 @@ func childCoverIntervals(boxNode *box, start, end int) []opInterval {
 	sorted := true
 
 	for _, child := range boxNode.children {
-		if child == nil || child.opEnd < child.opStart {
+		iv, ok := childCoverInterval(child, start, end)
+		if !ok {
 			continue
 		}
 
-		lo, hi := child.opStart, child.opEnd
-		if lo < start {
-			lo = start
-		}
-
-		if hi > end {
-			hi = end
-		}
-
-		if lo > hi {
-			continue
-		}
-
-		if len(ivs) > 0 && lo < ivs[len(ivs)-1].start {
+		if len(ivs) > 0 && iv.start < ivs[len(ivs)-1].start {
 			sorted = false
 		}
 
-		ivs = append(ivs, opInterval{start: lo, end: hi})
+		ivs = append(ivs, iv)
 	}
 
 	if len(ivs) == 0 {
@@ -231,14 +219,46 @@ func childCoverIntervals(boxNode *box, start, end int) []opInterval {
 
 	if !sorted {
 		sort.Slice(ivs, func(i, j int) bool {
-			if ivs[i].start != ivs[j].start {
-				return ivs[i].start < ivs[j].start
-			}
-
-			return ivs[i].end < ivs[j].end
+			return compareOpInterval(ivs[i], ivs[j]) < 0
 		})
 	}
 
+	return mergeCoverIntervals(ivs)
+}
+
+// childCoverInterval returns one child's op range clamped to [start, end], and
+// false when the child owns no op inside the window.
+func childCoverInterval(child *box, start, end int) (opInterval, bool) {
+	if child == nil || child.opEnd < child.opStart {
+		return opInterval{}, false //nolint:exhaustruct // zero interval means no range
+	}
+
+	lo, hi := child.opStart, child.opEnd
+	if lo < start {
+		lo = start
+	}
+
+	if hi > end {
+		hi = end
+	}
+
+	if lo > hi {
+		return opInterval{}, false //nolint:exhaustruct // zero interval means no range
+	}
+
+	return opInterval{start: lo, end: hi}, true
+}
+
+func compareOpInterval(left, right opInterval) int {
+	if left.start != right.start {
+		return left.start - right.start
+	}
+
+	return left.end - right.end
+}
+
+// mergeCoverIntervals merges overlapping or adjacent sorted ranges.
+func mergeCoverIntervals(ivs []opInterval) []opInterval {
 	merged := ivs[:1]
 
 	for _, iv := range ivs[1:] {
@@ -268,16 +288,8 @@ func (e *engine) clipExclusiveBoxOps(boxNode *box, active, combined *clipRect) {
 		return
 	}
 
-	var clip clipRect
-
-	clipAll := false
-
-	switch {
-	case active != nil:
-		clip, clipAll = *active, true
-	case combined != nil:
-		clip = *combined
-	default:
+	clip, clipAll, ok := exclusiveClip(active, combined)
+	if !ok {
 		return
 	}
 
@@ -303,6 +315,20 @@ func (e *engine) clipExclusiveBoxOps(boxNode *box, active, combined *clipRect) {
 	}
 
 	e.clipExclusiveRange(boxNode, pos, end, clip, clipAll)
+}
+
+// exclusiveClip picks the clip that applies to the box: an ancestor clip wins
+// over the box's own combined clip. The bool reports whether either clip is
+// present; clipAll says the clip also covers the box's chrome.
+func exclusiveClip(active, combined *clipRect) (clipRect, bool, bool) {
+	switch {
+	case active != nil:
+		return *active, true, true
+	case combined != nil:
+		return *combined, false, true
+	default:
+		return clipRect{}, false, false //nolint:exhaustruct // zero clip means no clip
+	}
 }
 
 // clipExclusiveRange clips one gap of exclusively owned ops.
@@ -346,19 +372,7 @@ func lineOnRectEdges(op *Op, x, y, w, h float64) bool {
 	}
 
 	if op.Kind == OpGridRun {
-		if op.Grid == nil {
-			return false
-		}
-
-		onEdge := false
-
-		op.forEachLine(func(line Op) {
-			if !onEdge && lineOnRectEdges(&line, x, y, w, h) {
-				onEdge = true
-			}
-		})
-
-		return onEdge
+		return gridLinesOnRectEdges(op, x, y, w, h)
 	}
 
 	if op.Kind != OpLine {
@@ -374,6 +388,24 @@ func lineOnRectEdges(op *Op, x, y, w, h float64) bool {
 	}
 
 	return false
+}
+
+// gridLinesOnRectEdges reports whether any line of a grid run lies on the
+// rect edges.
+func gridLinesOnRectEdges(op *Op, x, y, w, h float64) bool {
+	if op.Grid == nil {
+		return false
+	}
+
+	onEdge := false
+
+	op.forEachLine(func(line Op) {
+		if !onEdge && lineOnRectEdges(&line, x, y, w, h) {
+			onEdge = true
+		}
+	})
+
+	return onEdge
 }
 
 func horizontalOnRectEdges(op *Op, x, y, w, h float64) bool {

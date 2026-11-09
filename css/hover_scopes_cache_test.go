@@ -82,7 +82,7 @@ func hoverCacheReference(t *testing.T, styled *Document, previous string) ([]str
 	return outerHoverScopes(styled.root, scopes), true
 }
 
-func TestHoverCacheParityMultiHundred(t *testing.T) {
+func TestHoverCacheParityMultiHundred(t *testing.T) { //nolint:paralleltest // reads process-wide hover memo counters
 	resetHoverCache()
 
 	rules := `.inv-row:hover{color:red}.inv-alt:hover{color:blue}.inv-sel:hover{color:green}` +
@@ -96,14 +96,17 @@ func TestHoverCacheParityMultiHundred(t *testing.T) {
 		if !ok {
 			t.Fatalf("previous %q: HoverChangedScopes returned false", previous)
 		}
-		want, _ := hoverCacheReference(t, styled, previous)
+		want, ok := hoverCacheReference(t, styled, previous)
+		if !ok {
+			t.Fatalf("previous %q: reference walk was incomplete", previous)
+		}
 		if !slices.Equal(got, want) {
 			t.Fatalf("previous %q: scopes = %v, want %v", previous, got, want)
 		}
 	}
 }
 
-func TestHoverCacheSecondCallHitsMemo(t *testing.T) {
+func TestHoverCacheSecondCallHitsMemo(t *testing.T) { //nolint:paralleltest // reads process-wide hover memo counters
 	resetHoverCache()
 
 	rules := `.inv-row:hover{color:red}.inv-alt:hover{color:blue}.inv-sel:hover{color:green}`
@@ -156,7 +159,7 @@ func TestHoverCacheSecondCallHitsMemo(t *testing.T) {
 	}
 }
 
-func TestHoverCacheConcurrentRace(t *testing.T) {
+func TestHoverCacheConcurrentRace(t *testing.T) { //nolint:paralleltest // resets a global cache
 	resetHoverCache()
 
 	rules := `.inv-row:hover{color:red}.inv-alt:hover{color:blue}.inv-sel:hover{color:green}` +

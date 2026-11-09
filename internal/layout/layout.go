@@ -284,7 +284,7 @@ func CloneResult(res *Result) *Result {
 	// mutable map of payloads.
 	clone.svgRasters = nil
 	boxes := make(map[*box]*box, len(res.boxes))
-	arena := boxArena{}
+	arena := boxArena{chunks: nil}
 	clone.root = cloneBoxGraph(res.root, boxes, &arena)
 	clone.rootBox = clone.root
 	clone.boxes = make([]*box, len(res.boxes))
@@ -337,7 +337,7 @@ func (a *boxArena) alloc() *box {
 	}
 
 	chunk := &a.chunks[len(a.chunks)-1]
-	*chunk = append(*chunk, box{})
+	*chunk = append(*chunk, box{}) //nolint:exhaustruct // arena slots start zeroed and the clone walk fills them
 
 	return &(*chunk)[len(*chunk)-1]
 }
@@ -899,30 +899,13 @@ func (e *engine) releaseScratch() {
 	e.gridScratch = nil
 	e.imgCache = nil
 	e.gridMeasureCache = nil
-	if e.flexBaseH != nil {
-		if len(e.flexBaseH) <= maxPooledFlexScratch {
-			clear(e.flexBaseH)
-			flexBaseMapPool.Put(e.flexBaseH)
-		}
-		e.flexBaseH = nil
-	}
-	if e.flexMinH != nil {
-		if len(e.flexMinH) <= maxPooledFlexScratch {
-			clear(e.flexMinH)
-			flexMinMapPool.Put(e.flexMinH)
-		}
-		e.flexMinH = nil
-	}
-	if e.flexStyleOverrides != nil {
-		if len(e.flexStyleOverrides) <= flexOverrideMaxEntries {
-			clear(e.flexStyleOverrides)
-			flexOverrideMapPool.Put(e.flexStyleOverrides)
-		}
-		e.flexStyleOverrides = nil
-	}
+
+	e.releaseFlexScratch()
+
 	for _, c := range e.overrideStyleChunks {
 		putStyleChunk(c)
 	}
+
 	e.overrideStyleChunks = nil
 	e.baselineScratch = nil
 	e.blockIntrinsicMemo = nil
@@ -949,6 +932,37 @@ func (e *engine) releaseScratch() {
 	e.measureStyleIDs = nil
 	e.namedFlows = nil
 	e.namedFlowScanDone = false
+}
+
+// releaseFlexScratch returns the flex memo maps to their pools when they are
+// small enough to keep and clears the engine fields either way.
+func (e *engine) releaseFlexScratch() {
+	if e.flexBaseH != nil {
+		if len(e.flexBaseH) <= maxPooledFlexScratch {
+			clear(e.flexBaseH)
+			flexBaseMapPool.Put(e.flexBaseH)
+		}
+
+		e.flexBaseH = nil
+	}
+
+	if e.flexMinH != nil {
+		if len(e.flexMinH) <= maxPooledFlexScratch {
+			clear(e.flexMinH)
+			flexMinMapPool.Put(e.flexMinH)
+		}
+
+		e.flexMinH = nil
+	}
+
+	if e.flexStyleOverrides != nil {
+		if len(e.flexStyleOverrides) <= flexOverrideMaxEntries {
+			clear(e.flexStyleOverrides)
+			flexOverrideMapPool.Put(e.flexStyleOverrides)
+		}
+
+		e.flexStyleOverrides = nil
+	}
 }
 
 // styleOverride temporarily substitutes one node's resolved style while that
@@ -1257,11 +1271,25 @@ func resolveStylesForLayoutContextChunks(
 		return styles, nil, chunks, nil
 	}
 
+	releaseStyleChunks(chunks)
+
+	return remountContainerStyles(ctx, root, opts, cinfo)
+}
+
+// releaseStyleChunks returns a rejected cascade's style chunks to the pool.
+func releaseStyleChunks(chunks [][]ResolvedStyle) {
 	for i := range chunks {
 		putStyleStoreChunk(&chunks[i])
 	}
+}
 
-	styles, chunks, err = resolveStylesWithContextChunks(ctx, root, opts, cinfo)
+// remountContainerStyles re-cascades with settled container sizes and proves
+// that one nested remount settles the container types. cinfo holds the used
+// sizes from the first cascade.
+func remountContainerStyles(
+	ctx context.Context, root *html.Node, opts Options, cinfo map[*html.Node]sizeContainer,
+) (map[*html.Node]*ResolvedStyle, map[*html.Node]sizeContainer, [][]ResolvedStyle, error) {
+	styles, chunks, err := resolveStylesWithContextChunks(ctx, root, opts, cinfo)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -1271,10 +1299,9 @@ func resolveStylesForLayoutContextChunks(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+
 	if len(cinfo2) != len(cinfo) || !sameSizeContainers(cinfo, cinfo2) {
-		for i := range chunks {
-			putStyleStoreChunk(&chunks[i])
-		}
+		releaseStyleChunks(chunks)
 
 		styles, chunks, err = resolveStylesWithContextChunks(ctx, root, opts, cinfo2)
 		if err != nil {
@@ -1419,18 +1446,22 @@ func flattenBoxes(boxNode *box, out *[]*box) {
 // blockFPMixUint folds one integer into a FNV-1a content hash.
 func blockFPMixUint(h, v uint64) uint64 {
 	const prime = uint64(1099511628211)
+
 	h ^= v
+
 	return h * prime
 }
 
 // blockFPMixStr folds one string into a FNV-1a content hash.
-func blockFPMixStr(h uint64, s string) uint64 {
+func blockFPMixStr(hash uint64, s string) uint64 {
 	const prime = uint64(1099511628211)
-	for i := 0; i < len(s); i++ {
-		h ^= uint64(s[i])
-		h *= prime
+
+	for i := range len(s) {
+		hash ^= uint64(s[i])
+		hash *= prime
 	}
-	return h
+
+	return hash
 }
 
 // blockContentFP pins the subtree an intrinsic measurement flows, folded with
@@ -1443,39 +1474,55 @@ func blockFPMixStr(h uint64, s string) uint64 {
 // descendant styles are fixed for the run by the cascade.
 func (e *engine) blockContentFP(node *html.Node) uint64 {
 	const offset = uint64(1469598103934665603)
-	h := offset
+
+	// blockFPNoContainingBlock replaces an absent percentage-height basis so a
+	// missing basis still changes the hash.
+	const blockFPNoContainingBlock = uint64(0x9e3779b97f4a7c15)
+
+	hash := offset
 
 	if e != nil {
-		h = blockFPMixUint(h, math.Float64bits(e.imgMaxW))
+		hash = blockFPMixUint(hash, math.Float64bits(e.imgMaxW))
 		if e.flowCBHeight != nil {
-			h = blockFPMixUint(h, math.Float64bits(*e.flowCBHeight))
+			hash = blockFPMixUint(hash, math.Float64bits(*e.flowCBHeight))
 		} else {
-			h = blockFPMixUint(h, 0x9e3779b97f4a7c15)
+			hash = blockFPMixUint(hash, blockFPNoContainingBlock)
 		}
 	}
 
-	var walk func(n *html.Node)
-	walk = func(n *html.Node) {
-		if n == nil {
+	var walk func(*html.Node)
+	walk = func(current *html.Node) {
+		if current == nil {
 			return
 		}
 
-		h = blockFPMixUint(h, uint64(n.Type))
-		h = blockFPMixStr(h, n.Name)
-		h = blockFPMixStr(h, n.Text)
+		hash = blockFPMixUint(hash, blockFPNodeType(current.Type))
+		hash = blockFPMixStr(hash, current.Name)
+		hash = blockFPMixStr(hash, current.Text)
 
-		for _, a := range n.AttrList {
-			h = blockFPMixStr(h, a.Name)
-			h = blockFPMixStr(h, a.Value)
+		for _, attr := range current.AttrList {
+			hash = blockFPMixStr(hash, attr.Name)
+			hash = blockFPMixStr(hash, attr.Value)
 		}
 
-		for _, c := range n.Children {
-			walk(c)
+		for _, child := range current.Children {
+			walk(child)
 		}
 	}
 	walk(node)
 
-	return h
+	return hash
+}
+
+// blockFPNodeType folds a node type into the content hash. The enum is small
+// and non-negative; a stray negative value hashes as zero so the int-to-uint64
+// conversion cannot overflow.
+func blockFPNodeType(nodeType html.NodeType) uint64 {
+	if nodeType < 0 {
+		return 0
+	}
+
+	return uint64(nodeType) //nolint:gosec // non-negative after the guard
 }
 
 // storeBlockDelta records the counter deltas beside a memo Store under the
@@ -1488,6 +1535,7 @@ func (e *engine) storeBlockDelta(key blockIntrinsicKey, sticky, groups int) {
 
 	if _, exists := e.blockIntrinsicDeltas[key]; exists {
 		e.blockIntrinsicDeltas[key] = blockCounterDelta{sticky: sticky, groups: groups}
+
 		return
 	}
 
@@ -1525,6 +1573,8 @@ func (e *engine) measureBlockIntrinsicHeight(node *html.Node, width float64) flo
 		return e.measureBlockIntrinsicHeightUncached(node, width)
 	}
 
+	// A sidecar miss falls through and rebuilds so the counters stay exact
+	// rather than trusting a half entry.
 	if height, hit := e.blockIntrinsicMemo.Lookup(styleFP, contentFP, width); hit {
 		if delta, ok := e.blockIntrinsicDeltas[key]; ok {
 			e.stickySeq += delta.sticky
@@ -1532,8 +1582,6 @@ func (e *engine) measureBlockIntrinsicHeight(node *html.Node, width float64) flo
 
 			return height
 		}
-		// Sidecar missed while the memo hit: fall through and rebuild so the
-		// counters stay exact rather than trusting a half entry.
 	}
 
 	was := e.noEmit
@@ -1858,8 +1906,6 @@ func useBlockForTableDisplay(node *html.Node) bool {
 }
 
 // buildBlock lays out a block-level box.
-//
-//nolint:cyclop // block layout owns ordered CSS flow phases
 func (e *engine) buildBlock(node *html.Node, style *ResolvedStyle, availW, posX, posY float64) *box {
 	boxNode := e.allocBox(node, e.stylePtr(node), boxKindBlock, posX, posY)
 	boxStyle := style
@@ -1909,26 +1955,13 @@ func (e *engine) buildBlock(node *html.Node, style *ResolvedStyle, availW, posX,
 
 	curY = e.applyRootBoxMargins(node, boxNode, curY)
 
-	if isVerticalWritingMode(style.WritingMode) && style.Height < 0 && style.HeightPercent < 0 {
-		curY = e.verticalWritingHeight(curY, *style)
-	}
-
-	// list marker (outside the principal box content — in the marker area)
-	if node.Name == "li" && boxNode.firstBaseline > 0 {
-		e.emitListMarker(node, style, contentX, boxNode.firstBaseline)
-	}
+	curY = e.finishBlockWritingAndMarker(node, style, boxNode, contentX, curY)
 
 	// Bottom padding and border are inside the border box (space above the
 	// bottom border / letterhead rules - fixture-07/16). The shared resolver
 	// adds them once for every formatting context and then applies
 	// height/min-height/max-height.
-	// withAspectRatioHeight copies the whole style record, so only the boxes
-	// that declare a ratio pay for it; the common path keeps the shared style.
-	heightStyle := style
-	if style.AspectRatio > 0 {
-		aspectStyle := withAspectRatioHeight(*style, contentW, e)
-		heightStyle = &aspectStyle
-	}
+	heightStyle := e.blockHeightStyle(style, contentW)
 
 	boxNode.height = e.applyHeightConstraintsWithCB(heightStyle,
 		e.borderBoxBottom(*heightStyle, curY), e.containingBlockHeight())
@@ -1940,6 +1973,37 @@ func (e *engine) buildBlock(node *html.Node, style *ResolvedStyle, availW, posX,
 	e.prependChrome(contentStart, boxNode, *style, boxNode.x, boxNode.y, boxNode.w, boxNode.height)
 
 	return boxNode
+}
+
+// blockHeightStyle returns style unchanged unless an aspect ratio rewrites the
+// used height. withAspectRatioHeight copies the whole style record, so only the
+// boxes that declare a ratio pay for it; the common path keeps the shared
+// style.
+func (e *engine) blockHeightStyle(style *ResolvedStyle, contentW float64) *ResolvedStyle {
+	if style.AspectRatio <= 0 {
+		return style
+	}
+
+	aspectStyle := withAspectRatioHeight(*style, contentW, e)
+
+	return &aspectStyle
+}
+
+// finishBlockWritingAndMarker applies the vertical-writing height and paints
+// the outside list marker after the children flow, returning the new cursor.
+func (e *engine) finishBlockWritingAndMarker(
+	node *html.Node, style *ResolvedStyle, boxNode *box, contentX, curY float64,
+) float64 {
+	if isVerticalWritingMode(style.WritingMode) && style.Height < 0 && style.HeightPercent < 0 {
+		curY = e.verticalWritingHeight(curY, *style)
+	}
+
+	// list marker (outside the principal box content — in the marker area)
+	if node.Name == "li" && boxNode.firstBaseline > 0 {
+		e.emitListMarker(node, style, contentX, boxNode.firstBaseline)
+	}
+
+	return curY
 }
 
 // paintPositionedPseudo paints generated content whose used position takes it

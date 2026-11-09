@@ -91,20 +91,6 @@ func isVariationSelector(r rune) bool {
 	return r == vsTextPresentation || r == vsEmojiPresentation
 }
 
-// emojiPresentationAdvance returns a 1em minimum advance for emoji
-// presentation of an emoji-candidate rune, else 0 (caller keeps glyph width).
-func emojiPresentationAdvance(sty *ResolvedStyle, r rune, size float64) float64 {
-	if sty == nil || isVariationSelector(r) {
-		return 0
-	}
-
-	if !wantsEmojiPresentation(r, sty.FontVariantEmoji) {
-		return 0
-	}
-
-	return size
-}
-
 // fontVariantEmojiFill applies the lite emoji presentation fill when every
 // non-space, non-VS rune in text is an emoji candidate under emoji
 // presentation. Mixed runs keep CSS color. A text-variant run can never
@@ -163,7 +149,7 @@ type emojiRunState struct {
 // emojiRunFor hoists the emoji presentation decision for sty at size.
 func emojiRunFor(sty *ResolvedStyle, size float64) emojiRunState {
 	if sty == nil {
-		return emojiRunState{}
+		return emojiRunState{variant: "", size: 0, active: false}
 	}
 
 	return emojiRunState{
@@ -174,7 +160,7 @@ func emojiRunFor(sty *ResolvedStyle, size float64) emojiRunState {
 }
 
 // advance returns the emoji presentation minimum for r, or 0 when the caller
-// keeps the glyph width. It matches emojiPresentationAdvance exactly.
+// keeps the glyph width.
 func (s emojiRunState) advance(r rune) float64 {
 	if !s.active || isVariationSelector(r) {
 		return 0

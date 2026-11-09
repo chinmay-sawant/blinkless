@@ -7,15 +7,26 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/css"
 )
 
+// resetSharedCompiledForTest empties the process-global bundle map so a test
+// starts below the capped eviction threshold and its own entries stay put.
+func resetSharedCompiledForTest() {
+	sharedCompiledMu.Lock()
+	defer sharedCompiledMu.Unlock()
+
+	clear(sharedCompiledBy)
+}
+
 // TestSharedBundleRetainsSheets proves the bundle pins the exact sheet set it
 // was built from. The bundle key is pointer identity plus rule count, so
 // without retention a freed sheet address recycled by a different sheet would
 // hit a stale bundle and resolve silently wrong styles. Retention plus capped
 // eviction closes that window: an entry cannot outlive its addresses.
-func TestSharedBundleRetainsSheets(t *testing.T) {
+func TestSharedBundleRetainsSheets(t *testing.T) { //nolint:paralleltest // global bundle map, capped eviction
 	// Sequential on purpose: the shared bundle map is process-global with a
 	// bounded size, so parallel tests compiling other sheet sets could evict
 	// the entry between two calls and make a pointer comparison flaky.
+	resetSharedCompiledForTest()
+
 	first, err := css.Parse(`.a { color: red; }`)
 	if err != nil {
 		t.Fatal(err)
@@ -34,10 +45,12 @@ func TestSharedBundleRetainsSheets(t *testing.T) {
 // with allocation churn and garbage collections between them, then asserts
 // both still resolve their own rules. Before retention this pattern
 // intermittently resolved the second layout with the first bundle.
-func TestSharedBundleStaysCorrectAcrossGCChurn(t *testing.T) {
+func TestSharedBundleStaysCorrectAcrossGCChurn(t *testing.T) { //nolint:paralleltest // global bundle map
 	// Sequential on purpose: see above. The churn plus forced GC makes a
 	// use-after-free style collision likely without retention; with the
 	// bundle pinning its sheets the lookups below are deterministic.
+	resetSharedCompiledForTest()
+
 	red, err := css.Parse(`.tag { color: red; }`)
 	if err != nil {
 		t.Fatal(err)
@@ -51,7 +64,6 @@ func TestSharedBundleStaysCorrectAcrossGCChurn(t *testing.T) {
 	if redBundle == blueBundle {
 		t.Fatal("distinct sheet sets share one bundle")
 	}
-	red, blue = nil, nil
 	for range 64 {
 		_ = make([]byte, 1<<16)
 	}

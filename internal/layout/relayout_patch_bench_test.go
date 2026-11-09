@@ -54,7 +54,7 @@ func relayoutPatchBenchSetup(b *testing.B) (*html.Node, *html.Node, *Result, Opt
 		b.Fatalf("html.Parse: %v", err)
 	}
 
-	opts := Options{ //nolint:exhaustruct // benchmark uses the standard layout inputs
+	opts := Options{
 		Width:      testViewport,
 		Height:     800,
 		Sheets:     []*css.Stylesheet{sheet},

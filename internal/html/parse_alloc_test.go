@@ -74,6 +74,9 @@ func canonDumpNode(b *strings.Builder, n *Node, depth int) {
 				canonDumpNode(b, c, depth+2)
 			}
 		}
+	case NodeUnknown:
+		// Parsed trees never produce an unknown node; a zero Node has no
+		// canonical dump line.
 	}
 }
 
@@ -86,7 +89,8 @@ func allocCorpus() ([]string, []byte) {
 		`<div ID="a" class="b" data-x="1" hidden id="dup">x</div>`,
 		`<select><option value="1">one<option value="2" selected>two<selectedcontent></selectedcontent></select>`,
 		`<p>hi <b>there</b> &amp; you</p>`,
-		`<svg viewBox="0 0 10 10"><linearGradient id="g"><stop offset="0"/></linearGradient><a xlink:href="u" xml:lang="en">t</a></svg>`,
+		`<svg viewBox="0 0 10 10"><linearGradient id="g"><stop offset="0"/></linearGradient>` +
+			`<a xlink:href="u" xml:lang="en">t</a></svg>`,
 		`<table><tr><td>cell</td></tr></table><template><p>in tpl</p></template>`,
 		"<p>a\r\nb\rc&#65;d\x00e</p><!--c--><!DOCTYPE html>",
 		"<title>t &amp; t</title><script>if(a<b){c()}</script><textarea>x</textarea>",
@@ -108,7 +112,8 @@ func allocGolden() []string {
 			"  E html ns=0 map=nil\n" +
 			"    E head ns=0 map=nil\n" +
 			"    E body ns=0 map=nil\n" +
-			"      E div ns=0 [|id=\"a\"] [|class=\"b\"] [|data-x=\"1\"] [|hidden=\"\"] map={class=\"b\",data-x=\"1\",hidden=\"\",id=\"a\"}\n" +
+			"      E div ns=0 [|id=\"a\"] [|class=\"b\"] [|data-x=\"1\"] [|hidden=\"\"]" +
+			" map={class=\"b\",data-x=\"1\",hidden=\"\",id=\"a\"}\n" +
 			"        T \"x\"\n",
 		"E #document ns=0 map=nil\n" +
 			"  E html ns=0 map=nil\n" +
@@ -180,7 +185,8 @@ func allocGolden() []string {
 			"  E html ns=0 map=nil\n" +
 			"    E head ns=0 map=nil\n" +
 			"    E body ns=0 map=nil\n" +
-			"      E div ns=0 [|class=\"x\"] [|id=\"y\"] [|data-a=\"1\"] [|data-b=\"2\"] [|data-c=\"3\"] map={class=\"x\",data-a=\"1\",data-b=\"2\",data-c=\"3\",id=\"y\"}\n" +
+			"      E div ns=0 [|class=\"x\"] [|id=\"y\"] [|data-a=\"1\"] [|data-b=\"2\"] [|data-c=\"3\"]" +
+			" map={class=\"x\",data-a=\"1\",data-b=\"2\",data-c=\"3\",id=\"y\"}\n" +
 			"        T \"" + long + "\"\n",
 		"E #document ns=0 map=nil\n" +
 			"  E html ns=0 map=nil\n" +
@@ -242,6 +248,7 @@ func allocBenchDoc() string {
 	return sb.String()
 }
 
+//nolint:paralleltest // AllocsPerRun reads process-wide allocation counters; must stay serial
 func TestParseAllocReduction(t *testing.T) {
 	// Sequential on purpose: AllocsPerRun reads process-wide allocation
 	// counters, so a parallel test beside the suite would pollute it.
@@ -308,4 +315,3 @@ func BenchmarkParse(b *testing.B) {
 		_, _ = Parse(doc)
 	}
 }
-

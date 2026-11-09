@@ -302,13 +302,9 @@ func verticalColumnBaselineTarget(
 ) map[*html.Node]float64 {
 	hasBaseline := false
 	for _, item := range items {
-		style := eng.stylePtr(item.n)
-		align := container.AlignItems
-		if style.AlignSelf != "" && style.AlignSelf != fxAuto {
-			align = style.AlignSelf
-		}
-		if align == "baseline" {
+		if flexCrossAlignment(container, eng.stylePtr(item.n)) == baselineName {
 			hasBaseline = true
+
 			break
 		}
 	}
@@ -320,11 +316,8 @@ func verticalColumnBaselineTarget(
 	baselineItems := make(map[*html.Node]float64)
 	for _, item := range items {
 		style := eng.stylePtr(item.n)
-		align := container.AlignItems
-		if style.AlignSelf != "" && style.AlignSelf != fxAuto {
-			align = style.AlignSelf
-		}
-		if align != "baseline" {
+		align := flexCrossAlignment(container, style)
+		if align != baselineName {
 			continue
 		}
 		cross := eng.measureVerticalColumnItemCross(item.n, style, item.baseW, 0, lineTop)
@@ -343,6 +336,16 @@ func verticalColumnBaselineTarget(
 	}
 
 	return baselineItems
+}
+
+// flexCrossAlignment resolves one item's cross-axis alignment: its own
+// align-self when set, otherwise the container's align-items.
+func flexCrossAlignment(container, item *ResolvedStyle) string {
+	if item.AlignSelf != "" && item.AlignSelf != fxAuto {
+		return item.AlignSelf
+	}
+
+	return container.AlignItems
 }
 
 //nolint:cyclop,wsl,nlreturn // vertical cross-axis alignment keeps CSS branches together
@@ -378,7 +381,7 @@ func verticalColumnCrossY(
 		align = itemStyle.AlignSelf
 	}
 	switch align {
-	case "baseline":
+	case baselineName:
 		if baselineTarget >= 0 {
 			return baselineTarget - itemCross
 		}

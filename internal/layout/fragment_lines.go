@@ -11,16 +11,11 @@ const orphanLineEpsilonPt = 1.0
 // open gap between two text rows.
 const orphanMidDivisor = 2.0
 
-// stripLineBaselines returns the sorted distinct text baselines of ops in
-// the half-open range [start, end). OpText Y is the baseline; OpBullet
-// shares its line baseline. Non-ink ops (fills, rules, images) carry box
-// geometry, not line rows, and are skipped.
-func stripLineBaselines(ops []Op, start, end int) []float64 {
-	return stripLineBaselinesInto(ops, start, end, nil)
-}
-
-// stripLineBaselinesInto collects distinct baselines into dst, reusing dst's
-// allocated storage to avoid heap churn.
+// stripLineBaselinesInto collects the sorted distinct text baselines of ops
+// in the half-open range [start, end) into dst, reusing dst's allocated
+// storage to avoid heap churn. OpText Y is the baseline; OpBullet shares its
+// line baseline. Non-ink ops (fills, rules, images) carry box geometry, not
+// line rows, and are skipped.
 func stripLineBaselinesInto(ops []Op, start, end int, dst []float64) []float64 {
 	if start < 0 {
 		start = 0

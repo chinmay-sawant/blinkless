@@ -9,7 +9,7 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
-func TestMulticolParseProps(t *testing.T) { //nolint:cyclop
+func TestMulticolParseProps(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `
@@ -138,7 +138,7 @@ func TestMulticolTwoColumnEqualWidths(t *testing.T) {
 	}
 }
 
-func TestMulticolColumnSpanAll(t *testing.T) { //nolint:cyclop
+func TestMulticolColumnSpanAll(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `
@@ -256,7 +256,6 @@ body { margin: 0 }
 	}
 }
 
-//nolint:cyclop,funlen // table-driven CSS shorthand proof
 func TestColumnRuleParse(t *testing.T) {
 	t.Parallel()
 

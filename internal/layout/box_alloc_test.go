@@ -115,8 +115,10 @@ func TestBoxAllocRentReturnZeroed(t *testing.T) {
 	returnFloats(f2)
 
 	u := rentUint64s(n)
+	value := uint64(0)
 	for i := range u {
-		u[i] = uint64(i + 1)
+		value++
+		u[i] = value
 	}
 
 	returnUint64s(u)

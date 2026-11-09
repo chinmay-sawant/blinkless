@@ -22,30 +22,30 @@ type siblingInfo struct {
 	typeLastIndex int
 }
 
-// asciiEqualFold reports whether a and b match ASCII case-insensitively
-// without allocating. HTML type selectors and the Selectors 4 ASCII i flag
-// fold ASCII letters only; non-ASCII bytes compare exactly. A rare non-ASCII
-// mismatch falls back to EqualFold so Unicode tags still behave.
-func asciiEqualFold(a, b string) bool {
-	if len(a) != len(b) {
+// asciiEqualFold reports whether left and right match ASCII
+// case-insensitively without allocating. HTML type selectors and the Selectors
+// 4 ASCII i flag fold ASCII letters only; non-ASCII bytes compare exactly. A
+// rare non-ASCII mismatch falls back to EqualFold so Unicode tags still behave.
+func asciiEqualFold(left, right string) bool {
+	if len(left) != len(right) {
 		return false
 	}
 
-	for i := 0; i < len(a); i++ {
-		ca := a[i]
-		cb := b[i]
+	for i := range len(left) {
+		leftByte := left[i]
+		rightByte := right[i]
 
-		if ca >= 'A' && ca <= 'Z' {
-			ca += 'a' - 'A'
+		if leftByte >= 'A' && leftByte <= 'Z' {
+			leftByte += 'a' - 'A'
 		}
 
-		if cb >= 'A' && cb <= 'Z' {
-			cb += 'a' - 'A'
+		if rightByte >= 'A' && rightByte <= 'Z' {
+			rightByte += 'a' - 'A'
 		}
 
-		if ca != cb {
-			if ca >= 0x80 || cb >= 0x80 {
-				return strings.EqualFold(a, b)
+		if leftByte != rightByte {
+			if leftByte >= 0x80 || rightByte >= 0x80 {
+				return strings.EqualFold(left, right)
 			}
 
 			return false
@@ -55,26 +55,26 @@ func asciiEqualFold(a, b string) bool {
 	return true
 }
 
-// asciiLower returns the ASCII-lowered copy of s, or s itself when already
-// lower (no allocation on the fast path). Only ASCII A-Z folds; this matches
-// the Selectors 4 ASCII i flag and HTML type-selector rules.
-func asciiLower(s string) string {
-	for i := 0; i < len(s); i++ {
-		if s[i] >= 'A' && s[i] <= 'Z' {
-			b := make([]byte, len(s))
-			copy(b, s)
+// asciiLower returns the ASCII-lowered copy of value, or value itself when
+// already lower (no allocation on the fast path). Only ASCII A-Z folds; this
+// matches the Selectors 4 ASCII i flag and HTML type-selector rules.
+func asciiLower(value string) string {
+	for i := range len(value) {
+		if value[i] >= 'A' && value[i] <= 'Z' {
+			lowered := make([]byte, len(value))
+			copy(lowered, value)
 
-			for j := i; j < len(s); j++ {
-				if b[j] >= 'A' && b[j] <= 'Z' {
-					b[j] += 'a' - 'A'
+			for j := i; j < len(value); j++ {
+				if lowered[j] >= 'A' && lowered[j] <= 'Z' {
+					lowered[j] += 'a' - 'A'
 				}
 			}
 
-			return string(b)
+			return string(lowered)
 		}
 	}
 
-	return s
+	return value
 }
 
 // sibParentData is one memoized parent: the element children in order plus
@@ -86,6 +86,7 @@ type sibParentData struct {
 	childLen int
 }
 
+//nolint:gochecknoglobals // bounded shared sibling memo and its atomic counters
 var (
 	sibMu      sync.RWMutex
 	sibParents map[*html.Node]*sibParentData
@@ -104,6 +105,7 @@ const (
 	sibEvictDivisor   = 4
 
 	attrParentsSoftCap = 2048
+	attrCacheHardCap   = 16384
 	attrEvictDivisor   = 4
 )
 
@@ -132,16 +134,16 @@ func buildSibEntry(parent *html.Node) *sibParentData {
 	totals := make(map[string]int, len(elems))
 	keys := make([]string, len(elems))
 
-	for i, elem := range elems {
+	for pos, elem := range elems {
 		k := siblingTypeKey(elem)
-		keys[i] = k
+		keys[pos] = k
 		totals[k]++
 	}
 
 	seen := make(map[string]int, len(totals))
 
-	for i, elem := range elems {
-		k := keys[i]
+	for pos, elem := range elems {
+		k := keys[pos]
 		seen[k]++
 
 		typeIdx := seen[k]
@@ -149,18 +151,18 @@ func buildSibEntry(parent *html.Node) *sibParentData {
 
 		var prev, next *html.Node
 
-		if i > 0 {
-			prev = elems[i-1]
+		if pos > 0 {
+			prev = elems[pos-1]
 		}
 
-		if i+1 < len(elems) {
-			next = elems[i+1]
+		if pos+1 < len(elems) {
+			next = elems[pos+1]
 		}
 
 		infos[elem] = siblingInfo{
 			prev:          prev,
 			next:          next,
-			index:         i + 1,
+			index:         pos + 1,
 			typeIndex:     typeIdx,
 			typeLastIndex: total - typeIdx + 1,
 		}
@@ -203,11 +205,23 @@ func siblingEntryFor(parent *html.Node) *sibParentData {
 		sibParents = make(map[*html.Node]*sibParentData)
 	}
 
+	evictSibParentsLocked()
+
+	sibParents[parent] = newEntry
+	sibMu.Unlock()
+	atomic.AddInt64(&sibMisses, 1)
+
+	return newEntry
+}
+
+// evictSibParentsLocked bounds the sibling memo: past the soft cap it drops
+// roughly a quarter of the entries, and past the hard cap it clears the map.
+// The caller must hold sibMu. Range order is arbitrary, so the victims are
+// arbitrary; a miss rebuilds from the live tree, so eviction is always safe.
+func evictSibParentsLocked() {
 	if len(sibParents) >= sibParentsSoftCap {
-		// Soft cap: drop roughly a quarter of the entries via map range.
-		// Range order is arbitrary, so the victims are arbitrary; a miss
-		// rebuilds from the live tree, so eviction is always safe.
 		victims := len(sibParents) / sibEvictDivisor
+
 		for key := range sibParents {
 			delete(sibParents, key)
 
@@ -221,12 +235,6 @@ func siblingEntryFor(parent *html.Node) *sibParentData {
 	if len(sibParents) > sibParentsHardCap {
 		sibParents = make(map[*html.Node]*sibParentData)
 	}
-
-	sibParents[parent] = newEntry
-	sibMu.Unlock()
-	atomic.AddInt64(&sibMisses, 1)
-
-	return newEntry
 }
 
 // resetSiblingMemoForTest clears the sibling cache and counters.
@@ -239,7 +247,7 @@ func resetSiblingMemoForTest() {
 }
 
 // siblingMemoStatsForTest returns cache hits and misses.
-func siblingMemoStatsForTest() (hits, misses int64) {
+func siblingMemoStatsForTest() (int64, int64) {
 	return atomic.LoadInt64(&sibHits), atomic.LoadInt64(&sibMisses)
 }
 
@@ -350,14 +358,14 @@ func (st MatchState) ensureHasBudget() MatchState {
 }
 
 // Matches is Match with pseudo-class state.
-func (st MatchState) Matches(s Selector, n *html.Node) bool {
+func (st MatchState) Matches(sel Selector, node *html.Node) bool {
 	// Keep budget nil when the selector needs no :has(): nil means unlimited
 	// and avoids one allocation per match. Allocate only when :has() may run.
-	if st.budget == nil && selectorContainsHas(s) {
+	if st.budget == nil && selectorContainsHas(sel) {
 		st.budget = &hasBudget{left: maxHasVisits}
 	}
 
-	return leftmostMatch(st, s, n) != nil
+	return leftmostMatch(st, sel, node) != nil
 }
 
 // chargeHasVisit spends one :has() inspection. False means the budget is
@@ -617,20 +625,6 @@ func tagNameMatches(selectorName string, node *html.Node) bool {
 	return selectorName == node.Name
 }
 
-// sameElementType reports whether two element siblings share a namespace and
-// a type name under the same case rules as tagNameMatches.
-func sameElementType(left, right *html.Node) bool {
-	if left.Namespace != right.Namespace {
-		return false
-	}
-
-	if left.Namespace == html.NamespaceHTML {
-		return asciiEqualFold(left.Name, right.Name)
-	}
-
-	return left.Name == right.Name
-}
-
 // matchPseudos reports whether every pseudo-class of the part matches node.
 func matchPseudos(st MatchState, pseudos []PseudoClass, node *html.Node) bool {
 	for _, pseudo := range pseudos {
@@ -676,11 +670,10 @@ type attrCacheVal struct {
 	lowered string
 }
 
+//nolint:gochecknoglobals // bounded shared lowered-attribute memo
 var (
-	attrCacheMu     sync.RWMutex
-	attrCache       map[attrCacheKey]attrCacheVal
-	attrCacheHits   int64
-	attrCacheMisses int64
+	attrCacheMu sync.RWMutex
+	attrCache   map[attrCacheKey]attrCacheVal
 )
 
 // getCachedLoweredAttr returns the ASCII-lowered attribute value, reusing the
@@ -695,7 +688,6 @@ func getCachedLoweredAttr(node *html.Node, name, val string) string {
 		if cached, ok := attrCache[key]; ok && cached.orig == val {
 			lowered := cached.lowered
 			attrCacheMu.RUnlock()
-			atomic.AddInt64(&attrCacheHits, 1)
 
 			return lowered
 		}
@@ -715,6 +707,7 @@ func getCachedLoweredAttr(node *html.Node, name, val string) string {
 		// every parsed tree. Drop roughly a quarter via map range; a miss
 		// recomputes from the live attribute, so eviction is always safe.
 		victims := len(attrCache) / attrEvictDivisor
+
 		for key := range attrCache {
 			delete(attrCache, key)
 
@@ -725,29 +718,21 @@ func getCachedLoweredAttr(node *html.Node, name, val string) string {
 		}
 	}
 
-	if len(attrCache) > 16384 {
+	if len(attrCache) > attrCacheHardCap {
 		attrCache = make(map[attrCacheKey]attrCacheVal)
 	}
 
 	attrCache[key] = attrCacheVal{orig: val, lowered: lowered}
 	attrCacheMu.Unlock()
-	atomic.AddInt64(&attrCacheMisses, 1)
 
 	return lowered
 }
 
-// resetAttrMemoForTest clears the i-flag lowered-value cache and counters.
+// resetAttrMemoForTest clears the i-flag lowered-value cache.
 func resetAttrMemoForTest() {
 	attrCacheMu.Lock()
 	attrCache = nil
 	attrCacheMu.Unlock()
-	atomic.StoreInt64(&attrCacheHits, 0)
-	atomic.StoreInt64(&attrCacheMisses, 0)
-}
-
-// attrMemoStatsForTest returns cache hits and misses.
-func attrMemoStatsForTest() (hits, misses int64) {
-	return atomic.LoadInt64(&attrCacheHits), atomic.LoadInt64(&attrCacheMisses)
 }
 
 // resetMatchMemoForTest clears sibling and attribute caches plus counters.

@@ -1,4 +1,3 @@
-//nolint:all // targeted unit tests for the font variant face-resolution consumer
 package layout
 
 import (

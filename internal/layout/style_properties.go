@@ -106,7 +106,7 @@ func setDisplayKeyword(style *ResolvedStyle, value string) {
 
 func setPositionKeyword(style *ResolvedStyle, value string) {
 	switch value {
-	case "static", "relative", "absolute", positionFixed, "sticky":
+	case positionStatic, "relative", "absolute", positionFixed, "sticky":
 		style.Position = value
 	}
 }
@@ -330,7 +330,7 @@ func setJustifyContentValue(style *ResolvedStyle, value string) {
 
 func setAlignItemsValue(style *ResolvedStyle, value string) {
 	switch value {
-	case fxStretch, flexStartKeyword, fxFlexEnd, fxCenter, fxStart, fxEnd, "baseline":
+	case fxStretch, flexStartKeyword, fxFlexEnd, fxCenter, fxStart, fxEnd, baselineName:
 		style.AlignItems = value
 	}
 }
@@ -345,7 +345,7 @@ func setAlignContentValue(style *ResolvedStyle, value string) {
 
 func setAlignSelfValue(style *ResolvedStyle, value string) {
 	switch value {
-	case overflowAuto, fxStretch, flexStartKeyword, fxFlexEnd, fxCenter, fxStart, fxEnd, "baseline":
+	case overflowAuto, fxStretch, flexStartKeyword, fxFlexEnd, fxCenter, fxStart, fxEnd, baselineName:
 		style.AlignSelf = value
 	}
 }
@@ -1465,7 +1465,7 @@ func setVerticalAlignValue(style *ResolvedStyle, value string) {
 	low := strings.ToLower(trimmed)
 
 	switch low {
-	case "baseline", cssVerticalAlignTop, "middle", cssVerticalAlignBottom:
+	case baselineName, cssVerticalAlignTop, "middle", cssVerticalAlignBottom:
 		style.VerticalAlign = low
 		style.VerticalAlignShift = 0
 	case "sub":
@@ -1491,7 +1491,7 @@ func setVerticalAlignValue(style *ResolvedStyle, value string) {
 		}
 
 		if shift, ok := plainLength(value, style.FontSize, 0); ok {
-			style.VerticalAlign = "baseline"
+			style.VerticalAlign = baselineName
 			style.VerticalAlignShift = shift
 		}
 	}

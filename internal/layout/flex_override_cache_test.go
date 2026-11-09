@@ -28,6 +28,8 @@ func flexOverrideTestEngine(t *testing.T) (*engine, *html.Node) {
 // allocStyle-plus-force sequence, and each distinct force step keeps its own
 // entry.
 func TestFlexStyleOverrideCacheReusesEntries(t *testing.T) {
+	t.Parallel()
+
 	eng, outer := flexOverrideTestEngine(t)
 	base := eng.stylePtr(outer)
 
@@ -98,8 +100,10 @@ func TestFlexStyleOverrideCacheReusesEntries(t *testing.T) {
 	unstable := eng.allocStyle(base)
 	before := len(eng.flexStyleOverrides)
 
-	if eng.flexRowStyleOverride(unstable, false, true, 10, 20) ==
-		eng.flexRowStyleOverride(unstable, false, true, 10, 20) {
+	unstableFirst := eng.flexRowStyleOverride(unstable, false, true, 10, 20)
+	unstableSecond := eng.flexRowStyleOverride(unstable, false, true, 10, 20)
+
+	if unstableFirst == unstableSecond {
 		t.Fatal("unstable base style reused a cached override")
 	}
 
@@ -112,6 +116,8 @@ func TestFlexStyleOverrideCacheReusesEntries(t *testing.T) {
 // more distinct forced sizes stops growing the map and falls back to a fresh
 // copy without changing the computed override.
 func TestFlexStyleOverrideCacheBounded(t *testing.T) {
+	t.Parallel()
+
 	eng, outer := flexOverrideTestEngine(t)
 	base := eng.stylePtr(outer)
 
@@ -216,7 +222,7 @@ func layoutFlexOverrideDoc(t *testing.T, doc string, bypass bool) *Result {
 // TestFlexStyleOverrideCacheIdenticalOutput pins the cache's transparency: a
 // document covering every replaced copy site lays out byte-identical display
 // lists with and without the override cache.
-func TestFlexStyleOverrideCacheIdenticalOutput(t *testing.T) {
+func TestFlexStyleOverrideCacheIdenticalOutput(t *testing.T) { //nolint:paralleltest // toggles a global flag
 	doc := flexOverrideDoc(120)
 
 	cached := layoutFlexOverrideDoc(t, doc, false)
@@ -243,7 +249,7 @@ func TestFlexStyleOverrideCacheIdenticalOutput(t *testing.T) {
 // TestFlexStyleOverrideCacheHitsRepeatedRows pins the win the cache exists
 // for: identical invoice-style rows share one override record, so repeated
 // items hit the cache far more often than they allocate.
-func TestFlexStyleOverrideCacheHitsRepeatedRows(t *testing.T) {
+func TestFlexStyleOverrideCacheHitsRepeatedRows(t *testing.T) { //nolint:paralleltest // resets global counters
 	flexOverrideHits.Store(0)
 	flexOverrideMisses.Store(0)
 

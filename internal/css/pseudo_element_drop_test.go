@@ -10,7 +10,7 @@ import (
 // TestPseudoElementSelectorDoesNotApplyToHost: p::before { width:120pt } must
 // not match the host <p> (that crushed wiki body columns to 120pt when
 // ::before was stripped). Pseudo rules are kept for generated content.
-func TestPseudoElementSelectorDoesNotApplyToHost(t *testing.T) { //nolint:cyclop // host-vs-pseudo match bookkeeping
+func TestPseudoElementSelectorDoesNotApplyToHost(t *testing.T) {
 	t.Parallel()
 
 	str, err := css.Parse(`p::before { width: 120pt; content: ''; display: block }

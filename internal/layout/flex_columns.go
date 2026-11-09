@@ -304,15 +304,8 @@ func (e *engine) flexColumnItems(kids []*html.Node, contentW, contentH float64) 
 	return items
 }
 
-// flexColumnHeights resolves used main sizes: grow/shrink redistribution over
-// the definite container height, then min/max-height clamping.
-func (e *engine) flexColumnHeights(items []flexColMeas, contentH, gap float64) []float64 {
-	heights := make([]float64, len(items))
-	e.flexColumnHeightsInto(items, contentH, gap, heights)
-
-	return heights
-}
-
+// flexColumnHeightsInto resolves used main sizes: grow/shrink redistribution
+// over the definite container height, then min/max-height clamping.
 func (e *engine) flexColumnHeightsInto(items []flexColMeas, contentH, gap float64, heights []float64) {
 	var fixed, growSum, shrinkSum float64
 
@@ -602,7 +595,7 @@ func columnAlignOffset(
 	left := e.scalePt(itemStyle.MarginLeft)
 	right := e.scalePt(itemStyle.MarginRight)
 	switch align {
-	case "baseline":
+	case baselineName:
 		// A column's cross axis is the inline axis. For empty items, the
 		// baseline is their start-side border edge, so direction controls
 		// whether that edge is the physical left or right side.

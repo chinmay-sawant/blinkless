@@ -1330,28 +1330,16 @@ func (e *engine) emitLineItems(boxNode *box, line []inlineItem, leftX, baseline,
 		leftX += item.marginL
 
 		if hidesPaint(item.style) {
-			und.flush(e)
-
-			// A hidden atomic inline keeps its box in the tree: only its
-			// paint is skipped. Dropping the box would make a visibility
-			// toggle add or remove boxes without moving anything, so the
-			// subtree splice sees a shape change at identical geometry
-			// (block children already attach unconditionally).
-			if item.blockBox != nil {
-				e.placeInlineBlock(boxNode, item, leftX, lineY, lineH, baseline)
-			}
-
-			leftX += item.w + item.marginR
-
-			if idx < len(line)-1 && isJustifyGapAfter(*item) {
-				leftX += justifyGap
-			}
+			leftX = e.emitHiddenInlineItem(
+				boxNode, item, leftX, lineY, lineH, baseline, justifyGap,
+				idx < len(line)-1 && isJustifyGapAfter(*item), &und,
+			)
 
 			continue
 		}
 
 		itemX := leftX
-		blendScope := inlineBlendScope{markStart: -1, endMark: -1}
+		blendScope := inlineBlendScope{prevBlend: "", prevGroup: nil, prevOwner: nil, markStart: -1, endMark: -1}
 		pushedBlend := inlineBlendWork(item.style)
 		if pushedBlend {
 			blendScope = e.pushInlineBlend(item.style)
@@ -1392,6 +1380,30 @@ func (e *engine) emitLineItems(boxNode *box, line []inlineItem, leftX, baseline,
 	und.flush(e)
 }
 
+// emitHiddenInlineItem keeps a hidden atomic inline's box in the tree while
+// skipping its paint, then advances leftX past its margins. Dropping the box
+// would make a visibility toggle add or remove boxes without moving anything,
+// so the subtree splice sees a shape change at identical geometry (block
+// children already attach unconditionally). It returns the advanced leftX.
+func (e *engine) emitHiddenInlineItem(
+	boxNode *box, item *inlineItem, leftX, lineY, lineH, baseline, justifyGap float64,
+	justifyNext bool, und *undRun,
+) float64 {
+	und.flush(e)
+
+	if item.blockBox != nil {
+		e.placeInlineBlock(boxNode, item, leftX, lineY, lineH, baseline)
+	}
+
+	leftX += item.w + item.marginR
+
+	if justifyNext {
+		leftX += justifyGap
+	}
+
+	return leftX
+}
+
 // inlineBlendScope captures one inline item's enclosing compositing state.
 type inlineBlendScope struct {
 	prevBlend string
@@ -1409,9 +1421,8 @@ func (e *engine) pushInlineBlend(style *ResolvedStyle) inlineBlendScope {
 	// Fast path: an item with no inline compositing field cannot open a group,
 	// and with no enclosing group there is no state to restore. Return before
 	// the scope setup and the style-record copy in maskGroupRequested.
-	if !inlineBlendWork(style) && e.blendGroup == nil &&
-		e.blendGroupOwner == nil && e.blendMode == "" {
-		return inlineBlendScope{markStart: -1, endMark: -1}
+	if !e.inlineBlendScopeActive(style) {
+		return inlineBlendScope{prevBlend: "", prevGroup: nil, prevOwner: nil, markStart: -1, endMark: -1}
 	}
 
 	scope := inlineBlendScope{
@@ -1421,22 +1432,15 @@ func (e *engine) pushInlineBlend(style *ResolvedStyle) inlineBlendScope {
 		markStart: -1,
 		endMark:   -1,
 	}
-	if style == nil {
-		return scope
-	}
-
 	// The block's own group already owns its inherited inline runs; opening a
 	// second group for the same element would emit a duplicate nested form.
-	if e.blendGroup != nil && e.blendGroupOwner == style {
+	if !e.inlineBlendOpensGroup(style) {
 		return scope
 	}
 
 	mode := nonNormalBlendMode(style.MixBlendMode)
 
 	hasMask := maskGroupRequested(style)
-	if mode == "" && style.Isolation != unicodeBidiIsolate && !hasMask && !hasBackdropFilter(style.BackdropFilter) {
-		return scope
-	}
 
 	e.nextGroupID++
 
@@ -1459,6 +1463,33 @@ func (e *engine) pushInlineBlend(style *ResolvedStyle) inlineBlendScope {
 	scope.markStart = e.addGroupMark(e.blendGroup, groupMarkBegin)
 
 	return scope
+}
+
+// inlineBlendScopeActive reports whether an item or an enclosing group needs
+// the compositing state captured before the item paints.
+func (e *engine) inlineBlendScopeActive(style *ResolvedStyle) bool {
+	return inlineBlendWork(style) || e.blendGroup != nil ||
+		e.blendGroupOwner != nil || e.blendMode != ""
+}
+
+// inlineBlendOpensGroup reports whether style opens a compositing group under
+// the current engine state. A nil style never does, and the block's own group
+// already owns the style's inherited inline runs.
+func (e *engine) inlineBlendOpensGroup(style *ResolvedStyle) bool {
+	if style == nil {
+		return false
+	}
+
+	if e.blendGroup != nil && e.blendGroupOwner == style {
+		return false
+	}
+
+	if nonNormalBlendMode(style.MixBlendMode) != "" {
+		return true
+	}
+
+	return style.Isolation == unicodeBidiIsolate ||
+		maskGroupRequested(style) || hasBackdropFilter(style.BackdropFilter)
 }
 
 // inlineBlendWork reports whether an item's style can request an inline
