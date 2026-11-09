@@ -1,4 +1,3 @@
-//nolint:wsl,cyclop,funlen,varnamelen // at-rule fixtures
 package css_test
 
 import (

@@ -7,7 +7,7 @@ import (
 
 // Consecutive citation markers ][ get a thin separating space so clusters
 // like [90][91][92] are not painted cramped. Inside a single marker stays tight.
-func TestAdjacentCiteMarkersSeparated(t *testing.T) { //nolint:cyclop
+func TestAdjacentCiteMarkersSeparated(t *testing.T) {
 	t.Parallel()
 
 	cssSheetVal := sheet(t, `

@@ -49,7 +49,7 @@ func TestFlexFlowShorthand(t *testing.T) {
 	}
 }
 
-func TestPlaceShorthands(t *testing.T) { //nolint:cyclop // one test covers all three place-* shorthands
+func TestPlaceShorthands(t *testing.T) {
 	t.Parallel()
 
 	twoTok := classStyle(t, "place-content: center space-between; place-items: start end; place-self: flex-end center")
@@ -85,7 +85,7 @@ func TestPlaceShorthands(t *testing.T) { //nolint:cyclop // one test covers all 
 	}
 }
 
-func TestGridTemplateShorthand(t *testing.T) { //nolint:cyclop,funlen // tracks, areas, none, auto-flow, masonry skip
+func TestGridTemplateShorthand(t *testing.T) {
 	t.Parallel()
 
 	tracks := classStyle(t, "grid-template: 100px 1fr / 50px 2fr")

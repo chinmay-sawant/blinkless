@@ -107,17 +107,25 @@ func (e *engine) pseudoStyleContext() *styleContext {
 	return ctx
 }
 
-// styleRuleIndex returns the selector index for this layout's sheets, built
-// once and shared by the cascade and every pseudo-content context. It is nil
-// when the layout carries no sheets.
+// styleRuleIndex returns the selector index for this layout's sheets, reusing
+// the cross-layout bundle where available, and shared by the cascade and every
+// pseudo-content context. It is nil when the layout carries no sheets.
 func (e *engine) styleRuleIndex() *ruleIndex {
 	if e == nil || len(e.opts.Sheets) == 0 {
 		return nil
 	}
 
-	if e.styleIndex == nil {
-		e.styleIndex = newRuleIndex(e.opts.Sheets)
+	if e.styleIndex != nil {
+		return e.styleIndex
 	}
+
+	if bundle := sharedCompiledFor(e.opts.Sheets); bundle != nil && bundle.index != nil {
+		e.styleIndex = bundle.index
+
+		return e.styleIndex
+	}
+
+	e.styleIndex = newRuleIndex(e.opts.Sheets)
 
 	return e.styleIndex
 }

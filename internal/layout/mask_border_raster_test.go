@@ -1,4 +1,3 @@
-//nolint:varnamelen // raster pixel probes use x/y coordinates
 package layout
 
 import (

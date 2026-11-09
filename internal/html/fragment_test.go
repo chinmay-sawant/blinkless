@@ -6,7 +6,7 @@ import "testing"
 // point: select ignores, RCDATA/RAWTEXT/PLAINTEXT substitution, foreign
 // context elements, template mode, and the html/table/frameset seeds.
 //
-//nolint:cyclop // sequential context pins; splitting would hide the context list
+
 func TestParseFragmentContexts(t *testing.T) {
 	t.Parallel()
 

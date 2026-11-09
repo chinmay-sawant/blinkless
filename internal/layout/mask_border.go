@@ -97,19 +97,27 @@ func maskBorderEnabled(source string) bool {
 
 // maskGroupRequested reports whether the element needs a compositing group
 // for a first-wave mask or for a mask-border frame.
-func maskGroupRequested(style ResolvedStyle) bool {
+func maskGroupRequested(style *ResolvedStyle) bool {
+	if style == nil {
+		return false
+	}
+
 	return maskImageEnabled(style.MaskImage) || maskBorderEnabled(style.MaskBorderSource)
 }
 
 // attachMaskDescriptors records the element's mask and mask-border frames on
 // its group. A family whose used source is none keeps a nil pointer.
-func (e *engine) attachMaskDescriptors(group *BlendGroup, style ResolvedStyle) {
+func (e *engine) attachMaskDescriptors(group *BlendGroup, style *ResolvedStyle) {
+	if style == nil {
+		return
+	}
+
 	if maskImageEnabled(style.MaskImage) {
-		group.Mask = e.maskDescriptor(style)
+		group.Mask = e.maskDescriptor(*style)
 	}
 
 	if maskBorderEnabled(style.MaskBorderSource) {
-		group.MaskBorder = e.maskBorderDescriptor(style)
+		group.MaskBorder = e.maskBorderDescriptor(*style)
 	}
 }
 

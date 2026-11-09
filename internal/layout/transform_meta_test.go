@@ -53,7 +53,7 @@ func matricesNear(a, b Matrix2D) bool {
 // reconstructs World, and that an untransformed descendant still reports its
 // parent accumulation and identity Own while its ops carry the ancestor matrix.
 //
-//nolint:cyclop,funlen // one nested-transform assertion block
+
 func TestPlacedTransformWorldMatchesStampedOps(t *testing.T) {
 	t.Parallel()
 
@@ -199,7 +199,7 @@ div { margin: 0; padding: 0; }
 // from the resolved style: the 3D flag, perspective distance and origin,
 // transform style, and backface visibility.
 //
-//nolint:cyclop // one table of 3D metadata fields
+
 func TestPlacedTransform3DMetadataFields(t *testing.T) {
 	t.Parallel()
 

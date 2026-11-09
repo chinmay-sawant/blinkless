@@ -139,7 +139,7 @@ func TestRestyleSVGPaintFillChangesRaster(t *testing.T) {
 // TestRestyleSVGPaintNoOverridesLeavesDisplay pins the no-op contract: no
 // overrides means no serialization, no raster work, and the same operations.
 //
-//nolint:cyclop // the fixture compares every field a no-op must keep
+
 func TestRestyleSVGPaintNoOverridesLeavesDisplay(t *testing.T) {
 	t.Parallel()
 
@@ -432,7 +432,7 @@ func svgPaintInlineIconSource(inner string) string {
 // identity, rectangle, stacking level, transform, and blend group so the
 // splice path sees the same op it painted before.
 //
-//nolint:cyclop // one helper checks every preserved field
+
 func svgPaintWantSameImageShape(t *testing.T, oldOp, newOp Op) {
 	t.Helper()
 
@@ -472,7 +472,7 @@ func svgPaintWantSameImageShape(t *testing.T, oldOp, newOp Op) {
 // end: the paragraph keeps the SVG box, the box owns the raster op, and a root
 // fill reaches a shape with no paint of its own.
 //
-//nolint:funlen // one fixture proves discovery, payload replacement, and op identity
+
 func TestRestyleSVGPaintInlineIconRestyles(t *testing.T) {
 	t.Parallel()
 
@@ -581,8 +581,6 @@ func TestRestyleSVGPaintInlineOwnFillStays(t *testing.T) {
 // TestRestyleSVGPaintInlineRasterCache checks the serialized-string cache: a
 // second call with the same paint reuses the stored raster byte for byte and
 // does not rasterize again, while a different paint misses and rasterizes.
-//
-//nolint:cyclop,funlen // one fixture walks a hit, a miss, and the bound
 func TestRestyleSVGPaintInlineRasterCache(t *testing.T) {
 	t.Parallel()
 
@@ -674,7 +672,7 @@ func TestRestyleSVGPaintInlineRasterCache(t *testing.T) {
 // contract for an inline icon: a request that changes no paint property does
 // no raster work and leaves the operations untouched.
 //
-//nolint:cyclop // the fixture compares every field a no-op must keep
+
 func TestRestyleSVGPaintInlineWithoutOverridesLeavesDisplay(t *testing.T) {
 	t.Parallel()
 

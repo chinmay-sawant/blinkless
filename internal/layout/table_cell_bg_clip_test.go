@@ -13,8 +13,6 @@ import (
 
 // TestTableCellBackgroundImageClipped: a cover-sized background inside a td
 // must not paint into the neighboring cell (fixture-60 page-3 spill).
-//
-//nolint:cyclop,funlen // cell background clip assertion keeps full table layout check
 func TestTableCellBackgroundImageClipped(t *testing.T) {
 	t.Parallel()
 

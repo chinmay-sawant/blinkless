@@ -184,7 +184,6 @@ func TestParseImport(t *testing.T) {
 	}
 }
 
-//nolint:varnamelen // short local mirrors the stylesheet vocabulary
 func TestParsePageStyle(t *testing.T) {
 	t.Parallel()
 
@@ -402,7 +401,6 @@ func TestParseInline(t *testing.T) {
 	}
 }
 
-//nolint:funlen // table-driven selector compound cases
 func TestParseSelectorCompounds(t *testing.T) {
 	t.Parallel()
 
@@ -734,7 +732,7 @@ func TestAttrWordAndSubstring(t *testing.T) {
 	}
 }
 
-func TestAttrPrefixSuffixDash(t *testing.T) { //nolint:cyclop // attribute-operator matching has many independent checks
+func TestAttrPrefixSuffixDash(t *testing.T) {
 	t.Parallel()
 	root := treeFor(t, `<html><body>
 		<a id="pdf" href="/files/report.pdf">PDF</a>
@@ -789,7 +787,7 @@ func TestAttrPrefixSuffixDash(t *testing.T) { //nolint:cyclop // attribute-opera
 	}
 }
 
-func TestSiblingCombinators(t *testing.T) { //nolint:cyclop // combinator checks across several sibling layouts
+func TestSiblingCombinators(t *testing.T) {
 	t.Parallel()
 	root := treeFor(t, `<html><body><div><p id="a">A</p><span>x</span><p id="b">B</p><p id="c">C</p></div></body></html>`)
 	div := root.FirstChild("html").FirstChild("body").FirstChild("div")
@@ -1161,7 +1159,7 @@ func TestResolveCustomPropsSelfReferenceWithFallback(t *testing.T) {
 	}
 }
 
-func TestParseSelectors(t *testing.T) { //nolint:cyclop // many independent strict-parsing checks
+func TestParseSelectors(t *testing.T) {
 	t.Parallel()
 
 	sels, found := ParseSelectors("h1, h2, .title")

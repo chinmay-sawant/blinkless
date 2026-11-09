@@ -53,7 +53,7 @@ func TestBehaviorWebkitPerspectiveAliasForeshortens(t *testing.T) {
 // percents, the same fields perspective-origin writes. Paint resolves those
 // later as a quarter of the width and three quarters of the height.
 //
-//nolint:cyclop // the origin fields are checked one by one
+
 func TestBehaviorWebkitPerspectiveOriginAlias(t *testing.T) {
 	t.Parallel()
 
@@ -133,7 +133,7 @@ func webkitBackfaceDoc(vis string) string {
 // the prefixed visibility is hidden, and still paints it when the alias is
 // visible.
 //
-//nolint:cyclop // hidden and visible are one alias test
+
 func TestBehaviorWebkitBackfaceAliasHides(t *testing.T) {
 	t.Parallel()
 

@@ -3,6 +3,8 @@ package layout
 import (
 	"math"
 	"sort"
+
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 // PageBreaks returns the page-break metadata for a finished layout: canvas
@@ -51,6 +53,170 @@ func PageBreaks(res *Result, pageH float64) ([]float64, [][2]float64) {
 	return forced, collector.keepOut(forced)
 }
 
+// PageBreaksEqual reports whether two placements produce the same page-break
+// metadata at the same page height. It compares only the fields PageBreaks
+// reads: the geometry, kind, break styles, table row metadata and operation
+// ranges of the element box tree, the operation fields a single-line or row
+// keep measures, and the content height. The walk allocates nothing.
+//
+// A true result is a proof: PageBreaks returns the same forced breaks and keep
+// ranges for both placements at any pageH. A false result only means the
+// caller must run PageBreaks; the breaks may still be equal.
+func PageBreaksEqual(left, right *Result) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+
+	if left.Height != right.Height || len(left.Ops) != len(right.Ops) {
+		return false
+	}
+
+	if left.root == nil || right.root == nil {
+		return left.root == right.root
+	}
+
+	if !sameBreakBoxes(left.root, right.root) {
+		return false
+	}
+
+	for index := range left.Ops {
+		if !sameBreakOp(&left.Ops[index], &right.Ops[index]) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// sameBreakBoxes compares the pagination inputs of two box subtrees: geometry,
+// kind, operation range, break styles, heading tag, table row metadata, and
+// the cell operation ranges a row keep measures. PageBreaks does not descend
+// into table rows, so the cells are compared where it reads them and the walk
+// follows the children track only.
+func sameBreakBoxes(left, right *box) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+
+	if !sameBreakGeometry(left, right) || !sameBreakStyle(left.style, right.style) ||
+		!sameBreakNode(left.node, right.node) {
+		return false
+	}
+
+	if !sameBreakRows(left, right) {
+		return false
+	}
+
+	return sameBreakChildren(left, right)
+}
+
+// sameBreakGeometry compares the geometry and operation range PageBreaks
+// reads on one box.
+func sameBreakGeometry(left, right *box) bool {
+	return left.y == right.y && left.height == right.height && left.kind == right.kind &&
+		left.opStart == right.opStart && left.opEnd == right.opEnd
+}
+
+// sameBreakRows compares the table row geometry and cell operation ranges
+// PageBreaks reads when it keeps a row together.
+func sameBreakRows(left, right *box) bool {
+	if len(left.rowTops) != len(right.rowTops) || len(left.rowHeights) != len(right.rowHeights) {
+		return false
+	}
+
+	for index := range left.rowTops {
+		if left.rowTops[index] != right.rowTops[index] ||
+			left.rowHeights[index] != right.rowHeights[index] {
+			return false
+		}
+	}
+
+	if len(left.rows) != len(right.rows) {
+		return false
+	}
+
+	for rowIndex := range left.rows {
+		if !sameBreakRowCells(left.rows[rowIndex], right.rows[rowIndex]) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// sameBreakRowCells compares two table rows cell by cell.
+func sameBreakRowCells(leftRow, rightRow []*box) bool {
+	if len(leftRow) != len(rightRow) {
+		return false
+	}
+
+	for cellIndex := range leftRow {
+		if !sameBreakCell(leftRow[cellIndex], rightRow[cellIndex]) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// sameBreakCell compares the operation range PageBreaks reads on one cell.
+func sameBreakCell(left, right *box) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+
+	return left.opStart == right.opStart && left.opEnd == right.opEnd
+}
+
+// sameBreakChildren compares the child tracks PageBreaks descends into.
+func sameBreakChildren(left, right *box) bool {
+	if len(left.children) != len(right.children) {
+		return false
+	}
+
+	for index := range left.children {
+		if !sameBreakBoxes(left.children[index], right.children[index]) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// sameBreakStyle compares the style fields PageBreaks reads: the three break
+// properties, the out-of-flow position and float, and the display value that
+// decides whether a box is inline-level.
+func sameBreakStyle(left, right *ResolvedStyle) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+
+	return left.PageBreakBefore == right.PageBreakBefore &&
+		left.PageBreakAfter == right.PageBreakAfter &&
+		left.PageBreakInside == right.PageBreakInside &&
+		left.Position == right.Position &&
+		left.Float == right.Float &&
+		left.Display == right.Display
+}
+
+// sameBreakNode compares the tag PageBreaks reads to recognize a heading.
+func sameBreakNode(left, right *html.Node) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+
+	return left.Name == right.Name
+}
+
+// sameBreakOp compares the operation fields PageBreaks measures: the paint
+// kind, the baseline or box top, the recorded line height, the face size that
+// stands in for a missing line height, and the fixed flag that keeps an op out
+// of a row keep.
+func sameBreakOp(left, right *Op) bool {
+	return left.Kind == right.Kind && left.Y == right.Y &&
+		left.H == right.H && left.Size == right.Size && left.Fixed == right.Fixed
+}
+
 // boxOutOfFlow reports whether a box fragments under its own rules rather
 // than in normal flow: positioned boxes (absolute, fixed, sticky) and
 // floats. Single-line keeps do not apply to them or their subtrees.
@@ -83,13 +249,13 @@ func inlineLevelBox(style *ResolvedStyle) bool {
 	}
 }
 
-// singleLineKeepRange reports whether boxNode formats exactly one line of
-// text and that line cannot fit the page containing the box top, and returns
-// the canvas range a paginator must keep on one page. The range covers the
-// border box, so the line moves with its padding, border, and background
+// singleLineKeepRangeWithBuf reports whether boxNode formats exactly one line
+// of text and that line cannot fit the page containing the box top, and
+// returns the canvas range a paginator must keep on one page. The range covers
+// the border box, so the line moves with its padding, border, and background
 // instead of leaving an empty leading fragment behind. Boxes taller than one
 // page cannot be kept whole and split between lines instead.
-func singleLineKeepRange(res *Result, boxNode *box, pageH float64) ([2]float64, bool) {
+func singleLineKeepRangeWithBuf(res *Result, boxNode *box, pageH float64, buf []float64) ([2]float64, bool) {
 	var none [2]float64
 
 	if boxNode == nil || pageH <= 0 || boxNode.height <= 0 || boxNode.height > pageH+layoutCoordEpsilon {
@@ -100,7 +266,7 @@ func singleLineKeepRange(res *Result, boxNode *box, pageH float64) ([2]float64, 
 		return none, false
 	}
 
-	baselines := stripLineBaselines(res.Ops, boxNode.opStart, boxNode.opEnd+1)
+	baselines := stripLineBaselinesInto(res.Ops, boxNode.opStart, boxNode.opEnd+1, buf)
 	if len(baselines) != 1 {
 		return none, false
 	}
@@ -187,9 +353,10 @@ func lineExtendsPast(ops []Op, boxNode *box, baseline, boundary float64) bool {
 }
 
 type breakCollector struct {
-	ops    []Op
-	forced []float64
-	keep   [][2]float64
+	ops             []Op
+	forced          []float64
+	keep            [][2]float64
+	baselineScratch []float64
 }
 
 func (c *breakCollector) add(boxNode *box, canvasH float64) {
@@ -228,7 +395,7 @@ func (c *breakCollector) addSingleLineKeep(res *Result, pageH float64, boxNode *
 		return
 	}
 
-	if keepRange, ok := singleLineKeepRange(res, boxNode, pageH); ok {
+	if keepRange, ok := singleLineKeepRangeWithBuf(res, boxNode, pageH, c.baselineScratch); ok {
 		c.keep = append(c.keep, keepRange)
 	}
 }

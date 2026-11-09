@@ -36,6 +36,21 @@ issues:
       linters:
         - testpackage
         - exhaustruct
+    # Patch-path tests are table-heavy and several intentionally share
+    # process-wide caches, bypass flags, or font state. Keep correctness
+    # linters on tests, but do not apply the production cuddling,
+    # identifier-length, or complexity budget to test bodies.
+    - path: _test\.go
+      linters:
+        - wsl
+        - varnamelen
+        - cyclop
+        - gocognit
+        - funlen
+        - nlreturn
+        - intrange
+        - goconst
+        - mnd
     # Output fixture comparisons run serially because PDF font/subset state is
     # shared. Keep paralleltest active for every other test file.
     - path: ^internal/convert/fixturetests/output_fixture_.*_test\.go$

@@ -4,6 +4,7 @@ package layout
 import (
 	"math"
 	"sort"
+	"sync"
 
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
@@ -934,15 +935,12 @@ func (e *engine) finalizeChrome(root *box) {
 
 		e.ops = out
 
-		// Remap content op ranges, expand owners with their chrome, then union
-		// parent ranges over children so ancestor ranges still cover nested chrome.
-		remapBoxRangesWithChrome(root, oldToNew, ownerChrome)
-		unionChildOpRanges(root)
-
-		// Deferred chrome under sticky ancestors never received StickyID at build
-		// time; re-stamp from the box tree. Fixed content already marked Fixed -
-		// expand Fixed onto chrome in the same range when any op is Fixed.
-		restampStickyFixed(root, e.ops)
+		// One post-order walk remaps content ranges through oldToNew,
+		// expands owners with their chrome, unions parent ranges over
+		// children, and re-stamps sticky and fixed marks, instead of three
+		// separate tree walks.
+		remapUnionRestamp(root, oldToNew, ownerChrome, e.ops)
+		releaseOldToNew(oldToNew)
 	}
 
 	e.applyColorAdjustPaintPolicy(root)
@@ -1032,6 +1030,36 @@ func (e *engine) applyColorAdjustPaintPolicy(root *box) {
 // chromeSpan is an inclusive op range owned by one box's chrome.
 type chromeSpan struct{ start, end int }
 
+// chromeSortKey is one deferred entry with its merge order precomputed: the
+// insertion index, the document rank, and the registration order. The sort
+// comparator reads these ints only, so merging never does map lookups while
+// ordering.
+type chromeSortKey struct {
+	at, rank, ord int
+	ranked        bool
+	ent           chromeEntry
+}
+
+// oldToNewPool reuses the index-remap backing across finalizeChrome calls.
+// The slice carries no pointers and is fully rewritten on every merge, so
+// sharing it between Layout runs is safe.
+var oldToNewPool = sync.Pool{New: func() any { return make([]int, 0, 512) }} //nolint:gochecknoglobals // shared remap backing
+
+// rentOldToNew returns a remap slice of length need, reusing pooled backing
+// when it fits.
+func rentOldToNew(need int) []int {
+	if v, ok := oldToNewPool.Get().([]int); ok && cap(v) >= need {
+		return v[:need]
+	}
+
+	return make([]int, need)
+}
+
+// releaseOldToNew hands a remap slice back to the pool.
+func releaseOldToNew(s []int) {
+	oldToNewPool.Put(s[:0])
+}
+
 // mergeDeferredChrome splices deferred background/border ops into oldOps in
 // one linear pass. Paint order for multiple entries at the same index follows
 // document order (ancestors before descendants, earlier siblings before later
@@ -1044,26 +1072,23 @@ func mergeDeferredChrome(
 	// Sort by insert index ascending; within one index, document order keeps
 	// an outer box under its descendants without letting a later sibling's
 	// chrome splice ahead of an earlier sibling's.
-	type indexed struct {
-		ord int
-		ent chromeEntry
-	}
-
-	order := make([]indexed, len(entries))
+	order := make([]chromeSortKey, len(entries))
 	for i, ent := range entries {
-		order[i] = indexed{ord: i, ent: ent}
+		key := chromeSortKey{at: ent.at, ord: i, ent: ent}
+		if rank, ok := paintOrder[ent.b]; ok {
+			key.rank, key.ranked = rank, true
+		}
+
+		order[i] = key
 	}
 
 	sort.SliceStable(order, func(i, j int) bool {
-		if order[i].ent.at != order[j].ent.at {
-			return order[i].ent.at < order[j].ent.at
+		if order[i].at != order[j].at {
+			return order[i].at < order[j].at
 		}
 
-		ri, iRanked := paintOrder[order[i].ent.b]
-		rj, jRanked := paintOrder[order[j].ent.b]
-
-		if iRanked && jRanked && ri != rj {
-			return ri < rj
+		if order[i].ranked && order[j].ranked && order[i].rank != order[j].rank {
+			return order[i].rank < order[j].rank
 		}
 		// Same box (or a box outside the tree): later register paints first,
 		// which keeps an outer entry under its inner entries.
@@ -1089,7 +1114,7 @@ func mergeDeferredChrome(
 		out = make([]Op, need)
 	}
 
-	oldToNew := make([]int, len(oldOps))
+	oldToNew := rentOldToNew(len(oldOps))
 	ownerChrome := map[*box]chromeSpan{}
 	write := need
 
@@ -1097,11 +1122,11 @@ func mergeDeferredChrome(
 	// last op. A negative at is unreachable by the forward cursor and blocks it
 	// for the rest of the walk, so then every entry becomes trailing.
 	firstTrailing := len(order)
-	for firstTrailing > 0 && order[firstTrailing-1].ent.at >= len(oldOps) {
+	for firstTrailing > 0 && order[firstTrailing-1].at >= len(oldOps) {
 		firstTrailing--
 	}
 
-	if len(order) > 0 && order[0].ent.at < 0 {
+	if len(order) > 0 && order[0].at < 0 {
 		firstTrailing = 0
 	}
 
@@ -1121,7 +1146,7 @@ func mergeDeferredChrome(
 		out[write] = oldOps[idx]
 		oldToNew[idx] = write
 
-		for oidx >= 0 && order[oidx].ent.at == idx {
+		for oidx >= 0 && order[oidx].at == idx {
 			ent := order[oidx].ent
 			start := write - len(ent.ops)
 			copy(out[start:], ent.ops)
@@ -1191,11 +1216,16 @@ func recordOwnerChrome(ownerChrome map[*box]chromeSpan, boxNode *box, start, end
 	ownerChrome[boxNode] = chromeSpan{start: start, end: endIdx}
 }
 
-// remapBoxRangesWithChrome rewrites box op ranges through the old→new index
-// map, then expands each owner with its recorded chrome span.
-func remapBoxRangesWithChrome(root *box, oldToNew []int, ownerChrome map[*box]chromeSpan) {
-	var remap func(b *box)
-	remap = func(boxNode *box) {
+// remapUnionRestamp rewrites box op ranges through the old→new index map,
+// expands each owner with its recorded chrome span, widens every parent over
+// its children, and re-stamps sticky and fixed marks, in one post-order walk.
+// The fused order matches the old three-pass sequence: a box remaps before
+// its children union into it, and the sticky/fixed re-stamp touches only the
+// box's own final range, so pass order between boxes is unobservable.
+func remapUnionRestamp(root *box, oldToNew []int, ownerChrome map[*box]chromeSpan, ops []Op) {
+	var walk func(boxNode *box)
+
+	walk = func(boxNode *box) {
 		if boxNode == nil {
 			return
 		}
@@ -1210,10 +1240,38 @@ func remapBoxRangesWithChrome(root *box, oldToNew []int, ownerChrome map[*box]ch
 		}
 
 		for _, child := range boxNode.children {
-			remap(child)
+			walk(child)
 		}
+
+		for _, child := range boxNode.children {
+			if child.opEnd < child.opStart {
+				continue
+			}
+
+			if boxNode.opEnd < boxNode.opStart {
+				boxNode.opStart, boxNode.opEnd = child.opStart, child.opEnd
+
+				continue
+			}
+
+			if child.opStart < boxNode.opStart {
+				boxNode.opStart = child.opStart
+			}
+
+			if child.opEnd > boxNode.opEnd {
+				boxNode.opEnd = child.opEnd
+			}
+		}
+
+		// Deferred chrome under sticky ancestors never received StickyID at
+		// build time; re-stamp from the box tree. Fixed content already marked
+		// Fixed - expand Fixed onto chrome in the same range when any op is
+		// Fixed.
+		reapplyStickyID(boxNode, ops)
+		expandFixedOps(boxNode, ops)
 	}
-	remap(root)
+
+	walk(root)
 }
 
 // mergeOwnerChromeSpan unions a box's content range with its chrome span.
@@ -1234,7 +1292,9 @@ func mergeOwnerChromeSpan(boxNode *box, span chromeSpan) {
 }
 
 // unionChildOpRanges widens every box range over its children's ranges so
-// ancestor ranges still cover nested chrome.
+// ancestor ranges still cover nested chrome. finalizeChrome uses the fused
+// remapUnionRestamp walk instead; this stays for the retained-state callers
+// that re-widen ranges without a chrome merge.
 func unionChildOpRanges(root *box) {
 	var unionChildren func(b *box)
 	unionChildren = func(boxNode *box) {
@@ -1265,21 +1325,6 @@ func unionChildOpRanges(root *box) {
 		}
 	}
 	unionChildren(root)
-}
-
-// restampStickyFixed re-applies StickyID from sticky boxes and expands Fixed
-// onto the full op range when the box was viewport-fixed (any op already Fixed).
-func restampStickyFixed(boxNode *box, ops []Op) {
-	if boxNode == nil {
-		return
-	}
-
-	reapplyStickyID(boxNode, ops)
-	expandFixedOps(boxNode, ops)
-
-	for _, c := range boxNode.children {
-		restampStickyFixed(c, ops)
-	}
 }
 
 // reapplyStickyID stamps StickyID onto a sticky box's whole op range.

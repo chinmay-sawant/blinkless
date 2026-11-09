@@ -10,7 +10,7 @@ import (
 
 // TestPrintLinkInheritHonorsCascade: text-decoration:inherit on links must
 // not invent underlines (CSS-faithful default).
-func TestPrintLinkInheritHonorsCascade(t *testing.T) { //nolint:cyclop
+func TestPrintLinkInheritHonorsCascade(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `

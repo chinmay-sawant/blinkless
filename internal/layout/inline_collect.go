@@ -24,7 +24,7 @@ func (e *engine) collectInline(nodes []*html.Node, out *[]inlineItem, blockStyle
 	// items it directly contributes (nested inline elements with their own
 	// scope already ordered and marked themselves during collection).
 	if blockStyle != nil && isScopedBidi(blockStyle.UnicodeBidi) {
-		e.applyBidiScope(*blockStyle, *out, start)
+		e.applyBidiScope(blockStyle, *out, start)
 	}
 
 	// Lite RTL: only mirror when a run contains strong RTL letters (Arabic /
@@ -159,8 +159,8 @@ func isScopedBidi(mode string) bool {
 // reverse their own strong-RTL runs under direction:rtl; plaintext ignores
 // direction and uses the strong-RTL content heuristic (first-strong subset).
 // All scoped items are marked so the document heuristic leaves them alone.
-func (e *engine) applyBidiScope(sty ResolvedStyle, items []inlineItem, start int) {
-	if !isScopedBidi(sty.UnicodeBidi) || start >= len(items) {
+func (e *engine) applyBidiScope(sty *ResolvedStyle, items []inlineItem, start int) {
+	if sty == nil || !isScopedBidi(sty.UnicodeBidi) || start >= len(items) {
 		return
 	}
 
@@ -175,7 +175,11 @@ func (e *engine) applyBidiScope(sty ResolvedStyle, items []inlineItem, start int
 
 // bidiScopeReverses reports whether this engine's run-level model displays
 // the scope in reverse logical order.
-func bidiScopeReverses(sty ResolvedStyle, items []inlineItem, start int) bool {
+func bidiScopeReverses(sty *ResolvedStyle, items []inlineItem, start int) bool {
+	if sty == nil {
+		return false
+	}
+
 	switch sty.UnicodeBidi {
 	case unicodeBidiOverride, unicodeBidiIsolateOverride:
 		return sty.Direction == cssDirectionRTL
@@ -189,7 +193,7 @@ func bidiScopeReverses(sty ResolvedStyle, items []inlineItem, start int) bool {
 }
 
 func (e *engine) collectInlineNode(node *html.Node, out *[]inlineItem) {
-	sty := e.styleVal(node)
+	sty := e.stylePtr(node)
 
 	switch node.Type {
 	case html.TextNode:
@@ -201,49 +205,131 @@ func (e *engine) collectInlineNode(node *html.Node, out *[]inlineItem) {
 	}
 }
 
+// inlineTextCtx resolves the parent and container styles for one text node
+// once and caches the vertical and chrome bits derived from them. Collection
+// previously looked up the parent style up to three times per text node
+// (vertical check plus two chrome checks, each with its own container
+// lookup); threading this context through removes those repeat lookups.
+type inlineTextCtx struct {
+	parentStyle    *ResolvedStyle
+	containerStyle *ResolvedStyle
+	vertical       bool
+	chromeApplies  bool
+	atomic         bool
+}
+
+func (e *engine) resolveInlineTextCtx(node *html.Node) inlineTextCtx {
+	var ctx inlineTextCtx
+
+	parent := node.Parent
+	if parent == nil || parent.Type != html.ElementNode {
+		return ctx
+	}
+
+	ctx.parentStyle = e.stylePtr(parent)
+
+	ctx.vertical = isVerticalWritingMode(ctx.parentStyle.WritingMode)
+
+	var container *html.Node
+	if parent.Parent != nil && parent.Parent.Type == html.ElementNode {
+		container = parent.Parent
+		ctx.containerStyle = e.stylePtr(container)
+	}
+
+	ctx.chromeApplies = inlineChromeAppliesStyles(ctx.parentStyle, ctx.containerStyle)
+	if ctx.chromeApplies && parent.Name == "mark" {
+		ctx.atomic = ctx.parentStyle.PaddingLeft > 0 || ctx.parentStyle.PaddingRight > 0 ||
+			inlineHasBorderPtr(ctx.parentStyle)
+	}
+
+	return ctx
+}
+
+// inlineChromeAppliesStyles reports whether text under parentStyle paints
+// inline chrome. containerStyle may be nil when the parent has no element
+// container. Split from the node-based helper so the per-text-node context
+// resolves both styles once instead of once per check.
+func inlineChromeAppliesStyles(parentStyle, containerStyle *ResolvedStyle) bool {
+	if parentStyle == nil {
+		return false
+	}
+
+	if parentStyle.Display != cssDisplayInline || parentStyle.Position != positionStatic ||
+		isVerticalWritingMode(parentStyle.WritingMode) {
+		return false
+	}
+
+	if containerStyle == nil {
+		return true
+	}
+
+	switch containerStyle.Display {
+	case displayFlex, displayInlineFlex, displayGrid, displayInlineGrid, displaySubgrid:
+		return false
+	default:
+		return true
+	}
+}
+
+func inlineHasBorderPtr(style *ResolvedStyle) bool {
+	if style == nil {
+		return false
+	}
+
+	return style.BorderLeft.Width > 0 || style.BorderRight.Width > 0 ||
+		style.BorderTop.Width > 0 || style.BorderBottom.Width > 0
+}
+
 // collectInlineText flattens one text node under its white-space mode.
 //
 //nolint:cyclop // whitespace, writing-mode, and inline decoration are one collection pass
-func (e *engine) collectInlineText(node *html.Node, sty ResolvedStyle, out *[]inlineItem) {
-	if sty.Display == cssDisplayNone {
+func (e *engine) collectInlineText(node *html.Node, sty *ResolvedStyle, out *[]inlineItem) {
+	if sty == nil || sty.Display == cssDisplayNone {
 		return
 	}
 
 	start := len(*out)
-	parent := node.Parent
-	vertical := parent != nil && parent.Type == html.ElementNode && isVerticalWritingMode(e.styleVal(parent).WritingMode)
+	ctx := e.resolveInlineTextCtx(node)
 
-	if vertical {
-		verticalStyle := sty
-		verticalStyle.WhiteSpace = cssWhiteSpaceNowrap
-		e.collectWrappedText(node, verticalStyle, out)
+	if ctx.vertical {
+		verticalCopy := *sty
+		verticalCopy.WhiteSpace = cssWhiteSpaceNowrap
+		e.collectWrappedTextPtr(node, &verticalCopy, out)
 
 		for idx := start; idx < len(*out); idx++ {
-			(*out)[idx].style = &verticalStyle
+			(*out)[idx].style = &verticalCopy
 			(*out)[idx].noSplit = true
 		}
-	} else {
-		atomicChrome := e.inlineChromeIsAtomic(node)
 
-		switch {
-		case atomicChrome:
-			// Keep padded/outlined inline labels together when they fit on
-			// the next line. Splitting each word into a separate decorated
-			// item produces a sequence of tiny pills and can strand the last
-			// word on a new line even though the complete label fits.
-			atomicStyle := sty
-			atomicStyle.WhiteSpace = cssWhiteSpaceNowrap
-			e.collectWrappedText(node, atomicStyle, out)
-		case sty.WhiteSpace == cssWhiteSpacePre,
-			sty.WhiteSpace == cssWhiteSpacePreWrap,
-			sty.WhiteSpace == cssWhiteSpacePreLine:
-			e.collectPreservingNewlines(node, sty, out)
-		default:
-			e.collectWrappedText(node, sty, out)
+		if !ctx.chromeApplies {
+			return
 		}
+
+		for idx := start; idx < len(*out); idx++ {
+			e.enableInlineChrome(&(*out)[idx])
+		}
+
+		return
 	}
 
-	if !e.inlineChromeApplies(node) {
+	switch {
+	case ctx.atomic:
+		// Keep padded/outlined inline labels together when they fit on
+		// the next line. Splitting each word into a separate decorated
+		// item produces a sequence of tiny pills and can strand the last
+		// word on a new line even though the complete label fits.
+		atomicCopy := *sty
+		atomicCopy.WhiteSpace = cssWhiteSpaceNowrap
+		e.collectWrappedTextPtr(node, &atomicCopy, out)
+	case sty.WhiteSpace == cssWhiteSpacePre,
+		sty.WhiteSpace == cssWhiteSpacePreWrap,
+		sty.WhiteSpace == cssWhiteSpacePreLine:
+		e.collectPreservingNewlines(node, sty, out)
+	default:
+		e.collectWrappedTextPtr(node, sty, out)
+	}
+
+	if !ctx.chromeApplies {
 		return
 	}
 
@@ -256,60 +342,10 @@ func isVerticalWritingMode(mode string) bool {
 	return mode == writingModeVerticalRL || mode == writingModeVerticalLR
 }
 
-// inlineChromeApplies reports whether text belongs to an inline formatting
-// context whose decoration must be painted by the inline text emitter. A
-// flex/grid item is laid out as a blockified box even when its authored
-// display value is inline; that box already owns its padding, background, and
-// border. Painting inline chrome for its text would emit a second rounded
-// frame and inflate the item's measured size.
-func (e *engine) inlineChromeApplies(node *html.Node) bool {
-	parent := node.Parent
-	if parent == nil || parent.Type != html.ElementNode {
-		return false
-	}
-
-	pStyle := e.stylePtr(parent)
-	if pStyle.Display != cssDisplayInline || pStyle.Position != "static" || isVerticalWritingMode(pStyle.WritingMode) {
-		return false
-	}
-
-	container := parent.Parent
-	if container == nil || container.Type != html.ElementNode {
-		return true
-	}
-
-	switch e.stylePtr(container).Display {
-	case displayFlex, displayInlineFlex, displayGrid, displayInlineGrid, displaySubgrid:
-		return false
-	default:
-		return true
-	}
-}
-
-func (e *engine) inlineChromeIsAtomic(node *html.Node) bool {
-	if !e.inlineChromeApplies(node) {
-		return false
-	}
-
-	parent := node.Parent
-	if parent == nil {
-		return false
-	}
-
-	if parent.Name != "mark" {
-		return false
-	}
-
-	style := e.styleVal(parent)
-
-	return style.PaddingLeft > 0 || style.PaddingRight > 0 || inlineHasBorder(style)
-}
-
 // collectPreservingNewlines splits on newlines for pre / pre-wrap / pre-line.
 // pre keeps each line as one unbreakable run; pre-wrap preserves spaces and
 // wraps; pre-line collapses spaces, preserves newlines, and wraps.
-func (e *engine) collectPreservingNewlines(node *html.Node, sty ResolvedStyle, out *[]inlineItem) {
-	style := e.stylePtr(node)
+func (e *engine) collectPreservingNewlines(node *html.Node, sty *ResolvedStyle, out *[]inlineItem) {
 	text := node.Text
 	collapse := sty.WhiteSpace == cssWhiteSpacePreLine
 	wrap := sty.WhiteSpace != cssWhiteSpacePre
@@ -325,7 +361,7 @@ func (e *engine) collectPreservingNewlines(node *html.Node, sty ResolvedStyle, o
 			line = text[start : start+end]
 		}
 
-		e.emitWhiteSpaceLine(line, style, collapse, wrap, out)
+		e.emitWhiteSpaceLine(line, sty, collapse, wrap, out)
 
 		if last {
 			return
@@ -414,20 +450,22 @@ func (e *engine) emitPreservedWrap(line string, style *ResolvedStyle, out *[]inl
 }
 
 // collectWrappedText flattens a normal white-space text node into word items.
-//
-//nolint:cyclop,funlen // hot path: word-scan with whitespace/nowrap edge cases
 func (e *engine) collectWrappedText(node *html.Node, sty ResolvedStyle, out *[]inlineItem) {
+	e.collectWrappedTextPtr(node, &sty, out)
+}
+
+// collectWrappedTextPtr is the pointer-based hot path used by inline
+// collection. The value wrapper above preserves the external test hook;
+// internal callers pass the already-resolved node style so the per-fragment
+// loop pays no second map lookup and no 6KB copy.
+func (e *engine) collectWrappedTextPtr(node *html.Node, sty *ResolvedStyle, out *[]inlineItem) {
 	// Whitespace-only text nodes still separate adjacent inlines
 	// (wiki "Cuba"+" "+"Spain" / pretty-printed newlines between
 	// anchors). collapseWS would drop them. Skip only after a
 	// replaced element so `<img>\n<span margin-left>` does not add
 	// a space on top of the margin (TestLogoTitleGap).
 	if !hasNonHTMLSpace(node.Text) {
-		if node.Text != "" {
-			if len(*out) == 0 || !(*out)[len(*out)-1].img || (*out)[len(*out)-1].blockBox != nil {
-				*out = append(*out, e.textItem(" ", e.stylePtr(node)))
-			}
-		}
+		e.appendWhitespaceSeparator(node, sty, out)
 
 		return
 	}
@@ -437,72 +475,123 @@ func (e *engine) collectWrappedText(node *html.Node, sty ResolvedStyle, out *[]i
 		return
 	}
 
-	nodeStyle := e.stylePtr(node)
 	// white-space:nowrap — keep the run unbreakable (wiki .reference
 	// cite markers in narrow table columns).
 	if sty.WhiteSpace == cssWhiteSpaceNowrap {
-		*out = append(*out, e.textItem(text, nodeStyle))
+		*out = append(*out, e.textItem(text, sty))
 
 		return
 	}
 
-	// Walk collapsed words without strings.Fields / word+" " copies.
-	// Substrings of `text` share the underlying bytes; inter-word spaces
-	// stay attached to the preceding word ("hello ", "world") so paint
-	// and justify see the same trailing-space convention as before.
-	//
-	// collapseWS strips a leading space that still separates this node
-	// from the previous inline ("</a> in" → "Reeves"+"in"). Re-introduce
-	// one when the source began with whitespace and the prior item does
-	// not already end with a space. Do not insert a space before attaching
-	// punctuation (", . ) ]") — pretty-printed "</a>\n," must stay "Award,".
-	needLead := false
-
-	if len(node.Text) > 0 && isWSSpaceByte(node.Text[0]) && len(*out) > 0 {
-		prev := &(*out)[len(*out)-1]
-		if !prev.forceBreak && !strings.HasSuffix(prev.text, " ") {
-			needLead = true
-		}
-	}
-
 	startOut := len(*out)
-	wordStart := 0
+	needLead := needsLeadingSpace(node.Text, *out)
 
-	for wordStart < len(text) {
-		// Skip any residual spaces (collapseWS normally leaves single
-		// separators only between words).
-		for wordStart < len(text) && text[wordStart] == ' ' {
-			wordStart++
-		}
+	// Hoist run invariants out of the per-fragment loop: the line height
+	// resolves the face on the normal path, and the vertical column width
+	// does face math too. Every word shares sty, so hoisting the pure reads
+	// changes no value.
+	lineH := e.lineHeightOf(sty) * e.scale
+	verticalRun := isVerticalWritingMode(sty.WritingMode)
 
-		if wordStart >= len(text) {
-			break
-		}
+	var vertW float64
 
-		wordEnd := wordStart
-		for wordEnd < len(text) && text[wordEnd] != ' ' {
-			wordEnd++
-		}
-
-		// Include one trailing space when another word follows.
-		end := wordEnd
-		if wordEnd < len(text) {
-			end = wordEnd + 1
-		}
-
-		word := text[wordStart:end]
-		if startOut == len(*out) && needLead && !isAttachPunct(word) {
-			word = " " + word
-		}
-
-		*out = append(*out, e.textItem(word, nodeStyle))
-		wordStart = end
+	if verticalRun {
+		vertW = verticalWritingColumnWidth(e, sty)
 	}
+
+	e.appendCollapsedWords(text, sty, lineH, vertW, verticalRun, needLead, startOut, out)
+
 	// Preserve a trailing word-separator when the source text node
 	// ended with whitespace (so "foo <b>bar</b>" keeps the gap).
 	if len(*out) > startOut {
-		e.preserveTrailingGap(node, out)
+		e.preserveTrailingGap(node, sty, out)
 	}
+}
+
+// appendWhitespaceSeparator keeps a whitespace-only text node as one space so
+// adjacent inlines stay apart. A run right after a replaced element adds none.
+func (e *engine) appendWhitespaceSeparator(node *html.Node, sty *ResolvedStyle, out *[]inlineItem) {
+	if node.Text == "" {
+		return
+	}
+
+	if len(*out) > 0 && (*out)[len(*out)-1].img && (*out)[len(*out)-1].blockBox == nil {
+		return
+	}
+
+	*out = append(*out, e.textItem(" ", sty))
+}
+
+// needsLeadingSpace reports whether collapseWS stripped a separator that the
+// previous item still needs.
+func needsLeadingSpace(source string, out []inlineItem) bool {
+	if source == "" || !isWSSpaceByte(source[0]) || len(out) == 0 {
+		return false
+	}
+
+	prev := &out[len(out)-1]
+
+	return !prev.forceBreak && !strings.HasSuffix(prev.text, " ")
+}
+
+// appendCollapsedWords appends one item per collapsed word. Substrings of text
+// share the underlying bytes; inter-word spaces stay attached to the preceding
+// word ("hello ", "world") so paint and justify see the same trailing-space
+// convention as before.
+func (e *engine) appendCollapsedWords(
+	text string, sty *ResolvedStyle, lineH, vertW float64,
+	verticalRun, needLead bool, startOut int, out *[]inlineItem,
+) {
+	wordStart := 0
+
+	for wordStart < len(text) {
+		wordStart = e.appendCollapsedWord(text, wordStart, sty, lineH, vertW, verticalRun, needLead, startOut, out)
+	}
+}
+
+// appendCollapsedWord skips separators, appends the next word, and returns the
+// offset after it.
+func (e *engine) appendCollapsedWord(
+	text string, wordStart int, sty *ResolvedStyle, lineH, vertW float64,
+	verticalRun, needLead bool, startOut int, out *[]inlineItem,
+) int {
+	// Skip any residual spaces (collapseWS normally leaves single separators
+	// only between words).
+	for wordStart < len(text) && text[wordStart] == ' ' {
+		wordStart++
+	}
+
+	if wordStart >= len(text) {
+		return wordStart
+	}
+
+	wordEnd := wordStart
+	for wordEnd < len(text) && text[wordEnd] != ' ' {
+		wordEnd++
+	}
+
+	// Include one trailing space when another word follows.
+	end := wordEnd
+	if wordEnd < len(text) {
+		end = wordEnd + 1
+	}
+
+	word := wordWithLeadSpace(text[wordStart:end], needLead, startOut, len(*out))
+
+	*out = append(*out, e.wrappedWordItem(word, sty, lineH, vertW, verticalRun))
+
+	return end
+}
+
+// wordWithLeadSpace re-introduces the separator collapseWS stripped when the
+// run starts a line and the previous item does not already end with a space.
+// Attaching punctuation stays glued to the previous word.
+func wordWithLeadSpace(word string, needLead bool, startOut, outLen int) string {
+	if startOut == outLen && needLead && !isAttachPunct(word) {
+		return " " + word
+	}
+
+	return word
 }
 
 // isWSSpaceByte reports that b is one of the CSS white-space characters.
@@ -516,8 +605,12 @@ func isWSSpaceByte(b byte) bool {
 }
 
 // preserveTrailingGap keeps a trailing word separator when the source text
-// node ended with whitespace.
-func (e *engine) preserveTrailingGap(node *html.Node, out *[]inlineItem) {
+// node ended with whitespace. The appended space reuses the cached
+// single-space advance instead of remeasuring the lengthened word: advances,
+// letter-spacing, and word-spacing all decompose additively across the
+// split, and the dropped adjacent pair carries no autospace gap while the
+// ideograph gate is off. Autospace text keeps the full remeasure.
+func (e *engine) preserveTrailingGap(node *html.Node, nodeStyle *ResolvedStyle, out *[]inlineItem) {
 	if len(*out) == 0 || len(node.Text) == 0 {
 		return
 	}
@@ -533,19 +626,26 @@ func (e *engine) preserveTrailingGap(node *html.Node, out *[]inlineItem) {
 	}
 
 	item.text += " "
-	item.w = e.inlineTextWidth(item.text, e.stylePtr(node), item.chrome)
+
+	if !autospaceIdeographAlpha(nodeStyle.TextAutospace) {
+		item.w += e.measureTextFace(" ", nodeStyle)
+
+		return
+	}
+
+	item.w = e.inlineTextWidth(item.text, nodeStyle, item.chrome)
 }
 
 // collectInlineElement flattens one element node into inline items. The
 // wrap-before/after/inside hooks (wrap_break.go) wrap the collection:
 // wrap-before: line injects a forced break, avoid flags mark the boundary
 // items, and wrap-inside: avoid groups the run when it fits one line.
-func (e *engine) collectInlineElement(node *html.Node, sty ResolvedStyle, out *[]inlineItem) {
-	if sty.Display == cssDisplayNone {
+func (e *engine) collectInlineElement(node *html.Node, sty *ResolvedStyle, out *[]inlineItem) {
+	if sty == nil || sty.Display == cssDisplayNone {
 		return
 	}
 
-	if wrapBreakLineBefore(sty) {
+	if wrapBreakLineBeforePtr(sty) {
 		*out = append(*out, inlineItem{forceBreak: true}) //nolint:exhaustruct // intentional zero fields
 	}
 
@@ -553,16 +653,87 @@ func (e *engine) collectInlineElement(node *html.Node, sty ResolvedStyle, out *[
 
 	e.collectInlineElementInner(node, sty, out)
 
-	e.applyWrapBreakFlags(sty, *out, start)
+	// Fast path: without any wrap-before/after/inside property the hook
+	// provably writes nothing, so the common table-cell path skips it.
+	if hasWrapBreakPropsPtr(sty) {
+		e.applyWrapBreakFlagsPtr(sty, *out, start)
+	}
 
-	if wrapBreakLineAfter(sty) {
+	if wrapBreakLineAfterPtr(sty) {
 		*out = append(*out, inlineItem{forceBreak: true}) //nolint:exhaustruct // intentional zero fields
 	}
 }
 
+// hasWrapBreakProps reports whether sty carries any css-text-4 lite wrap
+// property. applyWrapBreakFlags only writes for avoid/avoid-line/line
+// values, so an element without these properties skips the hook entirely.
+func hasWrapBreakProps(sty ResolvedStyle) bool {
+	return hasWrapBreakPropsPtr(&sty)
+}
+
+// hasWrapBreakPropsPtr is the pointer-based hook gate used by inline
+// collection; the value wrapper above preserves the external test hook.
+func hasWrapBreakPropsPtr(sty *ResolvedStyle) bool {
+	if sty == nil {
+		return false
+	}
+
+	return sty.WrapBefore != "" || sty.WrapAfter != "" || sty.WrapInside != ""
+}
+
+func wrapBreakLineBeforePtr(sty *ResolvedStyle) bool {
+	return sty != nil && sty.WrapBefore == wrapBreakLine
+}
+
+func wrapBreakLineAfterPtr(sty *ResolvedStyle) bool {
+	return sty != nil && sty.WrapAfter == wrapBreakLine
+}
+
+// applyWrapBreakFlagsPtr marks the items one inline element contributed
+// without copying the 6KB style record. It mirrors applyWrapBreakFlags in
+// wrap_break.go field for field; that value-based entry point stays for
+// external callers.
+func (e *engine) applyWrapBreakFlagsPtr(sty *ResolvedStyle, items []inlineItem, start int) {
+	if sty == nil || start >= len(items) {
+		return
+	}
+
+	markWrapBoundaries(sty, items, start)
+
+	if !wrapBreakAvoids(sty.WrapInside) {
+		return
+	}
+
+	if !e.wrapInsideGroupFits(items, start) {
+		return
+	}
+
+	for idx := start; idx < len(items); idx++ {
+		items[idx].avoidInside = true
+	}
+}
+
+// markWrapBoundaries flags the first and last item when the element's
+// wrap-before or wrap-after asks to avoid a break there.
+func markWrapBoundaries(sty *ResolvedStyle, items []inlineItem, start int) {
+	if wrapBreakAvoids(sty.WrapBefore) && !items[start].forceBreak {
+		items[start].avoidBefore = true
+	}
+
+	if wrapBreakAvoids(sty.WrapAfter) && !items[len(items)-1].forceBreak {
+		items[len(items)-1].avoidAfter = true
+	}
+}
+
+// wrapBreakAvoids reports whether value is one of the css-text-4 avoid
+// keywords the inline wrapper honours.
+func wrapBreakAvoids(value string) bool {
+	return value == wrapBreakAvoid || value == wrapBreakAvoidLine
+}
+
 // collectInlineElementInner is the unwrapped inline element collection (kept
 // separate so the wrap-break hook cannot be skipped by an early return).
-func (e *engine) collectInlineElementInner(node *html.Node, sty ResolvedStyle, out *[]inlineItem) {
+func (e *engine) collectInlineElementInner(node *html.Node, sty *ResolvedStyle, out *[]inlineItem) {
 	if e.collectInlineAtomic(node, sty, out) {
 		return
 	}
@@ -575,7 +746,7 @@ func (e *engine) collectInlineElementInner(node *html.Node, sty ResolvedStyle, o
 	}
 
 	if sty.Display == cssDisplayInline {
-		e.collectInlineSpan(node, sty, out)
+		e.collectInlineSpanPtr(node, sty, out)
 
 		return
 	}
@@ -597,20 +768,20 @@ func (e *engine) collectInlineElementInner(node *html.Node, sty ResolvedStyle, o
 // ruby containers, reporting whether the node was consumed. A ruby element in
 // an inline context pairs each rt/rtc run with its base run (see
 // collectRubyElement); blockified ruby falls through to the block path.
-func (e *engine) collectInlineAtomic(node *html.Node, sty ResolvedStyle, out *[]inlineItem) bool {
+func (e *engine) collectInlineAtomic(node *html.Node, sty *ResolvedStyle, out *[]inlineItem) bool {
 	switch node.Name {
 	case cssTagBR:
 		*out = append(*out, inlineItem{forceBreak: true}) //nolint:exhaustruct // intentional zero fields
 	case cssTagImg:
 		e.collectImageItem(node, sty, out)
 	case cssTagSVG:
-		e.collectInlineSVGItem(node, sty, out)
+		e.collectInlineSVGItem(node, *sty, out)
 	case rubyElementName:
 		if sty.Display != cssDisplayInline {
 			return false
 		}
 
-		e.collectRubyElement(node, sty, out)
+		e.collectRubyElement(node, *sty, out)
 	default:
 		return false
 	}
@@ -619,9 +790,11 @@ func (e *engine) collectInlineAtomic(node *html.Node, sty ResolvedStyle, out *[]
 }
 
 // collectImageItem flattens an <img> element into one inline item.
-func (e *engine) collectImageItem(node *html.Node, sty ResolvedStyle, out *[]inlineItem) {
+func (e *engine) collectImageItem(node *html.Node, sty *ResolvedStyle, out *[]inlineItem) {
 	// Measure only: emitInlineImage places the bitmap (and thumb separator).
-	imgBox := e.buildImage(node, sty, 0, 0, false)
+	// buildImage still takes a value (layout_images.go, outside this change),
+	// so one copy happens at this boundary; everything below uses the pointer.
+	imgBox := e.buildImage(node, *sty, 0, 0, false)
 	*out = append(*out, inlineItem{ //nolint:exhaustruct // intentional zero fields
 		img:      true,
 		thumbImg: e.thumbImageInsideFigure(node),
@@ -641,7 +814,7 @@ func (e *engine) collectImageItem(node *html.Node, sty ResolvedStyle, out *[]inl
 
 // collectInlineBlockItem lays out a display:inline-block element at its
 // containing-block width and flattens it into one inline item.
-func (e *engine) collectInlineBlockItem(node *html.Node, sty ResolvedStyle, out *[]inlineItem) {
+func (e *engine) collectInlineBlockItem(node *html.Node, sty *ResolvedStyle, out *[]inlineItem) {
 	avail := e.inlineBlockAvail(node, sty, e.inlineCBW)
 	opStart := len(e.ops)
 	cblock := e.build(node, avail, 0, 0)
@@ -662,7 +835,7 @@ func (e *engine) collectInlineBlockItem(node *html.Node, sty ResolvedStyle, out 
 
 		if !marginBaseline && cblock.firstBaseline == 0 {
 			if last := e.lastInFlowBlockChild(node); last != nil &&
-				isVerticalWritingMode(e.styleVal(last).WritingMode) {
+				isVerticalWritingMode(e.stylePtr(last).WritingMode) {
 				marginBaseline = true
 			}
 		}
@@ -680,6 +853,13 @@ func (e *engine) collectInlineBlockItem(node *html.Node, sty ResolvedStyle, out 
 // collectInlineSpan flattens a display:inline element (e.g. <a>), applying
 // hrefs, pseudo-content and horizontal margins to the generated items.
 func (e *engine) collectInlineSpan(node *html.Node, sty ResolvedStyle, out *[]inlineItem) {
+	e.collectInlineSpanPtr(node, &sty, out)
+}
+
+// collectInlineSpanPtr is the pointer-based span collector used by inline
+// collection. The value wrapper above preserves the ruby.go call site;
+// internal callers pass the already-resolved element style.
+func (e *engine) collectInlineSpanPtr(node *html.Node, sty *ResolvedStyle, out *[]inlineItem) {
 	href := ""
 
 	if node.Name == cssTagA {
@@ -719,7 +899,7 @@ func (e *engine) collectInlineSpan(node *html.Node, sty ResolvedStyle, out *[]in
 
 // appendPseudoItem appends the ::before/::after pseudo content of node: an
 // image item for url() content, otherwise a decorated text item.
-func (e *engine) appendPseudoItem(node *html.Node, sty ResolvedStyle, pseudo string, out *[]inlineItem) {
+func (e *engine) appendPseudoItem(node *html.Node, sty *ResolvedStyle, pseudo string, out *[]inlineItem) {
 	// No content rule anywhere means neither probe can produce an item.
 	if !e.hasPseudoContent() {
 		return
@@ -732,7 +912,7 @@ func (e *engine) appendPseudoItem(node *html.Node, sty ResolvedStyle, pseudo str
 			return
 		}
 	} else if txt := e.pseudoContent(node, pseudo); txt != "" {
-		item := e.textItem(txt, e.pseudoStyle(node, pseudo, sty))
+		item := e.textItem(txt, e.pseudoStyle(node, pseudo, *sty))
 		e.enableInlineChrome(&item)
 		*out = append(*out, item)
 	}
@@ -741,9 +921,9 @@ func (e *engine) appendPseudoItem(node *html.Node, sty ResolvedStyle, pseudo str
 // appendPseudoImage appends one url() pseudo-element image at its font-sized
 // fallback dimensions when the image reports no size of its own.
 func (e *engine) appendPseudoImage(
-	node *html.Node, sty ResolvedStyle, pseudo string, ref *imageRef, out *[]inlineItem,
+	node *html.Node, sty *ResolvedStyle, pseudo string, ref *imageRef, out *[]inlineItem,
 ) {
-	pstyle := e.pseudoStyle(node, pseudo, sty)
+	pstyle := e.pseudoStyle(node, pseudo, *sty)
 	imgW := e.scalePt(pxToPt(float64(ref.w)))
 	imgH := e.scalePt(pxToPt(float64(ref.h)))
 
@@ -763,7 +943,7 @@ func (e *engine) appendPseudoImage(
 // inlineBlockAvail returns the containing-block width used to lay out an
 // inline-block: specified width when present, otherwise shrink-to-fit capped
 // at a generous max so auto-width badges size to their content.
-func (e *engine) inlineBlockAvail(nodeN *html.Node, sty ResolvedStyle, cbW float64) float64 {
+func (e *engine) inlineBlockAvail(nodeN *html.Node, sty *ResolvedStyle, cbW float64) float64 {
 	if sty.WidthPercent >= 0 {
 		// Prefer the inline formatting-context width; fall back to viewport.
 		if cbW > 0 {
@@ -788,10 +968,10 @@ func (e *engine) inlineBlockAvail(nodeN *html.Node, sty ResolvedStyle, cbW float
 	}
 
 	if isInputCheckbox(nodeN) {
-		return defaultCheckboxSize(e, sty) + e.scalePt(sty.MarginLeft) + e.scalePt(sty.MarginRight)
+		return defaultCheckboxSize(e, *sty) + e.scalePt(sty.MarginLeft) + e.scalePt(sty.MarginRight)
 	}
 
-	if isSizeContainer(sty) || containsSize(sty) {
+	if isSizeContainer(*sty) || containsSize(*sty) {
 		return e.containmentInlineBlockAvail(sty)
 	}
 
@@ -800,7 +980,7 @@ func (e *engine) inlineBlockAvail(nodeN *html.Node, sty ResolvedStyle, cbW float
 	// adding the chrome again makes inline-block pills grow by a second set of
 	// padding/border widths and leaves misleading empty space on the right.
 	// An empty box measures 0 and stays 0 wide, matching Chrome.
-	intr := e.measureCellContent(nodeN, &sty) +
+	intr := e.measureCellContent(nodeN, sty) +
 		e.scalePt(sty.MarginLeft) + e.scalePt(sty.MarginRight) +
 		e.nestedBlockHChrome(nodeN)
 
@@ -815,12 +995,12 @@ func (e *engine) inlineBlockAvail(nodeN *html.Node, sty ResolvedStyle, cbW float
 // add padding and border around the intrinsic content size. Without an
 // intrinsic width the box keeps its as-if-empty chrome-only size. Outer margins
 // apply in every case; an empty box is 0 wide, matching Chrome.
-func (e *engine) containmentInlineBlockAvail(sty ResolvedStyle) float64 {
+func (e *engine) containmentInlineBlockAvail(sty *ResolvedStyle) float64 {
 	chrome := e.scalePt(sty.PaddingLeft) + e.scalePt(sty.PaddingRight) +
 		e.scalePt(sty.BorderLeft.Width) + e.scalePt(sty.BorderRight.Width)
 	intr := chrome
 
-	if intrinsicW := containmentIntrinsicWidth(sty); intrinsicW >= 0 {
+	if intrinsicW := containmentIntrinsicWidth(*sty); intrinsicW >= 0 {
 		intr = e.scalePt(intrinsicW) + chrome
 	}
 
@@ -882,6 +1062,21 @@ func (e *engine) textItem(text string, style *ResolvedStyle) inlineItem {
 
 	return inlineItem{ //nolint:exhaustruct // intentional zero fields
 		text: text, style: style, w: textWidth, h: lineHeight,
+	}
+}
+
+// wrappedWordItem builds one wrapped word item. It mirrors textItem exactly
+// for the wrapped-word loop, with the run-invariant line height and vertical
+// column width hoisted by the caller so the per-fragment loop pays no repeat
+// face or writing-mode work.
+func (e *engine) wrappedWordItem(word string, style *ResolvedStyle, lineH, vertW float64, vertical bool) inlineItem {
+	advance := e.measureTextFace(transformInlineText(word, style.TextTransform), style)
+	if vertical {
+		advance = vertW
+	}
+
+	return inlineItem{ //nolint:exhaustruct // intentional zero fields
+		text: word, style: style, w: advance, h: lineH,
 	}
 }
 

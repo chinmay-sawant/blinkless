@@ -622,12 +622,15 @@ func (e *engine) maxRuneWidth(text string, style *ResolvedStyle) float64 {
 
 	var widest float64
 
-	for _, r := range text {
-		w := e.measureRuneFace(r, style)
+	// One batched advance walk serves the whole token; values match
+	// sequential measureRuneFace calls exactly.
+	e.eachRuneAdvance(text, style, func(_ rune, w float64) bool {
 		if w > widest {
 			widest = w
 		}
-	}
+
+		return true
+	})
 
 	return widest
 }
@@ -639,8 +642,10 @@ func (e *engine) maxSoftSegmentWidth(cssS string, sty *ResolvedStyle) float64 {
 
 	var widest, cur float64
 
-	for _, r := range cssS {
-		cur += e.measureRuneFace(r, sty)
+	// One batched advance walk serves the whole token; values match
+	// sequential measureRuneFace calls exactly.
+	e.eachRuneAdvance(cssS, sty, func(r rune, w float64) bool {
+		cur += w
 		// Soft-break runes end a min-content segment; residual after the
 		// last break is flushed below (covers tokens with no soft points).
 		if isSoftWrapRune(r, softBreakWord) {
@@ -650,7 +655,9 @@ func (e *engine) maxSoftSegmentWidth(cssS string, sty *ResolvedStyle) float64 {
 
 			cur = 0
 		}
-	}
+
+		return true
+	})
 
 	if cur > widest {
 		widest = cur

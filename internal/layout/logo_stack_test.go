@@ -9,7 +9,7 @@ import (
 )
 
 // Wordmark and tagline must stack vertically (display:block), not sit on one row.
-func TestWikiLogoWordmarkAboveTagline(t *testing.T) { //nolint:cyclop,funlen
+func TestWikiLogoWordmarkAboveTagline(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `

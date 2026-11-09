@@ -8,7 +8,6 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/css"
 )
 
-//nolint:cyclop,funlen // drop-cap regression test checks source, geometry, and wrapping
 func TestInitialLetterSpansThreeLines(t *testing.T) {
 	t.Parallel()
 
@@ -166,7 +165,6 @@ p {
 </body></html>`, cssSheet)
 }
 
-//nolint:cyclop // hit collection distinguishes the letter from body runs
 func collectDropCapHits(t *testing.T, res *Result) (initialLetterHit, []initialLetterHit) {
 	t.Helper()
 

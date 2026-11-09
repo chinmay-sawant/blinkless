@@ -8,7 +8,7 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
-func TestTableColumnWidthPercent(t *testing.T) { //nolint:cyclop
+func TestTableColumnWidthPercent(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `

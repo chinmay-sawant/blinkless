@@ -127,6 +127,11 @@ func parseSelectorCtx(str string, insideHas bool) (Selector, bool) {
 	a, b, c := computeSpecificity(sel)
 	sel.spec = [3]int{a, b, c}
 	sel.specValid = true
+	// Cache the :has() budget predicate too: Matches checks it per node,
+	// and the result depends only on the selector. Nested arguments were
+	// parsed (and cached) first, so this walk hits their caches.
+	sel.has = selectorContainsHas(sel)
+	sel.hasValid = true
 
 	return sel, true
 }
@@ -239,7 +244,26 @@ func matchNextRelative(state MatchState, sel Selector, subject *html.Node) bool 
 }
 
 func matchFollowingRelatives(state MatchState, sel Selector, subject *html.Node) bool {
-	for sibling := nextElementSibling(subject); sibling != nil; sibling = nextElementSibling(sibling) {
+	// Hoisted parent entry: the old nextElementSibling chain re-fetched the
+	// memoized entry (RWMutex + map + atomic) per sibling. One fetch serves
+	// the whole following-sibling run; order and charge count are unchanged.
+	if subject == nil || subject.Parent == nil {
+		return false
+	}
+
+	entry := siblingEntryFor(subject.Parent)
+	if entry == nil {
+		return false
+	}
+
+	info, ok := entry.infos[subject]
+	if !ok {
+		return false
+	}
+
+	for i := info.index; i < len(entry.elems); i++ {
+		sibling := entry.elems[i]
+
 		if !chargeHasVisit(state) {
 			return false
 		}
@@ -256,16 +280,20 @@ func matchFollowingRelatives(state MatchState, sel Selector, subject *html.Node)
 // sel with its leftmost-match element anchored at subject (directly when
 // direct is true, or anywhere beneath it otherwise).
 func matchRelativeDescendant(state MatchState, sel Selector, subject *html.Node, direct bool) bool {
+	// Single-walk fast path: sel under :has() never nests :has() (the parser
+	// rejects it), so Matches(sel, d) == (leftmostMatch(sel, d) != nil) with
+	// no budget side effect. The old Matches-then-leftmost ran the full
+	// right-to-left walk twice per descendant; one walk suffices. The
+	// selectorContainsHas guard preserves the two-walk budget accounting if
+	// nesting is ever allowed.
+	singleWalk := !selectorContainsHas(sel)
+
 	for descendant := range elementDescendants(subject) {
 		if !chargeHasVisit(state) {
 			return false
 		}
 
-		if !state.Matches(sel, descendant) {
-			continue
-		}
-
-		left := leftmostMatch(state, sel, descendant)
+		left := relativeLeftmost(state, sel, descendant, singleWalk)
 		if left == nil {
 			continue
 		}
@@ -276,6 +304,16 @@ func matchRelativeDescendant(state MatchState, sel Selector, subject *html.Node,
 	}
 
 	return false
+}
+
+// relativeLeftmost returns the leftmost match of sel in node's subtree, or nil
+// when the two-walk path rejects node before the leftmost walk.
+func relativeLeftmost(state MatchState, sel Selector, node *html.Node, singleWalk bool) *html.Node {
+	if !singleWalk && !state.Matches(sel, node) {
+		return nil
+	}
+
+	return leftmostMatch(state, sel, node)
 }
 
 // matchRelativeFrom checks whether sel matches with its leftmost compound equal
@@ -289,8 +327,13 @@ func matchRelativeFrom(state MatchState, sel Selector, anchor *html.Node) bool {
 		return false
 	}
 
+	// Same single-walk rule as matchRelativeDescendant: sel under :has()
+	// never nests :has(), so one leftmost walk decides both the match and
+	// the leftmost==anchor test without changing budget accounting.
+	singleWalk := !selectorContainsHas(sel)
+
 	// The anchor itself is a candidate before any of its descendants.
-	if state.Matches(sel, anchor) && leftmostMatch(state, sel, anchor) == anchor {
+	if relativeLeftmost(state, sel, anchor, singleWalk) == anchor {
 		return true
 	}
 
@@ -299,7 +342,7 @@ func matchRelativeFrom(state MatchState, sel Selector, anchor *html.Node) bool {
 			return false
 		}
 
-		if state.Matches(sel, descendant) && leftmostMatch(state, sel, descendant) == anchor {
+		if relativeLeftmost(state, sel, descendant, singleWalk) == anchor {
 			return true
 		}
 	}

@@ -1,4 +1,4 @@
-//nolint:cyclop,varnamelen,dupword // behavior fixtures: long table tests, one-char ids, repeated filler
+//nolint:dupword // behavior fixtures repeat the same filler word across a line
 package layout
 
 import (
@@ -84,7 +84,7 @@ func textOpContaining(t *testing.T, res *Result, needle string) Op {
 // exclusion, and wrap-break used values and the cascade gates: invalid values
 // do not replace an earlier valid declaration.
 //
-//nolint:funlen // one table of stored used values plus the cascade gate cases
+
 func TestBehaviorNamedFlowPropertyStorage(t *testing.T) {
 	t.Parallel()
 
@@ -488,7 +488,7 @@ func TestBehaviorWrapFlowBothShortensLine(t *testing.T) {
 // start/end shorten one side, minimum/maximum pick the smaller/larger free
 // gap, and clear drops the following line below the exclusion.
 //
-//nolint:funlen // one subtest per keyword fixture
+
 func TestBehaviorWrapFlowKeywords(t *testing.T) {
 	t.Parallel()
 

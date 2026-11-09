@@ -711,7 +711,7 @@ func initialStyle() ResolvedStyle { //nolint:funlen // complete CSS initial-valu
 		FontSize:                      12, // 16px at 96dpi
 		FontWeight:                    400,
 		TextTransform:                 textTransformNone,
-		VerticalAlign:                 "baseline",
+		VerticalAlign:                 baselineName,
 		WhiteSpace:                    "normal",
 		TabSize:                       defaultTabSize,
 		HyphenateCharacter:            "-",
@@ -883,6 +883,9 @@ type styleContext struct {
 	// container re-cascade passes do not use it.
 	memo styleResolutionMemo
 	// matchCache memoizes element-local selector outcomes per element
+	// storeChunks collects the style chunk backings allocated during this
+	// pass so they can be transferred to the engine and Result for pooling.
+	storeChunks [][]ResolvedStyle
 	// signature for this pass (see matchedRules). A container re-cascade
 	// pass reuses it: entries only cover selectors whose outcome is a pure
 	// function of the signature, and container-gated rules evaluate fresh.
@@ -890,6 +893,10 @@ type styleContext struct {
 	// matchTags interns the namespaced tag strings matchSignature builds, so
 	// repeated probes of the same tag share one copy for this pass.
 	matchTags map[string]string
+	// classKeys interns the canonical single-class attribute key for this
+	// pass. Tables repeat a handful of classes across thousands of elements,
+	// so the pass-local map avoids taking the shared cache lock per element.
+	classKeys map[string]string
 	// gateCache memoizes the node-independent rule gates (media query and
 	// @supports) per rule for this pass, so repeated elements do not
 	// re-parse the same query strings.
@@ -955,7 +962,15 @@ func resolveStylesWith(
 func resolveStylesWithContext(
 	ctx context.Context, root *html.Node, opts Options, containers map[*html.Node]sizeContainer,
 ) (map[*html.Node]*ResolvedStyle, error) {
-	return resolveStylesCtx(root, &styleContext{ //nolint:exhaustruct // intentional zero fields
+	styles, _, err := resolveStylesWithContextChunks(ctx, root, opts, containers)
+
+	return styles, err
+}
+
+func resolveStylesWithContextChunks(
+	ctx context.Context, root *html.Node, opts Options, containers map[*html.Node]sizeContainer,
+) (map[*html.Node]*ResolvedStyle, [][]ResolvedStyle, error) {
+	sc := &styleContext{ //nolint:exhaustruct // intentional zero fields
 		ctx:                ctx,
 		sheets:             opts.Sheets,
 		properties:         registeredProperties(opts.Sheets),
@@ -965,7 +980,14 @@ func resolveStylesWithContext(
 		printLinkUnderline: opts.PrintLinkUnderline,
 		containers:         containers,
 		state:              opts.State,
-	})
+	}
+
+	styles, err := resolveStylesCtx(root, sc)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return styles, sc.storeChunks, nil
 }
 
 // resolveStyles walks the tree top-down (test helper; no operator policies).
@@ -1044,6 +1066,10 @@ func resolveStylesCtx(root *html.Node, ctx *styleContext) (map[*html.Node]*Resol
 		return nil, ctx.err
 	}
 
+	if ctx != nil {
+		ctx.storeChunks = append(ctx.storeChunks, store.chunks...)
+	}
+
 	return out, nil
 }
 
@@ -1102,6 +1128,152 @@ const styleStoreChunkSize = 64
 // keeps a small backing array instead of a full chunk of unused records.
 const styleStoreFirstChunk = 8
 
+// styleStore chunk backings are pooled per capacity so an 8-cap backing can
+// never serve a 16-cap request and vice versa. The 16-cap step keeps using
+// the shared engine pool (its producer is full-layout spare chunks); the
+// 8/32/64-cap steps use these segregated lists because the shared pool only
+// retains defaultStyleChunkSize backings. Each list only holds backings with
+// its exact capacity, and both get and put verify the capacity before reuse.
+const (
+	maxStyleStoreChunksFree8  = 8
+	maxStyleStoreChunksFree32 = 4
+	maxStyleStoreChunksFree64 = 2
+)
+
+//nolint:gochecknoglobals // per-size free lists for styleStore backings
+var (
+	styleStoreChunkFree8  = make(chan *[]ResolvedStyle, maxStyleStoreChunksFree8)
+	styleStoreChunkFree32 = make(chan *[]ResolvedStyle, maxStyleStoreChunksFree32)
+	styleStoreChunkFree64 = make(chan *[]ResolvedStyle, maxStyleStoreChunksFree64)
+)
+
+// drainStyleStoreChunkPools drains all segregated style store chunk channels
+// and clears their buffers so no lingering pointers remain.
+func drainStyleStoreChunkPools() {
+	drain := func(free chan *[]ResolvedStyle) {
+		for {
+			select {
+			case chunk := <-free:
+				if chunk != nil {
+					clear((*chunk)[:cap(*chunk)])
+					*chunk = (*chunk)[:0]
+				}
+			default:
+				return
+			}
+		}
+	}
+
+	drain(styleStoreChunkFree8)
+	drain(styleStoreChunkFree32)
+	drain(styleStoreChunkFree64)
+}
+
+// getStyleStoreChunk returns a pooled backing with exactly cap want, or nil
+// when the per-size list is empty. A backing with any other capacity is never
+// served: it is routed back to its own list and the caller allocates fresh.
+func getStyleStoreChunk(want int) *[]ResolvedStyle {
+	var free chan *[]ResolvedStyle
+
+	switch want {
+	case styleStoreFirstChunk:
+		free = styleStoreChunkFree8
+	case defaultStyleChunkSize:
+		spare := getStyleChunk()
+		if spare == nil || cap(*spare) != want {
+			if spare != nil {
+				putStyleChunk(spare)
+			}
+
+			return nil
+		}
+
+		*spare = (*spare)[:0]
+
+		return spare
+	case styleStoreFirstChunk * 4:
+		free = styleStoreChunkFree32
+	case styleStoreChunkSize:
+		free = styleStoreChunkFree64
+	default:
+		return nil
+	}
+
+	select {
+	case chunk := <-free:
+		if chunk == nil || cap(*chunk) != want {
+			if chunk != nil {
+				putStyleStoreChunk(chunk)
+			}
+
+			return nil
+		}
+
+		*chunk = (*chunk)[:0]
+
+		return chunk
+	default:
+		return nil
+	}
+}
+
+// putStyleStoreChunk retains chunk in its capacity's list. Backings with a
+// capacity outside the growth schedule are dropped, and a full list drops
+// the return, so one large patch cannot pin memory for later small ones.
+// A 16-cap backing belongs to the shared engine pool and is returned there.
+func putStyleStoreChunk(chunk *[]ResolvedStyle) {
+	if chunk == nil {
+		return
+	}
+
+	var free chan *[]ResolvedStyle
+
+	switch cap(*chunk) {
+	case styleStoreFirstChunk:
+		free = styleStoreChunkFree8
+	case styleStoreFirstChunk * 4:
+		free = styleStoreChunkFree32
+	case styleStoreChunkSize:
+		free = styleStoreChunkFree64
+	case defaultStyleChunkSize:
+		putStyleChunk(chunk)
+
+		return
+	default:
+		return
+	}
+
+	clear((*chunk)[:cap(*chunk)])
+	*chunk = (*chunk)[:0]
+
+	select {
+	case free <- chunk:
+	default:
+	}
+}
+
+// putStyleStoreChunkSlice is putStyleStoreChunk for slice values.
+func putStyleStoreChunkSlice(chunk []ResolvedStyle) {
+	putStyleStoreChunk(&chunk)
+}
+
+// recycle returns all chunks allocated by this store back to their per-size
+// free lists with zeroed buffers, and resets the store.
+func (s *styleStore) recycle() {
+	if s == nil {
+		return
+	}
+
+	for i := range s.chunks {
+		c := s.chunks[i]
+		putStyleStoreChunk(&c)
+	}
+
+	s.chunks = nil
+	s.intern = nil
+	s.candidate = zeroResolvedStyle
+}
+
 // styleStore owns resolved styles for one resolution pass. It deliberately
 // does not cross Layout calls or @container re-cascade passes.
 //
@@ -1128,7 +1300,7 @@ func (s *styleStore) append(style ResolvedStyle) *ResolvedStyle {
 	}
 
 	if len(s.chunks) == 0 || len(s.chunks[len(s.chunks)-1]) == cap(s.chunks[len(s.chunks)-1]) {
-		s.chunks = append(s.chunks, make([]ResolvedStyle, 0, s.nextChunkSize()))
+		s.chunks = append(s.chunks, s.newChunk())
 	}
 
 	chunk := len(s.chunks) - 1
@@ -1158,6 +1330,23 @@ func (s *styleStore) nextChunkSize() int {
 	}
 
 	return size
+}
+
+// newChunk returns the backing for the next style chunk. The 16-cap step
+// reuses the shared engine pool the mark/reset scopes recycle through, so a
+// patch resolution reuses a backing a full layout already released. The
+// 8/32/64-cap steps reuse their segregated per-size lists, so a patch reuses
+// a backing a dropped store returned instead of allocating one. Every list
+// only serves its exact capacity with a cap check on both get and put, and
+// the first-chunk-doubling schedule is the pointer-stability contract the
+// chunk test pins.
+func (s *styleStore) newChunk() []ResolvedStyle {
+	want := s.nextChunkSize()
+	if spare := getStyleStoreChunk(want); spare != nil {
+		return (*spare)[:0]
+	}
+
+	return make([]ResolvedStyle, 0, want)
 }
 
 // zeroResolvedStyle is the empty style for comment/doctype nodes (shared).

@@ -277,9 +277,11 @@ func relayoutSameGeometry(got, want *box) bool {
 	return got.x == want.x && got.y == want.y && got.w == want.w && got.height == want.height
 }
 
-// TestRelayoutSubtreeRejectsASizeChange proves the splice refuses an element
-// that no longer fits where it stood: the boxes after it would be stale.
-func TestRelayoutSubtreeRejectsASizeChange(t *testing.T) {
+// TestRelayoutSubtreeWidensToAStableParent proves a size change no longer
+// falls back to a full layout when an ancestor keeps its size: widening the
+// first card re-places the body it sits in, and the patched page matches a
+// full relayout of the same document.
+func TestRelayoutSubtreeWidensToAStableParent(t *testing.T) {
 	t.Parallel()
 
 	root := mustParse(t, relayoutFixtureHTML)
@@ -290,12 +292,39 @@ func TestRelayoutSubtreeRejectsASizeChange(t *testing.T) {
 		t.Fatalf("Layout: %v", err)
 	}
 
+	before := relayoutBoxByID(t, prev, "first").w
+
 	first := relayoutNodeByID(t, root, "first")
 	first.Attrs["class"] = "card wide"
 
-	_, err = RelayoutSubtree(t.Context(), prev, first, opts)
-	if !errors.Is(err, errSubtreeResized) {
-		t.Fatalf("error = %v, want %v", err, errSubtreeResized)
+	patch, err := RelayoutSubtree(t.Context(), prev, first, opts)
+	if err != nil {
+		t.Fatalf("RelayoutSubtree: %v", err)
+	}
+
+	// The splice widened past the resized card to the body around it.
+	if patch.rootBox == nil || patch.rootBox.node == nil || patch.rootBox.node.Name != "body" {
+		t.Fatalf("patched root = %+v, want the body the widened card sits in", patch.rootBox)
+	}
+
+	full, err := Layout(root, opts)
+	if err != nil {
+		t.Fatalf("Layout (full relayout): %v", err)
+	}
+
+	if !reflect.DeepEqual(relayoutStripIDs(prev.Ops), relayoutStripIDs(full.Ops)) {
+		t.Fatal("patched operations differ from a full relayout")
+	}
+
+	for _, id := range []string{"first", "second"} {
+		got, want := relayoutBoxByID(t, prev, id), relayoutBoxByID(t, full, id)
+		if !relayoutSameGeometry(got, want) {
+			t.Fatalf("box %q = %+v, want the full relayout's %+v", id, *got, *want)
+		}
+	}
+
+	if wide := relayoutBoxByID(t, prev, "first").w; wide <= before {
+		t.Fatalf("widened card width = %g, want more than the kept %g", wide, before)
 	}
 }
 

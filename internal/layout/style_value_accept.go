@@ -3,6 +3,7 @@ package layout
 import (
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
 )
@@ -80,6 +81,86 @@ const (
 	flexShorthandPairParts = 2
 )
 
+// acceptVerdictMemo caches supportedDeclaration outcomes by property and
+// value. Acceptance is a pure function of (prop, value): every parser behind
+// it runs on a zero probe context, so a verdict computed for one element
+// holds for every later element in every pass. Without the memo, N elements
+// sharing one declaration pay N identical parses: the cascade gate parses to
+// validate, then the applier parses again to compute. The memo keeps the
+// first validation parse per unique declaration; the applier still parses
+// once to compute, so each unique declaration pays one validation parse.
+const maxAcceptVerdictEntries = 4096
+
+//nolint:gochecknoglobals // pass-shared verdict cache with test counters
+var (
+	acceptVerdictMu    sync.RWMutex
+	acceptVerdicts     = make(map[string]bool)
+	acceptVerdictEvals uint64
+	acceptVerdictHits  uint64
+)
+
+// acceptVerdictKey joins prop and value with a NUL separator. Property names
+// never contain NUL (validPropName rejects it), so the key is unambiguous.
+func acceptVerdictKey(prop, value string) string {
+	return prop + "\x00" + value
+}
+
+// lookupAcceptVerdict returns the cached verdict for prop and value.
+func lookupAcceptVerdict(prop, value string) (bool, bool) {
+	acceptVerdictMu.RLock()
+	verdict, found := acceptVerdicts[acceptVerdictKey(prop, value)]
+	acceptVerdictMu.RUnlock()
+
+	if found {
+		acceptVerdictMu.Lock()
+		acceptVerdictHits++
+		acceptVerdictMu.Unlock()
+	}
+
+	return verdict, found
+}
+
+// storeAcceptVerdict records verdict under a bounded map. When the map is
+// full the verdict is dropped: the caller already computed it, so only a
+// repeat parse is lost, never correctness.
+func storeAcceptVerdict(prop, value string, verdict bool) {
+	acceptVerdictMu.Lock()
+	defer acceptVerdictMu.Unlock()
+
+	key := acceptVerdictKey(prop, value)
+
+	if _, ok := acceptVerdicts[key]; ok {
+		return
+	}
+
+	if len(acceptVerdicts) >= maxAcceptVerdictEntries {
+		return
+	}
+
+	acceptVerdicts[key] = verdict
+	acceptVerdictEvals++
+}
+
+// resetAcceptVerdictForTest clears the verdict cache and its counters. Tests
+// using it must stay sequential (no t.Parallel): parallel cascade tests
+// share this cache.
+func resetAcceptVerdictForTest() {
+	acceptVerdictMu.Lock()
+	defer acceptVerdictMu.Unlock()
+
+	acceptVerdicts = make(map[string]bool)
+	acceptVerdictEvals = 0
+	acceptVerdictHits = 0
+}
+
+// acceptVerdictStatsForTest reports full evaluations (cache misses) and hits.
+func acceptVerdictStatsForTest() (uint64, uint64) {
+	acceptVerdictMu.RLock()
+	defer acceptVerdictMu.RUnlock()
+
+	return acceptVerdictEvals, acceptVerdictHits
+}
+
 // supportedDeclaration reports whether the engine accepts one declaration as
 // applicable. It is the single value-acceptance rule shared by the cascade
 // gate in cascadeRaw and the @supports probe in engineSupportsProperty, so an
@@ -94,7 +175,23 @@ const (
 //   - values containing var(), which are valid at parse time and checked
 //     again after substitution by the applier. A computed-value failure makes
 //     the property unset; it must not revive an earlier declaration.
+//
+// The verdict is memoized by prop and value (see acceptVerdictMemo), so a
+// declaration repeated across elements parses once.
 func supportedDeclaration(prop, value string) bool {
+	if verdict, ok := lookupAcceptVerdict(prop, value); ok {
+		return verdict
+	}
+
+	verdict := supportedDeclarationUncached(prop, value)
+	storeAcceptVerdict(prop, value, verdict)
+
+	return verdict
+}
+
+// supportedDeclarationUncached runs the acceptance check without consulting
+// the verdict memo.
+func supportedDeclarationUncached(prop, value string) bool {
 	if strings.HasPrefix(prop, "--") {
 		return true
 	}
@@ -545,7 +642,7 @@ func verticalAlignValueAccepted(value string) bool {
 	low := strings.ToLower(trimmed)
 
 	switch low {
-	case "baseline", cssVerticalAlignTop, "middle", cssVerticalAlignBottom, verticalAlignSub, verticalAlignSuper:
+	case baselineName, cssVerticalAlignTop, "middle", cssVerticalAlignBottom, verticalAlignSub, verticalAlignSuper:
 		return true
 	}
 
@@ -1248,7 +1345,7 @@ func lineHeightValueAccepted(value string) bool {
 
 // alignItemsValueAccepted mirrors setAlignItemsValue.
 func alignItemsValueAccepted(value string) bool {
-	return keywordIn(value, fxStretch, flexStartKeyword, fxFlexEnd, fxCenter, fxStart, fxEnd, "baseline")
+	return keywordIn(value, fxStretch, flexStartKeyword, fxFlexEnd, fxCenter, fxStart, fxEnd, baselineName)
 }
 
 // alignContentValueAccepted mirrors setAlignContentValue.
@@ -1259,7 +1356,7 @@ func alignContentValueAccepted(value string) bool {
 
 // alignSelfValueAccepted mirrors setAlignSelfValue.
 func alignSelfValueAccepted(value string) bool {
-	return keywordIn(value, overflowAuto, fxStretch, flexStartKeyword, fxFlexEnd, fxCenter, fxStart, fxEnd, "baseline")
+	return keywordIn(value, overflowAuto, fxStretch, flexStartKeyword, fxFlexEnd, fxCenter, fxStart, fxEnd, baselineName)
 }
 
 // justifyContentValueAccepted mirrors setJustifyContentValue.

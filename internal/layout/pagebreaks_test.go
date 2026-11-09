@@ -91,7 +91,7 @@ func TestPageBreaksSingleLineKeep(t *testing.T) {
 // 44.93pt keep inflated to 492.50pt and then shifted the continuation table
 // and footer 390.53pt down, adding a page). The exporter must drop such
 // ranges; a range wholly below the break keeps its extent.
-func TestPageBreaksDropsKeepsCutByForcedBreak(t *testing.T) { //nolint:cyclop // forced-break keep assertions
+func TestPageBreaksDropsKeepsCutByForcedBreak(t *testing.T) {
 	t.Parallel()
 
 	res := layoutHTML(t, `<html><body>`+

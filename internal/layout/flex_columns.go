@@ -73,7 +73,9 @@ func (e *engine) flowFlexColumnWrapped(
 			lineX = contentX + contentW - lineWidth - offsets[idx]
 		}
 
-		heights := e.flexColumnHeights(line.items, contentH, gap)
+		heights := rentFloats(len(line.items))
+		defer returnFloats(heights)
+		e.flexColumnHeightsInto(line.items, contentH, gap, heights)
 		sumH := 0.0
 		for itemIdx, height := range heights {
 			sumH += height + flexColumnMainMargins(e, line.items[itemIdx])
@@ -274,7 +276,7 @@ func resolveFlexColumnContentHeight(style ResolvedStyle, eng *engine) float64 {
 }
 
 func (e *engine) flexColumnItems(kids []*html.Node, contentW, contentH float64) []flexColMeas {
-	items := make([]flexColMeas, 0, len(kids))
+	items := getFlexColMeas(len(kids))
 
 	for _, kid := range kids {
 		cstate := e.stylePtr(kid)
@@ -302,11 +304,9 @@ func (e *engine) flexColumnItems(kids []*html.Node, contentW, contentH float64) 
 	return items
 }
 
-// flexColumnHeights resolves used main sizes: grow/shrink redistribution over
-// the definite container height, then min/max-height clamping.
-func (e *engine) flexColumnHeights(items []flexColMeas, contentH, gap float64) []float64 {
-	heights := make([]float64, len(items))
-
+// flexColumnHeightsInto resolves used main sizes: grow/shrink redistribution
+// over the definite container height, then min/max-height clamping.
+func (e *engine) flexColumnHeightsInto(items []flexColMeas, contentH, gap float64, heights []float64) {
 	var fixed, growSum, shrinkSum float64
 
 	for i, item := range items {
@@ -319,7 +319,7 @@ func (e *engine) flexColumnHeights(items []flexColMeas, contentH, gap float64) [
 	}
 
 	if contentH < 0 {
-		return heights
+		return
 	}
 
 	gaps := gap * float64(len(items)-1)
@@ -339,8 +339,6 @@ func (e *engine) flexColumnHeights(items []flexColMeas, contentH, gap float64) [
 	}
 	// Re-apply min/max-height after grow/shrink (percentage re-resolve).
 	e.flexClampColumnHeights(items, heights, contentH)
-
-	return heights
 }
 
 func (e *engine) flexGrowHeights(items []flexColMeas, heights []float64, free, growSum float64) {
@@ -515,21 +513,19 @@ func (e *engine) buildColumnItems(
 func (e *engine) flexColumnItemOverride(
 	node *html.Node, itemStyle, containerStyle *ResolvedStyle, height, contentW float64,
 ) *ResolvedStyle {
-	override := e.allocStyle(itemStyle)
-	e.forceFlexItemCrossSize(override, height)
+	forceCrossWidth := !(flexItemColumnCrossStretch(containerStyle, itemStyle) ||
+		itemStyle.Width >= 0 || itemStyle.WidthPercent >= 0)
 
-	if flexItemColumnCrossStretch(containerStyle, itemStyle) || itemStyle.Width >= 0 || itemStyle.WidthPercent >= 0 {
-		return override
+	crossW := 0.0
+	if forceCrossWidth {
+		crossW = e.measureFlexItemMaxContent(node, itemStyle)
+		if crossW > contentW {
+			crossW = contentW
+		}
 	}
 
-	crossW := e.measureFlexItemMaxContent(node, itemStyle)
-	if crossW > contentW {
-		crossW = contentW
-	}
-
-	e.forceFlexItemCrossWidth(override, crossW)
-
-	return override
+	return e.flexColumnStyleOverride(itemStyle, e.flexBaseStyleStable(node, itemStyle),
+		height, crossW, forceCrossWidth)
 }
 
 // alignColumnItem places a column item on the cross axis. Auto cross-axis
@@ -599,7 +595,7 @@ func columnAlignOffset(
 	left := e.scalePt(itemStyle.MarginLeft)
 	right := e.scalePt(itemStyle.MarginRight)
 	switch align {
-	case "baseline":
+	case baselineName:
 		// A column's cross axis is the inline axis. For empty items, the
 		// baseline is their start-side border edge, so direction controls
 		// whether that edge is the physical left or right side.

@@ -10,7 +10,7 @@ import (
 
 // Wiki thumbs use figure[typeof~='mw:File/Thumb']{display:table;float:right}.
 // Routing those through the table layout path drops nested <img> content.
-func TestFigureThumbDisplayTableKeepsImage(t *testing.T) { //nolint:cyclop,funlen
+func TestFigureThumbDisplayTableKeepsImage(t *testing.T) {
 	t.Parallel()
 	// 1x1 PNG
 	png := []byte{

@@ -62,7 +62,7 @@ func isTextAutospaceValue(val string) bool {
 		// Allow space-separated combinations used by the draft.
 		for _, tok := range strings.Fields(val) {
 			switch tok {
-			case "ideograph-alpha", "ideograph-numeric", "punctuation",
+			case textAutospaceIdeographAlpha, "ideograph-numeric", "punctuation",
 				"insert", "replace", "auto", "no-autospace":
 				continue
 			default:

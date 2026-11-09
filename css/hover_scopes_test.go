@@ -20,6 +20,8 @@ func TestHoverChangedScopes(t *testing.T) {
 		{"inherited parent", ".panel:hover{color:red}.button:hover{color:blue}", "panel", "b", []string{"panel", "b"}},
 		{"generated content", ".button:hover::before{content:'x'}", "panel", "a", []string{"a"}},
 		{"no changed selector", ".button:hover{color:red}", "panel", "", nil},
+		{"identical hover state", ".button:hover{color:red}", "a", "a", nil},
+		{"identical empty hover state", ".button:hover{color:red}", "", "", nil},
 	}
 
 	for _, test := range cases {

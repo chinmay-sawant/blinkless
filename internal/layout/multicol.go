@@ -4,9 +4,69 @@ package layout
 import (
 	"math"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
+
+const maxPooledMulticolScratch = 4096
+
+//nolint:gochecknoglobals // test-visible memo state, mirroring flex.go
+var (
+	multicolMemoHits   atomic.Int64
+	multicolMemoMisses atomic.Int64
+	multicolMemoBypass atomic.Bool
+	multicolIntPool    = sync.Pool{New: func() any { return make([]int, 0, 16) }}
+	multicolAssignPool = sync.Pool{New: func() any { return make([]multicolColAssign, 0, 64) }}
+)
+
+// multicolColAssign maps one op index to its fragment column (-1 clips).
+// Package scope so the anon-column scratch can pool across runs.
+type multicolColAssign struct {
+	idx int
+	col int
+}
+
+// getMulticolInts rents a zero-length int scratch for one multicol line.
+func getMulticolInts(n int) []int {
+	if n <= maxPooledMulticolScratch {
+		if v, ok := multicolIntPool.Get().([]int); ok && cap(v) >= n {
+			return v[:0]
+		}
+	}
+
+	return make([]int, 0, n)
+}
+
+// putMulticolInts returns an int scratch.
+func putMulticolInts(s []int) {
+	if cap(s) == 0 || cap(s) > maxPooledMulticolScratch {
+		return
+	}
+
+	multicolIntPool.Put(s[:0])
+}
+
+// getMulticolAssigns rents an op-to-column scratch for anon text split.
+func getMulticolAssigns(n int) []multicolColAssign {
+	if n <= maxPooledMulticolScratch {
+		if v, ok := multicolAssignPool.Get().([]multicolColAssign); ok && cap(v) >= n {
+			return v[:0]
+		}
+	}
+
+	return make([]multicolColAssign, 0, n)
+}
+
+// putMulticolAssigns returns an assign scratch. Entries hold no pointers.
+func putMulticolAssigns(s []multicolColAssign) {
+	if cap(s) == 0 || cap(s) > maxPooledMulticolScratch {
+		return
+	}
+
+	multicolAssignPool.Put(s[:0])
+}
 
 const columnSpanAll = "all"
 
@@ -515,22 +575,21 @@ func (e *engine) placeMulticolAnonColumns(
 	// Never past a finite maxColH (definite height or remaining page),
 	// where the column box cannot grow. Reference: Chrome 143.0.7499.40
 	// keeps orphans lines together before a column break.
+	e.baselineScratch = stripLineBaselinesInto(e.ops, cblock.opStart, cblock.opEnd+1, e.baselineScratch)
 	if snapped, ok := snapAnonBandForOrphans(top, totalH, bandH, maxColH,
-		stripLineBaselines(e.ops, cblock.opStart, cblock.opEnd+1), style.Orphans); ok {
+		e.baselineScratch, style.Orphans); ok {
 		bandH = snapped
 	}
 
 	// Use the box op range: prependChrome may insert before len-at-build-start.
 	opStart, opEnd := cblock.opStart, cblock.opEnd
-	type colAssign struct {
-		idx int
-		col int
-	}
-	assigns := make([]colAssign, 0, opEnd-opStart+1)
+	assigns := getMulticolAssigns(opEnd - opStart + 1)
+	defer putMulticolAssigns(assigns)
 	// Track ink (text/bullet) tops only. Border/background ops sit at the
 	// box top and must not become the alignment anchor, or column 2+ gets
 	// pulled through the padding into the border.
-	colMinY := make([]float64, nCols)
+	colMinY := rentFloats(nCols)
+	defer returnFloats(colMinY)
 	for i := range colMinY {
 		colMinY[i] = math.Inf(1)
 	}
@@ -545,7 +604,7 @@ func (e *engine) placeMulticolAnonColumns(
 		}
 		if col >= nCols {
 			// Past the last column band: mark for clip (no shift).
-			assigns = append(assigns, colAssign{idx: k, col: -1})
+			assigns = append(assigns, multicolColAssign{idx: k, col: -1})
 			continue
 		}
 		if col > 0 {
@@ -555,7 +614,7 @@ func (e *engine) placeMulticolAnonColumns(
 		if (e.ops[k].Kind == OpText || e.ops[k].Kind == OpBullet) && e.ops[k].Y < colMinY[col] {
 			colMinY[col] = e.ops[k].Y
 		}
-		assigns = append(assigns, colAssign{idx: k, col: col})
+		assigns = append(assigns, multicolColAssign{idx: k, col: col})
 	}
 	// Top-align column 2+ to column 0's first ink line. Band cuts leave a
 	// mid-line continuation at the top of column 2+ (Chrome keeps it; fixture-61
@@ -752,8 +811,14 @@ func (e *engine) placeMulticolLine(
 	colX := func(c int) float64 {
 		return contentX + float64(c)*(colW+gap)
 	}
-	colHeights := make([]float64, nCols)
-	colLines := make([]int, nCols)
+	// Per-line scratch rents from the pools and returns on exit; column
+	// stacks never escape this function.
+	colHeights := rentFloats(nCols)
+	defer returnFloats(colHeights)
+	colLines := getMulticolInts(nCols)
+	colLines = colLines[:nCols]
+	clear(colLines)
+	defer putMulticolInts(colLines)
 	widows := multicolWidowsValue(style)
 	orphans := multicolOrphansValue(style)
 	counts, suffixLines, suffixHeights := multicolWidowsSuffix(e, items)
@@ -863,8 +928,24 @@ func multicolForcedColumnBreak(
 	return prevAfterAlways
 }
 
-// measureMulticolChildHeight lays out n at availW without emitting ops.
+// measureMulticolChildHeight lays out n at availW without emitting ops. The
+// height is a pure function of node, style, and column width for the run, so
+// repeats (outer noEmit measure then emit, nested rebuilds) hit the shared
+// per-run map under the multicol domain instead of rebuilding the subtree.
 func (e *engine) measureMulticolChildHeight(n *html.Node, availW float64) float64 {
+	key := flexBaseKey{
+		node: n, style: e.stylePtr(n),
+		widthBits: math.Float64bits(availW) ^ multicolWidthXor, mainBits: multicolMainTag,
+	}
+
+	if !multicolMemoBypass.Load() {
+		if height, ok := e.flexBaseH[key]; ok {
+			multicolMemoHits.Add(1)
+
+			return height
+		}
+	}
+
 	bmark := e.markBoxes()
 	smark := e.markStyles()
 	prev := e.noEmit
@@ -884,6 +965,12 @@ func (e *engine) measureMulticolChildHeight(n *html.Node, availW float64) float6
 	}
 	e.resetBoxes(bmark)
 	e.resetStyles(smark)
+
+	if !multicolMemoBypass.Load() && e.err == nil {
+		m := e.ensureFlexBaseH()
+		m[key] = h
+		multicolMemoMisses.Add(1)
+	}
 
 	return h
 }

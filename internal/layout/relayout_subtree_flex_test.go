@@ -2,6 +2,7 @@ package layout
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -214,25 +215,29 @@ func TestRelayoutSubtreeFlexGrownRowMatchesAFullRelayout(t *testing.T) {
 }
 
 // TestRelayoutSubtreeRejectsAContentHeightChange proves the size guard keeps
-// its power for elements whose height their content decides: a block that
-// grows when its text wraps, and a flex item in a column without a definite
-// height, are both refused.
+// its power for elements whose height their content decides and no ancestor
+// keeps its size: a block that grows when its text wraps, and a flex item in
+// a column without a definite height, are both refused. An item in a
+// definite-height column with free space instead splices through the column
+// that keeps its size, and the patched page matches a full relayout.
 func TestRelayoutSubtreeRejectsAContentHeightChange(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name string
-		html string
-		css  string
-		id   string
+		name     string
+		html     string
+		css      string
+		id       string
+		succeeds bool
 	}{
 		{name: "block", html: relayoutContentHTML, css: relayoutContentCSS, id: "box"},
 		{name: "indefinite flex column", html: relayoutIndefiniteFlexHTML, css: relayoutIndefiniteFlexCSS, id: "item"},
 		{
-			name: "definite flex column with free space",
-			html: relayoutDefiniteFlexHTML,
-			css:  relayoutDefiniteFlexCSS,
-			id:   "item",
+			name:     "definite flex column with free space",
+			html:     relayoutDefiniteFlexHTML,
+			css:      relayoutDefiniteFlexCSS,
+			id:       "item",
+			succeeds: true,
 		},
 	}
 
@@ -254,10 +259,36 @@ func TestRelayoutSubtreeRejectsAContentHeightChange(t *testing.T) {
 			node.Attrs["class"] = "hot"
 			node.Children[0].Text = strings.Repeat("wrapping text ", 20)
 
-			_, err = RelayoutSubtree(t.Context(), prev, node, opts)
-			if !errors.Is(err, errSubtreeResized) {
-				t.Fatalf("error = %v, want %v (the height grew from %g)",
-					err, errSubtreeResized, before.height)
+			if !testCase.succeeds {
+				_, err = RelayoutSubtree(t.Context(), prev, node, opts)
+				if !errors.Is(err, errSubtreeResized) {
+					t.Fatalf("error = %v, want %v (the height grew from %g)",
+						err, errSubtreeResized, before.height)
+				}
+
+				return
+			}
+
+			if _, err := RelayoutSubtree(t.Context(), prev, node, opts); err != nil {
+				t.Fatalf("RelayoutSubtree: %v", err)
+			}
+
+			full, err := Layout(root, opts)
+			if err != nil {
+				t.Fatalf("Layout (full relayout): %v", err)
+			}
+
+			if !reflect.DeepEqual(relayoutStripIDs(prev.Ops), relayoutStripIDs(full.Ops)) {
+				t.Fatal("patched operations differ from a full relayout")
+			}
+
+			got, want := relayoutBoxByID(t, prev, testCase.id), relayoutBoxByID(t, full, testCase.id)
+			if !relayoutSameGeometry(got, want) {
+				t.Fatalf("box %q = %+v, want the full relayout's %+v", testCase.id, *got, *want)
+			}
+
+			if tall := relayoutBoxByID(t, prev, testCase.id).height; tall <= before.height {
+				t.Fatalf("grown item height = %g, want more than the kept %g", tall, before.height)
 			}
 		})
 	}

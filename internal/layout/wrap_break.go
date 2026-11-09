@@ -96,32 +96,6 @@ func wrapBreakDeclarationValueAccepted(prop, value string) (bool, bool) {
 	}
 }
 
-// wrapBreakLineBefore reports wrap-before: line (forces a line break before
-// the element).
-func wrapBreakLineBefore(sty ResolvedStyle) bool {
-	return sty.WrapBefore == wrapBreakLine
-}
-
-// wrapBreakLineAfter reports wrap-after: line.
-func wrapBreakLineAfter(sty ResolvedStyle) bool {
-	return sty.WrapAfter == wrapBreakLine
-}
-
-// wrapBreakAvoidsBefore reports wrap-before: avoid | avoid-line.
-func wrapBreakAvoidsBefore(sty ResolvedStyle) bool {
-	return sty.WrapBefore == wrapBreakAvoid || sty.WrapBefore == wrapBreakAvoidLine
-}
-
-// wrapBreakAvoidsAfter reports wrap-after: avoid | avoid-line.
-func wrapBreakAvoidsAfter(sty ResolvedStyle) bool {
-	return sty.WrapAfter == wrapBreakAvoid || sty.WrapAfter == wrapBreakAvoidLine
-}
-
-// wrapBreakInsideAvoid reports wrap-inside: avoid | avoid-line.
-func wrapBreakInsideAvoid(sty ResolvedStyle) bool {
-	return sty.WrapInside == wrapBreakAvoid || sty.WrapInside == wrapBreakAvoidLine
-}
-
 // wrapBreakForcesFlexBefore reports wrap-before: flex on a flex item.
 func wrapBreakForcesFlexBefore(sty *ResolvedStyle) bool {
 	return sty.WrapBefore == wrapBreakFlex
@@ -144,37 +118,6 @@ func (e *engine) flexWrapBreakAfter(item flexMeas) bool {
 	st := e.stylePtr(item.n)
 
 	return st != nil && wrapBreakForcesFlexAfter(st)
-}
-
-// applyWrapBreakFlags marks the items one inline element contributed:
-// the first/last item carry the avoid boundary flags, and wrap-inside: avoid
-// marks the whole run as a keep-together group when it fits the available
-// line width (e.inlineCBW is set by the collector; 0 means unknown, so the
-// group is left breakable).
-func (e *engine) applyWrapBreakFlags(sty ResolvedStyle, items []inlineItem, start int) {
-	if start >= len(items) {
-		return
-	}
-
-	if wrapBreakAvoidsBefore(sty) && !items[start].forceBreak {
-		items[start].avoidBefore = true
-	}
-
-	if wrapBreakAvoidsAfter(sty) && !items[len(items)-1].forceBreak {
-		items[len(items)-1].avoidAfter = true
-	}
-
-	if !wrapBreakInsideAvoid(sty) {
-		return
-	}
-
-	if !e.wrapInsideGroupFits(items, start) {
-		return
-	}
-
-	for idx := start; idx < len(items); idx++ {
-		items[idx].avoidInside = true
-	}
 }
 
 // wrapInsideGroupFits reports whether the items one element contributed fit

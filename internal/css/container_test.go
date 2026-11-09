@@ -40,7 +40,7 @@ func TestParseContainerNameValue(t *testing.T) {
 	}
 }
 
-func TestParseContainerRules(t *testing.T) { //nolint:cyclop,funlen // per-variant structural checks
+func TestParseContainerRules(t *testing.T) {
 	t.Parallel()
 	sty := mustSheet(t, `
 		.card { container: card / inline-size; width: 400px }

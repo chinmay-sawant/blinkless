@@ -44,8 +44,6 @@ func overrideOptions(t *testing.T) Options {
 // not survive the call: the retained style map and the element box point at
 // the base resolved style again, while the operations and the box keep the
 // overridden geometry the call produced.
-//
-//nolint:cyclop,funlen // the fixture walks the whole override lifecycle
 func TestRelayoutSubtreeWithOverridesRestoresTheCascade(t *testing.T) {
 	t.Parallel()
 

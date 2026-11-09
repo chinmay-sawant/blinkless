@@ -1,4 +1,3 @@
-//nolint:varnamelen // color-interp observable pixel suite
 package layout
 
 import (

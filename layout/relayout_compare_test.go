@@ -12,6 +12,10 @@ import (
 // cascade over the same rule text, so the floats are identical and no
 // tolerance is needed. The 0.01 tolerance in nearBox covers hand-written
 // vw/vh expectations, not this comparison.
+//
+// The owners, the paint order, and the page-break metadata are compared too,
+// so in-place work on any of them has the same gate as the operations and the
+// boxes.
 func compareDisplays(t *testing.T, got, want *layout.Display) {
 	t.Helper()
 
@@ -35,6 +39,23 @@ func compareDisplays(t *testing.T, got, want *layout.Display) {
 
 	for i := range want.Ops {
 		compareOp(t, i, &got.Ops[i], &want.Ops[i])
+	}
+
+	if !reflect.DeepEqual(got.OpOwners, want.OpOwners) {
+		t.Fatalf("op owners differ from the full layout: %d entries, want %d",
+			len(got.OpOwners), len(want.OpOwners))
+	}
+
+	if !reflect.DeepEqual(got.Order, want.Order) {
+		t.Fatalf("paint order differs from the full layout: %v, want %v", got.Order, want.Order)
+	}
+
+	if !reflect.DeepEqual(got.ForcedBreaks, want.ForcedBreaks) {
+		t.Fatalf("forced breaks %v, want %v", got.ForcedBreaks, want.ForcedBreaks)
+	}
+
+	if !reflect.DeepEqual(got.KeepTogether, want.KeepTogether) {
+		t.Fatalf("keep-together ranges %v, want %v", got.KeepTogether, want.KeepTogether)
 	}
 }
 

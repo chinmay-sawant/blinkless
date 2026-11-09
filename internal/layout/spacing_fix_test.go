@@ -49,7 +49,7 @@ func loadFixture(t *testing.T, name string) (*html.Node, []*css.Stylesheet) {
 	return root, sheets
 }
 
-func TestLogoTitleGap(t *testing.T) { //nolint:cyclop
+func TestLogoTitleGap(t *testing.T) {
 	t.Parallel()
 
 	root, sheets := loadFixture(t, "fixture-07-image-logo.html")
@@ -155,7 +155,7 @@ func TestNestedTableStaysInCell(t *testing.T) {
 	}
 }
 
-func TestPositionLiteFixtureReservesOverlaySpace(t *testing.T) { //nolint:cyclop
+func TestPositionLiteFixtureReservesOverlaySpace(t *testing.T) {
 	t.Parallel()
 
 	root, sheets := loadFixture(t, "fixture-26-position-lite.html")
@@ -211,7 +211,7 @@ func TestPositionLiteFixtureReservesOverlaySpace(t *testing.T) { //nolint:cyclop
 	}
 }
 
-func TestLetterheadPaddingBeforeBorder(t *testing.T) { //nolint:cyclop
+func TestLetterheadPaddingBeforeBorder(t *testing.T) {
 	t.Parallel()
 
 	root, sheets := loadFixture(t, "fixture-16-invoice-with-css.html")

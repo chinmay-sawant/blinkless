@@ -1,6 +1,8 @@
 package layout
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
@@ -86,5 +88,43 @@ func TestRuleIndexContentFlagWithoutContentDecl(t *testing.T) {
 	index := newRuleIndex([]*css.Stylesheet{sheet(t, `p::after { color: red }`)})
 	if index.content {
 		t.Fatal("content flag is true without a content declaration")
+	}
+}
+
+func BenchmarkNewRuleIndex(b *testing.B) {
+	_, sheet := styleStressFixture(b)
+	sheets := []*css.Stylesheet{sheet}
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for range b.N {
+		idx := newRuleIndex(sheets)
+		if idx == nil {
+			b.Fatal("nil index")
+		}
+	}
+}
+
+func BenchmarkNewRuleIndexVaried(b *testing.B) {
+	var sb strings.Builder
+	for i := range 1000 {
+		fmt.Fprintf(&sb, ".cls%d { color: red; }\n", i%100)
+		fmt.Fprintf(&sb, "#id%d { color: blue; }\n", i%50)
+		fmt.Fprintf(&sb, "tag%d { color: green; }\n", i%30)
+		fmt.Fprintf(&sb, "* { margin: 0; }\n")
+	}
+	s, err := css.Parse(sb.String())
+	if err != nil {
+		b.Fatal(err)
+	}
+	sheets := []*css.Stylesheet{s}
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for range b.N {
+		idx := newRuleIndex(sheets)
+		if idx == nil {
+			b.Fatal("nil index")
+		}
 	}
 }

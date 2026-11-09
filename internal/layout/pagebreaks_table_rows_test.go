@@ -71,7 +71,7 @@ func TestPageBreaksKeepTableRowsIntact(t *testing.T) {
 // which pokes below the row border box. A row keep ending at the border box
 // would let the paginator snap the text alone and leave the row chrome
 // behind, so the keep end must cover the row's text line boxes.
-func TestPageBreaksKeepCoversTableTextLineBoxes(t *testing.T) { //nolint:cyclop // row coverage assertions
+func TestPageBreaksKeepCoversTableTextLineBoxes(t *testing.T) {
 	t.Parallel()
 
 	res := layoutHTML(t, `<html><body>`+

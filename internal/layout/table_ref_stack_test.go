@@ -14,7 +14,7 @@ import (
 
 // Multi-cite nowrap markers in a narrow Ref td must not stack at the same X
 // (wiki awards: [127][128] for one win). Prefer one horizontal line.
-func TestMultiCiteInNarrowTDNotStacked(t *testing.T) { //nolint:cyclop,funlen
+func TestMultiCiteInNarrowTDNotStacked(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `

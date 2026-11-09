@@ -7,7 +7,6 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/css"
 )
 
-//nolint:cyclop,funlen // this regression test checks several independent column invariants
 func TestColumnHeightCapsColumn(t *testing.T) {
 	t.Parallel()
 
@@ -98,7 +97,6 @@ func TestColumnHeightCapsColumn(t *testing.T) {
 	}
 }
 
-//nolint:cyclop,funlen // this regression test checks wrap, labels, and row span
 func TestColumnWrapCreatesRow(t *testing.T) {
 	t.Parallel()
 

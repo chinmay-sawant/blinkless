@@ -11,7 +11,7 @@ import (
 // Blocks after a tall float must pack beside it (Chrome), not clear below
 // unless clear is set. Non-BFC parents must not grow around floats — that
 // used to push the next <section> below the entire floated infobox.
-func TestBlockHeadingPacksBesideTallFloat(t *testing.T) { //nolint:cyclop,funlen
+func TestBlockHeadingPacksBesideTallFloat(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `
@@ -101,7 +101,7 @@ p { margin: 0 0 6pt 0; }
 	}
 }
 
-func TestHeadingBFCShortensBesideFloat(t *testing.T) { //nolint:cyclop,funlen
+func TestHeadingBFCShortensBesideFloat(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `

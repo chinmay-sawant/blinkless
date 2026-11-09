@@ -14,7 +14,7 @@ import (
 // Pseudo-element rules must not apply to the host. A prior tokenizer bug
 // stripped ::before and left `p { width:120pt }`, squeezing every wiki
 // paragraph to a 120pt column beside the infobox.
-func TestVectorPrintPBeforeDoesNotSqueezeLines(t *testing.T) { //nolint:cyclop,funlen
+func TestVectorPrintPBeforeDoesNotSqueezeLines(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `

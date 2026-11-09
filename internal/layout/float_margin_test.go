@@ -11,7 +11,7 @@ import (
 // TestFloatMarginBoxExclusion: in-flow text must clear a float's horizontal
 // margin (margin box), not sit flush against the border box — wiki infobox
 // uses margin-left:1em on float:right.
-func TestFloatMarginBoxExclusion(t *testing.T) { //nolint:cyclop
+func TestFloatMarginBoxExclusion(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `

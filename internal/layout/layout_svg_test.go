@@ -1,4 +1,3 @@
-//nolint:all // inline SVG paint probes
 package layout
 
 import (

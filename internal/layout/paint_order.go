@@ -14,14 +14,27 @@ const (
 // order. Display-list consumers share this same policy; backend drawing
 // remains responsible for interpreting each operation.
 func PaintOrder(ops []Op) []int {
-	idx := make([]int, len(ops))
-	for i := range ops {
-		idx[i] = i
+	return PaintOrderBuf(ops, nil)
+}
+
+// PaintOrderBuf returns operation indices in the canonical display-list paint
+// order into the provided destination buffer, allocating or growing only if
+// cap(buf) < len(ops).
+func PaintOrderBuf(ops []Op, buf []int) []int {
+	n := len(ops)
+	if cap(buf) < n {
+		buf = make([]int, n)
+	} else {
+		buf = buf[:n]
 	}
 
-	sortPaintIndices(ops, idx)
+	for i := range ops {
+		buf[i] = i
+	}
 
-	return idx
+	sortPaintIndices(ops, buf)
+
+	return buf
 }
 
 // paintOrderSubset returns an ordered copy of an operation subset. All
@@ -346,4 +359,141 @@ func paintLayer(paintOp *Op) int {
 	}
 
 	return paintLayerContent
+}
+
+// countOrderingRelevant counts the operations that can move under paint
+// order: explicitly z-indexed or positioned operations, non-content layers,
+// and blend group members. The batch tracks both counts incrementally and
+// only re-sorts globally when the spliced window or the page needs it.
+func countOrderingRelevant(ops []Op) (int, int) {
+	relevant := 0
+	grouped := 0
+
+	for index := range ops {
+		paintOp := &ops[index]
+
+		if paintOp.Group() != nil {
+			relevant++
+			grouped++
+
+			continue
+		}
+
+		if paintOp.ZIndexSet || paintOp.Positioned || paintLayer(paintOp) != paintLayerContent {
+			relevant++
+		}
+	}
+
+	return relevant, grouped
+}
+
+// splicePaintOrder maintains a paint order over one committed op window. The
+// survivors keep their relative order with removed indices dropped and later
+// ones shifted; when neither the removed nor the new window carries an
+// ordering-relevant operation and no operation anywhere belongs to a blend
+// group, the new indices merge into place and the global sort is skipped,
+// provided the new run is itself sorted. A window that kept its length and its
+// ordering-neutral keys leaves the maintained order untouched: the old window
+// was neutral too, so both sorts rank the same indices by index alone and the
+// ops outside the window are unchanged. Any other change falls back to the
+// full paint order.
+func splicePaintOrder(ops []Op, order []int, start, oldCount, newCount int, neutral bool) []int {
+	if !neutral || !windowSorted(ops, start, newCount) {
+		return PaintOrder(ops)
+	}
+
+	if oldCount == newCount && len(order) == len(ops) && windowNeutral(ops, start, newCount) {
+		return order
+	}
+
+	kept := spliceSurvivors(order, start, oldCount, newCount)
+
+	return mergePaintOrder(ops, kept, start, newCount)
+}
+
+// spliceSurvivors drops the replaced index window and shifts the indices after
+// it by the window's size change.
+func spliceSurvivors(order []int, start, oldCount, newCount int) []int {
+	end := start + oldCount - 1
+	shift := newCount - oldCount
+
+	kept := make([]int, 0, len(order)-oldCount+newCount)
+
+	for _, index := range order {
+		switch {
+		case index >= start && index <= end:
+			continue
+		case index > end:
+			kept = append(kept, index+shift)
+		default:
+			kept = append(kept, index)
+		}
+	}
+
+	return kept
+}
+
+// windowNeutral reports whether one index run carries no ordering key: no
+// blend group, no explicit z-index, no positioning, and the content layer
+// only. Such ops sort by index alone, so a window of them keeps every one of
+// its indices in the place a neutral window before it held. It reports false
+// for a range outside the op slice.
+func windowNeutral(ops []Op, start, count int) bool {
+	if start < 0 || count < 0 || start+count > len(ops) {
+		return false
+	}
+
+	for index := start; index < start+count; index++ {
+		op := &ops[index]
+
+		if op.Group() != nil || op.ZIndexSet || op.Positioned || paintLayer(op) != paintLayerContent {
+			return false
+		}
+	}
+
+	return true
+}
+
+// mergePaintOrder merges the new window indices into a sorted survivor
+// order. A neutral window shares one rank, so its indices are sorted, and
+// the survivors stay sorted through the remap; the linear merge is the full
+// sort.
+func mergePaintOrder(ops []Op, kept []int, start, newCount int) []int {
+	merged := make([]int, 0, len(kept)+newCount)
+	pos, next := 0, start
+
+	for pos < len(kept) && next < start+newCount {
+		if comparePaintOrder(ops, kept[pos], next) <= 0 {
+			merged = append(merged, kept[pos])
+			pos++
+		} else {
+			merged = append(merged, next)
+			next++
+		}
+	}
+
+	merged = append(merged, kept[pos:]...)
+
+	for ; next < start+newCount; next++ {
+		merged = append(merged, next)
+	}
+
+	return merged
+}
+
+// windowSorted reports whether one index run is already sorted under the
+// paint order. Adjacent pairs decide it: the comparison is a total order,
+// so a run with every neighbor in order is sorted.
+func windowSorted(ops []Op, start, newCount int) bool {
+	for next := start + 1; next < start+newCount; next++ {
+		if next <= 0 || next >= len(ops) || next-1 < 0 || next-1 >= len(ops) {
+			return false
+		}
+
+		if comparePaintOrder(ops, next-1, next) > 0 {
+			return false
+		}
+	}
+
+	return true
 }

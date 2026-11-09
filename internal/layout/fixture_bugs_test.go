@@ -10,7 +10,7 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
-func TestRowBackgroundShowsThroughCells(t *testing.T) { //nolint:cyclop
+func TestRowBackgroundShowsThroughCells(t *testing.T) {
 	t.Parallel()
 	// tr.good { background } must paint on cells that have no own bg.
 	cssSheet, err := css.Parse(`
@@ -62,7 +62,7 @@ func TestRowBackgroundShowsThroughCells(t *testing.T) { //nolint:cyclop
 	}
 }
 
-func TestRGBABackgroundCompositesLight(t *testing.T) { //nolint:cyclop
+func TestRGBABackgroundCompositesLight(t *testing.T) {
 	t.Parallel()
 
 	cssSheet, err := css.Parse(`.alpha { background-color: rgba(15, 58, 95, 0.15); padding: 8px }`)
@@ -99,7 +99,7 @@ func TestRGBABackgroundCompositesLight(t *testing.T) { //nolint:cyclop
 	}
 }
 
-func TestNestedTableNoMeasureLeak(t *testing.T) { //nolint:cyclop,funlen
+func TestNestedTableNoMeasureLeak(t *testing.T) {
 	t.Parallel()
 	// Nested tables must not emit ops during the outer measure pass, and
 	// must keep document order (text before nested table in the same cell).
@@ -167,7 +167,7 @@ func TestNestedTableNoMeasureLeak(t *testing.T) { //nolint:cyclop,funlen
 	}
 }
 
-func TestBackgroundPaintsUnderText(t *testing.T) { //nolint:cyclop
+func TestBackgroundPaintsUnderText(t *testing.T) {
 	t.Parallel()
 	// Regression: block backgrounds must be emitted before text ops so
 	// yellow/blue notice boxes do not cover their labels.
@@ -212,7 +212,7 @@ func TestBackgroundPaintsUnderText(t *testing.T) { //nolint:cyclop
 
 // TestTableCellRowHeightUsesFinalWidth guards against measuring cell height at
 // max-content width (too narrow → false wraps → inflated empty row bands).
-func TestTableCellRowHeightUsesFinalWidth(t *testing.T) { //nolint:cyclop
+func TestTableCellRowHeightUsesFinalWidth(t *testing.T) {
 	t.Parallel()
 
 	cssSheet, err := css.Parse(`
@@ -268,7 +268,7 @@ func TestTableCellRowHeightUsesFinalWidth(t *testing.T) { //nolint:cyclop
 	}
 }
 
-func TestTableCellBackgroundHeight(t *testing.T) { //nolint:cyclop
+func TestTableCellBackgroundHeight(t *testing.T) {
 	t.Parallel()
 
 	cssSheet, err := css.Parse(`th { background-color: #1a3d6d; color: #fff } td { background-color: #f2f6fa }`)
@@ -316,7 +316,7 @@ func TestTableCellBackgroundHeight(t *testing.T) { //nolint:cyclop
 	}
 }
 
-func TestPrePreservesNewlines(t *testing.T) { //nolint:cyclop
+func TestPrePreservesNewlines(t *testing.T) {
 	t.Parallel()
 
 	root, err := html.Parse("<html><body><pre>alpha\n  beta\ngamma</pre></body></html>")
@@ -355,7 +355,7 @@ func TestPrePreservesNewlines(t *testing.T) { //nolint:cyclop
 	}
 }
 
-func TestMarginAutoCenters(t *testing.T) { //nolint:cyclop,funlen
+func TestMarginAutoCenters(t *testing.T) {
 	t.Parallel()
 
 	cssSheet, err := css.Parse(`.rule { width: 100pt; margin: 10pt auto; border-top: 4px solid #000 }`)
@@ -433,7 +433,7 @@ func TestMarginAutoCenters(t *testing.T) { //nolint:cyclop,funlen
 	}
 }
 
-func TestFixture16HeaderBG(t *testing.T) { //nolint:cyclop
+func TestFixture16HeaderBG(t *testing.T) {
 	t.Parallel()
 
 	b, err := os.ReadFile("../../testdata/golden/fixture-16-invoice-with-css.html")

@@ -95,7 +95,15 @@ func NodeWithWorkspace(
 // assembleNodeResult turns the built tree into the caller-facing Result:
 // flattened boxes, final height, transform stamps, and census counters.
 func assembleNodeResult(eng *engine, rootBox *box, opts Options, workspace *Workspace) *Result {
-	boxes := make([]*box, 0)
+	// Same pooled handoff as finalizeResult: rent at exact capacity, hand to
+	// the Result, and let Result.Release hand the backing back.
+	boxesCap := len(eng.boxChunks) * defaultBoxChunkSize
+	if boxesCap < minBoxesCap {
+		boxesCap = minBoxesCap
+	}
+
+	rented := rentBoxPtrs(boxesCap)
+	boxes := rented[:0]
 	flattenBoxes(rootBox, &boxes)
 
 	res := &Result{ //nolint:exhaustruct // intentional zero fields

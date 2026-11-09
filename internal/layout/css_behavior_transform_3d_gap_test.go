@@ -21,7 +21,6 @@ func gap3DFirst(t *testing.T, res *Result) Matrix2D {
 	return forms[0]
 }
 
-//nolint:wsl // each fixture's matrix is checked immediately
 func TestBehaviorTranslate3dAndScale3d(t *testing.T) {
 	t.Parallel()
 
@@ -95,7 +94,6 @@ func TestBehaviorScaleZUnderPerspective(t *testing.T) {
 	}
 }
 
-//nolint:wsl // the baked matrix follows the layout call
 func TestBehaviorRotateAxisForm(t *testing.T) {
 	t.Parallel()
 
@@ -108,7 +106,6 @@ func TestBehaviorRotateAxisForm(t *testing.T) {
 	}
 }
 
-//nolint:wsl // the baked matrix follows the layout call
 func TestBehaviorRotateXNarrowsHeight(t *testing.T) {
 	t.Parallel()
 
@@ -121,7 +118,6 @@ func TestBehaviorRotateXNarrowsHeight(t *testing.T) {
 	}
 }
 
-//nolint:wsl // the two matrices are compared together
 func TestBehaviorRotateZMatchesRotate(t *testing.T) {
 	t.Parallel()
 
@@ -140,7 +136,6 @@ func TestBehaviorRotateZMatchesRotate(t *testing.T) {
 	}
 }
 
-//nolint:wsl // the baked matrix follows the layout call
 func TestBehaviorRotate3dMatchesRotateY(t *testing.T) {
 	t.Parallel()
 
@@ -190,7 +185,6 @@ func TestBehaviorTranslateZLayoutForeshortens(t *testing.T) {
 	}
 }
 
-//nolint:wsl // the baked matrix follows the layout call
 func TestBehaviorMatrix3DRotateY(t *testing.T) {
 	t.Parallel()
 
@@ -207,7 +201,6 @@ func TestBehaviorMatrix3DRotateY(t *testing.T) {
 	}
 }
 
-//nolint:cyclop,wsl // hidden, visible, and the 2D parent stay one test
 func TestBehaviorBackfaceHiddenCullsComposedChild(t *testing.T) {
 	t.Parallel()
 

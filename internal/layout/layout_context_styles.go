@@ -68,10 +68,13 @@ func layoutContextWithStyles(
 		font = faces.Regular
 	}
 
-	var containers map[*html.Node]sizeContainer
+	var (
+		containers  map[*html.Node]sizeContainer
+		storeChunks [][]ResolvedStyle
+	)
 
 	if styles == nil || css.HasContainerRules(opts.Sheets) {
-		styles, containers, err = resolveStylesForLayoutContext(ctx, root, opts)
+		styles, containers, storeChunks, err = resolveStylesForLayoutContextChunks(ctx, root, opts)
 		if err != nil {
 			return nil, fmt.Errorf("layout: style resolution: %w", err)
 		}
@@ -79,6 +82,9 @@ func layoutContextWithStyles(
 
 	ops := workspaceOps(workspace, estimateOpCapacity(root))
 
+	eng := newEngine(ctx, opts, faces, font, styles, containers, ops)
+	eng.storeChunks = storeChunks
+
 	//nolint:contextcheck // ctx is stored on the engine and read by SVG calls
-	return finalizeResult(newEngine(ctx, opts, faces, font, styles, containers, ops), root, opts)
+	return finalizeResult(eng, root, opts)
 }

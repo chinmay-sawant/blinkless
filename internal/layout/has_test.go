@@ -7,7 +7,7 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
-func TestHasSelectorArticleBorder(t *testing.T) { //nolint:cyclop
+func TestHasSelectorArticleBorder(t *testing.T) {
 	t.Parallel()
 
 	s := sheet(t, `article:has(.footnote) { border-left: 3pt solid #00f }`)
@@ -56,7 +56,7 @@ func TestHasSelectorArticleBorder(t *testing.T) { //nolint:cyclop
 	}
 }
 
-func TestHasSelectorTableRowHighlight(t *testing.T) { //nolint:cyclop
+func TestHasSelectorTableRowHighlight(t *testing.T) {
 	t.Parallel()
 
 	s := sheet(t, `tr:has(td.neg) td { color: red }`)

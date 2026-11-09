@@ -4,6 +4,8 @@ import (
 	"math"
 	"slices"
 	"sort"
+	"sync"
+	"sync/atomic"
 
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
@@ -56,6 +58,207 @@ type flexPlacedItem struct {
 	n   *html.Node
 }
 
+// Row-path memo domains. The column path stores base heights in e.flexBaseH
+// (flexBaseKey) and auto-minimum floors in e.flexMinH (flexMinKey). The row
+// path shares those per-run maps so no engine struct change is needed, with
+// XOR domain tags on the size bits so a row base width or min floor can never
+// collide with a column entry for the same node and sizes. Multicol
+// child-height entries (multicol.go) use the third domain in the same map.
+const (
+	flexRowDomainXor uint64 = 0x9e3779b97f4a7c15
+	flexRowBaseTag   uint64 = 0x72006f7700000001
+	// flexRowCrossTag holds the simple row's line cross size under the same
+	// row domain. It stays out of the base-width and base-height domains so a
+	// content height can never stand in for a used size.
+	flexRowCrossTag  uint64 = 0x72006f7700000002
+	multicolWidthXor uint64 = 0xbf58476d1ce4e5b9
+	multicolMainTag  uint64 = 0x4d756c7469000001
+)
+
+// maxPooledFlexScratch bounds one pooled flex scratch slice. Larger rents
+// allocate directly and larger returns are dropped, matching box_alloc.go.
+const maxPooledFlexScratch = 4096
+
+// Initial capacity for pooled flex memo maps: one container's worth of
+// entries. It only avoids a first grow.
+const flexMemoInitCap = 32
+
+//nolint:gochecknoglobals // test-visible memo state mirrors flexKidPool in flex_children.go
+var (
+	flexRowBaseHits        atomic.Int64
+	flexRowBaseMisses      atomic.Int64
+	flexRowMinHits         atomic.Int64
+	flexRowMinMisses       atomic.Int64
+	flexRowMemoBypass      atomic.Bool
+	simpleFlexHeightBypass atomic.Bool
+	simpleFlexHeightHits   atomic.Int64
+	// simpleFlexCrossBypass and simpleFlexMinBypass are test-only switches
+	// that force the full measure for the line-cross and min-content fast
+	// paths so differential tests can compare both layouts.
+	simpleFlexCrossBypass atomic.Bool
+	simpleFlexCrossHits   atomic.Int64
+	simpleFlexMinBypass   atomic.Bool
+	simpleFlexMinHits     atomic.Int64
+	flexLinePlacePool     = newFlexScratchPool[flexLinePlace]()
+	flexPlacedPool        = newFlexScratchPool[flexPlacedItem]()
+	flexBoolPool          = newFlexScratchPool[bool]()
+	flexMeasPool          = newFlexScratchPool[flexMeas]()
+	flexColMeasPool       = newFlexScratchPool[flexColMeas]()
+	flexBaseMapPool       = sync.Pool{New: func() any { return make(map[flexBaseKey]float64, flexMemoInitCap) }}
+	flexMinMapPool        = sync.Pool{New: func() any { return make(map[flexMinKey]float64, flexMemoInitCap) }}
+)
+
+// newFlexScratchPool builds an empty pool for a typed slice header. It has no
+// New: an empty pool must fall through to the caller's exact-size make instead
+// of allocating a header on every cold rent. The header is created once on the
+// first return instead.
+func newFlexScratchPool[T any]() sync.Pool {
+	return sync.Pool{} //nolint:exhaustruct // see the comment above
+}
+
+// rentFlexScratch returns a zero-length scratch with room for size entries,
+// reusing a pooled backing when it is large enough.
+func rentFlexScratch[T any](pool *sync.Pool, size int) []T {
+	if size <= maxPooledFlexScratch {
+		if scratch, ok := pool.Get().(*[]T); ok && cap(*scratch) >= size {
+			return (*scratch)[:0]
+		}
+	}
+
+	return make([]T, 0, size)
+}
+
+// returnFlexScratch puts a scratch back when its backing is worth reusing.
+// clearBacking wipes the retained entries first when they hold pointers. The
+// stored header is reused from the pool, so Put does not box the slice header
+// into a fresh allocation.
+func returnFlexScratch[T any](pool *sync.Pool, scratch []T, clearBacking bool) {
+	if cap(scratch) == 0 || cap(scratch) > maxPooledFlexScratch {
+		return
+	}
+
+	if clearBacking {
+		clear(scratch[:cap(scratch)])
+	}
+
+	scratch = scratch[:0]
+
+	header, ok := pool.Get().(*[]T)
+	if !ok {
+		header = new([]T)
+	}
+
+	*header = scratch
+	pool.Put(header)
+}
+
+// getFlexMeas rents a zero-length flex-measurement scratch for one flex
+// container. The caller owns it until putFlexMeas.
+func getFlexMeas(size int) []flexMeas {
+	return rentFlexScratch[flexMeas](&flexMeasPool, size)
+}
+
+// putFlexMeas returns a flex-measurement scratch. The backing is cleared so
+// retained node pointers cannot outlive the layout run.
+func putFlexMeas(scratch []flexMeas) {
+	returnFlexScratch(&flexMeasPool, scratch, true)
+}
+
+// getFlexColMeas rents a zero-length column flex-measurement scratch.
+func getFlexColMeas(size int) []flexColMeas {
+	return rentFlexScratch[flexColMeas](&flexColMeasPool, size)
+}
+
+// putFlexColMeas returns a column flex-measurement scratch.
+func putFlexColMeas(scratch []flexColMeas) {
+	returnFlexScratch(&flexColMeasPool, scratch, true)
+}
+
+func (e *engine) ensureFlexBaseH() map[flexBaseKey]float64 {
+	if e.flexBaseH == nil {
+		if m, ok := flexBaseMapPool.Get().(map[flexBaseKey]float64); ok {
+			clear(m)
+			e.flexBaseH = m
+		} else {
+			e.flexBaseH = make(map[flexBaseKey]float64, flexMemoInitCap)
+		}
+	}
+
+	return e.flexBaseH
+}
+
+func (e *engine) ensureFlexMinH() map[flexMinKey]float64 {
+	if e.flexMinH == nil {
+		if m, ok := flexMinMapPool.Get().(map[flexMinKey]float64); ok {
+			clear(m)
+			e.flexMinH = m
+		} else {
+			e.flexMinH = make(map[flexMinKey]float64, flexMemoInitCap)
+		}
+	}
+
+	return e.flexMinH
+}
+
+// getFlexLinePlaces rents a zero-length placed-line scratch for one flex
+// container. The caller owns it until putFlexLinePlaces.
+func getFlexLinePlaces(size int) []flexLinePlace {
+	return rentFlexScratch[flexLinePlace](&flexLinePlacePool, size)
+}
+
+// putFlexLinePlaces returns a placed-line scratch. Entries hold no pointers,
+// so no clearing is needed for GC.
+func putFlexLinePlaces(scratch []flexLinePlace) {
+	returnFlexScratch(&flexLinePlacePool, scratch, false)
+}
+
+// getFlexPlacedItems rents a zero-length built-item scratch for one flex line.
+// Ownership transfers to the caller of buildRowItems, which must return it
+// with putFlexPlacedItems after alignment.
+func getFlexPlacedItems(size int) []flexPlacedItem {
+	return rentFlexScratch[flexPlacedItem](&flexPlacedPool, size)
+}
+
+// putFlexPlacedItems returns a built-item scratch. The backing is cleared so
+// retained box and node pointers cannot outlive the layout run.
+func putFlexPlacedItems(scratch []flexPlacedItem) {
+	returnFlexScratch(&flexPlacedPool, scratch, true)
+}
+
+// getFlexBools rents a zeroed bool scratch of length size for clamp phases.
+func getFlexBools(size int) []bool {
+	if size <= maxPooledFlexScratch {
+		if scratch, ok := flexBoolPool.Get().(*[]bool); ok && cap(*scratch) >= size {
+			bools := (*scratch)[:size]
+
+			clear(bools)
+
+			return bools
+		}
+	}
+
+	return make([]bool, size)
+}
+
+// putFlexBools returns a bool scratch. The stored header comes back from the
+// pool so the slice header is not boxed into a fresh allocation.
+func putFlexBools(scratch []bool) {
+	if cap(scratch) == 0 || cap(scratch) > maxPooledFlexScratch {
+		return
+	}
+
+	clear(scratch)
+	scratch = scratch[:0]
+
+	header, ok := flexBoolPool.Get().(*[]bool)
+	if !ok {
+		header = new([]bool)
+	}
+
+	*header = scratch
+	flexBoolPool.Put(header)
+}
+
 // buildFlex lays out a flex container with justify, align, gap, grow, and wrap.
 //
 //nolint:cyclop,gocritic,wsl // dispatch also installs the containing-block scope
@@ -74,7 +277,9 @@ func (e *engine) buildFlex(node *html.Node, sty ResolvedStyle, availW, x, posY f
 	}
 
 	contentX, contentW := e.contentBox(boxNode.x, boxNode.w, &sty)
-	sty = withAspectRatioHeight(sty, contentW, e)
+	if sty.AspectRatio > 0 {
+		sty = withAspectRatioHeight(sty, contentW, e)
+	}
 
 	contentStart := len(e.ops)
 	curY := e.scalePt(sty.PaddingTop) + e.scalePt(sty.BorderTop.Width)
@@ -96,7 +301,7 @@ func (e *engine) buildFlex(node *html.Node, sty ResolvedStyle, availW, x, posY f
 	}
 
 	rowGap, colGap := e.styleGaps(&sty)
-	previousCB, parentCB := e.setFlowCB(sty)
+	previousCB, parentCB := e.setFlowCB(&sty)
 	defer func() { e.flowCBHeight = previousCB }()
 
 	dir := sty.FlexDirection
@@ -168,21 +373,26 @@ func (e *engine) partitionFlexOutOfFlow(kids []*html.Node) ([]*html.Node, []*htm
 // boxes. Split from buildFlex so the container assembly stays within the
 // length budget.
 func (e *engine) resolveFlexContentHeight(sty ResolvedStyle, contentW, curY, parentCB float64) float64 {
-	resolvedHeightStyle := withAspectRatioHeight(sty, contentW, e)
-	contentBottom := e.borderBoxBottom(resolvedHeightStyle, curY)
+	// withAspectRatioHeight copies the whole style record, so only the boxes
+	// that declare a ratio pay for it; the common path keeps sty in place.
+	if sty.AspectRatio > 0 {
+		sty = withAspectRatioHeight(sty, contentW, e)
+	}
 
-	if usedHeight, definite := resolveUsedHeight(&resolvedHeightStyle, parentCB, e); definite {
+	contentBottom := e.borderBoxBottom(sty, curY)
+
+	if usedHeight, definite := resolveUsedHeight(&sty, parentCB, e); definite {
 		// A definite flex-container height is a used size, not a minimum. Its
 		// flex items may overflow the container when shrink is disabled.
-		vChrome := resolvedHeightStyle.verticalChrome(e)
+		vChrome := sty.verticalChrome(e)
 		curY = usedHeight
-		curY = e.clampBlockMaxHeight(&resolvedHeightStyle, curY, parentCB, vChrome)
-		curY = e.clampBlockMinHeight(&resolvedHeightStyle, curY, parentCB, vChrome)
+		curY = e.clampBlockMaxHeight(&sty, curY, parentCB, vChrome)
+		curY = e.clampBlockMinHeight(&sty, curY, parentCB, vChrome)
 
 		return curY
 	}
 
-	return e.applyHeightConstraintsWithCB(&resolvedHeightStyle, contentBottom, parentCB)
+	return e.applyHeightConstraintsWithCB(&sty, contentBottom, parentCB)
 }
 
 // flushFlexDeferredOutOfFlow lays out the deferred abspos children of a flex
@@ -225,7 +435,9 @@ func (e *engine) flowFlexRow(
 	wrap := style.FlexWrap == fxWrap || style.FlexWrap == fxWrapRev
 	reverse := flexRowPhysicalReverse(&style)
 	contentH := resolveContentHeight(style, e)
+
 	items := e.flexRowItems(kids, contentW, contentH)
+	defer putFlexMeas(items)
 	lines := e.flexWrapLines(items, wrap, reverse, style.FlexWrap == fxWrapRev, colGap, contentW)
 
 	lineCross := -1.0
@@ -237,7 +449,8 @@ func (e *engine) flowFlexRow(
 		style, lines, contentW, colGap, rowGap, contentX, topY, curY,
 	)
 
-	placed := make([]flexLinePlace, 0, len(lines))
+	placed := getFlexLinePlaces(len(lines))
+	defer putFlexLinePlaces(placed)
 
 	poll := newCtxPoll(e.ctx)
 	for lidx, line := range lines {
@@ -292,7 +505,7 @@ func (e *engine) flowFlexRow(
 }
 
 func (e *engine) flexRowItems(kids []*html.Node, contentW float64, crossSize ...float64) []flexMeas {
-	items := make([]flexMeas, 0, len(kids))
+	items := getFlexMeas(len(kids))
 
 	for _, kid := range kids {
 		cstate := e.stylePtr(kid)
@@ -426,7 +639,9 @@ func (e *engine) applyAlignContentRow(
 		return curY
 	}
 
-	offsets := alignContentOffsets(alignContent, free, len(placed))
+	offsets := rentFloats(len(placed))
+	defer returnFloats(offsets)
+	alignContentOffsetsInto(offsets, alignContent, free)
 
 	e.shiftAlignContentLines(parent, placed, offsets)
 
@@ -480,7 +695,9 @@ func (e *engine) alignContentStretchLineCross(
 		return nil
 	}
 
-	heights := make([]float64, len(lines))
+	heights := rentFloats(len(lines))
+	defer returnFloats(heights)
+
 	sum := 0.0
 
 	for i, line := range lines {
@@ -504,7 +721,13 @@ func (e *engine) alignContentStretchLineCross(
 func (e *engine) flexLineNaturalCross(
 	style ResolvedStyle, items []flexMeas, contentW, gap, contentX, topY, curY float64,
 ) float64 {
-	widths := e.flexLineWidths(items, contentW, gap)
+	widths := rentFloats(len(items))
+	defer returnFloats(widths)
+
+	frozen := getFlexBools(len(items))
+	defer putFlexBools(frozen)
+	e.flexLineWidthsInto(items, contentW, gap, widths, frozen)
+
 	sumW := 0.0
 
 	for idx, width := range widths {
@@ -531,8 +754,9 @@ func (e *engine) shiftPlacedChildren(parent *box, startChild, endChild int, delt
 	}
 }
 
-// alignContentOffsets maps align-content to per-line cross-axis offsets.
-func alignContentOffsets(alignContent string, free float64, count int) []float64 {
+// alignContentOffsetsInto fills offsets with per-line cross-axis offsets.
+func alignContentOffsetsInto(offsets []float64, alignContent string, free float64) {
+	count := len(offsets)
 	base, step := 0.0, 0.0
 
 	switch alignContent {
@@ -556,10 +780,15 @@ func alignContentOffsets(alignContent string, free float64, count int) []float64
 		}
 	}
 
-	offsets := make([]float64, count)
 	for i := range offsets {
 		offsets[i] = base + step*float64(i)
 	}
+}
+
+// alignContentOffsets maps align-content to per-line cross-axis offsets.
+func alignContentOffsets(alignContent string, free float64, count int) []float64 {
+	offsets := make([]float64, count)
+	alignContentOffsetsInto(offsets, alignContent, free)
 
 	return offsets
 }
@@ -580,6 +809,34 @@ func (e *engine) flexItemBaseWidth(node *html.Node, style *ResolvedStyle, mainSi
 		return defaultCheckboxSize(e, *style) + e.scalePt(style.MarginLeft) + e.scalePt(style.MarginRight)
 	}
 
+	// Row-path base-width memo. The intrinsic subtree walk below repeats for
+	// every wrap trial and again on the emit pass; the base width is a pure
+	// function of node, style, and containing width for the run, so it is
+	// stored in the shared per-run map under the row domain.
+	if !flexRowMemoBypass.Load() {
+		if baseW, ok := e.flexBaseH[flexRowBaseKey(node, style, mainSize)]; ok {
+			flexRowBaseHits.Add(1)
+
+			return baseW
+		}
+	}
+
+	return e.flexItemContentBaseWidth(node, style, mainSize, pad)
+}
+
+// flexRowBaseKey builds the row-path base-width memo key.
+func flexRowBaseKey(node *html.Node, style *ResolvedStyle, mainSize float64) flexBaseKey {
+	return flexBaseKey{
+		node: node, style: style,
+		widthBits: math.Float64bits(mainSize) ^ flexRowDomainXor, mainBits: flexRowBaseTag,
+	}
+}
+
+// flexItemContentBaseWidth measures the content-based main size and stores it
+// in the row-path memo.
+func (e *engine) flexItemContentBaseWidth(
+	node *html.Node, style *ResolvedStyle, mainSize, pad float64,
+) float64 {
 	capW := mainSize
 	if capW < 0 {
 		capW = indefiniteContentCap
@@ -605,20 +862,55 @@ func (e *engine) flexItemBaseWidth(node *html.Node, style *ResolvedStyle, mainSi
 		intr = capW
 	}
 
+	if !flexRowMemoBypass.Load() && e.err == nil {
+		m := e.ensureFlexBaseH()
+		m[flexRowBaseKey(node, style, mainSize)] = intr
+
+		flexRowBaseMisses.Add(1)
+	}
+
 	return intr
 }
 
-// flexMinMainSize is the content-based minimum main size (Flexbox §4.5 lite /
-// css-sizing-3): max(specified min-width, min(min-content suggestion,
-// specified size suggestion when definite)). Used as the shrink floor so text
-// does not crush to 0 while ordinary wrapping text can still share a flex row.
-// measureCellMinMax already returns border-box widths, so padding and borders
-// must not be added a second time here. mainSize is the definite flex
-// container content main size, or <0 when indefinite (then % min-width is
-// ignored — cyclic honesty).
+// flexMinMainSize is the content-based minimum main size on the row axis.
+// Shrink, clamp, and wrap-fit trials ask for the same floor for every item,
+// and each noEmit ancestor measure re-runs the owning container, so the memo
+// keeps one content measure per item per run. Entries share the per-run
+// column auto-minimum map under the row domain (see flexRowDomainXor).
+func (e *engine) flexMinMainSize(item flexMeas, mainSize float64) float64 {
+	if e.flexMinBypass || flexRowMemoBypass.Load() {
+		return e.flexMinMainSizeUncached(item, mainSize)
+	}
+
+	key := flexMinKey{
+		node: item.n, style: e.stylePtr(item.n),
+		baseBits: math.Float64bits(item.baseW) ^ flexRowDomainXor,
+		mainBits: math.Float64bits(mainSize) ^ flexRowDomainXor,
+	}
+	if floor, ok := e.flexMinH[key]; ok {
+		flexRowMinHits.Add(1)
+
+		return floor
+	}
+
+	floor := e.flexMinMainSizeUncached(item, mainSize)
+
+	if e.err == nil {
+		m := e.ensureFlexMinH()
+		m[key] = floor
+
+		flexRowMinMisses.Add(1)
+	}
+
+	return floor
+}
+
+// flexMinMainSizeUncached computes the row-axis content-based minimum
+// main size (Flexbox §4.5 lite / css-sizing-3): max(specified min-width,
+// min(min-content suggestion, specified size suggestion when definite)).
 //
 //nolint:cyclop // CSS min-size decision tree
-func (e *engine) flexMinMainSize(item flexMeas, mainSize float64) float64 {
+func (e *engine) flexMinMainSizeUncached(item flexMeas, mainSize float64) float64 {
 	cstate := e.stylePtr(item.n)
 	floor := 0.0
 
@@ -636,8 +928,14 @@ func (e *engine) flexMinMainSize(item flexMeas, mainSize float64) float64 {
 		floor = e.scalePt(cstate.MinWidth)
 	}
 	// Automatic minimum (min-width:auto): min-content size suggestion. The
-	// returned width already includes the item's horizontal chrome.
-	contentSug, _ := e.measureCellMinMax(item.n, cstate)
+	// returned width already includes the item's horizontal chrome. Fixed-width
+	// single-text items derive the same suggestion from the longest word, so
+	// the full cell walk only runs for shapes the helper cannot prove.
+	contentSug, simple := e.simpleFlexMinContentWidth(item.n, cstate)
+	if !simple {
+		contentSug, _ = e.measureCellMinMax(item.n, cstate)
+	}
+
 	pad := e.scalePt(cstate.PaddingLeft) + e.scalePt(cstate.PaddingRight) +
 		e.scalePt(cstate.BorderLeft.Width) + e.scalePt(cstate.BorderRight.Width)
 	// Specified size suggestion when width/% is definite against mainSize.
@@ -677,13 +975,18 @@ func (e *engine) flexClampMainWidthsInto(
 	items []flexMeas, widths []float64, contentW, mainSize, gap float64, frozen []bool,
 ) {
 	var maxFrozen []bool
+
+	var rentedFrozen []bool
 	if frozen == nil {
-		maxFrozen = make([]bool, len(items))
+		rentedFrozen = getFlexBools(len(items))
+		maxFrozen = rentedFrozen
 	} else {
 		maxFrozen = frozen[:len(items)]
-		for idx := range maxFrozen {
-			maxFrozen[idx] = false
-		}
+		clear(maxFrozen)
+	}
+
+	if rentedFrozen != nil {
+		defer putFlexBools(rentedFrozen)
 	}
 
 	available := contentW - gap*float64(len(items)-1)
@@ -922,7 +1225,13 @@ func (e *engine) placeFlexLineMeasured(
 	contentW, contentX, topY, curY, gap, lineCross float64,
 	crossReverse, mainReverse bool,
 ) float64 {
-	widths := e.flexLineWidths(items, contentW, gap)
+	// Pooled line scratch: widths and clamp state rent here and return on
+	// exit instead of allocating per line on the emit pass.
+	widths := rentFloats(len(items))
+	defer returnFloats(widths)
+	frozen := getFlexBools(len(items))
+	defer putFlexBools(frozen)
+	e.flexLineWidthsInto(items, contentW, gap, widths, frozen)
 	gaps := gap * float64(len(items)-1)
 	if gaps < 0 {
 		gaps = 0
@@ -945,7 +1254,11 @@ func (e *engine) placeFlexLineMeasured(
 
 	targetCross := lineCross
 	if targetCross < 0 {
-		targetCross = e.measureFlexCrossMax(items, widths, startX, topY, curY, justifyGap)
+		if cross, ok := e.simpleFlexRowContentCross(parent, &style, contentW); ok {
+			targetCross = cross
+		} else {
+			targetCross = e.measureFlexCrossMax(items, widths, startX, topY, curY, justifyGap)
+		}
 	}
 
 	built, rowH := e.buildRowItems(
@@ -971,6 +1284,7 @@ func (e *engine) placeFlexLineMeasured(
 	}
 
 	e.alignRowItems(style, built, topY, curY, alignH, crossReverse)
+	putFlexPlacedItems(built)
 
 	if lineCross > rowH {
 		return curY + lineCross
@@ -981,15 +1295,6 @@ func (e *engine) placeFlexLineMeasured(
 	}
 
 	return curY + rowH
-}
-
-// flexLineWidths resolves used main sizes: grow/shrink redistribution over
-// the line, then min/max clamping with floor-frozen re-shrink.
-func (e *engine) flexLineWidths(items []flexMeas, contentW, gap float64) []float64 {
-	widths := make([]float64, len(items))
-	e.flexLineWidthsInto(items, contentW, gap, widths, nil)
-
-	return widths
 }
 
 // flexLineWidthsInto resolves used main sizes into the caller's widths
@@ -1260,12 +1565,8 @@ func (e *engine) buildFlexRowItem(
 	node *html.Node, style *ResolvedStyle, forceStretch bool,
 	targetCross, availW, posX, posY float64,
 ) *box {
-	override := e.allocStyle(style)
-	e.forceFlexItemMainSize(override, availW)
-
-	if forceStretch {
-		e.forceFlexItemCrossSize(override, targetCross)
-	}
+	override := e.flexRowStyleOverride(style, e.flexBaseStyleStable(node, style),
+		forceStretch, targetCross, availW)
 
 	return e.buildWithStyle(node, override, availW, posX, posY)
 }
@@ -1275,7 +1576,9 @@ func (e *engine) buildRowItems(
 	parent *box, style ResolvedStyle, items []flexMeas, widths []float64,
 	contentW, topY, curY, startX, justifyGap, targetCross float64,
 ) ([]flexPlacedItem, float64) {
-	built := make([]flexPlacedItem, 0, len(items))
+	// Built-item scratch is rented here; ownership transfers to the caller,
+	// which returns it after cross-axis alignment.
+	built := getFlexPlacedItems(len(items))
 	rowH := 0.0
 	leftX := startX
 	autoMainMargins := flexRowAutoMarginCount(items, e)
@@ -1295,6 +1598,7 @@ func (e *engine) buildRowItems(
 	for idx, item := range items {
 		if poll.poll() {
 			e.err = poll.err
+			putFlexPlacedItems(built)
 
 			return nil, rowH
 		}
@@ -1377,15 +1681,13 @@ func (e *engine) buildRowItems(
 
 // alignRowItems applies align-items/align-self offsets on the cross axis
 // within a line (stretch sizing happened during build).
-//
-//nolint:cyclop,goconst // alignment keeps baseline and cross-axis branches together
 func (e *engine) alignRowItems(
 	style ResolvedStyle,
 	built []flexPlacedItem,
 	topY, cyOffset, alignH float64,
 	crossReverse bool,
 ) {
-	baselineY := e.rowBaseline(style, built, topY+cyOffset)
+	maxBaselineOffset, hasBaseline := e.rowBaselineOffset(style, built)
 
 	for _, page := range built {
 		if page.box == nil {
@@ -1402,29 +1704,8 @@ func (e *engine) alignRowItems(
 			align = pageStyle.AlignSelf
 		}
 
-		var deltaY float64
-
-		switch align {
-		case fxFlexEnd, fxEnd:
-			if !crossReverse {
-				deltaY = (topY + cyOffset + alignH) - (page.box.y + page.box.height)
-			}
-		case fxFlexStart, fxStart:
-			if crossReverse {
-				deltaY = (topY + cyOffset + alignH) - (page.box.y + page.box.height)
-			}
-		case fxCenter:
-			deltaY = (topY + cyOffset + (alignH-page.box.height)/2) - page.box.y
-		case "baseline":
-			if target, ok := baselineY[page.box]; ok {
-				deltaY = target - page.box.y
-			}
-		default:
-			if crossReverse {
-				deltaY = (topY + cyOffset + alignH) - (page.box.y + page.box.height)
-			}
-		}
-
+		deltaY := rowItemAlignDelta(align, crossReverse, page.box, hasBaseline,
+			alignParams{topY: topY, cyOffset: cyOffset, alignH: alignH, maxBaselineOffset: maxBaselineOffset})
 		if deltaY != 0 {
 			e.shiftBoxOps(page.box, 0, deltaY)
 			page.box.y += deltaY
@@ -1432,56 +1713,84 @@ func (e *engine) alignRowItems(
 	}
 }
 
-//nolint:wsl // baseline collection keeps each item decision adjacent
-func (e *engine) rowBaseline(
-	style ResolvedStyle, built []flexPlacedItem, lineTop float64,
-) map[*box]float64 {
-	type baselineItem struct {
-		box    *box
-		margin float64
-		offset float64
+// alignParams carries the line geometry one cross-axis alignment needs.
+type alignParams struct {
+	topY              float64
+	cyOffset          float64
+	alignH            float64
+	maxBaselineOffset float64
+}
+
+// rowItemAlignDelta returns the cross-axis shift for one placed item under
+// align, honoring cross-reverse and the line's baseline offset.
+func rowItemAlignDelta(align string, crossReverse bool, pageBox *box, hasBaseline bool, params alignParams) float64 {
+	bottom := params.topY + params.cyOffset + params.alignH
+
+	switch align {
+	case fxFlexEnd, fxEnd:
+		if !crossReverse {
+			return bottom - (pageBox.y + pageBox.height)
+		}
+	case fxFlexStart, fxStart:
+		if crossReverse {
+			return bottom - (pageBox.y + pageBox.height)
+		}
+	case fxCenter:
+		return params.topY + params.cyOffset + (params.alignH-pageBox.height)/2 - pageBox.y
+	case baselineName:
+		if hasBaseline {
+			return params.topY + params.cyOffset + params.maxBaselineOffset -
+				baselineOffset(pageBox) - pageBox.y
+		}
+	default:
+		if crossReverse {
+			return bottom - (pageBox.y + pageBox.height)
+		}
 	}
 
-	items := make([]baselineItem, 0, len(built))
+	return 0
+}
+
+// baselineOffset returns the item baseline's distance from its top edge.
+func baselineOffset(pageBox *box) float64 {
+	if pageBox.firstBaseline > pageBox.y {
+		return pageBox.firstBaseline - pageBox.y
+	}
+
+	return pageBox.height
+}
+
+// rowBaselineOffset returns the deepest baseline offset on the line and
+// whether any item aligns on the baseline.
+func (e *engine) rowBaselineOffset(style ResolvedStyle, built []flexPlacedItem) (float64, bool) {
 	maxOffset := 0.0
+	found := false
+
 	for _, page := range built {
-		if page.box == nil {
+		if page.box == nil || !e.itemAlignsBaseline(style, page) {
 			continue
 		}
 
-		itemStyle := e.stylePtr(page.n)
-		align := style.AlignItems
-		if itemStyle.AlignSelf != "" && itemStyle.AlignSelf != fxAuto {
-			align = itemStyle.AlignSelf
-		}
-		if align != "baseline" {
-			continue
-		}
+		found = true
 
-		offset := page.box.height
-		if page.box.firstBaseline > page.box.y {
-			offset = page.box.firstBaseline - page.box.y
-		}
-		margin := e.scalePt(itemStyle.MarginTop)
-		items = append(items, baselineItem{box: page.box, margin: margin, offset: offset})
-		if margin+offset > maxOffset {
+		offset := baselineOffset(page.box)
+		if margin := e.scalePt(e.stylePtr(page.n).MarginTop); margin+offset > maxOffset {
 			maxOffset = margin + offset
 		}
 	}
-	if len(items) == 0 {
-		return nil
+
+	return maxOffset, found
+}
+
+// itemAlignsBaseline reports whether one placed item takes the baseline cross
+// alignment, from the container or from its own align-self.
+func (e *engine) itemAlignsBaseline(style ResolvedStyle, page flexPlacedItem) bool {
+	align := style.AlignItems
+	if pageStyle := e.stylePtr(page.n); pageStyle.AlignSelf != "" && pageStyle.AlignSelf != fxAuto {
+		align = pageStyle.AlignSelf
 	}
 
-	result := make(map[*box]float64, len(items))
-	for _, item := range items {
-		// The flex line's baseline includes the largest cross-axis margin, but
-		// the item margin is not subtracted again when the border box is placed.
-		// This matches empty-item baselines and keeps margin-different items on
-		// the same physical edge.
-		result[item.box] = lineTop + maxOffset - item.offset
-	}
-
-	return result
+	return align == baselineName
 }
 
 //nolint:wsl // main-axis margin counting keeps both auto sides in one pass
@@ -1553,7 +1862,7 @@ func flexItemCrossStretch(cstate, cstate2 *ResolvedStyle) bool {
 	}
 
 	switch align {
-	case fxFlexStart, fxStart, fxFlexEnd, fxEnd, fxCenter, "baseline":
+	case fxFlexStart, fxStart, fxFlexEnd, fxEnd, fxCenter, baselineName:
 		return false
 	}
 	// Definite height/% means the used cross size is already specified.
@@ -1619,6 +1928,13 @@ func (e *engine) flexItemBaseHeight(node *html.Node, style *ResolvedStyle, conte
 		return height
 	}
 
+	// Simple invoice rows can derive their one-line height from the cell line
+	// metrics, so the subtree measure below never runs for them. Any shape the
+	// helper cannot prove falls through to the unchanged noEmit build.
+	if height, ok := e.simpleFlexBaseHeight(key, node, style, contentW); ok {
+		return height
+	}
+
 	bmark := e.markBoxes()
 	smark := e.markStyles()
 	was := e.noEmit
@@ -1637,11 +1953,8 @@ func (e *engine) flexItemBaseHeight(node *html.Node, style *ResolvedStyle, conte
 	}
 
 	if e.err == nil {
-		if e.flexBaseH == nil {
-			e.flexBaseH = make(map[flexBaseKey]float64)
-		}
-
-		e.flexBaseH[key] = height
+		m := e.ensureFlexBaseH()
+		m[key] = height
 	}
 
 	return height
@@ -1686,11 +1999,8 @@ func (e *engine) flexMinCrossMainSize(node *html.Node, baseH, mainSize float64) 
 	floor := e.flexMinCrossMainSizeUncached(node, baseH, mainSize)
 
 	if e.err == nil {
-		if e.flexMinH == nil {
-			e.flexMinH = make(map[flexMinKey]float64)
-		}
-
-		e.flexMinH[key] = floor
+		m := e.ensureFlexMinH()
+		m[key] = floor
 	}
 
 	return floor
@@ -1794,6 +2104,7 @@ func (e *engine) flowFlexColumn(
 ) float64 {
 	contentH := resolveFlexColumnContentHeight(style, e)
 	items := e.flexColumnItems(kids, contentW, contentH)
+	defer putFlexColMeas(items)
 
 	if len(items) == 0 {
 		return curY
@@ -1806,7 +2117,9 @@ func (e *engine) flowFlexColumn(
 		slices.Reverse(items)
 	}
 
-	heights := e.flexColumnHeights(items, contentH, gap)
+	heights := rentFloats(len(items))
+	defer returnFloats(heights)
+	e.flexColumnHeightsInto(items, contentH, gap, heights)
 
 	gaps := gap * float64(len(items)-1)
 	if gaps < 0 {

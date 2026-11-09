@@ -59,3 +59,109 @@ func TestStyleStoreSharesDuplicateStyles(t *testing.T) {
 		t.Fatal("the store kept two records for one style")
 	}
 }
+
+// TestStyleStoreChunkFreeListChannelsBoundedAndRecycled tests that putStyleStoreChunk
+// zeroes lingering records and routes chunks to the segregated free channels, and
+// that drainStyleStoreChunkPools drains them cleanly.
+//
+//nolint:paralleltest // drains the process-wide chunk free lists
+func TestStyleStoreChunkFreeListChannelsBoundedAndRecycled(t *testing.T) {
+	drainStyleStoreChunkPools()
+	defer drainStyleStoreChunkPools()
+
+	// Put an 8-cap chunk with non-zero fields
+	c8 := make([]ResolvedStyle, 0, styleStoreFirstChunk)
+	c8 = append(c8, ResolvedStyle{Color: [3]float64{1, 2, 3}, CustomProps: map[string]string{"--foo": "bar"}})
+	putStyleStoreChunk(&c8)
+
+	// Buffer must be cleared
+	if c8[:cap(c8)][0].CustomProps != nil {
+		t.Fatal("putStyleStoreChunk did not clear CustomProps map pointer")
+	}
+
+	got8 := getStyleStoreChunk(styleStoreFirstChunk)
+	if got8 == nil || cap(*got8) != styleStoreFirstChunk {
+		t.Fatalf("getStyleStoreChunk(%d) = %v, want recycled chunk", styleStoreFirstChunk, got8)
+	}
+
+	// 32-cap chunk
+	c32 := make([]ResolvedStyle, 0, styleStoreFirstChunk*4)
+	c32 = append(c32, ResolvedStyle{FontSize: 24})
+	putStyleStoreChunk(&c32)
+
+	got32 := getStyleStoreChunk(styleStoreFirstChunk * 4)
+	if got32 == nil || cap(*got32) != styleStoreFirstChunk*4 {
+		t.Fatalf("getStyleStoreChunk(%d) = %v, want recycled chunk", styleStoreFirstChunk*4, got32)
+	}
+
+	// 64-cap chunk
+	c64 := make([]ResolvedStyle, 0, styleStoreChunkSize)
+	c64 = append(c64, ResolvedStyle{Width: 100})
+	putStyleStoreChunk(&c64)
+
+	got64 := getStyleStoreChunk(styleStoreChunkSize)
+	if got64 == nil || cap(*got64) != styleStoreChunkSize {
+		t.Fatalf("getStyleStoreChunk(%d) = %v, want recycled chunk", styleStoreChunkSize, got64)
+	}
+
+	// Draining leaves channels empty
+	putStyleStoreChunk(&c8)
+	putStyleStoreChunk(&c32)
+	putStyleStoreChunk(&c64)
+	drainStyleStoreChunkPools()
+
+	if len(styleStoreChunkFree8) != 0 || len(styleStoreChunkFree32) != 0 || len(styleStoreChunkFree64) != 0 {
+		t.Fatal("drainStyleStoreChunkPools left entries in channels")
+	}
+}
+
+// TestResultReleaseRecyclesStoreChunks verifies that Result.Release returns
+// storeChunks to the free lists.
+//
+//nolint:paralleltest // drains the process-wide chunk free lists
+func TestResultReleaseRecyclesStoreChunks(t *testing.T) {
+	drainStyleStoreChunkPools()
+	defer drainStyleStoreChunkPools()
+
+	c64 := make([]ResolvedStyle, 0, styleStoreChunkSize)
+	res := &Result{
+		storeChunks: [][]ResolvedStyle{c64},
+	}
+
+	res.Release()
+
+	if res.storeChunks != nil {
+		t.Fatal("res.storeChunks was not cleared after Release")
+	}
+
+	got := getStyleStoreChunk(styleStoreChunkSize)
+	if got == nil {
+		t.Fatal("Result.Release did not recycle storeChunk to free list")
+	}
+}
+
+// TestSubtreeStyleStoreRejectedChunksTransferredToResult verifies that when a
+// store is rejected from the subtree store pool, its chunks are transferred to
+// prev.storeChunks rather than leaked.
+//
+//nolint:paralleltest // uses the process-wide subtree store pool
+func TestSubtreeStyleStoreRejectedChunksTransferredToResult(t *testing.T) {
+	prev := &Result{}
+	store := &styleStore{}
+
+	// Allocate more chunks than maxSubtreeStyleStoreChunks (which is 4)
+	for range maxSubtreeStyleStoreChunks + 1 {
+		store.chunks = append(store.chunks, make([]ResolvedStyle, 0, styleStoreChunkSize))
+	}
+
+	tag := subtreeStyleDocTag{root: 1, sheet: 2, sheets: 1}
+	putSubtreeStyleStore(prev, tag, store)
+
+	if len(prev.storeChunks) != maxSubtreeStyleStoreChunks+1 {
+		t.Fatalf("prev.storeChunks len = %d, want %d", len(prev.storeChunks), maxSubtreeStyleStoreChunks+1)
+	}
+
+	if len(store.chunks) != 0 {
+		t.Fatalf("store.chunks len = %d, want 0 after transfer", len(store.chunks))
+	}
+}

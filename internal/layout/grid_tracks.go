@@ -2,9 +2,85 @@ package layout
 
 import (
 	"math"
+	"sync"
+	"sync/atomic"
 
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
+
+//nolint:gochecknoglobals // pooled scratch and memo state, mirroring box_alloc.go
+var (
+	gridTrackDefPool holderPool[gridTrackDef]
+	gridIntPool      holderPool[int]
+	trackKidMemoMu   sync.Mutex
+	trackKidMemo     = make(map[trackKidKey]trackKidVal)
+	trackIntrHits    atomic.Int64
+	trackIntrMisses  atomic.Int64
+	trackIntrBypass  atomic.Bool
+)
+
+const (
+	// maxTrackKidMemoEntries bounds the shared per-kid intrinsics memo. Style
+	// pointers are per-run, so entries from an old run never match a new one;
+	// the bound keeps one pathological document from pinning nodes forever.
+	maxTrackKidMemoEntries = 4096
+	// gridTrackDefPoolCap is the initial track-def scratch capacity.
+	gridTrackDefPoolCap = 8
+	// gridIntPoolCap is the initial int scratch capacity.
+	gridIntPoolCap = 16
+)
+
+// trackKidKey identifies one child's track contribution: node pins the
+// subtree, style pins the resolved style identity, axis separates the
+// column-width path (measured under imgCBIndefinite) from the row-height
+// path.
+type trackKidKey struct {
+	node  *html.Node
+	style *ResolvedStyle
+	axis  bool
+}
+
+// trackKidVal is the memoized min/max-content contribution of one child.
+type trackKidVal struct {
+	min float64
+	max float64
+}
+
+// getGridTrackDefs rents a zero-length track-def scratch with room for count.
+func getGridTrackDefs(count int) []gridTrackDef {
+	if defs, ok := gridTrackDefPool.takeAtLeast(count); ok {
+		return defs[:0]
+	}
+
+	return make([]gridTrackDef, 0, max(count, gridTrackDefPoolCap))
+}
+
+// putGridTrackDefs returns a track-def scratch. Defs hold no pointers.
+func putGridTrackDefs(defs []gridTrackDef) {
+	if cap(defs) == 0 || cap(defs) > maxPooledFlexScratch {
+		return
+	}
+
+	gridTrackDefPool.put(defs[:0])
+}
+
+// getGridInts rents a zero-length int scratch for track distribution.
+func getGridInts(count int) []int {
+	if values, ok := gridIntPool.takeAtLeast(count); ok {
+		return values[:0]
+	}
+
+	return make([]int, 0, max(count, gridIntPoolCap))
+}
+
+// putGridInts returns an int scratch.
+func putGridInts(values []int) {
+	if cap(values) == 0 || cap(values) > maxPooledFlexScratch {
+		return
+	}
+
+	gridIntPool.put(values[:0])
+}
 
 // resolveGridRows sizes the row tracks, returning the final row count and
 // whether preferred-height growth should be locked (fixed template / auto-rows).
@@ -25,12 +101,24 @@ func resolveGridRows(
 	if definiteRows {
 		rowDefs := parseGridTrackDefs(sty.GridTemplateRows)
 		// Pad/truncate defs to placed row count when template is shorter.
-		for len(rowDefs) < numRows {
-			rowDefs = append(rowDefs, gridAutoTrackDef(sty.GridAutoRows))
+		// The padded copy rents from the track-def pool and returns before
+		// resolveGridRows exits; sizes materialize into rows first.
+		if len(rowDefs) < numRows {
+			padded := getGridTrackDefs(numRows)
+			padded = append(padded, rowDefs...)
+
+			for len(padded) < numRows {
+				padded = append(padded, gridAutoTrackDef(sty.GridAutoRows))
+			}
+
+			rowIntrinsics := measureTrackIntrinsics(eng, kids, len(padded), false)
+			rows = resolveGridTrackSizes(padded, contentH, rowGap, eng, rowIntrinsics)
+			putGridTrackDefs(padded)
+		} else {
+			rowIntrinsics := measureTrackIntrinsics(eng, kids, len(rowDefs), false)
+			rows = resolveGridTrackSizes(rowDefs, contentH, rowGap, eng, rowIntrinsics)
 		}
 
-		rowIntrinsics := measureTrackIntrinsics(eng, kids, len(rowDefs), false)
-		rows = resolveGridTrackSizes(rowDefs, contentH, rowGap, eng, rowIntrinsics)
 		lockRows = true
 	}
 
@@ -150,23 +238,9 @@ func measureTrackIntrinsics(eng *engine, kids []*html.Node, nTracks int, axisCol
 	}
 
 	for i, kid := range kids {
-		cstate := eng.stylePtr(kid)
 		tidx := i % nTracks
 
-		var minVal, maxVal float64
-		if axisColumns {
-			// Column tracks need both contributions: the auto minimum of an
-			// fr track is min-content, while auto/max-content maxes grow to
-			// max-content. Using max-content for both sized 1fr tracks from
-			// their content instead of the equal free-space share (C2).
-			minVal, maxVal = eng.measureCellMinMax(kid, cstate)
-		} else {
-			// Height intrinsic: single-line text approximation via font size.
-			maxVal = eng.scalePt(cstate.FontSize) * textLineHeightFactor
-			maxVal += eng.scalePt(cstate.PaddingTop) + eng.scalePt(cstate.PaddingBottom) +
-				eng.scalePt(cstate.BorderTop.Width) + eng.scalePt(cstate.BorderBottom.Width)
-			minVal = maxVal
-		}
+		minVal, maxVal := eng.trackKidContribution(kid, axisColumns)
 
 		if minVal > out[tidx].minContent {
 			out[tidx].minContent = minVal
@@ -184,29 +258,88 @@ func measureTrackIntrinsics(eng *engine, kids []*html.Node, nTracks int, axisCol
 	return out
 }
 
-// gridTrackPlan holds the resolved base/limit sizes and fr factors for the
-// tracks of one axis.
+// trackKidContribution returns one child's min/max-content track
+// contribution, memoized per node, style, and axis for the process. Nested
+// grids rebuild on the outer measure pass and again on emit, and tables and
+// shrink-to-fit ancestors remeasure too; the contribution is a pure function
+// of the subtree and style for fixed fonts, so repeats hit instead of
+// rewalking text.
+func (e *engine) trackKidContribution(kid *html.Node, axisColumns bool) (float64, float64) {
+	if !trackIntrBypass.Load() {
+		key := trackKidKey{node: kid, style: e.stylePtr(kid), axis: axisColumns}
+
+		trackKidMemoMu.Lock()
+		cached, ok := trackKidMemo[key]
+		trackKidMemoMu.Unlock()
+
+		if ok {
+			trackIntrHits.Add(1)
+
+			return cached.min, cached.max
+		}
+	}
+
+	minVal, maxVal := e.trackKidContributionUncached(kid, axisColumns)
+
+	if !trackIntrBypass.Load() {
+		key := trackKidKey{node: kid, style: e.stylePtr(kid), axis: axisColumns}
+
+		trackKidMemoMu.Lock()
+		if len(trackKidMemo) < maxTrackKidMemoEntries {
+			trackKidMemo[key] = trackKidVal{min: minVal, max: maxVal}
+		}
+		trackKidMemoMu.Unlock()
+		trackIntrMisses.Add(1)
+	}
+
+	return minVal, maxVal
+}
+
+// trackKidContributionUncached measures one child's min/max-content track
+// contribution. axisColumns=true measures widths; false measures preferred
+// heights.
+func (e *engine) trackKidContributionUncached(kid *html.Node, axisColumns bool) (float64, float64) {
+	cstate := e.stylePtr(kid)
+
+	if axisColumns {
+		// Column tracks need both contributions: the auto minimum of an
+		// fr track is min-content, while auto/max-content maxes grow to
+		// max-content. Using max-content for both sized 1fr tracks from
+		// their content instead of the equal free-space share (C2).
+		minVal, maxVal := e.measureCellMinMax(kid, cstate)
+
+		return minVal, maxVal
+	}
+
+	// Height intrinsic: single-line text approximation via font size.
+	maxVal := e.scalePt(cstate.FontSize) * textLineHeightFactor
+	maxVal += e.scalePt(cstate.PaddingTop) + e.scalePt(cstate.PaddingBottom) +
+		e.scalePt(cstate.BorderTop.Width) + e.scalePt(cstate.BorderBottom.Width)
+
+	return maxVal, maxVal
+}
+
+// gridTrackPlan documents the resolved base/limit sizes and fr factors for
+// the tracks of one axis. planGridTrackSidesInto fills caller-owned slices
+// with the same values and returns the fr sum.
 type gridTrackPlan struct {
 	base, limit, frCoef []float64
 	frSum               float64
 }
 
-// planGridTrackSides resolves each track's base/limit sizes and fr factors.
-func planGridTrackSides(
+// planGridTrackSidesInto resolves each track's base/limit sizes and fr
+// factors into the caller's slices (len == len(defs)) and returns the fr
+// coefficient sum, so one axis resolution rents once instead of allocating
+// three slices per call.
+func planGridTrackSidesInto(
 	defs []gridTrackDef,
 	contentSize float64,
 	definite bool,
 	eng *engine,
 	intrinsics []trackIntrinsic,
-) gridTrackPlan {
-	node := len(defs)
-
-	plan := gridTrackPlan{
-		base:   make([]float64, node),
-		limit:  make([]float64, node),
-		frCoef: make([]float64, node),
-		frSum:  0,
-	}
+	base, limit, frCoef []float64,
+) float64 {
+	frSum := 0.0
 
 	for idx, def := range defs {
 		var intr trackIntrinsic
@@ -214,39 +347,39 @@ func planGridTrackSides(
 			intr = intrinsics[idx]
 		}
 
-		plan.base[idx] = resolveTrackSide(def.min, contentSize, definite, eng, intr, true)
+		base[idx] = resolveTrackSide(def.min, contentSize, definite, eng, intr, true)
 		lim := resolveTrackSide(def.max, contentSize, definite, eng, intr, false)
 
 		switch {
 		case def.max.kind == trackFr:
-			plan.frCoef[idx] = def.max.val
-			if plan.frCoef[idx] <= 0 {
-				plan.frCoef[idx] = 1
+			frCoef[idx] = def.max.val
+			if frCoef[idx] <= 0 {
+				frCoef[idx] = 1
 			}
 
-			plan.frSum += plan.frCoef[idx]
-			plan.limit[idx] = math.Inf(1)
+			frSum += frCoef[idx]
+			limit[idx] = math.Inf(1)
 		case def.min.kind == trackFr:
 			// Rare minmax(1fr, 200px): treat fr as flex with max cap.
-			plan.frCoef[idx] = def.min.val
-			if plan.frCoef[idx] <= 0 {
-				plan.frCoef[idx] = 1
+			frCoef[idx] = def.min.val
+			if frCoef[idx] <= 0 {
+				frCoef[idx] = 1
 			}
 
-			plan.frSum += plan.frCoef[idx]
-			plan.base[idx] = 0
-			plan.limit[idx] = lim
+			frSum += frCoef[idx]
+			base[idx] = 0
+			limit[idx] = lim
 		default:
-			plan.limit[idx] = lim
-			if plan.limit[idx] < plan.base[idx] {
-				plan.limit[idx] = plan.base[idx]
+			limit[idx] = lim
+			if limit[idx] < base[idx] {
+				limit[idx] = base[idx]
 			}
 		}
 		// Auto max with auto/fixed min -> growable to content (use max-content as soft limit).
-		applyAutoSoftLimit(plan.limit, def, intr, idx)
+		applyAutoSoftLimit(limit, def, intr, idx)
 	}
 
-	return plan
+	return frSum
 }
 
 // applyAutoSoftLimit caps growable auto/max-content tracks at their measured
@@ -296,7 +429,10 @@ func distributeFrGridTracks(base, limit, frCoef []float64, space float64) []floa
 	out := make([]float64, len(base))
 	copy(out, base)
 
-	active, activeSum, remaining := frGridTrackState(base, frCoef, space)
+	active := getFlexBools(len(base))
+	defer putFlexBools(active)
+
+	activeSum, remaining := frGridTrackStateInto(base, frCoef, space, active)
 	frSize := frTrackShare(base, active, frCoef, remaining, activeSum)
 
 	for idx := range out {
@@ -310,10 +446,10 @@ func distributeFrGridTracks(base, limit, frCoef []float64, space float64) []floa
 	return out
 }
 
-// frGridTrackState marks the flexible tracks active and returns the space
-// left after the non-flexible base sizes.
-func frGridTrackState(base, frCoef []float64, space float64) ([]bool, float64, float64) {
-	active := make([]bool, len(base))
+// frGridTrackStateInto marks the flexible tracks active in the caller's
+// scratch and returns the flex sum and the space left after the
+// non-flexible base sizes.
+func frGridTrackStateInto(base, frCoef []float64, space float64, active []bool) (float64, float64) {
 	activeSum := 0.0
 	remaining := space
 
@@ -332,7 +468,7 @@ func frGridTrackState(base, frCoef []float64, space float64) ([]bool, float64, f
 		remaining = 0
 	}
 
-	return active, activeSum, remaining
+	return activeSum, remaining
 }
 
 // frTrackShare resolves the final per-fr-unit share after flooring tracks
@@ -384,7 +520,9 @@ func isAutoTrackKind(kind trackSizeKind) bool {
 // distributeAutoGridTracks shares leftover space equally among auto tracks.
 func distributeAutoGridTracks(defs []gridTrackDef, base, limit []float64, free, frSum float64) []float64 {
 	out := make([]float64, len(defs))
-	autoIdx := []int{}
+
+	autoIdx := getGridInts(len(defs))
+	defer putGridInts(autoIdx)
 
 	for i, d := range defs {
 		out[i] = base[i]
@@ -436,7 +574,20 @@ func resolveGridTrackSizes(
 
 	definite := contentSize >= 0 && !math.IsNaN(contentSize) && !math.IsInf(contentSize, 0)
 
-	plan := planGridTrackSides(defs, contentSize, definite, eng, intrinsics)
+	// Plan slices rent from the float pool and return on exit; distribute
+	// copies the result into out, so nothing escapes.
+	base := rentFloats(node)
+	defer returnFloats(base)
+
+	limit := rentFloats(node)
+	defer returnFloats(limit)
+
+	frCoef := rentFloats(node)
+	defer returnFloats(frCoef)
+	plan := gridTrackPlan{
+		base: base, limit: limit, frCoef: frCoef,
+		frSum: planGridTrackSidesInto(defs, contentSize, definite, eng, intrinsics, base, limit, frCoef),
+	}
 
 	// Flexible tracks size from the space left after the non-flexible bases,
 	// not from a free amount that already subtracted the flexible bases.

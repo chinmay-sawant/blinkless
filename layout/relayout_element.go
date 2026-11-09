@@ -5,9 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"maps"
 	"math"
+	"slices"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/chinmay-sawant/blinkless/css"
+	icss "github.com/chinmay-sawant/blinkless/internal/css"
 	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
 	ihtml "github.com/chinmay-sawant/blinkless/internal/html"
 	ilayout "github.com/chinmay-sawant/blinkless/internal/layout"
@@ -46,6 +53,30 @@ var (
 	// left untouched.
 	ErrOverrideReflow = errors.New("layout: override reflow escapes its containing block")
 )
+
+// relayoutFingerprintCap bounds the no-op fingerprint cache: one entry per
+// patched element of a retained result. Clearing on overflow keeps one-off
+// pages from pinning every display they touched.
+const relayoutFingerprintCap = 1024
+
+//nolint:gochecknoglobals // fast-path fingerprint cache and test counters, mutex guarded and bounded
+var (
+	relayoutEngineCalls int64
+	relayoutFastHits    int64
+	relayoutFontSkips   int64
+
+	relayoutFingerprintMu sync.Mutex
+	relayoutFingerprints  = make(map[relayoutFingerprintKey]string)
+)
+
+// relayoutFingerprintKey identifies one patchable element: the retained result
+// it patches (shared by an adopted patch display), the styled document holding
+// the edited tree, and the element id.
+type relayoutFingerprintKey struct {
+	result   *ilayout.Result
+	document *css.Document
+	element  string
+}
 
 // ElementPatch is the result of patching one element of a laid out page.
 type ElementPatch struct {
@@ -88,8 +119,12 @@ type ElementPatch struct {
 // A display laid out without that state cannot be patched, and
 // RelayoutElement returns ErrNoRetainedState for it.
 //
-// On success the element keeps its place and its size. A change that would
-// move or resize it is refused, so the boxes after it stay valid. The patch
+// On success the winning range keeps its place and its size: usually the
+// element itself, else the nearest size-stable ancestor that contains the
+// size change. A change is refused when no ancestor contains it (a
+// root-reaching size change, a float, a box outside its containing block,
+// or a document with container queries), so the boxes after the patched
+// range stay valid. The patch
 // carries the element's own operations and boxes for inspection (Ops, Boxes,
 // and OpOwners), its old and new bounds (Old and New), and Display, the whole
 // patched page. A host adopts Display and treats prev as stale.
@@ -117,9 +152,31 @@ func RelayoutElement(
 		return nil, ErrNoRetainedState
 	}
 
+	// A repeated call with identical relevant inputs hands prev back with no
+	// engine work: the edit was an identical value or touched only attributes
+	// the cascade ignores, so the display already shows it. Image subtrees
+	// skip the check because the image resolver lives outside the fingerprint.
+	fingerprint, cacheable := "", false
+
+	if !subtreeHasImage(node) {
+		fingerprint = relayoutSubtreeFingerprint(styled, node)
+
+		if relayoutFingerprintHit(prev, doc, elementID, fingerprint) {
+			atomic.AddInt64(&relayoutFastHits, 1)
+
+			return &ElementPatch{Display: prev}, nil //nolint:exhaustruct // a no-op patch carries only the display
+		}
+
+		cacheable = true
+	}
+
 	res, err := subtreeResult(ctx, styled, prev, node, options)
 	if err != nil {
 		return nil, err
+	}
+
+	if cacheable {
+		relayoutStoreFingerprint(prev, doc, elementID, fingerprint)
 	}
 
 	boxes := boxesFrom(ilayout.PlacedElements(res))
@@ -128,8 +185,8 @@ func RelayoutElement(
 		Ops:      res.Ops,
 		OpOwners: ilayout.OperationOwners(res),
 		Boxes:    boxes,
-		Old:      elementBounds(prev.Boxes, elementID),
-		New:      elementBounds(boxes, elementID),
+		Old:      patchOldBounds(prev.Boxes, boxes, elementID),
+		New:      patchNewBounds(boxes, elementID),
 		Display:  patchedDisplay(styled, prev),
 	}, nil
 }
@@ -189,12 +246,19 @@ func RelayoutElementWithOverrides(
 		return nil, ErrNoRetainedState
 	}
 
+	// An override that cannot change geometry or paint hands prev back with
+	// no engine work, even for a subtree the engine would refuse: there is
+	// nothing to re-place, so there is nothing the refusal protects.
+	if patch, ok := relayoutInertOverridePatch(prev, styled, node, overrides); ok {
+		return patch, nil
+	}
+
 	engineOverrides, err := engineStyleOverrides(elementID, overrides)
 	if err != nil {
 		return nil, err
 	}
 
-	layoutOpts, err := relayoutOptions(styled, prev, options)
+	layoutOpts, err := relayoutOptions(styled, prev, options, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -210,8 +274,8 @@ func RelayoutElementWithOverrides(
 		Ops:      res.Ops,
 		OpOwners: ilayout.OperationOwners(res),
 		Boxes:    boxes,
-		Old:      elementBounds(prev.Boxes, elementID),
-		New:      elementBounds(boxes, elementID),
+		Old:      patchOldBounds(prev.Boxes, boxes, elementID),
+		New:      patchNewBounds(boxes, elementID),
 		Display:  patchedDisplay(styled, prev),
 	}, nil
 }
@@ -256,17 +320,71 @@ func overrideRelayoutError(err error) error {
 	}
 }
 
-// patchedDisplay builds the display list of the patched page. The engine
-// patched the placement the previous display was built from, so the display
-// carries that placement and the operations, the paint order, the owners and
-// the boxes that go with them. Page breaks are recomputed because a style
-// patch can change them.
+// patchedDisplay builds the display list of the patched page for one element
+// patch. The engine patched prev.result in place, so the placement the display
+// replaces is gone and page breaks are recomputed; the owners and the paint
+// order are derived from the patched placement.
 func patchedDisplay(styled pubstate.Styled, prev *Display) *Display {
-	canvasPt := float64(prev.Height) / ptToPx
-	forced, keep := ilayout.PageBreaks(prev.result, canvasPt)
+	forced, keep := ilayout.PageBreaks(prev.result, pageHeightPt(styled))
 
-	return newDisplay(prev.result, styled.Sheets, canvasPt,
-		forced, keep, prev.zoom, true)
+	return newDisplayForPatch(prev.result, prev, forced, keep, true)
+}
+
+// patchedBatchDisplay builds the display list of a batch commit. base is the
+// placement prev was built from, before the batch patched its private copy,
+// so the page keeps the breaks prev carries when the comparison proves the
+// patch left every field PageBreaks reads alone. The callers install the
+// owners and the paint order the batch maintained.
+//
+// A paint-only batch skips the placed walk, the page-break comparison, and
+// the box allocation: its display is a copy of prev that only swaps in the
+// batch's private operation list and retained result. The boxes, breaks,
+// keyframes, sizes, and zoom are the previous display's, and the caller
+// refreshes the patched box texts in place.
+func patchedBatchDisplay(
+	styled pubstate.Styled, prev *Display, base, res *ilayout.Result, paintOnly bool,
+) *Display {
+	if paintOnly {
+		return paintOnlyBatchDisplay(prev, res)
+	}
+
+	forced, keep := prev.ForcedBreaks, prev.KeepTogether
+	if !ilayout.PageBreaksEqual(base, res) {
+		forced, keep = ilayout.PageBreaks(res, pageHeightPt(styled))
+	}
+
+	return newDisplayForPatch(res, prev, forced, keep, false)
+}
+
+// paintOnlyBatchDisplay builds the display of a batch that only changed
+// paint: the operations and the retained result come from the batch, and
+// everything a full build would derive again is the previous display's.
+//
+// The boxes are shared with prev, so the caller must treat prev as stale after
+// adoption and refresh the patched texts in place, the rule
+// applyPaintOnlyBoxTexts follows. The operation slice is the batch's private
+// clone: the previous display keeps reading its own operation backing.
+func paintOnlyBatchDisplay(prev *Display, res *ilayout.Result) *Display {
+	if prev != nil && prev.result != nil && prev.result != res {
+		prev.result.DisownChunks()
+	}
+
+	display := *prev
+	display.Ops = res.Ops
+	display.result = res
+	res.Retain()
+
+	return &display
+}
+
+// pageHeightPt returns the page content height the page was laid out for: the
+// value DisplayListOptions hands PageBreaks. A patch passes the same value, so
+// the breaks it computes for a changed page are the ones a full layout of the
+// same document would produce.
+func pageHeightPt(styled pubstate.Styled) float64 {
+	_, heightPt := displayViewportPt(styled)
+
+	return heightPt
 }
 
 // checkRelayoutInput rejects the inputs RelayoutElement cannot work with.
@@ -303,7 +421,7 @@ func subtreeResult(
 	node *ihtml.Node,
 	options Options,
 ) (*ilayout.Result, error) {
-	layoutOpts, err := relayoutOptions(styled, prev, options)
+	layoutOpts, err := relayoutOptions(styled, prev, options, node)
 	if err != nil {
 		return nil, err
 	}
@@ -318,20 +436,46 @@ func subtreeResult(
 
 // relayoutOptions builds the engine options a patch pass runs with. The
 // viewport and the media come from the styled document, and the zoom is the
-// one the display was laid out at.
-func relayoutOptions(styled pubstate.Styled, prev *Display, options Options) (ilayout.Options, error) {
-	font, err := pdf.DefaultFont()
-	if err != nil {
-		var empty ilayout.Options
+// one the display was laid out at. A text-free element subtree shapes nothing,
+// so the default font load is skipped and the engine falls back to its regular
+// face; a nil node means an unknown scope (the override containing block), so
+// the font is always loaded there.
+func relayoutOptions(
+	styled pubstate.Styled, prev *Display, options Options, node *ihtml.Node,
+) (ilayout.Options, error) {
+	atomic.AddInt64(&relayoutEngineCalls, 1)
 
-		return empty, fmt.Errorf("layout: default font: %w", err)
+	var font *pdf.Font
+
+	if node != nil && !subtreeHasText(node) {
+		atomic.AddInt64(&relayoutFontSkips, 1)
+	} else {
+		loaded, err := pdf.DefaultFont()
+		if err != nil {
+			var empty ilayout.Options
+
+			return empty, fmt.Errorf("layout: default font: %w", err)
+		}
+
+		font = loaded
 	}
 
-	widthPt, heightPt := displayViewportPt(styled)
-	layoutOpts := displayLayoutOptions(styled, font, options.Images, widthPt, heightPt)
-	layoutOpts.Zoom = prev.zoom
+	layoutOpts := batchBaseOptions(styled, prev, options)
+	layoutOpts.Font = font
 
 	return layoutOpts, nil
+}
+
+// batchBaseOptions builds the engine options one batch shares: the viewport,
+// the media, and the zoom of the display it patches. The font stays unset;
+// the batch installs its font per element only when that subtree shapes
+// text, the rule relayoutOptions applies one element at a time.
+func batchBaseOptions(styled pubstate.Styled, prev *Display, options Options) ilayout.Options {
+	widthPt, heightPt := displayViewportPt(styled)
+	layoutOpts := displayLayoutOptions(styled, nil, options.Images, widthPt, heightPt)
+	layoutOpts.Zoom = prev.zoom
+
+	return layoutOpts
 }
 
 // elementByID returns the element node with the given id in the tree, or nil.
@@ -345,16 +489,45 @@ func elementByID(root *ihtml.Node, elementID string) *ihtml.Node {
 	})
 }
 
-// elementBounds returns the border box of the element with the given id, in
-// CSS pixels. A missing element gives the empty rectangle.
-func elementBounds(boxes []Box, elementID string) image.Rectangle {
-	for i := range boxes {
-		if boxes[i].ID == elementID {
-			return boxBounds(boxes[i])
-		}
+// patchNewBounds returns the border box of the element with the given id
+// after the patch, in CSS pixels. A patched subtree that widened to the
+// nearest size-stable ancestor may not carry the element's own box, so a
+// missing element falls back to the first box of the patched range. No box
+// at all gives the empty rectangle.
+func patchNewBounds(boxes []Box, elementID string) image.Rectangle {
+	if box, ok := elementBox(boxes, elementID); ok {
+		return boxBounds(box)
+	}
+
+	if len(boxes) > 0 {
+		return boxBounds(boxes[0])
 	}
 
 	return image.Rectangle{} //nolint:exhaustruct // the zero rectangle marks a missing element
+}
+
+// patchOldBounds returns the border box of the element with the given id
+// before the patch, in CSS pixels. A missing element falls back to the new
+// bounds, so Old stays usable when the previous display carries no box for
+// the id.
+func patchOldBounds(prev, next []Box, elementID string) image.Rectangle {
+	if box, ok := elementBox(prev, elementID); ok {
+		return boxBounds(box)
+	}
+
+	return patchNewBounds(next, elementID)
+}
+
+// elementBox returns the element box with the given id, or false when no
+// box carries it.
+func elementBox(boxes []Box, elementID string) (Box, bool) {
+	for i := range boxes {
+		if boxes[i].ID == elementID {
+			return boxes[i], true
+		}
+	}
+
+	return Box{}, false //nolint:exhaustruct // the zero box marks a missing element
 }
 
 // boxBounds converts one element box to a rectangle in CSS pixels.
@@ -363,4 +536,515 @@ func boxBounds(box Box) image.Rectangle {
 	top := int(math.Round(box.Y))
 
 	return image.Rect(left, top, left+int(math.Round(box.W)), top+int(math.Round(box.H)))
+}
+
+// relayoutSubtreeFingerprint hashes the inputs a plain element patch reads:
+// the viewport, the media, and the pseudo-class state, plus the subtree text
+// and the attributes that can reach the cascade or the paint. An attribute the
+// cascade ignores for this subtree (title, aria, or data storage no selector
+// names and no attr() call reads) is left out, so editing it keeps the
+// fingerprint and the patch returns prev unchanged.
+func relayoutSubtreeFingerprint(styled pubstate.Styled, node *ihtml.Node) string {
+	var fingerprint strings.Builder
+
+	fingerprint.WriteString(strconv.Itoa(styled.WidthPx))
+	fingerprint.WriteByte('|')
+	fingerprint.WriteString(strconv.Itoa(styled.HeightPx))
+	fingerprint.WriteByte('|')
+	fingerprint.WriteString(styled.Media)
+	fingerprint.WriteByte('|')
+	fingerprint.WriteString(styled.State.Focus)
+	fingerprint.WriteByte('|')
+	fingerprint.WriteString(styled.State.Hover)
+	fingerprint.WriteByte('|')
+	fingerprint.WriteString(styled.State.Active)
+	fingerprint.WriteByte('|')
+
+	useAttrs := relayoutSheetsUseAttrs(styled.Sheets)
+	writeRelayoutSubtree(&fingerprint, node, useAttrs, false)
+
+	return fingerprint.String()
+}
+
+// writeRelayoutSubtree hashes one subtree in document order. Text nodes hash
+// their content; other nodes hash their tag and their relevant attributes.
+// Comments and doctypes hash nothing: they never reach paint.
+func writeRelayoutSubtree(builder *strings.Builder, node *ihtml.Node, useAttrs, inSVG bool) {
+	if node == nil {
+		return
+	}
+
+	if node.Type == ihtml.TextNode {
+		builder.WriteString("t:")
+		builder.WriteString(node.Text)
+		builder.WriteByte(';')
+
+		return
+	}
+
+	if node.Type != ihtml.ElementNode {
+		return
+	}
+
+	svg := inSVG || node.Name == "svg"
+
+	builder.WriteString("e:")
+	builder.WriteString(node.Name)
+	builder.WriteByte(';')
+
+	for _, name := range slices.Sorted(maps.Keys(node.Attrs)) {
+		if !relayoutAttrRelevant(name, useAttrs, svg) {
+			continue
+		}
+
+		builder.WriteString(name)
+		builder.WriteByte('=')
+		builder.WriteString(node.Attrs[name])
+		builder.WriteByte(';')
+	}
+
+	for _, child := range node.Children {
+		writeRelayoutSubtree(builder, child, useAttrs, svg)
+	}
+}
+
+// relayoutAttrRelevant reports whether an attribute can reach the cascade or
+// the paint of the subtree. Attribute selectors and attr() calls force every
+// attribute to count, and inline SVG paint reads any presentation attribute.
+// Otherwise only the layout-read attributes count: id, class, inline style,
+// image and link targets, form and table geometry, and the two data attributes
+// the engine reads. Title, aria, and other data storage stay out, so editing
+// them keeps the fingerprint.
+func relayoutAttrRelevant(name string, useAttrs, inSVG bool) bool {
+	if useAttrs || inSVG {
+		return true
+	}
+
+	switch strings.ToLower(name) {
+	case "id", "class", "style",
+		"src", "srcset", "sizes", "href", "alt",
+		"width", "height", "value", "type", "min", "max",
+		"checked", "selected", "rows", "placeholder",
+		"colspan", "rowspan", "start",
+		"hidden", "open", "disabled", "readonly", "multiple",
+		"data-action", "data-gowk-anon":
+		return true
+	default:
+		return false
+	}
+}
+
+// relayoutSheetsUseAttrs reports whether any sheet can match on attributes:
+// an attribute selector anywhere (including inside :has, :is, and :not), or
+// an attr() call in a declaration value. When true the fingerprint keeps
+// every attribute; otherwise the ignored ones drop out.
+func relayoutSheetsUseAttrs(sheets []*icss.Stylesheet) bool {
+	for _, sheet := range sheets {
+		if sheet == nil {
+			continue
+		}
+
+		for ruleIndex := range sheet.Rules {
+			if ruleUsesAttrs(&sheet.Rules[ruleIndex]) {
+				return true
+			}
+		}
+
+		if sheetKeyframesUseAttrs(sheet) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// ruleUsesAttrs reports whether a rule's selectors or declarations read an
+// attribute.
+func ruleUsesAttrs(rule *icss.Rule) bool {
+	for _, selector := range rule.Selectors {
+		if selectorUsesAttrs(selector) {
+			return true
+		}
+	}
+
+	for _, decl := range rule.Decls {
+		if declValueUsesAttr(decl) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// sheetKeyframesUseAttrs reports whether a keyframe declaration reads an
+// attribute through attr().
+func sheetKeyframesUseAttrs(sheet *icss.Stylesheet) bool {
+	for _, keyframes := range sheet.Keyframes {
+		for _, frame := range keyframes.Keyframes {
+			for _, decl := range frame.Declarations {
+				if declValueUsesAttr(decl) {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+// declValueUsesAttr reports whether a declaration value calls attr().
+func declValueUsesAttr(decl icss.Declaration) bool {
+	return strings.Contains(strings.ToLower(decl.Value), "attr(")
+}
+
+// selectorUsesAttrs reports whether a selector names an attribute, including
+// inside its pseudo-class arguments.
+func selectorUsesAttrs(selector icss.Selector) bool {
+	for _, part := range selector.Parts {
+		if len(part.Attrs) > 0 {
+			return true
+		}
+
+		for _, pseudo := range part.Pseudos {
+			if pseudoUsesAttrs(pseudo) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// pseudoUsesAttrs reports whether a pseudo-class argument names an attribute.
+func pseudoUsesAttrs(pseudo icss.PseudoClass) bool {
+	for _, has := range pseudo.Has {
+		for _, part := range has.Parts {
+			if len(part.Attrs) > 0 {
+				return true
+			}
+
+			for _, inner := range part.Pseudos {
+				if pseudoUsesAttrs(inner) {
+					return true
+				}
+			}
+		}
+	}
+
+	for _, inner := range pseudo.Is {
+		if selectorUsesAttrs(inner) {
+			return true
+		}
+	}
+
+	for _, inner := range pseudo.Not {
+		if selectorUsesAttrs(inner) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// relayoutFingerprintHit reports whether the fingerprint matches the last
+// successful patch of the same retained result, document, and element.
+func relayoutFingerprintHit(prev *Display, doc *css.Document, elementID, fingerprint string) bool {
+	key := relayoutFingerprintKey{result: prev.result, document: doc, element: elementID}
+
+	relayoutFingerprintMu.Lock()
+	defer relayoutFingerprintMu.Unlock()
+
+	previous, ok := relayoutFingerprints[key]
+
+	return ok && previous == fingerprint
+}
+
+// relayoutStoreFingerprint remembers the fingerprint of a successful patch.
+func relayoutStoreFingerprint(prev *Display, doc *css.Document, elementID, fingerprint string) {
+	key := relayoutFingerprintKey{result: prev.result, document: doc, element: elementID}
+
+	relayoutFingerprintMu.Lock()
+	defer relayoutFingerprintMu.Unlock()
+
+	if len(relayoutFingerprints) >= relayoutFingerprintCap {
+		clear(relayoutFingerprints)
+	}
+
+	relayoutFingerprints[key] = fingerprint
+}
+
+// subtreeHasText reports whether the subtree holds any text node. The font
+// fast path needs it: without text no shaping runs.
+func subtreeHasText(node *ihtml.Node) bool {
+	if node == nil {
+		return false
+	}
+
+	for _, child := range node.Children {
+		if child.Type == ihtml.TextNode && child.Text != "" {
+			return true
+		}
+
+		if subtreeHasText(child) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// subtreeHasImage reports whether the subtree holds a replaced image element.
+// The no-op fingerprint skips those subtrees: the image resolver lives
+// outside the fingerprint and could serve new bytes for the same tree.
+func subtreeHasImage(node *ihtml.Node) bool {
+	if node == nil {
+		return false
+	}
+
+	if node.Type == ihtml.ElementNode {
+		switch node.Name {
+		case "img", "video", "canvas", "picture":
+			return true
+		}
+	}
+
+	for _, child := range node.Children {
+		if subtreeHasImage(child) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// relayoutInertOverridePatch returns prev unchanged when every override is
+// provably inert for the element: the property cannot change its geometry or
+// paint, so the engine pass would reproduce the display it already has. Any
+// other override falls through, and the engine keeps the existing validation
+// and refusal errors.
+func relayoutInertOverridePatch(
+	prev *Display, styled pubstate.Styled, node *ihtml.Node, overrides []Override,
+) (*ElementPatch, bool) {
+	for index := range overrides {
+		if !overrideInertForElement(styled, node, &overrides[index]) {
+			return nil, false
+		}
+	}
+
+	atomic.AddInt64(&relayoutFastHits, 1)
+
+	return &ElementPatch{Display: prev}, true //nolint:exhaustruct // an inert patch carries only the display
+}
+
+// overrideInertForElement reports whether one override cannot change the
+// geometry or the paint of the element: object-position on a non-replaced
+// element, text spacing on a subtree without text, or font size on a subtree
+// without text and without relative lengths. A value outside the small valid
+// shapes below falls through so the engine keeps its exact validation errors.
+func overrideInertForElement(styled pubstate.Styled, node *ihtml.Node, override *Override) bool {
+	prop := strings.ToLower(strings.TrimSpace(override.Property))
+	value := strings.TrimSpace(override.Value)
+
+	switch prop {
+	case "object-position":
+		return !isReplacedElement(node) && validObjectPosition(value)
+	case "letter-spacing", "word-spacing":
+		return !subtreeHasText(node) && validSpacingValue(value)
+	case "font-size":
+		return !subtreeHasText(node) && !subtreeUsesRelativeUnits(styled, node) && validFontSize(value)
+	default:
+		return false
+	}
+}
+
+// isReplacedElement reports whether object-position can paint the element
+// itself. Only replaced elements use it; a plain div keeps no replaced
+// content, so the override cannot change paint.
+func isReplacedElement(node *ihtml.Node) bool {
+	if node == nil || node.Type != ihtml.ElementNode {
+		return false
+	}
+
+	switch node.Name {
+	case "img", "video", "canvas", "iframe", "embed", "object", "picture":
+		return true
+	default:
+		return false
+	}
+}
+
+// subtreeUsesRelativeUnits reports whether the subtree could resolve a
+// percentage or a font- or viewport-relative length: an inline style holding
+// a relative token, or any sheet declaration holding one. The sheet scan is
+// deliberately coarse (any declaration, not just matching ones): a false
+// positive only skips the font-size fast path, never claims an unsafe one.
+func subtreeUsesRelativeUnits(styled pubstate.Styled, node *ihtml.Node) bool {
+	if subtreeStyleUsesRelativeUnits(node) {
+		return true
+	}
+
+	return sheetsUseRelativeUnits(styled.Sheets)
+}
+
+// subtreeStyleUsesRelativeUnits reports whether a node or descendant carries
+// an inline style with a relative length token.
+func subtreeStyleUsesRelativeUnits(node *ihtml.Node) bool {
+	if node == nil {
+		return false
+	}
+
+	if node.Type == ihtml.ElementNode && hasRelativeToken(node.Attribute("style")) {
+		return true
+	}
+
+	for _, child := range node.Children {
+		if subtreeStyleUsesRelativeUnits(child) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// sheetsUseRelativeUnits reports whether any declaration in sheets holds a
+// relative length token.
+func sheetsUseRelativeUnits(sheets []*icss.Stylesheet) bool {
+	for _, sheet := range sheets {
+		if sheet == nil {
+			continue
+		}
+
+		for _, rule := range sheet.Rules {
+			for _, decl := range rule.Decls {
+				if hasRelativeToken(decl.Value) {
+					return true
+				}
+			}
+		}
+
+		for _, keyframes := range sheet.Keyframes {
+			for _, frame := range keyframes.Keyframes {
+				for _, decl := range frame.Declarations {
+					if hasRelativeToken(decl.Value) {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+// hasRelativeToken reports whether text holds a percentage or a font- or
+// viewport-relative length unit.
+func hasRelativeToken(text string) bool {
+	lower := strings.ToLower(text)
+
+	for _, token := range []string{
+		"%",
+		"em", "rem", "ex", "rex", "ch", "rch", "cap", "rcap", "ic", "ric", "lh", "rlh",
+		"vw", "svw", "lvw", "dvw", "vh", "svh", "lvh", "dvh",
+		"vi", "svi", "lvi", "dvi", "vb", "svb", "lvb", "dvb",
+		"vmin", "svmin", "lvmin", "dvmin", "vmax", "svmax", "lvmax", "dvmax",
+		"cqw", "cqh", "cqi", "cqb", "cqmin", "cqmax",
+	} {
+		if strings.Contains(lower, token) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// validSpacingValue reports whether value is a letter- or word-spacing the
+// inert path understands: normal or a pixel length. Anything else falls
+// through to the engine.
+func validSpacingValue(value string) bool {
+	lower := strings.ToLower(strings.TrimSpace(value))
+
+	if lower == "normal" {
+		return true
+	}
+
+	return validPixelLength(lower)
+}
+
+// validObjectPosition reports whether value is an object-position the inert
+// path understands: a single keyword or one or two pixel or percentage
+// positions. Anything else falls through to the engine.
+func validObjectPosition(value string) bool {
+	lower := strings.ToLower(strings.TrimSpace(value))
+
+	switch lower {
+	case "center", "left", "right", "top", "bottom":
+		return true
+	}
+
+	fields := strings.Fields(lower)
+
+	if len(fields) == 0 || len(fields) > 2 {
+		return false
+	}
+
+	for _, field := range fields {
+		switch field {
+		case "center", "left", "right", "top", "bottom":
+			continue
+		default:
+			if !validPixelLength(field) && !validPercentLength(field) {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+// validFontSize reports whether value is a font size the inert path
+// understands: an absolute keyword or a pixel length. Anything else falls
+// through to the engine.
+func validFontSize(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "xx-small", "x-small", "small", "medium", "large", "x-large", "xx-large", "xxx-large":
+		return true
+	default:
+		return validPixelLength(strings.ToLower(strings.TrimSpace(value)))
+	}
+}
+
+// validPixelLength reports whether value is a plain pixel length.
+func validPixelLength(value string) bool {
+	number, ok := strings.CutSuffix(value, "px")
+	if !ok {
+		return false
+	}
+
+	number = strings.TrimSpace(number)
+
+	if number == "" {
+		return false
+	}
+
+	parsed, err := strconv.ParseFloat(number, 64)
+
+	return err == nil && !math.IsNaN(parsed) && !math.IsInf(parsed, 0)
+}
+
+// validPercentLength reports whether value is a plain percentage.
+func validPercentLength(value string) bool {
+	number, ok := strings.CutSuffix(value, "%")
+	if !ok {
+		return false
+	}
+
+	number = strings.TrimSpace(number)
+
+	if number == "" {
+		return false
+	}
+
+	parsed, err := strconv.ParseFloat(number, 64)
+
+	return err == nil && !math.IsNaN(parsed) && !math.IsInf(parsed, 0)
 }

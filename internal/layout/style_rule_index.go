@@ -46,10 +46,187 @@ type ruleBucket struct {
 	universal []ruleSel
 }
 
+type keyCounts struct {
+	byID      map[string]int
+	byClass   map[string]int
+	byTag     map[string]int
+	universal int
+}
+
+// ruleCounts holds the selector counts newRuleIndex sizes its buckets from.
+type ruleCounts struct {
+	host          keyCounts
+	pseudo        map[string]*keyCounts
+	contentPseudo map[string]bool
+	total         int
+	content       bool
+}
+
 // newRuleIndex walks every sheet once and buckets each selector.
 func newRuleIndex(sheets []*css.Stylesheet) *ruleIndex {
-	index := new(ruleIndex)
+	counts := countRuleSelectors(sheets)
+	if counts.total == 0 {
+		return new(ruleIndex)
+	}
 
+	index := new(ruleIndex)
+	index.content = counts.content
+	index.contentPseudo = counts.contentPseudo
+
+	allSels := make([]ruleSel, counts.total)
+	offset := 0
+
+	initRuleBucket(&index.host, &counts.host, allSels, &offset)
+
+	if len(counts.pseudo) > 0 {
+		index.pseudo = make(map[string]*ruleBucket, len(counts.pseudo))
+
+		for pseudo, pseudoCounts := range counts.pseudo {
+			bucket := new(ruleBucket)
+			initRuleBucket(bucket, pseudoCounts, allSels, &offset)
+			index.pseudo[pseudo] = bucket
+		}
+	}
+
+	populateRuleBuckets(index, sheets)
+
+	return index
+}
+
+// countRuleSelectors counts selectors per bucket and key, and records which
+// pseudo rules declare content.
+func countRuleSelectors(sheets []*css.Stylesheet) *ruleCounts {
+	counts := new(ruleCounts)
+
+	for _, sheet := range sheets {
+		if sheet == nil {
+			continue
+		}
+
+		for ruleIndex := range sheet.Rules {
+			rule := &sheet.Rules[ruleIndex]
+
+			for selectorIndex := range rule.Selectors {
+				sel := rule.Selectors[selectorIndex]
+				if len(sel.Parts) == 0 {
+					continue
+				}
+
+				counts.total++
+
+				countSelector(counts, rule, sel.Parts[len(sel.Parts)-1])
+			}
+		}
+	}
+
+	return counts
+}
+
+// pseudoBucket returns the key counts for one pseudo-element, creating the
+// bucket on first use.
+func (counts *ruleCounts) pseudoBucket(name string) *keyCounts {
+	if counts.pseudo == nil {
+		counts.pseudo = map[string]*keyCounts{}
+	}
+
+	bucket := counts.pseudo[name]
+	if bucket == nil {
+		bucket = new(keyCounts)
+		counts.pseudo[name] = bucket
+	}
+
+	return bucket
+}
+
+// markContentPseudo records generated content on one pseudo-element.
+func (counts *ruleCounts) markContentPseudo(name string) {
+	counts.content = true
+
+	if counts.contentPseudo == nil {
+		counts.contentPseudo = map[string]bool{}
+	}
+
+	counts.contentPseudo[name] = true
+}
+
+// countSelector adds one selector to its bucket key counts and records
+// generated content on pseudo rules.
+func countSelector(counts *ruleCounts, rule *css.Rule, last css.SelectorPart) {
+	bucket := &counts.host
+
+	if last.PseudoElement != "" {
+		bucket = counts.pseudoBucket(last.PseudoElement)
+
+		if declaresContent(rule) {
+			counts.markContentPseudo(last.PseudoElement)
+		}
+	}
+
+	bucket.count(last)
+}
+
+// count adds one rightmost compound to the bucket key counts.
+func (c *keyCounts) count(last css.SelectorPart) {
+	switch {
+	case last.ID != "":
+		if c.byID == nil {
+			c.byID = map[string]int{}
+		}
+
+		c.byID[last.ID]++
+	case len(last.Classes) > 0:
+		if c.byClass == nil {
+			c.byClass = map[string]int{}
+		}
+
+		c.byClass[last.Classes[0]]++
+	case last.Tag != "" && last.Tag != "*":
+		if c.byTag == nil {
+			c.byTag = map[string]int{}
+		}
+
+		c.byTag[strings.ToLower(last.Tag)]++
+	default:
+		c.universal++
+	}
+}
+
+// initRuleBucket reserves one contiguous slice per key in allSels and points
+// the bucket at them.
+func initRuleBucket(bucket *ruleBucket, counts *keyCounts, allSels []ruleSel, offset *int) {
+	if counts == nil {
+		return
+	}
+
+	bucket.byID = reserveRuleSels(counts.byID, allSels, offset)
+	bucket.byClass = reserveRuleSels(counts.byClass, allSels, offset)
+	bucket.byTag = reserveRuleSels(counts.byTag, allSels, offset)
+
+	if counts.universal > 0 {
+		bucket.universal = allSels[*offset : *offset : *offset+counts.universal]
+		*offset += counts.universal
+	}
+}
+
+// reserveRuleSels hands each key a sub-slice with exactly its count reserved
+// in the shared backing array.
+func reserveRuleSels(counts map[string]int, allSels []ruleSel, offset *int) map[string][]ruleSel {
+	if len(counts) == 0 {
+		return nil
+	}
+
+	sels := make(map[string][]ruleSel, len(counts))
+
+	for key, count := range counts {
+		sels[key] = allSels[*offset : *offset : *offset+count]
+		*offset += count
+	}
+
+	return sels
+}
+
+// populateRuleBuckets fills the preallocated selector slices in source order.
+func populateRuleBuckets(index *ruleIndex, sheets []*css.Stylesheet) {
 	for sheetIndex, sheet := range sheets {
 		if sheet == nil {
 			continue
@@ -67,21 +244,9 @@ func newRuleIndex(sheets []*css.Stylesheet) *ruleIndex {
 				last := sel.Parts[len(sel.Parts)-1]
 				bucket := index.bucket(last.PseudoElement)
 				bucket.add(ruleSel{sheet: sheetIndex, rule: rule, sel: selectorIndex}, last)
-
-				if last.PseudoElement != "" && declaresContent(rule) {
-					index.content = true
-
-					if index.contentPseudo == nil {
-						index.contentPseudo = map[string]bool{}
-					}
-
-					index.contentPseudo[last.PseudoElement] = true
-				}
 			}
 		}
 	}
-
-	return index
 }
 
 // bucket returns the selector bucket for one pseudo-element name, creating

@@ -29,7 +29,7 @@ func fixture21Viewport() (float64, float64) {
 // Display.KeepTogether moves the whole group to the top of page 3 and leaves
 // page 2 ending with the section-4 invoice block. Reference: wkhtmltopdf
 // starts section 5 at the top of page 3.
-func TestFixture21SectionHeadingKeepsFollowingContent(t *testing.T) { //nolint:cyclop // fixture assertions
+func TestFixture21SectionHeadingKeepsFollowingContent(t *testing.T) {
 	t.Parallel()
 
 	root, sheets := loadFixture(t, "fixture-21-detailed-report.html")

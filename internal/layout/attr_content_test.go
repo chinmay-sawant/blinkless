@@ -10,7 +10,7 @@ import (
 
 // Print CSS: a.external.text::after { content: ' (' attr(href) ')'; }
 // Must emit the real href, never the literal tokens "attr(href)".
-func TestExternalLinkAttrHrefContent(t *testing.T) { //nolint:cyclop
+func TestExternalLinkAttrHrefContent(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `

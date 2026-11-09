@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"sync"
 
 	"github.com/chinmay-sawant/blinkless/css"
 	icss "github.com/chinmay-sawant/blinkless/internal/css"
@@ -221,6 +222,19 @@ type Display struct {
 	zoom float64
 }
 
+// Release returns retained resources (boxes, style chunks, store chunks)
+// back to their respective engine pools. It is safe to call multiple times.
+func (d *Display) Release() {
+	if d == nil {
+		return
+	}
+
+	if d.result != nil {
+		d.result.Release()
+		d.result = nil
+	}
+}
+
 // DisplayList lays doc out and returns its display list. It does not paint
 // a page bitmap. A caller replays the operations onto its own canvas and
 // keeps text as glyphs. Images on the list stay encoded payloads: an
@@ -311,6 +325,55 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 	return displayList, nil
 }
 
+const maxPooledIntSliceCap = 65536
+
+// intSlicePool stores typed slice headers. It deliberately has no New: an
+// empty pool must fall through to the caller's exact-size make instead of
+// allocating a header and an empty backing on every cold rent.
+var intSlicePool = sync.Pool{} //nolint:exhaustruct,gochecknoglobals // see the comment above
+
+func rentIntSlice(need int) []int {
+	if need <= 0 {
+		return nil
+	}
+
+	if scratch, ok := intSlicePool.Get().(*[]int); ok && cap(*scratch) >= need {
+		return (*scratch)[:need]
+	}
+
+	return make([]int, need)
+}
+
+// releaseIntSlice returns an int scratch to the pool. The stored header comes
+// back from the pool, or is created once on a cold return, so the slice header
+// is not boxed into a fresh allocation per call.
+func releaseIntSlice(scratch []int) {
+	if cap(scratch) == 0 || cap(scratch) > maxPooledIntSliceCap {
+		return
+	}
+
+	scratch = scratch[:0]
+
+	header, ok := intSlicePool.Get().(*[]int)
+	if !ok {
+		header = new([]int)
+	}
+
+	*header = scratch
+	intSlicePool.Put(header)
+}
+
+// rentBoxSlice allocates the box slice for one display. Boxes stay with the
+// display: a patch shares the backing array with the display it replaced, so
+// the slice cannot go back to a pool while either one may still read it.
+func rentBoxSlice(need int) []Box {
+	if need <= 0 {
+		return nil
+	}
+
+	return make([]Box, need)
+}
+
 // newDisplay builds the public display list from a placement.
 //
 // The retained layout state is opt-in. Without it the placement is dropped
@@ -331,17 +394,28 @@ func newDisplay(
 	}
 
 	boxes := make([]Box, 0, boxCount)
-	parents := make([]int, 0, boxCount)
+
+	var parents []int
+
+	if boxCount > 0 {
+		parents = rentIntSlice(boxCount)[:0]
+	}
 
 	ilayout.WalkPlaced(res, func(item *ilayout.PlacedElement) {
 		boxes = append(boxes, boxFrom(item))
 		parents = append(parents, item.ParentIndex)
 	})
 
+	owners, order := emitOwnersAndOrder(res, parents)
+
+	if parents != nil {
+		releaseIntSlice(parents)
+	}
+
 	display := &Display{
 		Ops:            res.Ops,
-		OpOwners:       ilayout.OperationOwnersFromParents(res, parents),
-		Order:          ilayout.PaintOrder(res.Ops),
+		OpOwners:       owners,
+		Order:          order,
 		Boxes:          boxes,
 		Keyframes:      keyframesFrom(sheets),
 		Width:          int(res.Width * ptToPx),
@@ -357,13 +431,203 @@ func newDisplay(
 	if retain {
 		display.result = res
 		display.zoom = zoom
+
+		res.Retain()
 	}
 
 	return display
 }
 
+// newDisplayForPatch builds the display of a patched placement from the
+// display it replaces. A patch re-places a subtree inside the page it already
+// laid out, so everything the page keeps is carried over from prev instead of
+// being derived again: the @keyframes rules of the document, the canvas size,
+// the point and pixel scale, and the retained zoom.
+//
+// Page breaks are supplied by the caller because a patch can change them and
+// only the caller knows whether it did.
+//
+// deriveOwners says whether this build derives the operation owners and the
+// paint order. The single-element path does. The batch path maintains both
+// incrementally across its splices and installs them on the returned display,
+// so it passes false and pays for neither the placed-parent slice nor the two
+// derivations.
+//
+// When boxCount matches len(prev.Boxes), the boxes slice from prev is reused
+// in place without allocating. The parents slice is rented from a pool and
+// released immediately after emission. When deriving owners, the operation
+// owners and paint order slices from prev are reused when their capacity fits.
+func newDisplayForPatch(
+	res *ilayout.Result,
+	prev *Display,
+	forced []float64,
+	keep [][2]float64,
+	deriveOwners bool,
+) *Display {
+	if res == nil {
+		return nil
+	}
+
+	boxCount := res.BoxCount()
+
+	boxes, parents := collectPatchBoxes(res, deriveOwners, patchBoxes(deriveOwners, prev, boxCount))
+
+	display := &Display{
+		Ops:            res.Ops,
+		OpOwners:       nil,
+		Order:          nil,
+		Boxes:          boxes,
+		Keyframes:      prev.Keyframes,
+		Width:          prev.Width,
+		Height:         prev.Height,
+		PointsPerPixel: prev.PointsPerPixel,
+		PixelPerPoint:  prev.PixelPerPoint,
+		ForcedBreaks:   forced,
+		KeepTogether:   keep,
+		result:         res,
+		zoom:           prev.zoom,
+	}
+
+	if deriveOwners {
+		var prevOwners, prevOrder []int
+		if prev != nil {
+			prevOwners = prev.OpOwners
+			prevOrder = prev.Order
+		}
+
+		display.OpOwners, display.Order = emitOwnersAndOrder(res, parents, prevOwners, prevOrder)
+
+		if parents != nil {
+			releaseIntSlice(parents)
+		}
+	}
+
+	if prev != nil && prev.result != nil && prev.result != res {
+		prev.result.DisownChunks()
+	}
+
+	res.Retain()
+
+	return display
+}
+
+// patchBoxes picks the box slice for a patch: the previous display's boxes in
+// place when their length or near capacity matches, otherwise a fresh slice.
+func patchBoxes(deriveOwners bool, prev *Display, boxCount int) []Box {
+	if deriveOwners && prev != nil {
+		if len(prev.Boxes) == boxCount {
+			return prev.Boxes[:0]
+		}
+
+		if cap(prev.Boxes) >= boxCount && cap(prev.Boxes) <= boxCount*2 {
+			clear(prev.Boxes[boxCount:])
+
+			return prev.Boxes[:0]
+		}
+	}
+
+	if boxCount == 0 {
+		return nil
+	}
+
+	return rentBoxSlice(boxCount)[:0]
+}
+
+// collectPatchBoxes fills the box slice from the placement and, when owners
+// are derived, rents and fills the parent index scratch beside it.
+func collectPatchBoxes(res *ilayout.Result, deriveOwners bool, boxes []Box) ([]Box, []int) {
+	boxCount := res.BoxCount()
+
+	var parents []int
+
+	if deriveOwners && boxCount > 0 {
+		parents = rentIntSlice(boxCount)[:0]
+	}
+
+	if boxCount > 0 {
+		ilayout.WalkPlaced(res, func(item *ilayout.PlacedElement) {
+			boxes = append(boxes, boxFrom(item))
+
+			if deriveOwners {
+				parents = append(parents, item.ParentIndex)
+			}
+		})
+	}
+
+	return boxes, parents
+}
+
+// emitOwnersAndOrder derives the per-operation element owners and the paint
+// order from one shared op slice capture, so display construction sizes both
+// slices from the count known before emission and issues the two derivations
+// as one emission step. The owners mapping is the one
+// OperationOwnersFromParents computes and the order is the one PaintOrder
+// computes; fusing the step changes no op, ID, owner, order, or box.
+//
+// An optional destination buffer pair (owners, order) can be passed in dest;
+// when provided with sufficient capacity, both slices are reused in place
+// without allocating.
+func emitOwnersAndOrder(res *ilayout.Result, parents []int, dest ...[]int) ([]int, []int) {
+	if res == nil {
+		return nil, nil
+	}
+
+	ops := res.Ops
+	opCount := len(ops)
+
+	var owners, order []int
+
+	var ownersBuf, orderBuf []int
+	if len(dest) > 0 {
+		ownersBuf = dest[0]
+	}
+
+	if len(dest) > 1 {
+		orderBuf = dest[1]
+	}
+
+	if cap(ownersBuf) >= opCount {
+		ownersBuf = ownersBuf[:opCount]
+	} else {
+		if ownersBuf != nil {
+			releaseIntSlice(ownersBuf)
+		}
+
+		ownersBuf = rentIntSlice(opCount)
+	}
+
+	if cap(orderBuf) >= opCount {
+		orderBuf = orderBuf[:opCount]
+	} else {
+		if orderBuf != nil {
+			releaseIntSlice(orderBuf)
+		}
+
+		orderBuf = rentIntSlice(opCount)
+	}
+
+	owners = ilayout.OperationOwnersFromParentsBuf(res, parents, ownersBuf)
+	order = ilayout.PaintOrderBuf(ops, orderBuf)
+
+	return owners, order
+}
+
 func keyframesFrom(sheets []*icss.Stylesheet) []KeyframesRule {
+	total := 0
+
+	for _, sheet := range sheets {
+		if sheet == nil {
+			continue
+		}
+
+		total += len(sheet.Keyframes)
+	}
+
 	var rules []KeyframesRule
+
+	if total > 0 {
+		rules = make([]KeyframesRule, 0, total)
+	}
 
 	for _, sheet := range sheets {
 		if sheet == nil {

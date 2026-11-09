@@ -86,6 +86,38 @@ var textBuilderPool = sync.Pool{
 	},
 }
 
+// tagAttrBuilderPool reuses the name/value scratch builders across tags so a
+// document with many tagged elements does not allocate two builders per tag.
+// A builder that grew past pooledBuilderMaxCap is dropped instead of pooled
+// so one huge attribute cannot pin a large buffer in the pool.
+const pooledBuilderMaxCap = 8192
+
+// tagAttrPreSize is the initial capacity of a tag's interleaved attribute
+// slice: room for four pairs without growth. The slice stays nil for tags
+// with no attributes so bare tags allocate nothing.
+const tagAttrPreSize = 8
+
+var tagAttrBuilderPool = sync.Pool{
+	New: func() any {
+		return &strings.Builder{}
+	},
+}
+
+func getTagAttrBuilder() *strings.Builder {
+	b := tagAttrBuilderPool.Get().(*strings.Builder)
+	b.Reset()
+
+	return b
+}
+
+func putTagAttrBuilder(b *strings.Builder) {
+	if b.Cap() > pooledBuilderMaxCap {
+		return
+	}
+
+	tagAttrBuilderPool.Put(b)
+}
+
 func (n *Node) hasAnyText() bool {
 	for _, c := range n.Children {
 		if c.Type == TextNode && len(c.Text) > 0 {
@@ -226,13 +258,17 @@ const maxParseInputBytes = 64 * 1024 * 1024
 // ParseDocument for the bytes-to-tree path (it strips the BOM), or
 // ParseWithLimit when an explicit bound is needed.
 func Parse(source string) (*Node, error) {
-	builder := newTreeBuilder()
+	root := &Node{Type: ElementNode, Name: "#document"} //nolint:exhaustruct
+	builder := getTreeBuilder(root)
 
 	scanTokens(source, builder.appendToken, builder.foreignCDATAAllowed)
 	builder.finish()
-	applySelectedContent(builder.root)
+	builder.applySelectedContentIfNeeded()
 
-	return builder.root, nil
+	res := builder.root
+	putTreeBuilder(builder)
+
+	return res, nil
 }
 
 // ParseWithLimit turns HTML source into a tree, rejecting input larger than
@@ -250,14 +286,64 @@ func ParseWithLimit(source string, maxBytes int) (*Node, error) {
 	return Parse(source)
 }
 
+// normalizeBytes strips a leading UTF-8 BOM (mirroring load.IsHTML) and
+// applies the input stream preprocessing rules (CRLF and CR become LF, and
+// invalid UTF-8 bytes become U+FFFD) in one pass over the document bytes, so
+// the document path reaches the tokenizer with a single allocation instead of
+// a string conversion plus a second preprocessing copy. Clean input costs one
+// scan and one conversion; the string-based Parse path keeps the matching
+// preprocessInput fast path. NUL bytes stay in the stream; the tokenizer
+// handles them per state.
+func normalizeBytes(body []byte) string {
+	body = bytes.TrimPrefix(body, []byte("\xef\xbb\xbf"))
+	if bytes.IndexByte(body, '\r') < 0 && utf8.Valid(body) {
+		return string(body)
+	}
+
+	var b strings.Builder
+
+	b.Grow(len(body))
+
+	for i := 0; i < len(body); {
+		c := body[i]
+
+		switch {
+		case c == '\r':
+			b.WriteByte('\n')
+
+			i++
+			if i < len(body) && body[i] == '\n' {
+				i++
+			}
+		case c < utf8.RuneSelf:
+			b.WriteByte(c)
+
+			i++
+		default:
+			r, size := utf8.DecodeRune(body[i:])
+			if r == utf8.RuneError && size == 1 {
+				b.WriteRune(utf8.RuneError)
+
+				i++
+
+				continue
+			}
+
+			b.Write(body[i : i+size])
+
+			i += size
+		}
+	}
+
+	return b.String()
+}
+
 // ParseDocument turns raw document bytes into a tree with a synthetic root,
 // stripping a leading UTF-8 BOM (mirroring load.IsHTML). Only UTF-8/ASCII
 // sources are supported; the charset rule is enforced at the load seam. Size
 // enforcement follows the caller; see ParseWithLimit.
 func ParseDocument(body []byte) (*Node, error) {
-	s := strings.TrimPrefix(string(body), "\ufeff") // BOM, mirroring load.IsHTML
-
-	return Parse(s)
+	return Parse(normalizeBytes(body))
 }
 
 // ParseDocumentWithLimit turns raw document bytes into a tree with an explicit
@@ -270,7 +356,7 @@ func ParseDocumentWithLimit(body []byte, maxBytes int) (*Node, error) {
 	if len(body) > maxBytes {
 		return nil, errors.New("html: source exceeds byte limit")
 	}
-	return Parse(string(body))
+	return Parse(normalizeBytes(body))
 }
 
 // tokenKind discriminates token types.
@@ -301,6 +387,10 @@ func tokenize(src string) ([]token, error) {
 	toks := make([]token, 0, strings.Count(src, "<")+1)
 
 	scanTokens(src, func(tok token) {
+		if len(tok.attrs) != 0 {
+			tok.attrs = append([]string(nil), tok.attrs...)
+		}
+
 		toks = append(toks, tok)
 	}, nil)
 
@@ -382,6 +472,10 @@ func scanTokens(src string, emit tokenSink, allowCDATA cdataPolicy) {
 
 	pos := 0
 	srcLen := len(src)
+	// attrScratch reuses the interleaved name/value slice between start tags.
+	// parse sinks consume the token before the next tag, so only tokenize has
+	// to copy the slice it keeps.
+	var attrScratch []string
 
 	for pos < srcLen {
 		if src[pos] != '<' {
@@ -412,7 +506,7 @@ func scanTokens(src string, emit tokenSink, allowCDATA cdataPolicy) {
 		case src[pos+1] == '?':
 			next = scanBogusComment(src, pos+2, "?", emit)
 		case isASCIILetter(src[pos+1]):
-			next = scanStartTag(src, pos, emit)
+			next = scanStartTag(src, pos, emit, &attrScratch)
 		default:
 			emit(token{kind: tokText, data: "<"}) //nolint:exhaustruct
 
@@ -619,6 +713,132 @@ func scanComment(src string, pos int, emit tokenSink) int {
 	return len(src)
 }
 
+func internLowerAttrName(s string) string {
+	switch s {
+	case "class", "CLASS", "Class":
+		return "class"
+	case "id", "ID", "Id":
+		return "id"
+	case "style", "STYLE", "Style":
+		return "style"
+	case "type", "TYPE", "Type":
+		return "type"
+	case "name", "NAME", "Name":
+		return "name"
+	case "value", "VALUE", "Value":
+		return "value"
+	case "href", "HREF", "Href":
+		return "href"
+	case "src", "SRC", "Src":
+		return "src"
+	case "width", "WIDTH", "Width":
+		return "width"
+	case "height", "HEIGHT", "Height":
+		return "height"
+	case "role", "ROLE", "Role":
+		return "role"
+	case "tabindex", "TABINDEX", "TabIndex":
+		return "tabindex"
+	case "placeholder", "PLACEHOLDER", "Placeholder":
+		return "placeholder"
+	case "disabled", "DISABLED", "Disabled":
+		return "disabled"
+	case "checked", "CHECKED", "Checked":
+		return "checked"
+	case "selected", "SELECTED", "Selected":
+		return "selected"
+	case "data-action":
+		return "data-action"
+	case "aria-label", "ARIA-LABEL", "Aria-Label":
+		return "aria-label"
+	case "aria-hidden", "ARIA-HIDDEN", "Aria-Hidden":
+		return "aria-hidden"
+	default:
+		return strings.ToLower(s)
+	}
+}
+
+func internTagName(s string) string {
+	switch s {
+	case "div", "DIV", "Div":
+		return "div"
+	case "span", "SPAN", "Span":
+		return "span"
+	case "p", "P":
+		return "p"
+	case "table", "TABLE", "Table":
+		return "table"
+	case "tr", "TR", "Tr":
+		return "tr"
+	case "td", "TD", "Td":
+		return "td"
+	case "th", "TH", "Th":
+		return "th"
+	case "tbody", "TBODY", "Tbody":
+		return "tbody"
+	case "thead", "THEAD", "Thead":
+		return "thead"
+	case "tfoot", "TFOOT", "Tfoot":
+		return "tfoot"
+	case "button", "BUTTON", "Button":
+		return "button"
+	case "input", "INPUT", "Input":
+		return "input"
+	case "label", "LABEL", "Label":
+		return "label"
+	case "form", "FORM", "Form":
+		return "form"
+	case "svg", "SVG", "Svg":
+		return "svg"
+	case "path", "PATH", "Path":
+		return "path"
+	case "header", "HEADER", "Header":
+		return "header"
+	case "footer", "FOOTER", "Footer":
+		return "footer"
+	case "nav", "NAV", "Nav":
+		return "nav"
+	case "section", "SECTION", "Section":
+		return "section"
+	case "main", "MAIN", "Main":
+		return "main"
+	case "ul", "UL", "Ul":
+		return "ul"
+	case "ol", "OL", "Ol":
+		return "ol"
+	case "li", "LI", "Li":
+		return "li"
+	case "a", "A":
+		return "a"
+	case "h1", "H1":
+		return "h1"
+	case "h2", "H2":
+		return "h2"
+	case "h3", "H3":
+		return "h3"
+	case "h4", "H4":
+		return "h4"
+	case "h5", "H5":
+		return "h5"
+	case "h6", "H6":
+		return "h6"
+	case "img", "IMG", "Img":
+		return "img"
+	case "head", "HEAD", "Head":
+		return "head"
+	case "body", "BODY", "Body":
+		return "body"
+	case "html", "HTML", "Html":
+		return "html"
+	case "style", "STYLE", "Style":
+		return "style"
+	case "script", "SCRIPT", "Script":
+		return "script"
+	default:
+		return strings.ToLower(s)
+	}
+}
+
 // scanEndTag tokenizes a closing tag at pos. Malformed input follows the
 // spec's recovery: a non-letter name becomes a bogus comment, EOF inside the
 // tag drops the token, and a stray "</" stays text.
@@ -644,21 +864,26 @@ func scanEndTag(src string, pos int, emit tokenSink) int {
 		j++
 	}
 
-	name := strings.ToLower(replaceNUL(src[i:j]))
+	name := internTagName(replaceNUL(src[i:j]))
 	if j >= len(src) {
 		return len(src) // EOF in tag name: drop the token
 	}
 
-	if src[j] == '>' {
-		emit(token{kind: tokEnd, data: name}) //nolint:exhaustruct
-
-		return j + 1
+	w := j
+	for w < len(src) && isWhitespace(src[w]) {
+		w++
 	}
 
-	if src[j] == '/' && j+1 < len(src) && src[j+1] == '>' {
+	if w < len(src) && src[w] == '>' {
 		emit(token{kind: tokEnd, data: name}) //nolint:exhaustruct
 
-		return j + 2 // end tag with trailing solidus
+		return w + 1
+	}
+
+	if w+1 < len(src) && src[w] == '/' && src[w+1] == '>' {
+		emit(token{kind: tokEnd, data: name}) //nolint:exhaustruct
+
+		return w + 2 // end tag with trailing solidus
 	}
 
 	// Attributes on end tags are parsed and ignored.
@@ -692,10 +917,46 @@ const (
 // name/value pairs, the self-closing flag, and the index after the closing
 // '>'. ok is false when the tag runs into EOF before closing.
 func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, next int, ok bool) {
-	var (
-		nameBuf  strings.Builder
-		valueBuf strings.Builder
-	)
+	return scanTagAttributesInto(src, i, nil)
+}
+
+// scanTagAttributesInto is scanTagAttributes with a reusable attribute slice.
+// The parser passes a scratch buffer so consecutive start tags do not allocate
+// a fresh slice; the emitted token is consumed before the next tag reuses it.
+func scanTagAttributesInto(
+	src string, i int, attrs []string,
+) ([]string, bool, int, bool) {
+	attrs = attrs[:0]
+	selfClosing := false
+	nameBuf := getTagAttrBuilder()
+	defer putTagAttrBuilder(nameBuf)
+	valueBuf := getTagAttrBuilder()
+	defer putTagAttrBuilder(valueBuf)
+
+	var attrBytes int // running byte total of the stored pairs; see appendCappedAttr
+	var nameStr, valStr string
+
+	getAttrName := func() string {
+		if nameBuf.Len() > 0 {
+			s := internLowerAttrName(nameBuf.String())
+			nameBuf.Reset()
+			return s
+		}
+		s := internLowerAttrName(nameStr)
+		nameStr = ""
+		return s
+	}
+
+	getAttrVal := func() string {
+		if valueBuf.Len() > 0 {
+			s := valueBuf.String()
+			valueBuf.Reset()
+			return s
+		}
+		s := valStr
+		valStr = ""
+		return s
+	}
 
 	state := tagStateBeforeAttrName
 
@@ -721,10 +982,41 @@ func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, nex
 				i++
 			default:
 				nameBuf.Reset()
+				nameStr = ""
 
 				state = tagStateAttrName
 			}
 		case tagStateAttrName:
+			start := i
+			for i < len(src) && !isWhitespace(src[i]) && src[i] != '/' && src[i] != '>' && src[i] != '=' && src[i] != 0 {
+				i++
+			}
+			if i > start {
+				run := src[start:i]
+				if nameBuf.Len() == 0 && nameStr == "" {
+					if len(run) > maxAttributeNameBytes {
+						run = run[:maxAttributeNameBytes]
+					}
+					nameStr = run
+				} else {
+					if nameStr != "" {
+						nameBuf.WriteString(nameStr)
+						nameStr = ""
+					}
+					if nameBuf.Len()+len(run) <= maxAttributeNameBytes {
+						nameBuf.WriteString(run)
+					} else if nameBuf.Len() < maxAttributeNameBytes {
+						nameBuf.WriteString(run[:maxAttributeNameBytes-nameBuf.Len()])
+					}
+				}
+				continue
+			}
+
+			if i >= len(src) {
+				break
+			}
+			c = src[i]
+
 			switch {
 			case isWhitespace(c):
 				state = tagStateAfterAttrName
@@ -736,9 +1028,13 @@ func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, nex
 				state = tagStateBeforeAttrValue
 
 				i++
-			default:
-				if nameBuf.Len() < maxAttributeNameBytes {
-					appendNULReplaced(&nameBuf, c)
+			case c == 0:
+				if nameStr != "" {
+					nameBuf.WriteString(nameStr)
+					nameStr = ""
+				}
+				if nameBuf.Len()+len(nulReplacement) <= maxAttributeNameBytes {
+					nameBuf.WriteString(nulReplacement)
 				}
 
 				i++
@@ -748,8 +1044,7 @@ func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, nex
 			case isWhitespace(c):
 				i++
 			case c == '/':
-				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), "")
-				nameBuf.Reset()
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), "")
 
 				state = tagStateSelfClosing
 
@@ -759,12 +1054,11 @@ func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, nex
 
 				i++
 			case c == '>':
-				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), "")
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), "")
 
 				return attrs, selfClosing, i + 1, true
 			default:
-				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), "")
-				nameBuf.Reset()
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), "")
 
 				state = tagStateAttrName
 			}
@@ -774,18 +1068,21 @@ func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, nex
 				i++
 			case c == '"':
 				state = tagStateAttrValueDouble
+				valStr = ""
 
 				i++
 			case c == '\'':
 				state = tagStateAttrValueSingle
+				valStr = ""
 
 				i++
 			case c == '>':
-				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), "")
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), "")
 
 				return attrs, selfClosing, i + 1, true
 			default:
 				state = tagStateAttrValueUnquoted
+				valStr = ""
 			}
 		case tagStateAttrValueDouble, tagStateAttrValueSingle:
 			quote := byte('"')
@@ -793,91 +1090,147 @@ func scanTagAttributes(src string, i int) (attrs []string, selfClosing bool, nex
 				quote = '\''
 			}
 
+			start := i
+			for i < len(src) && src[i] != quote && src[i] != 0 && src[i] != '&' {
+				i++
+			}
+			if i > start {
+				run := src[start:i]
+				if valueBuf.Len() == 0 && valStr == "" {
+					if len(run) > maxAttributeValueBytes {
+						run = run[:maxAttributeValueBytes]
+					}
+					valStr = run
+				} else {
+					if valStr != "" {
+						valueBuf.WriteString(valStr)
+						valStr = ""
+					}
+					if valueBuf.Len()+len(run) <= maxAttributeValueBytes {
+						valueBuf.WriteString(run)
+					} else if valueBuf.Len() < maxAttributeValueBytes {
+						valueBuf.WriteString(run[:maxAttributeValueBytes-valueBuf.Len()])
+					}
+				}
+				continue
+			}
+
+			if i >= len(src) {
+				break
+			}
+			c = src[i]
+
 			switch {
 			case c == quote:
 				state = tagStateAfterAttrValueQuoted
 
 				i++
 			case c == 0:
+				if valStr != "" {
+					valueBuf.WriteString(valStr)
+					valStr = ""
+				}
 				if valueBuf.Len()+len(nulReplacement) <= maxAttributeValueBytes {
 					valueBuf.WriteString(nulReplacement)
 				}
 
 				i++
 			case c == '&':
+				if valStr != "" {
+					valueBuf.WriteString(valStr)
+					valStr = ""
+				}
 				decoded, consumed := decodeAttributeReference(src, i)
 				if valueBuf.Len()+len(decoded) <= maxAttributeValueBytes {
 					valueBuf.WriteString(decoded)
 				}
 
 				i += consumed
-			default:
-				if valueBuf.Len() < maxAttributeValueBytes {
-					valueBuf.WriteByte(c)
-				}
-
-				i++
 			}
 		case tagStateAttrValueUnquoted:
+			start := i
+			for i < len(src) && !isWhitespace(src[i]) && src[i] != '>' && src[i] != 0 && src[i] != '&' {
+				i++
+			}
+			if i > start {
+				run := src[start:i]
+				if valueBuf.Len() == 0 && valStr == "" {
+					if len(run) > maxAttributeValueBytes {
+						run = run[:maxAttributeValueBytes]
+					}
+					valStr = run
+				} else {
+					if valStr != "" {
+						valueBuf.WriteString(valStr)
+						valStr = ""
+					}
+					if valueBuf.Len()+len(run) <= maxAttributeValueBytes {
+						valueBuf.WriteString(run)
+					} else if valueBuf.Len() < maxAttributeValueBytes {
+						valueBuf.WriteString(run[:maxAttributeValueBytes-valueBuf.Len()])
+					}
+				}
+				continue
+			}
+
+			if i >= len(src) {
+				break
+			}
+			c = src[i]
+
 			switch {
 			case isWhitespace(c):
-				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
-				nameBuf.Reset()
-				valueBuf.Reset()
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), getAttrVal())
 
 				state = tagStateBeforeAttrName
 
 				i++
 			case c == '>':
-				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), getAttrVal())
 
 				return attrs, selfClosing, i + 1, true
 			case c == 0:
+				if valStr != "" {
+					valueBuf.WriteString(valStr)
+					valStr = ""
+				}
 				if valueBuf.Len()+len(nulReplacement) <= maxAttributeValueBytes {
 					valueBuf.WriteString(nulReplacement)
 				}
 
 				i++
 			case c == '&':
+				if valStr != "" {
+					valueBuf.WriteString(valStr)
+					valStr = ""
+				}
 				decoded, consumed := decodeAttributeReference(src, i)
 				if valueBuf.Len()+len(decoded) <= maxAttributeValueBytes {
 					valueBuf.WriteString(decoded)
 				}
 
 				i += consumed
-			default:
-				if valueBuf.Len() < maxAttributeValueBytes {
-					valueBuf.WriteByte(c)
-				}
-
-				i++
 			}
 		case tagStateAfterAttrValueQuoted:
 			switch {
 			case isWhitespace(c):
-				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
-				nameBuf.Reset()
-				valueBuf.Reset()
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), getAttrVal())
 
 				state = tagStateBeforeAttrName
 
 				i++
 			case c == '/':
-				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
-				nameBuf.Reset()
-				valueBuf.Reset()
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), getAttrVal())
 
 				state = tagStateSelfClosing
 
 				i++
 			case c == '>':
-				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), getAttrVal())
 
 				return attrs, selfClosing, i + 1, true
 			default:
-				attrs = appendCappedAttr(attrs, strings.ToLower(nameBuf.String()), valueBuf.String())
-				nameBuf.Reset()
-				valueBuf.Reset()
+				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), getAttrVal())
 
 				state = tagStateBeforeAttrName
 			}
@@ -919,7 +1272,7 @@ func decodeAttributeReference(src string, i int) (string, int) {
 // scanStartTag tokenizes a start tag at pos, including the raw-text content
 // of script/style/title/textarea and the other raw-text elements up to their
 // closing tag.
-func scanStartTag(src string, pos int, emit tokenSink) int {
+func scanStartTag(src string, pos int, emit tokenSink, attrScratch *[]string) int {
 	i := pos + 1
 	nameStart := i
 
@@ -931,11 +1284,38 @@ func scanStartTag(src string, pos int, emit tokenSink) int {
 		return len(src) // EOF in tag name: drop the token
 	}
 
-	name := strings.ToLower(replaceNUL(src[nameStart:i]))
+	name := internTagName(replaceNUL(src[nameStart:i]))
 
-	attrs, selfClosing, next, ok := scanTagAttributes(src, i)
-	if !ok {
-		return len(src) // EOF inside the tag: drop the token
+	var (
+		attrs       []string
+		selfClosing bool
+		next        int
+	)
+
+	w := i
+	for w < len(src) && isWhitespace(src[w]) {
+		w++
+	}
+
+	if w < len(src) && src[w] == '>' {
+		next = w + 1
+	} else if w+1 < len(src) && src[w] == '/' && src[w+1] == '>' {
+		selfClosing = true
+		next = w + 2
+	} else {
+		if attrScratch != nil {
+			attrs = *attrScratch
+		}
+
+		var ok bool
+		attrs, selfClosing, next, ok = scanTagAttributesInto(src, i, attrs)
+		if !ok {
+			return len(src) // EOF inside the tag: drop the token
+		}
+
+		if attrScratch != nil {
+			*attrScratch = attrs
+		}
 	}
 
 	emit(token{kind: tokStart, data: name, attrs: attrs, selfClosing: selfClosing})
@@ -1491,21 +1871,24 @@ func scanScriptData(src string, from int, name string) (string, int, bool) {
 
 // appendCappedAttr appends one attribute unless the per-element count or total
 // byte cap has already been reached; otherwise it returns attrs unchanged.
-func appendCappedAttr(attrs []string, name, value string) []string {
+// total is the running byte count of the pairs already stored, so the cap
+// check stays O(1) instead of rescanning the slice on every attribute. The
+// slice is allocated lazily on the first attribute and pre-sized for the
+// common few-attribute tag, so bare tags allocate nothing.
+func appendCappedAttr(attrs []string, total int, name, value string) ([]string, int) {
 	if len(attrs)/2 >= maxAttributesPerElement {
-		return attrs
-	}
-
-	total := 0
-	for _, entry := range attrs {
-		total += len(entry)
+		return attrs, total
 	}
 
 	if total+len(name)+len(value) > maxAttributeBytesPerElement {
-		return attrs
+		return attrs, total
 	}
 
-	return append(attrs, name, value)
+	if attrs == nil {
+		attrs = make([]string, 0, tagAttrPreSize)
+	}
+
+	return append(attrs, name, value), total + len(name) + len(value)
 }
 
 // lowerASCII lowercases one ASCII letter byte.

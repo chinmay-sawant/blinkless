@@ -1,4 +1,3 @@
-//nolint:cyclop // text-decoration skip shorthand and longhand tests
 package layout
 
 import "testing"

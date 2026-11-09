@@ -1,4 +1,3 @@
-//nolint:varnamelen // targeted unit tests for the color-adjust property family
 package layout
 
 import "testing"

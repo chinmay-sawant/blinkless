@@ -138,6 +138,11 @@ type Options struct {
 	// in-package tests can prove cached and uncached layouts produce
 	// identical output and benchmark the memo's effect.
 	flexMinBypass bool
+	// blockMemoBypass disables the block-container intrinsic-height memo (see
+	// memo_block.go). Tests only: unexported so external callers keep the
+	// default, while in-package tests prove cached and uncached measurements
+	// agree.
+	blockMemoBypass bool
 }
 
 // validate rejects option values that would otherwise be silently clamped
@@ -213,6 +218,8 @@ type Result struct {
 	pageSnapHeight float64
 	styleChunks    []*[]ResolvedStyle
 	boxChunks      []*[]box
+	storeChunks    [][]ResolvedStyle
+	refs           int32
 
 	// Pages maps page index → indices into Ops of the ops painted on that
 	// page. Filled by Paint using its pagination semantics (an op goes to
@@ -232,6 +239,13 @@ type Result struct {
 	HasIDs bool
 	// HasFragmentLinks is set during Layout when any OpLinkURI starts with '#'.
 	HasFragmentLinks bool
+	// nextOpID is the high-water mark of the operation identities handed out
+	// for this placement. A subtree splice seeds its fresh engine from it
+	// instead of scanning every operation for the maximum identity, and
+	// stores the new mark back after committing. Zero means unknown (a
+	// placement built before the mark existed); the next splice scans once
+	// and then stores.
+	nextOpID uint64
 	// skipInitialBeforeAlways is set for independently painted body blocks.
 	// Those results already start a fresh page, so page-break-before:always
 	// on the block itself would insert a blank page.
@@ -247,46 +261,58 @@ func (r *Result) BoxCount() int {
 	return len(r.boxes)
 }
 
-// CloneResult returns an independent pagination result. Display-list image
-// bytes, page/index slices, and the layout-owned box graph are copied so a
-// second paint or pagination pass cannot mutate the source result through a
-// shallow alias.
+// CloneResult returns an independent placement for a patch pass. The display
+// list, its rare operation payloads, and the layout-owned box graph are copied
+// so a splice cannot mutate the source result through a shallow alias. The
+// operation slice keeps spare capacity, so a batch can overwrite or grow its
+// patched windows in place instead of reallocating the page-wide list once per
+// element.
+//
+// The pagination caches (Pages, Locations, and the flow indexes) stay shared
+// with the source instead of being copied. The layout engine never fills them
+// on a retained placement, and the patch pipeline reads only the operations
+// and the box graph, so copying them would only add work.
 func CloneResult(res *Result) *Result {
 	if res == nil {
 		return nil
 	}
 
 	clone := *res
+	clone.refs = 0
 	clone.Ops = cloneOps(res.Ops)
-	// A clone is an independent pagination result, so it starts without the
-	// source's raster cache instead of sharing a mutable map of payloads.
+	// A clone starts without the source's raster cache instead of sharing a
+	// mutable map of payloads.
 	clone.svgRasters = nil
-	clone.Pages = cloneIndexPages(res.Pages)
-	clone.Locations = append([]ElementLocation(nil), res.Locations...)
-	clone.flowPages = cloneIndexPages(res.flowPages)
-	clone.flowPageOf = append([]int(nil), res.flowPageOf...)
-	clone.flowPos = append([]int(nil), res.flowPos...)
-	clone.flowBoxes = cloneIndexPages(res.flowBoxes)
-	clone.flowBoxPage = append([]int(nil), res.flowBoxPage...)
-	clone.flowBoxPos = append([]int(nil), res.flowBoxPos...)
 	boxes := make(map[*box]*box, len(res.boxes))
-	clone.root = cloneBoxGraph(res.root, boxes)
+	arena := boxArena{chunks: nil}
+	clone.root = cloneBoxGraph(res.root, boxes, &arena)
 	clone.rootBox = clone.root
 	clone.boxes = make([]*box, len(res.boxes))
 
 	for i, source := range res.boxes {
-		clone.boxes[i] = cloneBoxGraph(source, boxes)
+		clone.boxes[i] = cloneBoxGraph(source, boxes, &arena)
 	}
 
 	return &clone
 }
 
+// cloneOpsSpareDivisor and cloneOpsSpareFloor size the spare capacity a cloned
+// display list keeps for the window splices a patch commits. One click patches
+// a handful of ids against thousands of operations, so len/16 plus a small
+// floor covers those windows without pinning another page-sized backing.
+const (
+	cloneOpsSpareDivisor = 16
+	cloneOpsSpareFloor   = 16
+)
+
+// cloneOps returns an independent copy of one operation list with room for the
+// splices a patch pass commits.
 func cloneOps(src []Op) []Op {
 	if src == nil {
 		return nil
 	}
 
-	dst := make([]Op, len(src))
+	dst := make([]Op, len(src), len(src)+len(src)/cloneOpsSpareDivisor+cloneOpsSpareFloor)
 	for i := range src {
 		dst[i] = src[i]
 		dst[i].opExtra = cloneOpExtra(src[i].opExtra)
@@ -295,20 +321,28 @@ func cloneOps(src []Op) []Op {
 	return dst
 }
 
-func cloneIndexPages(src [][]int) [][]int {
-	if src == nil {
-		return nil
-	}
+// boxCloneChunk is how many box copies one arena allocation holds. A clone of
+// a large page allocates a handful of chunks instead of one object per box,
+// while interior pointers keep each chunk alive for the clone's lifetime.
+const boxCloneChunk = 256
 
-	dst := make([][]int, len(src))
-	for i := range src {
-		dst[i] = append([]int(nil), src[i]...)
-	}
-
-	return dst
+// boxArena hands out box copies from chunked backing arrays.
+type boxArena struct {
+	chunks [][]box
 }
 
-func cloneBoxGraph(src *box, seen map[*box]*box) *box {
+func (a *boxArena) alloc() *box {
+	if len(a.chunks) == 0 || len(a.chunks[len(a.chunks)-1]) == boxCloneChunk {
+		a.chunks = append(a.chunks, make([]box, 0, boxCloneChunk))
+	}
+
+	chunk := &a.chunks[len(a.chunks)-1]
+	*chunk = append(*chunk, box{}) //nolint:exhaustruct // arena slots start zeroed and the clone walk fills them
+
+	return &(*chunk)[len(*chunk)-1]
+}
+
+func cloneBoxGraph(src *box, seen map[*box]*box, arena *boxArena) *box {
 	if src == nil {
 		return nil
 	}
@@ -317,28 +351,29 @@ func cloneBoxGraph(src *box, seen map[*box]*box) *box {
 		return clone
 	}
 
-	clone := *src
+	clone := arena.alloc()
+	*clone = *src
 	clone.children = nil
 	clone.rows = nil
 	clone.stickyPort = nil
-	seen[src] = &clone
+	seen[src] = clone
 
 	for _, child := range src.children {
-		clone.children = append(clone.children, cloneBoxGraph(child, seen))
+		clone.children = append(clone.children, cloneBoxGraph(child, seen, arena))
 	}
 
 	for _, row := range src.rows {
 		clonedRow := make([]*box, 0, len(row))
 		for _, cell := range row {
-			clonedRow = append(clonedRow, cloneBoxGraph(cell, seen))
+			clonedRow = append(clonedRow, cloneBoxGraph(cell, seen, arena))
 		}
 
 		clone.rows = append(clone.rows, clonedRow)
 	}
 
-	clone.stickyPort = cloneBoxGraph(src.stickyPort, seen)
+	clone.stickyPort = cloneBoxGraph(src.stickyPort, seen, arena)
 
-	return &clone
+	return clone
 }
 
 // Workspace owns reusable display-list storage for sequential internal
@@ -611,6 +646,14 @@ func (paintOp Op) PaintLineGeometry() (float64, float64, float64, float64, float
 	return lineX, lineY, lineW, lineH, width
 }
 
+// blockCounterDelta carries the engine counter deltas a skipped block
+// intrinsic build would have consumed. Stored beside the height memo under
+// the same key so a hit replays both counters exactly.
+type blockCounterDelta struct {
+	sticky int
+	groups int
+}
+
 type engine struct {
 	opts     Options
 	ctx      context.Context //nolint:containedctx // ctx is checked at recursion boundaries (checkContext)
@@ -629,6 +672,7 @@ type engine struct {
 	spareChunks     []*[]ResolvedStyle
 	boxChunks       []*[]box
 	spareBoxChunks  []*[]box
+	storeChunks     [][]ResolvedStyle
 	// styleIndex narrows selector matching for this layout's sheets. It is
 	// built once and shared by the cascade and every pseudo-content lookup.
 	styleIndex *ruleIndex
@@ -697,6 +741,19 @@ type engine struct {
 	// content flow per item per run. The engine is constructed fresh per
 	// Layout, so entries never survive past the run that measured them.
 	flexMinH map[flexMinKey]float64
+	// flexStyleOverrides memoizes finished flex item style overrides for this
+	// Layout run, keyed by the interned base style and the forced sizes (see
+	// flex_override_cache.go). Repeated invoice rows share one 5872-byte
+	// record instead of copying it per item. The cache dies with the engine,
+	// so entries never outlive the run that built them.
+	flexStyleOverrides map[flexStyleOverrideKey]*ResolvedStyle
+	// overrideStyleChunks holds ResolvedStyle chunks used exclusively by
+	// flexStyleOverrides so measure scopes that unwind e.styleChunks cannot
+	// invalidate cached overrides.
+	overrideStyleChunks []*[]ResolvedStyle
+	// baselineScratch is reusable scratch storage for stripLineBaselines in
+	// multicol orphan splitting.
+	baselineScratch []float64
 	// pseudoContentCache memoizes the winning content declaration per
 	// (element, pseudo-element) for one Layout run. Every block probes
 	// ::before/::after during inline collection and every inline element
@@ -716,6 +773,24 @@ type engine struct {
 	// an unexported copy of Options.flexMinBypass that proves cached and
 	// uncached layouts produce identical output.
 	flexMinBypass bool
+	// blockIntrinsicMemo memoizes block-container intrinsic heights for one
+	// Layout run (see memo_block.go). The engine is constructed fresh per
+	// Layout, so entries never survive past the run that measured them.
+	blockIntrinsicMemo *blockIntrinsicMemo
+	// blockIntrinsicDeltas replays the engine counters a skipped noEmit build
+	// would have consumed (sticky IDs, blend-group IDs), mirroring
+	// gridMeasureResult. Counter audit: noEmit builds still run tagSticky
+	// (sticky.go) and enterBlendIsolation (layout.go, inline.go), which bump
+	// stickySeq and nextGroupID unconditionally, while op IDs stay put
+	// because add/addGroupMark/addGridRun return early when noEmit is set.
+	// Every memo Store pairs with a delta Store under the same key, so a hit
+	// replays exactly the counters the skipped build would have consumed.
+	blockIntrinsicDeltas     map[blockIntrinsicKey]blockCounterDelta
+	blockIntrinsicDeltaOrder []blockIntrinsicKey
+	// blockMemoBypass disables the block intrinsic-height memo. Tests only:
+	// an unexported copy of Options.blockMemoBypass that proves cached and
+	// uncached measurements agree.
+	blockMemoBypass bool
 	// svgInlineCache memoizes inline-<svg> rasters within one Layout run,
 	// keyed by serialized document plus raster resolution. Repeated identical
 	// icons rasterize once per run instead of once per occurrence. The cache
@@ -778,13 +853,16 @@ type engine struct {
 	// lineGapByFace caches each face's hhea line gap ratio (lineGap/upem) for
 	// line-height: normal. The font package does not expose the gap.
 	lineGapByFace map[*pdf.Font]float64
+	// measureStyleIDs maps one resolved style at one scaled size to its
+	// process-wide interned measurement-style ID, so the global intern lock
+	// and descriptor hashing run once per style instead of once per text.
+	measureStyleIDs map[measureStyleRef]uint64
 	// textWidthCache memoizes measureTextFace string widths for this Layout
-	// run, keyed by face, size, spacing and text. Trade tables repeat short
-	// mono price labels; the per-rune fallback loop is pure for a fixed key.
-	textWidthCache map[textWidthKey]float64
+	// run, keyed by interned style ID and text.
+	textWidthCache map[textWidthLocalKey]float64
 	// runeWidthCache memoizes measureRuneFace single-rune widths for this
 	// Layout run (decoration and min-content paths walk rune by rune).
-	runeWidthCache map[runeWidthKey]float64
+	runeWidthCache map[runeWidthLocalKey]float64
 	// needsXformStamp is set when any built box has transform≠none or
 	// opacity<1 so stampBoxTransforms can skip the full tree walk.
 	needsXformStamp bool
@@ -821,8 +899,18 @@ func (e *engine) releaseScratch() {
 	e.gridScratch = nil
 	e.imgCache = nil
 	e.gridMeasureCache = nil
-	e.flexBaseH = nil
-	e.flexMinH = nil
+
+	e.releaseFlexScratch()
+
+	for _, c := range e.overrideStyleChunks {
+		putStyleChunk(c)
+	}
+
+	e.overrideStyleChunks = nil
+	e.baselineScratch = nil
+	e.blockIntrinsicMemo = nil
+	e.blockIntrinsicDeltas = nil
+	e.blockIntrinsicDeltaOrder = nil
 	e.pseudoContentCache = nil
 	e.contentEnvCache = nil
 	e.svgInlineCache = nil
@@ -841,8 +929,40 @@ func (e *engine) releaseScratch() {
 	e.lineGapByFace = nil
 	e.textWidthCache = nil
 	e.runeWidthCache = nil
+	e.measureStyleIDs = nil
 	e.namedFlows = nil
 	e.namedFlowScanDone = false
+}
+
+// releaseFlexScratch returns the flex memo maps to their pools when they are
+// small enough to keep and clears the engine fields either way.
+func (e *engine) releaseFlexScratch() {
+	if e.flexBaseH != nil {
+		if len(e.flexBaseH) <= maxPooledFlexScratch {
+			clear(e.flexBaseH)
+			flexBaseMapPool.Put(e.flexBaseH)
+		}
+
+		e.flexBaseH = nil
+	}
+
+	if e.flexMinH != nil {
+		if len(e.flexMinH) <= maxPooledFlexScratch {
+			clear(e.flexMinH)
+			flexMinMapPool.Put(e.flexMinH)
+		}
+
+		e.flexMinH = nil
+	}
+
+	if e.flexStyleOverrides != nil {
+		if len(e.flexStyleOverrides) <= flexOverrideMaxEntries {
+			clear(e.flexStyleOverrides)
+			flexOverrideMapPool.Put(e.flexStyleOverrides)
+		}
+
+		e.flexStyleOverrides = nil
+	}
 }
 
 // styleOverride temporarily substitutes one node's resolved style while that
@@ -929,8 +1049,9 @@ type blendScope struct {
 
 // pushZ enters one element's stacking and compositing scope, emitting the
 // group begin marker when masking, blending, isolation, or backdrop filtering creates a group.
-// owner is the resolved style pointer that identifies the element.
-func (e *engine) pushZ(style ResolvedStyle, owner *ResolvedStyle) blendScope {
+// style is the element's resolved style; pushZ reads it without copying the
+// 5872-byte record, and owner is the same pointer that identifies the element.
+func (e *engine) pushZ(style *ResolvedStyle, owner *ResolvedStyle) blendScope {
 	prev := blendScope{
 		prevZ:          e.zIndex,
 		prevZSet:       e.zIndexSet,
@@ -960,7 +1081,7 @@ func (e *engine) pushZ(style ResolvedStyle, owner *ResolvedStyle) blendScope {
 // enterStackingContext applies CSS stacking-context creation: an explicit
 // z-index wins, otherwise transform, opacity, masking, blending, or isolation
 // reset the level to zero.
-func (e *engine) enterStackingContext(style ResolvedStyle, createsGroupContext bool) {
+func (e *engine) enterStackingContext(style *ResolvedStyle, createsGroupContext bool) {
 	if style.ZIndexSet {
 		e.zIndex = style.ZIndex
 		e.zIndexSet = true
@@ -974,7 +1095,7 @@ func (e *engine) enterStackingContext(style ResolvedStyle, createsGroupContext b
 // enterBlendIsolation applies the transform stamp and enters the element's
 // paint group. Descendants inherit its membership so the host can apply the
 // element's mask, blend, isolation, or backdrop effect at one boundary.
-func (e *engine) enterBlendIsolation(style ResolvedStyle, owner *ResolvedStyle) {
+func (e *engine) enterBlendIsolation(style *ResolvedStyle, owner *ResolvedStyle) {
 	if style.HasTransform || style.Opacity < 1 {
 		e.needsXformStamp = true
 	}
@@ -1004,7 +1125,7 @@ func (e *engine) enterBlendIsolation(style ResolvedStyle, owner *ResolvedStyle) 
 
 	e.blendGroupOwner = owner
 
-	e.applyBlendMode(&style, mode)
+	e.applyBlendMode(style, mode)
 }
 
 // addGroupMark appends a begin/end boundary op for group and returns its op
@@ -1128,48 +1249,77 @@ func censusOps(ops []Op, width float64) (float64, bool) {
 }
 
 //nolint:wsl // container remount gates are intentionally kept in lifecycle order.
-func resolveStylesForLayoutContext(
+func resolveStylesForLayoutContextChunks(
 	ctx context.Context, root *html.Node, opts Options,
-) (map[*html.Node]*ResolvedStyle, map[*html.Node]sizeContainer, error) {
+) (map[*html.Node]*ResolvedStyle, map[*html.Node]sizeContainer, [][]ResolvedStyle, error) {
 	// Pass 1: cascade without @container (used sizes unknown).
-	styles, err := resolveStylesWithContext(ctx, root, opts, nil)
+	styles, chunks, err := resolveStylesWithContextChunks(ctx, root, opts, nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	if !css.HasContainerRules(opts.Sheets) {
-		return styles, nil, nil
+		return styles, nil, chunks, nil
 	}
 	// After definite inline sizes of size containers are known, re-cascade so
 	// matching @container rules apply, then lay out once with final styles.
 	cinfo, err := measureSizeContainersContext(ctx, root, styles, opts.Width)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if len(cinfo) == 0 {
-		return styles, nil, nil
+		return styles, nil, chunks, nil
 	}
 
-	styles, err = resolveStylesWithContext(ctx, root, opts, cinfo)
+	releaseStyleChunks(chunks)
+
+	return remountContainerStyles(ctx, root, opts, cinfo)
+}
+
+// releaseStyleChunks returns a rejected cascade's style chunks to the pool.
+func releaseStyleChunks(chunks [][]ResolvedStyle) {
+	for i := range chunks {
+		putStyleStoreChunk(&chunks[i])
+	}
+}
+
+// remountContainerStyles re-cascades with settled container sizes and proves
+// that one nested remount settles the container types. cinfo holds the used
+// sizes from the first cascade.
+func remountContainerStyles(
+	ctx context.Context, root *html.Node, opts Options, cinfo map[*html.Node]sizeContainer,
+) (map[*html.Node]*ResolvedStyle, map[*html.Node]sizeContainer, [][]ResolvedStyle, error) {
+	styles, chunks, err := resolveStylesWithContextChunks(ctx, root, opts, cinfo)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// One nested remount: @container may change nested container-type.
 	cinfo2, err := measureSizeContainersContext(ctx, root, styles, opts.Width)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
+
 	if len(cinfo2) != len(cinfo) || !sameSizeContainers(cinfo, cinfo2) {
-		styles, err = resolveStylesWithContext(ctx, root, opts, cinfo2)
+		releaseStyleChunks(chunks)
+
+		styles, chunks, err = resolveStylesWithContextChunks(ctx, root, opts, cinfo2)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 
-		return styles, cinfo2, nil
+		return styles, cinfo2, chunks, nil
 	}
 
-	return styles, cinfo, nil
+	return styles, cinfo, chunks, nil
+}
+
+func resolveStylesForLayoutContext(
+	ctx context.Context, root *html.Node, opts Options,
+) (map[*html.Node]*ResolvedStyle, map[*html.Node]sizeContainer, error) {
+	styles, containers, _, err := resolveStylesForLayoutContextChunks(ctx, root, opts)
+
+	return styles, containers, err
 }
 
 // sameSizeContainers reports whether two container measurements agree for
@@ -1291,6 +1441,187 @@ func flattenBoxes(boxNode *box, out *[]*box) {
 	for _, child := range boxNode.children {
 		flattenBoxes(child, out)
 	}
+}
+
+// blockFPMixUint folds one integer into a FNV-1a content hash.
+func blockFPMixUint(h, v uint64) uint64 {
+	const prime = uint64(1099511628211)
+
+	h ^= v
+
+	return h * prime
+}
+
+// blockFPMixStr folds one string into a FNV-1a content hash.
+func blockFPMixStr(hash uint64, s string) uint64 {
+	const prime = uint64(1099511628211)
+
+	for i := range len(s) {
+		hash ^= uint64(s[i])
+		hash *= prime
+	}
+
+	return hash
+}
+
+// blockContentFP pins the subtree an intrinsic measurement flows, folded with
+// the run ambients that can move a height at a fixed width (the replaced
+// image clamp and the percentage-height basis, mirroring the cbBits and
+// imgMaxBits grid_memo.go pins). The DOM is immutable for a Layout run, so a
+// hash over tag names, attributes, and text pins the measured content: any
+// content change that can move intrinsic size changes the hash. The
+// container's own style is pinned separately by styleFP at the call site;
+// descendant styles are fixed for the run by the cascade.
+func (e *engine) blockContentFP(node *html.Node) uint64 {
+	const offset = uint64(1469598103934665603)
+
+	// blockFPNoContainingBlock replaces an absent percentage-height basis so a
+	// missing basis still changes the hash.
+	const blockFPNoContainingBlock = uint64(0x9e3779b97f4a7c15)
+
+	hash := offset
+
+	if e != nil {
+		hash = blockFPMixUint(hash, math.Float64bits(e.imgMaxW))
+		if e.flowCBHeight != nil {
+			hash = blockFPMixUint(hash, math.Float64bits(*e.flowCBHeight))
+		} else {
+			hash = blockFPMixUint(hash, blockFPNoContainingBlock)
+		}
+	}
+
+	var walk func(*html.Node)
+	walk = func(current *html.Node) {
+		if current == nil {
+			return
+		}
+
+		hash = blockFPMixUint(hash, blockFPNodeType(current.Type))
+		hash = blockFPMixStr(hash, current.Name)
+		hash = blockFPMixStr(hash, current.Text)
+
+		for _, attr := range current.AttrList {
+			hash = blockFPMixStr(hash, attr.Name)
+			hash = blockFPMixStr(hash, attr.Value)
+		}
+
+		for _, child := range current.Children {
+			walk(child)
+		}
+	}
+	walk(node)
+
+	return hash
+}
+
+// blockFPNodeType folds a node type into the content hash. The enum is small
+// and non-negative; a stray negative value hashes as zero so the int-to-uint64
+// conversion cannot overflow.
+func blockFPNodeType(nodeType html.NodeType) uint64 {
+	if nodeType < 0 {
+		return 0
+	}
+
+	return uint64(nodeType) //nolint:gosec // non-negative after the guard
+}
+
+// storeBlockDelta records the counter deltas beside a memo Store under the
+// same key with the same FIFO bound, so the sidecar never outgrows the memo.
+// A re-stored key updates in place without moving the eviction order.
+func (e *engine) storeBlockDelta(key blockIntrinsicKey, sticky, groups int) {
+	if e.blockIntrinsicDeltas == nil {
+		e.blockIntrinsicDeltas = make(map[blockIntrinsicKey]blockCounterDelta)
+	}
+
+	if _, exists := e.blockIntrinsicDeltas[key]; exists {
+		e.blockIntrinsicDeltas[key] = blockCounterDelta{sticky: sticky, groups: groups}
+
+		return
+	}
+
+	if len(e.blockIntrinsicDeltaOrder) >= blockIntrinsicMemoCap {
+		oldest := e.blockIntrinsicDeltaOrder[0]
+		delete(e.blockIntrinsicDeltas, oldest)
+		e.blockIntrinsicDeltaOrder = e.blockIntrinsicDeltaOrder[1:]
+	}
+
+	e.blockIntrinsicDeltas[key] = blockCounterDelta{sticky: sticky, groups: groups}
+	e.blockIntrinsicDeltaOrder = append(e.blockIntrinsicDeltaOrder, key)
+}
+
+// measureBlockIntrinsicHeight builds node once without emitting ops and
+// returns its border-box height. Repeated measurements of the same subtree at
+// the same width hit the per-run memo and skip the rebuild, replaying the
+// sticky and blend-group counter deltas the skipped build would have consumed
+// so later IDs stay identical to an uncached run. A miss runs the existing
+// noEmit build unchanged and stores only when the run has no error, mirroring
+// measureGridItemPrefH.
+func (e *engine) measureBlockIntrinsicHeight(node *html.Node, width float64) float64 {
+	if e == nil || node == nil {
+		return 0
+	}
+
+	if e.blockMemoBypass || e.blockIntrinsicMemo == nil {
+		return e.measureBlockIntrinsicHeightUncached(node, width)
+	}
+
+	styleFP := styleInternFingerprint(e.stylePtr(node))
+	contentFP := e.blockContentFP(node)
+
+	key, valid := makeBlockIntrinsicKey(styleFP, contentFP, width)
+	if !valid {
+		return e.measureBlockIntrinsicHeightUncached(node, width)
+	}
+
+	// A sidecar miss falls through and rebuilds so the counters stay exact
+	// rather than trusting a half entry.
+	if height, hit := e.blockIntrinsicMemo.Lookup(styleFP, contentFP, width); hit {
+		if delta, ok := e.blockIntrinsicDeltas[key]; ok {
+			e.stickySeq += delta.sticky
+			e.nextGroupID += delta.groups
+
+			return height
+		}
+	}
+
+	was := e.noEmit
+	e.noEmit = true
+	stickyBefore, groupsBefore := e.stickySeq, e.nextGroupID
+	measured := e.build(node, width, 0, 0)
+	stickyDelta := e.stickySeq - stickyBefore
+	groupsDelta := e.nextGroupID - groupsBefore
+	e.noEmit = was
+
+	height := 0.0
+	if measured != nil {
+		height = measured.height
+	}
+
+	if e.err == nil {
+		e.blockIntrinsicMemo.Store(styleFP, contentFP, width, height)
+		e.storeBlockDelta(key, stickyDelta, groupsDelta)
+	}
+
+	return height
+}
+
+// measureBlockIntrinsicHeightUncached runs the noEmit build without touching
+// the memo. Bypassed runs and uncacheable widths go through here.
+func (e *engine) measureBlockIntrinsicHeightUncached(node *html.Node, width float64) float64 {
+	if e == nil || node == nil {
+		return 0
+	}
+
+	was := e.noEmit
+	e.noEmit = true
+	measured := e.build(node, width, 0, 0)
+	e.noEmit = was
+
+	if measured == nil {
+		return 0
+	}
+
+	return measured.height
 }
 
 // minOpCapacity floors the preallocated op display list.
@@ -1427,7 +1758,7 @@ func (e *engine) build(node *html.Node, availW, posX, posY float64) *box {
 	e.buildDepth++
 	defer func() { e.buildDepth-- }()
 
-	sty := e.styleVal(node)
+	sty := e.stylePtr(node)
 
 	if sty.Display == cssDisplayNone {
 		return nil
@@ -1440,7 +1771,7 @@ func (e *engine) build(node *html.Node, availW, posX, posY float64) *box {
 		e.beginMeasureFloats()
 	}
 
-	scope := e.pushZ(sty, e.stylePtr(node))
+	scope := e.pushZ(sty, sty)
 	// Ancestor transforms only (own transform does not change this box's CB).
 	underXformCB := e.transformCBDepth > 0
 	start := len(e.ops)
@@ -1475,17 +1806,17 @@ func (e *engine) build(node *html.Node, availW, posX, posY float64) *box {
 // transform containing-block depth is owned here so descendants built by the
 // in-flow branch see this box exactly as build did before the extraction.
 func (e *engine) buildDisplayBox(
-	node *html.Node, sty ResolvedStyle, availW, posX, posY float64, underXformCB bool,
+	node *html.Node, sty *ResolvedStyle, availW, posX, posY float64, underXformCB bool,
 ) *box {
 	var boxNode *box
 
 	switch node.Name {
 	case cssTagImg:
-		boxNode = e.buildImage(node, sty, posX, posY, true)
+		boxNode = e.buildImage(node, *sty, posX, posY, true)
 	case cssTagSVG:
-		boxNode = e.buildInlineSVG(node, sty, posX, posY, true)
+		boxNode = e.buildInlineSVG(node, *sty, posX, posY, true)
 	case "hr":
-		boxNode = e.buildHR(node, sty, availW, posX, posY)
+		boxNode = e.buildHR(node, *sty, availW, posX, posY)
 	}
 	// Out-of-flow positioning wraps the display type so fixed/absolute flex
 	// and grid containers still get the right formatting context.
@@ -1508,7 +1839,7 @@ func (e *engine) buildDisplayBox(
 
 // finishBuiltBox applies position post-processing to a built box: relative
 // offset, sticky tagging, and the viewport-fixed op stamp.
-func (e *engine) finishBuiltBox(boxNode *box, sty ResolvedStyle, underXformCB bool) {
+func (e *engine) finishBuiltBox(boxNode *box, sty *ResolvedStyle, underXformCB bool) {
 	if sty.Position == positionRelative {
 		e.applyRelativeOffset(boxNode)
 	}
@@ -1526,7 +1857,7 @@ func (e *engine) finishBuiltBox(boxNode *box, sty ResolvedStyle, underXformCB bo
 // buildOutOfFlowIfPositioned wraps fixed/absolute boxes in an out-of-flow
 // formatting context (fixed under a transformed ancestor is absolute).
 func (e *engine) buildOutOfFlowIfPositioned(
-	node *html.Node, sty ResolvedStyle, availW, posX, posY float64, underXformCB bool,
+	node *html.Node, sty *ResolvedStyle, availW, posX, posY float64, underXformCB bool,
 ) *box {
 	if sty.Position == positionFixed {
 		return e.buildOutOfFlow(node, sty, availW, posX, posY, !underXformCB)
@@ -1575,11 +1906,9 @@ func useBlockForTableDisplay(node *html.Node) bool {
 }
 
 // buildBlock lays out a block-level box.
-//
-//nolint:cyclop // block layout owns ordered CSS flow phases
-func (e *engine) buildBlock(node *html.Node, style ResolvedStyle, availW, posX, posY float64) *box {
+func (e *engine) buildBlock(node *html.Node, style *ResolvedStyle, availW, posX, posY float64) *box {
 	boxNode := e.allocBox(node, e.stylePtr(node), boxKindBlock, posX, posY)
-	boxStyle := &style
+	boxStyle := style
 	w, margL := resolveBlockWidth(e, node, boxStyle, availW)
 	boxNode.w = w
 
@@ -1592,13 +1921,13 @@ func (e *engine) buildBlock(node *html.Node, style ResolvedStyle, availW, posX, 
 	contentStart := len(e.ops)
 
 	curY := e.scalePt(boxStyle.PaddingTop) + e.scalePt(borderLayoutWidth(boxStyle, boxStyle.BorderTop))
-	enclose := e.pushBFCFloatsForce(style, contentX, contentW, e.isFlexItemNode(node))
+	enclose := e.pushBFCFloatsForcePtr(style, contentX, contentW, e.isFlexItemNode(node))
 	widget := node.Name == htmlMeter || node.Name == "progress"
 	chkWidget := isInputCheckbox(node)
 	children := blockFlowChildren(node, widget || chkWidget)
 
 	if chkWidget {
-		curY = applyCheckboxAutoSize(e, style, boxNode, curY)
+		curY = applyCheckboxAutoSize(e, *style, boxNode, curY)
 	}
 
 	previousCB, _ := e.setFlowCB(style)
@@ -1611,9 +1940,9 @@ func (e *engine) buildBlock(node *html.Node, style ResolvedStyle, availW, posX, 
 	// Root body: place the body and its first-child margin chain on the
 	// collapsed top margin before the children flow, so descendants,
 	// positioned boxes, and floats all share the final edge.
-	posY, marginOverrides := e.absorbRootBodyTopMargin(node, boxNode, style, posY)
+	posY, marginOverrides := e.absorbRootBodyTopMargin(node, boxNode, *style, posY)
 
-	curY = e.flowChildren(boxNode, children, style, contentW, contentX, posY, curY)
+	curY = e.flowChildrenPtr(boxNode, children, style, contentW, contentX, posY, curY)
 	e.popStyleOverrides(marginOverrides)
 	e.flowCBHeight = previousCB
 	curY = e.autoSizedControlContentBottom(node, boxStyle, widget, curY)
@@ -1626,8 +1955,47 @@ func (e *engine) buildBlock(node *html.Node, style ResolvedStyle, availW, posX, 
 
 	curY = e.applyRootBoxMargins(node, boxNode, curY)
 
+	curY = e.finishBlockWritingAndMarker(node, style, boxNode, contentX, curY)
+
+	// Bottom padding and border are inside the border box (space above the
+	// bottom border / letterhead rules - fixture-07/16). The shared resolver
+	// adds them once for every formatting context and then applies
+	// height/min-height/max-height.
+	heightStyle := e.blockHeightStyle(style, contentW)
+
+	boxNode.height = e.applyHeightConstraintsWithCB(heightStyle,
+		e.borderBoxBottom(*heightStyle, curY), e.containingBlockHeight())
+	e.paintWidgetControl(node, style, boxNode, widget, chkWidget, posY)
+
+	e.paintPositionedPseudo(node, style, boxNode, pseudoBefore)
+	e.paintPositionedPseudo(node, style, boxNode, pseudoAfter)
+
+	e.prependChrome(contentStart, boxNode, *style, boxNode.x, boxNode.y, boxNode.w, boxNode.height)
+
+	return boxNode
+}
+
+// blockHeightStyle returns style unchanged unless an aspect ratio rewrites the
+// used height. withAspectRatioHeight copies the whole style record, so only the
+// boxes that declare a ratio pay for it; the common path keeps the shared
+// style.
+func (e *engine) blockHeightStyle(style *ResolvedStyle, contentW float64) *ResolvedStyle {
+	if style.AspectRatio <= 0 {
+		return style
+	}
+
+	aspectStyle := withAspectRatioHeight(*style, contentW, e)
+
+	return &aspectStyle
+}
+
+// finishBlockWritingAndMarker applies the vertical-writing height and paints
+// the outside list marker after the children flow, returning the new cursor.
+func (e *engine) finishBlockWritingAndMarker(
+	node *html.Node, style *ResolvedStyle, boxNode *box, contentX, curY float64,
+) float64 {
 	if isVerticalWritingMode(style.WritingMode) && style.Height < 0 && style.HeightPercent < 0 {
-		curY = e.verticalWritingHeight(curY, style)
+		curY = e.verticalWritingHeight(curY, *style)
 	}
 
 	// list marker (outside the principal box content — in the marker area)
@@ -1635,28 +2003,14 @@ func (e *engine) buildBlock(node *html.Node, style ResolvedStyle, availW, posX, 
 		e.emitListMarker(node, style, contentX, boxNode.firstBaseline)
 	}
 
-	// Bottom padding and border are inside the border box (space above the
-	// bottom border / letterhead rules - fixture-07/16). The shared resolver
-	// adds them once for every formatting context and then applies
-	// height/min-height/max-height.
-	resolvedHeightStyle := withAspectRatioHeight(style, contentW, e)
-	boxNode.height = e.applyHeightConstraintsWithCB(&resolvedHeightStyle,
-		e.borderBoxBottom(resolvedHeightStyle, curY), e.containingBlockHeight())
-	e.paintWidgetControl(node, style, boxNode, widget, chkWidget, posY)
-
-	e.paintPositionedPseudo(node, style, boxNode, pseudoBefore)
-	e.paintPositionedPseudo(node, style, boxNode, pseudoAfter)
-
-	e.prependChrome(contentStart, boxNode, style, boxNode.x, boxNode.y, boxNode.w, boxNode.height)
-
-	return boxNode
+	return curY
 }
 
 // paintPositionedPseudo paints generated content whose used position takes it
 // out of the host's normal inline flow. This covers block and flex-item hosts
 // such as diagram cards; inline hosts continue through collectInlineSpan.
 func (e *engine) paintPositionedPseudo( //nolint:cyclop
-	node *html.Node, host ResolvedStyle, boxNode *box, pseudoElem string,
+	node *html.Node, host *ResolvedStyle, boxNode *box, pseudoElem string,
 ) {
 	// No content rule anywhere means the probe below answers empty.
 	if !e.hasPseudoContent() {
@@ -1668,7 +2022,7 @@ func (e *engine) paintPositionedPseudo( //nolint:cyclop
 		return
 	}
 
-	style := e.pseudoStyle(node, pseudoElem, host)
+	style := e.pseudoStyle(node, pseudoElem, *host)
 	if style.Position != positionAbsolute && style.Position != positionFixed {
 		return
 	}
@@ -1680,7 +2034,7 @@ func (e *engine) paintPositionedPseudo( //nolint:cyclop
 		return
 	}
 
-	contentX, contentW := e.contentBox(boxNode.x, boxNode.w, &host)
+	contentX, contentW := e.contentBox(boxNode.x, boxNode.w, host)
 	pseudoX := contentX + e.scalePt(style.MarginLeft)
 
 	if !style.LeftAuto {
@@ -1712,7 +2066,7 @@ func (e *engine) paintPositionedPseudo( //nolint:cyclop
 		baseline = pseudoY
 	}
 
-	scope := e.pushZ(*style, style)
+	scope := e.pushZ(style, style)
 	e.add(Op{ //nolint:exhaustruct // generated pseudo text has no DOM box
 		Kind: OpText, X: pseudoX, Y: baseline, W: e.measureTextFace(text, style),
 		H: style.LineHeight * e.scale, Text: text, Font: face, Size: size,
@@ -1963,7 +2317,7 @@ func resolveUsedHeight(sty *ResolvedStyle, cbH float64, engN *engine) (float64, 
 // buildOutOfFlow places absolute (viewportFixed=false) or fixed
 // (viewportFixed=true) boxes. Fixed under a transformed ancestor is absolute
 // (caller passes viewportFixed=false). Fixed ops are marked by build().
-func (e *engine) buildOutOfFlow(node *html.Node, sty ResolvedStyle, availW, x, y float64, viewportFixed bool) *box {
+func (e *engine) buildOutOfFlow(node *html.Node, sty *ResolvedStyle, availW, x, y float64, viewportFixed bool) *box {
 	cbX, cbY, cbW := x, y, availW
 	if viewportFixed {
 		cbX, cbY = 0, 0
@@ -1982,8 +2336,12 @@ func (e *engine) buildOutOfFlow(node *html.Node, sty ResolvedStyle, availW, x, y
 	// CSS 2.1 §10.6.4: an absolutely positioned box with auto height and
 	// both top and bottom set stretches to fill the containing block (see
 	// absStretchUsedHeight). The synthesized height feeds the build below.
+	// The stretch copies the 6KB style once (rare abspos path) instead of
+	// mutating the shared cascade record.
 	if stretch, stretched := e.absStretchUsedHeight(sty, cbH, viewportFixed); stretched {
-		sty.Height = stretch
+		stretchCopy := *sty
+		stretchCopy.Height = stretch
+		sty = &stretchCopy
 	}
 
 	buildW := e.absoluteBuildWidth(node, sty, cbW)
@@ -2020,7 +2378,7 @@ func (e *engine) buildOutOfFlow(node *html.Node, sty ResolvedStyle, availW, x, y
 // reports the height in style units, or false when the box does not stretch.
 // Split from buildOutOfFlow so the placement sequence stays within the
 // complexity budget.
-func (e *engine) absStretchUsedHeight(sty ResolvedStyle, cbH float64, viewportFixed bool) (float64, bool) {
+func (e *engine) absStretchUsedHeight(sty *ResolvedStyle, cbH float64, viewportFixed bool) (float64, bool) {
 	if viewportFixed || sty.Height >= 0 || sty.HeightPercent >= 0 || sty.TopAuto || sty.BottomAuto || cbH <= 0 {
 		return 0, false
 	}
@@ -2044,7 +2402,7 @@ func (e *engine) absStretchUsedHeight(sty ResolvedStyle, cbH float64, viewportFi
 // Specified width uses the containing block as the build ceiling. When left and
 // right are both set, width fills the remaining space. Otherwise width is
 // shrink-to-fit capped by the remaining CB space (CSS 2.1 §10.3.7).
-func (e *engine) absoluteBuildWidth(node *html.Node, sty ResolvedStyle, cbW float64) float64 {
+func (e *engine) absoluteBuildWidth(node *html.Node, sty *ResolvedStyle, cbW float64) float64 {
 	if sty.Width >= 0 || sty.WidthPercent >= 0 {
 		return cbW
 	}
@@ -2074,7 +2432,7 @@ func (e *engine) absoluteBuildWidth(node *html.Node, sty ResolvedStyle, cbW floa
 	// Shrink-to-fit resolves against the remaining space, then CSS 2.1 §10.4
 	// clamps it by min/max-width. Without the clamp a min-width badge
 	// shrink-wraps to its text and paints as an oval instead of a circle.
-	return clampBlockMinMax(e, &sty, cbW, e.floatIntrinsicAvail(node, sty, avail))
+	return clampBlockMinMax(e, sty, cbW, e.floatIntrinsicAvail(node, sty, avail))
 }
 
 // resolveAbsY places the out-of-flow box vertically: top wins, then bottom
@@ -2082,7 +2440,7 @@ func (e *engine) absoluteBuildWidth(node *html.Node, sty ResolvedStyle, cbW floa
 // block's bottom when its deferred height is known).
 //
 //nolint:wsl // ordered absolute-positioning cases mirror CSS precedence
-func (e *engine) resolveAbsY(sty ResolvedStyle, boxNode *box, cbY float64, viewportFixed bool, cbH float64) float64 {
+func (e *engine) resolveAbsY(sty *ResolvedStyle, boxNode *box, cbY float64, viewportFixed bool, cbH float64) float64 {
 	if !sty.TopAuto {
 		return cbY + e.scalePt(sty.Top)
 	}
@@ -2109,17 +2467,17 @@ func (e *engine) resolveAbsY(sty ResolvedStyle, boxNode *box, cbY float64, viewp
 // buildInFlowDisplay builds flex/grid/multicol/table/block ignoring position.
 // Single display dispatch shared with build() so abspos/fixed get the same
 // formatting context (including table display:table-as-block heuristic).
-func (e *engine) buildInFlowDisplay(nodeN *html.Node, sty ResolvedStyle, availW, posX, posY float64) *box {
+func (e *engine) buildInFlowDisplay(nodeN *html.Node, sty *ResolvedStyle, availW, posX, posY float64) *box {
 	if sty.Display == displayFlex || sty.Display == displayInlineFlex {
-		return e.buildFlex(nodeN, sty, availW, posX, posY)
+		return e.buildFlex(nodeN, *sty, availW, posX, posY)
 	}
 
 	if sty.Display == displayGrid || sty.Display == displayInlineGrid || sty.Display == displaySubgrid {
 		return e.buildGrid(nodeN, sty, availW, posX, posY)
 	}
 
-	if isMulticol(sty) {
-		return e.buildMulticol(nodeN, sty, availW, posX, posY)
+	if isMulticol(*sty) {
+		return e.buildMulticol(nodeN, *sty, availW, posX, posY)
 	}
 
 	if isTableDisplay(sty.Display) {
@@ -2132,7 +2490,7 @@ func (e *engine) buildInFlowDisplay(nodeN *html.Node, sty ResolvedStyle, availW,
 			return e.buildBlock(nodeN, sty, availW, posX, posY)
 		}
 
-		return e.buildTable(nodeN, sty, availW, posX, posY)
+		return e.buildTable(nodeN, *sty, availW, posX, posY)
 	}
 
 	return e.buildBlock(nodeN, sty, availW, posX, posY)

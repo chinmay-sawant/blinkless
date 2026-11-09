@@ -1,4 +1,4 @@
-//nolint:cyclop,funlen,lll,goconst // scope proofs
+//nolint:lll // scope proofs
 package layout
 
 import (

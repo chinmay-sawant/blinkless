@@ -60,6 +60,13 @@ eight records and the arrays grow from there to sixty four, so a page with a
 few distinct styles keeps a small array instead of a full one. The rest of the
 retained state is the box tree, about 420 bytes per element.
 
+The scale benchmark and the batch element relayout API are landed.
+`layout/invoice_scale_bench_test.go` records layout cost on a
+deterministic 1000-row invoice page, and `layout/relayout_elements.go`
+re-places several element subtrees in one call for hosts that edit more
+than one element at a time. Figures are TBD pending the benchmark run;
+the retained-bytes table above stays the committed reference until then.
+
 `html.Document.SetAttribute(id, name, value)` writes one attribute on the
 element with that id. It returns false when no element has that id, or when the
 attribute name is empty (`html/attribute.go:18`). `html.Document.SetText(id,
@@ -106,8 +113,10 @@ a display without the retained layout state gives
 
 ### When the engine refuses a patch
 
-The engine patches one block subtree in place. It refuses, and returns an
-error, when the element is not a block box, when the document root carries the
+The engine patches one block or table subtree in place. Table-internal
+elements (a cell, a row, or inline content in a cell) patch through the
+owning table and splice only when the grid does not move. It refuses, and returns an
+error, when the element is neither a block nor a table box, when the document root carries the
 canvas fill, when the subtree holds a float, a sticky box, an anchored element,
 or a named flow, when an anchored box sits outside the subtree, when an
 ancestor carries a transform or an opacity below 1, or when the document uses

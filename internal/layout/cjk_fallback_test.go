@@ -9,7 +9,7 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
-func TestCJKFontFamilyFallback(t *testing.T) { //nolint:cyclop
+func TestCJKFontFamilyFallback(t *testing.T) {
 	t.Parallel()
 
 	notoPath := filepath.Join("..", "..", "testdata", "fonts")

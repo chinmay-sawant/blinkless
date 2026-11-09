@@ -37,20 +37,25 @@ func prepareGridTemplateStyles(sty *ResolvedStyle) bool {
 	return masonryRows
 }
 
-func (e *engine) buildGrid(node *html.Node, sty ResolvedStyle, availW, posX, posY float64) *box {
-	inheritSubgridFromParent(e, node, &sty)
+func (e *engine) buildGrid(node *html.Node, sty *ResolvedStyle, availW, posX, posY float64) *box {
+	// Grid template preparation mutates the style (masonry strip, subgrid
+	// copy-inherit). Copy once here so the shared cascade record is never
+	// written through the pointer chain below.
+	local := *sty
+	sty = &local
+	inheritSubgridFromParent(e, node, sty)
 
-	masonryRows := prepareGridTemplateStyles(&sty)
+	masonryRows := prepareGridTemplateStyles(sty)
 
 	ml := e.scalePt(sty.MarginLeft)
 	boxNode := e.allocBox(node, e.stylePtr(node), boxKindBlock, posX+ml, posY)
-	boxNode.w = resolveUsedWidth(sty, availW, e)
-	contentX, contentW := e.contentBox(boxNode.x, boxNode.w, &sty)
+	boxNode.w = resolveUsedWidth(*sty, availW, e)
+	contentX, contentW := e.contentBox(boxNode.x, boxNode.w, sty)
 
 	contentStart := len(e.ops)
 	curY := e.scalePt(sty.PaddingTop) + e.scalePt(sty.BorderTop.Width)
 
-	rowGap, columnGap := e.styleGaps(&sty)
+	rowGap, columnGap := e.styleGaps(sty)
 
 	areas := parseGridTemplateAreas(sty.GridTemplateAreas)
 	colDefs := gridColumnDefs(sty.GridTemplateColumns, areas.cols)
@@ -74,13 +79,13 @@ func (e *engine) buildGrid(node *html.Node, sty ResolvedStyle, availW, posX, pos
 		cols = []float64{contentW}
 	}
 
-	contentH := resolveContentHeightForWidth(sty, e, contentW)
+	contentH := resolveContentHeightForWidth(*sty, e, contentW)
 
 	if masonryRows {
 		usedH := e.emitMasonryItems(boxNode, kids, cols, columnGap, rowGap, contentX, posY, curY)
-		usedH = resolveGridUsedHeight(e, sty, usedH, contentH)
+		usedH = resolveGridUsedHeight(e, *sty, usedH, contentH)
 		boxNode.height = usedH
-		e.prependChrome(contentStart, boxNode, sty, boxNode.x, posY, boxNode.w, boxNode.height)
+		e.prependChrome(contentStart, boxNode, *sty, boxNode.x, posY, boxNode.w, boxNode.height)
 
 		return boxNode
 	}
@@ -91,7 +96,7 @@ func (e *engine) buildGrid(node *html.Node, sty ResolvedStyle, availW, posX, pos
 }
 
 func (e *engine) layoutStandardGrid(
-	boxNode *box, sty ResolvedStyle, kids []*html.Node, areas gridTemplateAreasMap,
+	boxNode *box, sty *ResolvedStyle, kids []*html.Node, areas gridTemplateAreasMap,
 	cols []float64, columnGap, rowGap, contentX, contentW, curY, posY, contentH float64,
 	contentStart int,
 ) *box {
@@ -105,15 +110,15 @@ func (e *engine) layoutStandardGrid(
 		return boxNode
 	}
 
-	if canBuildSingleColumnGrid(e, sty, placed, cols) {
+	if canBuildSingleColumnGrid(e, *sty, placed, cols) {
 		return e.layoutSingleColumnGrid(
-			boxNode, sty, placed, cols, columnGap, contentX, contentW, curY, posY, contentH, contentStart,
+			boxNode, *sty, placed, cols, columnGap, contentX, contentW, curY, posY, contentH, contentStart,
 		)
 	}
 
-	if canBuildAutoRowGrid(e, sty, placed, cols) {
+	if canBuildAutoRowGrid(e, *sty, placed, cols) {
 		return e.layoutAutoRowGrid(
-			boxNode, sty, placed, cols, columnGap, rowGap, contentX, contentW,
+			boxNode, *sty, placed, cols, columnGap, rowGap, contentX, contentW,
 			curY, posY, contentH, contentStart,
 		)
 	}
@@ -124,7 +129,7 @@ func (e *engine) layoutStandardGrid(
 	definiteRows := contentH >= 0 && rowTemplate != "" &&
 		strings.ToLower(rowTemplate) != cssDisplayNone
 
-	rows, numRows, lockRows := resolveGridRows(e, sty, kids, numRows, contentH, rowGap, definiteRows)
+	rows, numRows, lockRows := resolveGridRows(e, *sty, kids, numRows, contentH, rowGap, definiteRows)
 
 	lockedRows := definiteRows || lockRows
 
@@ -147,13 +152,13 @@ func (e *engine) layoutStandardGrid(
 
 	rowYs := emitGridBoxes(e, sty, boxNode, pboxes, rows, rowGap, posY, curY, contentH)
 	if rowYs != nil {
-		e.paintGridGapRules(sty, placed, contentX, contentW, cols, columnGap, rowYs, rows, posY)
+		e.paintGridGapRules(*sty, placed, contentX, contentW, cols, columnGap, rowYs, rows, posY)
 	}
 
 	usedH := e.gridUsedHeightFromRows(sty, curY, rowYs, rows, numRows, contentH)
 
 	boxNode.height = usedH
-	e.prependChrome(contentStart, boxNode, sty, boxNode.x, posY, boxNode.w, boxNode.height)
+	e.prependChrome(contentStart, boxNode, *sty, boxNode.x, posY, boxNode.w, boxNode.height)
 
 	return boxNode
 }
@@ -163,14 +168,14 @@ func (e *engine) layoutStandardGrid(
 // Split from layoutStandardGrid so the grid dispatch stays within the
 // complexity budget.
 func (e *engine) gridUsedHeightFromRows(
-	sty ResolvedStyle, curY float64, rowYs []float64, rows []float64, numRows int, contentH float64,
+	sty *ResolvedStyle, curY float64, rowYs []float64, rows []float64, numRows int, contentH float64,
 ) float64 {
 	usedH := curY
 	if numRows > 0 && rowYs != nil {
 		usedH = rowYs[numRows-1] + rows[numRows-1]
 	}
 
-	return resolveGridUsedHeight(e, sty, usedH, contentH)
+	return resolveGridUsedHeight(e, *sty, usedH, contentH)
 }
 
 func inheritSubgridTracksAndGaps(sty, parentStyle *ResolvedStyle) {
@@ -589,7 +594,7 @@ func growSpanningGridRows(rows []float64, pboxes []gridPlacedBox, rowGap float64
 // across the tracks per align-content before items are placed.
 func emitGridBoxes(
 	eng *engine,
-	sty ResolvedStyle,
+	sty *ResolvedStyle,
 	boxNode *box,
 	pboxes []gridPlacedBox,
 	rows []float64,
@@ -661,7 +666,10 @@ func applyGridAlignContentOffsets(rowYs, rows []float64, rowGap, contentH float6
 		return
 	}
 
-	offsets := alignContentOffsets(align, free, count)
+	offsets := rentFloats(count)
+	defer returnFloats(offsets)
+	alignContentOffsetsInto(offsets, align, free)
+
 	for i := range rowYs {
 		rowYs[i] += offsets[i]
 	}
@@ -704,11 +712,11 @@ func emitGridItem(
 	targetY := posY + rowYs[pbox.row]
 
 	cstate := eng.stylePtr(pbox.n)
-	justify := gridItemJustify(*cstate, containerJustify)
-	align := gridItemAlign(*cstate, containerAlign)
+	justify := gridItemJustifyPtr(cstate, containerJustify)
+	align := gridItemAlignPtr(cstate, containerAlign)
 
-	buildH := gridStretchBuildHeight(align, cellH, *cstate)
-	buildW := gridItemBuildWidth(eng, pbox.n, *cstate, justify, pbox.cellW)
+	buildH := gridStretchBuildHeightPtr(align, cellH, cstate)
+	buildW := gridItemBuildWidthPtr(eng, pbox.n, cstate, justify, pbox.cellW)
 
 	oldMax := eng.imgMaxW
 
@@ -753,6 +761,14 @@ func emitGridItem(
 func gridItemBuildWidth(
 	eng *engine, node *html.Node, style ResolvedStyle, justify string, cellW float64,
 ) float64 {
+	return gridItemBuildWidthPtr(eng, node, &style, justify, cellW)
+}
+
+// gridItemBuildWidthPtr is the pointer-based item width used by internal grid
+// emission so fit-content checks pay no 6KB copy.
+func gridItemBuildWidthPtr(
+	eng *engine, node *html.Node, style *ResolvedStyle, justify string, cellW float64,
+) float64 {
 	if cellW <= 0 || !isPlaceAlignmentKeyword(justify) {
 		return cellW
 	}
@@ -761,7 +777,7 @@ func gridItemBuildWidth(
 		return cellW
 	}
 
-	fit := eng.blockFitContentMarginBox(node, style)
+	fit := eng.blockFitContentMarginBoxPtr(node, style)
 	if fit <= 0 || fit >= cellW {
 		return cellW
 	}
@@ -785,6 +801,12 @@ func gridItemCellHeight(pbox gridPlacedBox, rows []float64, rowGap float64) floa
 
 // gridItemJustify resolves the effective justify-self for one item.
 func gridItemJustify(cstate ResolvedStyle, container string) string {
+	return gridItemJustifyPtr(&cstate, container)
+}
+
+// gridItemJustifyPtr is the pointer-based justify resolver used by internal
+// grid emission.
+func gridItemJustifyPtr(cstate *ResolvedStyle, container string) string {
 	justify := cstate.JustifySelf
 	if justify == "" || justify == overflowAuto {
 		justify = container
@@ -795,6 +817,12 @@ func gridItemJustify(cstate ResolvedStyle, container string) string {
 
 // gridItemAlign resolves the effective align-self for one item.
 func gridItemAlign(cstate ResolvedStyle, container string) string {
+	return gridItemAlignPtr(&cstate, container)
+}
+
+// gridItemAlignPtr is the pointer-based align resolver used by internal grid
+// emission.
+func gridItemAlignPtr(cstate *ResolvedStyle, container string) string {
 	align := cstate.AlignSelf
 	if align == "" || align == overflowAuto {
 		align = container
@@ -806,6 +834,12 @@ func gridItemAlign(cstate ResolvedStyle, container string) string {
 // gridStretchBuildHeight returns the box height used to stretch a grid item
 // into its cell, or -1 when the item is not stretched.
 func gridStretchBuildHeight(align string, cellH float64, cstate ResolvedStyle) float64 {
+	return gridStretchBuildHeightPtr(align, cellH, &cstate)
+}
+
+// gridStretchBuildHeightPtr is the pointer-based stretch test used by internal
+// grid emission.
+func gridStretchBuildHeightPtr(align string, cellH float64, cstate *ResolvedStyle) float64 {
 	// Default stretch: border box fills the grid area (CSS Grid Section 10.2).
 	if (align == fxStretch || align == "") && cellH > 0 &&
 		cstate.Height < 0 && cstate.HeightPercent < 0 {

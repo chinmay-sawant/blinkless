@@ -3,7 +3,10 @@
 //nolint:all // insertion-mode tree builder; same custom Node model and
 package html
 
-import "strings"
+import (
+	"strings"
+	"sync"
+)
 
 // maxElementDepth caps element nesting. Elements that would nest deeper are
 // dropped by insertNode, so recursive walks stay bounded on adversarial input
@@ -78,36 +81,117 @@ const (
 
 // treeBuilder accumulates parsed tokens into a node tree.
 type treeBuilder struct {
-	root             *Node
-	stack            []*Node
-	mode             insertionMode
-	textReturn       insertionMode // mode to restore after a raw-text element
-	head             *Node         // head element pointer
-	form             *Node         // form element pointer
-	docMode          DocumentMode
-	docModeSet       bool
-	ignoreNextLF     bool // swallow the LF after <pre>, <listing>, <textarea>
-	fosterParenting  bool // route insertions around the open table
-	pendingTableText []string
-	activeFormatting []*Node         // nil entries are scope markers
-	templateModes    []insertionMode // stack of template insertion modes
-	framesetOK       bool            // whether a frameset start tag may replace body
-	fragment         bool            // fragment parsing: the synthetic root holds the context
-	fragmentContext  *Node           // context element for a fragment parse (nil for documents)
-	reparseRawText   bool            // next text token holds foreign raw-text content; re-tokenize in Data state
-	reparseDepth     int             // nested foreign raw-text reparses; capped by maxForeignReparse
-	textAccum        *Node           // text node whose bytes are still in textBytes
-	textBytes        []byte          // pending text for textAccum; flushed onto Node.Text
+	root               *Node
+	stack              []*Node
+	mode               insertionMode
+	textReturn         insertionMode // mode to restore after a raw-text element
+	head               *Node         // head element pointer
+	form               *Node         // form element pointer
+	docMode            DocumentMode
+	docModeSet         bool
+	ignoreNextLF       bool // swallow the LF after <pre>, <listing>, <textarea>
+	fosterParenting    bool // route insertions around the open table
+	pendingTableText   []string
+	activeFormatting   []*Node         // nil entries are scope markers
+	templateModes      []insertionMode // stack of template insertion modes
+	framesetOK         bool            // whether a frameset start tag may replace body
+	fragment           bool            // fragment parsing: the synthetic root holds the context
+	fragmentContext    *Node           // context element for a fragment parse (nil for documents)
+	reparseRawText     bool            // next text token holds foreign raw-text content; re-tokenize in Data state
+	reparseDepth       int             // nested foreign raw-text reparses; capped by maxForeignReparse
+	sawSelectedContent bool            // a selectedcontent start tag was seen; gates the post-pass
+	textAccum          *Node           // text node whose bytes are still in textBytes
+	textBytes          []byte          // pending text for textAccum; flushed onto Node.Text
 }
 
 func newTreeBuilder() *treeBuilder {
 	root := &Node{Type: ElementNode, Name: "#document"} //nolint:exhaustruct
+	stack := make([]*Node, 1, 32)
+	stack[0] = root
 
 	return &treeBuilder{
-		root:       root,
-		stack:      []*Node{root},
-		framesetOK: true,
+		root:             root,
+		stack:            stack,
+		framesetOK:       true,
+		activeFormatting: make([]*Node, 0, 16),
+		templateModes:    make([]insertionMode, 0, 4),
+		pendingTableText: make([]string, 0, 8),
+		textBytes:        make([]byte, 0, 256),
 	}
+}
+
+var treeBuilderPool = sync.Pool{
+	New: func() any {
+		return &treeBuilder{
+			stack:            make([]*Node, 0, 32),
+			activeFormatting: make([]*Node, 0, 16),
+			templateModes:    make([]insertionMode, 0, 4),
+			pendingTableText: make([]string, 0, 8),
+			textBytes:        make([]byte, 0, 256),
+		}
+	},
+}
+
+func getTreeBuilder(root *Node) *treeBuilder {
+	b := treeBuilderPool.Get().(*treeBuilder)
+	b.reset(root)
+
+	return b
+}
+
+func putTreeBuilder(b *treeBuilder) {
+	if b == nil {
+		return
+	}
+
+	b.root = nil
+	b.head = nil
+	b.form = nil
+	b.fragmentContext = nil
+	b.textAccum = nil
+	clear(b.stack)
+	b.stack = b.stack[:0]
+	clear(b.activeFormatting)
+	b.activeFormatting = b.activeFormatting[:0]
+	b.templateModes = b.templateModes[:0]
+	b.pendingTableText = b.pendingTableText[:0]
+	b.textBytes = b.textBytes[:0]
+
+	if cap(b.stack) > 1024 {
+		b.stack = make([]*Node, 0, 32)
+	}
+	if cap(b.activeFormatting) > 512 {
+		b.activeFormatting = make([]*Node, 0, 16)
+	}
+	if cap(b.textBytes) > 65536 {
+		b.textBytes = make([]byte, 0, 256)
+	}
+
+	treeBuilderPool.Put(b)
+}
+
+func (b *treeBuilder) reset(root *Node) {
+	b.root = root
+	b.stack = append(b.stack[:0], root)
+	b.mode = modeInitial
+	b.textReturn = modeInitial
+	b.head = nil
+	b.form = nil
+	b.docMode = 0
+	b.docModeSet = false
+	b.ignoreNextLF = false
+	b.fosterParenting = false
+	b.pendingTableText = b.pendingTableText[:0]
+	b.activeFormatting = b.activeFormatting[:0]
+	b.templateModes = b.templateModes[:0]
+	b.framesetOK = true
+	b.fragment = false
+	b.fragmentContext = nil
+	b.reparseRawText = false
+	b.reparseDepth = 0
+	b.sawSelectedContent = false
+	b.textAccum = nil
+	b.textBytes = b.textBytes[:0]
 }
 
 // insertMarker pushes a scope marker onto the active formatting list.
@@ -126,7 +210,7 @@ func (b *treeBuilder) clearActiveFormattingToMarker() {
 		}
 	}
 
-	b.activeFormatting = nil
+	b.activeFormatting = b.activeFormatting[:0]
 }
 
 func (b *treeBuilder) top() *Node {
@@ -136,6 +220,14 @@ func (b *treeBuilder) top() *Node {
 // appendToken applies one scanned token, reprocessing it through insertion
 // modes as the standard requires.
 func (b *treeBuilder) appendToken(tokItem token) {
+	// Selectedcontent mirroring runs as a post-pass, but only when the tree
+	// can contain a selectedcontent element: one start tag sets the flag.
+	// Elements arise only from start tags, so a document without one makes
+	// the pass a proven no-op and skips the whole-tree walk.
+	if tokItem.kind == tokStart && tokItem.data == "selectedcontent" {
+		b.sawSelectedContent = true
+	}
+
 	// A raw-text element inserted in foreign content is not raw text there:
 	// the tokenizer consumed its content by tag name, so re-tokenize the
 	// captured run in the Data state. The flag clears on the next token
@@ -1367,7 +1459,7 @@ func (b *treeBuilder) appendCommentTo(parent *Node, data string) {
 func (b *treeBuilder) appendTextToken(data string) {
 	if b.currentIsForeignText() {
 		data = replaceNUL(data)
-	} else {
+	} else if strings.IndexByte(data, 0) >= 0 {
 		data = strings.ReplaceAll(data, "\x00", "")
 	}
 
@@ -1450,16 +1542,29 @@ func (b *treeBuilder) flushTextAccum() {
 // applyAttributes stores the interleaved name/value pairs on node, keeping
 // the first value of a duplicated attribute. Names are already lowercased and
 // values already character-reference decoded by the tokenizer; foreign
-// elements additionally adjust names per the standard's tables.
+// elements additionally adjust names per the standard's tables. AttrList is
+// the ordered store filled in one pass; Attrs mirrors it for lookup. Both are
+// pre-sized from the token pair count so the fill performs no growth
+// reallocation, and attribute-free nodes keep both stores nil. Map contents
+// stay complete for every element: narrowing the map to hot keys would change
+// Attribute lookups, whose paths belong to the attribute owner.
 func applyAttributes(node *Node, attrs []string) {
-	if len(attrs) == 0 {
+	const attrPairSize = 2 // attrs slice interleaves name and value
+	numPairs := len(attrs) / attrPairSize
+	if numPairs == 0 {
 		return
 	}
 
-	if node.Attrs == nil {
-		const attrPairSize = 2 // attrs slice interleaves name and value
+	// Fast path for elements with exactly 1 attribute (very common: class or id).
+	if numPairs == 1 && len(attrs) == 2 && node.Attrs == nil && node.AttrList == nil {
+		key, attr := adjustAttributeName(node.Namespace, attrs[0], attrs[1])
+		pairBytes := len(key) + len(attr.Value)
+		if pairBytes <= maxAttributeBytesPerElement {
+			node.Attrs = map[string]string{key: attr.Value}
+			node.AttrList = []Attr{attr}
 
-		node.Attrs = make(map[string]string, len(attrs)/attrPairSize)
+			return
+		}
 	}
 
 	totalBytes := 0
@@ -1476,8 +1581,17 @@ func applyAttributes(node *Node, attrs []string) {
 			break
 		}
 
-		if _, dup := node.Attrs[key]; dup {
-			continue
+		if node.Attrs != nil {
+			if _, dup := node.Attrs[key]; dup {
+				continue
+			}
+		}
+
+		if node.Attrs == nil {
+			node.Attrs = make(map[string]string, numPairs)
+		}
+		if node.AttrList == nil {
+			node.AttrList = make([]Attr, 0, numPairs)
 		}
 
 		node.Attrs[key] = attr.Value

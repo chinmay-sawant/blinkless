@@ -1,4 +1,3 @@
-//nolint:wsl,cyclop // counter parse and layout proofs
 package layout
 
 import (
@@ -19,7 +18,7 @@ func joinedPaintText(res *Result) string {
 	return strings.Join(strings.Fields(boxNode.String()), " ")
 }
 
-func TestCounterResetIncrementLayout(t *testing.T) { //nolint:funlen // parse, map, and two layout proofs
+func TestCounterResetIncrementLayout(t *testing.T) {
 	t.Parallel()
 
 	t.Run("parseAndMap", func(t *testing.T) {

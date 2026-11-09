@@ -78,7 +78,6 @@ func TestResolveStylesContextStopsDuringCascade(t *testing.T) {
 	}
 }
 
-//nolint:wsl // benchmark timing boundaries intentionally surround the loop.
 func BenchmarkStyleResolutionContext(b *testing.B) {
 	root, sheet := styleStressFixture(b)
 	opts := Options{Sheets: sheetSlice(sheet), Width: testViewport, Height: 800}

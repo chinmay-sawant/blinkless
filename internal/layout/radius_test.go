@@ -1,4 +1,3 @@
-//nolint:wsl // radius slash / elliptical longhand proofs
 package layout
 
 import (

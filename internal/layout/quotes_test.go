@@ -1,11 +1,10 @@
-//nolint:wsl // generated-quote layout proofs
 package layout
 
 import (
 	"testing"
 )
 
-func TestQuotes(t *testing.T) { //nolint:funlen // default, pair, nested depth, and layout proofs
+func TestQuotes(t *testing.T) {
 	t.Parallel()
 
 	t.Run("defaultCurly", func(t *testing.T) {

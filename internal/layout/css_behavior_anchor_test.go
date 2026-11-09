@@ -1,4 +1,4 @@
-//nolint:wsl,cyclop,funlen,varnamelen,nlreturn,lll,gocognit,dupword,gocyclo,maintidx // behavior fixtures
+//nolint:lll,dupword,gocyclo,maintidx // behavior fixtures
 package layout
 
 import (

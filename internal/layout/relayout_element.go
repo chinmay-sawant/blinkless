@@ -58,16 +58,14 @@ type StyleOverride struct {
 // The patch target is the element's containing block, not the element itself:
 // a width or font-size change can move and resize the element's siblings, and
 // only a re-place of the containing block reflows them. The target must be a
-// block box that is not the document root and whose own border box keeps its
+// block or table box that is not the document root and whose own border box keeps its
 // geometry; when it does not, the pass returns ErrOverrideReflow so the host
-// can fall back to a full layout. A table box, a float, a sticky box, or an
+// can fall back to a full layout. A float, a sticky box, or an
 // anchored box inside the target is refused for the same reasons
 // RelayoutSubtree refuses them.
 //
 // prev must carry the retained layout state. An empty override list delegates
 // to RelayoutSubtree, so the call is the ordinary element patch.
-//
-//nolint:cyclop // the guard, style, build, splice, and result steps are one linear pass
 func RelayoutSubtreeWithOverrides(
 	ctx context.Context,
 	prev *Result,
@@ -79,26 +77,17 @@ func RelayoutSubtreeWithOverrides(
 		return nil, err
 	}
 
+	if res, ok := trySubtreeReuse(ctx, prev, node, overrides, opts); ok {
+		return res, nil
+	}
+
 	if len(overrides) == 0 {
 		return RelayoutSubtree(ctx, prev, node, opts)
 	}
 
-	element := findRelayoutTarget(prev.boxTreeRoot(), node)
-	if element == nil {
-		return nil, errElementNotPlaced
-	}
-
-	target, err := overridePatchTarget(element)
+	target, err := resolveOverrideTarget(prev, node)
 	if err != nil {
 		return nil, err
-	}
-
-	if err := checkRelayoutTarget(prev, target); err != nil {
-		return nil, err
-	}
-
-	if target.box.node == nil {
-		return nil, fmt.Errorf("%w: the containing block has no element", errSubtreeNotSplicable)
 	}
 
 	styles, restore, overridden, err := overrideSubtreeStyles(ctx, prev, target, node, overrides, opts)
@@ -122,15 +111,60 @@ func RelayoutSubtreeWithOverrides(
 	restoreOverrideStyles(styles, restore)
 	restoreOverrideBoxStyles(newBox, restore)
 
-	if err := spliceOverridePatch(prev, target, newBox, newOps); err != nil {
+	start, oldCount, err := relayoutWindow(prev, target)
+	if err != nil {
 		return nil, err
+	}
+
+	oldMax, oldFrag := censusOpsWindow(prev.Ops, start, oldCount)
+
+	if err := commitOverridePatch(prev, target, newBox, newOps, styles, start, oldMax, oldFrag); err != nil {
+		return nil, err
+	}
+
+	return elementSubtreeResult(prev, elementBox, styles), nil
+}
+
+// resolveOverrideTarget finds the element's containing block and proves it is
+// a block or table box that this pass may re-place.
+func resolveOverrideTarget(prev *Result, node *html.Node) (*relayoutTarget, error) {
+	element := findRelayoutTarget(prev.boxTreeRoot(), node)
+	if element == nil {
+		return nil, errElementNotPlaced
+	}
+
+	target, err := overridePatchTarget(element)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := checkRelayoutTarget(prev, target); err != nil {
+		return nil, err
+	}
+
+	if target.box.node == nil {
+		return nil, fmt.Errorf("%w: the containing block has no element", errSubtreeNotSplicable)
+	}
+
+	return target, nil
+}
+
+// commitOverridePatch splices the rebuilt target into prev and refreshes the
+// retained census, style store, and op-ID high-water state.
+func commitOverridePatch(
+	prev *Result, target *relayoutTarget, newBox *box, newOps []Op,
+	styles map[*html.Node]*ResolvedStyle, start int, oldMax float64, oldFrag bool,
+) error {
+	if err := spliceOverridePatch(prev, target, newBox, newOps); err != nil {
+		return err
 	}
 
 	relayoutKeepBoxes(prev)
 	relayoutKeepStyles(prev, styles)
-	prev.MaxContentX, prev.HasFragmentLinks = censusOps(prev.Ops, prev.Width)
+	refreshCensusSpliced(prev, oldMax, oldFrag, start, len(newOps))
+	storeOpIDHighWater(prev, newOps)
 
-	return elementSubtreeResult(prev, elementBox, styles), nil
+	return nil
 }
 
 // buildOverrideTarget builds the target's subtree with the element's

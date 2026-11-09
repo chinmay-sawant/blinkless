@@ -125,7 +125,7 @@ func findBox(t *testing.T, res *Result, name string) *box {
 	return found
 }
 
-func TestBoxRanges(t *testing.T) { //nolint:cyclop
+func TestBoxRanges(t *testing.T) {
 	t.Parallel()
 
 	s := sheet(t, `div { padding: 5pt; border: 2pt solid black }`)
@@ -453,7 +453,7 @@ func TestCascadeAndInline(t *testing.T) {
 	}
 }
 
-func TestLinkPseudoColor(t *testing.T) { //nolint:cyclop
+func TestLinkPseudoColor(t *testing.T) {
 	t.Parallel()
 	// Author a { black } loses to a:link { blue } on specificity (print = has href).
 	cssSheet := sheet(t, `
@@ -494,7 +494,7 @@ func TestLinkPseudoColor(t *testing.T) { //nolint:cyclop
 	}
 }
 
-func TestIPAGlyphRegistryFallback(t *testing.T) { //nolint:cyclop
+func TestIPAGlyphRegistryFallback(t *testing.T) {
 	t.Parallel()
 
 	dejavu := "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
@@ -599,7 +599,7 @@ func TestListBullet(t *testing.T) {
 	}
 }
 
-func TestBoldUnderline(t *testing.T) { //nolint:cyclop
+func TestBoldUnderline(t *testing.T) {
 	t.Parallel()
 
 	res := layoutHTML(t, `<html><body><p><b>bold</b> and <a href="http://x.example/">link</a></p></body></html>`)

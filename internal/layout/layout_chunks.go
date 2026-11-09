@@ -2,15 +2,49 @@ package layout
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
-// Release returns resources associated with Result back to pools.
+// Retain increments the reference counter of r.
+func (r *Result) Retain() {
+	if r == nil {
+		return
+	}
+
+	atomic.AddInt32(&r.refs, 1)
+}
+
+// DisownChunks clears the chunk slices on r without returning them to pools,
+// transferring ownership of those chunks to a clone.
+func (r *Result) DisownChunks() {
+	if r == nil {
+		return
+	}
+
+	r.styleChunks = nil
+	r.boxChunks = nil
+	r.storeChunks = nil
+}
+
+// Release returns resources associated with Result back to pools
+// when the reference count reaches zero.
 func (r *Result) Release() {
 	if r == nil {
 		return
 	}
+
+	if atomic.AddInt32(&r.refs, -1) > 0 {
+		return
+	}
+
+	// The flattened box list was rented at exact capacity in finalizeResult
+	// and assembleNodeResult. The public display copied box values out of it
+	// before Release, and Release only runs on the non-retained path, so no
+	// live display aliases this backing: hand it back.
+	returnBoxPtrs(r.boxes)
+	r.boxes = nil
 
 	for _, chunk := range r.styleChunks {
 		putStyleChunk(chunk)
@@ -23,9 +57,24 @@ func (r *Result) Release() {
 	}
 
 	r.boxChunks = nil
+
+	for i := range r.storeChunks {
+		putStyleStoreChunk(&r.storeChunks[i])
+	}
+
+	r.storeChunks = nil
 }
 
-const defaultBoxChunkSize = 64
+const (
+	defaultBoxChunkSize = 64
+	// defaultStyleChunkSize is smaller than defaultBoxChunkSize because one
+	// ResolvedStyle is about 5.8 KB: a 64-entry style chunk is about 375 KB,
+	// while allocStyle only needs a chunk for flex and grid override styles.
+	defaultStyleChunkSize = 16
+	// maxStyleChunksRetained bounds the style free list. At 16 entries a
+	// retained chunk is about 94 KB, so 8 chunks hold at most about 750 KB.
+	maxStyleChunksRetained = 8
+)
 
 //nolint:gochecknoglobals // global pool for contiguous box chunks
 var boxChunkPool = sync.Pool{
@@ -117,31 +166,66 @@ func (e *engine) allocBox(node *html.Node, sty *ResolvedStyle, kind boxKind, pos
 	return &(*chunk)[len(*chunk)-1]
 }
 
-//nolint:gochecknoglobals // global pool for contiguous resolved style chunks
-var styleChunkPool = sync.Pool{
-	New: func() any {
-		b := make([]ResolvedStyle, 0, defaultBoxChunkSize)
-
-		return &b
-	},
+// styleChunkFreeList is a bounded free list of resolved-style chunks. A
+// buffered channel keeps the bound exact: sync.Pool drops entries at garbage
+// collection, so a counter over its contents would drift above the live
+// count and stop pooling for the rest of the process. A return that finds
+// the list full is dropped, which keeps one layout run from pinning memory
+// for later small ones.
+type styleChunkFreeList struct {
+	free chan *[]ResolvedStyle
 }
 
-//nolint:forcetypeassert // pool stores *[]ResolvedStyle
-func getStyleChunk() *[]ResolvedStyle {
-	chunk := styleChunkPool.Get().(*[]ResolvedStyle)
-	*chunk = (*chunk)[:0]
-
-	return chunk
+func newStyleChunkFreeList(limit int) styleChunkFreeList {
+	return styleChunkFreeList{free: make(chan *[]ResolvedStyle, limit)}
 }
 
-func putStyleChunk(chunk *[]ResolvedStyle) {
-	if chunk == nil {
+// get returns a zero-length chunk, reusing a retained one when available.
+func (p *styleChunkFreeList) get() *[]ResolvedStyle {
+	select {
+	case chunk := <-p.free:
+		*chunk = (*chunk)[:0]
+
+		return chunk
+	default:
+	}
+
+	chunk := make([]ResolvedStyle, 0, defaultStyleChunkSize)
+
+	return &chunk
+}
+
+// put clears chunk and retains it when the list has room. Chunks larger than
+// defaultStyleChunkSize are dropped so one oversized backing cannot pin
+// memory.
+func (p *styleChunkFreeList) put(chunk *[]ResolvedStyle) {
+	if chunk == nil || cap(*chunk) > defaultStyleChunkSize {
 		return
 	}
 
-	clear(*chunk)
+	clear((*chunk)[:cap(*chunk)])
 	*chunk = (*chunk)[:0]
-	styleChunkPool.Put(chunk)
+
+	select {
+	case p.free <- chunk:
+	default:
+	}
+}
+
+// retained reports how many chunks the free list holds.
+func (p *styleChunkFreeList) retained() int {
+	return len(p.free)
+}
+
+//nolint:gochecknoglobals // global free list for contiguous resolved style chunks
+var styleChunkPool = newStyleChunkFreeList(maxStyleChunksRetained)
+
+func getStyleChunk() *[]ResolvedStyle {
+	return styleChunkPool.get()
+}
+
+func putStyleChunk(chunk *[]ResolvedStyle) {
+	styleChunkPool.put(chunk)
 }
 
 type styleMark struct {
@@ -182,20 +266,9 @@ func (e *engine) resetStyles(mark styleMark) {
 }
 
 func (e *engine) allocStyle(base *ResolvedStyle) *ResolvedStyle {
-	if len(e.styleChunks) == 0 || len(*e.styleChunks[len(e.styleChunks)-1]) == cap(*e.styleChunks[len(e.styleChunks)-1]) {
-		if len(e.spareChunks) > 0 {
-			last := len(e.spareChunks) - 1
-			spare := e.spareChunks[last]
-			*spare = (*spare)[:0]
-			e.spareChunks = e.spareChunks[:last]
-			e.styleChunks = append(e.styleChunks, spare)
-		} else {
-			e.styleChunks = append(e.styleChunks, getStyleChunk())
-		}
-	}
+	e.nextStyleChunk(&e.styleChunks)
 
-	last := len(e.styleChunks) - 1
-	chunk := e.styleChunks[last]
+	chunk := e.styleChunks[len(e.styleChunks)-1]
 
 	if base != nil {
 		*chunk = append(*chunk, *base)
@@ -204,4 +277,28 @@ func (e *engine) allocStyle(base *ResolvedStyle) *ResolvedStyle {
 	}
 
 	return &(*chunk)[len(*chunk)-1]
+}
+
+// nextStyleChunk makes sure chunks ends in a chunk with room for one more
+// record, reusing a spare chunk before renting a fresh one.
+func (e *engine) nextStyleChunk(chunks *[]*[]ResolvedStyle) {
+	if len(*chunks) > 0 {
+		lastChunk := (*chunks)[len(*chunks)-1]
+		if len(*lastChunk) < cap(*lastChunk) {
+			return
+		}
+	}
+
+	if len(e.spareChunks) > 0 {
+		last := len(e.spareChunks) - 1
+		spare := e.spareChunks[last]
+		*spare = (*spare)[:0]
+		e.spareChunks = e.spareChunks[:last]
+
+		*chunks = append(*chunks, spare)
+
+		return
+	}
+
+	*chunks = append(*chunks, getStyleChunk())
 }

@@ -40,7 +40,7 @@ func (e *engine) buildShapeInside(
 		return nil
 	}
 
-	contentH, ok := e.definiteContentHeight(sty)
+	contentH, ok := e.definiteContentHeight(&sty)
 	if !ok || contentH <= 0 || contentW <= 0 {
 		return nil
 	}
