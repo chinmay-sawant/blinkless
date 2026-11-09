@@ -68,12 +68,17 @@ func (r *Result) Release() {
 const (
 	defaultBoxChunkSize = 64
 	// defaultStyleChunkSize is smaller than defaultBoxChunkSize because one
-	// ResolvedStyle is about 5.8 KB: a 64-entry style chunk is about 375 KB,
-	// while allocStyle only needs a chunk for flex and grid override styles.
+	// ResolvedStyle is about 5.8 KB: a 64-entry style chunk is about 375 KB.
+	// allocStyle uses a chunk for flex and grid override styles, including the
+	// private aspect-ratio copy.
 	defaultStyleChunkSize = 16
-	// maxStyleChunksRetained bounds the style free list. At 16 entries a
-	// retained chunk is about 94 KB, so 8 chunks hold at most about 750 KB.
-	maxStyleChunksRetained = 8
+	// maxStyleChunksRetained bounds the style free list below the 4 MiB test
+	// bound in TestStyleChunkPoolMemoryBound. A 16-entry chunk is about 93 KiB,
+	// so 32 chunks retain about 2.9 MiB at full occupancy. A larger working set
+	// lets successive full layouts reuse backing instead of allocating it again
+	// after each result is released. dc1d518 lowered this to 8 to cut idle
+	// retention; 32 leaves about 1.1 MiB of headroom under the bound.
+	maxStyleChunksRetained = 32
 )
 
 //nolint:gochecknoglobals // global pool for contiguous box chunks
