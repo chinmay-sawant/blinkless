@@ -19,3 +19,7 @@ Release note: [v0.0.1 release note](v0.0.1/release-note/v0.0.1.md), with the [54
 Security release: [v0.0.2 release note](v0.0.2/release-note/v0.0.2.md), with the [commits after v0.0.1](v0.0.2/release-note/commits.md). Tag `v0.0.2`. At the tag, the `Makefile` binding stamps stayed `0.0.1`.
 
 Feature release draft: [v0.0.3 release note](v0.0.3/release-note/v0.0.3.md), with the [commits after v0.0.2](v0.0.3/release-note/commits.md). Tag `v0.0.3` follows the release PR merge.
+
+Stabilization release: [v0.1.0 release note](v0.1.0/release-note/v0.1.0.md), with the [26-commit ledger](v0.1.0/release-note/commits.md). Tag `v0.1.0` is the annotated tag object `5dd4571`, peeled to `2e2abfc`.
+
+Patch-path and render-cost release: [v0.1.1 release note](v0.1.1/release-note/v0.1.1.md), with the [39-commit ledger](v0.1.1/release-note/commits.md) and the [agent context pack](v0.1.1/README.md). Tag `v0.1.1` follows the release PR merge. The `0.1.0` CHANGELOG section was backfilled in the `0.1.1` release PR.

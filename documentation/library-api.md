@@ -62,10 +62,18 @@ retained state is the box tree, about 420 bytes per element.
 
 The scale benchmark and the batch element relayout API are landed.
 `layout/invoice_scale_bench_test.go` records layout cost on a
-deterministic 1000-row invoice page, and `layout/relayout_elements.go`
+deterministic 1000-row invoice page, and `layout.RelayoutElements`
 re-places several element subtrees in one call for hosts that edit more
 than one element at a time. Figures are TBD pending the benchmark run;
 the retained-bytes table above stays the committed reference until then.
+
+`layout.RelayoutElements(ctx, doc, prev, elementIDs, options)` returns the
+whole patched display. It threads the ids over one private clone of the
+retained placement and builds one display, so a batch pays one display
+build instead of one per id. An empty id list returns `prev`. A missing id
+returns `layout.ErrNoElement`; any refused or missing id aborts the whole
+batch and leaves `prev` untouched. Adopt the returned display only on a nil
+error. The ids run sequentially; each splice feeds the next.
 
 `html.Document.SetAttribute(id, name, value)` writes one attribute on the
 element with that id. It returns false when no element has that id, or when the
@@ -75,6 +83,12 @@ does: one text node, every child dropped (`html/attribute.go:44`). Both edit the
 parsed tree in place, so the next cascade and the next layout see the change.
 An attribute the element already carries keeps its stored spelling, a new one
 is stored lowercased, and an empty attribute name changes nothing.
+
+`html.Document.DirtyIDs()` returns the sorted ids marked by successful
+`SetAttribute` and `SetText` calls. `DirtyStructural()` reports whether a
+`SetText` call changed the child shape, and `ClearDirty()` resets the set
+after the style and layout runs adopt it. No layout path consumes these
+accessors yet; they are host-facing bookkeeping.
 
 `layout.RelayoutElement(ctx, doc, prev, elementID, options)` returns an
 `ElementPatch` (`layout/relayout_element.go:34`):
@@ -95,12 +109,13 @@ hand is not the contract: the operation indices and owners after the element
 can move even when the element keeps its size.
 
 `Old` and `New` are whole CSS pixels, because the engine rounds the box when it
-reports the bounds (`layout/relayout_element.go:208-212`). A successful patch keeps
-the element in place and keeps its size, so `Old` and `New` are equal. Anything
-that moves or resizes the element is refused, and the caller needs a full
-layout. `Ops`, `OpOwners`, and `Boxes` describe the element subtree on its own,
-so its root box has `ParentIndex` -1. They are for inspection and diagnostics;
-a host that adopts `patch.Display` does not rebase them.
+reports the bounds (`layout/relayout_element.go:208-212`). A patch that only
+changes paint keeps the element in place and keeps its size, so `Old` and
+`New` are equal. A size change widens the rebuild to the nearest size-stable
+ancestor, so a successful patch can move siblings. `Ops`, `OpOwners`, and
+`Boxes` describe the element subtree on its own, so its root box has
+`ParentIndex` -1. They are for inspection and diagnostics; a host that adopts
+`patch.Display` does not rebase them.
 
 The element is found by id in the styled document's tree, so the host edits the
 tree first. `options` carries the image resolver, so a host that resolves
@@ -115,14 +130,19 @@ a display without the retained layout state gives
 
 The engine patches one block or table subtree in place. Table-internal
 elements (a cell, a row, or inline content in a cell) patch through the
-owning table and splice only when the grid does not move. It refuses, and returns an
-error, when the element is neither a block nor a table box, when the document root carries the
-canvas fill, when the subtree holds a float, a sticky box, an anchored element,
-or a named flow, when an anchored box sits outside the subtree, when an
-ancestor carries a transform or an opacity below 1, or when the document uses
-`@container` rules. It also refuses when the placement would move or resize the
-element. Each refusal protects state the kept placement does not carry, so the
-host falls back to a full layout.
+owning table and splice only when the grid does not move. It refuses, and
+returns an error, when the element is neither a block nor a table box, when
+the document root carries the canvas fill, when the subtree holds a float, a
+sticky box, an anchored element, or a named flow, when an anchored box sits
+outside the subtree, when an ancestor carries a transform or an opacity
+below 1, when the document uses `@container` rules, or when growth reaches
+the root. A size change that has a size-stable ancestor widens to that
+ancestor instead of refusing. Each refusal protects state the kept placement
+does not carry, so the host falls back to a full layout.
+
+`Old` and `New` stay the named element's box even when a patch widens to an
+ancestor or retargets a table cell. Repaint the widened range, or keep a
+full-layout fallback.
 
 The refusal errors come from `internal/layout` and are wrapped by
 `RelayoutElement`. They are not exported sentinels. A host that wants to fall
@@ -138,15 +158,28 @@ be patched from two goroutines at once.
 ### What the host does with the patch
 
 1. Replace the display the host holds with `patch.Display`.
-2. Repaint the union of `patch.Old` and `patch.New`. On a successful patch the
-   two rectangles are equal; the union covers the element before and after the
-   change.
+2. Repaint the union of `patch.Old` and `patch.New`, or the widened range when
+   the patch escalated. On a paint-only patch the two rectangles are equal.
 3. If the call returned an error, lay the page out again and replace the
    display with that result.
+4. Call `prev.Release()` after adopting `patch.Display` when the patch display
+   keeps its own result. A display built without `Options.RetainState` already
+   dropped its placement, so `Release` is a no-op. Release only when no reader
+   will use that display; released slices are not zeroed.
 
 The engine hands back the element's part as well, so a host can inspect the
 subtree without walking the whole page. The page the host draws is
 `patch.Display`.
+
+## Hover scopes
+
+`css.Document.HoverChangedScopes(previous)` returns the outermost id-bearing
+subtrees whose hover-dependent selector matches changed between the
+`previous` hover id and the document's current hover id. An empty result
+with `true` means no match changed. `false` means no safe scope exists or
+the document is nil, so the caller must lay out the page. A changed element
+without an id uses its nearest id-bearing ancestor. The helper caches at
+most four selector lists, 1024 outcomes, and 512 KiB of key bytes.
 
 ## Errors
 
@@ -358,7 +391,9 @@ them to produce changing frames.
 ### Blend and isolation groups
 
 `groups` entries are `{ id, mode, isolate, parent, mask, maskBorder }`. `mode` is the CSS
-mix-blend-mode value, empty when no blend mode is set. `isolate` marks a group
+mix-blend-mode value, empty when no blend mode is set. The Go
+`layout.DisplayGroup` type also carries `BackdropFilter`, the CSS filter list
+for the element. The WASM JSON does not add that field in 0.1.1. `isolate` marks a group
 whose initial backdrop is transparent; `parent` is the enclosing group ID and
 is absent at the page root. Operations inside a group carry its `group` ID.
 `groupBegin` and `groupEnd` entries delimit the group in `ops`; they paint

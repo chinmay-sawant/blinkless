@@ -96,8 +96,14 @@ id in the styled document's tree. The patch needs the layout state the
 placement produced, so the host asks for it when it lays the page out, with
 `layout.Options.RetainState`; a display without that state cannot be patched
 and the call returns `layout.ErrNoRetainedState`. The host-facing walkthrough,
-including the checks a host makes before it copies the patch into its retained
-display, is in [../library-api.md](../library-api.md).
+including the checks a host makes before it adopts the patch display, is in
+[../library-api.md](../library-api.md).
+
+`layout.RelayoutElements` batches several ids over one retained placement and
+returns one display. It is all-or-nothing: a missing or refused id leaves
+`prev` untouched. `html.Document.DirtyIDs`, `DirtyStructural`, and
+`ClearDirty` record the edits made by `SetAttribute` and `SetText`. No layout
+path consumes them yet.
 
 The `Display` shape (`layout/displaylist.go:158-221`):
 
@@ -112,6 +118,10 @@ The `Display` shape (`layout/displaylist.go:158-221`):
 | `PointsPerPixel`, `PixelPerPoint float64` | Reciprocals converting op coordinates (points) to canvas pixels and back (72/96 and 96/72) |
 | `ForcedBreaks []float64` | Canvas-point Y positions where a page must start, sorted with near duplicates merged |
 | `KeepTogether [][2]float64` | Canvas-point `[start, end]` ranges a paginator should keep on one page |
+
+`Display.Release()` is nil-safe and idempotent. It drops the retained
+placement and returns pooled chunks. Release only when no reader will use the
+display; released slices are not zeroed.
 
 `Box` is `ID`, `Tag`, `Action`, `Text`, `ParentIndex`, `OperationIDs`, `X`,
 `Y`, `W`, `H`, with geometry in CSS pixels (`layout/layout.go:8-35`).
