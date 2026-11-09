@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"unicode"
 	"unicode/utf8"
+	"weak"
 
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
@@ -89,16 +90,14 @@ type sibParentData struct {
 //nolint:gochecknoglobals // bounded shared sibling memo and its atomic counters
 var (
 	sibMu      sync.RWMutex
-	sibParents map[*html.Node]*sibParentData
+	sibParents map[weak.Pointer[html.Node]]weak.Pointer[sibParentData]
 	sibHits    int64
 	sibMisses  int64
 )
 
-// Sibling memo capacity: each entry pins its parent's whole DOM tree, so an
-// unbounded map keeps every full parse's old tree reachable. Past the soft
-// cap an insert evicts roughly a quarter of the entries; the hard cap keeps
-// the previous clear-all as a backstop. The attribute lowered-value cache
-// below pins elements the same way, so it shares the soft-cap discipline.
+// Weak entries let garbage collection discard cached sibling data and dropped
+// trees. The capacity limits also bound dead keys and retained attribute text.
+// Rebuilding a missing entry reads the live tree again.
 const (
 	sibParentsSoftCap = 2048
 	sibParentsHardCap = 16384
@@ -178,8 +177,10 @@ func siblingEntryFor(parent *html.Node) *sibParentData {
 		return nil
 	}
 
+	key := weak.Make(parent)
+
 	sibMu.RLock()
-	entry := sibParents[parent]
+	entry := sibParents[key].Value()
 	sibMu.RUnlock()
 
 	curLen := len(parent.Children)
@@ -194,7 +195,7 @@ func siblingEntryFor(parent *html.Node) *sibParentData {
 
 	sibMu.Lock()
 
-	if existing, ok := sibParents[parent]; ok && existing.childLen == curLen {
+	if existing := sibParents[key].Value(); existing != nil && existing.childLen == curLen {
 		sibMu.Unlock()
 		atomic.AddInt64(&sibHits, 1)
 
@@ -202,12 +203,12 @@ func siblingEntryFor(parent *html.Node) *sibParentData {
 	}
 
 	if sibParents == nil {
-		sibParents = make(map[*html.Node]*sibParentData)
+		sibParents = make(map[weak.Pointer[html.Node]]weak.Pointer[sibParentData])
 	}
 
 	evictSibParentsLocked()
 
-	sibParents[parent] = newEntry
+	sibParents[key] = weak.Make(newEntry)
 	sibMu.Unlock()
 	atomic.AddInt64(&sibMisses, 1)
 
@@ -233,7 +234,7 @@ func evictSibParentsLocked() {
 	}
 
 	if len(sibParents) > sibParentsHardCap {
-		sibParents = make(map[*html.Node]*sibParentData)
+		sibParents = make(map[weak.Pointer[html.Node]]weak.Pointer[sibParentData])
 	}
 }
 
@@ -660,7 +661,7 @@ func hasClasses(part SelectorPart, node *html.Node) bool {
 // plus the attribute name. The original value is stored alongside so a
 // mutated attribute misses instead of returning stale text.
 type attrCacheKey struct {
-	node *html.Node
+	node weak.Pointer[html.Node]
 	name string
 }
 
@@ -681,7 +682,7 @@ var (
 // lower, so no allocation happens then; an upper-case value allocates once
 // per element and reuses the copy for later candidates.
 func getCachedLoweredAttr(node *html.Node, name, val string) string {
-	key := attrCacheKey{node: node, name: name}
+	key := attrCacheKey{node: weak.Make(node), name: name}
 
 	attrCacheMu.RLock()
 	if attrCache != nil {
@@ -703,9 +704,8 @@ func getCachedLoweredAttr(node *html.Node, name, val string) string {
 	}
 
 	if len(attrCache) >= attrParentsSoftCap {
-		// Soft cap: the key holds the element, so an unbounded map pins
-		// every parsed tree. Drop roughly a quarter via map range; a miss
-		// recomputes from the live attribute, so eviction is always safe.
+		// Drop old weak keys and attribute text at the soft cap. A miss
+		// recomputes from the live attribute.
 		victims := len(attrCache) / attrEvictDivisor
 
 		for key := range attrCache {

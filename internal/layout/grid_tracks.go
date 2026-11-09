@@ -2,7 +2,6 @@ package layout
 
 import (
 	"math"
-	"sync"
 	"sync/atomic"
 
 	"github.com/chinmay-sawant/blinkless/internal/html"
@@ -12,17 +11,13 @@ import (
 var (
 	gridTrackDefPool holderPool[gridTrackDef]
 	gridIntPool      holderPool[int]
-	trackKidMemoMu   sync.Mutex
-	trackKidMemo     = make(map[trackKidKey]trackKidVal)
 	trackIntrHits    atomic.Int64
 	trackIntrMisses  atomic.Int64
 	trackIntrBypass  atomic.Bool
 )
 
 const (
-	// maxTrackKidMemoEntries bounds the shared per-kid intrinsics memo. Style
-	// pointers are per-run, so entries from an old run never match a new one;
-	// the bound keeps one pathological document from pinning nodes forever.
+	// maxTrackKidMemoEntries bounds the per-layout intrinsic measurements.
 	maxTrackKidMemoEntries = 4096
 	// gridTrackDefPoolCap is the initial track-def scratch capacity.
 	gridTrackDefPoolCap = 8
@@ -259,7 +254,7 @@ func measureTrackIntrinsics(eng *engine, kids []*html.Node, nTracks int, axisCol
 }
 
 // trackKidContribution returns one child's min/max-content track
-// contribution, memoized per node, style, and axis for the process. Nested
+// contribution, memoized per node, style, and axis for this layout. Nested
 // grids rebuild on the outer measure pass and again on emit, and tables and
 // shrink-to-fit ancestors remeasure too; the contribution is a pure function
 // of the subtree and style for fixed fonts, so repeats hit instead of
@@ -268,9 +263,7 @@ func (e *engine) trackKidContribution(kid *html.Node, axisColumns bool) (float64
 	if !trackIntrBypass.Load() {
 		key := trackKidKey{node: kid, style: e.stylePtr(kid), axis: axisColumns}
 
-		trackKidMemoMu.Lock()
-		cached, ok := trackKidMemo[key]
-		trackKidMemoMu.Unlock()
+		cached, ok := e.trackKidMemo[key]
 
 		if ok {
 			trackIntrHits.Add(1)
@@ -284,11 +277,14 @@ func (e *engine) trackKidContribution(kid *html.Node, axisColumns bool) (float64
 	if !trackIntrBypass.Load() {
 		key := trackKidKey{node: kid, style: e.stylePtr(kid), axis: axisColumns}
 
-		trackKidMemoMu.Lock()
-		if len(trackKidMemo) < maxTrackKidMemoEntries {
-			trackKidMemo[key] = trackKidVal{min: minVal, max: maxVal}
+		if e.trackKidMemo == nil {
+			e.trackKidMemo = make(map[trackKidKey]trackKidVal)
 		}
-		trackKidMemoMu.Unlock()
+
+		if len(e.trackKidMemo) < maxTrackKidMemoEntries {
+			e.trackKidMemo[key] = trackKidVal{min: minVal, max: maxVal}
+		}
+
 		trackIntrMisses.Add(1)
 	}
 

@@ -719,10 +719,10 @@ type engine struct {
 	// imgCache resolves each <img src> at most once per Layout run (measure
 	// and build share the same decode).
 	imgCache map[string]*imageRef
-	// gridMeasureCache memoizes grid-item preferred heights for one Layout
+	// gridCaches memoizes grid-item measurements for one Layout
 	// run (see grid_memo.go). The engine is constructed fresh per Layout, so
 	// entries never survive past the run that measured them.
-	gridMeasureCache map[gridMeasureKey]gridMeasureResult
+	gridCaches
 	// gridMemoBypass disables the grid preferred-height memo. Tests only: an
 	// unexported copy of Options.gridMemoBypass that proves cached and
 	// uncached layouts produce identical output.
@@ -898,7 +898,7 @@ func (e *engine) releaseScratch() {
 	e.pseudoCtx = nil
 	e.gridScratch = nil
 	e.imgCache = nil
-	e.gridMeasureCache = nil
+	e.gridCaches = gridCaches{gridMeasureCache: nil, trackKidMemo: nil}
 
 	e.releaseFlexScratch()
 
@@ -2469,7 +2469,7 @@ func (e *engine) resolveAbsY(sty *ResolvedStyle, boxNode *box, cbY float64, view
 // formatting context (including table display:table-as-block heuristic).
 func (e *engine) buildInFlowDisplay(nodeN *html.Node, sty *ResolvedStyle, availW, posX, posY float64) *box {
 	if sty.Display == displayFlex || sty.Display == displayInlineFlex {
-		return e.buildFlex(nodeN, *sty, availW, posX, posY)
+		return e.buildFlex(nodeN, sty, availW, posX, posY)
 	}
 
 	if sty.Display == displayGrid || sty.Display == displayInlineGrid || sty.Display == displaySubgrid {

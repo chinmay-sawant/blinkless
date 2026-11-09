@@ -84,9 +84,7 @@ func TestStyleChunkFreeListClearsReusedChunk(t *testing.T) {
 	}
 }
 
-// TestStyleChunkPoolMemoryBound pins the worst-case retained bytes so a later
-// chunk-size or limit change cannot quietly restore the multi-megabyte
-// retention this pool used to cause.
+// TestStyleChunkPoolMemoryBound keeps the free list under its fixed memory cap.
 func TestStyleChunkPoolMemoryBound(t *testing.T) {
 	t.Parallel()
 

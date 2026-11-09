@@ -1,5 +1,19 @@
 package layout
 
+// flexAspectRatioStyle borrows the cascade record unless aspect-ratio supplies
+// an auto height. Only that case needs a private style for the flex build.
+func (e *engine) flexAspectRatioStyle(style *ResolvedStyle, width float64) *ResolvedStyle {
+	height, ok := aspectRatioAutoHeightPt(*style, width, e)
+	if !ok {
+		return style
+	}
+
+	adjusted := e.allocStyle(style)
+	adjusted.Height = height
+
+	return adjusted
+}
+
 // withAspectRatioHeight returns a copy of style whose Height is filled from
 // definiteWidthScaled / AspectRatio when height is auto. definiteWidthScaled
 // is the content-box width for content-box sizing and the border-box width

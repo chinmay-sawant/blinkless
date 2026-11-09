@@ -4,14 +4,62 @@ import (
 	"errors"
 	"math"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"weak"
 
 	"github.com/chinmay-sawant/blinkless/css"
 	"github.com/chinmay-sawant/blinkless/html"
+	ilayout "github.com/chinmay-sawant/blinkless/internal/layout"
 )
+
+//nolint:paralleltest // exercises the shared fingerprint cache across garbage collection
+func TestFingerprintCacheDoesNotRetainReleasedDocument(t *testing.T) {
+	docProbe, resultProbe := func() (weak.Pointer[css.Document], weak.Pointer[ilayout.Result]) {
+		tree := fastTree(t, `<div id="box" style="width:120px;height:40px">Hello</div>`)
+		styled := fastStyled(t, tree)
+		display := fastRetained(t, styled)
+		resultProbe := weak.Make(display.result)
+		patch, err := RelayoutElement(t.Context(), styled, display, "box", Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		docProbe := weak.Make(styled)
+		display.Release()
+		patch.Display.Release()
+		return docProbe, resultProbe
+	}()
+	for range 3 {
+		runtime.GC()
+	}
+	if docProbe.Value() != nil {
+		t.Fatal("fingerprint memo retained a document after its display was released")
+	}
+	if resultProbe.Value() != nil {
+		t.Fatal("fingerprint memo retained a layout result after its display was released")
+	}
+}
+
+//nolint:paralleltest // checks measurement and patch caches across garbage collection
+func TestReleasedLayoutResultIsCollectible(t *testing.T) {
+	probe := func() weak.Pointer[ilayout.Result] {
+		tree := fastTree(t, `<div id="box" style="display:flex;width:120px;height:40px">Hello</div>`)
+		styled := fastStyled(t, tree)
+		display := fastRetained(t, styled)
+		probe := weak.Make(display.result)
+		display.Release()
+		return probe
+	}()
+	for range 3 {
+		runtime.GC()
+	}
+	if probe.Value() != nil {
+		t.Fatal("a cache retained a released layout result")
+	}
+}
 
 // fastTree parses source into a document the tests can edit in place.
 func fastTree(t *testing.T, source string) *html.Document {

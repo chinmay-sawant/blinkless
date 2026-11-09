@@ -214,3 +214,37 @@ The HTML parser inserts an implicit `tbody` when it sees `tr`, `td`, or `th` dir
 - Geometry runs (2026-10-09): 11 flex, grid, logical-property, and text fixtures compared against Chrome `143.0.7499.40` at 1024x768 with a 1.0 px tolerance. The wave A baseline had 101 of 215 like-for-like units within tolerance, where a unit is one element box measured in both engines; the wave D recheck after the C1-C5 fixes had 151 of 215 (`documentation/fidelity.md:57`). These are per-case comparisons, not a parity claim.
 - Chrome cases: `test/chrome` holds 40 selected Flexbox targets. The manifest records 26 completed and 14 blocked (`test/chrome/README.md:26`). The blocked root causes are clustered in `temps/chrome-cases/blocked-dossier.md`; the CAT-07 row points there (`plans/v0.0.1/html-css-json-compatibility-checklist.md:116`). The dossier notes that the C6 fix closed the panel deltas in cases 17, 18, and 19, and that everything else was still open at its date (`temps/chrome-cases/blocked-dossier.md:15-20`).
 - Defect rows and evidence: `plans/v0.0.1/html-css-json-compatibility-checklist.md:141-146` for C1 through C6.
+
+## Cache lifetime during interactive layout
+
+Grid track intrinsic measurements belong to one layout pass. Their keys contain
+node and resolved-style pointers, so the old process-wide `trackKidMemo` kept
+obsolete document trees and style chunks alive. The memo now lives in
+`gridCaches` on the engine (`internal/layout/grid_memo.go:9-14`), is cleared by
+`releaseScratch` (`internal/layout/layout.go:901`), and nested measurements in
+the same pass can still reuse it.
+
+Flex container builds borrow the resolved style (`internal/layout/flex.go`,
+`internal/layout/aspect_ratio.go:5-15`). Only an aspect ratio that supplies an
+auto height allocates a private copy. The original cascade record stays
+immutable.
+
+The public element-patch fingerprint memo uses weak result and document keys
+(`layout/relayout_element.go:77-78`) and is capped at 1024 entries, cleared
+wholesale on overflow. The sibling-selector memo uses weak node keys and weak
+sibling-data values (`internal/css/match.go:93`), and the attribute memo uses
+weak node keys (`internal/css/match.go:664`). A collected key or value makes
+the entry a miss, which recomputes from the live document. The dead map entry
+and its strings stay until the existing soft-cap eviction or the fingerprint
+cap clears them. The sibling and attribute memos evict at a 2048 soft cap and
+clear at 16384. These caches do not own the document's lifetime.
+
+The shared style free list is process-wide as well. It retains at most 32
+chunks of 16 records (`internal/layout/layout_chunks.go:68-78`), about 2.9 MiB
+at the documented 5872-byte record size. That stays below the 4 MiB test bound
+in `TestStyleChunkPoolMemoryBound`; it is a reuse pool for successive full
+layouts, not a layout cache.
+
+Collection tests cover discarded grid trees, selector trees, CSS documents,
+and released layout results (`internal/layout/grid_lifetime_test.go`,
+`internal/css/match_lifetime_test.go`, `layout/relayout_element_fast_test.go`).

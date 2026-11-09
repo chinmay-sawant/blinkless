@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"weak"
 
 	"github.com/chinmay-sawant/blinkless/css"
 	icss "github.com/chinmay-sawant/blinkless/internal/css"
@@ -55,8 +56,8 @@ var (
 )
 
 // relayoutFingerprintCap bounds the no-op fingerprint cache: one entry per
-// patched element of a retained result. Clearing on overflow keeps one-off
-// pages from pinning every display they touched.
+// patched element of a retained result. Weak keys do not keep the result or
+// document alive; clearing on overflow also bounds dead keys and fingerprints.
 const relayoutFingerprintCap = 1024
 
 //nolint:gochecknoglobals // fast-path fingerprint cache and test counters, mutex guarded and bounded
@@ -73,8 +74,8 @@ var (
 // it patches (shared by an adopted patch display), the styled document holding
 // the edited tree, and the element id.
 type relayoutFingerprintKey struct {
-	result   *ilayout.Result
-	document *css.Document
+	result   weak.Pointer[ilayout.Result]
+	document weak.Pointer[css.Document]
 	element  string
 }
 
@@ -749,7 +750,7 @@ func pseudoUsesAttrs(pseudo icss.PseudoClass) bool {
 // relayoutFingerprintHit reports whether the fingerprint matches the last
 // successful patch of the same retained result, document, and element.
 func relayoutFingerprintHit(prev *Display, doc *css.Document, elementID, fingerprint string) bool {
-	key := relayoutFingerprintKey{result: prev.result, document: doc, element: elementID}
+	key := relayoutFingerprintKey{result: weak.Make(prev.result), document: weak.Make(doc), element: elementID}
 
 	relayoutFingerprintMu.Lock()
 	defer relayoutFingerprintMu.Unlock()
@@ -761,7 +762,7 @@ func relayoutFingerprintHit(prev *Display, doc *css.Document, elementID, fingerp
 
 // relayoutStoreFingerprint remembers the fingerprint of a successful patch.
 func relayoutStoreFingerprint(prev *Display, doc *css.Document, elementID, fingerprint string) {
-	key := relayoutFingerprintKey{result: prev.result, document: doc, element: elementID}
+	key := relayoutFingerprintKey{result: weak.Make(prev.result), document: weak.Make(doc), element: elementID}
 
 	relayoutFingerprintMu.Lock()
 	defer relayoutFingerprintMu.Unlock()
