@@ -9,49 +9,112 @@ and are not listed here.
 
 ## Unreleased
 
-### Landed and designed
+## 0.1.1 (2026-11-10)
 
-Phase-07-linked engine work streams. Each row names the file that proves
-it. Every figure is TBD pending the benchmark run.
+Work after tag `v0.1.0` (`2e2abfc`), tracked in
+[`plans/v0.1.1/`](plans/v0.1.1/README.md). Release note:
+[`plans/v0.1.1/release-note/v0.1.1.md`](plans/v0.1.1/release-note/v0.1.1.md).
+39 commits across six merged pull requests (#31 through #36). No new
+output format and no dependency change.
 
-- **Scale benchmark.** Landed harness. `layout/invoice_scale_bench_test.go`
-  builds a deterministic 1000-row invoice page and `BenchmarkInvoiceScale`
-  runs HTML parse plus CSS cascade plus layout. Figures TBD.
-- **Font sharing.** Landed. `internal/fonts/faces.go` caches the bundled
-  face set once (`LoadDefaultFaces`), `internal/fonts/advance_cache.go`
-  shares one scaled face per face and size (`SharedScaledFace`), and
-  `internal/fonts/font_file_cache.go` memoizes parsed font files across
-  conversions. Figures TBD.
-- **Batch relayout API.** Landed. `layout/relayout_elements.go`
-  (`RelayoutElements`) re-places several element subtrees in one call by
-  threading sequential element patches over a private copy of the retained
-  placement, with tests in `layout/relayout_elements_test.go`. Figures TBD.
-- **Display-list allocs.** Landed measurement plus a small fix.
-  `layout/displaylist_alloc_test.go` pins the table golden and the
-  order-path allocs, and `layout/displaylist.go` pre-counts the keyframes
-  capacity. Figures TBD.
-- **Selector cache.** Landed and wired.
-  `internal/layout/style_match_cache.go` caches element-local selector
-  outcomes per cascade pass and replays the reusable hits in source order.
-  Figures TBD.
-- **Tree edit path.** Landed. `html/attribute.go` edits in place
-  (`SetAttribute` keeps the stored spelling and the id index in step;
-  `SetText` reuses the single text node on the common shape), budgeted by
-  `html/attribute_patch_test.go`. Figures TBD.
-- **Subtree fast path.** Landed. `layout/relayout_element.go` skips engine
-  work for identical-value no-ops, cascade-ignored attributes, provably
-  inert overrides, and text-free font loads, pinned by
-  `layout/relayout_element_fast_test.go`. Figures TBD.
-- **Box pooling.** Mixed. Box and style chunk pooling is wired:
-  `internal/layout/layout_chunks.go` rents through `allocBox` and
-  `allocStyle` and returns the chunks in `Result.Release`. The per-box
-  slice and struct rental pool in `internal/layout/box_alloc.go` is
-  designed with unit tests in `internal/layout/box_alloc_test.go`, and its
-  header says the layout call-site change is not wired yet. Figures TBD.
-- **Block memo.** Designed only. The header of
-  `internal/layout/memo_block.go` says "designed, not wired", with unit
-  tests in `internal/layout/memo_block_test.go` and no wired call site.
-  Figures TBD.
+### Added
+
+- **Batch subtree relayout.** `layout.RelayoutElements` re-places several
+  element ids over one retained placement and builds one display. A
+  size-changing patch widens to the nearest size-stable ancestor, and
+  table cells, rows, and inline content retarget to the owning table. The
+  batch is all-or-nothing (`layout/relayout_elements.go`).
+- **Display release.** `layout.Display.Release` returns retained box,
+  style, and store chunks to their pools. It is nil-safe and idempotent
+  (`layout/displaylist.go:227`).
+- **Hover scopes and dirty accessors.**
+  `css.Document.HoverChangedScopes` returns the nearest id-bearing
+  subtrees whose hover selector match changed. `html.Document.DirtyIDs`,
+  `DirtyStructural`, and `ClearDirty` record edits from `SetAttribute` and
+  `SetText` (`css/hover_scopes.go`, `html/attribute.go`).
+- **Backdrop filter metadata.** `backdrop-filter` parses and rides the
+  element's display group as `DisplayGroup.BackdropFilter`. The catalog
+  moves the property from Unsupported to Partial, with 785 rows: 555
+  implemented, 4 partial, 218 unsupported, 8 intentionally ignored, dated
+  2026-11-02.
+
+### Performance
+
+- **Render cost.** Four waves pool box and style chunks, roll back
+  speculative measurement chunks, cache gradient textures, request a
+  one-pixel texture for pure 1D linear gradients, pool flex child slices
+  and PNG buffers, bypass chrome-less nodes, skip already-sorted paint
+  orders, build display boxes and parents in one placed walk, and derive
+  owners from the parent slice.
+- **Patch path.** No-op and inert patches skip the engine, text-free
+  patches skip font loads, paint-only batches reuse the previous boxes and
+  breaks, and simple flex rows and stacks avoid a measure build. Text
+  measurement, selector matching, grid placement, and HTML edits gain
+  bounded caches and an id index.
+- **Cache lifetime.** Grid memos are pass-scoped, flex builds borrow the
+  cascade style, selector and fingerprint caches use weak keys, and the
+  shared 16-cap style pool keeps up to 32 chunks (about 2.9 MiB, under the
+  existing 4 MiB test bound). Released documents and layout results are
+  shown collectible by focused tests.
+- PR #31 records a downstream OwnFrame example measurement of 3,745 ms to
+  537 ms cold latency and 2,134 MB to 160 MB heap. Those are example-app
+  figures outside this tree, not a committed Blinkless benchmark. The
+  invoice benchmark figures stay TBD.
+
+### Fixed
+
+- Subtree relayout preserves inherited positioning and stacking state and
+  keeps viewport-fixed boxes patchable (`24a7ab7`).
+- Hidden atomic inline boxes stay in the box tree, so row visibility
+  toggles patch instead of failing (`08a18a7`).
+- Each weak cache miss rebuilds from live state, so a collected entry
+  cannot serve stale data (`780905b`).
+- The backdrop-filter PR's lint and size failures were repaired in
+  `2c7a05d`.
+- `.golangci.yml` keeps correctness linters on tests while dropping
+  production cuddling, identifier-length, and complexity budgets from test
+  files. `scripts/file-size-allowlist.txt` records eight over-limit files.
+
+### Documentation and data
+
+- `documentation/architecture/07-layout.md` records cache lifetimes during
+  interactive layout.
+- `documentation/library-api.md` records the batch relayout API and the
+  scale benchmark.
+- `documentation/fidelity.md` and
+  `documentation/compatibility-matrix.md` match the 2026-11-02 catalog.
+- The catalog JSON is ASCII-escaped again after regeneration.
+
+### Designed but not wired
+
+- The retained-style resolve (`internal/layout/style_retain.go`,
+  `resolveStylesRetainedWithContext`), the block intrinsic memo
+  (`internal/layout/memo_block.go`), some per-box pools in
+  `internal/layout/box_alloc.go`, and the batch damage windows
+  (`SubtreeBatchResult.Windows`) are present and tested but have no
+  production caller. Do not treat them as shipped behavior.
+- The `html` id and dirty registries still key on `*Document`, so the
+  finalizer cannot run. The release does not claim dropped documents are
+  always collectible.
+
+### Known issue
+
+- `outline-style: solid` with no explicit width can paint no outline. The
+  chrome early exit tests raw `OutlineWidth`
+  (`internal/layout/layout_chrome.go:497`), but CSS gives a visible style
+  the `medium` width (`internal/layout/outline.go:38-45`). The fix and its
+  test are tracked in
+  [`plans/v0.1.1/context/follow-up-backlog.md`](plans/v0.1.1/context/follow-up-backlog.md).
+
+## 0.1.0 (2026-10-30)
+
+Stabilization release for OwnFrame. It hardens the drawing-list surface
+OwnFrame consumes (restamp pass, timelines, SVG paint records, override
+relayout, race-free pipelines) and cuts first-launch layout cost. The
+window holds 26 commits across six merged pull requests (#25 through #30),
+tracked in [`plans/v0.1.0/`](plans/v0.1.0/README.md). Tag `v0.1.0` is
+`2e2abfc`. This section was added in the 0.1.1 release PR; the 0.1.0 tag
+was cut before the CHANGELOG section landed.
 
 ## 0.0.3 (2026-10-23)
 

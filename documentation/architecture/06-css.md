@@ -529,6 +529,13 @@ imports layout, convert, load, or settings. All viewport/media/container
 - **Runtime-state pseudos**: `:hover`/`:focus`/`:active` are kept on the
   compound and match only through the caller-supplied `MatchState` ids
   (match.go:447); `:target` and unknown pseudos stay unmatched (match.go:420).
+- **Hover scopes**: `css.Document.HoverChangedScopes(previous)`
+  (`css/hover_scopes.go:83`) returns the outermost id-bearing subtrees whose
+  hover-dependent selector matches changed. An empty result with `true`
+  means no match changed; `false` means no safe scope exists and the caller
+  must lay out the page. A changed element without an id uses its nearest
+  id-bearing ancestor. The helper caches at most four selector lists, 1024
+  outcomes, and 512 KiB of key bytes.
 - **Link semantics**: `:link` and `:visited` both mean "an `<a>` with a
   non-empty `href`" (any scheme incl. `#fragments`), since there is no visit
   history (isLinkAnchor, match.go:555).
