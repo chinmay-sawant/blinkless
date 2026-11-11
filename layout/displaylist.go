@@ -401,7 +401,9 @@ func newDisplay(
 		parents = rentIntSlice(boxCount)[:0]
 	}
 
-	ilayout.WalkPlaced(res, func(item *ilayout.PlacedElement) {
+	options := ilayout.WalkPlacedOptions{IncludeText: true, LayoutScale: zoom}
+
+	ilayout.WalkPlacedWithOptions(res, options, func(item *ilayout.PlacedElement) {
 		boxes = append(boxes, boxFrom(item))
 		parents = append(parents, item.ParentIndex)
 	})
@@ -470,7 +472,7 @@ func newDisplayForPatch(
 
 	boxCount := res.BoxCount()
 
-	boxes, parents := collectPatchBoxes(res, deriveOwners, patchBoxes(deriveOwners, prev, boxCount))
+	boxes, parents := collectPatchBoxes(res, deriveOwners, patchBoxes(deriveOwners, prev, boxCount), prev.zoom)
 
 	display := &Display{
 		Ops:            res.Ops,
@@ -535,7 +537,7 @@ func patchBoxes(deriveOwners bool, prev *Display, boxCount int) []Box {
 
 // collectPatchBoxes fills the box slice from the placement and, when owners
 // are derived, rents and fills the parent index scratch beside it.
-func collectPatchBoxes(res *ilayout.Result, deriveOwners bool, boxes []Box) ([]Box, []int) {
+func collectPatchBoxes(res *ilayout.Result, deriveOwners bool, boxes []Box, zoom float64) ([]Box, []int) {
 	boxCount := res.BoxCount()
 
 	var parents []int
@@ -545,7 +547,9 @@ func collectPatchBoxes(res *ilayout.Result, deriveOwners bool, boxes []Box) ([]B
 	}
 
 	if boxCount > 0 {
-		ilayout.WalkPlaced(res, func(item *ilayout.PlacedElement) {
+		options := ilayout.WalkPlacedOptions{IncludeText: true, LayoutScale: zoom}
+
+		ilayout.WalkPlacedWithOptions(res, options, func(item *ilayout.PlacedElement) {
 			boxes = append(boxes, boxFrom(item))
 
 			if deriveOwners {

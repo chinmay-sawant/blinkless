@@ -15,6 +15,7 @@ Start with [getting-started.md](getting-started.md) and [overview.md](overview.m
 | [library-api.md](library-api.md) | `html`, `css`, `layout`, WASM drawing-list JSON |
 | [fidelity.md](fidelity.md) | What layout does and does not promise |
 | [compatibility-matrix.md](compatibility-matrix.md) | HTML tags and CSS properties the layout engine accepts |
+| [scrolling.md](scrolling.md) | Viewport sticky geometry and height media queries |
 | [fonts.md](fonts.md) | Bundled faces, `@font-face`, shaping |
 | [deferred.md](deferred.md) | CSS that is still out of scope |
 | [architecture.md](architecture.md) | Package map |

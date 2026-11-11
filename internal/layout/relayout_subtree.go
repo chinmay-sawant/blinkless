@@ -2731,7 +2731,7 @@ func relayoutSpliceError(err error) error {
 func fullOwnersFor(prev *Result) []int {
 	var placed []PlacedElement
 
-	WalkPlacedWithOptions(prev, WalkPlacedOptions{IncludeText: false}, func(elem *PlacedElement) {
+	WalkPlacedWithOptions(prev, WalkPlacedOptions{IncludeText: false, LayoutScale: 0}, func(elem *PlacedElement) {
 		placed = append(placed, *elem)
 	})
 

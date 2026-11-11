@@ -475,7 +475,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `place-content` | <'align-content'> <'justify-content'>? | `internal/layout/style_properties.go` | `TestPlaceShorthands`, `TestFlexPlaceContentDistributes` |
 | `place-items` | <'align-items'> <'justify-items'>? | `internal/layout/style_properties.go` | `TestPlaceShorthands`, `TestGridPlaceItemsCenterShrinksItems` |
 | `place-self` | <'align-self'> <'justify-self'>? | `internal/layout/style_properties.go` | `TestPlaceShorthands`, `TestGridPlaceSelfEndShrinksItem` |
-| `position` | static \| relative \| absolute \| fixed \| inherit | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestPositionLiteFixtureReservesOverlaySpace`, `TestBehaviorPositionRelativeKeepsFlow` |
+| `position` | static \| relative \| absolute \| fixed \| sticky \| inherit | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestPositionLiteFixtureReservesOverlaySpace`, `TestBehaviorPositionRelativeKeepsFlow` |
 | `position-anchor` | auto \| <anchor-name> | `internal/layout/anchor_position.go`, `internal/layout/style_cascade.go` | `TestAnchorInvalidLeavesPrevious`, `TestBehaviorPositionAreaPlacesAboveAnchor` |
 | `position-area` | none \| <position-area> | `internal/layout/anchor_position.go`, `internal/layout/style_cascade.go` | `TestBehaviorPositionAreaPlacesAboveAnchor` |
 | `position-try` | <'position-try-order'>? <'position-try-fallbacks'> | `internal/layout/anchor_position.go`, `internal/layout/style_cascade.go` | `TestBehaviorPositionTryShorthandExpands` |
@@ -903,7 +903,7 @@ Status legend: Implemented and Partial as in §2; Not implemented means the sele
 | `!important` | Implemented | `isImportant` `values.go:75`; separate cascade tier `style_cascade.go:1207-1211`; test `css_test.go::TestParseImportant` |
 | Specificity (ID > class > element), inline `style` wins, `!important` overrides | Implemented | `Specificity` `css.go:1009`; inline style priority `style_cascade.go:655`; test `css_test.go::TestSpecificity` |
 | `@media print` / `screen` filtering | Implemented | `MediaMatches` (`css/media.go`); the caller passes `Media` (`settings.MediaScreen` or `settings.MediaPrint`, `internal/settings/settings.go:232-264`); only `print` and `screen` are evaluated (all other media types and unsupported feature queries evaluate to false); tests `TestParseMedia`, `TestMediaMatches*` |
-| `@media` feature queries (`(min-width: …)`) | Partial | size features + orientation vs viewport; unknown features → false; `TestMediaMatchesSizeFeatures` |
+| `@media` feature queries (`(min-width: …)`) | Partial | width/inline-size and height/block-size, exact/min/max and single comparisons, plus orientation; unsupported forms remain false. See [scrolling.md](scrolling.md), `TestMediaMatchesHeightFeatureBoundaries`, `TestMediaMatchesSizeFeatures` |
 | `:has()` | Partial | Relative selectors inside `:has(...)`; descendant/child/sibling + simple compounds; no forgiving-selector list / complex chrome edge cases. `has.go`; fixture-41 |
 | `:not()` | Implemented | `appendFunctionalPseudo` (`selector_parser.go:353`); match `matchNone` (`match.go:515`). Argument list is strict (empty items fail). Specificity of the most specific argument (`has.go:343`). Tests `has_test.go` |
 | `:is()` | Implemented | Strict selector-list arguments; nested `:is` allowed; `::` in args rejected. Match any argument. Specificity of the most specific argument. Tests `TestParseIs`, `TestIsPseudo`, `TestIsSpecificity` |

@@ -50,10 +50,10 @@ func (e *engine) normalLineHeight(style *ResolvedStyle) float64 {
 		return last.height
 	}
 
-	if height, ok := lookupLineHeight(face, style.FontSize, e.scale); ok {
-		lastLineHeight.Store(&lastLineHeightEntry{key: key, height: height})
+	if entry, ok := lookupLineHeight(face, style.FontSize, e.scale); ok {
+		lastLineHeight.Store(entry)
 
-		return height
+		return entry.height
 	}
 
 	upem := float64(face.UnitsPerEm())
@@ -70,8 +70,9 @@ func (e *engine) normalLineHeight(style *ResolvedStyle) float64 {
 	}
 
 	height := pxToPt(linePx) / e.scale
-	storeLineHeight(face, style.FontSize, e.scale, height)
-	lastLineHeight.Store(&lastLineHeightEntry{key: key, height: height})
+	entry := &lastLineHeightEntry{key: key, height: height}
+	storeLineHeight(entry)
+	lastLineHeight.Store(entry)
 
 	return height
 }
@@ -175,17 +176,19 @@ type lineHeightKey struct {
 
 type lineHeightStore struct {
 	mu      sync.RWMutex
-	entries map[lineHeightKey]float64
+	entries map[lineHeightKey]*lastLineHeightEntry
 }
 
 //nolint:gochecknoglobals,exhaustruct // cross-layout line-height cache, guarded by RWMutex.
 var sharedLineHeights = &lineHeightStore{
-	entries: make(map[lineHeightKey]float64, maxLineHeightCacheEntries),
+	entries: make(map[lineHeightKey]*lastLineHeightEntry, maxLineHeightCacheEntries),
 }
 
 // lastLineHeight is the most recent result. A table repeats one text style
 // across thousands of cells, so the atomic read serves almost every call
 // without taking the shared cache's RWMutex.
+// Entries are immutable, so the shared map and atomic cache can retain the
+// same object when alternating styles miss the one-entry cache.
 type lastLineHeightEntry struct {
 	key    lineHeightKey
 	height float64
@@ -202,9 +205,9 @@ var sharedLineHeightMisses atomic.Uint64
 
 // lookupLineHeight returns the memoized line-height:normal for face, size,
 // and scale.
-func lookupLineHeight(face *pdf.Font, size, scale float64) (float64, bool) {
+func lookupLineHeight(face *pdf.Font, size, scale float64) (*lastLineHeightEntry, bool) {
 	if face == nil {
-		return 0, false
+		return nil, false
 	}
 
 	key := lineHeightKey{
@@ -214,7 +217,7 @@ func lookupLineHeight(face *pdf.Font, size, scale float64) (float64, bool) {
 	}
 
 	sharedLineHeights.mu.RLock()
-	height, found := sharedLineHeights.entries[key]
+	entry, found := sharedLineHeights.entries[key]
 	sharedLineHeights.mu.RUnlock()
 
 	if found {
@@ -223,31 +226,25 @@ func lookupLineHeight(face *pdf.Font, size, scale float64) (float64, bool) {
 		sharedLineHeightMisses.Add(1)
 	}
 
-	return height, found
+	return entry, found
 }
 
-// storeLineHeight records height unless the cache is full. A full cache
-// evicts one arbitrary entry to stay bounded.
-func storeLineHeight(face *pdf.Font, size, scale, height float64) {
-	if face == nil || math.IsNaN(height) || math.IsInf(height, 0) {
+// storeLineHeight records an immutable entry. A full cache evicts one
+// arbitrary entry to stay bounded; readers can keep an evicted entry alive.
+func storeLineHeight(entry *lastLineHeightEntry) {
+	if entry.key.face == nil || math.IsNaN(entry.height) || math.IsInf(entry.height, 0) {
 		return
-	}
-
-	key := lineHeightKey{
-		face:     face,
-		sizeBits: math.Float64bits(size),
-		scaleBit: math.Float64bits(scale),
 	}
 
 	sharedLineHeights.mu.Lock()
 	defer sharedLineHeights.mu.Unlock()
 
 	if sharedLineHeights.entries == nil {
-		sharedLineHeights.entries = make(map[lineHeightKey]float64, maxLineHeightCacheEntries)
+		sharedLineHeights.entries = make(map[lineHeightKey]*lastLineHeightEntry, maxLineHeightCacheEntries)
 	}
 
-	if _, ok := sharedLineHeights.entries[key]; ok {
-		sharedLineHeights.entries[key] = height
+	if _, ok := sharedLineHeights.entries[entry.key]; ok {
+		sharedLineHeights.entries[entry.key] = entry
 
 		return
 	}
@@ -260,14 +257,14 @@ func storeLineHeight(face *pdf.Font, size, scale, height float64) {
 		}
 	}
 
-	sharedLineHeights.entries[key] = height
+	sharedLineHeights.entries[entry.key] = entry
 }
 
 // clearLineHeightCache drops every cross-layout line-height entry. Tests use
 // it to isolate cases; layouts never call it.
 func clearLineHeightCache() {
 	sharedLineHeights.mu.Lock()
-	sharedLineHeights.entries = make(map[lineHeightKey]float64, maxLineHeightCacheEntries)
+	sharedLineHeights.entries = make(map[lineHeightKey]*lastLineHeightEntry, maxLineHeightCacheEntries)
 	sharedLineHeights.mu.Unlock()
 }
 

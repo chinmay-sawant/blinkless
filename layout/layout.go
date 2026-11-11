@@ -8,6 +8,10 @@ const ptToPx = 96.0 / 72.0
 // Box is one element border box in CSS pixels.
 // Action is the data-action attribute. Text is the descendant text.
 type Box struct {
+	// Sticky carries viewport-scroll constraints; nil means an ordinary box.
+	Sticky *StickyConstraint
+	// Fixed excludes this subtree from a sticky ancestor translation.
+	Fixed  bool
 	ID     string
 	Tag    string
 	Action string
@@ -206,6 +210,8 @@ type Override struct {
 
 func boxFrom(item *ilayout.PlacedElement) Box {
 	return Box{
+		Sticky:              stickyConstraintFrom(item.Sticky),
+		Fixed:               item.Fixed,
 		ID:                  item.ID,
 		Tag:                 item.Tag,
 		Action:              item.Action,

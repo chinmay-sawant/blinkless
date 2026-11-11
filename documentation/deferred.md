@@ -72,7 +72,7 @@ native file, arbitrary network, or Chrome-parity behavior. See
 | JavaScript | No JavaScript engine and no CLI. JS-related wkhtmltopdf keys are unknown or land in the settings ignored sink (`web.javascript`); `<script>` is never executed. | Permanent boundary |
 | Full CSS / Chrome print parity | Not a product goal for this layout engine based on HTML templates (without any wrappers). | Phase 23 deferred |
 | Full flex / grid / subgrid / masonry | **Partial** print CSS subset (fixtures 25/28/32-35). Joint subgrid intrinsic sizing and CSS Grid L3 masonry are out. | - |
-| Chrome sticky scroll parity | Print-scoped sticky: page content box is the scrollport; overflow boxes are scrollports at **offset 0**. No continuous scroll, no Chrome pixel match. | Non-goal |
+| Nested sticky scroll spaces | Viewport scrolling has an explicit `layout.StickyView` contract. Nested overflow scrolling, nested sticky elements, and transformed ancestors remain outside it. See [scrolling.md](scrolling.md). | Unsupported |
 | CJK / complex scripts | Bundled faces plus `@font-face`; Arabic OpenType (GSUB) with presentation-form fallback; Indic **Partial**. `writing-mode` vertical keywords inherit and rotate glyphs (`RotateDeg == -90`); block/line layout stays horizontal. | No CGO HarfBuzz |
 | AcroForm / `--enable-forms` | No form model; the PDF writer is gone. The `produce-forms` key is inert. | Not planned |
 | XSLT TOC (`--xsl-style-sheet`) | Not implemented; there is no TOC pass in this tree. | Not planned |

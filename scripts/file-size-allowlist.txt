@@ -7,7 +7,7 @@
 # Enforced by scripts/check-file-size.sh via `make size-check`, which `make lint`
 # calls, so CI fails when this list drifts from the tree.
 internal/html/tree.go	2049
-internal/layout/flex.go	2184
+internal/layout/flex.go	2131
 internal/layout/inline_paint.go	2123
 internal/layout/layout.go	2497
 internal/layout/relayout_subtree.go	2835

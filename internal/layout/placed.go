@@ -5,6 +5,8 @@ import "github.com/chinmay-sawant/blinkless/internal/html"
 // PlacedElement is one element border box in canvas points. Y grows downward
 // from the top of the layout canvas. Layout fills these boxes before pagination.
 type PlacedElement struct {
+	Sticky              *StickyConstraint
+	Fixed               bool
 	ID                  string
 	Tag                 string
 	Action              string
@@ -44,12 +46,14 @@ type WalkPlacedOptions struct {
 	// TextContent walks the whole subtree per element, so bulk walks that
 	// only need boxes leave it off.
 	IncludeText bool
+	// LayoutScale is the placement scale, defaulting to one.
+	LayoutScale float64
 }
 
 // WalkPlaced walks laid-out element boxes in document order, invoking fn for each element.
 // A nil result does nothing.
 func WalkPlaced(res *Result, fn func(elem *PlacedElement)) {
-	WalkPlacedWithOptions(res, WalkPlacedOptions{IncludeText: true}, fn)
+	WalkPlacedWithOptions(res, WalkPlacedOptions{IncludeText: true, LayoutScale: 0}, fn)
 }
 
 // WalkPlacedWithOptions walks like WalkPlaced, computing only what opts
@@ -73,7 +77,9 @@ func WalkPlacedWithOptions(res *Result, opts WalkPlacedOptions, fn func(elem *Pl
 
 	viewport := svgViewport{x: 0, y: 0, w: 0, h: 0, set: false}
 
-	walkPlacedFunc(res.root, res.Ops, -1, IdentityMatrix(), viewport, fn, &allIDs, 0, &item, opts)
+	scroll := placedScrollContext{parent: nil, blocked: false, scale: opts.LayoutScale}
+
+	walkPlacedFunc(res.root, res.Ops, -1, IdentityMatrix(), viewport, fn, &allIDs, 0, &item, opts, scroll)
 }
 
 func estimatePlacedOpIDs(res *Result) int {
@@ -138,7 +144,8 @@ func countSubtreeOpIDs(boxNode *box, nOps int) int {
 //nolint:varnamelen // fn is standard callback identifier
 func walkPlacedFunc(
 	boxNode *box, ops []Op, parentIndex int, parentAccum Matrix2D, viewport svgViewport,
-	fn func(elem *PlacedElement), allIDs *[]uint64, index int, item *PlacedElement, opts WalkPlacedOptions,
+	fn func(elem *PlacedElement), allIDs *[]uint64, index int, item *PlacedElement,
+	opts WalkPlacedOptions, scroll placedScrollContext,
 ) int {
 	if boxNode == nil {
 		return index
@@ -153,34 +160,7 @@ func walkPlacedFunc(
 	}
 
 	if boxNode.node != nil && boxNode.node.Type == html.ElementNode {
-		elementID := boxNode.node.Attribute("id")
-		*item = PlacedElement{
-			ID:                  elementID,
-			Tag:                 boxNode.node.Name,
-			Action:              boxNode.node.Attribute("data-action"),
-			ParentIndex:         parentIndex,
-			OperationIDs:        appendOperationIDs(ops, boxNode.opStart, boxNode.opEnd, allIDs),
-			Animations:          animationRecordsFromStyle(boxNode.style.Animation),
-			Transitions:         transitionRecordsFromStyle(boxNode.style.Transition),
-			TriggerScope:        boxNode.style.Animation.TriggerScope,
-			ViewTransitionName:  boxNode.style.Animation.ViewTransitionName,
-			ViewTransitionClass: boxNode.style.Animation.ViewTransitionClass,
-			ViewTransitionGroup: boxNode.style.Animation.ViewTransitionGroup,
-			ViewTransitionScope: boxNode.style.Animation.ViewTransitionScope,
-			Timelines:           timelineDefsFromStyle(boxNode.style, elementID),
-			OverflowClip:        elementOverflowClip(boxNode),
-			HasOverflowClip:     boxNode.overflowClip != nil,
-			Transform:           info,
-			X:                   boxNode.x,
-			Y:                   boxNode.y,
-			W:                   boxNode.w,
-			H:                   boxNode.height,
-			Text:                "",
-		}
-
-		if opts.IncludeText {
-			item.Text = boxNode.node.TextContent()
-		}
+		*item = placedElement(boxNode, info, parentIndex, ops, allIDs, opts, scroll)
 
 		childParent = index
 		index++
@@ -192,12 +172,53 @@ func walkPlacedFunc(
 	// transform resolves against the ancestor viewport above, matching the
 	// stamp walk.
 	childViewport := childViewportForBox(boxNode, viewport)
+	childScroll := childScrollContext(boxNode, scroll)
 
 	for _, child := range boxNode.children {
-		index = walkPlacedFunc(child, ops, childParent, childAccum, childViewport, fn, allIDs, index, item, opts)
+		index = walkPlacedFunc(
+			child, ops, childParent, childAccum, childViewport, fn, allIDs, index, item, opts, childScroll,
+		)
 	}
 
 	return index
+}
+
+func placedElement(
+	boxNode *box, info TransformInfo, parentIndex int, ops []Op,
+	allIDs *[]uint64, opts WalkPlacedOptions, scroll placedScrollContext,
+) PlacedElement {
+	elementID := boxNode.node.Attribute("id")
+	item := PlacedElement{
+		Sticky:              placedSticky(boxNode, scroll),
+		Fixed:               boxNode.style.Position == positionFixed,
+		ID:                  elementID,
+		Tag:                 boxNode.node.Name,
+		Action:              boxNode.node.Attribute("data-action"),
+		ParentIndex:         parentIndex,
+		OperationIDs:        appendOperationIDs(ops, boxNode.opStart, boxNode.opEnd, allIDs),
+		Animations:          animationRecordsFromStyle(boxNode.style.Animation),
+		Transitions:         transitionRecordsFromStyle(boxNode.style.Transition),
+		TriggerScope:        boxNode.style.Animation.TriggerScope,
+		ViewTransitionName:  boxNode.style.Animation.ViewTransitionName,
+		ViewTransitionClass: boxNode.style.Animation.ViewTransitionClass,
+		ViewTransitionGroup: boxNode.style.Animation.ViewTransitionGroup,
+		ViewTransitionScope: boxNode.style.Animation.ViewTransitionScope,
+		Timelines:           timelineDefsFromStyle(boxNode.style, elementID),
+		OverflowClip:        elementOverflowClip(boxNode),
+		HasOverflowClip:     boxNode.overflowClip != nil,
+		Transform:           info,
+		X:                   boxNode.x,
+		Y:                   boxNode.y,
+		W:                   boxNode.w,
+		H:                   boxNode.height,
+		Text:                "",
+	}
+
+	if opts.IncludeText {
+		item.Text = boxNode.node.TextContent()
+	}
+
+	return item
 }
 
 // placedTransformInfo resolves the transform metadata for one box while
