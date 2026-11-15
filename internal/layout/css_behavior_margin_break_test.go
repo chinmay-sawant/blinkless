@@ -113,3 +113,67 @@ func TestBehaviorMarginBreakDiscardNoFragmentEffect(t *testing.T) {
 		}
 	}
 }
+
+// marginBreakColumnDoc is a two-column box. #k2 starts column 2 through
+// break-before:column and carries a 16px margin-top at that break.
+func marginBreakColumnDoc(breakDecl string) string {
+	return `<html style="margin:0"><body style="margin:0">` +
+		`<div id="mc" style="width:300px;column-count:2;column-gap:20px;height:100px;column-fill:auto">` +
+		`<div id="k1" style="height:30px"></div>` +
+		`<div id="k2" style="height:30px;margin-top:16px;break-before:column;` + breakDecl + `"></div>` +
+		`<div id="k3" style="height:30px"></div></div></body></html>`
+}
+
+// TestBehaviorMarginBreakDiscardDropsColumnMargin: at the top of a column
+// that starts after a break, discard and auto drop the margin-top. #k2 sits
+// level with #k1 and #k3 follows it directly.
+func TestBehaviorMarginBreakDiscardDropsColumnMargin(t *testing.T) {
+	t.Parallel()
+
+	for _, decl := range []string{"margin-break:discard", "margin-break:auto", ""} {
+		res := layoutHTML(t, marginBreakColumnDoc(decl))
+		k1, k2, k3 := boxByID(t, res, "k1"), boxByID(t, res, "k2"), boxByID(t, res, "k3")
+
+		if !near(k2.x-k1.x, pxToPt(160)) {
+			t.Fatalf("%q: #k2 x offset = %.2fpt, want column 2 (160px)", decl, k2.x-k1.x)
+		}
+
+		if !near(k2.y, k1.y) {
+			t.Errorf("%q: #k2 y = %.2fpt, want the column top %.2fpt", decl, k2.y, k1.y)
+		}
+
+		if !near(k3.y-k2.y, k2.height) {
+			t.Errorf("%q: #k3 sits %.2fpt below #k2, want its height %.2fpt", decl, k3.y-k2.y, k2.height)
+		}
+	}
+}
+
+// TestBehaviorMarginBreakKeepKeepsColumnMargin: keep puts the 16px margin-top
+// back at the column top, so #k2 sits 16px below #k1 and pushes #k3 down.
+func TestBehaviorMarginBreakKeepKeepsColumnMargin(t *testing.T) {
+	t.Parallel()
+
+	res := layoutHTML(t, marginBreakColumnDoc("margin-break:keep"))
+	k1, k2, k3 := boxByID(t, res, "k1"), boxByID(t, res, "k2"), boxByID(t, res, "k3")
+
+	if !near(k2.y-k1.y, pxToPt(16)) {
+		t.Errorf("keep: #k2 sits %.2fpt (%.2fpx) below #k1, want 16px", k2.y-k1.y, (k2.y-k1.y)/ptPerCSSPx)
+	}
+
+	if !near(k3.y-k2.y, k2.height) {
+		t.Errorf("keep: #k3 sits %.2fpt below #k2, want its height %.2fpt", k3.y-k2.y, k2.height)
+	}
+
+	// The first column has no break above it, so keep changes nothing there.
+	firstDoc := func(decl string) float64 {
+		res := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
+			`<div style="width:300px;column-count:2;column-gap:20px;height:100px;column-fill:auto">`+
+			`<div id="a" style="height:30px;margin-top:16px;`+decl+`"></div></div></body></html>`)
+
+		return boxByID(t, res, "a").y
+	}
+
+	if kept, plain := firstDoc("margin-break:keep"), firstDoc(""); !near(kept, plain) {
+		t.Errorf("keep moved the first-column box from y=%.2fpt to y=%.2fpt", plain, kept)
+	}
+}

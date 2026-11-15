@@ -11,14 +11,14 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 592,
-      "partial": 0,
-      "unsupported": 185,
+      "implemented": 596,
+      "partial": 1,
+      "unsupported": 180,
       "intentionally ignored": 8
     },
     "aliases": 38,
-    "engine_registered": 608,
-    "upstream_only": 177,
+    "engine_registered": 612,
+    "upstream_only": 173,
     "upstream": {
       "inventory": "webref-ed-css",
       "revision": "1f2ec8f74a80c14066b4c7d6822cee59f69fa03b",
@@ -9164,32 +9164,58 @@
     {
       "name": "flood-color",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<color>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Acts only on a filter that holds exactly one feFlood, on a rect, circle, or ellipse: internal/svg replaces the element with a flat rect over the filter region. Other filter primitives are still ignored by the canvas."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/svg_presentation_paint.go",
+        "internal/svg/present.go",
+        "internal/layout/style_paint_props.go",
+        "internal/layout/layout_svg.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applySVGPaintProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_svg_present_paint_test.go",
+          "name": "TestBehaviorSvgPresentFloodColorAndOpacity"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<color>"
     },
     {
       "name": "flood-opacity",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<number [0,1]> | <percentage [0%,100%]>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Acts only on a filter that holds exactly one feFlood, on a rect, circle, or ellipse: internal/svg replaces the element with a flat rect over the filter region. Other filter primitives are still ignored by the canvas."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/svg_presentation_paint.go",
+        "internal/svg/present.go",
+        "internal/layout/style_paint_props.go",
+        "internal/layout/layout_svg.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applySVGPaintProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_svg_present_paint_test.go",
+          "name": "TestBehaviorSvgPresentFloodColorAndOpacity"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'opacity'>"
     },
@@ -10858,16 +10884,29 @@
     {
       "name": "image-rendering",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | optimizeQuality | optimizeSpeed"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The engine does not resample. The keyword is carried on the OpImage extra (Op.ImageRendering) for a host that replays the list."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/image_rendering.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/layout_images.go",
+        "internal/layout/layout_svg.go",
+        "internal/layout/inline_image.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyImageRenderingProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_image_rendering_test.go",
+          "name": "TestBehaviorSvgPresentImageRendering"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | optimizeQuality | optimizeSpeed"
     },
@@ -11946,9 +11985,11 @@
         "auto | keep | discard"
       ],
       "limitations": [
-        "Parsed and stored (MarginBreak, style_properties.go:1658) but no page-break consumer reads it. Implement path: honor keep/discard on adjoining margins at fragment breaks in the break logic beside BreakInside (independent_blocks.go:112). Only test is a stored-string assertion (TestMarginBreakProperty)."
+        "Column starts honor keep, discard, and auto: keep puts the margin-top back at the top of a column that follows a break. A page break is not handled because the engine has no page index, and a margin in the middle of a column is not applied by multicol."
       ],
       "source": [
+        "internal/layout/margin_break.go",
+        "internal/layout/multicol.go",
         "internal/layout/style_properties.go"
       ],
       "handlers": [
@@ -11971,9 +12012,17 @@
         {
           "file": "internal/layout/css_behavior_fragment_assess_test.go",
           "name": "TestFragmentAssessMarginBreakMulticolNoEffect"
+        },
+        {
+          "file": "internal/layout/css_behavior_margin_break_test.go",
+          "name": "TestBehaviorMarginBreakDiscardDropsColumnMargin"
+        },
+        {
+          "file": "internal/layout/css_behavior_margin_break_test.go",
+          "name": "TestBehaviorMarginBreakKeepKeepsColumnMargin"
         }
       ],
-      "status": "unsupported",
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "auto | keep | discard"
     },
@@ -19913,21 +19962,33 @@
     {
       "name": "vector-effect",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | non-scaling-stroke"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Chrome 143 ships only none and non-scaling-stroke, so only those two are accepted. non-scaling-size, non-rotation, and fixed-position are not stored. The scale used is the root svg width over its viewBox width; a transform on a group is not counted."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/svg_presentation_paint.go",
+        "internal/svg/present.go",
+        "internal/layout/style_paint_props.go",
+        "internal/layout/layout_svg.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applySVGPaintProps"
+      ],
       "tests": [
         {
           "file": "internal/layout/css_behavior_svg_geo_test.go",
           "name": "TestBehaviorSvgGeoVectorEffectGap"
+        },
+        {
+          "file": "internal/layout/css_behavior_svg_present_paint_test.go",
+          "name": "TestBehaviorSvgPresentVectorEffect"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "none | non-scaling-stroke | non-scaling-size | non-rotation | fixed-position"
     },

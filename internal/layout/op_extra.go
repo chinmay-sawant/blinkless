@@ -25,6 +25,9 @@ type opExtra struct {
 	TextTransform string
 	TextLanguage  string
 	TextAutospace string
+	// ImageRendering is the image-rendering keyword of an image op. Empty
+	// means auto.
+	ImageRendering string
 	// FontFeatures is the canonical OpenType feature list string built from
 	// font-feature-settings / font-kerning / font-variant-* for the shaper.
 	FontFeatures string

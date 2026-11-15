@@ -854,13 +854,14 @@ func (e *engine) placeMulticolLine(
 			return multicolStackHeight(colHeights), i
 		}
 
-		cblock := e.build(item.n, colW, colX(col), yPos+curY+colHeights[col])
+		kept := e.keptBreakMargin(st, col, colHeights[col])
+		cblock := e.build(item.n, colW, colX(col), yPos+curY+colHeights[col]+kept)
 		prevAfterAlways = st.PageBreakAfter == pageBreakAlways
 		if cblock == nil {
 			continue
 		}
 
-		colHeights[col] += cblock.height
+		colHeights[col] += cblock.height + kept
 		if i >= 0 && i < len(counts) {
 			colLines[col] += counts[i]
 		}

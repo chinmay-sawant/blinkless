@@ -1,7 +1,7 @@
 # v0.1.2 - SVG presentation leftovers
 
 > **Parent:** `plans/v0.1.2/README.md`
-> **Status:** in progress. Phase 1 is done (geometry, markers, stops). `paint-order` and `path-length` are done and emulated in `internal/svg/present.go`. Phases 2 to 5 are otherwise open.
+> **Status:** in progress. Phase 1 is done (geometry, markers, stops). `paint-order`, `path-length`, `vector-effect`, `flood-color`, and `flood-opacity` are done and emulated in `internal/svg/present.go`; `image-rendering` is done. `lighting-color`, `text-rendering`, and phase 4 stay open.
 > **Estimated effort:** Forty-five unsupported names: fourteen inline styles already move pixels and still need a stylesheet store, three are copied onto the SVG and then ignored when the PNG is drawn, five are not copied at all, twenty draft longhands must stay off `fill` and `stroke`, and three filter leftovers stay outside a filter graph.
 
 ---
@@ -414,11 +414,11 @@ What to expect, already asserted. `<line x1="10" y1="14" x2="54" y2="14" style="
 What to expect if a scale probe shows a difference. A viewport that scales the same line down keeps a thicker stroke with `non-scaling-stroke` than the same stroke without it. `non-scaling-size`, `non-rotation`, and `fixed-position` are serialized once acceptance allows them. They stay off the catalog until a test shows a visible difference. Do not invent a scale model in the page painter.
 
 - [x] `TestBehaviorSvgGeoVectorEffectGap` requires `vector-effect="non-scaling-stroke"` and makes no pixel assertion (`internal/layout/css_behavior_svg_geo_test.go:264-269`).
-- [ ] Acceptance: all five catalog tokens. Unknown tokens do not bake.
-- [ ] Storage: stylesheet value.
-- [ ] Consumer: bake the attribute. `non-scaling-stroke` needs a pixel test under a viewBox scale.
-- [ ] Behavior test: `TestBehaviorSvgPresentVectorEffect`. A scaled viewport with `non-scaling-stroke` keeps a thicker stroke in pixels than the same stroke without it. If the canvas cannot show that, the row stays open.
-- [ ] Catalog: `implemented` only after that pixel diff.
+- [x] Acceptance: all five catalog tokens. Unknown tokens do not bake. Proof: `TestBehaviorSvgPresentVectorEffect` passed in `internal/layout/css_behavior_svg_present_paint_test.go`: under a 0.25 viewBox scale, `non-scaling-stroke` paints about four times the pixels of `none`, and the stylesheet beats the attribute. Only `none` and `non-scaling-stroke` are accepted, because Chrome 143 ships only those two; the other three tokens are not stored. The emulation is `internal/svg/present.go`. Catalog status is `implemented`.
+- [x] Storage: stylesheet value. Proof: `TestBehaviorSvgPresentVectorEffect` passed in `internal/layout/css_behavior_svg_present_paint_test.go`: under a 0.25 viewBox scale, `non-scaling-stroke` paints about four times the pixels of `none`, and the stylesheet beats the attribute. Only `none` and `non-scaling-stroke` are accepted, because Chrome 143 ships only those two; the other three tokens are not stored. The emulation is `internal/svg/present.go`. Catalog status is `implemented`.
+- [x] Consumer: bake the attribute. `non-scaling-stroke` needs a pixel test under a viewBox scale. Proof: `TestBehaviorSvgPresentVectorEffect` passed in `internal/layout/css_behavior_svg_present_paint_test.go`: under a 0.25 viewBox scale, `non-scaling-stroke` paints about four times the pixels of `none`, and the stylesheet beats the attribute. Only `none` and `non-scaling-stroke` are accepted, because Chrome 143 ships only those two; the other three tokens are not stored. The emulation is `internal/svg/present.go`. Catalog status is `implemented`.
+- [x] Behavior test: `TestBehaviorSvgPresentVectorEffect`. A scaled viewport with `non-scaling-stroke` keeps a thicker stroke in pixels than the same stroke without it. If the canvas cannot show that, the row stays open. Proof: `TestBehaviorSvgPresentVectorEffect` passed in `internal/layout/css_behavior_svg_present_paint_test.go`: under a 0.25 viewBox scale, `non-scaling-stroke` paints about four times the pixels of `none`, and the stylesheet beats the attribute. Only `none` and `non-scaling-stroke` are accepted, because Chrome 143 ships only those two; the other three tokens are not stored. The emulation is `internal/svg/present.go`. Catalog status is `implemented`.
+- [x] Catalog: `implemented` only after that pixel diff. Proof: `TestBehaviorSvgPresentVectorEffect` passed in `internal/layout/css_behavior_svg_present_paint_test.go`: under a 0.25 viewBox scale, `non-scaling-stroke` paints about four times the pixels of `none`, and the stylesheet beats the attribute. Only `none` and `non-scaling-stroke` are accepted, because Chrome 143 ships only those two; the other three tokens are not stored. The emulation is `internal/svg/present.go`. Catalog status is `implemented`.
 
 ### text-rendering
 
@@ -466,11 +466,11 @@ Current behavior. No apply handler and no bake. A search of `internal/layout` fi
 
 What to expect. An `img` or an inline svg with `image-rendering: optimizeSpeed` stores that keyword. A drawing-list test reads it back from the image op. The page is still the drawing list. A bad token such as `pixelated` leaves the previous value. Do not add a resampler. When an image is already re-encoded because of orientation or a crop (`internal/layout/layout_images.go:389-413`), `optimizeSpeed` may pick the cheaper filter on that existing path. Otherwise the keyword rides on the image op for a caller.
 
-- [ ] Acceptance: `auto`, `optimizeQuality`, and `optimizeSpeed` only.
-- [ ] Storage: keyword on the resolved style of an `img` or `svg`, in new file `internal/layout/image_rendering.go`.
-- [ ] Consumer: no new resampler. Optional cheaper filter on the existing re-encode path. Otherwise the keyword is on the image op extra so a caller can read it.
-- [ ] Behavior test: `TestBehaviorSvgPresentImageRendering`. The three keywords store, a bad token does not, and a drawing-list test reads the keyword back from the image op.
-- [ ] Catalog: `implemented` only after that drawing-list read. Storage alone fails the seed rule (`testdata/css/catalog/properties.json:9`).
+- [x] Acceptance: `auto`, `optimizeQuality`, and `optimizeSpeed` only. Proof: `TestBehaviorSvgPresentImageRendering` passed in `internal/layout/css_behavior_image_rendering_test.go`: the three keywords reach `Op.ImageRendering()` on `<img>` and inline svg ops, the property inherits, and `pixelated`, `crisp-edges`, and `bogus` are refused. No resampler was added. Catalog status is `implemented`.
+- [x] Storage: keyword on the resolved style of an `img` or `svg`, in new file `internal/layout/image_rendering.go`. Proof: `TestBehaviorSvgPresentImageRendering` passed in `internal/layout/css_behavior_image_rendering_test.go`: the three keywords reach `Op.ImageRendering()` on `<img>` and inline svg ops, the property inherits, and `pixelated`, `crisp-edges`, and `bogus` are refused. No resampler was added. Catalog status is `implemented`.
+- [x] Consumer: no new resampler. Optional cheaper filter on the existing re-encode path. Otherwise the keyword is on the image op extra so a caller can read it. Proof: `TestBehaviorSvgPresentImageRendering` passed in `internal/layout/css_behavior_image_rendering_test.go`: the three keywords reach `Op.ImageRendering()` on `<img>` and inline svg ops, the property inherits, and `pixelated`, `crisp-edges`, and `bogus` are refused. No resampler was added. Catalog status is `implemented`.
+- [x] Behavior test: `TestBehaviorSvgPresentImageRendering`. The three keywords store, a bad token does not, and a drawing-list test reads the keyword back from the image op. Proof: `TestBehaviorSvgPresentImageRendering` passed in `internal/layout/css_behavior_image_rendering_test.go`: the three keywords reach `Op.ImageRendering()` on `<img>` and inline svg ops, the property inherits, and `pixelated`, `crisp-edges`, and `bogus` are refused. No resampler was added. Catalog status is `implemented`.
+- [x] Catalog: `implemented` only after that drawing-list read. Storage alone fails the seed rule (`testdata/css/catalog/properties.json:9`). Proof: `TestBehaviorSvgPresentImageRendering` passed in `internal/layout/css_behavior_image_rendering_test.go`: the three keywords reach `Op.ImageRendering()` on `<img>` and inline svg ops, the property inherits, and `pixelated`, `crisp-edges`, and `bogus` are refused. No resampler was added. Catalog status is `implemented`.
 
 ### glyph-orientation-vertical
 
@@ -860,11 +860,11 @@ Current behavior. No apply handler and no bake. This is an SVG filter primitive,
 
 What to expect. An `feFlood` with `flood-color: #ff0000` and another with `flood-color: #0000ff` differ in pixels, or the row stays open. A `flood-color` on a `rect` does not bake. If a probe shows the canvas ignores `flood-color`, add a one-element solid fill for `feFlood` only.
 
-- [ ] Acceptance: a color the existing color parser accepts.
-- [ ] Storage: stylesheet color on the resolved style.
-- [ ] Consumer: bake onto `feFlood` only. One-element solid fill in `internal/svg/present.go` if the canvas ignores the attribute. Do not implement the rest of the filter graph.
-- [ ] Behavior test: `TestBehaviorSvgPresentFloodColor`. Two `feFlood` colors differ in pixels, or the row stays open. A `flood-color` on a `rect` does not bake.
-- [ ] Catalog: `implemented` only after the pixel diff.
+- [x] Acceptance: a color the existing color parser accepts. Proof: `TestBehaviorSvgPresentFloodColorAndOpacity` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. The canvas has no filter support, so `internal/svg/present.go` replaces a rect, circle, or ellipse that uses a single-`feFlood` filter with one flat rect over the filter region. Other filter primitives are still ignored. Catalog status is `implemented`.
+- [x] Storage: stylesheet color on the resolved style. Proof: `TestBehaviorSvgPresentFloodColorAndOpacity` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. The canvas has no filter support, so `internal/svg/present.go` replaces a rect, circle, or ellipse that uses a single-`feFlood` filter with one flat rect over the filter region. Other filter primitives are still ignored. Catalog status is `implemented`.
+- [x] Consumer: bake onto `feFlood` only. One-element solid fill in `internal/svg/present.go` if the canvas ignores the attribute. Do not implement the rest of the filter graph. Proof: `TestBehaviorSvgPresentFloodColorAndOpacity` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. The canvas has no filter support, so `internal/svg/present.go` replaces a rect, circle, or ellipse that uses a single-`feFlood` filter with one flat rect over the filter region. Other filter primitives are still ignored. Catalog status is `implemented`.
+- [x] Behavior test: `TestBehaviorSvgPresentFloodColor`. Two `feFlood` colors differ in pixels, or the row stays open. A `flood-color` on a `rect` does not bake. Proof: `TestBehaviorSvgPresentFloodColorAndOpacity` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. The canvas has no filter support, so `internal/svg/present.go` replaces a rect, circle, or ellipse that uses a single-`feFlood` filter with one flat rect over the filter region. Other filter primitives are still ignored. Catalog status is `implemented`.
+- [x] Catalog: `implemented` only after the pixel diff. Proof: `TestBehaviorSvgPresentFloodColorAndOpacity` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. The canvas has no filter support, so `internal/svg/present.go` replaces a rect, circle, or ellipse that uses a single-`feFlood` filter with one flat rect over the filter region. Other filter primitives are still ignored. Catalog status is `implemented`.
 
 ### flood-opacity
 
@@ -874,11 +874,11 @@ Current behavior. No apply handler and no bake.
 
 What to expect. `flood-opacity: 0.2` on an `feFlood` differs in pixels from an opaque flood. The opacity parser is the one `fill-opacity` already uses (`internal/layout/style_paint_props.go:102-105`). The one-element flood fill multiplies by this alpha.
 
-- [ ] Acceptance: the same opacity syntax as `fill-opacity` (`internal/layout/style_paint_props.go:102-105`).
-- [ ] Storage: a 0 to 1 alpha on the `feFlood` style.
-- [ ] Consumer: the same one-element `feFlood` fill multiplies by this alpha. No filter graph.
-- [ ] Behavior test: `TestBehaviorSvgPresentFloodOpacity`. `flood-opacity: 0.2` differs in pixels from an opaque flood.
-- [ ] Catalog: `implemented` only after that pixel diff.
+- [x] Acceptance: the same opacity syntax as `fill-opacity` (`internal/layout/style_paint_props.go:102-105`). Proof: `TestBehaviorSvgPresentFloodColorAndOpacity` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. The canvas has no filter support, so `internal/svg/present.go` replaces a rect, circle, or ellipse that uses a single-`feFlood` filter with one flat rect over the filter region. Other filter primitives are still ignored. Catalog status is `implemented`.
+- [x] Storage: a 0 to 1 alpha on the `feFlood` style. Proof: `TestBehaviorSvgPresentFloodColorAndOpacity` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. The canvas has no filter support, so `internal/svg/present.go` replaces a rect, circle, or ellipse that uses a single-`feFlood` filter with one flat rect over the filter region. Other filter primitives are still ignored. Catalog status is `implemented`.
+- [x] Consumer: the same one-element `feFlood` fill multiplies by this alpha. No filter graph. Proof: `TestBehaviorSvgPresentFloodColorAndOpacity` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. The canvas has no filter support, so `internal/svg/present.go` replaces a rect, circle, or ellipse that uses a single-`feFlood` filter with one flat rect over the filter region. Other filter primitives are still ignored. Catalog status is `implemented`.
+- [x] Behavior test: `TestBehaviorSvgPresentFloodOpacity`. `flood-opacity: 0.2` differs in pixels from an opaque flood. Proof: `TestBehaviorSvgPresentFloodColorAndOpacity` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. The canvas has no filter support, so `internal/svg/present.go` replaces a rect, circle, or ellipse that uses a single-`feFlood` filter with one flat rect over the filter region. Other filter primitives are still ignored. Catalog status is `implemented`.
+- [x] Catalog: `implemented` only after that pixel diff. Proof: `TestBehaviorSvgPresentFloodColorAndOpacity` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. The canvas has no filter support, so `internal/svg/present.go` replaces a rect, circle, or ellipse that uses a single-`feFlood` filter with one flat rect over the filter region. Other filter primitives are still ignored. Catalog status is `implemented`.
 
 ### lighting-color
 

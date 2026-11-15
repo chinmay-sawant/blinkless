@@ -18,14 +18,17 @@ import (
 // valid value (or the attribute) stays.
 
 const (
-	svgPropMarker      = "marker"
-	svgPropMarkerStart = "marker-start"
-	svgPropMarkerMid   = "marker-mid"
-	svgPropMarkerEnd   = "marker-end"
-	svgPropStopColor   = "stop-color"
-	svgPropStopOpacity = "stop-opacity"
-	svgPropPaintOrder  = "paint-order"
-	svgPropPathLength  = "path-length"
+	svgPropMarker       = "marker"
+	svgPropMarkerStart  = "marker-start"
+	svgPropMarkerMid    = "marker-mid"
+	svgPropMarkerEnd    = "marker-end"
+	svgPropStopColor    = "stop-color"
+	svgPropStopOpacity  = "stop-opacity"
+	svgPropPaintOrder   = "paint-order"
+	svgPropPathLength   = "path-length"
+	svgPropVectorEffect = "vector-effect"
+	svgPropFloodColor   = "flood-color"
+	svgPropFloodOpacity = "flood-opacity"
 )
 
 const svgValueNone = "none"
@@ -43,6 +46,12 @@ func applySVGPaintProps(style *ResolvedStyle, prop, value string) bool {
 	}
 
 	switch prop {
+	case svgPropFloodColor:
+		return storeSVGColorHex(&style.SVGFloodColor, style.Color, trimmed)
+	case svgPropFloodOpacity:
+		return storeSVGString(&style.SVGFloodOpacity, trimmed, svgBakeOpacityValue)
+	case svgPropVectorEffect:
+		return storeSVGString(&style.SVGVectorEffect, trimmed, svgBakeVectorEffect)
 	case svgPropStopColor:
 		return storeSVGStopColor(style, trimmed)
 	case svgPropStopOpacity:
@@ -187,6 +196,12 @@ func (e *engine) prepareSVGStylesheetPaint(node *html.Node, decls *svgStyleDecls
 	}
 
 	skip.note(decls, svgPropPaintOrder, style.SVGPaintOrder)
+	skip.note(decls, svgPropVectorEffect, style.SVGVectorEffect)
+
+	if node.Name == "feFlood" {
+		skip.note(decls, svgPropFloodColor, style.SVGFloodColor)
+		skip.note(decls, svgPropFloodOpacity, style.SVGFloodOpacity)
+	}
 
 	if node.Name == "stop" {
 		skip.note(decls, svgPropStopColor, style.SVGStopColor)
@@ -267,6 +282,29 @@ func splitSVGMarkerShape(buf *bytes.Buffer, tagStart int) bool {
 		buf.WriteString(marker)
 		buf.WriteString("/>")
 	}
+
+	return true
+}
+
+// storeSVGColorHex stores a color as hex text. Hex, rgb(), and rgba() pass
+// through; a named color is converted so the canvas parser never sees a name.
+func storeSVGColorHex(dest *string, current [3]float64, value string) bool {
+	if cssWideKeyword(value) {
+		return true
+	}
+
+	if svgBakeStopColorValid(value) {
+		*dest = value
+
+		return true
+	}
+
+	color, ok := parseUsedColor(value, current)
+	if !ok {
+		return false
+	}
+
+	*dest = cssColorHex(color)
 
 	return true
 }

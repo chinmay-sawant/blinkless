@@ -353,3 +353,144 @@ func TestBehaviorSvgPresentPathLength(t *testing.T) {
 		t.Error("attribute pathLength won over the stylesheet")
 	}
 }
+
+// vector-effect: non-scaling-stroke keeps the stroke width in device units.
+// The svg below maps a 256 by 160 viewBox onto 64 by 40 device units, a scale
+// of 0.25, so a stroke-width of 6 paints 1.5 units wide by default and 6 units
+// wide with non-scaling-stroke. Chrome 143 ships only none and
+// non-scaling-stroke.
+func TestBehaviorSvgPresentVectorEffect(t *testing.T) {
+	t.Parallel()
+
+	render := func(sheetText, attr string) (int, string) {
+		root := mustParse(t, `<html><body style="margin:0"><svg width="64" height="40" viewBox="0 0 256 160" `+
+			`xmlns="http://www.w3.org/2000/svg"><line id="l" x1="40" y1="80" x2="216" y2="80" fill="none" `+
+			`stroke="#000000" stroke-width="6"`+attr+`/></svg></body></html>`)
+		styles := resolveStyles(root, []*css.Stylesheet{sheet(t, sheetText)}, "print", testViewport, 800)
+		eng := &engine{styles: styles, scale: 1}
+
+		var svgNode *html.Node
+
+		root.Walk(func(node *html.Node) {
+			if svgNode == nil && node.Type == html.ElementNode && node.Name == "svg" {
+				svgNode = node
+			}
+		})
+
+		xml := eng.serializeInlineSVG(svgNode)
+
+		pngBytes, _, _, err := svg.Rasterize(xml, 256)
+		if err != nil {
+			t.Fatalf("rasterize: %v", err)
+		}
+
+		img, err := png.Decode(bytes.NewReader(pngBytes))
+		if err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+
+		n := 0
+		b := img.Bounds()
+
+		for y := b.Min.Y; y < b.Max.Y; y++ {
+			for x := b.Min.X; x < b.Max.X; x++ {
+				if _, _, _, a := img.At(x, y).RGBA(); a>>8 >= 128 {
+					n++
+				}
+			}
+		}
+
+		return n, string(xml)
+	}
+
+	plain, _ := render(`#l{vector-effect:none}`, "")
+	fixed, xml := render(`#l{vector-effect:non-scaling-stroke}`, "")
+
+	if fixed <= plain*3 {
+		t.Errorf("non-scaling-stroke painted %d, none painted %d, want roughly 4x the pixels", fixed, plain)
+	}
+
+	if !strings.Contains(xml, `vector-effect="non-scaling-stroke"`) {
+		t.Errorf("stylesheet vector-effect not serialized: %s", xml)
+	}
+
+	// The stylesheet beats the attribute, and an unknown token is not stored.
+	byAttr, _ := render(``, ` vector-effect="none"`)
+	overridden, _ := render(`#l{vector-effect:non-scaling-stroke}`, ` vector-effect="none"`)
+
+	if overridden != fixed || byAttr != plain {
+		t.Errorf("attribute won over the stylesheet: overridden=%d fixed=%d attr=%d plain=%d", overridden, fixed, byAttr, plain)
+	}
+
+	if bogus, _ := render(`#l{vector-effect:bogus}`, ""); bogus != plain {
+		t.Errorf("an unknown token changed the stroke: %d vs %d", bogus, plain)
+	}
+}
+
+// flood-color and flood-opacity act on feFlood. The pinned canvas has no
+// filter support, so internal/svg turns a filter that holds one feFlood into
+// a flat rect over the filter region (the box plus 10 percent on each side).
+func TestBehaviorSvgPresentFloodColorAndOpacity(t *testing.T) {
+	t.Parallel()
+
+	filter := `<defs><filter id="f"><feFlood id="fl" flood-color="#ff0000"%s/></filter></defs>` +
+		`<rect x="16" y="8" width="32" height="16" fill="#0000ff" filter="url(#f)"/>`
+	render := func(sheetText, extra string) image.Image {
+		_, img := svgPaintRender(t, svgPaintBaseCSS+sheetText, strings.Replace(filter, "%s", extra, 1))
+
+		return img
+	}
+	pixel := func(img image.Image, x, y int) (int, int, int, int) {
+		scale := float64(img.Bounds().Dx()) / 64
+		r, g, b, a := img.At(int(float64(x)*scale), int(float64(y)*scale)).RGBA()
+
+		return int(r >> 8), int(g >> 8), int(b >> 8), int(a >> 8)
+	}
+
+	red := render(``, "")
+	if r, g, b, a := pixel(red, 30, 16); r < 200 || g > 60 || b > 60 || a < 250 {
+		t.Errorf("attribute flood pixel = (%d,%d,%d,%d), want opaque red, not the blue rect", r, g, b, a)
+	}
+
+	// The filter region is the box plus 10 percent: x 12.8 to 51.2.
+	if _, _, _, a := pixel(red, 14, 16); a < 250 {
+		t.Errorf("pixel inside the filter margin has alpha %d, want flooded", a)
+	}
+
+	if _, _, _, a := pixel(red, 6, 16); a != 0 {
+		t.Errorf("pixel outside the filter region has alpha %d, want empty", a)
+	}
+
+	green := render(`#fl{flood-color:#00ff00}`, "")
+	if r, g, _, _ := pixel(green, 30, 16); g < 200 || r > 60 {
+		t.Errorf("stylesheet flood-color pixel = (%d,%d,...), want green over the attribute", r, g)
+	}
+
+	if svgBakeDiffPixels(t, red, green) == 0 {
+		t.Error("two flood colors rendered the same")
+	}
+
+	named := render(`#fl{flood-color:lime}`, "")
+	if svgBakeDiffPixels(t, green, named) != 0 {
+		t.Error("a named flood color did not become the same hex as #00ff00")
+	}
+
+	faded := render(`#fl{flood-opacity:0.2}`, "")
+	if _, _, _, a := pixel(faded, 30, 16); a < 40 || a > 70 {
+		t.Errorf("flood-opacity:0.2 alpha = %d, want about 51", a)
+	}
+
+	if svgBakeDiffPixels(t, red, faded) == 0 {
+		t.Error("flood-opacity did not change the picture")
+	}
+
+	// A flood-color on a rect does not bake, and an out-of-range opacity is refused.
+	xml, _ := svgPaintRender(t, svgPaintBaseCSS+`rect{flood-color:#00ff00}`, strings.Replace(filter, "%s", "", 1))
+	if _, after, found := strings.Cut(xml, "<rect"); found && strings.Contains(after, "flood-color") {
+		t.Errorf("flood-color baked onto a rect: %s", xml)
+	}
+
+	if bad := render(`#fl{flood-opacity:3}`, ""); svgBakeDiffPixels(t, red, bad) != 0 {
+		t.Error("an out-of-range flood-opacity changed the picture")
+	}
+}

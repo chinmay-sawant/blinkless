@@ -57,7 +57,7 @@ func (e *engine) buildInlineSVG(node *html.Node, sty ResolvedStyle, posX, posY f
 		opStart := len(e.ops)
 		e.add((Op{ //nolint:exhaustruct // intentional zero fields
 			Kind: OpImage, X: imgX, Y: imgY, W: size.w, H: size.h,
-		}).withImage(ref.data, ref.w, ref.h, ""))
+		}).withImage(ref.data, ref.w, ref.h, "").withImageRendering(sty.ImageRendering))
 		e.prependChrome(opStart, boxNode, sty, posX, posY, boxNode.w, boxNode.height)
 	}
 
@@ -511,6 +511,21 @@ func (e *engine) writeSVGPresentationAttrs(
 		if !written.has("stop-opacity") {
 			if v, ok := svgBakeOpacityValue(decls.prop("stop-opacity")); ok {
 				fmt.Fprintf(b, ` stop-opacity="%s"`, escapeXML(v))
+			}
+		}
+	}
+	// flood-color and flood-opacity only affect feFlood. internal/svg turns a
+	// filter that is one feFlood into a flat rect, since the canvas has no
+	// filter support.
+	if node.Name == "feFlood" {
+		if !written.has("flood-color") {
+			if v := strings.TrimSpace(decls.prop("flood-color")); svgBakeStopColorValid(v) {
+				fmt.Fprintf(b, ` flood-color="%s"`, escapeXML(v))
+			}
+		}
+		if !written.has("flood-opacity") {
+			if v, ok := svgBakeOpacityValue(decls.prop("flood-opacity")); ok {
+				fmt.Fprintf(b, ` flood-opacity="%s"`, escapeXML(v))
 			}
 		}
 	}

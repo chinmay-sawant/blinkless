@@ -488,6 +488,7 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.AlignmentBaseline == b.AlignmentBaseline &&
 		a.BaselineSource == b.BaselineSource &&
 		a.Continue == b.Continue &&
+		a.ImageRendering == b.ImageRendering &&
 		a.LinkParameters == b.LinkParameters &&
 		a.ContinueLines == b.ContinueLines &&
 		a.InlineSizing == b.InlineSizing &&
@@ -530,7 +531,10 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.SVGStopColor == b.SVGStopColor &&
 		a.SVGStopOpacity == b.SVGStopOpacity &&
 		a.SVGPaintOrder == b.SVGPaintOrder &&
-		a.SVGPathLength == b.SVGPathLength
+		a.SVGPathLength == b.SVGPathLength &&
+		a.SVGVectorEffect == b.SVGVectorEffect &&
+		a.SVGFloodColor == b.SVGFloodColor &&
+		a.SVGFloodOpacity == b.SVGFloodOpacity
 }
 
 // styleInternFingerprint hashes every ResolvedStyle field. Equal styles
@@ -954,6 +958,7 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashString(h, s.AlignmentBaseline)
 	h = styleInternHashString(h, s.BaselineSource)
 	h = styleInternHashString(h, s.Continue)
+	h = styleInternHashString(h, s.ImageRendering)
 	h = styleInternHashString(h, s.LinkParameters)
 	h = styleInternHashInt(h, s.ContinueLines)
 	h = styleInternHashString(h, s.InlineSizing)
@@ -997,6 +1002,9 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashString(h, s.SVGStopOpacity)
 	h = styleInternHashString(h, s.SVGPaintOrder)
 	h = styleInternHashString(h, s.SVGPathLength)
+	h = styleInternHashString(h, s.SVGVectorEffect)
+	h = styleInternHashString(h, s.SVGFloodColor)
+	h = styleInternHashString(h, s.SVGFloodOpacity)
 
 	return h
 }
@@ -1398,6 +1406,7 @@ func styleInternFields() []string {
 		"AlignmentBaseline",
 		"BaselineSource",
 		"Continue",
+		"ImageRendering",
 		"LinkParameters",
 		"ContinueLines",
 		"InlineSizing",
@@ -1441,6 +1450,9 @@ func styleInternFields() []string {
 		"SVGStopOpacity",
 		"SVGPaintOrder",
 		"SVGPathLength",
+		"SVGVectorEffect",
+		"SVGFloodColor",
+		"SVGFloodOpacity",
 	}
 }
 

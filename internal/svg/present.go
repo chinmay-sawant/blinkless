@@ -32,7 +32,8 @@ const emulateZeroDash = "0 100000"
 // emulatePresentation applies both emulations. It returns the input slice
 // when no tag changes.
 func emulatePresentation(data []byte) []byte {
-	if !bytesContainsFold(data, []byte("paint-order")) && !bytesContainsFold(data, []byte("pathlength")) {
+	if !bytesContainsFold(data, []byte("paint-order")) && !bytesContainsFold(data, []byte("pathlength")) &&
+		!bytesContainsFold(data, []byte("vector-effect")) && !bytesContainsFold(data, []byte("feflood")) {
 		return data
 	}
 
@@ -40,6 +41,8 @@ func emulatePresentation(data []byte) []byte {
 
 	flush, pos, tags := 0, 0, 0
 	changed := false
+	rootScale := 0.0
+	floods := emulateCollectFloods(data)
 
 	for pos < len(data) {
 		tags++
@@ -61,7 +64,11 @@ func emulatePresentation(data []byte) []byte {
 
 		name, attrs, selfClose := emulateParseTag(data, start, end)
 
-		replaced, modified := emulateShapeTag(name, attrs, selfClose)
+		if name == "svg" && rootScale == 0 {
+			rootScale = emulateRootScale(emulateAttrMap(attrs))
+		}
+
+		replaced, modified := emulateShapeTag(name, attrs, selfClose, rootScale, floods)
 		if !modified {
 			pos = start + 1
 
@@ -107,17 +114,29 @@ func emulateAttrMap(attrs []emulateAttr) map[string]string {
 }
 
 // emulateShapeTag rewrites one leaf shape tag, or reports no change.
-func emulateShapeTag(name string, attrs []emulateAttr, selfClose bool) (string, bool) {
+func emulateShapeTag(
+	name string, attrs []emulateAttr, selfClose bool, rootScale float64, floods map[string]emulateFlood,
+) (string, bool) {
 	if !selfClose || !emulateIsShape(name) {
 		return "", false
 	}
 
 	index := emulateAttrMap(attrs)
 
+	if flat, ok := emulateFloodShape(name, index, floods); ok {
+		return flat, true
+	}
+
 	scaled, scaledOK := emulateScaleDashes(name, attrs, index)
 	if scaledOK {
 		attrs = scaled
 		index = emulateAttrMap(attrs)
+	}
+
+	if fixed, ok := emulateNonScalingStroke(attrs, index, rootScale); ok {
+		attrs = fixed
+		index = emulateAttrMap(attrs)
+		scaledOK = true
 	}
 
 	order, orderOK := emulateStrokeFirstOrder(index)
@@ -415,4 +434,235 @@ func emulatePolyLength(points string, closed bool) (float64, bool) {
 	}
 
 	return total, true
+}
+
+// emulateRootScale is how many device units one user unit covers at the root
+// svg: the width over the viewBox width, averaged with the height ratio. It
+// is 1 when either is missing or not a plain number, and for a missing size.
+func emulateRootScale(index map[string]string) float64 {
+	box := strings.FieldsFunc(index["viewbox"], func(r rune) bool { return r == ' ' || r == ',' })
+	if len(box) != 4 {
+		return 1
+	}
+
+	boxW, errW := strconv.ParseFloat(box[2], 64)
+	boxH, errH := strconv.ParseFloat(box[3], 64)
+
+	if errW != nil || errH != nil || boxW <= 0 || boxH <= 0 {
+		return 1
+	}
+
+	scaleX, scaleY := 1.0, 1.0
+
+	if width := emulateNum(index, "width"); width > 0 {
+		scaleX = width / boxW
+	}
+
+	if height := emulateNum(index, "height"); height > 0 {
+		scaleY = height / boxH
+	}
+
+	return math.Sqrt(scaleX * scaleY)
+}
+
+// emulateNonScalingStroke divides the stroke width and dashes by the root
+// scale for vector-effect: non-scaling-stroke, so the stroke keeps its size
+// in device units instead of growing with the viewBox. Chrome 143 ships only
+// none and non-scaling-stroke, so only that token acts.
+func emulateNonScalingStroke(attrs []emulateAttr, index map[string]string, scale float64) ([]emulateAttr, bool) {
+	if !strings.EqualFold(strings.TrimSpace(index["vector-effect"]), "non-scaling-stroke") ||
+		scale <= 0 || math.Abs(scale-1) < 1e-9 {
+		return nil, false
+	}
+
+	out := make([]emulateAttr, 0, len(attrs)+1)
+	hadWidth := false
+
+	for _, attr := range attrs {
+		switch strings.ToLower(attr.name) {
+		case "stroke-width":
+			hadWidth = true
+
+			width, err := strconv.ParseFloat(strings.TrimSuffix(strings.TrimSpace(attr.value), "px"), 64)
+			if err != nil {
+				return nil, false
+			}
+
+			attr.value = strconv.FormatFloat(width/scale, 'g', -1, 64)
+		case "stroke-dasharray", "stroke-dashoffset":
+			scaled, ok := emulateScaleList(attr.value, 1/scale)
+			if !ok {
+				return nil, false
+			}
+
+			attr.value = scaled
+		}
+
+		out = append(out, attr)
+	}
+
+	if !hadWidth {
+		out = append(out, emulateAttr{name: "stroke-width", value: strconv.FormatFloat(1/scale, 'g', -1, 64)})
+	}
+
+	return out, true
+}
+
+// emulateFlood is a filter that holds exactly one feFlood.
+type emulateFlood struct {
+	color, opacity string
+	x, y, w, h     float64 // region, as fractions of the bounding box
+}
+
+// emulateCollectFloods finds each filter whose only primitive is one feFlood.
+// A filter with any other primitive is left to the canvas, which ignores it.
+func emulateCollectFloods(data []byte) map[string]emulateFlood {
+	if !bytesContainsFold(data, []byte("feflood")) {
+		return nil
+	}
+
+	floods := map[string]emulateFlood{}
+
+	var (
+		inFilter bool
+		id       string
+		region   emulateFlood
+		prims    []string
+		flood    map[string]string
+	)
+
+	pos, tags := 0, 0
+
+	for pos < len(data) && tags < maxEmulateTags {
+		tags++
+
+		rel := bytes.IndexByte(data[pos:], '<')
+		if rel < 0 {
+			break
+		}
+
+		start := pos + rel
+
+		end, ok := emulateTagEnd(data, start)
+		if !ok {
+			break
+		}
+
+		pos = start + 1
+
+		if bytes.HasPrefix(data[start:], []byte("</")) {
+			if inFilter && strings.EqualFold(strings.TrimSpace(string(data[start+2:end])), "filter") {
+				if len(prims) == 1 && prims[0] == "feflood" && id != "" {
+					region.color, region.opacity = flood["flood-color"], flood["flood-opacity"]
+					floods[id] = region
+				}
+
+				inFilter = false
+			}
+
+			continue
+		}
+
+		name, attrs, selfClose := emulateParseTag(data, start, end)
+
+		switch {
+		case name == "filter" && !selfClose:
+			index := emulateAttrMap(attrs)
+			inFilter, id, prims, flood = true, index["id"], nil, nil
+			region = emulateFlood{
+				x: emulateFraction(index["x"], -0.1), y: emulateFraction(index["y"], -0.1),
+				w: emulateFraction(index["width"], 1.2), h: emulateFraction(index["height"], 1.2),
+			}
+		case inFilter && strings.HasPrefix(name, "fe"):
+			prims = append(prims, name)
+			if name == "feflood" {
+				flood = emulateAttrMap(attrs)
+			}
+		}
+	}
+
+	return floods
+}
+
+// emulateFraction reads a number or a percentage as a fraction of the box.
+func emulateFraction(raw string, fallback float64) float64 {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return fallback
+	}
+
+	if strings.HasSuffix(raw, "%") {
+		num, err := strconv.ParseFloat(strings.TrimSuffix(raw, "%"), 64)
+		if err != nil {
+			return fallback
+		}
+
+		return num / 100
+	}
+
+	num, err := strconv.ParseFloat(raw, 64)
+	if err != nil {
+		return fallback
+	}
+
+	return num
+}
+
+// emulateFloodShape replaces a rect, circle, or ellipse that uses a
+// single-feFlood filter with one flat rect covering the filter region.
+func emulateFloodShape(name string, index map[string]string, floods map[string]emulateFlood) (string, bool) {
+	ref := strings.TrimSpace(index["filter"])
+	if len(floods) == 0 || !strings.HasPrefix(ref, "url(#") || !strings.HasSuffix(ref, ")") {
+		return "", false
+	}
+
+	flood, ok := floods[strings.TrimSuffix(strings.TrimPrefix(ref, "url(#"), ")")]
+	if !ok {
+		return "", false
+	}
+
+	var boxX, boxY, boxW, boxH float64
+
+	switch name {
+	case "rect":
+		boxX, boxY, boxW, boxH = emulateNum(index, "x"), emulateNum(index, "y"),
+			emulateNum(index, "width"), emulateNum(index, "height")
+	case "circle":
+		radius := emulateNum(index, "r")
+		boxX, boxY, boxW, boxH = emulateNum(index, "cx")-radius, emulateNum(index, "cy")-radius, 2*radius, 2*radius
+	case "ellipse":
+		radX, radY := emulateNum(index, "rx"), emulateNum(index, "ry")
+		boxX, boxY, boxW, boxH = emulateNum(index, "cx")-radX, emulateNum(index, "cy")-radY, 2*radX, 2*radY
+	default:
+		return "", false
+	}
+
+	if boxW <= 0 || boxH <= 0 {
+		return "", false
+	}
+
+	color := flood.color
+	if color == "" {
+		color = "#000000"
+	}
+
+	attrs := []emulateAttr{
+		{"x", num(boxX + flood.x*boxW)}, {"y", num(boxY + flood.y*boxH)},
+		{"width", num(flood.w * boxW)}, {"height", num(flood.h * boxH)},
+		{"fill", color},
+	}
+
+	if flood.opacity != "" {
+		attrs = append(attrs, emulateAttr{"fill-opacity", flood.opacity})
+	}
+
+	if transform, has := index["transform"]; has {
+		attrs = append(attrs, emulateAttr{"transform", transform})
+	}
+
+	return emulateTagText("rect", attrs, nil), true
+}
+
+func num(value float64) string {
+	return strconv.FormatFloat(value, 'g', -1, 64)
 }

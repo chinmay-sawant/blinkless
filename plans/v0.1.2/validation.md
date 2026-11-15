@@ -78,6 +78,17 @@ The third batch is `marker`, `marker-start`, `marker-mid`, `marker-end`, `stop-c
 
 The catalog counts 592 implemented and 185 unsupported. The OwnFrame window shows them as items 21 to 30 of the review page. The window pass found one bug the pixel counts missed: the canvas misplaced every marker after the first on one shape, fixed by writing one copy per marker (`splitSVGMarkerShape`).
 
+## Result on 2026-11-16 (fourth batch, five styles)
+
+| Style | Test | Note |
+|---|---|---|
+| `margin-break` | `TestBehaviorMarginBreakDiscardDropsColumnMargin`, `TestBehaviorMarginBreakKeepKeepsColumnMargin` | Column starts only. Catalog `partial`. |
+| `image-rendering` | `TestBehaviorSvgPresentImageRendering` | The keyword is read from the image op. No resampler. |
+| `vector-effect` | `TestBehaviorSvgPresentVectorEffect` | `non-scaling-stroke` keeps the stroke width under a viewBox scale. |
+| `flood-color`, `flood-opacity` | `TestBehaviorSvgPresentFloodColorAndOpacity` | A filter that is one `feFlood` becomes a flat rect. |
+
+The catalog counts 596 implemented, 1 partial, and 180 unsupported. `lighting-color` stayed unsupported: the canvas has no lighting filter and the ledger says not to fake one.
+
 ## Window pass
 
 After the ten tests exit 0:

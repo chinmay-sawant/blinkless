@@ -501,7 +501,7 @@ func (e *engine) paintReplacedImage(
 		W:      fitW,
 		H:      fitH,
 		IsJPEG: isJPEG,
-	}).withImage(imgData, pixW, pixH, alt))
+	}).withImage(imgData, pixW, pixH, alt).withImageRendering(sty.ImageRendering))
 
 	if thumbImg {
 		e.emitThumbImageBottomSeparator(sty, posX, posY, size.w, size.h)

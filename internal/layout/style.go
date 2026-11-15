@@ -597,6 +597,8 @@ type ResolvedStyle struct {
 	BaselineSource        string
 	// Continue is the CSS Overflow 4 continue keyword; empty means normal.
 	Continue string
+	// ImageRendering is the image-rendering keyword; empty means auto.
+	ImageRendering string
 	// LinkParameters is the canonical link-parameters list; empty means none.
 	LinkParameters string
 	// ContinueLines is the line limit an anonymous flex item inherits from a
@@ -669,13 +671,16 @@ type ResolvedStyle struct {
 	// shorthand is expanded onto the three longhands when stored, so
 	// cascade order between the shorthand and a longhand holds. "none" is
 	// kept (not empty) so it can clear a presentation attribute.
-	SVGMarkerStart string
-	SVGMarkerMid   string
-	SVGMarkerEnd   string
-	SVGStopColor   string
-	SVGStopOpacity string
-	SVGPaintOrder  string
-	SVGPathLength  string
+	SVGMarkerStart  string
+	SVGMarkerMid    string
+	SVGMarkerEnd    string
+	SVGStopColor    string
+	SVGStopOpacity  string
+	SVGPaintOrder   string
+	SVGPathLength   string
+	SVGVectorEffect string
+	SVGFloodColor   string
+	SVGFloodOpacity string
 }
 
 const (
