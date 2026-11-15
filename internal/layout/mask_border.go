@@ -130,7 +130,7 @@ func (e *engine) maskBorderDescriptor(style ResolvedStyle) *MaskBorder {
 	layer := e.resolveMaskLayer(MaskLayer{ //nolint:exhaustruct // only the source and mode are read
 		Source: source,
 		Mode:   mode,
-	})
+	}, "")
 	thick := borderImageThickness(
 		parseBorderImageDimensionFour(style.MaskBorderWidth, style.FontSize),
 		borderWidthsOf(style),

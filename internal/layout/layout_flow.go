@@ -274,6 +274,12 @@ func (e *engine) flowChildrenPtr(
 			contentW, contentX, posY, curY, prevBottom, floats, deferred, parentTrim, firstBlockIdx, lastBlockIdx)
 	}
 
+	// An empty block has no inline run, so ::before/::after would never be
+	// injected. One empty run lets generated content paint on its own.
+	if len(children) == 0 && e.hasPseudoContent() {
+		curY += e.layoutInlineFloats(parent, nil, contentW, contentX, posY+curY, floats)
+	}
+
 	if sizeContained {
 		curY = e.sizeContainedHeight(sty)
 	}

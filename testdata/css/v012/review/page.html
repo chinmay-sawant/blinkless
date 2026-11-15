@@ -3,7 +3,7 @@
 <body style="margin:0;background:#f4f0e8;color:#1c1917">
 <div style="padding:28px 32px 48px">
 <p style="margin:0 0 6px;font-size:28px">blinkless next</p>
-<p style="margin:0 0 28px;font-size:16px;width:640px">Ten styles on one page. Each block is a pair. Read the label, then compare the two samples under it.</p>
+<p style="margin:0 0 28px;font-size:16px;width:640px">Twenty styles on one page. Scroll. Each block is labeled. Compare the samples under the label.</p>
 
 <p style="margin:0 0 8px;font-size:18px">1. -webkit-background-clip</p>
 <p style="margin:0 0 10px;font-size:14px;width:640px">Red is the background. The gray ring is padding. Border-box paints red through the padding. Content-box leaves the padding gray.</p>
@@ -105,6 +105,71 @@
 <svg width="120" height="80" viewBox="0 0 40 28" style="background:#fff;border:1px solid #ccc"><path d="M6 8 h8 v8 h-8 Z" fill="#111"/></svg>
 <svg width="120" height="80" viewBox="0 0 40 28" style="background:#fff;border:1px solid #ccc"><style>path#p2 { d: path("M6 22 H34 L20 6 Z"); }</style><path id="p2" d="M6 8 h8 v8 h-8 Z" fill="#111"/></svg>
 </div>
+
+<p style="margin:28px 0 8px;font-size:18px">11. -webkit-mask-composite</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">The prefixed composite accepts the extra Porter-Duff words. This page cannot replay mask pixels. The drawing list stores them.</p>
+<p style="margin:0 0 28px;font-size:16px">source-atop, clear, copy</p>
+
+<p style="margin:0 0 8px;font-size:18px">12. mask-type</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">alpha treats the mask as opacity. luminance treats black as a hole. The finished mask pixels are a host replay. The stylesheet value is what changed.</p>
+<p style="margin:0 0 28px;font-size:16px">alpha keeps a mark. luminance does not.</p>
+
+<p style="margin:0 0 8px;font-size:18px">13. backdrop-filter</p>
+<p style="margin:0 0 10px;font-size:14px">The green box carries blur(8px) saturate(1.4) on its group. This window does not blur the pixels behind it. The group still has the filter string. none does not open a group.</p>
+<div style="margin:0 0 28px;background:#1d4ed8;padding:16px">
+<div style="width:160px;height:48px;background:#3d8b6e;backdrop-filter:blur(8px) saturate(1.4)"></div>
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">14. break-inside</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Three 40px boxes in two columns. avoid moves the middle box into the second column. auto leaves it under the first.</p>
+<div style="width:300px;column-count:2;column-gap:20px;margin:0 0 12px">
+<div style="height:40px;background:#f00">auto 1</div>
+<div style="height:40px;background:#fc0">auto 2</div>
+<div style="height:40px;background:#3d8b6e">auto 3</div>
+</div>
+<div style="width:300px;column-count:2;column-gap:20px;margin:0 0 28px">
+<div style="height:40px;background:#f00">avoid 1</div>
+<div style="height:40px;background:#fc0;break-inside:avoid">avoid 2</div>
+<div style="height:40px;background:#3d8b6e">avoid 3</div>
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">15. size</p>
+<p style="margin:0 0 10px;font-size:14px">size: 120px 40px versus size: 120px, which sets both axes.</p>
+<div style="margin:0 0 28px">
+<div style="display:inline-block;width:120px;height:40px;background:#3d8b6e;margin-right:16px"></div>
+<div style="display:inline-block;size:120px;background:#1d4ed8"></div>
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">16. min-size</p>
+<p style="margin:0 0 10px;font-size:14px">A 50 by 20 box with min-size: 120px becomes 120 by 120.</p>
+<div style="width:50px;height:20px;min-size:120px;background:#e11;margin:0 0 28px"></div>
+
+<p style="margin:0 0 8px;font-size:18px">17. max-size</p>
+<p style="margin:0 0 10px;font-size:14px">A 300 by 200 box with max-size: 180px 60px paints at 180 by 60.</p>
+<div style="width:300px;height:200px;max-size:180px 60px;background:#1d4ed8;margin:0 0 28px"></div>
+
+<p style="margin:0 0 8px;font-size:18px">18. all</p>
+<p style="margin:0 0 10px;font-size:14px">The parent is blue. initial clears the child fill. inherit keeps the blue.</p>
+<div style="background:#1d4ed8;color:#fff;padding:12px;margin:0 0 8px">parent
+<div style="all:initial;margin-top:8px">initial child</div>
+</div>
+<div style="background:#1d4ed8;color:#fff;padding:12px;margin:0 0 28px">parent
+<div style="all:inherit;margin-top:8px">inherit child</div>
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">19. word-space-transform</p>
+<p style="margin:0 0 10px;font-size:14px">none keeps the zero-width space. space turns it into a normal space.</p>
+<p style="margin:0 0 6px;font-size:20px;word-space-transform:none">A&#x200b;B none</p>
+<p style="margin:0 0 28px;font-size:20px;word-space-transform:space">A&#x200b;B space</p>
+
+<p style="margin:0 0 8px;font-size:18px">20. string-set</p>
+<p style="margin:0 0 10px;font-size:14px">The heading assigns its text. The line under it reads that string back.</p>
+<style>
+#reader::before { content: string(chapter); }
+</style>
+<h1 style="margin:0 0 8px;font-size:22px;string-set:chapter content(text)">Guide One</h1>
+<p id="reader" style="margin:0 0 8px;font-size:18px">string-set: </p>
+
 </div>
 </body>
 </html>

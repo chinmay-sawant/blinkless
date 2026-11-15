@@ -289,6 +289,7 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.TextShadowSet == b.TextShadowSet &&
 		a.LetterSpacing == b.LetterSpacing &&
 		a.WordSpacing == b.WordSpacing &&
+		a.WordSpaceTransform == b.WordSpaceTransform &&
 		a.TextIndent == b.TextIndent &&
 		a.LinePadding == b.LinePadding &&
 		a.ListStyleType == b.ListStyleType &&
@@ -734,6 +735,7 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashBool(h, s.TextShadowSet)
 	h = styleInternHashFloat64(h, s.LetterSpacing)
 	h = styleInternHashFloat64(h, s.WordSpacing)
+	h = styleInternHashString(h, s.WordSpaceTransform)
 	h = styleInternHashFloat64(h, s.TextIndent)
 	h = styleInternHashFloat64(h, s.LinePadding)
 	h = styleInternHashString(h, s.ListStyleType)
@@ -1177,6 +1179,7 @@ func styleInternFields() []string {
 		"TextShadowSet",
 		"LetterSpacing",
 		"WordSpacing",
+		"WordSpaceTransform",
 		"TextIndent",
 		"LinePadding",
 		"ListStyleType",

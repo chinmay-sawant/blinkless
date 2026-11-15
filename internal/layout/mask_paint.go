@@ -67,7 +67,7 @@ func (e *engine) maskDescriptor(style ResolvedStyle) *MaskDescriptor {
 				layer.Mode = maskModeAlpha
 			}
 		} else if !strings.EqualFold(layer.Source, "none") {
-			layer = e.resolveMaskLayer(layer)
+			layer = e.resolveMaskLayer(layer, style.MaskType)
 		}
 
 		descriptor.Layers = append(descriptor.Layers, layer)
@@ -203,7 +203,7 @@ func maskLayerValue(value string, index int, initial string) string {
 	return strings.TrimSpace(values[index%len(values)])
 }
 
-func (e *engine) resolveMaskLayer(layer MaskLayer) MaskLayer {
+func (e *engine) resolveMaskLayer(layer MaskLayer, maskType string) MaskLayer {
 	target := backgroundImageSrc(layer.Source)
 	if target == "" {
 		return layer
@@ -215,13 +215,13 @@ func (e *engine) resolveMaskLayer(layer MaskLayer) MaskLayer {
 	}
 
 	if fragment != "" {
-		return e.resolveSVGMaskLayer(layer, resourceURL, fragment)
+		return e.resolveSVGMaskLayer(layer, resourceURL, fragment, maskType)
 	}
 
 	return e.resolveRasterMaskLayer(layer, resourceURL)
 }
 
-func (e *engine) resolveSVGMaskLayer(layer MaskLayer, resourceURL, fragment string) MaskLayer {
+func (e *engine) resolveSVGMaskLayer(layer MaskLayer, resourceURL, fragment, maskType string) MaskLayer {
 	if resourceURL == "" {
 		resourceURL = "#" + fragment
 	}
@@ -231,8 +231,19 @@ func (e *engine) resolveSVGMaskLayer(layer MaskLayer, resourceURL, fragment stri
 		return layer
 	}
 
+	// A specified mask-type replaces match-source. An empty field leaves
+	// match-source, so the SVG mask element still decides. An explicit
+	// mask-mode is already on layer.Mode and wins.
+	mode := layer.Mode
+	if mode == maskModeMatchSource {
+		specified := strings.ToLower(strings.TrimSpace(maskType))
+		if specified == maskModeAlpha || specified == maskModeLuminance {
+			mode = specified
+		}
+	}
+
 	maskBytes, width, height, err := svg.RasterizeMaskContext(
-		e.rasterContext(), ref.sourceData, fragment, 0, 0, layer.Mode,
+		e.rasterContext(), ref.sourceData, fragment, 0, 0, mode,
 	)
 	if err != nil {
 		return layer

@@ -21,6 +21,7 @@ const (
 	pageKeyword                   = "page"
 	avoidKeyword                  = "avoid"
 	avoidPageValue                = "avoid-page"
+	avoidColumnValue              = "avoid-column"
 	remUnit                       = "rem"
 	divElementName                = "div"
 	styleElement                  = "style"
@@ -319,7 +320,13 @@ type ResolvedStyle struct {
 	LetterSpacing           float64
 	// WordSpacing is CSS word-spacing in points; 0 is normal.
 	WordSpacing float64
-	TextIndent  float64
+	// WordSpaceTransform is CSS word-space-transform. "none" (initial)
+	// leaves U+200B and wbr alone. "space" replaces them with U+0020.
+	// "ideographic-space" replaces them with U+3000. Either keyword may
+	// be paired with auto-phrase; this engine inserts no phrase breaks.
+	// Inherited. A token outside the grammar leaves the previous value.
+	WordSpaceTransform string
+	TextIndent         float64
 	// LinePadding is CSS line-padding in points. It insets both ends of
 	// every line, including lines after the first. Zero is the initial.
 	LinePadding     float64
@@ -332,7 +339,7 @@ type ResolvedStyle struct {
 	IsReplaced      bool   // img, hr
 	PageBreakBefore string // "" | "always" | "avoid"
 	PageBreakAfter  string // "" | "always" | "avoid"
-	PageBreakInside string // "" | "always" | "avoid"
+	PageBreakInside string // "" | "always" | "avoid" | "avoid-column"
 	// MarginBreak is CSS margin-break ("auto" | "keep" | "discard") for page breaks.
 	MarginBreak string
 	// PageName is the CSS page used value: empty is auto, else a lower-case
@@ -382,7 +389,7 @@ type ResolvedStyle struct {
 	MaskSize               string
 	MaskOrigin             string
 	MaskClip               string
-	MaskType               string
+	MaskType               string // specified alpha or luminance; empty means the author did not declare it
 	MaskBorderSource       string
 	MaskBorderSlice        string
 	MaskBorderWidth        string
@@ -777,7 +784,7 @@ func initialStyle() ResolvedStyle { //nolint:funlen // complete CSS initial-valu
 		MaskSize:                      "auto",
 		MaskOrigin:                    "border-box",
 		MaskClip:                      "border-box",
-		MaskType:                      "luminance",
+		MaskType:                      "", // unspecified; mask-type: initial stores luminance
 		MaskBorderSource:              "none",
 		MaskBorderSlice:               "0",
 		MaskBorderWidth:               "auto",
@@ -859,6 +866,7 @@ func initialStyle() ResolvedStyle { //nolint:funlen // complete CSS initial-valu
 		AlignmentBaseline:          "auto",
 		BaselineSource:             "auto",
 		InlineSizing:               contentNormal,
+		WordSpaceTransform:         wordSpaceTransformNone,
 		ColorInterpolation:         "srgb",
 		ColorInterpolationFilters:  "srgb",
 		// The timeline axes start at the CSS initial block axis; the physical
@@ -1397,12 +1405,23 @@ func applyRawToUsed(
 ) {
 	*sty = initialStyle()
 
+	// Inherit sentinels from all are removed first so those properties copy.
+	// Initial sentinels stay through the copy, which is what blocks the
+	// parent color, and are dropped before any applier can read them.
+	bgInherit := takeAllInheritSentinels(raw)
+
 	var parentProps map[string]string
 
 	if parent != nil {
 		inheritProps(sty, parent, raw)
 		parentProps = parent.CustomProps
+
+		if bgInherit {
+			sty.BGColor = parent.BGColor
+		}
 	}
+
+	dropAllInitialSentinels(raw)
 
 	var registered map[string]css.PropertyRule
 	if ctx != nil {
@@ -1424,6 +1443,11 @@ func applyRawToUsed(
 	}
 
 	applyRestProps(sty, raw, ctx, parent)
+
+	if _, declared := raw[stringSetPropName]; !declared {
+		forgetInheritedStringSet(sty)
+	}
+
 	inheritUnitlessLineHeight(sty, parent, raw)
 	// FontFamily is final here (inherited, or parsed by applyFontProps /
 	// parseFontShorthand); fingerprint it once so inline text measurement

@@ -17,8 +17,8 @@ const (
 	// with longhands in CSS Content 3): canonical used values in CustomProps,
 	// following the ruby precedent in ruby.go. Chrome has no string-set or
 	// bookmark support, so the drafts are the oracle. string-set stores the
-	// canonical assignment list (none reads as no key, the initial);
-	// bookmark-level stores the canonical integer, bookmark-state open or
+	// canonical assignment list (explicit none is stored as none; an absent
+	// key is the initial). bookmark-level stores the canonical integer, bookmark-state open or
 	// closed, bookmark-label the trimmed declaration (element text resolves
 	// the content keyword at read time in bookmark_outline.go). An absent or
 	// invalid declaration leaves no key, except bookmark-state where any
@@ -460,14 +460,16 @@ func setTrimmedStyleValue(dst *string, value string) {
 
 // setStringSetCustom stores the canonical used string-set value: the
 // re-encoded assignment list from ParseStringSet, so escapes stay decoded and
-// adjacent strings stay concatenated. none and initial read as no key (the
-// initial). CSS-wide inherit keeps the already-inherited map entry;
-// initial, unset, revert, and revert-layer reset to none. An invalid value
-// drops to none too, so a bogus string-set never revives an earlier valid one.
+// adjacent strings stay concatenated. content() stays a function token.
+// Explicit none is stored as none so the document table can clear that name.
+// CSS-wide inherit keeps the already-inherited map entry. initial, unset,
+// revert, and revert-layer drop the key (the element assigns nothing and
+// does not clear). An invalid value drops the key too, and does not write
+// none, so a bad token does not clear an earlier element's assignment.
 func setStringSetCustom(style *ResolvedStyle, value string) {
 	trimmed := strings.TrimSpace(value)
 	if cssWideKeyword(strings.ToLower(trimmed)) {
-		if style.CustomProps != nil {
+		if !strings.EqualFold(trimmed, inheritKeyword) && style.CustomProps != nil {
 			delete(style.CustomProps, stringSetCustomKey)
 		}
 
@@ -475,7 +477,7 @@ func setStringSetCustom(style *ResolvedStyle, value string) {
 	}
 
 	used, ok := canonicalStringSet(value)
-	if !ok || used == "none" {
+	if !ok {
 		if style.CustomProps != nil {
 			delete(style.CustomProps, stringSetCustomKey)
 		}
@@ -488,8 +490,9 @@ func setStringSetCustom(style *ResolvedStyle, value string) {
 }
 
 // canonicalStringSet re-encodes a declaration into its used assignment list:
-// name plus double-quoted decoded strings joined by commas, or none for the
-// empty assignment list. ok is false outside the supported syntax.
+// name plus double-quoted decoded strings joined by commas, content() left
+// as a function, or none for the empty assignment list. ok is false outside
+// the supported syntax.
 func canonicalStringSet(raw string) (string, bool) {
 	assignments, ok := ParseStringSet(raw)
 	if !ok {
@@ -503,7 +506,7 @@ func canonicalStringSet(raw string) (string, bool) {
 	parts := make([]string, 0, len(assignments))
 
 	for _, assignment := range assignments {
-		parts = append(parts, assignment.Name+" "+quoteStringSetValue(assignment.Value))
+		parts = append(parts, encodeStringSetAssignment(assignment))
 	}
 
 	return strings.Join(parts, ", "), true

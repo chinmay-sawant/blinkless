@@ -175,7 +175,7 @@ func applyDisplayEffectProps(style *ResolvedStyle, prop, value string) bool {
 	case "filter":
 		setFilterValue(style, value)
 	case "backdrop-filter":
-		style.BackdropFilter = strings.TrimSpace(value)
+		setBackdropFilterValue(style, value)
 	case "visibility":
 		setVisibilityValue(style, value)
 	default:
@@ -1735,12 +1735,18 @@ func applyBreakAfterProps(style *ResolvedStyle, value string) bool {
 }
 
 func applyBreakInsideProps(style *ResolvedStyle, value string) bool {
-	// avoid-column: ignored for page pagination.
-	switch value {
+	// avoid-column is column-only, so PageBreaks (which matches avoid) does
+	// not turn it into a page keep. avoid-region and any other token return
+	// false and leave an earlier value in place.
+	switch strings.ToLower(strings.TrimSpace(value)) {
 	case pageBreakAlways, pageKeyword:
 		style.PageBreakInside = pageBreakAlways
 	case avoidKeyword, avoidPageValue:
 		style.PageBreakInside = avoidKeyword
+	case avoidColumnValue:
+		style.PageBreakInside = avoidColumnValue
+	case overflowAuto:
+		style.PageBreakInside = ""
 	default:
 		return false
 	}

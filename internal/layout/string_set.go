@@ -1,28 +1,20 @@
-// Named-string table for CSS string-set (css-content-3, GCPM running headers).
+// Named-string table for CSS string-set (css-content-3).
 //
-// Scope: parse the upstream declaration syntax, keep a per-document table
-// where the first assignment wins, and expose the accessor the future page
-// margin pipeline will call. That is all this file does.
+// The cascade stores the used value on __string_set. collectCascadedNamedStrings
+// reads those values in document order. The first assignment of a name wins,
+// which is what string() paints on this one canvas. string-set: none clears
+// the table. A token ParseStringSet rejects does not write, so a bad token
+// leaves an earlier assignment in place.
 //
-// Boundary (honest): there is no page margin pipeline in this tree, so
-// nothing renders running headers or footers; content: string() is not
-// resolved anywhere; stylesheet rules are not consulted (the collector reads
-// inline style attributes only, which needs no cascade change); and the table
-// is per document, not per page (no first/start/last/first-except page
-// selectors). Chrome 143.0.7499.40 has no string-set support, stated
-// explicitly, so parsing follows the css-content-3 draft and the catalog
-// upstream syntax: none | [ <custom-ident> <string>+ ]#
-// (testdata/css/catalog/properties.json, testdata/css/catalog/upstream
-// webref-ed-css-1f2ec8f.json). Functions such as counter(), content(), and
-// running() are rejected: only quoted strings have used values here, matching
-// how internal/css/page_margin.go:6 drops non-quoted margin content.
+// Quoted strings concatenate. content() and content(text) read the element's
+// own text. content(before) and content(after) read that pseudo-element, or
+// nothing when it has no content. Other functions (counter(), attr()) stay
+// invalid. There is no painted page-margin box, so running headers are not
+// painted. The table is per document, not per page.
 //
-// Follow-up seam: when the margin pipeline lands, it should call
-// CollectNamedStrings once per layout (or own one table on the engine) and
-// resolve string() lookups against it. Wiring the cascade (a ResolvedStyle
-// field plus a parse arm in the property dispatch) is the other half of that
-// work; grep confirms string-set has zero Go references today, so no existing
-// file is touched by this change.
+// CollectNamedStrings still reads inline style attributes only. Paint does
+// not call it; it calls the cascaded collector so a stylesheet rule and an
+// inline declaration share one table.
 package layout
 
 import (
@@ -33,10 +25,24 @@ import (
 )
 
 // StringSetAssignment is one parsed named-string assignment: the lower-cased
-// identifier plus its used value (the concatenated decoded strings).
+// identifier plus its used value (the concatenated decoded strings). pieces
+// keeps content() terms so a later pass can read the element's text. Quoted
+// strings still land in Value, which is what callers that only store literals
+// assert.
 type StringSetAssignment struct {
 	Name  string
 	Value string
+
+	pieces []stringSetPiece
+}
+
+// stringSetPiece is one term after the name. fn is false for a quoted string.
+// keyword is empty for content(), or text, before, after, first-letter, or
+// marker. Empty and text both mean the element's own text.
+type stringSetPiece struct {
+	literal string
+	keyword string
+	fn      bool
 }
 
 // stringSetRevertLayer is the CSS-wide revert-layer keyword, kept as a named
@@ -114,12 +120,24 @@ func (table *NamedStringTable) Len() int {
 	return len(table.values)
 }
 
+// Clear drops every name. string-set: none uses this so a later string()
+// read does not paint a value assigned earlier in the document.
+func (table *NamedStringTable) Clear() {
+	if table == nil {
+		return
+	}
+
+	table.values = map[string]string{}
+	table.order = nil
+}
+
 // ParseStringSet parses a string-set declaration value into used-value
 // assignments in source order. It reports false for anything outside the
 // supported syntax, in which case the caller keeps the prior state and the
 // table is untouched. none and initial are valid and yield zero assignments
-// (initial is none). Functions, unquoted tokens, a bare identifier with no
-// string, and CSS-wide keywords as names are invalid.
+// (initial is none). Quoted strings and content() are valid terms. Other
+// functions, unquoted tokens, a bare identifier with no term, and CSS-wide
+// keywords as names are invalid.
 func ParseStringSet(raw string) ([]StringSetAssignment, bool) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
@@ -240,7 +258,8 @@ func splitStringSetList(value string) []string {
 }
 
 // parseStringSetItem parses one comma item: an identifier followed by one or
-// more quoted strings whose decoded contents concatenate to the used value.
+// more quoted strings or content() terms. Quoted strings concatenate into
+// Value. content() stays in pieces until the element is known.
 func parseStringSetItem(item string) (StringSetAssignment, bool) {
 	empty := StringSetAssignment{Name: "", Value: ""}
 
@@ -251,26 +270,86 @@ func parseStringSetItem(item string) (StringSetAssignment, bool) {
 
 	var built strings.Builder
 
-	count := 0
+	pieces := make([]stringSetPiece, 0, 2)
 
 	for rest != "" {
-		decoded, next, ok := scanStringSetString(rest, 0)
-		if !ok {
+		if decoded, next, quoted := scanStringSetString(rest, 0); quoted {
+			built.WriteString(decoded)
+			pieces = append(pieces, stringSetPiece{literal: decoded})
+			rest = strings.TrimLeft(rest[next:], " \t\n\r\f")
+
+			continue
+		}
+
+		keyword, next, isFn := scanStringSetContent(rest)
+		if !isFn {
 			return empty, false
 		}
 
-		built.WriteString(decoded)
-
-		count++
-
+		pieces = append(pieces, stringSetPiece{keyword: keyword, fn: true})
 		rest = strings.TrimLeft(rest[next:], " \t\n\r\f")
 	}
 
-	if count == 0 {
+	if len(pieces) == 0 {
 		return empty, false
 	}
 
-	return StringSetAssignment{Name: strings.ToLower(name), Value: built.String()}, true
+	return StringSetAssignment{
+		Name:   strings.ToLower(name),
+		Value:  built.String(),
+		pieces: pieces,
+	}, true
+}
+
+// scanStringSetContent parses one content() term at the start of rest.
+// keyword is empty for content(), which means the same thing as content(text).
+func scanStringSetContent(rest string) (string, int, bool) {
+	idx := 0
+
+	for idx < len(rest) && isStringSetSpace(rest[idx]) {
+		idx++
+	}
+
+	wordEnd := idx
+
+	for wordEnd < len(rest) && !isStringSetSpace(rest[wordEnd]) && rest[wordEnd] != '(' {
+		wordEnd++
+	}
+
+	if wordEnd == idx || !strings.EqualFold(rest[idx:wordEnd], "content") {
+		return "", 0, false
+	}
+
+	paren := wordEnd
+
+	for paren < len(rest) && isStringSetSpace(rest[paren]) {
+		paren++
+	}
+
+	if paren >= len(rest) || rest[paren] != '(' {
+		return "", 0, false
+	}
+
+	end := skipCSSFunction(rest, paren+1)
+	if end <= paren+1 || end > len(rest) || rest[end-1] != ')' {
+		return "", 0, false
+	}
+
+	arg := strings.TrimSpace(rest[paren+1 : end-1])
+	if arg == "" {
+		return "", end, true
+	}
+
+	if strings.ContainsAny(arg, " \t\n\r\f,()") {
+		return "", 0, false
+	}
+
+	switch strings.ToLower(arg) {
+	case "text", "before", "after", "first-letter", "marker":
+		return strings.ToLower(arg), end, true
+	default:
+		return "", 0, false
+	}
 }
 
 // splitStringSetName cuts one comma item into its identifier and the
@@ -389,4 +468,218 @@ func isStringSetSpace(char byte) bool {
 	default:
 		return false
 	}
+}
+
+// encodeStringSetAssignment re-encodes one assignment. Adjacent quoted
+// strings become one quoted literal, which is the stored form the cascade
+// already uses for string-only values. content() stays a function so the
+// collector can read the element later.
+func encodeStringSetAssignment(assignment StringSetAssignment) string {
+	if len(assignment.pieces) == 0 {
+		return assignment.Name + " " + quoteStringSetValue(assignment.Value)
+	}
+
+	var built strings.Builder
+
+	built.WriteString(assignment.Name)
+
+	var literal strings.Builder
+
+	flush := func() {
+		if literal.Len() == 0 {
+			return
+		}
+
+		built.WriteByte(' ')
+		built.WriteString(quoteStringSetValue(literal.String()))
+		literal.Reset()
+	}
+
+	for _, piece := range assignment.pieces {
+		if !piece.fn {
+			literal.WriteString(piece.literal)
+
+			continue
+		}
+
+		flush()
+		built.WriteString(" content(")
+		built.WriteString(piece.keyword)
+		built.WriteByte(')')
+	}
+
+	flush()
+
+	return built.String()
+}
+
+// forgetInheritedStringSet drops __string_set that mergeCustomProps copied
+// from the parent. string-set does not inherit. The map may be the parent's,
+// so this replaces the pointer instead of deleting in place.
+func forgetInheritedStringSet(style *ResolvedStyle) {
+	if style == nil || style.CustomProps == nil {
+		return
+	}
+
+	if _, ok := style.CustomProps[stringSetCustomKey]; !ok {
+		return
+	}
+
+	if len(style.CustomProps) == 1 {
+		style.CustomProps = nil
+
+		return
+	}
+
+	cloned := make(map[string]string, len(style.CustomProps)-1)
+
+	for key, value := range style.CustomProps {
+		if key == stringSetCustomKey {
+			continue
+		}
+
+		cloned[key] = value
+	}
+
+	style.CustomProps = cloned
+}
+
+// documentStringTable is the named-string table visible to a string() read
+// on node. Assignments after node are ignored, so a later string-set: none
+// does not erase a reader that already passed, and a reader after none does
+// not paint the cleared value.
+func (e *engine) documentStringTable(node *html.Node) *NamedStringTable {
+	root := documentRoot(node)
+	if e == nil || root == nil {
+		return NewNamedStringTable()
+	}
+
+	return e.collectCascadedNamedStrings(root, node)
+}
+
+// collectCascadedNamedStrings walks from root in document order and stops
+// before stop. It applies each element's own __string_set. The first
+// assignment of a name wins. none clears every name. An unparsable stored
+// value is skipped.
+func (e *engine) collectCascadedNamedStrings(root, stop *html.Node) *NamedStringTable {
+	table := NewNamedStringTable()
+	if e == nil || root == nil {
+		return table
+	}
+
+	root.WalkUntil(func(node *html.Node) bool {
+		if node == stop {
+			return false
+		}
+
+		e.applyCascadedStringSet(table, node)
+
+		return true
+	})
+
+	return table
+}
+
+// applyCascadedStringSet records one element's cascaded string-set, if it
+// declared one. Inherited values are already stripped.
+func (e *engine) applyCascadedStringSet(table *NamedStringTable, node *html.Node) {
+	if e == nil || table == nil || node == nil || node.Type != html.ElementNode {
+		return
+	}
+
+	sty := e.styles[node]
+	if sty == nil || sty.CustomProps == nil {
+		return
+	}
+
+	raw, ok := sty.CustomProps[stringSetCustomKey]
+	if !ok || raw == "" {
+		return
+	}
+
+	if raw == "none" {
+		table.Clear()
+
+		return
+	}
+
+	assignments, parsed := ParseStringSet(raw)
+	if !parsed {
+		return
+	}
+
+	for _, assignment := range assignments {
+		table.Set(assignment.Name, e.resolveStringSetAssignment(node, assignment))
+	}
+}
+
+// resolveStringSetAssignment turns one stored assignment into the text
+// string() will paint. Quoted pieces are already decoded. content() reads
+// the element.
+func (e *engine) resolveStringSetAssignment(node *html.Node, assignment StringSetAssignment) string {
+	if len(assignment.pieces) == 0 {
+		return assignment.Value
+	}
+
+	var built strings.Builder
+
+	for _, piece := range assignment.pieces {
+		if !piece.fn {
+			built.WriteString(piece.literal)
+
+			continue
+		}
+
+		built.WriteString(e.stringSetKeyword(node, piece.keyword))
+	}
+
+	return built.String()
+}
+
+// stringSetKeyword resolves one content() argument. An empty keyword is
+// content(), which reads the same text as content(text). content(before)
+// with no ::before contributes nothing.
+func (e *engine) stringSetKeyword(node *html.Node, keyword string) string {
+	switch keyword {
+	case "", "text":
+		return bookmarkElementText(node)
+	case "before":
+		return e.stringSetPseudoText(node, pseudoBefore)
+	case "after":
+		return e.stringSetPseudoText(node, pseudoAfter)
+	case "first-letter":
+		text := bookmarkElementText(node)
+		if text == "" {
+			return ""
+		}
+
+		return string([]rune(text)[:1])
+	default:
+		return ""
+	}
+}
+
+// stringSetPseudoText reads ::before or ::after for content(before) and
+// content(after). No matching rule contributes nothing. A pseudo that itself
+// calls string() contributes nothing, so building the table cannot recurse
+// through the same reader.
+func (e *engine) stringSetPseudoText(node *html.Node, pseudo string) string {
+	if e == nil || node == nil || !e.mayHavePseudoContent(node, pseudo) {
+		return ""
+	}
+
+	best := e.cachedContentDecl(e.pseudoStyleContext(), node, pseudo)
+	if best == nil {
+		return ""
+	}
+
+	if strings.Contains(strings.ToLower(best.value), "string(") {
+		return ""
+	}
+
+	if contentNeedsEnv(best.value) {
+		return evalContentValue(best.value, node, e.contentEnvAt(node, pseudo), nil)
+	}
+
+	return evalContentValue(best.value, node, nil, nil)
 }

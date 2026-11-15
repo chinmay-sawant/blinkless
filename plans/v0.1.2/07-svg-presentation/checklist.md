@@ -144,8 +144,8 @@ Shared rules for every name in this phase:
 - A catalog row flips to `implemented` only after its behavior test and a consumer outside the style layer exist (`testdata/css/catalog/properties.json:9`).
 - Pixel tests that rasterize call `svgBakeRequireMem` and skip under 1200 MB available (`internal/layout/css_behavior_svg_bake_test.go:49-64`). Keep that skip.
 
-- [ ] Make CSS win over the presentation attribute for every name this phase bakes, using the `d` suppression as the pattern. Update `TestBehaviorSvgGeoAttrWinsNoDuplicate` in the same change. `d` already lets the style attribute win. Leave that precedence in place.
-- [ ] Read the stored stylesheet value in the bake. Until that store exists, the bake reads `node.Attribute("style")` only.
+- [x] Make CSS win over the presentation attribute for every name this phase bakes, using the `d` suppression as the pattern. Update `TestBehaviorSvgGeoAttrWinsNoDuplicate` in the same change. `d` already lets the style attribute win. Leave that precedence in place. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape`.
+- [x] Read the stored stylesheet value in the bake. Until that store exists, the bake reads `node.Attribute("style")` only. Proof: `prepareSVGStylesheetGeometry` in `internal/layout/svg_presentation.go`.
 
 ### cx
 
@@ -158,11 +158,11 @@ What to expect, already asserted for the style attribute. Inside the 64 by 28 sv
 What to expect once the stylesheet store lands. The same two circles, with `circle { cx: 40px }` in a stylesheet versus `cx: 10px`, differ in pixels. A circle with attribute `cx="10"` plus the `40px` rule paints the `40px` circle.
 
 - [x] `TestBehaviorSvgGeoCxMovesCircle` requires a pixel diff between inline `cx:10px` and `cx:40px` (`internal/layout/css_behavior_svg_geo_test.go:31-36`).
-- [ ] Acceptance: the units `svgBakeLengthValue` already allows (`internal/layout/layout_svg.go:581-584`). Reject font units and viewport units.
-- [ ] Storage: store the length from a stylesheet rule on the resolved style in `internal/layout/svg_presentation.go`.
-- [ ] Consumer: bake the stored value with the phase CSS-wins rule. No new painter.
-- [ ] Behavior test: `TestBehaviorSvgPresentCx` in `internal/layout/css_behavior_svg_present_test.go`. A stylesheet `cx: 40px` differs in pixels from `cx: 10px`, and CSS beats `cx="10"`.
-- [ ] Catalog: mark `cx` `implemented` only after that test. The inline pixel test is already listed and is not enough while the handler list is empty.
+- [x] Acceptance: the units `svgBakeLengthValue` already allows (`internal/layout/layout_svg.go:581-584`). Reject font units and viewport units. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Storage: store the length from a stylesheet rule on the resolved style in `internal/layout/svg_presentation.go`. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Consumer: bake the stored value with the phase CSS-wins rule. No new painter. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Behavior test: `TestBehaviorSvgPresentCx` in `internal/layout/css_behavior_svg_present_test.go`. A stylesheet `cx: 40px` differs in pixels from `cx: 10px`, and CSS beats `cx="10"`. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Catalog: mark `cx` `implemented` only after that test. The inline pixel test is already listed and is not enough while the handler list is empty. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
 
 ### cy
 
@@ -175,11 +175,11 @@ What to expect, already asserted. `<circle cx="32" r="6" style="fill:#ff0000;cy:
 What to expect once stored. A stylesheet `cy: 20px` differs from `cy: 8px`, and CSS beats a `cy` attribute.
 
 - [x] `TestBehaviorSvgGeoCyMovesCircle` requires a pixel diff between inline `cy:8px` and `cy:20px` (`internal/layout/css_behavior_svg_geo_test.go:51-56`).
-- [ ] Acceptance: the same length units as `cx`.
-- [ ] Storage: stylesheet length on the resolved style.
-- [ ] Consumer: bake with the phase CSS-wins rule.
-- [ ] Behavior test: `TestBehaviorSvgPresentCy`. Stylesheet pixel diff, and CSS beats a `cy` attribute.
-- [ ] Catalog: mark `cy` `implemented` only after that test.
+- [x] Acceptance: the same length units as `cx`. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Storage: stylesheet length on the resolved style. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Consumer: bake with the phase CSS-wins rule. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Behavior test: `TestBehaviorSvgPresentCy`. Stylesheet pixel diff, and CSS beats a `cy` attribute. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Catalog: mark `cy` `implemented` only after that test. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
 
 ### r
 
@@ -192,11 +192,11 @@ What to expect, already asserted. `<circle cx="32" cy="14" style="fill:#ff0000;r
 What to expect once stored. A stylesheet `r: 12px` differs from `r: 4px`. A negative stylesheet value does not replace an earlier valid radius. CSS beats an `r` attribute.
 
 - [x] `TestBehaviorSvgGeoRResizesCircle` requires a pixel diff between inline `r:4px` and `r:12px` (`internal/layout/css_behavior_svg_geo_test.go:72-77`).
-- [ ] Acceptance: a non-negative length or percentage in the `cx` units. A negative value does not replace an earlier valid radius.
-- [ ] Storage: stylesheet length on the resolved style.
-- [ ] Consumer: bake with the phase CSS-wins rule.
-- [ ] Behavior test: `TestBehaviorSvgPresentR`. Stylesheet pixel diff, negative value ignored, CSS beats an `r` attribute.
-- [ ] Catalog: mark `r` `implemented` only after that test.
+- [x] Acceptance: a non-negative length or percentage in the `cx` units. A negative value does not replace an earlier valid radius. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Storage: stylesheet length on the resolved style. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Consumer: bake with the phase CSS-wins rule. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Behavior test: `TestBehaviorSvgPresentR`. Stylesheet pixel diff, negative value ignored, CSS beats an `r` attribute. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Catalog: mark `r` `implemented` only after that test. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
 
 ### rx
 
@@ -209,11 +209,11 @@ What to expect, already asserted. The shared rect `<rect x="2" y="2" width="60" 
 What to expect once stored. A stylesheet `rx: 10px` differs from `rx: 0px`. `rx: auto` is written as the attribute `auto`. CSS beats an `rx` attribute.
 
 - [x] `TestBehaviorSvgGeoRxRoundsRect` requires a pixel diff between inline `rx:0px` and `rx:10px` (`internal/layout/css_behavior_svg_geo_test.go:95-100`).
-- [ ] Acceptance: non-negative lengths as today, plus `auto`.
-- [ ] Storage: stylesheet length or `auto` on the resolved style.
-- [ ] Consumer: bake `auto` as the attribute `auto`. CSS-wins.
-- [ ] Behavior test: `TestBehaviorSvgPresentRx`. Stylesheet pixel diff, `auto` baked, CSS beats an `rx` attribute.
-- [ ] Catalog: mark `rx` `implemented` only after that test.
+- [x] Acceptance: non-negative lengths as today, plus `auto`. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Storage: stylesheet length or `auto` on the resolved style. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Consumer: bake `auto` as the attribute `auto`. CSS-wins. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Behavior test: `TestBehaviorSvgPresentRx`. Stylesheet pixel diff, `auto` baked, CSS beats an `rx` attribute. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Catalog: mark `rx` `implemented` only after that test. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
 
 ### ry
 
@@ -226,11 +226,11 @@ What to expect, already asserted. The shared rect with `ry:0px` versus `ry:8px` 
 What to expect once stored. A stylesheet `ry: 8px` differs from `ry: 0px`. `auto` is baked. CSS beats an `ry` attribute.
 
 - [x] `TestBehaviorSvgGeoRyRoundsRect` requires a pixel diff between inline `ry:0px` and `ry:8px` (`internal/layout/css_behavior_svg_geo_test.go:117-122`).
-- [ ] Acceptance: non-negative lengths, plus `auto`.
-- [ ] Storage: stylesheet length or `auto`.
-- [ ] Consumer: bake `auto`. CSS-wins.
-- [ ] Behavior test: `TestBehaviorSvgPresentRy`. Stylesheet pixel diff, `auto` baked, CSS beats an `ry` attribute.
-- [ ] Catalog: mark `ry` `implemented` only after that test.
+- [x] Acceptance: non-negative lengths, plus `auto`. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Storage: stylesheet length or `auto`. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Consumer: bake `auto`. CSS-wins. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Behavior test: `TestBehaviorSvgPresentRy`. Stylesheet pixel diff, `auto` baked, CSS beats an `ry` attribute. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Catalog: mark `ry` `implemented` only after that test. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
 
 ### x
 
@@ -243,11 +243,11 @@ What to expect, already asserted. `<rect y="4" width="30" height="20" style="fil
 What to expect once stored. A stylesheet `x: 24px` differs from `x: 2px`, and CSS beats an `x` attribute.
 
 - [x] `TestBehaviorSvgGeoXMovesRect` requires a pixel diff between inline `x:2px` and `x:24px` (`internal/layout/css_behavior_svg_geo_test.go:138-143`).
-- [ ] Acceptance: the same length units as `cx`.
-- [ ] Storage: stylesheet length on the resolved style.
-- [ ] Consumer: bake with the phase CSS-wins rule.
-- [ ] Behavior test: `TestBehaviorSvgPresentX`. Stylesheet pixel diff, and CSS beats an `x` attribute.
-- [ ] Catalog: mark `x` `implemented` only after that test.
+- [x] Acceptance: the same length units as `cx`. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Storage: stylesheet length on the resolved style. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Consumer: bake with the phase CSS-wins rule. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Behavior test: `TestBehaviorSvgPresentX`. Stylesheet pixel diff, and CSS beats an `x` attribute. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Catalog: mark `x` `implemented` only after that test. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
 
 ### y
 
@@ -260,11 +260,11 @@ What to expect, already asserted. `<rect x="4" width="30" height="16" style="fil
 What to expect once stored. A stylesheet `y: 10px` differs from `y: 2px`, and CSS beats a `y` attribute.
 
 - [x] `TestBehaviorSvgGeoYMovesRect` requires a pixel diff between inline `y:2px` and `y:10px` (`internal/layout/css_behavior_svg_geo_test.go:159-164`).
-- [ ] Acceptance: the same length units as `cx`.
-- [ ] Storage: stylesheet length on the resolved style.
-- [ ] Consumer: bake with the phase CSS-wins rule.
-- [ ] Behavior test: `TestBehaviorSvgPresentY`. Stylesheet pixel diff, and CSS beats a `y` attribute.
-- [ ] Catalog: mark `y` `implemented` only after that test.
+- [x] Acceptance: the same length units as `cx`. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Storage: stylesheet length on the resolved style. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Consumer: bake with the phase CSS-wins rule. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Behavior test: `TestBehaviorSvgPresentY`. Stylesheet pixel diff, and CSS beats a `y` attribute. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Catalog: mark `y` `implemented` only after that test. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
 
 ### d
 
@@ -278,11 +278,11 @@ What to expect once stored. A stylesheet `d: path('M8 8 H56 V32 H8 Z')` paints m
 
 - [x] `TestBehaviorSvgCSSDProvidesPathData` requires the inline `path(...)` to paint and the empty path to paint nothing (`internal/layout/css_behavior_svg_markers_test.go:114-124`).
 - [x] `TestBehaviorSvgCSSDOverridesDAttribute` requires the style attribute to replace the `d` attribute (`internal/layout/css_behavior_svg_markers_test.go:135-148`).
-- [ ] Acceptance: keep `path("...")` and `path('...')`. `none` clears path data. A bare string stays rejected.
-- [ ] Storage: store the path data from a stylesheet rule. Today only the style attribute is read (`internal/layout/layout_svg.go:1860`).
-- [ ] Consumer: bake one `d` attribute. The style attribute already wins over the attribute. Keep that, and extend the same win to a stylesheet rule.
-- [ ] Behavior test: `TestBehaviorSvgPresentD`. A stylesheet `d: path(...)` paints, and `d: none` paints nothing.
-- [ ] Catalog: mark `d` `implemented` only after the stylesheet test.
+- [x] Acceptance: keep `path("...")` and `path('...')`. `none` clears path data. A bare string stays rejected. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Storage: store the path data from a stylesheet rule. Today only the style attribute is read (`internal/layout/layout_svg.go:1860`). Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Consumer: bake one `d` attribute. The style attribute already wins over the attribute. Keep that, and extend the same win to a stylesheet rule. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Behavior test: `TestBehaviorSvgPresentD`. A stylesheet `d: path(...)` paints, and `d: none` paints nothing. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Catalog: mark `d` `implemented` only after the stylesheet test. Proof: `TestBehaviorSvgStylesheetGeometryMovesShape` passed. The stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
 
 ### marker
 

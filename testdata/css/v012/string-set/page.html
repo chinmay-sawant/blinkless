@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html style="margin:0">
+<head>
+<meta charset="utf-8">
+<title>string-set</title>
+<style>
+  h1 {
+    string-set: chapter content(text);
+    margin: 0;
+    font-size: 32px;
+  }
+  #read {
+    margin: 12px 0 0;
+    font-size: 32px;
+  }
+  #read::before {
+    content: string(chapter);
+  }
+</style>
+</head>
+<body style="margin:0">
+  <h1>Guide One</h1>
+  <p id="read"></p>
+</body>
+</html>

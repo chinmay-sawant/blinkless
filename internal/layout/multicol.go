@@ -838,6 +838,7 @@ func (e *engine) placeMulticolLine(
 		st := e.stylePtr(item.n)
 		if multicolForcedColumnBreak(st, col, colHeights, prevAfterAlways) ||
 			advanceMulticolColumn(col, colHeights, item, nCols, maxColH, target, balance) ||
+			multicolBreakInsideStraddle(st, col, colHeights, item, nCols, maxColH, target, balance) ||
 			multicolWidowsShouldAdvance(col, nCols, colLines, suffixLines, suffixHeights, colHeights, i, len(items), widows, orphans, maxColH, balance) {
 			col++
 		}
@@ -905,6 +906,37 @@ func advanceMulticolColumn(
 	return colHeights[col]+item.h > maxColH+1e-6
 }
 
+// multicolBreakInsideStraddle reports whether break-inside avoid or
+// avoid-column must start this item in the next column. advanceMulticolColumn
+// already moves an item whose midpoint passes the balance target. This covers
+// the box that starts before that target and ends after it, so placing it
+// would straddle the column break. An empty column, the last column, and a
+// box that already fits the target stay put. This does not open a new page.
+func multicolBreakInsideStraddle(
+	st *ResolvedStyle, col int, colHeights []float64, item multicolItem, nCols int, maxColH, target float64, balance bool,
+) bool {
+	if !balance || target <= 0 || st == nil {
+		return false
+	}
+
+	if st.PageBreakInside != avoidKeyword && st.PageBreakInside != avoidColumnValue {
+		return false
+	}
+
+	if col < 0 || col >= nCols-1 || col >= len(colHeights) || colHeights[col] <= 0 {
+		return false
+	}
+
+	breakAt := target
+	if maxColH > 0 && maxColH < breakAt {
+		breakAt = maxColH
+	}
+
+	start := colHeights[col]
+
+	return start+1e-6 < breakAt && start+item.h > breakAt+1e-6
+}
+
 // multicolForcedColumnBreak reports whether the item must start in the next
 // column because of a forced break: break-before:column/page on the item
 // (parsed to PageBreakBefore always at style_properties.go:1680-1681) or
@@ -912,8 +944,8 @@ func advanceMulticolColumn(
 // style_properties.go:1693-1694). A forced break into an empty column is
 // already satisfied, so it stays a no-op there: break-before on the first
 // item of a line and break-after at the end of a line change nothing.
-// Avoid values are not honored here: keeping an overflowing item in its
-// column needs keep-together logic this greedy packer has no pass for.
+// break-inside avoid is not a forced break. multicolBreakInsideStraddle
+// moves a box that would cross the balance target.
 func multicolForcedColumnBreak(
 	st *ResolvedStyle, col int, colHeights []float64, prevAfterAlways bool,
 ) bool {

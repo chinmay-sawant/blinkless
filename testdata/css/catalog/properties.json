@@ -11,14 +11,14 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 572,
-      "partial": 4,
-      "unsupported": 201,
+      "implemented": 582,
+      "partial": 0,
+      "unsupported": 195,
       "intentionally ignored": 8
     },
     "aliases": 38,
-    "engine_registered": 593,
-    "upstream_only": 192,
+    "engine_registered": 598,
+    "upstream_only": 187,
     "upstream": {
       "inventory": "webref-ed-css",
       "revision": "1f2ec8f74a80c14066b4c7d6822cee59f69fa03b",
@@ -820,10 +820,10 @@
       "name": "-webkit-mask-composite",
       "aliases": [],
       "values": [
-        "source-over | source-out | source-in | xor"
+        "source-over | source-out | source-in | xor | source-atop | destination-over | destination-in | destination-out | destination-atop | clear | copy"
       ],
       "limitations": [
-        "The engine accepts source-over, source-in, source-out, and xor only; Chrome 155 also accepts source-atop, destination-over, destination-in, destination-out, destination-atop, clear, and copy. Mask pixel replay stays a host contract."
+        "Mask pixel replay is a host contract."
       ],
       "source": [
         "internal/layout/style_cascade.go",
@@ -840,9 +840,13 @@
         {
           "file": "internal/layout/css_behavior_mask_test.go",
           "name": "TestBehaviorMaskVendorAliasesReachMaskGroup"
+        },
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorWebkitMaskCompositeExtraOperators"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
@@ -1516,16 +1520,37 @@
     {
       "name": "all",
       "aliases": [],
-      "values": [],
+      "values": [
+        "initial | inherit | unset"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "revert, revert-layer, and revert-rule are not origin walks."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_all.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "expandAllDeclaration"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_all_test.go",
+          "name": "TestBehaviorAllInitialResetsColorAndKeepsDirection"
+        },
+        {
+          "file": "internal/layout/css_behavior_all_test.go",
+          "name": "TestBehaviorAllInheritPaintsParentBackground"
+        },
+        {
+          "file": "internal/layout/css_behavior_all_test.go",
+          "name": "TestBehaviorAllLonghandAfterWins"
+        },
+        {
+          "file": "internal/layout/css_behavior_all_test.go",
+          "name": "TestBehaviorAllUnsetInheritsColor"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "initial | inherit | unset | revert | revert-layer | revert-rule"
     },
@@ -2420,9 +2445,10 @@
         "saturate(<number> | <percentage>)"
       ],
       "limitations": [
-        "The display list carries the CSS filter list on its element group. OwnFrame supports one pixel-based blur capped at 64px and one saturation operation capped at 3; other length units, duplicate functions, SVG url() filters, and other functions remain unsupported. Rounded clipping uses one radius inferred from the first fill operation."
+        "pixel blur and saturation are painted by the host."
       ],
       "source": [
+        "internal/layout/backdrop_filter.go",
         "internal/layout/style_properties.go",
         "internal/layout/blend_group.go",
         "internal/layout/layout.go",
@@ -2434,10 +2460,14 @@
       "tests": [
         {
           "file": "layout/backdrop_filter_test.go",
+          "name": "TestBehaviorBackdropFilterKeepsAuthorString"
+        },
+        {
+          "file": "layout/backdrop_filter_test.go",
           "name": "TestDisplayBackdropFilterCarriesHostEffect"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | <filter-value-list>"
     },
@@ -5550,11 +5580,11 @@
         "auto | avoid | avoid-page | avoid-column | avoid-region"
       ],
       "limitations": [
-        "break-inside keywords parse but no layout or paint pass reads them; the engine returns a drawing list without paginating, so avoidance has no observable effect (TestBehaviorBreakInsideAvoidColumnNoPageEffect).",
-        "break-inside:avoid parses but multicol advances whole items without a straddle test at the distribution call, so avoidance equals auto (TestBreakInsideAvoidBalancedStraddleGap)."
+        "this tree does not split the drawing list onto pages; Display.KeepTogether still carries break-inside avoid ranges for a host."
       ],
       "source": [
-        "internal/layout/style_properties.go"
+        "internal/layout/style_properties.go",
+        "internal/layout/multicol.go"
       ],
       "handlers": [
         "applyPageBreakProps",
@@ -5576,9 +5606,13 @@
         {
           "file": "internal/layout/css_behavior_break_inside_build_test.go",
           "name": "TestBreakInsideAvoidBalancedStraddleGap"
+        },
+        {
+          "file": "internal/layout/css_behavior_break_inside_build_test.go",
+          "name": "TestBehaviorBreakInsideAvoidColumnPushesStraddle"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | avoid | avoid-page | avoid-column | avoid-region"
     },
@@ -12822,7 +12856,7 @@
         "luminance | alpha"
       ],
       "limitations": [
-        "mask-type cascades into ResolvedStyle.MaskType but no consumer reads it; the SVG rasterizer uses only the mask-type on the SVG source element. Pixel replay stays a host contract."
+        "Pixel replay of the finished mask onto the element is a host contract."
       ],
       "source": [
         "internal/layout/style_cascade.go",
@@ -12839,6 +12873,10 @@
       "tests": [
         {
           "file": "internal/layout/css_behavior_mask_test.go",
+          "name": "TestBehaviorMaskTypeStylesheetChangesSVGMaskAlpha"
+        },
+        {
+          "file": "internal/layout/css_behavior_mask_test.go",
           "name": "TestBehaviorSVGMaskTypeFlowsIntoMaskImagePayload"
         },
         {
@@ -12850,7 +12888,7 @@
           "name": "TestRasterizeMaskUsesSourceLuminanceForMatchSource"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "luminance | alpha"
     },
@@ -13014,16 +13052,23 @@
     {
       "name": "max-size",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<'max-width'> <'max-height'>?"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_size_shorthand.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMaxSizeProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_sizing_leftover_test.go",
+          "name": "TestBehaviorMaxSizeClampsUsedBorderBox"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'max-width'> <'max-height'>?"
     },
@@ -13152,16 +13197,23 @@
     {
       "name": "min-size",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<'min-width'> <'min-height'>?"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_size_shorthand.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyMinSizeProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_sizing_leftover_test.go",
+          "name": "TestBehaviorMinSizeClampsUsedBorderBox"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'min-width'> <'min-height'>?"
     },
@@ -17136,16 +17188,25 @@
     {
       "name": "size",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'width'> <'height'>?"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "This element property is separate from the @page descriptor."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_size_shorthand.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applySizeShorthandProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_sizing_leftover_test.go",
+          "name": "TestBehaviorSizeShorthandSetsUsedBorderBox"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'width'> <'height'>?"
     },
@@ -17288,14 +17349,19 @@
     {
       "name": "string-set",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | [ <custom-ident> <string>+ ]#"
+      ],
       "limitations": [
-        "Standalone named-string table in string_set.go with set-then-read semantics; no page-margin pipeline consumes it yet."
+        "Page-margin running headers are not painted."
       ],
       "source": [
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
-      "handlers": [],
+      "handlers": [
+        "setStringSetCustom",
+        "scanContentFunction"
+      ],
       "tests": [
         {
           "file": "internal/layout/css_behavior_string_set_test.go",
@@ -17318,11 +17384,15 @@
           "name": "TestBehaviorStringSetNoPaintEffect"
         },
         {
+          "file": "internal/layout/css_behavior_string_set_test.go",
+          "name": "TestBehaviorStringSetPaintsOnSameCanvas"
+        },
+        {
           "file": "internal/layout/css_behavior_gcpm_wire_test.go",
           "name": "TestBehaviorGCPMWireStringSet"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | [ <custom-ident> <string>+ ]#"
     },
@@ -20407,16 +20477,49 @@
     {
       "name": "word-space-transform",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | [ space | ideographic-space ] && auto-phrase?"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "auto-phrase inserts no phrase breaks."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/inline_word_space.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyWordSpaceTransformProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_word_space_test.go",
+          "name": "TestBehaviorWordSpaceTransformSpaceWidensRun"
+        },
+        {
+          "file": "internal/layout/css_behavior_word_space_test.go",
+          "name": "TestBehaviorWordSpaceTransformIdeographicSpace"
+        },
+        {
+          "file": "internal/layout/css_behavior_word_space_test.go",
+          "name": "TestBehaviorWordSpaceTransformAutoPhraseInsertsNothing"
+        },
+        {
+          "file": "internal/layout/css_behavior_word_space_test.go",
+          "name": "TestBehaviorWordSpaceTransformWbrWidensRun"
+        },
+        {
+          "file": "internal/layout/css_behavior_word_space_test.go",
+          "name": "TestBehaviorWordSpaceTransformBesideBreakStays"
+        },
+        {
+          "file": "internal/layout/css_behavior_word_space_test.go",
+          "name": "TestBehaviorWordSpaceTransformBadTokenKeepsSpace"
+        },
+        {
+          "file": "internal/layout/css_behavior_word_space_test.go",
+          "name": "TestBehaviorWordSpaceTransformInherits"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | [ space | ideographic-space ] && auto-phrase?"
     },

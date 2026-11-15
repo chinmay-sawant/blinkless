@@ -177,6 +177,7 @@ func runMaskBoxCompositeCases(t *testing.T) {
 		{"mask-clip", "content-box, no-clip", true},
 		{"mask-composite", "add, subtract, intersect, exclude", true},
 		{"mask-composite", "source-over", false},
+		{"mask-composite", "destination-out", false},
 		{"mask-type", "alpha", true},
 		{"mask-type", "match-source", false},
 	}
@@ -197,7 +198,8 @@ func runWebkitMaskCases(t *testing.T) {
 		{"-webkit-mask-clip", "view-box", false},
 		{"-webkit-mask-composite", "source-over, source-out, source-in, xor", true},
 		{"-webkit-mask-composite", "add", false},
-		{"-webkit-mask-composite", "destination-out", false},
+		{"-webkit-mask-composite", "destination-out", true},
+		{"-webkit-mask-composite", "not-an-operator", false},
 		{"-webkit-mask-image", "url(mask.png)", true},
 		{"-webkit-mask-origin", "content-box", true},
 		{"-webkit-mask-origin", "view-box", false},

@@ -624,6 +624,11 @@ func inheritGapBProps(dst *ResolvedStyle, parent *ResolvedStyle, raw map[string]
 	if _, ok := raw[inlineSizingProp]; !ok {
 		dst.InlineSizing = parent.InlineSizing
 	}
+
+	// word-space-transform inherits, but the uint64 inherit mask is full.
+	if _, ok := raw["word-space-transform"]; !ok {
+		dst.WordSpaceTransform = parent.WordSpaceTransform
+	}
 }
 
 // selectorMatches reports whether sel matches node, using the pseudo-shape
@@ -1618,6 +1623,7 @@ var restShorthandProps = [...]string{ //nolint:gochecknoglobals // static apply 
 	cssPropBorderBlock, cssPropBorderInline, cssPropBorderBlockStart, cssPropBorderBlockEnd,
 	cssPropBorderInlineStart, cssPropBorderInlineEnd, cssPropBorderBlockWidth, cssPropBorderBlockStyle,
 	cssPropBorderBlockColor, cssPropBorderInlineWidth, cssPropBorderInlineStyle, cssPropBorderInlineColor,
+	"max-size",
 }
 
 // restShorthandSet is derived from restShorthandProps so the longhand pass
@@ -1711,9 +1717,8 @@ type styleGroupFn func(
 	parent *ResolvedStyle, hasParent bool,
 ) bool
 
-// styleGroups is the immutable dispatch order for applyStyleProp.
-// Package-level so applyStyleProp does not rebuild this dispatch table for
-// every cascaded property on every element.
+// styleGroups is the dispatch order for applyStyleProp. It is package-level
+// so applyStyleProp does not rebuild the table for every cascaded property.
 var styleGroups = [...]styleGroupFn{ //nolint:gochecknoglobals // static dispatch table
 	applyDisplayGroup,
 	applyPositionGroup,
@@ -1723,6 +1728,7 @@ var styleGroups = [...]styleGroupFn{ //nolint:gochecknoglobals // static dispatc
 	applyRowRuleGroup,
 	applyGridGroup,
 	applyBoxGroup,
+	applyMaxSizeProps,
 	applyBorderGroup,
 	applyColorGroup,
 	applyTextGroup,
@@ -1764,6 +1770,10 @@ var styleGroups = [...]styleGroupFn{ //nolint:gochecknoglobals // static dispatc
 	applyTimelineProps,
 	applyBaselineSourceProps,
 	applyInlineSizingProps,
+	applySizeShorthandProps,
+	applyMinSizeProps,
+	applyAllProps,
+	applyWordSpaceTransformProps,
 }
 
 func normalizeVendorPrefix(prop string) string {
