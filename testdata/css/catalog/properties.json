@@ -11,14 +11,14 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 596,
+      "implemented": 599,
       "partial": 1,
-      "unsupported": 180,
+      "unsupported": 177,
       "intentionally ignored": 8
     },
     "aliases": 38,
-    "engine_registered": 612,
-    "upstream_only": 173,
+    "engine_registered": 615,
+    "upstream_only": 170,
     "upstream": {
       "inventory": "webref-ed-css",
       "revision": "1f2ec8f74a80c14066b4c7d6822cee59f69fa03b",
@@ -1066,48 +1066,89 @@
     {
       "name": "-webkit-text-stroke",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<line-width> || <color>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The engine carries the stroke on the text op (Op.TextStroke) and does not rasterize glyph edges. OwnFrame paints the outline by repeating the run around each glyph under the fill, so it shows about half the weight of a centered stroke."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/text_stroke.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTextStrokeProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_text_stroke_test.go",
+          "name": "TestBehaviorTextStrokeShorthand"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "vendor",
       "upstream_syntax": "<line-width> || <color>"
     },
     {
       "name": "-webkit-text-stroke-color",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<color>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The engine carries the stroke on the text op (Op.TextStroke) and does not rasterize glyph edges. OwnFrame paints the outline by repeating the run around each glyph under the fill, so it shows about half the weight of a centered stroke."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/text_stroke.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTextStrokeProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_text_stroke_test.go",
+          "name": "TestBehaviorTextStrokeWidthAndColor"
+        },
+        {
+          "file": "internal/layout/css_behavior_text_stroke_test.go",
+          "name": "TestBehaviorTextStrokeInherits"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "vendor",
       "upstream_syntax": "<color>"
     },
     {
       "name": "-webkit-text-stroke-width",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<line-width>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The engine carries the stroke on the text op (Op.TextStroke) and does not rasterize glyph edges. OwnFrame paints the outline by repeating the run around each glyph under the fill, so it shows about half the weight of a centered stroke."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/text_stroke.go",
+        "internal/layout/op_extra.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTextStrokeProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_text_stroke_test.go",
+          "name": "TestBehaviorTextStrokeWidthAndColor"
+        },
+        {
+          "file": "internal/layout/css_behavior_text_stroke_test.go",
+          "name": "TestBehaviorTextStrokeInherits"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "vendor",
       "upstream_syntax": "<line-width>"
     },

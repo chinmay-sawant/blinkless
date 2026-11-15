@@ -3,7 +3,7 @@
 <body style="margin:0;background:#f4f0e8;color:#1c1917">
 <div style="padding:28px 32px 48px">
 <p style="margin:0 0 6px;font-size:28px">blinkless next</p>
-<p style="margin:0 0 28px;font-size:16px;width:640px">Thirty-five styles on one page. Scroll. Each block is labeled. Compare the samples under the label.</p>
+<p style="margin:0 0 28px;font-size:16px;width:640px">Thirty-eight styles on one page. Scroll. Each block is labeled. Compare the samples under the label.</p>
 
 <p style="margin:0 0 8px;font-size:18px">1. -webkit-background-clip</p>
 <p style="margin:0 0 10px;font-size:14px;width:640px">Red is the background. The gray ring is padding. Border-box paints red through the padding. Content-box leaves the padding gray.</p>
@@ -260,6 +260,18 @@
 
 <p style="margin:0 0 8px;font-size:18px">35. flood-opacity</p>
 <p style="margin:0 0 10px;font-size:14px;width:640px">The flood above is at 0.6 opacity, so the page color shows through it.</p>
+
+<p style="margin:28px 0 8px;font-size:18px">36. -webkit-text-stroke</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">The shorthand takes a width and a color. Blue glyphs outlined in red, 2px wide. The drawing list carries the width and color. This window draws the outline by repeating the text around each glyph, under the fill, so only the outer half of the stroke shows and it looks lighter than a browser's.</p>
+<p style="margin:0 0 28px;font-size:48px;color:#1d4ed8;-webkit-text-stroke:2px #e11d48">Stroke</p>
+
+<p style="margin:0 0 8px;font-size:18px">37. -webkit-text-stroke-width</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">With no color longhand the outline follows the fill. 0 paints nothing, 1px is thin, thick is wider.</p>
+<p style="margin:0 0 28px;font-size:40px;color:#16a34a"><span style="-webkit-text-stroke-width:0">Aa</span> <span style="-webkit-text-stroke-width:1px">Aa</span> <span style="-webkit-text-stroke-width:thick">Aa</span></p>
+
+<p style="margin:0 0 8px;font-size:18px">38. -webkit-text-stroke-color</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">White glyphs on a dark box, outlined in orange. The color longhand only matters once the width is above 0.</p>
+<p style="margin:0 0 28px;font-size:44px;color:#ffffff;background:#1c1917;padding:8px 12px;display:inline-block;-webkit-text-stroke-width:2px;-webkit-text-stroke-color:#f59e0b">Outline</p>
 
 </div>
 </body>

@@ -39,12 +39,14 @@ func applyImageRenderingProps(
 	return true
 }
 
-// inheritImageRendering copies the parent's keyword unless the element
-// declares its own. The inherit mask is full, so this sits beside it.
-func inheritImageRendering(dst, parent *ResolvedStyle, raw map[string]string) {
+// inheritExtraProps copies inherited properties the full inherit mask cannot
+// hold: image-rendering and the text-stroke trio.
+func inheritExtraProps(dst, parent *ResolvedStyle, raw map[string]string) {
 	if _, ok := raw[imageRenderingProp]; !ok {
 		dst.ImageRendering = parent.ImageRendering
 	}
+
+	inheritTextStroke(dst, parent, raw)
 }
 
 // withImageRendering records the image-rendering keyword on an image op.

@@ -43,7 +43,7 @@ as its inline text (per the note column).
 
 ## 2. Supported CSS properties
 
-The catalog in `testdata/css/catalog/properties.json` (schema v2) is the authoritative property record. Measured 2026-11-02: 785 rows - 596 implemented, 1 partial, 180 unsupported, 8 intentionally ignored. The pinned upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties: 671 draft, 70 vendor, 52 svg, 28 browser-ui). Regenerate the tables below with `python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails on drift between the catalog and the code. Rows scoped to `blinkless+ownframe` have sampled runtime evidence in OwnFrame; Blinkless supplies their CSS metadata.
+The catalog in `testdata/css/catalog/properties.json` (schema v2) is the authoritative property record. Measured 2026-11-02: 785 rows - 599 implemented, 1 partial, 177 unsupported, 8 intentionally ignored. The pinned upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties: 671 draft, 70 vendor, 52 svg, 28 browser-ui). Regenerate the tables below with `python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails on drift between the catalog and the code. Rows scoped to `blinkless+ownframe` have sampled runtime evidence in OwnFrame; Blinkless supplies their CSS metadata.
 
 Statuses describe the stated layout pipeline scope, not browsers:
 
@@ -54,7 +54,7 @@ Statuses describe the stated layout pipeline scope, not browsers:
 
 An implemented status is not a browser-parity or parser-conformance claim. Rendering comparisons and HTML parsing carry separate evidence in `plans/v0.0.1/html-css-json-compatibility-checklist.md`.
 
-### 2.1 Implemented (596)
+### 2.1 Implemented (599)
 
 | Property | Accepted values | Source | Behavior tests |
 |---|---|---|---|
@@ -87,6 +87,9 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `-webkit-mask-size` | auto \| cover \| contain \| one or two non-negative CSS lengths or percentages | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go` | `TestBehaviorMaskVendorAliasesReachMaskGroup` |
 | `-webkit-perspective` | alias of the unprefixed property | `internal/layout/style_cascade.go`, `internal/layout/transform.go` | `TestBehaviorWebkitPerspectiveAliasForeshortens` |
 | `-webkit-perspective-origin` | alias of the unprefixed property | `internal/layout/style_cascade.go`, `internal/layout/transform.go` | `TestBehaviorWebkitPerspectiveOriginAlias` |
+| `-webkit-text-stroke` | <line-width> \|\| <color> | `internal/layout/text_stroke.go`, `internal/layout/op_extra.go`, `internal/layout/style.go` | `TestBehaviorTextStrokeShorthand` |
+| `-webkit-text-stroke-color` | <color> | `internal/layout/text_stroke.go`, `internal/layout/op_extra.go`, `internal/layout/style.go` | `TestBehaviorTextStrokeWidthAndColor`, `TestBehaviorTextStrokeInherits` |
+| `-webkit-text-stroke-width` | <line-width> | `internal/layout/text_stroke.go`, `internal/layout/op_extra.go`, `internal/layout/style.go` | `TestBehaviorTextStrokeWidthAndColor`, `TestBehaviorTextStrokeInherits` |
 | `-webkit-transform-style` | alias of the unprefixed property | `internal/layout/style_cascade.go`, `internal/layout/transform.go` | `TestBehaviorWebkitTransformStyleAliasPreserve3D` |
 | `-webkit-transition` | comma-separated property with optional duration, easing, delay, and behavior | `internal/layout/animation_transition.go`, `internal/layout/transition_style.go`, `internal/layout/placed.go`, `layout/layout.go` | `TestWebkitAnimationTransitionAliasesMatchStandardProperties`, `TestWebkitAnimationTransitionAliasesRespectCascadeOrder`, `TestDisplayAnimationAndTransitionMetadata`; OwnFrame cases: `TestCatalogTransitionPropertiesReachOwnFrameFrames (-webkit-transition)` |
 | `-webkit-transition-delay` | signed <time>; comma-separated | `internal/layout/animation_transition.go`, `internal/layout/transition_style.go`, `internal/layout/placed.go`, `layout/layout.go` | `TestWebkitAnimationTransitionAliasesMatchStandardProperties`, `TestWebkitAnimationTransitionAliasesRespectCascadeOrder`, `TestDisplayAnimationAndTransitionMetadata`; OwnFrame cases: `TestCatalogTransitionPropertiesReachOwnFrameFrames (-webkit-transition-delay)` |
@@ -661,15 +664,12 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 |---|---|---|---|
 | `margin-break` | auto \| keep \| discard | `internal/layout/margin_break.go`, `internal/layout/multicol.go`, `internal/layout/style_properties.go` | Column starts honor keep, discard, and auto: keep puts the margin-top back at the top of a column that follows a break. A page break is not handled because the engine has no page index, and a margin in the middle of a column is not applied by multicol. |
 
-### 2.3 Unsupported (180)
+### 2.3 Unsupported (177)
 
 | Property | Named missing behavior |
 |---|---|
 | `-webkit-appearance` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `-webkit-text-size-adjust` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `-webkit-text-stroke` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `-webkit-text-stroke-color` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `-webkit-text-stroke-width` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `-webkit-user-select` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `background-attachment` | Parsed and stored (BackgroundAttachment, style_properties.go:1297) but no layout or paint consumer reads it: background_image.go:343 documents fixed as intentionally painting as scroll. The engine has no scrolling viewport, so fixed/local versus scroll is unobservable. Only test is a stored-string assertion (TestBackgroundLonghands). |
 | `background-tbd` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |

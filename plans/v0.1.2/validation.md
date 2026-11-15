@@ -89,6 +89,10 @@ The catalog counts 592 implemented and 185 unsupported. The OwnFrame window show
 
 The catalog counts 596 implemented, 1 partial, and 180 unsupported. `lighting-color` stayed unsupported: the canvas has no lighting filter and the ledger says not to fake one.
 
+## Result on 2026-11-16 (text stroke)
+
+`-webkit-text-stroke`, `-webkit-text-stroke-color`, and `-webkit-text-stroke-width` are implemented. The tests read `Op.TextStroke()` from the drawing list. OwnFrame paints the outline in both its window and bitmap renderers by repeating the run around each glyph under the fill, so the outline is about half as heavy as a centered browser stroke. The catalog counts 599 implemented, 1 partial, and 177 unsupported.
+
 ## Window pass
 
 After the ten tests exit 0:

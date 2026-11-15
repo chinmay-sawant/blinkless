@@ -576,7 +576,7 @@ func inheritProps(dst *ResolvedStyle, parent *ResolvedStyle, raw map[string]stri
 	}
 
 	inheritGapBProps(dst, parent, raw)
-	inheritImageRendering(dst, parent, raw)
+	inheritExtraProps(dst, parent, raw)
 }
 
 // inheritGapBProps copies inherited properties that cannot
@@ -1773,6 +1773,7 @@ var styleGroups = [...]styleGroupFn{ //nolint:gochecknoglobals // static dispatc
 	applyContinueProps,
 	applyLinkParams,
 	applyImageRenderingProps,
+	applyTextStrokeProps,
 	applyInlineSizingProps,
 	applySizeShorthandProps,
 	applyMinSizeProps,

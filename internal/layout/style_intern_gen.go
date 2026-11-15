@@ -489,6 +489,9 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.BaselineSource == b.BaselineSource &&
 		a.Continue == b.Continue &&
 		a.ImageRendering == b.ImageRendering &&
+		a.TextStrokeWidth == b.TextStrokeWidth &&
+		a.TextStrokeColor == b.TextStrokeColor &&
+		a.TextStrokeColorSet == b.TextStrokeColorSet &&
 		a.LinkParameters == b.LinkParameters &&
 		a.ContinueLines == b.ContinueLines &&
 		a.InlineSizing == b.InlineSizing &&
@@ -959,6 +962,11 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashString(h, s.BaselineSource)
 	h = styleInternHashString(h, s.Continue)
 	h = styleInternHashString(h, s.ImageRendering)
+	h = styleInternHashFloat64(h, s.TextStrokeWidth)
+	for _, e := range s.TextStrokeColor {
+		h = styleInternHashFloat64(h, e)
+	}
+	h = styleInternHashBool(h, s.TextStrokeColorSet)
 	h = styleInternHashString(h, s.LinkParameters)
 	h = styleInternHashInt(h, s.ContinueLines)
 	h = styleInternHashString(h, s.InlineSizing)
@@ -1407,6 +1415,9 @@ func styleInternFields() []string {
 		"BaselineSource",
 		"Continue",
 		"ImageRendering",
+		"TextStrokeWidth",
+		"TextStrokeColor",
+		"TextStrokeColorSet",
 		"LinkParameters",
 		"ContinueLines",
 		"InlineSizing",

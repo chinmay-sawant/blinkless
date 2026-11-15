@@ -599,6 +599,10 @@ type ResolvedStyle struct {
 	Continue string
 	// ImageRendering is the image-rendering keyword; empty means auto.
 	ImageRendering string
+	// Text stroke: width in points (0 means none), and the color when set.
+	TextStrokeWidth    float64
+	TextStrokeColor    [3]float64
+	TextStrokeColorSet bool
 	// LinkParameters is the canonical link-parameters list; empty means none.
 	LinkParameters string
 	// ContinueLines is the line limit an anonymous flex item inherits from a
