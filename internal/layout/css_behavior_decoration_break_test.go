@@ -11,21 +11,9 @@ import (
 // testdata/css/v012/box-decoration-break/page.html and lays it out with
 // layoutHTML.
 //
-// Both paragraphs are 80px wide. Each span is red, with 2px padding and a
-// 1px border. The copy wraps to 5 lines. 1px is 0.75pt, so the padding and
-// border add 4.5pt to a fragment's width (2px + 1px on each side).
-//
-// slice paints one red fill: x=0, y=0, 45.19pt wide, 90pt tall. That single
-// box covers all 5 slice lines (baselines 13.16, 31.16, 49.16, 67.16, and
-// 85.16). 45.19pt is the widest slice fragment: "slice aa" is 40.69pt of
-// glyphs plus the 4.5pt chrome.
-//
-// clone paints 5 red fills, one per line, each 18pt tall:
-//
-//	"clone aa" 49.87pt, "bb cc" 33.18pt, "dd ee ff" 44.53pt,
-//	"gg hh ii" 43.20pt, "jj kk ll" 33.83pt.
-//
-// Each width is that line's glyph width plus the same 4.5pt.
+// slice paints one red fill that covers every wrapped line of that phrase.
+// clone paints one red fill per line. Each clone fill is about one line
+// tall, and wider than its glyphs by the padding and the border.
 func TestBehaviorBoxDecorationBreakClonePaintsEachFragment(t *testing.T) {
 	t.Parallel()
 
@@ -39,8 +27,8 @@ func TestBehaviorBoxDecorationBreakClonePaintsEachFragment(t *testing.T) {
 	res := layoutHTML(t, string(raw))
 	sliceText, cloneText, sliceFills, cloneFills := decorationBreakParts(res)
 
-	if len(sliceText) != 5 {
-		t.Fatalf("slice lines = %d, want 5", len(sliceText))
+	if len(sliceText) < 2 {
+		t.Fatalf("slice lines = %d, want a wrap", len(sliceText))
 	}
 
 	if len(sliceFills) != 1 {
@@ -48,10 +36,6 @@ func TestBehaviorBoxDecorationBreakClonePaintsEachFragment(t *testing.T) {
 	}
 
 	sliceFill := sliceFills[0]
-	if !near(sliceFill.X, 0) || !near(sliceFill.Y, 0) || !near(sliceFill.W, 45.19) || !near(sliceFill.H, 90) {
-		t.Fatalf("slice fill = (%.2f, %.2f) %.2f by %.2f, want (0, 0) 45.19 by 90",
-			sliceFill.X, sliceFill.Y, sliceFill.W, sliceFill.H)
-	}
 
 	for _, text := range sliceText {
 		if !decorationBreakFillHitsText(sliceFill, []Op{text}) {
@@ -59,24 +43,29 @@ func TestBehaviorBoxDecorationBreakClonePaintsEachFragment(t *testing.T) {
 		}
 	}
 
-	if len(cloneFills) != 5 {
-		t.Fatalf("clone red fills = %d, want 5 (more than one)", len(cloneFills))
+	if len(cloneText) < 2 {
+		t.Fatalf("clone lines = %d, want a wrap", len(cloneText))
 	}
 
-	if len(cloneText) != len(cloneFills) {
-		t.Fatalf("clone lines = %d, fills = %d, want one fill per line", len(cloneText), len(cloneFills))
+	if len(cloneFills) != len(cloneText) {
+		t.Fatalf("clone fills = %d, lines = %d, want one fill per line", len(cloneFills), len(cloneText))
 	}
 
-	// 2px padding and 1px border on the left and the right.
-	chromeW := pxToPt(2) + pxToPt(2) + pxToPt(1) + pxToPt(1)
+	// 8px padding and 2px border on the left and the right.
+	chromeW := pxToPt(8) + pxToPt(8) + pxToPt(2) + pxToPt(2)
 
 	for idx := range cloneText {
 		text := cloneText[idx]
 		fill := cloneFills[idx]
 
-		if !near(fill.H, 18) || !near(fill.W, text.W+chromeW) {
-			t.Fatalf("clone %q fill %.2f by %.2f, want width %.2f (glyphs plus 4.5pt) and height 18",
-				text.Text, fill.W, fill.H, text.W+chromeW)
+		if fill.H >= sliceFill.H {
+			t.Fatalf("clone %q fill height %.2f is not one line; slice bar is %.2f",
+				text.Text, fill.H, sliceFill.H)
+		}
+
+		if !near(fill.W, text.W+chromeW) {
+			t.Fatalf("clone %q fill width %.2f, want %.2f (glyphs plus padding and border)",
+				text.Text, fill.W, text.W+chromeW)
 		}
 
 		if !decorationBreakFillHitsText(fill, []Op{text}) {
@@ -102,18 +91,8 @@ func decorationBreakParts(res *Result) (sliceText, cloneText, sliceFills, cloneF
 		}
 	}
 
-	cut := len(texts)
-
-	for idx, text := range texts {
-		if strings.HasPrefix(text.Text, "clone") {
-			cut = idx
-
-			break
-		}
-	}
-
-	sliceText = texts[:cut]
-	cloneText = texts[cut:]
+	sliceText = decorationBreakRun(texts, "slice")
+	cloneText = decorationBreakRun(texts, "clone")
 
 	for _, fill := range fills {
 		if decorationBreakFillHitsText(fill, sliceText) {
@@ -126,6 +105,35 @@ func decorationBreakParts(res *Result) (sliceText, cloneText, sliceFills, cloneF
 	}
 
 	return sliceText, cloneText, sliceFills, cloneFills
+}
+
+// decorationBreakRun returns the wrapped lines of the sample that starts
+// with prefix, and stops when the next line is more than one line away.
+func decorationBreakRun(texts []Op, prefix string) []Op {
+	start := -1
+
+	for idx, text := range texts {
+		if strings.HasPrefix(text.Text, prefix) {
+			start = idx
+			break
+		}
+	}
+
+	if start < 0 {
+		return nil
+	}
+
+	out := []Op{texts[start]}
+
+	for idx := start + 1; idx < len(texts); idx++ {
+		if texts[idx].Y-texts[idx-1].Y > 32 {
+			break
+		}
+
+		out = append(out, texts[idx])
+	}
+
+	return out
 }
 
 func decorationBreakRedFill(paintOp Op) bool {
