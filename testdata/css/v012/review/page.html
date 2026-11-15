@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html style="margin:0">
+<body style="margin:0;background:#f4f0e8;color:#1c1917">
+<div style="padding:28px 32px 48px">
+<p style="margin:0 0 6px;font-size:28px">blinkless next</p>
+<p style="margin:0 0 28px;font-size:16px;width:640px">Ten styles on one page. Each block is a pair. Read the label, then compare the two samples under it.</p>
+
+<p style="margin:0 0 8px;font-size:18px">1. -webkit-background-clip</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Red is the background. The gray ring is padding. Border-box paints red through the padding. Content-box leaves the padding gray.</p>
+<div style="margin:0 0 28px">
+<div style="display:inline-block;margin:0 28px 0 0;background:#d6d3cd">
+<p style="margin:0 0 6px;font-size:13px">border-box</p>
+<div style="width:140px;height:36px;padding:14px;border:8px solid #111;background:#e11;-webkit-background-clip:border-box"></div>
+</div>
+<div style="display:inline-block;background:#d6d3cd">
+<p style="margin:0 0 6px;font-size:13px">content-box</p>
+<div style="width:140px;height:36px;padding:14px;border:8px solid #111;background:#e11;-webkit-background-clip:content-box"></div>
+</div>
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">2. -webkit-background-origin</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">The blue and orange picture starts at the outer edge, or inside the black border.</p>
+<div style="margin:0 0 28px">
+<div style="display:inline-block;margin:0 28px 0 0">
+<p style="margin:0 0 6px;font-size:13px">border-box</p>
+<div style="width:72px;height:28px;border:16px solid #111;background-image:url(swatch.png);background-repeat:no-repeat;background-position:left top;-webkit-background-origin:border-box"></div>
+</div>
+<div style="display:inline-block">
+<p style="margin:0 0 6px;font-size:13px">padding-box</p>
+<div style="width:72px;height:28px;border:16px solid #111;background-image:url(swatch.png);background-repeat:no-repeat;background-position:left top;-webkit-background-origin:padding-box"></div>
+</div>
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">3. -webkit-background-size</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Same picture. One is stretched to the box. One stays a small stamp.</p>
+<div style="margin:0 0 28px">
+<div style="display:inline-block;margin:0 28px 0 0">
+<p style="margin:0 0 6px;font-size:13px">80 by 36</p>
+<div style="width:80px;height:36px;border:1px solid #111;background-image:url(swatch.png);background-repeat:no-repeat;background-position:left top;-webkit-background-size:80px 36px"></div>
+</div>
+<div style="display:inline-block">
+<p style="margin:0 0 6px;font-size:13px">24 by 16</p>
+<div style="width:80px;height:36px;border:1px solid #111;background-image:url(swatch.png);background-repeat:no-repeat;background-position:left top;-webkit-background-size:24px 16px"></div>
+</div>
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">4. zoom</p>
+<p style="margin:0 0 10px;font-size:14px">Both boxes are declared 100 by 40. zoom: 2 paints the green one at 200 by 80.</p>
+<div style="margin:0 0 28px">
+<div style="display:inline-block;margin:0 28px 0 0;vertical-align:top">
+<p style="margin:0 0 6px;font-size:13px">zoom 1</p>
+<div style="width:100px;height:40px;background:#3d8b6e"></div>
+</div>
+<div style="display:inline-block;vertical-align:top">
+<p style="margin:0 0 6px;font-size:13px">zoom 2</p>
+<div style="zoom:2;width:100px;height:40px;background:#3d8b6e"></div>
+</div>
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">5. baseline-source</p>
+<p style="margin:0 0 10px;font-size:14px">The word go sits on one line. The blue box has two lines. first aligns the top Ag. last aligns the bottom Ag.</p>
+<p style="margin:0 0 8px;font-size:20px">go <span style="display:inline-block;background:#c9ddf5;baseline-source:first">Ag<br>Ag</span> <span style="font-size:14px">first</span></p>
+<p style="margin:0 0 28px;font-size:20px">go <span style="display:inline-block;background:#c9ddf5;baseline-source:last">Ag<br>Ag</span> <span style="font-size:14px">last</span></p>
+
+<p style="margin:0 0 8px;font-size:18px">6. line-fit-edge</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Both words have the same padding. leading makes that padding part of the line. text keeps the padding out of the line, so the line is shorter.</p>
+<p style="margin:0 0 8px;font-size:18px;border-bottom:2px solid #111"><span style="background:#ffe08a;padding:10px;line-fit-edge:leading">leading</span></p>
+<p style="margin:0 0 28px;font-size:18px;border-bottom:2px solid #111"><span style="background:#ffe08a;padding:10px;line-fit-edge:text">text</span></p>
+
+<p style="margin:0 0 8px;font-size:18px">7. inline-sizing</p>
+<p style="margin:0 0 10px;font-size:14px">The line is 32px tall. normal paints red behind the letters. stretch paints red for the whole line.</p>
+<p style="margin:0 0 28px;font-size:16px;line-height:32px"><span style="background:#f00;inline-sizing:normal;line-height:normal">normal</span> <span style="background:#f00;inline-sizing:stretch;line-height:normal">stretch</span></p>
+
+<p style="margin:0 0 8px;font-size:18px">8. line-padding</p>
+<p style="margin:0 0 10px;font-size:14px">Same words, same width. The second paragraph starts every line 24px further in.</p>
+<p style="width:220px;margin:0 0 8px;font-size:16px;border-left:3px solid #111">alpha beta gamma wonderful</p>
+<p style="width:220px;margin:0 0 28px;font-size:16px;line-padding:24px;border-left:3px solid #111">alpha beta gamma wonderful</p>
+
+<p style="margin:0 0 8px;font-size:18px">9. box-decoration-break</p>
+<p style="margin:0 0 10px;font-size:14px">Top is one red bar. Bottom gives each wrapped line its own box.</p>
+<p style="margin:0 0 6px;font-size:13px">slice</p>
+<p style="width:180px;margin:0 0 16px;font-size:20px"><span style="background:#f00;padding:3px 8px;box-decoration-break:slice">slice one red bar across the wrap</span></p>
+<p style="margin:0 0 6px;font-size:13px">clone</p>
+<p style="width:180px;margin:0 0 28px;font-size:20px"><span style="background:#f00;padding:3px 8px;border:2px solid #111;box-decoration-break:clone">clone a red box on every line</span></p>
+
+<p style="margin:0 0 8px;font-size:18px">10. SVG geometry from a stylesheet</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Left uses the attributes on the shapes. Right uses a stylesheet: the circle, rect, ellipse, and path move.</p>
+<div style="display:inline-block;margin:0 24px 0 0;vertical-align:top">
+<p style="margin:0 0 6px;font-size:13px">attributes</p>
+<svg width="220" height="140" viewBox="0 0 64 40">
+<circle cx="10" cy="8" r="4" fill="#e11"/>
+<rect x="2" y="2" width="20" height="12" fill="#1a7f37"/>
+<ellipse cx="32" cy="20" rx="4" ry="2" fill="#1d4ed8"/>
+<path d="M8 8 h2 v2 h-2 Z" fill="#111"/>
+</svg>
+</div>
+<div style="display:inline-block;vertical-align:top">
+<p style="margin:0 0 6px;font-size:13px">stylesheet</p>
+<svg width="220" height="140" viewBox="0 0 64 40">
+<style>
+circle#moved { cx: 40px; cy: 20px; r: 12px; }
+rect#box { x: 24px; y: 10px; }
+ellipse#oval { rx: 18px; ry: 8px; }
+path#shape { d: path("M8 8 H56 V32 H8 Z"); }
+</style>
+<circle id="moved" cx="10" cy="8" r="4" fill="#e11"/>
+<rect id="box" x="2" y="2" width="20" height="12" fill="#1a7f37"/>
+<ellipse id="oval" cx="32" cy="20" rx="4" ry="2" fill="#1d4ed8"/>
+<path id="shape" d="M8 8 h2 v2 h-2 Z" fill="#111"/>
+</svg>
+</div>
+</div>
+</body>
+</html>
