@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>SVG stylesheet paint properties</title>
+<style>
+#arrow { marker: url(#ah); }
+#start { marker-start: url(#ah); }
+#mid { marker-mid: url(#ah); }
+#end { marker-end: url(#ah); }
+stop#first { stop-color: #00aa00; stop-opacity: 0.4; }
+rect#order { paint-order: stroke; }
+path#dash { path-length: 100; }
+</style>
+</head>
+<body style="margin:0">
+<svg width="200" height="120" viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<marker id="ah" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#000000"/></marker>
+<linearGradient id="g"><stop id="first" offset="0" stop-color="#ff0000"/><stop offset="1" stop-color="#0000ff"/></linearGradient>
+</defs>
+<path id="arrow" d="M8 34 L32 8 L56 34" fill="none" stroke="#000000" stroke-width="3"/>
+<path id="start" d="M70 30 H110" fill="none" stroke="#000000" stroke-width="3"/>
+<path id="mid" d="M120 34 L140 8 L160 34" fill="none" stroke="#000000" stroke-width="3"/>
+<path id="end" d="M170 30 H196" fill="none" stroke="#000000" stroke-width="3"/>
+<rect x="4" y="50" width="90" height="24" fill="url(#g)"/>
+<rect id="order" x="110" y="50" width="60" height="24" fill="#ff0000" stroke="#0000ff" stroke-width="8"/>
+<path id="dash" d="M4 100 H196" fill="none" stroke="#000000" stroke-width="3" stroke-dasharray="6 3"/>
+</svg>
+</body>
+</html>

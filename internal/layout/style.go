@@ -595,6 +595,13 @@ type ResolvedStyle struct {
 	DominantBaseline      string
 	AlignmentBaseline     string
 	BaselineSource        string
+	// Continue is the CSS Overflow 4 continue keyword; empty means normal.
+	Continue string
+	// LinkParameters is the canonical link-parameters list; empty means none.
+	LinkParameters string
+	// ContinueLines is the line limit an anonymous flex item inherits from a
+	// continue: -webkit-legacy parent. 0 means the item computes its own.
+	ContinueLines int
 	// InlineSizing is inline-sizing. "normal" keeps the font line-height
 	// background. "stretch" grows that fill to the line box. Inherited.
 	InlineSizing              string
@@ -658,6 +665,17 @@ type ResolvedStyle struct {
 	SVGX  string
 	SVGY  string
 	SVGD  string
+	// SVG paint presentation from CSS. Empty means unset. The marker
+	// shorthand is expanded onto the three longhands when stored, so
+	// cascade order between the shorthand and a longhand holds. "none" is
+	// kept (not empty) so it can clear a presentation attribute.
+	SVGMarkerStart string
+	SVGMarkerMid   string
+	SVGMarkerEnd   string
+	SVGStopColor   string
+	SVGStopOpacity string
+	SVGPaintOrder  string
+	SVGPathLength  string
 }
 
 const (

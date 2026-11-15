@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>continue: collapse</title>
+<style>
+p { width: 120px; font-size: 16px; line-height: 20px; margin: 0 0 12px 0; }
+#plain    { max-height: 40px; }
+#collapse { max-height: 40px; continue: collapse; }
+#discard  { height: 40px; continue: discard; }
+#normal   { max-height: 40px; continue: normal; }
+</style>
+</head>
+<body style="margin:0">
+<p id="plain">one two three four five six seven eight nine ten eleven twelve thirteen fourteen</p>
+<p id="collapse">one two three four five six seven eight nine ten eleven twelve thirteen fourteen</p>
+<p id="discard">one two three four five six seven eight nine ten eleven twelve thirteen fourteen</p>
+<p id="normal">one two three four five six seven eight nine ten eleven twelve thirteen fourteen</p>
+</body>
+</html>

@@ -75,6 +75,15 @@ type imageRef struct {
 
 // resolveImage fetches (once) and decodes (once) src; nil on any failure.
 func (e *engine) resolveImage(src string) *imageRef {
+	return e.resolveImageWith(src, "")
+}
+
+// resolveImageWith is resolveImage for an element with link-parameters. The
+// list rewrites env() in SVG bytes before the raster call, and it joins the
+// cache key so the same file with different parameters is kept apart.
+func (e *engine) resolveImageWith(src, linkParams string) *imageRef {
+	key := imageCacheKey(src, linkParams)
+
 	if src == "" || e.checkContext() || !e.hasImageResolver() {
 		return nil
 	}
@@ -83,7 +92,7 @@ func (e *engine) resolveImage(src string) *imageRef {
 		e.imgCache = map[string]*imageRef{}
 	}
 
-	if ref, ok := e.imgCache[src]; ok {
+	if ref, ok := e.imgCache[key]; ok {
 		return ref
 	}
 
@@ -95,19 +104,37 @@ func (e *engine) resolveImage(src string) *imageRef {
 
 	if err != nil {
 		// Cache nil-miss? Store a sentinel empty ref so we do not re-fetch.
-		e.imgCache[src] = nil
+		e.imgCache[key] = nil
 
 		return nil
 	}
 
+	data = svg.ApplyLinkParams(data, linkParams)
+
+	ref := e.decodeImageRef(src, data)
+
+	e.imgCache[key] = ref
+
+	return ref
+}
+
+// imageCacheKey keeps one file apart per link-parameters list.
+func imageCacheKey(src, linkParams string) string {
+	if linkParams == "" {
+		return src
+	}
+
+	return src + "\x00" + linkParams
+}
+
+// decodeImageRef rasterizes SVG bytes, or reads the size of a raster image.
+func (e *engine) decodeImageRef(src string, data []byte) *imageRef {
 	ref := &imageRef{src: src, sourceData: data, data: data} //nolint:exhaustruct // intentional zero fields
 	if png, pw, ph, err := svg.RasterizeContext(e.rasterContext(), data, svgRasterMaxDim); err == nil {
 		ref.data, ref.w, ref.h = png, pw, ph
 	} else if w, h, jpeg, ok := imageDims(data); ok {
 		ref.w, ref.h, ref.isJPEG = w, h, jpeg
 	}
-
-	e.imgCache[src] = ref
 
 	return ref
 }

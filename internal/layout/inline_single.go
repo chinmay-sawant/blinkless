@@ -180,7 +180,8 @@ func singleTextRunStyleOK(blockStyle, textStyle *ResolvedStyle) bool {
 // and shape or initial-letter declarations that narrow or reshape the run.
 func singleTextRunBlockGeometryOK(blockStyle, textStyle *ResolvedStyle) bool {
 	if blockStyle.TextIndent != 0 || blockStyle.LinePadding != 0 ||
-		textStyle.LinePadding != 0 || blockStyle.LineClamp > 0 || blockStyle.MaxLines > 0 {
+		textStyle.LinePadding != 0 || blockStyle.LineClamp > 0 || blockStyle.MaxLines > 0 ||
+		blockStyle.Continue != "" {
 		return false
 	}
 

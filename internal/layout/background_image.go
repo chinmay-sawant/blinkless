@@ -78,7 +78,7 @@ func (e *engine) appendBackgroundImage(
 			continue
 		}
 
-		ref := e.resolveImage(src)
+		ref := e.resolveImageWith(src, sty.LinkParameters)
 		if ref == nil || ref.data == nil {
 			continue
 		}

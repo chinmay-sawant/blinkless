@@ -126,7 +126,11 @@ func applySVGPresentationProps(style *ResolvedStyle, prop, value string, fsize f
 		"ruby-merge", "ruby-overhang":
 		return applyLeftoversProps(style, prop, value, fsize)
 	default:
-		return applySVGGeometryProps(style, prop, value)
+		if applySVGGeometryProps(style, prop, value) {
+			return true
+		}
+
+		return applySVGPaintProps(style, prop, value)
 	}
 
 	return true

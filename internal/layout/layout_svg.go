@@ -282,6 +282,7 @@ func (e *engine) writeSVGNode(b *bytes.Buffer, node *html.Node, paint *svgPaintP
 	case html.TextNode:
 		b.WriteString(escapeXML(node.Text))
 	case html.ElementNode:
+		tagStart := b.Len()
 		b.WriteByte('<')
 		b.WriteString(node.Name)
 		var written svgWrittenSet
@@ -294,6 +295,7 @@ func (e *engine) writeSVGNode(b *bytes.Buffer, node *html.Node, paint *svgPaintP
 		styleAttr := node.Attribute("style")
 		decls := parseSVGStyleDecls(styleAttr)
 		geomSkip := e.prepareSVGStylesheetGeometry(node, &decls)
+		e.prepareSVGStylesheetPaint(node, &decls, &geomSkip)
 		suppressDAttr := false
 		if node.Name == "path" {
 			_, suppressDAttr = svgCSSPathData(&decls)
@@ -347,6 +349,9 @@ func (e *engine) writeSVGNode(b *bytes.Buffer, node *html.Node, paint *svgPaintP
 		e.writeSVGPresentationAttrs(b, node, &written, &decls, paint)
 		writeSVGExtraPresentationAttrs(b, node, &written, &decls)
 		if len(node.Children) == 0 {
+			if splitSVGMarkerShape(b, tagStart) {
+				return
+			}
 			b.WriteString("/>")
 			return
 		}
@@ -1764,6 +1769,7 @@ func writeSVGExtraPresentationAttrs(b *bytes.Buffer, node *html.Node, written *s
 	}
 
 	writeSVGMarkerAttrs(b, decls, written)
+	writeSVGPathLengthAttr(b, decls, written)
 	writeSVGTextAnchorAttr(b, node, decls, written)
 
 	// CSS d (SVG2 geometry property, Chrome 121+) sets path data. The pinned

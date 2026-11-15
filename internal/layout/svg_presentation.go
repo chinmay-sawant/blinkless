@@ -27,7 +27,7 @@ const (
 // svgGeomSkip names presentation attributes a stylesheet geometry value
 // replaces. The serializer omits those attributes so the bake writes one.
 type svgGeomSkip struct {
-	names [8]string
+	names [20]string
 	count int
 }
 

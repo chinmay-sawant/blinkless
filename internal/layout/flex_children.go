@@ -176,7 +176,11 @@ func applyAnonymousFlexItemStyle(style *ResolvedStyle) {
 
 func (e *engine) allocAnonymousFlexItemStyle(parent *ResolvedStyle) *ResolvedStyle {
 	style := e.allocStyle(parent)
+	limit := e.continueLimitFor(parent)
+
 	applyAnonymousFlexItemStyle(style)
+	style.Continue = ""
+	style.ContinueLines = limit
 
 	return style
 }

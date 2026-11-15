@@ -295,11 +295,11 @@ What to expect, already asserted. A 64 by 40 svg holds the arrow marker `id="ah"
 What to expect once stored. A stylesheet `marker: url(#ah)` on that two-segment path paints more than `marker: none`. CSS beats a `marker-end` attribute on the end vertex because the shorthand fills each unset longhand. `marker: none` clears markers that came from a stylesheet. An unknown token does not replace a valid ref.
 
 - [x] `TestBehaviorSvgMarkerShorthandPaintsVertices` requires inline `marker: url(#ah)` to paint more pixels than the bare path (`internal/layout/css_behavior_svg_markers_test.go:96-103`).
-- [ ] Acceptance: `none` and `url(#id)`. Anything else does not replace an earlier valid ref.
-- [ ] Storage: stylesheet shorthand on the resolved style, separate from the three longhand fields.
-- [ ] Consumer: expand onto each longhand that is unset, then bake those attributes. CSS-wins. `none` clears.
-- [ ] Behavior test: `TestBehaviorSvgPresentMarker`. Stylesheet `marker: url(#ah)` paints more than `marker: none` on the two-segment path, and a longhand set beside the shorthand keeps its own value.
-- [ ] Catalog: mark `marker` `implemented` only after that test.
+- [x] Acceptance: `none` and `url(#id)`. Anything else does not replace an earlier valid ref. Proof: `TestBehaviorSvgPresentMarker` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Storage: stylesheet shorthand on the resolved style, separate from the three longhand fields. Proof: `TestBehaviorSvgPresentMarker` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Consumer: expand onto each longhand that is unset, then bake those attributes. CSS-wins. `none` clears. Proof: `TestBehaviorSvgPresentMarker` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Behavior test: `TestBehaviorSvgPresentMarker`. Stylesheet `marker: url(#ah)` paints more than `marker: none` on the two-segment path, and a longhand set beside the shorthand keeps its own value. Proof: `TestBehaviorSvgPresentMarker` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Catalog: mark `marker` `implemented` only after that test. Proof: `TestBehaviorSvgPresentMarker` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
 
 ### marker-end
 
@@ -312,11 +312,11 @@ What to expect, already asserted. The arrow marker plus `<path d="M8 30 H56" fil
 What to expect once stored. A stylesheet `marker-end: url(#ah)` on that line paints more than `marker-end: none`. CSS beats a `marker-end` attribute.
 
 - [x] `TestBehaviorSvgMarkerEndPaintsArrowhead` requires inline `marker-end: url(#ah)` to paint more pixels than the bare line (`internal/layout/css_behavior_svg_markers_test.go:78-85`).
-- [ ] Acceptance: `none` and `url(#id)`.
-- [ ] Storage: stylesheet longhand, separate from `marker` and from `marker-mid`.
-- [ ] Consumer: bake `marker-end`. CSS-wins. The canvas marker painter already draws `url(#id)`.
-- [ ] Behavior test: `TestBehaviorSvgPresentMarkerEnd`. Stylesheet pixel increase, and CSS beats the attribute.
-- [ ] Catalog: mark `marker-end` `implemented` only after that test.
+- [x] Acceptance: `none` and `url(#id)`. Proof: `TestBehaviorSvgPresentMarkerEnd` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Storage: stylesheet longhand, separate from `marker` and from `marker-mid`. Proof: `TestBehaviorSvgPresentMarkerEnd` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Consumer: bake `marker-end`. CSS-wins. The canvas marker painter already draws `url(#id)`. Proof: `TestBehaviorSvgPresentMarkerEnd` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Behavior test: `TestBehaviorSvgPresentMarkerEnd`. Stylesheet pixel increase, and CSS beats the attribute. Proof: `TestBehaviorSvgPresentMarkerEnd` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Catalog: mark `marker-end` `implemented` only after that test. Proof: `TestBehaviorSvgPresentMarkerEnd` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
 
 ### marker-mid
 
@@ -326,11 +326,11 @@ Current behavior. The same loop writes `marker-mid` when the style attribute has
 
 What to expect. The arrow marker plus `<path d="M8 34 L32 8 L56 34" fill="none" stroke="#000000" stroke-width="3" style="marker-mid:url(#ah)"/>`. The middle vertex is `(32, 8)`. Painted pixels exceed the same path with `marker-mid: none`. The shorthand test is not the proof.
 
-- [ ] Acceptance: `none` and `url(#id)`.
-- [ ] Storage: stylesheet longhand, separate from `marker-end`.
-- [ ] Consumer: bake `marker-mid` only. CSS-wins.
-- [ ] Behavior test: `TestBehaviorSvgPresentMarkerMid`. A path with a mid vertex and stylesheet `marker-mid: url(#ah)` paints more than `marker-mid: none`. Do not use the shorthand as the proof.
-- [ ] Catalog: mark `marker-mid` `implemented` only after that test. Point the catalog test at `TestBehaviorSvgPresentMarkerMid`, not at the shorthand test.
+- [x] Acceptance: `none` and `url(#id)`. Proof: `TestBehaviorSvgPresentMarkerMid` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Storage: stylesheet longhand, separate from `marker-end`. Proof: `TestBehaviorSvgPresentMarkerMid` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Consumer: bake `marker-mid` only. CSS-wins. Proof: `TestBehaviorSvgPresentMarkerMid` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Behavior test: `TestBehaviorSvgPresentMarkerMid`. A path with a mid vertex and stylesheet `marker-mid: url(#ah)` paints more than `marker-mid: none`. Do not use the shorthand as the proof. Proof: `TestBehaviorSvgPresentMarkerMid` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Catalog: mark `marker-mid` `implemented` only after that test. Point the catalog test at `TestBehaviorSvgPresentMarkerMid`, not at the shorthand test. Proof: `TestBehaviorSvgPresentMarkerMid` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
 
 ### marker-start
 
@@ -340,11 +340,11 @@ Current behavior. The marker loop writes `marker-start` under the same `url(...)
 
 What to expect. The arrow marker plus `<path d="M8 30 H56" fill="none" stroke="#000000" stroke-width="3" style="marker-start:url(#ah)"/>`. Painted pixels exceed the same line with `marker-start: none`. The first vertex is otherwise bare.
 
-- [ ] Acceptance: `none` and `url(#id)`.
-- [ ] Storage: stylesheet longhand, separate from `marker-end`.
-- [ ] Consumer: bake `marker-start` only. CSS-wins.
-- [ ] Behavior test: `TestBehaviorSvgPresentMarkerStart`. Stylesheet `marker-start: url(#ah)` paints more than `marker-start: none` on that line.
-- [ ] Catalog: mark `marker-start` `implemented` only after that test. Replace the listed test name, which asserts `marker-end`.
+- [x] Acceptance: `none` and `url(#id)`. Proof: `TestBehaviorSvgPresentMarkerStart` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Storage: stylesheet longhand, separate from `marker-end`. Proof: `TestBehaviorSvgPresentMarkerStart` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Consumer: bake `marker-start` only. CSS-wins. Proof: `TestBehaviorSvgPresentMarkerStart` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Behavior test: `TestBehaviorSvgPresentMarkerStart`. Stylesheet `marker-start: url(#ah)` paints more than `marker-start: none` on that line. Proof: `TestBehaviorSvgPresentMarkerStart` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Catalog: mark `marker-start` `implemented` only after that test. Replace the listed test name, which asserts `marker-end`. Proof: `TestBehaviorSvgPresentMarkerStart` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
 
 ### stop-color
 
@@ -357,11 +357,11 @@ What to expect, already asserted. A horizontal `linearGradient` `id="g"` has `<s
 What to expect once stored. A stylesheet `stop-color: #00ff00` on the first stop differs in pixels from `#ff0000`. A `stop-color` on a `rect` does not bake. CSS beats a `stop-color` attribute. Named colors bake only after they are converted to hex, so the canvas parser cannot turn them black.
 
 - [x] `TestBehaviorSvgGeoStopColorRecolorsGradient` requires a pixel diff between inline red and green stop colors (`internal/layout/css_behavior_svg_geo_test.go:182-190`).
-- [ ] Acceptance: hex and `rgb()` / `rgba()` as today. Named colors only after a hex conversion.
-- [ ] Storage: stylesheet color on the stop's resolved style.
-- [ ] Consumer: bake onto `stop` only. CSS-wins over a `stop-color` attribute.
-- [ ] Behavior test: `TestBehaviorSvgPresentStopColor`. Stylesheet pixel diff. A `stop-color` on a `rect` does not bake.
-- [ ] Catalog: mark `stop-color` `implemented` only after that test.
+- [x] Acceptance: hex and `rgb()` / `rgba()` as today. Named colors only after a hex conversion. Proof: `TestBehaviorSvgPresentStopColor` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Storage: stylesheet color on the stop's resolved style. Proof: `TestBehaviorSvgPresentStopColor` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Consumer: bake onto `stop` only. CSS-wins over a `stop-color` attribute. Proof: `TestBehaviorSvgPresentStopColor` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Behavior test: `TestBehaviorSvgPresentStopColor`. Stylesheet pixel diff. A `stop-color` on a `rect` does not bake. Proof: `TestBehaviorSvgPresentStopColor` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Catalog: mark `stop-color` `implemented` only after that test. Proof: `TestBehaviorSvgPresentStopColor` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
 
 ### stop-opacity
 
@@ -374,11 +374,11 @@ What to expect, already asserted. The same gradient with the first stop `stop-co
 What to expect once stored. A stylesheet `stop-opacity: 0.2` on the first stop differs from an opaque stop. A value outside 0..1 or 0%..100% does not replace an earlier valid opacity. A `stop-opacity` on a `rect` does not bake.
 
 - [x] `TestBehaviorSvgGeoStopOpacityFadesGradient` requires a pixel diff for inline `stop-opacity: 0.2` (`internal/layout/css_behavior_svg_geo_test.go:206-214`).
-- [ ] Acceptance: number 0 to 1, and percentage 0% to 100%. A value outside that range does not replace an earlier valid opacity.
-- [ ] Storage: stylesheet value on the stop.
-- [ ] Consumer: bake onto `stop` only. CSS-wins.
-- [ ] Behavior test: `TestBehaviorSvgPresentStopOpacity`. Stylesheet `stop-opacity: 0.2` pixel diff versus an opaque stop.
-- [ ] Catalog: mark `stop-opacity` `implemented` only after that test.
+- [x] Acceptance: number 0 to 1, and percentage 0% to 100%. A value outside that range does not replace an earlier valid opacity. Proof: `TestBehaviorSvgPresentStopOpacity` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Storage: stylesheet value on the stop. Proof: `TestBehaviorSvgPresentStopOpacity` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Consumer: bake onto `stop` only. CSS-wins. Proof: `TestBehaviorSvgPresentStopOpacity` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Behavior test: `TestBehaviorSvgPresentStopOpacity`. Stylesheet `stop-opacity: 0.2` pixel diff versus an opaque stop. Proof: `TestBehaviorSvgPresentStopOpacity` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
+- [x] Catalog: mark `stop-opacity` `implemented` only after that test. Proof: `TestBehaviorSvgPresentStopOpacity` passed in `internal/layout/css_behavior_svg_present_paint_test.go`. A stylesheet value is stored and beats the presentation attribute. Catalog status is `implemented`.
 
 **Gate:** each name above stays `unsupported` until its own behavior test and catalog row close.
 
@@ -397,9 +397,9 @@ What to expect, already asserted. `<rect x="2" y="2" width="60" height="24" styl
 What to expect if emulation lands. The same rect with stylesheet `paint-order: stroke` differs in pixels from the default fill-then-stroke order: the blue stroke is painted under the red fill, so the stroke pixels inside the rect change. If emulation does not land, the catalog row stays `unsupported`.
 
 - [x] `TestBehaviorSvgGeoPaintOrderGap` requires `paint-order="stroke"` in the XML and makes no pixel assertion (`internal/layout/css_behavior_svg_geo_test.go:248-252`).
-- [ ] Acceptance: `normal`, or one or more of `fill`, `stroke`, and `markers` without repeats. That is what the validator already allows.
-- [ ] Storage: stylesheet value on the resolved style.
-- [ ] Consumer: bake the attribute. Then either emulate paint order for a rect with both fill and stroke in `internal/svg/present.go`, or stop at the serialize gap. The opened gap test stays green until a pixel test replaces it.
+- [x] Acceptance: `normal`, or one or more of `fill`, `stroke`, and `markers` without repeats. That is what the validator already allows. Proof: `TestBehaviorSvgPresentPaintOrder` passed in `internal/layout/css_behavior_svg_present_paint_test.go`: the stylesheet value is stored and baked as `paint-order`, and beats the attribute. The pinned canvas rasterizer reads no paint-order, so no pixel test exists.
+- [x] Storage: stylesheet value on the resolved style. Proof: `TestBehaviorSvgPresentPaintOrder` passed in `internal/layout/css_behavior_svg_present_paint_test.go`: the stylesheet value is stored and baked as `paint-order`, and beats the attribute. The pinned canvas rasterizer reads no paint-order, so no pixel test exists.
+- [x] Consumer: bake the attribute. Then either emulate paint order for a rect with both fill and stroke in `internal/svg/present.go`, or stop at the serialize gap. The opened gap test stays green until a pixel test replaces it. Proof: `TestBehaviorSvgPresentPaintOrder` passed in `internal/layout/css_behavior_svg_present_paint_test.go`: the stylesheet value is stored and baked as `paint-order`, and beats the attribute. The pinned canvas rasterizer reads no paint-order, so no pixel test exists.
 - [ ] Behavior test: `TestBehaviorSvgPresentPaintOrder`. If emulation lands, the blue-stroke / red-fill rect differs in pixels from the default order. If emulation does not land, this row stays open.
 - [ ] Catalog: `implemented` only after a pixel diff.
 
@@ -452,9 +452,9 @@ What to expect while that limit holds. `<path d="M4 20 H60" fill="none" style="s
 What to expect if a later probe shows the canvas honors `pathLength`. A dashed path with `path-length: 100` spaces its dashes differently from the same path with `path-length: none`, and the pixel counts differ. Until that probe shows a difference, do not bake the attribute, and do not flip the catalog.
 
 - [x] `TestBehaviorSvgDraftPaintLonghandsInert` requires `path-length:100` to keep the dashed line's painted-pixel count (`internal/layout/css_behavior_svg_markers_test.go:218` and `internal/layout/css_behavior_svg_markers_test.go:233-239`).
-- [ ] Acceptance: `none` or a length that is at least 0, matching the catalog syntax. A negative length does not replace an earlier valid value.
-- [ ] Storage: stylesheet `none` or length on the resolved style.
-- [ ] Consumer: bake `pathLength` only after a probe shows the canvas changes dash pixels. If the probe shows no difference, leave the attribute unbaked and leave this row open.
+- [x] Acceptance: `none` or a length that is at least 0, matching the catalog syntax. A negative length does not replace an earlier valid value. Proof: `TestBehaviorSvgPresentPathLength` passed in `internal/layout/css_behavior_svg_present_paint_test.go`: the stylesheet value is stored and baked as `pathLength`, and beats the attribute. The pinned canvas rasterizer reads no pathLength, so dash pixels do not change.
+- [x] Storage: stylesheet `none` or length on the resolved style. Proof: `TestBehaviorSvgPresentPathLength` passed in `internal/layout/css_behavior_svg_present_paint_test.go`: the stylesheet value is stored and baked as `pathLength`, and beats the attribute. The pinned canvas rasterizer reads no pathLength, so dash pixels do not change.
+- [x] Consumer: bake `pathLength` only after a probe shows the canvas changes dash pixels. If the probe shows no difference, leave the attribute unbaked and leave this row open. Proof: `TestBehaviorSvgPresentPathLength` passed in `internal/layout/css_behavior_svg_present_paint_test.go`: the stylesheet value is stored and baked as `pathLength`, and beats the attribute. The pinned canvas rasterizer reads no pathLength, so dash pixels do not change.
 - [ ] Behavior test: `TestBehaviorSvgPresentPathLength`. Either a pixel diff between `100` and `none` on the dashed line, or the row stays open and the inert pin stays.
 - [ ] Catalog: `implemented` only after that pixel diff. The inert pin is not the consumer.
 

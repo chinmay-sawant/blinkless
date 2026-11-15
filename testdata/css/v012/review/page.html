@@ -3,7 +3,7 @@
 <body style="margin:0;background:#f4f0e8;color:#1c1917">
 <div style="padding:28px 32px 48px">
 <p style="margin:0 0 6px;font-size:28px">blinkless next</p>
-<p style="margin:0 0 28px;font-size:16px;width:640px">Twenty styles on one page. Scroll. Each block is labeled. Compare the samples under the label.</p>
+<p style="margin:0 0 28px;font-size:16px;width:640px">Thirty styles on one page. Scroll. Each block is labeled. Compare the samples under the label.</p>
 
 <p style="margin:0 0 8px;font-size:18px">1. -webkit-background-clip</p>
 <p style="margin:0 0 10px;font-size:14px;width:640px">Red is the background. The gray ring is padding. Border-box paints red through the padding. Content-box leaves the padding gray.</p>
@@ -169,6 +169,67 @@
 </style>
 <h1 style="margin:0 0 8px;font-size:22px;string-set:chapter content(text)">Guide One</h1>
 <p id="reader" style="margin:0 0 8px;font-size:18px">string-set: </p>
+
+<style>
+#rv-m path { marker: url(#rv); }
+#rv-s path { marker-start: url(#rv); }
+#rv-d path { marker-mid: url(#rv); }
+#rv-e path { marker-end: url(#rv); }
+#rvs2 { stop-color: #16a34a; stop-opacity: 0.5; }
+#rv-po { paint-order: stroke; }
+#rv-pl { path-length: 100; }
+#rv-c1 { max-height: 40px; continue: collapse; }
+#rv-c2 { max-height: 40px; }
+</style>
+
+<p style="margin:28px 0 8px;font-size:18px">21. marker</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">The stylesheet gives all three vertices an arrow. The right path has none.</p>
+<div style="margin:0 0 28px">
+<svg width="200" height="60" viewBox="0 0 200 60" style="background:#fff;border:1px solid #ccc;margin-right:12px"><defs><marker id="rv" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#e11"/></marker><linearGradient id="rvg" x1="0%" y1="0%" x2="100%" y2="0%"><stop id="rvs" offset="0" stop-color="#e11"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><g id="rv-m"><path d="M10 50 L100 10 L190 50" fill="none" stroke="#111" stroke-width="3"/></g></svg>
+<svg width="200" height="60" viewBox="0 0 200 60" style="background:#fff;border:1px solid #ccc;margin-right:12px"><defs><marker id="rv" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#e11"/></marker><linearGradient id="rvg" x1="0%" y1="0%" x2="100%" y2="0%"><stop id="rvs" offset="0" stop-color="#e11"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><path d="M10 50 L100 10 L190 50" fill="none" stroke="#111" stroke-width="3"/></svg>
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">22. marker-start</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Only the first vertex gets the arrow.</p>
+<div style="margin:0 0 28px"><svg width="200" height="60" viewBox="0 0 200 60" style="background:#fff;border:1px solid #ccc;margin-right:12px"><defs><marker id="rv" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#e11"/></marker><linearGradient id="rvg" x1="0%" y1="0%" x2="100%" y2="0%"><stop id="rvs" offset="0" stop-color="#e11"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><g id="rv-s"><path d="M10 30 H190" fill="none" stroke="#111" stroke-width="3"/></g></svg></div>
+
+<p style="margin:0 0 8px;font-size:18px">23. marker-mid</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Only the middle vertex gets the arrow.</p>
+<div style="margin:0 0 28px"><svg width="200" height="60" viewBox="0 0 200 60" style="background:#fff;border:1px solid #ccc;margin-right:12px"><defs><marker id="rv" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#e11"/></marker><linearGradient id="rvg" x1="0%" y1="0%" x2="100%" y2="0%"><stop id="rvs" offset="0" stop-color="#e11"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><g id="rv-d"><path d="M10 50 L100 10 L190 50" fill="none" stroke="#111" stroke-width="3"/></g></svg></div>
+
+<p style="margin:0 0 8px;font-size:18px">24. marker-end</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Only the last vertex gets the arrow.</p>
+<div style="margin:0 0 28px"><svg width="200" height="60" viewBox="0 0 200 60" style="background:#fff;border:1px solid #ccc;margin-right:12px"><defs><marker id="rv" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#e11"/></marker><linearGradient id="rvg" x1="0%" y1="0%" x2="100%" y2="0%"><stop id="rvs" offset="0" stop-color="#e11"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><g id="rv-e"><path d="M10 30 H190" fill="none" stroke="#111" stroke-width="3"/></g></svg></div>
+
+<p style="margin:0 0 8px;font-size:18px">25. stop-color</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Left: the first stop is red. Right: the stylesheet makes it green.</p>
+<div style="margin:0 0 28px">
+<svg width="200" height="60" viewBox="0 0 200 60" style="background:#fff;border:1px solid #ccc;margin-right:12px"><defs><marker id="rv" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#e11"/></marker><linearGradient id="rvg" x1="0%" y1="0%" x2="100%" y2="0%"><stop id="rvs" offset="0" stop-color="#e11"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><rect x="10" y="10" width="180" height="40" fill="url(#rvg)"/></svg>
+<svg width="200" height="60" viewBox="0 0 200 60" style="background:#fff;border:1px solid #ccc;margin-right:12px"><defs><marker id="rv" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#e11"/></marker><linearGradient id="rvg" x1="0%" y1="0%" x2="100%" y2="0%"><stop id="rvs" offset="0" stop-color="#e11"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><defs><linearGradient id="rvg2" x1="0%" y1="0%" x2="100%" y2="0%"><stop id="rvs2" offset="0" stop-color="#e11"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><rect x="10" y="10" width="180" height="40" fill="url(#rvg2)"/></svg>
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">26. stop-opacity</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">The right gradient above also has stop-opacity: 0.5 on its first stop, so it fades in from the left edge.</p>
+
+<p style="margin:0 0 8px;font-size:18px">27. paint-order</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">The stylesheet asks for stroke first, so the red fill covers the inner half of the blue stroke. This engine stores it and writes the attribute. Its rasterizer does not reorder, so the left box here is the browser's picture.</p>
+<div style="margin:0 0 28px"><svg width="200" height="60" viewBox="0 0 200 60" style="background:#fff;border:1px solid #ccc;margin-right:12px"><defs><marker id="rv" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#e11"/></marker><linearGradient id="rvg" x1="0%" y1="0%" x2="100%" y2="0%"><stop id="rvs" offset="0" stop-color="#e11"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><rect id="rv-po" x="30" y="10" width="140" height="40" fill="#e11" stroke="#1d4ed8" stroke-width="12"/></svg></div>
+
+<p style="margin:0 0 8px;font-size:18px">28. path-length</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">path-length: 100 rescales the dash lengths to a 100 unit path. Stored and written as pathLength. The rasterizer does not read it.</p>
+<div style="margin:0 0 28px"><svg width="200" height="60" viewBox="0 0 200 60" style="background:#fff;border:1px solid #ccc;margin-right:12px"><defs><marker id="rv" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#e11"/></marker><linearGradient id="rvg" x1="0%" y1="0%" x2="100%" y2="0%"><stop id="rvs" offset="0" stop-color="#e11"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><path id="rv-pl" d="M10 30 H190" fill="none" stroke="#111" stroke-width="3" stroke-dasharray="10 5"/></svg></div>
+
+<p style="margin:0 0 8px;font-size:18px">29. link-parameters</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">An SVG image reads env(--color). param(--color: #ff0000) fills the left image red. This window supplies the image file. Left: param(--color: #ff0000). Right: none.</p>
+<div style="margin:0 0 28px">
+<img src="env-swatch.svg" width="96" height="48" alt="" style="link-parameters:param(--color: #ff0000);margin-right:12px">
+<img src="env-swatch.svg" width="96" height="48" alt="" style="link-parameters:none">
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">30. continue</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Both paragraphs have max-height: 40px. The first one has continue: collapse, so it keeps two lines. The second keeps all of them and spills.</p>
+<p id="rv-c1" style="margin:0 0 8px;font-size:16px;line-height:20px;width:200px">one two three four five six seven eight nine ten eleven twelve thirteen</p>
+<p id="rv-c2" style="margin:0 0 70px;font-size:16px;line-height:20px;width:200px">one two three four five six seven eight nine ten eleven twelve thirteen</p>
 
 </div>
 </body>

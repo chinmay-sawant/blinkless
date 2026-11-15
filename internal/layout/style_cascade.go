@@ -1769,6 +1769,8 @@ var styleGroups = [...]styleGroupFn{ //nolint:gochecknoglobals // static dispatc
 	applyTransitionProps,
 	applyTimelineProps,
 	applyBaselineSourceProps,
+	applyContinueProps,
+	applyLinkParams,
 	applyInlineSizingProps,
 	applySizeShorthandProps,
 	applyMinSizeProps,

@@ -356,6 +356,14 @@ func (e *engine) layoutInlineFloatsGeneric(
 		}
 	}
 
+	// continue: collapse and discard stop the line loop at the last line
+	// that fits the height. They hide the rest, so no ellipsis is added.
+	explicitClamp := clampLimit
+
+	if limit := e.continueLineLimit(boxNode); limit > 0 && (clampLimit == 0 || limit < clampLimit) {
+		clampLimit = limit
+	}
+
 	// Drop-cap: size leading initial-letter run, paint it, exclude beside it.
 	var localFloats floatState
 	if letter, rest, hasIL := e.prepareInitialLetter(items, blockStyle); hasIL {
@@ -509,7 +517,7 @@ func (e *engine) layoutInlineFloatsGeneric(
 		lastLine := idx >= len(items) || (clampLimit > 0 && lineCount >= clampLimit)
 		firstLine := lineCount == 1
 
-		if clampLimit > 0 && lineCount >= clampLimit && idx < len(items) {
+		if clampLimit > 0 && clampLimit == explicitClamp && lineCount >= clampLimit && idx < len(items) {
 			if end > start && items[end-1].text != "" {
 				items[end-1].text += "…"
 			}

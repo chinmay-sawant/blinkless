@@ -487,6 +487,9 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.DominantBaseline == b.DominantBaseline &&
 		a.AlignmentBaseline == b.AlignmentBaseline &&
 		a.BaselineSource == b.BaselineSource &&
+		a.Continue == b.Continue &&
+		a.LinkParameters == b.LinkParameters &&
+		a.ContinueLines == b.ContinueLines &&
 		a.InlineSizing == b.InlineSizing &&
 		a.Clip == b.Clip &&
 		a.ColorInterpolation == b.ColorInterpolation &&
@@ -520,7 +523,14 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.SVGRy == b.SVGRy &&
 		a.SVGX == b.SVGX &&
 		a.SVGY == b.SVGY &&
-		a.SVGD == b.SVGD
+		a.SVGD == b.SVGD &&
+		a.SVGMarkerStart == b.SVGMarkerStart &&
+		a.SVGMarkerMid == b.SVGMarkerMid &&
+		a.SVGMarkerEnd == b.SVGMarkerEnd &&
+		a.SVGStopColor == b.SVGStopColor &&
+		a.SVGStopOpacity == b.SVGStopOpacity &&
+		a.SVGPaintOrder == b.SVGPaintOrder &&
+		a.SVGPathLength == b.SVGPathLength
 }
 
 // styleInternFingerprint hashes every ResolvedStyle field. Equal styles
@@ -943,6 +953,9 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashString(h, s.DominantBaseline)
 	h = styleInternHashString(h, s.AlignmentBaseline)
 	h = styleInternHashString(h, s.BaselineSource)
+	h = styleInternHashString(h, s.Continue)
+	h = styleInternHashString(h, s.LinkParameters)
+	h = styleInternHashInt(h, s.ContinueLines)
 	h = styleInternHashString(h, s.InlineSizing)
 	h = styleInternHashString(h, s.Clip)
 	h = styleInternHashString(h, s.ColorInterpolation)
@@ -977,6 +990,13 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashString(h, s.SVGX)
 	h = styleInternHashString(h, s.SVGY)
 	h = styleInternHashString(h, s.SVGD)
+	h = styleInternHashString(h, s.SVGMarkerStart)
+	h = styleInternHashString(h, s.SVGMarkerMid)
+	h = styleInternHashString(h, s.SVGMarkerEnd)
+	h = styleInternHashString(h, s.SVGStopColor)
+	h = styleInternHashString(h, s.SVGStopOpacity)
+	h = styleInternHashString(h, s.SVGPaintOrder)
+	h = styleInternHashString(h, s.SVGPathLength)
 
 	return h
 }
@@ -1377,6 +1397,9 @@ func styleInternFields() []string {
 		"DominantBaseline",
 		"AlignmentBaseline",
 		"BaselineSource",
+		"Continue",
+		"LinkParameters",
+		"ContinueLines",
 		"InlineSizing",
 		"Clip",
 		"ColorInterpolation",
@@ -1411,6 +1434,13 @@ func styleInternFields() []string {
 		"SVGX",
 		"SVGY",
 		"SVGD",
+		"SVGMarkerStart",
+		"SVGMarkerMid",
+		"SVGMarkerEnd",
+		"SVGStopColor",
+		"SVGStopOpacity",
+		"SVGPaintOrder",
+		"SVGPathLength",
 	}
 }
 

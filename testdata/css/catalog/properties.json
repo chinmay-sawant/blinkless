@@ -11,14 +11,14 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 582,
+      "implemented": 590,
       "partial": 0,
-      "unsupported": 195,
+      "unsupported": 187,
       "intentionally ignored": 8
     },
     "aliases": 38,
-    "engine_registered": 598,
-    "upstream_only": 187,
+    "engine_registered": 608,
+    "upstream_only": 177,
     "upstream": {
       "inventory": "webref-ed-css",
       "revision": "1f2ec8f74a80c14066b4c7d6822cee59f69fa03b",
@@ -6943,16 +6943,34 @@
     {
       "name": "continue",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "normal | discard | collapse | -webkit-legacy"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/continue_clamp.go",
+        "internal/layout/inline.go",
+        "internal/layout/flex_children.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyContinueProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_continue_test.go",
+          "name": "TestBehaviorContinueCollapseDropsLinesPastMaxHeight"
+        },
+        {
+          "file": "internal/layout/css_behavior_continue_test.go",
+          "name": "TestBehaviorContinueDiscardDropsLinesPastHeight"
+        },
+        {
+          "file": "internal/layout/css_behavior_continue_test.go",
+          "name": "TestBehaviorContinueWebkitLegacyClampsVerticalBox"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | discard | collapse | -webkit-legacy"
     },
@@ -11658,16 +11676,30 @@
     {
       "name": "link-parameters",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "none | <param()>#"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_link_params.go",
+        "internal/svg/link_params.go",
+        "internal/layout/layout_flow.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyLinkParams"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_link_params_test.go",
+          "name": "TestBehaviorLinkParametersRecolorsSvg"
+        },
+        {
+          "file": "internal/layout/css_behavior_link_params_test.go",
+          "name": "TestBehaviorLinkParametersLeavesAnchorURI"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | <param()>#"
     },
@@ -12152,63 +12184,86 @@
     {
       "name": "marker",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "none | url(#id)"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/svg_presentation_paint.go",
+        "internal/layout/style_paint_props.go",
+        "internal/layout/layout_svg.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applySVGPaintProps"
+      ],
       "tests": [
         {
           "file": "internal/layout/css_behavior_svg_markers_test.go",
           "name": "TestBehaviorSvgMarkerShorthandPaintsVertices"
+        },
+        {
+          "file": "internal/layout/css_behavior_svg_present_paint_test.go",
+          "name": "TestBehaviorSvgPresentMarker"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "none | <marker-ref>"
     },
     {
       "name": "marker-end",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "none | url(#id)"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/svg_presentation_paint.go",
+        "internal/layout/style_paint_props.go",
+        "internal/layout/layout_svg.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applySVGPaintProps"
+      ],
       "tests": [
         {
           "file": "internal/layout/css_behavior_svg_markers_test.go",
           "name": "TestBehaviorSvgMarkerEndPaintsArrowhead"
+        },
+        {
+          "file": "internal/layout/css_behavior_svg_present_paint_test.go",
+          "name": "TestBehaviorSvgPresentMarkerEnd"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "none | <marker-ref>"
     },
     {
       "name": "marker-mid",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "none | url(#id)"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/svg_presentation_paint.go",
+        "internal/layout/style_paint_props.go",
+        "internal/layout/layout_svg.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applySVGPaintProps"
+      ],
       "tests": [
         {
-          "file": "internal/layout/css_behavior_svg_markers_test.go",
-          "name": "TestBehaviorSvgMarkerShorthandPaintsVertices"
+          "file": "internal/layout/css_behavior_svg_present_paint_test.go",
+          "name": "TestBehaviorSvgPresentMarkerMid"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "none | <marker-ref>"
     },
@@ -12231,21 +12286,26 @@
     {
       "name": "marker-start",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "none | url(#id)"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/svg_presentation_paint.go",
+        "internal/layout/style_paint_props.go",
+        "internal/layout/layout_svg.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applySVGPaintProps"
+      ],
       "tests": [
         {
-          "file": "internal/layout/css_behavior_svg_markers_test.go",
-          "name": "TestBehaviorSvgMarkerEndPaintsArrowhead"
+          "file": "internal/layout/css_behavior_svg_present_paint_test.go",
+          "name": "TestBehaviorSvgPresentMarkerStart"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "none | <marker-ref>"
     },
@@ -14622,7 +14682,7 @@
       "aliases": [],
       "values": [],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Stored from a stylesheet and baked as the paint-order attribute, but the pinned canvas rasterizer reads no paint-order, so no pixel changes. Stays unsupported until a pixel diff exists."
       ],
       "source": [
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
@@ -14632,6 +14692,10 @@
         {
           "file": "internal/layout/css_behavior_svg_geo_test.go",
           "name": "TestBehaviorSvgGeoPaintOrderGap"
+        },
+        {
+          "file": "internal/layout/css_behavior_svg_present_paint_test.go",
+          "name": "TestBehaviorSvgPresentPaintOrder"
         }
       ],
       "status": "unsupported",
@@ -14643,13 +14707,22 @@
       "aliases": [],
       "values": [],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Stored from a stylesheet and baked as the pathLength attribute, but the pinned canvas rasterizer reads no pathLength, so dash pixels do not change. Stays unsupported until a pixel diff exists."
       ],
       "source": [
         "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
       ],
       "handlers": [],
-      "tests": [],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_svg_markers_test.go",
+          "name": "TestBehaviorSvgDraftPaintLonghandsInert"
+        },
+        {
+          "file": "internal/layout/css_behavior_svg_present_paint_test.go",
+          "name": "TestBehaviorSvgPresentPathLength"
+        }
+      ],
       "status": "unsupported",
       "upstream_class": "svg",
       "upstream_syntax": "none | <length> [0,\u221e]"
@@ -17309,41 +17382,59 @@
     {
       "name": "stop-color",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<color> (hex, rgb(), rgba(), named colors baked as hex)"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/svg_presentation_paint.go",
+        "internal/layout/style_paint_props.go",
+        "internal/layout/layout_svg.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applySVGPaintProps"
+      ],
       "tests": [
         {
           "file": "internal/layout/css_behavior_svg_geo_test.go",
           "name": "TestBehaviorSvgGeoStopColorRecolorsGradient"
+        },
+        {
+          "file": "internal/layout/css_behavior_svg_present_paint_test.go",
+          "name": "TestBehaviorSvgPresentStopColor"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "svg"
     },
     {
       "name": "stop-opacity",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<number [0,1]> | <percentage [0%,100%]>"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/svg_presentation_paint.go",
+        "internal/layout/style_paint_props.go",
+        "internal/layout/layout_svg.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applySVGPaintProps"
+      ],
       "tests": [
         {
           "file": "internal/layout/css_behavior_svg_geo_test.go",
           "name": "TestBehaviorSvgGeoStopOpacityFadesGradient"
+        },
+        {
+          "file": "internal/layout/css_behavior_svg_present_paint_test.go",
+          "name": "TestBehaviorSvgPresentStopOpacity"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "svg"
     },
     {
