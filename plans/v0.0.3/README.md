@@ -24,6 +24,8 @@ SVG presentation is one ledger. Each unsupported attribute has its own subsectio
 | [Mask border](mask-border/mask-border-checklist.md) | 13 | The `mask` shorthand already resets mask-border (`internal/layout/style_cascade.go:908-914`). | Border-mask data on the group. Slices are not painted here. |
 | [3D perspective](3d-perspective/3d-perspective-checklist.md) | 14 | The 10 unprefixed names already project. `rotateY` plus ancestor `perspective` changes the matrix. | Four `-webkit-` aliases, `translate3d`, `scale3d`, and the layout proofs still missing. |
 
+Open rows for SVG presentation, scroll, and speech moved to [plans/v0.1.2](../v0.1.2/README.md). Do not start a second implementation from those three files. `column-rule-visibility-items` moved with them.
+
 Start at phase 0 of a ledger before writing code for it. Do not treat two ledgers as one change. The closure gate on every ledger is `make test`, `make golden`, `make lint`, `make claim-scan`, `make catalog-check`, and `make matrix-check`. GitHub CI runs only `make test` and `make lint`.
 
 Release note draft: [v0.0.3 release note](release-note/v0.0.3.md), with the [commits after v0.0.2](release-note/commits.md).
