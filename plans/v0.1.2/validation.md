@@ -63,6 +63,21 @@ The catalog now counts 572 implemented and 201 unsupported. Each of these rows i
 
 `make catalog-check` still fails on this machine for reasons outside these ten styles: seven OwnFrame motion case strings no longer match the sibling checkout, and `wrap-inside` names a handler `wrapBreakInsideAvoid` that the checker does not resolve. `make matrix-check` matches section 2 after the catalog rewrite.
 
+## Result on 2026-11-16 (third ten)
+
+The third batch is `marker`, `marker-start`, `marker-mid`, `marker-end`, `stop-color`, `stop-opacity`, `path-length`, `paint-order`, `link-parameters`, and `continue`. Each has a behavior test and a catalog row now `implemented`:
+
+| Style | Test |
+|---|---|
+| `marker`, longhands | `TestBehaviorSvgPresentMarker`, `TestBehaviorSvgPresentMarkerStart`, `TestBehaviorSvgPresentMarkerMid`, `TestBehaviorSvgPresentMarkerEnd`, `TestBehaviorSvgPresentMarkerAllThreeVertices` |
+| `stop-color`, `stop-opacity` | `TestBehaviorSvgPresentStopColor`, `TestBehaviorSvgPresentStopOpacity` |
+| `paint-order` | `TestBehaviorSvgPresentPaintOrder` |
+| `path-length` | `TestBehaviorSvgPresentPathLength`, `TestEmulateShapeLength` |
+| `link-parameters` | `TestBehaviorLinkParametersRecolorsSvg`, `TestBehaviorLinkParametersLeavesAnchorURI` |
+| `continue` | `TestBehaviorContinueCollapseDropsLinesPastMaxHeight`, `TestBehaviorContinueDiscardDropsLinesPastHeight`, `TestBehaviorContinueWebkitLegacyClampsVerticalBox` |
+
+The catalog counts 592 implemented and 185 unsupported. The OwnFrame window shows them as items 21 to 30 of the review page. The window pass found one bug the pixel counts missed: the canvas misplaced every marker after the first on one shape, fixed by writing one copy per marker (`splitSVGMarkerShape`).
+
 ## Window pass
 
 After the ten tests exit 0:

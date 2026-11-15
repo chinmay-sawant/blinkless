@@ -1,7 +1,7 @@
 # v0.1.2 - Fragmentation and generated content
 
 > **Parent:** `plans/v0.1.2/README.md`
-> **Status:** not started.
+> **Status:** in progress. `box-decoration-break`, `string-set`, and `continue` are done; `margin-break` is next; the rest stay parked.
 > **Estimated effort:** Three properties can change the drawing list on one canvas; the other seven stay deferred until a page split, a footnote area, a page-margin box, or a public outline exists.
 
 ---

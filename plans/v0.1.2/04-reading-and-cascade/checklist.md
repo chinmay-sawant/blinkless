@@ -1,7 +1,7 @@
 # v0.1.2 - Reading order, overlay, and cascade leftovers
 
 > **Parent:** `plans/v0.1.2/README.md`
-> **Status:** not started.
+> **Status:** in progress. `all` and `link-parameters` are done; the rest stay parked.
 > **Estimated effort:** Two properties can change pixels on this canvas (`all`, and `link-parameters` on an SVG image). `background-tbd` would change background images once its draft name is stable. The other four do not change the drawing list until a reading list, a scrollport, or a top layer exists.
 
 ---

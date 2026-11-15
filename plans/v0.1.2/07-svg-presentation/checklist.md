@@ -1,7 +1,7 @@
 # v0.1.2 - SVG presentation leftovers
 
 > **Parent:** `plans/v0.1.2/README.md`
-> **Status:** not started. Phase 0 baselines are the implemented paint properties.
+> **Status:** in progress. Phase 1 is done (geometry, markers, stops). `paint-order` and `path-length` are done and emulated in `internal/svg/present.go`. Phases 2 to 5 are otherwise open.
 > **Estimated effort:** Forty-five unsupported names: fourteen inline styles already move pixels and still need a stylesheet store, three are copied onto the SVG and then ignored when the PNG is drawn, five are not copied at all, twenty draft longhands must stay off `fill` and `stroke`, and three filter leftovers stay outside a filter graph.
 
 ---
@@ -27,9 +27,9 @@ The v0.0.3 ledger called `marker` a non-catalog shorthand and left `path-length`
 
 Grouping checked against `internal/layout/layout_svg.go`:
 
-- Phase 1, inline style already moves pixels: `cx`, `cy`, `r`, `rx`, `ry`, `x`, `y`, `d`, `marker`, `marker-end`, `marker-mid`, `marker-start`, `stop-color`, `stop-opacity`. `marker-mid` and `marker-start` are written by the same loop as `marker-end`. No opened test isolates those two longhands, so they have no `[x]` baseline.
-- Phase 2, written into the XML and ignored by the rasterizer: `paint-order`, `vector-effect`, `text-rendering` (`internal/layout/layout_svg.go:506-524`).
-- Phase 3, no bake arm: `path-length`, `image-rendering`, `glyph-orientation-vertical`, `baseline-shift`, `marker-side`. `path-length` was listed with the pixel bakes. The serializer never reads the name, and `TestBehaviorSvgDraftPaintLonghandsInert` requires the same painted-pixel count, so it sits here.
+- Phase 1 (done 2026-11-16), inline style already moves pixels: `cx`, `cy`, `r`, `rx`, `ry`, `x`, `y`, `d`, `marker`, `marker-end`, `marker-mid`, `marker-start`, `stop-color`, `stop-opacity`. `marker-mid` and `marker-start` are written by the same loop as `marker-end`. No opened test isolates those two longhands, so they have no `[x]` baseline.
+- Phase 2, written into the XML and ignored by the rasterizer: `paint-order` (done: emulated in `internal/svg/present.go`), `vector-effect`, `text-rendering` (`internal/layout/layout_svg.go:506-524`).
+- Phase 3, no bake arm: `path-length` (done: dashes rescaled in `internal/svg/present.go`), `image-rendering`, `glyph-orientation-vertical`, `baseline-shift`, `marker-side`. `path-length` was listed with the pixel bakes. The serializer never reads the name, and `TestBehaviorSvgDraftPaintLonghandsInert` requires the same painted-pixel count, so it sits here.
 - Phase 4, draft fill and stroke longhands. They must not be copied onto `fill` or `stroke`.
 - Phase 5, filter leftovers: `flood-color`, `flood-opacity`, `lighting-color`.
 
@@ -42,9 +42,9 @@ Handler gap, used below, means the catalog limitation string "No apply handler i
 | Group | Names | What to do |
 |---|---|---|
 | Phase 0, catalog `implemented` | `fill`, `fill-rule`, `shape-rendering`, `alignment-baseline`, `dominant-baseline` | Baseline only. Tests already assert the behavior. |
-| Phase 1, inline pixels, catalog `unsupported` | `cx`, `cy`, `r`, `rx`, `ry`, `x`, `y`, `d`, `marker`, `marker-end`, `marker-mid`, `marker-start`, `stop-color`, `stop-opacity` | Store a stylesheet value and bake it. `marker-mid` and `marker-start` still need their own pixel test. |
-| Phase 2, copied into the XML, PNG ignores them | `paint-order`, `vector-effect`, `text-rendering` | Store and bake. Catalog flips only after a pixel diff. `text-rendering` pixels stay deferred while text is removed. |
-| Phase 3, no bake | `path-length`, `image-rendering`, `glyph-orientation-vertical`, `baseline-shift`, `marker-side` | Acceptance through a real consumer. SVG text pixels stay deferred while text is removed. |
+| Phase 1, inline pixels, all `implemented` | `cx`, `cy`, `r`, `rx`, `ry`, `x`, `y`, `d`, `marker`, `marker-end`, `marker-mid`, `marker-start`, `stop-color`, `stop-opacity` | Done. A stylesheet value is stored and baked, and `marker-mid` and `marker-start` have their own tests. A shape with two or more markers is written once per marker, because the canvas misplaces all but the first. |
+| Phase 2, copied into the XML, PNG ignores them | `paint-order` (done), `vector-effect`, `text-rendering` | Store and bake. Catalog flips only after a pixel diff. `paint-order` has one. `text-rendering` pixels stay deferred while text is removed. |
+| Phase 3, no bake | `path-length` (done), `image-rendering`, `glyph-orientation-vertical`, `baseline-shift`, `marker-side` | Acceptance through a real consumer. SVG text pixels stay deferred while text is removed. |
 | Phase 4, draft longhands | `fill-break`, `fill-color`, `fill-image`, `fill-origin`, `fill-position`, `fill-repeat`, `fill-size`, `stroke-align`, `stroke-alignment`, `stroke-break`, `stroke-color`, `stroke-dash-corner`, `stroke-dash-justify`, `stroke-dashadjust`, `stroke-dashcorner`, `stroke-image`, `stroke-origin`, `stroke-position`, `stroke-repeat`, `stroke-size` | Do not alias onto `fill` or `stroke`. |
 | Phase 5, filter leftovers | `flood-color`, `flood-opacity`, `lighting-color` | One element each, or a serialize gap. No filter graph. |
 
@@ -384,7 +384,7 @@ What to expect once stored. A stylesheet `stop-opacity: 0.2` on the first stop d
 
 ## Phase 2: serialized attributes the rasterizer ignores
 
-The bake comment says the canvas `setAttribute` switch has no case for these three, so the gap tests assert XML and never pixels (`internal/layout/layout_svg.go:506-510`). `emulateDroppedPresentation` rewrites `fill-rule` and `crispEdges` only (`internal/svg/raster.go:615-621`). It does not mention these three. New pixel behavior, if any, goes in `internal/svg/present.go`. No filter graph.
+The bake comment says the canvas `setAttribute` switch has no case for these three, so the gap tests assert XML and never pixels (`internal/layout/layout_svg.go:506-510`). `emulateDroppedPresentation` rewrites `fill-rule` and `crispEdges` only (`internal/svg/raster.go:615-621`). It does not mention these three. New pixel behavior goes in `internal/svg/present.go`, and `paint-order` is there now: a filled and stroked shape is written as one copy per part in paint order. No filter graph.
 
 ### paint-order
 
@@ -439,7 +439,7 @@ What to expect, already asserted. `<text x="4" y="18" style="font-size:12px;fill
 
 ## Phase 3: names with no bake
 
-None of these names appear in `writeSVGPresentationAttrs` or `writeSVGExtraPresentationAttrs`. A search of `internal/layout/layout_svg.go` finds no bake arm for them. `path-length` is the name that moved out of the pixel-bake list.
+None of these names appear in `writeSVGPresentationAttrs` or `writeSVGExtraPresentationAttrs`. A search of `internal/layout/layout_svg.go` finds no bake arm for them. `path-length` moved out of the pixel-bake list and is now done: `internal/svg/present.go` scales `stroke-dasharray` and `stroke-dashoffset` by real length over `pathLength`.
 
 ### path-length
 

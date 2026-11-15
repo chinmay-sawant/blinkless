@@ -2,7 +2,7 @@
 
 Each directory holds one phase checklist. A `[x]` row is a behavior a current test already asserts. A `[ ]` row is open work. A `[~]` row is parked, with a reason, an owner, and a next gate. Close a `[ ]` row only after the test named on that row exits 0.
 
-The catalog is `testdata/css/catalog/properties.json`, measured 2026-11-02: 785 rows, 555 implemented, 4 partial, 218 unsupported, 8 intentionally ignored. This ledger covers the 4 partial rows, the unsupported rows, and a few implemented baselines the new work has to match. It does not replan properties that are already implemented.
+The catalog is `testdata/css/catalog/properties.json`, measured 2026-11-16: 785 rows, 592 implemented, 0 partial, 185 unsupported, 8 intentionally ignored. At the 2026-11-02 start it was 555 implemented, 4 partial, 218 unsupported. This ledger covers the 4 partial rows, the unsupported rows, and a few implemented baselines the new work has to match. It does not replan properties that are already implemented.
 
 The engine result is `layout.DisplayList` on one canvas (`layout/displaylist.go`). These files do not add a page encoder, a PDF writer, or a second copy of `internal/layout/layout.go`.
 
@@ -19,6 +19,8 @@ Work from the top of the table. The first rows can change paint or box size on t
 | 7 | [SVG presentation](07-svg-presentation/checklist.md) | 50 | Phase 0 records what to expect from `fill`, `fill-rule`, `shape-rendering`, `alignment-baseline`, and `dominant-baseline`. Later phases store stylesheet values for geometry that an inline style already moves. |
 | 8 | [Rhythm, math, and vendor aliases](08-rhythm-math-and-vendor/checklist.md) | 24 | Four ruby properties stay `[x]`. Thirteen rhythmic and math names, plus seven vendor aliases, stay `[~]`. |
 | 9 | [Print-noop](09-print-noop/checklist.md) | 102 | Speech, scroll, pointer, motion, and event timelines. Each name has its own expected value and a `[~]` row. |
+
+Progress: three batches of ten are implemented (commits `331447b`, `e9075d2`, `880862f`, `3aab091`). The third batch is `marker`, `marker-start`, `marker-mid`, `marker-end`, `stop-color`, `stop-opacity`, `path-length`, `paint-order`, `link-parameters`, and `continue`. Their rows are `[x]` in ledgers 04, 05, and 07.
 
 The first ten styles have a validation plan: [validation.md](validation.md). A catalog row stays `unsupported` until the test named there exits 0. The OwnFrame window is the picture check. It is not the pass.
 
