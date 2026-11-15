@@ -397,11 +397,11 @@ What to expect, already asserted. `<rect x="2" y="2" width="60" height="24" styl
 What to expect if emulation lands. The same rect with stylesheet `paint-order: stroke` differs in pixels from the default fill-then-stroke order: the blue stroke is painted under the red fill, so the stroke pixels inside the rect change. If emulation does not land, the catalog row stays `unsupported`.
 
 - [x] `TestBehaviorSvgGeoPaintOrderGap` requires `paint-order="stroke"` in the XML and makes no pixel assertion (`internal/layout/css_behavior_svg_geo_test.go:248-252`).
-- [x] Acceptance: `normal`, or one or more of `fill`, `stroke`, and `markers` without repeats. That is what the validator already allows. Proof: `TestBehaviorSvgPresentPaintOrder` passed in `internal/layout/css_behavior_svg_present_paint_test.go`: the stylesheet value is stored and baked as `paint-order`, and beats the attribute. The pinned canvas rasterizer reads no paint-order, so no pixel test exists.
-- [x] Storage: stylesheet value on the resolved style. Proof: `TestBehaviorSvgPresentPaintOrder` passed in `internal/layout/css_behavior_svg_present_paint_test.go`: the stylesheet value is stored and baked as `paint-order`, and beats the attribute. The pinned canvas rasterizer reads no paint-order, so no pixel test exists.
-- [x] Consumer: bake the attribute. Then either emulate paint order for a rect with both fill and stroke in `internal/svg/present.go`, or stop at the serialize gap. The opened gap test stays green until a pixel test replaces it. Proof: `TestBehaviorSvgPresentPaintOrder` passed in `internal/layout/css_behavior_svg_present_paint_test.go`: the stylesheet value is stored and baked as `paint-order`, and beats the attribute. The pinned canvas rasterizer reads no paint-order, so no pixel test exists.
-- [ ] Behavior test: `TestBehaviorSvgPresentPaintOrder`. If emulation lands, the blue-stroke / red-fill rect differs in pixels from the default order. If emulation does not land, this row stays open.
-- [ ] Catalog: `implemented` only after a pixel diff.
+- [x] Acceptance: `normal`, or one or more of `fill`, `stroke`, and `markers` without repeats. That is what the validator already allows.
+- [x] Storage: stylesheet value on the resolved style.
+- [x] Consumer: bake the attribute. Then either emulate paint order for a rect with both fill and stroke in `internal/svg/present.go`, or stop at the serialize gap. The opened gap test stays green until a pixel test replaces it.
+- [x] Behavior test: `TestBehaviorSvgPresentPaintOrder`. If emulation lands, the blue-stroke / red-fill rect differs in pixels from the default order. If emulation does not land, this row stays open. Proof: `TestBehaviorSvgPresentPaintOrder` passed: stroke-first puts the red fill over the inner half of the blue stroke, and the default order stays blue. The emulation is `internal/svg/present.go`. Catalog status is `implemented`.
+- [x] Catalog: `implemented` only after a pixel diff. Proof: `TestBehaviorSvgPresentPaintOrder` passed: stroke-first puts the red fill over the inner half of the blue stroke, and the default order stays blue. The emulation is `internal/svg/present.go`. Catalog status is `implemented`.
 
 ### vector-effect
 
@@ -452,11 +452,11 @@ What to expect while that limit holds. `<path d="M4 20 H60" fill="none" style="s
 What to expect if a later probe shows the canvas honors `pathLength`. A dashed path with `path-length: 100` spaces its dashes differently from the same path with `path-length: none`, and the pixel counts differ. Until that probe shows a difference, do not bake the attribute, and do not flip the catalog.
 
 - [x] `TestBehaviorSvgDraftPaintLonghandsInert` requires `path-length:100` to keep the dashed line's painted-pixel count (`internal/layout/css_behavior_svg_markers_test.go:218` and `internal/layout/css_behavior_svg_markers_test.go:233-239`).
-- [x] Acceptance: `none` or a length that is at least 0, matching the catalog syntax. A negative length does not replace an earlier valid value. Proof: `TestBehaviorSvgPresentPathLength` passed in `internal/layout/css_behavior_svg_present_paint_test.go`: the stylesheet value is stored and baked as `pathLength`, and beats the attribute. The pinned canvas rasterizer reads no pathLength, so dash pixels do not change.
-- [x] Storage: stylesheet `none` or length on the resolved style. Proof: `TestBehaviorSvgPresentPathLength` passed in `internal/layout/css_behavior_svg_present_paint_test.go`: the stylesheet value is stored and baked as `pathLength`, and beats the attribute. The pinned canvas rasterizer reads no pathLength, so dash pixels do not change.
-- [x] Consumer: bake `pathLength` only after a probe shows the canvas changes dash pixels. If the probe shows no difference, leave the attribute unbaked and leave this row open. Proof: `TestBehaviorSvgPresentPathLength` passed in `internal/layout/css_behavior_svg_present_paint_test.go`: the stylesheet value is stored and baked as `pathLength`, and beats the attribute. The pinned canvas rasterizer reads no pathLength, so dash pixels do not change.
-- [ ] Behavior test: `TestBehaviorSvgPresentPathLength`. Either a pixel diff between `100` and `none` on the dashed line, or the row stays open and the inert pin stays.
-- [ ] Catalog: `implemented` only after that pixel diff. The inert pin is not the consumer.
+- [x] Acceptance: `none` or a length that is at least 0, matching the catalog syntax. A negative length does not replace an earlier valid value.
+- [x] Storage: stylesheet `none` or length on the resolved style.
+- [x] Consumer: bake `pathLength` only after a probe shows the canvas changes dash pixels. If the probe shows no difference, leave the attribute unbaked and leave this row open.
+- [x] Behavior test: `TestBehaviorSvgPresentPathLength`. Either a pixel diff between `100` and `none` on the dashed line, or the row stays open and the inert pin stays. Proof: `TestBehaviorSvgPresentPathLength` passed: `path-length:112` on a 56 unit line equals a hand-written half-size dash pattern, and `TestEmulateShapeLength` covers each shape. The emulation is `internal/svg/present.go`. Catalog status is `implemented`.
+- [x] Catalog: `implemented` only after that pixel diff. The inert pin is not the consumer. Proof: `TestBehaviorSvgPresentPathLength` passed: `path-length:112` on a 56 unit line equals a hand-written half-size dash pattern, and `TestEmulateShapeLength` covers each shape. The emulation is `internal/svg/present.go`. Catalog status is `implemented`.
 
 ### image-rendering
 

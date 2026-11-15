@@ -11,9 +11,9 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 590,
+      "implemented": 592,
       "partial": 0,
-      "unsupported": 187,
+      "unsupported": 185,
       "intentionally ignored": 8
     },
     "aliases": 38,
@@ -14680,50 +14680,66 @@
     {
       "name": "paint-order",
       "aliases": [],
-      "values": [],
+      "values": [
+        "normal | [ fill || stroke || markers ]"
+      ],
       "limitations": [
-        "Stored from a stylesheet and baked as the paint-order attribute, but the pinned canvas rasterizer reads no paint-order, so no pixel changes. Stays unsupported until a pixel diff exists."
+        "Only the element's own paint-order is read; a value set on a group is not inherited by its children."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/svg_presentation_paint.go",
+        "internal/svg/present.go",
+        "internal/layout/style_paint_props.go",
+        "internal/layout/layout_svg.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applySVGPaintProps"
+      ],
       "tests": [
-        {
-          "file": "internal/layout/css_behavior_svg_geo_test.go",
-          "name": "TestBehaviorSvgGeoPaintOrderGap"
-        },
         {
           "file": "internal/layout/css_behavior_svg_present_paint_test.go",
           "name": "TestBehaviorSvgPresentPaintOrder"
+        },
+        {
+          "file": "internal/svg/present_test.go",
+          "name": "TestEmulateShapeLength"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "normal | [ fill || stroke || markers ]"
     },
     {
       "name": "path-length",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | <number> [0,inf]"
+      ],
       "limitations": [
-        "Stored from a stylesheet and baked as the pathLength attribute, but the pinned canvas rasterizer reads no pathLength, so dash pixels do not change. Stays unsupported until a pixel diff exists."
+        "Rescales stroke-dasharray and stroke-dashoffset only. A rect with unequal rx and ry, and units other than px, keep their dashes unscaled."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/svg_presentation_paint.go",
+        "internal/svg/present.go",
+        "internal/layout/style_paint_props.go",
+        "internal/layout/layout_svg.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applySVGPaintProps"
+      ],
       "tests": [
-        {
-          "file": "internal/layout/css_behavior_svg_markers_test.go",
-          "name": "TestBehaviorSvgDraftPaintLonghandsInert"
-        },
         {
           "file": "internal/layout/css_behavior_svg_present_paint_test.go",
           "name": "TestBehaviorSvgPresentPathLength"
+        },
+        {
+          "file": "internal/svg/present_test.go",
+          "name": "TestEmulateShapeLength"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "none | <length> [0,\u221e]"
     },

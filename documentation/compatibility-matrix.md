@@ -43,7 +43,7 @@ as its inline text (per the note column).
 
 ## 2. Supported CSS properties
 
-The catalog in `testdata/css/catalog/properties.json` (schema v2) is the authoritative property record. Measured 2026-11-02: 785 rows - 590 implemented, 0 partial, 187 unsupported, 8 intentionally ignored. The pinned upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties: 671 draft, 70 vendor, 52 svg, 28 browser-ui). Regenerate the tables below with `python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails on drift between the catalog and the code. Rows scoped to `blinkless+ownframe` have sampled runtime evidence in OwnFrame; Blinkless supplies their CSS metadata.
+The catalog in `testdata/css/catalog/properties.json` (schema v2) is the authoritative property record. Measured 2026-11-02: 785 rows - 592 implemented, 0 partial, 185 unsupported, 8 intentionally ignored. The pinned upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties: 671 draft, 70 vendor, 52 svg, 28 browser-ui). Regenerate the tables below with `python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails on drift between the catalog and the code. Rows scoped to `blinkless+ownframe` have sampled runtime evidence in OwnFrame; Blinkless supplies their CSS metadata.
 
 Statuses describe the stated layout pipeline scope, not browsers:
 
@@ -54,7 +54,7 @@ Statuses describe the stated layout pipeline scope, not browsers:
 
 An implemented status is not a browser-parity or parser-conformance claim. Rendering comparisons and HTML parsing carry separate evidence in `plans/v0.0.1/html-css-json-compatibility-checklist.md`.
 
-### 2.1 Implemented (590)
+### 2.1 Implemented (592)
 
 | Property | Accepted values | Source | Behavior tests |
 |---|---|---|---|
@@ -494,6 +494,8 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `padding-left` | <padding-width> \| inherit | `internal/layout/style_properties.go` | `TestPaddingBorderBox`, `TestBehaviorPaddingLeftOffsetsContent` |
 | `padding-right` | <padding-width> \| inherit | `internal/layout/style_properties.go` | `TestPaddingBorderBox` |
 | `padding-top` | <padding-width> \| inherit | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestPaddingBorderBox`, `TestBehaviorPaddingTopOffsetsContent` |
+| `paint-order` | normal \| [ fill \|\| stroke \|\| markers ] | `internal/layout/svg_presentation_paint.go`, `internal/svg/present.go`, `internal/layout/style_paint_props.go`, `internal/layout/layout_svg.go`, `internal/layout/style.go` | `TestBehaviorSvgPresentPaintOrder`, `TestEmulateShapeLength` |
+| `path-length` | none \| <number> [0,inf] | `internal/layout/svg_presentation_paint.go`, `internal/svg/present.go`, `internal/layout/style_paint_props.go`, `internal/layout/layout_svg.go`, `internal/layout/style.go` | `TestBehaviorSvgPresentPathLength`, `TestEmulateShapeLength` |
 | `perspective` | none \| <length [0,∞]> | `internal/layout/style_properties.go` | `TestBehaviorPerspectiveNoLayoutEffect`, `TestPerspBuildRotateYNarrowsOrtho`, `TestPerspBuildAncestorPerspectiveForeshortens`, `TestPerspBuildPerspectiveFunctionAppliesOwnDistance`, `TestPerspBuildPreserveComposedSkipsProjection`, `TestPerspPerspectiveNoEffectOn2DChild`, `TestPerspPerspectiveFunctionDepthless`, `TestPerspRotate3DOrthographic` |
 | `perspective-origin` | <position> | `internal/layout/style_properties.go` | `TestBehaviorPerspectiveOriginNoLayoutEffect`, `TestOriginBuildDefaultIsCenter`, `TestOriginBuildPercentages`, `TestOriginBuildKeywords`, `TestOriginBuildLengths`, `TestOriginBuildVanishingPointShiftsProjection`, `TestOriginBuildShiftsProjectedOutput`, `TestPerspPerspectiveOriginNoEffect` |
 | `place-content` | <'align-content'> <'justify-content'>? | `internal/layout/style_properties.go` | `TestPlaceShorthands`, `TestFlexPlaceContentDistributes` |
@@ -654,7 +656,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | Property | Accepted values | Source | Named missing behavior |
 |---|---|---|---|
 
-### 2.3 Unsupported (187)
+### 2.3 Unsupported (185)
 
 | Property | Named missing behavior |
 |---|---|
@@ -753,8 +755,6 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `overscroll-behavior-inline` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `overscroll-behavior-x` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `overscroll-behavior-y` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `paint-order` | Stored from a stylesheet and baked as the paint-order attribute, but the pinned canvas rasterizer reads no paint-order, so no pixel changes. Stays unsupported until a pixel diff exists. |
-| `path-length` | Stored from a stylesheet and baked as the pathLength attribute, but the pinned canvas rasterizer reads no pathLength, so dash pixels do not change. Stays unsupported until a pixel diff exists. |
 | `pause` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `pause-after` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `pause-before` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |

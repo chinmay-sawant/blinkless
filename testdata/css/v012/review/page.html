@@ -212,11 +212,11 @@
 <p style="margin:0 0 10px;font-size:14px;width:640px">The right gradient above also has stop-opacity: 0.5 on its first stop, so it fades in from the left edge.</p>
 
 <p style="margin:0 0 8px;font-size:18px">27. paint-order</p>
-<p style="margin:0 0 10px;font-size:14px;width:640px">The stylesheet asks for stroke first, so the red fill covers the inner half of the blue stroke. This engine stores it and writes the attribute. Its rasterizer does not reorder, so the left box here is the browser's picture.</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">The stylesheet asks for stroke first, so the red fill covers the inner half of the blue stroke instead of the stroke sitting on top.</p>
 <div style="margin:0 0 28px"><svg width="200" height="60" viewBox="0 0 200 60" style="background:#fff;border:1px solid #ccc;margin-right:12px"><defs><marker id="rv" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#e11"/></marker><linearGradient id="rvg" x1="0%" y1="0%" x2="100%" y2="0%"><stop id="rvs" offset="0" stop-color="#e11"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><rect id="rv-po" x="30" y="10" width="140" height="40" fill="#e11" stroke="#1d4ed8" stroke-width="12"/></svg></div>
 
 <p style="margin:0 0 8px;font-size:18px">28. path-length</p>
-<p style="margin:0 0 10px;font-size:14px;width:640px">path-length: 100 rescales the dash lengths to a 100 unit path. Stored and written as pathLength. The rasterizer does not read it.</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">path-length: 100 rescales the dash lengths to a 100 unit path. The line is 180 units long, so each dash is 1.8 times longer than its written 10 and 5.</p>
 <div style="margin:0 0 28px"><svg width="200" height="60" viewBox="0 0 200 60" style="background:#fff;border:1px solid #ccc;margin-right:12px"><defs><marker id="rv" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#e11"/></marker><linearGradient id="rvg" x1="0%" y1="0%" x2="100%" y2="0%"><stop id="rvs" offset="0" stop-color="#e11"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><path id="rv-pl" d="M10 30 H190" fill="none" stroke="#111" stroke-width="3" stroke-dasharray="10 5"/></svg></div>
 
 <p style="margin:0 0 8px;font-size:18px">29. link-parameters</p>

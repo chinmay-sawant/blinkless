@@ -2,6 +2,7 @@ package layout
 
 import (
 	"bytes"
+	"fmt"
 	"image"
 	"image/png"
 	"strings"
@@ -253,52 +254,102 @@ func TestBehaviorSvgPresentPaintOrder(t *testing.T) {
 	t.Parallel()
 
 	rect := `<rect id="r" x="8" y="8" width="40" height="20" fill="#ff0000" stroke="#0000ff" stroke-width="8"%s/>`
-	xml, _ := svgPaintRender(t, svgPaintBaseCSS+`#r{paint-order:stroke}`, strings.Replace(rect, "%s", "", 1))
+	plain := strings.Replace(rect, "%s", "", 1)
 
-	if !strings.Contains(xml, `paint-order="stroke"`) {
-		t.Errorf("stylesheet paint-order not serialized: %s", xml)
+	// Inner half of the left stroke: x from 8 to 12, y in the middle. The
+	// default order paints the stroke over the fill (blue). stroke first
+	// lets the fill cover that half (red).
+	inner := func(css, inner string) (int, int, int) {
+		_, img := svgPaintRender(t, svgPaintBaseCSS+css, inner)
+		scale := float64(img.Bounds().Dx()) / 64
+		red, green, blue, _ := img.At(int(10*scale), int(18*scale)).RGBA()
+
+		return int(red >> 8), int(green >> 8), int(blue >> 8)
 	}
 
-	attr, _ := svgPaintRender(t, svgPaintBaseCSS+`#r{paint-order:stroke}`,
-		strings.Replace(rect, "%s", ` paint-order="fill"`, 1))
-	if strings.Contains(attr, `paint-order="fill"`) || !strings.Contains(attr, `paint-order="stroke"`) {
-		t.Errorf("attribute won over the stylesheet: %s", attr)
+	r, _, b := inner(``, plain)
+	if b < 200 || r > 60 {
+		t.Fatalf("default order inner stroke pixel = (%d,_,%d), want blue", r, b)
 	}
 
-	bad, _ := svgPaintRender(t, svgPaintBaseCSS+`#r{paint-order:stroke stroke}`,
-		strings.Replace(rect, "%s", "", 1))
-	if strings.Contains(bad, "paint-order") {
-		t.Errorf("repeated token was baked: %s", bad)
+	r, _, b = inner(`#r{paint-order:stroke}`, plain)
+	if r < 200 || b > 60 {
+		t.Errorf("paint-order:stroke inner stroke pixel = (%d,_,%d), want red fill over the stroke", r, b)
+	}
+
+	// The outer half stays blue in both orders.
+	_, img := svgPaintRender(t, svgPaintBaseCSS+`#r{paint-order:stroke}`, plain)
+	scale := float64(img.Bounds().Dx()) / 64
+
+	if r, _, b, _ := img.At(int(6*scale), int(18*scale)).RGBA(); b>>8 < 200 || r>>8 > 60 {
+		t.Errorf("paint-order:stroke outer stroke pixel = (%d,_,%d), want blue", r>>8, b>>8)
+	}
+
+	// An explicit fill-first order and normal match the default.
+	for _, css := range []string{`#r{paint-order:normal}`, `#r{paint-order:fill stroke}`} {
+		if r, _, b := inner(css, plain); b < 200 || r > 60 {
+			t.Errorf("%s inner stroke pixel = (%d,_,%d), want blue like the default", css, r, b)
+		}
+	}
+
+	// The stylesheet beats an attribute, and a no-stroke shape is untouched.
+	attr := strings.Replace(rect, "%s", ` paint-order="fill"`, 1)
+	if r, _, b := inner(`#r{paint-order:stroke}`, attr); r < 200 || b > 60 {
+		t.Errorf("attribute won over the stylesheet: pixel = (%d,_,%d)", r, b)
+	}
+
+	xml, _ := svgPaintRender(t, svgPaintBaseCSS+`#r{paint-order:stroke stroke}`, plain)
+	if strings.Contains(xml, "paint-order") {
+		t.Errorf("repeated token was baked: %s", xml)
 	}
 }
 
 func TestBehaviorSvgPresentPathLength(t *testing.T) {
 	t.Parallel()
 
-	dash := `<path id="d" d="M4 20 H60" fill="none" stroke="#000000" stroke-width="3" stroke-dasharray="6 3"%s/>`
-	xml, _ := svgPaintRender(t, svgPaintBaseCSS+`#d{path-length:100}`, strings.Replace(dash, "%s", "", 1))
+	dash := `<path id="d" d="M4 20 H60" fill="none" stroke="#000000" stroke-width="3" stroke-dasharray="%s"/>`
+	line := func(css, dashes string) image.Image {
+		_, img := svgPaintRender(t, svgPaintBaseCSS+css, fmt.Sprintf(dash, dashes))
 
+		return img
+	}
+
+	xml, _ := svgPaintRender(t, svgPaintBaseCSS+`#d{path-length:100}`, fmt.Sprintf(dash, "6 3"))
 	if !strings.Contains(xml, `pathLength="100"`) {
 		t.Errorf("stylesheet path-length not serialized: %s", xml)
 	}
 
-	withAttr, _ := svgPaintRender(t, svgPaintBaseCSS+`#d{path-length:100}`,
-		strings.Replace(dash, "%s", ` pathLength="50"`, 1))
-	if strings.Contains(withAttr, `pathLength="50"`) || !strings.Contains(withAttr, `pathLength="100"`) {
-		t.Errorf("attribute won over the stylesheet: %s", withAttr)
+	// The line is 56 units. path-length:112 halves every dash length, so it
+	// must match a hand-written "3 1.5" pattern and differ from "6 3".
+	scaled := line(`#d{path-length:112}`, "6 3")
+	byHand := line(``, "3 1.5")
+	unscaled := line(``, "6 3")
+
+	if svgBakeDiffPixels(t, scaled, byHand) != 0 {
+		t.Error("path-length:112 did not rescale the dashes to the hand-written pattern")
 	}
 
-	neg, _ := svgPaintRender(t, svgPaintBaseCSS+`#d{path-length:-5}`,
-		strings.Replace(dash, "%s", "", 1))
-	if strings.Contains(neg, "pathLength") {
-		t.Errorf("negative path-length was baked: %s", neg)
+	if svgBakeDiffPixels(t, scaled, unscaled) == 0 {
+		t.Error("path-length:112 left the dashes unscaled")
 	}
 
-	// Pinned canvas gap: the raster does not observe pathLength.
-	plain := svgPaintPixels(t, svgPaintBaseCSS, strings.Replace(dash, "%s", "", 1))
-	long := svgPaintPixels(t, svgPaintBaseCSS+`#d{path-length:100}`, strings.Replace(dash, "%s", "", 1))
+	// A path-length equal to the real length changes nothing.
+	if svgBakeDiffPixels(t, line(`#d{path-length:56}`, "6 3"), unscaled) != 0 {
+		t.Error("path-length equal to the real length changed the dashes")
+	}
 
-	if plain != long {
-		t.Logf("canvas now honors pathLength (plain=%d, with=%d): the catalog row can flip", plain, long)
+	// none and a negative length are not stored, so nothing rescales.
+	for _, css := range []string{`#d{path-length:none}`, `#d{path-length:-5}`} {
+		if svgBakeDiffPixels(t, line(css, "6 3"), unscaled) != 0 {
+			t.Errorf("%s changed the dashes", css)
+		}
+	}
+
+	// The stylesheet beats a pathLength attribute.
+	attr := strings.Replace(fmt.Sprintf(dash, "6 3"), `<path `, `<path pathLength="28" `, 1)
+	_, img := svgPaintRender(t, svgPaintBaseCSS+`#d{path-length:112}`, attr)
+
+	if svgBakeDiffPixels(t, img, byHand) != 0 {
+		t.Error("attribute pathLength won over the stylesheet")
 	}
 }
