@@ -318,8 +318,11 @@ type ResolvedStyle struct {
 	TextShadowSet           bool
 	LetterSpacing           float64
 	// WordSpacing is CSS word-spacing in points; 0 is normal.
-	WordSpacing     float64
-	TextIndent      float64
+	WordSpacing float64
+	TextIndent  float64
+	// LinePadding is CSS line-padding in points. It insets both ends of
+	// every line, including lines after the first. Zero is the initial.
+	LinePadding     float64
 	ListStyleType   string // "disc" | "circle" | "square" | "decimal" | cssDisplayNone | …
 	BorderCollapse  string // "separate" | "collapse"
 	BorderSpacing   float64
@@ -491,6 +494,9 @@ type ResolvedStyle struct {
 	ObjectPositionY       string
 	// AspectRatio is width/height; 0 means auto/unset.
 	AspectRatio float64
+	// Zoom is this element's CSS zoom factor. The initial value is 1.
+	// A zero value is read as 1 so a zero ResolvedStyle does not scale.
+	Zoom float64
 	// CSS Shapes (outside wrap) + page-float extras (87.6).
 	ShapeOutside       string  // "none" | circle()/ellipse()/inset() canonical
 	ShapeMargin        float64 // pt when ShapeMarginPercent < 0
@@ -519,6 +525,9 @@ type ResolvedStyle struct {
 	TextBoxTrim      string // "none" | "trim-start" | "trim-end" | "trim-both"
 	TextBoxEdgeOver  string // "auto" | "text" | "cap" | "ex" | …
 	TextBoxEdgeUnder string // "auto" | "text" | "alphabetic" | …
+	// LineFitEdge is line-fit-edge. "leading" (initial) keeps the span's
+	// padding and border in the line box. "text" leaves them out. Inherited.
+	LineFitEdge string
 	// CSS Text 4/5 spacing + group align + fit.
 	TextAutospace   string // "no-autospace" | "ideograph-alpha" | …
 	TextSpacing     string // "normal" | "trim-start" | …
@@ -538,6 +547,10 @@ type ResolvedStyle struct {
 	// AlignmentBaseline is the inline alignment selector: auto and baseline
 	// defer to DominantBaseline, other selectors shift the run from font
 	// metrics in inline_vertical_align.go. Not inherited per CSS Inline 3.
+	// BaselineSource picks the first or last baseline set of an inline-level
+	// box (CSS Inline 3). auto means last on an inline-block and first on
+	// every other box. It does not inherit. A token outside auto, first, and
+	// last leaves the previous value.
 	// Clip is the deprecated CSS2 clip rect on absolutely positioned boxes:
 	// "" means auto (no clip), otherwise the canonical rect() declaration
 	// resolved against the border box in overflow_clip.go. Reference for all
@@ -561,19 +574,23 @@ type ResolvedStyle struct {
 	// PerspectiveOrigin parts position the vanishing point inside the
 	// perspective box (PerspectiveOriginSet when declared). Reference for
 	// all: Chrome 143.0.7499.40.
-	Transform3D               [16]float64
-	HasTransform3D            bool
-	PerspectiveDist           float64
-	HasPerspective            bool
-	PerspectiveOriginX        float64
-	PerspectiveOriginXPct     bool
-	PerspectiveOriginY        float64
-	PerspectiveOriginYPct     bool
-	PerspectiveOriginSet      bool
-	FillRule                  string
-	ShapeRendering            string
-	DominantBaseline          string
-	AlignmentBaseline         string
+	Transform3D           [16]float64
+	HasTransform3D        bool
+	PerspectiveDist       float64
+	HasPerspective        bool
+	PerspectiveOriginX    float64
+	PerspectiveOriginXPct bool
+	PerspectiveOriginY    float64
+	PerspectiveOriginYPct bool
+	PerspectiveOriginSet  bool
+	FillRule              string
+	ShapeRendering        string
+	DominantBaseline      string
+	AlignmentBaseline     string
+	BaselineSource        string
+	// InlineSizing is inline-sizing. "normal" keeps the font line-height
+	// background. "stretch" grows that fill to the line box. Inherited.
+	InlineSizing              string
 	Clip                      string
 	ColorInterpolation        string
 	ColorInterpolationFilters string
@@ -624,6 +641,16 @@ type ResolvedStyle struct {
 	ViewTimelineInsetEnd      float64
 	ViewTimelineInsetStartSet bool
 	ViewTimelineInsetEndSet   bool
+	// SVG geometry from CSS. Empty means unset. A stylesheet value is baked
+	// onto the attribute and replaces the presentation attribute.
+	SVGCx string
+	SVGCy string
+	SVGR  string
+	SVGRx string
+	SVGRy string
+	SVGX  string
+	SVGY  string
+	SVGD  string
 }
 
 const (
@@ -698,6 +725,7 @@ func initialStyle() ResolvedStyle { //nolint:funlen // complete CSS initial-valu
 		MinHeightPercent:   -1,
 		MaxHeight:          -1,
 		MaxHeightPercent:   -1,
+		Zoom:               1,
 		Overflow:           "visible",
 		OverflowX:          "visible",
 		OverflowY:          "visible",
@@ -816,6 +844,7 @@ func initialStyle() ResolvedStyle { //nolint:funlen // complete CSS initial-valu
 		TextBoxTrim:                cssDisplayNone,
 		TextBoxEdgeOver:            "auto",
 		TextBoxEdgeUnder:           "auto",
+		LineFitEdge:                lineFitEdgeLeading,
 		TextAutospace:              "no-autospace",
 		TextSpacing:                contentNormal,
 		TextSpacingTrim:            "space-all",
@@ -828,6 +857,8 @@ func initialStyle() ResolvedStyle { //nolint:funlen // complete CSS initial-valu
 		ShapeRendering:             "auto",
 		DominantBaseline:           "auto",
 		AlignmentBaseline:          "auto",
+		BaselineSource:             "auto",
+		InlineSizing:               contentNormal,
 		ColorInterpolation:         "srgb",
 		ColorInterpolationFilters:  "srgb",
 		// The timeline axes start at the CSS initial block axis; the physical
@@ -1280,7 +1311,7 @@ func (s *styleStore) recycle() {
 // Stored styles are immutable after insertion. append interns an exact
 // duplicate (styleInternFingerprint bucket plus styleInternEqual verification)
 // instead of storing another copy, so repeated table cells and inherited text
-// styles share one 5872-byte record. The fingerprint is only a bucket key; the
+// styles share one 6104-byte record. The fingerprint is only a bucket key; the
 // equality check is the sharing decision.
 type styleStore struct {
 	candidate ResolvedStyle

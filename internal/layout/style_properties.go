@@ -523,8 +523,13 @@ func setGridStartIndex(style *ResolvedStyle, prop, value string) {
 
 // applyBoxGroup handles the sizing and box props (width/height/margins/padding).
 func applyBoxGroup(
-	style *ResolvedStyle, prop, value string, fsize float64, ctx *styleContext, _ *ResolvedStyle, _ bool,
+	style *ResolvedStyle, prop, value string, fsize float64, ctx *styleContext,
+	parent *ResolvedStyle, hasParent bool,
 ) bool {
+	if applyZoomProps(style, prop, value, fsize, ctx, parent, hasParent) {
+		return true
+	}
+
 	if applyBoxSizingProps(style, prop, value, fsize, ctx) {
 		return true
 	}

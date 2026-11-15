@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>SVG stylesheet geometry</title>
+<style>
+circle#moved { cx: 40px; cy: 20px; r: 12px; }
+rect#box { x: 24px; y: 10px; }
+ellipse#oval { rx: 18px; ry: 8px; }
+path#shape { d: path('M8 8 H56 V32 H8 Z'); }
+</style>
+</head>
+<body style="margin:0">
+<svg width="64" height="40" viewBox="0 0 64 40" xmlns="http://www.w3.org/2000/svg">
+<circle id="moved" cx="10" cy="8" r="4" fill="#ff0000"/>
+<rect id="box" x="2" y="2" width="20" height="12" fill="#00aa00"/>
+<ellipse id="oval" cx="32" cy="20" rx="4" ry="2" fill="#0000ff"/>
+<path id="shape" d="M8 8 h2 v2 h-2 Z" fill="#000000"/>
+</svg>
+</body>
+</html>

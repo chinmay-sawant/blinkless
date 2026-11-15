@@ -856,6 +856,8 @@ func layoutDeclarationValueAccepted(prop, value string) bool {
 		return marginLengthValueAccepted(value)
 	case "text-indent":
 		return lengthValueAccepted(value)
+	case "line-padding":
+		return linePaddingLengthAccepted(value)
 	case "word-spacing":
 		return value == contentNormal || lengthValueAccepted(value)
 	case propHyphens:
@@ -936,7 +938,11 @@ func layoutDeclarationValueAccepted(prop, value string) bool {
 	case positionVisibilityProp:
 		return anchorVisibilityValueAccepted(value)
 	default:
-		return true
+		if prop == inlineSizingProp {
+			return inlineSizingValueAccepted(value)
+		}
+
+		return zoomDeclarationAccepted(prop, value)
 	}
 }
 

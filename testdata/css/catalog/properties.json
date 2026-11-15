@@ -11,14 +11,14 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 555,
+      "implemented": 572,
       "partial": 4,
-      "unsupported": 218,
+      "unsupported": 201,
       "intentionally ignored": 8
     },
     "aliases": 38,
-    "engine_registered": 577,
-    "upstream_only": 208,
+    "engine_registered": 593,
+    "upstream_only": 192,
     "upstream": {
       "inventory": "webref-ed-css",
       "revision": "1f2ec8f74a80c14066b4c7d6822cee59f69fa03b",
@@ -461,46 +461,73 @@
     {
       "name": "-webkit-background-clip",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<bg-clip>#"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_webkit_background.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_properties.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "normalizeWebkitBackgroundClip"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_webkit_background_test.go",
+          "name": "TestBehaviorWebkitBackgroundClipClipsImage"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
       "name": "-webkit-background-origin",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<visual-box>#"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_webkit_background.go",
+        "internal/layout/style_cascade.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "normalizeWebkitBackgroundOrigin"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_webkit_background_test.go",
+          "name": "TestBehaviorWebkitBackgroundOriginInsetsImage"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
       "name": "-webkit-background-size",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<bg-size>#"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_webkit_background.go",
+        "internal/layout/style_cascade.go",
+        "internal/layout/style_properties.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "normalizeWebkitBackgroundSize",
+        "applyColorBackgroundProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_webkit_background_test.go",
+          "name": "TestBehaviorWebkitBackgroundSizeScalesImage"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
@@ -2964,16 +2991,23 @@
     {
       "name": "baseline-source",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "auto | first | last"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/inline_baseline_source.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyBaselineSourceProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_baseline_source_test.go",
+          "name": "TestBehaviorBaselineSourceFirstAlignsFirstLine"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | first | last"
     },
@@ -5202,22 +5236,26 @@
       "values": [
         "slice | clone"
       ],
-      "limitations": [
-        "Parsed and stored (BoxDecorationBreak, style_advanced_props.go:64) but no fragmenter exists in the engine: single display list, multicol snaps whole lines, page-break props are no-ops, so slice versus clone is unobservable. Requires block splitting plus per-fragment chrome in prependChrome before this value can mean anything. Only test is a stored-string assertion (TestWaveCBoxDecorationBreak)."
-      ],
+      "limitations": [],
       "source": [
-        "internal/layout/style_advanced_props.go"
+        "internal/layout/style_advanced_props.go",
+        "internal/layout/inline_decoration_break.go"
       ],
       "handlers": [
-        "applyAdvancedProps"
+        "applyAdvancedProps",
+        "paintInlineDecorationBreak"
       ],
       "tests": [
         {
           "file": "internal/layout/style_advanced_props_test.go",
           "name": "TestWaveCBoxDecorationBreak"
+        },
+        {
+          "file": "internal/layout/css_behavior_decoration_break_test.go",
+          "name": "TestBehaviorBoxDecorationBreakClonePaintsEachFragment"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "slice | clone"
     },
@@ -8161,63 +8199,90 @@
     {
       "name": "cx",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<length-percentage> (number, px, pt, pc, cm, mm, q, in, %)"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/svg_presentation.go",
+        "internal/layout/style_paint_props.go",
+        "internal/layout/layout_svg.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applySVGGeometryProps"
+      ],
       "tests": [
         {
           "file": "internal/layout/css_behavior_svg_geo_test.go",
           "name": "TestBehaviorSvgGeoCxMovesCircle"
+        },
+        {
+          "file": "internal/layout/css_behavior_svg_stylesheet_geometry_test.go",
+          "name": "TestBehaviorSvgStylesheetGeometryMovesShape"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "<length-percentage>"
     },
     {
       "name": "cy",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<length-percentage> (number, px, pt, pc, cm, mm, q, in, %)"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/svg_presentation.go",
+        "internal/layout/style_paint_props.go",
+        "internal/layout/layout_svg.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applySVGGeometryProps"
+      ],
       "tests": [
         {
           "file": "internal/layout/css_behavior_svg_geo_test.go",
           "name": "TestBehaviorSvgGeoCyMovesCircle"
+        },
+        {
+          "file": "internal/layout/css_behavior_svg_stylesheet_geometry_test.go",
+          "name": "TestBehaviorSvgStylesheetGeometryMovesShape"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "<length-percentage>"
     },
     {
       "name": "d",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "path(\"<path-data>\") | path('<path-data>')"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/svg_presentation.go",
+        "internal/layout/style_paint_props.go",
+        "internal/layout/layout_svg.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applySVGGeometryProps"
+      ],
       "tests": [
         {
           "file": "internal/layout/css_behavior_svg_markers_test.go",
           "name": "TestBehaviorSvgCSSDProvidesPathData"
+        },
+        {
+          "file": "internal/layout/css_behavior_svg_stylesheet_geometry_test.go",
+          "name": "TestBehaviorSvgStylesheetGeometryMovesShape"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "none | <string>"
     },
@@ -10898,16 +10963,23 @@
     {
       "name": "inline-sizing",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "normal | stretch"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/inline_sizing.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyInlineSizingProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_inline_sizing_test.go",
+          "name": "TestBehaviorInlineSizingStretchGrowsFill"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | stretch"
     },
@@ -11420,16 +11492,24 @@
     {
       "name": "line-fit-edge",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "leading | text"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/inline_line_fit.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyLineFitEdgeProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_line_fit_edge_test.go",
+          "name": "TestBehaviorLineFitEdgeTextDropsPadding"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "leading | <text-edge>"
     },
@@ -11505,16 +11585,23 @@
     {
       "name": "line-padding",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<length>"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/inline_line_padding.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyLinePaddingProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_line_padding_test.go",
+          "name": "TestBehaviorLinePaddingInsetsEveryLine"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<length>"
     },
@@ -15074,14 +15161,19 @@
     {
       "name": "r",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "non-negative <length-percentage> (number, px, pt, pc, cm, mm, q, in, %)"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/svg_presentation.go",
+        "internal/layout/style_paint_props.go",
+        "internal/layout/layout_svg.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applySVGGeometryProps"
+      ],
       "tests": [
         {
           "file": "internal/layout/css_behavior_svg_geo_test.go",
@@ -15090,9 +15182,13 @@
         {
           "file": "internal/layout/css_behavior_ruby_test.go",
           "name": "TestBehaviorRubyParsersAcceptSpecValues"
+        },
+        {
+          "file": "internal/layout/css_behavior_svg_stylesheet_geometry_test.go",
+          "name": "TestBehaviorSvgStylesheetGeometryMovesShape"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "<length-percentage>"
     },
@@ -16163,42 +16259,60 @@
     {
       "name": "rx",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "non-negative <length-percentage> (number, px, pt, pc, cm, mm, q, in, %)"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/svg_presentation.go",
+        "internal/layout/style_paint_props.go",
+        "internal/layout/layout_svg.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applySVGGeometryProps"
+      ],
       "tests": [
         {
           "file": "internal/layout/css_behavior_svg_geo_test.go",
           "name": "TestBehaviorSvgGeoRxRoundsRect"
+        },
+        {
+          "file": "internal/layout/css_behavior_svg_stylesheet_geometry_test.go",
+          "name": "TestBehaviorSvgStylesheetGeometryMovesShape"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "<length-percentage> | auto"
     },
     {
       "name": "ry",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "non-negative <length-percentage> (number, px, pt, pc, cm, mm, q, in, %)"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/svg_presentation.go",
+        "internal/layout/style_paint_props.go",
+        "internal/layout/layout_svg.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applySVGGeometryProps"
+      ],
       "tests": [
         {
           "file": "internal/layout/css_behavior_svg_geo_test.go",
           "name": "TestBehaviorSvgGeoRyRoundsRect"
+        },
+        {
+          "file": "internal/layout/css_behavior_svg_stylesheet_geometry_test.go",
+          "name": "TestBehaviorSvgStylesheetGeometryMovesShape"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "<length-percentage> | auto"
     },
@@ -20555,42 +20669,60 @@
     {
       "name": "x",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<length-percentage> (number, px, pt, pc, cm, mm, q, in, %)"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/svg_presentation.go",
+        "internal/layout/style_paint_props.go",
+        "internal/layout/layout_svg.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applySVGGeometryProps"
+      ],
       "tests": [
         {
           "file": "internal/layout/css_behavior_svg_geo_test.go",
           "name": "TestBehaviorSvgGeoXMovesRect"
+        },
+        {
+          "file": "internal/layout/css_behavior_svg_stylesheet_geometry_test.go",
+          "name": "TestBehaviorSvgStylesheetGeometryMovesShape"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "<length-percentage>"
     },
     {
       "name": "y",
       "aliases": [],
-      "values": [],
-      "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+      "values": [
+        "<length-percentage> (number, px, pt, pc, cm, mm, q, in, %)"
       ],
+      "limitations": [],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/svg_presentation.go",
+        "internal/layout/style_paint_props.go",
+        "internal/layout/layout_svg.go",
+        "internal/layout/style.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applySVGGeometryProps"
+      ],
       "tests": [
         {
           "file": "internal/layout/css_behavior_svg_geo_test.go",
           "name": "TestBehaviorSvgGeoYMovesRect"
+        },
+        {
+          "file": "internal/layout/css_behavior_svg_stylesheet_geometry_test.go",
+          "name": "TestBehaviorSvgStylesheetGeometryMovesShape"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "svg",
       "upstream_syntax": "<length-percentage>"
     },
@@ -20624,16 +20756,27 @@
     {
       "name": "zoom",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<number [0,\u221e]>",
+        "<percentage [0,\u221e]>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The factor is the element's own zoom, not the product of ancestor zoom, so a length inside a zoomed ancestor is not multiplied again. A block border box is scaled on each axis whose size is a length, after padding and border are included. auto and percentage sizes are not scaled. Other lengths, such as font-size and margins, are not scaled. Options.Zoom remains the document factor."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/style_zoom.go",
+        "internal/layout/layout.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyZoomProps"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/css_behavior_zoom_test.go",
+          "name": "TestBehaviorZoomDoublesBorderBox"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<number [0,\u221e]> | <percentage [0,\u221e]>"
     }

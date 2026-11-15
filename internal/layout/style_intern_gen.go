@@ -290,6 +290,7 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.LetterSpacing == b.LetterSpacing &&
 		a.WordSpacing == b.WordSpacing &&
 		a.TextIndent == b.TextIndent &&
+		a.LinePadding == b.LinePadding &&
 		a.ListStyleType == b.ListStyleType &&
 		a.BorderCollapse == b.BorderCollapse &&
 		a.BorderSpacing == b.BorderSpacing &&
@@ -439,6 +440,7 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.ObjectPositionX == b.ObjectPositionX &&
 		a.ObjectPositionY == b.ObjectPositionY &&
 		a.AspectRatio == b.AspectRatio &&
+		a.Zoom == b.Zoom &&
 		a.ShapeOutside == b.ShapeOutside &&
 		a.ShapeMargin == b.ShapeMargin &&
 		a.ShapeMarginPercent == b.ShapeMarginPercent &&
@@ -461,6 +463,7 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.TextBoxTrim == b.TextBoxTrim &&
 		a.TextBoxEdgeOver == b.TextBoxEdgeOver &&
 		a.TextBoxEdgeUnder == b.TextBoxEdgeUnder &&
+		a.LineFitEdge == b.LineFitEdge &&
 		a.TextAutospace == b.TextAutospace &&
 		a.TextSpacing == b.TextSpacing &&
 		a.TextSpacingTrim == b.TextSpacingTrim &&
@@ -482,6 +485,8 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.ShapeRendering == b.ShapeRendering &&
 		a.DominantBaseline == b.DominantBaseline &&
 		a.AlignmentBaseline == b.AlignmentBaseline &&
+		a.BaselineSource == b.BaselineSource &&
+		a.InlineSizing == b.InlineSizing &&
 		a.Clip == b.Clip &&
 		a.ColorInterpolation == b.ColorInterpolation &&
 		a.ColorInterpolationFilters == b.ColorInterpolationFilters &&
@@ -506,7 +511,15 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.ViewTimelineInsetStart == b.ViewTimelineInsetStart &&
 		a.ViewTimelineInsetEnd == b.ViewTimelineInsetEnd &&
 		a.ViewTimelineInsetStartSet == b.ViewTimelineInsetStartSet &&
-		a.ViewTimelineInsetEndSet == b.ViewTimelineInsetEndSet
+		a.ViewTimelineInsetEndSet == b.ViewTimelineInsetEndSet &&
+		a.SVGCx == b.SVGCx &&
+		a.SVGCy == b.SVGCy &&
+		a.SVGR == b.SVGR &&
+		a.SVGRx == b.SVGRx &&
+		a.SVGRy == b.SVGRy &&
+		a.SVGX == b.SVGX &&
+		a.SVGY == b.SVGY &&
+		a.SVGD == b.SVGD
 }
 
 // styleInternFingerprint hashes every ResolvedStyle field. Equal styles
@@ -722,6 +735,7 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashFloat64(h, s.LetterSpacing)
 	h = styleInternHashFloat64(h, s.WordSpacing)
 	h = styleInternHashFloat64(h, s.TextIndent)
+	h = styleInternHashFloat64(h, s.LinePadding)
 	h = styleInternHashString(h, s.ListStyleType)
 	h = styleInternHashString(h, s.BorderCollapse)
 	h = styleInternHashFloat64(h, s.BorderSpacing)
@@ -879,6 +893,7 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashString(h, s.ObjectPositionX)
 	h = styleInternHashString(h, s.ObjectPositionY)
 	h = styleInternHashFloat64(h, s.AspectRatio)
+	h = styleInternHashFloat64(h, s.Zoom)
 	h = styleInternHashString(h, s.ShapeOutside)
 	h = styleInternHashFloat64(h, s.ShapeMargin)
 	h = styleInternHashFloat64(h, s.ShapeMarginPercent)
@@ -901,6 +916,7 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashString(h, s.TextBoxTrim)
 	h = styleInternHashString(h, s.TextBoxEdgeOver)
 	h = styleInternHashString(h, s.TextBoxEdgeUnder)
+	h = styleInternHashString(h, s.LineFitEdge)
 	h = styleInternHashString(h, s.TextAutospace)
 	h = styleInternHashString(h, s.TextSpacing)
 	h = styleInternHashString(h, s.TextSpacingTrim)
@@ -924,6 +940,8 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashString(h, s.ShapeRendering)
 	h = styleInternHashString(h, s.DominantBaseline)
 	h = styleInternHashString(h, s.AlignmentBaseline)
+	h = styleInternHashString(h, s.BaselineSource)
+	h = styleInternHashString(h, s.InlineSizing)
 	h = styleInternHashString(h, s.Clip)
 	h = styleInternHashString(h, s.ColorInterpolation)
 	h = styleInternHashString(h, s.ColorInterpolationFilters)
@@ -949,6 +967,14 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashFloat64(h, s.ViewTimelineInsetEnd)
 	h = styleInternHashBool(h, s.ViewTimelineInsetStartSet)
 	h = styleInternHashBool(h, s.ViewTimelineInsetEndSet)
+	h = styleInternHashString(h, s.SVGCx)
+	h = styleInternHashString(h, s.SVGCy)
+	h = styleInternHashString(h, s.SVGR)
+	h = styleInternHashString(h, s.SVGRx)
+	h = styleInternHashString(h, s.SVGRy)
+	h = styleInternHashString(h, s.SVGX)
+	h = styleInternHashString(h, s.SVGY)
+	h = styleInternHashString(h, s.SVGD)
 
 	return h
 }
@@ -1152,6 +1178,7 @@ func styleInternFields() []string {
 		"LetterSpacing",
 		"WordSpacing",
 		"TextIndent",
+		"LinePadding",
 		"ListStyleType",
 		"BorderCollapse",
 		"BorderSpacing",
@@ -1301,6 +1328,7 @@ func styleInternFields() []string {
 		"ObjectPositionX",
 		"ObjectPositionY",
 		"AspectRatio",
+		"Zoom",
 		"ShapeOutside",
 		"ShapeMargin",
 		"ShapeMarginPercent",
@@ -1323,6 +1351,7 @@ func styleInternFields() []string {
 		"TextBoxTrim",
 		"TextBoxEdgeOver",
 		"TextBoxEdgeUnder",
+		"LineFitEdge",
 		"TextAutospace",
 		"TextSpacing",
 		"TextSpacingTrim",
@@ -1344,6 +1373,8 @@ func styleInternFields() []string {
 		"ShapeRendering",
 		"DominantBaseline",
 		"AlignmentBaseline",
+		"BaselineSource",
+		"InlineSizing",
 		"Clip",
 		"ColorInterpolation",
 		"ColorInterpolationFilters",
@@ -1369,6 +1400,14 @@ func styleInternFields() []string {
 		"ViewTimelineInsetEnd",
 		"ViewTimelineInsetStartSet",
 		"ViewTimelineInsetEndSet",
+		"SVGCx",
+		"SVGCy",
+		"SVGR",
+		"SVGRx",
+		"SVGRy",
+		"SVGX",
+		"SVGY",
+		"SVGD",
 	}
 }
 

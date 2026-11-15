@@ -176,10 +176,11 @@ func singleTextRunStyleOK(blockStyle, textStyle *ResolvedStyle) bool {
 		singleTextRunAlignmentOK(textStyle)
 }
 
-// singleTextRunBlockGeometryOK rejects indentation, clamps, and shape or
-// initial-letter declarations that narrow or reshape the measured run.
+// singleTextRunBlockGeometryOK rejects indentation, line-padding, clamps,
+// and shape or initial-letter declarations that narrow or reshape the run.
 func singleTextRunBlockGeometryOK(blockStyle, textStyle *ResolvedStyle) bool {
-	if blockStyle.TextIndent != 0 || blockStyle.LineClamp > 0 || blockStyle.MaxLines > 0 {
+	if blockStyle.TextIndent != 0 || blockStyle.LinePadding != 0 ||
+		textStyle.LinePadding != 0 || blockStyle.LineClamp > 0 || blockStyle.MaxLines > 0 {
 		return false
 	}
 

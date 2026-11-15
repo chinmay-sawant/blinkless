@@ -51,6 +51,18 @@ New code does not go in `internal/layout/layout.go` or `internal/layout/inline_p
 
 `zoom` here is the CSS property on one element. `Options.Zoom` is a different control. It scales the whole document (`internal/layout/layout_faces.go:265-272`). The element property must not write that field.
 
+## Result on 2026-11-15
+
+All ten tests passed:
+
+```
+go test ./internal/layout -count=1 -p 1 -run 'TestBehaviorWebkitBackgroundClipClipsImage|TestBehaviorWebkitBackgroundOriginInsetsImage|TestBehaviorWebkitBackgroundSizeScalesImage|TestBehaviorZoomDoublesBorderBox|TestBehaviorBaselineSourceFirstAlignsFirstLine|TestBehaviorLineFitEdgeTextDropsPadding|TestBehaviorInlineSizingStretchGrowsFill|TestBehaviorLinePaddingInsetsEveryLine|TestBehaviorBoxDecorationBreakClonePaintsEachFragment|TestBehaviorSvgStylesheetGeometryMovesShape'
+```
+
+The catalog now counts 572 implemented and 201 unsupported. Each of these rows is `implemented`. None was left `partial`.
+
+`make catalog-check` still fails on this machine for reasons outside these ten styles: seven OwnFrame motion case strings no longer match the sibling checkout, and `wrap-inside` names a handler `wrapBreakInsideAvoid` that the checker does not resolve. `make matrix-check` matches section 2 after the catalog rewrite.
+
 ## Window pass
 
 After the ten tests exit 0:

@@ -3,7 +3,7 @@
 > **Parent:** [plans/v0.0.1/phase-wise-checklist.md](../plans/v0.0.1/phase-wise-checklist.md) and [plans/v0.0.1/html-css-json-compatibility-checklist.md](../plans/v0.0.1/html-css-json-compatibility-checklist.md)  
 > **Status:** living contract - amendments go through plan review  
 > **Target:** authored HTML and CSS to a `layout.DisplayList` (the drawing list). **Not** a browser. **Not** a PDF writer. **Not** a page rasterizer.  
-> **Catalog:** `testdata/css/catalog/properties.json` (schema v2), measured 2026-11-02: 785 rows - 555 Implemented / 4 Partial / 218 Unsupported / 8 intentionally ignored. Motion rows with scope `blinkless+ownframe` include sampled behavior evidence from OwnFrame. Upstream pin: webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties). Fidelity guide: [fidelity.md](fidelity.md).
+> **Catalog:** `testdata/css/catalog/properties.json` (schema v2), measured 2026-11-02: 785 rows - 572 Implemented / 4 Partial / 201 Unsupported / 8 intentionally ignored. Motion rows with scope `blinkless+ownframe` include sampled behavior evidence from OwnFrame. Upstream pin: webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties). Fidelity guide: [fidelity.md](fidelity.md).
 > **Limitations:** Implemented means a handler, a consumer outside the style layer, and a resolvable behavior test. Browser rendering parity, HTML parser conformance, and this property catalog are separate claims with separate evidence. Section 1 is a rendering allowlist for HTML tags, not a parser conformance claim.
 
 This document is the contract for the layout engine. Its output is a drawing
@@ -43,7 +43,7 @@ as its inline text (per the note column).
 
 ## 2. Supported CSS properties
 
-The catalog in `testdata/css/catalog/properties.json` (schema v2) is the authoritative property record. Measured 2026-11-02: 785 rows - 555 implemented, 4 partial, 218 unsupported, 8 intentionally ignored. The pinned upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties: 671 draft, 70 vendor, 52 svg, 28 browser-ui). Regenerate the tables below with `python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails on drift between the catalog and the code. Rows scoped to `blinkless+ownframe` have sampled runtime evidence in OwnFrame; Blinkless supplies their CSS metadata.
+The catalog in `testdata/css/catalog/properties.json` (schema v2) is the authoritative property record. Measured 2026-11-02: 785 rows - 572 implemented, 4 partial, 201 unsupported, 8 intentionally ignored. The pinned upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties: 671 draft, 70 vendor, 52 svg, 28 browser-ui). Regenerate the tables below with `python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails on drift between the catalog and the code. Rows scoped to `blinkless+ownframe` have sampled runtime evidence in OwnFrame; Blinkless supplies their CSS metadata.
 
 Statuses describe the stated layout pipeline scope, not browsers:
 
@@ -54,7 +54,7 @@ Statuses describe the stated layout pipeline scope, not browsers:
 
 An implemented status is not a browser-parity or parser-conformance claim. Rendering comparisons and HTML parsing carry separate evidence in `plans/v0.0.1/html-css-json-compatibility-checklist.md`.
 
-### 2.1 Implemented (555)
+### 2.1 Implemented (572)
 
 | Property | Accepted values | Source | Behavior tests |
 |---|---|---|---|
@@ -68,6 +68,9 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `-webkit-animation-play-state` | running \| paused; comma-separated | `internal/layout/animation_transition.go`, `internal/layout/animation_style.go`, `internal/layout/placed.go`, `layout/layout.go` | `TestWebkitAnimationTransitionAliasesMatchStandardProperties`, `TestWebkitAnimationTransitionAliasesRespectCascadeOrder`, `TestDisplayAnimationAndTransitionMetadata`; OwnFrame cases: `TestCatalogAnimationPropertiesReachOwnFrameFrames (-webkit-animation-play-state)` |
 | `-webkit-animation-timing-function` | linear \| ease \| ease-in \| ease-out \| ease-in-out \| step-start \| step-end \| cubic-bezier() \| steps() \| linear() | `internal/layout/animation_transition.go`, `internal/layout/animation_style.go`, `internal/layout/placed.go`, `layout/layout.go` | `TestWebkitAnimationTransitionAliasesMatchStandardProperties`, `TestWebkitAnimationTransitionAliasesRespectCascadeOrder`, `TestDisplayAnimationAndTransitionMetadata`; OwnFrame cases: `TestCatalogAnimationPropertiesReachOwnFrameFrames (-webkit-animation-timing-function)` |
 | `-webkit-backface-visibility` | alias of the unprefixed property | `internal/layout/style_cascade.go`, `internal/layout/transform.go` | `TestBehaviorWebkitBackfaceAliasHides` |
+| `-webkit-background-clip` | <bg-clip># | `internal/layout/style_webkit_background.go`, `internal/layout/style_cascade.go`, `internal/layout/style_properties.go` | `TestBehaviorWebkitBackgroundClipClipsImage` |
+| `-webkit-background-origin` | <visual-box># | `internal/layout/style_webkit_background.go`, `internal/layout/style_cascade.go` | `TestBehaviorWebkitBackgroundOriginInsetsImage` |
+| `-webkit-background-size` | <bg-size># | `internal/layout/style_webkit_background.go`, `internal/layout/style_cascade.go`, `internal/layout/style_properties.go` | `TestBehaviorWebkitBackgroundSizeScalesImage` |
 | `-webkit-mask` | url(...) \| none; supported mask mode, position, size, repeat, origin, clip, and composite values | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go` | `TestBehaviorMaskVendorAliasesReachMaskGroup` |
 | `-webkit-mask-box-image` | alias of mask-border | `internal/layout/mask_border.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go`, `internal/layout/inline.go`, `internal/layout/mask_border_raster.go` | `TestBehaviorMaskBorderAliasReachesGroup`, `TestBehaviorMaskBorderVendorAliasUsesCSSSourceOrder`, `TestBehaviorMaskBorderSupportsAcceptedValues`, `TestComposeMaskBorderRasterOnGroup` |
 | `-webkit-mask-box-image-outset` | alias of mask-border-outset | `internal/layout/mask_border.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go`, `internal/layout/inline.go`, `internal/layout/mask_border_raster.go` | `TestBehaviorMaskBorderAliasReachesGroup`, `TestComposeMaskBorderRasterOnGroup` |
@@ -133,6 +136,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `background-repeat-x` | <repetition># | `internal/layout/style_properties.go` | `TestBackgroundRepeatLonghandsKeepTheOtherAxisAtInitialRepeat`, `TestBehaviorBackgroundRepeatXTilesVertically` |
 | `background-repeat-y` | <repetition># | `internal/layout/style_properties.go` | `TestBackgroundRepeatLonghandsKeepTheOtherAxisAtInitialRepeat`, `TestBehaviorBackgroundRepeatYTilesHorizontally` |
 | `background-size` | <bg-size># | `internal/layout/style_properties.go` | `TestBackgroundLonghands`, `TestBehaviorBackgroundSizeScalesImage` |
+| `baseline-source` | auto \| first \| last | `internal/layout/inline_baseline_source.go` | `TestBehaviorBaselineSourceFirstAlignsFirstLine` |
 | `block-size` | <'width'> | `internal/layout/style_properties.go` | `TestLogicalSize` |
 | `border` | [ <border-width> \|\| <border-style> \|\| <'border-top-color'> ] \| inherit | `internal/layout/style_properties.go` | `TestPaddingBorderBox`, `TestTransparentBorderPaintsNothing` |
 | `border-block` | <'border-block-start'> | `internal/layout/style_properties.go` | `TestBehaviorBorderBlockPaintsTopBottomEdges` |
@@ -204,6 +208,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `border-top-width` | <border-width> \| inherit | `internal/layout/style_properties.go` | `TestBehaviorBorderTopWidthEmittedStrokeWidth` |
 | `border-width` | <border-width>{1,4} \| inherit | `internal/layout/style_properties.go` | `TestTransparentBorderPaintsNothing` |
 | `bottom` | <length> \| <percentage> \| auto \| inherit | `internal/layout/style_properties.go` | `TestBackgroundPositionUsesCSSPxIntrinsicSize`, `TestCaptionSideParse`, `TestBehaviorBottomShiftsRelativeBox` |
+| `box-decoration-break` | slice \| clone | `internal/layout/style_advanced_props.go`, `internal/layout/inline_decoration_break.go` | `TestWaveCBoxDecorationBreak`, `TestBehaviorBoxDecorationBreakClonePaintsEachFragment` |
 | `box-shadow` | none \| <shadow># | `internal/layout/style_paint_props.go` | `TestBehaviorBoxShadowPaintsOffsetFill` |
 | `box-shadow-blur` | <length [0,∞]># | `internal/layout/style_paint_props.go` | `TestBehaviorBoxShadowBlurExpandsLayers` |
 | `box-shadow-color` | <color># | `internal/layout/style_paint_props.go` | `TestBehaviorBoxShadowColorPaintsLayer` |
@@ -294,6 +299,9 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `counter-increment` | [ <identifier> <integer>? ]+ \| none \| inherit | `internal/layout/style_paint_props.go` | `TestCounterInBefore`, `TestCounterResetIncrementLayout`, `TestQuotes` |
 | `counter-reset` | [ <identifier> <integer>? ]+ \| none \| inherit | `internal/layout/style_paint_props.go` | `TestCounterInBefore`, `TestCounterResetIncrementLayout`, `TestQuotes` |
 | `counter-set` | [ <counter-name> <integer>? ]+ \| none | `internal/layout/style_paint_props.go` | `TestCounterInBefore`, `TestCounterResetIncrementLayout`, `TestQuotes` |
+| `cx` | <length-percentage> (number, px, pt, pc, cm, mm, q, in, %) | `internal/layout/svg_presentation.go`, `internal/layout/style_paint_props.go`, `internal/layout/layout_svg.go`, `internal/layout/style.go` | `TestBehaviorSvgGeoCxMovesCircle`, `TestBehaviorSvgStylesheetGeometryMovesShape` |
+| `cy` | <length-percentage> (number, px, pt, pc, cm, mm, q, in, %) | `internal/layout/svg_presentation.go`, `internal/layout/style_paint_props.go`, `internal/layout/layout_svg.go`, `internal/layout/style.go` | `TestBehaviorSvgGeoCyMovesCircle`, `TestBehaviorSvgStylesheetGeometryMovesShape` |
+| `d` | path("<path-data>") \| path('<path-data>') | `internal/layout/svg_presentation.go`, `internal/layout/style_paint_props.go`, `internal/layout/layout_svg.go`, `internal/layout/style.go` | `TestBehaviorSvgCSSDProvidesPathData`, `TestBehaviorSvgStylesheetGeometryMovesShape` |
 | `direction` | ltr \| rtl \| inherit | `internal/layout/style_properties.go` | `TestBehaviorDirectionRtlRightAlignsLine` |
 | `display` | inline \| block \| list-item \| inline-block \| flex \| inline-flex \| grid \| inline-grid \| table \| inline-table \| table-row-group \| table-header-group \| table-footer-group \| table-row \| table-column-group \| table-column \| table-cell \| table-caption \| none \| inherit | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestDisplayNone`, `TestTableLayout` |
 | `dominant-baseline` | auto \| <baseline-metric> | `internal/layout/style_paint_props.go` | `TestBehaviorDominantBaselineNoPaintEffect`, `TestPerspDominantBaselineBeyondHanging`, `TestPerspDominantBaselineInitialAndBogus`, `TestPerspDominantBaselineInherits` |
@@ -373,6 +381,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `initial-letter-align` | [ border-box? [ alphabetic \| ideographic \| hanging \| leading ]? ]! | `internal/layout/style_initial_letter_props.go` | `TestInitialLetterAlignHangingShiftsY`, `TestBehaviorInitialLetterAlignHangingRaisesLetter` |
 | `initial-letter-wrap` | none \| first \| all \| grid \| <length-percentage> | `internal/layout/style_initial_letter_props.go` | `TestInitialLetterWrapNoneDoesNotExclude`, `TestBehaviorInitialLetterWrapAllExcludesLaterLines` |
 | `inline-size` | auto \| <length-percentage> | `internal/layout/style_properties.go` | `TestContainerPropsParsed`, `TestLogicalSize`, `TestParseContainerRules`, `TestParseContainerShorthand` |
+| `inline-sizing` | normal \| stretch | `internal/layout/inline_sizing.go` | `TestBehaviorInlineSizingStretchGrowsFill` |
 | `inset` | <'top'>{1,4} | `internal/layout/style_properties.go` | `TestLogicalInset`, `TestBehaviorInsetAnchorsAbsoluteBox` |
 | `inset-block` | <'top'>{1,2} | `internal/layout/style_properties.go` | `TestLogicalInset` |
 | `inset-block-end` | <'top'> | `internal/layout/style_properties.go` | `TestBehaviorInsetBlockEndAnchorsAbsoluteBox` |
@@ -388,7 +397,9 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `letter-spacing` | normal \| <length> \| inherit | `internal/layout/style_properties.go` | `TestBehaviorLetterSpacingWidensText` |
 | `line-break` | auto \| loose \| normal \| strict \| anywhere | `internal/layout/style_properties.go`, `internal/layout/style_text_props.go` | `TestTextPropsWave3`, `TestBehaviorLineBreakAnywhereWrapsToken` |
 | `line-clamp` | none \| [<'max-lines'> \|\| <'block-ellipsis'>] -webkit-legacy? | `internal/layout/style_advanced_props.go` | `TestLineClampClearsWebkitBoxNowrap`, `TestWaveBTextTruncationAndClamping`, `TestBehaviorLineClampTwoLimitsLines` |
+| `line-fit-edge` | leading \| text | `internal/layout/inline_line_fit.go`, `internal/layout/style.go` | `TestBehaviorLineFitEdgeTextDropsPadding` |
 | `line-height` | normal \| <number> \| <length> \| <percentage> \| inherit | `internal/layout/style.go`, `internal/layout/style_properties.go` | `TestMarginCollapse`, `TestExplicitLineHeightAllowsNegativeHalfLeading`, `TestNormalLineHeightUsesFaceMetrics`, `TestBehaviorLineHeightExplicitEnlargesBox` |
+| `line-padding` | <length> | `internal/layout/inline_line_padding.go` | `TestBehaviorLinePaddingInsetsEveryLine` |
 | `list-style` | [ <'list-style-type'> \|\| <'list-style-position'> \|\| <'list-style-image'> ] \| inherit | `internal/layout/style_properties.go` | `TestBehaviorListStyleNoneHidesMarker`, `TestBehaviorListStyleShorthandImageEmitsImageMarker` |
 | `list-style-image` | <uri> \| none \| inherit | `internal/layout/style_paint_props.go` | `TestBehaviorListStyleImageBadURLFallsBackToMarker`, `TestBehaviorListStyleImageResolvedEmitsImageMarker` |
 | `list-style-position` | inside \| outside \| inherit | `internal/layout/style_properties.go` | `TestBehaviorListStylePositionInsideVsOutside` |
@@ -484,6 +495,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `position-visibility` | always \| anchor-valid \| anchor-visible \| no-overflow | `internal/layout/anchor_position.go`, `internal/layout/style_cascade.go` | `TestBehaviorPositionVisibilityNoOverflow` |
 | `print-color-adjust` | economy \| exact | `internal/layout/style_color_adjust_props.go` | `TestColorAdjustPropsAcceptLegalKeywords`, `TestColorAdjustPropsReachRestPass`, `TestColorAdjustPropsRejectIllegalKeywords` |
 | `quotes` | [<string> <string>]+ \| none \| inherit | `internal/layout/style_paint_props.go` | `TestQuotes`, `TestBehaviorQuotesEmitGeneratedMarks` |
+| `r` | non-negative <length-percentage> (number, px, pt, pc, cm, mm, q, in, %) | `internal/layout/svg_presentation.go`, `internal/layout/style_paint_props.go`, `internal/layout/layout_svg.go`, `internal/layout/style.go` | `TestBehaviorSvgGeoRResizesCircle`, `TestBehaviorRubyParsersAcceptSpecValues`, `TestBehaviorSvgStylesheetGeometryMovesShape` |
 | `region-fragment` | auto \| break | `internal/layout/named_flow.go`, `internal/layout/layout_flow.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go` | `TestBehaviorNamedFlowRegionFragmentAutoVsBreak`, `TestBehaviorNamedFlowPropertyStorage` |
 | `right` | <length> \| <percentage> \| auto \| inherit | `internal/layout/style_properties.go` | `TestAuthorOverridesButtonUADefaults`, `TestBackgroundPositionUsesCSSPxIntrinsicSize`, `TestCaptionSideParse`, `TestTableCellClipsTransformedContent`, `TestBehaviorRightShiftsRelativeBox` |
 | `rotate` | none \| <angle> \| [ x \| y \| z \| <number>{3} ] && <angle> | `internal/layout/style_leftovers.go`, `internal/layout/style_properties.go` | `TestBehaviorRotatePropertyBakesMatrix` |
@@ -519,6 +531,8 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `rule-style` | <'column-rule-style'> | `internal/layout/style_gap_rules.go`, `internal/layout/gap_rules.go`, `internal/layout/grid.go`, `internal/layout/flex.go` | `TestBehaviorRuleLonghandsBothAxes` |
 | `rule-visibility-items` | <'column-rule-visibility-items'> | `internal/layout/style_gap_rules.go`, `internal/layout/gap_rules.go`, `internal/layout/grid.go`, `internal/layout/flex.go` | `TestBehaviorRowRuleVisibilityAround` |
 | `rule-width` | <'column-rule-width'> | `internal/layout/style_gap_rules.go`, `internal/layout/gap_rules.go`, `internal/layout/grid.go`, `internal/layout/flex.go` | `TestBehaviorRuleLonghandsBothAxes` |
+| `rx` | non-negative <length-percentage> (number, px, pt, pc, cm, mm, q, in, %) | `internal/layout/svg_presentation.go`, `internal/layout/style_paint_props.go`, `internal/layout/layout_svg.go`, `internal/layout/style.go` | `TestBehaviorSvgGeoRxRoundsRect`, `TestBehaviorSvgStylesheetGeometryMovesShape` |
+| `ry` | non-negative <length-percentage> (number, px, pt, pc, cm, mm, q, in, %) | `internal/layout/svg_presentation.go`, `internal/layout/style_paint_props.go`, `internal/layout/layout_svg.go`, `internal/layout/style.go` | `TestBehaviorSvgGeoRyRoundsRect`, `TestBehaviorSvgStylesheetGeometryMovesShape` |
 | `scale` | none \| [ <number> \| <percentage> ]{1,3} | `internal/layout/style_leftovers.go`, `internal/layout/style_properties.go` | `TestTextSpacingTrimApply`, `TestBehaviorScalePropertyScalesPaint` |
 | `scroll-margin` | <length>{1,4} | `internal/layout/style_paint_props.go` | `TestBehaviorScrollMarginNoPaintEffect` |
 | `scroll-margin-bottom` | <length> | `internal/layout/style_paint_props.go` | `TestBehaviorScrollMarginBottomNoPaintEffect` |
@@ -612,7 +626,10 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `wrap-inside` | auto \| avoid \| avoid-line | `internal/layout/wrap_break.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go` | `TestBehaviorWrapInsideAvoidFitsAndOverflows`, `TestBehaviorNamedFlowPropertyStorage` |
 | `wrap-through` | wrap \| none | `internal/layout/exclusion.go`, `internal/layout/float.go`, `internal/layout/layout_flow.go`, `internal/layout/style_cascade.go`, `internal/layout/style_value_accept.go` | `TestBehaviorWrapThroughNoneIgnoresExclusion`, `TestBehaviorNamedFlowPropertyStorage` |
 | `writing-mode` | horizontal-tb \| vertical-rl \| vertical-lr \| sideways-rl \| sideways-lr | `internal/layout/style_properties.go` | `TestWritingModeInherits`, `TestBehaviorWritingModeVerticalRotatesRun` |
+| `x` | <length-percentage> (number, px, pt, pc, cm, mm, q, in, %) | `internal/layout/svg_presentation.go`, `internal/layout/style_paint_props.go`, `internal/layout/layout_svg.go`, `internal/layout/style.go` | `TestBehaviorSvgGeoXMovesRect`, `TestBehaviorSvgStylesheetGeometryMovesShape` |
+| `y` | <length-percentage> (number, px, pt, pc, cm, mm, q, in, %) | `internal/layout/svg_presentation.go`, `internal/layout/style_paint_props.go`, `internal/layout/layout_svg.go`, `internal/layout/style.go` | `TestBehaviorSvgGeoYMovesRect`, `TestBehaviorSvgStylesheetGeometryMovesShape` |
 | `z-index` | auto \| <integer> \| inherit | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestBehaviorZIndexOrdersOverlappingPaint` |
+| `zoom` | <number [0,∞]> <percentage [0,∞]> | `internal/layout/style_zoom.go`, `internal/layout/layout.go` | `TestBehaviorZoomDoublesBorderBox` |
 
 ### 2.2 Partial (4)
 
@@ -623,14 +640,11 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `break-inside` | auto \| avoid \| avoid-page \| avoid-column \| avoid-region | `internal/layout/style_properties.go` | break-inside keywords parse but no layout or paint pass reads them; the engine returns a drawing list without paginating, so avoidance has no observable effect (TestBehaviorBreakInsideAvoidColumnNoPageEffect). break-inside:avoid parses but multicol advances whole items without a straddle test at the distribution call, so avoidance equals auto (TestBreakInsideAvoidBalancedStraddleGap). |
 | `mask-type` | luminance \| alpha | `internal/layout/style_cascade.go`, `internal/layout/style_mask_accept.go`, `internal/layout/style_mask_props.go`, `internal/layout/mask_paint.go`, `internal/layout/layout.go`, `bindings/wasm/drawing_list.go`, `internal/svg/mask.go` | mask-type cascades into ResolvedStyle.MaskType but no consumer reads it; the SVG rasterizer uses only the mask-type on the SVG source element. Pixel replay stays a host contract. |
 
-### 2.3 Unsupported (218)
+### 2.3 Unsupported (201)
 
 | Property | Named missing behavior |
 |---|---|
 | `-webkit-appearance` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `-webkit-background-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `-webkit-background-origin` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `-webkit-background-size` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `-webkit-text-size-adjust` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `-webkit-text-stroke` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `-webkit-text-stroke-color` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -640,7 +654,6 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `background-attachment` | Parsed and stored (BackgroundAttachment, style_properties.go:1297) but no layout or paint consumer reads it: background_image.go:343 documents fixed as intentionally painting as scroll. The engine has no scrolling viewport, so fixed/local versus scroll is unobservable. Only test is a stored-string assertion (TestBackgroundLonghands). |
 | `background-tbd` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `baseline-shift` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `baseline-source` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `block-ellipsis` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `block-step` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `block-step-align` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -664,7 +677,6 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `border-right-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `border-shape` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `border-top-clip` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `box-decoration-break` | Parsed and stored (BoxDecorationBreak, style_advanced_props.go:64) but no fragmenter exists in the engine: single display list, multicol snaps whole lines, page-break props are no-ops, so slice versus clone is unobservable. Requires block splitting plus per-fragment chrome in prependChrome before this value can mean anything. Only test is a stored-string assertion (TestWaveCBoxDecorationBreak). |
 | `box-snap` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `caret` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `caret-animation` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -675,9 +687,6 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `cue` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `cue-after` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `cue-before` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `cx` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `cy` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `d` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `event-trigger` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `event-trigger-name` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `event-trigger-source` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -699,7 +708,6 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `glyph-orientation-vertical` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `image-animation` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `image-rendering` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `inline-sizing` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `input-security` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `interactivity` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `interest-delay` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -707,10 +715,8 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `interest-delay-start` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `interpolate-size` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `lighting-color` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `line-fit-edge` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `line-grid` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `line-height-step` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `line-padding` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `line-snap` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `link-parameters` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `margin-break` | Parsed and stored (MarginBreak, style_properties.go:1658) but no page-break consumer reads it. Implement path: honor keep/discard on adjoining margins at fragment breaks in the break logic beside BreakInside (independent_blocks.go:112). Only test is a stored-string assertion (TestMarginBreakProperty). |
@@ -750,14 +756,11 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `pointer-timeline` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `pointer-timeline-axis` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `pointer-timeline-name` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `r` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `reading-flow` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `reading-order` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `rest` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `rest-after` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `rest-before` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `rx` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `ry` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `scroll-axis-lock` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `scroll-behavior` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `scroll-initial-target` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
@@ -842,9 +845,6 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `will-change` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `window-drag` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 | `word-space-transform` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `x` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `y` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
-| `zoom` | No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b. |
 
 ### 2.4 Intentionally ignored (8)
 

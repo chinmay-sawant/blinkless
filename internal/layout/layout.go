@@ -1965,6 +1965,7 @@ func (e *engine) buildBlock(node *html.Node, style *ResolvedStyle, availW, posX,
 
 	boxNode.height = e.applyHeightConstraintsWithCB(heightStyle,
 		e.borderBoxBottom(*heightStyle, curY), e.containingBlockHeight())
+	applyElementZoomBorderBox(boxNode, style)
 	e.paintWidgetControl(node, style, boxNode, widget, chkWidget, posY)
 
 	e.paintPositionedPseudo(node, style, boxNode, pseudoBefore)

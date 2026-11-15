@@ -578,7 +578,7 @@ func inheritProps(dst *ResolvedStyle, parent *ResolvedStyle, raw map[string]stri
 	inheritGapBProps(dst, parent, raw)
 }
 
-// inheritGapBProps copies the three inherited gap-B properties that cannot
+// inheritGapBProps copies inherited properties that cannot
 // join inheritableProps: the table already holds 64 entries and the uint64
 // declared mask is full, so a 65th entry would overflow. Each copies only when
 // the element does not declare it; a declared value is applied later by
@@ -608,6 +608,21 @@ func inheritGapBProps(dst *ResolvedStyle, parent *ResolvedStyle, raw map[string]
 
 	if _, ok := raw["color-interpolation-filters"]; !ok {
 		dst.ColorInterpolationFilters = parent.ColorInterpolationFilters
+	}
+
+	// line-fit-edge inherits. The 64-entry mask is full, so it cannot join
+	// inheritableProps; a declared value is applied later and wins.
+	if _, ok := raw["line-fit-edge"]; !ok {
+		dst.LineFitEdge = parent.LineFitEdge
+	}
+
+	// line-padding inherits, but the uint64 inherit mask is full.
+	if _, ok := raw["line-padding"]; !ok {
+		dst.LinePadding = parent.LinePadding
+	}
+
+	if _, ok := raw[inlineSizingProp]; !ok {
+		dst.InlineSizing = parent.InlineSizing
 	}
 }
 
@@ -1727,7 +1742,9 @@ var styleGroups = [...]styleGroupFn{ //nolint:gochecknoglobals // static dispatc
 	applyOverflowLogicalProps,
 	applyAspectRatioProps,
 	applyTextBoxProps,
+	applyLineFitEdgeProps,
 	applyTextAutospaceProps,
+	applyLinePaddingProps,
 	applyHyphenationProps,
 	applyInitialLetterProps,
 	applyShapeProps,
@@ -1745,6 +1762,8 @@ var styleGroups = [...]styleGroupFn{ //nolint:gochecknoglobals // static dispatc
 	applyAnimationProps,
 	applyTransitionProps,
 	applyTimelineProps,
+	applyBaselineSourceProps,
+	applyInlineSizingProps,
 }
 
 func normalizeVendorPrefix(prop string) string {
@@ -1923,6 +1942,18 @@ func normalizeWebkitMiscProperty(prop string) (string, bool) {
 	case "-webkit-text-fill-color":
 		return blendColor, true
 	default:
+		if normalized, ok := normalizeWebkitBackgroundClip(prop); ok {
+			return normalized, true
+		}
+
+		if normalized, ok := normalizeWebkitBackgroundOrigin(prop); ok {
+			return normalized, true
+		}
+
+		if normalized, ok := normalizeWebkitBackgroundSize(prop); ok {
+			return normalized, true
+		}
+
 		return "", false
 	}
 }

@@ -305,9 +305,7 @@ func (e *engine) collectInlineText(node *html.Node, sty *ResolvedStyle, out *[]i
 			return
 		}
 
-		for idx := start; idx < len(*out); idx++ {
-			e.enableInlineChrome(&(*out)[idx])
-		}
+		e.markInlineChrome(node, out, start)
 
 		return
 	}
@@ -333,9 +331,7 @@ func (e *engine) collectInlineText(node *html.Node, sty *ResolvedStyle, out *[]i
 		return
 	}
 
-	for idx := start; idx < len(*out); idx++ {
-		e.enableInlineChrome(&(*out)[idx])
-	}
+	e.markInlineChrome(node, out, start)
 }
 
 func isVerticalWritingMode(mode string) bool {
@@ -847,6 +843,7 @@ func (e *engine) collectInlineBlockItem(node *html.Node, sty *ResolvedStyle, out
 			marginT: e.scalePt(sty.MarginTop), marginB: e.scalePt(sty.MarginBottom),
 			marginBaseline: marginBaseline,
 		})
+		e.noteInlineBaselineSource(&(*out)[len(*out)-1])
 	}
 }
 
@@ -1455,7 +1452,8 @@ func sameInlineStyle(acc, boxN *ResolvedStyle) bool {
 		acc.TextDecorationSkipSpaces == boxN.TextDecorationSkipSpaces &&
 		acc.TextDecorationSkipInk == boxN.TextDecorationSkipInk &&
 		acc.VerticalAlign == boxN.VerticalAlign &&
-		acc.VerticalAlignShift == boxN.VerticalAlignShift
+		acc.VerticalAlignShift == boxN.VerticalAlignShift &&
+		acc.InlineSizing == boxN.InlineSizing
 }
 
 func borderPaint(side border) float64 {

@@ -54,12 +54,19 @@ type inlineItem struct {
 	// (replaced elements and empty or overflow-clipping inline-blocks): the
 	// margin box then sits entirely above the baseline. When false the
 	// baseline is approximated by the bottom border edge, so the bottom
-	// margin hangs below it (CSS 2.1 §10.8.1).
+	// margin hangs below it (CSS 2.1 §10.8.1). sourceBaselineSet replaces
+	// that border edge with a text baseline inside the border box.
 	marginBaseline bool
-	img            bool
-	thumbImg       bool // img inside a collapsed wiki figure; outer frame owns L/R/T
-	chrome         bool // text belongs to an inline element with its own decoration
-	noSplit        bool // vertical writing-mode run must remain one rotated line
+	// sourceBaseline is the distance from the border-box top to the
+	// baseline-source alignment point. It is used only when sourceBaselineSet
+	// is true; the zero value keeps the border or margin edge above.
+	sourceBaseline    float64
+	sourceBaselineSet bool
+	img               bool
+	thumbImg          bool // img inside a collapsed wiki figure; outer frame owns L/R/T
+	chrome            bool // text belongs to an inline element with its own decoration
+	decorID           int  // owning inline element for box-decoration-break; 0 paints alone
+	noSplit           bool // vertical writing-mode run must remain one rotated line
 	// Wrap-break flags (css-text-4 lite, wrap_break.go): the first/last item
 	// of an element with wrap-before/after: avoid carry the boundary flags,
 	// and every item of a wrap-inside: avoid group that fits one line carries
@@ -90,6 +97,11 @@ type inlineItem struct {
 	// lineMetrics instead of joining the baseline row.
 	rubyAnnot bool
 	rubyUnder bool
+	// lineTop and lineBoxH are this item's line box in paint coordinates.
+	// emitLineItems sets them so inline-sizing:stretch can grow the span
+	// fill to that box after the glyphs are placed.
+	lineTop  float64
+	lineBoxH float64
 }
 
 func (e *engine) collectAndPrepareInlineItems(
@@ -300,6 +312,9 @@ func (e *engine) layoutInlineFloats(
 	boxNode *box, nodes []*html.Node, contentW, contentX, lineY float64,
 	floats *floatState,
 ) float64 {
+	e.pushInlineDecorationBreak()
+	defer e.popInlineDecorationBreak()
+
 	if h, ok := e.layoutSingleTextRun(boxNode, nodes, contentW, contentX, lineY, floats); ok {
 		return h
 	}
@@ -396,6 +411,8 @@ func (e *engine) layoutInlineFloatsGeneric(
 				lineW = 0
 			}
 		}
+
+		lineX, lineW = e.linePaddingInset(boxNode, lineX, lineW)
 
 		// Short remaining tail beside a float: if it fits as one full-width
 		// line under the float, drop there instead of leaving an orphan in
@@ -1323,6 +1340,8 @@ func (e *engine) emitLineItems(boxNode *box, line []inlineItem, leftX, baseline,
 
 	for idx := range line {
 		item := &line[idx]
+		item.lineTop, item.lineBoxH = lineY, lineH
+
 		if item.forceBreak || item.style == nil {
 			continue
 		}
@@ -1630,11 +1649,7 @@ func (e *engine) lineMetrics( //nolint:funlen
 			metricStyle, face, item.style.FontSize*e.scale,
 			ascent, descent, extra, trimStart, trimEnd,
 		)
-
-		if item.chrome {
-			itemAscent += e.inlineChromeTop(item.style)
-			itemDescent += e.inlineChromeBottom(item.style)
-		}
+		itemAscent, itemDescent = e.lineFitEdgeContribution(item, itemAscent, itemDescent)
 
 		if itemAscent > maxAscent {
 			maxAscent = itemAscent
@@ -1709,6 +1724,8 @@ func (e *engine) atomicInlineAlign(item *inlineItem) (float64, float64) {
 		ascent += item.marginB
 		descent = 0
 	}
+
+	ascent, descent = applyBaselineSourceEdges(item, ascent, descent)
 
 	shift := 0.0
 	if item.style != nil {
