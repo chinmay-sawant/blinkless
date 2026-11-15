@@ -20,6 +20,8 @@ Work from the top of the table. The first rows can change paint or box size on t
 | 8 | [Rhythm, math, and vendor aliases](08-rhythm-math-and-vendor/checklist.md) | 24 | Four ruby properties stay `[x]`. Thirteen rhythmic and math names, plus seven vendor aliases, stay `[~]`. |
 | 9 | [Print-noop](09-print-noop/checklist.md) | 102 | Speech, scroll, pointer, motion, and event timelines. Each name has its own expected value and a `[~]` row. |
 
+The first ten styles have a validation plan: [validation.md](validation.md). A catalog row stays `unsupported` until the test named there exits 0. The OwnFrame window is the picture check. It is not the pass.
+
 Start at phase 1 of ledger 1. Do not treat two ledgers as one change.
 
 `fill`, `fill-rule`, `shape-rendering`, `alignment-baseline`, and `dominant-baseline` are the detail standard for "what to expect." Their opened tests and the drawing-list result live in ledger 7, phase 0. New text work in ledger 2 uses the same shape: a snippet, the text op Y, and the test name.

@@ -1,0 +1,67 @@
+# v0.1.2 - Validation plan for the first ten styles
+
+> **Parent:** `plans/v0.1.2/README.md`
+> **Status:** active. A catalog row stays `unsupported` until the named test exits 0.
+> **Estimated effort:** ten styles, one fixture and one behavior test each, then one OwnFrame window pass.
+
+---
+
+## Overview
+
+Blinkless returns one drawing list (`layout.DisplayList`). OwnFrame paints that list in a window. `Redraw` parses the HTML, applies the CSS, and calls `layout.DisplayListOptions` (`../ownframe/api.go:8-9`, `../ownframe/internal/render/document.go:37`). `Run` opens the window (`../ownframe/run.go:15-18`).
+
+The proof is a Go test in this repo. The window is the picture a person checks after the test is green. A catalog row in `testdata/css/catalog/properties.json` becomes `implemented` only after that test exits 0. A failed or skipped test leaves the row `unsupported`. Do not use `partial` for these ten.
+
+OwnFrame's module file requires blinkless `v0.1.1` (`../ownframe/go.mod:6`). A window launched from that requirement shows the released engine. The viewing branch `validation/blinkless-next-phase` in the sibling OwnFrame checkout adds this repo to its `go.work` so the window uses this checkout. Fixtures stay in this repo. OwnFrame receives the HTML string. The fixture is not copied into OwnFrame.
+
+`make catalog-ownframe-check` already builds a temporary workspace with both checkouts and runs the motion tests (`scripts/check-css-ownframe-integration.py:46-57`). Those tests do not cover these ten styles.
+
+## What a pass is
+
+Each style has three artifacts:
+
+1. `testdata/css/v012/<slug>/page.html`. The same file is the test input and the window input.
+2. One test in `internal/layout`, named below. It reads that file, lays it out with `layoutHTML` (`internal/layout/layout_test.go:41-58`), and checks a used value in CSS pixels. One CSS pixel is 0.75 points (`internal/layout/css_behavior_box_model_test.go:8-20`).
+3. The catalog row. Status `implemented`, filled `values`, the handler name, and this test. Set that row only after the test command prints ok.
+
+The test command during the work is one package:
+
+```
+go test ./internal/layout -run '<TestName>' -count=1 -p 1
+```
+
+Do not run bare `go test ./...`. After all ten tests are green, one integration pass runs `make test`, `make golden`, `make lint`, `make claim-scan`, `make catalog-check`, and `make matrix-check`.
+
+New code does not go in `internal/layout/layout.go` or `internal/layout/inline_paint.go`. Both are on the size ledger (`scripts/file-size-allowlist.txt`).
+
+## The ten styles
+
+| Style | Fixture slug | Test | What the number means | What the window shows |
+|---|---|---|---|---|
+| `-webkit-background-clip` | `webkit-background-clip` | `TestBehaviorWebkitBackgroundClipClipsImage` | Image box matches `TestBehaviorBackgroundClipClipsImage` (`internal/layout/css_behavior_backgrounds_test.go:232-269`) | Background stops at the content box |
+| `-webkit-background-origin` | `webkit-background-origin` | `TestBehaviorWebkitBackgroundOriginInsetsImage` | Image origin matches `TestBehaviorBackgroundOriginInsetsImage` (`internal/layout/css_behavior_backgrounds_test.go:193-225`) | Image starts at the padding edge |
+| `-webkit-background-size` | `webkit-background-size` | `TestBehaviorWebkitBackgroundSizeScalesImage` | Image box matches `TestBehaviorBackgroundSizeScalesImage` (`internal/layout/css_behavior_backgrounds_test.go:132-153`) | `40px 20px` paints a 40 by 20 image |
+| `zoom` | `zoom` | `TestBehaviorZoomDoublesBorderBox` | `zoom: 2` on a 100 by 40 box is 200 by 80 | The box is twice as wide and twice as tall |
+| `baseline-source` | `baseline-source` | `TestBehaviorBaselineSourceFirstAlignsFirstLine` | `first` aligns the first line baseline with the neighbor. `last` aligns the second line | The two-line box sits higher or lower |
+| `line-fit-edge` | `line-fit-edge` | `TestBehaviorLineFitEdgeTextDropsPadding` | `text` keeps the span padding out of the line height. `leading` includes it | The line is shorter or taller |
+| `inline-sizing` | `inline-sizing` | `TestBehaviorInlineSizingStretchGrowsFill` | `stretch` grows the span fill to the line height. The text op Y stays | A red span fills the line |
+| `line-padding` | `line-padding` | `TestBehaviorLinePaddingInsetsEveryLine` | Each line's text X moves right by the length | Every line starts further in |
+| `box-decoration-break` | `box-decoration-break` | `TestBehaviorBoxDecorationBreakClonePaintsEachFragment` | `clone` paints one background per wrapped fragment. `slice` paints one | A wrapped highlight is one bar or two |
+| SVG geometry | `svg-geometry` | `TestBehaviorSvgStylesheetGeometryMovesShape` | A stylesheet `cx`, `cy`, `r`, `rx`, `ry`, `x`, `y`, or `d` changes the image the way the inline style already does | The circle, ellipse, rect, or path moves |
+
+`zoom` here is the CSS property on one element. `Options.Zoom` is a different control. It scales the whole document (`internal/layout/layout_faces.go:265-272`). The element property must not write that field.
+
+## Window pass
+
+After the ten tests exit 0:
+
+1. On the OwnFrame branch `validation/blinkless-next-phase`, `go.work` includes this checkout.
+2. A small preview reads `testdata/css/v012/<slug>/page.html` from this repo and calls `ownframe.New` then `ownframe.Run`.
+3. Open one slug at a time. Compare the picture to the table above.
+4. If the picture disagrees with the test number, fix the test or the paint before marking the catalog row.
+
+If the window cannot open in this session, the report names the slug, the command, and the number the person should see.
+
+## Catalog rule
+
+`implemented` requires a consumer outside the style layer and a behavior test (`testdata/css/catalog/properties.json` seed `conservative_rule`). For these ten, that test is the one in the table. Update `documentation/compatibility-matrix.md` in the same change as the catalog row, by regenerating the property tables with `python3 scripts/css-catalog-map.py --matrix` when the implementation pass edits the matrix. Do not hand-edit a status that the test did not prove.
