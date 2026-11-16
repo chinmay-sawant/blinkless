@@ -7,7 +7,7 @@
 > proof is in [../validation.md](../validation.md).
 
 > **Parent:** `plans/v0.1.2/README.md`
-> **Status:** 75 names parked. The 27 timeline, trigger, interest, and interactivity names have an engine row `[x]` and a host row `[~]`.
+> **Status:** 75 names parked. The 27 timeline, trigger, interest, and interactivity names have an engine row `[x]` and a host row `[x]`.
 > **Estimated effort:** Leave 75 names parked until a separate product adds a scrollport, a speech reader, a pointer, or a host timeline. This ledger records that wait.
 
 ---
@@ -465,30 +465,30 @@ What to expect: A future scrollport test sets `scroll-target-group: auto` and de
 
 ### scroll-timeline
 
-`applyTimelineProps` expands `scroll-timeline` into one name and one axis (`internal/layout/timeline_style.go:302-325`, handler at `359-369`). A missing axis resets to `block` (`timeline_style.go:201-213`), which exports as `y` in horizontal writing mode (`timeline_style.go:190-196`). `layout.Box.Timelines` carries kind `scroll` and an empty scroller id (`layout/timeline.go:15-16`, `layout/timeline.go:22-31`). The catalog row is still unsupported with an empty handlers list (`testdata/css/catalog/properties.json:16750`).
+`applyTimelineProps` expands `scroll-timeline` into one name and one axis (`internal/layout/timeline_style.go:302-325`, handler at `359-369`). A missing axis resets to `block` (`timeline_style.go:201-213`), which exports as `y` in horizontal writing mode (`timeline_style.go:190-196`). `layout.Box.Timelines` carries kind `scroll` and an empty scroller id (`layout/timeline.go:15-16`, `layout/timeline.go:22-31`). The catalog row is `implemented` (`testdata/css/catalog/properties.json`).
 
 What to expect: A future host-timeline test sets `scroll-timeline: --page y` and demands progress for `--page` run from 0 at the start of the page scroll to 1 at the end, on the y axis. `TestBoxTimelines` already checks the exported name, kind `scroll`, and axis `y` (`layout/timeline_test.go:42-51`). Progress is the missing piece, because the engine owns no clock and no scroll offset (`layout/timeline.go:11-13`).
 
 - [x] Engine: `scroll-timeline` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxScrollAndViewTimelineCascade` (`layout/timeline_scope_test.go:166`), passing on 2026-11-16 with `go test ./layout -run TestBoxScrollAndViewTimelineCascade -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: progress from scroll offset, view position, or pointer position happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `scroll-timeline` on the scroll page.
+- [x] Host: progress from scroll offset, view position, or pointer position happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestScrollProgress` (`engine_test.go:19`), `TestEveryNameInAListIsRead` (`lists_test.go:105`), `TestFixedBarSpansTheWindow` (`engine_test.go:403`), `TestNestedScrollerProgress` (`lists_test.go:159`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### scroll-timeline-axis
 
-`applyTimelineAxisProp` writes one axis keyword to `ResolvedStyle.ScrollTimelineAxis` (`internal/layout/timeline_style.go:474-475`, field at `internal/layout/style.go:619`). The catalog row is still unsupported with an empty handlers list (`testdata/css/catalog/properties.json:16766`).
+`applyTimelineAxisProp` writes one axis keyword to `ResolvedStyle.ScrollTimelineAxis` (`internal/layout/timeline_style.go:474-475`, field at `internal/layout/style.go:619`). The catalog row is `implemented` (`testdata/css/catalog/properties.json`).
 
 What to expect: A future host-timeline test sets `scroll-timeline-axis: x` beside `scroll-timeline-name: --page` and demands the `--page` progress move with horizontal scroll. The initial axis is `block` (`internal/layout/style.go:835`), which is y in horizontal-tb, so a test fails if `x` is left as `block`. A comma list of axes is outside the one-axis store.
 
 - [x] Engine: `scroll-timeline-axis` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxScrollAndViewTimelineCascade` (`layout/timeline_scope_test.go:166`), passing on 2026-11-16 with `go test ./layout -run TestBoxScrollAndViewTimelineCascade -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: progress from scroll offset, view position, or pointer position happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `scroll-timeline-axis` on the scroll page.
+- [x] Host: progress from scroll offset, view position, or pointer position happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestScrollProgress` (`engine_test.go:19`), `TestEveryNameInAListIsRead` (`lists_test.go:105`), `TestFixedBarSpansTheWindow` (`engine_test.go:403`), `TestNestedScrollerProgress` (`lists_test.go:159`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### scroll-timeline-name
 
-`applyTimelineNameProp` writes one dashed name to `ResolvedStyle.ScrollTimelineName` (`internal/layout/timeline_style.go:440-441`, field at `internal/layout/style.go:618`) and, since 2026-11-16, accepts a comma list of names (`parseTimelineName` in `internal/layout/timeline_style.go`). The catalog row is still unsupported with an empty handlers list (`testdata/css/catalog/properties.json:16782`).
+`applyTimelineNameProp` writes one dashed name to `ResolvedStyle.ScrollTimelineName` (`internal/layout/timeline_style.go:440-441`, field at `internal/layout/style.go:618`) and, since 2026-11-16, accepts a comma list of names (`parseTimelineName` in `internal/layout/timeline_style.go`). The catalog row is `implemented` (`testdata/css/catalog/properties.json`).
 
 What to expect: A future host-timeline test sets `scroll-timeline-name: --page` and demands a scroll timeline of that name on the initial block axis, y in horizontal-tb. `scroll-timeline-name: none` demands no scroll timeline on the box. `scroll-timeline-name: --a, --b` now exports two scroll timelines in that order (`layout/timeline_list_test.go:31`). A future product that wants two names has to pass that list through.
 
 - [x] Engine: `scroll-timeline-name` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxScrollAndViewTimelineCascade` (`layout/timeline_scope_test.go:166`), passing on 2026-11-16 with `go test ./layout -run TestBoxScrollAndViewTimelineCascade -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: progress from scroll offset, view position, or pointer position happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `scroll-timeline-name` on the scroll page.
+- [x] Host: progress from scroll offset, view position, or pointer position happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestScrollProgress` (`engine_test.go:19`), `TestEveryNameInAListIsRead` (`lists_test.go:105`), `TestFixedBarSpansTheWindow` (`engine_test.go:403`), `TestNestedScrollerProgress` (`lists_test.go:159`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### scrollbar-color
 
@@ -565,7 +565,7 @@ Until 2026-11-16 no handler stored `interactivity`. It is stored now, and the ca
 What to expect: A future pointer test sets `interactivity: inert` and demands pointer hits and focus skip the element and its descendants. `interactivity: auto` demands normal hits and focus. The test fails if a click on a child of an inert element still focuses it.
 
 - [x] Engine: `interactivity` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxInteractivity` (`layout/interest_test.go:112`), passing on 2026-11-16 with `go test ./layout -run TestBoxInteractivity -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: skipping pointer hits and focus on an inert subtree happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `interactivity` on the scroll page.
+- [x] Host: skipping pointer hits and focus on an inert subtree happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestInertHitAndFocus` (`engine_test.go:263`), `TestClickOutlinesTheBoxItHit` (`engine_test.go:309`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### interest-delay
 
@@ -574,7 +574,7 @@ Until 2026-11-16 no handler stored `interest-delay`. It is stored now, and the c
 What to expect: A future pointer test sets `interest-delay: 200ms 500ms` and demands interest start 200 milliseconds after the pointer enters and end 500 milliseconds after it leaves. One value, `interest-delay: 200ms`, demands 200 milliseconds on both sides. The catalog grammar is one or two `interest-delay-start` values.
 
 - [x] Engine: `interest-delay` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxInterestDelayShorthand` (`layout/interest_test.go:17`), passing on 2026-11-16 with `go test ./layout -run TestBoxInterestDelayShorthand -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: the hover timer happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `interest-delay` on the scroll page.
+- [x] Host: the hover timer happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestInterestDelay` (`engine_test.go:188`), `TestInterestNormal` (`engine_test.go:243`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### interest-delay-end
 
@@ -583,7 +583,7 @@ Until 2026-11-16 no handler stored `interest-delay-end`. It is stored now, and t
 What to expect: A future pointer test sets `interest-delay-end: 500ms` and demands interest clear 500 milliseconds after the pointer leaves. `interest-delay-end: normal` demands the host's usual end delay. The test fails if this value changes the start delay.
 
 - [x] Engine: `interest-delay-end` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxInterestDelayLonghands` (`layout/interest_test.go:53`), passing on 2026-11-16 with `go test ./layout -run TestBoxInterestDelayLonghands -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: the hover timer happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `interest-delay-end` on the scroll page.
+- [x] Host: the hover timer happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestInterestDelay` (`engine_test.go:188`), `TestInterestNormal` (`engine_test.go:243`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### interest-delay-start
 
@@ -592,7 +592,7 @@ Until 2026-11-16 no handler stored `interest-delay-start`. It is stored now, and
 What to expect: A future pointer test sets `interest-delay-start: 200ms` and demands interest begin 200 milliseconds after the pointer enters, not on the first frame of the hover. `interest-delay-start: normal` demands the host's usual start delay.
 
 - [x] Engine: `interest-delay-start` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxInterestDelayLonghands` (`layout/interest_test.go:53`), passing on 2026-11-16 with `go test ./layout -run TestBoxInterestDelayLonghands -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: the hover timer happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `interest-delay-start` on the scroll page.
+- [x] Host: the hover timer happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestInterestDelay` (`engine_test.go:188`), `TestInterestNormal` (`engine_test.go:243`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### nav-down
 
@@ -733,43 +733,43 @@ Until 2026-11-16 no handler stored `timeline-scope`. It is stored now, and the c
 What to expect: A future host-timeline test sets `timeline-scope: --card` and demands descendants resolve `animation-timeline: --card` to this element's timeline. `timeline-scope: all` demands every name declared here be visible to descendants. `timeline-scope: none` demands descendants not see those names. The export comment says `timeline-scope` is not implemented, so a name that needs it stays unresolved (`layout/timeline.go:16-17`).
 
 - [x] Engine: `timeline-scope` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxTimelineScope` (`layout/timeline_scope_test.go:21`), passing on 2026-11-16 with `go test ./layout -run TestBoxTimelineScope -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: lookup of a dashed name across the scope happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `timeline-scope` on the scroll page.
+- [x] Host: lookup of a dashed name across the scope happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestResolveScope` (`engine_test.go:62`), `TestRealFixtureWiring` (`adapter_test.go:109`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### view-timeline
 
-`applyTimelineProps` expands `view-timeline` into one name, one axis, and one or two insets (`internal/layout/timeline_style.go:328-353`, handler at `359-369`). A missing axis stays `block` (`internal/layout/style.go:836`). `layout.Box.Timelines` exports kind `view` with the subject id and an empty scroller id (`layout/timeline.go:27-31`). The catalog row is still unsupported with an empty handlers list (`testdata/css/catalog/properties.json:19671`).
+`applyTimelineProps` expands `view-timeline` into one name, one axis, and one or two insets (`internal/layout/timeline_style.go:328-353`, handler at `359-369`). A missing axis stays `block` (`internal/layout/style.go:836`). `layout.Box.Timelines` exports kind `view` with the subject id and an empty scroller id (`layout/timeline.go:27-31`). The catalog row is `implemented` (`testdata/css/catalog/properties.json`).
 
 What to expect: A future host-timeline test sets `view-timeline: --card block 20px 10px` and demands progress 0 when the subject's border box, outset by the 20px start inset, first meets the scroll window, and progress 1 when the 10px end inset has passed. `TestBoxTimelines` already checks the name `--card`, kind `view`, axis `y` in horizontal writing mode, the subject id, and insets 20 and 10 CSS pixels (`layout/timeline_test.go:54-70`). Progress needs a scrollport.
 
 - [x] Engine: `view-timeline` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxScrollAndViewTimelineCascade` (`layout/timeline_scope_test.go:166`), passing on 2026-11-16 with `go test ./layout -run TestBoxScrollAndViewTimelineCascade -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: progress from scroll offset, view position, or pointer position happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `view-timeline` on the scroll page.
+- [x] Host: progress from scroll offset, view position, or pointer position happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestViewTimelineRanges` (`engine_test.go:27`), `TestListFixtureMapping` (`lists_test.go:52`), `TestNestedScrollerProgress` (`lists_test.go:159`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### view-timeline-axis
 
-`applyTimelineAxisProp` writes one axis keyword to `ResolvedStyle.ViewTimelineAxis` (`internal/layout/timeline_style.go:476-477`, field at `internal/layout/style.go:621`). The catalog row is still unsupported with an empty handlers list (`testdata/css/catalog/properties.json:19687`).
+`applyTimelineAxisProp` writes one axis keyword to `ResolvedStyle.ViewTimelineAxis` (`internal/layout/timeline_style.go:476-477`, field at `internal/layout/style.go:621`). The catalog row is `implemented` (`testdata/css/catalog/properties.json`).
 
 What to expect: A future host-timeline test sets `view-timeline-axis: inline` beside `view-timeline-name: --card` and demands `--card` progress follow the inline axis, x in horizontal-tb and y in vertical writing modes (`internal/layout/timeline_style.go:185-196`). The initial axis is `block` (`internal/layout/style.go:836`). A second axis in one declaration is rejected.
 
 - [x] Engine: `view-timeline-axis` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxScrollAndViewTimelineCascade` (`layout/timeline_scope_test.go:166`), passing on 2026-11-16 with `go test ./layout -run TestBoxScrollAndViewTimelineCascade -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: progress from scroll offset, view position, or pointer position happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `view-timeline-axis` on the scroll page.
+- [x] Host: progress from scroll offset, view position, or pointer position happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestViewTimelineRanges` (`engine_test.go:27`), `TestListFixtureMapping` (`lists_test.go:52`), `TestNestedScrollerProgress` (`lists_test.go:159`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### view-timeline-inset
 
-`applyTimelineProps` stores one or two insets on `ViewTimelineInsetStart` and `ViewTimelineInsetEnd` (`internal/layout/style.go:623-624`, `internal/layout/timeline_style.go:484`). The public box reports them in CSS pixels (`layout/timeline.go:33-35`). The catalog row is still unsupported with an empty handlers list (`testdata/css/catalog/properties.json:19703`).
+`applyTimelineProps` stores one or two insets on `ViewTimelineInsetStart` and `ViewTimelineInsetEnd` (`internal/layout/style.go:623-624`, `internal/layout/timeline_style.go:484`). The public box reports them in CSS pixels (`layout/timeline.go:33-35`). The catalog row is `implemented` (`testdata/css/catalog/properties.json`).
 
 What to expect: A future host-timeline test sets `view-timeline-inset: 20px 10px` and demands the view range start 20px before the subject and end 10px after it. One value sets both edges (`internal/layout/timeline_style.go:270-285`). `view-timeline-inset: -10px 20px` is legal and starts the range 10px outside the scroll window (`timeline_style.go:291-293`). `TestBoxTimelines` already reads 20 and 10 CSS pixels (`layout/timeline_test.go:69-70`). Progress across that range needs a scrollport.
 
 - [x] Engine: `view-timeline-inset` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxScrollAndViewTimelineCascade` (`layout/timeline_scope_test.go:166`), passing on 2026-11-16 with `go test ./layout -run TestBoxScrollAndViewTimelineCascade -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: progress from scroll offset, view position, or pointer position happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `view-timeline-inset` on the scroll page.
+- [x] Host: progress from scroll offset, view position, or pointer position happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestViewTimelineRanges` (`engine_test.go:27`), `TestListFixtureMapping` (`lists_test.go:52`), `TestNestedScrollerProgress` (`lists_test.go:159`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### view-timeline-name
 
-`applyTimelineNameProp` writes one dashed name to `ResolvedStyle.ViewTimelineName` (`internal/layout/timeline_style.go:442-443`, field at `internal/layout/style.go:620`) and, since 2026-11-16, accepts a comma list of names (`parseTimelineName` in `internal/layout/timeline_style.go`). The catalog row is still unsupported with an empty handlers list (`testdata/css/catalog/properties.json:19719`).
+`applyTimelineNameProp` writes one dashed name to `ResolvedStyle.ViewTimelineName` (`internal/layout/timeline_style.go:442-443`, field at `internal/layout/style.go:620`) and, since 2026-11-16, accepts a comma list of names (`parseTimelineName` in `internal/layout/timeline_style.go`). The catalog row is `implemented` (`testdata/css/catalog/properties.json`).
 
 What to expect: A future host-timeline test sets `view-timeline-name: --card` and demands a view timeline of that name whose subject is this element (`layout/timeline.go:27-28`). `view-timeline-name: none` demands no view timeline. A comma list is rejected (`internal/layout/timeline_style.go:144-146`).
 
 - [x] Engine: `view-timeline-name` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxScrollAndViewTimelineCascade` (`layout/timeline_scope_test.go:166`), passing on 2026-11-16 with `go test ./layout -run TestBoxScrollAndViewTimelineCascade -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: progress from scroll offset, view position, or pointer position happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `view-timeline-name` on the scroll page.
+- [x] Host: progress from scroll offset, view position, or pointer position happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestViewTimelineRanges` (`engine_test.go:27`), `TestListFixtureMapping` (`lists_test.go:52`), `TestNestedScrollerProgress` (`lists_test.go:159`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### will-change
 
@@ -790,7 +790,7 @@ Until 2026-11-16 no handler stored `event-trigger`. It is stored now, and the ca
 What to expect: A future host-timeline test sets `event-trigger: --press click` and demands a click on the element activate the trigger named `--press`. `event-trigger: none` demands no event trigger. The shorthand pairs a name with a source. This module has no event loop.
 
 - [x] Engine: `event-trigger` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxEventTriggerShorthand` (`layout/event_trigger_test.go:11`), passing on 2026-11-16 with `go test ./layout -run TestBoxEventTriggerShorthand -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: watching click and key events and arming the trigger happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `event-trigger` on the scroll page.
+- [x] Host: watching click and key events and arming the trigger happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestEventTriggers` (`engine_test.go:157`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### event-trigger-name
 
@@ -799,7 +799,7 @@ Until 2026-11-16 no handler stored `event-trigger-name`. It is stored now, and t
 What to expect: A future host-timeline test sets `event-trigger-name: --press` and demands the trigger answer to the name `--press`. `event-trigger-name: none` demands no name. A second name in the list, `event-trigger-name: --press, --key`, demands both names.
 
 - [x] Engine: `event-trigger-name` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxEventTriggerLonghands` (`layout/event_trigger_test.go:66`), passing on 2026-11-16 with `go test ./layout -run TestBoxEventTriggerLonghands -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: watching click and key events and arming the trigger happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `event-trigger-name` on the scroll page.
+- [x] Host: watching click and key events and arming the trigger happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestEventTriggers` (`engine_test.go:157`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### event-trigger-source
 
@@ -808,7 +808,7 @@ Until 2026-11-16 no handler stored `event-trigger-source`. It is stored now, and
 What to expect: A future host-timeline test sets `event-trigger-source: click / keydown` and demands the trigger start on `click` and end on `keydown`. The catalog grammar puts the end events after the slash. `event-trigger-source: none` demands no events. The test fails if a click does not start the trigger.
 
 - [x] Engine: `event-trigger-source` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxEventTriggerLonghands` (`layout/event_trigger_test.go:66`), passing on 2026-11-16 with `go test ./layout -run TestBoxEventTriggerLonghands -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: watching click and key events and arming the trigger happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `event-trigger-source` on the scroll page.
+- [x] Host: watching click and key events and arming the trigger happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestEventTriggers` (`engine_test.go:157`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### image-animation
 
@@ -825,7 +825,7 @@ Until 2026-11-16 no handler stored `pointer-timeline`. It is stored now, and the
 What to expect: A future pointer test sets `pointer-timeline: --ptr x` and demands progress for `--ptr` follow the pointer's x position from 0 at the left of the element to 1 at the right. The shorthand writes the name and an optional axis. This module has no pointer, so it exports no pointer progress.
 
 - [x] Engine: `pointer-timeline` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxPointerTimeline` (`layout/timeline_scope_test.go:88`), passing on 2026-11-16 with `go test ./layout -run TestBoxPointerTimeline -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: progress from scroll offset, view position, or pointer position happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `pointer-timeline` on the scroll page.
+- [x] Host: progress from scroll offset, view position, or pointer position happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestPointerProgress` (`engine_test.go:92`), `TestPointerTimelineNeedsPointerOverBox` (`engine_test.go:289`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### pointer-timeline-axis
 
@@ -834,7 +834,7 @@ Until 2026-11-16 no handler stored `pointer-timeline-axis`. It is stored now, an
 What to expect: A future pointer test sets `pointer-timeline-axis: inline` beside `pointer-timeline-name: --ptr` and demands progress follow the inline axis, x in horizontal-tb. `pointer-timeline-axis: y` demands vertical pointer movement. The test fails if `inline` is read as the block axis.
 
 - [x] Engine: `pointer-timeline-axis` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxPointerTimeline` (`layout/timeline_scope_test.go:88`), passing on 2026-11-16 with `go test ./layout -run TestBoxPointerTimeline -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: progress from scroll offset, view position, or pointer position happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `pointer-timeline-axis` on the scroll page.
+- [x] Host: progress from scroll offset, view position, or pointer position happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestPointerProgress` (`engine_test.go:92`), `TestPointerTimelineNeedsPointerOverBox` (`engine_test.go:289`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### pointer-timeline-name
 
@@ -843,7 +843,7 @@ Until 2026-11-16 no handler stored `pointer-timeline-name`. It is stored now, an
 What to expect: A future pointer test sets `pointer-timeline-name: --ptr` and demands a pointer timeline of that name. `pointer-timeline-name: none` demands no pointer timeline. A list of names demands one progress track per name. No Go file stores this name today.
 
 - [x] Engine: `pointer-timeline-name` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxPointerTimeline` (`layout/timeline_scope_test.go:88`), passing on 2026-11-16 with `go test ./layout -run TestBoxPointerTimeline -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: progress from scroll offset, view position, or pointer position happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `pointer-timeline-name` on the scroll page.
+- [x] Host: progress from scroll offset, view position, or pointer position happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestPointerProgress` (`engine_test.go:92`), `TestPointerTimelineNeedsPointerOverBox` (`engine_test.go:289`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### timeline-trigger
 
@@ -852,7 +852,7 @@ Until 2026-11-16 no handler stored `timeline-trigger`. It is stored now, and the
 What to expect: A future host-timeline test sets `timeline-trigger: --play scroll() 0% 100%` and demands the trigger named `--play` arm while the anonymous scroll timeline is between 0% and 100%. The part after an optional slash would be the active range. `timeline-trigger: none` demands no trigger.
 
 - [x] Engine: `timeline-trigger` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxTimelineTriggerShorthand` (`layout/trigger_test.go:21`), passing on 2026-11-16 with `go test ./layout -run TestBoxTimelineTriggerShorthand -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: comparing timeline progress with the activation and active ranges happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `timeline-trigger` on the scroll page.
+- [x] Host: comparing timeline progress with the activation and active ranges happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestTimelineTriggerHysteresis` (`engine_test.go:112`), `TestTriggerNamedRange` (`engine_test.go:142`), `TestRealFixtureTriggerPaints` (`png_test.go:39`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### timeline-trigger-activation-range
 
@@ -861,7 +861,7 @@ Until 2026-11-16 no handler stored `timeline-trigger-activation-range`. It is st
 What to expect: A future host-timeline test sets `timeline-trigger-activation-range: entry 0% entry 100%` and demands the trigger arm at the start of the entry range and finish arming at the end of that range. One value sets the start and leaves the end at its initial value.
 
 - [x] Engine: `timeline-trigger-activation-range` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxTimelineTriggerRangeShorthands` (`layout/trigger_test.go:197`), passing on 2026-11-16 with `go test ./layout -run TestBoxTimelineTriggerRangeShorthands -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: comparing timeline progress with the activation and active ranges happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `timeline-trigger-activation-range` on the scroll page.
+- [x] Host: comparing timeline progress with the activation and active ranges happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestTimelineTriggerHysteresis` (`engine_test.go:112`), `TestTriggerNamedRange` (`engine_test.go:142`), `TestRealFixtureTriggerPaints` (`png_test.go:39`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### timeline-trigger-activation-range-end
 
@@ -870,7 +870,7 @@ Until 2026-11-16 no handler stored `timeline-trigger-activation-range-end`. It i
 What to expect: A future host-timeline test sets `timeline-trigger-activation-range-end: entry 100%` and demands arming finish at the end of the entry range. `timeline-trigger-activation-range-end: normal` demands the range's own end. The test fails if this value changes the start.
 
 - [x] Engine: `timeline-trigger-activation-range-end` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxTimelineTriggerLonghands` (`layout/trigger_test.go:99`), passing on 2026-11-16 with `go test ./layout -run TestBoxTimelineTriggerLonghands -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: comparing timeline progress with the activation and active ranges happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `timeline-trigger-activation-range-end` on the scroll page.
+- [x] Host: comparing timeline progress with the activation and active ranges happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestTimelineTriggerHysteresis` (`engine_test.go:112`), `TestTriggerNamedRange` (`engine_test.go:142`), `TestRealFixtureTriggerPaints` (`png_test.go:39`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### timeline-trigger-activation-range-start
 
@@ -879,7 +879,7 @@ Until 2026-11-16 no handler stored `timeline-trigger-activation-range-start`. It
 What to expect: A future host-timeline test sets `timeline-trigger-activation-range-start: entry 0%` and demands arming begin at the start of the entry range. `timeline-trigger-activation-range-start: 25%` demands arming begin at 25 percent of the timeline. The test fails if 25% is read as 25px.
 
 - [x] Engine: `timeline-trigger-activation-range-start` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxTimelineTriggerLonghands` (`layout/trigger_test.go:99`), passing on 2026-11-16 with `go test ./layout -run TestBoxTimelineTriggerLonghands -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: comparing timeline progress with the activation and active ranges happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `timeline-trigger-activation-range-start` on the scroll page.
+- [x] Host: comparing timeline progress with the activation and active ranges happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestTimelineTriggerHysteresis` (`engine_test.go:112`), `TestTriggerNamedRange` (`engine_test.go:142`), `TestRealFixtureTriggerPaints` (`png_test.go:39`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### timeline-trigger-active-range
 
@@ -888,7 +888,7 @@ Until 2026-11-16 no handler stored `timeline-trigger-active-range`. It is stored
 What to expect: A future host-timeline test sets `timeline-trigger-active-range: contain 0% contain 100%` and demands the trigger stay active from the start of the contain range through the end of it. This range is the interval where the trigger is on, after the activation range has armed it.
 
 - [x] Engine: `timeline-trigger-active-range` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxTimelineTriggerRangeShorthands` (`layout/trigger_test.go:197`), passing on 2026-11-16 with `go test ./layout -run TestBoxTimelineTriggerRangeShorthands -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: comparing timeline progress with the activation and active ranges happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `timeline-trigger-active-range` on the scroll page.
+- [x] Host: comparing timeline progress with the activation and active ranges happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestTimelineTriggerHysteresis` (`engine_test.go:112`), `TestTriggerNamedRange` (`engine_test.go:142`), `TestRealFixtureTriggerPaints` (`png_test.go:39`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### timeline-trigger-active-range-end
 
@@ -897,7 +897,7 @@ Until 2026-11-16 no handler stored `timeline-trigger-active-range-end`. It is st
 What to expect: A future host-timeline test sets `timeline-trigger-active-range-end: contain 100%` and demands the trigger turn off at the end of the contain range. `timeline-trigger-active-range-end: auto` demands the active end match the activation end. `normal` demands the range's own end.
 
 - [x] Engine: `timeline-trigger-active-range-end` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxTimelineTriggerLonghands` (`layout/trigger_test.go:99`), passing on 2026-11-16 with `go test ./layout -run TestBoxTimelineTriggerLonghands -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: comparing timeline progress with the activation and active ranges happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `timeline-trigger-active-range-end` on the scroll page.
+- [x] Host: comparing timeline progress with the activation and active ranges happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestTimelineTriggerHysteresis` (`engine_test.go:112`), `TestTriggerNamedRange` (`engine_test.go:142`), `TestRealFixtureTriggerPaints` (`png_test.go:39`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### timeline-trigger-active-range-start
 
@@ -906,7 +906,7 @@ Until 2026-11-16 no handler stored `timeline-trigger-active-range-start`. It is 
 What to expect: A future host-timeline test sets `timeline-trigger-active-range-start: contain 0%` and demands the trigger turn on at the start of the contain range. `timeline-trigger-active-range-start: auto` matches the activation start. The test fails if this start is copied from the activation-range start when the declarations differ.
 
 - [x] Engine: `timeline-trigger-active-range-start` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxTimelineTriggerLonghands` (`layout/trigger_test.go:99`), passing on 2026-11-16 with `go test ./layout -run TestBoxTimelineTriggerLonghands -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: comparing timeline progress with the activation and active ranges happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `timeline-trigger-active-range-start` on the scroll page.
+- [x] Host: comparing timeline progress with the activation and active ranges happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestTimelineTriggerHysteresis` (`engine_test.go:112`), `TestTriggerNamedRange` (`engine_test.go:142`), `TestRealFixtureTriggerPaints` (`png_test.go:39`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### timeline-trigger-name
 
@@ -915,7 +915,7 @@ Until 2026-11-16 no handler stored `timeline-trigger-name`. It is stored now, an
 What to expect: A future host-timeline test sets `timeline-trigger-name: --play` and demands the trigger answer to `--play`. `timeline-trigger-name: none` demands no trigger name. A list, `timeline-trigger-name: --play, --pause`, demands both names.
 
 - [x] Engine: `timeline-trigger-name` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxTimelineTriggerNameAndSource` (`layout/trigger_test.go:143`), passing on 2026-11-16 with `go test ./layout -run TestBoxTimelineTriggerNameAndSource -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: comparing timeline progress with the activation and active ranges happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `timeline-trigger-name` on the scroll page.
+- [x] Host: comparing timeline progress with the activation and active ranges happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestTimelineTriggerHysteresis` (`engine_test.go:112`), `TestTriggerNamedRange` (`engine_test.go:142`), `TestRealFixtureTriggerPaints` (`png_test.go:39`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ### timeline-trigger-source
 
@@ -924,7 +924,7 @@ Until 2026-11-16 no handler stored `timeline-trigger-source`. It is stored now, 
 What to expect: A future host-timeline test sets `timeline-trigger-source: --page` and demands the trigger read the named timeline `--page`. `timeline-trigger-source: scroll()` demands the anonymous scroll timeline. `timeline-trigger-source: view()` demands the anonymous view timeline. `timeline-trigger-source: auto` picks the element's own timeline. `none` attaches the trigger to no timeline.
 
 - [x] Engine: `timeline-trigger-source` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxTimelineTriggerNameAndSource` (`layout/trigger_test.go:143`), passing on 2026-11-16 with `go test ./layout -run TestBoxTimelineTriggerNameAndSource -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
-- [~] Host: comparing timeline progress with the activation and active ranges happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `timeline-trigger-source` on the scroll page.
+- [x] Host: comparing timeline progress with the activation and active ranges happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Proof: `TestTimelineTriggerHysteresis` (`engine_test.go:112`), `TestTriggerNamedRange` (`engine_test.go:142`), `TestRealFixtureTriggerPaints` (`png_test.go:39`) in `../ownframe/examples/blinkless-scroll`, passing on 2026-11-16 with `go test ./examples/blinkless-scroll`. Checked by hand in the OwnFrame window the same day: scroll, view, and pointer progress, trigger and event state, hover timers, and inert hits behaved as the row says.
 
 ## Dependencies
 

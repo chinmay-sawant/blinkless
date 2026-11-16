@@ -18,13 +18,13 @@ Work from the top of the table. The first rows can change paint or box size on t
 | 6 | [Draft borders and shapes](06-draft-borders-and-shapes/checklist.md) | 18 | All 18 are `[~]`. Border clips, `border-shape`, `text-fit`, `shape-image-threshold`, `float-defer`, and `column-rule-visibility-items`. |
 | 7 | [SVG presentation](07-svg-presentation/checklist.md) | 50 | Phase 0 records what to expect from `fill`, `fill-rule`, `shape-rendering`, `alignment-baseline`, and `dominant-baseline`. Later phases store stylesheet values for geometry that an inline style already moves. |
 | 8 | [Rhythm, math, and vendor aliases](08-rhythm-math-and-vendor/checklist.md) | 24 | Four ruby properties stay `[x]`. Thirteen rhythmic and math names, plus seven vendor aliases, stay `[~]`. |
-| 9 | [Print-noop](09-print-noop/checklist.md) | 102 | Speech, scroll, pointer, motion, and event timelines. 27 timeline, trigger, interest, and interactivity names have an engine row `[x]` and a host row `[~]` (OwnFrame). The other 75 stay `[~]`. |
+| 9 | [Print-noop](09-print-noop/checklist.md) | 102 | Speech, scroll, pointer, motion, and event timelines. 27 timeline, trigger, interest, and interactivity names have an engine row `[x]` and a host row `[x]` (OwnFrame). The other 75 stay `[~]`. |
 
 Progress: three batches of ten are implemented (commits `331447b`, `e9075d2`, `880862f`, `3aab091`). The third batch is `marker`, `marker-start`, `marker-mid`, `marker-end`, `stop-color`, `stop-opacity`, `path-length`, `paint-order`, `link-parameters`, and `continue`. Their rows are `[x]` in ledgers 04, 05, and 07.
 
 A fourth batch of five is also done: `margin-break` (column starts, catalog `partial`), `image-rendering`, `vector-effect`, `flood-color`, and `flood-opacity`. A fifth batch of three is `-webkit-text-stroke`, `-webkit-text-stroke-color`, and `-webkit-text-stroke-width`.
 
-A sixth batch of 27 stores timelines, triggers, interest delays, and `interactivity` on `layout.Box`. Their engine rows are `[x]` in ledger 9 and their host rows stay `[~]`; the proof is in [validation.md](validation.md). That leaves 75 print-noop names parked.
+A sixth batch of 27 stores timelines, triggers, interest delays, and `interactivity` on `layout.Box`. Their engine rows and their host rows are `[x]` in ledger 9; the proof is in [validation.md](validation.md). That leaves 75 print-noop names parked.
 
 The first ten styles have a validation plan: [validation.md](validation.md). A catalog row stays `unsupported` until the test named there exits 0. The OwnFrame window is the picture check. It is not the pass.
 
