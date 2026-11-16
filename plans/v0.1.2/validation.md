@@ -93,6 +93,27 @@ The catalog counts 596 implemented, 1 partial, and 180 unsupported. `lighting-co
 
 `-webkit-text-stroke`, `-webkit-text-stroke-color`, and `-webkit-text-stroke-width` are implemented. The tests read `Op.TextStroke()` from the drawing list. OwnFrame paints the outline in both its window and bitmap renderers by repeating the run around each glyph under the fill, so the outline is about half as heavy as a centered browser stroke. The catalog counts 599 implemented, 1 partial, and 177 unsupported.
 
+## Result on 2026-11-16 (timelines, triggers, interest, interactivity)
+
+Twenty-seven names are stored and exported on `layout.Box`. The engine computes no progress and fires no trigger. Each row below is the engine half. The host half stays `[~]` in ledger 9 and lives in `../ownframe/examples/blinkless-scroll`.
+
+| Names | Test | File:line |
+|---|---|---|
+| `scroll-timeline`, `view-timeline`, and their name, axis, and inset longhands (7) | `TestBoxScrollAndViewTimelineCascade` | `layout/timeline_scope_test.go:166` |
+| `timeline-scope` | `TestBoxTimelineScope` | `layout/timeline_scope_test.go:21` |
+| `pointer-timeline`, `-name`, `-axis` | `TestBoxPointerTimeline` | `layout/timeline_scope_test.go:88` |
+| `timeline-trigger` | `TestBoxTimelineTriggerShorthand` | `layout/trigger_test.go:21` |
+| `timeline-trigger-name`, `-source` | `TestBoxTimelineTriggerNameAndSource` | `layout/trigger_test.go:143` |
+| `timeline-trigger-activation-range`, `-active-range` | `TestBoxTimelineTriggerRangeShorthands` | `layout/trigger_test.go:197` |
+| the four range start and end longhands | `TestBoxTimelineTriggerLonghands` | `layout/trigger_test.go:99` |
+| `event-trigger` | `TestBoxEventTriggerShorthand` | `layout/event_trigger_test.go:11` |
+| `event-trigger-name`, `-source` | `TestBoxEventTriggerLonghands` | `layout/event_trigger_test.go:66` |
+| `interest-delay` | `TestBoxInterestDelayShorthand` | `layout/interest_test.go:17` |
+| `interest-delay-start`, `-end` | `TestBoxInterestDelayLonghands` | `layout/interest_test.go:53` |
+| `interactivity` | `TestBoxInteractivity` | `layout/interest_test.go:112` |
+
+All passed with `go test ./layout -run 'TestBox(Interest|Interactivity|EventTrigger|TimelineTrigger|TimelineScope|PointerTimeline|ScrollAndView|Timelines)' -count=1 -p 1`. The fixture is `testdata/css/v012/scroll/page.html`. It loads with 19 stable ids. The catalog rows belong to the engine owner and are not changed here.
+
 ## Window pass
 
 After the ten tests exit 0:

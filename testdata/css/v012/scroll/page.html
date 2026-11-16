@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<!--
+Fixture: scroll
+Proves: the 27 timeline, trigger, interest, and interactivity styles load and
+reach layout.Box without an error, so a host can drive them. The engine stores
+and exports the values. It computes no progress and fires no trigger. The host
+in ownframe/examples/blinkless-scroll owns the clock, scroll, and pointer.
+Styles: scroll-timeline, scroll-timeline-name, scroll-timeline-axis,
+view-timeline, view-timeline-name, view-timeline-axis, view-timeline-inset,
+timeline-scope, pointer-timeline, pointer-timeline-name, pointer-timeline-axis,
+timeline-trigger, timeline-trigger-name, timeline-trigger-source,
+timeline-trigger-activation-range(-start,-end), timeline-trigger-active-range(-start,-end),
+event-trigger, event-trigger-name, event-trigger-source,
+interest-delay, interest-delay-start, interest-delay-end, interactivity.
+Element ids a host drives: scroll-bar, scroll-bar-longhand, view-card-1,
+view-card-2, view-card-3, scope-root, scope-card, scope-reader, pointer-box,
+pointer-box-longhand, trigger-box, trigger-longhand, trigger-range-pair,
+event-box, event-box-longhand, interest-card, interest-card-longhand,
+inert-panel, auto-panel.
+No JavaScript.
+-->
+<html style="margin:0">
+<body style="margin:0;background:#f4f0e8;color:#1c1917">
+<div style="padding:28px 32px 48px">
+<p style="margin:0 0 6px;font-size:28px">blinkless scroll and triggers</p>
+<p style="margin:0 0 28px;font-size:16px;width:640px">Twenty-seven styles. Scroll the page. Each block names the styles it shows.</p>
+<p style="margin:0 0 8px;font-size:18px">1. scroll-timeline, scroll-timeline-name, scroll-timeline-axis</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">The root bar at the top of the page names a page scroll timeline. The host turns scroll offset into bar width.</p>
+<div style="height:20px;margin:0 0 40px">
+<div id="scroll-bar" style="position:fixed;top:0;left:0;z-index:10;width:600px;height:12px;background:#c33;scroll-timeline:--page y"></div>
+<div id="scroll-bar-longhand" style="position:fixed;top:12px;left:0;z-index:10;width:600px;height:12px;background:#36c;scroll-timeline-name:--page-x;scroll-timeline-axis:x"></div>
+</div>
+<div style="height:600px;background:#efe9db;margin:0 0 40px;font-size:14px;padding:10px">scroll filler so the page is tall enough for scroll progress</div>
+<p style="margin:0 0 8px;font-size:18px">2. view-timeline, view-timeline-name, view-timeline-axis, view-timeline-inset</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Each card reports how far it has moved through the viewport.</p>
+<div style="margin:0 0 40px">
+<div id="view-card-1" style="width:300px;height:60px;padding:10px;background:#e8e2d4;border:2px solid #111;margin:0 0 12px;font-size:14px;view-timeline:--card1 y;view-timeline-inset:20px 10px">card 1 view-timeline inset 20px 10px</div>
+<div id="view-card-2" style="width:300px;height:60px;padding:10px;background:#e8e2d4;border:2px solid #111;margin:0 0 12px;font-size:14px;view-timeline:--card2 y;view-timeline-inset:auto">card 2 view-timeline inset auto</div>
+<div id="view-card-3" style="width:300px;height:60px;padding:10px;background:#e8e2d4;border:2px solid #111;margin:0 0 12px;font-size:14px;view-timeline-name:--card3;view-timeline-axis:x;view-timeline-inset:5%">card 3 longhands: name, axis x, inset 5%</div>
+</div>
+<div style="height:600px;background:#efe9db;margin:0 0 40px;font-size:14px;padding:10px">scroll filler so the page is tall enough for scroll progress</div>
+<p style="margin:0 0 8px;font-size:18px">3. timeline-scope</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">The scope box hoists a timeline declared inside it, so descendants of the scope box can read it by name.</p>
+<div style="margin:0 0 40px">
+<div id="scope-root" style="padding:10px;border:2px dashed #111;timeline-scope:--scoped">scope-root: timeline-scope --scoped
+<div id="scope-card" style="width:300px;height:60px;padding:10px;background:#e8e2d4;border:2px solid #111;margin:0 0 12px;font-size:14px;view-timeline:--scoped y">scope-card declares --scoped</div>
+<div id="scope-reader" style="width:300px;height:60px;padding:10px;background:#e8e2d4;border:2px solid #111;margin:0 0 12px;font-size:14px;timeline-trigger-source:--scoped">scope-reader reads --scoped as a descendant of scope-root</div>
+<div id="trigger-longhand" style="width:300px;height:60px;padding:10px;background:#e8e2d4;border:2px solid #111;margin:0 0 12px;font-size:14px;timeline-trigger-name:--show2;timeline-trigger-source:--scoped;timeline-trigger-activation-range-start:20%;timeline-trigger-activation-range-end:80%;timeline-trigger-active-range-start:10%;timeline-trigger-active-range-end:90%">trigger longhands: name, source, activation start and end, active start and end</div>
+</div>
+</div>
+<div style="height:600px;background:#efe9db;margin:0 0 40px;font-size:14px;padding:10px">scroll filler so the page is tall enough for scroll progress</div>
+<p style="margin:0 0 8px;font-size:18px">4. pointer-timeline, pointer-timeline-name, pointer-timeline-axis</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Move the pointer over the box. The host maps pointer position to progress.</p>
+<div style="margin:0 0 40px">
+<div id="pointer-box" style="width:300px;height:60px;padding:10px;background:#e8e2d4;border:2px solid #111;margin:0 0 12px;font-size:14px;pointer-timeline:--ptr x">pointer-timeline: --ptr x</div>
+<div id="pointer-box-longhand" style="width:300px;height:60px;padding:10px;background:#e8e2d4;border:2px solid #111;margin:0 0 12px;font-size:14px;pointer-timeline-name:--ptr-y;pointer-timeline-axis:y">pointer-timeline-name and -axis</div>
+</div>
+<div style="height:600px;background:#efe9db;margin:0 0 40px;font-size:14px;padding:10px">scroll filler so the page is tall enough for scroll progress</div>
+<p style="margin:0 0 8px;font-size:18px">5. timeline-trigger and its name, source, ranges</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">The trigger turns on when the named timeline enters the activation range and stays on inside the active range.</p>
+<div style="margin:0 0 40px">
+<div id="trigger-box" style="width:300px;height:60px;padding:10px;background:#e8e2d4;border:2px solid #111;margin:0 0 12px;font-size:14px;timeline-trigger:--show view() 20% 80% / 10% 90%">timeline-trigger shorthand</div>
+<div id="trigger-range-pair" style="width:300px;height:60px;padding:10px;background:#e8e2d4;border:2px solid #111;margin:0 0 12px;font-size:14px;timeline-trigger:--show3 scroll();timeline-trigger-activation-range:25% 75%;timeline-trigger-active-range:cover 0% cover 100%">activation-range and active-range pairs</div>
+</div>
+<div style="height:600px;background:#efe9db;margin:0 0 40px;font-size:14px;padding:10px">scroll filler so the page is tall enough for scroll progress</div>
+<p style="margin:0 0 8px;font-size:18px">6. event-trigger, event-trigger-name, event-trigger-source</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Click the button, then press a key. The host arms the trigger.</p>
+<div style="margin:0 0 40px">
+<div id="event-box" style="width:300px;height:60px;padding:10px;background:#e8e2d4;border:2px solid #111;margin:0 0 12px;font-size:14px;event-trigger:--press click">event-trigger: --press click</div>
+<div id="event-box-longhand" style="width:300px;height:60px;padding:10px;background:#e8e2d4;border:2px solid #111;margin:0 0 12px;font-size:14px;event-trigger-name:--press2;event-trigger-source:click / keydown">event-trigger-name and -source: click / keydown</div>
+</div>
+<div style="height:600px;background:#efe9db;margin:0 0 40px;font-size:14px;padding:10px">scroll filler so the page is tall enough for scroll progress</div>
+<p style="margin:0 0 8px;font-size:18px">7. interest-delay, interest-delay-start, interest-delay-end</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Hover a card. Interest starts after the first delay and clears after the second.</p>
+<div style="margin:0 0 40px">
+<div id="interest-card" style="width:300px;height:60px;padding:10px;background:#e8e2d4;border:2px solid #111;margin:0 0 12px;font-size:14px;interest-delay:200ms 500ms">interest-delay: 200ms 500ms</div>
+<div id="interest-card-longhand" style="width:300px;height:60px;padding:10px;background:#e8e2d4;border:2px solid #111;margin:0 0 12px;font-size:14px;interest-delay-start:100ms;interest-delay-end:300ms">interest-delay-start 100ms, interest-delay-end 300ms</div>
+</div>
+<div style="height:600px;background:#efe9db;margin:0 0 40px;font-size:14px;padding:10px">scroll filler so the page is tall enough for scroll progress</div>
+<p style="margin:0 0 8px;font-size:18px">8. interactivity</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">The inert panel takes no pointer hits and no focus. The auto panel does.</p>
+<div style="margin:0 0 40px">
+<div id="inert-panel" style="width:300px;height:60px;padding:10px;background:#e8e2d4;border:2px solid #111;margin:0 0 12px;font-size:14px;interactivity:inert;background:#ddd">interactivity: inert</div>
+<div id="auto-panel" style="width:300px;height:60px;padding:10px;background:#e8e2d4;border:2px solid #111;margin:0 0 12px;font-size:14px;interactivity:auto">interactivity: auto</div>
+</div>
+</div>
+</body>
+</html>

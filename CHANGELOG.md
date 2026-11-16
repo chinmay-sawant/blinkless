@@ -9,6 +9,20 @@ and are not listed here.
 
 ## Unreleased
 
+Tracked in [`plans/v0.1.2/`](plans/v0.1.2/README.md).
+
+### Added
+
+- **Timeline, trigger, interest, and interactivity export.** The engine
+  now stores 27 styles and puts them on `layout.Box`: `scroll-timeline*`,
+  `view-timeline*`, `timeline-scope`, `pointer-timeline*`,
+  `timeline-trigger*` (name, source, activation and active ranges),
+  `event-trigger*`, `interest-delay*`, and `interactivity`. The engine
+  computes no progress and fires no trigger; a host does that. Tests live
+  in `layout/timeline_scope_test.go`, `layout/trigger_test.go`,
+  `layout/event_trigger_test.go`, and `layout/interest_test.go`. The
+  showcase page is `testdata/css/v012/scroll/page.html`.
+
 ## 0.1.1 (2026-11-10)
 
 Work after tag `v0.1.0` (`2e2abfc`), tracked in

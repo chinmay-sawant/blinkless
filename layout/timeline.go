@@ -14,12 +14,15 @@ import ilayout "github.com/chinmay-sawant/blinkless/internal/layout"
 //
 // The scroller is always the page scroller in this engine, so ScrollerID is
 // empty. Nested element scroll containers and timeline-scope are not
-// implemented; a name that would need either stays unresolved. One name per
-// kind is modeled, so a comma-separated name list is rejected at parse time.
+// implemented as lookups; the host resolves a name through Box.TimelineScope.
+// One name per kind is modeled, so a comma-separated name list is rejected at
+// parse time. A box can carry a pointer definition after the view one.
 type TimelineDef struct {
 	// Name is the dashed ident the element declares, such as --progress.
 	Name string
-	// Kind is "scroll" or "view".
+	// Kind is "scroll", "view", or "pointer". A pointer timeline tracks the
+	// pointer over the element named by SubjectID; the engine has no
+	// pointer, so a host supplies the position.
 	Kind string
 	// Axis is the used physical scroll axis: "x" or "y". A block or inline
 	// declaration is resolved through the element's writing mode.

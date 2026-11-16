@@ -11,14 +11,14 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 599,
-      "partial": 1,
-      "unsupported": 177,
+      "implemented": 616,
+      "partial": 11,
+      "unsupported": 150,
       "intentionally ignored": 8
     },
     "aliases": 38,
-    "engine_registered": 615,
-    "upstream_only": 170,
+    "engine_registered": 635,
+    "upstream_only": 150,
     "upstream": {
       "inventory": "webref-ed-css",
       "revision": "1f2ec8f74a80c14066b4c7d6822cee59f69fa03b",
@@ -8594,48 +8594,141 @@
     {
       "name": "event-trigger",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | [ <name> <source> ]# (exported as Box.EventTriggers)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. The draft leaves the event list open, so any identifier or identifier with an argument list is accepted as an event type. Not inherited."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/trigger_style.go",
+        "internal/layout/trigger_event_style.go",
+        "internal/layout/trigger_export.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "layout/trigger.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTriggerProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/event_trigger_test.go",
+          "name": "TestBoxEventTriggerShorthand"
+        },
+        {
+          "file": "layout/event_trigger_test.go",
+          "name": "TestBoxEventTriggerLonghands"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerNotInherited"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerDeclarationValueAccepted"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerShorthandThroughVar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | [ <'event-trigger-name'> <'event-trigger-source'> ]#"
     },
     {
       "name": "event-trigger-name",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | <dashed-ident>#"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. The draft leaves the event list open, so any identifier or identifier with an argument list is accepted as an event type. Not inherited."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/trigger_style.go",
+        "internal/layout/trigger_event_style.go",
+        "internal/layout/trigger_export.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "layout/trigger.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTriggerProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/event_trigger_test.go",
+          "name": "TestBoxEventTriggerShorthand"
+        },
+        {
+          "file": "layout/event_trigger_test.go",
+          "name": "TestBoxEventTriggerLonghands"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerNotInherited"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerDeclarationValueAccepted"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerShorthandThroughVar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | <dashed-ident>#"
     },
     {
       "name": "event-trigger-source",
       "aliases": [],
-      "values": [],
+      "values": [
+        "[ none | <event>+ [ / <event>+ ]? ]#"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. The draft leaves the event list open, so any identifier or identifier with an argument list is accepted as an event type. Not inherited."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/trigger_style.go",
+        "internal/layout/trigger_event_style.go",
+        "internal/layout/trigger_export.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "layout/trigger.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTriggerProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/event_trigger_test.go",
+          "name": "TestBoxEventTriggerShorthand"
+        },
+        {
+          "file": "layout/event_trigger_test.go",
+          "name": "TestBoxEventTriggerLonghands"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerNotInherited"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerDeclarationValueAccepted"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerShorthandThroughVar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ none | <event-trigger-event>+ [ / <event-trigger-event>+ ]? ]#"
     },
@@ -11306,64 +11399,188 @@
     {
       "name": "interactivity",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | inert (exported as Box.Interactivity, computed and inherited)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The engine has no pointer or focus. The host skips pointer hits and focus for an inert box; Display.BoxInert applies the subtree rule. Inherited."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/trigger_style.go",
+        "internal/layout/trigger_event_style.go",
+        "internal/layout/trigger_export.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "layout/trigger.go",
+        "layout/interest.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTriggerProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/interest_test.go",
+          "name": "TestBoxInteractivity"
+        },
+        {
+          "file": "layout/interest_test.go",
+          "name": "TestBoxInteractivityInheritsAndInert"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerDeclarationValueAccepted"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerShorthandThroughVar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "browser-ui",
       "upstream_syntax": "auto | inert"
     },
     {
       "name": "interest-delay",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<interest-delay-start>{1,2}; one value sets both (exported as Box.InterestDelay)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Inherited. A negative time is refused."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/trigger_style.go",
+        "internal/layout/trigger_event_style.go",
+        "internal/layout/trigger_export.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "layout/trigger.go",
+        "layout/interest.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTriggerProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/interest_test.go",
+          "name": "TestBoxInterestDelayShorthand"
+        },
+        {
+          "file": "layout/interest_test.go",
+          "name": "TestBoxInterestDelayLonghands"
+        },
+        {
+          "file": "layout/interest_test.go",
+          "name": "TestBoxInterestDelayInherits"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerDeclarationValueAccepted"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerShorthandThroughVar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "browser-ui",
       "upstream_syntax": "<'interest-delay-start'>{1,2}"
     },
     {
       "name": "interest-delay-end",
       "aliases": [],
-      "values": [],
+      "values": [
+        "normal | <time>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Inherited. A negative time is refused."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/trigger_style.go",
+        "internal/layout/trigger_event_style.go",
+        "internal/layout/trigger_export.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "layout/trigger.go",
+        "layout/interest.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTriggerProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/interest_test.go",
+          "name": "TestBoxInterestDelayShorthand"
+        },
+        {
+          "file": "layout/interest_test.go",
+          "name": "TestBoxInterestDelayLonghands"
+        },
+        {
+          "file": "layout/interest_test.go",
+          "name": "TestBoxInterestDelayInherits"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerDeclarationValueAccepted"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerShorthandThroughVar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "browser-ui",
       "upstream_syntax": "normal | <time>"
     },
     {
       "name": "interest-delay-start",
       "aliases": [],
-      "values": [],
+      "values": [
+        "normal | <time>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Inherited. A negative time is refused."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/trigger_style.go",
+        "internal/layout/trigger_event_style.go",
+        "internal/layout/trigger_export.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "layout/trigger.go",
+        "layout/interest.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTriggerProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/interest_test.go",
+          "name": "TestBoxInterestDelayShorthand"
+        },
+        {
+          "file": "layout/interest_test.go",
+          "name": "TestBoxInterestDelayLonghands"
+        },
+        {
+          "file": "layout/interest_test.go",
+          "name": "TestBoxInterestDelayInherits"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerDeclarationValueAccepted"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerShorthandThroughVar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "browser-ui",
       "upstream_syntax": "normal | <time>"
     },
@@ -15091,48 +15308,123 @@
     {
       "name": "pointer-timeline",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<name> <axis>?, one declaration per element"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "One name per kind is exported, so a comma-separated list is rejected at parse time instead of being narrowed to its first item. The scroller is always the page scroller. The subject is the declaring element. The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/trigger_style.go",
+        "internal/layout/timeline_style.go",
+        "layout/timeline.go",
+        "internal/layout/placed.go",
+        "layout/layout.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTriggerProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/timeline_scope_test.go",
+          "name": "TestBoxPointerTimeline"
+        },
+        {
+          "file": "layout/timeline_scope_test.go",
+          "name": "TestBoxPointerTimelineNotInherited"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerDeclarationValueAccepted"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerShorthandThroughVar"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "[ <'pointer-timeline-name'> <'pointer-timeline-axis'>? ]#"
     },
     {
       "name": "pointer-timeline-axis",
       "aliases": [],
-      "values": [],
+      "values": [
+        "block | inline | x | y, one axis"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "One name per kind is exported, so a comma-separated list is rejected at parse time instead of being narrowed to its first item. The scroller is always the page scroller. The subject is the declaring element. The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/trigger_style.go",
+        "internal/layout/timeline_style.go",
+        "layout/timeline.go",
+        "internal/layout/placed.go",
+        "layout/layout.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTriggerProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/timeline_scope_test.go",
+          "name": "TestBoxPointerTimeline"
+        },
+        {
+          "file": "layout/timeline_scope_test.go",
+          "name": "TestBoxPointerTimelineNotInherited"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerDeclarationValueAccepted"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerShorthandThroughVar"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "[ block | inline | x | y ]#"
     },
     {
       "name": "pointer-timeline-name",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | <dashed-ident>, one name"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "One name per kind is exported, so a comma-separated list is rejected at parse time instead of being narrowed to its first item. The scroller is always the page scroller. The subject is the declaring element. The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/trigger_style.go",
+        "internal/layout/timeline_style.go",
+        "layout/timeline.go",
+        "internal/layout/placed.go",
+        "layout/layout.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTriggerProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/timeline_scope_test.go",
+          "name": "TestBoxPointerTimeline"
+        },
+        {
+          "file": "layout/timeline_scope_test.go",
+          "name": "TestBoxPointerTimelineNotInherited"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerDeclarationValueAccepted"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerShorthandThroughVar"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "[ none | <dashed-ident> ]#"
     },
@@ -17094,48 +17386,108 @@
     {
       "name": "scroll-timeline",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<name> <axis>?, one declaration per element"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "One name per kind is exported, so a comma-separated list is rejected at parse time instead of being narrowed to its first item. The scroller is always the page scroller. The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/timeline_style.go",
+        "layout/timeline.go",
+        "internal/layout/placed.go",
+        "layout/layout.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTimelineProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/timeline_test.go",
+          "name": "TestBoxTimelines"
+        },
+        {
+          "file": "layout/timeline_scope_test.go",
+          "name": "TestBoxScrollAndViewTimelineCascade"
+        },
+        {
+          "file": "internal/layout/timeline_style_test.go",
+          "name": "TestTimelineDeclarationValueAccepted"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "[ <'scroll-timeline-name'> <'scroll-timeline-axis'>? ]#"
     },
     {
       "name": "scroll-timeline-axis",
       "aliases": [],
-      "values": [],
+      "values": [
+        "block | inline | x | y, one axis"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "One name per kind is exported, so a comma-separated list is rejected at parse time instead of being narrowed to its first item. The scroller is always the page scroller. The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/timeline_style.go",
+        "layout/timeline.go",
+        "internal/layout/placed.go",
+        "layout/layout.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTimelineProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/timeline_test.go",
+          "name": "TestBoxTimelines"
+        },
+        {
+          "file": "layout/timeline_scope_test.go",
+          "name": "TestBoxScrollAndViewTimelineCascade"
+        },
+        {
+          "file": "internal/layout/timeline_style_test.go",
+          "name": "TestTimelineDeclarationValueAccepted"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "[ block | inline | x | y ]#"
     },
     {
       "name": "scroll-timeline-name",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | <dashed-ident>, one name"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "One name per kind is exported, so a comma-separated list is rejected at parse time instead of being narrowed to its first item. The scroller is always the page scroller. The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/timeline_style.go",
+        "layout/timeline.go",
+        "internal/layout/placed.go",
+        "layout/layout.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTimelineProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/timeline_test.go",
+          "name": "TestBoxTimelines"
+        },
+        {
+          "file": "layout/timeline_scope_test.go",
+          "name": "TestBoxScrollAndViewTimelineCascade"
+        },
+        {
+          "file": "internal/layout/timeline_style_test.go",
+          "name": "TestTimelineDeclarationValueAccepted"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "[ none | <dashed-ident> ]#"
     },
@@ -19295,160 +19647,574 @@
     {
       "name": "timeline-scope",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | all | <dashed-ident># (exported as Box.TimelineScope)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Name lookup through timeline-scope is the host's job. The property is not inherited."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/trigger_style.go",
+        "internal/layout/trigger_event_style.go",
+        "internal/layout/trigger_export.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "layout/trigger.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTriggerProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/timeline_scope_test.go",
+          "name": "TestBoxTimelineScope"
+        },
+        {
+          "file": "layout/timeline_scope_test.go",
+          "name": "TestBoxTimelineScopeInherit"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerDeclarationValueAccepted"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerShorthandThroughVar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | all | <dashed-ident>#"
     },
     {
       "name": "timeline-trigger",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | [ <name> <source> <activation-range>? [ / <active-range> ]? ]# (the activation range may be omitted and then is normal; exported as Box.TimelineTriggers)"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Not inherited. Lists repeat to the length of the name list."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/trigger_style.go",
+        "internal/layout/trigger_event_style.go",
+        "internal/layout/trigger_export.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "layout/trigger.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTriggerProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerShorthand"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerLonghands"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerNameAndSource"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerRangeShorthands"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerLengths"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerNotInherited"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerDeclarationValueAccepted"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerShorthandThroughVar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | [ <'timeline-trigger-name'> <'timeline-trigger-source'> <'timeline-trigger-activation-range'> [ / <'timeline-trigger-active-range'> ]? ]#"
     },
     {
       "name": "timeline-trigger-activation-range",
       "aliases": [],
-      "values": [],
+      "values": [
+        "[ <start> <end>? ]#; a missing end is normal"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Not inherited. Lists repeat to the length of the name list."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/trigger_style.go",
+        "internal/layout/trigger_event_style.go",
+        "internal/layout/trigger_export.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "layout/trigger.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTriggerProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerShorthand"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerLonghands"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerNameAndSource"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerRangeShorthands"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerLengths"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerNotInherited"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerDeclarationValueAccepted"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerShorthandThroughVar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ <'timeline-trigger-activation-range-start'> <'timeline-trigger-activation-range-end'>? ]#"
     },
     {
       "name": "timeline-trigger-activation-range-end",
       "aliases": [],
-      "values": [],
+      "values": [
+        "[ normal | <length-percentage> | <timeline-range-name> <length-percentage>? ]#"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Not inherited. Lists repeat to the length of the name list."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/trigger_style.go",
+        "internal/layout/trigger_event_style.go",
+        "internal/layout/trigger_export.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "layout/trigger.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTriggerProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerShorthand"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerLonghands"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerNameAndSource"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerRangeShorthands"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerLengths"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerNotInherited"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerDeclarationValueAccepted"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerShorthandThroughVar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ normal | <length-percentage> | <timeline-range-name> <length-percentage>? ]#"
     },
     {
       "name": "timeline-trigger-activation-range-start",
       "aliases": [],
-      "values": [],
+      "values": [
+        "[ normal | <length-percentage> | <timeline-range-name> <length-percentage>? ]#"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Not inherited. Lists repeat to the length of the name list."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/trigger_style.go",
+        "internal/layout/trigger_event_style.go",
+        "internal/layout/trigger_export.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "layout/trigger.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTriggerProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerShorthand"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerLonghands"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerNameAndSource"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerRangeShorthands"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerLengths"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerNotInherited"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerDeclarationValueAccepted"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerShorthandThroughVar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ normal | <length-percentage> | <timeline-range-name> <length-percentage>? ]#"
     },
     {
       "name": "timeline-trigger-active-range",
       "aliases": [],
-      "values": [],
+      "values": [
+        "[ <start> <end>? ]#; a missing end is auto"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Not inherited. Lists repeat to the length of the name list."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/trigger_style.go",
+        "internal/layout/trigger_event_style.go",
+        "internal/layout/trigger_export.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "layout/trigger.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTriggerProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerShorthand"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerLonghands"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerNameAndSource"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerRangeShorthands"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerLengths"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerNotInherited"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerDeclarationValueAccepted"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerShorthandThroughVar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ <'timeline-trigger-active-range-start'> <'timeline-trigger-active-range-end'>? ]#"
     },
     {
       "name": "timeline-trigger-active-range-end",
       "aliases": [],
-      "values": [],
+      "values": [
+        "[ auto | normal | <length-percentage> | <timeline-range-name> <length-percentage>? ]#"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Not inherited. Lists repeat to the length of the name list."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/trigger_style.go",
+        "internal/layout/trigger_event_style.go",
+        "internal/layout/trigger_export.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "layout/trigger.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTriggerProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerShorthand"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerLonghands"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerNameAndSource"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerRangeShorthands"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerLengths"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerNotInherited"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerDeclarationValueAccepted"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerShorthandThroughVar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ auto | normal | <length-percentage> | <timeline-range-name> <length-percentage>? ]#"
     },
     {
       "name": "timeline-trigger-active-range-start",
       "aliases": [],
-      "values": [],
+      "values": [
+        "[ auto | normal | <length-percentage> | <timeline-range-name> <length-percentage>? ]#"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Not inherited. Lists repeat to the length of the name list."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/trigger_style.go",
+        "internal/layout/trigger_event_style.go",
+        "internal/layout/trigger_export.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "layout/trigger.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTriggerProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerShorthand"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerLonghands"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerNameAndSource"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerRangeShorthands"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerLengths"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerNotInherited"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerDeclarationValueAccepted"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerShorthandThroughVar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ auto | normal | <length-percentage> | <timeline-range-name> <length-percentage>? ]#"
     },
     {
       "name": "timeline-trigger-name",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | <dashed-ident>#"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Not inherited. Lists repeat to the length of the name list."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/trigger_style.go",
+        "internal/layout/trigger_event_style.go",
+        "internal/layout/trigger_export.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "layout/trigger.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTriggerProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerShorthand"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerLonghands"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerNameAndSource"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerRangeShorthands"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerLengths"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerNotInherited"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerDeclarationValueAccepted"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerShorthandThroughVar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | <dashed-ident>#"
     },
     {
       "name": "timeline-trigger-source",
       "aliases": [],
-      "values": [],
+      "values": [
+        "[ none | auto | [ <dashed-ident> | scroll() | view() ]+ ]#"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Not inherited. Lists repeat to the length of the name list."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/trigger_style.go",
+        "internal/layout/trigger_event_style.go",
+        "internal/layout/trigger_export.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "layout/trigger.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTriggerProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerShorthand"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerLonghands"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerNameAndSource"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerRangeShorthands"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerLengths"
+        },
+        {
+          "file": "layout/trigger_test.go",
+          "name": "TestBoxTimelineTriggerNotInherited"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerDeclarationValueAccepted"
+        },
+        {
+          "file": "internal/layout/css_behavior_trigger_test.go",
+          "name": "TestTriggerShorthandThroughVar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ none | auto | [ <dashed-ident> | <scroll()> | <view()> ]+ ]#"
     },
@@ -20063,64 +20829,144 @@
     {
       "name": "view-timeline",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<name> [ <axis> || <inset> ]?, one declaration per element"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "One name per kind is exported, so a comma-separated list is rejected at parse time instead of being narrowed to its first item. The scroller is always the page scroller. The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/timeline_style.go",
+        "layout/timeline.go",
+        "internal/layout/placed.go",
+        "layout/layout.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTimelineProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/timeline_test.go",
+          "name": "TestBoxTimelines"
+        },
+        {
+          "file": "layout/timeline_scope_test.go",
+          "name": "TestBoxScrollAndViewTimelineCascade"
+        },
+        {
+          "file": "internal/layout/timeline_style_test.go",
+          "name": "TestTimelineDeclarationValueAccepted"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "[ <'view-timeline-name'> [ <'view-timeline-axis'> || <'view-timeline-inset'> ]? ]#"
     },
     {
       "name": "view-timeline-axis",
       "aliases": [],
-      "values": [],
+      "values": [
+        "block | inline | x | y, one axis"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "One name per kind is exported, so a comma-separated list is rejected at parse time instead of being narrowed to its first item. The scroller is always the page scroller. The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/timeline_style.go",
+        "layout/timeline.go",
+        "internal/layout/placed.go",
+        "layout/layout.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTimelineProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/timeline_test.go",
+          "name": "TestBoxTimelines"
+        },
+        {
+          "file": "layout/timeline_scope_test.go",
+          "name": "TestBoxScrollAndViewTimelineCascade"
+        },
+        {
+          "file": "internal/layout/timeline_style_test.go",
+          "name": "TestTimelineDeclarationValueAccepted"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "[ block | inline | x | y ]#"
     },
     {
       "name": "view-timeline-inset",
       "aliases": [],
-      "values": [],
+      "values": [
+        "[ auto | <length-percentage> ]{1,2}, one declaration; negative values allowed"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "One name per kind is exported, so a comma-separated list is rejected at parse time instead of being narrowed to its first item. The scroller is always the page scroller. The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/timeline_style.go",
+        "layout/timeline.go",
+        "internal/layout/placed.go",
+        "layout/layout.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTimelineProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/timeline_test.go",
+          "name": "TestBoxTimelines"
+        },
+        {
+          "file": "layout/timeline_scope_test.go",
+          "name": "TestBoxScrollAndViewTimelineCascade"
+        },
+        {
+          "file": "internal/layout/timeline_style_test.go",
+          "name": "TestTimelineDeclarationValueAccepted"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "[ [ auto | <length-percentage> ]{1,2} ]#"
     },
     {
       "name": "view-timeline-name",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | <dashed-ident>, one name"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "One name per kind is exported, so a comma-separated list is rejected at parse time instead of being narrowed to its first item. The scroller is always the page scroller. The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/timeline_style.go",
+        "layout/timeline.go",
+        "internal/layout/placed.go",
+        "layout/layout.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyTimelineProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/timeline_test.go",
+          "name": "TestBoxTimelines"
+        },
+        {
+          "file": "layout/timeline_scope_test.go",
+          "name": "TestBoxScrollAndViewTimelineCascade"
+        },
+        {
+          "file": "internal/layout/timeline_style_test.go",
+          "name": "TestTimelineDeclarationValueAccepted"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "[ none | <dashed-ident> ]#"
     },

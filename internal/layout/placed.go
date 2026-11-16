@@ -21,6 +21,9 @@ type PlacedElement struct {
 	// Timelines holds the named scroll and view timelines this element
 	// declares. Scroll comes before view; a nil slice means no declaration.
 	Timelines []TimelineDef
+	// Triggers holds the scope, trigger, interest delay, and interactivity
+	// values of this element.
+	Triggers PlacedTriggers
 	// OverflowClip is the accumulated ancestor overflow padding box in
 	// canvas points, empty with HasOverflowClip false when no ancestor
 	// clips. A host painting this element through a transform intersects
@@ -168,6 +171,7 @@ func walkPlacedFunc(
 			ViewTransitionGroup: boxNode.style.Animation.ViewTransitionGroup,
 			ViewTransitionScope: boxNode.style.Animation.ViewTransitionScope,
 			Timelines:           timelineDefsFromStyle(boxNode.style, elementID),
+			Triggers:            placedTriggersFromStyle(boxNode.style),
 			OverflowClip:        elementOverflowClip(boxNode),
 			HasOverflowClip:     boxNode.overflowClip != nil,
 			Transform:           info,

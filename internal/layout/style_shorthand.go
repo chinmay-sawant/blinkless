@@ -23,6 +23,10 @@ func expandShorthandDeclaration(prop, value string) ([]logicalPropDecl, bool) {
 		return expanded, true
 	}
 
+	if expanded, ok := expandTriggerDeclaration(prop, value, triggerNominalFontSize); ok {
+		return expanded, true
+	}
+
 	if prop == "transition" {
 		if expanded, ok := expandTransitionShorthand(value); ok {
 			return expanded, true

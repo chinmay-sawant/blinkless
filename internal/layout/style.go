@@ -661,6 +661,11 @@ type ResolvedStyle struct {
 	ViewTimelineInsetEnd      float64
 	ViewTimelineInsetStartSet bool
 	ViewTimelineInsetEndSet   bool
+	// Triggers holds timeline-scope, the pointer timeline, the timeline and
+	// event triggers, interest-delay, and interactivity as normalized
+	// strings. The empty string is each property's initial value. Only the
+	// interest delays and interactivity inherit.
+	Triggers triggerStyle
 	// SVG geometry from CSS. Empty means unset. A stylesheet value is baked
 	// onto the attribute and replaces the presentation attribute.
 	SVGCx string

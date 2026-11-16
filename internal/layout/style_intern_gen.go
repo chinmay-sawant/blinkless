@@ -520,6 +520,7 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.ViewTimelineInsetEnd == b.ViewTimelineInsetEnd &&
 		a.ViewTimelineInsetStartSet == b.ViewTimelineInsetStartSet &&
 		a.ViewTimelineInsetEndSet == b.ViewTimelineInsetEndSet &&
+		a.Triggers == b.Triggers &&
 		a.SVGCx == b.SVGCx &&
 		a.SVGCy == b.SVGCy &&
 		a.SVGR == b.SVGR &&
@@ -995,6 +996,7 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashFloat64(h, s.ViewTimelineInsetEnd)
 	h = styleInternHashBool(h, s.ViewTimelineInsetStartSet)
 	h = styleInternHashBool(h, s.ViewTimelineInsetEndSet)
+	h = styleInternHashTriggerStyle(h, s.Triggers)
 	h = styleInternHashString(h, s.SVGCx)
 	h = styleInternHashString(h, s.SVGCy)
 	h = styleInternHashString(h, s.SVGR)
@@ -1446,6 +1448,7 @@ func styleInternFields() []string {
 		"ViewTimelineInsetEnd",
 		"ViewTimelineInsetStartSet",
 		"ViewTimelineInsetEndSet",
+		"Triggers",
 		"SVGCx",
 		"SVGCy",
 		"SVGR",
@@ -1540,6 +1543,25 @@ func styleInternHashTransitionStyle(h uint64, v transitionStyle) uint64 {
 	h = styleInternHashString(h, v.Delay)
 	h = styleInternHashString(h, v.TimingFunction)
 	h = styleInternHashString(h, v.Behavior)
+
+	return h
+}
+
+func styleInternHashTriggerStyle(h uint64, v triggerStyle) uint64 {
+	h = styleInternHashString(h, v.TimelineScope)
+	h = styleInternHashString(h, v.PointerName)
+	h = styleInternHashString(h, v.PointerAxis)
+	h = styleInternHashString(h, v.TriggerName)
+	h = styleInternHashString(h, v.TriggerSource)
+	h = styleInternHashString(h, v.ActivationStart)
+	h = styleInternHashString(h, v.ActivationEnd)
+	h = styleInternHashString(h, v.ActiveStart)
+	h = styleInternHashString(h, v.ActiveEnd)
+	h = styleInternHashString(h, v.EventName)
+	h = styleInternHashString(h, v.EventSource)
+	h = styleInternHashString(h, v.InterestStart)
+	h = styleInternHashString(h, v.InterestEnd)
+	h = styleInternHashString(h, v.Interactivity)
 
 	return h
 }

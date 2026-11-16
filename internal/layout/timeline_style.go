@@ -22,13 +22,15 @@ const (
 
 	timelineKindScroll = "scroll"
 	timelineKindView   = "view"
+	// timelineKindPointer is a pointer-timeline declaration.
+	timelineKindPointer = "pointer"
 
 	timelineAutoKeyword           = "auto"
 	timelineNoneKeyword           = "none"
 	timelineInsetMaxCount         = 2
 	timelineScrollShorthandTokens = 2
 	timelineViewShorthandTokens   = 4
-	timelineDefCapacity           = 2
+	timelineDefCapacity           = 3
 )
 
 // TimelineDef is one named timeline an element declares for a host to resolve.
@@ -59,7 +61,9 @@ type TimelineDef struct {
 // exports. Scroll comes before view so the order is stable across redraws. A
 // nil style means the element declares no timeline.
 func timelineDefsFromStyle(style *ResolvedStyle, subjectID string) []TimelineDef {
-	if style == nil || style.ScrollTimelineName == "" && style.ViewTimelineName == "" {
+	pointer, hasPointer := pointerTimelineDef(style, subjectID)
+
+	if style == nil || style.ScrollTimelineName == "" && style.ViewTimelineName == "" && !hasPointer {
 		return nil
 	}
 
@@ -89,6 +93,10 @@ func timelineDefsFromStyle(style *ResolvedStyle, subjectID string) []TimelineDef
 		})
 	}
 
+	if hasPointer {
+		defs = append(defs, pointer)
+	}
+
 	return defs
 }
 
@@ -108,6 +116,10 @@ func timelineProperty(prop string) bool {
 // declarations. A CSS-wide keyword and a var() reference are valid at parse
 // time; every other value must match the grammar.
 func timelineDeclarationValueAccepted(prop, value string) (bool, bool) {
+	if accepted, handled := triggerDeclarationValueAccepted(prop, value); handled {
+		return accepted, true
+	}
+
 	if !timelineProperty(prop) {
 		return false, false
 	}
@@ -360,6 +372,10 @@ func applyTimelineProps(
 	style *ResolvedStyle, prop, value string, fsize float64, ctx *styleContext,
 	parent *ResolvedStyle, hasParent bool,
 ) bool {
+	if applyTriggerProps(style, prop, value, fsize, parent, hasParent) {
+		return true
+	}
+
 	if !timelineProperty(prop) {
 		return false
 	}
