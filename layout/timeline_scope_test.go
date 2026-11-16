@@ -126,7 +126,7 @@ func TestBoxPointerTimeline(t *testing.T) {
 			false,
 		},
 		{"invalid name dropped", "pointer-timeline-name: --p; pointer-timeline-name: p", "--p", "y", false},
-		{"list rejected", "pointer-timeline-name: --p; pointer-timeline-name: --a, --b", "--p", "y", false},
+		{"list keeps its first name here", "pointer-timeline-name: --p; pointer-timeline-name: --a, --b", "--a", "y", false},
 		{"shorthand resets axis", "pointer-timeline-axis: x; pointer-timeline: --p", "--p", "y", false},
 		{"longhand after shorthand", "pointer-timeline: --p x; pointer-timeline-axis: y", "--p", "y", false},
 		{"shorthand bad token", "pointer-timeline: --p; pointer-timeline: --q z", "--p", "y", false},

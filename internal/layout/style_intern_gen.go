@@ -520,6 +520,7 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.ViewTimelineInsetEnd == b.ViewTimelineInsetEnd &&
 		a.ViewTimelineInsetStartSet == b.ViewTimelineInsetStartSet &&
 		a.ViewTimelineInsetEndSet == b.ViewTimelineInsetEndSet &&
+		a.ViewTimelineInsets == b.ViewTimelineInsets &&
 		a.Triggers == b.Triggers &&
 		a.SVGCx == b.SVGCx &&
 		a.SVGCy == b.SVGCy &&
@@ -996,6 +997,7 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashFloat64(h, s.ViewTimelineInsetEnd)
 	h = styleInternHashBool(h, s.ViewTimelineInsetStartSet)
 	h = styleInternHashBool(h, s.ViewTimelineInsetEndSet)
+	h = styleInternHashString(h, s.ViewTimelineInsets)
 	h = styleInternHashTriggerStyle(h, s.Triggers)
 	h = styleInternHashString(h, s.SVGCx)
 	h = styleInternHashString(h, s.SVGCy)
@@ -1448,6 +1450,7 @@ func styleInternFields() []string {
 		"ViewTimelineInsetEnd",
 		"ViewTimelineInsetStartSet",
 		"ViewTimelineInsetEndSet",
+		"ViewTimelineInsets",
 		"Triggers",
 		"SVGCx",
 		"SVGCy",

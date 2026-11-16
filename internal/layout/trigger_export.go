@@ -91,24 +91,6 @@ func timelineScopeFromStyle(style *ResolvedStyle) TimelineScopeDef {
 	}
 }
 
-// pointerTimelineDef returns the pointer timeline an element declares, or
-// false when it declares none.
-func pointerTimelineDef(style *ResolvedStyle, subjectID string) (TimelineDef, bool) {
-	if style == nil || style.Triggers.PointerName == "" {
-		return TimelineDef{Name: "", Kind: "", Axis: "", SubjectID: "", ScrollerID: "", InsetStart: 0, InsetEnd: 0}, false
-	}
-
-	return TimelineDef{
-		Name:       style.Triggers.PointerName,
-		Kind:       timelineKindPointer,
-		Axis:       timelineUsedAxis(style.Triggers.PointerAxis, style.WritingMode),
-		SubjectID:  subjectID,
-		ScrollerID: "",
-		InsetStart: 0,
-		InsetEnd:   0,
-	}, true
-}
-
 // timelineTriggersFromStyle builds one trigger per declared name. The other
 // lists repeat to the length of the name list, as the draft requires. A nil
 // result means no trigger.

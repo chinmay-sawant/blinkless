@@ -39,3 +39,5 @@ Older ledgers that still have open rows for these names are historical. Use this
 - `column-rule-visibility-items` in `plans/v0.0.3/row-rules/row-rules-checklist.md` points here at ledger 6.
 
 The closure gate on every implementation change is `make test`, `make golden`, `make lint`, `make claim-scan`, `make catalog-check`, and `make matrix-check`. GitHub CI runs `make test` and `make lint`. A documentation-only edit of these files does not run those gates.
+
+The ten scroll, view, and pointer timeline rows moved from `partial` to `implemented` on 2026-11-16 once they took comma lists and named their scroller; see [validation.md](validation.md).

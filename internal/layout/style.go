@@ -661,6 +661,10 @@ type ResolvedStyle struct {
 	ViewTimelineInsetEnd      float64
 	ViewTimelineInsetStartSet bool
 	ViewTimelineInsetEndSet   bool
+	// ViewTimelineInsets is the resolved inset of every timeline in the
+	// view-timeline-inset list, encoded by encodeViewInsets. The four fields
+	// above hold its first item.
+	ViewTimelineInsets string
 	// Triggers holds timeline-scope, the pointer timeline, the timeline and
 	// event triggers, interest-delay, and interactivity as normalized
 	// strings. The empty string is each property's initial value. Only the

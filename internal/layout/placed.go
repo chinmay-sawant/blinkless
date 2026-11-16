@@ -76,7 +76,9 @@ func WalkPlacedWithOptions(res *Result, opts WalkPlacedOptions, fn func(elem *Pl
 
 	viewport := svgViewport{x: 0, y: 0, w: 0, h: 0, set: false}
 
-	walkPlacedFunc(res.root, res.Ops, -1, IdentityMatrix(), viewport, fn, &allIDs, 0, &item, opts)
+	page := placedScroller{set: false, id: ""}
+
+	walkPlacedFunc(res.root, res.Ops, -1, IdentityMatrix(), viewport, fn, &allIDs, 0, &item, opts, page)
 }
 
 func estimatePlacedOpIDs(res *Result) int {
@@ -142,6 +144,7 @@ func countSubtreeOpIDs(boxNode *box, nOps int) int {
 func walkPlacedFunc(
 	boxNode *box, ops []Op, parentIndex int, parentAccum Matrix2D, viewport svgViewport,
 	fn func(elem *PlacedElement), allIDs *[]uint64, index int, item *PlacedElement, opts WalkPlacedOptions,
+	scroller placedScroller,
 ) int {
 	if boxNode == nil {
 		return index
@@ -170,7 +173,7 @@ func walkPlacedFunc(
 			ViewTransitionClass: boxNode.style.Animation.ViewTransitionClass,
 			ViewTransitionGroup: boxNode.style.Animation.ViewTransitionGroup,
 			ViewTransitionScope: boxNode.style.Animation.ViewTransitionScope,
-			Timelines:           timelineDefsFromStyle(boxNode.style, elementID),
+			Timelines:           placedTimelineDefs(boxNode, elementID, scroller),
 			Triggers:            placedTriggersFromStyle(boxNode.style),
 			OverflowClip:        elementOverflowClip(boxNode),
 			HasOverflowClip:     boxNode.overflowClip != nil,
@@ -182,9 +185,7 @@ func walkPlacedFunc(
 			Text:                "",
 		}
 
-		if opts.IncludeText {
-			item.Text = boxNode.node.TextContent()
-		}
+		fillPlacedText(item, boxNode, opts)
 
 		childParent = index
 		index++
@@ -198,10 +199,19 @@ func walkPlacedFunc(
 	childViewport := childViewportForBox(boxNode, viewport)
 
 	for _, child := range boxNode.children {
-		index = walkPlacedFunc(child, ops, childParent, childAccum, childViewport, fn, allIDs, index, item, opts)
+		index = walkPlacedFunc(
+			child, ops, childParent, childAccum, childViewport, fn, allIDs, index, item, opts, scrollerBelow(boxNode, scroller),
+		)
 	}
 
 	return index
+}
+
+// fillPlacedText copies the element's text content when the walk asks for it.
+func fillPlacedText(item *PlacedElement, boxNode *box, opts WalkPlacedOptions) {
+	if opts.IncludeText {
+		item.Text = boxNode.node.TextContent()
+	}
 }
 
 // placedTransformInfo resolves the transform metadata for one box while

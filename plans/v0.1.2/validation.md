@@ -114,6 +114,35 @@ Twenty-seven names are stored and exported on `layout.Box`. The engine computes 
 
 All passed with `go test ./layout -run 'TestBox(Interest|Interactivity|EventTrigger|TimelineTrigger|TimelineScope|PointerTimeline|ScrollAndView|Timelines)' -count=1 -p 1`. The fixture is `testdata/css/v012/scroll/page.html`. It loads with 19 stable ids. The catalog rows belong to the engine owner and are not changed here.
 
+## Timeline lists and scrollers (2026-11-16)
+
+The ten scroll, view, and pointer timeline names took one name and one axis, and
+the scroller was always the page. They now take comma lists, export one timeline
+per name, and name the scroll container each timeline reads. The catalog rows
+moved from `partial` to `implemented`.
+
+| What | Test | Proof |
+|---|---|---|
+| name, axis, and shorthand lists; `none` slots; order; invalid lists; vertical writing mode | `TestBoxTimelineLists` | `layout/timeline_list_test.go:31` |
+| `inherit` copies a whole list; `unset` resets it | `TestBoxTimelineListsInherit` | `layout/timeline_list_test.go:147` |
+| `view-timeline-inset` list, repeat, shorthand, negative, invalid | `TestBoxViewTimelineInsetLists` | `layout/timeline_list_test.go:186` |
+| a percent inset resolves on its own item's axis | `TestBoxViewTimelineInsetPercentPerAxis` | `layout/timeline_list_test.go:263` |
+| scroller of scroll and view timelines, nearest container, no id | `TestTimelineScrollers` | `layout/timeline_list_test.go:277` |
+| root and body overflow is the page, not a scroller | `TestTimelineScrollerIgnoresRootAndBody` | `layout/timeline_list_test.go:331` |
+| the cascade gate accepts and refuses list values | `TestTimelineDeclarationValueAccepted` | `internal/layout/timeline_style_test.go:18` |
+
+The host half is checked in `ownframe/examples/blinkless-scroll/lists_test.go`
+against `testdata/css/v012/scroll/page.html` section 9: every name in a list is
+read, the first of each kind is the one drawn, a nested scroller follows its own
+offset and ignores the page scroll, a scroller with no id leaves its timeline
+inactive, and an unknown scroller id does the same.
+
+Limits that remain. The engine exports the scroller id, but computing a nested
+scroller's progress is the host's job, and OwnFrame reports no offset for an
+inner box, so only the demo and tests supply one. A scroll timeline on an element
+that is not a scroll container reads the page, which the fixture's progress bar
+relies on; the draft would leave that timeline inactive.
+
 ## Window pass
 
 After the ten tests exit 0:

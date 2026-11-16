@@ -30,13 +30,12 @@ const (
 	timelineInsetMaxCount         = 2
 	timelineScrollShorthandTokens = 2
 	timelineViewShorthandTokens   = 4
-	timelineDefCapacity           = 3
 )
 
 // TimelineDef is one named timeline an element declares for a host to resolve.
-// A box can declare both kinds, so one element can export two definitions.
-// The scroller is always the page scroller in this engine, so ScrollerID stays
-// empty; a nested element scroll container cannot be named yet.
+// An element exports one definition per name in each comma list it declares,
+// so it can export several of each kind. ScrollerID is filled in by a pass
+// over the placed boxes, because a box does not know its ancestors.
 type TimelineDef struct {
 	// Name is the dashed ident the element declares, such as --progress.
 	Name string
@@ -48,9 +47,13 @@ type TimelineDef struct {
 	// SubjectID is the id of the element a view timeline observes. A scroll
 	// timeline has no subject, so it stays empty.
 	SubjectID string
-	// ScrollerID is the scroll container the timeline reads. Empty means the
-	// page scroller, the only scroller this engine models.
+	// ScrollerID is the id of the scroll container the timeline reads. Empty
+	// means the page scroller.
 	ScrollerID string
+	// ScrollerAnonymous is true when the scroller is an element with no id, so
+	// it cannot be named. A host cannot resolve such a timeline; the fix is to
+	// give the scroll container an id.
+	ScrollerAnonymous bool
 	// InsetStart and InsetEnd are the view timeline insets in layout points.
 	// They are zero when the declaration is auto or absent.
 	InsetStart float64
@@ -61,40 +64,61 @@ type TimelineDef struct {
 // exports. Scroll comes before view so the order is stable across redraws. A
 // nil style means the element declares no timeline.
 func timelineDefsFromStyle(style *ResolvedStyle, subjectID string) []TimelineDef {
-	pointer, hasPointer := pointerTimelineDef(style, subjectID)
-
-	if style == nil || style.ScrollTimelineName == "" && style.ViewTimelineName == "" && !hasPointer {
+	if style == nil {
 		return nil
 	}
 
-	defs := make([]TimelineDef, 0, timelineDefCapacity)
+	scroll := timelineListText(style.ScrollTimelineName)
+	view := timelineListText(style.ViewTimelineName)
+	pointer := timelineListText(style.Triggers.PointerName)
 
-	if style.ScrollTimelineName != "" {
-		defs = append(defs, TimelineDef{
-			Name:       style.ScrollTimelineName,
-			Kind:       timelineKindScroll,
-			Axis:       timelineUsedAxis(style.ScrollTimelineAxis, style.WritingMode),
-			SubjectID:  "",
-			ScrollerID: "",
-			InsetStart: 0,
-			InsetEnd:   0,
-		})
+	if len(scroll)+len(view)+len(pointer) == 0 {
+		return nil
 	}
 
-	if style.ViewTimelineName != "" {
-		defs = append(defs, TimelineDef{
-			Name:       style.ViewTimelineName,
-			Kind:       timelineKindView,
-			Axis:       timelineUsedAxis(style.ViewTimelineAxis, style.WritingMode),
-			SubjectID:  subjectID,
-			ScrollerID: "",
-			InsetStart: style.ViewTimelineInsetStart,
-			InsetEnd:   style.ViewTimelineInsetEnd,
-		})
-	}
+	defs := make([]TimelineDef, 0, len(scroll)+len(view)+len(pointer))
+	defs = appendTimelineKind(defs, scroll, timelineKindSpec{
+		kind: timelineKindScroll, axisList: style.ScrollTimelineAxis, writingMode: style.WritingMode,
+		subjectID: "", insets: nil,
+	})
+	defs = appendTimelineKind(defs, view, timelineKindSpec{
+		kind: timelineKindView, axisList: style.ViewTimelineAxis, writingMode: style.WritingMode,
+		subjectID: subjectID, insets: viewInsetItems(style.ViewTimelineInsets),
+	})
 
-	if hasPointer {
-		defs = append(defs, pointer)
+	return appendTimelineKind(defs, pointer, timelineKindSpec{
+		kind: timelineKindPointer, axisList: style.Triggers.PointerAxis, writingMode: style.WritingMode,
+		subjectID: subjectID, insets: nil,
+	})
+}
+
+// timelineKindSpec is what one kind of timeline needs to turn a name list into
+// definitions: the axis list, the subject, and for a view timeline the insets.
+type timelineKindSpec struct {
+	kind, axisList, writingMode, subjectID string
+	insets                                 []viewInset
+}
+
+// appendTimelineKind adds one definition per name. A none item exports nothing
+// but still takes its index, so the axis and inset lists line up.
+func appendTimelineKind(defs []TimelineDef, names []string, spec timelineKindSpec) []TimelineDef {
+	for idx, name := range names {
+		if name == timelineNoneKeyword {
+			continue
+		}
+
+		inset := viewInsetAt(spec.insets, idx)
+
+		defs = append(defs, TimelineDef{
+			Name:              name,
+			Kind:              spec.kind,
+			Axis:              timelineAxisAt(spec.axisList, idx, spec.writingMode),
+			SubjectID:         spec.subjectID,
+			ScrollerID:        "",
+			ScrollerAnonymous: false,
+			InsetStart:        inset.start,
+			InsetEnd:          inset.end,
+		})
 	}
 
 	return defs
@@ -147,40 +171,66 @@ func timelineDeclarationValueAccepted(prop, value string) (bool, bool) {
 
 		return ok, true
 	default:
-		_, _, ok := parseViewTimelineInset(trimmed)
+		_, ok := parseViewTimelineInsetList(trimmed)
 
 		return ok, true
 	}
 }
 
-// parseTimelineName reads one timeline name: the none keyword or a dashed
-// ident. This engine stores one name per kind, so a comma list of names is
-// rejected rather than silently narrowed to its first item.
+// parseTimelineName reads a comma list of timeline names. Each item is the
+// none keyword or a dashed ident. A none item keeps its slot, so the axis and
+// inset lists still line up with the names by index; a list of only none is
+// the initial value, the empty string.
 func parseTimelineName(value string) (string, bool) {
-	trimmed := strings.TrimSpace(value)
-	if strings.EqualFold(trimmed, timelineNoneKeyword) {
+	items, ok := timelineListItems(value)
+	if !ok {
+		return "", false
+	}
+
+	allNone := true
+
+	for idx, item := range items {
+		if strings.EqualFold(item, timelineNoneKeyword) {
+			items[idx] = timelineNoneKeyword
+
+			continue
+		}
+
+		if !animationDashedIdent(item) {
+			return "", false
+		}
+
+		allNone = false
+	}
+
+	if allNone {
 		return "", true
 	}
 
-	if animationDashedIdent(trimmed) {
-		return trimmed, true
-	}
-
-	return "", false
+	return strings.Join(items, ", "), true
 }
 
-// parseTimelineAxis reads one axis keyword: block, inline, x, or y. The
-// returned keyword is lower-case and stays logical for block and inline; the
+// parseTimelineAxis reads a comma list of axis keywords: block, inline, x, or
+// y. Each keyword is lower-case and stays logical for block and inline; the
 // writing mode picks the physical axis at export.
 func parseTimelineAxis(value string) (string, bool) {
-	axis := strings.ToLower(strings.TrimSpace(value))
-
-	switch axis {
-	case timelineAxisBlock, timelineAxisInline, timelineAxisX, timelineAxisY:
-		return axis, true
-	default:
+	items, ok := timelineListItems(value)
+	if !ok {
 		return "", false
 	}
+
+	for idx, item := range items {
+		axis := strings.ToLower(item)
+
+		switch axis {
+		case timelineAxisBlock, timelineAxisInline, timelineAxisX, timelineAxisY:
+			items[idx] = axis
+		default:
+			return "", false
+		}
+	}
+
+	return strings.Join(items, ", "), true
 }
 
 // timelineUsedAxis resolves a declared axis keyword to the scroll axis the
@@ -209,10 +259,34 @@ func timelineUsedAxis(axis, writingMode string) string {
 	}
 }
 
-// parseScrollTimelineShorthand reads <name> <axis>?. The name comes first, as
-// the grammar requires. A missing axis resets the longhand to the initial
-// block axis.
+// parseScrollTimelineShorthand reads a comma list of <name> <axis>? items and
+// returns the name list and the axis list as comma-joined text, one entry per
+// item. The pointer timeline shorthand shares it.
 func parseScrollTimelineShorthand(value string) (string, string, bool) {
+	items, ok := timelineListItems(value)
+	if !ok {
+		return "", "", false
+	}
+
+	names := make([]string, len(items))
+	axes := make([]string, len(items))
+
+	for idx, item := range items {
+		name, axis, valid := parseScrollTimelineItem(item)
+		if !valid {
+			return "", "", false
+		}
+
+		names[idx], axes[idx] = name, axis
+	}
+
+	return strings.Join(names, ", "), strings.Join(axes, ", "), true
+}
+
+// parseScrollTimelineItem reads one <name> <axis>? item. The name comes first,
+// as the grammar requires. A missing axis resets the longhand to the initial
+// block axis.
+func parseScrollTimelineItem(value string) (string, string, bool) {
 	tokens := strings.Fields(value)
 	if len(tokens) == 0 || len(tokens) > timelineScrollShorthandTokens {
 		return "", "", false
@@ -236,11 +310,36 @@ func parseScrollTimelineShorthand(value string) (string, string, bool) {
 	return tokens[0], axis, true
 }
 
-// parseViewTimelineShorthand reads <name> [ <axis> || <inset> ]?. The axis
+// parseViewTimelineShorthand reads a comma list of
+// <name> [ <axis> || <inset> ]? items and returns the name, axis, and inset
+// lists as comma-joined text, one entry per item.
+func parseViewTimelineShorthand(value string) (string, string, string, bool) {
+	items, ok := timelineListItems(value)
+	if !ok {
+		return "", "", "", false
+	}
+
+	names := make([]string, len(items))
+	axes := make([]string, len(items))
+	insets := make([]string, len(items))
+
+	for idx, item := range items {
+		name, axis, inset, valid := parseViewTimelineItem(item)
+		if !valid {
+			return "", "", "", false
+		}
+
+		names[idx], axes[idx], insets[idx] = name, axis, inset
+	}
+
+	return strings.Join(names, ", "), strings.Join(axes, ", "), strings.Join(insets, ", "), true
+}
+
+// parseViewTimelineItem reads one <name> [ <axis> || <inset> ]? item. The axis
 // keyword may appear before or after the one or two inset values. A missing
 // axis or inset keeps the longhand initial value, so the shorthand resets a
 // previous longhand from a weaker origin.
-func parseViewTimelineShorthand(value string) (string, string, string, bool) {
+func parseViewTimelineItem(value string) (string, string, string, bool) {
 	tokens := strings.Fields(value)
 	if len(tokens) == 0 || len(tokens) > timelineViewShorthandTokens {
 		return "", "", "", false
@@ -279,8 +378,30 @@ func parseViewTimelineShorthand(value string) (string, string, string, bool) {
 	return tokens[0], axis, inset, true
 }
 
-// parseViewTimelineInset splits the one or two inset values. One value sets
-// both edges, matching the property grammar.
+// parseViewTimelineInsetList reads a comma list of inset items, each one or
+// two values, and returns the start and end token of every item.
+func parseViewTimelineInsetList(value string) ([][2]string, bool) {
+	items, ok := timelineListItems(value)
+	if !ok {
+		return nil, false
+	}
+
+	pairs := make([][2]string, len(items))
+
+	for idx, item := range items {
+		start, end, valid := parseViewTimelineInset(item)
+		if !valid {
+			return nil, false
+		}
+
+		pairs[idx] = [2]string{start, end}
+	}
+
+	return pairs, true
+}
+
+// parseViewTimelineInset splits the one or two inset values of one item. One
+// value sets both edges, matching the property grammar.
 func parseViewTimelineInset(value string) (string, string, bool) {
 	tokens := strings.Fields(value)
 	if len(tokens) == 0 || len(tokens) > timelineInsetMaxCount {
@@ -508,14 +629,22 @@ func applyViewTimelineInsetProp(
 		return
 	}
 
-	startToken, endToken, ok := parseViewTimelineInset(trimmed)
+	pairs, ok := parseViewTimelineInsetList(trimmed)
 	if !ok {
 		return
 	}
 
-	scrollport := timelineScrollport(style, ctx)
-	style.ViewTimelineInsetStart, style.ViewTimelineInsetStartSet = timelineInsetValue(startToken, fsize, scrollport)
-	style.ViewTimelineInsetEnd, style.ViewTimelineInsetEndSet = timelineInsetValue(endToken, fsize, scrollport)
+	items := make([]viewInset, len(pairs))
+
+	for idx, pair := range pairs {
+		scrollport := timelineScrollport(timelineAxisAt(style.ViewTimelineAxis, idx, style.WritingMode), ctx)
+		items[idx].start, items[idx].startSet = timelineInsetValue(pair[0], fsize, scrollport)
+		items[idx].end, items[idx].endSet = timelineInsetValue(pair[1], fsize, scrollport)
+	}
+
+	style.ViewTimelineInsets = encodeViewInsets(items)
+	style.ViewTimelineInsetStart, style.ViewTimelineInsetStartSet = items[0].start, items[0].startSet
+	style.ViewTimelineInsetEnd, style.ViewTimelineInsetEndSet = items[0].end, items[0].endSet
 }
 
 // timelineInsetValue resolves one inset token. auto resolves to zero with a
@@ -536,14 +665,14 @@ func timelineInsetValue(token string, fsize, scrollport float64) (float64, bool)
 	return 0, false
 }
 
-// timelineScrollport is the page scrollport dimension on the view timeline
-// axis, in layout points. Percentages resolve against it.
-func timelineScrollport(style *ResolvedStyle, ctx *styleContext) float64 {
+// timelineScrollport is the page scrollport dimension on a view timeline's
+// used axis, in layout points. Percentages resolve against it.
+func timelineScrollport(usedAxis string, ctx *styleContext) float64 {
 	if ctx == nil {
 		return 0
 	}
 
-	if timelineUsedAxis(style.ViewTimelineAxis, style.WritingMode) == timelineAxisX {
+	if usedAxis == timelineAxisX {
 		return ctx.viewportW
 	}
 
@@ -551,12 +680,14 @@ func timelineScrollport(style *ResolvedStyle, ctx *styleContext) float64 {
 }
 
 func applyViewTimelineInsetWide(style *ResolvedStyle, keyword string, parent *ResolvedStyle, hasParent bool) {
+	style.ViewTimelineInsets = ""
 	style.ViewTimelineInsetStart = 0
 	style.ViewTimelineInsetEnd = 0
 	style.ViewTimelineInsetStartSet = false
 	style.ViewTimelineInsetEndSet = false
 
 	if keyword == inheritKeyword && hasParent && parent != nil {
+		style.ViewTimelineInsets = parent.ViewTimelineInsets
 		style.ViewTimelineInsetStart = parent.ViewTimelineInsetStart
 		style.ViewTimelineInsetEnd = parent.ViewTimelineInsetEnd
 		style.ViewTimelineInsetStartSet = parent.ViewTimelineInsetStartSet

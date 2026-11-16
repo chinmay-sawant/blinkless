@@ -17,11 +17,17 @@ view-card-2, view-card-3, scope-root, scope-card, scope-reader, pointer-box,
 pointer-box-longhand, trigger-box, trigger-longhand, trigger-range-pair,
 event-box, event-box-longhand, interest-card, interest-card-longhand,
 inert-panel, auto-panel.
+Section 9 covers the comma lists of scroll-timeline, view-timeline and
+pointer-timeline, and which scroll container a timeline reads: list-bar,
+list-view-card, list-pointer-box, list-none-slot, inner-scroller, inner-scroller-content,
+inner-card, anon-card. inner-scroller scrolls on its own; OwnFrame reports no offset for an
+inner box, so the host takes it from the demo or a test. anon-card sits in a
+scroll container with no id, so its view timeline is inactive.
 No JavaScript.
 -->
 <html style="margin:0">
 <body style="margin:0;background:#f4f0e8;color:#1c1917">
-<div style="padding:28px 32px 48px">
+<div style="padding:48px 32px 48px">
 <p style="margin:0 0 6px;font-size:28px">blinkless scroll and triggers</p>
 <p style="margin:0 0 28px;font-size:16px;width:640px">Twenty-seven styles. Scroll the page. Each block names the styles it shows.</p>
 <p style="margin:0 0 8px;font-size:18px">1. scroll-timeline, scroll-timeline-name, scroll-timeline-axis</p>
@@ -32,7 +38,7 @@ No JavaScript.
 </div>
 <div style="height:600px;background:#efe9db;margin:0 0 40px;font-size:14px;padding:10px">scroll filler so the page is tall enough for scroll progress</div>
 <p style="margin:0 0 8px;font-size:18px">2. view-timeline, view-timeline-name, view-timeline-axis, view-timeline-inset</p>
-<p style="margin:0 0 10px;font-size:14px;width:640px">Each card reports how far it has moved through the viewport.</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Each card reports how far it has moved through the window: the blue fill grows as the card crosses it, and the card fades and slides in as it enters. Card 3 uses the x axis, so scrolling down never moves it.</p>
 <div style="margin:0 0 40px">
 <div id="view-card-1" style="width:300px;height:60px;padding:10px;background:#e8e2d4;border:2px solid #111;margin:0 0 12px;font-size:14px;view-timeline:--card1 y;view-timeline-inset:20px 10px">card 1 view-timeline inset 20px 10px</div>
 <div id="view-card-2" style="width:300px;height:60px;padding:10px;background:#e8e2d4;border:2px solid #111;margin:0 0 12px;font-size:14px;view-timeline:--card2 y;view-timeline-inset:auto">card 2 view-timeline inset auto</div>
@@ -82,6 +88,23 @@ No JavaScript.
 <div style="margin:0 0 40px">
 <div id="inert-panel" style="width:300px;height:60px;padding:10px;background:#e8e2d4;border:2px solid #111;margin:0 0 12px;font-size:14px;interactivity:inert;background:#ddd">interactivity: inert</div>
 <div id="auto-panel" style="width:300px;height:60px;padding:10px;background:#e8e2d4;border:2px solid #111;margin:0 0 12px;font-size:14px;interactivity:auto">interactivity: auto</div>
+</div>
+<div style="height:600px;background:#efe9db;margin:0 0 40px;font-size:14px;padding:10px">scroll filler so the page is tall enough for scroll progress</div>
+<p style="margin:0 0 8px;font-size:18px">9. timeline lists and scroll containers</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Each property takes a comma list. The first name of each kind is drawn; every name is read. A none item keeps its slot. The inner box scrolls on its own, and the box with no id has no scroller the host can name.</p>
+<div style="margin:0 0 40px">
+<div id="list-bar" style="position:fixed;top:24px;left:0;z-index:10;width:600px;height:12px;background:#2a8;scroll-timeline:--list-a y, --list-b x"></div>
+<div id="list-view-card" style="width:300px;height:60px;padding:10px;background:#e8e2d4;border:2px solid #111;margin:0 0 12px;font-size:14px;view-timeline:--lv-a y 20px 10px, --lv-b x auto">view-timeline list: --lv-a y 20px 10px, --lv-b x auto</div>
+<div id="list-pointer-box" style="width:300px;height:60px;padding:10px;background:#e8e2d4;border:2px solid #111;margin:0 0 12px;font-size:14px;pointer-timeline-name:--lp-a, --lp-b;pointer-timeline-axis:x, y">pointer-timeline list: --lp-a x, --lp-b y</div>
+<div id="list-none-slot" style="width:300px;height:30px;padding:10px;background:#ccc;border:2px solid #111;margin:0 0 12px;font-size:14px;scroll-timeline-name:none, --ln-b;scroll-timeline-axis:x, y">none keeps its slot: only --ln-b y</div>
+<div id="inner-scroller" style="width:320px;height:120px;overflow:auto;border:2px solid #111;background:#e8e2d4;margin:0 0 12px;scroll-timeline:--inner y">
+<div id="inner-scroller-content" style="height:420px;padding:10px;font-size:14px">inner scroller: its scroll timeline reads this box, not the page. Roll the wheel over this box, or press J (down) or K (up).
+<div id="inner-card" style="height:50px;margin-top:160px;padding:6px;background:#fff;border:1px solid #111;view-timeline:--ic y">inner-card: view timeline in inner-scroller</div>
+</div>
+</div>
+<div style="width:200px;height:60px;overflow:scroll;border:2px solid #111;margin:0 0 12px">
+<div id="anon-card" style="height:100px;padding:6px;background:#fff;font-size:14px;view-timeline:--anon y">anon-card: scroller has no id</div>
+</div>
 </div>
 </div>
 </body>

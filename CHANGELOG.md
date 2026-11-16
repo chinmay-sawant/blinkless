@@ -22,6 +22,12 @@ Tracked in [`plans/v0.1.2/`](plans/v0.1.2/README.md).
   in `layout/timeline_scope_test.go`, `layout/trigger_test.go`,
   `layout/event_trigger_test.go`, and `layout/interest_test.go`. The
   showcase page is `testdata/css/v012/scroll/page.html`.
+- **Timeline lists and scrollers.** `scroll-timeline*`, `view-timeline*`
+  and `pointer-timeline*` take comma lists. A box exports one timeline per
+  name, and the axis and inset lists line up with the names by index. Each
+  timeline names the scroll container it reads in `TimelineDef.ScrollerID`,
+  or sets `ScrollerAnonymous` when that container has no id. These ten rows
+  are now `implemented`. Tests are in `layout/timeline_list_test.go`.
 
 ## 0.1.1 (2026-11-10)
 

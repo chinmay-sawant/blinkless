@@ -1,5 +1,11 @@
 # v0.1.2 - Print-noop properties
 
+> Update 2026-11-16: the ten scroll, view, and pointer timeline names now take
+> comma lists and name the scroll container they read, so their catalog rows are
+> `implemented`. Any sentence below that says one name per kind, a one-axis
+> store, or a page-only scroller describes the state before that change. The
+> proof is in [../validation.md](../validation.md).
+
 > **Parent:** `plans/v0.1.2/README.md`
 > **Status:** 75 names parked. The 27 timeline, trigger, interest, and interactivity names have an engine row `[x]` and a host row `[~]`.
 > **Estimated effort:** Leave 75 names parked until a separate product adds a scrollport, a speech reader, a pointer, or a host timeline. This ledger records that wait.
@@ -477,9 +483,9 @@ What to expect: A future host-timeline test sets `scroll-timeline-axis: x` besid
 
 ### scroll-timeline-name
 
-`applyTimelineNameProp` writes one dashed name to `ResolvedStyle.ScrollTimelineName` (`internal/layout/timeline_style.go:440-441`, field at `internal/layout/style.go:618`) and rejects a comma list (`timeline_style.go:144-146`). The catalog row is still unsupported with an empty handlers list (`testdata/css/catalog/properties.json:16782`).
+`applyTimelineNameProp` writes one dashed name to `ResolvedStyle.ScrollTimelineName` (`internal/layout/timeline_style.go:440-441`, field at `internal/layout/style.go:618`) and, since 2026-11-16, accepts a comma list of names (`parseTimelineName` in `internal/layout/timeline_style.go`). The catalog row is still unsupported with an empty handlers list (`testdata/css/catalog/properties.json:16782`).
 
-What to expect: A future host-timeline test sets `scroll-timeline-name: --page` and demands a scroll timeline of that name on the initial block axis, y in horizontal-tb. `scroll-timeline-name: none` demands no scroll timeline on the box. `scroll-timeline-name: --a, --b` is rejected today because one name per kind is stored (`internal/layout/timeline_style.go:144-146`, `layout/timeline.go:17-18`). A future product that wants two names has to pass that list through.
+What to expect: A future host-timeline test sets `scroll-timeline-name: --page` and demands a scroll timeline of that name on the initial block axis, y in horizontal-tb. `scroll-timeline-name: none` demands no scroll timeline on the box. `scroll-timeline-name: --a, --b` now exports two scroll timelines in that order (`layout/timeline_list_test.go:31`). A future product that wants two names has to pass that list through.
 
 - [x] Engine: `scroll-timeline-name` is parsed, validated, cascaded, and exported on `layout.Box`. Proof: `TestBoxScrollAndViewTimelineCascade` (`layout/timeline_scope_test.go:166`), passing on 2026-11-16 with `go test ./layout -run TestBoxScrollAndViewTimelineCascade -count=1 -p 1`. Page: `testdata/css/v012/scroll/page.html`.
 - [~] Host: progress from scroll offset, view position, or pointer position happens in OwnFrame, not here (`../ownframe/examples/blinkless-scroll`). Reason: the engine owns no clock, scroll offset, or pointer. Owner: OwnFrame. Next gate: that example exercises `scroll-timeline-name` on the scroll page.
@@ -758,7 +764,7 @@ What to expect: A future host-timeline test sets `view-timeline-inset: 20px 10px
 
 ### view-timeline-name
 
-`applyTimelineNameProp` writes one dashed name to `ResolvedStyle.ViewTimelineName` (`internal/layout/timeline_style.go:442-443`, field at `internal/layout/style.go:620`) and rejects a comma list (`timeline_style.go:144-146`). The catalog row is still unsupported with an empty handlers list (`testdata/css/catalog/properties.json:19719`).
+`applyTimelineNameProp` writes one dashed name to `ResolvedStyle.ViewTimelineName` (`internal/layout/timeline_style.go:442-443`, field at `internal/layout/style.go:620`) and, since 2026-11-16, accepts a comma list of names (`parseTimelineName` in `internal/layout/timeline_style.go`). The catalog row is still unsupported with an empty handlers list (`testdata/css/catalog/properties.json:19719`).
 
 What to expect: A future host-timeline test sets `view-timeline-name: --card` and demands a view timeline of that name whose subject is this element (`layout/timeline.go:27-28`). `view-timeline-name: none` demands no view timeline. A comma list is rejected (`internal/layout/timeline_style.go:144-146`).
 
