@@ -33,7 +33,8 @@ const emulateZeroDash = "0 100000"
 // when no tag changes.
 func emulatePresentation(data []byte) []byte {
 	if !bytesContainsFold(data, []byte("paint-order")) && !bytesContainsFold(data, []byte("pathlength")) &&
-		!bytesContainsFold(data, []byte("vector-effect")) && !bytesContainsFold(data, []byte("feflood")) {
+		!bytesContainsFold(data, []byte("vector-effect")) && !bytesContainsFold(data, []byte("feflood")) &&
+		!bytesContainsFold(data, []byte("fediffuselighting")) {
 		return data
 	}
 
@@ -123,7 +124,7 @@ func emulateShapeTag(
 
 	index := emulateAttrMap(attrs)
 
-	if flat, ok := emulateFloodShape(name, index, floods); ok {
+	if flat, ok := emulateFloodShape(name, index, floods, rootScale); ok {
 		return flat, true
 	}
 
@@ -512,12 +513,13 @@ func emulateNonScalingStroke(attrs []emulateAttr, index map[string]string, scale
 type emulateFlood struct {
 	color, opacity string
 	x, y, w, h     float64 // region, as fractions of the bounding box
+	light          *emulateLighting
 }
 
 // emulateCollectFloods finds each filter whose only primitive is one feFlood.
 // A filter with any other primitive is left to the canvas, which ignores it.
 func emulateCollectFloods(data []byte) map[string]emulateFlood {
-	if !bytesContainsFold(data, []byte("feflood")) {
+	if !bytesContainsFold(data, []byte("feflood")) && !bytesContainsFold(data, []byte("fediffuselighting")) {
 		return nil
 	}
 
@@ -529,6 +531,9 @@ func emulateCollectFloods(data []byte) map[string]emulateFlood {
 		region   emulateFlood
 		prims    []string
 		flood    map[string]string
+		filterAt map[string]string
+		diffuse  map[string]string
+		distant  map[string]string
 	)
 
 	pos, tags := 0, 0
@@ -555,6 +560,9 @@ func emulateCollectFloods(data []byte) map[string]emulateFlood {
 				if len(prims) == 1 && prims[0] == "feflood" && id != "" {
 					region.color, region.opacity = flood["flood-color"], flood["flood-opacity"]
 					floods[id] = region
+				} else if light, ok := emulateLightingFilter(prims, filterAt, diffuse, distant); ok && id != "" {
+					region.light = &light
+					floods[id] = region
 				}
 
 				inFilter = false
@@ -569,14 +577,20 @@ func emulateCollectFloods(data []byte) map[string]emulateFlood {
 		case name == "filter" && !selfClose:
 			index := emulateAttrMap(attrs)
 			inFilter, id, prims, flood = true, index["id"], nil, nil
+			filterAt, diffuse, distant = index, nil, nil
 			region = emulateFlood{
 				x: emulateFraction(index["x"], -0.1), y: emulateFraction(index["y"], -0.1),
 				w: emulateFraction(index["width"], 1.2), h: emulateFraction(index["height"], 1.2),
 			}
 		case inFilter && strings.HasPrefix(name, "fe"):
 			prims = append(prims, name)
-			if name == "feflood" {
+			switch name {
+			case "feflood":
 				flood = emulateAttrMap(attrs)
+			case "fediffuselighting":
+				diffuse = emulateAttrMap(attrs)
+			case "fedistantlight":
+				distant = emulateAttrMap(attrs)
 			}
 		}
 	}
@@ -610,7 +624,9 @@ func emulateFraction(raw string, fallback float64) float64 {
 
 // emulateFloodShape replaces a rect, circle, or ellipse that uses a
 // single-feFlood filter with one flat rect covering the filter region.
-func emulateFloodShape(name string, index map[string]string, floods map[string]emulateFlood) (string, bool) {
+func emulateFloodShape(
+	name string, index map[string]string, floods map[string]emulateFlood, rootScale float64,
+) (string, bool) {
 	ref := strings.TrimSpace(index["filter"])
 	if len(floods) == 0 || !strings.HasPrefix(ref, "url(#") || !strings.HasSuffix(ref, ")") {
 		return "", false
@@ -639,6 +655,16 @@ func emulateFloodShape(name string, index map[string]string, floods map[string]e
 
 	if boxW <= 0 || boxH <= 0 {
 		return "", false
+	}
+
+	if flood.light != nil {
+		unit := 1.0
+		if rootScale > 0 {
+			unit = 1 / rootScale
+		}
+
+		return emulateLitShape(name, index, *flood.light,
+			boxX+flood.x*boxW, boxY+flood.y*boxH, flood.w*boxW, flood.h*boxH, boxX, boxY, boxW, boxH, unit), true
 	}
 
 	color := flood.color
