@@ -5,11 +5,13 @@ package layout
 // into one matrix and folds it into the box transform, so the display list
 // moves the element the same way an element with `transform` moves.
 //
-// Reference box: a box carries no pointer to its containing block, so path
-// coordinates, a ray start, and the position keywords resolve against the
-// element's own border box, and the path origin is the box's top-left corner.
-// A browser uses the containing block there. Order of use: offset first, then
-// the transform the element already has.
+// Reference box: path coordinates start at the top-left corner of the
+// containing block (motionReference), and offset-position and the shape
+// functions resolve against its size. offset-anchor still resolves against the
+// element's own border box.
+// A box no stamp pass has reached has no parent yet and uses its own top-left
+// corner. Order of use: offset first, then the transform the element already
+// has.
 
 // effectiveMotion merges the shorthand and the longhands. A longhand wins over
 // the shorthand whatever their source order: the cascade keeps the text, not
@@ -113,14 +115,15 @@ func motionLocalMatrix(sty *ResolvedStyle, boxNode *box) (Matrix2D, bool) {
 		return IdentityMatrix(), false
 	}
 
+	refX, refY, refW, refH := motionReference(boxNode)
 	boxW, boxH := boxNode.w, boxNode.height
 
 	var startX, startY float64
 	if spec.posSet {
-		startX, startY = spec.pos.x.at(boxW), spec.pos.y.at(boxH)
+		startX, startY = spec.pos.x.at(refW), spec.pos.y.at(refH)
 	}
 
-	path, ok := spec.shape.buildAt(boxW, boxH, sty.FontSize, startX, startY)
+	path, ok := spec.shape.buildAt(refW, refH, sty.FontSize, startX, startY)
 	if !ok {
 		return IdentityMatrix(), false
 	}
@@ -140,7 +143,7 @@ func motionLocalMatrix(sty *ResolvedStyle, boxNode *box) (Matrix2D, bool) {
 		anchorX, anchorY = boxNode.x+spec.anchor.x.at(boxW), boxNode.y+spec.anchor.y.at(boxH)
 	}
 
-	abs := Translate(boxNode.x+pathX, boxNode.y+pathY).Mul(RotateDeg(angle)).Mul(Translate(-anchorX, -anchorY))
+	abs := Translate(refX+pathX, refY+pathY).Mul(RotateDeg(angle)).Mul(Translate(-anchorX, -anchorY))
 
 	return Translate(-originX, -originY).Mul(abs).Mul(Translate(originX, originY)), true
 }
@@ -156,4 +159,47 @@ func withMotionPath(sty *ResolvedStyle, boxNode *box, tform Matrix2D) Matrix2D {
 	}
 
 	return tform
+}
+
+// motionReference returns the containing block that path coordinates and
+// offset-position resolve against: its top-left corner and its size, in canvas
+// points. An absolute or fixed box uses the padding box of its nearest
+// positioned ancestor. Any other box uses the content box of its parent.
+// Without a parent, or without a positioned ancestor for an absolute box, the
+// box's own border box stands in.
+func motionReference(boxNode *box) (float64, float64, float64, float64) {
+	own := func() (float64, float64, float64, float64) { return boxNode.x, boxNode.y, boxNode.w, boxNode.height }
+
+	parent := boxNode.motionParent
+	if parent == nil {
+		return own()
+	}
+
+	if sty := boxNode.style; sty != nil && (sty.Position == positionAbsolute || sty.Position == positionFixed) {
+		for anc := parent; anc != nil; anc = anc.motionParent {
+			if anc.style != nil && anc.style.Position != "" && anc.style.Position != positionStatic {
+				return motionInset(anc, 0)
+			}
+		}
+
+		return own()
+	}
+
+	return motionInset(parent, 1)
+}
+
+// motionInset returns the padding box (withPadding 0) or content box
+// (withPadding 1) of one box.
+func motionInset(anc *box, withPadding float64) (float64, float64, float64, float64) {
+	sty := anc.style
+	if sty == nil {
+		return anc.x, anc.y, anc.w, anc.height
+	}
+
+	left := sty.BorderLeft.Width + withPadding*sty.PaddingLeft
+	top := sty.BorderTop.Width + withPadding*sty.PaddingTop
+	right := sty.BorderRight.Width + withPadding*sty.PaddingRight
+	bottom := sty.BorderBottom.Width + withPadding*sty.PaddingBottom
+
+	return anc.x + left, anc.y + top, max(anc.w-left-right, 0), max(anc.height-top-bottom, 0)
 }

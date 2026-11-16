@@ -11,9 +11,9 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 666,
+      "implemented": 677,
       "intentionally ignored": 8,
-      "partial": 22,
+      "partial": 11,
       "unsupported": 89
     },
     "aliases": 38,
@@ -4169,7 +4169,7 @@
         "none | parent | display"
       ],
       "limitations": [
-        "Grammar and export only. It needs the parent's rounded-corner curve geometry."
+        "With parent, the part of the parent's rounded corner that lies inside the child's border box is stroked with the child's border color and width. The value display needs a screen outline the engine does not store, so it keeps the plain border. Only a uniform top border width and color are read."
       ],
       "source": [
         "internal/layout/declared_fields.go",
@@ -4177,12 +4177,18 @@
         "internal/layout/style.go",
         "internal/layout/placed.go",
         "layout/layout.go",
-        "internal/layout/declared_shapes.go"
+        "internal/layout/declared_shapes.go",
+        "internal/layout/border_boundary.go"
       ],
       "handlers": [
-        "applyDeclaredProps"
+        "applyDeclaredProps",
+        "addBorderBoundary"
       ],
       "tests": [
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderBoundaryParentTracesCurve"
+        },
         {
           "file": "layout/declared_shapes_test.go",
           "name": "TestDeclaredShapesGrammar"
@@ -4192,7 +4198,7 @@
           "name": "TestDeclaredShapesWideKeywords"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | parent | display"
     },
@@ -5412,7 +5418,7 @@
         "none | [ <basic-shape> <geometry-box>?]{1,2}"
       ],
       "limitations": [
-        "Grammar and export only. It needs a new path painter for the border."
+        "One shape only: circle, ellipse or inset against the border box, painted as one fill path and one border path when the four sides match. Two shapes (the band), polygon, path, xywh, rect and shape() keep the ordinary border."
       ],
       "source": [
         "internal/layout/declared_fields.go",
@@ -5420,12 +5426,18 @@
         "internal/layout/style.go",
         "internal/layout/placed.go",
         "layout/layout.go",
-        "internal/layout/declared_shapes.go"
+        "internal/layout/declared_shapes.go",
+        "internal/layout/border_shape_paint.go"
       ],
       "handlers": [
-        "applyDeclaredProps"
+        "applyDeclaredProps",
+        "borderShapePaint"
       ],
       "tests": [
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderShapeEllipsePath"
+        },
         {
           "file": "layout/declared_shapes_test.go",
           "name": "TestDeclaredShapesGrammar"
@@ -5435,7 +5447,7 @@
           "name": "TestDeclaredShapesWideKeywords"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | [ <basic-shape> <geometry-box>?]{1,2}"
     },
@@ -9881,7 +9893,7 @@
         "<integer> | last | none"
       ],
       "limitations": [
-        "Grammar and export only. There is no later column or page to defer a float to."
+        "Applies to floats that are direct children of a multicol container: an integer moves the float that many columns to the right, last moves it to the last column, and a count past the end stops at the last column. The float keeps its own y. Pages are not filled, so there is no page deferral, and a float outside a multicol container stays where it is."
       ],
       "source": [
         "internal/layout/declared_fields.go",
@@ -9889,12 +9901,18 @@
         "internal/layout/style.go",
         "internal/layout/placed.go",
         "layout/layout.go",
-        "internal/layout/declared_shapes.go"
+        "internal/layout/declared_shapes.go",
+        "internal/layout/float_defer.go"
       ],
       "handlers": [
-        "applyDeclaredProps"
+        "applyDeclaredProps",
+        "deferFloatsToColumns"
       ],
       "tests": [
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestFloatDeferMovesFloatToLaterColumn"
+        },
         {
           "file": "layout/declared_shapes_test.go",
           "name": "TestDeclaredShapesGrammar"
@@ -9904,7 +9922,7 @@
           "name": "TestDeclaredShapesWideKeywords"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<integer> | last | none"
     },
@@ -14664,7 +14682,7 @@
           "name": "TestMotionDeclaredValues"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ <'offset-position'>? [ <'offset-path'> [ <'offset-distance'> || <'offset-rotate'> ]? ]? ]! [ / <'offset-anchor'> ]?"
     },
@@ -14779,7 +14797,7 @@
         "none | <offset-path> || <coord-box>"
       ],
       "limitations": [
-        "Moves the box (path(), ray(), circle, ellipse, inset, polygon, none). Missing: the reference box is the element's own border box, path() arcs become straight lines, url() is not supported, ray size and contain are accepted but ignored."
+        "Moves the box (path(), ray(), circle, ellipse, inset, polygon, none). Path coordinates start at the containing block (the parent's content box, or the padding box of the nearest positioned ancestor for an absolute box). Missing: path() arcs become straight lines, url() is not supported, ray size and contain are accepted but ignored."
       ],
       "source": [
         "internal/layout/declared_fields.go",
@@ -14799,6 +14817,14 @@
         "withMotionPath"
       ],
       "tests": [
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionReferenceIsContainingBlock"
+        },
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionRelayoutMovesBox"
+        },
         {
           "file": "layout/declared_motion_test.go",
           "name": "TestMotionPathMovesBox"
@@ -14820,7 +14846,7 @@
           "name": "TestMotionDeclaredValues"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | <offset-path> || <coord-box>"
     },
@@ -14831,7 +14857,7 @@
         "normal | auto | <position>"
       ],
       "limitations": [
-        "Acts on ray() only, against the element's own border box instead of the containing block."
+        "Acts on ray() only. Percentages and keywords resolve against the containing block."
       ],
       "source": [
         "internal/layout/declared_fields.go",
@@ -14853,6 +14879,10 @@
       "tests": [
         {
           "file": "layout/declared_motion_test.go",
+          "name": "TestMotionPositionPercentUsesContainingBlock"
+        },
+        {
+          "file": "layout/declared_motion_test.go",
           "name": "TestMotionRayAndAnchor"
         },
         {
@@ -14860,7 +14890,7 @@
           "name": "TestMotionDeclaredValues"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | auto | <position>"
     },
@@ -15620,7 +15650,7 @@
         "none | auto"
       ],
       "limitations": [
-        "Stored, exported, and a host function decides top-layer order. The engine paints no top layer."
+        "Stored, exported, and a host function decides top-layer order. The engine paints no top layer. Checked on 2026-11-17 from a render of the Reading order and misc tab in the blinkless-all host: the readout order matched the layout for flex, source, grid rows and grid columns, the reading-order numbers, and overlay auto versus none."
       ],
       "source": [
         "internal/layout/declared_fields.go",
@@ -15639,7 +15669,7 @@
           "name": "TestDeclaredReadGrammar"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | auto"
     },
@@ -16838,7 +16868,7 @@
         "normal | source-order | flex-visual | flex-flow | grid-rows | grid-columns | grid-order"
       ],
       "limitations": [
-        "Stored, exported on Box.Declared and acted on by the blinkless-all host, with a headless test of the host decision. Kept partial until the behavior is checked by hand in the OwnFrame window. Host proof: examples/blinkless-all/read_test.go in the ownframe repo. Flex items already arrive in visual order, so position-based reordering is proven on absolutely positioned children only."
+        "Stored, exported on Box.Declared and acted on by the blinkless-all host, with a headless test of the host decision (examples/blinkless-all/read_test.go in the ownframe repo). Flex items already arrive in visual order, so position-based reordering is proven on absolutely positioned children only. Checked on 2026-11-17 from a render of the Reading order and misc tab in the blinkless-all host: the readout order matched the layout for flex, source, grid rows and grid columns, the reading-order numbers, and overlay auto versus none."
       ],
       "source": [
         "internal/layout/declared_fields.go",
@@ -16857,7 +16887,7 @@
           "name": "TestDeclaredReadGrammar"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | source-order | flex-visual | flex-flow | grid-rows | grid-columns | grid-order"
     },
@@ -16868,7 +16898,7 @@
         "<integer>"
       ],
       "limitations": [
-        "Stored, exported on Box.Declared and acted on by the blinkless-all host, with a headless test of the host decision. Kept partial until the behavior is checked by hand in the OwnFrame window. Host proof: examples/blinkless-all/read_test.go in the ownframe repo. Flex items already arrive in visual order, so position-based reordering is proven on absolutely positioned children only."
+        "Stored, exported on Box.Declared and acted on by the blinkless-all host, with a headless test of the host decision (examples/blinkless-all/read_test.go in the ownframe repo). Flex items already arrive in visual order, so position-based reordering is proven on absolutely positioned children only. Checked on 2026-11-17 from a render of the Reading order and misc tab in the blinkless-all host: the readout order matched the layout for flex, source, grid rows and grid columns, the reading-order numbers, and overlay auto versus none."
       ],
       "source": [
         "internal/layout/declared_fields.go",
@@ -16887,7 +16917,7 @@
           "name": "TestDeclaredReadGrammar"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<integer>"
     },
@@ -18744,7 +18774,7 @@
         "<opacity-value>"
       ],
       "limitations": [
-        "Grammar and export only. shape-outside has no url() image contour for the threshold to cut."
+        "Applies to a url() shape-outside on a left or right float: the image alpha picks, per scanline, the leftmost and rightmost pixel above the threshold. shape-margin widens each scanline sideways only. Other shape functions ignore it."
       ],
       "source": [
         "internal/layout/declared_fields.go",
@@ -18752,12 +18782,20 @@
         "internal/layout/style.go",
         "internal/layout/placed.go",
         "layout/layout.go",
-        "internal/layout/declared_shapes.go"
+        "internal/layout/declared_shapes.go",
+        "internal/layout/shape_image.go",
+        "internal/layout/style_shape_props.go"
       ],
       "handlers": [
-        "applyDeclaredProps"
+        "applyDeclaredProps",
+        "buildShapeOutside",
+        "buildShapeImageMask"
       ],
       "tests": [
+        {
+          "file": "layout/shape_image_threshold_test.go",
+          "name": "TestShapeImageThreshold"
+        },
         {
           "file": "layout/declared_shapes_test.go",
           "name": "TestDeclaredShapesGrammar"
@@ -18767,7 +18805,7 @@
           "name": "TestDeclaredShapesWideKeywords"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<opacity-value>"
     },
@@ -20424,7 +20462,7 @@
         "[ none | grow | shrink ] [consistent | per-line | per-line-all]? <percentage>?"
       ],
       "limitations": [
-        "Grammar and export only. Descendant font sizes are resolved before layout, so a shrink or grow needs a layout hook."
+        "One line of plain text in a block: grow and shrink scale the font to the content width and a percentage caps the scale. A block with elements or several text runs keeps its font size. The consistent, per-line and per-line-all modes read the same for one line."
       ],
       "source": [
         "internal/layout/declared_fields.go",
@@ -20433,12 +20471,18 @@
         "internal/layout/placed.go",
         "layout/layout.go",
         "internal/layout/declared_shapes.go",
-        "internal/layout/style_text_spacing_props.go"
+        "internal/layout/style_text_spacing_props.go",
+        "internal/layout/text_fit.go"
       ],
       "handlers": [
-        "applyDeclaredProps"
+        "applyDeclaredProps",
+        "applyTextFit"
       ],
       "tests": [
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestTextFitScalesOneLine"
+        },
         {
           "file": "layout/declared_shapes_test.go",
           "name": "TestDeclaredShapesGrammar"
@@ -20448,7 +20492,7 @@
           "name": "TestDeclaredShapesWideKeywords"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ none | grow | shrink ] [consistent | per-line | per-line-all]? <percentage>?"
     },

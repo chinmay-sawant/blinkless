@@ -1701,7 +1701,10 @@ type box struct {
 	perspCY          float64
 	preserveComposed bool
 	children         []*box
-	firstBaseline    float64
+	// motionParent is the parent box, stamped by advanceStamp so a motion path
+	// can find its containing block. Nil until a stamp pass has run.
+	motionParent  *box
+	firstBaseline float64
 	// table cells
 	col, span int
 	row       int // owning table row index, set once at placement

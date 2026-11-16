@@ -12,9 +12,9 @@ import (
 //   - shape-outside: none | circle() | ellipse() | inset() [ || <shape-box> ]
 //   - shape-margin: <length-percentage>
 //
-// polygon()/path()/url() parse as rejected (leave prior value). shape-inside
+// polygon()/path() parse as rejected; url() is kept for the image mask (leave prior value). shape-inside
 // and shape-padding are owned by style_shape_inside.go (v0.0.3 shapes
-// ledger); shape-image-threshold stays Unsupported (no apply arm).
+// ledger); shape-image-threshold lives in the declared store and is read by shape_image.go.
 
 const (
 	shapeOutsideNone = "none"
@@ -77,6 +77,8 @@ func parseShapeOutside(raw string) (string, bool) {
 		canonical, ok = canonicalShapeEllipse(args)
 	case "inset":
 		canonical, ok = canonicalShapeInset(args)
+	case "url":
+		canonical, ok = "url("+args+")", args != ""
 	default:
 		return "", false
 	}

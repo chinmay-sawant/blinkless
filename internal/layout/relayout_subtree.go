@@ -1399,7 +1399,7 @@ func sameBoxPaintInputs(left, right *box, shift int) bool {
 		return left == right
 	}
 
-	if left.kind != right.kind ||
+	if !sameBoxKindUntransformed(left, right) ||
 		!sameBoxOpWindow(left, right, shift) ||
 		!sameBreakStyle(left.style, right.style) ||
 		!sameBreakNode(left.node, right.node) ||
@@ -1414,6 +1414,19 @@ func sameBoxPaintInputs(left, right *box, shift int) bool {
 	}
 
 	return true
+}
+
+// sameBoxKindUntransformed reports whether two boxes share a kind and neither
+// carries a transform. A box with a transform (offset-path included) keeps no
+// paint-only shortcut: the splice reuses the old box metadata, and the matrix
+// on it would stay at the old value while the operations move.
+func sameBoxKindUntransformed(left, right *box) bool {
+	return left.kind == right.kind && !boxCarriesTransform(left) && !boxCarriesTransform(right)
+}
+
+// boxCarriesTransform reports whether the box has a transform of any kind.
+func boxCarriesTransform(boxNode *box) bool {
+	return boxNode.style != nil && (boxNode.style.HasTransform || boxNode.style.HasTransform3D)
 }
 
 // sameBoxOpWindow compares one box's operation range after rebasing the old

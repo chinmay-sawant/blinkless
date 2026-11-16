@@ -1319,6 +1319,12 @@ func advanceStamp(boxNode *box, state stampState) stampBoxStep {
 	has3D := sty != nil && sty.HasTransform3D
 	isPreserve := isPreserveBox(boxNode)
 
+	for _, child := range boxNode.children {
+		if child != nil {
+			child.motionParent = boxNode
+		}
+	}
+
 	markPreserveComposed(boxNode, has3D, state.chainActive, isPreserve)
 
 	preservePath := state.chainActive || isPreserve

@@ -5,6 +5,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/chinmay-sawant/blinkless/html"
 	"github.com/chinmay-sawant/blinkless/layout"
 )
 
@@ -32,7 +33,8 @@ func near(t *testing.T, label string, got, want float64) {
 	}
 }
 
-// TestMotionPathMovesBox: the anchor (box center) lands on the point halfway
+// TestMotionPathMovesBox: path coordinates start at the containing block (the
+// body, at 0,0), so the anchor (box center) lands 50px in, on the point halfway
 // along a 100px line, and the ops of the box carry that matrix.
 func TestMotionPathMovesBox(t *testing.T) {
 	t.Parallel()
@@ -47,8 +49,8 @@ func TestMotionPathMovesBox(t *testing.T) {
 	k := display.PointsPerPixel
 	x, y := motionCenter(t, display, 0.5, 0.5)
 
-	near(t, "x", x, (b.X+50)*k)
-	near(t, "y", y, b.Y*k)
+	near(t, "x", x, 50*k)
+	near(t, "y", y, 0)
 
 	moved := 0
 
@@ -101,17 +103,15 @@ func TestMotionDistanceClampAndWrap(t *testing.T) {
 
 	open := renderDisplay(t,
 		motionPage("offset-rotate: 0deg; offset-path: path('M 0 0 L 100 0'); offset-distance: 500px"), "")
-	b := boxByID(t, open, "m")
 	x, _ := motionCenter(t, open, 0.5, 0.5)
-	near(t, "open clamp x", x, (b.X+100)*open.PointsPerPixel)
+	near(t, "open clamp x", x, 100*open.PointsPerPixel)
 
 	// A 100x100 square has a 400px perimeter, so 450px is 50px past the start.
 	closed := renderDisplay(t, motionPage("offset-rotate: 0deg; "+
 		"offset-path: polygon(0px 0px, 100px 0px, 100px 100px, 0px 100px); offset-distance: 450px"), "")
-	b = boxByID(t, closed, "m")
 	x, y := motionCenter(t, closed, 0.5, 0.5)
-	near(t, "wrap x", x, (b.X+50)*closed.PointsPerPixel)
-	near(t, "wrap y", y, b.Y*closed.PointsPerPixel)
+	near(t, "wrap x", x, 50*closed.PointsPerPixel)
+	near(t, "wrap y", y, 0)
 }
 
 // TestMotionRayAndAnchor: a ray runs up from its start; offset-anchor moves
@@ -121,17 +121,15 @@ func TestMotionRayAndAnchor(t *testing.T) {
 
 	ray := renderDisplay(t, motionPage("offset-rotate: 0deg; offset-path: ray(90deg); "+
 		"offset-distance: 30px; offset-position: 5px 5px"), "")
-	b := boxByID(t, ray, "m")
 	x, y := motionCenter(t, ray, 0.5, 0.5)
-	near(t, "ray x", x, (b.X+35)*ray.PointsPerPixel)
-	near(t, "ray y", y, (b.Y+5)*ray.PointsPerPixel)
+	near(t, "ray x", x, 35*ray.PointsPerPixel)
+	near(t, "ray y", y, 5*ray.PointsPerPixel)
 
 	corner := renderDisplay(t, motionPage("offset-rotate: 0deg; offset-anchor: left top; "+
 		"offset-path: path('M 20 10 L 100 10'); offset-distance: 0px"), "")
-	b = boxByID(t, corner, "m")
 	x, y = motionCenter(t, corner, 0, 0)
-	near(t, "corner x", x, (b.X+20)*corner.PointsPerPixel)
-	near(t, "corner y", y, (b.Y+10)*corner.PointsPerPixel)
+	near(t, "corner x", x, 20*corner.PointsPerPixel)
+	near(t, "corner y", y, 10*corner.PointsPerPixel)
 }
 
 // TestMotionShorthandMatchesLonghands: the offset shorthand expands onto the
@@ -160,11 +158,10 @@ func TestMotionComposesWithTransform(t *testing.T) {
 
 	display := renderDisplay(t, motionPage(
 		"transform: translate(20px, 0); offset-rotate: 0deg; offset-path: path('M 0 0 L 100 0'); offset-distance: 50%"), "")
-	b := boxByID(t, display, "m")
 	x, y := motionCenter(t, display, 0.5, 0.5)
 
-	near(t, "x", x, (b.X+50+20)*display.PointsPerPixel)
-	near(t, "y", y, b.Y*display.PointsPerPixel)
+	near(t, "x", x, (50+20)*display.PointsPerPixel)
+	near(t, "y", y, 0)
 }
 
 // TestMotionDeclaredValues: grammar accepted and rejected, no inheritance,
@@ -220,4 +217,81 @@ func TestMotionDeclaredValues(t *testing.T) {
 	if _, ok := boxByID(t, display, "m").Declared["offset-distance"]; ok {
 		t.Error("initial must clear offset-distance")
 	}
+}
+
+// TestMotionReferenceIsContainingBlock: a static box measures its path from
+// the parent's content box, an absolute box from the padding box of its
+// positioned ancestor.
+func TestMotionReferenceIsContainingBlock(t *testing.T) {
+	t.Parallel()
+
+	page := func(child string) string {
+		return `<!DOCTYPE html><html><body style="margin:0"><div id="p" style="position:relative;margin-left:100px;` +
+			`border:4px solid #888;padding:10px;width:200px;height:100px">` +
+			`<div id="m" style="width:40px;height:20px;background:#f00;offset-rotate:0deg;` +
+			`offset-path:path('M 0 0 L 100 0');offset-distance:50%;` + child + `">x</div></div></body></html>`
+	}
+
+	static := renderDisplay(t, page(""), "")
+	x, y := motionCenter(t, static, 0.5, 0.5)
+	near(t, "static x", x, (100+4+10+50)*static.PointsPerPixel)
+	near(t, "static y", y, (4+10)*static.PointsPerPixel)
+
+	abs := renderDisplay(t, page("position:absolute;left:30px;top:30px"), "")
+	x, y = motionCenter(t, abs, 0.5, 0.5)
+	near(t, "absolute x", x, (100+4+50)*abs.PointsPerPixel)
+	near(t, "absolute y", y, 4*abs.PointsPerPixel)
+}
+
+// TestMotionRelayoutMovesBox: changing offset-distance on a retained page moves
+// the box on the next relayout, the way a host animates it.
+func TestMotionRelayoutMovesBox(t *testing.T) {
+	t.Parallel()
+
+	tree, err := html.Parse([]byte(`<!DOCTYPE html><html><body style="margin:0">` +
+		`<div style="position:relative;height:60px">` +
+		`<div id="m" style="width:20px;height:20px;background:#00f;offset-rotate:0deg;offset-anchor:left top;` +
+		`offset-path:path('M 0 0 L 200 0');offset-distance:0px"></div></div></body></html>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	styled := mustApply(t, tree, 400, 300, "", "", "")
+	display := layRetained(t, styled)
+
+	for _, px := range []float64{50, 120} {
+		dist := fmt.Sprintf("%gpx", px)
+
+		if !tree.SetAttribute("m", "style", "width:20px;height:20px;background:#00f;offset-rotate:0deg;"+
+			"offset-anchor:left top;offset-path:path('M 0 0 L 200 0');offset-distance:"+dist) {
+			t.Fatal("no element m")
+		}
+
+		next, err := layout.RelayoutElements(t.Context(), styled, display, []string{"m"}, layout.Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		x, _ := boxByID(t, next, "m").Transform.Own.Apply(0, 0)
+		near(t, "x after "+dist, x/next.PointsPerPixel, px)
+
+		display = next
+	}
+}
+
+// TestMotionPositionPercentUsesContainingBlock: offset-position percentages
+// measure the containing block (the 200x100 content box), not the 40x20 box.
+func TestMotionPositionPercentUsesContainingBlock(t *testing.T) {
+	t.Parallel()
+
+	page := `<!DOCTYPE html><html><body style="margin:0">` +
+		`<div style="margin-left:100px;padding:10px;width:200px;height:100px">` +
+		`<div id="m" style="width:40px;height:20px;background:#f00;offset-rotate:0deg;offset-anchor:left top;` +
+		`offset-path:ray(90deg);offset-position:50% 50%;offset-distance:0px">x</div></div></body></html>`
+
+	display := renderDisplay(t, page, "")
+	x, y := motionCenter(t, display, 0, 0)
+
+	near(t, "x", x, (100+10+100)*display.PointsPerPixel)
+	near(t, "y", y, (10+50)*display.PointsPerPixel)
 }

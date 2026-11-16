@@ -270,3 +270,204 @@ func TestColumnRuleVisibilityItemsAround(t *testing.T) {
 		t.Errorf("around = %d all = %d, want gap plus two edges", around, all)
 	}
 }
+
+// pathBounds counts the fill and stroke OpPath ops of a display and returns
+// the x range their points cover.
+func pathBounds(display *layout.Display) (int, int, float64, float64) {
+	fills, strokes := 0, 0
+	minX, maxX := math.Inf(1), math.Inf(-1)
+
+	for _, op := range display.Ops {
+		if op.Kind != layout.DisplayOpPath {
+			continue
+		}
+
+		path, ok := op.CornerPathValue()
+		if !ok {
+			continue
+		}
+
+		if path.Stroke {
+			strokes++
+		} else {
+			fills++
+		}
+
+		for _, cmd := range path.Cmds {
+			if cmd.Verb == layout.PathClose {
+				continue
+			}
+
+			minX, maxX = math.Min(minX, cmd.Pts[0].X), math.Max(maxX, cmd.Pts[0].X)
+		}
+	}
+
+	return fills, strokes, minX, maxX
+}
+
+// TestBorderShapeEllipsePath: border-shape: ellipse paints the fill and the
+// border as path ops that stay inside the border box, and none keeps rects.
+func TestBorderShapeEllipsePath(t *testing.T) {
+	t.Parallel()
+
+	page := func(decl string) string {
+		return fmt.Sprintf(`<!DOCTYPE html><html><body style="margin:0"><div style="position:absolute;`+
+			`left:10px;top:10px;box-sizing:border-box;width:100px;height:60px;border:4px solid #00f;`+
+			`background:#eef;border-radius:50%%;%s"></div></body></html>`, decl)
+	}
+
+	fills, strokes, minX, maxX := pathBounds(renderDisplay(t, page("border-shape: ellipse(50% 50%)"), ""))
+	if fills != 1 || strokes != 1 {
+		t.Fatalf("fills=%d strokes=%d, want 1 and 1", fills, strokes)
+	}
+
+	if math.Abs(minX) > 0.1 || math.Abs(maxX-75) > 0.1 {
+		t.Errorf("ellipse x range = %.2f..%.2f, want 0..75pt, the 100px box", minX, maxX)
+	}
+
+	fills, strokes, _, _ = pathBounds(renderDisplay(t, page("border-shape: none"), ""))
+	if fills != 0 || strokes != 0 {
+		t.Errorf("border-shape none emitted %d fill and %d stroke paths", fills, strokes)
+	}
+
+	fills, strokes, _, _ = pathBounds(renderDisplay(t, page("border-shape: ellipse(50% 50%) ellipse(40% 40%)"), ""))
+	if fills != 0 || strokes != 0 {
+		t.Errorf("two-shape band is not painted yet, got %d fill and %d stroke paths", fills, strokes)
+	}
+}
+
+// textSize returns the font size of the first text op.
+func textSize(display *layout.Display) float64 {
+	for _, op := range display.Ops {
+		if op.Kind == layout.DisplayOpText {
+			return op.Size
+		}
+	}
+
+	return 0
+}
+
+// TestTextFitScalesOneLine: grow enlarges a short line toward the box width,
+// shrink reduces a long one to fit, the percentage caps the scale, and none
+// leaves the font alone.
+func TestTextFitScalesOneLine(t *testing.T) {
+	t.Parallel()
+
+	size := func(text, decl string) float64 {
+		page := fmt.Sprintf(`<!DOCTYPE html><html><body style="margin:0"><div style="width:200px;`+
+			`font-size:12px;%s">%s</div></body></html>`, decl, text)
+
+		return textSize(renderDisplay(t, page, ""))
+	}
+
+	plain := size("Fit me", "")
+	if plain <= 0 {
+		t.Fatal("no text op")
+	}
+
+	if grown := size("Fit me", "text-fit: grow"); grown < plain*2 {
+		t.Errorf("grow size = %.2f, plain %.2f, want a clear enlargement", grown, plain)
+	}
+
+	if capped := size("Fit me", "text-fit: grow consistent 150%"); math.Abs(capped-plain*1.5) > 0.05 {
+		t.Errorf("grow 150%% size = %.2f, want %.2f", capped, plain*1.5)
+	}
+
+	long := "A much longer line of text that cannot fit in two hundred pixels at twelve"
+	longPlain := size(long, "")
+
+	if shrunk := size(long, "text-fit: shrink"); !(shrunk < longPlain*0.9) {
+		t.Errorf("shrink size = %.2f, plain %.2f, want smaller", shrunk, longPlain)
+	}
+
+	if size("Fit me", "text-fit: shrink") != plain {
+		t.Error("shrink changed a line that already fits")
+	}
+
+	if size("Fit me", "text-fit: none") != plain {
+		t.Error("text-fit none changed the font")
+	}
+}
+
+// TestFloatDeferMovesFloatToLaterColumn: in a three column box a float with
+// float-defer: 1 sits one column (100px plus the 10px gap) to the right of the same float without it,
+// `last` puts it in the third column, and a count past the end stops there.
+func TestFloatDeferMovesFloatToLaterColumn(t *testing.T) {
+	t.Parallel()
+
+	left := func(decl string) float64 {
+		page := fmt.Sprintf(`<!DOCTYPE html><html><body style="margin:0"><div style="column-count:3;column-gap:10px;`+
+			`width:320px"><div id="f" style="float:left;width:20px;height:20px;background:#f00;%s"></div>`+
+			`<p>one two three</p></div></body></html>`, decl)
+
+		for _, box := range renderDisplay(t, page, "").Boxes {
+			if box.ID == "f" {
+				return box.X
+			}
+		}
+
+		t.Fatal("no float box")
+
+		return 0
+	}
+
+	base := left("")
+
+	for decl, want := range map[string]float64{
+		"float-defer:none": 0, "float-defer:1": 110, "float-defer:last": 220, "float-defer:5": 220,
+	} {
+		if got := left(decl) - base; math.Abs(got-want) > 0.1 {
+			t.Errorf("%s moved the float by %.2fpx, want %.0fpx", decl, got, want)
+		}
+	}
+}
+
+// TestBorderBoundaryParentTracesCurve: a child in the corner of a rounded
+// parent gets a border path along the parent's curve inside its own box, and
+// none/display or a child clear of the curve get no path.
+func TestBorderBoundaryParentTracesCurve(t *testing.T) {
+	t.Parallel()
+
+	paths := func(boundary, offset string) (int, float64, float64) {
+		page := fmt.Sprintf(`<!DOCTYPE html><html><body style="margin:0"><div style="width:150px;height:60px;`+
+			`border-radius:50%%;background:#eee"><div id="c" style="position:relative;%s;width:50px;height:20px;`+
+			`border:4px solid #c0392b;%s"></div></div></body></html>`, offset, boundary)
+
+		count := 0
+		minX, maxX := math.Inf(1), math.Inf(-1)
+
+		for _, op := range renderDisplay(t, page, "").Ops {
+			path, ok := op.CornerPathValue()
+			if op.Kind != layout.DisplayOpPath || !ok || !path.Stroke {
+				continue
+			}
+
+			count++
+
+			for _, cmd := range path.Cmds {
+				minX, maxX = math.Min(minX, cmd.Pts[0].X), math.Max(maxX, cmd.Pts[0].X)
+			}
+		}
+
+		return count, minX, maxX
+	}
+
+	count, minX, maxX := paths("border-boundary:parent", "left:0;top:0")
+	if count == 0 {
+		t.Fatal("child in the parent's corner got no boundary path")
+	}
+
+	if minX < -0.1 || maxX > 58*0.75+0.1 {
+		t.Errorf("boundary path x range %.2f..%.2f leaves the child's 58px box", minX, maxX)
+	}
+
+	for _, tc := range []struct{ boundary, offset string }{
+		{"border-boundary:none", "left:0;top:0"},
+		{"border-boundary:display", "left:0;top:0"},
+		{"border-boundary:parent", "left:50px;top:20px"},
+	} {
+		if got, _, _ := paths(tc.boundary, tc.offset); got != 0 {
+			t.Errorf("%s at %s gave %d boundary paths, want 0", tc.boundary, tc.offset, got)
+		}
+	}
+}

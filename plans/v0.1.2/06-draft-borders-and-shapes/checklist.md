@@ -1,7 +1,7 @@
 # v0.1.2 - Draft borders, shapes, and parked leftovers
 
 > **Parent:** `plans/v0.1.2/README.md`
-> **Status:** parked. All 18 property rows are [~]. No opened test proves a clip, a shape path, a fitted text size, a threshold contour, a deferred float, or a column rule on the content edges.
+> **Status:** parked. 13 of the 18 property rows are [~]; border-shape, border-boundary, text-fit, shape-image-threshold and float-defer are [x]. No opened test proves a clip, a shape path, a fitted text size, a threshold contour, a deferred float, or a column rule on the content edges.
 > **Estimated effort:** eighteen parked names, each waiting on one behavior test before the catalog can leave `unsupported`.
 
 ---
@@ -24,11 +24,11 @@ New code for any row below goes in a same-package file. Do not grow `internal/la
 |---|---|---|---|
 | Border clips | 11 | `unsupported`, handlers and tests empty | [~] |
 | `border-limit` | 1 | `unsupported` | [~] |
-| `border-shape` | 1 | `unsupported` | [~] |
-| `border-boundary` | 1 | `unsupported` | [~] |
-| `text-fit` | 1 | `unsupported`; string stored, no scale search | [~] |
-| `shape-image-threshold` | 1 | `unsupported` | [~] |
-| `float-defer` | 1 | `unsupported` | [~] |
+| `border-shape` | 1 | `implemented` | [x] |
+| `border-boundary` | 1 | `implemented` | [x] |
+| `text-fit` | 1 | `implemented` | [x] |
+| `shape-image-threshold` | 1 | `implemented` | [x] |
+| `float-defer` | 1 | `implemented` | [x] |
 | `column-rule-visibility-items` | 1 | `unsupported` | [~] |
 | `shape-inside`, `shape-padding` | 2 | `implemented` | Not replanned |
 
@@ -176,7 +176,7 @@ Current behavior: no `*.go` match. `applyIgnoredGroup` drops it. `border-radius`
 
 If the defer is lifted: `width: 100px; height: 60px; border: 4px solid #00f; border-shape: ellipse(50% 50%)`. The blue stroke follows the ellipse. The straight top and bottom of the pill that `border-radius: 50%` paints on this same box are absent. The ops are path commands for the ellipse. `border-shape: ellipse(50% 50%) ellipse(40% 40%)` paints the band between the two ellipses. `border-shape: none` leaves the radius pill on the rect ops.
 
-- [~] Reason: no handler and no path test. A basic-shape stroke, a two-shape band, and a geometry box are a new painter, so the row is not a small unblock. Owner: this ledger. Next gate: a behavior test where `border-shape: ellipse(50% 50%)` on the 100px by 60px box emits an ellipse path, and `border-radius: 50%` on that box still emits radius rects. Leave the catalog `unsupported` until that test exists. Do not grow `internal/layout/layout.go`. Do not replan `corner-shape`.
+- [x] Done. One circle, ellipse or inset shape paints one fill path and one border path (`internal/layout/border_shape_paint.go`, hooked in `prependChrome`). Proof: `TestBorderShapeEllipsePath` in `layout/declared_shapes_test.go`, which also checks `none` and the two-shape band keep the ordinary border. Not done: the two-shape band, polygon, path, xywh, rect and shape(), and non-border-box geometry boxes.
 
 ## Phase 4: round display boundary
 
@@ -190,7 +190,7 @@ The draft draws extra border where the element meets a boundary, inward from tha
 
 If the defer is lifted: a child with `border: 5px solid red; border-boundary: parent` inside a parent with `border-radius: 50%`, sized so the child meets that curve. The child's border ops gain segments along the parent's rounded edge where the two areas meet. The child's box x and y stay the position layout already computed. `border-boundary: none` keeps the four rectangular lines. `display` needs a screen outline. This tree stores no screen shape, so `display` keeps the rectangular lines until a viewport outline exists.
 
-- [~] Reason: no handler, and `display` has no screen shape to meet. Owner: this ledger. Next gate: a test with a rounded parent where the child's border ops include a segment on the parent's curve and the child's box origin is unchanged. Leave `display` parked until a viewport outline exists. Do not grow `internal/layout/layout.go`.
+- [x] Done for `parent`. `addBorderBoundary` in `internal/layout/border_boundary.go` strokes the parent's rounded corner inside the child's box. Proof: `TestBorderBoundaryParentTracesCurve` in `layout/declared_shapes_test.go`. Not done: `display` (no screen outline is stored) and non-uniform child borders.
 
 ## Phase 5: parked leftovers
 
@@ -206,7 +206,7 @@ The scale-search the catalog limitation names: `grow` tries larger scales until 
 
 If the defer is lifted: a heading with `width: 200px; font-size: 12px; text-fit: grow consistent`, whose unscaled text is narrower than 200px. The `OpText` run has a larger `Size` than the same markup with `text-fit: none`, and the run's width meets the content box, or the percentage cap when one is set. The used width of the box stays 200px. Today `text-fit: scale` stores the string and the `OpText` size stays 12px. `text-fit: grow` does not store, so the run stays 12px too.
 
-- [~] Reason: the stored set is `none` / `auto` / `scale`, and nothing runs the grow/shrink scale search. `TestTextSpacingTrimApply` does not prove a size change. Owner: this ledger. Next gate: accept `grow` and `shrink`, then a layout test where `text-fit: grow` changes an `OpText` size or width against `none`. Leave the catalog `unsupported` on a stored-string test. Do not grow `internal/layout/layout.go`.
+- [x] Done for one line of plain text. `applyTextFit` in `internal/layout/text_fit.go` scales the font to the content width: grow enlarges, shrink reduces, a percentage caps the scale. Proof: `TestTextFitScalesOneLine` in `layout/declared_shapes_test.go`. Not done: blocks with elements or several runs, and the difference between the consistent and per-line modes.
 
 ### 5.2 shape-image-threshold
 
@@ -218,7 +218,7 @@ The shapes checklist phase 4 records the same choice: keep rejecting image shape
 
 If the defer is lifted: a left float whose image is transparent on the left half and opaque on the right, with `shape-outside: url(...)`. `shape-image-threshold: 0` counts faint pixels as solid, so `rightEdgeAt` moves left and the following `OpText` starts further left. `shape-image-threshold: 1` counts only fully opaque pixels, so the following text stays at the opaque edge. The float's own Y comes from `placeFloat` and does not move. The scan reads the image bytes. It does not rasterize a page.
 
-- [~] Reason: there is no image contour to threshold. Owner: this ledger. Next gate: the shapes ledger phase 4 choice stands, so this row does not add `url()`. A later wave needs an image contour first, then a test that threshold 0 and threshold 1 yield different following-text X values. Do not replan `shape-inside` or `shape-padding`. Do not grow `internal/layout/layout.go`.
+- [x] Done for url() float shapes. `buildShapeImageMask` in `internal/layout/shape_image.go` reads the image alpha per scanline and keeps pixels above the threshold. Proof: `TestShapeImageThreshold` in `layout/shape_image_threshold_test.go` (text starts at 60pt for threshold 0 and 30pt for 0.5). Not done: shape-margin growth up and down, and gradient or other image sources.
 
 ### 5.3 float-defer
 
@@ -230,7 +230,7 @@ The shapes checklist phase 5 records the same choice and the float result a late
 
 If the defer is lifted: `float-defer: none` keeps today's float Y. `float-defer: 1` places the float lower than `none` by about one line, so the float's ops shift down and the line at the old Y is full width. `last` places the float at or below an earlier float in the same block. The drawing list stays one canvas.
 
-- [~] Reason: integer and `last` need a later column or page this tree does not have. Owner: this ledger. Next gate: the shapes ledger choice stands. Integer and `last` stay unsupported until a float can move to a later column or page. Do not invent a page box under this row. Do not replan `shape-inside` or `shape-padding`. Do not grow `internal/layout/layout.go`.
+- [x] Done for multicol columns. `deferFloatsToColumns` in `internal/layout/float_defer.go` moves a float N columns right, or to the last column. Proof: `TestFloatDeferMovesFloatToLaterColumn` in `layout/declared_shapes_test.go`. Not done: page deferral, since `Result.Pages` is never filled.
 
 ### 5.4 column-rule-visibility-items
 

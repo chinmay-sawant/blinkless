@@ -119,6 +119,8 @@ func (e *engine) buildMulticol(node *html.Node, style ResolvedStyle, availW, x, 
 		curY = e.flowMulticolSegment(boxNode, seg.nodes, style, nCols, colW, gap, contentX, yPos, curY)
 	}
 
+	e.deferFloatsToColumns(boxNode, contentX, colW, gap, nCols)
+
 	curY = clampMulticolHeight(curY, style, e)
 	boxNode.height = curY
 	e.prependChrome(contentStart, boxNode, style, boxNode.x, yPos, boxNode.w, boxNode.height)

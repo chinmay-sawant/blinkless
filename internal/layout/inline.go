@@ -315,6 +315,10 @@ func (e *engine) layoutInlineFloats(
 	e.pushInlineDecorationBreak()
 	defer e.popInlineDecorationBreak()
 
+	if restore := e.applyTextFit(boxNode, nodes, contentW); restore != nil {
+		defer restore()
+	}
+
 	if h, ok := e.layoutSingleTextRun(boxNode, nodes, contentW, contentX, lineY, floats); ok {
 		return h
 	}
