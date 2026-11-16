@@ -140,7 +140,7 @@ func timelineProperty(prop string) bool {
 // declarations. A CSS-wide keyword and a var() reference are valid at parse
 // time; every other value must match the grammar.
 func timelineDeclarationValueAccepted(prop, value string) (bool, bool) {
-	if accepted, handled := triggerDeclarationValueAccepted(prop, value); handled {
+	if accepted, handled := familyDeclarationValueAccepted(prop, value); handled {
 		return accepted, true
 	}
 
@@ -494,6 +494,12 @@ func applyTimelineProps(
 	parent *ResolvedStyle, hasParent bool,
 ) bool {
 	if applyTriggerProps(style, prop, value, fsize, parent, hasParent) {
+		return true
+	}
+
+	if applyDeclaredProps(style, prop, value, parent, hasParent) {
+		motionAfterDeclared(style, prop)
+
 		return true
 	}
 

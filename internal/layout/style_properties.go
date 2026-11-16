@@ -1326,6 +1326,9 @@ func applyColorBackgroundProps(style *ResolvedStyle, prop, value string) bool {
 		style.BackgroundOrigin = strings.ToLower(strings.TrimSpace(value))
 	case "background-attachment":
 		style.BackgroundAttachment = strings.ToLower(strings.TrimSpace(value))
+		// The host reads the normalized list from Box.Declared; this handler
+		// runs before the declared group, so it stores the value too.
+		applyDeclaredProps(style, prop, value, nil, false)
 	default:
 		return false
 	}

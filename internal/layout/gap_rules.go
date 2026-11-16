@@ -528,6 +528,8 @@ func (e *engine) paintGridColumnRules(
 
 		e.emitColumnRuleSegments(style, center, segments, ruleW)
 	}
+
+	e.emitColumnRuleEdges(&style, contentX, cursor+cols[len(cols)-1], top, bottom, ruleW)
 }
 
 // emitColumnRuleSegments paints the vertical segments of one column rule.

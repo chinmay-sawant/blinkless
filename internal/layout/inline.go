@@ -518,8 +518,8 @@ func (e *engine) layoutInlineFloatsGeneric(
 		firstLine := lineCount == 1
 
 		if clampLimit > 0 && clampLimit == explicitClamp && lineCount >= clampLimit && idx < len(items) {
-			if end > start && items[end-1].text != "" {
-				items[end-1].text += "…"
+			if marker := blockEllipsisMarker(boxNode.style); end > start && items[end-1].text != "" && marker != "" {
+				items[end-1].text += marker
 			}
 		}
 

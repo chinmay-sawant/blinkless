@@ -2,7 +2,7 @@
 
 Each directory holds one phase checklist. A `[x]` row is a behavior a current test already asserts. A `[ ]` row is open work. A `[~]` row is parked, with a reason, an owner, and a next gate. Close a `[ ]` row only after the test named on that row exits 0.
 
-The catalog is `testdata/css/catalog/properties.json`, measured 2026-11-16: 785 rows, 599 implemented, 1 partial, 177 unsupported, 8 intentionally ignored. At the 2026-11-02 start it was 555 implemented, 4 partial, 218 unsupported. This ledger covers the 4 partial rows, the unsupported rows, and a few implemented baselines the new work has to match. It does not replan properties that are already implemented.
+The catalog is `testdata/css/catalog/properties.json`, measured 2026-11-16: 785 rows, 666 implemented, 22 partial, 89 unsupported, 8 intentionally ignored. At the 2026-11-02 start it was 555 implemented, 4 partial, 218 unsupported. This ledger covers the 4 partial rows, the unsupported rows, and a few implemented baselines the new work has to match. It does not replan properties that are already implemented.
 
 The engine result is `layout.DisplayList` on one canvas (`layout/displaylist.go`). These files do not add a page encoder, a PDF writer, or a second copy of `internal/layout/layout.go`.
 
@@ -25,6 +25,8 @@ Progress: three batches of ten are implemented (commits `331447b`, `e9075d2`, `8
 A fourth batch of five is also done: `margin-break` (column starts, catalog `partial`), `image-rendering`, `vector-effect`, `flood-color`, and `flood-opacity`. A fifth batch of three is `-webkit-text-stroke`, `-webkit-text-stroke-color`, and `-webkit-text-stroke-width`.
 
 A sixth batch of 27 stores timelines, triggers, interest delays, and `interactivity` on `layout.Box`. Their engine rows and their host rows are `[x]` in ledger 9; the proof is in [validation.md](validation.md). That leaves 75 print-noop names parked.
+
+A seventh batch of 61 stores, exports and (for 20 of them) acts on navigation and UI, draft border, motion path, fragmentation, reading order and SVG leftover styles. They are `Box.Declared` values plus the engine behavior named in [validation.md](validation.md). 40 are `implemented` and 21 are `partial`. The ledger rows in phases 4 to 9 for these names are not closed yet; the OwnFrame window `examples/blinkless-all` is where a person checks the partial ones by hand.
 
 The first ten styles have a validation plan: [validation.md](validation.md). A catalog row stays `unsupported` until the test named there exits 0. The OwnFrame window is the picture check. It is not the pass.
 

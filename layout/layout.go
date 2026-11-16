@@ -30,6 +30,10 @@ type Box struct {
 	// declares. Scroll comes before view; a nil slice means no declaration.
 	// See TimelineDef for the resolution rules.
 	Timelines []TimelineDef
+	// Declared holds the properties the engine stores for the host without
+	// acting on them (caret, nav-*, reading-flow, offset-*, bookmark-*, and
+	// the like), by property name, as computed text. Nil when none is declared.
+	Declared map[string]string
 	// TimelineScope is the computed timeline-scope. See TimelineScope.
 	TimelineScope TimelineScope
 	// TimelineTriggers holds the timeline triggers this element declares, one
@@ -233,6 +237,7 @@ func boxFrom(item *ilayout.PlacedElement) Box {
 		ViewTransitionGroup: item.ViewTransitionGroup,
 		ViewTransitionScope: item.ViewTransitionScope,
 		Timelines:           timelinesFrom(item.Timelines),
+		Declared:            item.Declared,
 		TimelineScope:       timelineScopeFrom(item.Triggers.TimelineScope),
 		TimelineTriggers:    timelineTriggersFrom(item.Triggers.TimelineTriggers),
 		EventTriggers:       eventTriggersFrom(item.Triggers.EventTriggers),

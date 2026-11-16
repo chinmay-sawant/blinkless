@@ -347,6 +347,7 @@ func (e *engine) writeSVGNode(b *bytes.Buffer, node *html.Node, paint *svgPaintP
 			b.WriteString(` xmlns="http://www.w3.org/2000/svg"`)
 		}
 		e.writeSVGPresentationAttrs(b, node, &written, &decls, paint)
+		e.writeSVGLeftoverAttrs(b, node, &written, &decls)
 		writeSVGExtraPresentationAttrs(b, node, &written, &decls)
 		if len(node.Children) == 0 {
 			if splitSVGMarkerShape(b, tagStart) {

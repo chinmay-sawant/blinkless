@@ -11,14 +11,14 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 626,
-      "partial": 1,
-      "unsupported": 150,
-      "intentionally ignored": 8
+      "implemented": 666,
+      "intentionally ignored": 8,
+      "partial": 22,
+      "unsupported": 89
     },
     "aliases": 38,
-    "engine_registered": 635,
-    "upstream_only": 150,
+    "engine_registered": 689,
+    "upstream_only": 96,
     "upstream": {
       "inventory": "webref-ed-css",
       "revision": "1f2ec8f74a80c14066b4c7d6822cee59f69fa03b",
@@ -423,16 +423,34 @@
     {
       "name": "-webkit-appearance",
       "aliases": [],
-      "values": [],
+      "values": [
+        "see upstream syntax"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The host draws a plain box for none and a button for button, with a pressed state. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (live tests TestLive* in nav_live_test.go, pure functions in nav_test.go) and was checked by hand in the OwnFrame window on 2026-11-16. A browser would act on it in its own UI, which this engine does not have."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_nav.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavGrammar"
+        },
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavInvalidKeepsEarlier"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
@@ -1051,16 +1069,34 @@
     {
       "name": "-webkit-text-size-adjust",
       "aliases": [],
-      "values": [],
+      "values": [
+        "see upstream syntax"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Same as text-size-adjust; the standard name wins over the prefixed one. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (live tests TestLive* in nav_live_test.go, pure functions in nav_test.go) and was checked by hand in the OwnFrame window on 2026-11-16. A browser would act on it in its own UI, which this engine does not have."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_nav.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavGrammar"
+        },
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavInvalidKeepsEarlier"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
@@ -1393,16 +1429,34 @@
     {
       "name": "-webkit-user-select",
       "aliases": [],
-      "values": [],
+      "values": [
+        "see upstream syntax"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "A click selects the word, everything or nothing as the value says. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (live tests TestLive* in nav_live_test.go, pure functions in nav_test.go) and was checked by hand in the OwnFrame window on 2026-11-16. A browser would act on it in its own UI, which this engine does not have."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_nav.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavGrammar"
+        },
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavInvalidKeepsEarlier"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "vendor"
     },
     {
@@ -2593,21 +2647,27 @@
         "scroll | fixed | inherit"
       ],
       "limitations": [
-        "Parsed and stored (BackgroundAttachment, style_properties.go:1297) but no layout or paint consumer reads it: background_image.go:343 documents fixed as intentionally painting as scroll. The engine has no scrolling viewport, so fixed/local versus scroll is unobservable. Only test is a stored-string assertion (TestBackgroundLonghands)."
+        "Stored and exported. The engine paints fixed and local as scroll; the host only computes the shift."
       ],
       "source": [
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_read.go",
         "internal/layout/style_properties.go"
       ],
       "handlers": [
-        "applyColorBackgroundProps"
+        "applyDeclaredProps"
       ],
       "tests": [
         {
-          "file": "internal/layout/style_backgrounds_borders_test.go",
-          "name": "TestBackgroundLonghands"
+          "file": "layout/declared_read_test.go",
+          "name": "TestDeclaredReadGrammar"
         }
       ],
-      "status": "unsupported",
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "scroll | fixed | inherit"
     },
@@ -3030,32 +3090,75 @@
     {
       "name": "background-tbd",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<bg-layer>#"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Not a real CSS property. Stored and exported only."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_read.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_read_test.go",
+          "name": "TestDeclaredReadGrammar"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<bg-layer>#"
     },
     {
       "name": "baseline-shift",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<length-percentage> | sub | super | top | center | bottom"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "A stylesheet value is written onto the serialized SVG attribute and absent without it. The canvas rasterizer ignores all five and SVG text is stripped, so there is no pixel proof."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_svg.go",
+        "internal/layout/svgleft_attrs.go",
+        "internal/layout/layout_svg.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "writeSVGLeftoverAttrs"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/svgleft_attrs_test.go",
+          "name": "TestSvgLeftoversBakeFromStylesheet"
+        },
+        {
+          "file": "internal/layout/svgleft_attrs_test.go",
+          "name": "TestSvgLeftoversInlineNoDuplicate"
+        },
+        {
+          "file": "layout/declared_svg_test.go",
+          "name": "TestDeclaredSvgGrammar"
+        },
+        {
+          "file": "layout/declared_svg_test.go",
+          "name": "TestDeclaredSvgInherit"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<length-percentage> | sub | super | top | center | bottom"
     },
@@ -3085,16 +3188,40 @@
     {
       "name": "block-ellipsis",
       "aliases": [],
-      "values": [],
+      "values": [
+        "no-ellipsis | ellipsis | <string>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Replaces the ellipsis on the last line of a clamped block. A long marker string can overflow the line."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_frag.go",
+        "internal/layout/frag_outline.go",
+        "layout/frag_outline.go",
+        "internal/layout/bookmark_outline.go",
+        "internal/layout/frag_ellipsis.go",
+        "internal/layout/inline.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "blockEllipsisMarker"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_frag_test.go",
+          "name": "TestBlockEllipsisMarker"
+        },
+        {
+          "file": "layout/declared_frag_test.go",
+          "name": "TestFragDeclaredValues"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "no-ellipsis | ellipsis | <string>"
     },
@@ -3206,91 +3333,126 @@
     {
       "name": "bookmark-label",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<content-list>"
+      ],
       "limitations": [
-        "Standalone outline model in bookmark_outline.go builds used labels (BuildBookmarkOutline); no cascade handler feeds it yet."
+        "Exported as an ordered outline through layout.Outline (label, level, open or closed, parent). The engine paints nothing for it and there is no outline field on Display."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_frag.go",
+        "internal/layout/frag_outline.go",
+        "layout/frag_outline.go",
+        "internal/layout/bookmark_outline.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applyDeclaredProps",
+        "mirrorFragDeclared"
+      ],
       "tests": [
         {
-          "file": "internal/layout/css_behavior_bookmark_test.go",
-          "name": "TestBehaviorBookmarkLabelContentUsesElementText"
+          "file": "layout/declared_frag_test.go",
+          "name": "TestOutlineFromBookmarks"
         },
         {
-          "file": "internal/layout/css_behavior_bookmark_test.go",
-          "name": "TestBehaviorBookmarkLabelNoneSkipsEntry"
+          "file": "layout/declared_frag_test.go",
+          "name": "TestOutlineLeavesPaintAlone"
         },
         {
-          "file": "internal/layout/css_behavior_bookmark_test.go",
-          "name": "TestBehaviorBookmarkStylesheetCascade"
-        },
-        {
-          "file": "internal/layout/css_behavior_gcpm_wire_test.go",
-          "name": "TestBehaviorGCPMWireBookmarkLabel"
+          "file": "layout/declared_frag_test.go",
+          "name": "TestFragDeclaredValues"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<content-list>"
     },
     {
       "name": "bookmark-level",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | <integer [1,∞]>"
+      ],
       "limitations": [
-        "Standalone outline model in bookmark_outline.go builds used nesting depths; no cascade handler feeds it yet."
+        "Exported as an ordered outline through layout.Outline (label, level, open or closed, parent). The engine paints nothing for it and there is no outline field on Display."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_frag.go",
+        "internal/layout/frag_outline.go",
+        "layout/frag_outline.go",
+        "internal/layout/bookmark_outline.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applyDeclaredProps",
+        "mirrorFragDeclared"
+      ],
       "tests": [
         {
-          "file": "internal/layout/css_behavior_bookmark_test.go",
-          "name": "TestBehaviorBookmarkOutlineNesting"
+          "file": "layout/declared_frag_test.go",
+          "name": "TestOutlineFromBookmarks"
         },
         {
-          "file": "internal/layout/css_behavior_bookmark_test.go",
-          "name": "TestBehaviorBookmarkLevelNoneSkipsEntry"
+          "file": "layout/declared_frag_test.go",
+          "name": "TestOutlineLeavesPaintAlone"
         },
         {
-          "file": "internal/layout/css_behavior_bookmark_test.go",
-          "name": "TestBehaviorBookmarkSkippedLevelNestsUnderNearestAncestor"
-        },
-        {
-          "file": "internal/layout/css_behavior_gcpm_wire_test.go",
-          "name": "TestBehaviorGCPMWireBookmarkLevel"
+          "file": "layout/declared_frag_test.go",
+          "name": "TestFragDeclaredValues"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | <integer [1,∞]>"
     },
     {
       "name": "bookmark-state",
       "aliases": [],
-      "values": [],
+      "values": [
+        "open | closed"
+      ],
       "limitations": [
-        "Standalone outline model in bookmark_outline.go carries used open/closed flags; no cascade handler feeds it yet."
+        "Exported as an ordered outline through layout.Outline (label, level, open or closed, parent). The engine paints nothing for it and there is no outline field on Display."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_frag.go",
+        "internal/layout/frag_outline.go",
+        "layout/frag_outline.go",
+        "internal/layout/bookmark_outline.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applyDeclaredProps",
+        "mirrorFragDeclared"
+      ],
       "tests": [
         {
-          "file": "internal/layout/css_behavior_bookmark_test.go",
-          "name": "TestBehaviorBookmarkStateOpenClosed"
+          "file": "layout/declared_frag_test.go",
+          "name": "TestOutlineFromBookmarks"
         },
         {
-          "file": "internal/layout/css_behavior_gcpm_wire_test.go",
-          "name": "TestBehaviorGCPMWireBookmarkState"
+          "file": "layout/declared_frag_test.go",
+          "name": "TestOutlineLeavesPaintAlone"
+        },
+        {
+          "file": "layout/declared_frag_test.go",
+          "name": "TestFragDeclaredValues"
         }
       ],
-      "status": "unsupported",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "open | closed"
     },
@@ -3347,16 +3509,44 @@
     {
       "name": "border-block-clip",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'border-top-clip'>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Square borders only. Physical longhand beats logical longhand beats axis shorthand beats border-clip; writing mode is ignored. A rounded border is not clipped."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_shapes.go",
+        "internal/layout/shapes_border_clip.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "clipBorderOps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipSplitsEveryEdge"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipLonghandsAndLogical"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipFlexAndPercent"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestDeclaredShapesGrammar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-clip'>"
     },
@@ -3409,16 +3599,44 @@
     {
       "name": "border-block-end-clip",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Square borders only. Physical longhand beats logical longhand beats axis shorthand beats border-clip; writing mode is ignored. A rounded border is not clipped."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_shapes.go",
+        "internal/layout/shapes_border_clip.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "clipBorderOps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipSplitsEveryEdge"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipLonghandsAndLogical"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipFlexAndPercent"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestDeclaredShapesGrammar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
     },
@@ -3542,16 +3760,44 @@
     {
       "name": "border-block-start-clip",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Square borders only. Physical longhand beats logical longhand beats axis shorthand beats border-clip; writing mode is ignored. A rounded border is not clipped."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_shapes.go",
+        "internal/layout/shapes_border_clip.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "clipBorderOps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipSplitsEveryEdge"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipLonghandsAndLogical"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipFlexAndPercent"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestDeclaredShapesGrammar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
     },
@@ -3726,16 +3972,44 @@
     {
       "name": "border-bottom-clip",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Square borders only. Physical longhand beats logical longhand beats axis shorthand beats border-clip; writing mode is ignored. A rounded border is not clipped."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_shapes.go",
+        "internal/layout/shapes_border_clip.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "clipBorderOps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipSplitsEveryEdge"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipLonghandsAndLogical"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipFlexAndPercent"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestDeclaredShapesGrammar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
     },
@@ -3891,32 +4165,78 @@
     {
       "name": "border-boundary",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | parent | display"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Grammar and export only. It needs the parent's rounded-corner curve geometry."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_shapes.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestDeclaredShapesGrammar"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestDeclaredShapesWideKeywords"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "none | parent | display"
     },
     {
       "name": "border-clip",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'border-top-clip'>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Square borders only. Physical longhand beats logical longhand beats axis shorthand beats border-clip; writing mode is ignored. A rounded border is not clipped."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_shapes.go",
+        "internal/layout/shapes_border_clip.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "clipBorderOps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipSplitsEveryEdge"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipLonghandsAndLogical"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipFlexAndPercent"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestDeclaredShapesGrammar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-clip'>"
     },
@@ -4242,16 +4562,44 @@
     {
       "name": "border-inline-clip",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'border-top-clip'>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Square borders only. Physical longhand beats logical longhand beats axis shorthand beats border-clip; writing mode is ignored. A rounded border is not clipped."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_shapes.go",
+        "internal/layout/shapes_border_clip.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "clipBorderOps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipSplitsEveryEdge"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipLonghandsAndLogical"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipFlexAndPercent"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestDeclaredShapesGrammar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<'border-top-clip'>"
     },
@@ -4304,16 +4652,44 @@
     {
       "name": "border-inline-end-clip",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Square borders only. Physical longhand beats logical longhand beats axis shorthand beats border-clip; writing mode is ignored. A rounded border is not clipped."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_shapes.go",
+        "internal/layout/shapes_border_clip.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "clipBorderOps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipSplitsEveryEdge"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipLonghandsAndLogical"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipFlexAndPercent"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestDeclaredShapesGrammar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
     },
@@ -4441,16 +4817,44 @@
     {
       "name": "border-inline-start-clip",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Square borders only. Physical longhand beats logical longhand beats axis shorthand beats border-clip; writing mode is ignored. A rounded border is not clipped."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_shapes.go",
+        "internal/layout/shapes_border_clip.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "clipBorderOps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipSplitsEveryEdge"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipLonghandsAndLogical"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipFlexAndPercent"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestDeclaredShapesGrammar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
     },
@@ -4621,16 +5025,44 @@
     {
       "name": "border-left-clip",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Square borders only. Physical longhand beats logical longhand beats axis shorthand beats border-clip; writing mode is ignored. A rounded border is not clipped."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_shapes.go",
+        "internal/layout/shapes_border_clip.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "clipBorderOps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipSplitsEveryEdge"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipLonghandsAndLogical"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipFlexAndPercent"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestDeclaredShapesGrammar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
     },
@@ -4736,16 +5168,36 @@
     {
       "name": "border-limit",
       "aliases": [],
-      "values": [],
+      "values": [
+        "all | [ sides | corners ] <length-percentage [0,∞]>? | [ top | right | bottom | left ] <length-percentage [0,∞]>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Square borders only. The draft grammar is read as: side length keeps that much from the named end, sides keeps a centered stretch, corners keeps each end."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_shapes.go",
+        "internal/layout/shapes_border_clip.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "clipBorderOps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderLimit"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestDeclaredShapesGrammar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "all | [ sides | corners ] <length-percentage [0,∞]>? | [ top | right | bottom | left ] <length-percentage [0,∞]>"
     },
@@ -4813,16 +5265,44 @@
     {
       "name": "border-right-clip",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Square borders only. Physical longhand beats logical longhand beats axis shorthand beats border-clip; writing mode is ignored. A rounded border is not clipped."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_shapes.go",
+        "internal/layout/shapes_border_clip.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "clipBorderOps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipSplitsEveryEdge"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipLonghandsAndLogical"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipFlexAndPercent"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestDeclaredShapesGrammar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
     },
@@ -4928,16 +5408,34 @@
     {
       "name": "border-shape",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | [ <basic-shape> <geometry-box>?]{1,2}"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Grammar and export only. It needs a new path painter for the border."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_shapes.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestDeclaredShapesGrammar"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestDeclaredShapesWideKeywords"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "none | [ <basic-shape> <geometry-box>?]{1,2}"
     },
@@ -5078,16 +5576,44 @@
     {
       "name": "border-top-clip",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | [ <length-percentage [0,∞]> | <flex> ]+"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Square borders only. Physical longhand beats logical longhand beats axis shorthand beats border-clip; writing mode is ignored. A rounded border is not clipped."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_shapes.go",
+        "internal/layout/shapes_border_clip.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "clipBorderOps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipSplitsEveryEdge"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipLonghandsAndLogical"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestBorderClipFlexAndPercent"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestDeclaredShapesGrammar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | [ <length-percentage [0,∞]> | <flex> ]+"
     },
@@ -5688,32 +6214,68 @@
     {
       "name": "caret",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<'caret-color'> || <'caret-animation'> || <'caret-shape'>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Caret shape and blink in the blinkless-all host. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (live tests TestLive* in nav_live_test.go, pure functions in nav_test.go) and was checked by hand in the OwnFrame window on 2026-11-16. A browser would act on it in its own UI, which this engine does not have."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_nav.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavGrammar"
+        },
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavInvalidKeepsEarlier"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "browser-ui",
       "upstream_syntax": "<'caret-color'> || <'caret-animation'> || <'caret-shape'>"
     },
     {
       "name": "caret-animation",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | manual"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Auto carets blink every 500ms and a manual caret stays solid in the blinkless-all host. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (live tests TestLive* in nav_live_test.go, pure functions in nav_test.go) and was checked by hand in the OwnFrame window on 2026-11-16. A browser would act on it in its own UI, which this engine does not have."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_nav.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavGrammar"
+        },
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavInvalidKeepsEarlier"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "browser-ui",
       "upstream_syntax": "auto | manual"
     },
@@ -5741,16 +6303,34 @@
     {
       "name": "caret-shape",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | bar | block | underscore"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Caret shape (bar, block, underscore) drawn by the blinkless-all host. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (live tests TestLive* in nav_live_test.go, pure functions in nav_test.go) and was checked by hand in the OwnFrame window on 2026-11-16. A browser would act on it in its own UI, which this engine does not have."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_nav.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavGrammar"
+        },
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavInvalidKeepsEarlier"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "browser-ui",
       "upstream_syntax": "auto | bar | block | underscore"
     },
@@ -6534,16 +7114,38 @@
     {
       "name": "column-rule-visibility-items",
       "aliases": [],
-      "values": [],
+      "values": [
+        "all | around | between | normal"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Multicol column rules and grid column rules. The grid path has no test of its own."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_shapes.go",
+        "internal/layout/shapes_column_edges.go",
+        "internal/layout/multicol.go",
+        "internal/layout/gap_rules.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "emitColumnRuleEdges"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestColumnRuleVisibilityItemsAround"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestDeclaredShapesGrammar"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "all | around | between | normal"
     },
@@ -7018,16 +7620,37 @@
     {
       "name": "copy-into",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | [ [ <custom-ident> <content-level>] [, <custom-ident> <content-level>]* ]?"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Exported as named text through layout.CopiedFragments. No page-margin box is painted."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_frag.go",
+        "internal/layout/frag_outline.go",
+        "layout/frag_outline.go",
+        "internal/layout/bookmark_outline.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_frag_test.go",
+          "name": "TestCopiedFragments"
+        },
+        {
+          "file": "layout/declared_frag_test.go",
+          "name": "TestFragDeclaredValues"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "none | [ [ <custom-ident> <content-level>] [, <custom-ident> <content-level>]* ]?"
     },
@@ -8735,16 +9358,34 @@
     {
       "name": "field-sizing",
       "aliases": [],
-      "values": [],
+      "values": [
+        "fixed | content"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "A content-sized field grows to the right with its text and a fixed field keeps its width and shows only the text that fits, the start when it has no focus and the end when it has. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (TestLiveFieldSizingGrowsOnlyTheContentField, TestLiveFieldsStayOnOneLine, TestLiveLongTextNeverLeavesItsBox) and was checked by hand in the OwnFrame window on 2026-11-16."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_nav.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavGrammar"
+        },
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavInvalidKeepsEarlier"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "browser-ui",
       "upstream_syntax": "fixed | content"
     },
@@ -9236,16 +9877,34 @@
     {
       "name": "float-defer",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<integer> | last | none"
+      ],
       "limitations": [
-        "No page-float model exists in this engine. Decision recorded in the shapes ledger: support only none (the initial behavior); integer and last stay unsupported."
+        "Grammar and export only. There is no later column or page to defer a float to."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_shapes.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestDeclaredShapesGrammar"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestDeclaredShapesWideKeywords"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<integer> | last | none"
     },
@@ -10201,66 +10860,68 @@
     {
       "name": "footnote-display",
       "aliases": [],
-      "values": [],
+      "values": [
+        "block | inline | compact"
+      ],
       "limitations": [
-        "Standalone collection in footnote.go numbers and groups footnotes; no footnote area exists yet so values move no box."
+        "Stored and exported on Box.Declared only. There is no footnote area and no page index to act on."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_frag.go",
+        "internal/layout/frag_outline.go",
+        "layout/frag_outline.go",
+        "internal/layout/bookmark_outline.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applyDeclaredProps",
+        "mirrorFragDeclared"
+      ],
       "tests": [
         {
-          "file": "internal/layout/css_behavior_footnote_test.go",
-          "name": "TestBehaviorFootnoteCollectsInDocumentOrder"
-        },
-        {
-          "file": "internal/layout/css_behavior_footnote_test.go",
-          "name": "TestBehaviorFootnoteInvalidValuesFallBackToInitial"
-        },
-        {
-          "file": "internal/layout/css_behavior_footnote_test.go",
-          "name": "TestBehaviorFootnoteCounterResetAndIncrement"
-        },
-        {
-          "file": "internal/layout/css_behavior_footnote_test.go",
-          "name": "TestBehaviorFootnoteFallbackGeometryKeepsContentInFlow"
-        },
-        {
-          "file": "internal/layout/css_behavior_footnote_test.go",
-          "name": "TestBehaviorFootnoteDisplayNoneSkipped"
-        },
-        {
-          "file": "internal/layout/css_behavior_gcpm_wire_test.go",
-          "name": "TestBehaviorGCPMWireFootnoteDisplay"
+          "file": "layout/declared_frag_test.go",
+          "name": "TestFragDeclaredValues"
         }
       ],
-      "status": "unsupported",
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "block | inline | compact"
     },
     {
       "name": "footnote-policy",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | line | block"
+      ],
       "limitations": [
-        "Standalone grouping in footnote.go (GroupFootnotesByPolicy); no page splitter exists yet so no forced break is emitted."
+        "Stored and exported on Box.Declared only. There is no footnote area and no page index to act on."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_frag.go",
+        "internal/layout/frag_outline.go",
+        "layout/frag_outline.go",
+        "internal/layout/bookmark_outline.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applyDeclaredProps",
+        "mirrorFragDeclared"
+      ],
       "tests": [
         {
-          "file": "internal/layout/css_behavior_footnote_test.go",
-          "name": "TestBehaviorFootnotePolicyGrouping"
-        },
-        {
-          "file": "internal/layout/css_behavior_gcpm_wire_test.go",
-          "name": "TestBehaviorGCPMWireFootnotePolicy"
+          "file": "layout/declared_frag_test.go",
+          "name": "TestFragDeclaredValues"
         }
       ],
-      "status": "unsupported",
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "auto | line | block"
     },
@@ -10373,16 +11034,45 @@
     {
       "name": "glyph-orientation-vertical",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | 0deg | 90deg | 0 | 90"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "A stylesheet value is written onto the serialized SVG attribute and absent without it. The canvas rasterizer ignores all five and SVG text is stripped, so there is no pixel proof."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_svg.go",
+        "internal/layout/svgleft_attrs.go",
+        "internal/layout/layout_svg.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "writeSVGLeftoverAttrs"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/svgleft_attrs_test.go",
+          "name": "TestSvgLeftoversBakeFromStylesheet"
+        },
+        {
+          "file": "internal/layout/svgleft_attrs_test.go",
+          "name": "TestSvgLeftoversInlineNoDuplicate"
+        },
+        {
+          "file": "layout/declared_svg_test.go",
+          "name": "TestDeclaredSvgGrammar"
+        },
+        {
+          "file": "layout/declared_svg_test.go",
+          "name": "TestDeclaredSvgInherit"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "auto | 0deg | 90deg | 0 | 90"
     },
@@ -10979,16 +11669,34 @@
     {
       "name": "image-animation",
       "aliases": [],
-      "values": [],
+      "values": [
+        "normal | paused | stopped | running"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Frames cycle on the clock, freeze when paused and stay on the first frame when stopped. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (live tests TestLive* in nav_live_test.go, pure functions in nav_test.go) and was checked by hand in the OwnFrame window on 2026-11-16. A browser would act on it in its own UI, which this engine does not have."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_nav.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavGrammar"
+        },
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavInvalidKeepsEarlier"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | paused | stopped | running"
     },
@@ -11211,16 +11919,34 @@
     {
       "name": "input-security",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | none"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "A password field shows bullets and input-security: none shows the letters. A long value shows only the part that fits its box (the start without focus, the end with focus) and every typed character is kept. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (TestLiveInputSecurity, TestLiveLongTextNeverLeavesItsBox) and was checked by hand in the OwnFrame window on 2026-11-16."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_nav.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavGrammar"
+        },
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavInvalidKeepsEarlier"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "browser-ui",
       "upstream_syntax": "auto | none"
     },
@@ -11763,16 +12489,45 @@
     {
       "name": "lighting-color",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<color>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "A stylesheet value is written onto the serialized SVG attribute and absent without it. The canvas rasterizer ignores all five and SVG text is stripped, so there is no pixel proof."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_svg.go",
+        "internal/layout/svgleft_attrs.go",
+        "internal/layout/layout_svg.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "writeSVGLeftoverAttrs"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/svgleft_attrs_test.go",
+          "name": "TestSvgLeftoversBakeFromStylesheet"
+        },
+        {
+          "file": "internal/layout/svgleft_attrs_test.go",
+          "name": "TestSvgLeftoversInlineNoDuplicate"
+        },
+        {
+          "file": "layout/declared_svg_test.go",
+          "name": "TestDeclaredSvgGrammar"
+        },
+        {
+          "file": "layout/declared_svg_test.go",
+          "name": "TestDeclaredSvgInherit"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<color>"
     },
@@ -12577,16 +13332,45 @@
     {
       "name": "marker-side",
       "aliases": [],
-      "values": [],
+      "values": [
+        "match-self | match-parent"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "A stylesheet value is written onto the serialized SVG attribute and absent without it. The canvas rasterizer ignores all five and SVG text is stripped, so there is no pixel proof."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_svg.go",
+        "internal/layout/svgleft_attrs.go",
+        "internal/layout/layout_svg.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "writeSVGLeftoverAttrs"
+      ],
+      "tests": [
+        {
+          "file": "internal/layout/svgleft_attrs_test.go",
+          "name": "TestSvgLeftoversBakeFromStylesheet"
+        },
+        {
+          "file": "internal/layout/svgleft_attrs_test.go",
+          "name": "TestSvgLeftoversInlineNoDuplicate"
+        },
+        {
+          "file": "layout/declared_svg_test.go",
+          "name": "TestDeclaredSvgGrammar"
+        },
+        {
+          "file": "layout/declared_svg_test.go",
+          "name": "TestDeclaredSvgInherit"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "match-self | match-parent"
     },
@@ -13642,64 +14426,136 @@
     {
       "name": "nav-down",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | <id> [ current | root | <target-name> ]?"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Same as nav-up for the down direction. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (live tests TestLive* in nav_live_test.go, pure functions in nav_test.go) and was checked by hand in the OwnFrame window on 2026-11-16. A browser would act on it in its own UI, which this engine does not have."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_nav.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavGrammar"
+        },
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavInvalidKeepsEarlier"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "browser-ui",
       "upstream_syntax": "auto | <id> [ current | root | <target-name> ]?"
     },
     {
       "name": "nav-left",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | <id> [ current | root | <target-name> ]?"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Same as nav-up for the left direction. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (live tests TestLive* in nav_live_test.go, pure functions in nav_test.go) and was checked by hand in the OwnFrame window on 2026-11-16. A browser would act on it in its own UI, which this engine does not have."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_nav.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavGrammar"
+        },
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavInvalidKeepsEarlier"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "browser-ui",
       "upstream_syntax": "auto | <id> [ current | root | <target-name> ]?"
     },
     {
       "name": "nav-right",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | <id> [ current | root | <target-name> ]?"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Same as nav-up for the right direction. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (live tests TestLive* in nav_live_test.go, pure functions in nav_test.go) and was checked by hand in the OwnFrame window on 2026-11-16. A browser would act on it in its own UI, which this engine does not have."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_nav.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavGrammar"
+        },
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavInvalidKeepsEarlier"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "browser-ui",
       "upstream_syntax": "auto | <id> [ current | root | <target-name> ]?"
     },
     {
       "name": "nav-up",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | <id> [ current | root | <target-name> ]?"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Arrow keys and on-screen arrows jump to the declared #id, or fall back to the nearest button on auto. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (live tests TestLive* in nav_live_test.go, pure functions in nav_test.go) and was checked by hand in the OwnFrame window on 2026-11-16. A browser would act on it in its own UI, which this engine does not have."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_nav.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavGrammar"
+        },
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavInvalidKeepsEarlier"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "browser-ui",
       "upstream_syntax": "auto | <id> [ current | root | <target-name> ]?"
     },
@@ -13775,96 +14631,288 @@
     {
       "name": "offset",
       "aliases": [],
-      "values": [],
+      "values": [
+        "[ <'offset-position'>? [ <'offset-path'> [ <'offset-distance'> || <'offset-rotate'> ]? ]? ]! [ / <'offset-anchor'> ]?"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Expands to the same matrix as the longhands. A longhand wins over the shorthand regardless of source order, which the cascade here does not track."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_motion.go",
+        "internal/layout/motion_apply.go",
+        "internal/layout/motion_geom.go",
+        "internal/layout/motion_spec.go",
+        "internal/layout/motion_shapes.go",
+        "internal/layout/transform.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "withMotionPath"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionShorthandMatchesLonghands"
+        },
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionDeclaredValues"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "[ <'offset-position'>? [ <'offset-path'> [ <'offset-distance'> || <'offset-rotate'> ]? ]? ]! [ / <'offset-anchor'> ]?"
     },
     {
       "name": "offset-anchor",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | <position>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Moves the box in the drawing list as a transform. The reference box is the element's own border box, not its containing block, because boxes carry no containing-block pointer. A transform: none declared after offset-path clears the motion."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_motion.go",
+        "internal/layout/motion_apply.go",
+        "internal/layout/motion_geom.go",
+        "internal/layout/motion_spec.go",
+        "internal/layout/motion_shapes.go",
+        "internal/layout/transform.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "withMotionPath"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionPathMovesBox"
+        },
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionDistanceClampAndWrap"
+        },
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionPathRotatesWithHeading"
+        },
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionRayAndAnchor"
+        },
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionDeclaredValues"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | <position>"
     },
     {
       "name": "offset-distance",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<length-percentage>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Moves the box in the drawing list as a transform. The reference box is the element's own border box, not its containing block, because boxes carry no containing-block pointer. A transform: none declared after offset-path clears the motion."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_motion.go",
+        "internal/layout/motion_apply.go",
+        "internal/layout/motion_geom.go",
+        "internal/layout/motion_spec.go",
+        "internal/layout/motion_shapes.go",
+        "internal/layout/transform.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "withMotionPath"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionPathMovesBox"
+        },
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionDistanceClampAndWrap"
+        },
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionPathRotatesWithHeading"
+        },
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionRayAndAnchor"
+        },
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionDeclaredValues"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<length-percentage>"
     },
     {
       "name": "offset-path",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | <offset-path> || <coord-box>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Moves the box (path(), ray(), circle, ellipse, inset, polygon, none). Missing: the reference box is the element's own border box, path() arcs become straight lines, url() is not supported, ray size and contain are accepted but ignored."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_motion.go",
+        "internal/layout/motion_apply.go",
+        "internal/layout/motion_geom.go",
+        "internal/layout/motion_spec.go",
+        "internal/layout/motion_shapes.go",
+        "internal/layout/transform.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "withMotionPath"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionPathMovesBox"
+        },
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionDistanceClampAndWrap"
+        },
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionPathRotatesWithHeading"
+        },
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionRayAndAnchor"
+        },
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionDeclaredValues"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "none | <offset-path> || <coord-box>"
     },
     {
       "name": "offset-position",
       "aliases": [],
-      "values": [],
+      "values": [
+        "normal | auto | <position>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Acts on ray() only, against the element's own border box instead of the containing block."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_motion.go",
+        "internal/layout/motion_apply.go",
+        "internal/layout/motion_geom.go",
+        "internal/layout/motion_spec.go",
+        "internal/layout/motion_shapes.go",
+        "internal/layout/transform.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "withMotionPath"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionRayAndAnchor"
+        },
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionDeclaredValues"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "normal | auto | <position>"
     },
     {
       "name": "offset-rotate",
       "aliases": [],
-      "values": [],
+      "values": [
+        "[ auto | reverse ] || <angle>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Moves the box in the drawing list as a transform. The reference box is the element's own border box, not its containing block, because boxes carry no containing-block pointer. A transform: none declared after offset-path clears the motion."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_motion.go",
+        "internal/layout/motion_apply.go",
+        "internal/layout/motion_geom.go",
+        "internal/layout/motion_spec.go",
+        "internal/layout/motion_shapes.go",
+        "internal/layout/transform.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps",
+        "withMotionPath"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionPathMovesBox"
+        },
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionDistanceClampAndWrap"
+        },
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionPathRotatesWithHeading"
+        },
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionRayAndAnchor"
+        },
+        {
+          "file": "layout/declared_motion_test.go",
+          "name": "TestMotionDeclaredValues"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "[ auto | reverse ] || <angle>"
     },
@@ -14568,16 +15616,30 @@
     {
       "name": "overlay",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | auto"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Stored, exported, and a host function decides top-layer order. The engine paints no top layer."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_read.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_read_test.go",
+          "name": "TestDeclaredReadGrammar"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "none | auto"
     },
@@ -15772,32 +16834,60 @@
     {
       "name": "reading-flow",
       "aliases": [],
-      "values": [],
+      "values": [
+        "normal | source-order | flex-visual | flex-flow | grid-rows | grid-columns | grid-order"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Stored, exported on Box.Declared and acted on by the blinkless-all host, with a headless test of the host decision. Kept partial until the behavior is checked by hand in the OwnFrame window. Host proof: examples/blinkless-all/read_test.go in the ownframe repo. Flex items already arrive in visual order, so position-based reordering is proven on absolutely positioned children only."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_read.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_read_test.go",
+          "name": "TestDeclaredReadGrammar"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "normal | source-order | flex-visual | flex-flow | grid-rows | grid-columns | grid-order"
     },
     {
       "name": "reading-order",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<integer>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Stored, exported on Box.Declared and acted on by the blinkless-all host, with a headless test of the host decision. Kept partial until the behavior is checked by hand in the OwnFrame window. Host proof: examples/blinkless-all/read_test.go in the ownframe repo. Flex items already arrive in visual order, so position-based reordering is proven on absolutely positioned children only."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_read.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_read_test.go",
+          "name": "TestDeclaredReadGrammar"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<integer>"
     },
@@ -17650,16 +18740,34 @@
     {
       "name": "shape-image-threshold",
       "aliases": [],
-      "values": [],
+      "values": [
+        "<opacity-value>"
+      ],
       "limitations": [
-        "No image shape is parsed; shape-outside rejects url(), so no alpha contour can feed a threshold. Decision recorded in the shapes ledger: do not add url() shapes here."
+        "Grammar and export only. shape-outside has no url() image contour for the threshold to cut."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_shapes.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestDeclaredShapesGrammar"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestDeclaredShapesWideKeywords"
+        }
+      ],
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "<opacity-value>"
     },
@@ -17852,64 +18960,136 @@
     {
       "name": "slider-orientation",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | left-to-right | right-to-left | top-to-bottom | bottom-to-top"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Click and drag on a track moves a thumb in the declared direction. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (live tests TestLive* in nav_live_test.go, pure functions in nav_test.go) and was checked by hand in the OwnFrame window on 2026-11-16. A browser would act on it in its own UI, which this engine does not have."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_nav.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavGrammar"
+        },
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavInvalidKeepsEarlier"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "browser-ui",
       "upstream_syntax": "auto | left-to-right | right-to-left | top-to-bottom | bottom-to-top"
     },
     {
       "name": "spatial-navigation-action",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | focus | scroll"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "A key press scrolls a clamped sheet by 40px and Up and Left bring it back; focus stays on the element. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (TestLiveActionScrollRoundTrip, TestLiveGridVersusNormalContainAndAction) and was checked by hand in the OwnFrame window on 2026-11-16."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_nav.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavGrammar"
+        },
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavInvalidKeepsEarlier"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | focus | scroll"
     },
     {
       "name": "spatial-navigation-contain",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | contain"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Focus movement stays inside the container. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (live tests TestLive* in nav_live_test.go, pure functions in nav_test.go) and was checked by hand in the OwnFrame window on 2026-11-16. A browser would act on it in its own UI, which this engine does not have."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_nav.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavGrammar"
+        },
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavInvalidKeepsEarlier"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | contain"
     },
     {
       "name": "spatial-navigation-function",
       "aliases": [],
-      "values": [],
+      "values": [
+        "normal | grid"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Normal reaches any button in the direction; grid only reaches buttons in the same column or row. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (live tests TestLive* in nav_live_test.go, pure functions in nav_test.go) and was checked by hand in the OwnFrame window on 2026-11-16. A browser would act on it in its own UI, which this engine does not have."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_nav.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavGrammar"
+        },
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavInvalidKeepsEarlier"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "normal | grid"
     },
@@ -19244,21 +20424,31 @@
         "[ none | grow | shrink ] [consistent | per-line | per-line-all]? <percentage>?"
       ],
       "limitations": [
-        "Parsed and stored (TextFit, style_text_spacing_props.go:36) but no scale-search consumer reads it; the apply arm records the same gap. Missing behavior: grow/shrink scale-to-fit. TestTextSpacingTrimApply asserts the stored string only."
+        "Grammar and export only. Descendant font sizes are resolved before layout, so a shrink or grow needs a layout hook."
       ],
       "source": [
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_shapes.go",
         "internal/layout/style_text_spacing_props.go"
       ],
       "handlers": [
-        "applyTextAutospaceProps"
+        "applyDeclaredProps"
       ],
       "tests": [
         {
-          "file": "internal/layout/text_box_spacing_hyphen_test.go",
-          "name": "TestTextSpacingTrimApply"
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestDeclaredShapesGrammar"
+        },
+        {
+          "file": "layout/declared_shapes_test.go",
+          "name": "TestDeclaredShapesWideKeywords"
         }
       ],
-      "status": "unsupported",
+      "status": "partial",
       "upstream_class": "draft",
       "upstream_syntax": "[ none | grow | shrink ] [consistent | per-line | per-line-all]? <percentage>?"
     },
@@ -19410,21 +20600,45 @@
     {
       "name": "text-rendering",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | optimizeSpeed | optimizeLegibility | geometricPrecision"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "A stylesheet value is written onto the serialized SVG attribute and absent without it. The canvas rasterizer ignores all five and SVG text is stripped, so there is no pixel proof."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_svg.go",
+        "internal/layout/svgleft_attrs.go",
+        "internal/layout/layout_svg.go"
       ],
-      "handlers": [],
+      "handlers": [
+        "applyDeclaredProps",
+        "writeSVGLeftoverAttrs"
+      ],
       "tests": [
         {
-          "file": "internal/layout/css_behavior_svg_geo_test.go",
-          "name": "TestBehaviorSvgGeoTextRenderingGap"
+          "file": "internal/layout/svgleft_attrs_test.go",
+          "name": "TestSvgLeftoversBakeFromStylesheet"
+        },
+        {
+          "file": "internal/layout/svgleft_attrs_test.go",
+          "name": "TestSvgLeftoversInlineNoDuplicate"
+        },
+        {
+          "file": "layout/declared_svg_test.go",
+          "name": "TestDeclaredSvgGrammar"
+        },
+        {
+          "file": "layout/declared_svg_test.go",
+          "name": "TestDeclaredSvgInherit"
         }
       ],
-      "status": "unsupported",
+      "status": "partial",
       "upstream_class": "svg",
       "upstream_syntax": "auto | optimizeSpeed | optimizeLegibility | geometricPrecision"
     },
@@ -19460,16 +20674,34 @@
     {
       "name": "text-size-adjust",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | none | <percentage [0,∞]>"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "The host scales text per none, a percentage or auto. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (live tests TestLive* in nav_live_test.go, pure functions in nav_test.go) and was checked by hand in the OwnFrame window on 2026-11-16. A browser would act on it in its own UI, which this engine does not have."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_nav.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavGrammar"
+        },
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavInvalidKeepsEarlier"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | none | <percentage [0,∞]>"
     },
@@ -21673,32 +22905,68 @@
     {
       "name": "will-change",
       "aliases": [],
-      "values": [],
+      "values": [
+        "auto | <animateable-feature>#"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "A transform or opacity hint makes the host keep the box as a cached layer: it is painted once while it moves, where a box without the hint is painted on every frame (TestLiveWillChangeAnimationAndBadge). The engine stores the value and exports it as Box.Declared; the host acts on it in examples/blinkless-all, checked by hand in the OwnFrame window on 2026-11-16. This engine has no compositor of its own."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_nav.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavGrammar"
+        },
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavInvalidKeepsEarlier"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | <animateable-feature>#"
     },
     {
       "name": "window-drag",
       "aliases": [],
-      "values": [],
+      "values": [
+        "none | move"
+      ],
       "limitations": [
-        "No apply handler in internal/layout; declaration is ignored (graceful degrade). Pinned upstream revision: 1f2ec8f74a80c14066b4c7d6822cee59f69fa03b."
+        "Pressing the move region drags a mock window; a child marked none does not. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (live tests TestLive* in nav_live_test.go, pure functions in nav_test.go) and was checked by hand in the OwnFrame window on 2026-11-16. A browser would act on it in its own UI, which this engine does not have."
       ],
       "source": [
-        "testdata/css/catalog/upstream/webref-ed-css-1f2ec8f.json"
+        "internal/layout/declared_fields.go",
+        "internal/layout/declared_style.go",
+        "internal/layout/style.go",
+        "internal/layout/placed.go",
+        "layout/layout.go",
+        "internal/layout/declared_nav.go"
       ],
-      "handlers": [],
-      "tests": [],
-      "status": "unsupported",
+      "handlers": [
+        "applyDeclaredProps"
+      ],
+      "tests": [
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavGrammar"
+        },
+        {
+          "file": "layout/declared_nav_test.go",
+          "name": "TestDeclaredNavInvalidKeepsEarlier"
+        }
+      ],
+      "status": "implemented",
       "upstream_class": "browser-ui",
       "upstream_syntax": "none | move"
     },

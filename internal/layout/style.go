@@ -670,6 +670,9 @@ type ResolvedStyle struct {
 	// strings. The empty string is each property's initial value. Only the
 	// interest delays and interactivity inherit.
 	Triggers triggerStyle
+	// Declared holds the properties the engine stores and exports for a host
+	// without acting on them. See declaredStyle.
+	Declared declaredStyle
 	// SVG geometry from CSS. Empty means unset. A stylesheet value is baked
 	// onto the attribute and replaces the presentation attribute.
 	SVGCx string

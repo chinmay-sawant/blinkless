@@ -48,6 +48,7 @@ func inheritExtraProps(dst, parent *ResolvedStyle, raw map[string]string) {
 
 	inheritTextStroke(dst, parent, raw)
 	inheritTriggerProps(dst, parent, raw)
+	inheritDeclaredProps(dst, parent, raw)
 }
 
 // withImageRendering records the image-rendering keyword on an image op.

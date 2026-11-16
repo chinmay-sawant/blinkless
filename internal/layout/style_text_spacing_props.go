@@ -32,9 +32,14 @@ func applyTextAutospaceProps(
 		}
 	case "text-fit":
 		// Stored for cascade honesty; no scale-search consumer yet (L).
-		if isTextFitValue(val) {
+		// none, grow and shrink belong to the declared store (declared_shapes.go).
+		if isTextFitValue(val) && val != cssDisplayNone {
 			style.TextFit = val
+
+			return true
 		}
+
+		return false
 	default:
 		return false
 	}

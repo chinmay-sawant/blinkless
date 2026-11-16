@@ -24,6 +24,9 @@ type PlacedElement struct {
 	// Triggers holds the scope, trigger, interest delay, and interactivity
 	// values of this element.
 	Triggers PlacedTriggers
+	// Declared holds the stored-only properties this element declares, by
+	// property name, as computed text. Nil when it declares none.
+	Declared map[string]string
 	// OverflowClip is the accumulated ancestor overflow padding box in
 	// canvas points, empty with HasOverflowClip false when no ancestor
 	// clips. A host painting this element through a transform intersects
@@ -182,7 +185,7 @@ func walkPlacedFunc(
 			Y:                   boxNode.y,
 			W:                   boxNode.w,
 			H:                   boxNode.height,
-			Text:                "",
+			Text:                "", Declared: nil,
 		}
 
 		fillPlacedText(item, boxNode, opts)
@@ -207,8 +210,11 @@ func walkPlacedFunc(
 	return index
 }
 
-// fillPlacedText copies the element's text content when the walk asks for it.
+// fillPlacedText copies the element's declared-only properties, and its text
+// content when the walk asks for it.
 func fillPlacedText(item *PlacedElement, boxNode *box, opts WalkPlacedOptions) {
+	item.Declared = declaredValues(boxNode.style)
+
 	if opts.IncludeText {
 		item.Text = boxNode.node.TextContent()
 	}

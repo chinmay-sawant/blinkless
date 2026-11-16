@@ -432,6 +432,8 @@ func applyGeneratedContentProps(style *ResolvedStyle, prop, value string) bool {
 // string-set and the bookmark family. Split from applyGeneratedContentProps
 // to keep the dispatch cyclomatic complexity within the lint budget.
 func applyGeneratedGCPMProps(style *ResolvedStyle, prop, value string) bool {
+	mirrorFragDeclared(style, prop, value, nil)
+
 	switch prop {
 	case stringSetPropName:
 		setStringSetCustom(style, value)

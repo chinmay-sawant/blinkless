@@ -522,6 +522,7 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.ViewTimelineInsetEndSet == b.ViewTimelineInsetEndSet &&
 		a.ViewTimelineInsets == b.ViewTimelineInsets &&
 		a.Triggers == b.Triggers &&
+		a.Declared == b.Declared &&
 		a.SVGCx == b.SVGCx &&
 		a.SVGCy == b.SVGCy &&
 		a.SVGR == b.SVGR &&
@@ -999,6 +1000,7 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashBool(h, s.ViewTimelineInsetEndSet)
 	h = styleInternHashString(h, s.ViewTimelineInsets)
 	h = styleInternHashTriggerStyle(h, s.Triggers)
+	h = styleInternHashDeclaredStyle(h, s.Declared)
 	h = styleInternHashString(h, s.SVGCx)
 	h = styleInternHashString(h, s.SVGCy)
 	h = styleInternHashString(h, s.SVGR)
@@ -1452,6 +1454,7 @@ func styleInternFields() []string {
 		"ViewTimelineInsetEndSet",
 		"ViewTimelineInsets",
 		"Triggers",
+		"Declared",
 		"SVGCx",
 		"SVGCy",
 		"SVGR",
@@ -1518,6 +1521,72 @@ func styleInternHashBorder(h uint64, v border) uint64 {
 		h = styleInternHashFloat64(h, e)
 	}
 	h = styleInternHashBool(h, v.Transparent)
+
+	return h
+}
+
+func styleInternHashDeclaredStyle(h uint64, v declaredStyle) uint64 {
+	h = styleInternHashString(h, v.Caret)
+	h = styleInternHashString(h, v.CaretAnimation)
+	h = styleInternHashString(h, v.CaretShape)
+	h = styleInternHashString(h, v.FieldSizing)
+	h = styleInternHashString(h, v.InputSecurity)
+	h = styleInternHashString(h, v.NavUp)
+	h = styleInternHashString(h, v.NavDown)
+	h = styleInternHashString(h, v.NavLeft)
+	h = styleInternHashString(h, v.NavRight)
+	h = styleInternHashString(h, v.SliderOrientation)
+	h = styleInternHashString(h, v.SpatialNavigationAction)
+	h = styleInternHashString(h, v.SpatialNavigationContain)
+	h = styleInternHashString(h, v.SpatialNavigationFunction)
+	h = styleInternHashString(h, v.WindowDrag)
+	h = styleInternHashString(h, v.WillChange)
+	h = styleInternHashString(h, v.WebkitAppearance)
+	h = styleInternHashString(h, v.WebkitUserSelect)
+	h = styleInternHashString(h, v.WebkitTextSizeAdjust)
+	h = styleInternHashString(h, v.TextSizeAdjust)
+	h = styleInternHashString(h, v.ImageAnimation)
+	h = styleInternHashString(h, v.ReadingFlow)
+	h = styleInternHashString(h, v.ReadingOrder)
+	h = styleInternHashString(h, v.Overlay)
+	h = styleInternHashString(h, v.BackgroundAttachment)
+	h = styleInternHashString(h, v.BackgroundTbd)
+	h = styleInternHashString(h, v.BorderClip)
+	h = styleInternHashString(h, v.BorderTopClip)
+	h = styleInternHashString(h, v.BorderRightClip)
+	h = styleInternHashString(h, v.BorderBottomClip)
+	h = styleInternHashString(h, v.BorderLeftClip)
+	h = styleInternHashString(h, v.BorderBlockClip)
+	h = styleInternHashString(h, v.BorderBlockStartClip)
+	h = styleInternHashString(h, v.BorderBlockEndClip)
+	h = styleInternHashString(h, v.BorderInlineClip)
+	h = styleInternHashString(h, v.BorderInlineStartClip)
+	h = styleInternHashString(h, v.BorderInlineEndClip)
+	h = styleInternHashString(h, v.BorderBoundary)
+	h = styleInternHashString(h, v.BorderLimit)
+	h = styleInternHashString(h, v.BorderShape)
+	h = styleInternHashString(h, v.TextFit)
+	h = styleInternHashString(h, v.FloatDefer)
+	h = styleInternHashString(h, v.ShapeImageThreshold)
+	h = styleInternHashString(h, v.ColumnRuleVisibilityItems)
+	h = styleInternHashString(h, v.TextRendering)
+	h = styleInternHashString(h, v.LightingColor)
+	h = styleInternHashString(h, v.GlyphOrientationVertical)
+	h = styleInternHashString(h, v.BaselineShift)
+	h = styleInternHashString(h, v.MarkerSide)
+	h = styleInternHashString(h, v.Offset)
+	h = styleInternHashString(h, v.OffsetAnchor)
+	h = styleInternHashString(h, v.OffsetDistance)
+	h = styleInternHashString(h, v.OffsetPath)
+	h = styleInternHashString(h, v.OffsetPosition)
+	h = styleInternHashString(h, v.OffsetRotate)
+	h = styleInternHashString(h, v.BookmarkLabel)
+	h = styleInternHashString(h, v.BookmarkLevel)
+	h = styleInternHashString(h, v.BookmarkState)
+	h = styleInternHashString(h, v.FootnoteDisplay)
+	h = styleInternHashString(h, v.FootnotePolicy)
+	h = styleInternHashString(h, v.CopyInto)
+	h = styleInternHashString(h, v.BlockEllipsis)
 
 	return h
 }

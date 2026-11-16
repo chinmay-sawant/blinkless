@@ -157,3 +157,22 @@ If the window cannot open in this session, the report names the slug, the comman
 ## Catalog rule
 
 `implemented` requires a consumer outside the style layer and a behavior test (`testdata/css/catalog/properties.json` seed `conservative_rule`). For these ten, that test is the one in the table. Update `documentation/compatibility-matrix.md` in the same change as the catalog row, by regenerating the property tables with `python3 scripts/css-catalog-map.py --matrix` when the implementation pass edits the matrix. Do not hand-edit a status that the test did not prove.
+
+## Seventh batch: 61 declared properties
+
+The engine stores every property below on `Box.Declared` (`internal/layout/declared_fields.go`, `declared_style.go`, `layout/layout.go`). The OwnFrame example `examples/blinkless-all` shows them tab by tab. A row is `implemented` only where the engine acts on the value and a test fails without that behavior.
+
+| Names | Status | Proof |
+|---|---|---|
+| `border-clip` and its ten edge, axis and logical names | implemented | `TestBorderClipSplitsEveryEdge`, `TestBorderClipLonghandsAndLogical`, `TestBorderClipFlexAndPercent` in `layout/declared_shapes_test.go` |
+| `border-limit` | implemented | `TestBorderLimit` |
+| `column-rule-visibility-items` | implemented | `TestColumnRuleVisibilityItemsAround` (multicol only; the grid path has no test) |
+| `offset-distance`, `offset-rotate`, `offset-anchor` | implemented | `TestMotionPathMovesBox`, `TestMotionDistanceClampAndWrap`, `TestMotionPathRotatesWithHeading`, `TestMotionRayAndAnchor` in `layout/declared_motion_test.go` |
+| `bookmark-label`, `bookmark-level`, `bookmark-state` | implemented | `TestOutlineFromBookmarks` in `layout/declared_frag_test.go` (`layout.Outline`) |
+| `block-ellipsis` | implemented | `TestBlockEllipsisMarker` |
+| `offset-path`, `offset-position`, `offset` | partial | Motion tests above. The reference box is the element's own border box, not the containing block. |
+| `copy-into`, `footnote-display`, `footnote-policy` | partial | No page-margin box, no footnote area, no page index. |
+| `border-boundary`, `border-shape`, `text-fit`, `float-defer`, `shape-image-threshold` | partial | Grammar and export only. |
+| `text-rendering`, `lighting-color`, `glyph-orientation-vertical`, `baseline-shift`, `marker-side` | partial | The attribute reaches the serialized SVG (`internal/layout/svgleft_attrs_test.go`). The rasterizer ignores it. |
+| `caret`, `caret-shape`, `caret-animation`, `nav-up`, `nav-down`, `nav-left`, `nav-right`, `spatial-navigation-function`, `spatial-navigation-contain`, `slider-orientation`, `window-drag`, `-webkit-appearance`, `-webkit-user-select`, `text-size-adjust`, `-webkit-text-size-adjust`, `image-animation`, `spatial-navigation-action`, `field-sizing`, `will-change`, `input-security` | implemented | Live tests `TestLive*` in `ownframe/examples/blinkless-all/nav_live_test.go` (fake input, manual clock) and a person checked each in the OwnFrame window on 2026-11-16. The engine stores the value; the host acts on it. |
+| `reading-flow`, `reading-order`, `overlay`, `background-attachment`, `background-tbd` | partial | Host decisions tested in `ownframe/examples/blinkless-all` (`read_test.go`). Not yet checked in the window. |

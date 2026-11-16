@@ -1044,6 +1044,7 @@ func (e *engine) emitColumnRules(style ResolvedStyle, contentX, colW, gap float6
 		ruleX := contentX + float64(i+1)*(colW+gap) - gap/2
 		e.emitBorderLine(ruleX, ruleTop, 0, ruleEnd-ruleTop, ruleW, style.ColumnRuleStyle, col[0], col[1], col[2])
 	}
+	e.emitColumnRuleEdges(&style, contentX, contentX+float64(nCols)*colW+float64(nCols-1)*gap, ruleTop, ruleEnd, ruleW)
 }
 
 // columnRuleCapInset resolves one column-rule cap inset for a multicol

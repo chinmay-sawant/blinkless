@@ -1685,7 +1685,7 @@ func flatBoundaryAccum(
 
 // withPercentTranslate folds deferred translate percents into the box transform.
 func withPercentTranslate(sty *ResolvedStyle, boxNode *box) Matrix2D {
-	tform := sty.Transform
+	tform := withMotionPath(sty, boxNode, sty.Transform)
 
 	if !sty.TranslateXPercentSet && !sty.TranslateYPercentSet {
 		return tform

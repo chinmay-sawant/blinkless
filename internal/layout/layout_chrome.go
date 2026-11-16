@@ -245,6 +245,7 @@ func growChromeOps(dst []Op, need int) []Op {
 func (e *engine) appendBorderOpsSides(
 	dst []Op, sty ResolvedStyle, posX, posY, wid, height float64, top, right, bottom, left bool,
 ) []Op {
+	clipStart := len(dst)
 	wTop := 0.0
 	if top && sty.BorderTop.Style != cssDisplayNone && !sty.BorderTop.Transparent && borderPaint(sty.BorderTop) > 0 {
 		wTop = e.scalePt(borderPaint(sty.BorderTop))
@@ -370,7 +371,7 @@ func (e *engine) appendBorderOpsSides(
 		}
 	}
 
-	return ops
+	return e.clipBorderOps(ops, clipStart, &sty, posX, posY, wid, height)
 }
 
 // borderSideLineInset returns the inward paint inset for one border side.

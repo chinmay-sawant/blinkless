@@ -12,6 +12,7 @@ and are not listed here.
 Tracked in [`plans/v0.1.2/`](plans/v0.1.2/README.md).
 
 ### Added
+- Store and export 61 more properties as `Box.Declared`: caret, `nav-*`, `spatial-navigation-*`, reading order, draft borders, motion path, bookmarks, and the SVG leftovers. The engine acts on 20 of them and the OwnFrame host acts on 20 more (caret, `nav-*`, `spatial-navigation-*`, slider, window drag, appearance, user-select, text-size-adjust, image-animation, field-sizing, will-change, input-security): the `border-*-clip` family, `border-limit`, `column-rule-visibility-items`, `offset-distance`, `offset-rotate`, `offset-anchor`, `bookmark-*` (through `layout.Outline`), and `block-ellipsis`. The other 21 are `partial`. The OwnFrame example `blinkless-all` shows them in six tabs.
 
 - **Timeline, trigger, interest, and interactivity export.** The engine
   now stores 27 styles and puts them on `layout.Box`: `scroll-timeline*`,
