@@ -119,10 +119,10 @@ No visual surface was changed by the lint commit. The styles were checked by eye
 | `.go` | 153 | 20077 | 660 |
 | `.html` | 25 | 711 | 0 |
 | `.json` | 1 | 3850 | 988 |
-| `.md` | 23 | 3991 | 163 |
+| `.md` | 23 | 3947 | 163 |
 | `.svg` | 1 | 1 | 0 |
 | `.txt` | 1 | 6 | 6 |
-| **Total** | **204** | **28636** | **1817** |
+| **Total** | **204** | **28592** | **1817** |
 
 ---
 
