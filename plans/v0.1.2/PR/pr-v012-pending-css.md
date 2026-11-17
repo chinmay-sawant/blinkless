@@ -68,6 +68,18 @@
 - One value changes shape: `backdropGroupBegins` returns an empty slice
   instead of nil. Its only caller checks `len`.
 
+### Fixes found while validating
+
+- `refract()` in `backdrop-filter`: `e9075d2` limited validation to `blur()` and
+  `saturate()`, which dropped the `refract(<length>)` extension OwnFrame paints.
+  OwnFrame's GPU parity test (`make graphics-check`) failed against this branch
+  because of it. `refract` is accepted again with a non-negative length, and a
+  test checks that a negative value does not replace an earlier valid list.
+- `make catalog-check` failed on eight rows. Four animation rows now name
+  quoted cases that exist in the OwnFrame tests, and `wrap-inside` names a real
+  handler. The catalog row for `backdrop-filter` and the compatibility matrix
+  list `refract`.
+
 ---
 
 ## Impact
@@ -98,13 +110,7 @@
 - [x] `make golden` exits 0
 - [x] `make claim-scan` exits 0 ("clean")
 - [x] `make matrix-check` exits 0
-- [ ] `make catalog-check` **fails, not caused by this lint pass**: it reports
-  7 rows whose OwnFrame case string is not a quoted literal in the OwnFrame
-  test file (`animation-composition`, `animation-range` and its three longhands,
-  `animation-trigger`, `trigger-scope`) and one handler name
-  (`wrap-inside -> wrapBreakInsideAvoid`) that is not in the source. Both come
-  from catalog rows added earlier on this branch (`331447b` and the timeline
-  batch). GitHub CI does not run this target. Left for a follow-up.
+- [x] `make catalog-check` exits 0 (see "Fixes found while validating")
 
 ### Commands
 
@@ -114,6 +120,7 @@ make lint
 make golden
 make claim-scan
 make matrix-check
+make catalog-check
 ```
 
 ---
@@ -143,9 +150,6 @@ are in the `ownframe` pull request.
 
 ## Follow-ups (out of scope)
 
-- Fix the eight `make catalog-check` findings above: add the quoted case
-  strings to the OwnFrame catalog tests or correct the catalog `case` values,
-  and point `wrap-inside` at a real handler.
 - Cut a release and bump the `ownframe` module pin; `ownframe` needs these
   features (for example `DisplayOp.TextStroke`) and does not build against the
   pinned `v0.1.1` without them.
@@ -156,13 +160,13 @@ are in the `ownframe` pull request.
 
 | Extension | Files | Insertions | Deletions |
 | --- | ---: | ---: | ---: |
-| `.go` | 153 | 20044 | 660 |
+| `.go` | 153 | 20077 | 660 |
 | `.html` | 25 | 711 | 0 |
-| `.json` | 1 | 3842 | 981 |
-| `.md` | 23 | 3982 | 158 |
+| `.json` | 1 | 3850 | 988 |
+| `.md` | 23 | 3987 | 163 |
 | `.svg` | 1 | 1 | 0 |
 | `.txt` | 1 | 6 | 6 |
-| **Total** | **204** | **28586** | **1805** |
+| **Total** | **204** | **28632** | **1817** |
 
 ---
 
