@@ -46,7 +46,8 @@ func TestBehaviorWordSpaceTransformIdeographicSpace(t *testing.T) {
 	t.Parallel()
 
 	res := layoutHTML(t, wordSpacePage(
-		`<p id="ideo" style="margin:0;font-size:16px;white-space:nowrap;word-space-transform:ideographic-space">A&#x200b;B</p>`,
+		`<p id="ideo" style="margin:0;font-size:16px;white-space:nowrap;`+
+			`word-space-transform:ideographic-space">A&#x200b;B</p>`,
 	))
 	text, _ := wordSpaceJoined(t, res, "ideo")
 
@@ -63,9 +64,12 @@ func TestBehaviorWordSpaceTransformAutoPhraseInsertsNothing(t *testing.T) {
 
 	res := layoutHTML(t, wordSpacePage(
 		`<p id="plain" style="margin:0;font-size:16px;white-space:nowrap">HelloWorld</p>`+
-			`<p id="phrase" style="margin:0;font-size:16px;white-space:nowrap;word-space-transform:space auto-phrase">HelloWorld</p>`+
-			`<p id="only" style="margin:0;font-size:16px;white-space:nowrap;word-space-transform:auto-phrase">A&#x200b;B</p>`+
-			`<p id="still" style="margin:0;font-size:16px;white-space:nowrap;word-space-transform:auto-phrase space">A&#x200b;B</p>`,
+			`<p id="phrase" style="margin:0;font-size:16px;white-space:nowrap;`+
+			`word-space-transform:space auto-phrase">HelloWorld</p>`+
+			`<p id="only" style="margin:0;font-size:16px;white-space:nowrap;`+
+			`word-space-transform:auto-phrase">A&#x200b;B</p>`+
+			`<p id="still" style="margin:0;font-size:16px;white-space:nowrap;`+
+			`word-space-transform:auto-phrase space">A&#x200b;B</p>`,
 	))
 
 	plainText, plainW := wordSpaceJoined(t, res, "plain")
@@ -124,8 +128,10 @@ func TestBehaviorWordSpaceTransformBesideBreakStays(t *testing.T) {
 	t.Parallel()
 
 	res := layoutHTML(t, wordSpacePage(
-		`<p id="kept" style="margin:0;font-size:16px;white-space:nowrap;word-space-transform:space">A&#x200b;<br>C&#x200b;D</p>`+
-			`<p id="plain" style="margin:0;font-size:16px;white-space:nowrap;word-space-transform:none">A&#x200b;<br>C&#x200b;D</p>`+
+		`<p id="kept" style="margin:0;font-size:16px;white-space:nowrap;`+
+			`word-space-transform:space">A&#x200b;<br>C&#x200b;D</p>`+
+			`<p id="plain" style="margin:0;font-size:16px;white-space:nowrap;`+
+			`word-space-transform:none">A&#x200b;<br>C&#x200b;D</p>`+
 			`<p id="wbr" style="margin:0;font-size:16px;white-space:nowrap;word-space-transform:space">A<wbr><br>B</p>`+
 			`<p id="nobr" style="margin:0;font-size:16px;white-space:nowrap;word-space-transform:space">A<br>B</p>`,
 	))
@@ -168,7 +174,8 @@ func TestBehaviorWordSpaceTransformBadTokenKeepsSpace(t *testing.T) {
 	t.Parallel()
 
 	res := layoutHTML(t, wordSpacePage(
-		`<p id="bad" style="margin:0;font-size:16px;white-space:nowrap;word-space-transform:space;word-space-transform:nope">A&#x200b;B</p>`,
+		`<p id="bad" style="margin:0;font-size:16px;white-space:nowrap;`+
+			`word-space-transform:space;word-space-transform:nope">A&#x200b;B</p>`,
 	))
 	text, width := wordSpaceJoined(t, res, "bad")
 	none := layoutHTML(t, wordSpacePage(

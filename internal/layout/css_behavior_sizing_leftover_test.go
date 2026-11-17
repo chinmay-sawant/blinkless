@@ -86,8 +86,9 @@ func TestBehaviorMinSizeClampsUsedBorderBox(t *testing.T) {
 			wantH: 30,
 		},
 		{
-			name:  "negative second token writes neither axis",
-			html:  minSizePage(`<div id="item" style="width:4px;height:6px;min-width:10px;min-height:12px;min-size:90px -8px"></div>`),
+			name: "negative second token writes neither axis",
+			html: minSizePage(`<div id="item" style="width:4px;height:6px;min-width:10px;min-height:12px;` +
+				`min-size:90px -8px"></div>`),
 			wantW: 10,
 			wantH: 12,
 		},

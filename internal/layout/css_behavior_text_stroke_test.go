@@ -9,7 +9,8 @@ import "testing"
 func textStrokeOp(t *testing.T, style string) Op {
 	t.Helper()
 
-	res := layoutHTML(t, `<html><body style="margin:0"><p id="p" style="margin:0;color:#000000;`+style+`">hi</p></body></html>`)
+	res := layoutHTML(t, `<html><body style="margin:0"><p id="p" `+
+		`style="margin:0;color:#000000;`+style+`">hi</p></body></html>`)
 
 	for _, op := range opsOfKind(res, OpText) {
 		if op.Text == "hi" {

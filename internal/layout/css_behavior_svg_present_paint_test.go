@@ -419,7 +419,8 @@ func TestBehaviorSvgPresentVectorEffect(t *testing.T) {
 	overridden, _ := render(`#l{vector-effect:non-scaling-stroke}`, ` vector-effect="none"`)
 
 	if overridden != fixed || byAttr != plain {
-		t.Errorf("attribute won over the stylesheet: overridden=%d fixed=%d attr=%d plain=%d", overridden, fixed, byAttr, plain)
+		t.Errorf("attribute won over the stylesheet: overridden=%d fixed=%d attr=%d plain=%d",
+			overridden, fixed, byAttr, plain)
 	}
 
 	if bogus, _ := render(`#l{vector-effect:bogus}`, ""); bogus != plain {

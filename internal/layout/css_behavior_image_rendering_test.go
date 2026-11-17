@@ -58,14 +58,16 @@ func TestBehaviorSvgPresentImageRendering(t *testing.T) {
 	}
 
 	// The property inherits from the parent element.
-	ops := imageRenderingOps(t, `<div style="image-rendering:optimizeSpeed"><img src="a.svg" width="64" height="40" alt=""></div>`, ``)
+	ops := imageRenderingOps(t,
+		`<div style="image-rendering:optimizeSpeed"><img src="a.svg" width="64" height="40" alt=""></div>`, ``)
 	if got := ops[0].ImageRendering(); got != "optimizeSpeed" {
 		t.Errorf("inherited image op keyword = %q, want optimizeSpeed", got)
 	}
 
 	// An inline svg carries it too.
 	root := mustParse(t, `<html><body style="margin:0"><svg width="64" height="40" viewBox="0 0 64 40" `+
-		`xmlns="http://www.w3.org/2000/svg" style="image-rendering:optimizeSpeed"><rect width="64" height="40" fill="#f00"/></svg></body></html>`)
+		`xmlns="http://www.w3.org/2000/svg" style="image-rendering:optimizeSpeed">`+
+		`<rect width="64" height="40" fill="#f00"/></svg></body></html>`)
 
 	res, err := Layout(root, Options{Width: testViewport, Height: 800, Background: true})
 	if err != nil {
