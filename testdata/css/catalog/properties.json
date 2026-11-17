@@ -1789,7 +1789,7 @@
           "file": "examples/css-preview/catalog_animation_composition_test.go",
           "name": "TestCatalogAnimationCompositionChangesOwnFrameSample",
           "case_file": "examples/css-preview/catalog_animation_composition_test.go",
-          "case": "add"
+          "case": "add,add"
         }
       ]
     },
@@ -2221,7 +2221,7 @@
           "file": "examples/css-preview/catalog_animation_ranges_test.go",
           "name": "TestCatalogAnimationRangeReachesOwnFrameFrame",
           "case_file": "examples/css-preview/catalog_animation_ranges_test.go",
-          "case": "entry 10px exit 90px"
+          "case": "animation-range"
         }
       ]
     },
@@ -2265,7 +2265,7 @@
           "file": "examples/css-preview/catalog_animation_ranges_test.go",
           "name": "TestCatalogAnimationRangeCenterReachesOwnFrameFrame",
           "case_file": "examples/css-preview/catalog_animation_ranges_test.go",
-          "case": "source 50%"
+          "case": "animation-range-center"
         }
       ]
     },
@@ -2309,7 +2309,7 @@
           "file": "examples/css-preview/catalog_animation_ranges_test.go",
           "name": "TestCatalogAnimationRangeEndReachesOwnFrameFrame",
           "case_file": "examples/css-preview/catalog_animation_ranges_test.go",
-          "case": "75%"
+          "case": "animation-range-end"
         }
       ]
     },
@@ -2353,7 +2353,7 @@
           "file": "examples/css-preview/catalog_animation_ranges_test.go",
           "name": "TestCatalogAnimationRangeStartReachesOwnFrameFrame",
           "case_file": "examples/css-preview/catalog_animation_ranges_test.go",
-          "case": "25%"
+          "case": "animation-range-start"
         }
       ]
     },
@@ -2537,10 +2537,11 @@
       "values": [
         "none",
         "blur(<length>)",
-        "saturate(<number> | <percentage>)"
+        "saturate(<number> | <percentage>)",
+        "refract(<length>) (OwnFrame host extension)"
       ],
       "limitations": [
-        "pixel blur and saturation are painted by the host."
+        "pixel blur, saturation and refraction are painted by the host."
       ],
       "source": [
         "internal/layout/backdrop_filter.go",
@@ -23305,7 +23306,7 @@
         "applyWrapBreakProps",
         "parseWrapBreak",
         "wrapBreakDeclarationValueAccepted",
-        "wrapBreakInsideAvoid"
+        "wrapInsideGroupFits"
       ],
       "tests": [
         {

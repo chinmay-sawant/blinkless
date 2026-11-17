@@ -21,9 +21,11 @@ func setBackdropFilterValue(style *ResolvedStyle, value string) {
 }
 
 // backdropFilterValueAccepted reports whether value is none or a list of
-// blur(<length>) and saturate(<number> | <percentage>) functions, in order.
-// The caller stores the author text when this is true. It does not rewrite
-// units or drop a second function.
+// blur(<length>), saturate(<number> | <percentage>) and refract(<length>)
+// functions, in order. refract is a host extension that OwnFrame paints
+// (internal/backdrop in the ownframe repository); it takes a non-negative
+// length like blur. The caller stores the author text when this is true. It
+// does not rewrite units or drop a second function.
 func backdropFilterValueAccepted(value string) bool {
 	value = strings.TrimSpace(value)
 	if value == "" {
@@ -48,12 +50,18 @@ func backdropFilterValueAccepted(value string) bool {
 	return true
 }
 
+// backdropRefractFunc is the host extension function OwnFrame bends the
+// backdrop with. The engine only stores it; it does not paint it.
+const backdropRefractFunc = "refract"
+
 func backdropFilterFuncAccepted(name, args string) bool {
 	switch name {
 	case "blur":
 		return backdropBlurAccepted(args)
 	case "saturate":
 		return backdropSaturateAccepted(args)
+	case backdropRefractFunc:
+		return backdropBlurAccepted(args)
 	default:
 		return false
 	}

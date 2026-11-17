@@ -135,6 +135,31 @@ func TestBehaviorBackdropFilterKeepsAuthorString(t *testing.T) {
 		}
 	})
 
+	t.Run("host refract extension kept", func(t *testing.T) {
+		t.Parallel()
+
+		const refract = "blur(4px) refract(5px)"
+
+		display := displayOf(t, `<div style="position:absolute;left:16px;top:12px;width:160px;height:80px;`+
+			`backdrop-filter:`+refract+`;background:rgba(255,255,255,.2)"></div>`)
+
+		groups := backdropGroupBegins(display)
+		if len(groups) != 1 {
+			t.Fatalf("backdrop groups = %d, want 1 (refract is kept for the host)", len(groups))
+		}
+
+		if got := groups[0].Group().BackdropFilter; got != refract {
+			t.Fatalf("BackdropFilter = %q, want %q", got, refract)
+		}
+
+		bad := displayOf(t, `<div style="position:absolute;left:16px;top:12px;width:160px;height:80px;`+
+			`backdrop-filter:`+refract+`;backdrop-filter:refract(-3px);background:rgba(255,255,255,.2)"></div>`)
+
+		if got := backdropGroupBegins(bad)[0].Group().BackdropFilter; got != refract {
+			t.Fatalf("a negative refract replaced the earlier list: %q", got)
+		}
+	})
+
 	t.Run("none", func(t *testing.T) {
 		t.Parallel()
 
