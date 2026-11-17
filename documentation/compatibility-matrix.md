@@ -43,7 +43,7 @@ as its inline text (per the note column).
 
 ## 2. Supported CSS properties
 
-The catalog in `testdata/css/catalog/properties.json` (schema v2) is the authoritative property record. Measured 2026-11-02: 785 rows - 687 implemented, 1 partial, 89 unsupported, 8 intentionally ignored. The pinned upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties: 671 draft, 70 vendor, 52 svg, 28 browser-ui). Regenerate the tables below with `python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails on drift between the catalog and the code. Rows scoped to `blinkless+ownframe` have sampled runtime evidence in OwnFrame; Blinkless supplies their CSS metadata.
+The catalog in `testdata/css/catalog/properties.json` (schema v2) is the authoritative property record. Measured 2026-11-02: 785 rows - 688 implemented, 0 partial, 89 unsupported, 8 intentionally ignored. The pinned upstream inventory is webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties: 671 draft, 70 vendor, 52 svg, 28 browser-ui). Regenerate the tables below with `python3 scripts/css-catalog-map.py --matrix`; `make catalog-check` fails on drift between the catalog and the code. Rows scoped to `blinkless+ownframe` have sampled runtime evidence in OwnFrame; Blinkless supplies their CSS metadata.
 
 Statuses describe the stated layout pipeline scope, not browsers:
 
@@ -54,7 +54,7 @@ Statuses describe the stated layout pipeline scope, not browsers:
 
 An implemented status is not a browser-parity or parser-conformance claim. Rendering comparisons and HTML parsing carry separate evidence in `plans/v0.0.1/html-css-json-compatibility-checklist.md`.
 
-### 2.1 Implemented (687)
+### 2.1 Implemented (688)
 
 | Property | Accepted values | Source | Behavior tests |
 |---|---|---|---|
@@ -465,6 +465,7 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `margin-block-end` | <'margin-top'> | `internal/layout/style_logical_axes.go`, `internal/layout/style_logical_box.go`, `internal/layout/style_properties.go` | `TestBehaviorMarginBlockEndOffsetsSibling` |
 | `margin-block-start` | <'margin-top'> | `internal/layout/style_logical_axes.go`, `internal/layout/style_logical_box.go`, `internal/layout/style_properties.go` | `TestBehaviorMarginBlockStartOffsetsSibling` |
 | `margin-bottom` | <margin-width> \| inherit | `internal/layout/style_properties.go` | `TestBlockWidthsAndMargins`, `TestMarginCollapse` |
+| `margin-break` | auto \| keep \| discard | `internal/layout/margin_break.go`, `internal/layout/multicol.go`, `internal/layout/style_properties.go` | `TestMarginBreakProperty`, `TestBehaviorMarginBreakKeepNoFragmentEffect`, `TestBehaviorMarginBreakDiscardNoFragmentEffect`, `TestFragmentAssessMarginBreakMulticolNoEffect`, `TestBehaviorMarginBreakDiscardDropsColumnMargin`, `TestBehaviorMarginBreakKeepKeepsColumnMargin` |
 | `margin-inline` | <'margin-top'>{1,2} | `internal/layout/style_logical_box.go`, `internal/layout/style_properties.go` | `TestLogicalMargin` |
 | `margin-inline-end` | <'margin-top'> | `internal/layout/style_logical_axes.go`, `internal/layout/style_logical_box.go`, `internal/layout/style_properties.go` | `TestBehaviorMarginInlineEndShrinksAutoWidth` |
 | `margin-inline-start` | <'margin-top'> | `internal/layout/style_logical_axes.go`, `internal/layout/style_logical_box.go`, `internal/layout/style_properties.go` | `TestCSSPartialRemainingPagedWritingMode`, `TestBehaviorMarginInlineStartOffsetsSibling` |
@@ -746,11 +747,10 @@ An implemented status is not a browser-parity or parser-conformance claim. Rende
 | `z-index` | auto \| <integer> \| inherit | `internal/layout/style_properties.go` | `TestCascadeEngineSupportsPropertyValues`, `TestBehaviorZIndexOrdersOverlappingPaint` |
 | `zoom` | <number [0,∞]> <percentage [0,∞]> | `internal/layout/style_zoom.go`, `internal/layout/layout.go` | `TestBehaviorZoomDoublesBorderBox` |
 
-### 2.2 Partial (1)
+### 2.2 Partial (0)
 
 | Property | Accepted values | Source | Named missing behavior |
 |---|---|---|---|
-| `margin-break` | auto \| keep \| discard | `internal/layout/margin_break.go`, `internal/layout/multicol.go`, `internal/layout/style_properties.go` | Column starts honor keep, discard, and auto: keep puts the margin-top back at the top of a column that follows a break. A page break is not handled because the engine has no page index, and a margin in the middle of a column is not applied by multicol. |
 
 ### 2.3 Unsupported (89)
 

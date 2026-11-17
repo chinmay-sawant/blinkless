@@ -82,7 +82,7 @@ The catalog counts 592 implemented and 185 unsupported. The OwnFrame window show
 
 | Style | Test | Note |
 |---|---|---|
-| `margin-break` | `TestBehaviorMarginBreakDiscardDropsColumnMargin`, `TestBehaviorMarginBreakKeepKeepsColumnMargin` | Column starts only. Catalog `partial`. |
+| `margin-break` | `TestBehaviorMarginBreakDiscardDropsColumnMargin`, `TestBehaviorMarginBreakKeepKeepsColumnMargin` | Column starts only, no page breaks. Catalog `implemented`. |
 | `image-rendering` | `TestBehaviorSvgPresentImageRendering` | The keyword is read from the image op. No resampler. |
 | `vector-effect` | `TestBehaviorSvgPresentVectorEffect` | `non-scaling-stroke` keeps the stroke width under a viewBox scale. |
 | `flood-color`, `flood-opacity` | `TestBehaviorSvgPresentFloodColorAndOpacity` | A filter that is one `feFlood` becomes a flat rect. |

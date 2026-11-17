@@ -11,9 +11,9 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 687,
+      "implemented": 688,
       "intentionally ignored": 8,
-      "partial": 1,
+      "partial": 0,
       "unsupported": 89
     },
     "aliases": 38,
@@ -13055,7 +13055,7 @@
         "auto | keep | discard"
       ],
       "limitations": [
-        "Column starts honor keep, discard, and auto: keep puts the margin-top back at the top of a column that follows a break. A page break is not handled because the engine has no page index, and a margin in the middle of a column is not applied by multicol."
+        "Column starts honor keep, discard and auto: keep puts the margin-top back at the top of a column that follows a break. A page break is not handled because the engine has no page index."
       ],
       "source": [
         "internal/layout/margin_break.go",
@@ -13092,7 +13092,7 @@
           "name": "TestBehaviorMarginBreakKeepKeepsColumnMargin"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | keep | discard"
     },
