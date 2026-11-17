@@ -369,7 +369,7 @@ func normalizeFloatDefer(text string) (string, bool) {
 	switch word {
 	case "none":
 		return "", true
-	case "last":
+	case baselineSourceLast:
 		return word, true
 	}
 

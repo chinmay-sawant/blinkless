@@ -3,6 +3,7 @@ package layout
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"image/color"
 	"image/png"
 	"math"
@@ -985,6 +986,9 @@ func maskTypeDocumentSheets(t *testing.T, root *html.Node) []*css.Stylesheet {
 	return sheets
 }
 
+// errUnexpectedMaskImage is the static sentinel for an unknown mask image source.
+var errUnexpectedMaskImage = errors.New("unexpected mask image")
+
 func maskTypeImageProvider(t *testing.T, page string) func(string) ([]byte, error) {
 	t.Helper()
 
@@ -996,7 +1000,7 @@ func maskTypeImageProvider(t *testing.T, page string) func(string) ([]byte, erro
 	return func(src string) ([]byte, error) {
 		data, ok := images[src]
 		if !ok {
-			return nil, errors.New("unexpected mask image " + src)
+			return nil, fmt.Errorf("%w: %s", errUnexpectedMaskImage, src)
 		}
 
 		return data, nil

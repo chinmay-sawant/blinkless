@@ -18,7 +18,9 @@ const (
 	wordSpaceTransformSpace       = "space"
 	wordSpaceTransformIdeographic = "ideographic-space"
 	wordSpaceTransformAutoPhrase  = "auto-phrase"
-	wordSpaceTagWBR               = "wbr"
+	// wordSpaceKeywordAndPhrase is the field count of a keyword plus a phrase.
+	wordSpaceKeywordAndPhrase = 2
+	wordSpaceTagWBR           = "wbr"
 
 	// wordSpaceZWSP is U+200B, an expandable separator.
 	wordSpaceZWSP = '\u200B'
@@ -87,7 +89,7 @@ func normalizeWordSpaceTransform(value string) (string, bool) {
 		default:
 			return "", false
 		}
-	case 2:
+	case wordSpaceKeywordAndPhrase:
 		keyword := fields[0]
 		phrase := fields[1]
 
@@ -143,23 +145,24 @@ func transformWordSpaceText(text string, style *ResolvedStyle) string {
 		return text
 	}
 
-	var b strings.Builder
-	b.Grow(len(text))
+	var out strings.Builder
 
-	for _, r := range text {
-		switch r {
+	out.Grow(len(text))
+
+	for _, character := range text {
+		switch character {
 		case wordSpaceKept:
-			r = wordSpaceZWSP
+			character = wordSpaceZWSP
 		case wordSpaceZWSP:
 			if repl != 0 {
-				r = repl
+				character = repl
 			}
 		}
 
-		b.WriteRune(r)
+		out.WriteRune(character)
 	}
 
-	return b.String()
+	return out.String()
 }
 
 // guardWordSpaceEdges protects a U+200B at either end of text when that end
@@ -190,10 +193,7 @@ func protectWordSpaceEdges(text string, keepLead, keepTrail bool) string {
 		return text
 	}
 
-	lead, leadSize := utf8.DecodeRuneInString(text)
-	trail, trailSize := utf8.DecodeLastRuneInString(text)
-	replaceLead := keepLead && lead == wordSpaceZWSP
-	replaceTrail := keepTrail && trail == wordSpaceZWSP
+	replaceLead, replaceTrail, leadSize, trailSize := wordSpaceEdgeReplacements(text, keepLead, keepTrail)
 
 	if !replaceLead && !replaceTrail {
 		return text
@@ -203,14 +203,31 @@ func protectWordSpaceEdges(text string, keepLead, keepTrail bool) string {
 		return string(wordSpaceKept)
 	}
 
-	var b strings.Builder
-	b.Grow(len(text))
+	return rebuildWordSpaceEdges(text, replaceLead, replaceTrail, leadSize, trailSize)
+}
+
+// wordSpaceEdgeReplacements reports whether the lead and trail runes are U+200B
+// separators the caller keeps, and returns the byte size of each rune.
+func wordSpaceEdgeReplacements(text string, keepLead, keepTrail bool) (bool, bool, int, int) {
+	lead, leadSize := utf8.DecodeRuneInString(text)
+	trail, trailSize := utf8.DecodeLastRuneInString(text)
+
+	return keepLead && lead == wordSpaceZWSP, keepTrail && trail == wordSpaceZWSP, leadSize, trailSize
+}
+
+// rebuildWordSpaceEdges writes text with the flagged edge runes swapped for
+// wordSpaceKept. leadSize and trailSize are the byte lengths of those runes.
+func rebuildWordSpaceEdges(text string, replaceLead, replaceTrail bool, leadSize, trailSize int) string {
+	var out strings.Builder
+
+	out.Grow(len(text))
 
 	start := 0
 	end := len(text)
 
 	if replaceLead {
-		b.WriteRune(wordSpaceKept)
+		out.WriteRune(wordSpaceKept)
+
 		start = leadSize
 	}
 
@@ -219,14 +236,14 @@ func protectWordSpaceEdges(text string, keepLead, keepTrail bool) string {
 	}
 
 	if start < end {
-		b.WriteString(text[start:end])
+		out.WriteString(text[start:end])
 	}
 
 	if replaceTrail {
-		b.WriteRune(wordSpaceKept)
+		out.WriteRune(wordSpaceKept)
 	}
 
-	return b.String()
+	return out.String()
 }
 
 // collectWbr emits the replacement for a wbr element. none adds nothing.
@@ -300,27 +317,32 @@ func (e *engine) wordSpaceBreakAt(node *html.Node, forward bool) (bool, bool) {
 
 		return false, false
 	case html.ElementNode:
-		if node.Name == cssTagBR {
-			return true, false
-		}
-
-		if !e.wordSpaceInlineBoundary(node) || len(node.Children) == 0 {
-			return false, e.wordSpaceInlineBoundary(node)
-		}
-
-		var inner *html.Node
-		if forward {
-			inner = node.Children[0]
-		} else {
-			inner = node.Children[len(node.Children)-1]
-		}
-
-		return e.wordSpaceBreakInside(inner, forward)
+		return e.wordSpaceBreakInElement(node, forward)
 	case html.NodeUnknown:
 		return false, false
 	default:
 		return false, false
 	}
+}
+
+// wordSpaceBreakInElement applies wordSpaceBreakAt to an element node.
+func (e *engine) wordSpaceBreakInElement(node *html.Node, forward bool) (bool, bool) {
+	if node.Name == cssTagBR {
+		return true, false
+	}
+
+	if !e.wordSpaceInlineBoundary(node) || len(node.Children) == 0 {
+		return false, e.wordSpaceInlineBoundary(node)
+	}
+
+	var inner *html.Node
+	if forward {
+		inner = node.Children[0]
+	} else {
+		inner = node.Children[len(node.Children)-1]
+	}
+
+	return e.wordSpaceBreakInside(inner, forward)
 }
 
 // wordSpaceBreakInside continues the search from a node already entered.
@@ -352,17 +374,17 @@ func wordSpaceSibling(node *html.Node, forward bool) *html.Node {
 
 	kids := node.Parent.Children
 
-	for i, child := range kids {
+	for idx, child := range kids {
 		if child != node {
 			continue
 		}
 
-		if forward && i+1 < len(kids) {
-			return kids[i+1]
+		if forward && idx+1 < len(kids) {
+			return kids[idx+1]
 		}
 
-		if !forward && i > 0 {
-			return kids[i-1]
+		if !forward && idx > 0 {
+			return kids[idx-1]
 		}
 
 		return nil

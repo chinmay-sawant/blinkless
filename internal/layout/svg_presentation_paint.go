@@ -45,6 +45,11 @@ func applySVGPaintProps(style *ResolvedStyle, prop, value string) bool {
 		return ok
 	}
 
+	return applySVGPaintSwitch(style, prop, trimmed)
+}
+
+// applySVGPaintSwitch stores one non-marker SVG paint property.
+func applySVGPaintSwitch(style *ResolvedStyle, prop, trimmed string) bool {
 	switch prop {
 	case svgPropFloodColor:
 		return storeSVGColorHex(&style.SVGFloodColor, style.Color, trimmed)

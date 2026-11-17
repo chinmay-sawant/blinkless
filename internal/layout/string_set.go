@@ -261,7 +261,7 @@ func splitStringSetList(value string) []string {
 // more quoted strings or content() terms. Quoted strings concatenate into
 // Value. content() stays in pieces until the element is known.
 func parseStringSetItem(item string) (StringSetAssignment, bool) {
-	empty := StringSetAssignment{Name: "", Value: ""}
+	empty := StringSetAssignment{Name: "", Value: "", pieces: nil}
 
 	name, rest, ok := splitStringSetName(item)
 	if !ok {
@@ -270,12 +270,12 @@ func parseStringSetItem(item string) (StringSetAssignment, bool) {
 
 	var built strings.Builder
 
-	pieces := make([]stringSetPiece, 0, 2)
+	pieces := make([]stringSetPiece, 0, stringSetInitialPieces)
 
 	for rest != "" {
 		if decoded, next, quoted := scanStringSetString(rest, 0); quoted {
 			built.WriteString(decoded)
-			pieces = append(pieces, stringSetPiece{literal: decoded})
+			pieces = append(pieces, stringSetPiece{literal: decoded, keyword: "", fn: false})
 			rest = strings.TrimLeft(rest[next:], " \t\n\r\f")
 
 			continue
@@ -286,7 +286,7 @@ func parseStringSetItem(item string) (StringSetAssignment, bool) {
 			return empty, false
 		}
 
-		pieces = append(pieces, stringSetPiece{keyword: keyword, fn: true})
+		pieces = append(pieces, stringSetPiece{literal: "", keyword: keyword, fn: true})
 		rest = strings.TrimLeft(rest[next:], " \t\n\r\f")
 	}
 
@@ -301,14 +301,33 @@ func parseStringSetItem(item string) (StringSetAssignment, bool) {
 	}, true
 }
 
+// stringSetInitialPieces is the starting capacity for the pieces of one value.
+const stringSetInitialPieces = 2
+
 // scanStringSetContent parses one content() term at the start of rest.
 // keyword is empty for content(), which means the same thing as content(text).
 func scanStringSetContent(rest string) (string, int, bool) {
-	idx := 0
-
-	for idx < len(rest) && isStringSetSpace(rest[idx]) {
-		idx++
+	arg, end, found := scanStringSetContentCall(rest)
+	if !found {
+		return "", 0, false
 	}
+
+	if arg == "" {
+		return "", end, true
+	}
+
+	keyword, valid := stringSetContentKeyword(arg)
+	if !valid {
+		return "", 0, false
+	}
+
+	return keyword, end, true
+}
+
+// scanStringSetContentCall reads "content(...)" at the start of rest and
+// returns the trimmed argument and the index just past the closing parenthesis.
+func scanStringSetContentCall(rest string) (string, int, bool) {
+	idx := skipStringSetSpaces(rest, 0)
 
 	wordEnd := idx
 
@@ -320,36 +339,52 @@ func scanStringSetContent(rest string) (string, int, bool) {
 		return "", 0, false
 	}
 
-	paren := wordEnd
-
-	for paren < len(rest) && isStringSetSpace(rest[paren]) {
-		paren++
-	}
-
+	paren := skipStringSetSpaces(rest, wordEnd)
 	if paren >= len(rest) || rest[paren] != '(' {
 		return "", 0, false
 	}
 
+	end, ok := contentCallEnd(rest, paren)
+	if !ok {
+		return "", 0, false
+	}
+
+	return strings.TrimSpace(rest[paren+1 : end-1]), end, true
+}
+
+// contentCallEnd returns the index just past the ")" that closes the call
+// whose "(" is at paren.
+func contentCallEnd(rest string, paren int) (int, bool) {
 	end := skipCSSFunction(rest, paren+1)
 	if end <= paren+1 || end > len(rest) || rest[end-1] != ')' {
-		return "", 0, false
+		return 0, false
 	}
 
-	arg := strings.TrimSpace(rest[paren+1 : end-1])
-	if arg == "" {
-		return "", end, true
-	}
+	return end, true
+}
 
+// stringSetContentKeyword returns the lowercase keyword of a content() argument
+// that names a supported source.
+func stringSetContentKeyword(arg string) (string, bool) {
 	if strings.ContainsAny(arg, " \t\n\r\f,()") {
-		return "", 0, false
+		return "", false
 	}
 
 	switch strings.ToLower(arg) {
 	case "text", "before", "after", "first-letter", "marker":
-		return strings.ToLower(arg), end, true
+		return strings.ToLower(arg), true
 	default:
-		return "", 0, false
+		return "", false
 	}
+}
+
+// skipStringSetSpaces returns the index of the first non-space byte at or after i.
+func skipStringSetSpaces(rest string, i int) int {
+	for i < len(rest) && isStringSetSpace(rest[i]) {
+		i++
+	}
+
+	return i
 }
 
 // splitStringSetName cuts one comma item into its identifier and the
@@ -587,13 +622,8 @@ func (e *engine) applyCascadedStringSet(table *NamedStringTable, node *html.Node
 		return
 	}
 
-	sty := e.styles[node]
-	if sty == nil || sty.CustomProps == nil {
-		return
-	}
-
-	raw, ok := sty.CustomProps[stringSetCustomKey]
-	if !ok || raw == "" {
+	raw, ok := e.cascadedStringSetRaw(node)
+	if !ok {
 		return
 	}
 
@@ -611,6 +641,22 @@ func (e *engine) applyCascadedStringSet(table *NamedStringTable, node *html.Node
 	for _, assignment := range assignments {
 		table.Set(assignment.Name, e.resolveStringSetAssignment(node, assignment))
 	}
+}
+
+// cascadedStringSetRaw returns the string-set text the cascade stored on node.
+// ok is false when node has none or it is empty.
+func (e *engine) cascadedStringSetRaw(node *html.Node) (string, bool) {
+	sty := e.styles[node]
+	if sty == nil || sty.CustomProps == nil {
+		return "", false
+	}
+
+	raw, ok := sty.CustomProps[stringSetCustomKey]
+	if !ok || raw == "" {
+		return "", false
+	}
+
+	return raw, true
 }
 
 // resolveStringSetAssignment turns one stored assignment into the text

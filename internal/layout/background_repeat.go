@@ -6,6 +6,8 @@ const (
 	backgroundRepeatShorthandTwoValues = 2
 	backgroundRepeatRepeat             = "repeat"
 	backgroundRepeatNoRepeat           = "no-repeat"
+	backgroundRepeatXKeyword           = "repeat-x"
+	backgroundRepeatYKeyword           = "repeat-y"
 )
 
 // backgroundRepeatAxes resolves the independent horizontal and vertical
@@ -68,9 +70,9 @@ func parseBackgroundRepeatShorthand(value string) (string, string) {
 	}
 
 	switch parts[0] {
-	case "repeat-x":
+	case backgroundRepeatXKeyword:
 		return backgroundRepeatRepeat, backgroundRepeatNoRepeat
-	case "repeat-y":
+	case backgroundRepeatYKeyword:
 		return backgroundRepeatNoRepeat, backgroundRepeatRepeat
 	case "repeat-block":
 		return backgroundRepeatNoRepeat, backgroundRepeatRepeat

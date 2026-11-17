@@ -15,10 +15,10 @@ func allLayout(t *testing.T, parentCSS, childCSS string) *Result {
 		"#parent { "+parentCSS+" } #child { "+childCSS+" }"))
 }
 
-func allBoxOps(t *testing.T, res *Result, elementID string) []Op {
+func allBoxOps(t *testing.T, res *Result) []Op {
 	t.Helper()
 
-	elementBox := boxByID(t, res, elementID)
+	elementBox := boxByID(t, res, "child")
 	if elementBox.opEnd < elementBox.opStart || elementBox.opStart < 0 {
 		return nil
 	}
@@ -111,12 +111,12 @@ func TestBehaviorAllInitialResetsColorAndKeepsDirection(t *testing.T) {
 		t.Fatalf("direction = %q, want rtl", got)
 	}
 
-	text := allText(t, allBoxOps(t, res, "child"))
+	text := allText(t, allBoxOps(t, res))
 	if !allRGBNear(text, 0, 0, 0) {
 		t.Fatalf("text rgb = %.3f,%.3f,%.3f, want 0,0,0", text.R, text.G, text.B)
 	}
 
-	if fills := allFills(allBoxOps(t, res, "child")); len(fills) != 0 {
+	if fills := allFills(allBoxOps(t, res)); len(fills) != 0 {
 		t.Fatalf("child OpFillRect count = %d, want 0", len(fills))
 	}
 
@@ -136,7 +136,7 @@ func TestBehaviorAllInheritPaintsParentBackground(t *testing.T) {
 		"color: red; background-color: blue; direction: rtl;",
 		"all: inherit;")
 
-	childFills := allFills(allBoxOps(t, res, "child"))
+	childFills := allFills(allBoxOps(t, res))
 	parentFills := allParentOwnFills(t, res)
 	if len(childFills) == 0 || len(parentFills) == 0 {
 		t.Fatalf("fills child=%d parent=%d, want a fill on each", len(childFills), len(parentFills))
@@ -158,7 +158,7 @@ func TestBehaviorAllLonghandAfterWins(t *testing.T) {
 		"color: red; background-color: blue; direction: rtl;",
 		"all: initial; color: red;")
 
-	text := allText(t, allBoxOps(t, res, "child"))
+	text := allText(t, allBoxOps(t, res))
 	if !allRGBNear(text, 1, 0, 0) {
 		t.Fatalf("text rgb = %.3f,%.3f,%.3f, want red", text.R, text.G, text.B)
 	}
@@ -174,12 +174,12 @@ func TestBehaviorAllUnsetInheritsColor(t *testing.T) {
 		"color: red; background-color: blue;",
 		"color: #00ff00; background-color: #00ff00; all: unset;")
 
-	text := allText(t, allBoxOps(t, res, "child"))
+	text := allText(t, allBoxOps(t, res))
 	if !allRGBNear(text, 1, 0, 0) {
 		t.Fatalf("unset color rgb = %.3f,%.3f,%.3f, want inherited red", text.R, text.G, text.B)
 	}
 
-	if fills := allFills(allBoxOps(t, res, "child")); len(fills) != 0 {
+	if fills := allFills(allBoxOps(t, res)); len(fills) != 0 {
 		t.Fatalf("unset background fills = %d, want 0 (initial)", len(fills))
 	}
 }
@@ -193,7 +193,7 @@ func TestBehaviorAllBadTokenKeepsColor(t *testing.T) {
 		"color: red; background-color: blue;",
 		"color: red; all: initial extra;")
 
-	text := allText(t, allBoxOps(t, res, "child"))
+	text := allText(t, allBoxOps(t, res))
 	if !allRGBNear(text, 1, 0, 0) {
 		t.Fatalf("text rgb = %.3f,%.3f,%.3f, want the earlier red", text.R, text.G, text.B)
 	}
@@ -210,13 +210,13 @@ func TestBehaviorAllRevertDoesNotWalkOrigins(t *testing.T) {
 			"color: red; background-color: blue;",
 			"color: #ff00ff; background-color: #00ff00; all: "+keyword+";")
 
-		text := allText(t, allBoxOps(t, res, "child"))
+		text := allText(t, allBoxOps(t, res))
 		if !allRGBNear(text, 1, 0, 1) {
 			t.Fatalf("all: %s text rgb = %.3f,%.3f,%.3f, want the author magenta",
 				keyword, text.R, text.G, text.B)
 		}
 
-		fills := allFills(allBoxOps(t, res, "child"))
+		fills := allFills(allBoxOps(t, res))
 		if len(fills) == 0 || !allRGBNear(fills[0], 0, 1, 0) {
 			t.Fatalf("all: %s fill = %v, want the author green", keyword, fills)
 		}

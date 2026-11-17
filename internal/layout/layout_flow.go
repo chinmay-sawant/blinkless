@@ -240,7 +240,20 @@ func (e *engine) flowChildren(
 // block lays out without copying its 6KB style record. The value wrapper
 // above preserves the external table, multicol, and measure call sites.
 //
-//nolint:funlen // containment short-circuits plus the inline/block alternation
+// flowFloatsOrLocal returns the BFC float state, or a fresh local one when none
+// is pushed.
+func (e *engine) flowFloatsOrLocal(contentX, contentW float64) *floatState {
+	if e.bfcFloats != nil {
+		return e.bfcFloats
+	}
+
+	// Defensive: callers should pushBFCFloats first. Keep a local state
+	// so isolated measure passes (layoutCell) still work.
+	local := newFloatState(contentX, contentW)
+
+	return &local
+}
+
 func (e *engine) flowChildrenPtr(
 	parent *box, children []*html.Node, sty *ResolvedStyle,
 	contentW, contentX, posY, curY float64,
@@ -272,15 +285,7 @@ func (e *engine) flowChildrenPtr(
 
 	prevBottom := 0.0
 
-	var local floatState
-
-	floats := e.bfcFloats
-	if floats == nil {
-		// Defensive: callers should pushBFCFloats first. Keep a local state
-		// so isolated measure passes (layoutCell) still work.
-		local = newFloatState(contentX, contentW)
-		floats = &local
-	}
+	floats := e.flowFloatsOrLocal(contentX, contentW)
 
 	var deferred []*html.Node
 	// Absolute/fixed containing-block origin is the content edge at entry.

@@ -9,6 +9,12 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/css"
 )
 
+// Values used by the line-padding length resolver.
+const (
+	linePaddingRemPx = 16 // px in one rem, for a length given in rem
+	linePaddingSides = 2  // a line gets its padding at both ends
+)
+
 // applyLinePaddingProps stores line-padding. Registered on styleGroups.
 // A bad token returns without writing, so the previous value stays.
 func applyLinePaddingProps(
@@ -38,7 +44,7 @@ func linePaddingSpecified(
 	value string, fsize, viewportW float64, parent *ResolvedStyle, hasParent bool,
 ) (float64, bool) {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case cssKeywordInitial, cssKeywordRevert, "revert-layer":
+	case cssKeywordInitial, cssKeywordRevert, stringSetRevertLayer:
 		return 0, true
 	case inheritKeyword, cssKeywordUnset:
 		if hasParent && parent != nil {
@@ -64,7 +70,7 @@ func linePaddingLength(value string, fsize, viewportW float64) (float64, bool) {
 	}
 
 	if unit == remUnit {
-		return pxToPt(16) * val, true
+		return pxToPt(linePaddingRemPx) * val, true
 	}
 
 	return lengthToPt(val, unit, fsize)
@@ -93,7 +99,7 @@ func (e *engine) linePaddingInset(boxNode *box, lineX, lineW float64) (float64, 
 	}
 
 	lineX += pad
-	lineW -= pad * 2
+	lineW -= pad * linePaddingSides
 
 	if lineW < 0 {
 		lineW = 0

@@ -40,8 +40,8 @@ func (skip *svgGeomSkip) add(name string) {
 	skip.count++
 }
 
-func (skip svgGeomSkip) skips(name string) bool {
-	for i := 0; i < skip.count; i++ {
+func (skip *svgGeomSkip) skips(name string) bool {
+	for i := range skip.count {
 		if skip.names[i] == name {
 			return true
 		}

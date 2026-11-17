@@ -986,7 +986,7 @@ func webkitMaskCompositeKeyword(layer string) (string, bool) {
 	case "xor":
 		return maskCompositeExclude, true
 	case "source-atop", "destination-over", "destination-in", "destination-out",
-		"destination-atop", "clear", "copy":
+		"destination-atop", clearKeyword, "copy":
 		return strings.ToLower(strings.TrimSpace(layer)), true
 	default:
 		return "", false

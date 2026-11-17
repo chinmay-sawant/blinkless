@@ -80,13 +80,9 @@ func baselineSourceChoice(item *inlineItem) (string, bool) {
 // inlineBlockTextBaselines returns the first and last text-op baselines
 // inside block. Y grows downward, so the first line is the smaller Y.
 func (e *engine) inlineBlockTextBaselines(block *box) (float64, float64, bool) {
-	if block == nil || block.opEnd < block.opStart || block.opStart < 0 {
+	end, ok := e.inlineBlockOpEnd(block)
+	if !ok {
 		return 0, 0, false
-	}
-
-	end := block.opEnd
-	if end >= len(e.ops) {
-		end = len(e.ops) - 1
 	}
 
 	var first, last float64
@@ -111,6 +107,21 @@ func (e *engine) inlineBlockTextBaselines(block *box) (float64, float64, bool) {
 	}
 
 	return first, last, found
+}
+
+// inlineBlockOpEnd returns the last op index inside block to scan. ok is false
+// when block has no usable op range.
+func (e *engine) inlineBlockOpEnd(block *box) (int, bool) {
+	if block == nil || block.opEnd < block.opStart || block.opStart < 0 {
+		return 0, false
+	}
+
+	end := block.opEnd
+	if end >= len(e.ops) {
+		end = len(e.ops) - 1
+	}
+
+	return end, true
 }
 
 func clampBaselineOffset(offset, height float64) float64 {

@@ -15,6 +15,8 @@ const (
 	imageRenderingAuto    = "auto"
 	imageRenderingQuality = "optimizeQuality"
 	imageRenderingSpeed   = "optimizeSpeed"
+	// imageRenderingSpeedKeyword is the lowercase token the switch matches.
+	imageRenderingSpeedKeyword = "optimizespeed"
 )
 
 // applyImageRenderingProps owns image-rendering. Registered in styleGroups
@@ -32,7 +34,7 @@ func applyImageRenderingProps(
 		style.ImageRendering = imageRenderingAuto
 	case "optimizequality":
 		style.ImageRendering = imageRenderingQuality
-	case "optimizespeed":
+	case imageRenderingSpeedKeyword:
 		style.ImageRendering = imageRenderingSpeed
 	}
 

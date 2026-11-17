@@ -159,7 +159,7 @@ func TestBehaviorBackdropFilterKeepsAuthorString(t *testing.T) {
 }
 
 func backdropGroupBegins(display *layout.Display) []*layout.DisplayOp {
-	var begins []*layout.DisplayOp
+	begins := make([]*layout.DisplayOp, 0, len(display.Order))
 
 	for _, index := range display.Order {
 		if index < 0 || index >= len(display.Ops) {

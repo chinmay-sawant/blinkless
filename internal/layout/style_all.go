@@ -14,6 +14,13 @@ const (
 	allSentinelInherit = "\x00all-inherit"
 )
 
+// Property names the all expander compares against.
+const (
+	propBackgroundColor = "background-color"
+	propUnicodeBidi     = "unicode-bidi"
+	propDirection       = "direction"
+)
+
 // expandAllDeclaration expands the all shorthand into one longhand per
 // property it resets. direction, unicode-bidi, and custom properties are
 // skipped. revert, revert-layer, and revert-rule are not expanded: this
@@ -94,7 +101,7 @@ func takeAllInheritSentinels(raw map[string]string) bool {
 			continue
 		}
 
-		if prop == "background-color" {
+		if prop == propBackgroundColor {
 			bgInherit = true
 		}
 
@@ -115,10 +122,11 @@ func dropAllInitialSentinels(raw map[string]string) {
 	}
 }
 
+// The three values below are a lazy cache built once by allResetOnce.
 var (
-	allResetOnce  sync.Once
-	allResetNames []string
-	allInherited  map[string]struct{}
+	allResetOnce  sync.Once           //nolint:gochecknoglobals // guards the lazy cache below
+	allResetNames []string            //nolint:gochecknoglobals // lazy cache filled once by allResetOnce
+	allInherited  map[string]struct{} //nolint:gochecknoglobals // lazy cache filled once by allResetOnce
 )
 
 func allResetPropertyNames() []string {
@@ -129,6 +137,7 @@ func allResetPropertyNames() []string {
 
 func allPropertyInherited(name string) bool {
 	allResetOnce.Do(buildAllResetProperties)
+
 	_, ok := allInherited[name]
 
 	return ok
@@ -142,7 +151,7 @@ func buildAllResetProperties() {
 	allInherited = make(map[string]struct{})
 
 	add := func(name string, inherited bool) {
-		if name == "direction" || name == "unicode-bidi" || strings.HasPrefix(name, "--") {
+		if name == propDirection || name == propUnicodeBidi || strings.HasPrefix(name, "--") {
 			return
 		}
 

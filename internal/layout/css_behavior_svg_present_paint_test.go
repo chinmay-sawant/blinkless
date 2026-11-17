@@ -259,20 +259,20 @@ func TestBehaviorSvgPresentPaintOrder(t *testing.T) {
 	// Inner half of the left stroke: x from 8 to 12, y in the middle. The
 	// default order paints the stroke over the fill (blue). stroke first
 	// lets the fill cover that half (red).
-	inner := func(css, inner string) (int, int, int) {
+	inner := func(css, inner string) (int, int) {
 		_, img := svgPaintRender(t, svgPaintBaseCSS+css, inner)
 		scale := float64(img.Bounds().Dx()) / 64
-		red, green, blue, _ := img.At(int(10*scale), int(18*scale)).RGBA()
+		red, _, blue, _ := img.At(int(10*scale), int(18*scale)).RGBA()
 
-		return int(red >> 8), int(green >> 8), int(blue >> 8)
+		return int(red >> 8), int(blue >> 8)
 	}
 
-	r, _, b := inner(``, plain)
+	r, b := inner(``, plain)
 	if b < 200 || r > 60 {
 		t.Fatalf("default order inner stroke pixel = (%d,_,%d), want blue", r, b)
 	}
 
-	r, _, b = inner(`#r{paint-order:stroke}`, plain)
+	r, b = inner(`#r{paint-order:stroke}`, plain)
 	if r < 200 || b > 60 {
 		t.Errorf("paint-order:stroke inner stroke pixel = (%d,_,%d), want red fill over the stroke", r, b)
 	}
@@ -287,14 +287,14 @@ func TestBehaviorSvgPresentPaintOrder(t *testing.T) {
 
 	// An explicit fill-first order and normal match the default.
 	for _, css := range []string{`#r{paint-order:normal}`, `#r{paint-order:fill stroke}`} {
-		if r, _, b := inner(css, plain); b < 200 || r > 60 {
+		if r, b := inner(css, plain); b < 200 || r > 60 {
 			t.Errorf("%s inner stroke pixel = (%d,_,%d), want blue like the default", css, r, b)
 		}
 	}
 
 	// The stylesheet beats an attribute, and a no-stroke shape is untouched.
 	attr := strings.Replace(rect, "%s", ` paint-order="fill"`, 1)
-	if r, _, b := inner(`#r{paint-order:stroke}`, attr); r < 200 || b > 60 {
+	if r, b := inner(`#r{paint-order:stroke}`, attr); r < 200 || b > 60 {
 		t.Errorf("attribute won over the stylesheet: pixel = (%d,_,%d)", r, b)
 	}
 

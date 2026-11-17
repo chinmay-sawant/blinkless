@@ -76,7 +76,9 @@ func TestBehaviorBoxDecorationBreakClonePaintsEachFragment(t *testing.T) {
 
 // decorationBreakParts splits the fixture into the slice paragraph and the
 // clone paragraph. The clone span's first text op starts with "clone".
-func decorationBreakParts(res *Result) (sliceText, cloneText, sliceFills, cloneFills []Op) {
+func decorationBreakParts(res *Result) ([]Op, []Op, []Op, []Op) {
+	var sliceText, cloneText, sliceFills, cloneFills []Op
+
 	var texts []Op
 
 	var fills []Op

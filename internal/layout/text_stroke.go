@@ -99,6 +99,11 @@ func applyTextStrokeShorthand(style *ResolvedStyle, value string, fsize float64)
 	}
 }
 
+// isTopLevelSpace reports whether char is a separator outside any parentheses.
+func isTopLevelSpace(char rune, depth int) bool {
+	return (char == ' ' || char == '\t' || char == '\n') && depth == 0
+}
+
 // splitOutsideParens splits on whitespace that is not inside parentheses.
 func splitOutsideParens(value string) []string {
 	var parts []string
@@ -113,7 +118,7 @@ func splitOutsideParens(value string) []string {
 			depth--
 		}
 
-		isSpace := (char == ' ' || char == '\t' || char == '\n') && depth == 0
+		isSpace := isTopLevelSpace(char, depth)
 
 		switch {
 		case isSpace && start >= 0:
@@ -167,7 +172,7 @@ func (op Op) withTextStroke(style *ResolvedStyle) Op {
 
 // TextStroke returns the glyph outline of a text op: its width in points and
 // its color. ok is false when the run has no stroke.
-func (op Op) TextStroke() (width float64, color [3]float64, ok bool) {
+func (op Op) TextStroke() (float64, [3]float64, bool) {
 	if op.opExtra == nil || op.opExtra.TextStrokeWidth <= 0 {
 		return 0, [3]float64{}, false
 	}

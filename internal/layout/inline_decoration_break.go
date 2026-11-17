@@ -25,9 +25,12 @@ type decorBreakState struct {
 	depth  int
 }
 
+// The state lives here, not on engine, so the engine struct in layout.go does
+// not grow. The mutex guards it for parallel layout tests. Entries are keyed by
+// engine and removed by the outermost pop.
 var (
-	decorBreakMu sync.Mutex
-	decorBreaks  = map[*engine]*decorBreakState{}
+	decorBreakMu sync.Mutex                       //nolint:gochecknoglobals // per-engine state, see above
+	decorBreaks  = map[*engine]*decorBreakState{} //nolint:gochecknoglobals // per-engine state, see above
 )
 
 func inlineDecorationClone(style *ResolvedStyle) bool {
@@ -43,7 +46,9 @@ func (e *engine) pushInlineDecorationBreak() {
 
 	state := decorBreaks[e]
 	if state == nil {
-		state = &decorBreakState{ids: map[*html.Node]int{}}
+		state = &decorBreakState{
+			ids: map[*html.Node]int{}, next: 0, openID: 0, fill: 0, open: false, depth: 0,
+		}
 		decorBreaks[e] = state
 	}
 
@@ -146,6 +151,14 @@ func (e *engine) paintInlineDecorationBreak(
 		return
 	}
 
+	e.paintFirstInlineFragment(item, leftX, baseline, ascent, descent, contentWidth)
+}
+
+// paintFirstInlineFragment paints the first slice fragment of an element and
+// records its background fill as the one later fragments grow.
+func (e *engine) paintFirstInlineFragment(
+	item *inlineItem, leftX, baseline, ascent, descent, contentWidth float64,
+) {
 	before := len(e.ops)
 	e.paintInlineChrome(item, leftX, baseline, ascent, descent, contentWidth)
 
@@ -189,7 +202,7 @@ func (e *engine) expandInlineDecorationFill(id int, boxX, boxY, boxW, boxH float
 	return true
 }
 
-func (e *engine) openInlineDecorationFill(id, fill int) {
+func (e *engine) openInlineDecorationFill(elemID, fill int) {
 	decorBreakMu.Lock()
 	defer decorBreakMu.Unlock()
 
@@ -199,7 +212,7 @@ func (e *engine) openInlineDecorationFill(id, fill int) {
 	}
 
 	state.open = true
-	state.openID = id
+	state.openID = elemID
 	state.fill = fill
 }
 

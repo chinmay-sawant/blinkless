@@ -6,6 +6,9 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/css"
 )
 
+// sizeShorthandPair is the token count of a width and height pair in size.
+const sizeShorthandPair = 2
+
 // applySizeShorthandProps owns the element property size. One accepted value
 // is copied onto width and height. Two accepted values set width, then height.
 // A token that either axis would reject writes neither axis, so an earlier
@@ -14,7 +17,7 @@ func applySizeShorthandProps(
 	style *ResolvedStyle, prop, value string, fsize float64, ctx *styleContext,
 	_ *ResolvedStyle, _ bool,
 ) bool {
-	if prop != "size" {
+	if prop != containKeywordSize {
 		return false
 	}
 
@@ -105,7 +108,7 @@ func minSizeLonghands(raw string) (string, string, bool) {
 	}
 
 	heightValue := fields[0]
-	if len(fields) == 2 {
+	if len(fields) == sizeShorthandPair {
 		heightValue = fields[1]
 	}
 
@@ -188,11 +191,12 @@ func maxSizeLonghands(value string) (string, string, bool) {
 	widthValue := tokens[0]
 	heightValue := widthValue
 
-	if count == 2 {
+	if count == sizeShorthandPair {
 		heightValue = tokens[1]
 	}
 
 	widthOK := boxLengthValueAccepted(widthValue, cssDisplayNone)
+
 	heightOK := boxLengthValueAccepted(heightValue, cssDisplayNone)
 	if !widthOK || !heightOK {
 		return "", "", false

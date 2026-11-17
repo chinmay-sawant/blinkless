@@ -7,6 +7,9 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
+// inputTypeURL is the url input type keyword.
+const inputTypeURL = "url"
+
 // controlBulletRune masks each password rune. Chrome paints U+2022 BULLET.
 const controlBulletRune = '\u2022'
 
@@ -20,7 +23,7 @@ func isTextInput(node *html.Node) bool {
 	}
 
 	switch strings.ToLower(node.Attribute("type")) {
-	case "", "text", "password", "search", "email", "tel", "url", "number":
+	case "", "text", "password", "search", "email", "tel", inputTypeURL, "number":
 		return true
 	}
 

@@ -29,12 +29,34 @@ import (
 
 const emulateZeroDash = "0 100000"
 
+// Named values used by the geometry and filter-region math below.
+const (
+	emulateTwo           = 2   // a square's exponent, a half size, or a diameter factor
+	emulateRamanujan     = 4   // constant term in Ramanujan's ellipse perimeter formula
+	emulateViewBoxFields = 4   // min-x, min-y, width, height in a viewBox
+	emulatePercent       = 100 // divides a percentage into a fraction
+	emulateDefaultSpan   = 1.2 // default filter region width and height, as a fraction of the box
+	emulateLineTag       = "line"
+	emulateEllipseTag    = "ellipse"
+	emulateCircleTag     = "circle"
+	emulatePathTag       = "path"
+	// emulateRamanujanOffset is added to the root term in Ramanujan's perimeter formula.
+	emulateRamanujanOffset = 10
+	emulateFillPart        = "fill"
+	emulateStrokePart      = "stroke"
+)
+
+// emulateMayRewrite reports whether data mentions a feature the emulations read.
+func emulateMayRewrite(data []byte) bool {
+	return bytesContainsFold(data, []byte("paint-order")) || bytesContainsFold(data, []byte("pathlength")) ||
+		bytesContainsFold(data, []byte("vector-effect")) || bytesContainsFold(data, []byte("feflood")) ||
+		bytesContainsFold(data, []byte("fediffuselighting"))
+}
+
 // emulatePresentation applies both emulations. It returns the input slice
 // when no tag changes.
 func emulatePresentation(data []byte) []byte {
-	if !bytesContainsFold(data, []byte("paint-order")) && !bytesContainsFold(data, []byte("pathlength")) &&
-		!bytesContainsFold(data, []byte("vector-effect")) && !bytesContainsFold(data, []byte("feflood")) &&
-		!bytesContainsFold(data, []byte("fediffuselighting")) {
+	if !emulateMayRewrite(data) {
 		return data
 	}
 
@@ -96,7 +118,7 @@ func emulatePresentation(data []byte) []byte {
 
 func emulateIsShape(name string) bool {
 	switch name {
-	case "path", "rect", "circle", "ellipse", "line", "polyline", "polygon":
+	case emulatePathTag, svgRectTag, emulateCircleTag, emulateEllipseTag, emulateLineTag, "polyline", "polygon":
 		return true
 	default:
 		return false
@@ -218,9 +240,9 @@ func emulateStrokeFirstOrder(index map[string]string) ([3]string, bool) {
 
 	for idx, part := range order {
 		switch part {
-		case "fill":
+		case emulateFillPart:
 			fillAt = idx
-		case "stroke":
+		case emulateStrokePart:
 			strokeAt = idx
 		}
 	}
@@ -236,7 +258,7 @@ func effectivePaintOrder(raw string) [3]string {
 	count := 0
 
 	for _, tok := range strings.Fields(strings.ToLower(raw)) {
-		if (tok == "fill" || tok == "stroke" || tok == "markers") && !emulateContains(order[:count], tok) {
+		if (tok == emulateFillPart || tok == emulateStrokePart || tok == "markers") && !emulateContains(order[:count], tok) {
 			order[count] = tok
 			count++
 		}
@@ -252,7 +274,10 @@ func effectivePaintOrder(raw string) [3]string {
 	return order
 }
 
-var emulateMarkerAttrs = []string{"marker-start", "marker-mid", "marker-end"}
+// emulateMarkerAttrNames lists the three marker presentation attributes.
+func emulateMarkerAttrNames() []string {
+	return []string{"marker-start", "marker-mid", "marker-end"}
+}
 
 // emulateSplitPaintOrder writes one copy per painted part in order.
 func emulateSplitPaintOrder(name string, attrs []emulateAttr, index map[string]string, order [3]string) string {
@@ -260,19 +285,19 @@ func emulateSplitPaintOrder(name string, attrs []emulateAttr, index map[string]s
 
 	hasMarkers := false
 
-	for _, key := range emulateMarkerAttrs {
+	for _, key := range emulateMarkerAttrNames() {
 		if _, ok := index[key]; ok {
 			hasMarkers = true
 		}
 	}
 
-	base := append([]string{"paint-order", "id"}, emulateMarkerAttrs...)
+	base := append([]string{"paint-order", "id"}, emulateMarkerAttrNames()...)
 
 	for _, part := range order {
 		switch part {
-		case "fill":
+		case emulateFillPart:
 			out.WriteString(emulateTagText(name, attrs, map[string]string{"stroke": "none"}, base...))
-		case "stroke":
+		case emulateStrokePart:
 			out.WriteString(emulateTagText(name, attrs, map[string]string{"fill": "none"}, base...))
 		case "markers":
 			if hasMarkers {
@@ -298,8 +323,7 @@ func emulateScaleDashes(name string, attrs []emulateAttr, index map[string]strin
 		return nil, false
 	}
 
-	dashes, hasDashes := index["stroke-dasharray"]
-	if !hasDashes || strings.EqualFold(strings.TrimSpace(dashes), "none") {
+	if !emulateHasDashArray(index) {
 		return nil, false
 	}
 
@@ -309,6 +333,13 @@ func emulateScaleDashes(name string, attrs []emulateAttr, index map[string]strin
 	}
 
 	factor := actual / declared
+
+	return emulateScaleAttrs(attrs, factor)
+}
+
+// emulateScaleAttrs multiplies the dash attributes by factor and drops
+// pathLength. ok is false when a dash value does not parse.
+func emulateScaleAttrs(attrs []emulateAttr, factor float64) ([]emulateAttr, bool) {
 	out := make([]emulateAttr, 0, len(attrs))
 
 	for _, attr := range attrs {
@@ -328,6 +359,13 @@ func emulateScaleDashes(name string, attrs []emulateAttr, index map[string]strin
 	}
 
 	return out, true
+}
+
+// emulateHasDashArray reports whether the shape sets a stroke-dasharray other than none.
+func emulateHasDashArray(index map[string]string) bool {
+	dashes, ok := index["stroke-dasharray"]
+
+	return ok && !strings.EqualFold(strings.TrimSpace(dashes), "none")
 }
 
 func emulateScaleList(value string, factor float64) (string, bool) {
@@ -358,21 +396,21 @@ func emulateNum(index map[string]string, key string) float64 {
 // emulateShapeLength measures a shape in user units.
 func emulateShapeLength(name string, index map[string]string) (float64, bool) {
 	switch name {
-	case "path":
+	case emulatePathTag:
 		path, err := canvas.ParseSVGPath(index["d"])
 		if err != nil {
 			return 0, false
 		}
 
 		return path.Length(), true
-	case "line":
+	case emulateLineTag:
 		return math.Hypot(emulateNum(index, "x2")-emulateNum(index, "x1"),
 			emulateNum(index, "y2")-emulateNum(index, "y1")), true
-	case "circle":
+	case emulateCircleTag:
 		return 2 * math.Pi * emulateNum(index, "r"), true
-	case "ellipse":
+	case emulateEllipseTag:
 		return emulateEllipse(emulateNum(index, "rx"), emulateNum(index, "ry")), true
-	case "rect":
+	case svgRectTag:
 		return emulateRectLength(index)
 	default:
 		return emulatePolyLength(index["points"], name == "polygon")
@@ -381,30 +419,30 @@ func emulateShapeLength(name string, index map[string]string) (float64, bool) {
 
 // emulateEllipse is Ramanujan's perimeter approximation.
 func emulateEllipse(rx, ry float64) float64 {
-	h := math.Pow(rx-ry, 2) / math.Pow(rx+ry, 2)
+	h := math.Pow(rx-ry, emulateTwo) / math.Pow(rx+ry, emulateTwo)
 
-	return math.Pi * (rx + ry) * (1 + 3*h/(10+math.Sqrt(4-3*h)))
+	return math.Pi * (rx + ry) * (1 + 3*h/(emulateRamanujanOffset+math.Sqrt(emulateRamanujan-3*h)))
 }
 
 func emulateRectLength(index map[string]string) (float64, bool) {
 	width, height := emulateNum(index, "width"), emulateNum(index, "height")
-	rx, ry := emulateNum(index, "rx"), emulateNum(index, "ry")
+	corner, cornerY := emulateNum(index, "rx"), emulateNum(index, "ry")
 
-	if rx == 0 {
-		rx = ry
+	if corner == 0 {
+		corner = cornerY
 	}
 
-	if ry == 0 {
-		ry = rx
+	if cornerY == 0 {
+		cornerY = corner
 	}
 
-	if rx != ry {
+	if corner != cornerY {
 		return 0, false
 	}
 
-	rx = math.Min(rx, math.Min(width, height)/2)
+	corner = math.Min(corner, math.Min(width, height)/emulateTwo)
 
-	return 2*(width-2*rx) + 2*(height-2*rx) + 2*math.Pi*rx, true
+	return 2*(width-2*corner) + 2*(height-2*corner) + 2*math.Pi*corner, true
 }
 
 func emulatePolyLength(points string, closed bool) (float64, bool) {
@@ -442,7 +480,7 @@ func emulatePolyLength(points string, closed bool) (float64, bool) {
 // is 1 when either is missing or not a plain number, and for a missing size.
 func emulateRootScale(index map[string]string) float64 {
 	box := strings.FieldsFunc(index["viewbox"], func(r rune) bool { return r == ' ' || r == ',' })
-	if len(box) != 4 {
+	if len(box) != emulateViewBoxFields {
 		return 1
 	}
 
@@ -516,25 +554,101 @@ type emulateFlood struct {
 	light          *emulateLighting
 }
 
+// emulateMayCollectFloods reports whether data holds a filter the collector reads.
+func emulateMayCollectFloods(data []byte) bool {
+	return bytesContainsFold(data, []byte("feflood")) || bytesContainsFold(data, []byte("fediffuselighting"))
+}
+
+// emulateFilterScan is the filter emulateCollectFloods is reading. Its tags
+// fill it in order, and its closing tag stores the result.
+type emulateFilterScan struct {
+	open     bool
+	id       string
+	region   emulateFlood
+	prims    []string
+	flood    map[string]string
+	filterAt map[string]string
+	diffuse  map[string]string
+	distant  map[string]string
+}
+
+// begin starts a filter from its opening tag attributes.
+func (s *emulateFilterScan) begin(attrs []emulateAttr) {
+	index := emulateAttrMap(attrs)
+	s.open, s.id, s.prims, s.flood = true, index["id"], nil, nil
+	s.filterAt, s.diffuse, s.distant = index, nil, nil
+	s.region = emulateFlood{
+		color: "", opacity: "", light: nil,
+		x: emulateFraction(index["x"], -0.1), y: emulateFraction(index["y"], -0.1),
+		w: emulateFraction(index["width"], emulateDefaultSpan), h: emulateFraction(index["height"], emulateDefaultSpan),
+	}
+}
+
+// primitive records one fe* primitive inside the open filter.
+func (s *emulateFilterScan) primitive(name string, attrs []emulateAttr) {
+	s.prims = append(s.prims, name)
+
+	switch name {
+	case "feflood":
+		s.flood = emulateAttrMap(attrs)
+	case "fediffuselighting":
+		s.diffuse = emulateAttrMap(attrs)
+	case "fedistantlight":
+		s.distant = emulateAttrMap(attrs)
+	}
+}
+
+// element handles one opening tag while a filter may be open.
+func (s *emulateFilterScan) element(name string, attrs []emulateAttr, selfClose bool) {
+	switch {
+	case name == "filter" && !selfClose:
+		s.begin(attrs)
+	case s.open && strings.HasPrefix(name, "fe"):
+		s.primitive(name, attrs)
+	}
+}
+
+// close stores the filter's flood when it reduces to one, then ends the filter.
+func (s *emulateFilterScan) close(floods map[string]emulateFlood) {
+	if s.id != "" {
+		if flood, ok := s.reduced(); ok {
+			floods[s.id] = flood
+		}
+	}
+
+	s.open = false
+}
+
+// reduced returns the flood a filter reduces to: one feFlood, or a lighting chain.
+func (s *emulateFilterScan) reduced() (emulateFlood, bool) {
+	region := s.region
+
+	if len(s.prims) == 1 && s.prims[0] == "feflood" {
+		region.color, region.opacity = s.flood["flood-color"], s.flood["flood-opacity"]
+
+		return region, true
+	}
+
+	light, ok := emulateLightingFilter(s.prims, s.filterAt, s.diffuse, s.distant)
+	if !ok {
+		return emulateFlood{color: "", opacity: "", x: 0, y: 0, w: 0, h: 0, light: nil}, false
+	}
+
+	region.light = &light
+
+	return region, true
+}
+
 // emulateCollectFloods finds each filter whose only primitive is one feFlood.
 // A filter with any other primitive is left to the canvas, which ignores it.
 func emulateCollectFloods(data []byte) map[string]emulateFlood {
-	if !bytesContainsFold(data, []byte("feflood")) && !bytesContainsFold(data, []byte("fediffuselighting")) {
+	if !emulateMayCollectFloods(data) {
 		return nil
 	}
 
 	floods := map[string]emulateFlood{}
 
-	var (
-		inFilter bool
-		id       string
-		region   emulateFlood
-		prims    []string
-		flood    map[string]string
-		filterAt map[string]string
-		diffuse  map[string]string
-		distant  map[string]string
-	)
+	var scan emulateFilterScan
 
 	pos, tags := 0, 0
 
@@ -556,43 +670,15 @@ func emulateCollectFloods(data []byte) map[string]emulateFlood {
 		pos = start + 1
 
 		if bytes.HasPrefix(data[start:], []byte("</")) {
-			if inFilter && strings.EqualFold(strings.TrimSpace(string(data[start+2:end])), "filter") {
-				if len(prims) == 1 && prims[0] == "feflood" && id != "" {
-					region.color, region.opacity = flood["flood-color"], flood["flood-opacity"]
-					floods[id] = region
-				} else if light, ok := emulateLightingFilter(prims, filterAt, diffuse, distant); ok && id != "" {
-					region.light = &light
-					floods[id] = region
-				}
-
-				inFilter = false
+			if scan.open && strings.EqualFold(strings.TrimSpace(string(data[start+2:end])), "filter") {
+				scan.close(floods)
 			}
 
 			continue
 		}
 
 		name, attrs, selfClose := emulateParseTag(data, start, end)
-
-		switch {
-		case name == "filter" && !selfClose:
-			index := emulateAttrMap(attrs)
-			inFilter, id, prims, flood = true, index["id"], nil, nil
-			filterAt, diffuse, distant = index, nil, nil
-			region = emulateFlood{
-				x: emulateFraction(index["x"], -0.1), y: emulateFraction(index["y"], -0.1),
-				w: emulateFraction(index["width"], 1.2), h: emulateFraction(index["height"], 1.2),
-			}
-		case inFilter && strings.HasPrefix(name, "fe"):
-			prims = append(prims, name)
-			switch name {
-			case "feflood":
-				flood = emulateAttrMap(attrs)
-			case "fediffuselighting":
-				diffuse = emulateAttrMap(attrs)
-			case "fedistantlight":
-				distant = emulateAttrMap(attrs)
-			}
-		}
+		scan.element(name, attrs, selfClose)
 	}
 
 	return floods
@@ -611,7 +697,7 @@ func emulateFraction(raw string, fallback float64) float64 {
 			return fallback
 		}
 
-		return num / 100
+		return num / emulatePercent
 	}
 
 	num, err := strconv.ParseFloat(raw, 64)
@@ -632,28 +718,13 @@ func emulateFloodShape(
 		return "", false
 	}
 
-	flood, ok := floods[strings.TrimSuffix(strings.TrimPrefix(ref, "url(#"), ")")]
-	if !ok {
+	flood, found := floods[strings.TrimSuffix(strings.TrimPrefix(ref, "url(#"), ")")]
+	if !found {
 		return "", false
 	}
 
-	var boxX, boxY, boxW, boxH float64
-
-	switch name {
-	case "rect":
-		boxX, boxY, boxW, boxH = emulateNum(index, "x"), emulateNum(index, "y"),
-			emulateNum(index, "width"), emulateNum(index, "height")
-	case "circle":
-		radius := emulateNum(index, "r")
-		boxX, boxY, boxW, boxH = emulateNum(index, "cx")-radius, emulateNum(index, "cy")-radius, 2*radius, 2*radius
-	case "ellipse":
-		radX, radY := emulateNum(index, "rx"), emulateNum(index, "ry")
-		boxX, boxY, boxW, boxH = emulateNum(index, "cx")-radX, emulateNum(index, "cy")-radY, 2*radX, 2*radY
-	default:
-		return "", false
-	}
-
-	if boxW <= 0 || boxH <= 0 {
+	boxX, boxY, boxW, boxH, boxOK := emulateFloodBox(name, index)
+	if !boxOK {
 		return "", false
 	}
 
@@ -667,6 +738,35 @@ func emulateFloodShape(
 			boxX+flood.x*boxW, boxY+flood.y*boxH, flood.w*boxW, flood.h*boxH, boxX, boxY, boxW, boxH, unit), true
 	}
 
+	return emulateFloodRect(flood, index, boxX, boxY, boxW, boxH), true
+}
+
+// emulateFloodBox returns the user-space box a rect, circle, or ellipse covers.
+// ok is false for any other element and for an empty box.
+func emulateFloodBox(name string, index map[string]string) (float64, float64, float64, float64, bool) {
+	var boxX, boxY, boxW, boxH float64
+
+	switch name {
+	case svgRectTag:
+		boxX, boxY, boxW, boxH = emulateNum(index, "x"), emulateNum(index, "y"),
+			emulateNum(index, "width"), emulateNum(index, "height")
+	case emulateCircleTag:
+		radius := emulateNum(index, "r")
+		boxX, boxY, boxW, boxH = emulateNum(index, "cx")-radius, emulateNum(index, "cy")-radius,
+			emulateTwo*radius, emulateTwo*radius
+	case emulateEllipseTag:
+		radX, radY := emulateNum(index, "rx"), emulateNum(index, "ry")
+		boxX, boxY, boxW, boxH = emulateNum(index, "cx")-radX, emulateNum(index, "cy")-radY,
+			emulateTwo*radX, emulateTwo*radY
+	default:
+		return 0, 0, 0, 0, false
+	}
+
+	return boxX, boxY, boxW, boxH, boxW > 0 && boxH > 0
+}
+
+// emulateFloodRect writes the flat rect that replaces a single-feFlood shape.
+func emulateFloodRect(flood emulateFlood, index map[string]string, boxX, boxY, boxW, boxH float64) string {
 	color := flood.color
 	if color == "" {
 		color = "#000000"
@@ -686,7 +786,7 @@ func emulateFloodShape(
 		attrs = append(attrs, emulateAttr{"transform", transform})
 	}
 
-	return emulateTagText("rect", attrs, nil), true
+	return emulateTagText(svgRectTag, attrs, nil)
 }
 
 func num(value float64) string {

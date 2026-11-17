@@ -611,25 +611,7 @@ func inheritGapBProps(dst *ResolvedStyle, parent *ResolvedStyle, raw map[string]
 		dst.ColorInterpolationFilters = parent.ColorInterpolationFilters
 	}
 
-	// line-fit-edge inherits. The 64-entry mask is full, so it cannot join
-	// inheritableProps; a declared value is applied later and wins.
-	if _, ok := raw["line-fit-edge"]; !ok {
-		dst.LineFitEdge = parent.LineFitEdge
-	}
-
-	// line-padding inherits, but the uint64 inherit mask is full.
-	if _, ok := raw["line-padding"]; !ok {
-		dst.LinePadding = parent.LinePadding
-	}
-
-	if _, ok := raw[inlineSizingProp]; !ok {
-		dst.InlineSizing = parent.InlineSizing
-	}
-
-	// word-space-transform inherits, but the uint64 inherit mask is full.
-	if _, ok := raw["word-space-transform"]; !ok {
-		dst.WordSpaceTransform = parent.WordSpaceTransform
-	}
+	inheritGapBPropsWide(dst, parent, raw)
 }
 
 // selectorMatches reports whether sel matches node, using the pseudo-shape
@@ -887,10 +869,7 @@ func applyCascadeDeclaration(
 	ids, classes, types, order, layer int,
 	important bool,
 ) {
-	if effectiveProp := normalizeVendorPrefix(prop); effectiveProp != prop {
-		value = remapWebkitValue(prop, value)
-		prop = effectiveProp
-	}
+	prop, value = remapVendorDeclaration(prop, value)
 
 	if prop == maskShorthandProperty && containsVarFunc(value) {
 		for _, longhand := range [...]string{

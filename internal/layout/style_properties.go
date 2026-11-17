@@ -11,6 +11,10 @@ import (
 )
 
 const (
+	// propPageBreakInside is the legacy name of break-inside.
+	propPageBreakInside = "page-break-inside"
+	// propBreakInside is the break-inside property name.
+	propBreakInside         = "break-inside"
 	borderRadiusValueCount  = 4
 	borderRadiusPairCount   = 2
 	borderRadiusTripleCount = 3
@@ -1626,7 +1630,7 @@ func applyTableBreakGroup(
 	case propBorderCollapse, propBorderSpacing, propTableLayout, "caption-side":
 		return applyTableProps(style, prop, value, fsize, ctx.viewportW)
 	case "page-break-before", "break-before", "page-break-after", "break-after",
-		"page-break-inside", "break-inside", "margin-break":
+		propPageBreakInside, propBreakInside, "margin-break":
 		return applyPageBreakProps(style, prop, value)
 	case pageKeyword:
 		return applyPageNameProp(style, value, parent)

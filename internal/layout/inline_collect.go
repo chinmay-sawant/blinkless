@@ -281,8 +281,6 @@ func inlineHasBorderPtr(style *ResolvedStyle) bool {
 }
 
 // collectInlineText flattens one text node under its white-space mode.
-//
-//nolint:cyclop // whitespace, writing-mode, and inline decoration are one collection pass
 func (e *engine) collectInlineText(node *html.Node, sty *ResolvedStyle, out *[]inlineItem) {
 	if sty == nil || sty.Display == cssDisplayNone {
 		return
@@ -1080,6 +1078,7 @@ func (e *engine) textItem(text string, style *ResolvedStyle) inlineItem {
 // face or writing-mode work.
 func (e *engine) wrappedWordItem(word string, style *ResolvedStyle, lineH, vertW float64, vertical bool) inlineItem {
 	word = transformWordSpaceText(word, style)
+
 	advance := e.measureTextFace(transformInlineText(word, style.TextTransform), style)
 	if vertical {
 		advance = vertW
