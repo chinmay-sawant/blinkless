@@ -57,7 +57,7 @@ func (e *engine) buildInlineSVG(node *html.Node, sty ResolvedStyle, posX, posY f
 		opStart := len(e.ops)
 		e.add((Op{ //nolint:exhaustruct // intentional zero fields
 			Kind: OpImage, X: imgX, Y: imgY, W: size.w, H: size.h,
-		}).withImage(ref.data, ref.w, ref.h, ""))
+		}).withImage(ref.data, ref.w, ref.h, "").withImageRendering(sty.ImageRendering))
 		e.prependChrome(opStart, boxNode, sty, posX, posY, boxNode.w, boxNode.height)
 	}
 
@@ -282,6 +282,7 @@ func (e *engine) writeSVGNode(b *bytes.Buffer, node *html.Node, paint *svgPaintP
 	case html.TextNode:
 		b.WriteString(escapeXML(node.Text))
 	case html.ElementNode:
+		tagStart := b.Len()
 		b.WriteByte('<')
 		b.WriteString(node.Name)
 		var written svgWrittenSet
@@ -289,10 +290,13 @@ func (e *engine) writeSVGNode(b *bytes.Buffer, node *html.Node, paint *svgPaintP
 		// presentation attributes in Chrome 143.0.7499.40), so the attribute
 		// is suppressed here and the baked CSS value is emitted by
 		// writeSVGExtraPresentationAttrs below. Applies to path only: d is
-		// not a valid property on other elements.
-		suppressDAttr := false
+		// not a valid property on other elements. A stylesheet d is copied
+		// into decls first so this same rule replaces the attribute.
 		styleAttr := node.Attribute("style")
 		decls := parseSVGStyleDecls(styleAttr)
+		geomSkip := e.prepareSVGStylesheetGeometry(node, &decls)
+		e.prepareSVGStylesheetPaint(node, &decls, &geomSkip)
+		suppressDAttr := false
 		if node.Name == "path" {
 			_, suppressDAttr = svgCSSPathData(&decls)
 		}
@@ -326,6 +330,9 @@ func (e *engine) writeSVGNode(b *bytes.Buffer, node *html.Node, paint *svgPaintP
 			if k == "d" && suppressDAttr {
 				continue
 			}
+			if geomSkip.skips(k) {
+				continue
+			}
 			if paint.suppresses(node, k) {
 				continue
 			}
@@ -340,8 +347,12 @@ func (e *engine) writeSVGNode(b *bytes.Buffer, node *html.Node, paint *svgPaintP
 			b.WriteString(` xmlns="http://www.w3.org/2000/svg"`)
 		}
 		e.writeSVGPresentationAttrs(b, node, &written, &decls, paint)
+		e.writeSVGLeftoverAttrs(b, node, &written, &decls)
 		writeSVGExtraPresentationAttrs(b, node, &written, &decls)
 		if len(node.Children) == 0 {
+			if splitSVGMarkerShape(b, tagStart) {
+				return
+			}
 			b.WriteString("/>")
 			return
 		}
@@ -445,14 +456,15 @@ func (e *engine) writeSVGPresentationAttrs(
 		}
 	}
 	// SVG geometry and stop presentation properties below are recovered from
-	// the element's inline style attribute, like fill-rule above: they have
-	// no ResolvedStyle field, and the canvas rasterizer only reads them as
-	// XML attributes (drawShape and parseDefs in the pinned canvas svg.go),
-	// never from CSS style text (its setAttribute switch has no case for
-	// them, and the style attribute itself is skipped above). A matching
-	// presentation attribute already passed through above (written map) and
-	// wins by the no-duplicate guard. Stylesheet rules for these need a
-	// stored field owned elsewhere and stay unbaked.
+	// the element's inline style attribute, like fill-rule above. The canvas
+	// rasterizer only reads them as XML attributes (drawShape and parseDefs
+	// in the pinned canvas svg.go), never from CSS style text (its
+	// setAttribute switch has no case for them, and the style attribute
+	// itself is skipped above). prepareSVGStylesheetGeometry has already
+	// copied a stylesheet cx, cy, r, rx, ry, x, y, or d into decls and the
+	// caller skipped that presentation attribute, so the bake below writes
+	// the stylesheet value. An inline style value still loses to a
+	// presentation attribute, except d, which suppresses the attribute above.
 	if !written.has("cx") {
 		if v, ok := svgBakeLengthValue(decls.prop("cx")); ok {
 			fmt.Fprintf(b, ` cx="%s"`, escapeXML(v))
@@ -500,6 +512,21 @@ func (e *engine) writeSVGPresentationAttrs(
 		if !written.has("stop-opacity") {
 			if v, ok := svgBakeOpacityValue(decls.prop("stop-opacity")); ok {
 				fmt.Fprintf(b, ` stop-opacity="%s"`, escapeXML(v))
+			}
+		}
+	}
+	// flood-color and flood-opacity only affect feFlood. internal/svg turns a
+	// filter that is one feFlood into a flat rect, since the canvas has no
+	// filter support.
+	if node.Name == "feFlood" {
+		if !written.has("flood-color") {
+			if v := strings.TrimSpace(decls.prop("flood-color")); svgBakeStopColorValid(v) {
+				fmt.Fprintf(b, ` flood-color="%s"`, escapeXML(v))
+			}
+		}
+		if !written.has("flood-opacity") {
+			if v, ok := svgBakeOpacityValue(decls.prop("flood-opacity")); ok {
+				fmt.Fprintf(b, ` flood-opacity="%s"`, escapeXML(v))
 			}
 		}
 	}
@@ -1758,6 +1785,7 @@ func writeSVGExtraPresentationAttrs(b *bytes.Buffer, node *html.Node, written *s
 	}
 
 	writeSVGMarkerAttrs(b, decls, written)
+	writeSVGPathLengthAttr(b, decls, written)
 	writeSVGTextAnchorAttr(b, node, decls, written)
 
 	// CSS d (SVG2 geometry property, Chrome 121+) sets path data. The pinned
@@ -1857,20 +1885,9 @@ func isSVGMarkerRef(val string) bool {
 // must have the form path("...") (double or single quotes). "none" and any
 // other shape mean no override.
 func svgCSSPathData(decls *svgStyleDecls) (string, bool) {
-	raw := strings.TrimSpace(decls.prop("d"))
-	if raw == "" || strings.EqualFold(raw, "none") {
+	if decls == nil {
 		return "", false
 	}
 
-	if !strings.HasPrefix(strings.ToLower(raw), "path(") || !strings.HasSuffix(raw, ")") {
-		return "", false
-	}
-
-	inner := strings.TrimSpace(raw[len("path(") : len(raw)-1])
-	inner = strings.Trim(inner, `"'`)
-	if strings.TrimSpace(inner) == "" {
-		return "", false
-	}
-
-	return inner, true
+	return svgGeometryPathData(decls.prop("d"))
 }

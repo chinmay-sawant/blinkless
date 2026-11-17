@@ -58,9 +58,8 @@ func svgTextSerialized(t *testing.T, textStyle string) string {
 
 // TestSvgTextTextAnchorMiddleAnchorsSvgText is text-anchor: middle bakes into
 // the serialized SVG as a text-anchor attribute on the text element. The
-// raster path removes text, tspan, and textPath before canvas.ParseSVG so an
-// SVG cannot load a system font. The two rasters therefore match. HTML text
-// is unaffected.
+// raster path draws the text as outlines from the bundled faces, so the anchor
+// moves the glyphs and the two rasters differ. HTML text is unaffected.
 func TestSvgTextTextAnchorMiddleAnchorsSvgText(t *testing.T) {
 	t.Parallel()
 
@@ -81,8 +80,8 @@ func TestSvgTextTextAnchorMiddleAnchorsSvgText(t *testing.T) {
 		t.Fatalf("svg image ops = %d / %d, want 1 each", len(startImgs), len(middleImgs))
 	}
 
-	if !bytes.Equal(startImgs[0].Image, middleImgs[0].Image) {
-		t.Error("text-anchor rasters differ; SVG text must be removed before the system font loader")
+	if bytes.Equal(startImgs[0].Image, middleImgs[0].Image) {
+		t.Error("text-anchor middle left the raster unchanged; the anchor must move the drawn SVG text")
 	}
 
 	plain := layoutHTML(t, `<html><body style="margin:0">`+

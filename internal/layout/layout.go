@@ -296,31 +296,6 @@ func CloneResult(res *Result) *Result {
 	return &clone
 }
 
-// cloneOpsSpareDivisor and cloneOpsSpareFloor size the spare capacity a cloned
-// display list keeps for the window splices a patch commits. One click patches
-// a handful of ids against thousands of operations, so len/16 plus a small
-// floor covers those windows without pinning another page-sized backing.
-const (
-	cloneOpsSpareDivisor = 16
-	cloneOpsSpareFloor   = 16
-)
-
-// cloneOps returns an independent copy of one operation list with room for the
-// splices a patch pass commits.
-func cloneOps(src []Op) []Op {
-	if src == nil {
-		return nil
-	}
-
-	dst := make([]Op, len(src), len(src)+len(src)/cloneOpsSpareDivisor+cloneOpsSpareFloor)
-	for i := range src {
-		dst[i] = src[i]
-		dst[i].opExtra = cloneOpExtra(src[i].opExtra)
-	}
-
-	return dst
-}
-
 // boxCloneChunk is how many box copies one arena allocation holds. A clone of
 // a large page allocates a handful of chunks instead of one object per box,
 // while interior pointers keep each chunk alive for the clone's lifetime.
@@ -1701,7 +1676,10 @@ type box struct {
 	perspCY          float64
 	preserveComposed bool
 	children         []*box
-	firstBaseline    float64
+	// motionParent is the parent box, stamped by advanceStamp so a motion path
+	// can find its containing block. Nil until a stamp pass has run.
+	motionParent  *box
+	firstBaseline float64
 	// table cells
 	col, span int
 	row       int // owning table row index, set once at placement
@@ -1965,6 +1943,7 @@ func (e *engine) buildBlock(node *html.Node, style *ResolvedStyle, availW, posX,
 
 	boxNode.height = e.applyHeightConstraintsWithCB(heightStyle,
 		e.borderBoxBottom(*heightStyle, curY), e.containingBlockHeight())
+	applyElementZoomBorderBox(boxNode, style)
 	e.paintWidgetControl(node, style, boxNode, widget, chkWidget, posY)
 
 	e.paintPositionedPseudo(node, style, boxNode, pseudoBefore)

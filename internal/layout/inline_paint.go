@@ -171,7 +171,7 @@ func (e *engine) emitInlineText(
 	}
 
 	if item.chrome {
-		e.paintInlineChrome(item.style, leftX, baseline, ascent, descent, contentWidth)
+		e.paintInlineDecorationBreak(item, leftX, baseline, ascent, descent, contentWidth)
 	}
 
 	leftX += chromeLeft
@@ -241,13 +241,11 @@ func (e *engine) emitInlineFaceRuns(
 	return leftX, runSpan
 }
 
-func (e *engine) paintInlineChrome(style *ResolvedStyle, leftX, baseline, ascent, descent, contentWidth float64) {
+func (e *engine) paintInlineChrome(item *inlineItem, leftX, baseline, ascent, descent, contentWidth float64) {
+	style := item.style
 	top := e.inlineChromeTop(style)
 	bottom := e.inlineChromeBottom(style)
-	lh := e.lineHeightOf(style) * e.scale
-	extra := (lh - ascent - descent) / two
-	boxY := baseline - ascent - extra - top
-	boxH := ascent + extra + top + descent + extra + bottom
+	boxY, boxH := e.inlineSizingFill(item, baseline, ascent, descent, top, bottom)
 	boxW := contentWidth + e.inlineChromeLeft(style) + e.inlineChromeRight(style)
 
 	if boxW <= 0 || boxH <= 0 {

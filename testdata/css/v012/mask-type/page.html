@@ -1,0 +1,47 @@
+<html style="margin:0"><body style="margin:0">
+<style>
+#plain { width: 40px; height: 20px; }
+#initial { width: 40px; height: 20px; mask-type: initial; }
+#alpha-word { width: 40px; height: 20px; mask-type: alpha; }
+#luminance-word { width: 40px; height: 20px; mask-type: luminance; }
+#bad { width: 40px; height: 20px; mask-type: alpha; mask-type: not-a-type; }
+#elem-alpha {
+  width: 40px; height: 20px;
+  mask-image: url(mask-luminance.svg#shape);
+  mask-mode: match-source;
+  mask-type: alpha;
+}
+#elem-luminance {
+  width: 40px; height: 20px;
+  mask-image: url(mask-luminance.svg#shape);
+  mask-mode: match-source;
+  mask-type: luminance;
+}
+#source-alpha {
+  width: 40px; height: 20px;
+  mask-image: url(mask-alpha.svg#shape);
+  mask-mode: match-source;
+}
+#mode-wins {
+  width: 40px; height: 20px;
+  mask-image: url(mask-luminance.svg#shape);
+  mask-mode: alpha;
+  mask-type: luminance;
+}
+</style>
+<div id="plain"></div>
+<div id="initial"></div>
+<div id="alpha-word"></div>
+<div id="luminance-word"></div>
+<div id="bad"></div>
+<div id="elem-alpha"></div>
+<div id="elem-luminance"></div>
+<div id="source-alpha"></div>
+<div id="mode-wins"></div>
+<!-- mask-luminance.svg
+<svg xmlns="http://www.w3.org/2000/svg" width="4" height="2" viewBox="0 0 4 2"><defs><mask id="shape" mask-type="luminance"><rect width="4" height="2" fill="black"/></mask></defs></svg>
+-->
+<!-- mask-alpha.svg
+<svg xmlns="http://www.w3.org/2000/svg" width="4" height="2" viewBox="0 0 4 2"><defs><mask id="shape" mask-type="alpha"><rect width="4" height="2" fill="black"/></mask></defs></svg>
+-->
+</body></html>

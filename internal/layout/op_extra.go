@@ -25,6 +25,12 @@ type opExtra struct {
 	TextTransform string
 	TextLanguage  string
 	TextAutospace string
+	// ImageRendering is the image-rendering keyword of an image op. Empty
+	// means auto.
+	ImageRendering string
+	// TextStrokeWidth and TextStrokeColor are the glyph outline of a text op.
+	TextStrokeWidth float64
+	TextStrokeColor [3]float64
 	// FontFeatures is the canonical OpenType feature list string built from
 	// font-feature-settings / font-kerning / font-variant-* for the shaper.
 	FontFeatures string
@@ -474,7 +480,8 @@ func decorateTextOp(paintOp Op, sty *ResolvedStyle) Op {
 	paintOp = paintOp.withTextTransform(sty.TextTransform).
 		withTextLanguage(language).
 		withFontFeatures(features).
-		withTextAutospace(sty.TextAutospace)
+		withTextAutospace(sty.TextAutospace).
+		withTextStroke(sty)
 
 	if textOpDisablesFakeBold(sty) {
 		paintOp.detachExtra().NoFakeBold = true

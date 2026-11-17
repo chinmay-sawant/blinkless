@@ -119,6 +119,8 @@ func (e *engine) buildMulticol(node *html.Node, style ResolvedStyle, availW, x, 
 		curY = e.flowMulticolSegment(boxNode, seg.nodes, style, nCols, colW, gap, contentX, yPos, curY)
 	}
 
+	e.deferFloatsToColumns(boxNode, contentX, colW, gap, nCols)
+
 	curY = clampMulticolHeight(curY, style, e)
 	boxNode.height = curY
 	e.prependChrome(contentStart, boxNode, style, boxNode.x, yPos, boxNode.w, boxNode.height)
@@ -838,6 +840,7 @@ func (e *engine) placeMulticolLine(
 		st := e.stylePtr(item.n)
 		if multicolForcedColumnBreak(st, col, colHeights, prevAfterAlways) ||
 			advanceMulticolColumn(col, colHeights, item, nCols, maxColH, target, balance) ||
+			multicolBreakInsideStraddle(st, col, colHeights, item, nCols, maxColH, target, balance) ||
 			multicolWidowsShouldAdvance(col, nCols, colLines, suffixLines, suffixHeights, colHeights, i, len(items), widows, orphans, maxColH, balance) {
 			col++
 		}
@@ -853,13 +856,14 @@ func (e *engine) placeMulticolLine(
 			return multicolStackHeight(colHeights), i
 		}
 
-		cblock := e.build(item.n, colW, colX(col), yPos+curY+colHeights[col])
+		kept := e.keptBreakMargin(st, col, colHeights[col])
+		cblock := e.build(item.n, colW, colX(col), yPos+curY+colHeights[col]+kept)
 		prevAfterAlways = st.PageBreakAfter == pageBreakAlways
 		if cblock == nil {
 			continue
 		}
 
-		colHeights[col] += cblock.height
+		colHeights[col] += cblock.height + kept
 		if i >= 0 && i < len(counts) {
 			colLines[col] += counts[i]
 		}
@@ -905,6 +909,37 @@ func advanceMulticolColumn(
 	return colHeights[col]+item.h > maxColH+1e-6
 }
 
+// multicolBreakInsideStraddle reports whether break-inside avoid or
+// avoid-column must start this item in the next column. advanceMulticolColumn
+// already moves an item whose midpoint passes the balance target. This covers
+// the box that starts before that target and ends after it, so placing it
+// would straddle the column break. An empty column, the last column, and a
+// box that already fits the target stay put. This does not open a new page.
+func multicolBreakInsideStraddle(
+	st *ResolvedStyle, col int, colHeights []float64, item multicolItem, nCols int, maxColH, target float64, balance bool,
+) bool {
+	if !balance || target <= 0 || st == nil {
+		return false
+	}
+
+	if st.PageBreakInside != avoidKeyword && st.PageBreakInside != avoidColumnValue {
+		return false
+	}
+
+	if col < 0 || col >= nCols-1 || col >= len(colHeights) || colHeights[col] <= 0 {
+		return false
+	}
+
+	breakAt := target
+	if maxColH > 0 && maxColH < breakAt {
+		breakAt = maxColH
+	}
+
+	start := colHeights[col]
+
+	return start+1e-6 < breakAt && start+item.h > breakAt+1e-6
+}
+
 // multicolForcedColumnBreak reports whether the item must start in the next
 // column because of a forced break: break-before:column/page on the item
 // (parsed to PageBreakBefore always at style_properties.go:1680-1681) or
@@ -912,8 +947,8 @@ func advanceMulticolColumn(
 // style_properties.go:1693-1694). A forced break into an empty column is
 // already satisfied, so it stays a no-op there: break-before on the first
 // item of a line and break-after at the end of a line change nothing.
-// Avoid values are not honored here: keeping an overflowing item in its
-// column needs keep-together logic this greedy packer has no pass for.
+// break-inside avoid is not a forced break. multicolBreakInsideStraddle
+// moves a box that would cross the balance target.
 func multicolForcedColumnBreak(
 	st *ResolvedStyle, col int, colHeights []float64, prevAfterAlways bool,
 ) bool {
@@ -1011,6 +1046,7 @@ func (e *engine) emitColumnRules(style ResolvedStyle, contentX, colW, gap float6
 		ruleX := contentX + float64(i+1)*(colW+gap) - gap/2
 		e.emitBorderLine(ruleX, ruleTop, 0, ruleEnd-ruleTop, ruleW, style.ColumnRuleStyle, col[0], col[1], col[2])
 	}
+	e.emitColumnRuleEdges(&style, contentX, contentX+float64(nCols)*colW+float64(nCols-1)*gap, ruleTop, ruleEnd, ruleW)
 }
 
 // columnRuleCapInset resolves one column-rule cap inset for a multicol

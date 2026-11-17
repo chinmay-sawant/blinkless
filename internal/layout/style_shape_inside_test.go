@@ -28,7 +28,7 @@ func TestShapeOutsideStoreRejectedTokensKeepEarlier(t *testing.T) {
 	for _, rejected := range []string{
 		"polygon(0 0, 10px 0, 10px 10px)",
 		"path('M 0 0 L 10 10 Z')",
-		"url(pic.png)",
+		"url()",
 	} {
 		if !applyShapeProps(&sty, "shape-outside", rejected, 16, shapeInsideStoreCtx(), nil, false) {
 			t.Fatalf("applyShapeProps(%q) = false, want the group to own the property", rejected)

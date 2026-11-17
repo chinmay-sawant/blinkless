@@ -9,6 +9,27 @@ and are not listed here.
 
 ## Unreleased
 
+Tracked in [`plans/v0.1.2/`](plans/v0.1.2/README.md).
+
+### Added
+- Store and export 61 more properties as `Box.Declared`: caret, `nav-*`, `spatial-navigation-*`, reading order, draft borders, motion path, bookmarks, and the SVG leftovers. The engine acts on 20 of them and the OwnFrame host acts on 20 more (caret, `nav-*`, `spatial-navigation-*`, slider, window drag, appearance, user-select, text-size-adjust, image-animation, field-sizing, will-change, input-security): the `border-*-clip` family, `border-limit`, `column-rule-visibility-items`, `offset-distance`, `offset-rotate`, `offset-anchor`, `bookmark-*` (through `layout.Outline`), and `block-ellipsis`. The other 21 are `partial`. The OwnFrame example `blinkless-all` shows them in six tabs.
+
+- **Timeline, trigger, interest, and interactivity export.** The engine
+  now stores 27 styles and puts them on `layout.Box`: `scroll-timeline*`,
+  `view-timeline*`, `timeline-scope`, `pointer-timeline*`,
+  `timeline-trigger*` (name, source, activation and active ranges),
+  `event-trigger*`, `interest-delay*`, and `interactivity`. The engine
+  computes no progress and fires no trigger; a host does that. Tests live
+  in `layout/timeline_scope_test.go`, `layout/trigger_test.go`,
+  `layout/event_trigger_test.go`, and `layout/interest_test.go`. The
+  showcase page is `testdata/css/v012/scroll/page.html`.
+- **Timeline lists and scrollers.** `scroll-timeline*`, `view-timeline*`
+  and `pointer-timeline*` take comma lists. A box exports one timeline per
+  name, and the axis and inset lists line up with the names by index. Each
+  timeline names the scroll container it reads in `TimelineDef.ScrollerID`,
+  or sets `ScrollerAnonymous` when that container has no id. These ten rows
+  are now `implemented`. Tests are in `layout/timeline_list_test.go`.
+
 ## 0.1.1 (2026-11-10)
 
 Work after tag `v0.1.0` (`2e2abfc`), tracked in

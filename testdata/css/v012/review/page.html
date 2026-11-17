@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html style="margin:0">
+<body style="margin:0;background:#f4f0e8;color:#1c1917">
+<div style="padding:28px 32px 48px">
+<p style="margin:0 0 6px;font-size:28px">blinkless next</p>
+<p style="margin:0 0 28px;font-size:16px;width:640px">Thirty-eight styles on one page. Scroll. Each block is labeled. Compare the samples under the label.</p>
+
+<p style="margin:0 0 8px;font-size:18px">1. -webkit-background-clip</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Red is the background. The gray ring is padding. Border-box paints red through the padding. Content-box leaves the padding gray.</p>
+<div style="margin:0 0 28px">
+<div style="display:inline-block;margin:0 28px 0 0;background:#d6d3cd">
+<p style="margin:0 0 6px;font-size:13px">border-box</p>
+<div style="width:140px;height:36px;padding:14px;border:8px solid #111;background:#e11;-webkit-background-clip:border-box"></div>
+</div>
+<div style="display:inline-block;background:#d6d3cd">
+<p style="margin:0 0 6px;font-size:13px">content-box</p>
+<div style="width:140px;height:36px;padding:14px;border:8px solid #111;background:#e11;-webkit-background-clip:content-box"></div>
+</div>
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">2. -webkit-background-origin</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">The blue and orange picture starts at the outer edge, or inside the black border.</p>
+<div style="margin:0 0 28px">
+<div style="display:inline-block;margin:0 28px 0 0">
+<p style="margin:0 0 6px;font-size:13px">border-box</p>
+<div style="width:72px;height:28px;border:16px solid #111;background-image:url(swatch.png);background-repeat:no-repeat;background-position:left top;-webkit-background-origin:border-box"></div>
+</div>
+<div style="display:inline-block">
+<p style="margin:0 0 6px;font-size:13px">padding-box</p>
+<div style="width:72px;height:28px;border:16px solid #111;background-image:url(swatch.png);background-repeat:no-repeat;background-position:left top;-webkit-background-origin:padding-box"></div>
+</div>
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">3. -webkit-background-size</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Same picture. One is stretched to the box. One stays a small stamp.</p>
+<div style="margin:0 0 28px">
+<div style="display:inline-block;margin:0 28px 0 0">
+<p style="margin:0 0 6px;font-size:13px">80 by 36</p>
+<div style="width:80px;height:36px;border:1px solid #111;background-image:url(swatch.png);background-repeat:no-repeat;background-position:left top;-webkit-background-size:80px 36px"></div>
+</div>
+<div style="display:inline-block">
+<p style="margin:0 0 6px;font-size:13px">24 by 16</p>
+<div style="width:80px;height:36px;border:1px solid #111;background-image:url(swatch.png);background-repeat:no-repeat;background-position:left top;-webkit-background-size:24px 16px"></div>
+</div>
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">4. zoom</p>
+<p style="margin:0 0 10px;font-size:14px">Both boxes are declared 100 by 40. zoom: 2 paints the green one at 200 by 80.</p>
+<div style="margin:0 0 28px">
+<div style="display:inline-block;margin:0 28px 0 0;vertical-align:top">
+<p style="margin:0 0 6px;font-size:13px">zoom 1</p>
+<div style="width:100px;height:40px;background:#3d8b6e"></div>
+</div>
+<div style="display:inline-block;vertical-align:top">
+<p style="margin:0 0 6px;font-size:13px">zoom 2</p>
+<div style="zoom:2;width:100px;height:40px;background:#3d8b6e"></div>
+</div>
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">5. baseline-source</p>
+<p style="margin:0 0 10px;font-size:14px">The word go sits on one line. The blue box has two lines. first aligns the top Ag. last aligns the bottom Ag.</p>
+<p style="margin:0 0 8px;font-size:20px">go <span style="display:inline-block;background:#c9ddf5;baseline-source:first">Ag<br>Ag</span> <span style="font-size:14px">first</span></p>
+<p style="margin:0 0 28px;font-size:20px">go <span style="display:inline-block;background:#c9ddf5;baseline-source:last">Ag<br>Ag</span> <span style="font-size:14px">last</span></p>
+
+<p style="margin:0 0 8px;font-size:18px">6. line-fit-edge</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Both words have the same padding. leading makes that padding part of the line. text keeps the padding out of the line, so the line is shorter.</p>
+<p style="margin:0 0 8px;font-size:18px;border-bottom:2px solid #111"><span style="background:#ffe08a;padding:10px;line-fit-edge:leading">leading</span></p>
+<p style="margin:0 0 28px;font-size:18px;border-bottom:2px solid #111"><span style="background:#ffe08a;padding:10px;line-fit-edge:text">text</span></p>
+
+<p style="margin:0 0 8px;font-size:18px">7. inline-sizing</p>
+<p style="margin:0 0 10px;font-size:14px">The line is 32px tall. normal paints red behind the letters. stretch paints red for the whole line.</p>
+<p style="margin:0 0 28px;font-size:16px;line-height:32px"><span style="background:#f00;inline-sizing:normal;line-height:normal">normal</span> <span style="background:#f00;inline-sizing:stretch;line-height:normal">stretch</span></p>
+
+<p style="margin:0 0 8px;font-size:18px">8. line-padding</p>
+<p style="margin:0 0 10px;font-size:14px">Same words, same width. The second paragraph starts every line 24px further in.</p>
+<p style="width:220px;margin:0 0 8px;font-size:16px;border-left:3px solid #111">alpha beta gamma wonderful</p>
+<p style="width:220px;margin:0 0 28px;font-size:16px;line-padding:24px;border-left:3px solid #111">alpha beta gamma wonderful</p>
+
+<p style="margin:0 0 8px;font-size:18px">9. box-decoration-break</p>
+<p style="margin:0 0 10px;font-size:14px">Top is one red bar. Bottom gives each wrapped line its own box.</p>
+<p style="margin:0 0 6px;font-size:13px">slice</p>
+<p style="width:180px;margin:0 0 16px;font-size:20px"><span style="background:#f00;padding:3px 8px;box-decoration-break:slice">slice one red bar across the wrap</span></p>
+<p style="margin:0 0 6px;font-size:13px">clone</p>
+<p style="width:180px;margin:0 0 28px;font-size:20px"><span style="background:#f00;padding:3px 8px;border:2px solid #111;box-decoration-break:clone">clone a red box on every line</span></p>
+
+<p style="margin:0 0 8px;font-size:18px">10. SVG geometry from a stylesheet</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Each pair is one shape. Left is the attribute. Right is the same shape after the stylesheet moves it. They are separate pictures so one shape cannot cover the others.</p>
+<p style="margin:0 0 4px;font-size:13px">circle, cx cy r</p>
+<div style="margin:0 0 12px">
+<svg width="120" height="80" viewBox="0 0 40 28" style="background:#fff;border:1px solid #ccc"><circle cx="8" cy="8" r="4" fill="#e11"/></svg>
+<svg width="120" height="80" viewBox="0 0 40 28" style="background:#fff;border:1px solid #ccc"><style>circle#c2 { cx: 26px; cy: 16px; r: 8px; }</style><circle id="c2" cx="8" cy="8" r="4" fill="#e11"/></svg>
+</div>
+<p style="margin:0 0 4px;font-size:13px">rect, x y</p>
+<div style="margin:0 0 12px">
+<svg width="120" height="80" viewBox="0 0 40 28" style="background:#fff;border:1px solid #ccc"><rect x="4" y="4" width="14" height="8" fill="#1a7f37"/></svg>
+<svg width="120" height="80" viewBox="0 0 40 28" style="background:#fff;border:1px solid #ccc"><style>rect#r2 { x: 18px; y: 14px; }</style><rect id="r2" x="4" y="4" width="14" height="8" fill="#1a7f37"/></svg>
+</div>
+<p style="margin:0 0 4px;font-size:13px">ellipse, rx ry</p>
+<div style="margin:0 0 12px">
+<svg width="120" height="80" viewBox="0 0 40 28" style="background:#fff;border:1px solid #ccc"><ellipse cx="20" cy="14" rx="6" ry="3" fill="#1d4ed8"/></svg>
+<svg width="120" height="80" viewBox="0 0 40 28" style="background:#fff;border:1px solid #ccc"><style>ellipse#e2 { rx: 14px; ry: 8px; }</style><ellipse id="e2" cx="20" cy="14" rx="6" ry="3" fill="#1d4ed8"/></svg>
+</div>
+<p style="margin:0 0 4px;font-size:13px">path, d</p>
+<div style="margin:0 0 8px">
+<svg width="120" height="80" viewBox="0 0 40 28" style="background:#fff;border:1px solid #ccc"><path d="M6 8 h8 v8 h-8 Z" fill="#111"/></svg>
+<svg width="120" height="80" viewBox="0 0 40 28" style="background:#fff;border:1px solid #ccc"><style>path#p2 { d: path("M6 22 H34 L20 6 Z"); }</style><path id="p2" d="M6 8 h8 v8 h-8 Z" fill="#111"/></svg>
+</div>
+
+<p style="margin:28px 0 8px;font-size:18px">11. -webkit-mask-composite</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">The prefixed composite accepts the extra Porter-Duff words. This page cannot replay mask pixels. The drawing list stores them.</p>
+<p style="margin:0 0 28px;font-size:16px">source-atop, clear, copy</p>
+
+<p style="margin:0 0 8px;font-size:18px">12. mask-type</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">alpha treats the mask as opacity. luminance treats black as a hole. The finished mask pixels are a host replay. The stylesheet value is what changed.</p>
+<p style="margin:0 0 28px;font-size:16px">alpha keeps a mark. luminance does not.</p>
+
+<p style="margin:0 0 8px;font-size:18px">13. backdrop-filter</p>
+<p style="margin:0 0 10px;font-size:14px">The green box carries blur(8px) saturate(1.4) on its group. This window does not blur the pixels behind it. The group still has the filter string. none does not open a group.</p>
+<div style="margin:0 0 28px;background:#1d4ed8;padding:16px">
+<div style="width:160px;height:48px;background:#3d8b6e;backdrop-filter:blur(8px) saturate(1.4)"></div>
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">14. break-inside</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Three 40px boxes in two columns. avoid moves the middle box into the second column. auto leaves it under the first.</p>
+<div style="width:300px;column-count:2;column-gap:20px;margin:0 0 12px">
+<div style="height:40px;background:#f00">auto 1</div>
+<div style="height:40px;background:#fc0">auto 2</div>
+<div style="height:40px;background:#3d8b6e">auto 3</div>
+</div>
+<div style="width:300px;column-count:2;column-gap:20px;margin:0 0 28px">
+<div style="height:40px;background:#f00">avoid 1</div>
+<div style="height:40px;background:#fc0;break-inside:avoid">avoid 2</div>
+<div style="height:40px;background:#3d8b6e">avoid 3</div>
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">15. size</p>
+<p style="margin:0 0 10px;font-size:14px">size: 120px 40px versus size: 120px, which sets both axes.</p>
+<div style="margin:0 0 28px">
+<div style="display:inline-block;width:120px;height:40px;background:#3d8b6e;margin-right:16px"></div>
+<div style="display:inline-block;size:120px;background:#1d4ed8"></div>
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">16. min-size</p>
+<p style="margin:0 0 10px;font-size:14px">A 50 by 20 box with min-size: 120px becomes 120 by 120.</p>
+<div style="width:50px;height:20px;min-size:120px;background:#e11;margin:0 0 28px"></div>
+
+<p style="margin:0 0 8px;font-size:18px">17. max-size</p>
+<p style="margin:0 0 10px;font-size:14px">A 300 by 200 box with max-size: 180px 60px paints at 180 by 60.</p>
+<div style="width:300px;height:200px;max-size:180px 60px;background:#1d4ed8;margin:0 0 28px"></div>
+
+<p style="margin:0 0 8px;font-size:18px">18. all</p>
+<p style="margin:0 0 10px;font-size:14px">The parent is blue. initial clears the child fill. inherit keeps the blue.</p>
+<div style="background:#1d4ed8;color:#fff;padding:12px;margin:0 0 8px">parent
+<div style="all:initial;margin-top:8px">initial child</div>
+</div>
+<div style="background:#1d4ed8;color:#fff;padding:12px;margin:0 0 28px">parent
+<div style="all:inherit;margin-top:8px">inherit child</div>
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">19. word-space-transform</p>
+<p style="margin:0 0 10px;font-size:14px">none keeps the zero-width space. space turns it into a normal space.</p>
+<p style="margin:0 0 6px;font-size:20px;word-space-transform:none">A&#x200b;B none</p>
+<p style="margin:0 0 28px;font-size:20px;word-space-transform:space">A&#x200b;B space</p>
+
+<p style="margin:0 0 8px;font-size:18px">20. string-set</p>
+<p style="margin:0 0 10px;font-size:14px">The heading assigns its text. The line under it reads that string back.</p>
+<style>
+#reader::before { content: string(chapter); }
+</style>
+<h1 style="margin:0 0 8px;font-size:22px;string-set:chapter content(text)">Guide One</h1>
+<p id="reader" style="margin:0 0 8px;font-size:18px">string-set: </p>
+
+<style>
+#rv-m path { marker: url(#rv); }
+#rv-s path { marker-start: url(#rv); }
+#rv-d path { marker-mid: url(#rv); }
+#rv-e path { marker-end: url(#rv); }
+#rvs2 { stop-color: #16a34a; stop-opacity: 0.5; }
+#rv-po { paint-order: stroke; }
+#rv-pl { path-length: 100; }
+#rv-c1 { max-height: 40px; continue: collapse; }
+#rv-c2 { max-height: 40px; }
+</style>
+
+<p style="margin:28px 0 8px;font-size:18px">21. marker</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">The stylesheet gives all three vertices an arrow. The right path has none.</p>
+<div style="margin:0 0 28px">
+<svg width="200" height="60" viewBox="0 0 200 60" style="background:#fff;border:1px solid #ccc;margin-right:12px"><defs><marker id="rv" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#e11"/></marker><linearGradient id="rvg" x1="0%" y1="0%" x2="100%" y2="0%"><stop id="rvs" offset="0" stop-color="#e11"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><g id="rv-m"><path d="M10 50 L100 10 L190 50" fill="none" stroke="#111" stroke-width="3"/></g></svg>
+<svg width="200" height="60" viewBox="0 0 200 60" style="background:#fff;border:1px solid #ccc;margin-right:12px"><defs><marker id="rv" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#e11"/></marker><linearGradient id="rvg" x1="0%" y1="0%" x2="100%" y2="0%"><stop id="rvs" offset="0" stop-color="#e11"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><path d="M10 50 L100 10 L190 50" fill="none" stroke="#111" stroke-width="3"/></svg>
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">22. marker-start</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Only the first vertex gets the arrow.</p>
+<div style="margin:0 0 28px"><svg width="200" height="60" viewBox="0 0 200 60" style="background:#fff;border:1px solid #ccc;margin-right:12px"><defs><marker id="rv" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#e11"/></marker><linearGradient id="rvg" x1="0%" y1="0%" x2="100%" y2="0%"><stop id="rvs" offset="0" stop-color="#e11"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><g id="rv-s"><path d="M10 30 H190" fill="none" stroke="#111" stroke-width="3"/></g></svg></div>
+
+<p style="margin:0 0 8px;font-size:18px">23. marker-mid</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Only the middle vertex gets the arrow.</p>
+<div style="margin:0 0 28px"><svg width="200" height="60" viewBox="0 0 200 60" style="background:#fff;border:1px solid #ccc;margin-right:12px"><defs><marker id="rv" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#e11"/></marker><linearGradient id="rvg" x1="0%" y1="0%" x2="100%" y2="0%"><stop id="rvs" offset="0" stop-color="#e11"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><g id="rv-d"><path d="M10 50 L100 10 L190 50" fill="none" stroke="#111" stroke-width="3"/></g></svg></div>
+
+<p style="margin:0 0 8px;font-size:18px">24. marker-end</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Only the last vertex gets the arrow.</p>
+<div style="margin:0 0 28px"><svg width="200" height="60" viewBox="0 0 200 60" style="background:#fff;border:1px solid #ccc;margin-right:12px"><defs><marker id="rv" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#e11"/></marker><linearGradient id="rvg" x1="0%" y1="0%" x2="100%" y2="0%"><stop id="rvs" offset="0" stop-color="#e11"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><g id="rv-e"><path d="M10 30 H190" fill="none" stroke="#111" stroke-width="3"/></g></svg></div>
+
+<p style="margin:0 0 8px;font-size:18px">25. stop-color</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Left: the first stop is red. Right: the stylesheet makes it green.</p>
+<div style="margin:0 0 28px">
+<svg width="200" height="60" viewBox="0 0 200 60" style="background:#fff;border:1px solid #ccc;margin-right:12px"><defs><marker id="rv" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#e11"/></marker><linearGradient id="rvg" x1="0%" y1="0%" x2="100%" y2="0%"><stop id="rvs" offset="0" stop-color="#e11"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><rect x="10" y="10" width="180" height="40" fill="url(#rvg)"/></svg>
+<svg width="200" height="60" viewBox="0 0 200 60" style="background:#fff;border:1px solid #ccc;margin-right:12px"><defs><marker id="rv" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#e11"/></marker><linearGradient id="rvg" x1="0%" y1="0%" x2="100%" y2="0%"><stop id="rvs" offset="0" stop-color="#e11"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><defs><linearGradient id="rvg2" x1="0%" y1="0%" x2="100%" y2="0%"><stop id="rvs2" offset="0" stop-color="#e11"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><rect x="10" y="10" width="180" height="40" fill="url(#rvg2)"/></svg>
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">26. stop-opacity</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">The right gradient above also has stop-opacity: 0.5 on its first stop, so it fades in from the left edge.</p>
+
+<p style="margin:0 0 8px;font-size:18px">27. paint-order</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">The stylesheet asks for stroke first, so the red fill covers the inner half of the blue stroke instead of the stroke sitting on top.</p>
+<div style="margin:0 0 28px"><svg width="200" height="60" viewBox="0 0 200 60" style="background:#fff;border:1px solid #ccc;margin-right:12px"><defs><marker id="rv" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#e11"/></marker><linearGradient id="rvg" x1="0%" y1="0%" x2="100%" y2="0%"><stop id="rvs" offset="0" stop-color="#e11"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><rect id="rv-po" x="30" y="10" width="140" height="40" fill="#e11" stroke="#1d4ed8" stroke-width="12"/></svg></div>
+
+<p style="margin:0 0 8px;font-size:18px">28. path-length</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">path-length: 100 rescales the dash lengths to a 100 unit path. The line is 180 units long, so each dash is 1.8 times longer than its written 10 and 5.</p>
+<div style="margin:0 0 28px"><svg width="200" height="60" viewBox="0 0 200 60" style="background:#fff;border:1px solid #ccc;margin-right:12px"><defs><marker id="rv" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#e11"/></marker><linearGradient id="rvg" x1="0%" y1="0%" x2="100%" y2="0%"><stop id="rvs" offset="0" stop-color="#e11"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><path id="rv-pl" d="M10 30 H190" fill="none" stroke="#111" stroke-width="3" stroke-dasharray="10 5"/></svg></div>
+
+<p style="margin:0 0 8px;font-size:18px">29. link-parameters</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">An SVG image reads env(--color). param(--color: #ff0000) fills the left image red. This window supplies the image file. Left: param(--color: #ff0000). Right: none.</p>
+<div style="margin:0 0 28px">
+<img src="env-swatch.svg" width="96" height="48" alt="" style="link-parameters:param(--color: #ff0000);margin-right:12px">
+<img src="env-swatch.svg" width="96" height="48" alt="" style="link-parameters:none">
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">30. continue</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Both paragraphs have max-height: 40px. The first one has continue: collapse, so it keeps two lines. The second keeps all of them and spills.</p>
+<p id="rv-c1" style="margin:0 0 8px;font-size:16px;line-height:20px;width:200px">one two three four five six seven eight nine ten eleven twelve thirteen</p>
+<p id="rv-c2" style="margin:0 0 70px;font-size:16px;line-height:20px;width:200px">one two three four five six seven eight nine ten eleven twelve thirteen</p>
+
+<p style="margin:28px 0 8px;font-size:18px">31. margin-break</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">The second box starts column 2 and has a 16px margin-top. discard (left) puts it at the column top. keep (right) leaves the 16px gap.</p>
+<div style="margin:0 0 28px">
+<div style="display:inline-block;vertical-align:top;width:300px;height:100px;column-count:2;column-gap:20px;column-fill:auto;margin-right:20px;background:#fff">
+<div style="height:30px;background:#e11"></div><div style="height:30px;margin-top:16px;break-before:column;margin-break:discard;background:#1d4ed8"></div></div>
+<div style="display:inline-block;vertical-align:top;width:300px;height:100px;column-count:2;column-gap:20px;column-fill:auto;background:#fff">
+<div style="height:30px;background:#e11"></div><div style="height:30px;margin-top:16px;break-before:column;margin-break:keep;background:#1d4ed8"></div></div>
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">32. image-rendering</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">The blue and orange picture is stretched to 192 by 96 with optimizeSpeed. This window does not resample differently. The image op carries the keyword for a host that does.</p>
+<img src="swatch.png" alt="" style="width:192px;height:96px;image-rendering:optimizeSpeed;margin:0 0 28px">
+
+<p style="margin:0 0 8px;font-size:18px">33. vector-effect</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">Both lines have stroke-width 6 in a viewBox four times larger than the picture. The left one scales down to a thin line. non-scaling-stroke (right) keeps the 6 pixel width.</p>
+<div style="margin:0 0 28px">
+<svg width="200" height="40" viewBox="0 0 800 160" style="background:#fff;border:1px solid #ccc;margin-right:12px"><line x1="40" y1="80" x2="760" y2="80" stroke="#111" stroke-width="6"/></svg>
+<svg width="200" height="40" viewBox="0 0 800 160" style="background:#fff;border:1px solid #ccc"><line x1="40" y1="80" x2="760" y2="80" stroke="#111" stroke-width="6" style="vector-effect:non-scaling-stroke"/></svg>
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">34. flood-color</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">A filter with one feFlood replaces the blue rect with a green flood over the filter region, which is the box plus 10 percent on every side.</p>
+<style>#fcl { flood-color: #16a34a; flood-opacity: 0.6; }</style>
+<div style="margin:0 0 28px">
+<svg width="200" height="60" viewBox="0 0 200 60" style="background:#fff;border:1px solid #ccc"><defs><filter id="fcf"><feFlood id="fcl"/></filter></defs><rect x="50" y="15" width="100" height="30" fill="#1d4ed8" filter="url(#fcf)"/></svg>
+</div>
+
+<p style="margin:0 0 8px;font-size:18px">35. flood-opacity</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">The flood above is at 0.6 opacity, so the page color shows through it.</p>
+
+<p style="margin:28px 0 8px;font-size:18px">36. -webkit-text-stroke</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">The shorthand takes a width and a color. Blue glyphs outlined in red, 2px wide. The drawing list carries the width and color. This window draws the outline by repeating the text around each glyph, under the fill, so only the outer half of the stroke shows and it looks lighter than a browser's.</p>
+<p style="margin:0 0 28px;font-size:48px;color:#1d4ed8;-webkit-text-stroke:2px #e11d48">Stroke</p>
+
+<p style="margin:0 0 8px;font-size:18px">37. -webkit-text-stroke-width</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">With no color longhand the outline follows the fill. 0 paints nothing, 1px is thin, thick is wider.</p>
+<p style="margin:0 0 28px;font-size:40px;color:#16a34a"><span style="-webkit-text-stroke-width:0">Aa</span> <span style="-webkit-text-stroke-width:1px">Aa</span> <span style="-webkit-text-stroke-width:thick">Aa</span></p>
+
+<p style="margin:0 0 8px;font-size:18px">38. -webkit-text-stroke-color</p>
+<p style="margin:0 0 10px;font-size:14px;width:640px">White glyphs on a dark box, outlined in orange. The color longhand only matters once the width is above 0.</p>
+<p style="margin:0 0 28px;font-size:44px;color:#ffffff;background:#1c1917;padding:8px 12px;display:inline-block;-webkit-text-stroke-width:2px;-webkit-text-stroke-color:#f59e0b">Outline</p>
+
+</div>
+</body>
+</html>

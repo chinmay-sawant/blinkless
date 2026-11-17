@@ -39,6 +39,8 @@ func (e *engine) alignedInlineTop(item *inlineItem, lineY, lineH, baseline float
 			ascent += item.marginB
 		}
 
+		ascent = applyBaselineSourceAscent(item, ascent)
+
 		return baseline - ascent + item.marginT - e.scalePt(e.effectiveVerticalAlignShift(item.style))
 	}
 }

@@ -424,7 +424,7 @@ func orientedPaintImage(ref *imageRef, deg float64, mirror bool, cropRect image.
 
 func (e *engine) buildImage(node *html.Node, sty ResolvedStyle, posX, posY float64, paint bool) *box {
 	boxNode := e.allocBox(node, e.stylePtr(node), boxKindReplaced, posX, posY)
-	boxNode.img = e.resolveImage(node.Attribute("src"))
+	boxNode.img = e.resolveImageWith(node.Attribute("src"), sty.LinkParameters)
 	size := e.usedImageSize(node, sty, boxNode.img)
 	// The paint copy carries orientation and object-view-box pixels; sizing
 	// above uses the original ref so the element keeps its intrinsic box.
@@ -501,7 +501,7 @@ func (e *engine) paintReplacedImage(
 		W:      fitW,
 		H:      fitH,
 		IsJPEG: isJPEG,
-	}).withImage(imgData, pixW, pixH, alt))
+	}).withImage(imgData, pixW, pixH, alt).withImageRendering(sty.ImageRendering))
 
 	if thumbImg {
 		e.emitThumbImageBottomSeparator(sty, posX, posY, size.w, size.h)

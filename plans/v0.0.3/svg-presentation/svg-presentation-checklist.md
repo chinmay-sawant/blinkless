@@ -1,7 +1,7 @@
 # v0.0.3 - SVG presentation
 
 > **Parent:** `plans/v0.0.3/README.md`
-> **Status:** not started. Baseline rows record verified current behavior. Implementation rows are open.
+> **Status:** historical. Open rows moved to `plans/v0.1.2/07-svg-presentation/checklist.md`. Do not implement from this file.
 > **Estimated effort:** 61 catalog properties (18 implemented, 43 open) across 7 phases.
 
 ---

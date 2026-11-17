@@ -179,6 +179,7 @@ func resolveBookmarkElement(
 	}
 
 	resolved := resolveRawVars(small, custom)
+	resolved[bookmarkLabelProp] = substituteBookmarkAttr(resolved[bookmarkLabelProp], node)
 	text := bookmarkElementText(node)
 	level, hasLevel := resolveBookmarkLevel(resolved[bookmarkLevelProp], parent)
 	open := resolveBookmarkOpen(resolved[bookmarkStateProp], parent)

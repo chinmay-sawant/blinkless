@@ -452,3 +452,74 @@ func TestBehaviorBorderImageWidthThickensFrame(t *testing.T) {
 		t.Errorf("width 10pt corner = %.4fpt x %.4fpt, want 10 x 10", thickCorner.W, thickCorner.H)
 	}
 }
+
+// TestBehaviorBackgroundAttachmentFixedUsesViewport is background-attachment:
+// fixed. A centered no-repeat image sits at the middle of the box under
+// scroll and at the middle of the viewport under fixed, so the two documents
+// place the image at different heights. A mixed list pins only its fixed
+// layer.
+func TestBehaviorBackgroundAttachmentFixedUsesViewport(t *testing.T) {
+	t.Parallel()
+
+	png := tinyPNG(10, 10)
+	run := func(attach string) *Op {
+		src := `<html style="margin:0"><body style="margin:0">` +
+			`<div id="item" style="width:100%;height:700px;background-image:url(bg.png);` +
+			`background-repeat:no-repeat;background-position:center;background-attachment:` +
+			attach + `"></div></body></html>`
+
+		return behaviorBgFirstImage(layoutHTMLWithImages(t, src, png, "").Ops)
+	}
+
+	scroll, fixed := run("scroll"), run("fixed")
+	if scroll == nil || fixed == nil {
+		t.Fatalf("images scroll=%v fixed=%v, want both", scroll != nil, fixed != nil)
+	}
+
+	if !near(scroll.Y, (700*ptPerCSSPx-scroll.H)/2) {
+		t.Errorf("scroll image y = %.3f, want the middle of the box", scroll.Y)
+	}
+
+	if !near(fixed.Y, (800-fixed.H)/2) {
+		t.Errorf("fixed image y = %.3f, want the middle of the 800pt viewport", fixed.Y)
+	}
+
+	if near(scroll.Y, fixed.Y) {
+		t.Errorf("fixed and scroll placed the image at the same y %.3f", fixed.Y)
+	}
+}
+
+// TestBehaviorBackgroundTbdKeepsColor is background-tbd after a background
+// color: the color fill stays and the layer list adds the image. A layer that
+// names a color is dropped whole, so an earlier image stays.
+func TestBehaviorBackgroundTbdKeepsColor(t *testing.T) {
+	t.Parallel()
+
+	png := tinyPNG(10, 10)
+	run := func(tbd string) *Result {
+		src := `<html style="margin:0"><body style="margin:0">` +
+			`<div id="item" style="width:80px;height:40px;background-color:green;` +
+			`background-image:url(old.png);background-tbd:` + tbd + `"></div></body></html>`
+
+		return layoutHTMLWithImages(t, src, png, "")
+	}
+
+	good := run("url(a.png) no-repeat fixed")
+	if len(opsOfKind(good, OpFillRect)) == 0 {
+		t.Errorf("green fill missing after background-tbd")
+	}
+
+	if len(behaviorBgImages(good.Ops)) != 1 {
+		t.Errorf("background images = %d, want 1", len(behaviorBgImages(good.Ops)))
+	}
+
+	box := boxByID(t, good, "item")
+	if got := box.style.BackgroundAttachment; got != "fixed" {
+		t.Errorf("attachment = %q, want fixed", got)
+	}
+
+	bad := run("url(fail.png) red")
+	if got := boxByID(t, bad, "item").style.BackgroundImage; got != "old.png" {
+		t.Errorf("image after a colored background-tbd = %q, want old.png", got)
+	}
+}

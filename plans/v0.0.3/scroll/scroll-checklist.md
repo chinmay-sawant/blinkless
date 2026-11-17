@@ -1,7 +1,7 @@
 # v0.0.3 - Scroll
 
 > **Parent:** `plans/v0.0.3/README.md` - index of these ledgers.
-> **Status:** not started. Baseline rows record what the code already does. Implementation rows are open.
+> **Status:** historical for the unsupported names. The parked ledger is `plans/v0.1.2/09-print-noop/checklist.md`. Do not implement from this file.
 > **Estimated effort:** 48 CSS property names across 8 phases. Five physical scroll-margin names are already stored. The other 43 are unsupported. No WebKit aliases in this set.
 
 ---

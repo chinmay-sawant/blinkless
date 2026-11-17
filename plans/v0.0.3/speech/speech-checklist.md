@@ -1,7 +1,7 @@
 # v0.0.3 - Speech
 
 > **Parent:** `plans/v0.0.3/README.md` - index of these ledgers.
-> **Status:** not started. Baseline rows record what the code already does. Implementation rows are open.
+> **Status:** historical. The parked ledger is `plans/v0.1.2/09-print-noop/checklist.md`. Do not implement from this file.
 > **Estimated effort:** 19 CSS property names across 8 phases. No aliases in this set.
 
 ---

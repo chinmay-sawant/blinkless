@@ -289,7 +289,9 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.TextShadowSet == b.TextShadowSet &&
 		a.LetterSpacing == b.LetterSpacing &&
 		a.WordSpacing == b.WordSpacing &&
+		a.WordSpaceTransform == b.WordSpaceTransform &&
 		a.TextIndent == b.TextIndent &&
+		a.LinePadding == b.LinePadding &&
 		a.ListStyleType == b.ListStyleType &&
 		a.BorderCollapse == b.BorderCollapse &&
 		a.BorderSpacing == b.BorderSpacing &&
@@ -439,6 +441,7 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.ObjectPositionX == b.ObjectPositionX &&
 		a.ObjectPositionY == b.ObjectPositionY &&
 		a.AspectRatio == b.AspectRatio &&
+		a.Zoom == b.Zoom &&
 		a.ShapeOutside == b.ShapeOutside &&
 		a.ShapeMargin == b.ShapeMargin &&
 		a.ShapeMarginPercent == b.ShapeMarginPercent &&
@@ -461,6 +464,7 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.TextBoxTrim == b.TextBoxTrim &&
 		a.TextBoxEdgeOver == b.TextBoxEdgeOver &&
 		a.TextBoxEdgeUnder == b.TextBoxEdgeUnder &&
+		a.LineFitEdge == b.LineFitEdge &&
 		a.TextAutospace == b.TextAutospace &&
 		a.TextSpacing == b.TextSpacing &&
 		a.TextSpacingTrim == b.TextSpacingTrim &&
@@ -482,6 +486,15 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.ShapeRendering == b.ShapeRendering &&
 		a.DominantBaseline == b.DominantBaseline &&
 		a.AlignmentBaseline == b.AlignmentBaseline &&
+		a.BaselineSource == b.BaselineSource &&
+		a.Continue == b.Continue &&
+		a.ImageRendering == b.ImageRendering &&
+		a.TextStrokeWidth == b.TextStrokeWidth &&
+		a.TextStrokeColor == b.TextStrokeColor &&
+		a.TextStrokeColorSet == b.TextStrokeColorSet &&
+		a.LinkParameters == b.LinkParameters &&
+		a.ContinueLines == b.ContinueLines &&
+		a.InlineSizing == b.InlineSizing &&
 		a.Clip == b.Clip &&
 		a.ColorInterpolation == b.ColorInterpolation &&
 		a.ColorInterpolationFilters == b.ColorInterpolationFilters &&
@@ -506,7 +519,28 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.ViewTimelineInsetStart == b.ViewTimelineInsetStart &&
 		a.ViewTimelineInsetEnd == b.ViewTimelineInsetEnd &&
 		a.ViewTimelineInsetStartSet == b.ViewTimelineInsetStartSet &&
-		a.ViewTimelineInsetEndSet == b.ViewTimelineInsetEndSet
+		a.ViewTimelineInsetEndSet == b.ViewTimelineInsetEndSet &&
+		a.ViewTimelineInsets == b.ViewTimelineInsets &&
+		a.Triggers == b.Triggers &&
+		a.Declared == b.Declared &&
+		a.SVGCx == b.SVGCx &&
+		a.SVGCy == b.SVGCy &&
+		a.SVGR == b.SVGR &&
+		a.SVGRx == b.SVGRx &&
+		a.SVGRy == b.SVGRy &&
+		a.SVGX == b.SVGX &&
+		a.SVGY == b.SVGY &&
+		a.SVGD == b.SVGD &&
+		a.SVGMarkerStart == b.SVGMarkerStart &&
+		a.SVGMarkerMid == b.SVGMarkerMid &&
+		a.SVGMarkerEnd == b.SVGMarkerEnd &&
+		a.SVGStopColor == b.SVGStopColor &&
+		a.SVGStopOpacity == b.SVGStopOpacity &&
+		a.SVGPaintOrder == b.SVGPaintOrder &&
+		a.SVGPathLength == b.SVGPathLength &&
+		a.SVGVectorEffect == b.SVGVectorEffect &&
+		a.SVGFloodColor == b.SVGFloodColor &&
+		a.SVGFloodOpacity == b.SVGFloodOpacity
 }
 
 // styleInternFingerprint hashes every ResolvedStyle field. Equal styles
@@ -721,7 +755,9 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashBool(h, s.TextShadowSet)
 	h = styleInternHashFloat64(h, s.LetterSpacing)
 	h = styleInternHashFloat64(h, s.WordSpacing)
+	h = styleInternHashString(h, s.WordSpaceTransform)
 	h = styleInternHashFloat64(h, s.TextIndent)
+	h = styleInternHashFloat64(h, s.LinePadding)
 	h = styleInternHashString(h, s.ListStyleType)
 	h = styleInternHashString(h, s.BorderCollapse)
 	h = styleInternHashFloat64(h, s.BorderSpacing)
@@ -879,6 +915,7 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashString(h, s.ObjectPositionX)
 	h = styleInternHashString(h, s.ObjectPositionY)
 	h = styleInternHashFloat64(h, s.AspectRatio)
+	h = styleInternHashFloat64(h, s.Zoom)
 	h = styleInternHashString(h, s.ShapeOutside)
 	h = styleInternHashFloat64(h, s.ShapeMargin)
 	h = styleInternHashFloat64(h, s.ShapeMarginPercent)
@@ -901,6 +938,7 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashString(h, s.TextBoxTrim)
 	h = styleInternHashString(h, s.TextBoxEdgeOver)
 	h = styleInternHashString(h, s.TextBoxEdgeUnder)
+	h = styleInternHashString(h, s.LineFitEdge)
 	h = styleInternHashString(h, s.TextAutospace)
 	h = styleInternHashString(h, s.TextSpacing)
 	h = styleInternHashString(h, s.TextSpacingTrim)
@@ -924,6 +962,17 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashString(h, s.ShapeRendering)
 	h = styleInternHashString(h, s.DominantBaseline)
 	h = styleInternHashString(h, s.AlignmentBaseline)
+	h = styleInternHashString(h, s.BaselineSource)
+	h = styleInternHashString(h, s.Continue)
+	h = styleInternHashString(h, s.ImageRendering)
+	h = styleInternHashFloat64(h, s.TextStrokeWidth)
+	for _, e := range s.TextStrokeColor {
+		h = styleInternHashFloat64(h, e)
+	}
+	h = styleInternHashBool(h, s.TextStrokeColorSet)
+	h = styleInternHashString(h, s.LinkParameters)
+	h = styleInternHashInt(h, s.ContinueLines)
+	h = styleInternHashString(h, s.InlineSizing)
 	h = styleInternHashString(h, s.Clip)
 	h = styleInternHashString(h, s.ColorInterpolation)
 	h = styleInternHashString(h, s.ColorInterpolationFilters)
@@ -949,6 +998,27 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashFloat64(h, s.ViewTimelineInsetEnd)
 	h = styleInternHashBool(h, s.ViewTimelineInsetStartSet)
 	h = styleInternHashBool(h, s.ViewTimelineInsetEndSet)
+	h = styleInternHashString(h, s.ViewTimelineInsets)
+	h = styleInternHashTriggerStyle(h, s.Triggers)
+	h = styleInternHashDeclaredStyle(h, s.Declared)
+	h = styleInternHashString(h, s.SVGCx)
+	h = styleInternHashString(h, s.SVGCy)
+	h = styleInternHashString(h, s.SVGR)
+	h = styleInternHashString(h, s.SVGRx)
+	h = styleInternHashString(h, s.SVGRy)
+	h = styleInternHashString(h, s.SVGX)
+	h = styleInternHashString(h, s.SVGY)
+	h = styleInternHashString(h, s.SVGD)
+	h = styleInternHashString(h, s.SVGMarkerStart)
+	h = styleInternHashString(h, s.SVGMarkerMid)
+	h = styleInternHashString(h, s.SVGMarkerEnd)
+	h = styleInternHashString(h, s.SVGStopColor)
+	h = styleInternHashString(h, s.SVGStopOpacity)
+	h = styleInternHashString(h, s.SVGPaintOrder)
+	h = styleInternHashString(h, s.SVGPathLength)
+	h = styleInternHashString(h, s.SVGVectorEffect)
+	h = styleInternHashString(h, s.SVGFloodColor)
+	h = styleInternHashString(h, s.SVGFloodOpacity)
 
 	return h
 }
@@ -1151,7 +1221,9 @@ func styleInternFields() []string {
 		"TextShadowSet",
 		"LetterSpacing",
 		"WordSpacing",
+		"WordSpaceTransform",
 		"TextIndent",
+		"LinePadding",
 		"ListStyleType",
 		"BorderCollapse",
 		"BorderSpacing",
@@ -1301,6 +1373,7 @@ func styleInternFields() []string {
 		"ObjectPositionX",
 		"ObjectPositionY",
 		"AspectRatio",
+		"Zoom",
 		"ShapeOutside",
 		"ShapeMargin",
 		"ShapeMarginPercent",
@@ -1323,6 +1396,7 @@ func styleInternFields() []string {
 		"TextBoxTrim",
 		"TextBoxEdgeOver",
 		"TextBoxEdgeUnder",
+		"LineFitEdge",
 		"TextAutospace",
 		"TextSpacing",
 		"TextSpacingTrim",
@@ -1344,6 +1418,15 @@ func styleInternFields() []string {
 		"ShapeRendering",
 		"DominantBaseline",
 		"AlignmentBaseline",
+		"BaselineSource",
+		"Continue",
+		"ImageRendering",
+		"TextStrokeWidth",
+		"TextStrokeColor",
+		"TextStrokeColorSet",
+		"LinkParameters",
+		"ContinueLines",
+		"InlineSizing",
 		"Clip",
 		"ColorInterpolation",
 		"ColorInterpolationFilters",
@@ -1369,6 +1452,27 @@ func styleInternFields() []string {
 		"ViewTimelineInsetEnd",
 		"ViewTimelineInsetStartSet",
 		"ViewTimelineInsetEndSet",
+		"ViewTimelineInsets",
+		"Triggers",
+		"Declared",
+		"SVGCx",
+		"SVGCy",
+		"SVGR",
+		"SVGRx",
+		"SVGRy",
+		"SVGX",
+		"SVGY",
+		"SVGD",
+		"SVGMarkerStart",
+		"SVGMarkerMid",
+		"SVGMarkerEnd",
+		"SVGStopColor",
+		"SVGStopOpacity",
+		"SVGPaintOrder",
+		"SVGPathLength",
+		"SVGVectorEffect",
+		"SVGFloodColor",
+		"SVGFloodOpacity",
 	}
 }
 
@@ -1421,6 +1525,72 @@ func styleInternHashBorder(h uint64, v border) uint64 {
 	return h
 }
 
+func styleInternHashDeclaredStyle(h uint64, v declaredStyle) uint64 {
+	h = styleInternHashString(h, v.Caret)
+	h = styleInternHashString(h, v.CaretAnimation)
+	h = styleInternHashString(h, v.CaretShape)
+	h = styleInternHashString(h, v.FieldSizing)
+	h = styleInternHashString(h, v.InputSecurity)
+	h = styleInternHashString(h, v.NavUp)
+	h = styleInternHashString(h, v.NavDown)
+	h = styleInternHashString(h, v.NavLeft)
+	h = styleInternHashString(h, v.NavRight)
+	h = styleInternHashString(h, v.SliderOrientation)
+	h = styleInternHashString(h, v.SpatialNavigationAction)
+	h = styleInternHashString(h, v.SpatialNavigationContain)
+	h = styleInternHashString(h, v.SpatialNavigationFunction)
+	h = styleInternHashString(h, v.WindowDrag)
+	h = styleInternHashString(h, v.WillChange)
+	h = styleInternHashString(h, v.WebkitAppearance)
+	h = styleInternHashString(h, v.WebkitUserSelect)
+	h = styleInternHashString(h, v.WebkitTextSizeAdjust)
+	h = styleInternHashString(h, v.TextSizeAdjust)
+	h = styleInternHashString(h, v.ImageAnimation)
+	h = styleInternHashString(h, v.ReadingFlow)
+	h = styleInternHashString(h, v.ReadingOrder)
+	h = styleInternHashString(h, v.Overlay)
+	h = styleInternHashString(h, v.BackgroundAttachment)
+	h = styleInternHashString(h, v.BackgroundTbd)
+	h = styleInternHashString(h, v.BorderClip)
+	h = styleInternHashString(h, v.BorderTopClip)
+	h = styleInternHashString(h, v.BorderRightClip)
+	h = styleInternHashString(h, v.BorderBottomClip)
+	h = styleInternHashString(h, v.BorderLeftClip)
+	h = styleInternHashString(h, v.BorderBlockClip)
+	h = styleInternHashString(h, v.BorderBlockStartClip)
+	h = styleInternHashString(h, v.BorderBlockEndClip)
+	h = styleInternHashString(h, v.BorderInlineClip)
+	h = styleInternHashString(h, v.BorderInlineStartClip)
+	h = styleInternHashString(h, v.BorderInlineEndClip)
+	h = styleInternHashString(h, v.BorderBoundary)
+	h = styleInternHashString(h, v.BorderLimit)
+	h = styleInternHashString(h, v.BorderShape)
+	h = styleInternHashString(h, v.TextFit)
+	h = styleInternHashString(h, v.FloatDefer)
+	h = styleInternHashString(h, v.ShapeImageThreshold)
+	h = styleInternHashString(h, v.ColumnRuleVisibilityItems)
+	h = styleInternHashString(h, v.TextRendering)
+	h = styleInternHashString(h, v.LightingColor)
+	h = styleInternHashString(h, v.GlyphOrientationVertical)
+	h = styleInternHashString(h, v.BaselineShift)
+	h = styleInternHashString(h, v.MarkerSide)
+	h = styleInternHashString(h, v.Offset)
+	h = styleInternHashString(h, v.OffsetAnchor)
+	h = styleInternHashString(h, v.OffsetDistance)
+	h = styleInternHashString(h, v.OffsetPath)
+	h = styleInternHashString(h, v.OffsetPosition)
+	h = styleInternHashString(h, v.OffsetRotate)
+	h = styleInternHashString(h, v.BookmarkLabel)
+	h = styleInternHashString(h, v.BookmarkLevel)
+	h = styleInternHashString(h, v.BookmarkState)
+	h = styleInternHashString(h, v.FootnoteDisplay)
+	h = styleInternHashString(h, v.FootnotePolicy)
+	h = styleInternHashString(h, v.CopyInto)
+	h = styleInternHashString(h, v.BlockEllipsis)
+
+	return h
+}
+
 func styleInternHashRuleInset(h uint64, v ruleInset) uint64 {
 	h = styleInternHashFloat64(h, v.Value)
 	h = styleInternHashBool(h, v.Percent)
@@ -1445,6 +1615,25 @@ func styleInternHashTransitionStyle(h uint64, v transitionStyle) uint64 {
 	h = styleInternHashString(h, v.Delay)
 	h = styleInternHashString(h, v.TimingFunction)
 	h = styleInternHashString(h, v.Behavior)
+
+	return h
+}
+
+func styleInternHashTriggerStyle(h uint64, v triggerStyle) uint64 {
+	h = styleInternHashString(h, v.TimelineScope)
+	h = styleInternHashString(h, v.PointerName)
+	h = styleInternHashString(h, v.PointerAxis)
+	h = styleInternHashString(h, v.TriggerName)
+	h = styleInternHashString(h, v.TriggerSource)
+	h = styleInternHashString(h, v.ActivationStart)
+	h = styleInternHashString(h, v.ActivationEnd)
+	h = styleInternHashString(h, v.ActiveStart)
+	h = styleInternHashString(h, v.ActiveEnd)
+	h = styleInternHashString(h, v.EventName)
+	h = styleInternHashString(h, v.EventSource)
+	h = styleInternHashString(h, v.InterestStart)
+	h = styleInternHashString(h, v.InterestEnd)
+	h = styleInternHashString(h, v.Interactivity)
 
 	return h
 }

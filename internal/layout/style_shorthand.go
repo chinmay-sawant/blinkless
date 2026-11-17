@@ -7,6 +7,10 @@ package layout
 //
 //nolint:cyclop // dispatch across unrelated shorthand families
 func expandShorthandDeclaration(prop, value string) ([]logicalPropDecl, bool) {
+	if expanded, ok := expandAllDeclaration(prop, value); ok {
+		return expanded, true
+	}
+
 	if expanded, ok := expandAnimationDeclaration(prop, value); ok {
 		return expanded, true
 	}
@@ -16,6 +20,10 @@ func expandShorthandDeclaration(prop, value string) ([]logicalPropDecl, bool) {
 	}
 
 	if expanded, ok := expandViewTimelineDeclaration(prop, value); ok {
+		return expanded, true
+	}
+
+	if expanded, ok := expandTriggerDeclaration(prop, value, triggerNominalFontSize); ok {
 		return expanded, true
 	}
 

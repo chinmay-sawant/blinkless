@@ -43,6 +43,8 @@ const (
 func applyFloatPageProps(
 	style *ResolvedStyle, prop, value string, fsize float64, ctx *styleContext, parent *ResolvedStyle, _ bool,
 ) bool {
+	mirrorFragDeclared(style, prop, value, parent)
+
 	switch prop {
 	case "float-offset":
 		if pt, pct, ok := parseFloatOffset(value, fsize, ctx); ok {

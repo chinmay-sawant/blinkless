@@ -557,7 +557,7 @@ func applyGeneratedQuotes(ctx *styleContext, node *html.Node, pseudo string, env
 	}
 
 	// Quote tokens mutate env.quoteDepth; the generated string is discarded.
-	evalContentValue(best.value, node, env)
+	evalContentValue(best.value, node, env, nil)
 }
 
 func evalCounterFn(value string, idx int, env *contentEnv) (string, int) {

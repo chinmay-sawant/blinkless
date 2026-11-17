@@ -23,3 +23,5 @@ Feature release draft: [v0.0.3 release note](v0.0.3/release-note/v0.0.3.md), wit
 Stabilization release: [v0.1.0 release note](v0.1.0/release-note/v0.1.0.md), with the [26-commit ledger](v0.1.0/release-note/commits.md). Tag `v0.1.0` is the annotated tag object `5dd4571`, peeled to `2e2abfc`.
 
 Patch-path and render-cost release: [v0.1.1 release note](v0.1.1/release-note/v0.1.1.md), with the [39-commit ledger](v0.1.1/release-note/commits.md) and the [agent context pack](v0.1.1/README.md). Tag `v0.1.1` follows the release PR merge. The `0.1.0` CHANGELOG section was backfilled in the `0.1.1` release PR.
+
+Pending CSS for the next cut: [v0.1.2 checklists](v0.1.2/README.md). Nine phase files, quickest first. Ledger 1 is the three `-webkit-background-*` aliases and the four partial rows. Ledgers 6, 8, and 9 are parked. Open rows in the v0.0.3 SVG, scroll, and speech files now point here.

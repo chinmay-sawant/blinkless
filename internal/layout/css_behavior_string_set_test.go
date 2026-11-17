@@ -1,21 +1,20 @@
 package layout
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/chinmay-sawant/blinkless/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
-// This file holds the string-set behavior tests: every observable below is
-// asserted through a USED value (the decoded concatenated string the table
-// stores), never through a stored declaration string. string-set feeds GCPM
-// running headers and footers, but this engine has no page margin pipeline,
-// so layout and paint cannot observe it: the no-paint test pins that with an
-// identical-geometry comparison and the rest prove set-then-read table
-// semantics. Reference: Chrome 143.0.7499.40 has no string-set support,
-// stated explicitly, so parsing follows the css-content-3 draft and the
-// catalog upstream syntax none | [ <custom-ident> <string>+ ]#
-// (testdata/css/catalog/properties.json). Full margin-box rendering is out of
-// scope; the seam is CollectNamedStrings, which the future margin pipeline
-// calls once per layout to resolve string() lookups.
+// This file holds the string-set behavior tests. The table tests assert the
+// used value, not the declaration text. Paint tests assert OpText. A
+// string() read on the same canvas paints the first assignment. Page-margin
+// running headers are not painted. TestBehaviorStringSetNoPaintEffect is the
+// case with no string() reader: the heading's drawing list does not change.
 
 // TestBehaviorStringSetFirstAssignmentWins proves set-then-read on used
 // values: the first element assigning chapter wins, and adjacent strings
@@ -123,9 +122,8 @@ func TestBehaviorStringSetEscapesDecode(t *testing.T) {
 	}
 }
 
-// TestBehaviorStringSetNoPaintEffect pins the current boundary: string-set
-// changes nothing in the drawing list because no margin pipeline consumes the
-// table yet. Unobservable in paint: reported as a no-op, never failing.
+// TestBehaviorStringSetNoPaintEffect pins the case with no string() reader:
+// assigning a name does not change the heading's drawing list.
 func TestBehaviorStringSetNoPaintEffect(t *testing.T) {
 	t.Parallel()
 
@@ -134,4 +132,199 @@ func TestBehaviorStringSetNoPaintEffect(t *testing.T) {
 		`<h2 style="string-set: chapter 'Guide One'">Guide One</h2></body></html>`
 
 	behaviorColumnsAssertSameOps(t, layoutHTML(t, plain), layoutHTML(t, styled))
+}
+
+// TestBehaviorStringSetPaintsOnSameCanvas proves a later string() read paints
+// the assigned text on this canvas. The heading's own text op stays. A later
+// assignment does not replace the first. none clears the name. An unknown
+// name adds nothing. A bad token leaves the earlier value. content() and
+// content(text) both read the element text, and content(before) with no
+// ::before contributes nothing.
+func TestBehaviorStringSetPaintsOnSameCanvas(t *testing.T) {
+	t.Parallel()
+
+	t.Run("fixture", func(t *testing.T) {
+		t.Parallel()
+
+		texts := stringSetTextOps(t, layoutStringSetFixture(t))
+		if got := stringSetCount(texts, "Guide One"); got != 2 {
+			t.Fatalf("Guide One ops = %d, texts %q, want 2 (heading plus reader)", got, texts)
+		}
+	})
+
+	t.Run("first assignment wins", func(t *testing.T) {
+		t.Parallel()
+
+		body := `<html style="margin:0"><body style="margin:0">` +
+			`<h1 style="string-set: chapter content(text)">Guide One</h1>` +
+			`<h1 style="string-set: chapter content(text)">Beta</h1>` +
+			`<p id="read"></p></body></html>`
+		texts := stringSetTextOps(t, layoutHTML(t, body, sheet(t, `#read::before { content: string(chapter); }`)))
+
+		if got := stringSetCount(texts, "Guide One"); got != 2 {
+			t.Fatalf("Guide One ops = %d, texts %q, want 2 (heading plus reader, Beta does not replace)", got, texts)
+		}
+
+		if got := stringSetCount(texts, "Beta"); got != 1 {
+			t.Fatalf("Beta ops = %d, texts %q, want 1 (the heading only)", got, texts)
+		}
+	})
+
+	t.Run("none clears", func(t *testing.T) {
+		t.Parallel()
+
+		body := `<html style="margin:0"><body style="margin:0">` +
+			`<h1 style="string-set: chapter content(text)">Guide One</h1>` +
+			`<p style="string-set: none"></p>` +
+			`<p id="read"></p></body></html>`
+		texts := stringSetTextOps(t, layoutHTML(t, body, sheet(t, `#read::before { content: "X" string(chapter) "Y"; }`)))
+
+		if got := stringSetCount(texts, "Guide One"); got != 1 {
+			t.Fatalf("Guide One ops = %d, texts %q, want 1 (heading only, none cleared the reader)", got, texts)
+		}
+
+		if got := stringSetCount(texts, "XY"); got != 1 {
+			t.Fatalf("reader ops = %d, texts %q, want XY (string() contributed nothing)", got, texts)
+		}
+	})
+
+	t.Run("unknown name", func(t *testing.T) {
+		t.Parallel()
+
+		body := `<html style="margin:0"><body style="margin:0">` +
+			`<h1 style="string-set: chapter content(text)">Guide One</h1>` +
+			`<p id="read"></p></body></html>`
+		texts := stringSetTextOps(t, layoutHTML(t, body, sheet(t, `#read::before { content: "X" string(missing) "Y"; }`)))
+
+		if got := stringSetCount(texts, "XY"); got != 1 {
+			t.Fatalf("reader ops = %d, texts %q, want XY", got, texts)
+		}
+
+		if got := stringSetCount(texts, "Guide One"); got != 1 {
+			t.Fatalf("Guide One ops = %d, texts %q, want 1 (the heading; the unknown name is not extra text)", got, texts)
+		}
+
+		for _, text := range texts {
+			if strings.Contains(text, "missing") {
+				t.Fatalf("unknown name painted in %q", text)
+			}
+		}
+	})
+
+	t.Run("bad token keeps earlier", func(t *testing.T) {
+		t.Parallel()
+
+		body := `<html style="margin:0"><body style="margin:0">` +
+			`<h1 style="string-set: chapter content(text)">Guide One</h1>` +
+			`<h1 style="string-set: chapter @@">Beta</h1>` +
+			`<p id="read"></p></body></html>`
+		texts := stringSetTextOps(t, layoutHTML(t, body, sheet(t, `#read::before { content: string(chapter); }`)))
+
+		if got := stringSetCount(texts, "Guide One"); got != 2 {
+			t.Fatalf("Guide One ops = %d, texts %q, want 2 (bad token did not replace the first assignment)", got, texts)
+		}
+
+		if got := stringSetCount(texts, "Beta"); got != 1 {
+			t.Fatalf("Beta ops = %d, texts %q, want 1 (the heading's own text)", got, texts)
+		}
+	})
+
+	t.Run("content keywords", func(t *testing.T) {
+		t.Parallel()
+
+		body := `<html style="margin:0"><body style="margin:0">` +
+			`<h1 style="string-set: plain content(), typed content(text), bare content(before)">Guide One</h1>` +
+			`<p id="plain"></p><p id="typed"></p><p id="bare"></p></body></html>`
+		rule := `#plain::before { content: string(plain); }` +
+			`#typed::before { content: string(typed); }` +
+			`#bare::before { content: "B" string(bare) "E"; }`
+		texts := stringSetTextOps(t, layoutHTML(t, body, sheet(t, rule)))
+
+		if got := stringSetCount(texts, "Guide One"); got != 3 {
+			t.Fatalf("Guide One ops = %d, texts %q, want 3 (heading, content(), and content(text))", got, texts)
+		}
+
+		if got := stringSetCount(texts, "BE"); got != 1 {
+			t.Fatalf("bare reader = %d, texts %q, want BE (content(before) contributed nothing)", got, texts)
+		}
+	})
+}
+
+// layoutStringSetFixture lays out testdata/css/v012/string-set/page.html
+// with the <style> block applied. layoutHTML does not collect document styles.
+func layoutStringSetFixture(t *testing.T) *Result {
+	t.Helper()
+
+	raw, err := os.ReadFile(filepath.Join(
+		"..", "..", "testdata", "css", "v012", "string-set", "page.html",
+	))
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+
+	root := mustParse(t, string(raw))
+
+	var sheets []*css.Stylesheet
+
+	root.Walk(func(node *html.Node) {
+		if node.Type != html.ElementNode || node.Name != "style" {
+			return
+		}
+
+		var text string
+
+		for _, child := range node.Children {
+			if child.Type == html.TextNode {
+				text += child.Text
+			}
+		}
+
+		parsed, parseErr := css.Parse(text)
+		if parseErr != nil {
+			t.Fatalf("css.Parse: %v", parseErr)
+		}
+
+		sheets = append(sheets, parsed)
+	})
+
+	res, err := Layout(root, Options{
+		Width: testViewport, Height: 800, Sheets: sheets, Background: true,
+	})
+	if err != nil {
+		t.Fatalf("Layout: %v", err)
+	}
+
+	return res
+}
+
+// stringSetTextOps returns the non-empty text operations in paint order.
+func stringSetTextOps(t *testing.T, res *Result) []string {
+	t.Helper()
+
+	if res == nil {
+		t.Fatal("nil result")
+	}
+
+	texts := make([]string, 0, 4)
+
+	for _, op := range res.Ops {
+		if op.Kind == OpText && op.Text != "" {
+			texts = append(texts, op.Text)
+		}
+	}
+
+	return texts
+}
+
+// stringSetCount counts text operations equal to want.
+func stringSetCount(texts []string, want string) int {
+	count := 0
+
+	for _, text := range texts {
+		if text == want {
+			count++
+		}
+	}
+
+	return count
 }
