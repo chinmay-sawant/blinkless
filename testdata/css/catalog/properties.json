@@ -11,9 +11,9 @@
   "summary": {
     "properties": 785,
     "by_status": {
-      "implemented": 682,
+      "implemented": 687,
       "intentionally ignored": 8,
-      "partial": 6,
+      "partial": 1,
       "unsupported": 89
     },
     "aliases": 38,
@@ -2647,7 +2647,7 @@
         "scroll | fixed | inherit"
       ],
       "limitations": [
-        "Stored and exported. The engine paints fixed and local as scroll; the host only computes the shift."
+        "A fixed layer is positioned against the viewport at scroll zero and clipped to its box. The engine does not move it when a host scrolls, and local paints as scroll."
       ],
       "source": [
         "internal/layout/declared_fields.go",
@@ -2656,7 +2656,8 @@
         "internal/layout/placed.go",
         "layout/layout.go",
         "internal/layout/declared_read.go",
-        "internal/layout/style_properties.go"
+        "internal/layout/style_properties.go",
+        "internal/layout/background_image.go"
       ],
       "handlers": [
         "applyDeclaredProps"
@@ -2665,9 +2666,13 @@
         {
           "file": "layout/declared_read_test.go",
           "name": "TestDeclaredReadGrammar"
+        },
+        {
+          "file": "internal/layout/css_behavior_backgrounds_test.go",
+          "name": "TestBehaviorBackgroundAttachmentFixedUsesViewport"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "scroll | fixed | inherit"
     },
@@ -3094,7 +3099,7 @@
         "<bg-layer>#"
       ],
       "limitations": [
-        "Not a real CSS property. Stored and exported only."
+        "Draft name from Backgrounds 4. Sets the image, attachment and repeat longhands and leaves the color alone. A color token drops the whole declaration. Position, size, clip and origin tokens in the layer are not read."
       ],
       "source": [
         "internal/layout/declared_fields.go",
@@ -3102,7 +3107,8 @@
         "internal/layout/style.go",
         "internal/layout/placed.go",
         "layout/layout.go",
-        "internal/layout/declared_read.go"
+        "internal/layout/declared_read.go",
+        "internal/layout/style_cascade.go"
       ],
       "handlers": [
         "applyDeclaredProps"
@@ -3111,9 +3117,13 @@
         {
           "file": "layout/declared_read_test.go",
           "name": "TestDeclaredReadGrammar"
+        },
+        {
+          "file": "internal/layout/css_behavior_backgrounds_test.go",
+          "name": "TestBehaviorBackgroundTbdKeepsColor"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "<bg-layer>#"
     },
@@ -7646,7 +7656,7 @@
         "none | [ [ <custom-ident> <content-level>] [, <custom-ident> <content-level>]* ]?"
       ],
       "limitations": [
-        "Exported as named text through layout.CopiedFragments. No page-margin box is painted."
+        "Exported as named text through layout.CopiedFragments. Page-margin boxes are not painted, as with string-set."
       ],
       "source": [
         "internal/layout/declared_fields.go",
@@ -7672,7 +7682,7 @@
           "name": "TestFragDeclaredValues"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "none | [ [ <custom-ident> <content-level>] [, <custom-ident> <content-level>]* ]?"
     },
@@ -10892,7 +10902,7 @@
         "block | inline | compact"
       ],
       "limitations": [
-        "Stored and exported on Box.Declared only. There is no footnote area and no page index to act on."
+        "Reported per footnote through layout.CollectFootnotes. There is no footnote area, so the footnote stays in flow and no box moves."
       ],
       "source": [
         "internal/layout/declared_fields.go",
@@ -10913,9 +10923,13 @@
         {
           "file": "layout/declared_frag_test.go",
           "name": "TestFragDeclaredValues"
+        },
+        {
+          "file": "internal/layout/css_behavior_footnote_test.go",
+          "name": "TestBehaviorFootnoteCollectsInDocumentOrder"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "block | inline | compact"
     },
@@ -10926,7 +10940,7 @@
         "auto | line | block"
       ],
       "limitations": [
-        "Stored and exported on Box.Declared only. There is no footnote area and no page index to act on."
+        "Reported per footnote and used by layout.GroupFootnotesByPolicy. The engine has no page splitter, so a policy cannot force a break."
       ],
       "source": [
         "internal/layout/declared_fields.go",
@@ -10947,9 +10961,13 @@
         {
           "file": "layout/declared_frag_test.go",
           "name": "TestFragDeclaredValues"
+        },
+        {
+          "file": "internal/layout/css_behavior_footnote_test.go",
+          "name": "TestBehaviorFootnotePolicyGrouping"
         }
       ],
-      "status": "partial",
+      "status": "implemented",
       "upstream_class": "draft",
       "upstream_syntax": "auto | line | block"
     },

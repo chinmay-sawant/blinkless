@@ -6,8 +6,8 @@ import (
 )
 
 // normalizeReadDeclared checks and normalizes the value of one read property.
-// background-tbd has no spec grammar here (its catalog row is a placeholder
-// for a draft background layer list), so it keeps any non-empty text.
+// background-tbd is the Backgrounds 4 layer list without a color, so a value
+// that carries a color token is invalid.
 func normalizeReadDeclared(prop, value string) (string, bool) {
 	text := strings.TrimSpace(value)
 	if text == "" {
@@ -30,7 +30,11 @@ func normalizeReadDeclared(prop, value string) (string, bool) {
 		return strconv.Itoa(n), true
 	case declPropBackgroundAttachment:
 		return normalizeBackgroundAttachment(text)
-	case "background-tbd":
+	case declPropBackgroundTbd:
+		if backgroundTbdHasColor(text) {
+			return "", false
+		}
+
 		return text, true
 	}
 
