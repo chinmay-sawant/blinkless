@@ -1,9 +1,13 @@
 # blinkless - HTML/CSS compatibility matrix
 
-> **Parent:** [plans/v0.0.1/phase-wise-checklist.md](../plans/v0.0.1/phase-wise-checklist.md) and [plans/v0.0.1/html-css-json-compatibility-checklist.md](../plans/v0.0.1/html-css-json-compatibility-checklist.md)  
-> **Status:** living contract - amendments go through plan review  
-> **Target:** authored HTML and CSS to a `layout.DisplayList` (the drawing list). **Not** a browser. **Not** a PDF writer. **Not** a page rasterizer.  
-> **Catalog:** `testdata/css/catalog/properties.json` (schema v2), measured 2026-11-02: 785 rows - 582 Implemented / 0 Partial / 195 Unsupported / 8 intentionally ignored. Motion rows with scope `blinkless+ownframe` include sampled behavior evidence from OwnFrame. Upstream pin: webref `ed/css` revision `1f2ec8f74a80c14066b4c7d6822cee59f69fa03b` (821 properties). Fidelity guide: [fidelity.md](fidelity.md).
+> **Parent:** [plans/v0.0.1/phase-wise-checklist.md](../plans/v0.0.1/phase-wise-checklist.md) and [plans/v0.0.1/html-css-json-compatibility-checklist.md](../plans/v0.0.1/html-css-json-compatibility-checklist.md)
+>
+> **Status:** living contract - amendments go through plan review
+>
+> **Target:** authored HTML and CSS to a `layout.DisplayList` (the drawing list). **Not** a browser. **Not** a PDF writer. **Not** a page rasterizer.
+>
+> **Catalog:** Section 2 lists property statuses and counts from `testdata/css/catalog/properties.json`.
+>
 > **Limitations:** Implemented means a handler, a consumer outside the style layer, and a resolvable behavior test. Browser rendering parity, HTML parser conformance, and this property catalog are separate claims with separate evidence. Section 1 is a rendering allowlist for HTML tags, not a parser conformance claim.
 
 This document is the contract for the layout engine. Its output is a drawing
@@ -916,262 +920,57 @@ Status legend: Implemented and Partial as in §2; Not implemented means the sele
 | `@font-face` | Partial | Parsed; `MergeFontFaces` loads TTF/OTF/WOFF1 via `FetchSub` (local **and** `https://`) under the same load ACL and network policy as other subresources. `.woff2` / `.eot` / `data:` skipped. See §5 |
 | `@import` | Partial | Parsed onto `Stylesheet.Imports`; `CollectSheets` fetches under the same load policy as `<link>`, depth cap 8, cycle skip, failed fetch skipped. Media prelude uses `MediaMatches`. Tests `TestParseImport`, `TestCollectSheetsImportAppliesImportedRules` |
 
-## 5. Explicitly unsupported (MVP)
+## 5. Feature limits
 
 | Feature | Handling |
 |---------|----------|
 | JavaScript / `<script>` / DOM APIs | **Not executed.** `<script>` content is captured as raw text and hidden by the UA sheet (`display: none`); no code path evaluates scripts |
-| Full CSS Grid / full Flexbox | Stage A/B layout subset **shipped** (see the `flex-*` and `grid-*` rows in §2); Stage C lite + flex min-size polish + Partial subgrid/masonry span. **Not** Bootstrap/Tailwind / Chrome layout-test parity |
+| Full CSS Grid / full Flexbox | Stage A/B layout subset **shipped** (see the `flex-*` and `grid-*` rows in §2); Stage C lite, flex min-size handling, and subsets of subgrid and masonry. **Not** Bootstrap/Tailwind / Chrome layout-test parity |
 | `transform`, `filter`, `animation`, `transition` | **Transforms:** static 2D and the supported 3D-to-2D paint transform path, including perspective, preserve-3d composition, perspective origin, and hidden backface culling. **`filter`:** 2D image filter (opacity, blur, grayscale, invert, adjustments) on raster images (`filter.go`) plus CSS `opacity()` on elements; no CSS shader/SVG filter composition. **`animation`/`transition`/`@keyframes`:** valid declarations and keyframes are parsed, cascaded, and exported as host-facing metadata. Blinkless does not advance time, sample timelines, compare transition states, or interpolate frames. Fixture-40; `transform.go`, `transform_3d.go`, `filter.go`, `animation_style.go`, `transition_style.go` |
 | `background-image` / gradients | **Implemented** multi-layer `url(...)` and pure-Go linear/radial gradient rasterization (`background_image.go`, `gradient.go`) |
 | `@font-face` (remote / WOFF2) | **Partial:** local **and `https://`** TTF/OTF/WOFF1 via `FetchSub` (same load ACL and network policy as other subresources). **`.woff2` / `.eot` / `data:`** skipped. Missing faces fall back to registry / Liberation |
 | Custom XSLT TOC (`--xsl-style-sheet`) | Not implemented (no XSLT in the standard library); this tree has no TOC pipeline |
-| SVG-as-`<img>` / SVG presentation | **Implemented** SVG-as-`<img>` and inline `<svg>` rasterization via `internal/svg`; 5 CSS properties (`fill`, `stroke`, `stroke-width`, `fill-opacity`, `stroke-opacity`) parsed in style; the remaining SVG presentation properties are unsupported (§2.3) |
-| Masking / clipping | **Implemented** `overflow-clip` for descendant box clipping (`overflow_clip.go`) and `clip-path` (§2.1). The 18 first-wave mask-family rows are registered as element-group mask data: 16 are implemented, `mask-type` and `-webkit-mask-composite` are Partial, and the 13 `mask-border*` rows are implemented: the frame composes into a nine-slice raster at the element box and the host applies it as a soft mask (§2.1). |
+| SVG-as-`<img>` / SVG presentation | Blinkless rasterizes SVG images and inline SVG through `internal/svg`. See section 2 for individual SVG presentation and geometry properties. |
+| Masking / clipping | Blinkless handles descendant box clipping and `clip-path`. It emits mask and mask-border data on element groups for the host to apply. See the `mask*` and `-webkit-mask*` rows in section 2. |
+| `backdrop-filter` | Blinkless exports the filter value on the display group. OwnFrame paints pixel blur, saturation, and its `refract()` extension. See the `backdrop-filter` row in section 2. |
 | CSS Regions & Exclusions | **Implemented** as four one-canvas contracts: named flows (`flow-into`, `flow-from`, `region-fragment`), masonry tolerance (`flow-tolerance`), exclusions (`wrap-flow`, `wrap-through`), and line/flex wrap breaks (`wrap-before`, `wrap-after`, `wrap-inside`). The engine returns one display list; paged fragmentation stays a non-goal (§2.1). |
 | WebP, AVIF | Not implemented; broken-image placeholder or skip |
 | Fixed CSS headers/footers via `position: fixed` alone | `position: fixed` is marked viewport-fixed (`markOpsFixed`, `layout_chrome.go:12`) when not under a transformed ancestor; not a full running-element model. There are no header/footer flags in this tree |
 | Complex-script shaping (Indic, Arabic, CJK) | **Arabic OT** via `go-text/typesetting` when the face has GSUB (+ presentation-form `ShapeText` fallback); Hangul needs a Hangul face. `writing-mode` vertical keywords inherit and rotate glyphs (`RotateDeg == -90`); block/line layout stays horizontal. **Indic Partial** (OT when face/cmap allow; not production-claimed). Optional OT **`halt`/`palt`** for CJK punctuation via `ShapeTextFont` FontFeatures |
 | PDF output (versions, profiles) | **Not part of this tree.** The engine returns a drawing list; PDF emission is out of scope. There are no `--pdf-version` / `--pdf-profile` flags, no `Document.PDFVersion` / `Document.PDFProfile` fields, and no PDF/A or PDF/UA claims |
 
-### 5.1 Deferred niche and draft families (60 properties - Not implemented)
+### 5.1 Niche and draft property families
 
-The following 60 properties are intentionally left **unsupported** (Not implemented). They have no layout or paint consumer and are out of scope for this engine. Declarations are parsed as valid property names where recognized and then ignored with graceful degrade, never claimed as Implemented. No Implemented claims are made for any of the 60.
+Section 2 lists the current status and evidence for ruby, math, block-step,
+and draft gap and row-rule properties. The CSS compatibility checklist linked
+above records the original deferrals.
 
-| Family | Count | Status | Note | Examples (not exhaustive) |
-|--------|-------|--------|------|---------------------------|
-| Ruby/MathML/rhythmic niche (33 properties: block-ellipsis, block-step-*, box-snap, ruby-*, math-*, etc.) | 33 | Not implemented | Ruby/MathML/rhythmic niche; not implemented here. Left unsupported. | `block-ellipsis`, `block-step-*`, `box-snap`, `ruby-align`, `ruby-position`, `math-depth`, `math-style`, `line-snap`, etc. |
-| Draft gap/row-rule decorations (27 properties: row-rule*, rule*) | 27 | Not implemented | Draft gap/row-rule decorations; no layout consumer. Left unsupported. `row-rule*` and `rule*` are not `column-rule` (see the `column-rule*` rows in §2). | `row-rule`, `row-rule-break`, `row-rule-color`, `row-rule-style`, `row-rule-width`, `rule`, `rule-break`, `rule-color`, `rule-style`, `rule-width`, etc. |
+### 5.2 Host effects and SVG
 
-Total: 60 properties across two families. All are Not implemented and left unsupported with no layout consumer.
+The drawing list carries masks and backdrop filters for a host to apply.
+Blinkless handles supported SVG presentation and geometry during SVG
+rasterization. Section 2 lists the accepted values and tests for each property,
+including `flood-color`, `flood-opacity`, and `lighting-color`.
 
-### 5.2 Phase 83 hard-defer categories (87 properties in the original scope)
+### 5.3 Vendor prefixes
 
-The following 87 properties across three categories were grouped as hard-deferred or permanent non-goals in Phase 83. The catalog in section 2 records their current status:
+Section 2 tracks 41 implemented `-webkit-` property names. The cascade also
+remaps `display: -webkit-box` to `flex` and `display: -webkit-inline-box` to
+`inline-flex`. The cascade subtracts one from `-webkit-box-ordinal-group`
+before setting `order`.
 
-| Category | Count | Status | Description and scope |
-|----------|-------|--------|-----------------------|
-| SVG presentation & geometry (`B_svg_presentation`) | 53 | Not implemented | Remaining SVG presentation and geometry properties. SVG-as-`<img>` is implemented via `internal/svg` rasterizer; 5 CSS properties (`fill`, `stroke`, `stroke-width`, `fill-opacity`, `stroke-opacity`) are parsed in style; remaining 53 SVG presentation properties are unsupported (`alignment-baseline`, `baseline-shift`, `color-interpolation`, `cx`, `cy`, `d`, `dominant-baseline`, `fill-break`, `fill-color`, `fill-image`, `fill-origin`, `fill-position`, `fill-repeat`, `fill-rule`, `fill-size`, `glyph-orientation-vertical`, `image-rendering`, `marker`, `marker-end`, `marker-mid`, `marker-side`, `marker-start`, `paint-order`, `path-length`, `r`, `rx`, `ry`, `shape-rendering`, `stop-color`, `stop-opacity`, `stroke-align`, `stroke-alignment`, `stroke-break`, `stroke-color`, `stroke-dash-corner`, `stroke-dash-justify`, `stroke-dashadjust`, `stroke-dasharray`, `stroke-dashcorner`, `stroke-dashoffset`, `stroke-image`, `stroke-linecap`, `stroke-linejoin`, `stroke-miterlimit`, `stroke-origin`, `stroke-position`, `stroke-repeat`, `stroke-size`, `text-anchor`, `text-rendering`, `vector-effect`, `x`, `y`). |
-| Mask, clip, and filter effects (`B_mask_clip_filter_effects`) | 25 | Mixed | `clip-path` is implemented. The 10 standard mask properties are mostly implemented: `mask`, `mask-clip`, `mask-composite`, `mask-image`, `mask-mode`, `mask-origin`, `mask-position`, `mask-repeat`, and `mask-size`; `mask-type` stays Partial. They emit element-group mask data for a display-list consumer; this repository has no pixel replay backend. The 13 `mask-border*` properties are implemented: the descriptor rides the blend group, composes into a nine-slice frame raster at the element box, and the host applies it as a soft mask. `backdrop-filter` is Partial: Blinkless carries its CSS value on the Go display group, and the WASM JSON does not add the field in 0.1.1. OwnFrame supports one pixel `blur()` capped at 64px and one `saturate()` capped at 3; other units, duplicate functions, SVG `url()` filters, and other functions remain unsupported. The three Unsupported names are `flood-color`, `flood-opacity`, and `lighting-color`; the six `-webkit-mask-box-image*` aliases are implemented like their bases. |
-| CSS Regions & Exclusions (`B_regions_exclusions`) | 9 | Implemented | The four one-canvas contracts are implemented: named flows (`flow-from`, `flow-into`, `region-fragment`), masonry tolerance (`flow-tolerance`), exclusions (`wrap-after`, `wrap-before`, `wrap-flow`, `wrap-inside`), and `wrap-through`. Paged fragmentation stays a non-goal; the engine returns one display list. |
+### 5.4 Interactive declarations
 
-Total: 87 names across three Phase 83 categories. Current statuses are in section 2; in the wider mask family (31 catalog rows: the 18 first-wave mask rows plus the 13 mask-border rows), 29 are implemented and 2 are Partial (`mask-type` and `-webkit-mask-composite`). See section 2 for the authoritative per-row status.
+Blinkless exports timeline, trigger, and interactivity declarations that the
+catalog marks implemented. A host supplies time, scroll progress, or input
+events where those features need them. Section 2 records the unsupported
+scroll snap, scrollbar, and speech properties.
 
-Catalog reconciliation: this phase-83 tally counts names with no print
-consumer as unsupported, but several are parsed and stored in the style layer
-and therefore appear as Partial in the catalog with unverified behavior:
-`alignment-baseline`, `color-interpolation`, `dominant-baseline`, `fill-rule`,
-`shape-rendering`, `stroke-dasharray`, `stroke-dashoffset`, `stroke-linecap`,
-`stroke-linejoin`, `stroke-miterlimit`, and `text-anchor`. The 18 first-wave
-mask properties are mostly implemented, with `mask-type` and
-`-webkit-mask-composite` Partial because the display list leaves pixel replay
-to its consumer; the 13 mask-border rows are Implemented because the descriptor
-rides the blend group and the host applies the frame. `clip-path` is
-Implemented. The
-five SVG properties consumed by SVG-as-img (`fill`, `stroke`, `stroke-width`,
-`fill-opacity`, `stroke-opacity`) are Partial as well. The catalog in section 2
-is authoritative for status; this table remains the phase-83 family record.
+### 5.5 Borders-4 and Round Display drafts
 
-### 5.3 Vendor-prefix aliases (-webkit-) - Phase 69 and Phase 82
-
-This section is the contract for vendor-prefixed alias handling. Alias mechanism is
-`normalizeVendorPrefix` at `internal/layout/style_cascade.go:913` called from
-`applyStyleProp`, plus `display` value remaps at `internal/layout/style_properties.go:81`
-and value remaps in `remapWebkitValue` at `internal/layout/style_cascade.go:1000`.
-
-- **Total tracked:** 70 `-webkit-` alias names.
-- **Registered:** 36 aliases that map to an unprefixed base the engine consumes. The catalog records an alias as Partial when its base is Partial; see the reconciliation note below.
-- **Outside the registered set:** 34 aliases. Ten stay Unsupported, and 24 map onto implemented bases; the groups below name each case.
-
-Do not treat Unsupported aliases as Implemented. Tests for Implemented aliases live in
-`internal/layout/style_cascade_test.go:188` (`TestWebkitPrefixAliases`).
-
-Catalog reconciliation: alias status follows the base property's status in
-`testdata/css/catalog/properties.json`. Bases that are Partial make their
-aliases Partial, so the catalog records `-webkit-box-shadow`, `-webkit-filter`,
-`-webkit-transform`, `-webkit-transform-origin`, `-webkit-align-content`,
-`-webkit-align-self`, `-webkit-flex-basis`, `-webkit-flex-shrink`,
-`-webkit-flex-wrap`, the four `-webkit-border-*-radius` corner longhands, and
-`-webkit-line-clamp` as Partial. The 28/42 split above is the phase-69/82
-tally of registered aliases, not the catalog status count.
-
-#### 5.3.1 Registered vendor aliases (36)
-
-28 aliases were registered in Phases 69 and 82. Eight mask aliases were added
-in the CSS masking first wave. Each folds onto its unprefixed base; aliases
-with a Partial base remain Partial in the catalog.
-
-| Vendor alias | Canonical property | Notes / base |
-|--------------|--------------------|--------------|
-| `-webkit-box-sizing` | `box-sizing` | `normalizeVendorPrefix` `style_cascade.go:913` |
-| `-webkit-border-radius` | `border-radius` | same |
-| `-webkit-border-top-left-radius` | `border-top-left-radius` | same |
-| `-webkit-border-top-right-radius` | `border-top-right-radius` | same |
-| `-webkit-border-bottom-left-radius` | `border-bottom-left-radius` | same |
-| `-webkit-border-bottom-right-radius` | `border-bottom-right-radius` | same |
-| `-webkit-transform` | `transform` | same |
-| `-webkit-transform-origin` | `transform-origin` | same |
-| `-webkit-flex` | `flex` | flex shorthand |
-| `-webkit-flex-basis` | `flex-basis` | same |
-| `-webkit-flex-direction` | `flex-direction` | same |
-| `-webkit-flex-flow` | `flex-flow` | same |
-| `-webkit-flex-grow` | `flex-grow` | same |
-| `-webkit-flex-shrink` | `flex-shrink` | same |
-| `-webkit-flex-wrap` | `flex-wrap` | same |
-| `-webkit-justify-content` | `justify-content` | same |
-| `-webkit-align-content` | `align-content` | same |
-| `-webkit-align-items` | `align-items` | same |
-| `-webkit-align-self` | `align-self` | same |
-| `-webkit-order` | `order` | same |
-| `-webkit-box-shadow` | `box-shadow` | alias to `box-shadow` (see `box-shadow` row in 2.4) |
-| `-webkit-filter` | `filter` | alias to `filter` |
-| `-webkit-box-align` | `align-items` | **New in Phase 82 slice A.** Value remap `start`->`flex-start`, `end`->`flex-end`, `center`->`center`, `stretch`->`stretch`, `baseline`->`baseline` via `remapWebkitValue` `style_cascade.go:1000` |
-| `-webkit-box-flex` | `flex-grow` | **New in Phase 82 slice A.** Direct value pass-through to `flex-grow` |
-| `-webkit-box-ordinal-group` | `order` | **New in Phase 82 slice A.** Value remap `N` -> `N-1` (1-based group to 0-based order) via `remapWebkitValue` `style_cascade.go:1000` |
-| `-webkit-box-orient` | `flex-direction` | **New in Phase 82 slice A.** Value remap `horizontal`/`inline-axis`->`row`, `vertical`/`block-axis`->`column` via `remapWebkitValue` |
-| `-webkit-box-pack` | `justify-content` | **New in Phase 82 slice A.** Value remap `start`->`flex-start`, `end`->`flex-end`, `center`->`center`, `justify`->`space-between` via `remapWebkitValue` |
-| `-webkit-text-fill-color` | `color` | **New in Phase 82 slice A.** Alias to `color` |
-| `-webkit-mask` | `mask` | **CSS masking first wave.** Shorthand alias; Implemented |
-| `-webkit-mask-image` | `mask-image` | **CSS masking first wave.** URL and `none` values; Implemented |
-| `-webkit-mask-size` | `mask-size` | **CSS masking first wave.** Accepted size tokens; Implemented |
-| `-webkit-mask-repeat` | `mask-repeat` | **CSS masking first wave.** Accepted repeat tokens; Implemented |
-| `-webkit-mask-position` | `mask-position` | **CSS masking first wave.** Position keywords, lengths, and percentages; Implemented |
-| `-webkit-mask-origin` | `mask-origin` | **CSS masking first wave.** Border, padding, or content box; Implemented |
-| `-webkit-mask-clip` | `mask-clip` | **CSS masking first wave.** Box values or `no-clip`; Implemented |
-| `-webkit-mask-composite` | `mask-composite` | **CSS masking first wave.** Remaps the four legacy operators; Partial |
-
-Display value aliases (also Phase 82 slice A, at `internal/layout/style_properties.go:81`):
-
-| Specified value | Used value |
-|-----------------|------------|
-| `display: -webkit-box` | `display: flex` |
-| `display: -webkit-inline-box` | `display: inline-flex` |
-
-#### 5.3.2 Vendor aliases outside the registered set (34)
-
-This group holds 34 aliases that do not sit in the registered table. Ten stay
-**Unsupported** and 24 map onto implemented bases. Each group notes the base.
-
-**Group B - 3 background longhands:** bases `background-clip`,
-`background-origin`, and `background-size` are Implemented. Their `-webkit-*` remaps are not registered, so the
-aliases stay Unsupported in this engine.
-
-| Vendor alias | Base | Reason |
-|--------------|------|--------|
-| `-webkit-background-clip` | `background-clip` | remap not registered |
-| `-webkit-background-origin` | `background-origin` | remap not registered |
-| `-webkit-background-size` | `background-size` | remap not registered |
-
-**Group C - 6 mask-border aliases:** the eight selected `-webkit-mask*`
-aliases are registered and mostly implemented (`mask-type` and
-`-webkit-mask-composite` stay Partial). These six `-webkit-mask-box-image*`
-aliases normalize onto the `mask-border*` bases, which are Implemented: the
-descriptor rides the element's blend group (`MaskBorder`) for the host to
-apply.
-
-| Vendor alias | Base | Reason |
-|--------------|------|--------|
-| `-webkit-mask-box-image` | `mask-border` | Implemented: descriptor on the blend group, host applies the frame |
-| `-webkit-mask-box-image-source` | `mask-border-source` | Implemented: source bytes on the blend group, host applies the frame |
-| `-webkit-mask-box-image-slice` | `mask-border-slice` | Implemented: slice insets on the blend group, host applies the frame |
-| `-webkit-mask-box-image-width` | `mask-border-width` | Implemented: frame thickness on the blend group, host applies the frame |
-| `-webkit-mask-box-image-outset` | `mask-border-outset` | Implemented: outward offsets on the blend group, host applies the frame |
-| `-webkit-mask-box-image-repeat` | `mask-border-repeat` | Implemented: repeat pair on the blend group, host applies the frame |
-
-**Group D - 20 animation / transition / 3D / UI aliases:** 14 animation and
-transition aliases normalize to their base properties, then the paired
-OwnFrame runtime samples those values when the caller supplies time and other
-runtime inputs (`../ownframe/internal/animation/player.go:22-64`,
-`../ownframe/internal/transition/step.go:10-44`). Four transform aliases are
-Implemented through their base properties. Two UI aliases remain Unsupported.
-
-| Vendor alias | Base property | Reason |
-|--------------|---------------|--------|
-| `-webkit-animation` | `animation` | Implemented in the paired pipeline: maps to the base value sampled by OwnFrame |
-| `-webkit-animation-delay` | `animation-delay` | Implemented in the paired pipeline: maps to the base value sampled by OwnFrame |
-| `-webkit-animation-direction` | `animation-direction` | Implemented in the paired pipeline: maps to the base value sampled by OwnFrame |
-| `-webkit-animation-duration` | `animation-duration` | Implemented in the paired pipeline: maps to the base value sampled by OwnFrame |
-| `-webkit-animation-fill-mode` | `animation-fill-mode` | Implemented in the paired pipeline: maps to the base value sampled by OwnFrame |
-| `-webkit-animation-iteration-count` | `animation-iteration-count` | Implemented in the paired pipeline: maps to the base value sampled by OwnFrame |
-| `-webkit-animation-name` | `animation-name` | Implemented in the paired pipeline: maps to the base value sampled by OwnFrame |
-| `-webkit-animation-play-state` | `animation-play-state` | Implemented in the paired pipeline: maps to the base value sampled by OwnFrame |
-| `-webkit-animation-timing-function` | `animation-timing-function` | Implemented in the paired pipeline: maps to the base value sampled by OwnFrame |
-| `-webkit-transition` | `transition` | Implemented in the paired pipeline: maps to the base value sampled by OwnFrame |
-| `-webkit-transition-delay` | `transition-delay` | Implemented in the paired pipeline: maps to the base value sampled by OwnFrame |
-| `-webkit-transition-duration` | `transition-duration` | Implemented in the paired pipeline: maps to the base value sampled by OwnFrame |
-| `-webkit-transition-property` | `transition-property` | Implemented in the paired pipeline: maps to the base value sampled by OwnFrame |
-| `-webkit-transition-timing-function` | `transition-timing-function` | Implemented in the paired pipeline: maps to the base value sampled by OwnFrame |
-| `-webkit-backface-visibility` | `backface-visibility` | Implemented: mapped into the supported 3D-to-2D paint path |
-| `-webkit-perspective` | `perspective` | Implemented: mapped into the supported 3D-to-2D paint path |
-| `-webkit-perspective-origin` | `perspective-origin` | Implemented: mapped into the supported 3D-to-2D paint path |
-| `-webkit-transform-style` | `transform-style` | Implemented: mapped into the supported 3D-to-2D paint path |
-| `-webkit-appearance` | `appearance` | Unsupported: no print consumer |
-| `-webkit-user-select` | `user-select` | Unsupported: no interactive selection |
-
-**Group E - 5 WebKit-native with no print consumer:** bases are WebKit extensions
-with no consumer in this engine. Left Unsupported unless a base plus consumer
-lands.
-
-| Vendor alias | Blocking base | Reason |
-|--------------|---------------|--------|
-| `-webkit-line-clamp` | `line-clamp` | WebKit-native, no print consumer |
-| `-webkit-text-size-adjust` | `text-size-adjust` | WebKit-native, no print consumer |
-| `-webkit-text-stroke` | `text-stroke` | WebKit-native, no print consumer |
-| `-webkit-text-stroke-color` | `text-stroke-color` | WebKit-native, no print consumer |
-| `-webkit-text-stroke-width` | `text-stroke-width` | WebKit-native, no print consumer |
-
-### 5.4 Phase 84 print-noop categories (114 names, mixed current status)
-
-This list has 87 names across five print-noop families. Their current catalog statuses are 75 Unsupported, five Implemented, and seven Intentionally ignored. The timeline, trigger, interest-delay, and interactivity properties moved out of this list: the engine parses them, applies the cascade and inheritance, and exports them on `layout.Box`, while a host computes progress and reacts to events. The five `scroll-margin` properties are accepted but do not change static paint. The CSS motion properties have separate statuses in section 2. Their `blinkless+ownframe` rows have sampled behavior in OwnFrame, which needs host-supplied time, timeline progress, trigger events, or display snapshots. Blinkless itself still exports data without advancing animation time. This engine also has no interactive scroll viewport, pointer/caret chrome, motion or view timeline drivers, or aural speech synthesis. The 3D transform properties have a tested 2D paint projection path in section 2. Anchor positioning is also excluded here because its one-canvas subset is implemented in section 2.
-
-| Category | Count | Status | Description and scope |
-|----------|-------|--------|-----------------------|
-| Event and timeline trigger runtime (`A_time_animation_transition`) | 1 | Not implemented | `image-animation` needs a clock to step image frames, and this engine has none. The event-trigger, timeline-trigger, and pointer-timeline properties that used to sit here are stored and exported in section 2; a host runs them. |
-| Scroll snap, overscroll, and scrollbar (`A_scroll_snap_overscroll`) | 38 | Mixed: 33 Unsupported, 5 Implemented | This engine has no scroll viewport, scroll snapping, or scrollbar gutter/color/width chrome. The five `scroll-margin` properties are accepted but do not change static paint (`overscroll-behavior`, `overscroll-behavior-block`, `overscroll-behavior-inline`, `overscroll-behavior-x`, `overscroll-behavior-y`, `scroll-axis-lock`, `scroll-behavior`, `scroll-initial-target`, `scroll-margin`, `scroll-margin-block`, `scroll-margin-block-end`, `scroll-margin-block-start`, `scroll-margin-bottom`, `scroll-margin-inline`, `scroll-margin-inline-end`, `scroll-margin-inline-start`, `scroll-margin-left`, `scroll-margin-right`, `scroll-margin-top`, `scroll-marker-group`, `scroll-padding`, `scroll-padding-block`, `scroll-padding-block-end`, `scroll-padding-block-start`, `scroll-padding-bottom`, `scroll-padding-inline`, `scroll-padding-inline-end`, `scroll-padding-inline-start`, `scroll-padding-left`, `scroll-padding-right`, `scroll-padding-top`, `scroll-snap-align`, `scroll-snap-stop`, `scroll-snap-type`, `scroll-target-group`, `scrollbar-color`, `scrollbar-gutter`, `scrollbar-width`). |
-| Pointer, caret, and form UI (`A_pointer_form_ui`) | 21 | Mixed: 14 Unsupported, 7 Intentionally ignored | This engine has no mouse pointer, cursor styling, caret animation/color/shape, spatial navigation, dynamic field sizing, input security masking, touch gestures, user text selection, or window dragging. The seven Intentionally ignored are `appearance`, `caret-color`, `cursor`, `pointer-events`, `resize`, `touch-action`, and `user-select`; `caret`, `caret-animation`, and `caret-shape` are Unsupported. The remaining Unsupported names are `field-sizing`, `input-security`, `nav-down`, `nav-left`, `nav-right`, `nav-up`, `slider-orientation`, `spatial-navigation-action`, `spatial-navigation-contain`, `spatial-navigation-function`, and `window-drag`. |
-| Motion path, offset and view timelines (`A_anchor_timeline_motion`) | 8 | Not implemented | Motion path offset rotations and distances, scroll anchoring, and paint invalidation hints have no layout consumer (`offset`, `offset-anchor`, `offset-distance`, `offset-path`, `offset-position`, `offset-rotate`, `overflow-anchor`, `will-change`). Anchor positioning (`anchor-name`, `anchor-scope`, `position-anchor`, `position-area`, `position-try`, `position-try-fallbacks`, `position-try-order`, `position-visibility`) is implemented in section 2 and excluded from this count. |
-| Speech and aural (`A_speech_aural`) | 19 | Not implemented | This engine has no aural speech synthesis, sound cues, pauses, rests, or speech voice properties (`cue`, `cue-after`, `cue-before`, `pause`, `pause-after`, `pause-before`, `rest`, `rest-after`, `rest-before`, `speak`, `speak-as`, `voice-balance`, `voice-duration`, `voice-family`, `voice-pitch`, `voice-range`, `voice-rate`, `voice-stress`, `voice-volume`). |
-| 3D transforms (`A_3d_transforms`) | 4 | Implemented in section 2 | The supported 3D-to-2D paint path applies perspective, preserve-3d composition, perspective origin, and backface culling (`backface-visibility`, `perspective`, `perspective-origin`, `transform-style`). This row is not part of the unsupported count. |
-
-Total: 114 names across five families: 102 Unsupported, five Implemented, and seven Intentionally ignored. The four 3D transform properties and the 29 standard CSS motion properties have separate statuses in section 2. The motion catalog also has 14 WebKit aliases, for 43 sampled property rows. Anchor positioning (8 properties) is implemented in section 2 and not counted here.
-
-Catalog reconciliation: the counts above exclude the 29 standard CSS motion
-properties, their 14 WebKit aliases, and four 3D transform properties now
-described in section 2. The 43 motion rows have OwnFrame behavior tests; the
-host must still supply runtime inputs. The five scroll margin properties are
-accepted but do not change static paint.
-`appearance`,
-`caret-color`, `cursor`, `pointer-events`, `resize`, `touch-action`, and
-`user-select` remain intentionally ignored. The catalog in section 2 is
-authoritative for each property status.
-
-### 5.5 v0.2.7 Borders-4 / Round Display drafts (14 properties - Unsupported / draft-not-ready)
-
-Phase 87.7 product choice: **Defer all 14**. Spec text for these Borders-4 /
-css-round-display-1 names is largely not ready for implementation; there is no
-apply arm and no paint consumer in `internal/layout`. Do not claim Implemented
-for parse-only stubs. Catalog rows stay `unsupported` in
-`testdata/css/catalog/properties.json`. Fixture-64 Effect cells already warn
-`Chrome: no render expected` where Chrome BCD has no render path.
-
-| Property | Spec | Status | Note |
-|----------|------|--------|------|
-| `border-block-clip` | css-borders-4 | Unsupported / draft-not-ready | No apply/paint; v0.2.7 defer |
-| `border-block-end-clip` | css-borders-4 | Unsupported / draft-not-ready | No apply/paint; v0.2.7 defer |
-| `border-block-start-clip` | css-borders-4 | Unsupported / draft-not-ready | No apply/paint; v0.2.7 defer |
-| `border-bottom-clip` | css-borders-4 | Unsupported / draft-not-ready | No apply/paint; v0.2.7 defer |
-| `border-boundary` | css-round-display-1 | Implemented | `parent` strokes the parent's rounded corner inside the child's box (`internal/layout/border_boundary.go`). `display` keeps the plain border |
-| `border-clip` | css-borders-4 | Unsupported / draft-not-ready | No apply/paint; v0.2.7 defer |
-| `border-inline-clip` | css-borders-4 | Unsupported / draft-not-ready | No apply/paint; v0.2.7 defer |
-| `border-inline-end-clip` | css-borders-4 | Unsupported / draft-not-ready | No apply/paint; v0.2.7 defer |
-| `border-inline-start-clip` | css-borders-4 | Unsupported / draft-not-ready | No apply/paint; v0.2.7 defer |
-| `border-left-clip` | css-borders-4 | Unsupported / draft-not-ready | No apply/paint; v0.2.7 defer |
-| `border-limit` | css-borders-4 | Unsupported / draft-not-ready | No apply/paint; v0.2.7 defer |
-| `border-right-clip` | css-borders-4 | Unsupported / draft-not-ready | No apply/paint; v0.2.7 defer |
-| `border-shape` | css-borders-4 | Implemented | One circle, ellipse or inset shape paints as a fill path and a border path (`internal/layout/border_shape_paint.go`). The two-shape band keeps the ordinary border |
-| `border-top-clip` | css-borders-4 | Unsupported / draft-not-ready | No apply/paint; v0.2.7 defer |
-
-This table is a v0.2.7 snapshot. `border-shape` and `border-boundary` have since shipped, as the rows above say. The same release line also shipped `text-fit` (`internal/layout/text_fit.go`), `shape-image-threshold` (`internal/layout/shape_image.go`) and `float-defer` for multicol columns (`internal/layout/float_defer.go`). The catalog rows in §2 are the current record.
+Section 2 lists the implemented border clipping and shape properties and the
+tests for their supported value subsets. Earlier deferrals are recorded in the
+CSS compatibility checklist.
 
 ## 6. Security policy (frozen defaults)
 

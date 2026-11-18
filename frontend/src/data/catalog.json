@@ -1,6 +1,6 @@
 {
   "source": "testdata/css/catalog/properties.json",
-  "updated": "2026-10-20",
+  "updated": "2026-11-02",
   "properties": [
     {
       "name": "-webkit-animation",
@@ -57,9 +57,30 @@
       "implementation_scope": "blinkless+ownframe"
     },
     {
+      "name": "-webkit-appearance",
+      "status": "implemented",
+      "values": "see upstream syntax",
+      "note": "The host draws a plain box for none and a button for button, with a pressed state. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame..."
+    },
+    {
       "name": "-webkit-backface-visibility",
       "status": "implemented",
       "values": "alias of the unprefixed property"
+    },
+    {
+      "name": "-webkit-background-clip",
+      "status": "implemented",
+      "values": "\u003cbg-clip\u003e#"
+    },
+    {
+      "name": "-webkit-background-origin",
+      "status": "implemented",
+      "values": "\u003cvisual-box\u003e#"
+    },
+    {
+      "name": "-webkit-background-size",
+      "status": "implemented",
+      "values": "\u003cbg-size\u003e#"
     },
     {
       "name": "-webkit-mask",
@@ -111,9 +132,9 @@
     },
     {
       "name": "-webkit-mask-composite",
-      "status": "partial",
-      "values": "source-over | source-out | source-in | xor",
-      "note": "The engine accepts source-over, source-in, source-out, and xor only; Chrome 155 also accepts source-atop, destination-over, destination-in, destination-out, destination-atop, cl..."
+      "status": "implemented",
+      "values": "source-over | source-out | source-in | xor | source-atop | destination-over | destination-in | destination-out | destination-atop | clear | copy",
+      "note": "Mask pixel replay is a host contract."
     },
     {
       "name": "-webkit-mask-image",
@@ -156,6 +177,30 @@
       "values": "alias of the unprefixed property"
     },
     {
+      "name": "-webkit-text-size-adjust",
+      "status": "implemented",
+      "values": "see upstream syntax",
+      "note": "Same as text-size-adjust; the standard name wins over the prefixed one. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examp..."
+    },
+    {
+      "name": "-webkit-text-stroke",
+      "status": "implemented",
+      "values": "\u003cline-width\u003e || \u003ccolor\u003e",
+      "note": "The engine carries the stroke on the text op (Op.TextStroke) and does not rasterize glyph edges. OwnFrame paints the outline by repeating the run around each glyph under the fil..."
+    },
+    {
+      "name": "-webkit-text-stroke-color",
+      "status": "implemented",
+      "values": "\u003ccolor\u003e",
+      "note": "The engine carries the stroke on the text op (Op.TextStroke) and does not rasterize glyph edges. OwnFrame paints the outline by repeating the run around each glyph under the fil..."
+    },
+    {
+      "name": "-webkit-text-stroke-width",
+      "status": "implemented",
+      "values": "\u003cline-width\u003e",
+      "note": "The engine carries the stroke on the text op (Op.TextStroke) and does not rasterize glyph edges. OwnFrame paints the outline by repeating the run around each glyph under the fil..."
+    },
+    {
       "name": "-webkit-transform-style",
       "status": "implemented",
       "values": "alias of the unprefixed property"
@@ -191,6 +236,12 @@
       "implementation_scope": "blinkless+ownframe"
     },
     {
+      "name": "-webkit-user-select",
+      "status": "implemented",
+      "values": "see upstream syntax",
+      "note": "A click selects the word, everything or nothing as the value says. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/b..."
+    },
+    {
       "name": "accent-color",
       "status": "implemented",
       "values": "auto | \u003ccolor\u003e"
@@ -214,6 +265,12 @@
       "name": "alignment-baseline",
       "status": "implemented",
       "values": "baseline | \u003cbaseline-metric\u003e"
+    },
+    {
+      "name": "all",
+      "status": "implemented",
+      "values": "initial | inherit | unset",
+      "note": "revert, revert-layer, and revert-rule are not origin walks."
     },
     {
       "name": "anchor-name",
@@ -348,6 +405,12 @@
       "values": "auto || \u003cratio\u003e"
     },
     {
+      "name": "backdrop-filter",
+      "status": "implemented",
+      "values": "none blur(\u003clength\u003e) saturate(\u003cnumber\u003e | \u003cpercentage\u003e) refract(\u003clength\u003e) (OwnFrame host extension)",
+      "note": "pixel blur, saturation and refraction are painted by the host."
+    },
+    {
       "name": "backface-visibility",
       "status": "implemented",
       "values": "visible | hidden"
@@ -356,6 +419,12 @@
       "name": "background",
       "status": "implemented",
       "values": "[\u003c'background-color'\u003e || \u003c'background-image'\u003e || \u003c'background-repeat'\u003e || \u003c'background-attachment'\u003e || \u003c'background-position'\u003e] | inherit"
+    },
+    {
+      "name": "background-attachment",
+      "status": "implemented",
+      "values": "scroll | fixed | inherit",
+      "note": "A fixed layer is positioned against the viewport at scroll zero and clipped to its box. The engine does not move it when a host scrolls, and local paints as scroll."
     },
     {
       "name": "background-blend-mode",
@@ -375,7 +444,7 @@
     {
       "name": "background-image",
       "status": "implemented",
-      "values": "\u003curi\u003e | none | inherit"
+      "values": "\u003curi\u003e | linear-gradient() | radial-gradient() | none | inherit"
     },
     {
       "name": "background-origin",
@@ -438,9 +507,50 @@
       "values": "\u003cbg-size\u003e#"
     },
     {
+      "name": "background-tbd",
+      "status": "implemented",
+      "values": "\u003cbg-layer\u003e#",
+      "note": "Draft name from Backgrounds 4. Sets the image, attachment and repeat longhands and leaves the color alone. A color token drops the whole declaration. Position, size, clip and or..."
+    },
+    {
+      "name": "baseline-shift",
+      "status": "implemented",
+      "values": "\u003clength-percentage\u003e | sub | super | top | center | bottom",
+      "note": "The value reaches the serialized SVG on the tspan and the rasterizer draws the shift: a length as written, a percentage of the font size, sub and super by half of the font's asc..."
+    },
+    {
+      "name": "baseline-source",
+      "status": "implemented",
+      "values": "auto | first | last"
+    },
+    {
+      "name": "block-ellipsis",
+      "status": "implemented",
+      "values": "no-ellipsis | ellipsis | \u003cstring\u003e",
+      "note": "Replaces the ellipsis on the last line of a clamped block. A long marker string can overflow the line."
+    },
+    {
       "name": "block-size",
       "status": "implemented",
       "values": "\u003c'width'\u003e"
+    },
+    {
+      "name": "bookmark-label",
+      "status": "implemented",
+      "values": "\u003ccontent-list\u003e",
+      "note": "Exported as an ordered outline through layout.Outline (label, level, open or closed, parent). The engine paints nothing for it and there is no outline field on Display."
+    },
+    {
+      "name": "bookmark-level",
+      "status": "implemented",
+      "values": "none | \u003cinteger [1,\u221e]\u003e",
+      "note": "Exported as an ordered outline through layout.Outline (label, level, open or closed, parent). The engine paints nothing for it and there is no outline field on Display."
+    },
+    {
+      "name": "bookmark-state",
+      "status": "implemented",
+      "values": "open | closed",
+      "note": "Exported as an ordered outline through layout.Outline (label, level, open or closed, parent). The engine paints nothing for it and there is no outline field on Display."
     },
     {
       "name": "border",
@@ -453,6 +563,12 @@
       "values": "\u003c'border-block-start'\u003e"
     },
     {
+      "name": "border-block-clip",
+      "status": "implemented",
+      "values": "\u003c'border-top-clip'\u003e",
+      "note": "Square borders only. Physical longhand beats logical longhand beats axis shorthand beats border-clip; writing mode is ignored. A rounded border is not clipped."
+    },
+    {
       "name": "border-block-color",
       "status": "implemented",
       "values": "\u003c'border-top-color'\u003e{1,2}"
@@ -461,6 +577,12 @@
       "name": "border-block-end",
       "status": "implemented",
       "values": "\u003cline-width\u003e || \u003cline-style\u003e || \u003ccolor\u003e"
+    },
+    {
+      "name": "border-block-end-clip",
+      "status": "implemented",
+      "values": "none | [ \u003clength-percentage [0,\u221e]\u003e | \u003cflex\u003e ]+",
+      "note": "Square borders only. Physical longhand beats logical longhand beats axis shorthand beats border-clip; writing mode is ignored. A rounded border is not clipped."
     },
     {
       "name": "border-block-end-color",
@@ -486,6 +608,12 @@
       "name": "border-block-start",
       "status": "implemented",
       "values": "\u003cline-width\u003e || \u003cline-style\u003e || \u003ccolor\u003e"
+    },
+    {
+      "name": "border-block-start-clip",
+      "status": "implemented",
+      "values": "none | [ \u003clength-percentage [0,\u221e]\u003e | \u003cflex\u003e ]+",
+      "note": "Square borders only. Physical longhand beats logical longhand beats axis shorthand beats border-clip; writing mode is ignored. A rounded border is not clipped."
     },
     {
       "name": "border-block-start-color",
@@ -523,6 +651,12 @@
       "values": "[ \u003cborder-width\u003e || \u003cborder-style\u003e || \u003c'border-top-color'\u003e ] | inherit"
     },
     {
+      "name": "border-bottom-clip",
+      "status": "implemented",
+      "values": "none | [ \u003clength-percentage [0,\u221e]\u003e | \u003cflex\u003e ]+",
+      "note": "Square borders only. Physical longhand beats logical longhand beats axis shorthand beats border-clip; writing mode is ignored. A rounded border is not clipped."
+    },
+    {
       "name": "border-bottom-color",
       "status": "implemented",
       "values": "\u003ccolor\u003e | transparent | inherit"
@@ -551,6 +685,18 @@
       "name": "border-bottom-width",
       "status": "implemented",
       "values": "\u003cborder-width\u003e | inherit"
+    },
+    {
+      "name": "border-boundary",
+      "status": "implemented",
+      "values": "none | parent | display",
+      "note": "With parent, the part of the parent's rounded corner that lies inside the child's border box is stroked with the child's border color and width. The value display needs a screen..."
+    },
+    {
+      "name": "border-clip",
+      "status": "implemented",
+      "values": "\u003c'border-top-clip'\u003e",
+      "note": "Square borders only. Physical longhand beats logical longhand beats axis shorthand beats border-clip; writing mode is ignored. A rounded border is not clipped."
     },
     {
       "name": "border-collapse",
@@ -608,6 +754,12 @@
       "values": "\u003c'border-block-start'\u003e"
     },
     {
+      "name": "border-inline-clip",
+      "status": "implemented",
+      "values": "\u003c'border-top-clip'\u003e",
+      "note": "Square borders only. Physical longhand beats logical longhand beats axis shorthand beats border-clip; writing mode is ignored. A rounded border is not clipped."
+    },
+    {
       "name": "border-inline-color",
       "status": "implemented",
       "values": "\u003c'border-top-color'\u003e{1,2}"
@@ -616,6 +768,12 @@
       "name": "border-inline-end",
       "status": "implemented",
       "values": "\u003cline-width\u003e || \u003cline-style\u003e || \u003ccolor\u003e"
+    },
+    {
+      "name": "border-inline-end-clip",
+      "status": "implemented",
+      "values": "none | [ \u003clength-percentage [0,\u221e]\u003e | \u003cflex\u003e ]+",
+      "note": "Square borders only. Physical longhand beats logical longhand beats axis shorthand beats border-clip; writing mode is ignored. A rounded border is not clipped."
     },
     {
       "name": "border-inline-end-color",
@@ -641,6 +799,12 @@
       "name": "border-inline-start",
       "status": "implemented",
       "values": "\u003cline-width\u003e || \u003cline-style\u003e || \u003ccolor\u003e"
+    },
+    {
+      "name": "border-inline-start-clip",
+      "status": "implemented",
+      "values": "none | [ \u003clength-percentage [0,\u221e]\u003e | \u003cflex\u003e ]+",
+      "note": "Square borders only. Physical longhand beats logical longhand beats axis shorthand beats border-clip; writing mode is ignored. A rounded border is not clipped."
     },
     {
       "name": "border-inline-start-color",
@@ -678,6 +842,12 @@
       "values": "[ \u003cborder-width\u003e || \u003cborder-style\u003e || \u003c'border-top-color'\u003e ] | inherit"
     },
     {
+      "name": "border-left-clip",
+      "status": "implemented",
+      "values": "none | [ \u003clength-percentage [0,\u221e]\u003e | \u003cflex\u003e ]+",
+      "note": "Square borders only. Physical longhand beats logical longhand beats axis shorthand beats border-clip; writing mode is ignored. A rounded border is not clipped."
+    },
+    {
       "name": "border-left-color",
       "status": "implemented",
       "values": "\u003ccolor\u003e | transparent | inherit"
@@ -698,6 +868,12 @@
       "values": "\u003cborder-width\u003e | inherit"
     },
     {
+      "name": "border-limit",
+      "status": "implemented",
+      "values": "all | [ sides | corners ] \u003clength-percentage [0,\u221e]\u003e? | [ top | right | bottom | left ] \u003clength-percentage [0,\u221e]\u003e",
+      "note": "Square borders only. The draft grammar is read as: side length keeps that much from the named end, sides keeps a centered stretch, corners keeps each end."
+    },
+    {
       "name": "border-radius",
       "status": "implemented",
       "values": "\u003clength-percentage [0,\u221e]\u003e{1,4} [ / \u003clength-percentage [0,\u221e]\u003e{1,4} ]?"
@@ -706,6 +882,12 @@
       "name": "border-right",
       "status": "implemented",
       "values": "[ \u003cborder-width\u003e || \u003cborder-style\u003e || \u003c'border-top-color'\u003e ] | inherit"
+    },
+    {
+      "name": "border-right-clip",
+      "status": "implemented",
+      "values": "none | [ \u003clength-percentage [0,\u221e]\u003e | \u003cflex\u003e ]+",
+      "note": "Square borders only. Physical longhand beats logical longhand beats axis shorthand beats border-clip; writing mode is ignored. A rounded border is not clipped."
     },
     {
       "name": "border-right-color",
@@ -726,6 +908,12 @@
       "name": "border-right-width",
       "status": "implemented",
       "values": "\u003cborder-width\u003e | inherit"
+    },
+    {
+      "name": "border-shape",
+      "status": "implemented",
+      "values": "none | [ \u003cbasic-shape\u003e \u003cgeometry-box\u003e?]{1,2}",
+      "note": "One shape only: circle, ellipse or inset against the border box, painted as one fill path and one border path when the four sides match. Two shapes (the band), polygon, path, xy..."
     },
     {
       "name": "border-spacing",
@@ -751,6 +939,12 @@
       "name": "border-top",
       "status": "implemented",
       "values": "[ \u003cborder-width\u003e || \u003cborder-style\u003e || \u003c'border-top-color'\u003e ] | inherit"
+    },
+    {
+      "name": "border-top-clip",
+      "status": "implemented",
+      "values": "none | [ \u003clength-percentage [0,\u221e]\u003e | \u003cflex\u003e ]+",
+      "note": "Square borders only. Physical longhand beats logical longhand beats axis shorthand beats border-clip; writing mode is ignored. A rounded border is not clipped."
     },
     {
       "name": "border-top-color",
@@ -791,6 +985,11 @@
       "name": "bottom",
       "status": "implemented",
       "values": "\u003clength\u003e | \u003cpercentage\u003e | auto | inherit"
+    },
+    {
+      "name": "box-decoration-break",
+      "status": "implemented",
+      "values": "slice | clone"
     },
     {
       "name": "box-shadow",
@@ -844,14 +1043,32 @@
     },
     {
       "name": "break-inside",
-      "status": "partial",
+      "status": "implemented",
       "values": "auto | avoid | avoid-page | avoid-column | avoid-region",
-      "note": "break-inside keywords parse but no layout or paint pass reads them; the engine returns a drawing list without paginating, so avoidance has no observable effect (TestBehaviorBrea..."
+      "note": "this tree does not split the drawing list onto pages; Display.KeepTogether still carries break-inside avoid ranges for a host."
     },
     {
       "name": "caption-side",
       "status": "implemented",
       "values": "top | bottom | inherit"
+    },
+    {
+      "name": "caret",
+      "status": "implemented",
+      "values": "\u003c'caret-color'\u003e || \u003c'caret-animation'\u003e || \u003c'caret-shape'\u003e",
+      "note": "Caret shape and blink in the blinkless-all host. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (live..."
+    },
+    {
+      "name": "caret-animation",
+      "status": "implemented",
+      "values": "auto | manual",
+      "note": "Auto carets blink every 500ms and a manual caret stays solid in the blinkless-all host. The engine stores the value and exports it as Box.Declared; the behavior lives in the Own..."
+    },
+    {
+      "name": "caret-shape",
+      "status": "implemented",
+      "values": "auto | bar | block | underscore",
+      "note": "Caret shape (bar, block, underscore) drawn by the blinkless-all host. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host example..."
     },
     {
       "name": "clear",
@@ -995,6 +1212,12 @@
       "values": "\u003cline-style-list\u003e | \u003cauto-line-style-list\u003e"
     },
     {
+      "name": "column-rule-visibility-items",
+      "status": "implemented",
+      "values": "all | around | between | normal",
+      "note": "Multicol column rules and grid column rules. The grid path has no test of its own."
+    },
+    {
       "name": "column-rule-width",
       "status": "implemented",
       "values": "\u003cline-width-list\u003e | \u003cauto-line-width-list\u003e"
@@ -1073,6 +1296,17 @@
       "name": "content-visibility",
       "status": "implemented",
       "values": "visible | auto | hidden"
+    },
+    {
+      "name": "continue",
+      "status": "implemented",
+      "values": "normal | discard | collapse | -webkit-legacy"
+    },
+    {
+      "name": "copy-into",
+      "status": "implemented",
+      "values": "none | [ [ \u003ccustom-ident\u003e \u003ccontent-level\u003e] [, \u003ccustom-ident\u003e \u003ccontent-level\u003e]* ]?",
+      "note": "Exported as named text through layout.CopiedFragments. Page-margin boxes are not painted, as with string-set."
     },
     {
       "name": "corner",
@@ -1294,6 +1528,21 @@
       "values": "[ \u003ccounter-name\u003e \u003cinteger\u003e? ]+ | none"
     },
     {
+      "name": "cx",
+      "status": "implemented",
+      "values": "\u003clength-percentage\u003e (number, px, pt, pc, cm, mm, q, in, %)"
+    },
+    {
+      "name": "cy",
+      "status": "implemented",
+      "values": "\u003clength-percentage\u003e (number, px, pt, pc, cm, mm, q, in, %)"
+    },
+    {
+      "name": "d",
+      "status": "implemented",
+      "values": "path(\"\u003cpath-data\u003e\") | path('\u003cpath-data\u003e')"
+    },
+    {
       "name": "direction",
       "status": "implemented",
       "values": "ltr | rtl | inherit"
@@ -1301,7 +1550,7 @@
     {
       "name": "display",
       "status": "implemented",
-      "values": "inline | block | list-item | inline-block | table | inline-table | table-row-group | table-header-group | table-footer-group | table-row | table-column-group | table-column | table-cell | table-caption | none | inherit"
+      "values": "inline | block | list-item | inline-block | flex | inline-flex | grid | inline-grid | table | inline-table | table-row-group | table-header-group | table-footer-group | table-row | table-column-group | table-column | table-cell | table-caption | none | inherit"
     },
     {
       "name": "dominant-baseline",
@@ -1318,6 +1567,30 @@
       "name": "empty-cells",
       "status": "implemented",
       "values": "show | hide | inherit"
+    },
+    {
+      "name": "event-trigger",
+      "status": "implemented",
+      "values": "none | [ \u003cname\u003e \u003csource\u003e ]# (exported as Box.EventTriggers)",
+      "note": "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. The draft leav..."
+    },
+    {
+      "name": "event-trigger-name",
+      "status": "implemented",
+      "values": "none | \u003cdashed-ident\u003e#",
+      "note": "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. The draft leav..."
+    },
+    {
+      "name": "event-trigger-source",
+      "status": "implemented",
+      "values": "[ none | \u003cevent\u003e+ [ / \u003cevent\u003e+ ]? ]#",
+      "note": "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. The draft leav..."
+    },
+    {
+      "name": "field-sizing",
+      "status": "implemented",
+      "values": "fixed | content",
+      "note": "A content-sized field grows to the right with its text and a fixed field keeps its width and shows only the text that fits, the start when it has no focus and the end when it ha..."
     },
     {
       "name": "fill",
@@ -1380,6 +1653,12 @@
       "values": "left | right | none | inherit"
     },
     {
+      "name": "float-defer",
+      "status": "implemented",
+      "values": "\u003cinteger\u003e | last | none",
+      "note": "Applies to floats that are direct children of a multicol container: an integer moves the float that many columns to the right, last moves it to the last column, and a count past..."
+    },
+    {
       "name": "float-offset",
       "status": "implemented",
       "values": "\u003clength-percentage\u003e"
@@ -1388,6 +1667,18 @@
       "name": "float-reference",
       "status": "implemented",
       "values": "inline | column | region | page"
+    },
+    {
+      "name": "flood-color",
+      "status": "implemented",
+      "values": "\u003ccolor\u003e",
+      "note": "Acts only on a filter that holds exactly one feFlood, on a rect, circle, or ellipse: internal/svg replaces the element with a flat rect over the filter region. Other filter prim..."
+    },
+    {
+      "name": "flood-opacity",
+      "status": "implemented",
+      "values": "\u003cnumber [0,1]\u003e | \u003cpercentage [0%,100%]\u003e",
+      "note": "Acts only on a filter that holds exactly one feFlood, on a rect, circle, or ellipse: internal/svg replaces the element with a flat rect over the filter region. Other filter prim..."
     },
     {
       "name": "flow-from",
@@ -1538,6 +1829,18 @@
       "values": "normal | \u003cpercentage [0,\u221e]\u003e | ultra-condensed | extra-condensed | condensed | semi-condensed | semi-expanded | expanded | extra-expanded | ultra-expanded"
     },
     {
+      "name": "footnote-display",
+      "status": "implemented",
+      "values": "block | inline | compact",
+      "note": "Reported per footnote through layout.CollectFootnotes. There is no footnote area, so the footnote stays in flow and no box moves."
+    },
+    {
+      "name": "footnote-policy",
+      "status": "implemented",
+      "values": "auto | line | block",
+      "note": "Reported per footnote and used by layout.GroupFootnotesByPolicy. The engine has no page splitter, so a policy cannot force a break."
+    },
+    {
       "name": "forced-color-adjust",
       "status": "implemented",
       "values": "auto | none | preserve-parent-color"
@@ -1546,6 +1849,12 @@
       "name": "gap",
       "status": "implemented",
       "values": "\u003c'row-gap'\u003e \u003c'column-gap'\u003e?"
+    },
+    {
+      "name": "glyph-orientation-vertical",
+      "status": "implemented",
+      "values": "auto | 0deg | 90deg | 0 | 90",
+      "note": "Accepted and exported. It has no rendering effect on horizontal text, which the tests show. Text in a vertical writing mode is not drawn yet."
     },
     {
       "name": "grid",
@@ -1663,9 +1972,21 @@
       "values": "none | manual | auto"
     },
     {
+      "name": "image-animation",
+      "status": "implemented",
+      "values": "normal | paused | stopped | running",
+      "note": "Frames cycle on the clock, freeze when paused and stay on the first frame when stopped. The engine stores the value and exports it as Box.Declared; the behavior lives in the Own..."
+    },
+    {
       "name": "image-orientation",
       "status": "implemented",
       "values": "from-image | none | [ \u003cangle\u003e || flip ]"
+    },
+    {
+      "name": "image-rendering",
+      "status": "implemented",
+      "values": "auto | optimizeQuality | optimizeSpeed",
+      "note": "The engine does not resample. The keyword is carried on the OpImage extra (Op.ImageRendering) for a host that replays the list."
     },
     {
       "name": "image-resolution",
@@ -1691,6 +2012,17 @@
       "name": "inline-size",
       "status": "implemented",
       "values": "auto | \u003clength-percentage\u003e"
+    },
+    {
+      "name": "inline-sizing",
+      "status": "implemented",
+      "values": "normal | stretch"
+    },
+    {
+      "name": "input-security",
+      "status": "implemented",
+      "values": "auto | none",
+      "note": "A password field shows bullets and input-security: none shows the letters. A long value shows only the part that fits its box (the start without focus, the end with focus) and e..."
     },
     {
       "name": "inset",
@@ -1728,6 +2060,30 @@
       "values": "\u003c'top'\u003e"
     },
     {
+      "name": "interactivity",
+      "status": "implemented",
+      "values": "auto | inert (exported as Box.Interactivity, computed and inherited)",
+      "note": "The engine has no pointer or focus. The host skips pointer hits and focus for an inert box; Display.BoxInert applies the subtree rule. Inherited."
+    },
+    {
+      "name": "interest-delay",
+      "status": "implemented",
+      "values": "\u003cinterest-delay-start\u003e{1,2}; one value sets both (exported as Box.InterestDelay)",
+      "note": "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Inherited. A n..."
+    },
+    {
+      "name": "interest-delay-end",
+      "status": "implemented",
+      "values": "normal | \u003ctime\u003e",
+      "note": "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Inherited. A n..."
+    },
+    {
+      "name": "interest-delay-start",
+      "status": "implemented",
+      "values": "normal | \u003ctime\u003e",
+      "note": "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Inherited. A n..."
+    },
+    {
       "name": "isolation",
       "status": "implemented",
       "values": "\u003cisolation-mode\u003e"
@@ -1758,6 +2114,12 @@
       "values": "normal | \u003clength\u003e | inherit"
     },
     {
+      "name": "lighting-color",
+      "status": "implemented",
+      "values": "\u003ccolor\u003e",
+      "note": "A filter holding one feDiffuseLighting and one feDistantLight is drawn as flat shapes (internal/svg/lighting_emulate.go): the filter region in lighting-color times diffuseConsta..."
+    },
+    {
       "name": "line-break",
       "status": "implemented",
       "values": "auto | loose | normal | strict | anywhere"
@@ -1768,9 +2130,24 @@
       "values": "none | [\u003c'max-lines'\u003e || \u003c'block-ellipsis'\u003e] -webkit-legacy?"
     },
     {
+      "name": "line-fit-edge",
+      "status": "implemented",
+      "values": "leading | text"
+    },
+    {
       "name": "line-height",
       "status": "implemented",
       "values": "normal | \u003cnumber\u003e | \u003clength\u003e | \u003cpercentage\u003e | inherit"
+    },
+    {
+      "name": "line-padding",
+      "status": "implemented",
+      "values": "\u003clength\u003e"
+    },
+    {
+      "name": "link-parameters",
+      "status": "implemented",
+      "values": "none | \u003cparam()\u003e#"
     },
     {
       "name": "list-style",
@@ -1818,6 +2195,12 @@
       "values": "\u003cmargin-width\u003e | inherit"
     },
     {
+      "name": "margin-break",
+      "status": "implemented",
+      "values": "auto | keep | discard",
+      "note": "Column starts honor keep, discard and auto: keep puts the margin-top back at the top of a column that follows a break. A page break is not handled because the engine has no page..."
+    },
+    {
       "name": "margin-inline",
       "status": "implemented",
       "values": "\u003c'margin-top'\u003e{1,2}"
@@ -1851,6 +2234,32 @@
       "name": "margin-trim",
       "status": "implemented",
       "values": "none | block | [ block-start || block-end ]"
+    },
+    {
+      "name": "marker",
+      "status": "implemented",
+      "values": "none | url(#id)"
+    },
+    {
+      "name": "marker-end",
+      "status": "implemented",
+      "values": "none | url(#id)"
+    },
+    {
+      "name": "marker-mid",
+      "status": "implemented",
+      "values": "none | url(#id)"
+    },
+    {
+      "name": "marker-side",
+      "status": "implemented",
+      "values": "match-self | match-parent",
+      "note": "Accepted and exported. Markers on a path draw the same with either keyword, which the tests show."
+    },
+    {
+      "name": "marker-start",
+      "status": "implemented",
+      "values": "none | url(#id)"
     },
     {
       "name": "mask",
@@ -1950,9 +2359,9 @@
     },
     {
       "name": "mask-type",
-      "status": "partial",
+      "status": "implemented",
       "values": "luminance | alpha",
-      "note": "mask-type cascades into ResolvedStyle.MaskType but no consumer reads it; the SVG rasterizer uses only the mask-type on the SVG source element. Pixel replay stays a host contract."
+      "note": "Pixel replay of the finished mask onto the element is a host contract."
     },
     {
       "name": "max-block-size",
@@ -1975,6 +2384,11 @@
       "values": "auto || \u003cinteger [1,\u221e]\u003e"
     },
     {
+      "name": "max-size",
+      "status": "implemented",
+      "values": "\u003c'max-width'\u003e \u003c'max-height'\u003e?"
+    },
+    {
       "name": "max-width",
       "status": "implemented",
       "values": "\u003clength\u003e | \u003cpercentage\u003e | none | inherit"
@@ -1995,6 +2409,11 @@
       "values": "\u003c'min-width'\u003e"
     },
     {
+      "name": "min-size",
+      "status": "implemented",
+      "values": "\u003c'min-width'\u003e \u003c'min-height'\u003e?"
+    },
+    {
       "name": "min-width",
       "status": "implemented",
       "values": "\u003clength\u003e | \u003cpercentage\u003e | inherit"
@@ -2003,6 +2422,30 @@
       "name": "mix-blend-mode",
       "status": "implemented",
       "values": "\u003cblend-mode\u003e | plus-lighter"
+    },
+    {
+      "name": "nav-down",
+      "status": "implemented",
+      "values": "auto | \u003cid\u003e [ current | root | \u003ctarget-name\u003e ]?",
+      "note": "Same as nav-up for the down direction. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (live tests Tes..."
+    },
+    {
+      "name": "nav-left",
+      "status": "implemented",
+      "values": "auto | \u003cid\u003e [ current | root | \u003ctarget-name\u003e ]?",
+      "note": "Same as nav-up for the left direction. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (live tests Tes..."
+    },
+    {
+      "name": "nav-right",
+      "status": "implemented",
+      "values": "auto | \u003cid\u003e [ current | root | \u003ctarget-name\u003e ]?",
+      "note": "Same as nav-up for the right direction. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (live tests Te..."
+    },
+    {
+      "name": "nav-up",
+      "status": "implemented",
+      "values": "auto | \u003cid\u003e [ current | root | \u003ctarget-name\u003e ]?",
+      "note": "Arrow keys and on-screen arrows jump to the declared #id, or fall back to the nearest button on auto. The engine stores the value and exports it as Box.Declared; the behavior li..."
     },
     {
       "name": "object-fit",
@@ -2018,6 +2461,42 @@
       "name": "object-view-box",
       "status": "implemented",
       "values": "none | \u003cbasic-shape-rect\u003e"
+    },
+    {
+      "name": "offset",
+      "status": "implemented",
+      "values": "[ \u003c'offset-position'\u003e? [ \u003c'offset-path'\u003e [ \u003c'offset-distance'\u003e || \u003c'offset-rotate'\u003e ]? ]? ]! [ / \u003c'offset-anchor'\u003e ]?",
+      "note": "Expands to the same matrix as the longhands. A longhand wins over the shorthand regardless of source order, which the cascade here does not track."
+    },
+    {
+      "name": "offset-anchor",
+      "status": "implemented",
+      "values": "auto | \u003cposition\u003e",
+      "note": "Moves the box in the drawing list as a transform. The reference box is the element's own border box, not its containing block, because boxes carry no containing-block pointer. A..."
+    },
+    {
+      "name": "offset-distance",
+      "status": "implemented",
+      "values": "\u003clength-percentage\u003e",
+      "note": "Moves the box in the drawing list as a transform. The reference box is the element's own border box, not its containing block, because boxes carry no containing-block pointer. A..."
+    },
+    {
+      "name": "offset-path",
+      "status": "implemented",
+      "values": "none | \u003coffset-path\u003e || \u003ccoord-box\u003e",
+      "note": "Moves the box (path(), ray(), circle, ellipse, inset, polygon, none). Path coordinates start at the containing block (the parent's content box, or the padding box of the nearest..."
+    },
+    {
+      "name": "offset-position",
+      "status": "implemented",
+      "values": "normal | auto | \u003cposition\u003e",
+      "note": "Acts on ray() only. Percentages and keywords resolve against the containing block."
+    },
+    {
+      "name": "offset-rotate",
+      "status": "implemented",
+      "values": "[ auto | reverse ] || \u003cangle\u003e",
+      "note": "Moves the box in the drawing list as a transform. The reference box is the element's own border box, not its containing block, because boxes carry no containing-block pointer. A..."
     },
     {
       "name": "opacity",
@@ -2062,7 +2541,7 @@
     {
       "name": "overflow",
       "status": "implemented",
-      "values": "visible | hidden | scroll | auto | inherit"
+      "values": "visible | hidden | clip | scroll | auto | inherit"
     },
     {
       "name": "overflow-block",
@@ -2145,6 +2624,12 @@
       "values": "visible | hidden | clip | scroll | auto"
     },
     {
+      "name": "overlay",
+      "status": "implemented",
+      "values": "none | auto",
+      "note": "Stored, exported, and a host function decides top-layer order. The engine paints no top layer. Checked on 2026-11-17 from a render of the Reading order and misc tab in the blink..."
+    },
+    {
       "name": "padding",
       "status": "implemented",
       "values": "\u003cpadding-width\u003e{1,4} | inherit"
@@ -2200,6 +2685,18 @@
       "values": "\u003cpadding-width\u003e | inherit"
     },
     {
+      "name": "paint-order",
+      "status": "implemented",
+      "values": "normal | [ fill || stroke || markers ]",
+      "note": "Only the element's own paint-order is read; a value set on a group is not inherited by its children."
+    },
+    {
+      "name": "path-length",
+      "status": "implemented",
+      "values": "none | \u003cnumber\u003e [0,inf]",
+      "note": "Rescales stroke-dasharray and stroke-dashoffset only. A rect with unequal rx and ry, and units other than px, keep their dashes unscaled."
+    },
+    {
       "name": "perspective",
       "status": "implemented",
       "values": "none | \u003clength [0,\u221e]\u003e"
@@ -2225,9 +2722,27 @@
       "values": "\u003c'align-self'\u003e \u003c'justify-self'\u003e?"
     },
     {
+      "name": "pointer-timeline",
+      "status": "implemented",
+      "values": "\u003cname\u003e \u003caxis\u003e?, comma list",
+      "note": "Comma lists are supported: a box exports one timeline per name, scroll first, then view, then pointer, and the axis and inset lists line up with the names by index and repeat to..."
+    },
+    {
+      "name": "pointer-timeline-axis",
+      "status": "implemented",
+      "values": "block | inline | x | y, comma list",
+      "note": "Comma lists are supported: a box exports one timeline per name, scroll first, then view, then pointer, and the axis and inset lists line up with the names by index and repeat to..."
+    },
+    {
+      "name": "pointer-timeline-name",
+      "status": "implemented",
+      "values": "none | \u003cdashed-ident\u003e, comma list",
+      "note": "Comma lists are supported: a box exports one timeline per name, scroll first, then view, then pointer, and the axis and inset lists line up with the names by index and repeat to..."
+    },
+    {
       "name": "position",
       "status": "implemented",
-      "values": "static | relative | absolute | fixed | inherit"
+      "values": "static | relative | absolute | fixed | sticky | inherit"
     },
     {
       "name": "position-anchor",
@@ -2274,6 +2789,23 @@
       "name": "quotes",
       "status": "implemented",
       "values": "[\u003cstring\u003e \u003cstring\u003e]+ | none | inherit"
+    },
+    {
+      "name": "r",
+      "status": "implemented",
+      "values": "non-negative \u003clength-percentage\u003e (number, px, pt, pc, cm, mm, q, in, %)"
+    },
+    {
+      "name": "reading-flow",
+      "status": "implemented",
+      "values": "normal | source-order | flex-visual | flex-flow | grid-rows | grid-columns | grid-order",
+      "note": "Stored, exported on Box.Declared and acted on by the blinkless-all host, with a headless test of the host decision (examples/blinkless-all/read_test.go in the ownframe repo). Fl..."
+    },
+    {
+      "name": "reading-order",
+      "status": "implemented",
+      "values": "\u003cinteger\u003e",
+      "note": "Stored, exported on Box.Declared and acted on by the blinkless-all host, with a headless test of the host decision (examples/blinkless-all/read_test.go in the ownframe repo). Fl..."
     },
     {
       "name": "region-fragment",
@@ -2452,6 +2984,16 @@
       "values": "\u003c'column-rule-width'\u003e"
     },
     {
+      "name": "rx",
+      "status": "implemented",
+      "values": "non-negative \u003clength-percentage\u003e (number, px, pt, pc, cm, mm, q, in, %)"
+    },
+    {
+      "name": "ry",
+      "status": "implemented",
+      "values": "non-negative \u003clength-percentage\u003e (number, px, pt, pc, cm, mm, q, in, %)"
+    },
+    {
       "name": "scale",
       "status": "implemented",
       "values": "none | [ \u003cnumber\u003e | \u003cpercentage\u003e ]{1,3}"
@@ -2482,6 +3024,30 @@
       "values": "\u003clength\u003e"
     },
     {
+      "name": "scroll-timeline",
+      "status": "implemented",
+      "values": "\u003cname\u003e \u003caxis\u003e?, comma list",
+      "note": "Comma lists are supported: a box exports one timeline per name, scroll first, then view, then pointer, and the axis and inset lists line up with the names by index and repeat to..."
+    },
+    {
+      "name": "scroll-timeline-axis",
+      "status": "implemented",
+      "values": "block | inline | x | y, comma list",
+      "note": "Comma lists are supported: a box exports one timeline per name, scroll first, then view, then pointer, and the axis and inset lists line up with the names by index and repeat to..."
+    },
+    {
+      "name": "scroll-timeline-name",
+      "status": "implemented",
+      "values": "none | \u003cdashed-ident\u003e, comma list",
+      "note": "Comma lists are supported: a box exports one timeline per name, scroll first, then view, then pointer, and the axis and inset lists line up with the names by index and repeat to..."
+    },
+    {
+      "name": "shape-image-threshold",
+      "status": "implemented",
+      "values": "\u003copacity-value\u003e",
+      "note": "Applies to a url() shape-outside on a left or right float: the image alpha picks, per scanline, the leftmost and rightmost pixel above the threshold. shape-margin widens each sc..."
+    },
+    {
       "name": "shape-inside",
       "status": "implemented",
       "values": "auto | outside-shape | [ \u003cbasic-shape\u003e || \u003cshape-box\u003e ] (circle(), ellipse(), inset(); polygon(), path(), and url() are rejected)",
@@ -2507,6 +3073,52 @@
       "name": "shape-rendering",
       "status": "implemented",
       "values": "auto | optimizeSpeed | crispEdges | geometricPrecision"
+    },
+    {
+      "name": "size",
+      "status": "implemented",
+      "values": "\u003c'width'\u003e \u003c'height'\u003e?",
+      "note": "This element property is separate from the @page descriptor."
+    },
+    {
+      "name": "slider-orientation",
+      "status": "implemented",
+      "values": "auto | left-to-right | right-to-left | top-to-bottom | bottom-to-top",
+      "note": "Click and drag on a track moves a thumb in the declared direction. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/b..."
+    },
+    {
+      "name": "spatial-navigation-action",
+      "status": "implemented",
+      "values": "auto | focus | scroll",
+      "note": "A key press scrolls a clamped sheet by 40px and Up and Left bring it back; focus stays on the element. The engine stores the value and exports it as Box.Declared; the behavior l..."
+    },
+    {
+      "name": "spatial-navigation-contain",
+      "status": "implemented",
+      "values": "auto | contain",
+      "note": "Focus movement stays inside the container. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (live tests..."
+    },
+    {
+      "name": "spatial-navigation-function",
+      "status": "implemented",
+      "values": "normal | grid",
+      "note": "Normal reaches any button in the direction; grid only reaches buttons in the same column or row. The engine stores the value and exports it as Box.Declared; the behavior lives i..."
+    },
+    {
+      "name": "stop-color",
+      "status": "implemented",
+      "values": "\u003ccolor\u003e (hex, rgb(), rgba(), named colors baked as hex)"
+    },
+    {
+      "name": "stop-opacity",
+      "status": "implemented",
+      "values": "\u003cnumber [0,1]\u003e | \u003cpercentage [0%,100%]\u003e"
+    },
+    {
+      "name": "string-set",
+      "status": "implemented",
+      "values": "none | [ \u003ccustom-ident\u003e \u003cstring\u003e+ ]#",
+      "note": "Page-margin running headers are not painted."
     },
     {
       "name": "stroke",
@@ -2684,6 +3296,12 @@
       "values": "none | [ [ filled | open ] || [ dot | circle | double-circle | triangle | sesame ] ] | \u003cstring\u003e"
     },
     {
+      "name": "text-fit",
+      "status": "implemented",
+      "values": "[ none | grow | shrink ] [consistent | per-line | per-line-all]? \u003cpercentage\u003e?",
+      "note": "One line of plain text in a block: grow and shrink scale the font to the content width and a percentage caps the scale. A block with elements or several text runs keeps its font..."
+    },
+    {
       "name": "text-group-align",
       "status": "implemented",
       "values": "none | start | end | left | right | center"
@@ -2709,9 +3327,21 @@
       "values": "[ clip | ellipsis | \u003cstring\u003e | fade | \u003cfade()\u003e ]{1,2}"
     },
     {
+      "name": "text-rendering",
+      "status": "implemented",
+      "values": "auto | optimizeSpeed | optimizeLegibility | geometricPrecision",
+      "note": "The value reaches the serialized SVG and SVG text now draws. All three modes draw the same unhinted outlines, so the property changes no pixels, as the hinting it would choose b..."
+    },
+    {
       "name": "text-shadow",
       "status": "implemented",
       "values": "none | \u003cshadow\u003e#"
+    },
+    {
+      "name": "text-size-adjust",
+      "status": "implemented",
+      "values": "auto | none | \u003cpercentage [0,\u221e]\u003e",
+      "note": "The host scales text per none, a percentage or auto. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host examples/blinkless-all (..."
     },
     {
       "name": "text-spacing",
@@ -2752,6 +3382,66 @@
       "name": "text-wrap-style",
       "status": "implemented",
       "values": "auto | balance | stable"
+    },
+    {
+      "name": "timeline-scope",
+      "status": "implemented",
+      "values": "none | all | \u003cdashed-ident\u003e# (exported as Box.TimelineScope)",
+      "note": "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Name lookup th..."
+    },
+    {
+      "name": "timeline-trigger",
+      "status": "implemented",
+      "values": "none | [ \u003cname\u003e \u003csource\u003e \u003cactivation-range\u003e? [ / \u003cactive-range\u003e ]? ]# (the activation range may be omitted and then is normal; exported as Box.TimelineTriggers)",
+      "note": "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Not inherited...."
+    },
+    {
+      "name": "timeline-trigger-activation-range",
+      "status": "implemented",
+      "values": "[ \u003cstart\u003e \u003cend\u003e? ]#; a missing end is normal",
+      "note": "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Not inherited...."
+    },
+    {
+      "name": "timeline-trigger-activation-range-end",
+      "status": "implemented",
+      "values": "[ normal | \u003clength-percentage\u003e | \u003ctimeline-range-name\u003e \u003clength-percentage\u003e? ]#",
+      "note": "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Not inherited...."
+    },
+    {
+      "name": "timeline-trigger-activation-range-start",
+      "status": "implemented",
+      "values": "[ normal | \u003clength-percentage\u003e | \u003ctimeline-range-name\u003e \u003clength-percentage\u003e? ]#",
+      "note": "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Not inherited...."
+    },
+    {
+      "name": "timeline-trigger-active-range",
+      "status": "implemented",
+      "values": "[ \u003cstart\u003e \u003cend\u003e? ]#; a missing end is auto",
+      "note": "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Not inherited...."
+    },
+    {
+      "name": "timeline-trigger-active-range-end",
+      "status": "implemented",
+      "values": "[ auto | normal | \u003clength-percentage\u003e | \u003ctimeline-range-name\u003e \u003clength-percentage\u003e? ]#",
+      "note": "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Not inherited...."
+    },
+    {
+      "name": "timeline-trigger-active-range-start",
+      "status": "implemented",
+      "values": "[ auto | normal | \u003clength-percentage\u003e | \u003ctimeline-range-name\u003e \u003clength-percentage\u003e? ]#",
+      "note": "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Not inherited...."
+    },
+    {
+      "name": "timeline-trigger-name",
+      "status": "implemented",
+      "values": "none | \u003cdashed-ident\u003e#",
+      "note": "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Not inherited...."
+    },
+    {
+      "name": "timeline-trigger-source",
+      "status": "implemented",
+      "values": "[ none | auto | [ \u003cdashed-ident\u003e | scroll() | view() ]+ ]#",
+      "note": "The engine stores and exports the value on layout.Box; it has no clock, scroll offset, pointer, or event loop, so the host computes progress and reacts to events. Not inherited...."
     },
     {
       "name": "top",
@@ -2834,9 +3524,39 @@
       "values": "normal | embed | bidi-override | inherit"
     },
     {
+      "name": "vector-effect",
+      "status": "implemented",
+      "values": "none | non-scaling-stroke",
+      "note": "Chrome 143 ships only none and non-scaling-stroke, so only those two are accepted. non-scaling-size, non-rotation, and fixed-position are not stored. The scale used is the root ..."
+    },
+    {
       "name": "vertical-align",
       "status": "implemented",
       "values": "baseline | sub | super | top | text-top | middle | bottom | text-bottom | \u003cpercentage\u003e | \u003clength\u003e | inherit"
+    },
+    {
+      "name": "view-timeline",
+      "status": "implemented",
+      "values": "\u003cname\u003e [ \u003caxis\u003e || \u003cinset\u003e ]?, comma list",
+      "note": "Comma lists are supported: a box exports one timeline per name, scroll first, then view, then pointer, and the axis and inset lists line up with the names by index and repeat to..."
+    },
+    {
+      "name": "view-timeline-axis",
+      "status": "implemented",
+      "values": "block | inline | x | y, comma list",
+      "note": "Comma lists are supported: a box exports one timeline per name, scroll first, then view, then pointer, and the axis and inset lists line up with the names by index and repeat to..."
+    },
+    {
+      "name": "view-timeline-inset",
+      "status": "implemented",
+      "values": "[ auto | \u003clength-percentage\u003e ]{1,2}, comma list; negative values allowed",
+      "note": "Comma lists are supported: a box exports one timeline per name, scroll first, then view, then pointer, and the axis and inset lists line up with the names by index and repeat to..."
+    },
+    {
+      "name": "view-timeline-name",
+      "status": "implemented",
+      "values": "none | \u003cdashed-ident\u003e, comma list",
+      "note": "Comma lists are supported: a box exports one timeline per name, scroll first, then view, then pointer, and the axis and inset lists line up with the names by index and repeat to..."
     },
     {
       "name": "view-transition-class",
@@ -2897,9 +3617,27 @@
       "values": "\u003clength\u003e | \u003cpercentage\u003e | auto | inherit"
     },
     {
+      "name": "will-change",
+      "status": "implemented",
+      "values": "auto | \u003canimateable-feature\u003e#",
+      "note": "A transform or opacity hint makes the host keep the box as a cached layer: it is painted once while it moves, where a box without the hint is painted on every frame (TestLiveWil..."
+    },
+    {
+      "name": "window-drag",
+      "status": "implemented",
+      "values": "none | move",
+      "note": "Pressing the move region drags a mock window; a child marked none does not. The engine stores the value and exports it as Box.Declared; the behavior lives in the OwnFrame host e..."
+    },
+    {
       "name": "word-break",
       "status": "implemented",
       "values": "normal | break-all | keep-all | manual | auto-phrase | break-word"
+    },
+    {
+      "name": "word-space-transform",
+      "status": "implemented",
+      "values": "none | [ space | ideographic-space ] \u0026\u0026 auto-phrase?",
+      "note": "auto-phrase inserts no phrase breaks."
     },
     {
       "name": "word-spacing",
@@ -2942,9 +3680,25 @@
       "values": "horizontal-tb | vertical-rl | vertical-lr | sideways-rl | sideways-lr"
     },
     {
+      "name": "x",
+      "status": "implemented",
+      "values": "\u003clength-percentage\u003e (number, px, pt, pc, cm, mm, q, in, %)"
+    },
+    {
+      "name": "y",
+      "status": "implemented",
+      "values": "\u003clength-percentage\u003e (number, px, pt, pc, cm, mm, q, in, %)"
+    },
+    {
       "name": "z-index",
       "status": "implemented",
       "values": "auto | \u003cinteger\u003e | inherit"
+    },
+    {
+      "name": "zoom",
+      "status": "implemented",
+      "values": "\u003cnumber [0,\u221e]\u003e \u003cpercentage [0,\u221e]\u003e",
+      "note": "The factor is the element's own zoom, not the product of ancestor zoom, so a length inside a zoomed ancestor is not multiplied again. A block border box is scaled on each axis w..."
     }
   ]
 }
