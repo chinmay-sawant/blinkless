@@ -44,7 +44,7 @@ func blocksViewportSticky(parent *box) bool {
 }
 
 func stickyRoot(parent *box) bool {
-	return parent.node != nil && (parent.node.Name == htmlRootName || parent.node.Name == "body")
+	return parent.node != nil && (parent.node.Name == htmlRootName || parent.node.Name == htmlBodyName)
 }
 
 func stickyScrollContainer(overflow string) bool {

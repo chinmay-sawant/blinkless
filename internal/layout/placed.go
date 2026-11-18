@@ -221,6 +221,7 @@ func placedElement(
 		W:                   boxNode.w,
 		H:                   boxNode.height,
 		Text:                "",
+		Declared:            nil,
 	}
 
 	fillPlacedText(&item, boxNode, opts)
