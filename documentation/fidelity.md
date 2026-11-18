@@ -13,7 +13,7 @@ This guide is the product-facing fidelity story. The normative per-property cont
 | HTML and CSS templates laid out into a drawing list | **In scope** |
 | Repeatable layout, pure Go, `CGO_ENABLED=0` default build, no browser process | **In scope** |
 | Pixel-perfect clone of an arbitrary website | **Out of scope** |
-| Full CSS (flex, grid, absolute, fixed, sticky) | **Partial, per property.** The catalog in the matrix is the contract. Flex, grid, and positioning place onto one canvas; sticky is tagged during layout and there is no page scrollport |
+| Full CSS (flex, grid, absolute, fixed, sticky) | **Partial, per property.** The catalog in the matrix is the contract. Flex, grid, and positioning place onto one canvas; viewport sticky uses the host scroll contract in [scrolling.md](scrolling.md); nested scroll containers are outside that contract |
 | JavaScript-driven pages | **Out of scope.** `<script>` is parsed as raw text and never executed |
 | PDF, PDF/A, PDF/UA, encryption, forms | **Not produced.** The writer was removed |
 | Page PNG/JPEG rendering | **Not produced.** The drawing list is the output. One image operation is re-encoded as a PNG only when orientation or a clip requires it |

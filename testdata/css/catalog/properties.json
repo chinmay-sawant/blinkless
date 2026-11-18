@@ -16622,7 +16622,7 @@
       "name": "position",
       "aliases": [],
       "values": [
-        "static | relative | absolute | fixed | inherit"
+        "static | relative | absolute | fixed | sticky | inherit"
       ],
       "limitations": [],
       "source": [

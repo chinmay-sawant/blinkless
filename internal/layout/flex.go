@@ -3,7 +3,6 @@ package layout
 import (
 	"math"
 	"slices"
-	"sort"
 	"sync"
 	"sync/atomic"
 
@@ -28,22 +27,6 @@ const (
 	fxWrap      = "wrap"
 	fxWrapRev   = "wrap-reverse"
 )
-
-type flexMeas struct {
-	n             *html.Node
-	baseW         float64
-	hypotheticalW float64
-	grow          float64
-	shrink        float64
-	order         int
-}
-
-type flexColMeas struct {
-	n      *html.Node
-	baseH  float64
-	grow   float64
-	shrink float64
-}
 
 type flexLinePlace struct {
 	startChild int
@@ -502,42 +485,6 @@ func (e *engine) flowFlexRow(
 	e.emitFlexRowGapRules(parent, style, placed, rowGap, contentX, contentW)
 
 	return curY
-}
-
-func (e *engine) flexRowItems(kids []*html.Node, contentW float64, crossSize ...float64) []flexMeas {
-	items := getFlexMeas(len(kids))
-
-	for _, kid := range kids {
-		cstate := e.stylePtr(kid)
-
-		grow := cstate.FlexGrow
-		if grow < 0 {
-			grow = 0
-		}
-
-		shrink := cstate.FlexShrink
-		if shrink < 0 {
-			shrink = 1
-		}
-
-		baseW := e.flexItemBaseWidth(kid, cstate, contentW)
-		if len(crossSize) > 0 {
-			if aspectW := e.flexAspectContentWidth(kid, cstate, crossSize[0]); aspectW > baseW {
-				baseW = aspectW
-			}
-		}
-
-		item := flexMeas{
-			n: kid, baseW: baseW,
-			hypotheticalW: 0, grow: grow, shrink: shrink, order: cstate.FlexOrder,
-		}
-		item.hypotheticalW = e.flexHypotheticalMainSize(item, contentW)
-		items = append(items, item)
-	}
-
-	sort.SliceStable(items, func(i, j int) bool { return items[i].order < items[j].order })
-
-	return items
 }
 
 //nolint:cyclop,goconst,wsl // recursive aspect-ratio contribution walks the small flex tree

@@ -13,6 +13,8 @@ const (
 	containerNoneKeyword = "none"
 	featInlineSize       = "inline-size"
 	featWidth            = "width"
+	featHeight           = "height"
+	featBlockSize        = "block-size"
 	unitRem              = "rem"
 )
 
@@ -34,8 +36,9 @@ type ContainerCond struct {
 	Kids []ContainerCond
 }
 
-// SizeFeature is one container size query feature comparison.
-// Name is "width" or "inline-size". Op is "<", ">", "<=", ">=", or "=".
+// SizeFeature is one media or container size query feature comparison.
+// Name is "width", "inline-size", "height", or "block-size". Container
+// conditions accept only the inline axis. Op is "<", ">", "<=", ">=", or "=".
 // For min-/max- forms, Op is ">=" or "<=" respectively.
 type SizeFeature struct {
 	Name  string
@@ -413,11 +416,17 @@ func parseParenOrFeat(str string, depth int) (ContainerCond, bool) {
 	}
 
 	feat, okVal := parseSizeFeature(found)
-	if !okVal {
+	// Reject unsupported container axes before building boolean conditions:
+	// negating a height feature must not turn an unsupported query into true.
+	if !okVal || !isContainerSizeFeature(feat.Name) {
 		return ContainerCond{}, false //nolint:exhaustruct // intentional zero-value fields
 	}
 
 	return ContainerCond{Kind: condKindFeat, Feat: &feat}, true //nolint:exhaustruct // intentional zero-value fields
+}
+
+func isContainerSizeFeature(name string) bool {
+	return name == featWidth || name == featInlineSize
 }
 
 // condKeywordBoundary reports that position end in str starts a new token:
@@ -560,21 +569,11 @@ func parseSizeFeature(inner string) (SizeFeature, bool) {
 		}
 
 		switch name {
-		case "min-width", "min-inline-size":
-			feat := featWidth
-			if strings.HasSuffix(name, featInlineSize) {
-				feat = featInlineSize
-			}
-
-			return SizeFeature{Name: feat, Op: ">=", Value: val, Unit: unit}, true
-		case "max-width", "max-inline-size":
-			feat := featWidth
-			if strings.HasSuffix(name, featInlineSize) {
-				feat = featInlineSize
-			}
-
-			return SizeFeature{Name: feat, Op: "<=", Value: val, Unit: unit}, true
-		case featWidth, featInlineSize:
+		case "min-width", "min-inline-size", "min-height", "min-block-size":
+			return SizeFeature{Name: strings.TrimPrefix(name, "min-"), Op: ">=", Value: val, Unit: unit}, true
+		case "max-width", "max-inline-size", "max-height", "max-block-size":
+			return SizeFeature{Name: strings.TrimPrefix(name, "max-"), Op: "<=", Value: val, Unit: unit}, true
+		case featWidth, featInlineSize, featHeight, featBlockSize:
 			return SizeFeature{Name: name, Op: "=", Value: val, Unit: unit}, true
 		default:
 			return SizeFeature{}, false //nolint:exhaustruct // intentional zero-value fields
@@ -719,14 +718,14 @@ func isRangeUnitChar(c byte) bool {
 func rangeFeatureFromTokens(toks []rangeTok) (SizeFeature, bool) {
 	if toks[0].kind == "ident" && toks[2].kind == "num" {
 		name := toks[0].val
-		if name == featWidth || name == featInlineSize {
+		if isSizeFeatureName(name) {
 			return SizeFeature{Name: name, Op: toks[1].val, Value: toks[2].num, Unit: toks[2].unit}, true
 		}
 	}
 
 	if toks[0].kind == "num" && toks[2].kind == "ident" {
 		name := toks[2].val
-		if name == featWidth || name == featInlineSize {
+		if isSizeFeatureName(name) {
 			// flip: 20em < width  →  width > 20em
 			op := flipOp(toks[1].val)
 			if op != "" {
@@ -736,6 +735,15 @@ func rangeFeatureFromTokens(toks []rangeTok) (SizeFeature, bool) {
 	}
 
 	return SizeFeature{}, false //nolint:exhaustruct // intentional zero-value fields
+}
+
+func isSizeFeatureName(name string) bool {
+	switch name {
+	case featWidth, featInlineSize, featHeight, featBlockSize:
+		return true
+	default:
+		return false
+	}
 }
 
 func flipOp(op string) string {

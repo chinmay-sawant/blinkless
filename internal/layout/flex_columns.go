@@ -2,7 +2,6 @@ package layout
 
 import (
 	"slices"
-	"sort"
 
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
@@ -273,35 +272,6 @@ func resolveFlexColumnContentHeight(style ResolvedStyle, eng *engine) float64 {
 	}
 
 	return contentH
-}
-
-func (e *engine) flexColumnItems(kids []*html.Node, contentW, contentH float64) []flexColMeas {
-	items := getFlexColMeas(len(kids))
-
-	for _, kid := range kids {
-		cstate := e.stylePtr(kid)
-
-		grow := cstate.FlexGrow
-		if grow < 0 {
-			grow = 0
-		}
-
-		shrink := cstate.FlexShrink
-		if shrink < 0 {
-			shrink = 1
-		}
-
-		items = append(items, flexColMeas{
-			n: kid, baseH: e.flexItemBaseHeight(kid, cstate, contentW, contentH),
-			grow: grow, shrink: shrink,
-		})
-	}
-
-	sort.SliceStable(items, func(i, j int) bool {
-		return e.stylePtr(items[i].n).FlexOrder < e.stylePtr(items[j].n).FlexOrder
-	})
-
-	return items
 }
 
 // flexColumnHeightsInto resolves used main sizes: grow/shrink redistribution

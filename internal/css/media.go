@@ -149,9 +149,9 @@ func mediaFeatureMatches(inner string, widthPt, heightPt float64) bool {
 	}
 
 	switch feat.Name {
-	case "width", featInlineSize:
+	case featWidth, featInlineSize:
 		return feat.matchesAxis(widthPt, defaultMediaFontPt)
-	case "height", "block-size":
+	case featHeight, featBlockSize:
 		return feat.matchesAxis(heightPt, defaultMediaFontPt)
 	default:
 		// Unknown feature → false (documented policy).

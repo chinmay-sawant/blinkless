@@ -327,6 +327,37 @@ func TestContainerWithoutSizeRejectedAtEval(t *testing.T) {
 	}
 }
 
+func TestContainerBlockAxisQueriesRemainRejected(t *testing.T) {
+	t.Parallel()
+
+	for _, prelude := range []string{
+		"(height: 500px)",
+		"(min-height: 500px)",
+		"(max-height: 500px)",
+		"(block-size: 500px)",
+		"(height > 500px)",
+		"(500px < height)",
+		"not (height > 500px)",
+		"not (block-size <= 500px)",
+		"(width > 10px) or (height > 500px)",
+		"card not (min-height: 500px)",
+	} {
+		if _, ok := parseContainerPrelude(prelude); ok {
+			t.Errorf("unsupported container axis parsed: %q", prelude)
+		}
+	}
+
+	sty := mustSheet(t, `
+		@container not (height > 500px) { .a { color: red } }
+		@container not (block-size <= 500px) { .b { color: red } }
+		@container (width > 10px) or (height > 500px) { .c { color: red } }
+		p { color: green }
+	`)
+	if len(sty.Rules) != 1 || sty.Rules[0].Container != nil {
+		t.Fatal("unsupported block-axis container conditions survived stylesheet parsing")
+	}
+}
+
 func TestHasContainerRules(t *testing.T) {
 	t.Parallel()
 

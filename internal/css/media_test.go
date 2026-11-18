@@ -84,3 +84,83 @@ func TestMediaMatchesEmptyMediaType(t *testing.T) {
 		t.Error("empty mediaType should match all queries")
 	}
 }
+
+func TestMediaMatchesHeightFeatureBoundaries(t *testing.T) {
+	t.Parallel()
+
+	// Each viewport is below, at, or above 500 CSS px. Width stays above
+	// that threshold so evaluating the wrong axis cannot pass these cases.
+	heights := []float64{374.25, 375, 375.75}
+	cases := []struct {
+		query string
+		want  [3]bool
+	}{
+		{query: "(min-height: 500px)", want: [3]bool{false, true, true}},
+		{query: "(max-height: 500px)", want: [3]bool{true, true, false}},
+		{query: "(height: 500px)", want: [3]bool{false, true, false}},
+		{query: "(MIN-HEIGHT: 31.25em)", want: [3]bool{false, true, true}},
+		{query: "(max-height: 31.25rem)", want: [3]bool{true, true, false}},
+		{query: "(height: 375pt)", want: [3]bool{false, true, false}},
+		{query: "(min-block-size: 500px)", want: [3]bool{false, true, true}},
+		{query: "(max-block-size: 500px)", want: [3]bool{true, true, false}},
+		{query: "(block-size: 500px)", want: [3]bool{false, true, false}},
+		{query: "(height > 500px)", want: [3]bool{false, false, true}},
+		{query: "(height >= 500px)", want: [3]bool{false, true, true}},
+		{query: "(height < 500px)", want: [3]bool{true, false, false}},
+		{query: "(height <= 500px)", want: [3]bool{true, true, false}},
+		{query: "(height = 500px)", want: [3]bool{false, true, false}},
+		{query: "(500px < height)", want: [3]bool{false, false, true}},
+		{query: "(500px <= height)", want: [3]bool{false, true, true}},
+		{query: "(500px > height)", want: [3]bool{true, false, false}},
+		{query: "(500px >= height)", want: [3]bool{true, true, false}},
+		{query: "(500px = height)", want: [3]bool{false, true, false}},
+		{query: "(BLOCK-SIZE >= 31.25em)", want: [3]bool{false, true, true}},
+		{query: "(31.25em >= block-size)", want: [3]bool{true, true, false}},
+		{query: "screen and (min-width: 700px) and (min-height: 500px)", want: [3]bool{false, true, true}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.query, func(t *testing.T) {
+			t.Parallel()
+			for index, height := range heights {
+				got := css.MediaMatches(
+					tc.query,
+					"screen",
+					600,
+					height,
+				)
+				if got != tc.want[index] {
+					t.Errorf(
+						"height %gpt: got %v, want %v",
+						height,
+						got,
+						tc.want[index],
+					)
+				}
+			}
+		})
+	}
+}
+
+func TestMediaHeightRejectsUnsupportedFeaturesAndRanges(t *testing.T) {
+	t.Parallel()
+
+	for _, query := range []string{
+		"(depth: 500px)",
+		"(min-depth: 500px)",
+		"(depth > 500px)",
+		"(500px < depth)",
+		"(height: bananas)",
+		"(height: 50%)",
+		"(height > 10vh)",
+		"(400px < height < 600px)",
+	} {
+		if css.MediaMatches(
+			query,
+			"screen",
+			600,
+			375,
+		) {
+			t.Errorf("unsupported media feature matched: %q", query)
+		}
+	}
+}
