@@ -966,13 +966,31 @@ func maskCompositeLayerValueAccepted(value string) bool {
 
 func webkitMaskCompositeValueAccepted(value string) bool {
 	return maskLayerListValueAccepted(value, func(layer string) bool {
-		switch strings.ToLower(strings.TrimSpace(layer)) {
-		case "source-over", "source-out", "source-in", "xor":
-			return true
-		default:
-			return false
-		}
+		_, ok := webkitMaskCompositeKeyword(layer)
+
+		return ok
 	})
+}
+
+// webkitMaskCompositeKeyword maps one -webkit-mask-composite layer.
+// source-over, source-out, source-in, and xor rename to the standard
+// mask-composite keywords. The other seven operators stay themselves.
+func webkitMaskCompositeKeyword(layer string) (string, bool) {
+	switch strings.ToLower(strings.TrimSpace(layer)) {
+	case "source-over":
+		return maskCompositeAdd, true
+	case "source-out":
+		return maskCompositeSubtract, true
+	case "source-in":
+		return "intersect", true
+	case "xor":
+		return maskCompositeExclude, true
+	case "source-atop", "destination-over", "destination-in", "destination-out",
+		"destination-atop", clearKeyword, "copy":
+		return strings.ToLower(strings.TrimSpace(layer)), true
+	default:
+		return "", false
+	}
 }
 
 func remapWebkitMaskCompositeValue(value string) string {
@@ -982,18 +1000,12 @@ func remapWebkitMaskCompositeValue(value string) string {
 	}
 
 	for idx, layer := range layers {
-		switch strings.ToLower(strings.TrimSpace(layer)) {
-		case "source-over":
-			layers[idx] = "add"
-		case "source-out":
-			layers[idx] = "subtract"
-		case "source-in":
-			layers[idx] = "intersect"
-		case "xor":
-			layers[idx] = "exclude"
-		default:
+		mapped, known := webkitMaskCompositeKeyword(layer)
+		if !known {
 			return value
 		}
+
+		layers[idx] = mapped
 	}
 
 	return strings.Join(layers, ", ")

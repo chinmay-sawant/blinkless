@@ -75,6 +75,15 @@ type imageRef struct {
 
 // resolveImage fetches (once) and decodes (once) src; nil on any failure.
 func (e *engine) resolveImage(src string) *imageRef {
+	return e.resolveImageWith(src, "")
+}
+
+// resolveImageWith is resolveImage for an element with link-parameters. The
+// list rewrites env() in SVG bytes before the raster call, and it joins the
+// cache key so the same file with different parameters is kept apart.
+func (e *engine) resolveImageWith(src, linkParams string) *imageRef {
+	key := imageCacheKey(src, linkParams)
+
 	if src == "" || e.checkContext() || !e.hasImageResolver() {
 		return nil
 	}
@@ -83,7 +92,7 @@ func (e *engine) resolveImage(src string) *imageRef {
 		e.imgCache = map[string]*imageRef{}
 	}
 
-	if ref, ok := e.imgCache[src]; ok {
+	if ref, ok := e.imgCache[key]; ok {
 		return ref
 	}
 
@@ -95,19 +104,37 @@ func (e *engine) resolveImage(src string) *imageRef {
 
 	if err != nil {
 		// Cache nil-miss? Store a sentinel empty ref so we do not re-fetch.
-		e.imgCache[src] = nil
+		e.imgCache[key] = nil
 
 		return nil
 	}
 
+	data = svg.ApplyLinkParams(data, linkParams)
+
+	ref := e.decodeImageRef(src, data)
+
+	e.imgCache[key] = ref
+
+	return ref
+}
+
+// imageCacheKey keeps one file apart per link-parameters list.
+func imageCacheKey(src, linkParams string) string {
+	if linkParams == "" {
+		return src
+	}
+
+	return src + "\x00" + linkParams
+}
+
+// decodeImageRef rasterizes SVG bytes, or reads the size of a raster image.
+func (e *engine) decodeImageRef(src string, data []byte) *imageRef {
 	ref := &imageRef{src: src, sourceData: data, data: data} //nolint:exhaustruct // intentional zero fields
 	if png, pw, ph, err := svg.RasterizeContext(e.rasterContext(), data, svgRasterMaxDim); err == nil {
 		ref.data, ref.w, ref.h = png, pw, ph
 	} else if w, h, jpeg, ok := imageDims(data); ok {
 		ref.w, ref.h, ref.isJPEG = w, h, jpeg
 	}
-
-	e.imgCache[src] = ref
 
 	return ref
 }
@@ -213,7 +240,20 @@ func (e *engine) flowChildren(
 // block lays out without copying its 6KB style record. The value wrapper
 // above preserves the external table, multicol, and measure call sites.
 //
-//nolint:funlen // containment short-circuits plus the inline/block alternation
+// flowFloatsOrLocal returns the BFC float state, or a fresh local one when none
+// is pushed.
+func (e *engine) flowFloatsOrLocal(contentX, contentW float64) *floatState {
+	if e.bfcFloats != nil {
+		return e.bfcFloats
+	}
+
+	// Defensive: callers should pushBFCFloats first. Keep a local state
+	// so isolated measure passes (layoutCell) still work.
+	local := newFloatState(contentX, contentW)
+
+	return &local
+}
+
 func (e *engine) flowChildrenPtr(
 	parent *box, children []*html.Node, sty *ResolvedStyle,
 	contentW, contentX, posY, curY float64,
@@ -245,15 +285,7 @@ func (e *engine) flowChildrenPtr(
 
 	prevBottom := 0.0
 
-	var local floatState
-
-	floats := e.bfcFloats
-	if floats == nil {
-		// Defensive: callers should pushBFCFloats first. Keep a local state
-		// so isolated measure passes (layoutCell) still work.
-		local = newFloatState(contentX, contentW)
-		floats = &local
-	}
+	floats := e.flowFloatsOrLocal(contentX, contentW)
 
 	var deferred []*html.Node
 	// Absolute/fixed containing-block origin is the content edge at entry.
@@ -272,6 +304,12 @@ func (e *engine) flowChildrenPtr(
 
 		curY, prevBottom, idx, deferred = e.flowOneChild(parent, children, idx, sty,
 			contentW, contentX, posY, curY, prevBottom, floats, deferred, parentTrim, firstBlockIdx, lastBlockIdx)
+	}
+
+	// An empty block has no inline run, so ::before/::after would never be
+	// injected. One empty run lets generated content paint on its own.
+	if len(children) == 0 && e.hasPseudoContent() {
+		curY += e.layoutInlineFloats(parent, nil, contentW, contentX, posY+curY, floats)
 	}
 
 	if sizeContained {
@@ -1402,7 +1440,7 @@ func (e *engine) placeFloat( //nolint:cyclop,funlen
 	// float-offset lite: block-axis nudge before recording exclusion.
 	nudgeFloatOffset(e, fbox, *cstate)
 
-	shape := buildShapeExclusion(*cstate, fbox, margL, margR, e.scale)
+	shape := e.buildShapeOutside(*cstate, fbox, margL, margR)
 	floats.place(cstate.Float, fbox, margL, margR, shape)
 
 	return fbox

@@ -2024,7 +2024,7 @@ func (e *engine) flexMinCrossMainSizeUncached(node *html.Node, baseH, mainSize f
 // container, so it keeps the content-based automatic minimum.
 func flexAutoMinSizeIsZero(overflow string) bool {
 	switch overflow {
-	case overflowAuto, "scroll", overflowHidden:
+	case overflowAuto, timelineKindScroll, overflowHidden:
 		return true
 	default:
 		return false

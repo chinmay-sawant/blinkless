@@ -1144,7 +1144,7 @@ func TestCascadeEngineSupportsPropertyValues(t *testing.T) {
 		{"mask", "url(mask.png) bogus", false},
 		{"-webkit-mask", `url(mask.png) center / cover no-repeat`, true},
 		{"-webkit-mask-composite", "source-over, xor", true},
-		{"-webkit-mask-composite", "destination-out", false},
+		{"-webkit-mask-composite", "destination-out", true},
 		{"opacity", "bogus", false},
 		{"z-index", "3", true},
 		{"z-index", "bogus", false},

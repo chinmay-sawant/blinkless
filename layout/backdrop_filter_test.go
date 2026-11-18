@@ -1,6 +1,12 @@
 package layout_test
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/chinmay-sawant/blinkless/layout"
+)
 
 func TestDisplayBackdropFilterCarriesHostEffect(t *testing.T) {
 	t.Parallel()
@@ -52,4 +58,146 @@ func TestBackdropFilterKeepsContainingZIndex(t *testing.T) {
 	}
 
 	t.Fatal("backdrop-filter group marker was not emitted")
+}
+
+// TestBehaviorBackdropFilterKeepsAuthorString proves the drawing list keeps
+// the author filter list and does not paint backdrop pixels. blur(1.5em)
+// saturate(150%) is stored unchanged, in that order. none and an empty value
+// do not open a backdrop group. A later bad function does not replace an
+// earlier valid list. z-index on the group stays the value the element set.
+func TestBehaviorBackdropFilterKeepsAuthorString(t *testing.T) {
+	t.Parallel()
+
+	const author = "blur(1.5em) saturate(150%)"
+
+	t.Run("fixture", func(t *testing.T) {
+		t.Parallel()
+
+		raw, err := os.ReadFile(filepath.Join("..", "testdata", "css", "v012", "backdrop-filter", "page.html"))
+		if err != nil {
+			t.Fatalf("read fixture: %v", err)
+		}
+
+		groups := backdropGroupBegins(displayOf(t, string(raw)))
+		if len(groups) != 1 {
+			t.Fatalf("backdrop groups = %d, want 1 (none must not open a group)", len(groups))
+		}
+
+		got := groups[0].Group().BackdropFilter
+		if got != author {
+			t.Fatalf("BackdropFilter = %q, want %q", got, author)
+		}
+
+		if groups[0].W <= 0 || groups[0].H <= 0 {
+			t.Fatalf("backdrop group box = %.2fx%.2f, want non-empty", groups[0].W, groups[0].H)
+		}
+
+		if groups[0].ZIndex != 4 || !groups[0].ZIndexSet {
+			t.Fatalf("backdrop group z-index = %d (set %t), want 4", groups[0].ZIndex, groups[0].ZIndexSet)
+		}
+	})
+
+	t.Run("reverse order kept", func(t *testing.T) {
+		t.Parallel()
+
+		const reversed = "saturate(150%) blur(1.5em)"
+
+		display := displayOf(t, `<div style="position:absolute;left:16px;top:12px;width:160px;height:80px;`+
+			`backdrop-filter:`+reversed+`;background:rgba(255,255,255,.2)"></div>`)
+
+		groups := backdropGroupBegins(display)
+		if len(groups) != 1 {
+			t.Fatalf("backdrop groups = %d, want 1", len(groups))
+		}
+
+		if got := groups[0].Group().BackdropFilter; got != reversed {
+			t.Fatalf("BackdropFilter = %q, want %q", got, reversed)
+		}
+	})
+
+	t.Run("bad token keeps earlier list", func(t *testing.T) {
+		t.Parallel()
+
+		display := displayOf(t, `<div style="position:absolute;left:16px;top:12px;width:160px;height:80px;z-index:4;`+
+			`backdrop-filter:`+author+`;backdrop-filter:blur(bogus);background:rgba(255,255,255,.2)"></div>`)
+
+		groups := backdropGroupBegins(display)
+		if len(groups) != 1 {
+			t.Fatalf("backdrop groups = %d, want 1", len(groups))
+		}
+
+		if got := groups[0].Group().BackdropFilter; got != author {
+			t.Fatalf("BackdropFilter = %q, want earlier %q", got, author)
+		}
+
+		if groups[0].ZIndex != 4 || !groups[0].ZIndexSet {
+			t.Fatalf("backdrop group z-index = %d (set %t), want 4", groups[0].ZIndex, groups[0].ZIndexSet)
+		}
+	})
+
+	t.Run("host refract extension kept", func(t *testing.T) {
+		t.Parallel()
+
+		const refract = "blur(4px) refract(5px)"
+
+		display := displayOf(t, `<div style="position:absolute;left:16px;top:12px;width:160px;height:80px;`+
+			`backdrop-filter:`+refract+`;background:rgba(255,255,255,.2)"></div>`)
+
+		groups := backdropGroupBegins(display)
+		if len(groups) != 1 {
+			t.Fatalf("backdrop groups = %d, want 1 (refract is kept for the host)", len(groups))
+		}
+
+		if got := groups[0].Group().BackdropFilter; got != refract {
+			t.Fatalf("BackdropFilter = %q, want %q", got, refract)
+		}
+
+		bad := displayOf(t, `<div style="position:absolute;left:16px;top:12px;width:160px;height:80px;`+
+			`backdrop-filter:`+refract+`;backdrop-filter:refract(-3px);background:rgba(255,255,255,.2)"></div>`)
+
+		if got := backdropGroupBegins(bad)[0].Group().BackdropFilter; got != refract {
+			t.Fatalf("a negative refract replaced the earlier list: %q", got)
+		}
+	})
+
+	t.Run("none", func(t *testing.T) {
+		t.Parallel()
+
+		display := displayOf(t, `<div style="position:absolute;left:16px;top:12px;width:160px;height:80px;`+
+			`backdrop-filter:none;background:rgba(255,255,255,.2)"></div>`)
+
+		if groups := backdropGroupBegins(display); len(groups) != 0 {
+			t.Fatalf("backdrop-filter:none opened %d group(s)", len(groups))
+		}
+	})
+
+	t.Run("empty", func(t *testing.T) {
+		t.Parallel()
+
+		display := displayOf(t, `<div style="position:absolute;left:16px;top:12px;width:160px;height:80px;`+
+			`backdrop-filter:;background:rgba(255,255,255,.2)"></div>`)
+
+		if groups := backdropGroupBegins(display); len(groups) != 0 {
+			t.Fatalf("empty backdrop-filter opened %d group(s)", len(groups))
+		}
+	})
+}
+
+func backdropGroupBegins(display *layout.Display) []*layout.DisplayOp {
+	begins := make([]*layout.DisplayOp, 0, len(display.Order))
+
+	for _, index := range display.Order {
+		if index < 0 || index >= len(display.Ops) {
+			continue
+		}
+
+		paintOp := &display.Ops[index]
+		if !paintOp.IsGroupBegin() || paintOp.Group() == nil || paintOp.Group().BackdropFilter == "" {
+			continue
+		}
+
+		begins = append(begins, paintOp)
+	}
+
+	return begins
 }

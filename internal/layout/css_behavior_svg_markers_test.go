@@ -183,13 +183,11 @@ func TestBehaviorSvgFillStrokeColorInert(t *testing.T) {
 // fill-repeat, fill-size, stroke-align, stroke-image, stroke-origin,
 // stroke-position, stroke-repeat, stroke-size, stroke-break, stroke-boundary,
 // stroke-limit, stroke-dash-corner, stroke-dash-justify, stroke-dashadjust,
-// stroke-dashcorner) or a presentation attribute the pinned canvas renderer
-// does not implement (path-length: canvas has no pathLength support, so
-// baking the attribute would be a half build with no observable effect).
-// Full support needs a paint-server layer subsystem (fill/stroke-image
-// family), a stroking model with inside/outside alignment (stroke-align),
-// dash-corner/justify shaping, and renderer pathLength scaling. Until then
-// every one of these must leave the raster unchanged.
+// stroke-dashcorner). Full support needs a paint-server layer subsystem
+// (fill/stroke-image family), a stroking model with inside/outside alignment
+// (stroke-align), and dash-corner/justify shaping. Until then every one of
+// these must leave the raster unchanged. path-length left this list when
+// internal/svg/present.go started rescaling dashes by it.
 func TestBehaviorSvgDraftPaintLonghandsInert(t *testing.T) {
 	t.Parallel()
 
@@ -215,7 +213,6 @@ func TestBehaviorSvgDraftPaintLonghandsInert(t *testing.T) {
 		"stroke-limit:10",
 	}
 	lineProps := []string{
-		"path-length:100",
 		"stroke-dash-corner:round",
 		"stroke-dash-justify:stretch",
 		"stroke-dashadjust:round",

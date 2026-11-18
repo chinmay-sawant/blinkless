@@ -109,9 +109,15 @@ func svgSkipText(depth, flush, end, kind int, local string) (int, int) {
 	return depth, flush
 }
 
+// svgTextTag is the local name of the text element.
+const svgTextTag = "text"
+
+// svgTspanTag is the local name of the tspan element.
+const svgTspanTag = "tspan"
+
 func isSVGTextElement(local string) bool {
 	switch local {
-	case "text", "tspan", "textpath":
+	case svgTextTag, svgTspanTag, "textpath":
 		return true
 	default:
 		return false

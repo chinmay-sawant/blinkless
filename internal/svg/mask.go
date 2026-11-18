@@ -14,6 +14,9 @@ import (
 	"strings"
 )
 
+// svgRootTag is the local name of the root svg element.
+const svgRootTag = "svg"
+
 const (
 	maskModeAlpha     = "alpha"
 	maskModeLuminance = "luminance"
@@ -167,7 +170,7 @@ func findMaskInDocument(data []byte, maskID string) (*svgMaskElement, *svgMaskEl
 		return nil, nil, err
 	}
 
-	if root.start.Name.Local != "svg" {
+	if root.start.Name.Local != svgRootTag {
 		return nil, nil, errMaskNotSVG
 	}
 

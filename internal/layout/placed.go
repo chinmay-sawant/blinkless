@@ -23,6 +23,12 @@ type PlacedElement struct {
 	// Timelines holds the named scroll and view timelines this element
 	// declares. Scroll comes before view; a nil slice means no declaration.
 	Timelines []TimelineDef
+	// Triggers holds the scope, trigger, interest delay, and interactivity
+	// values of this element.
+	Triggers PlacedTriggers
+	// Declared holds the stored-only properties this element declares, by
+	// property name, as computed text. Nil when it declares none.
+	Declared map[string]string
 	// OverflowClip is the accumulated ancestor overflow padding box in
 	// canvas points, empty with HasOverflowClip false when no ancestor
 	// clips. A host painting this element through a transform intersects
@@ -78,8 +84,9 @@ func WalkPlacedWithOptions(res *Result, opts WalkPlacedOptions, fn func(elem *Pl
 	viewport := svgViewport{x: 0, y: 0, w: 0, h: 0, set: false}
 
 	scroll := placedScrollContext{parent: nil, blocked: false, scale: opts.LayoutScale}
+	page := placedScroller{set: false, id: ""}
 
-	walkPlacedFunc(res.root, res.Ops, -1, IdentityMatrix(), viewport, fn, &allIDs, 0, &item, opts, scroll)
+	walkPlacedFunc(res.root, res.Ops, -1, IdentityMatrix(), viewport, fn, &allIDs, 0, &item, opts, scroll, page)
 }
 
 func estimatePlacedOpIDs(res *Result) int {
@@ -145,7 +152,7 @@ func countSubtreeOpIDs(boxNode *box, nOps int) int {
 func walkPlacedFunc(
 	boxNode *box, ops []Op, parentIndex int, parentAccum Matrix2D, viewport svgViewport,
 	fn func(elem *PlacedElement), allIDs *[]uint64, index int, item *PlacedElement,
-	opts WalkPlacedOptions, scroll placedScrollContext,
+	opts WalkPlacedOptions, scroll placedScrollContext, scroller placedScroller,
 ) int {
 	if boxNode == nil {
 		return index
@@ -160,7 +167,7 @@ func walkPlacedFunc(
 	}
 
 	if boxNode.node != nil && boxNode.node.Type == html.ElementNode {
-		*item = placedElement(boxNode, info, parentIndex, ops, allIDs, opts, scroll)
+		*item = placedElement(boxNode, info, parentIndex, ops, allIDs, opts, scroll, scroller)
 
 		childParent = index
 		index++
@@ -176,7 +183,8 @@ func walkPlacedFunc(
 
 	for _, child := range boxNode.children {
 		index = walkPlacedFunc(
-			child, ops, childParent, childAccum, childViewport, fn, allIDs, index, item, opts, childScroll,
+			child, ops, childParent, childAccum, childViewport, fn, allIDs, index, item, opts,
+			childScroll, scrollerBelow(boxNode, scroller),
 		)
 	}
 
@@ -185,7 +193,7 @@ func walkPlacedFunc(
 
 func placedElement(
 	boxNode *box, info TransformInfo, parentIndex int, ops []Op,
-	allIDs *[]uint64, opts WalkPlacedOptions, scroll placedScrollContext,
+	allIDs *[]uint64, opts WalkPlacedOptions, scroll placedScrollContext, scroller placedScroller,
 ) PlacedElement {
 	elementID := boxNode.node.Attribute("id")
 	item := PlacedElement{
@@ -203,7 +211,8 @@ func placedElement(
 		ViewTransitionClass: boxNode.style.Animation.ViewTransitionClass,
 		ViewTransitionGroup: boxNode.style.Animation.ViewTransitionGroup,
 		ViewTransitionScope: boxNode.style.Animation.ViewTransitionScope,
-		Timelines:           timelineDefsFromStyle(boxNode.style, elementID),
+		Timelines:           placedTimelineDefs(boxNode, elementID, scroller),
+		Triggers:            placedTriggersFromStyle(boxNode.style),
 		OverflowClip:        elementOverflowClip(boxNode),
 		HasOverflowClip:     boxNode.overflowClip != nil,
 		Transform:           info,
@@ -214,11 +223,19 @@ func placedElement(
 		Text:                "",
 	}
 
+	fillPlacedText(&item, boxNode, opts)
+
+	return item
+}
+
+// fillPlacedText copies the element's declared-only properties, and its text
+// content when the walk asks for it.
+func fillPlacedText(item *PlacedElement, boxNode *box, opts WalkPlacedOptions) {
+	item.Declared = declaredValues(boxNode.style)
+
 	if opts.IncludeText {
 		item.Text = boxNode.node.TextContent()
 	}
-
-	return item
 }
 
 // placedTransformInfo resolves the transform metadata for one box while

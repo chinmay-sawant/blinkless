@@ -281,8 +281,6 @@ func inlineHasBorderPtr(style *ResolvedStyle) bool {
 }
 
 // collectInlineText flattens one text node under its white-space mode.
-//
-//nolint:cyclop // whitespace, writing-mode, and inline decoration are one collection pass
 func (e *engine) collectInlineText(node *html.Node, sty *ResolvedStyle, out *[]inlineItem) {
 	if sty == nil || sty.Display == cssDisplayNone {
 		return
@@ -305,9 +303,7 @@ func (e *engine) collectInlineText(node *html.Node, sty *ResolvedStyle, out *[]i
 			return
 		}
 
-		for idx := start; idx < len(*out); idx++ {
-			e.enableInlineChrome(&(*out)[idx])
-		}
+		e.markInlineChrome(node, out, start)
 
 		return
 	}
@@ -333,9 +329,7 @@ func (e *engine) collectInlineText(node *html.Node, sty *ResolvedStyle, out *[]i
 		return
 	}
 
-	for idx := start; idx < len(*out); idx++ {
-		e.enableInlineChrome(&(*out)[idx])
-	}
+	e.markInlineChrome(node, out, start)
 }
 
 func isVerticalWritingMode(mode string) bool {
@@ -349,6 +343,11 @@ func (e *engine) collectPreservingNewlines(node *html.Node, sty *ResolvedStyle, 
 	text := node.Text
 	collapse := sty.WhiteSpace == cssWhiteSpacePreLine
 	wrap := sty.WhiteSpace != cssWhiteSpacePre
+	leadBreak, trailBreak := false, false
+
+	if wordSpaceReplacement(sty) != 0 && strings.ContainsRune(text, wordSpaceZWSP) {
+		leadBreak, trailBreak = e.wordSpaceBreakNeighbors(node)
+	}
 
 	for start := 0; ; {
 		end := strings.IndexByte(text[start:], '\n')
@@ -361,6 +360,8 @@ func (e *engine) collectPreservingNewlines(node *html.Node, sty *ResolvedStyle, 
 			line = text[start : start+end]
 		}
 
+		// A newline is a forced break. A br beside the text node counts too.
+		line = guardWordSpaceLine(line, sty, start > 0 || leadBreak, !last || trailBreak)
 		e.emitWhiteSpaceLine(line, sty, collapse, wrap, out)
 
 		if last {
@@ -474,6 +475,8 @@ func (e *engine) collectWrappedTextPtr(node *html.Node, sty *ResolvedStyle, out 
 	if text == "" {
 		return
 	}
+
+	text = e.guardWordSpaceEdges(node, text, sty)
 
 	// white-space:nowrap — keep the run unbreakable (wiki .reference
 	// cite markers in narrow table columns).
@@ -772,6 +775,8 @@ func (e *engine) collectInlineAtomic(node *html.Node, sty *ResolvedStyle, out *[
 	switch node.Name {
 	case cssTagBR:
 		*out = append(*out, inlineItem{forceBreak: true}) //nolint:exhaustruct // intentional zero fields
+	case wordSpaceTagWBR:
+		e.collectWbr(node, sty, out)
 	case cssTagImg:
 		e.collectImageItem(node, sty, out)
 	case cssTagSVG:
@@ -847,6 +852,7 @@ func (e *engine) collectInlineBlockItem(node *html.Node, sty *ResolvedStyle, out
 			marginT: e.scalePt(sty.MarginTop), marginB: e.scalePt(sty.MarginBottom),
 			marginBaseline: marginBaseline,
 		})
+		e.noteInlineBaselineSource(&(*out)[len(*out)-1])
 	}
 }
 
@@ -1049,6 +1055,7 @@ func (e *engine) nestedBlockHChrome(node *html.Node) float64 {
 func availWForInline() float64 { return inlineMeasureWidth }
 
 func (e *engine) textItem(text string, style *ResolvedStyle) inlineItem {
+	text = transformWordSpaceText(text, style)
 	textWidth := e.measureTextFace(transformInlineText(text, style.TextTransform), style)
 	lineHeight := e.lineHeightOf(style) * e.scale
 
@@ -1070,6 +1077,8 @@ func (e *engine) textItem(text string, style *ResolvedStyle) inlineItem {
 // column width hoisted by the caller so the per-fragment loop pays no repeat
 // face or writing-mode work.
 func (e *engine) wrappedWordItem(word string, style *ResolvedStyle, lineH, vertW float64, vertical bool) inlineItem {
+	word = transformWordSpaceText(word, style)
+
 	advance := e.measureTextFace(transformInlineText(word, style.TextTransform), style)
 	if vertical {
 		advance = vertW
@@ -1455,7 +1464,8 @@ func sameInlineStyle(acc, boxN *ResolvedStyle) bool {
 		acc.TextDecorationSkipSpaces == boxN.TextDecorationSkipSpaces &&
 		acc.TextDecorationSkipInk == boxN.TextDecorationSkipInk &&
 		acc.VerticalAlign == boxN.VerticalAlign &&
-		acc.VerticalAlignShift == boxN.VerticalAlignShift
+		acc.VerticalAlignShift == boxN.VerticalAlignShift &&
+		acc.InlineSizing == boxN.InlineSizing
 }
 
 func borderPaint(side border) float64 {

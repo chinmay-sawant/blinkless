@@ -161,6 +161,8 @@ func shrinkInsideShape(shape *shapeExclusion, pad float64) {
 	switch shape.kind {
 	case shapeKindNone:
 		// A missing kind carries no geometry to inset; keep it as-is.
+	case shapeKindMask:
+		// A mask shape is not insettable here; it stays as it is.
 	case shapeKindEllipse:
 		shape.rx -= pad
 		shape.ry -= pad

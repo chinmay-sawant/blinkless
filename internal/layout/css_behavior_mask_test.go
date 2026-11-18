@@ -2,12 +2,17 @@ package layout
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
+	"image/color"
 	"image/png"
 	"math"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 const maskTestPosition = "25% 50%"
@@ -418,6 +423,114 @@ func TestBehaviorMaskInvalidValuesDoNotReplaceEarlierDeclarations(t *testing.T) 
 	}
 }
 
+// TestBehaviorWebkitMaskCompositeExtraOperators stores the seven operators
+// Chrome accepts beyond the four legacy renames. source-atop, destination-over,
+// destination-in, destination-out, destination-atop, clear, and copy stay
+// themselves on the mask group. The four old keywords still rename. A token
+// outside those eleven does not replace an earlier list. Unprefixed
+// mask-composite still rejects source-over. @supports for destination-out is true.
+func TestBehaviorWebkitMaskCompositeExtraOperators(t *testing.T) {
+	t.Parallel()
+
+	raw, err := os.ReadFile("../../testdata/css/v012/webkit-mask-composite/page.html")
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+
+	res := layoutHTMLWithImages(t, string(raw), tinyPNG(4, 4), "")
+	groups := maskGroupsFromOps(res.Ops)
+
+	assertMaskLayerComposites(t, maskGroupWithLayerCount(t, groups, 4),
+		[]string{"add", "subtract", "intersect", "exclude"})
+	assertMaskLayerComposites(t, maskGroupWithLayerCount(t, groups, 7), []string{
+		"source-atop", "destination-over", "destination-in", "destination-out",
+		"destination-atop", "clear", "copy",
+	})
+
+	if supportedDeclaration("mask-composite", "source-over") {
+		t.Fatal("unprefixed mask-composite accepted source-over")
+	}
+
+	root := mustParse(t, `<html><body><div id="kept"></div><div id="probe"></div></body></html>`)
+	styles := resolveStyles(root, []*css.Stylesheet{sheet(t, `
+		#kept { -webkit-mask-composite: source-atop, clear }
+		#kept { -webkit-mask-composite: source-atop, not-an-operator }
+		#probe { -webkit-mask-composite: source-atop }
+		@supports (-webkit-mask-composite: destination-out) {
+			#probe { -webkit-mask-composite: destination-out }
+		}
+	`)}, "print", testViewport, 800)
+
+	kept := styles[findElementByID(t, root, "kept")]
+	if kept.MaskComposite != "source-atop, clear" {
+		t.Fatalf("invalid operator replaced composite with %q", kept.MaskComposite)
+	}
+
+	probe := styles[findElementByID(t, root, "probe")]
+	if probe.MaskComposite != "destination-out" {
+		t.Fatalf("@supports destination-out composite = %q", probe.MaskComposite)
+	}
+}
+
+func maskGroupsFromOps(ops []Op) []*BlendGroup {
+	seen := map[*BlendGroup]struct{}{}
+	groups := []*BlendGroup{}
+
+	for idx := range ops {
+		group := ops[idx].Group()
+		if group == nil || group.Mask == nil {
+			continue
+		}
+
+		if _, ok := seen[group]; ok {
+			continue
+		}
+
+		seen[group] = struct{}{}
+		groups = append(groups, group)
+	}
+
+	return groups
+}
+
+func maskGroupWithLayerCount(t *testing.T, groups []*BlendGroup, count int) *BlendGroup {
+	t.Helper()
+
+	var found *BlendGroup
+
+	for _, group := range groups {
+		if len(group.Mask.Layers) != count {
+			continue
+		}
+
+		if found != nil {
+			t.Fatalf("more than one mask group with %d layers", count)
+		}
+
+		found = group
+	}
+
+	if found == nil {
+		t.Fatalf("no mask group with %d layers", count)
+	}
+
+	return found
+}
+
+func assertMaskLayerComposites(t *testing.T, group *BlendGroup, want []string) {
+	t.Helper()
+
+	if len(group.Mask.Layers) != len(want) {
+		t.Fatalf("mask layer count = %d, want %d", len(group.Mask.Layers), len(want))
+	}
+
+	for idx, layer := range group.Mask.Layers {
+		if layer.Composite != want[idx] {
+			t.Errorf("layer %d Composite = %q, want %q", idx, layer.Composite, want[idx])
+		}
+	}
+}
+
 func TestBehaviorMaskNoneDoesNotCreateMaskGroup(t *testing.T) {
 	t.Parallel()
 
@@ -734,4 +847,180 @@ func assertGradientMaskRaster(t *testing.T, gradient string) {
 	if behaviorBordersFindFill(res.Ops, masked.x, masked.y, masked.w, masked.height, 0, 1, 0) == nil {
 		t.Fatal("green background fill missing")
 	}
+}
+
+// TestBehaviorMaskTypeStylesheetChangesSVGMaskAlpha proves a document
+// stylesheet mask-type changes the preprocessed SVG mask alpha. An absent
+// declaration stays empty so the SVG source still decides. mask-mode wins
+// when it is not match-source.
+func TestBehaviorMaskTypeStylesheetChangesSVGMaskAlpha(t *testing.T) {
+	t.Parallel()
+
+	page := readV012Fixture(t, "mask-type")
+	root := mustParse(t, page)
+	res, err := Layout(root, Options{
+		Width: testViewport, Height: 800, Background: true,
+		Sheets: maskTypeDocumentSheets(t, root),
+		Images: maskTypeImageProvider(t, page),
+	})
+	if err != nil {
+		t.Fatalf("Layout: %v", err)
+	}
+
+	assertStoredMaskType(t, res, "plain", "")
+	assertStoredMaskType(t, res, "initial", maskModeLuminance)
+	assertStoredMaskType(t, res, "alpha-word", maskModeAlpha)
+	assertStoredMaskType(t, res, "luminance-word", maskModeLuminance)
+	assertStoredMaskType(t, res, "bad", maskModeAlpha)
+	assertStoredMaskType(t, res, "source-alpha", "")
+
+	assertMaskTypeAlpha(t, res, "elem-alpha", 255)
+	assertMaskTypeAlpha(t, res, "elem-luminance", 0)
+	assertMaskTypeAlpha(t, res, "source-alpha", 255)
+	assertMaskTypeAlpha(t, res, "mode-wins", 255)
+}
+
+func assertStoredMaskType(t *testing.T, res *Result, elementID, want string) {
+	t.Helper()
+
+	got := boxByID(t, res, elementID).style.MaskType
+	if got != want {
+		t.Errorf("%s MaskType = %q, want %q", elementID, got, want)
+	}
+}
+
+func assertMaskTypeAlpha(t *testing.T, res *Result, elementID string, want uint8) {
+	t.Helper()
+
+	layer := maskLayerForBox(t, res, elementID)
+	if !layer.Preprocessed || len(layer.ImageBytes) == 0 {
+		t.Fatalf("%s preprocessed=%v bytes=%d, want a preprocessed PNG",
+			elementID, layer.Preprocessed, len(layer.ImageBytes))
+	}
+
+	if got := maskLayerCenterAlpha(t, layer.ImageBytes); got != want {
+		t.Errorf("%s mask alpha = %d, want %d", elementID, got, want)
+	}
+}
+
+func maskLayerForBox(t *testing.T, res *Result, elementID string) MaskLayer {
+	t.Helper()
+
+	boxNode := boxByID(t, res, elementID)
+
+	for idx := range res.Ops {
+		operation := &res.Ops[idx]
+		if !operation.IsGroupBegin() {
+			continue
+		}
+
+		group := operation.Group()
+		if group == nil || group.Mask == nil || len(group.Mask.Layers) == 0 {
+			continue
+		}
+
+		if near(operation.X, boxNode.x) && near(operation.Y, boxNode.y) &&
+			near(operation.W, boxNode.w) && near(operation.H, boxNode.height) {
+			return group.Mask.Layers[0]
+		}
+	}
+
+	t.Fatalf("no mask layer for %s", elementID)
+
+	return MaskLayer{}
+}
+
+func maskLayerCenterAlpha(t *testing.T, pngBytes []byte) uint8 {
+	t.Helper()
+
+	img, err := png.Decode(bytes.NewReader(pngBytes))
+	if err != nil {
+		t.Fatalf("decode mask png: %v", err)
+	}
+
+	bounds := img.Bounds()
+	pixel := img.At(bounds.Min.X+bounds.Dx()/2, bounds.Min.Y+bounds.Dy()/2)
+
+	converted, ok := color.NRGBAModel.Convert(pixel).(color.NRGBA)
+	if !ok {
+		t.Fatalf("pixel type = %T, want color.NRGBA", pixel)
+	}
+
+	return converted.A
+}
+
+func maskTypeDocumentSheets(t *testing.T, root *html.Node) []*css.Stylesheet {
+	t.Helper()
+
+	var sheets []*css.Stylesheet
+
+	var walk func(*html.Node)
+	walk = func(node *html.Node) {
+		if node.Name == "style" {
+			var text strings.Builder
+
+			for _, child := range node.Children {
+				if child.Type == html.TextNode {
+					text.WriteString(child.Text)
+				}
+			}
+
+			sheet, err := css.Parse(text.String())
+			if err != nil {
+				t.Fatalf("parse style: %v", err)
+			}
+
+			sheets = append(sheets, sheet)
+		}
+
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	walk(root)
+
+	if len(sheets) == 0 {
+		t.Fatal("fixture has no style sheet")
+	}
+
+	return sheets
+}
+
+// errUnexpectedMaskImage is the static sentinel for an unknown mask image source.
+var errUnexpectedMaskImage = errors.New("unexpected mask image")
+
+func maskTypeImageProvider(t *testing.T, page string) func(string) ([]byte, error) {
+	t.Helper()
+
+	images := map[string][]byte{
+		"mask-luminance.svg": maskTypeFixtureSVG(t, page, "mask-luminance.svg"),
+		"mask-alpha.svg":     maskTypeFixtureSVG(t, page, "mask-alpha.svg"),
+	}
+
+	return func(src string) ([]byte, error) {
+		data, ok := images[src]
+		if !ok {
+			return nil, fmt.Errorf("%w: %s", errUnexpectedMaskImage, src)
+		}
+
+		return data, nil
+	}
+}
+
+func maskTypeFixtureSVG(t *testing.T, page, name string) []byte {
+	t.Helper()
+
+	marker := "<!-- " + name + "\n"
+	start := strings.Index(page, marker)
+	if start < 0 {
+		t.Fatalf("fixture missing %s", name)
+	}
+
+	rest := page[start+len(marker):]
+	end := strings.Index(rest, "-->")
+	if end < 0 {
+		t.Fatalf("fixture %s comment is not closed", name)
+	}
+
+	return []byte(strings.TrimSpace(rest[:end]))
 }

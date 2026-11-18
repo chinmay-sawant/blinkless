@@ -576,9 +576,10 @@ func inheritProps(dst *ResolvedStyle, parent *ResolvedStyle, raw map[string]stri
 	}
 
 	inheritGapBProps(dst, parent, raw)
+	inheritExtraProps(dst, parent, raw)
 }
 
-// inheritGapBProps copies the three inherited gap-B properties that cannot
+// inheritGapBProps copies inherited properties that cannot
 // join inheritableProps: the table already holds 64 entries and the uint64
 // declared mask is full, so a 65th entry would overflow. Each copies only when
 // the element does not declare it; a declared value is applied later by
@@ -609,6 +610,8 @@ func inheritGapBProps(dst *ResolvedStyle, parent *ResolvedStyle, raw map[string]
 	if _, ok := raw["color-interpolation-filters"]; !ok {
 		dst.ColorInterpolationFilters = parent.ColorInterpolationFilters
 	}
+
+	inheritGapBPropsWide(dst, parent, raw)
 }
 
 // selectorMatches reports whether sel matches node, using the pseudo-shape
@@ -866,10 +869,7 @@ func applyCascadeDeclaration(
 	ids, classes, types, order, layer int,
 	important bool,
 ) {
-	if effectiveProp := normalizeVendorPrefix(prop); effectiveProp != prop {
-		value = remapWebkitValue(prop, value)
-		prop = effectiveProp
-	}
+	prop, value = remapVendorDeclaration(prop, value)
 
 	if prop == maskShorthandProperty && containsVarFunc(value) {
 		for _, longhand := range [...]string{
@@ -892,6 +892,11 @@ func applyCascadeDeclaration(
 	if expanded, ok := expandShorthandDeclaration(prop, value); ok {
 		for _, item := range expanded {
 			applyCascadeDeclaration(wins, item.prop, item.val, ids, classes, types, order, layer, important)
+		}
+
+		// background-tbd also keeps its own key so Box.Declared reports it.
+		if prop == declPropBackgroundTbd {
+			applyCascadeWin(wins, prop, value, ids, classes, types, order, layer, important)
 		}
 
 		return
@@ -1059,46 +1064,6 @@ func expandListStyleDeclaration(prop, value string) ([]logicalPropDecl, bool) {
 	}
 
 	return out, true
-}
-
-// expandBackgroundDeclaration expands the background shorthand into the color
-// and image longhands the painter reads, so the shorthand and a longhand
-// compete per property with each declaration's own origin, specificity, and
-// source order. Without this, the UA background-color on a button, select, or
-// textarea coexists with an author background shorthand as a separate raw key,
-// and the later-applied longhand wins regardless of origin.
-func expandBackgroundDeclaration(prop, value string) ([]logicalPropDecl, bool) {
-	if prop != "background" {
-		return nil, false
-	}
-
-	var out []logicalPropDecl
-
-	if tok, ok := firstBackgroundColorToken(value); ok {
-		out = append(out, logicalPropDecl{prop: "background-color", val: tok})
-	}
-
-	if hasBackgroundImage(value) {
-		out = append(out, logicalPropDecl{prop: "background-image", val: value})
-	}
-
-	if len(out) == 0 {
-		return nil, false
-	}
-
-	return out, true
-}
-
-// hasBackgroundImage reports whether a background shorthand carries an image
-// the painter can resolve: a url(), a gradient, or none.
-func hasBackgroundImage(value string) bool {
-	if _, ok := firstCSSUrl(value); ok {
-		return true
-	}
-
-	trimmed := strings.TrimSpace(value)
-
-	return isGradientFunc(trimmed) || strings.EqualFold(trimmed, "none")
 }
 
 // expandFontDeclaration expands the font shorthand into its size,
@@ -1603,6 +1568,7 @@ var restShorthandProps = [...]string{ //nolint:gochecknoglobals // static apply 
 	cssPropBorderBlock, cssPropBorderInline, cssPropBorderBlockStart, cssPropBorderBlockEnd,
 	cssPropBorderInlineStart, cssPropBorderInlineEnd, cssPropBorderBlockWidth, cssPropBorderBlockStyle,
 	cssPropBorderBlockColor, cssPropBorderInlineWidth, cssPropBorderInlineStyle, cssPropBorderInlineColor,
+	"max-size",
 }
 
 // restShorthandSet is derived from restShorthandProps so the longhand pass
@@ -1696,9 +1662,8 @@ type styleGroupFn func(
 	parent *ResolvedStyle, hasParent bool,
 ) bool
 
-// styleGroups is the immutable dispatch order for applyStyleProp.
-// Package-level so applyStyleProp does not rebuild this dispatch table for
-// every cascaded property on every element.
+// styleGroups is the dispatch order for applyStyleProp. It is package-level
+// so applyStyleProp does not rebuild the table for every cascaded property.
 var styleGroups = [...]styleGroupFn{ //nolint:gochecknoglobals // static dispatch table
 	applyDisplayGroup,
 	applyPositionGroup,
@@ -1708,6 +1673,7 @@ var styleGroups = [...]styleGroupFn{ //nolint:gochecknoglobals // static dispatc
 	applyRowRuleGroup,
 	applyGridGroup,
 	applyBoxGroup,
+	applyMaxSizeProps,
 	applyBorderGroup,
 	applyColorGroup,
 	applyTextGroup,
@@ -1727,7 +1693,9 @@ var styleGroups = [...]styleGroupFn{ //nolint:gochecknoglobals // static dispatc
 	applyOverflowLogicalProps,
 	applyAspectRatioProps,
 	applyTextBoxProps,
+	applyLineFitEdgeProps,
 	applyTextAutospaceProps,
+	applyLinePaddingProps,
 	applyHyphenationProps,
 	applyInitialLetterProps,
 	applyShapeProps,
@@ -1745,6 +1713,16 @@ var styleGroups = [...]styleGroupFn{ //nolint:gochecknoglobals // static dispatc
 	applyAnimationProps,
 	applyTransitionProps,
 	applyTimelineProps,
+	applyBaselineSourceProps,
+	applyContinueProps,
+	applyLinkParams,
+	applyImageRenderingProps,
+	applyTextStrokeProps,
+	applyInlineSizingProps,
+	applySizeShorthandProps,
+	applyMinSizeProps,
+	applyAllProps,
+	applyWordSpaceTransformProps,
 }
 
 func normalizeVendorPrefix(prop string) string {
@@ -1923,6 +1901,18 @@ func normalizeWebkitMiscProperty(prop string) (string, bool) {
 	case "-webkit-text-fill-color":
 		return blendColor, true
 	default:
+		if normalized, ok := normalizeWebkitBackgroundClip(prop); ok {
+			return normalized, true
+		}
+
+		if normalized, ok := normalizeWebkitBackgroundOrigin(prop); ok {
+			return normalized, true
+		}
+
+		if normalized, ok := normalizeWebkitBackgroundSize(prop); ok {
+			return normalized, true
+		}
+
 		return "", false
 	}
 }

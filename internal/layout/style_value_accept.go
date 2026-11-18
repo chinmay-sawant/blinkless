@@ -201,8 +201,11 @@ func supportedDeclarationUncached(prop, value string) bool {
 		return true
 	}
 
-	if prop == webkitMaskCompositeProperty && !webkitMaskCompositeValueAccepted(trimmed) {
-		return false
+	// The seven extra operators stay themselves. They are not valid
+	// unprefixed mask-composite keywords, so this property cannot fall
+	// through to that grammar after the rename.
+	if prop == webkitMaskCompositeProperty {
+		return webkitMaskCompositeValueAccepted(trimmed)
 	}
 
 	if accepted, handled := webkitMaskLegacyValueAccepted(prop, trimmed); handled {
@@ -331,6 +334,10 @@ func declarationExtentValueAccepted(prop, value string) (bool, bool) {
 		return minExtentValueAccepted(value), true
 	case propMaxWidth, propMaxHeight:
 		return boxLengthValueAccepted(value, cssDisplayNone), true
+	case "min-size":
+		return minSizeValueAccepted(value), true
+	case "size":
+		return sizeValueAccepted(value), true
 	default:
 		return false, false
 	}
@@ -783,6 +790,18 @@ func borderValueAccepted(prop, value string) bool {
 	}
 }
 
+// breakInsideValueAccepted is the cascade gate for break-inside and its
+// page-break-inside alias. avoid-region is rejected here so it cannot outrank
+// an earlier avoid. applyBreakInsideProps drops the same token.
+func breakInsideValueAccepted(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case overflowAuto, avoidKeyword, avoidPageValue, avoidColumnValue, pageBreakAlways, pageKeyword:
+		return true
+	default:
+		return false
+	}
+}
+
 // layoutDeclarationValueAccepted models the flex/grid keyword families, the
 // logical box and inset families, and the remaining text/table handlers whose
 // setters drop invalid values. It continues extendedDeclarationValueAccepted;
@@ -790,6 +809,10 @@ func borderValueAccepted(prop, value string) bool {
 //
 //nolint:cyclop,funlen,gocyclo,maintidx // flat per-property acceptance table reads clearer than a split dispatch
 func layoutDeclarationValueAccepted(prop, value string) bool {
+	if prop == "break-inside" || prop == "page-break-inside" {
+		return breakInsideValueAccepted(value)
+	}
+
 	switch prop {
 	case "align-items":
 		return alignItemsValueAccepted(value)
@@ -856,6 +879,8 @@ func layoutDeclarationValueAccepted(prop, value string) bool {
 		return marginLengthValueAccepted(value)
 	case "text-indent":
 		return lengthValueAccepted(value)
+	case "line-padding":
+		return linePaddingLengthAccepted(value)
 	case "word-spacing":
 		return value == contentNormal || lengthValueAccepted(value)
 	case propHyphens:
@@ -935,8 +960,18 @@ func layoutDeclarationValueAccepted(prop, value string) bool {
 		return anchorTryValueAccepted(value)
 	case positionVisibilityProp:
 		return anchorVisibilityValueAccepted(value)
+	case "backdrop-filter":
+		return backdropFilterValueAccepted(value)
 	default:
-		return true
+		if prop == inlineSizingProp {
+			return inlineSizingValueAccepted(value)
+		}
+
+		if prop == "word-space-transform" {
+			return wordSpaceTransformValueAccepted(value)
+		}
+
+		return zoomDeclarationAccepted(prop, value)
 	}
 }
 

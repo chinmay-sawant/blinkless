@@ -181,6 +181,22 @@ the document is nil, so the caller must lay out the page. A changed element
 without an id uses its nearest id-bearing ancestor. The helper caches at
 most four selector lists, 1024 outcomes, and 512 KiB of key bytes.
 
+## Timelines and triggers
+
+Blinkless draws one still picture. It has no clock, no scroll offset, no pointer, and no event loop. So it splits the work with the program that shows the page, called the host.
+
+The engine reads the CSS, checks it, applies the cascade, and puts the result on each `layout.Box`. That covers:
+
+- named scroll and view timelines (`Box.Timelines`, `layout/timeline.go`)
+- `timeline-scope` (`Box.TimelineScope`) and `pointer-timeline` (a `Box.Timelines` entry of kind `pointer`)
+- timeline triggers with their activation and active ranges (`Box.TimelineTriggers`, `layout/trigger.go`)
+- event triggers (`Box.EventTriggers`)
+- `interest-delay` (`Box.InterestDelay`) and `interactivity` (`Box.Interactivity`)
+
+The host does everything that needs time or input. It reads scroll offsets and pointer positions, turns them into progress from 0 to 1, looks up dashed names such as `--page`, compares progress with each range, watches clicks and keys, runs the hover timer, and skips hits and focus on an element whose `interactivity` is `inert`. The OwnFrame example `examples/blinkless-scroll` does this against `testdata/css/v012/scroll/page.html`.
+
+A range edge is exported as written: a keyword, a range name such as `cover`, and a percentage or pixel offset. The engine does not turn it into a number, because the number depends on the host's viewport and scroll size (`layout/trigger.go`).
+
 ## Errors
 
 `html.Parse`, `css.Apply`, and `layout.DisplayList` return errors for a bad document, a bad size, or a nil context. `errors.Is` matches `css.ErrBadSize`, `css.ErrNilContext`, `layout.ErrNilContext`, and `layout.ErrNilDocument`.

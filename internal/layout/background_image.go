@@ -13,6 +13,10 @@ const (
 	backgroundURLPrefix = "url("
 	gradientFuncMark    = "gradient("
 	maxBackgroundTiles  = 1024
+
+	// backgroundAttachFixed is the background-attachment value that pins a
+	// layer to the viewport instead of the box.
+	backgroundAttachFixed = "fixed"
 )
 
 // backgroundPaintEnabled reports whether one element's background color and
@@ -65,6 +69,13 @@ func (e *engine) appendBackgroundImage(
 			continue
 		}
 
+		// A fixed layer is positioned against the viewport, not the box.
+		originX, originY, originW, originH := originX, originY, originW, originH
+		if backgroundAttachmentForLayer(sty.BackgroundAttachment, i) == backgroundAttachFixed &&
+			e.opts.Width > 0 && e.opts.Height > 0 {
+			originX, originY, originW, originH = 0, 0, e.opts.Width, e.opts.Height
+		}
+
 		if isGradientFunc(layer) {
 			dst = e.appendGradientLayer(
 				dst, sty, layer, i, originX, originY, originW, originH, repeatX, repeatY, clip,
@@ -78,7 +89,7 @@ func (e *engine) appendBackgroundImage(
 			continue
 		}
 
-		ref := e.resolveImage(src)
+		ref := e.resolveImageWith(src, sty.LinkParameters)
 		if ref == nil || ref.data == nil {
 			continue
 		}
@@ -210,6 +221,12 @@ func backgroundSizeForLayer(sizeSpec string, layerIndex int) string {
 		layerIndex = 0
 	}
 	return strings.TrimSpace(parts[layerIndex%len(parts)])
+}
+
+// backgroundAttachmentForLayer picks the background-attachment token for
+// layer index. The list repeats when it is shorter than the image list.
+func backgroundAttachmentForLayer(spec string, layerIndex int) string {
+	return strings.ToLower(backgroundSizeForLayer(spec, layerIndex))
 }
 
 func resolveBackgroundClipBox(

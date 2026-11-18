@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>link-parameters</title>
+<style>
+img { width: 64px; height: 40px; }
+#red  { link-parameters: param(--color: #ff0000); }
+#none { link-parameters: none; }
+</style>
+</head>
+<body style="margin:0">
+<img id="red" src="swatch.svg" alt="">
+<img id="none" src="swatch.svg" alt="">
+<a id="link" href="https://example.com/a" style="link-parameters: param(--color: #ff0000)">link</a>
+</body>
+</html>

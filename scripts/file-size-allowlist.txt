@@ -8,9 +8,9 @@
 # calls, so CI fails when this list drifts from the tree.
 internal/html/tree.go	2049
 internal/layout/flex.go	2131
-internal/layout/inline_paint.go	2123
-internal/layout/layout.go	2497
-internal/layout/relayout_subtree.go	2835
-internal/layout/style_cascade.go	2289
-internal/layout/style_value_accept.go	2018
-internal/layout/transform.go	2098
+internal/layout/inline_paint.go	2121
+internal/layout/layout.go	2476
+internal/layout/relayout_subtree.go	2733
+internal/layout/style_cascade.go	2279
+internal/layout/style_value_accept.go	2053
+internal/layout/transform.go	2032

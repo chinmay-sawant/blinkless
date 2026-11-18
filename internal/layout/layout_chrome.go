@@ -245,6 +245,7 @@ func growChromeOps(dst []Op, need int) []Op {
 func (e *engine) appendBorderOpsSides(
 	dst []Op, sty ResolvedStyle, posX, posY, wid, height float64, top, right, bottom, left bool,
 ) []Op {
+	clipStart := len(dst)
 	wTop := 0.0
 	if top && sty.BorderTop.Style != cssDisplayNone && !sty.BorderTop.Transparent && borderPaint(sty.BorderTop) > 0 {
 		wTop = e.scalePt(borderPaint(sty.BorderTop))
@@ -370,7 +371,7 @@ func (e *engine) appendBorderOpsSides(
 		}
 	}
 
-	return ops
+	return e.clipBorderOps(ops, clipStart, &sty, posX, posY, wid, height)
 }
 
 // borderSideLineInset returns the inward paint inset for one border side.
@@ -532,6 +533,10 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty ResolvedStyle, po
 	shapeK := cornerShapePaintK(sty)
 	cornerFillOps, cornerBorderOps, cornerFillHandled, cornerBorderHandled := cornerShapePaint(
 		e, boxNode, sty, posX, posY, width, height, radii, radiiY, shapeK)
+	if !cornerFillHandled && !cornerBorderHandled {
+		cornerFillOps, cornerBorderOps, cornerFillHandled, cornerBorderHandled = borderShapePaint(
+			e, boxNode, sty, posX, posY, width, height)
+	}
 	radius := uniformRadius(radii)
 	// Outset box-shadow paints behind the background so blur rings do not
 	// cover the border box. Inset shadows must paint after the background
@@ -927,6 +932,8 @@ func (e *engine) appendRoundedAccentBorderOps(
 // at the same index follows document order (ancestors before descendants,
 // earlier siblings before later ones).
 func (e *engine) finalizeChrome(root *box) {
+	e.addBorderBoundary(root)
+
 	if len(e.deferredChrome) > 0 {
 		entries := e.deferredChrome
 		e.deferredChrome = nil

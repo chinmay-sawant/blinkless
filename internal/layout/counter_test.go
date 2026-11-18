@@ -128,12 +128,12 @@ func TestCounterInBefore(t *testing.T) {
 		_ = env.counters.applyReset("section")
 		env.counters.applyIncrement("section")
 
-		got := evalContentValue(`counters(section, ".") " "`, nil, env)
+		got := evalContentValue(`counters(section, ".") " "`, nil, env, nil)
 		if got != "1.1 " {
 			t.Fatalf("counters() want %q got %q", "1.1 ", got)
 		}
 
-		got = evalContentValue(`counter(section)`, nil, env)
+		got = evalContentValue(`counter(section)`, nil, env, nil)
 		if got != "1" {
 			t.Fatalf("counter() want 1 got %q", got)
 		}

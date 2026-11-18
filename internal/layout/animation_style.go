@@ -1108,9 +1108,12 @@ func cssNumberNonnegative(value string) bool {
 	return ok && number >= 0 && !math.IsInf(number, 0) && !math.IsNaN(number)
 }
 
+// animationDirectionReverse is the reverse animation-direction keyword.
+const animationDirectionReverse = "reverse"
+
 func animationDirectionValueAccepted(value string) bool {
 	switch strings.ToLower(value) {
-	case "normal", "reverse", "alternate", "alternate-reverse":
+	case "normal", animationDirectionReverse, "alternate", "alternate-reverse":
 		return true
 	default:
 		return false
@@ -1238,7 +1241,7 @@ func animationTimelineFunctionValueAccepted(value string) bool {
 	}
 
 	switch name {
-	case "scroll":
+	case timelineKindScroll:
 		return animationScrollTimelineArgsAccepted(body)
 	case "view":
 		return animationViewTimelineArgsAccepted(body)

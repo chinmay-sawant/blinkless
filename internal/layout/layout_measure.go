@@ -802,7 +802,7 @@ func (e *engine) measureImageWidth(n *html.Node, st ResolvedStyle) float64 {
 		return 0
 	}
 
-	return e.usedImageSize(n, st, e.resolveImage(n.Attribute("src"))).w
+	return e.usedImageSize(n, st, e.resolveImageWith(n.Attribute("src"), st.LinkParameters)).w
 }
 
 // measureLargestImageWidth walks n for the widest descendant <img>.

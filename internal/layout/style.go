@@ -21,6 +21,7 @@ const (
 	pageKeyword                   = "page"
 	avoidKeyword                  = "avoid"
 	avoidPageValue                = "avoid-page"
+	avoidColumnValue              = "avoid-column"
 	remUnit                       = "rem"
 	divElementName                = "div"
 	styleElement                  = "style"
@@ -318,8 +319,17 @@ type ResolvedStyle struct {
 	TextShadowSet           bool
 	LetterSpacing           float64
 	// WordSpacing is CSS word-spacing in points; 0 is normal.
-	WordSpacing     float64
-	TextIndent      float64
+	WordSpacing float64
+	// WordSpaceTransform is CSS word-space-transform. "none" (initial)
+	// leaves U+200B and wbr alone. "space" replaces them with U+0020.
+	// "ideographic-space" replaces them with U+3000. Either keyword may
+	// be paired with auto-phrase; this engine inserts no phrase breaks.
+	// Inherited. A token outside the grammar leaves the previous value.
+	WordSpaceTransform string
+	TextIndent         float64
+	// LinePadding is CSS line-padding in points. It insets both ends of
+	// every line, including lines after the first. Zero is the initial.
+	LinePadding     float64
 	ListStyleType   string // "disc" | "circle" | "square" | "decimal" | cssDisplayNone | …
 	BorderCollapse  string // "separate" | "collapse"
 	BorderSpacing   float64
@@ -329,7 +339,7 @@ type ResolvedStyle struct {
 	IsReplaced      bool   // img, hr
 	PageBreakBefore string // "" | "always" | "avoid"
 	PageBreakAfter  string // "" | "always" | "avoid"
-	PageBreakInside string // "" | "always" | "avoid"
+	PageBreakInside string // "" | "always" | "avoid" | "avoid-column"
 	// MarginBreak is CSS margin-break ("auto" | "keep" | "discard") for page breaks.
 	MarginBreak string
 	// PageName is the CSS page used value: empty is auto, else a lower-case
@@ -379,7 +389,7 @@ type ResolvedStyle struct {
 	MaskSize               string
 	MaskOrigin             string
 	MaskClip               string
-	MaskType               string
+	MaskType               string // specified alpha or luminance; empty means the author did not declare it
 	MaskBorderSource       string
 	MaskBorderSlice        string
 	MaskBorderWidth        string
@@ -491,6 +501,9 @@ type ResolvedStyle struct {
 	ObjectPositionY       string
 	// AspectRatio is width/height; 0 means auto/unset.
 	AspectRatio float64
+	// Zoom is this element's CSS zoom factor. The initial value is 1.
+	// A zero value is read as 1 so a zero ResolvedStyle does not scale.
+	Zoom float64
 	// CSS Shapes (outside wrap) + page-float extras (87.6).
 	ShapeOutside       string  // "none" | circle()/ellipse()/inset() canonical
 	ShapeMargin        float64 // pt when ShapeMarginPercent < 0
@@ -519,6 +532,9 @@ type ResolvedStyle struct {
 	TextBoxTrim      string // "none" | "trim-start" | "trim-end" | "trim-both"
 	TextBoxEdgeOver  string // "auto" | "text" | "cap" | "ex" | …
 	TextBoxEdgeUnder string // "auto" | "text" | "alphabetic" | …
+	// LineFitEdge is line-fit-edge. "leading" (initial) keeps the span's
+	// padding and border in the line box. "text" leaves them out. Inherited.
+	LineFitEdge string
 	// CSS Text 4/5 spacing + group align + fit.
 	TextAutospace   string // "no-autospace" | "ideograph-alpha" | …
 	TextSpacing     string // "normal" | "trim-start" | …
@@ -538,6 +554,10 @@ type ResolvedStyle struct {
 	// AlignmentBaseline is the inline alignment selector: auto and baseline
 	// defer to DominantBaseline, other selectors shift the run from font
 	// metrics in inline_vertical_align.go. Not inherited per CSS Inline 3.
+	// BaselineSource picks the first or last baseline set of an inline-level
+	// box (CSS Inline 3). auto means last on an inline-block and first on
+	// every other box. It does not inherit. A token outside auto, first, and
+	// last leaves the previous value.
 	// Clip is the deprecated CSS2 clip rect on absolutely positioned boxes:
 	// "" means auto (no clip), otherwise the canonical rect() declaration
 	// resolved against the border box in overflow_clip.go. Reference for all
@@ -561,19 +581,36 @@ type ResolvedStyle struct {
 	// PerspectiveOrigin parts position the vanishing point inside the
 	// perspective box (PerspectiveOriginSet when declared). Reference for
 	// all: Chrome 143.0.7499.40.
-	Transform3D               [16]float64
-	HasTransform3D            bool
-	PerspectiveDist           float64
-	HasPerspective            bool
-	PerspectiveOriginX        float64
-	PerspectiveOriginXPct     bool
-	PerspectiveOriginY        float64
-	PerspectiveOriginYPct     bool
-	PerspectiveOriginSet      bool
-	FillRule                  string
-	ShapeRendering            string
-	DominantBaseline          string
-	AlignmentBaseline         string
+	Transform3D           [16]float64
+	HasTransform3D        bool
+	PerspectiveDist       float64
+	HasPerspective        bool
+	PerspectiveOriginX    float64
+	PerspectiveOriginXPct bool
+	PerspectiveOriginY    float64
+	PerspectiveOriginYPct bool
+	PerspectiveOriginSet  bool
+	FillRule              string
+	ShapeRendering        string
+	DominantBaseline      string
+	AlignmentBaseline     string
+	BaselineSource        string
+	// Continue is the CSS Overflow 4 continue keyword; empty means normal.
+	Continue string
+	// ImageRendering is the image-rendering keyword; empty means auto.
+	ImageRendering string
+	// Text stroke: width in points (0 means none), and the color when set.
+	TextStrokeWidth    float64
+	TextStrokeColor    [3]float64
+	TextStrokeColorSet bool
+	// LinkParameters is the canonical link-parameters list; empty means none.
+	LinkParameters string
+	// ContinueLines is the line limit an anonymous flex item inherits from a
+	// continue: -webkit-legacy parent. 0 means the item computes its own.
+	ContinueLines int
+	// InlineSizing is inline-sizing. "normal" keeps the font line-height
+	// background. "stretch" grows that fill to the line box. Inherited.
+	InlineSizing              string
 	Clip                      string
 	ColorInterpolation        string
 	ColorInterpolationFilters string
@@ -624,6 +661,42 @@ type ResolvedStyle struct {
 	ViewTimelineInsetEnd      float64
 	ViewTimelineInsetStartSet bool
 	ViewTimelineInsetEndSet   bool
+	// ViewTimelineInsets is the resolved inset of every timeline in the
+	// view-timeline-inset list, encoded by encodeViewInsets. The four fields
+	// above hold its first item.
+	ViewTimelineInsets string
+	// Triggers holds timeline-scope, the pointer timeline, the timeline and
+	// event triggers, interest-delay, and interactivity as normalized
+	// strings. The empty string is each property's initial value. Only the
+	// interest delays and interactivity inherit.
+	Triggers triggerStyle
+	// Declared holds the properties the engine stores and exports for a host
+	// without acting on them. See declaredStyle.
+	Declared declaredStyle
+	// SVG geometry from CSS. Empty means unset. A stylesheet value is baked
+	// onto the attribute and replaces the presentation attribute.
+	SVGCx string
+	SVGCy string
+	SVGR  string
+	SVGRx string
+	SVGRy string
+	SVGX  string
+	SVGY  string
+	SVGD  string
+	// SVG paint presentation from CSS. Empty means unset. The marker
+	// shorthand is expanded onto the three longhands when stored, so
+	// cascade order between the shorthand and a longhand holds. "none" is
+	// kept (not empty) so it can clear a presentation attribute.
+	SVGMarkerStart  string
+	SVGMarkerMid    string
+	SVGMarkerEnd    string
+	SVGStopColor    string
+	SVGStopOpacity  string
+	SVGPaintOrder   string
+	SVGPathLength   string
+	SVGVectorEffect string
+	SVGFloodColor   string
+	SVGFloodOpacity string
 }
 
 const (
@@ -698,6 +771,7 @@ func initialStyle() ResolvedStyle { //nolint:funlen // complete CSS initial-valu
 		MinHeightPercent:   -1,
 		MaxHeight:          -1,
 		MaxHeightPercent:   -1,
+		Zoom:               1,
 		Overflow:           "visible",
 		OverflowX:          "visible",
 		OverflowY:          "visible",
@@ -749,7 +823,7 @@ func initialStyle() ResolvedStyle { //nolint:funlen // complete CSS initial-valu
 		MaskSize:                      "auto",
 		MaskOrigin:                    "border-box",
 		MaskClip:                      "border-box",
-		MaskType:                      "luminance",
+		MaskType:                      "", // unspecified; mask-type: initial stores luminance
 		MaskBorderSource:              "none",
 		MaskBorderSlice:               "0",
 		MaskBorderWidth:               "auto",
@@ -816,6 +890,7 @@ func initialStyle() ResolvedStyle { //nolint:funlen // complete CSS initial-valu
 		TextBoxTrim:                cssDisplayNone,
 		TextBoxEdgeOver:            "auto",
 		TextBoxEdgeUnder:           "auto",
+		LineFitEdge:                lineFitEdgeLeading,
 		TextAutospace:              "no-autospace",
 		TextSpacing:                contentNormal,
 		TextSpacingTrim:            "space-all",
@@ -828,6 +903,9 @@ func initialStyle() ResolvedStyle { //nolint:funlen // complete CSS initial-valu
 		ShapeRendering:             "auto",
 		DominantBaseline:           "auto",
 		AlignmentBaseline:          "auto",
+		BaselineSource:             "auto",
+		InlineSizing:               contentNormal,
+		WordSpaceTransform:         wordSpaceTransformNone,
 		ColorInterpolation:         "srgb",
 		ColorInterpolationFilters:  "srgb",
 		// The timeline axes start at the CSS initial block axis; the physical
@@ -1280,7 +1358,7 @@ func (s *styleStore) recycle() {
 // Stored styles are immutable after insertion. append interns an exact
 // duplicate (styleInternFingerprint bucket plus styleInternEqual verification)
 // instead of storing another copy, so repeated table cells and inherited text
-// styles share one 5872-byte record. The fingerprint is only a bucket key; the
+// styles share one 6104-byte record. The fingerprint is only a bucket key; the
 // equality check is the sharing decision.
 type styleStore struct {
 	candidate ResolvedStyle
@@ -1366,12 +1444,23 @@ func applyRawToUsed(
 ) {
 	*sty = initialStyle()
 
+	// Inherit sentinels from all are removed first so those properties copy.
+	// Initial sentinels stay through the copy, which is what blocks the
+	// parent color, and are dropped before any applier can read them.
+	bgInherit := takeAllInheritSentinels(raw)
+
 	var parentProps map[string]string
 
 	if parent != nil {
 		inheritProps(sty, parent, raw)
 		parentProps = parent.CustomProps
+
+		if bgInherit {
+			sty.BGColor = parent.BGColor
+		}
 	}
+
+	dropAllInitialSentinels(raw)
 
 	var registered map[string]css.PropertyRule
 	if ctx != nil {
@@ -1393,6 +1482,11 @@ func applyRawToUsed(
 	}
 
 	applyRestProps(sty, raw, ctx, parent)
+
+	if _, declared := raw[stringSetPropName]; !declared {
+		forgetInheritedStringSet(sty)
+	}
+
 	inheritUnitlessLineHeight(sty, parent, raw)
 	// FontFamily is final here (inherited, or parsed by applyFontProps /
 	// parseFontShorthand); fingerprint it once so inline text measurement

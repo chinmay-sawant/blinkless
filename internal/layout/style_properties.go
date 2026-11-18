@@ -11,6 +11,10 @@ import (
 )
 
 const (
+	// propPageBreakInside is the legacy name of break-inside.
+	propPageBreakInside = "page-break-inside"
+	// propBreakInside is the break-inside property name.
+	propBreakInside         = "break-inside"
 	borderRadiusValueCount  = 4
 	borderRadiusPairCount   = 2
 	borderRadiusTripleCount = 3
@@ -175,7 +179,7 @@ func applyDisplayEffectProps(style *ResolvedStyle, prop, value string) bool {
 	case "filter":
 		setFilterValue(style, value)
 	case "backdrop-filter":
-		style.BackdropFilter = strings.TrimSpace(value)
+		setBackdropFilterValue(style, value)
 	case "visibility":
 		setVisibilityValue(style, value)
 	default:
@@ -523,8 +527,13 @@ func setGridStartIndex(style *ResolvedStyle, prop, value string) {
 
 // applyBoxGroup handles the sizing and box props (width/height/margins/padding).
 func applyBoxGroup(
-	style *ResolvedStyle, prop, value string, fsize float64, ctx *styleContext, _ *ResolvedStyle, _ bool,
+	style *ResolvedStyle, prop, value string, fsize float64, ctx *styleContext,
+	parent *ResolvedStyle, hasParent bool,
 ) bool {
+	if applyZoomProps(style, prop, value, fsize, ctx, parent, hasParent) {
+		return true
+	}
+
 	if applyBoxSizingProps(style, prop, value, fsize, ctx) {
 		return true
 	}
@@ -1321,6 +1330,9 @@ func applyColorBackgroundProps(style *ResolvedStyle, prop, value string) bool {
 		style.BackgroundOrigin = strings.ToLower(strings.TrimSpace(value))
 	case "background-attachment":
 		style.BackgroundAttachment = strings.ToLower(strings.TrimSpace(value))
+		// The host reads the normalized list from Box.Declared; this handler
+		// runs before the declared group, so it stores the value too.
+		applyDeclaredProps(style, prop, value, nil, false)
 	default:
 		return false
 	}
@@ -1618,7 +1630,7 @@ func applyTableBreakGroup(
 	case propBorderCollapse, propBorderSpacing, propTableLayout, "caption-side":
 		return applyTableProps(style, prop, value, fsize, ctx.viewportW)
 	case "page-break-before", "break-before", "page-break-after", "break-after",
-		"page-break-inside", "break-inside", "margin-break":
+		propPageBreakInside, propBreakInside, "margin-break":
 		return applyPageBreakProps(style, prop, value)
 	case pageKeyword:
 		return applyPageNameProp(style, value, parent)
@@ -1730,12 +1742,18 @@ func applyBreakAfterProps(style *ResolvedStyle, value string) bool {
 }
 
 func applyBreakInsideProps(style *ResolvedStyle, value string) bool {
-	// avoid-column: ignored for page pagination.
-	switch value {
+	// avoid-column is column-only, so PageBreaks (which matches avoid) does
+	// not turn it into a page keep. avoid-region and any other token return
+	// false and leave an earlier value in place.
+	switch strings.ToLower(strings.TrimSpace(value)) {
 	case pageBreakAlways, pageKeyword:
 		style.PageBreakInside = pageBreakAlways
 	case avoidKeyword, avoidPageValue:
 		style.PageBreakInside = avoidKeyword
+	case avoidColumnValue:
+		style.PageBreakInside = avoidColumnValue
+	case overflowAuto:
+		style.PageBreakInside = ""
 	default:
 		return false
 	}

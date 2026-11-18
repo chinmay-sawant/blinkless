@@ -34,6 +34,23 @@ type Box struct {
 	// declares. Scroll comes before view; a nil slice means no declaration.
 	// See TimelineDef for the resolution rules.
 	Timelines []TimelineDef
+	// Declared holds the properties the engine stores for the host without
+	// acting on them (caret, nav-*, reading-flow, offset-*, bookmark-*, and
+	// the like), by property name, as computed text. Nil when none is declared.
+	Declared map[string]string
+	// TimelineScope is the computed timeline-scope. See TimelineScope.
+	TimelineScope TimelineScope
+	// TimelineTriggers holds the timeline triggers this element declares, one
+	// per name in timeline-trigger-name order. A nil slice means none.
+	TimelineTriggers []TimelineTrigger
+	// EventTriggers holds the event triggers this element declares, one per
+	// name in event-trigger-name order. A nil slice means none.
+	EventTriggers []EventTrigger
+	// InterestDelay is the computed interest-delay. It inherits.
+	InterestDelay InterestDelay
+	// Interactivity is the computed interactivity keyword, "auto" or
+	// "inert". It inherits. See Display.BoxInert for the subtree rule.
+	Interactivity string
 	// OverflowClip is the accumulated ancestor overflow padding box in CSS
 	// pixels, with HasOverflowClip false when no ancestor clips. A host
 	// painting this element through a transform intersects the paint with
@@ -226,6 +243,12 @@ func boxFrom(item *ilayout.PlacedElement) Box {
 		ViewTransitionGroup: item.ViewTransitionGroup,
 		ViewTransitionScope: item.ViewTransitionScope,
 		Timelines:           timelinesFrom(item.Timelines),
+		Declared:            item.Declared,
+		TimelineScope:       timelineScopeFrom(item.Triggers.TimelineScope),
+		TimelineTriggers:    timelineTriggersFrom(item.Triggers.TimelineTriggers),
+		EventTriggers:       eventTriggersFrom(item.Triggers.EventTriggers),
+		InterestDelay:       interestDelayFrom(item.Triggers.InterestDelay),
+		Interactivity:       item.Triggers.Interactivity,
 		Transform:           transformInfoFrom(item.Transform),
 		OverflowClip: [4]float64{
 			item.OverflowClip[0] * ptToPx,

@@ -13,8 +13,8 @@ const (
 )
 
 // pseudoContent cascades the CSS content property for ::before/::after on n.
-// Supports string literals, attr(name), counter()/counters(), open-quote /
-// close-quote, and none/normal (empty). Wiki hlist separators use
+// Supports string literals, attr(name), counter()/counters(), string(),
+// open-quote / close-quote, and none/normal (empty). Wiki hlist separators use
 // li::after{content:"\a0 · "}; print external links use
 // a.external::after{content:' (' attr(href) ')'}.
 func contentNeedsEnv(value string) bool {
@@ -48,11 +48,17 @@ func (e *engine) pseudoContent(node *html.Node, pseudoEl string) string {
 		return ""
 	}
 
-	if !contentNeedsEnv(best.value) {
-		return evalContentValue(best.value, node, nil)
+	var table *NamedStringTable
+
+	if strings.Contains(strings.ToLower(best.value), "string(") {
+		table = e.documentStringTable(node)
 	}
 
-	return evalContentValue(best.value, node, e.contentEnvAt(node, pseudoEl))
+	if !contentNeedsEnv(best.value) {
+		return evalContentValue(best.value, node, nil, table)
+	}
+
+	return evalContentValue(best.value, node, e.contentEnvAt(node, pseudoEl), table)
 }
 
 func (e *engine) pseudoContentURL(node *html.Node, pseudoEl string) string {
@@ -301,10 +307,10 @@ func betterContentHit(candidate contentHit, best *contentHit) bool {
 // tokens (url(), …) are skipped so we never paint the literal source text
 // "attr(href)".
 func parseContentValue(value string, node *html.Node) string {
-	return evalContentValue(value, node, nil)
+	return evalContentValue(value, node, nil, nil)
 }
 
-func evalContentValue(value string, node *html.Node, env *contentEnv) string {
+func evalContentValue(value string, node *html.Node, env *contentEnv, table *NamedStringTable) string {
 	value = strings.TrimSpace(value)
 	low := strings.ToLower(value)
 
@@ -324,7 +330,7 @@ func evalContentValue(value string, node *html.Node, env *contentEnv) string {
 
 	idx := 0
 	for idx < len(value) {
-		next, ok := scanContentToken(value, idx, node, env, &boxNode)
+		next, ok := scanContentToken(value, idx, node, env, table, &boxNode)
 		if !ok {
 			break
 		}
@@ -339,7 +345,7 @@ func evalContentValue(value string, node *html.Node, env *contentEnv) string {
 // text to boxNode, and returns the index just past it. ok is false when
 // scanning must stop (unbalanced quote).
 func scanContentToken(
-	value string, idx int, node *html.Node, env *contentEnv, boxNode *strings.Builder,
+	value string, idx int, node *html.Node, env *contentEnv, table *NamedStringTable, boxNode *strings.Builder,
 ) (int, bool) {
 	idx = skipCSSWhitespace(value, idx)
 	if idx >= len(value) {
@@ -357,7 +363,7 @@ func scanContentToken(
 		return idx, false
 	}
 
-	if next, ok := scanContentFunction(value, idx, node, env, boxNode); ok {
+	if next, ok := scanContentFunction(value, idx, node, env, table, boxNode); ok {
 		return next, true
 	}
 
@@ -369,7 +375,7 @@ func scanContentToken(
 }
 
 func scanContentFunction(
-	value string, idx int, node *html.Node, env *contentEnv, boxNode *strings.Builder,
+	value string, idx int, node *html.Node, env *contentEnv, table *NamedStringTable, boxNode *strings.Builder,
 ) (int, bool) {
 	if !isIdentStart(value[idx]) {
 		return 0, false
@@ -400,12 +406,64 @@ func scanContentFunction(
 		boxNode.WriteString(text)
 
 		return next, true
+	case "string":
+		text, next := evalStringFunction(value, idx, table)
+		boxNode.WriteString(text)
+
+		return next, true
 	case "url":
 		// content:url() is an image replaced element (minimal: skip text, caller creates OpImage)
 		return skipCSSFunction(value, paren+1), true
 	default:
 		return skipCSSFunction(value, paren+1), true
 	}
+}
+
+// evalStringFunction reads string(name) from the document table. An unknown
+// name contributes nothing. The optional first/start/last/first-except
+// keyword is accepted and ignored: this canvas keeps the first assignment.
+func evalStringFunction(value string, idx int, table *NamedStringTable) (string, int) {
+	nameEnd := skipCSSIdent(value, idx)
+	paren := skipCSSWhitespace(value, nameEnd)
+
+	if paren >= len(value) || value[paren] != '(' {
+		return "", idx
+	}
+
+	next := skipCSSFunction(value, paren+1)
+	if next <= paren+1 || next > len(value) || value[next-1] != ')' {
+		return "", next
+	}
+
+	arg := strings.TrimSpace(value[paren+1 : next-1])
+	name := arg
+
+	if comma := strings.IndexByte(arg, ','); comma >= 0 {
+		name = strings.TrimSpace(arg[:comma])
+	}
+
+	if !cssIdentOnly(name) || table == nil {
+		return "", next
+	}
+
+	text, _ := table.Lookup(name)
+
+	return text, next
+}
+
+// cssIdentOnly reports whether name is one CSS identifier.
+func cssIdentOnly(name string) bool {
+	if name == "" || !isIdentStart(name[0]) {
+		return false
+	}
+
+	for i := 1; i < len(name); i++ {
+		if !isIdentCont(name[i]) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func scanContentIdent(value string, idx int, env *contentEnv, boxNode *strings.Builder) int {

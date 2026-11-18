@@ -14,11 +14,9 @@ type timelineAcceptanceCase struct {
 	want  bool
 }
 
-//nolint:dupl // the timeline grammar has its own accept and reject cases.
 func TestTimelineDeclarationValueAccepted(t *testing.T) {
 	t.Parallel()
 
-	//nolint:dupl // the timeline grammar has its own accept and reject cases.
 	cases := []timelineAcceptanceCase{
 		{prop: "scroll-timeline", value: "--page", want: true},
 		{prop: "scroll-timeline", value: "--page y", want: true},
@@ -29,7 +27,20 @@ func TestTimelineDeclarationValueAccepted(t *testing.T) {
 		{prop: "scroll-timeline", value: "--a --b", want: false},
 		{prop: "scroll-timeline-name", value: "--page", want: true},
 		{prop: "scroll-timeline-name", value: "none", want: true},
-		{prop: "scroll-timeline-name", value: "--a, --b", want: false},
+		{prop: "scroll-timeline-name", value: "--a, --b", want: true},
+		{prop: "scroll-timeline-name", value: "none, --b", want: true},
+		{prop: "scroll-timeline-name", value: "--a,", want: false},
+		{prop: "scroll-timeline-name", value: "--a,,--b", want: false},
+		{prop: "scroll-timeline-name", value: "--a, b", want: false},
+		{prop: "scroll-timeline-axis", value: "x, y", want: true},
+		{prop: "scroll-timeline-axis", value: "x, z", want: false},
+		{prop: "scroll-timeline", value: "--a x, --b", want: true},
+		{prop: "scroll-timeline", value: "--a x, --b z", want: false},
+		{prop: "view-timeline", value: "--a x 10px, --b 5px 6px inline", want: true},
+		{prop: "view-timeline", value: "--a, ", want: false},
+		{prop: "view-timeline-inset", value: "20px 10px, auto", want: true},
+		{prop: "view-timeline-inset", value: "20px 10px, 1px 2px 3px", want: false},
+		{prop: "view-timeline-inset", value: "5px,", want: false},
 		{prop: "scroll-timeline-name", value: "page", want: false},
 		{prop: "scroll-timeline-axis", value: "inline", want: true},
 		{prop: "scroll-timeline-axis", value: "block", want: true},

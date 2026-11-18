@@ -16,6 +16,15 @@ type shapeExclusion struct {
 	cx, cy, rx, ry float64
 	// inset rectangle edges (already expanded by shape-margin).
 	x0, y0, x1, y1 float64
+	// rows holds the url() image mask: one covered x interval per scanline
+	// between y0 and y1, already in canvas coordinates.
+	rows []shapeMaskRow
+}
+
+// shapeMaskRow is the covered stretch of one mask scanline.
+type shapeMaskRow struct {
+	left, right float64
+	ok          bool
 }
 
 type shapeKind uint8
@@ -24,6 +33,7 @@ const (
 	shapeKindNone    shapeKind = iota
 	shapeKindEllipse           // circle is an ellipse with rx==ry
 	shapeKindInset
+	shapeKindMask
 	shapeEllipseKeyword      = "ellipse"
 	shapeClosestSideKeyword  = "closest-side"
 	shapeFarthestSideKeyword = "farthest-side"
@@ -70,6 +80,8 @@ func (s *shapeExclusion) intervalAt(y float64) (float64, float64, bool) {
 		}
 
 		return s.x0, s.x1, true
+	case shapeKindMask:
+		return s.maskInterval(y)
 	default:
 		return 0, 0, false
 	}
