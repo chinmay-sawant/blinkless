@@ -1586,11 +1586,32 @@ func (e *engine) shiftBoxOps(boxNode *box, deltaX, deltaY float64) {
 		}
 	}
 
-	shiftDeferredChrome(e.deferredChrome, boxNode, deltaX, deltaY)
+	shiftBoxDeferredChrome(boxNode, deltaX, deltaY)
 	// Callers move boxNode itself. Descendants keep absolute canvas coordinates,
 	// so a flex centering move has to carry them or hit testing stays behind the paint.
 	for _, child := range boxNode.children {
 		shiftBoxGeometry(child, deltaX, deltaY)
+	}
+}
+
+// shiftBoxDeferredChrome translates deferred chrome ops owned by boxNode's
+// subtree directly in O(subtree) time without scanning the global deferred list.
+func shiftBoxDeferredChrome(boxNode *box, deltaX, deltaY float64) {
+	if boxNode == nil {
+		return
+	}
+	for j := range boxNode.deferredChrome {
+		boxNode.deferredChrome[j].X += deltaX
+		boxNode.deferredChrome[j].Y += deltaY
+	}
+	for _, extra := range boxNode.extraDeferredChrome {
+		for j := range extra {
+			extra[j].X += deltaX
+			extra[j].Y += deltaY
+		}
+	}
+	for _, child := range boxNode.children {
+		shiftBoxDeferredChrome(child, deltaX, deltaY)
 	}
 }
 

@@ -222,12 +222,16 @@ func interestDelayFromStyle(style *ResolvedStyle) InterestDelayDef {
 		return def
 	}
 
-	if value, err := strconv.ParseFloat(style.Triggers.InterestStart, 64); err == nil {
-		def.StartNormal, def.StartMs = false, value
+	if style.Triggers.InterestStart != "" {
+		if value, err := strconv.ParseFloat(style.Triggers.InterestStart, 64); err == nil {
+			def.StartNormal, def.StartMs = false, value
+		}
 	}
 
-	if value, err := strconv.ParseFloat(style.Triggers.InterestEnd, 64); err == nil {
-		def.EndNormal, def.EndMs = false, value
+	if style.Triggers.InterestEnd != "" {
+		if value, err := strconv.ParseFloat(style.Triggers.InterestEnd, 64); err == nil {
+			def.EndNormal, def.EndMs = false, value
+		}
 	}
 
 	return def

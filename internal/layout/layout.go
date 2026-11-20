@@ -1654,6 +1654,11 @@ type box struct {
 	// box's subtree emitted. opEnd < opStart means the box emitted nothing
 	// (e.g. boxes built during a noEmit measure pass).
 	opStart, opEnd int
+	// deferredChrome holds the box's deferred chrome op slice (plus any rare
+	// extra slices) so shiftBoxOps can translate subtree chrome in O(subtree)
+	// without scanning the global engine.deferredChrome list.
+	deferredChrome      []Op
+	extraDeferredChrome [][]Op
 	// overflowClip is the accumulated ancestor overflow padding box in
 	// canvas points recorded by clipOverflowTree. A host painting this
 	// element's ops through a transform intersects the paint with it,

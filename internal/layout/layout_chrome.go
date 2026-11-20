@@ -619,6 +619,13 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty ResolvedStyle, po
 
 	if !chromeMustSpliceImmediately(sty) {
 		e.deferredChrome = append(e.deferredChrome, chromeEntry{at: insertAt, ops: chrome, b: boxNode})
+		if boxNode != nil {
+			if boxNode.deferredChrome == nil {
+				boxNode.deferredChrome = chrome
+			} else {
+				boxNode.extraDeferredChrome = append(boxNode.extraDeferredChrome, chrome)
+			}
+		}
 
 		return
 	}

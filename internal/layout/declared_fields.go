@@ -204,8 +204,15 @@ const (
 // declaredPropCount is the number of stored properties.
 const declaredPropCount = 61
 
+//nolint:gochecknoglobals // immutable cached property name list
+var cachedDeclaredPropNames = buildDeclaredPropNames()
+
 // declaredPropNames lists every stored property.
 func declaredPropNames() []string {
+	return cachedDeclaredPropNames
+}
+
+func buildDeclaredPropNames() []string {
 	out := make([]string, 0, declaredPropCount)
 	out = append(out, declaredNavNames()...)
 	out = append(out, declaredReadNames()...)
@@ -314,18 +321,21 @@ func declaredFragNames() []string {
 	}
 }
 
+//nolint:gochecknoglobals // immutable cached inherited property name list
+var cachedDeclaredInheritedNames = []string{
+	declPropCaretAnimation,
+	declPropCaretShape,
+	declPropWebkitTextSizeAdjust,
+	declPropTextSizeAdjust,
+	declPropImageAnimation,
+	declPropTextRendering,
+	declPropGlyphOrientationVertical,
+	declPropBlockEllipsis,
+}
+
 // declaredInheritedNames lists the properties that inherit by default.
 func declaredInheritedNames() []string {
-	return []string{
-		declPropCaretAnimation,
-		declPropCaretShape,
-		declPropWebkitTextSizeAdjust,
-		declPropTextSizeAdjust,
-		declPropImageAnimation,
-		declPropTextRendering,
-		declPropGlyphOrientationVertical,
-		declPropBlockEllipsis,
-	}
+	return cachedDeclaredInheritedNames
 }
 
 // declaredInheritsByDefault reports whether prop inherits when unset.

@@ -79,6 +79,10 @@ func applyDeclaredProps(style *ResolvedStyle, prop, value string, parent *Resolv
 // inheritDeclaredProps copies the inheriting properties from the parent
 // unless the element declares them.
 func inheritDeclaredProps(dst, parent *ResolvedStyle, raw map[string]string) {
+	if parent == nil || parent.Declared == (declaredStyle{}) {
+		return
+	}
+
 	for _, prop := range declaredInheritedNames() {
 		if _, ok := raw[prop]; ok {
 			continue
@@ -91,7 +95,7 @@ func inheritDeclaredProps(dst, parent *ResolvedStyle, raw map[string]string) {
 // declaredValues returns the non-empty declared values of one style by
 // property name, or nil when the element declares none.
 func declaredValues(style *ResolvedStyle) map[string]string {
-	if style == nil {
+	if style == nil || style.Declared == (declaredStyle{}) {
 		return nil
 	}
 
