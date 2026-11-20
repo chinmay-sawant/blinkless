@@ -221,14 +221,32 @@ func applyTriggerProps(
 	return true
 }
 
+//nolint:gochecknoglobals // shared read-only zero value for nil Triggers pointers
+var emptyTriggerStyle triggerStyle
+
+func (s *ResolvedStyle) triggers() *triggerStyle {
+	if s == nil || s.Triggers == nil {
+		return &emptyTriggerStyle
+	}
+
+	return s.Triggers
+}
+
+func (s *ResolvedStyle) ensureTriggers() *triggerStyle {
+	if s.Triggers == nil {
+		s.Triggers = &triggerStyle{}
+	}
+
+	return s.Triggers
+}
+
 // applyTriggerLonghand stores one longhand. The CSS-wide keywords resolve
 // here: inherit takes the parent value, unset takes it only for an inherited
 // property, and every other wide keyword resets to the initial value.
 func applyTriggerLonghand(
 	style *ResolvedStyle, prop, value string, fsize float64, parent *ResolvedStyle, hasParent bool,
 ) {
-	field := triggerField(&style.Triggers, prop)
-	if field == nil {
+	if triggerField(&emptyTriggerStyle, prop) == nil {
 		return
 	}
 
@@ -236,24 +254,29 @@ func applyTriggerLonghand(
 	lower := strings.ToLower(trimmed)
 
 	if cssWideKeyword(lower) {
-		*field = triggerWideValue(lower, prop, parent, hasParent)
+		val := triggerWideValue(lower, prop, parent, hasParent)
+		if val != "" || style.Triggers != nil {
+			*triggerField(style.ensureTriggers(), prop) = val
+		}
 
 		return
 	}
 
 	if normalized, ok := normalizeTriggerLonghand(prop, trimmed, fsize); ok {
-		*field = normalized
+		if normalized != "" || style.Triggers != nil {
+			*triggerField(style.ensureTriggers(), prop) = normalized
+		}
 	}
 }
 
 // triggerWideValue resolves a CSS-wide keyword for one longhand.
 func triggerWideValue(keyword, prop string, parent *ResolvedStyle, hasParent bool) string {
 	takeParent := keyword == inheritKeyword || (keyword == cssKeywordUnset && triggerLonghandInherits(prop))
-	if !takeParent || !hasParent || parent == nil {
+	if !takeParent || !hasParent || parent == nil || parent.Triggers == nil {
 		return ""
 	}
 
-	if field := triggerField(&parent.Triggers, prop); field != nil {
+	if field := triggerField(parent.Triggers, prop); field != nil {
 		return *field
 	}
 

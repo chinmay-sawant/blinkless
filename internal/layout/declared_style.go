@@ -51,11 +51,29 @@ func declaredTakesParent(prop, keyword string) bool {
 	return keyword == inheritKeyword || (keyword == cssKeywordUnset && declaredInheritsByDefault(prop))
 }
 
+//nolint:gochecknoglobals // shared read-only zero value for nil Declared pointers
+var emptyDeclaredStyle declaredStyle
+
+func (s *ResolvedStyle) declared() *declaredStyle {
+	if s == nil || s.Declared == nil {
+		return &emptyDeclaredStyle
+	}
+
+	return s.Declared
+}
+
+func (s *ResolvedStyle) ensureDeclared() *declaredStyle {
+	if s.Declared == nil {
+		s.Declared = &declaredStyle{}
+	}
+
+	return s.Declared
+}
+
 // applyDeclaredProps stores one declared property on style. It returns false
 // for a property it does not own.
 func applyDeclaredProps(style *ResolvedStyle, prop, value string, parent *ResolvedStyle, hasParent bool) bool {
-	field := declaredField(&style.Declared, prop)
-	if field == nil {
+	if declaredField(&emptyDeclaredStyle, prop) == nil {
 		return false
 	}
 
@@ -64,12 +82,21 @@ func applyDeclaredProps(style *ResolvedStyle, prop, value string, parent *Resolv
 
 	switch {
 	case takeParent && hasParent && parent != nil:
-		*field = *declaredField(&parent.Declared, prop)
+		val := *declaredField(parent.declared(), prop)
+		if val == "" && style.Declared == nil {
+			return true
+		}
+
+		*declaredField(style.ensureDeclared(), prop) = val
 	case takeParent || keyword == cssKeywordInitial || keyword == cssKeywordUnset:
-		*field = ""
+		if style.Declared != nil {
+			*declaredField(style.Declared, prop) = ""
+		}
 	default:
 		if text, ok := normalizeDeclared(prop, value); ok {
-			*field = text
+			if text != "" || style.Declared != nil {
+				*declaredField(style.ensureDeclared(), prop) = text
+			}
 		}
 	}
 
@@ -79,7 +106,7 @@ func applyDeclaredProps(style *ResolvedStyle, prop, value string, parent *Resolv
 // inheritDeclaredProps copies the inheriting properties from the parent
 // unless the element declares them.
 func inheritDeclaredProps(dst, parent *ResolvedStyle, raw map[string]string) {
-	if parent == nil || parent.Declared == (declaredStyle{}) {
+	if parent == nil || parent.Declared == nil {
 		return
 	}
 
@@ -88,21 +115,23 @@ func inheritDeclaredProps(dst, parent *ResolvedStyle, raw map[string]string) {
 			continue
 		}
 
-		*declaredField(&dst.Declared, prop) = *declaredField(&parent.Declared, prop)
+		if val := *declaredField(parent.Declared, prop); val != "" {
+			*declaredField(dst.ensureDeclared(), prop) = val
+		}
 	}
 }
 
 // declaredValues returns the non-empty declared values of one style by
 // property name, or nil when the element declares none.
 func declaredValues(style *ResolvedStyle) map[string]string {
-	if style == nil || style.Declared == (declaredStyle{}) {
+	if style == nil || style.Declared == nil {
 		return nil
 	}
 
 	var out map[string]string
 
 	for _, prop := range declaredPropNames() {
-		if text := *declaredField(&style.Declared, prop); text != "" {
+		if text := *declaredField(style.Declared, prop); text != "" {
 			if out == nil {
 				out = map[string]string{}
 			}

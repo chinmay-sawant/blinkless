@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"image"
 	"image/draw"
-	"image/png"
 	"math"
 	"strings"
 )
@@ -44,7 +43,7 @@ func composeMaskBorderRaster(frame *MaskBorder, boxW, boxH float64) *MaskRaster 
 	}
 
 	var out bytes.Buffer
-	if err := png.Encode(&out, canvas); err != nil {
+	if err := pooledPNGEncoder.Encode(&out, canvas); err != nil {
 		return nil
 	}
 

@@ -76,7 +76,7 @@ type InterestDelayDef struct {
 
 // timelineScopeFromStyle decodes the stored timeline-scope.
 func timelineScopeFromStyle(style *ResolvedStyle) TimelineScopeDef {
-	if style == nil || style.Triggers.TimelineScope == "" {
+	if style == nil || style.Triggers == nil || style.Triggers.TimelineScope == "" {
 		return TimelineScopeDef{None: true, All: false, Names: nil}
 	}
 
@@ -95,11 +95,11 @@ func timelineScopeFromStyle(style *ResolvedStyle) TimelineScopeDef {
 // lists repeat to the length of the name list, as the draft requires. A nil
 // result means no trigger.
 func timelineTriggersFromStyle(style *ResolvedStyle) []TimelineTriggerDef {
-	if style == nil || style.Triggers.TriggerName == "" {
+	if style == nil || style.Triggers == nil || style.Triggers.TriggerName == "" {
 		return nil
 	}
 
-	store := &style.Triggers
+	store := style.Triggers
 	names := splitParenArgs(store.TriggerName, ',')
 	sources := triggerListOr(store.TriggerSource, triggerTimelineSourceDefault)
 	actStart := triggerListOr(store.ActivationStart, triggerKeywordNormal)
@@ -172,7 +172,7 @@ func decodeRangeEdge(edge string) RangeBoundDef {
 // eventTriggersFromStyle builds one trigger per declared name, repeating the
 // source list to the length of the name list. A nil result means no trigger.
 func eventTriggersFromStyle(style *ResolvedStyle) []EventTriggerDef {
-	if style == nil || style.Triggers.EventName == "" {
+	if style == nil || style.Triggers == nil || style.Triggers.EventName == "" {
 		return nil
 	}
 
@@ -218,7 +218,7 @@ func eventTypesFrom(text string) []string {
 // interestDelayFromStyle decodes the stored interest delays.
 func interestDelayFromStyle(style *ResolvedStyle) InterestDelayDef {
 	def := InterestDelayDef{StartNormal: true, EndNormal: true, StartMs: 0, EndMs: 0}
-	if style == nil {
+	if style == nil || style.Triggers == nil {
 		return def
 	}
 
@@ -239,7 +239,7 @@ func interestDelayFromStyle(style *ResolvedStyle) InterestDelayDef {
 
 // interactivityFromStyle is the computed interactivity keyword.
 func interactivityFromStyle(style *ResolvedStyle) string {
-	if style != nil && style.Triggers.Interactivity == triggerKeywordInert {
+	if style != nil && style.Triggers != nil && style.Triggers.Interactivity == triggerKeywordInert {
 		return triggerKeywordInert
 	}
 

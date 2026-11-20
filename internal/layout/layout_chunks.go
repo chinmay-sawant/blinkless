@@ -73,12 +73,10 @@ const (
 	// private aspect-ratio copy.
 	defaultStyleChunkSize = 16
 	// maxStyleChunksRetained bounds the style free list below the 4 MiB test
-	// bound in TestStyleChunkPoolMemoryBound. A 16-entry chunk is about 93 KiB,
-	// so 32 chunks retain about 2.9 MiB at full occupancy. A larger working set
-	// lets successive full layouts reuse backing instead of allocating it again
-	// after each result is released. dc1d518 lowered this to 8 to cut idle
-	// retention; 32 leaves about 1.1 MiB of headroom under the bound.
-	maxStyleChunksRetained = 32
+	// bound in TestStyleChunkPoolMemoryBound. With Declared and Triggers stored
+	// lazily behind pointers, 40 chunks stay well below the 4 MiB cap while
+	// retaining more backing across successive full layouts.
+	maxStyleChunksRetained = 40
 )
 
 //nolint:gochecknoglobals // global pool for contiguous box chunks

@@ -26,7 +26,7 @@ func (e *engine) buildShapeOutside(sty ResolvedStyle, fbox *box, margL, margR fl
 // shapeImageThreshold reads the declared shape-image-threshold. An absent
 // declaration is the initial value, 0.
 func shapeImageThreshold(sty ResolvedStyle) float64 {
-	value, err := strconv.ParseFloat(sty.Declared.ShapeImageThreshold, 64)
+	value, err := strconv.ParseFloat(sty.declared().ShapeImageThreshold, 64)
 	if err != nil {
 		return 0
 	}

@@ -176,6 +176,12 @@ func fillStyleInternValue(rng *rand.Rand, value reflect.Value) {
 		fillStyleInternMap(rng, value)
 	case reflect.Struct:
 		fillStyleInternStruct(rng, value)
+	case reflect.Pointer:
+		if rng.IntN(2) == 0 {
+			elem := reflect.New(value.Type().Elem())
+			fillStyleInternValue(rng, elem.Elem())
+			value.Set(elem)
+		}
 	default:
 		panic("style intern randomizer: unhandled kind " + value.Kind().String())
 	}

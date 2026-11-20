@@ -41,7 +41,7 @@ func (e *engine) writeSVGLeftoverAttrs(
 		return
 	}
 
-	declared := &e.stylePtr(node).Declared
+	declared := e.stylePtr(node).declared()
 	name := node.Name
 
 	write := func(attr, value string) {

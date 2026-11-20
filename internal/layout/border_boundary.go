@@ -22,7 +22,7 @@ func (e *engine) addBorderBoundary(root *box) {
 
 	for index := range e.deferredChrome {
 		entry := &e.deferredChrome[index]
-		if entry.b == nil || entry.b.style == nil || entry.b.style.Declared.BorderBoundary != "parent" {
+		if entry.b == nil || entry.b.style == nil || entry.b.style.declared().BorderBoundary != "parent" {
 			continue
 		}
 

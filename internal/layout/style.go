@@ -667,12 +667,11 @@ type ResolvedStyle struct {
 	ViewTimelineInsets string
 	// Triggers holds timeline-scope, the pointer timeline, the timeline and
 	// event triggers, interest-delay, and interactivity as normalized
-	// strings. The empty string is each property's initial value. Only the
-	// interest delays and interactivity inherit.
-	Triggers triggerStyle
+	// strings. Nil when unset; allocated lazily on first write.
+	Triggers *triggerStyle
 	// Declared holds the properties the engine stores and exports for a host
-	// without acting on them. See declaredStyle.
-	Declared declaredStyle
+	// without acting on them. Nil when unset; allocated lazily on first write.
+	Declared *declaredStyle
 	// SVG geometry from CSS. Empty means unset. A stylesheet value is baked
 	// onto the attribute and replaces the presentation attribute.
 	SVGCx string

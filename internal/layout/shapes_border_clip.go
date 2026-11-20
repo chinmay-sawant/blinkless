@@ -235,7 +235,7 @@ func shapesIntersect(left, right []shapesSpan) []shapesSpan {
 // borderEdgeSpans computes, for each edge of a box, the painted spans and
 // whether the clip or limit cut that edge at all.
 func borderEdgeSpans(sty *ResolvedStyle, wid, height float64) ([4][]shapesSpan, [4]bool) {
-	decl := &sty.Declared
+	decl := sty.declared()
 
 	var spans [4][]shapesSpan
 
@@ -267,7 +267,7 @@ func borderEdgeSpans(sty *ResolvedStyle, wid, height float64) ([4][]shapesSpan, 
 // the box's border clip and limit declarations. Ops outside that set, and
 // boxes with no such declaration, pass through untouched.
 func (e *engine) clipBorderOps(ops []Op, start int, sty *ResolvedStyle, posX, posY, wid, height float64) []Op {
-	if !sty.Declared.borderClipActive() || start >= len(ops) {
+	if !sty.declared().borderClipActive() || start >= len(ops) {
 		return ops
 	}
 

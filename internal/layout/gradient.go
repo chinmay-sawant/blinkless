@@ -505,11 +505,17 @@ func (pool *gradPNGPool) Put(b *png.EncoderBuffer) {
 	pool.p.Put(b)
 }
 
-//nolint:gochecknoglobals // global encoder buffer pool for rasterizing CSS gradients
-var fastPNGEncoder = png.Encoder{
-	CompressionLevel: png.BestSpeed,
-	BufferPool:       &gradPNGPool{p: sync.Pool{New: nil}},
-}
+//nolint:gochecknoglobals // global encoder buffer pools for rasterizing CSS gradients and layout bitmaps
+var (
+	fastPNGEncoder = png.Encoder{
+		CompressionLevel: png.BestSpeed,
+		BufferPool:       &gradPNGPool{p: sync.Pool{New: nil}},
+	}
+	pooledPNGEncoder = png.Encoder{
+		CompressionLevel: png.DefaultCompression,
+		BufferPool:       &gradPNGPool{p: sync.Pool{New: nil}},
+	}
+)
 
 type gradCacheKey struct {
 	raw     string

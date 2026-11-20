@@ -45,7 +45,7 @@ func borderShapeToken(raw string) (string, bool) {
 // shape), and for two shapes: the two-shape band is not painted, so the box
 // keeps its ordinary border. The geometry box is read as the border box.
 func borderShapeOutline(eng *engine, sty ResolvedStyle, posX, posY, width, height float64) ([]DisplayPoint, bool) {
-	raw := strings.TrimSpace(sty.Declared.BorderShape)
+	raw := strings.TrimSpace(sty.declared().BorderShape)
 	if raw == "" || !(width > 0 && height > 0) {
 		return nil, false
 	}
@@ -108,7 +108,7 @@ func shapeOutlinePoints(shape *shapeExclusion) []DisplayPoint {
 func borderShapePaint(
 	eng *engine, boxNode *box, sty ResolvedStyle, posX, posY, width, height float64,
 ) ([]Op, []Op, bool, bool) {
-	if eng == nil || sty.Declared.BorderShape == "" {
+	if eng == nil || sty.declared().BorderShape == "" {
 		return nil, nil, false, false
 	}
 

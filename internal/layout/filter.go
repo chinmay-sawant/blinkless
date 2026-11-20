@@ -440,7 +440,7 @@ func applyImageFilterToImageWithInterp(imgBytes []byte, filters []parsedFilter, 
 	}
 
 	var out bytes.Buffer
-	if err := png.Encode(&out, nrgba); err != nil {
+	if err := pooledPNGEncoder.Encode(&out, nrgba); err != nil {
 		return imgBytes
 	}
 	return out.Bytes()

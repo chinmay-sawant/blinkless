@@ -115,7 +115,7 @@ func (e *engine) applyTextFit(boxNode *box, nodes []*html.Node, contentW float64
 		return nil
 	}
 
-	spec, ok := parseTextFit(boxNode.style.Declared.TextFit)
+	spec, ok := parseTextFit(boxNode.style.declared().TextFit)
 	if !ok {
 		return nil
 	}

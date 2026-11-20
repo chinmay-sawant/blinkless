@@ -60,6 +60,7 @@ func main() {
 type generator struct {
 	structs    map[string]*ast.StructType
 	helpers    map[string]struct{}
+	ptrHelpers map[string]struct{}
 	usesMaps   bool
 	usesSlices bool
 }
@@ -99,6 +100,7 @@ func parsePackage(dir string) (*generator, error) {
 	gen := &generator{
 		structs:    map[string]*ast.StructType{},
 		helpers:    map[string]struct{}{},
+		ptrHelpers: map[string]struct{}{},
 		usesMaps:   false,
 		usesSlices: false,
 	}
@@ -278,9 +280,34 @@ func (g *generator) classify(eqA, eqB, hashVar string, expr ast.Expr) (string, [
 		return g.classifyArray(eqA, eqB, hashVar, expr)
 	case *ast.MapType:
 		return g.classifyMap(eqA, eqB, hashVar, expr)
+	case *ast.StarExpr:
+		return g.classifyPtr(eqA, eqB, hashVar, expr)
 	default:
 		return "", nil, fmt.Errorf("%w: type %v", errUnsupported, expr)
 	}
+}
+
+func (g *generator) classifyPtr(eqA, eqB, hashVar string, expr *ast.StarExpr) (string, []string, error) {
+	ident, ok := expr.X.(*ast.Ident)
+	if !ok {
+		return "", nil, fmt.Errorf("%w: pointer element %v", errUnsupported, expr.X)
+	}
+
+	name := ident.Name
+	if _, ok := g.structs[name]; !ok {
+		return "", nil, fmt.Errorf("%w: pointer to %q", errUnsupported, name)
+	}
+
+	if !g.comparable(identNamed(name)) {
+		return "", nil, fmt.Errorf("%w: pointer struct %s", errNotComparable, name)
+	}
+
+	g.helpers[name] = struct{}{}
+	g.ptrHelpers[name] = struct{}{}
+
+	return ptrEqualName(name) + "(" + eqA + ", " + eqB + ")", []string{
+		"if " + hashVar + " != nil && *" + hashVar + " != (" + name + "{}) {\n\t\th = " + helperName(name) + "(h, *" + hashVar + ")\n\t}",
+	}, nil
 }
 
 func (g *generator) classifyArray(eqA, eqB, hashVar string, expr *ast.ArrayType) (string, []string, error) {
@@ -461,7 +488,31 @@ func (g *generator) writeStructHelpers(buf *bytes.Buffer) error {
 		buf.WriteString("\n\treturn h\n}\n\n")
 	}
 
+	ptrNames := make([]string, 0, len(g.ptrHelpers))
+	for name := range g.ptrHelpers {
+		ptrNames = append(ptrNames, name)
+	}
+
+	sort.Strings(ptrNames)
+
+	for _, name := range ptrNames {
+		buf.WriteString("func " + ptrEqualName(name) + "(a, b *" + name + ") bool {\n")
+		buf.WriteString("\tif a == b {\n\t\treturn true\n\t}\n")
+		buf.WriteString("\tvar zero " + name + "\n")
+		buf.WriteString("\tif a == nil {\n\t\treturn *b == zero\n\t}\n")
+		buf.WriteString("\tif b == nil {\n\t\treturn *a == zero\n\t}\n")
+		buf.WriteString("\treturn *a == *b\n}\n\n")
+	}
+
 	return nil
+}
+
+func ptrEqualName(typeName string) string {
+	if typeName == "" {
+		return "styleInternEqualPtr"
+	}
+
+	return "styleInternEqualPtr" + strings.ToUpper(typeName[:1]) + typeName[1:]
 }
 
 func helperName(typeName string) string {

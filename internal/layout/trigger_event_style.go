@@ -213,17 +213,21 @@ func normalizeInteractivity(value string) (string, bool) {
 // interactivity. A declared value, including a CSS-wide keyword, is applied
 // later by applyTriggerLonghand.
 func inheritTriggerProps(dst, parent *ResolvedStyle, raw map[string]string) {
+	if parent == nil || parent.Triggers == nil {
+		return
+	}
+
 	_, shorthand := raw[propInterestDelay]
 
-	if _, ok := raw[propInterestDelayStart]; !ok && !shorthand {
-		dst.Triggers.InterestStart = parent.Triggers.InterestStart
+	if _, ok := raw[propInterestDelayStart]; !ok && !shorthand && parent.Triggers.InterestStart != "" {
+		dst.ensureTriggers().InterestStart = parent.Triggers.InterestStart
 	}
 
-	if _, ok := raw[propInterestDelayEnd]; !ok && !shorthand {
-		dst.Triggers.InterestEnd = parent.Triggers.InterestEnd
+	if _, ok := raw[propInterestDelayEnd]; !ok && !shorthand && parent.Triggers.InterestEnd != "" {
+		dst.ensureTriggers().InterestEnd = parent.Triggers.InterestEnd
 	}
 
-	if _, ok := raw[propInteractivity]; !ok {
-		dst.Triggers.Interactivity = parent.Triggers.Interactivity
+	if _, ok := raw[propInteractivity]; !ok && parent.Triggers.Interactivity != "" {
+		dst.ensureTriggers().Interactivity = parent.Triggers.Interactivity
 	}
 }
