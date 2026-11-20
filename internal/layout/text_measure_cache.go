@@ -327,10 +327,20 @@ func (e *engine) textWidthCacheKey(
 	return local
 }
 
+//nolint:gochecknoglobals // per-layout text/rune width cache pools avoid map reallocation on every layout
+var (
+	textWidthCachePool = sync.Pool{}
+	runeWidthCachePool = sync.Pool{}
+)
+
 // storeTextWidth records width under key unless the cache is full.
 func (e *engine) storeTextWidth(key textWidthLocalKey, width float64) {
 	if e.textWidthCache == nil {
-		e.textWidthCache = make(map[textWidthLocalKey]float64, initialWidthCacheEntries)
+		if pooled, ok := textWidthCachePool.Get().(map[textWidthLocalKey]float64); ok {
+			e.textWidthCache = pooled
+		} else {
+			e.textWidthCache = make(map[textWidthLocalKey]float64, initialWidthCacheEntries)
+		}
 	}
 
 	if len(e.textWidthCache) >= maxTextWidthCacheEntries {
@@ -383,7 +393,11 @@ func (e *engine) lookupRuneWidth(key runeWidthLocalKey) (float64, bool) {
 // storeRuneWidth records width under key unless the cache is full.
 func (e *engine) storeRuneWidth(key runeWidthLocalKey, width float64) {
 	if e.runeWidthCache == nil {
-		e.runeWidthCache = make(map[runeWidthLocalKey]float64, initialWidthCacheEntries)
+		if pooled, ok := runeWidthCachePool.Get().(map[runeWidthLocalKey]float64); ok {
+			e.runeWidthCache = pooled
+		} else {
+			e.runeWidthCache = make(map[runeWidthLocalKey]float64, initialWidthCacheEntries)
+		}
 	}
 
 	if len(e.runeWidthCache) >= maxRuneWidthCacheEntries {

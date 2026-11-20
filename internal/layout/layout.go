@@ -902,8 +902,20 @@ func (e *engine) releaseScratch() {
 	e.hasLastFace = false
 	e.faceByRune = nil
 	e.lineGapByFace = nil
-	e.textWidthCache = nil
-	e.runeWidthCache = nil
+	if e.textWidthCache != nil {
+		if len(e.textWidthCache) <= maxTextWidthCacheEntries {
+			clear(e.textWidthCache)
+			textWidthCachePool.Put(e.textWidthCache)
+		}
+		e.textWidthCache = nil
+	}
+	if e.runeWidthCache != nil {
+		if len(e.runeWidthCache) <= maxRuneWidthCacheEntries {
+			clear(e.runeWidthCache)
+			runeWidthCachePool.Put(e.runeWidthCache)
+		}
+		e.runeWidthCache = nil
+	}
 	e.measureStyleIDs = nil
 	e.namedFlows = nil
 	e.namedFlowScanDone = false
