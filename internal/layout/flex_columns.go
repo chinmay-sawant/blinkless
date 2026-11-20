@@ -383,6 +383,97 @@ func justifyColumnStart(
 	return curY, gap
 }
 
+// canDirectFlowFlexColumn reports whether an auto-height, non-wrapping,
+// non-reversed flex column can place its children in a single pass without
+// pre-measuring every child's base height with noEmit.
+func (e *engine) canDirectFlowFlexColumn(kids []*html.Node, style *ResolvedStyle, contentH float64) bool {
+	if contentH >= 0 || len(kids) == 0 {
+		return false
+	}
+	if style.FlexWrap == fxWrap || style.FlexWrap == fxWrapRev || style.FlexDirection == fxColRev {
+		return false
+	}
+	for _, kid := range kids {
+		cstate := e.stylePtr(kid)
+		if cstate == nil || cstate.FlexOrder != 0 || cstate.FlexBasis >= 0 || cstate.FlexBasisPercent >= 0 ||
+			cstate.AspectRatio > 0 || cstate.MarginTopAuto || cstate.MarginBottomAuto {
+			return false
+		}
+	}
+
+	return true
+}
+
+// flowFlexColumnDirect builds an indefinite-height flex column in one pass,
+// avoiding the O(2^depth) noEmit pre-measurement of nested flex columns and
+// avoiding per-item ResolvedStyle override allocations when items stretch or
+// have definite widths.
+func (e *engine) flowFlexColumnDirect(
+	parent *box, kids []*html.Node, style *ResolvedStyle,
+	contentW, contentX, topY, curY, gap float64,
+) float64 {
+	leftY := curY
+	endY := curY
+	poll := newCtxPoll(e.ctx)
+
+	for idx, kid := range kids {
+		if poll.poll() {
+			e.err = poll.err
+
+			return endY
+		}
+
+		cstate := e.stylePtr(kid)
+		leftY += e.scalePt(cstate.MarginTop)
+
+		buildSty := cstate
+		forceCrossWidth := !(flexItemColumnCrossStretch(style, cstate) ||
+			cstate.Width >= 0 || cstate.WidthPercent >= 0)
+		if forceCrossWidth {
+			crossW := e.measureFlexItemMaxContent(kid, cstate)
+			if crossW > contentW {
+				crossW = contentW
+			}
+			override := e.allocStyle(cstate)
+			override.BoxSizing = "border-box"
+			override.Width = crossW / e.scale
+			override.WidthPercent = -1
+			buildSty = override
+		}
+
+		cblock := e.buildWithStyle(kid, buildSty, contentW, contentX, topY+leftY)
+		if cblock != nil {
+			desiredX := contentX
+			if !cstate.MarginLeftAuto {
+				desiredX += e.scalePt(cstate.MarginLeft)
+			}
+			dx := desiredX - cblock.x
+			dy := (topY + leftY) - cblock.y
+			e.shiftBoxOps(cblock, dx, dy)
+			cblock.x += dx
+			cblock.y += dy
+
+			e.alignColumnItem(cblock, style, cstate, contentX, contentW)
+
+			if parent != nil {
+				parent.children = append(parent.children, cblock)
+			}
+
+			leftY += cblock.height
+		}
+
+		leftY += e.scalePt(cstate.MarginBottom)
+		endY = leftY
+
+		if idx < len(kids)-1 && gap > 0 {
+			leftY += gap
+			endY = leftY
+		}
+	}
+
+	return endY
+}
+
 //nolint:cyclop,funlen,gocognit,wsl // column placement keeps CSS auto-margin and alignment phases together
 func (e *engine) buildColumnItems(
 	parent *box, style *ResolvedStyle, items []flexColMeas, heights []float64,

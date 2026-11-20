@@ -61,6 +61,9 @@ type measureStyleRef struct {
 	sizeBits uint64
 }
 
+//nolint:gochecknoglobals // per-layout measureStyleIDs map pool avoids reallocation on every layout
+var measureStyleIDPool = sync.Pool{}
+
 // measureStyleID returns the interned ID for sty at sizeBits, interning the
 // full descriptor on first use. It returns 0 when the intern table is full or
 // the inputs are nil; callers then keep only the per-layout cache.
@@ -69,9 +72,14 @@ func (e *engine) measureStyleID(sty *ResolvedStyle, primary *pdf.Font, sizeBits 
 		return 0
 	}
 
+	if e.hasLastMeasureID && e.lastMeasureSty == sty && e.lastMeasureSize == sizeBits {
+		return e.lastMeasureID
+	}
+
 	ref := measureStyleRef{style: sty, sizeBits: sizeBits}
 	if e.measureStyleIDs != nil {
 		if id, ok := e.measureStyleIDs[ref]; ok {
+			e.lastMeasureSty, e.lastMeasureSize, e.lastMeasureID, e.hasLastMeasureID = sty, sizeBits, id, true
 			return id
 		}
 	}
@@ -79,12 +87,17 @@ func (e *engine) measureStyleID(sty *ResolvedStyle, primary *pdf.Font, sizeBits 
 	styleID := internMeasureStyle(measureStyleDescOf(sty, primary, sizeBits))
 
 	if e.measureStyleIDs == nil {
-		e.measureStyleIDs = make(map[measureStyleRef]uint64, initialWidthCacheEntries)
+		if pooled, ok := measureStyleIDPool.Get().(map[measureStyleRef]uint64); ok {
+			e.measureStyleIDs = pooled
+		} else {
+			e.measureStyleIDs = make(map[measureStyleRef]uint64, initialWidthCacheEntries)
+		}
 	}
 
 	// Cache the zero too: a full table stays full, so retrying would only
 	// repeat the lock and descriptor hash on every text run.
 	e.measureStyleIDs[ref] = styleID
+	e.lastMeasureSty, e.lastMeasureSize, e.lastMeasureID, e.hasLastMeasureID = sty, sizeBits, styleID, true
 
 	return styleID
 }
@@ -93,11 +106,22 @@ func (e *engine) measureStyleID(sty *ResolvedStyle, primary *pdf.Font, sizeBits 
 // building a descriptor or resolving a face. ok is true even when the cached
 // ID is 0 (the intern table was full), so callers can stay on the fast path.
 func (e *engine) cachedMeasureStyleID(sty *ResolvedStyle, sizeBits uint64) (uint64, bool) {
-	if e == nil || sty == nil || e.measureStyleIDs == nil {
+	if e == nil || sty == nil {
+		return 0, false
+	}
+
+	if e.hasLastMeasureID && e.lastMeasureSty == sty && e.lastMeasureSize == sizeBits {
+		return e.lastMeasureID, true
+	}
+
+	if e.measureStyleIDs == nil {
 		return 0, false
 	}
 
 	id, ok := e.measureStyleIDs[measureStyleRef{style: sty, sizeBits: sizeBits}]
+	if ok {
+		e.lastMeasureSty, e.lastMeasureSize, e.lastMeasureID, e.hasLastMeasureID = sty, sizeBits, id, true
+	}
 
 	return id, ok
 }

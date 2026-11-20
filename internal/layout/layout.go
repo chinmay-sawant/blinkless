@@ -831,7 +831,11 @@ type engine struct {
 	// measureStyleIDs maps one resolved style at one scaled size to its
 	// process-wide interned measurement-style ID, so the global intern lock
 	// and descriptor hashing run once per style instead of once per text.
-	measureStyleIDs map[measureStyleRef]uint64
+	measureStyleIDs  map[measureStyleRef]uint64
+	lastMeasureSty   *ResolvedStyle
+	lastMeasureSize  uint64
+	lastMeasureID    uint64
+	hasLastMeasureID bool
 	// textWidthCache memoizes measureTextFace string widths for this Layout
 	// run, keyed by interned style ID and text.
 	textWidthCache map[textWidthLocalKey]float64
@@ -916,7 +920,17 @@ func (e *engine) releaseScratch() {
 		}
 		e.runeWidthCache = nil
 	}
-	e.measureStyleIDs = nil
+	if e.measureStyleIDs != nil {
+		if len(e.measureStyleIDs) <= maxTextWidthCacheEntries {
+			clear(e.measureStyleIDs)
+			measureStyleIDPool.Put(e.measureStyleIDs)
+		}
+		e.measureStyleIDs = nil
+	}
+	e.lastMeasureSty = nil
+	e.lastMeasureSize = 0
+	e.lastMeasureID = 0
+	e.hasLastMeasureID = false
 	e.namedFlows = nil
 	e.namedFlowScanDone = false
 }

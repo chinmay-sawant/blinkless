@@ -142,8 +142,14 @@ func (n *Node) TextContent() string {
 		}
 		return ""
 	}
-	if len(n.Children) == 1 && n.Children[0].Type == TextNode {
-		return n.Children[0].Text
+	if len(n.Children) == 1 {
+		child := n.Children[0]
+		if child.Type == TextNode {
+			return child.Text
+		}
+		if child.Type == ElementNode && child.Name != "template" && len(child.Children) == 1 && child.Children[0].Type == TextNode {
+			return child.Children[0].Text
+		}
 	}
 	if !n.hasAnyText() {
 		return ""

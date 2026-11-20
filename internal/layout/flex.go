@@ -874,6 +874,10 @@ func (e *engine) flexMinMainSizeUncached(item flexMeas, mainSize float64) float6
 	} else if cstate.MinWidth > 0 {
 		floor = e.scalePt(cstate.MinWidth)
 	}
+	// Overflow non-visible → automatic min size is 0 (CSS Flexbox §4.5).
+	if flexAutoMinSizeIsZero(cstate.Overflow) {
+		return floor
+	}
 	// Automatic minimum (min-width:auto): min-content size suggestion. The
 	// returned width already includes the item's horizontal chrome. Fixed-width
 	// single-text items derive the same suggestion from the longest word, so
@@ -891,10 +895,6 @@ func (e *engine) flexMinMainSizeUncached(item flexMeas, mainSize float64) float6
 	autoMin := contentSug
 	if specSug >= 0 && specSug < autoMin {
 		autoMin = specSug
-	}
-	// Overflow non-visible → automatic min size is 0 (CSS Flexbox §4.5).
-	if flexAutoMinSizeIsZero(cstate.Overflow) {
-		autoMin = 0
 	}
 
 	if autoMin > floor {
@@ -1203,8 +1203,10 @@ func (e *engine) placeFlexLineMeasured(
 	if targetCross < 0 {
 		if cross, ok := e.simpleFlexRowContentCross(parent, &style, contentW); ok {
 			targetCross = cross
-		} else {
+		} else if e.flexRowNeedsPreMeasureCross(&style, items) {
 			targetCross = e.measureFlexCrossMax(items, widths, startX, topY, curY, justifyGap)
+		} else {
+			targetCross = 0
 		}
 	}
 
@@ -1242,6 +1244,23 @@ func (e *engine) placeFlexLineMeasured(
 	}
 
 	return curY + rowH
+}
+
+// flexRowNeedsPreMeasureCross reports whether any item on the row needs the
+// line cross size known before buildRowItems (for cross-axis auto margins or
+// stretch sizing). When false, buildRowItems computes rowH in a single pass.
+func (e *engine) flexRowNeedsPreMeasureCross(style *ResolvedStyle, items []flexMeas) bool {
+	for _, item := range items {
+		cstate := e.stylePtr(item.n)
+		if cstate == nil {
+			continue
+		}
+		if cstate.MarginTopAuto || flexItemCrossStretchNode(item.n, style, cstate) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // flexLineWidthsInto resolves used main sizes into the caller's widths
@@ -2050,6 +2069,9 @@ func (e *engine) flowFlexColumn(
 	contentW, contentX, topY, curY, gap, crossGap float64,
 ) float64 {
 	contentH := resolveFlexColumnContentHeight(style, e)
+	if e.canDirectFlowFlexColumn(kids, &style, contentH) {
+		return e.flowFlexColumnDirect(parent, kids, &style, contentW, contentX, topY, curY, gap)
+	}
 	items := e.flexColumnItems(kids, contentW, contentH)
 	defer putFlexColMeas(items)
 

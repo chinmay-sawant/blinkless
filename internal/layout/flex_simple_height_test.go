@@ -14,7 +14,7 @@ import (
 // simpleFlexInvoiceCSS is the shape the fast path exists for: a column flex
 // container of row flex containers, each row holding fixed-width text cells.
 const simpleFlexInvoiceCSS = `body{margin:0;font-size:10pt}` +
-	`.invoice{display:flex;flex-direction:column;padding:16px}` +
+	`.invoice{display:flex;flex-direction:column;height:800pt;padding:16px}` +
 	`.row{display:flex;flex-wrap:nowrap;border-bottom:1px solid #ddd;padding:2px 0}` +
 	`.cell{width:50pt;padding:1px 4px;border:1px solid #ccc}`
 
@@ -55,7 +55,7 @@ type simpleFlexRowCase struct {
 //
 
 func simpleFlexRowCases() []simpleFlexRowCase {
-	const outerCSS = `#outer{display:flex;flex-direction:column;width:400pt}`
+	const outerCSS = `#outer{display:flex;flex-direction:column;width:400pt;height:400pt}`
 
 	cells := func(count int, class string) string {
 		var body strings.Builder
