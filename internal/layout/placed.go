@@ -167,7 +167,7 @@ func walkPlacedFunc(
 	}
 
 	if boxNode.node != nil && boxNode.node.Type == html.ElementNode {
-		*item = placedElement(boxNode, info, parentIndex, ops, allIDs, opts, scroll, scroller)
+		fillPlacedElement(item, boxNode, info, parentIndex, ops, allIDs, opts, scroll, scroller)
 
 		childParent = index
 		index++
@@ -191,28 +191,67 @@ func walkPlacedFunc(
 	return index
 }
 
-func placedElement(
-	boxNode *box, info TransformInfo, parentIndex int, ops []Op,
+func defaultPlacedTriggers() PlacedTriggers {
+	return PlacedTriggers{
+		TimelineScope:    TimelineScopeDef{None: true, All: false, Names: nil},
+		TimelineTriggers: nil,
+		EventTriggers:    nil,
+		InterestDelay:    InterestDelayDef{StartNormal: true, EndNormal: true, StartMs: 0, EndMs: 0},
+		Interactivity:    overflowAuto,
+	}
+}
+
+func fillPlacedMeta(
+	item *PlacedElement, boxNode *box, sty *ResolvedStyle, elementID string,
+	scroll placedScrollContext, scroller placedScroller,
+) {
+	if boxNode.sticky {
+		item.Sticky = placedSticky(boxNode, scroll)
+	}
+
+	if sty.Animation.Set {
+		item.Animations = animationRecordsFromStyle(sty.Animation)
+	}
+
+	if sty.Transition.Set {
+		item.Transitions = transitionRecordsFromStyle(sty.Transition)
+	}
+
+	if sty.ScrollTimelineName != "" || sty.ViewTimelineName != "" || sty.Triggers != nil {
+		item.Timelines = placedTimelineDefs(boxNode, elementID, scroller)
+	}
+
+	if sty.Triggers != nil {
+		item.Triggers = placedTriggersFromStyle(sty)
+	} else {
+		item.Triggers = defaultPlacedTriggers()
+	}
+}
+
+func fillPlacedElement(
+	item *PlacedElement, boxNode *box, info TransformInfo, parentIndex int, ops []Op,
 	allIDs *[]uint64, opts WalkPlacedOptions, scroll placedScrollContext, scroller placedScroller,
-) PlacedElement {
-	elementID := boxNode.node.Attribute("id")
-	item := PlacedElement{
-		Sticky:              placedSticky(boxNode, scroll),
-		Fixed:               boxNode.style.Position == positionFixed,
+) {
+	sty := boxNode.style
+	elementID := boxNode.node.AttrExact("id")
+
+	*item = PlacedElement{
+		Sticky:              nil,
+		Fixed:               sty.Position == positionFixed,
 		ID:                  elementID,
 		Tag:                 boxNode.node.Name,
-		Action:              boxNode.node.Attribute("data-action"),
+		Action:              boxNode.node.AttrExact("data-action"),
 		ParentIndex:         parentIndex,
 		OperationIDs:        appendOperationIDs(ops, boxNode.opStart, boxNode.opEnd, allIDs),
-		Animations:          animationRecordsFromStyle(boxNode.style.Animation),
-		Transitions:         transitionRecordsFromStyle(boxNode.style.Transition),
-		TriggerScope:        boxNode.style.Animation.TriggerScope,
-		ViewTransitionName:  boxNode.style.Animation.ViewTransitionName,
-		ViewTransitionClass: boxNode.style.Animation.ViewTransitionClass,
-		ViewTransitionGroup: boxNode.style.Animation.ViewTransitionGroup,
-		ViewTransitionScope: boxNode.style.Animation.ViewTransitionScope,
-		Timelines:           placedTimelineDefs(boxNode, elementID, scroller),
-		Triggers:            placedTriggersFromStyle(boxNode.style),
+		Animations:          nil,
+		Transitions:         nil,
+		TriggerScope:        sty.Animation.TriggerScope,
+		ViewTransitionName:  sty.Animation.ViewTransitionName,
+		ViewTransitionClass: sty.Animation.ViewTransitionClass,
+		ViewTransitionGroup: sty.Animation.ViewTransitionGroup,
+		ViewTransitionScope: sty.Animation.ViewTransitionScope,
+		Timelines:           nil,
+		Triggers:            defaultPlacedTriggers(),
 		OverflowClip:        elementOverflowClip(boxNode),
 		HasOverflowClip:     boxNode.overflowClip != nil,
 		Transform:           info,
@@ -224,15 +263,11 @@ func placedElement(
 		Declared:            nil,
 	}
 
-	fillPlacedText(&item, boxNode, opts)
+	fillPlacedMeta(item, boxNode, sty, elementID, scroll, scroller)
 
-	return item
-}
-
-// fillPlacedText copies the element's declared-only properties, and its text
-// content when the walk asks for it.
-func fillPlacedText(item *PlacedElement, boxNode *box, opts WalkPlacedOptions) {
-	item.Declared = declaredValues(boxNode.style)
+	if sty.Declared != nil {
+		item.Declared = declaredValues(sty)
+	}
 
 	if opts.IncludeText {
 		item.Text = boxNode.node.TextContent()

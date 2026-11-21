@@ -117,7 +117,7 @@ func flexColumnOverrideKey(
 // chunks, so their address can later hold another record; keying the override
 // cache on such a pointer would serve a stale override for a different base.
 func (e *engine) flexBaseStyleStable(node *html.Node, style *ResolvedStyle) bool {
-	return e.styles[node] == style
+	return e.styles[node] == style || (e.syntheticStyles != nil && e.syntheticStyles[node] == style)
 }
 
 //nolint:gochecknoglobals // global pool for reusable flex style override maps
@@ -168,6 +168,12 @@ func (e *engine) flexRowStyleOverride(
 		}
 	}
 
+	if flexOverrideBypass.Load() || len(e.flexStyleOverrides) >= flexOverrideMaxEntries {
+		flexOverrideMisses.Add(1)
+
+		return e.allocFlexRowStyleOverride(base, forceStretch, targetCross, availW)
+	}
+
 	// The override is owned by the cache and outlives the measure scopes that
 	// reclaim allocStyle chunks, so it cannot come from e.styleChunks: a
 	// resetStyles later in the run would clear and reuse that memory. Instead,
@@ -205,6 +211,12 @@ func (e *engine) flexColumnStyleOverride(
 				return cached
 			}
 		}
+	}
+
+	if flexOverrideBypass.Load() || len(e.flexStyleOverrides) >= flexOverrideMaxEntries {
+		flexOverrideMisses.Add(1)
+
+		return e.allocFlexColumnStyleOverride(base, height, crossW, forceCrossWidth)
 	}
 
 	override := e.allocFlexOverrideStyle(base)

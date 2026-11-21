@@ -248,8 +248,8 @@ func TestBehaviorWideGamutCascadeEndToEnd(t *testing.T) {
 		t.Errorf("stored BGColor = %v, want out-of-gamut headroom", keptStyle.BGColor)
 	}
 
-	stdUsed := usedBGForPaintActive(*stdStyle, false)
-	keptUsed := usedBGForPaintActive(*keptStyle, false)
+	stdUsed := usedBGForPaintActive(stdStyle, false)
+	keptUsed := usedBGForPaintActive(keptStyle, false)
 
 	if wideGamutHeadroom([3]float64{stdUsed[0], stdUsed[1], stdUsed[2]}) {
 		t.Errorf("standard used fill = %v, want folded into sRGB [0, 1]", stdUsed)

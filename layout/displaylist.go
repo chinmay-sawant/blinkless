@@ -327,26 +327,35 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 
 const maxPooledIntSliceCap = 65536
 
-// intSlicePool stores typed slice headers. It deliberately has no New: an
-// empty pool must fall through to the caller's exact-size make instead of
-// allocating a header and an empty backing on every cold rent.
-var intSlicePool = sync.Pool{} //nolint:exhaustruct,gochecknoglobals // see the comment above
+// intSlicePool stores typed slice headers; intSliceHdrPool recycles empty
+// *[]int headers so rent and release never box headers or discard backings.
+var (
+	intSlicePool    = sync.Pool{} //nolint:exhaustruct,gochecknoglobals // see the comment above
+	intSliceHdrPool = sync.Pool{} //nolint:exhaustruct,gochecknoglobals // see the comment above
+)
 
 func rentIntSlice(need int) []int {
 	if need <= 0 {
 		return nil
 	}
 
-	if scratch, ok := intSlicePool.Get().(*[]int); ok && cap(*scratch) >= need {
-		return (*scratch)[:need]
+	if hdr, ok := intSlicePool.Get().(*[]int); ok {
+		scratch := *hdr
+		*hdr = nil
+
+		intSliceHdrPool.Put(hdr)
+
+		if cap(scratch) >= need {
+			return scratch[:need]
+		}
 	}
 
 	return make([]int, need)
 }
 
 // releaseIntSlice returns an int scratch to the pool. The stored header comes
-// back from the pool, or is created once on a cold return, so the slice header
-// is not boxed into a fresh allocation per call.
+// back from intSliceHdrPool, or is created once on a cold return, so the slice
+// header is not boxed into a fresh allocation per call.
 func releaseIntSlice(scratch []int) {
 	if cap(scratch) == 0 || cap(scratch) > maxPooledIntSliceCap {
 		return
@@ -354,7 +363,7 @@ func releaseIntSlice(scratch []int) {
 
 	scratch = scratch[:0]
 
-	header, ok := intSlicePool.Get().(*[]int)
+	header, ok := intSliceHdrPool.Get().(*[]int)
 	if !ok {
 		header = new([]int)
 	}
@@ -374,20 +383,7 @@ func rentBoxSlice(need int) []Box {
 	return make([]Box, need)
 }
 
-// newDisplay builds the public display list from a placement.
-//
-// The retained layout state is opt-in. Without it the placement is dropped
-// here, so the resolved styles and the box tree the layout built become
-// garbage instead of living as long as the display does.
-func newDisplay(
-	res *ilayout.Result,
-	sheets []*icss.Stylesheet,
-	canvasPt float64,
-	forced []float64,
-	keep [][2]float64,
-	zoom float64,
-	retain bool,
-) *Display {
+func collectPlacedBoxes(res *ilayout.Result, zoom float64) ([]Box, []int) {
 	boxCount := 0
 	if res != nil {
 		boxCount = res.BoxCount()
@@ -404,10 +400,31 @@ func newDisplay(
 	options := ilayout.WalkPlacedOptions{IncludeText: true, LayoutScale: zoom}
 
 	ilayout.WalkPlacedWithOptions(res, options, func(item *ilayout.PlacedElement) {
-		boxes = append(boxes, boxFrom(item))
+		idx := len(boxes)
+		boxes = append(boxes, Box{}) //nolint:exhaustruct // filled immediately below
+		fillBoxFrom(&boxes[idx], item)
+
 		parents = append(parents, item.ParentIndex)
 	})
 
+	return boxes, parents
+}
+
+// newDisplay builds the public display list from a placement.
+//
+// The retained layout state is opt-in. Without it the placement is dropped
+// here, so the resolved styles and the box tree the layout built become
+// garbage instead of living as long as the display does.
+func newDisplay(
+	res *ilayout.Result,
+	sheets []*icss.Stylesheet,
+	canvasPt float64,
+	forced []float64,
+	keep [][2]float64,
+	zoom float64,
+	retain bool,
+) *Display {
+	boxes, parents := collectPlacedBoxes(res, zoom)
 	owners, order := emitOwnersAndOrder(res, parents)
 
 	if parents != nil {
@@ -522,7 +539,9 @@ func patchBoxes(deriveOwners bool, prev *Display, boxCount int) []Box {
 		}
 
 		if cap(prev.Boxes) >= boxCount && cap(prev.Boxes) <= boxCount*2 {
-			clear(prev.Boxes[boxCount:])
+			if boxCount < len(prev.Boxes) {
+				clear(prev.Boxes[boxCount:])
+			}
 
 			return prev.Boxes[:0]
 		}

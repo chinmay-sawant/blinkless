@@ -192,7 +192,7 @@ func hoverMatchChangedCached(node *html.Node, entry *hoverListEntry, old, next i
 
 			if !sigReady {
 				tag = hoverTagName(node)
-				attrs = hoverAttrKey(node.Attrs)
+				attrs = hoverAttrKey(node.EnsureAttrs())
 				sigReady = true
 			}
 
@@ -215,11 +215,7 @@ func hoverMatchChangedCached(node *html.Node, entry *hoverListEntry, old, next i
 // hoverIsEndpoint reports whether node is the element whose hover state
 // changed between old and next.
 func hoverIsEndpoint(node *html.Node, old, next icss.MatchState) bool {
-	if node.Attrs == nil {
-		return false
-	}
-
-	elementID := node.Attrs["id"]
+	elementID := node.AttrExact("id")
 
 	return elementID != "" && (elementID == old.Hover || elementID == next.Hover)
 }

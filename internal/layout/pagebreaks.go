@@ -255,7 +255,52 @@ func inlineLevelBox(style *ResolvedStyle) bool {
 // the border box, so the line moves with its padding, border, and background
 // instead of leaving an empty leading fragment behind. Boxes taller than one
 // page cannot be kept whole and split between lines instead.
-func singleLineKeepRangeWithBuf(res *Result, boxNode *box, pageH float64, buf []float64) ([2]float64, bool) {
+// singleDistinctBaseline checks whether ops[start:end) contains text/bullet ops
+// all belonging to a single formatted line (within orphanLineEpsilonPt of the
+// minimum baseline). It exits on the second distinct line and allocates nothing.
+func singleDistinctBaseline(ops []Op, start, end int) (float64, bool) {
+	if start < 0 {
+		start = 0
+	}
+
+	if end > len(ops) {
+		end = len(ops)
+	}
+
+	hasAny := false
+	minY := 0.0
+	maxY := 0.0
+
+	for k := start; k < end; k++ {
+		if ops[k].Kind != OpText && ops[k].Kind != OpBullet {
+			continue
+		}
+
+		baseY := ops[k].Y
+
+		if !hasAny {
+			hasAny = true
+			minY = baseY
+			maxY = baseY
+
+			continue
+		}
+
+		if baseY < minY {
+			minY = baseY
+		} else if baseY > maxY {
+			maxY = baseY
+		}
+
+		if maxY-minY >= orphanLineEpsilonPt {
+			return 0, false
+		}
+	}
+
+	return minY, hasAny
+}
+
+func singleLineKeepRangeWithBuf(res *Result, boxNode *box, pageH float64, _ []float64) ([2]float64, bool) {
 	var none [2]float64
 
 	if boxNode == nil || pageH <= 0 || boxNode.height <= 0 || boxNode.height > pageH+layoutCoordEpsilon {
@@ -266,17 +311,17 @@ func singleLineKeepRangeWithBuf(res *Result, boxNode *box, pageH float64, buf []
 		return none, false
 	}
 
-	baselines := stripLineBaselinesInto(res.Ops, boxNode.opStart, boxNode.opEnd+1, buf)
-	if len(baselines) != 1 {
+	baseline, ok := singleDistinctBaseline(res.Ops, boxNode.opStart, boxNode.opEnd+1)
+	if !ok {
 		return none, false
 	}
 
-	if !boxOwnsLine(res, boxNode, baselines[0]) {
+	if !boxOwnsLine(res, boxNode, baseline) {
 		return none, false
 	}
 
 	boundary := float64(int(boxNode.y/pageH)+1) * pageH
-	if !lineExtendsPast(res.Ops, boxNode, baselines[0], boundary) {
+	if !lineExtendsPast(res.Ops, boxNode, baseline, boundary) {
 		return none, false
 	}
 

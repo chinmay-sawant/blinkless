@@ -154,7 +154,7 @@ func cornerShapePaintColorFill(
 	eng *engine, sty ResolvedStyle,
 	posX, posY, width, height float64, radii, radiiY [4]float64, shapeK [4]float64,
 ) []Op {
-	usedBG := usedBGForPaintActive(sty, eng.forcedColorsForPaint())
+	usedBG := usedBGForPaintActive(&sty, eng.forcedColorsForPaint())
 
 	fillX, fillY, fillW, fillH, ok := cornerShapePaintFillBox(sty, posX, posY, width, height)
 	if !ok {

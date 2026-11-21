@@ -201,7 +201,7 @@ func assertAnimationTransitionCascade(t *testing.T, testCase animationTransition
 
 	root := mustParse(t, `<html><body><div id="target"></div></body></html>`)
 	node := findAnimationTransitionAliasElement(t, root, "target")
-	node.Attrs["style"] = testCase.style
+	node.EnsureAttrs()["style"] = testCase.style
 	styles := resolveStyles(root, nil, "print", testViewport, 800)
 	style := styles[node]
 

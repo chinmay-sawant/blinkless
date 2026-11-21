@@ -228,7 +228,15 @@ func snapRadiiXY(radiusX, radiusY [4]float64) ([4]float64, [4]float64) {
 // shorthand (Y left 0) copies X onto Y before a unified CSS overlap scale so
 // border-radius:999px on a wide short pill becomes half-height circles, not
 // half-width ellipses.
-func usedBorderRadiiXY(sty ResolvedStyle, width, height float64) ([4]float64, [4]float64) {
+func hasAnyAbsoluteBorderRadius(sty *ResolvedStyle) bool {
+	return sty.BorderRadius > 0 ||
+		sty.BorderRadiusTopLeft > 0 || sty.BorderRadiusTopRight > 0 ||
+		sty.BorderRadiusBottomRight > 0 || sty.BorderRadiusBottomLeft > 0 ||
+		sty.BorderRadiusTopLeftY > 0 || sty.BorderRadiusTopRightY > 0 ||
+		sty.BorderRadiusBottomRightY > 0 || sty.BorderRadiusBottomLeftY > 0
+}
+
+func usedBorderRadiiXY(sty *ResolvedStyle, width, height float64) ([4]float64, [4]float64) {
 	var radiusX, radiusY [4]float64
 
 	if sty.BorderRadiusPercent >= 0 {
@@ -243,6 +251,10 @@ func usedBorderRadiiXY(sty ResolvedStyle, width, height float64) ([4]float64, [4
 		scaleRadiiXY(radiusX[:], radiusY[:], width, height)
 
 		return snapRadiiXY(radiusX, radiusY)
+	}
+
+	if !hasAnyAbsoluteBorderRadius(sty) {
+		return radiusX, radiusY
 	}
 
 	radiusX = borderRadiusValues(sty, width, height)
@@ -272,7 +284,7 @@ func usedBorderRadiiXY(sty ResolvedStyle, width, height float64) ([4]float64, [4
 }
 
 func usedBorderRadii(sty ResolvedStyle, width, height float64) [4]float64 {
-	radiusX, _ := usedBorderRadiiXY(sty, width, height)
+	radiusX, _ := usedBorderRadiiXY(&sty, width, height)
 
 	return radiusX
 }
@@ -281,7 +293,7 @@ func usedBorderRadius(sty ResolvedStyle, width, height float64) float64 {
 	return uniformRadius(usedBorderRadii(sty, width, height))
 }
 
-func borderRadiusValues(sty ResolvedStyle, width, _ float64) [4]float64 {
+func borderRadiusValues(sty *ResolvedStyle, width, _ float64) [4]float64 {
 	var radii [4]float64
 
 	switch {

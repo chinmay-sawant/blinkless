@@ -207,20 +207,20 @@ func (e *engine) emitBorderLine(posX, posY, boxW, boxH, width float64, style str
 }
 
 // borderOps returns the four border line ops for the given border box.
-func (e *engine) borderOps(sty ResolvedStyle, posX, posY, wid, height float64) []Op {
+func (e *engine) borderOps(sty *ResolvedStyle, posX, posY, wid, height float64) []Op {
 	return e.appendBorderOps(nil, sty, posX, posY, wid, height)
 }
 
 // appendBorderOps appends the four border line ops for the given border box
 // into dst, so chrome assembly reuses one backing array instead of copying
 // a per-side temporary into it.
-func (e *engine) appendBorderOps(dst []Op, sty ResolvedStyle, posX, posY, wid, height float64) []Op {
+func (e *engine) appendBorderOps(dst []Op, sty *ResolvedStyle, posX, posY, wid, height float64) []Op {
 	return e.appendBorderOpsSides(dst, sty, posX, posY, wid, height, true, true, true, true)
 }
 
 // borderOpsSides emits the requested sides of a border box.
 func (e *engine) borderOpsSides(
-	sty ResolvedStyle, posX, posY, wid, height float64, top, right, bottom, left bool,
+	sty *ResolvedStyle, posX, posY, wid, height float64, top, right, bottom, left bool,
 ) []Op {
 	return e.appendBorderOpsSides(nil, sty, posX, posY, wid, height, top, right, bottom, left)
 }
@@ -243,7 +243,7 @@ func growChromeOps(dst []Op, need int) []Op {
 // growing it at most once for the dashed-segment bound. A nil dst behaves
 // exactly like the old allocating form.
 func (e *engine) appendBorderOpsSides(
-	dst []Op, sty ResolvedStyle, posX, posY, wid, height float64, top, right, bottom, left bool,
+	dst []Op, sty *ResolvedStyle, posX, posY, wid, height float64, top, right, bottom, left bool,
 ) []Op {
 	clipStart := len(dst)
 	wTop := 0.0
@@ -371,7 +371,7 @@ func (e *engine) appendBorderOpsSides(
 		}
 	}
 
-	return e.clipBorderOps(ops, clipStart, &sty, posX, posY, wid, height)
+	return e.clipBorderOps(ops, clipStart, sty, posX, posY, wid, height)
 }
 
 // borderSideLineInset returns the inward paint inset for one border side.
@@ -473,7 +473,7 @@ func (e *engine) thumbImageInsideFigure(node *html.Node) bool {
 // chromeMustSpliceImmediately reports boxes whose chrome must land in e.ops
 // during the build: sticky (StickyID stamp), fixed (Fixed stamp), and
 // transform (op-range exclusive CTM stamp). Common static/relative boxes defer.
-func chromeMustSpliceImmediately(st ResolvedStyle) bool {
+func chromeMustSpliceImmediately(st *ResolvedStyle) bool {
 	if st.HasTransform {
 		return true
 	}
@@ -512,40 +512,56 @@ func hasPotentialChrome(sty *ResolvedStyle, boxNode *box) bool {
 // stamps and transform exclusive ranges stay correct without re-derivation.
 //
 //nolint:cyclop,wsl,funlen // paint ordering and border geometry stay together
-func (e *engine) prependChrome(insertAt int, boxNode *box, sty ResolvedStyle, posX, posY, width, height float64) {
+func (e *engine) prependChrome(insertAt int, boxNode *box, sty *ResolvedStyle, posX, posY, width, height float64) {
 	if e.noEmit {
 		return
 	}
-	if isNeutralFrameSection(boxNode.node, sty) {
-		sty.BorderTop = sty.BorderBottom
+	if boxNode != nil && isNeutralFrameSection(boxNode.node, sty) {
+		local := *sty
+		local.BorderTop = local.BorderBottom
+		sty = &local
 	}
 
 	if overflowClipsPaint(sty.Overflow) && insertAt >= 0 && insertAt <= len(e.ops) {
 		clipOpsSlice(e.ops[insertAt:], e.paddingBoxRect(posX, posY, width, height, sty))
 	}
 
-	if !hasPotentialChrome(&sty, boxNode) {
+	if !hasPotentialChrome(sty, boxNode) {
 		return
 	}
 
-	var chrome []Op
+	chrome := e.chromeScratch[:0]
+	e.chromeScratch = nil
+	defer func() {
+		if cap(chrome) <= 64 {
+			clear(chrome)
+			e.chromeScratch = chrome[:0]
+		}
+	}()
 	radii, radiiY := usedBorderRadiiXY(sty, width, height)
-	shapeK := cornerShapePaintK(sty)
-	cornerFillOps, cornerBorderOps, cornerFillHandled, cornerBorderHandled := cornerShapePaint(
-		e, boxNode, sty, posX, posY, width, height, radii, radiiY, shapeK)
-	if !cornerFillHandled && !cornerBorderHandled {
+	var cornerFillOps, cornerBorderOps []Op
+	var cornerFillHandled, cornerBorderHandled bool
+	if sty.CornerShapeTopLeftKeyword != "" || sty.CornerShapeTopRightKeyword != "" ||
+		sty.CornerShapeBottomRightKeyword != "" || sty.CornerShapeBottomLeftKeyword != "" {
+		shapeK := cornerShapePaintK(*sty)
+		cornerFillOps, cornerBorderOps, cornerFillHandled, cornerBorderHandled = cornerShapePaint(
+			e, boxNode, *sty, posX, posY, width, height, radii, radiiY, shapeK)
+	}
+	if !cornerFillHandled && !cornerBorderHandled && sty.Declared != nil && sty.Declared.BorderShape != "" {
 		cornerFillOps, cornerBorderOps, cornerFillHandled, cornerBorderHandled = borderShapePaint(
-			e, boxNode, sty, posX, posY, width, height)
+			e, boxNode, *sty, posX, posY, width, height)
 	}
 	radius := uniformRadius(radii)
 	// Outset box-shadow paints behind the background so blur rings do not
 	// cover the border box. Inset shadows must paint after the background
 	// (CSS Backgrounds §7.1 / fixture-61 box-shadow-position), or the fill
 	// hides them.
-	chrome = e.appendBoxShadow(chrome, sty, posX, posY, width, height, radii, radiiY, false)
+	if sty.BoxShadowSet || sty.BoxShadowRaw != "" {
+		chrome = e.appendBoxShadow(chrome, *sty, posX, posY, width, height, radii, radiiY, false)
+	}
 	if cornerFillHandled {
 		chrome = append(chrome, cornerFillOps...)
-	} else if sty.BGColor[3] > 0 && e.backgroundPaintEnabled(&sty) {
+	} else if sty.BGColor[3] > 0 && e.backgroundPaintEnabled(sty) {
 		usedBG := usedBGForPaintActive(sty, e.forcedColorsForPaint())
 		bgOp := Op{ //nolint:exhaustruct // intentional zero fields
 			Kind: OpFillRect, X: posX, Y: posY, W: width, H: height,
@@ -555,7 +571,7 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty ResolvedStyle, po
 
 		bgClip := sty.BackgroundClip
 		if backgroundClipIsPaddingBox(bgClip) || backgroundClipIsContentBox(bgClip) {
-			cx, cy, cw, ch := resolveBackgroundClipBox(sty, posX, posY, width, height)
+			cx, cy, cw, ch := resolveBackgroundClipBox(*sty, posX, posY, width, height)
 			clip := clipRect{x: cx, y: cy, w: cw, h: ch}
 			if !clip.empty() {
 				clipRectOp(&bgOp, clip)
@@ -567,7 +583,7 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty ResolvedStyle, po
 			chrome = append(chrome, bgOp)
 		}
 	} else if isColorSchemeCanvasRoot(boxNode) {
-		if fill, ok := canvasFillForRoot(&sty); ok && width > 0 && height > 0 {
+		if fill, ok := canvasFillForRoot(sty); ok && width > 0 && height > 0 {
 			bgOp := Op{ //nolint:exhaustruct // intentional zero fields
 				Kind: OpFillRect, X: posX, Y: posY, W: width, H: height,
 				R: fill[0], G: fill[1], B: fill[2], Alpha: fill[3], Radius: radius,
@@ -577,14 +593,19 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty ResolvedStyle, po
 			chrome = append(chrome, bgOp)
 		}
 	}
-	chrome = e.appendBackgroundImage(chrome, sty, posX, posY, width, height)
-	chrome = e.appendBoxShadow(chrome, sty, posX, posY, width, height, radii, radiiY, true)
+	if sty.BackgroundImage != "" {
+		chrome = e.appendBackgroundImage(chrome, *sty, posX, posY, width, height)
+	}
+	if sty.BoxShadowSet || sty.BoxShadowRaw != "" {
+		chrome = e.appendBoxShadow(chrome, *sty, posX, posY, width, height, radii, radiiY, true)
+	}
 
 	if sty.BorderImageSource != "" {
-		chrome = e.appendBorderImage(chrome, sty, posX, posY, width, height)
+		chrome = e.appendBorderImage(chrome, *sty, posX, posY, width, height)
 	} else if cornerBorderHandled {
 		chrome = append(chrome, cornerBorderOps...)
-	} else {
+	} else if sty.BorderTop.Width > 0 || sty.BorderRight.Width > 0 ||
+		sty.BorderBottom.Width > 0 || sty.BorderLeft.Width > 0 {
 		switch {
 		case hasRoundedRadii(radii) && roundedSolidBorder(sty):
 			chrome = e.appendRoundedBorderOps(chrome, sty, posX, posY, width, height, radii)
@@ -594,11 +615,13 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty ResolvedStyle, po
 			chrome = e.appendCollapsedOrFullBorderOps(chrome, boxNode, sty, posX, posY, width, height)
 		}
 	}
-	if boxNode != nil && outlinePaints(&sty) {
-		effW, _ := effectiveOutline(&sty)
-		boxNode.outlineInflate = e.scalePt(outlineInflate(effW, sty.OutlineOffset))
+	if sty.OutlineWidth > 0 && sty.OutlineStyle != "" && sty.OutlineStyle != cssDisplayNone {
+		if boxNode != nil && outlinePaints(sty) {
+			effW, _ := effectiveOutline(sty)
+			boxNode.outlineInflate = e.scalePt(outlineInflate(effW, sty.OutlineOffset))
+		}
+		chrome = e.appendOutlineOpsForStyle(chrome, sty, posX, posY, width, height)
 	}
-	chrome = e.appendOutlineOpsForStyle(chrome, &sty, posX, posY, width, height)
 	stampOpRadiiY(chrome, radiiY)
 	if len(chrome) == 0 {
 		return
@@ -618,7 +641,15 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty ResolvedStyle, po
 	}
 
 	if !chromeMustSpliceImmediately(sty) {
-		e.deferredChrome = append(e.deferredChrome, chromeEntry{at: insertAt, ops: chrome, b: boxNode})
+		saved := e.packDeferredChrome(chrome)
+		e.deferredChrome = append(e.deferredChrome, chromeEntry{at: insertAt, ops: saved, b: boxNode})
+		if boxNode != nil {
+			if boxNode.deferredChrome == nil {
+				boxNode.deferredChrome = saved
+			} else {
+				boxNode.extraDeferredChrome = append(boxNode.extraDeferredChrome, saved)
+			}
+		}
 
 		return
 	}
@@ -636,6 +667,57 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty ResolvedStyle, po
 			e.deferredChrome[i].at += n
 		}
 	}
+}
+
+const chromeSlabCap = 64
+
+var chromeSlabPool = sync.Pool{ //nolint:gochecknoglobals // shared deferred chrome op slabs
+	New: func() any {
+		s := make([]Op, 0, chromeSlabCap)
+
+		return &s
+	},
+}
+
+func (e *engine) releaseChromeSlabs() {
+	for _, slab := range e.chromeSlabs {
+		if slab == nil {
+			continue
+		}
+		if cap(*slab) == chromeSlabCap {
+			clear(*slab)
+			*slab = (*slab)[:0]
+			chromeSlabPool.Put(slab)
+		}
+	}
+	e.chromeSlabs = nil
+}
+
+func (e *engine) packDeferredChrome(src []Op) []Op {
+	n := len(src)
+	if n > chromeSlabCap {
+		saved := make([]Op, n)
+		copy(saved, src)
+		return saved
+	}
+
+	var slab *[]Op
+	if len(e.chromeSlabs) > 0 {
+		last := e.chromeSlabs[len(e.chromeSlabs)-1]
+		if cap(*last)-len(*last) >= n {
+			slab = last
+		}
+	}
+	if slab == nil {
+		slab = chromeSlabPool.Get().(*[]Op) //nolint:forcetypeassert // pool stores *[]Op
+		*slab = (*slab)[:0]
+		e.chromeSlabs = append(e.chromeSlabs, slab)
+	}
+
+	start := len(*slab)
+	*slab = append(*slab, src...)
+
+	return (*slab)[start : start+n : start+n]
 }
 
 func (e *engine) assignChromeOpIDs(ops []Op) {
@@ -729,7 +811,7 @@ func asciiFoldEqual(s, want string) bool {
 // vertical rails, so the caption emits only the closing bottom edge at the
 // figure's border-box width.
 func (e *engine) appendCollapsedOrFullBorderOps(
-	dst []Op, boxNode *box, sty ResolvedStyle, posX, posY, width, height float64,
+	dst []Op, boxNode *box, sty *ResolvedStyle, posX, posY, width, height float64,
 ) []Op {
 	parentStyle, ok := e.collapsedThumbCaption(boxNode)
 	if !ok {
@@ -747,7 +829,7 @@ func (e *engine) appendCollapsedOrFullBorderOps(
 // keeps its top edge consistent with its bottom edge across page fragments.
 //
 //nolint:wsl // generic frame checks remain adjacent to their border gates.
-func isNeutralFrameSection(node *html.Node, sty ResolvedStyle) bool {
+func isNeutralFrameSection(node *html.Node, sty *ResolvedStyle) bool {
 	if node == nil || node.Name != htmlSection {
 		return false
 	}
@@ -776,21 +858,21 @@ func hasRoundedRadii(radii [4]float64) bool {
 	return false
 }
 
-func uniformRoundedBorder(sty ResolvedStyle) bool {
+func uniformRoundedBorder(sty *ResolvedStyle) bool {
 	top := sty.BorderTop
 
 	return top.Width > 0 && top.Style == solidKeyword &&
 		top == sty.BorderRight && top == sty.BorderBottom && top == sty.BorderLeft
 }
 
-func roundedSolidBorder(sty ResolvedStyle) bool {
+func roundedSolidBorder(sty *ResolvedStyle) bool {
 	return sty.BorderTop.Width > 0 && sty.BorderRight.Width > 0 &&
 		sty.BorderBottom.Width > 0 && sty.BorderLeft.Width > 0 &&
 		sty.BorderTop.Style == solidKeyword && sty.BorderRight.Style == solidKeyword &&
 		sty.BorderBottom.Style == solidKeyword && sty.BorderLeft.Style == solidKeyword
 }
 
-func roundedAccentBorder(sty ResolvedStyle) bool {
+func roundedAccentBorder(sty *ResolvedStyle) bool {
 	return (sty.BorderTop.Width > 0 && sty.BorderTop.Style == solidKeyword) ||
 		(sty.BorderRight.Width > 0 && sty.BorderRight.Style == solidKeyword) ||
 		(sty.BorderBottom.Width > 0 && sty.BorderBottom.Style == solidKeyword) ||
@@ -825,7 +907,7 @@ type mixedChromeSide struct {
 // differing sides are overlaid as masked OpStrokeRect sides so accent rails
 // keep corner arcs without a second OpLine rewrite.
 func (e *engine) appendRoundedBorderOps(
-	dst []Op, sty ResolvedStyle, posX, posY, width, height float64, radii [4]float64,
+	dst []Op, sty *ResolvedStyle, posX, posY, width, height float64, radii [4]float64,
 ) []Op {
 	// Use the bottom side as the base geometry. CSS frequently uses an
 	// accented top rail (for example the architecture pipeline cards); using
@@ -878,7 +960,7 @@ func (e *engine) appendRoundedBorderOps(
 // Solid remnant sides use StrokeMask* overlays; dashed/dotted sides stay as
 // segmented OpLines that stop at the corner radii.
 func (e *engine) appendRoundedAccentBorderOps(
-	dst []Op, sty ResolvedStyle,
+	dst []Op, sty *ResolvedStyle,
 	posX, posY, width, height float64,
 	radii [4]float64,
 ) []Op {
@@ -938,7 +1020,9 @@ func (e *engine) finalizeChrome(root *box) {
 		entries := e.deferredChrome
 		e.deferredChrome = nil
 
-		out, oldToNew, ownerChrome := mergeDeferredChrome(e.ops, entries, boxPreorder(root))
+		stampBoxPreorder(root)
+		out, oldToNew := mergeDeferredChrome(e.ops, entries)
+		e.releaseChromeSlabs()
 
 		e.ops = out
 
@@ -946,7 +1030,7 @@ func (e *engine) finalizeChrome(root *box) {
 		// expands owners with their chrome, unions parent ranges over
 		// children, and re-stamps sticky and fixed marks, instead of three
 		// separate tree walks.
-		remapUnionRestamp(root, oldToNew, ownerChrome, e.ops)
+		remapUnionRestamp(root, oldToNew, e.ops)
 		releaseOldToNew(oldToNew)
 	}
 
@@ -1073,17 +1157,52 @@ func releaseOldToNew(s []int) {
 // ones) so sibling op ranges stay disjoint. The merged sequence is built
 // backwards so spare capacity in oldOps is reused in place when it fits;
 // otherwise one exact-sized list is allocated.
+var (
+	chromeSortKeyPool = sync.Pool{} //nolint:exhaustruct,gochecknoglobals // shared sort-key scratch
+	chromeSortHdrPool = sync.Pool{} //nolint:exhaustruct,gochecknoglobals // shared slice headers
+)
+
+func rentChromeSortKeys(n int) []chromeSortKey {
+	if hdr, ok := chromeSortKeyPool.Get().(*[]chromeSortKey); ok {
+		s := *hdr
+		*hdr = nil
+		chromeSortHdrPool.Put(hdr)
+		if cap(s) >= n {
+			return s[:n]
+		}
+	}
+
+	return make([]chromeSortKey, n)
+}
+
+func releaseChromeSortKeys(s []chromeSortKey) {
+	const maxPooledChromeSortKeys = 32768
+	if cap(s) == 0 || cap(s) > maxPooledChromeSortKeys {
+		return
+	}
+
+	clear(s)
+	hdr, ok := chromeSortHdrPool.Get().(*[]chromeSortKey)
+	if !ok {
+		hdr = new([]chromeSortKey)
+	}
+
+	*hdr = s[:0]
+	chromeSortKeyPool.Put(hdr)
+}
+
 func mergeDeferredChrome(
-	oldOps []Op, entries []chromeEntry, paintOrder map[*box]int,
-) ([]Op, []int, map[*box]chromeSpan) {
+	oldOps []Op, entries []chromeEntry,
+) ([]Op, []int) {
 	// Sort by insert index ascending; within one index, document order keeps
 	// an outer box under its descendants without letting a later sibling's
 	// chrome splice ahead of an earlier sibling's.
-	order := make([]chromeSortKey, len(entries))
+	order := rentChromeSortKeys(len(entries))
+	defer releaseChromeSortKeys(order)
 	for i, ent := range entries {
 		key := chromeSortKey{at: ent.at, ord: i, ent: ent}
-		if rank, ok := paintOrder[ent.b]; ok {
-			key.rank, key.ranked = rank, true
+		if ent.b != nil && ent.b.preorderRank > 0 {
+			key.rank, key.ranked = int(ent.b.preorderRank), true
 		}
 
 		order[i] = key
@@ -1122,7 +1241,6 @@ func mergeDeferredChrome(
 	}
 
 	oldToNew := rentOldToNew(len(oldOps))
-	ownerChrome := map[*box]chromeSpan{}
 	write := need
 
 	// Trailing chrome lands after every old op: entries whose at is past the
@@ -1142,7 +1260,7 @@ func mergeDeferredChrome(
 		ent := order[oidx].ent
 		start := write - len(ent.ops)
 		copy(out[start:], ent.ops)
-		recordOwnerChrome(ownerChrome, ent.b, start, write-1)
+		recordOwnerChrome(ent.b, start, write-1)
 
 		write = start
 		oidx--
@@ -1157,27 +1275,21 @@ func mergeDeferredChrome(
 			ent := order[oidx].ent
 			start := write - len(ent.ops)
 			copy(out[start:], ent.ops)
-			recordOwnerChrome(ownerChrome, ent.b, start, write-1)
+			recordOwnerChrome(ent.b, start, write-1)
 
 			write = start
 			oidx--
 		}
 	}
 
-	return out, oldToNew, ownerChrome
+	return out, oldToNew
 }
 
-// boxPreorder ranks every box in document (preorder) order so deferred chrome
-// entries that share an insertion index splice in document order: ancestors
-// before descendants, earlier siblings before later ones. Registration order
-// alone reverses unrelated siblings at a shared index, which let a later
-// section's chrome splice ahead of an earlier section's subtree and left the
-// earlier section's op range covering the later chrome (Chrome Flex sections
-// 11-13: the later overflow clips then deactivated the earlier fills).
-func boxPreorder(root *box) map[*box]int {
-	ranks := make(map[*box]int)
-
-	rank := 0
+// stampBoxPreorder assigns each box its 1-based document (preorder) rank and
+// resets transient chrome span fields directly on the box, avoiding per-box
+// preorder and chrome-owner map allocations during finalizeChrome.
+func stampBoxPreorder(root *box) {
+	var rank int32 = 1
 
 	var walk func(b *box)
 
@@ -1186,7 +1298,8 @@ func boxPreorder(root *box) map[*box]int {
 			return
 		}
 
-		ranks[b] = rank
+		b.preorderRank = rank
+		b.hasChromeSpan = false
 		rank++
 
 		for _, child := range b.children {
@@ -1195,32 +1308,32 @@ func boxPreorder(root *box) map[*box]int {
 	}
 
 	walk(root)
-
-	return ranks
 }
 
-// recordOwnerChrome widens the chrome op span recorded for a box so a later
+// recordOwnerChrome widens the chrome op span recorded on a box so a later
 // (outer) entry keeps the owner's range covering all of its chrome.
-func recordOwnerChrome(ownerChrome map[*box]chromeSpan, boxNode *box, start, endIdx int) {
+func recordOwnerChrome(boxNode *box, start, endIdx int) {
 	if boxNode == nil || endIdx < start {
 		return
 	}
 
-	if prev, ok := ownerChrome[boxNode]; ok {
-		if start < prev.start {
-			prev.start = start
+	s := int32(start)
+	e := int32(endIdx)
+	if boxNode.hasChromeSpan {
+		if s < boxNode.chromeStart {
+			boxNode.chromeStart = s
 		}
 
-		if endIdx > prev.end {
-			prev.end = endIdx
+		if e > boxNode.chromeEnd {
+			boxNode.chromeEnd = e
 		}
-
-		ownerChrome[boxNode] = prev
 
 		return
 	}
 
-	ownerChrome[boxNode] = chromeSpan{start: start, end: endIdx}
+	boxNode.chromeStart = s
+	boxNode.chromeEnd = e
+	boxNode.hasChromeSpan = true
 }
 
 // remapUnionRestamp rewrites box op ranges through the old→new index map,
@@ -1229,7 +1342,7 @@ func recordOwnerChrome(ownerChrome map[*box]chromeSpan, boxNode *box, start, end
 // The fused order matches the old three-pass sequence: a box remaps before
 // its children union into it, and the sticky/fixed re-stamp touches only the
 // box's own final range, so pass order between boxes is unobservable.
-func remapUnionRestamp(root *box, oldToNew []int, ownerChrome map[*box]chromeSpan, ops []Op) {
+func remapUnionRestamp(root *box, oldToNew []int, ops []Op) {
 	var walk func(boxNode *box)
 
 	walk = func(boxNode *box) {
@@ -1242,9 +1355,11 @@ func remapUnionRestamp(root *box, oldToNew []int, ownerChrome map[*box]chromeSpa
 			boxNode.opEnd = oldToNew[boxNode.opEnd]
 		}
 
-		if span, ok := ownerChrome[boxNode]; ok {
-			mergeOwnerChromeSpan(boxNode, span)
+		if boxNode.hasChromeSpan {
+			mergeOwnerChromeSpan(boxNode, chromeSpan{start: int(boxNode.chromeStart), end: int(boxNode.chromeEnd)})
+			boxNode.hasChromeSpan = false
 		}
+		boxNode.preorderRank = 0
 
 		for _, child := range boxNode.children {
 			walk(child)

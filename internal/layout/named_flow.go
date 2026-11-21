@@ -313,7 +313,7 @@ func (e *engine) scanNamedFlows(root *html.Node) {
 //
 //nolint:cyclop // one dispatch over the scan, source, and region paths
 func (e *engine) namedFlowBegin(
-	parent *box, children *[]*html.Node, sty ResolvedStyle, contentX, posY, curY float64,
+	parent *box, children *[]*html.Node, sty *ResolvedStyle, contentX, posY, curY float64,
 ) *namedFlowFrame {
 	if e.noEmit {
 		// Measure passes must not consume flow state (placed/pending); the
@@ -371,7 +371,7 @@ func (e *engine) namedFlowBegin(
 
 	frame.contentOpStart = len(e.ops)
 
-	if limit, ok := e.namedFlowContentLimit(sty); ok {
+	if limit, ok := e.namedFlowContentLimit(*sty); ok {
 		frame.cutY = posY + curY + limit
 	}
 

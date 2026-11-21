@@ -102,6 +102,34 @@ type treeBuilder struct {
 	sawSelectedContent bool            // a selectedcontent start tag was seen; gates the post-pass
 	textAccum          *Node           // text node whose bytes are still in textBytes
 	textBytes          []byte          // pending text for textAccum; flushed onto Node.Text
+	nodeSlab           []Node          // contiguous chunk for Node allocations
+	attrSlab           []Attr          // contiguous chunk for AttrList slices
+}
+
+const (
+	htmlNodeSlabCap = 128
+	htmlAttrSlabCap = 128
+)
+
+func (b *treeBuilder) allocNode(n Node) *Node {
+	if len(b.nodeSlab) == cap(b.nodeSlab) {
+		b.nodeSlab = make([]Node, 0, htmlNodeSlabCap)
+	}
+	i := len(b.nodeSlab)
+	b.nodeSlab = append(b.nodeSlab, n)
+	return &b.nodeSlab[i]
+}
+
+func (b *treeBuilder) allocAttrSlice(n int) []Attr {
+	if n > htmlAttrSlabCap {
+		return make([]Attr, 0, n)
+	}
+	if cap(b.attrSlab)-len(b.attrSlab) < n {
+		b.attrSlab = make([]Attr, 0, htmlAttrSlabCap)
+	}
+	start := len(b.attrSlab)
+	b.attrSlab = b.attrSlab[:start+n]
+	return b.attrSlab[start : start : start+n]
 }
 
 func newTreeBuilder() *treeBuilder {
@@ -149,6 +177,8 @@ func putTreeBuilder(b *treeBuilder) {
 	b.form = nil
 	b.fragmentContext = nil
 	b.textAccum = nil
+	b.nodeSlab = nil
+	b.attrSlab = nil
 	clear(b.stack)
 	b.stack = b.stack[:0]
 	clear(b.activeFormatting)
@@ -404,7 +434,8 @@ func (b *treeBuilder) processInitial(tokItem *token) bool {
 		if !b.docModeSet {
 			b.docMode = classifyDocumentMode(tokItem.doctype)
 			b.docModeSet = true
-			b.root.Children = append(b.root.Children, &Node{Type: DoctypeNode, Text: tokItem.data, Doctype: tokItem.doctype}) //nolint:exhaustruct
+			d := tokItem.doctype
+			b.root.Children = append(b.root.Children, b.allocNode(Node{Type: DoctypeNode, Text: tokItem.data, Doctype: &d})) //nolint:exhaustruct
 		}
 
 		b.mode = modeBeforeHTML
@@ -1391,8 +1422,8 @@ func (b *treeBuilder) insertNode(name string, ns Namespace, attrs []string, self
 
 	point := b.appropriatePlace()
 
-	node := &Node{Type: ElementNode, Name: name, Namespace: ns} //nolint:exhaustruct
-	applyAttributes(node, attrs)
+	node := b.allocNode(Node{Type: ElementNode, Name: name, Namespace: ns}) //nolint:exhaustruct
+	b.applyAttributes(node, attrs)
 
 	insertChildAt(point, node)
 	node.Parent = point.parent
@@ -1441,7 +1472,7 @@ func (b *treeBuilder) insertForeignElement(name string, ns Namespace, tokItem *t
 // appendCommentTo attaches a comment node to parent. A comment targeting a
 // template element goes into its Contents, like any other insertion.
 func (b *treeBuilder) appendCommentTo(parent *Node, data string) {
-	node := &Node{Type: CommentNode, Text: data} //nolint:exhaustruct
+	node := b.allocNode(Node{Type: CommentNode, Text: data}) //nolint:exhaustruct
 
 	if isTemplateElement(parent) {
 		parent.Contents = append(parent.Contents, node)
@@ -1490,7 +1521,7 @@ func (b *treeBuilder) appendTextToken(data string) {
 
 			b.flushTextAccum()
 
-			node := &Node{Type: TextNode, Text: data, Parent: point.parent} //nolint:exhaustruct
+			node := b.allocNode(Node{Type: TextNode, Text: data, Parent: point.parent}) //nolint:exhaustruct
 			insertChildAt(point, node)
 
 			return
@@ -1510,8 +1541,7 @@ func (b *treeBuilder) appendTextToken(data string) {
 
 	b.flushTextAccum()
 
-	node := &Node{Type: TextNode, Text: data} //nolint:exhaustruct
-	node.Parent = top
+	node := b.allocNode(Node{Type: TextNode, Text: data, Parent: top}) //nolint:exhaustruct
 	*children = append(*children, node)
 }
 
@@ -1548,23 +1578,54 @@ func (b *treeBuilder) flushTextAccum() {
 // reallocation, and attribute-free nodes keep both stores nil. Map contents
 // stay complete for every element: narrowing the map to hot keys would change
 // Attribute lookups, whose paths belong to the attribute owner.
-func applyAttributes(node *Node, attrs []string) {
+const smallAttrMapThreshold = 5
+
+func (b *treeBuilder) applyAttributes(node *Node, attrs []string) {
 	const attrPairSize = 2 // attrs slice interleaves name and value
 	numPairs := len(attrs) / attrPairSize
 	if numPairs == 0 {
 		return
 	}
 
-	// Fast path for elements with exactly 1 attribute (very common: class or id).
-	if numPairs == 1 && len(attrs) == 2 && node.Attrs == nil && node.AttrList == nil {
-		key, attr := adjustAttributeName(node.Namespace, attrs[0], attrs[1])
-		pairBytes := len(key) + len(attr.Value)
-		if pairBytes <= maxAttributeBytesPerElement {
-			node.Attrs = map[string]string{key: attr.Value}
-			node.AttrList = []Attr{attr}
+	// Fast path for elements with 1..4 attributes (99%+ of HTML tags): store in
+	// the slab-backed AttrList without allocating a Go map per element.
+	if numPairs < smallAttrMapThreshold && node.Attrs == nil && node.AttrList == nil {
+		if numPairs == 1 && len(attrs) == 2 {
+			key, attr := adjustAttributeName(node.Namespace, attrs[0], attrs[1])
+			if len(key)+len(attr.Value) <= maxAttributeBytesPerElement {
+				list := b.allocAttrSlice(1)
+				node.AttrList = append(list, attr)
+			}
 
 			return
 		}
+
+		list := b.allocAttrSlice(numPairs)
+		totalBytes := 0
+		for i := 0; i+1 < len(attrs); i += 2 {
+			key, attr := adjustAttributeName(node.Namespace, attrs[i], attrs[i+1])
+			pairBytes := len(key) + len(attr.Value)
+			if totalBytes+pairBytes > maxAttributeBytesPerElement {
+				break
+			}
+			dup := false
+			for j := range list {
+				if list[j].Namespace == attr.Namespace && list[j].Name == attr.Name {
+					dup = true
+					break
+				}
+			}
+			if dup {
+				continue
+			}
+			list = append(list, attr)
+			totalBytes += pairBytes
+		}
+		if len(list) > 0 {
+			node.AttrList = list
+		}
+
+		return
 	}
 
 	totalBytes := 0
@@ -1585,16 +1646,75 @@ func applyAttributes(node *Node, attrs []string) {
 			if _, dup := node.Attrs[key]; dup {
 				continue
 			}
+		} else if len(node.AttrList) > 0 {
+			dup := false
+			for j := range node.AttrList {
+				if node.AttrList[j].Namespace == attr.Namespace && node.AttrList[j].Name == attr.Name {
+					dup = true
+					break
+				}
+			}
+			if dup {
+				continue
+			}
 		}
 
-		if node.Attrs == nil {
-			node.Attrs = make(map[string]string, numPairs)
+		if node.Attrs == nil && (numPairs >= smallAttrMapThreshold || len(node.AttrList)+1 >= smallAttrMapThreshold) {
+			node.EnsureAttrs()
+			if node.Attrs == nil {
+				node.Attrs = make(map[string]string, numPairs)
+			}
+		}
+		if node.AttrList == nil {
+			node.AttrList = b.allocAttrSlice(numPairs)
+		}
+
+		if node.Attrs != nil {
+			node.Attrs[key] = attr.Value
+		}
+		node.AttrList = append(node.AttrList, attr)
+		totalBytes += pairBytes
+	}
+}
+
+func applyAttributes(node *Node, attrs []string) {
+	const attrPairSize = 2 // attrs slice interleaves name and value
+	numPairs := len(attrs) / attrPairSize
+	if numPairs == 0 {
+		return
+	}
+
+	totalBytes := 0
+
+	for i := 0; i+1 < len(attrs); i += 2 {
+		if len(node.AttrList) >= maxAttributesPerElement {
+			break
+		}
+
+		key, attr := adjustAttributeName(node.Namespace, attrs[i], attrs[i+1])
+
+		pairBytes := len(key) + len(attr.Value)
+		if totalBytes+pairBytes > maxAttributeBytesPerElement {
+			break
+		}
+
+		if node.HasAttr(key) {
+			continue
+		}
+
+		if node.Attrs == nil && (numPairs >= smallAttrMapThreshold || len(node.AttrList)+1 >= smallAttrMapThreshold) {
+			node.EnsureAttrs()
+			if node.Attrs == nil {
+				node.Attrs = make(map[string]string, numPairs)
+			}
 		}
 		if node.AttrList == nil {
 			node.AttrList = make([]Attr, 0, numPairs)
 		}
 
-		node.Attrs[key] = attr.Value
+		if node.Attrs != nil {
+			node.Attrs[key] = attr.Value
+		}
 		node.AttrList = append(node.AttrList, attr)
 		totalBytes += pairBytes
 	}

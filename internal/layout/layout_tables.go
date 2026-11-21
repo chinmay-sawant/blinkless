@@ -94,11 +94,11 @@ func (e *engine) layoutTableGrid(
 
 	tableBox.rows = cellData
 	tableBox.rowTops, tableBox.rowHeights = rowTops, rowHeights
-	tableHeight := e.borderBoxBottom(style, curY)
+	tableHeight := e.borderBoxBottom(&style, curY)
 	tableBox.height = tableY + tableHeight - tableBox.y
 
 	if style.BGColor[3] > 0 && e.backgroundPaintEnabled(&style) {
-		usedBG := usedBGForPaintActive(style, e.forcedColorsForPaint())
+		usedBG := usedBGForPaintActive(&style, e.forcedColorsForPaint())
 		e.add(Op{ //nolint:exhaustruct // intentional zero fields
 			Kind: OpFillRect, X: posX, Y: tableY, W: tableBox.w, H: tableHeight,
 			R: usedBG[0], G: usedBG[1], B: usedBG[2], Alpha: usedBG[3],

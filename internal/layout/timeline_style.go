@@ -70,7 +70,7 @@ func timelineDefsFromStyle(style *ResolvedStyle, subjectID string) []TimelineDef
 
 	scroll := timelineListText(style.ScrollTimelineName)
 	view := timelineListText(style.ViewTimelineName)
-	pointer := timelineListText(style.Triggers.PointerName)
+	pointer := timelineListText(style.triggers().PointerName)
 
 	if len(scroll)+len(view)+len(pointer) == 0 {
 		return nil
@@ -87,7 +87,7 @@ func timelineDefsFromStyle(style *ResolvedStyle, subjectID string) []TimelineDef
 	})
 
 	return appendTimelineKind(defs, pointer, timelineKindSpec{
-		kind: timelineKindPointer, axisList: style.Triggers.PointerAxis, writingMode: style.WritingMode,
+		kind: timelineKindPointer, axisList: style.triggers().PointerAxis, writingMode: style.WritingMode,
 		subjectID: subjectID, insets: nil,
 	})
 }

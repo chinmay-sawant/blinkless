@@ -9,7 +9,6 @@ import (
 	"image/draw"
 	_ "image/gif"  // Register GIF decoder for cropBorderImage via image.Decode.
 	_ "image/jpeg" // Register JPEG decoder for cropBorderImage via image.Decode.
-	"image/png"
 	"math"
 	"strconv"
 	"strings"
@@ -657,7 +656,7 @@ func cropBorderImage(data []byte, src image.Rectangle) ([]byte, error) {
 	draw.Draw(cropped, cropped.Bounds(), img, src.Min, draw.Src)
 
 	var out bytes.Buffer
-	if err := png.Encode(&out, cropped); err != nil {
+	if err := pooledPNGEncoder.Encode(&out, cropped); err != nil {
 		return nil, fmt.Errorf("encode border image slice: %w", err)
 	}
 

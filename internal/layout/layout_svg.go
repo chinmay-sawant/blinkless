@@ -58,7 +58,7 @@ func (e *engine) buildInlineSVG(node *html.Node, sty ResolvedStyle, posX, posY f
 		e.add((Op{ //nolint:exhaustruct // intentional zero fields
 			Kind: OpImage, X: imgX, Y: imgY, W: size.w, H: size.h,
 		}).withImage(ref.data, ref.w, ref.h, "").withImageRendering(sty.ImageRendering))
-		e.prependChrome(opStart, boxNode, sty, posX, posY, boxNode.w, boxNode.height)
+		e.prependChrome(opStart, boxNode, &sty, posX, posY, boxNode.w, boxNode.height)
 	}
 
 	return boxNode
@@ -305,25 +305,26 @@ func (e *engine) writeSVGNode(b *bytes.Buffer, node *html.Node, paint *svgPaintP
 		// cache keys on the serialized document, so a random order would let
 		// an unchanged element miss the cache on every pass. Keys sort in a
 		// stack array so the common small-attribute case allocates nothing.
+		nodeAttrs := node.EnsureAttrs()
 		var keys [16]string
 		var sorted []string
-		if len(node.Attrs) <= len(keys) {
+		if len(nodeAttrs) <= len(keys) {
 			n := 0
-			for k := range node.Attrs {
+			for k := range nodeAttrs {
 				keys[n] = k
 				n++
 			}
 			sorted = keys[:n]
 			sort.Strings(sorted)
 		} else {
-			sorted = make([]string, 0, len(node.Attrs))
-			for k := range node.Attrs {
+			sorted = make([]string, 0, len(nodeAttrs))
+			for k := range nodeAttrs {
 				sorted = append(sorted, k)
 			}
 			sort.Strings(sorted)
 		}
 		for _, k := range sorted {
-			v := node.Attrs[k]
+			v := nodeAttrs[k]
 			if k == "style" {
 				continue
 			}

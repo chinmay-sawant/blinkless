@@ -190,6 +190,7 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.MaxWidthPercent == b.MaxWidthPercent &&
 		a.MinHeight == b.MinHeight &&
 		a.MinHeightPercent == b.MinHeightPercent &&
+		a.MinHeightSet == b.MinHeightSet &&
 		a.MaxHeight == b.MaxHeight &&
 		a.MaxHeightPercent == b.MaxHeightPercent &&
 		a.Overflow == b.Overflow &&
@@ -521,8 +522,8 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.ViewTimelineInsetStartSet == b.ViewTimelineInsetStartSet &&
 		a.ViewTimelineInsetEndSet == b.ViewTimelineInsetEndSet &&
 		a.ViewTimelineInsets == b.ViewTimelineInsets &&
-		a.Triggers == b.Triggers &&
-		a.Declared == b.Declared &&
+		styleInternEqualPtrTriggerStyle(a.Triggers, b.Triggers) &&
+		styleInternEqualPtrDeclaredStyle(a.Declared, b.Declared) &&
 		a.SVGCx == b.SVGCx &&
 		a.SVGCy == b.SVGCy &&
 		a.SVGR == b.SVGR &&
@@ -646,6 +647,7 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashFloat64(h, s.MaxWidthPercent)
 	h = styleInternHashFloat64(h, s.MinHeight)
 	h = styleInternHashFloat64(h, s.MinHeightPercent)
+	h = styleInternHashBool(h, s.MinHeightSet)
 	h = styleInternHashFloat64(h, s.MaxHeight)
 	h = styleInternHashFloat64(h, s.MaxHeightPercent)
 	h = styleInternHashString(h, s.Overflow)
@@ -999,8 +1001,12 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashBool(h, s.ViewTimelineInsetStartSet)
 	h = styleInternHashBool(h, s.ViewTimelineInsetEndSet)
 	h = styleInternHashString(h, s.ViewTimelineInsets)
-	h = styleInternHashTriggerStyle(h, s.Triggers)
-	h = styleInternHashDeclaredStyle(h, s.Declared)
+	if s.Triggers != nil && *s.Triggers != (triggerStyle{}) {
+		h = styleInternHashTriggerStyle(h, *s.Triggers)
+	}
+	if s.Declared != nil && *s.Declared != (declaredStyle{}) {
+		h = styleInternHashDeclaredStyle(h, *s.Declared)
+	}
 	h = styleInternHashString(h, s.SVGCx)
 	h = styleInternHashString(h, s.SVGCy)
 	h = styleInternHashString(h, s.SVGR)
@@ -1122,6 +1128,7 @@ func styleInternFields() []string {
 		"MaxWidthPercent",
 		"MinHeight",
 		"MinHeightPercent",
+		"MinHeightSet",
 		"MaxHeight",
 		"MaxHeightPercent",
 		"Overflow",
@@ -1636,4 +1643,32 @@ func styleInternHashTriggerStyle(h uint64, v triggerStyle) uint64 {
 	h = styleInternHashString(h, v.Interactivity)
 
 	return h
+}
+
+func styleInternEqualPtrDeclaredStyle(a, b *declaredStyle) bool {
+	if a == b {
+		return true
+	}
+	var zero declaredStyle
+	if a == nil {
+		return *b == zero
+	}
+	if b == nil {
+		return *a == zero
+	}
+	return *a == *b
+}
+
+func styleInternEqualPtrTriggerStyle(a, b *triggerStyle) bool {
+	if a == b {
+		return true
+	}
+	var zero triggerStyle
+	if a == nil {
+		return *b == zero
+	}
+	if b == nil {
+		return *a == zero
+	}
+	return *a == *b
 }

@@ -2,6 +2,7 @@ package layout
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
@@ -550,6 +551,37 @@ const maxPooledInlineItems = 256
 // engine-local stack.
 const initialInlineItemCapacity = 32
 
+var (
+	inlineItemGlobalPool = sync.Pool{} //nolint:exhaustruct,gochecknoglobals // shared inline-item slices
+	inlineItemHdrPool    = sync.Pool{} //nolint:exhaustruct,gochecknoglobals // shared slice headers
+)
+
+func getGlobalInlineItems() []inlineItem {
+	if hdr, ok := inlineItemGlobalPool.Get().(*[]inlineItem); ok {
+		s := *hdr
+		*hdr = nil
+		inlineItemHdrPool.Put(hdr)
+
+		return s[:0]
+	}
+
+	return make([]inlineItem, 0, initialInlineItemCapacity)
+}
+
+func putGlobalInlineItems(items []inlineItem) {
+	if cap(items) == 0 || cap(items) > maxPooledInlineItems {
+		return
+	}
+
+	hdr, ok := inlineItemHdrPool.Get().(*[]inlineItem)
+	if !ok {
+		hdr = new([]inlineItem)
+	}
+
+	*hdr = items[:0]
+	inlineItemGlobalPool.Put(hdr)
+}
+
 func (e *engine) acquireInlineItems() []inlineItem {
 	if n := len(e.inlineItemPool); n > 0 {
 		items := e.inlineItemPool[n-1]
@@ -558,7 +590,7 @@ func (e *engine) acquireInlineItems() []inlineItem {
 		return items[:0]
 	}
 
-	return make([]inlineItem, 0, initialInlineItemCapacity)
+	return getGlobalInlineItems()
 }
 
 // releaseInlineItems returns a temporary item slice to the engine-local pool.

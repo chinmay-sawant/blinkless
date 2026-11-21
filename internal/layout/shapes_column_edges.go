@@ -4,7 +4,7 @@ package layout
 // the rule on the two content edges too. `around` and `all` do; `between` and
 // `normal` (stored as "") paint the gaps only, as row-rule-visibility-items does.
 func columnRulePaintsEdges(style *ResolvedStyle) bool {
-	switch style.Declared.ColumnRuleVisibilityItems {
+	switch style.declared().ColumnRuleVisibilityItems {
 	case rowRuleVisibilityAround, rowRuleVisibilityAll:
 		return true
 	default:

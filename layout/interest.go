@@ -1,7 +1,5 @@
 package layout
 
-import ilayout "github.com/chinmay-sawant/blinkless/internal/layout"
-
 // InterestDelay is the computed interest-delay of a box: how long a host
 // waits after a pointer arrives before it shows interest, and how long after
 // the pointer leaves before it clears interest. The engine has no pointer and
@@ -23,16 +21,6 @@ type InterestDelay struct {
 	// EndMs is the end delay in milliseconds. It is valid when EndNormal is
 	// false.
 	EndMs float64
-}
-
-// interestDelayFrom maps the engine-side delays to the public ones.
-func interestDelayFrom(delay ilayout.InterestDelayDef) InterestDelay {
-	return InterestDelay{
-		StartNormal: delay.StartNormal,
-		EndNormal:   delay.EndNormal,
-		StartMs:     delay.StartMs,
-		EndMs:       delay.EndMs,
-	}
 }
 
 // BoxInert reports whether the box at index in Boxes is inert. A box is inert

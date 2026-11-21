@@ -143,6 +143,19 @@ func TestFlexStyleOverrideCacheBounded(t *testing.T) {
 	if got := len(eng.flexStyleOverrides); got != flexOverrideMaxEntries {
 		t.Fatalf("past the bound cache grew to %d", got)
 	}
+
+	// Past the bound, overrides must come from resettable styleChunks rather
+	// than overrideStyleChunks so speculative noEmit passes reclaim them.
+	overrideChunksBefore := len(eng.overrideStyleChunks)
+	smark := eng.markStyles()
+	for i := range 64 {
+		eng.flexRowStyleOverride(base, true, false, 0, float64(20000+i))
+	}
+	eng.resetStyles(smark)
+
+	if got := len(eng.overrideStyleChunks); got != overrideChunksBefore {
+		t.Fatalf("past-bound overrides leaked into overrideStyleChunks: %d -> %d", overrideChunksBefore, got)
+	}
 }
 
 // flexOverrideTestCSS exercises repeated row items, column items with and

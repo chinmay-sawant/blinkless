@@ -593,14 +593,15 @@ func writeRelayoutSubtree(builder *strings.Builder, node *ihtml.Node, useAttrs, 
 	builder.WriteString(node.Name)
 	builder.WriteByte(';')
 
-	for _, name := range slices.Sorted(maps.Keys(node.Attrs)) {
+	nodeAttrs := node.EnsureAttrs()
+	for _, name := range slices.Sorted(maps.Keys(nodeAttrs)) {
 		if !relayoutAttrRelevant(name, useAttrs, svg) {
 			continue
 		}
 
 		builder.WriteString(name)
 		builder.WriteByte('=')
-		builder.WriteString(node.Attrs[name])
+		builder.WriteString(nodeAttrs[name])
 		builder.WriteByte(';')
 	}
 

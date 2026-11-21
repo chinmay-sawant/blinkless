@@ -5,7 +5,7 @@ package layout
 
 func (e *engine) applyInlineImageBorders(item *inlineItem, leftX, top float64) (float64, float64, float64, float64) {
 	imgX, imgY, imgW, imgH := leftX, top, item.w, item.h
-	if item.style == nil || !inlineHasBorder(*item.style) {
+	if item.style == nil || !inlineHasBorder(item.style) {
 		return imgX, imgY, imgW, imgH
 	}
 
@@ -25,7 +25,7 @@ func (e *engine) applyInlineImageBorders(item *inlineItem, leftX, top float64) (
 	imgW -= insetL + insetR
 	imgH -= insetT + insetB
 
-	for _, op := range e.borderOps(*item.style, leftX, top, item.w, item.h) {
+	for _, op := range e.borderOps(item.style, leftX, top, item.w, item.h) {
 		e.add(op)
 	}
 

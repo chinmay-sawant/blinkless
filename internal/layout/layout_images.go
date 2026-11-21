@@ -509,7 +509,7 @@ func (e *engine) paintReplacedImage(
 		return
 	}
 
-	e.prependChrome(len(e.ops)-1, boxNode, sty, posX, posY, boxNode.w, boxNode.height)
+	e.prependChrome(len(e.ops)-1, boxNode, &sty, posX, posY, boxNode.w, boxNode.height)
 }
 
 // withClipRule folds the standalone clip-rule property into a parsed

@@ -19,12 +19,13 @@ package layout
 func effectiveMotion(sty *ResolvedStyle, fsize float64) motionSpec {
 	var spec motionSpec
 
-	if text := sty.Declared.Offset; text != "" {
+	decl := sty.declared()
+	if text := decl.Offset; text != "" {
 		spec, _ = parseOffsetShorthand(text, fsize)
 	}
 
-	overlayMotionPath(&spec, &sty.Declared, fsize)
-	overlayMotionPosition(&spec, &sty.Declared, fsize)
+	overlayMotionPath(&spec, decl, fsize)
+	overlayMotionPosition(&spec, decl, fsize)
 
 	return spec
 }
@@ -68,7 +69,7 @@ func overlayMotionPosition(spec *motionSpec, declared *declaredStyle, fsize floa
 
 // motionActive reports whether the style declares an offset path.
 func motionActive(sty *ResolvedStyle) bool {
-	if sty.Declared.OffsetPath == "" && sty.Declared.Offset == "" {
+	if sty.declared().OffsetPath == "" && sty.declared().Offset == "" {
 		return false
 	}
 
@@ -150,7 +151,7 @@ func motionLocalMatrix(sty *ResolvedStyle, boxNode *box) (Matrix2D, bool) {
 
 // withMotionPath folds the offset transform into tform.
 func withMotionPath(sty *ResolvedStyle, boxNode *box, tform Matrix2D) Matrix2D {
-	if sty.Declared.OffsetPath == "" && sty.Declared.Offset == "" {
+	if sty.declared().OffsetPath == "" && sty.declared().Offset == "" {
 		return tform
 	}
 

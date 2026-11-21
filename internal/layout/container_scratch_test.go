@@ -417,7 +417,7 @@ func TestMemoContainerCountersFullLayout(t *testing.T) {
 	doc.WriteString(`</div></div></body></html>`)
 
 	const cssSrc = `body{margin:0}` +
-		`.col{display:flex;flex-direction:column;width:460pt}` +
+		`.col{display:flex;flex-direction:column;width:460pt;height:800pt}` +
 		`.row{display:flex;flex-wrap:wrap;gap:4pt}` +
 		`.mc{columns:3;column-gap:12pt}` +
 		`.hold{break-inside:avoid}` +

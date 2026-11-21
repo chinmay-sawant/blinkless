@@ -66,7 +66,7 @@ type gapRuleGeometry struct {
 // non-positive row gap, or a nil parent paints nothing. An empty child
 // range skips that gap. The rule does not move children or add gap.
 func (e *engine) emitFlexRowGapRules(
-	parent *box, style ResolvedStyle, placed []flexLinePlace,
+	parent *box, style *ResolvedStyle, placed []flexLinePlace,
 	rowGap, contentX, contentW float64,
 ) {
 	if len(placed) <= 1 || rowGap <= 0 || parent == nil {
@@ -81,10 +81,10 @@ func (e *engine) emitFlexRowGapRules(
 			continue
 		}
 
-		e.emitRowGapRule(style, contentX, contentW, bottom, top-bottom)
+		e.emitRowGapRule(*style, contentX, contentW, bottom, top-bottom)
 	}
 
-	if !rowRulePaintsAround(style) {
+	if !rowRulePaintsAround(*style) {
 		return
 	}
 
@@ -98,8 +98,8 @@ func (e *engine) emitFlexRowGapRules(
 	firstTop, _, _ := flexLineChildSpan(parent, placed[0])
 	_, lastBottom, _ := flexLineChildSpan(parent, placed[len(placed)-1])
 
-	e.emitRowRuleLine(style, contentX, contentW, firstTop)
-	e.emitRowRuleLine(style, contentX, contentW, lastBottom)
+	e.emitRowRuleLine(*style, contentX, contentW, firstTop)
+	e.emitRowRuleLine(*style, contentX, contentW, lastBottom)
 }
 
 // flexLineChildSpan reports one flex line's top and bottom from the

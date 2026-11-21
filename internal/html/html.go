@@ -19,7 +19,7 @@ import (
 )
 
 // NodeType classifies a DOM node.
-type NodeType int
+type NodeType uint8
 
 const (
 	// NodeUnknown is the zero value of NodeType. Parsed trees never produce
@@ -33,22 +33,97 @@ const (
 
 // Node is one DOM node.
 type Node struct {
-	Type      NodeType
-	Name      string // element name (adjusted case for foreign elements)
-	Namespace Namespace
-	Attrs     map[string]string
-	AttrList  []Attr
-	Text      string // text/comment/doctype content
-	Doctype   Doctype
-	Mode      DocumentMode // document mode; only meaningful on the root
-	Children  []*Node
+	Name     string // element name (adjusted case for foreign elements)
+	Attrs    map[string]string
+	AttrList []Attr
+	Text     string // text/comment/doctype content
+	Doctype  *Doctype
+	Children []*Node
 	// Contents holds a template element's content, mirroring the DOM's
 	// separate DocumentFragment for template.content. It stays out of
 	// Children, Walk, TextContent, and FindFirst so template content is
 	// never rendered or collected as active style; consumers that need it
 	// read Contents directly.
-	Contents []*Node
-	Parent   *Node
+	Contents  []*Node
+	Parent    *Node
+	Type      NodeType
+	Namespace Namespace
+	Mode      DocumentMode // document mode; only meaningful on the root
+}
+
+// AttrKey returns the canonical lookup key for a stored Attr (Name for ordinary
+// HTML attributes, "ns:name" for namespaced foreign attributes).
+func (a Attr) Key() string {
+	if a.Namespace == "" {
+		return a.Name
+	}
+
+	return a.Namespace + ":" + a.Name
+}
+
+// AttrValue looks up an attribute by exact key name without allocating a map.
+func (n *Node) AttrValue(name string) (string, bool) {
+	if n == nil {
+		return "", false
+	}
+
+	if n.Attrs != nil {
+		v, ok := n.Attrs[name]
+
+		return v, ok
+	}
+
+	for i := range n.AttrList {
+		a := &n.AttrList[i]
+		if a.Namespace == "" {
+			if a.Name == name {
+				return a.Value, true
+			}
+		} else if len(name) == len(a.Namespace)+1+len(a.Name) &&
+			name[len(a.Namespace)] == ':' &&
+			strings.HasPrefix(name, a.Namespace) &&
+			strings.HasSuffix(name, a.Name) {
+			return a.Value, true
+		}
+	}
+
+	return "", false
+}
+
+// AttrExact returns the attribute value for an exact (already-lowercased) key,
+// or "" if absent.
+func (n *Node) AttrExact(name string) string {
+	v, _ := n.AttrValue(name)
+
+	return v
+}
+
+// HasAttr reports whether an attribute with the exact key name is present.
+func (n *Node) HasAttr(name string) bool {
+	_, ok := n.AttrValue(name)
+
+	return ok
+}
+
+// EnsureAttrs returns n.Attrs, materializing it from n.AttrList on demand when
+// the parser kept small attribute lists map-free.
+func (n *Node) EnsureAttrs() map[string]string {
+	if n == nil {
+		return nil
+	}
+
+	if n.Attrs != nil || len(n.AttrList) == 0 {
+		return n.Attrs
+	}
+
+	m := make(map[string]string, len(n.AttrList))
+	for _, a := range n.AttrList {
+		m[a.Key()] = a.Value
+	}
+
+	n.Attrs = m
+
+	return m
 }
 
 // Attribute returns an attribute value, or "". Attribute keys are stored
@@ -56,17 +131,19 @@ type Node struct {
 // try the exact name first and fall back to the lowercased key for HTML-style
 // callers.
 func (n *Node) Attribute(name string) string {
-	if value, ok := n.Attrs[name]; ok {
+	if value, ok := n.AttrValue(name); ok {
 		return value
 	}
 
 	for i := range len(name) {
 		if name[i] >= 'A' && name[i] <= 'Z' {
-			return n.Attrs[strings.ToLower(name)]
+			v, _ := n.AttrValue(strings.ToLower(name))
+
+			return v
 		}
 	}
 
-	return n.Attrs[name]
+	return ""
 }
 
 // FirstChild returns the first element child with name, or nil.
@@ -118,16 +195,38 @@ func putTagAttrBuilder(b *strings.Builder) {
 	tagAttrBuilderPool.Put(b)
 }
 
-func (n *Node) hasAnyText() bool {
-	for _, c := range n.Children {
-		if c.Type == TextNode && len(c.Text) > 0 {
-			return true
-		}
-		if len(c.Children) > 0 && c.hasAnyText() {
-			return true
-		}
+func (n *Node) textStatsDepth(depth int) (total int, count int, single string) {
+	if depthExceeded(depth) {
+		return 0, 0, ""
 	}
-	return false
+
+	switch n.Type {
+	case TextNode:
+		if len(n.Text) == 0 {
+			return 0, 0, ""
+		}
+
+		return len(n.Text), 1, n.Text
+	case ElementNode:
+		for _, c := range n.Children {
+			t, cnt, s := c.textStatsDepth(depth + 1)
+			if cnt == 0 {
+				continue
+			}
+
+			total += t
+			count += cnt
+			if count == 1 {
+				single = s
+			} else {
+				single = ""
+			}
+		}
+
+		return total, count, single
+	default:
+		return 0, 0, ""
+	}
 }
 
 // TextContent concatenates all descendant text. Template contents are a
@@ -142,20 +241,29 @@ func (n *Node) TextContent() string {
 		}
 		return ""
 	}
-	if len(n.Children) == 1 && n.Children[0].Type == TextNode {
-		return n.Children[0].Text
+	if len(n.Children) == 1 {
+		child := n.Children[0]
+		if child.Type == TextNode {
+			return child.Text
+		}
+		if child.Type == ElementNode && child.Name != "template" && len(child.Children) == 1 && child.Children[0].Type == TextNode {
+			return child.Children[0].Text
+		}
 	}
-	if !n.hasAnyText() {
+
+	total, count, single := n.textStatsDepth(0)
+	if count == 0 {
 		return ""
 	}
+	if count == 1 {
+		return single
+	}
 
-	b := textBuilderPool.Get().(*strings.Builder)
-	b.Reset()
-	n.appendText(b)
-	res := b.String()
-	textBuilderPool.Put(b)
+	var b strings.Builder
+	b.Grow(total)
+	n.appendText(&b)
 
-	return res
+	return b.String()
 }
 
 // Walk visits n and every descendant in pre-order (document order). Template

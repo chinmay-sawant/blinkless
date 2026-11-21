@@ -151,6 +151,8 @@ func measureGridItemPrefH(eng *engine, node *html.Node, contW, curX, buildY floa
 		return prefH
 	}
 
+	bmark := eng.markBoxes()
+	smark := eng.markStyles()
 	was := eng.noEmit
 	eng.noEmit = true
 	stickyBefore, groupsBefore := eng.stickySeq, eng.nextGroupID
@@ -163,6 +165,9 @@ func measureGridItemPrefH(eng *engine, node *html.Node, contW, curX, buildY floa
 	if measured != nil {
 		prefH = measured.height
 	}
+
+	eng.resetBoxes(bmark)
+	eng.resetStyles(smark)
 
 	if eng.err == nil {
 		eng.gridPrefHStore(node, contW, prefH, stickyDelta, groupsDelta)

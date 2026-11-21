@@ -275,13 +275,13 @@ func (e *engine) flowChildrenPtr(
 	// css-regions-1 lite (named_flow.go): a source withholds its children, a
 	// region swaps in the named flow's content, and the frame carries the
 	// region cut to the post-hook below.
-	namedFlowFrame := e.namedFlowBegin(parent, &children, *sty, contentX, posY, curY)
+	namedFlowFrame := e.namedFlowBegin(parent, &children, sty, contentX, posY, curY)
 
 	// contain: paint clips descendant paint to the padding box. Stamp the box
 	// so the existing overflow:clip pass (overflow_clip.go) applies it.
 	e.stampContainmentClip(parent, sty)
 
-	sizeContained := containsSize(*sty)
+	sizeContained := containsSize(sty)
 
 	prevBottom := 0.0
 
@@ -341,7 +341,7 @@ func (e *engine) flowChildrenPtr(
 // containmentHiddenHeight is the block-axis content height of a
 // content-visibility:hidden box: its contain-intrinsic height, or zero.
 func (e *engine) containmentHiddenHeight(sty *ResolvedStyle) float64 {
-	intrinsicH := containmentIntrinsicHeight(*sty)
+	intrinsicH := containmentIntrinsicHeight(sty)
 	if intrinsicH < 0 {
 		intrinsicH = 0
 	}
@@ -353,7 +353,7 @@ func (e *engine) containmentHiddenHeight(sty *ResolvedStyle) float64 {
 // as-if-empty intrinsic size, not the measured children. Children still paint
 // and may overflow the box.
 func (e *engine) sizeContainedHeight(sty *ResolvedStyle) float64 {
-	intrinsicH := containmentIntrinsicHeight(*sty)
+	intrinsicH := containmentIntrinsicHeight(sty)
 	if intrinsicH < 0 {
 		intrinsicH = 0
 	}
@@ -362,7 +362,7 @@ func (e *engine) sizeContainedHeight(sty *ResolvedStyle) float64 {
 	// (buildBlock extentCy) cannot expand an as-if-empty height. Only a fresh
 	// state installed by pushBFCFloats is cleared: those are the styles for
 	// which pushBFCFloats opened a new formatting context.
-	if (establishesBFC(*sty) || containsLayout(*sty)) && e.bfcFloats != nil {
+	if (establishesBFC(sty) || containsLayout(sty)) && e.bfcFloats != nil {
 		*e.bfcFloats = newFloatState(e.bfcFloats.contentX, e.bfcFloats.contentW)
 	}
 
@@ -378,7 +378,7 @@ func (e *engine) finishDeferredFlowChildren(
 ) {
 	absCBX, absCBW, absOriginY, icb := e.flowAbsCBPtr(parent, sty, children, deferred, contentX, contentW, absTop)
 
-	parentHeight := e.applyHeightConstraints(*sty, curY+e.scalePt(sty.PaddingBottom))
+	parentHeight := e.applyHeightConstraints(sty, curY+e.scalePt(sty.PaddingBottom))
 	cbHeight := parentHeight - (absOriginY - posY)
 
 	if icb {
@@ -401,34 +401,26 @@ func flowKeepsTrailingMargin(sty *ResolvedStyle, sizeContained bool) bool {
 		return false
 	}
 
-	return sty.PaddingBottom > 0 || sty.BorderBottom.Width > 0 || establishesBFC(*sty)
+	return sty.PaddingBottom > 0 || sty.BorderBottom.Width > 0 || establishesBFC(sty)
 }
 
 // flowAbsCB resolves the containing block for absolute/fixed descendants:
 // the padding box when the parent is positioned, transformed, or applies
 // layout/paint containment (CSS Containment makes both containment kinds a
-// containing block for absolute and fixed descendants), the initial
+// flowAbsCBPtr resolves the containing block for absolute/fixed descendants:
+// the padding box for positioned/transformed containers, the initial
 // containing block when the root body has no containing-block ancestor, else
 // the content box. absOriginY is the content edge at flow entry. icb reports
 // an initial-containing-block origin so the caller can use the viewport height.
 // deferred carries the out-of-flow children found by the flow loop; when one
 // of them already forces the padding box the full children re-walk is skipped.
-func (e *engine) flowAbsCB(
-	parent *box, sty ResolvedStyle, children []*html.Node, deferred []*html.Node,
-	contentX, contentW, absOriginY float64,
-) (float64, float64, float64, bool) {
-	return e.flowAbsCBPtr(parent, &sty, children, deferred, contentX, contentW, absOriginY)
-}
-
-// flowAbsCBPtr is the pointer-based containing-block resolver used by flow;
-// the value wrapper above preserves the external flex call site.
 func (e *engine) flowAbsCBPtr(
 	parent *box, sty *ResolvedStyle, children []*html.Node, deferred []*html.Node,
 	contentX, contentW, absOriginY float64,
 ) (float64, float64, float64, bool) {
 	absCBX, absCBW := contentX, contentW
 
-	paddingBoxCB := sty.HasTransform || containsLayout(*sty) || containsPaint(*sty)
+	paddingBoxCB := sty.HasTransform || containsLayout(sty) || containsPaint(sty)
 
 	if sty.Position == positionRelative && !paddingBoxCB {
 		if e.deferredNeedsPaddingBox(deferred) || e.relativeAbsChildNeedsPaddingBox(children) {
@@ -509,21 +501,15 @@ func (e *engine) absAnchorsToICB(parent *box) bool {
 	return true
 }
 
-// establishesAbsCB reports whether a box's style makes it a containing block
-// for absolute descendants.
-func establishesAbsCB(style ResolvedStyle) bool {
-	return establishesAbsCBPtr(&style)
-}
-
-// establishesAbsCBPtr is the pointer-based containing-block test used by
-// flow so ancestor walks pay no 6KB copy per node.
+// establishesAbsCBPtr reports whether a box's style makes it a containing block
+// for absolute descendants without copying ResolvedStyle.
 func establishesAbsCBPtr(style *ResolvedStyle) bool {
 	if style.Position == positionRelative || style.Position == positionAbsolute ||
 		style.Position == positionFixed || style.Position == positionSticky {
 		return true
 	}
 
-	return style.HasTransform || containsLayout(*style) || containsPaint(*style)
+	return style.HasTransform || containsLayout(style) || containsPaint(style)
 }
 
 // flowTrimBounds finds the first/last in-flow block child indexes for
@@ -797,7 +783,7 @@ func attachFlowBox(parent *box, child *box, engine *engine) {
 // cascade style. No-ops when the box already clips or st does not apply paint
 // containment.
 func (e *engine) stampContainmentClip(boxNode *box, sty *ResolvedStyle) {
-	if boxNode == nil || boxNode.style == nil || sty == nil || !containsPaint(*sty) {
+	if boxNode == nil || boxNode.style == nil || sty == nil || !containsPaint(sty) {
 		return
 	}
 
@@ -899,7 +885,7 @@ func (e *engine) layoutBlockChild(
 	// Layout containment makes the box an independent formatting context,
 	// so it avoids active floats the same way.
 	boxX, boxW := contentX, contentW
-	if establishesBFC(*cstate) || containsLayout(*cstate) {
+	if establishesBFC(cstate) || containsLayout(cstate) {
 		boxX, boxW = floats.exclusion(contentX, contentW, posY, curY)
 	}
 
@@ -912,7 +898,7 @@ func (e *engine) layoutBlockChild(
 
 	// wrap-through: none (css-exclusions-1 lite) builds the child against a
 	// scratch floatState so outside exclusions do not shorten its lines.
-	bypass := e.beginWrapThroughBypass(floats, *cstate)
+	bypass := e.beginWrapThroughBypass(floats, cstate)
 	cblock := e.build(node, boxW, boxX, posY+curY)
 
 	endWrapThroughBypass(floats, bypass)
@@ -932,7 +918,7 @@ func (e *engine) finishBlockChild(
 	cblock *box, cstate *ResolvedStyle, floats *floatState,
 	entryCurY, prevBottom, curY, contentX, contentW float64,
 ) (float64, float64, *box) {
-	if exclusionApplies(*cstate) && floats != nil {
+	if exclusionApplies(cstate) && floats != nil {
 		floats.placeExclusion(cblock, cstate.WrapFlow, contentX, contentW)
 
 		return entryCurY, prevBottom, cblock
@@ -1039,8 +1025,8 @@ func (e *engine) blockFitContentMarginBox(node *html.Node, style ResolvedStyle) 
 // by internal callers; the value wrapper above preserves the external
 // grid and width call sites.
 func (e *engine) blockFitContentMarginBoxPtr(node *html.Node, style *ResolvedStyle) float64 {
-	if containsSize(*style) || style.ContentVisibility == contentVisibilityHidden {
-		intrinsicW := containmentIntrinsicWidth(*style)
+	if containsSize(style) || style.ContentVisibility == contentVisibilityHidden {
+		intrinsicW := containmentIntrinsicWidth(style)
 		if intrinsicW < 0 {
 			intrinsicW = 0
 		}
@@ -1082,7 +1068,7 @@ func (e *engine) pushBFCFloatsForce(style ResolvedStyle, contentX, contentW floa
 // pushBFCFloatsForcePtr is the pointer-based BFC installer used by internal
 // flow so block layout pays no 6KB copy to test for a new formatting context.
 func (e *engine) pushBFCFloatsForcePtr(style *ResolvedStyle, contentX, contentW float64, force bool) bool {
-	if e.bfcFloats != nil && !force && !establishesBFC(*style) && !containsLayout(*style) {
+	if e.bfcFloats != nil && !force && !establishesBFC(style) && !containsLayout(style) {
 		return false
 	}
 
@@ -1510,11 +1496,11 @@ func packFloatPosition(
 func (e *engine) floatIntrinsicAvail(node *html.Node, style *ResolvedStyle, avail float64) float64 {
 	var intr float64
 
-	if isSizeContainer(*style) || containsSize(*style) {
+	if isSizeContainer(style) || containsSize(style) {
 		// Size containment: intrinsic inline size as-if-empty plus any
 		// contain-intrinsic inline size, so the float width does not depend
 		// on descendants.
-		intrinsicW := containmentIntrinsicWidth(*style)
+		intrinsicW := containmentIntrinsicWidth(style)
 		if intrinsicW < 0 {
 			intrinsicW = 0
 		}
@@ -1586,11 +1572,35 @@ func (e *engine) shiftBoxOps(boxNode *box, deltaX, deltaY float64) {
 		}
 	}
 
-	shiftDeferredChrome(e.deferredChrome, boxNode, deltaX, deltaY)
+	shiftBoxDeferredChrome(boxNode, deltaX, deltaY)
 	// Callers move boxNode itself. Descendants keep absolute canvas coordinates,
 	// so a flex centering move has to carry them or hit testing stays behind the paint.
 	for _, child := range boxNode.children {
 		shiftBoxGeometry(child, deltaX, deltaY)
+	}
+}
+
+// shiftBoxDeferredChrome translates deferred chrome ops owned by boxNode's
+// subtree directly in O(subtree) time without scanning the global deferred list.
+func shiftBoxDeferredChrome(boxNode *box, deltaX, deltaY float64) {
+	if boxNode == nil {
+		return
+	}
+
+	for j := range boxNode.deferredChrome {
+		boxNode.deferredChrome[j].X += deltaX
+		boxNode.deferredChrome[j].Y += deltaY
+	}
+
+	for _, extra := range boxNode.extraDeferredChrome {
+		for j := range extra {
+			extra[j].X += deltaX
+			extra[j].Y += deltaY
+		}
+	}
+
+	for _, child := range boxNode.children {
+		shiftBoxDeferredChrome(child, deltaX, deltaY)
 	}
 }
 
@@ -1642,58 +1652,6 @@ func (e *engine) shiftOutOfFlowBox(boxNode *box, deltaX, deltaY float64, chromeF
 // subtree shift stays within the complexity budget.
 func shiftDeferredChromeFrom(entries []chromeEntry, deltaX, deltaY float64) {
 	for idx := range entries {
-		for j := range entries[idx].ops {
-			entries[idx].ops[j].X += deltaX
-			entries[idx].ops[j].Y += deltaY
-		}
-	}
-}
-
-// shiftDeferredChrome translates the chrome ops of every deferred entry owned
-// by b's subtree so finalizeChrome places backgrounds/borders at the new
-// geometry.
-func boxContains(root, target *box) bool {
-	if root == nil || target == nil {
-		return false
-	}
-
-	if root == target {
-		return true
-	}
-
-	for _, child := range root.children {
-		if boxContains(child, target) {
-			return true
-		}
-	}
-
-	return false
-}
-
-//nolint:cyclop // handles single-box and subtree chrome coordinate translation
-func shiftDeferredChrome(entries []chromeEntry, boxNode *box, deltaX, deltaY float64) {
-	if len(entries) == 0 || (deltaX == 0 && deltaY == 0) || boxNode == nil {
-		return
-	}
-
-	if len(boxNode.children) == 0 {
-		for idx := range entries {
-			if entries[idx].b == boxNode {
-				for j := range entries[idx].ops {
-					entries[idx].ops[j].X += deltaX
-					entries[idx].ops[j].Y += deltaY
-				}
-			}
-		}
-
-		return
-	}
-
-	for idx := range entries {
-		if !boxContains(boxNode, entries[idx].b) {
-			continue
-		}
-
 		for j := range entries[idx].ops {
 			entries[idx].ops[j].X += deltaX
 			entries[idx].ops[j].Y += deltaY

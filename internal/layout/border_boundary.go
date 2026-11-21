@@ -22,7 +22,7 @@ func (e *engine) addBorderBoundary(root *box) {
 
 	for index := range e.deferredChrome {
 		entry := &e.deferredChrome[index]
-		if entry.b == nil || entry.b.style == nil || entry.b.style.Declared.BorderBoundary != "parent" {
+		if entry.b == nil || entry.b.style == nil || entry.b.style.declared().BorderBoundary != "parent" {
 			continue
 		}
 
@@ -71,7 +71,7 @@ func (e *engine) borderBoundaryOps(child, parent *box) []Op {
 		return nil
 	}
 
-	radii, radiiY := usedBorderRadiiXY(*parent.style, parent.w, parent.height)
+	radii, radiiY := usedBorderRadiiXY(parent.style, parent.w, parent.height)
 	width := e.scalePt(borderPaint(side))
 	inset := width / 2 //nolint:mnd // stroke is centered on its path
 

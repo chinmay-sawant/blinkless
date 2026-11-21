@@ -316,8 +316,10 @@ func TestBehaviorForcedColorAdjustActiveHelpersDiverge(t *testing.T) {
 		}
 	}
 
-	autoFill := usedBGForPaintActive(blueBG("auto"), true)
-	noneFill := usedBGForPaintActive(blueBG("none"), true)
+	autoBG := blueBG("auto")
+	noneBG := blueBG("none")
+	autoFill := usedBGForPaintActive(&autoBG, true)
+	noneFill := usedBGForPaintActive(&noneBG, true)
 
 	if autoFill != ([4]float64{0, 0, 0, 1}) {
 		t.Errorf("forced auto fill = %v, want system black (0, 0, 0, 1)", autoFill)
@@ -343,7 +345,8 @@ func TestBehaviorForcedColorAdjustActiveHelpersDiverge(t *testing.T) {
 		t.Errorf("forced none ink = %v, want author yellow %v", noneInk, yellow)
 	}
 
-	offFill := usedBGForPaintActive(blueBG("auto"), false)
+	offBG := blueBG("auto")
+	offFill := usedBGForPaintActive(&offBG, false)
 	if offFill != ([4]float64{0, 0, 1, 1}) {
 		t.Errorf("unforced auto fill = %v, want author blue", offFill)
 	}

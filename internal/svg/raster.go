@@ -207,6 +207,36 @@ func normalizeRasterMaxSide(maxSide int) int {
 	return maxSide
 }
 
+type svgPNGPool struct {
+	p sync.Pool
+}
+
+func (pool *svgPNGPool) Get() *png.EncoderBuffer {
+	if v := pool.p.Get(); v != nil {
+		if buf, ok := v.(*png.EncoderBuffer); ok {
+			return buf
+		}
+	}
+
+	return nil
+}
+
+func (pool *svgPNGPool) Put(b *png.EncoderBuffer) {
+	pool.p.Put(b)
+}
+
+//nolint:gochecknoglobals // reusable PNG encoder buffer pools avoid per-SVG flate allocations
+var (
+	svgBestSpeedPNGEncoder = png.Encoder{
+		CompressionLevel: png.BestSpeed,
+		BufferPool:       &svgPNGPool{p: sync.Pool{New: nil}},
+	}
+	svgDefaultPNGEncoder = png.Encoder{
+		CompressionLevel: png.DefaultCompression,
+		BufferPool:       &svgPNGPool{p: sync.Pool{New: nil}},
+	}
+)
+
 // encodeRasterPNG encodes one raster to PNG. Rasters at or above
 // fastEncodeMinPixels use BestSpeed, where it measures faster than the
 // default level; smaller rasters keep the default level, which measures
@@ -216,9 +246,9 @@ func encodeRasterPNG(buf *bytes.Buffer, img image.Image, pixW, pixH int) error {
 	var err error
 
 	if pixW > 0 && pixH > 0 && pixW*pixH >= fastEncodeMinPixels {
-		err = (&png.Encoder{CompressionLevel: png.BestSpeed, BufferPool: nil}).Encode(buf, img)
+		err = svgBestSpeedPNGEncoder.Encode(buf, img)
 	} else {
-		err = png.Encode(buf, img)
+		err = svgDefaultPNGEncoder.Encode(buf, img)
 	}
 
 	if err != nil {

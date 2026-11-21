@@ -13,7 +13,7 @@ func blockEllipsisMarker(style *ResolvedStyle) string {
 		return "…"
 	}
 
-	switch value := style.Declared.BlockEllipsis; value {
+	switch value := style.declared().BlockEllipsis; value {
 	case "", textOverflowEllipsis:
 		return "…"
 	case fragNoEllipsis:

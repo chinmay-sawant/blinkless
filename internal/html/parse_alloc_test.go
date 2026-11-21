@@ -47,11 +47,12 @@ func canonDumpNode(b *strings.Builder, n *Node, depth int) {
 		for _, a := range n.AttrList {
 			fmt.Fprintf(b, " [%s|%s=%q]", a.Namespace, a.Name, a.Value)
 		}
-		if n.Attrs == nil {
+		attrs := n.EnsureAttrs()
+		if attrs == nil {
 			b.WriteString(" map=nil")
 		} else {
-			keys := make([]string, 0, len(n.Attrs))
-			for k := range n.Attrs {
+			keys := make([]string, 0, len(attrs))
+			for k := range attrs {
 				keys = append(keys, k)
 			}
 			sort.Strings(keys)
@@ -60,7 +61,7 @@ func canonDumpNode(b *strings.Builder, n *Node, depth int) {
 				if i > 0 {
 					b.WriteString(",")
 				}
-				fmt.Fprintf(b, "%s=%q", k, n.Attrs[k])
+				fmt.Fprintf(b, "%s=%q", k, attrs[k])
 			}
 			b.WriteString("}")
 		}
@@ -301,8 +302,8 @@ func TestParseNoAttrNilMaps(t *testing.T) {
 			t.Errorf("<%s> without attributes carries allocated stores: Attrs=%v AttrList=%v",
 				n.Name, n.Attrs, n.AttrList)
 		}
-		if len(n.AttrList) > 0 && n.Attrs == nil {
-			t.Errorf("<%s> with attributes has nil Attrs map", n.Name)
+		if len(n.AttrList) > 0 && n.Attribute(n.AttrList[0].Key()) != n.AttrList[0].Value {
+			t.Errorf("<%s> attribute lookup failed for %q", n.Name, n.AttrList[0].Key())
 		}
 	})
 }

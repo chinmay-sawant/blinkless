@@ -22,7 +22,7 @@ func (e *engine) deferFloatsToColumns(boxNode *box, contentX, colW, gap float64,
 			continue
 		}
 
-		target, ok := floatDeferTarget(child.style.Declared.FloatDefer, columnOf(child.x, contentX, step), nCols)
+		target, ok := floatDeferTarget(child.style.declared().FloatDefer, columnOf(child.x, contentX, step), nCols)
 		if !ok {
 			continue
 		}

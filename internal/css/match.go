@@ -600,7 +600,7 @@ func matchPart(state MatchState, part SelectorPart, node *html.Node) bool {
 	// "id" is ASCII lower-case, so the direct map read equals
 	// node.Attribute("id"): Attribute tries the exact key first and its
 	// lower-case fallback is the same key. One lookup, no case scan.
-	if part.ID != "" && node.Attrs["id"] != part.ID {
+	if part.ID != "" && node.AttrExact("id") != part.ID {
 		return false
 	}
 
@@ -646,7 +646,7 @@ func hasClasses(part SelectorPart, node *html.Node) bool {
 	// Fetch once: the old per-class node.Attribute("class") repeated the
 	// map lookup and the upper-case scan for every class. "class" is lower-
 	// case, so the direct read equals Attribute (missing key reads as "").
-	classVal := node.Attrs["class"]
+	classVal := node.AttrExact("class")
 
 	for _, c := range part.Classes {
 		if !hasClassToken(classVal, c) {
@@ -744,10 +744,7 @@ func resetMatchMemoForTest() {
 // matchAttrs matches every attribute selector of the part against node.
 func matchAttrs(part SelectorPart, node *html.Node) bool {
 	for _, arg := range part.Attrs {
-		val, found := "", false
-		if node.Attrs != nil {
-			val, found = node.Attrs[arg.Name]
-		}
+		val, found := node.AttrValue(arg.Name)
 
 		if arg.Op == "" {
 			if !found {
@@ -899,7 +896,7 @@ func matchStatePseudo(state MatchState, name string, node *html.Node) bool {
 // matchStateID reports whether node carries the given runtime-state id.
 func matchStateID(id string, node *html.Node) bool {
 	// Direct read: "id" is lower-case, identical to Attribute("id").
-	return id != "" && node.Attrs["id"] == id
+	return id != "" && node.AttrExact("id") == id
 }
 
 // matchChecked reports whether node is a checked checkbox or radio, or a
@@ -908,20 +905,16 @@ func matchStateID(id string, node *html.Node) bool {
 func matchChecked(node *html.Node) bool {
 	if asciiEqualFold(node.Name, "input") {
 		// Direct read: "type" is lower-case, identical to Attribute.
-		t := node.Attrs["type"]
+		t := node.AttrExact("type")
 		if !asciiEqualFold(t, "checkbox") && !asciiEqualFold(t, "radio") {
 			return false
 		}
 
-		_, ok := node.Attrs["checked"]
-
-		return ok
+		return node.HasAttr("checked")
 	}
 
 	if asciiEqualFold(node.Name, "option") {
-		_, ok := node.Attrs["selected"]
-
-		return ok
+		return node.HasAttr("selected")
 	}
 
 	return false
@@ -1021,7 +1014,7 @@ func isLinkAnchor(n *html.Node) bool {
 		return false
 	}
 
-	href := strings.TrimSpace(n.Attrs["href"])
+	href := strings.TrimSpace(n.AttrExact("href"))
 
 	return href != ""
 }

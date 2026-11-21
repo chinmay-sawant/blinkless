@@ -96,8 +96,8 @@ func (e *engine) measureCellMinMax(node *html.Node, style *ResolvedStyle) (float
 	// as if the descendants were absent: contain-intrinsic inline size (else
 	// 0) plus box chrome. A fixed intrinsic length contributes the same to
 	// min-content and max-content.
-	if containsSize(*style) || style.ContentVisibility == contentVisibilityHidden {
-		intrinsicW := containmentIntrinsicWidth(*style)
+	if containsSize(style) || style.ContentVisibility == contentVisibilityHidden {
+		intrinsicW := containmentIntrinsicWidth(style)
 		if intrinsicW < 0 {
 			intrinsicW = 0
 		}
@@ -335,7 +335,7 @@ func (m *cellMeasure) measureElement(nodeN *html.Node, childCS *ResolvedStyle, n
 	// replaces the descendant-derived intrinsic width with contain-intrinsic
 	// inline size (else 0) plus box chrome, exactly like the measureCellMinMax
 	// root guard. Descendant content must not contribute.
-	if containsSize(*childCS) || childCS.ContentVisibility == contentVisibilityHidden {
+	if containsSize(childCS) || childCS.ContentVisibility == contentVisibilityHidden {
 		m.measureSizeContained(childCS)
 
 		return
@@ -417,7 +417,7 @@ func (m *cellMeasure) measureSpecifiedInlineBlock(style *ResolvedStyle) bool {
 // plus box chrome, never its descendant content. Block-level boxes occupy
 // their own measured line.
 func (m *cellMeasure) measureSizeContained(style *ResolvedStyle) {
-	intrinsicW := containmentIntrinsicWidth(*style)
+	intrinsicW := containmentIntrinsicWidth(style)
 	if intrinsicW < 0 {
 		intrinsicW = 0
 	}
@@ -476,7 +476,7 @@ func countedBySpecifiedBlockMeasure(node *html.Node, style *ResolvedStyle) bool 
 		return false
 	}
 
-	if containsSize(*style) || style.ContentVisibility == contentVisibilityHidden {
+	if containsSize(style) || style.ContentVisibility == contentVisibilityHidden {
 		return false
 	}
 
@@ -855,7 +855,7 @@ func (e *engine) layoutCell(n *html.Node, sty ResolvedStyle, width float64) floa
 		e.endMeasureFloats()
 	}
 
-	return e.borderBoxBottom(sty, curY)
+	return e.borderBoxBottom(&sty, curY)
 }
 
 func colSpan(n *html.Node) int {

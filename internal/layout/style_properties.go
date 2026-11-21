@@ -707,12 +707,15 @@ func setMinHeightValue(style *ResolvedStyle, value string, fsize, viewportH floa
 	if value == overflowAuto || value == cssDisplayNone {
 		style.MinHeight = 0
 		style.MinHeightPercent = -1
+		style.MinHeightSet = false
 	} else if v, unit, ok := css.ParseLength(value); ok && unit == "%" {
 		style.MinHeightPercent = v
 		style.MinHeight = 0
+		style.MinHeightSet = true
 	} else if v, ok := lengthBox(value, fsize, viewportH, cssDisplayNone); ok {
 		style.MinHeight = v
 		style.MinHeightPercent = -1
+		style.MinHeightSet = true
 	}
 
 	return true

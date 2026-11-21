@@ -106,7 +106,7 @@ func (e *engine) layoutSingleColumnGrid(
 
 	usedH = resolveGridUsedHeight(e, sty, usedH, contentH)
 	boxNode.height = usedH
-	e.prependChrome(contentStart, boxNode, sty, boxNode.x, posY, boxNode.w, boxNode.height)
+	e.prependChrome(contentStart, boxNode, &sty, boxNode.x, posY, boxNode.w, boxNode.height)
 
 	return boxNode
 }

@@ -35,7 +35,7 @@ func (d *Document) SetAttribute(elementID, name, value string) bool {
 		return false
 	}
 
-	if node.Attrs == nil {
+	if node.EnsureAttrs() == nil {
 		node.Attrs = make(map[string]string, 1)
 	}
 

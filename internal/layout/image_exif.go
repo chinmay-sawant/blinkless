@@ -8,7 +8,6 @@ import (
 	"image"
 	"image/draw"
 	_ "image/jpeg" // Register the JPEG decoder for EXIF-bearing content images.
-	"image/png"
 	"math"
 )
 
@@ -497,7 +496,7 @@ func copyToRGBA(img image.Image) *image.RGBA {
 func encodePNGImage(img image.Image) ([]byte, error) {
 	var out bytes.Buffer
 
-	if err := png.Encode(&out, img); err != nil {
+	if err := pooledPNGEncoder.Encode(&out, img); err != nil {
 		return nil, fmt.Errorf("encode oriented image: %w", err)
 	}
 

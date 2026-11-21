@@ -151,37 +151,42 @@ func findRelayoutTarget(root *box, node *html.Node) *relayoutTarget {
 
 	var found *relayoutTarget
 
-	var walk func(boxNode *box, parent *box, ancestors []*box) bool
+	var stack [16]*box
+	ancestors := stack[:0]
 
-	walk = func(boxNode *box, parent *box, ancestors []*box) bool {
+	var walk func(boxNode *box, parent *box) bool
+
+	walk = func(boxNode *box, parent *box) bool {
 		if boxNode.node == node {
-			found = &relayoutTarget{box: boxNode, parent: parent, ancestors: ancestors}
+			chain := make([]*box, len(ancestors))
+			copy(chain, ancestors)
+			found = &relayoutTarget{box: boxNode, parent: parent, ancestors: chain}
 
 			return true
 		}
 
-		chain := make([]*box, len(ancestors), len(ancestors)+1)
-		copy(chain, ancestors)
-		chain = append(chain, boxNode)
+		ancestors = append(ancestors, boxNode)
 
 		for _, child := range boxNode.children {
-			if walk(child, boxNode, chain) {
+			if walk(child, boxNode) {
 				return true
 			}
 		}
 
 		for _, row := range boxNode.rows {
 			for _, cell := range row {
-				if walk(cell, boxNode, chain) {
+				if walk(cell, boxNode) {
 					return true
 				}
 			}
 		}
 
+		ancestors = ancestors[:len(ancestors)-1]
+
 		return false
 	}
 
-	walk(root, nil, nil)
+	walk(root, nil)
 
 	return found
 }
@@ -353,7 +358,7 @@ func relayoutViewportFixed(root *box, styles map[*html.Node]*ResolvedStyle) bool
 	}
 
 	for node := root.node.Parent; node != nil; node = node.Parent {
-		if style := styles[node]; style != nil && fixedContainingBlock(*style) {
+		if style := styles[node]; style != nil && fixedContainingBlock(style) {
 			return false
 		}
 	}
@@ -410,16 +415,16 @@ func relayoutCBAncestor(style *ResolvedStyle, fixed bool) bool {
 	}
 
 	if fixed {
-		return fixedContainingBlock(*style)
+		return fixedContainingBlock(style)
 	}
 
-	return establishesAbsCB(*style)
+	return establishesAbsCBPtr(style)
 }
 
 // fixedContainingBlock reports whether one ancestor establishes a containing
 // block for a fixed box. Position alone does not: a fixed box against a
 // relative ancestor still uses the viewport.
-func fixedContainingBlock(style ResolvedStyle) bool {
+func fixedContainingBlock(style *ResolvedStyle) bool {
 	if style.HasTransform {
 		return true
 	}
@@ -940,7 +945,7 @@ func relayoutEnterAncestorPaint(eng *engine, target *relayoutTarget) bool {
 			viewportFixed = true
 		}
 
-		containingBlock = containingBlock || fixedContainingBlock(*style)
+		containingBlock = containingBlock || fixedContainingBlock(style)
 	}
 
 	return viewportFixed
@@ -1073,7 +1078,7 @@ func relayoutFlexColumnFilled(eng *engine, parent *box) bool {
 		return false
 	}
 
-	contentH := resolveFlexColumnContentHeight(*parent.style, eng)
+	contentH := resolveFlexColumnContentHeight(parent.style, eng)
 	if contentH < 0 {
 		return false
 	}

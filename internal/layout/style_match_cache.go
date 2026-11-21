@@ -189,7 +189,140 @@ type matchCacheEntry struct {
 // match ASCII case-insensitively) and namespace-qualified so foreign elements
 // never alias HTML ones.
 func (ctx *styleContext) matchSignature(node *html.Node, pseudoElem string) matchCacheKey {
-	return matchCacheKey{tag: ctx.matchTag(node), attrs: ctx.canonicalAttrKey(node.Attrs), pseudo: pseudoElem}
+	return matchCacheKey{tag: ctx.matchTag(node), attrs: ctx.canonicalNodeAttrKey(node), pseudo: pseudoElem}
+}
+
+func (ctx *styleContext) canonicalClassAttrKey(value string) string {
+	if ctx != nil {
+		if key, cached := ctx.classKeys[value]; cached {
+			return key
+		}
+	}
+
+	key := canonicalSingleAttrKey(classAttrName, value)
+
+	if ctx != nil {
+		if ctx.classKeys == nil {
+			ctx.classKeys = make(map[string]string)
+		}
+
+		ctx.classKeys[value] = key
+	}
+
+	return key
+}
+
+func (ctx *styleContext) canonicalNodeAttrKey(node *html.Node) string {
+	if node == nil {
+		return ""
+	}
+
+	if node.Attrs != nil {
+		return ctx.canonicalAttrKey(node.Attrs)
+	}
+
+	switch len(node.AttrList) {
+	case 0:
+		return ""
+	case 1:
+		attr := &node.AttrList[0]
+		if attr.Namespace == "" && attr.Name == classAttrName {
+			return ctx.canonicalClassAttrKey(attr.Value)
+		}
+
+		return canonicalSingleAttrKey(attr.Key(), attr.Value)
+	default:
+		return canonicalAttrListKey(node.AttrList)
+	}
+}
+
+func canonicalSingleAttrKey(name, value string) string {
+	if name == classAttrName {
+		singleAttrCacheMu.RLock()
+		cached, ok := singleAttrCache[value]
+		singleAttrCacheMu.RUnlock()
+
+		if ok {
+			return cached
+		}
+	}
+
+	var out strings.Builder
+
+	out.Grow(len(name) + len(value) + attrKeyOverhead)
+	writeAttrKeyInt(&out, len(name))
+	out.WriteByte(':')
+	out.WriteString(name)
+	out.WriteByte('=')
+	writeAttrKeyInt(&out, len(value))
+	out.WriteByte(':')
+	out.WriteString(value)
+	out.WriteByte(';')
+	res := out.String()
+
+	if name == classAttrName {
+		singleAttrCacheMu.Lock()
+		if len(singleAttrCache) < maxSingleAttrCacheSize {
+			singleAttrCache[value] = res
+		}
+		singleAttrCacheMu.Unlock()
+	}
+
+	return res
+}
+
+func canonicalAttrListKey(list []html.Attr) string {
+	var stack [8]int
+
+	idx := stack[:0]
+	if len(list) > len(stack) {
+		idx = make([]int, 0, len(list))
+	}
+
+	sizes := 0
+
+	for i := range list {
+		idx = append(idx, i)
+		sizes += len(list[i].Name) + len(list[i].Value)
+
+		if list[i].Namespace != "" {
+			sizes += len(list[i].Namespace) + 1
+		}
+	}
+
+	// Insertion sort on tiny lists (2..4 attrs) avoids heap allocation.
+	for i := 1; i < len(idx); i++ {
+		cur := idx[i]
+		curKey := list[cur].Key()
+		pos := i - 1
+
+		for pos >= 0 && list[idx[pos]].Key() > curKey {
+			idx[pos+1] = idx[pos]
+			pos--
+		}
+
+		idx[pos+1] = cur
+	}
+
+	var out strings.Builder
+
+	out.Grow(sizes + len(idx)*attrKeyOverhead)
+
+	for _, i := range idx {
+		name := list[i].Key()
+		value := list[i].Value
+
+		writeAttrKeyInt(&out, len(name))
+		out.WriteByte(':')
+		out.WriteString(name)
+		out.WriteByte('=')
+		writeAttrKeyInt(&out, len(value))
+		out.WriteByte(':')
+		out.WriteString(value)
+		out.WriteByte(';')
+	}
+
+	return out.String()
 }
 
 // canonicalAttrKey interns the canonical key for one element's attributes for
@@ -467,14 +600,39 @@ func (ctx *styleContext) scanMatches(
 	return hits
 }
 
+const (
+	matchCacheInitCap          = 64
+	maxPooledMatchCacheEntries = 4096
+)
+
+//nolint:gochecknoglobals // per-pass selector match cache pool
+var matchCachePool = sync.Pool{
+	New: func() any {
+		return make(map[matchCacheKey]*matchCacheEntry, matchCacheInitCap)
+	},
+}
+
 // storeMatchEntry records a finished scan under key, allocating the pass
 // cache on first use. Split from scanMatches so the hot scan stays flat.
 func (ctx *styleContext) storeMatchEntry(key matchCacheKey, entry *matchCacheEntry) {
 	if ctx.matchCache == nil {
-		ctx.matchCache = make(map[matchCacheKey]*matchCacheEntry)
+		ctx.matchCache = matchCachePool.Get().(map[matchCacheKey]*matchCacheEntry) //nolint:forcetypeassert // pool stores map
 	}
 
 	ctx.matchCache[key] = entry
+}
+
+func (ctx *styleContext) releaseMatchCache() {
+	if ctx == nil || ctx.matchCache == nil {
+		return
+	}
+
+	if len(ctx.matchCache) <= maxPooledMatchCacheEntries {
+		clear(ctx.matchCache)
+		matchCachePool.Put(ctx.matchCache)
+	}
+
+	ctx.matchCache = nil
 }
 
 // replayMatches replays a cached signature: reusable candidates resolve from

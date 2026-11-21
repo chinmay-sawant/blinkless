@@ -60,7 +60,7 @@ func mirrorSelectedContent(selectNode *Node) {
 	selected := (*Node)(nil)
 
 	for _, option := range options {
-		if _, ok := option.Attrs["selected"]; ok {
+		if option.HasAttr("selected") {
 			selected = option
 		}
 	}
@@ -115,7 +115,10 @@ func cloneSubtreeDepth(node *Node, depth int) *Node {
 		Name:      node.Name,
 		Namespace: node.Namespace,
 		Text:      node.Text,
-		Doctype:   node.Doctype,
+	}
+	if node.Doctype != nil {
+		d := *node.Doctype
+		clone.Doctype = &d
 	}
 
 	if len(node.Attrs) > 0 {

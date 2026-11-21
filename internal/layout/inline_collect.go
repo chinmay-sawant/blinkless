@@ -977,7 +977,7 @@ func (e *engine) inlineBlockAvail(nodeN *html.Node, sty *ResolvedStyle, cbW floa
 		return defaultCheckboxSize(e, *sty) + e.scalePt(sty.MarginLeft) + e.scalePt(sty.MarginRight)
 	}
 
-	if isSizeContainer(*sty) || containsSize(*sty) {
+	if isSizeContainer(sty) || containsSize(sty) {
 		return e.containmentInlineBlockAvail(sty)
 	}
 
@@ -1006,7 +1006,7 @@ func (e *engine) containmentInlineBlockAvail(sty *ResolvedStyle) float64 {
 		e.scalePt(sty.BorderLeft.Width) + e.scalePt(sty.BorderRight.Width)
 	intr := chrome
 
-	if intrinsicW := containmentIntrinsicWidth(*sty); intrinsicW >= 0 {
+	if intrinsicW := containmentIntrinsicWidth(sty); intrinsicW >= 0 {
 		intr = e.scalePt(intrinsicW) + chrome
 	}
 
@@ -1433,8 +1433,12 @@ func (e *engine) coalesceTextItems(line []inlineItem) []inlineItem {
 //
 //nolint:cyclop,dupl,gocyclo // intentionally a subset of the generated comparison
 func sameInlineStyle(acc, boxN *ResolvedStyle) bool {
+	if acc == boxN {
+		return true
+	}
+
 	if acc == nil || boxN == nil {
-		return acc == boxN
+		return false
 	}
 
 	return acc.FontSize == boxN.FontSize &&

@@ -253,7 +253,7 @@ func (e *engine) paintInlineChrome(item *inlineItem, leftX, baseline, ascent, de
 	}
 
 	if style.BGColor[3] > 0 && e.backgroundPaintEnabled(style) {
-		radii, radiiY := usedBorderRadiiXY(*style, boxW, boxH)
+		radii, radiiY := usedBorderRadiiXY(style, boxW, boxH)
 		fill := Op{ //nolint:exhaustruct // intentional zero fields
 			Kind: OpFillRect, X: leftX, Y: boxY, W: boxW, H: boxH,
 			R: style.BGColor[0], G: style.BGColor[1], B: style.BGColor[2], Alpha: style.BGColor[3],
@@ -264,14 +264,14 @@ func (e *engine) paintInlineChrome(item *inlineItem, leftX, baseline, ascent, de
 		e.add(fill)
 	}
 
-	if !inlineHasBorder(*style) {
+	if !inlineHasBorder(style) {
 		return
 	}
 
-	radii, radiiY := usedBorderRadiiXY(*style, boxW, boxH)
+	radii, radiiY := usedBorderRadiiXY(style, boxW, boxH)
 	radius := uniformRadius(radii)
 
-	if hasRoundedRadii(radii) && uniformRoundedBorder(*style) {
+	if hasRoundedRadii(radii) && uniformRoundedBorder(style) {
 		b := style.BorderTop
 		stroke := Op{ //nolint:exhaustruct // intentional zero fields
 			Kind: OpStrokeRect, X: leftX, Y: boxY, W: boxW, H: boxH,
@@ -284,12 +284,12 @@ func (e *engine) paintInlineChrome(item *inlineItem, leftX, baseline, ascent, de
 		return
 	}
 
-	for _, op := range e.borderOps(*style, leftX, boxY, boxW, boxH) {
+	for _, op := range e.borderOps(style, leftX, boxY, boxW, boxH) {
 		e.add(op)
 	}
 }
 
-func inlineHasBorder(st ResolvedStyle) bool {
+func inlineHasBorder(st *ResolvedStyle) bool {
 	return inlineBorderVisible(st.BorderTop) || inlineBorderVisible(st.BorderRight) ||
 		inlineBorderVisible(st.BorderBottom) || inlineBorderVisible(st.BorderLeft)
 }

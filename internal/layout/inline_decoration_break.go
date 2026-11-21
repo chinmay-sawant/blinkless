@@ -1,8 +1,6 @@
 package layout
 
 import (
-	"sync"
-
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
@@ -14,8 +12,9 @@ import (
 
 const boxDecorationBreakClone = "clone"
 
-// decorBreakState is per engine because layout tests run in parallel.
-// The map entry exists only while an inline formatting context is open.
+// decorBreakState holds per-engine box-decoration-break state for active
+// inline formatting contexts. Stored directly on engine so push/pop allocate
+// nothing and need no global synchronization.
 type decorBreakState struct {
 	ids    map[*html.Node]int
 	next   int
@@ -25,14 +24,6 @@ type decorBreakState struct {
 	depth  int
 }
 
-// The state lives here, not on engine, so the engine struct in layout.go does
-// not grow. The mutex guards it for parallel layout tests. Entries are keyed by
-// engine and removed by the outermost pop.
-var (
-	decorBreakMu sync.Mutex                       //nolint:gochecknoglobals // per-engine state, see above
-	decorBreaks  = map[*engine]*decorBreakState{} //nolint:gochecknoglobals // per-engine state, see above
-)
-
 func inlineDecorationClone(style *ResolvedStyle) bool {
 	return style != nil && style.BoxDecorationBreak == boxDecorationBreakClone
 }
@@ -41,37 +32,30 @@ func inlineDecorationClone(style *ResolvedStyle) bool {
 // context (an inline-block measured while the outer run is still being
 // collected) shares the id map so element ids are not reused.
 func (e *engine) pushInlineDecorationBreak() {
-	decorBreakMu.Lock()
-	defer decorBreakMu.Unlock()
-
-	state := decorBreaks[e]
-	if state == nil {
-		state = &decorBreakState{
-			ids: map[*html.Node]int{}, next: 0, openID: 0, fill: 0, open: false, depth: 0,
-		}
-		decorBreaks[e] = state
-	}
-
+	state := &e.decorBreak
 	state.depth++
 	state.open = false
 }
 
 // popInlineDecorationBreak closes the context opened by push. The outermost
-// pop drops the engine entry so a finished layout is not retained.
+// pop clears the id map while keeping its backing for later inline runs.
 func (e *engine) popInlineDecorationBreak() {
-	decorBreakMu.Lock()
-	defer decorBreakMu.Unlock()
-
-	state := decorBreaks[e]
-	if state == nil {
+	state := &e.decorBreak
+	if state.depth <= 0 {
 		return
 	}
 
 	state.depth--
 	state.open = false
 
-	if state.depth <= 0 {
-		delete(decorBreaks, e)
+	if state.depth == 0 {
+		if len(state.ids) > 0 {
+			clear(state.ids)
+		}
+
+		state.next = 0
+		state.openID = 0
+		state.fill = 0
 	}
 }
 
@@ -82,11 +66,8 @@ func (e *engine) inlineDecorID(node *html.Node) int {
 		return 0
 	}
 
-	decorBreakMu.Lock()
-	defer decorBreakMu.Unlock()
-
-	state := decorBreaks[e]
-	if state == nil || state.depth == 0 {
+	state := &e.decorBreak
+	if state.depth == 0 {
 		return 0
 	}
 
@@ -185,11 +166,8 @@ func (e *engine) inlineDecorationBox(
 // expandInlineDecorationFill grows the open slice background to cover box.
 // It reports false when this fragment starts a different element.
 func (e *engine) expandInlineDecorationFill(id int, boxX, boxY, boxW, boxH float64) bool {
-	decorBreakMu.Lock()
-	defer decorBreakMu.Unlock()
-
-	state := decorBreaks[e]
-	if state == nil || !state.open || state.openID != id {
+	state := &e.decorBreak
+	if !state.open || state.openID != id {
 		return false
 	}
 
@@ -203,11 +181,8 @@ func (e *engine) expandInlineDecorationFill(id int, boxX, boxY, boxW, boxH float
 }
 
 func (e *engine) openInlineDecorationFill(elemID, fill int) {
-	decorBreakMu.Lock()
-	defer decorBreakMu.Unlock()
-
-	state := decorBreaks[e]
-	if state == nil || state.depth == 0 {
+	state := &e.decorBreak
+	if state.depth == 0 {
 		return
 	}
 
@@ -243,12 +218,12 @@ func growDecorFill(paintOp *Op, boxX, boxY, boxW, boxH float64) {
 // paintInlineDecorationBorder paints the border of one slice fragment.
 // The background stays the single fill opened on the first fragment.
 func (e *engine) paintInlineDecorationBorder(style *ResolvedStyle, boxX, boxY, boxW, boxH float64) {
-	if style == nil || !inlineHasBorder(*style) {
+	if style == nil || !inlineHasBorder(style) {
 		return
 	}
 
-	radii, radiiY := usedBorderRadiiXY(*style, boxW, boxH)
-	if hasRoundedRadii(radii) && uniformRoundedBorder(*style) {
+	radii, radiiY := usedBorderRadiiXY(style, boxW, boxH)
+	if hasRoundedRadii(radii) && uniformRoundedBorder(style) {
 		side := style.BorderTop
 		stroke := Op{ //nolint:exhaustruct // intentional zero fields
 			Kind: OpStrokeRect, X: boxX, Y: boxY, W: boxW, H: boxH,
@@ -263,7 +238,7 @@ func (e *engine) paintInlineDecorationBorder(style *ResolvedStyle, boxX, boxY, b
 		return
 	}
 
-	for _, paintOp := range e.borderOps(*style, boxX, boxY, boxW, boxH) {
+	for _, paintOp := range e.borderOps(style, boxX, boxY, boxW, boxH) {
 		e.add(paintOp)
 	}
 }

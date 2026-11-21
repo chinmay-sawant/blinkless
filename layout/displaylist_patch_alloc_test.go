@@ -46,6 +46,25 @@ func TestNewDisplayForPatchReusesBoxesAndSlices(t *testing.T) {
 	}
 }
 
+// TestPatchBoxesGrowWithinSpareCapacity verifies patchBoxes does not panic when
+// boxCount grows back into spare capacity after an earlier shrink.
+func TestPatchBoxesGrowWithinSpareCapacity(t *testing.T) {
+	t.Parallel()
+
+	backing := make([]Box, 10, 12)
+	prev := &Display{Boxes: backing}
+
+	got := patchBoxes(true, prev, 11)
+	if cap(got) < 11 {
+		t.Fatalf("cap(got) = %d, want >= 11", cap(got))
+	}
+
+	shrunk := patchBoxes(true, prev, 8)
+	if cap(shrunk) < 8 {
+		t.Fatalf("cap(shrunk) = %d, want >= 8", cap(shrunk))
+	}
+}
+
 // TestNewDisplayForPatchParityWithFresh verifies that the display produced by
 // newDisplayForPatch has identical contents (Boxes, OpOwners, Order) to a fresh
 // display built from the same placement.
