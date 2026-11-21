@@ -4,6 +4,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // animationStyle stores the accepted animation declarations before the
@@ -116,26 +117,56 @@ func animationRecordsFromStyle(style animationStyle) []AnimationRecord {
 	return records
 }
 
+const maxTransitionRecordCache = 512
+
+//nolint:gochecknoglobals // bounded immutable transition-record parse cache
+var (
+	transitionRecordCacheMu sync.RWMutex
+	transitionRecordCache   = make(map[transitionStyle][]TransitionRecord)
+)
+
 // transitionRecordsFromStyle aligns transition longhands to transition-property.
+// Results are immutable and memoized per transitionStyle so repeated placed
+// walks across hover/relayout patches never re-parse identical transition specs.
 func transitionRecordsFromStyle(style transitionStyle) []TransitionRecord {
 	if !style.Set {
 		return nil
 	}
 
+	transitionRecordCacheMu.RLock()
+	cached, ok := transitionRecordCache[style]
+	transitionRecordCacheMu.RUnlock()
+
+	if ok {
+		return cached
+	}
+
 	properties := cssListOr(style.Property, "all")
+	durations := cssListOr(style.Duration, "0s")
+	delays := cssListOr(style.Delay, "0s")
+	timings := cssListOr(style.TimingFunction, "ease")
+	behaviors := cssListOr(style.Behavior, "normal")
 	records := make([]TransitionRecord, len(properties))
 
 	for index, property := range properties {
-		duration, _ := cssTimeMilliseconds(cssListAtOr(style.Duration, index, "0s"), false)
-		delay, _ := cssTimeMilliseconds(cssListAtOr(style.Delay, index, "0s"), true)
+		duration, _ := cssTimeMilliseconds(durations[index%len(durations)], false)
+		delay, _ := cssTimeMilliseconds(delays[index%len(delays)], true)
 		records[index] = TransitionRecord{
 			Property:       property,
 			DurationMS:     duration,
 			DelayMS:        delay,
-			TimingFunction: cssListAtOr(style.TimingFunction, index, "ease"),
-			Behavior:       cssListAtOr(style.Behavior, index, "normal"),
+			TimingFunction: timings[index%len(timings)],
+			Behavior:       behaviors[index%len(behaviors)],
 		}
 	}
+
+	transitionRecordCacheMu.Lock()
+	if len(transitionRecordCache) >= maxTransitionRecordCache {
+		clear(transitionRecordCache)
+	}
+
+	transitionRecordCache[style] = records
+	transitionRecordCacheMu.Unlock()
 
 	return records
 }

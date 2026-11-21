@@ -1350,6 +1350,7 @@ func (s *styleStore) recycle() {
 
 	s.chunks = nil
 	s.intern = nil
+	s.memo = styleResolutionMemo{entries: nil, disabled: false}
 	s.candidate = zeroResolvedStyle
 }
 
@@ -1367,6 +1368,10 @@ type styleStore struct {
 	// intern maps a candidate fingerprint to stored records. Buckets stay
 	// small because most documents repeat a few dozen distinct styles.
 	intern map[uint64][]*ResolvedStyle
+	// memo caches (parent, nodeName, inline, remBase, linkUnderline, hits) ->
+	// *ResolvedStyle across pooled subtree resolution passes for the same
+	// document tag.
+	memo styleResolutionMemo
 }
 
 func (s *styleStore) append(style ResolvedStyle) *ResolvedStyle {

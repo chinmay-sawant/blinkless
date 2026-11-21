@@ -343,9 +343,9 @@ func patchedDisplay(styled pubstate.Styled, prev *Display) *Display {
 // keyframes, sizes, and zoom are the previous display's, and the caller
 // refreshes the patched box texts in place.
 func patchedBatchDisplay(
-	styled pubstate.Styled, prev *Display, base, res *ilayout.Result, paintOnly bool,
+	styled pubstate.Styled, prev *Display, base, res *ilayout.Result, batch *ilayout.SubtreeBatchResult,
 ) *Display {
-	if paintOnly {
+	if batch != nil && batch.PaintOnly {
 		return paintOnlyBatchDisplay(prev, res)
 	}
 
@@ -354,7 +354,127 @@ func patchedBatchDisplay(
 		forced, keep = ilayout.PageBreaks(res, pageHeightPt(styled))
 	}
 
+	if batch != nil && batch.SameBoxes && prev != nil && len(prev.Boxes) > 0 {
+		if display, ok := sameBoxesBatchDisplay(prev, res, batch, forced, keep); ok {
+			return display
+		}
+	}
+
 	return newDisplayForPatch(res, prev, forced, keep, false)
+}
+
+// sameBoxesBatchDisplay builds the display of a non-paint-only batch whose
+// splices preserved the element box tree shape: it copies prev.Boxes into a
+// pooled slice (keeping prev.Boxes untouched for transition capture) and
+// refreshes only the patched subtrees and their ancestors.
+const sameBoxesSpareCap = 8
+
+func sameBoxesBatchDisplay(
+	prev *Display, res *ilayout.Result, batch *ilayout.SubtreeBatchResult,
+	forced []float64, keep [][2]float64,
+) (*Display, bool) {
+	prevCount := len(prev.Boxes)
+	if prevCount == 0 {
+		return nil, false
+	}
+
+	allocCap := max(prevCount, res.BoxCount()) + sameBoxesSpareCap
+	boxes := rentBoxSlice(allocCap)
+	boxes = boxes[:prevCount]
+	copy(boxes, prev.Boxes)
+
+	finalCount, spliced := ilayout.PrepareSubtreeBoxSplices(batch, prevCount, func(baseIdx, oldElem, newElem int) {
+		boxes = spliceDisplayBoxes(boxes, baseIdx, oldElem, newElem)
+	})
+	if !spliced || finalCount != len(boxes) {
+		releaseBoxSlice(boxes)
+
+		return nil, false
+	}
+
+	if !applySameBoxesPatches(res, batch, prev.zoom, boxes, finalCount) {
+		releaseBoxSlice(boxes)
+
+		return nil, false
+	}
+
+	if prev.result != nil && prev.result != res {
+		prev.result.DisownChunks()
+	}
+
+	res.Retain()
+
+	return &Display{
+		Ops:            res.Ops,
+		OpOwners:       nil,
+		Order:          nil,
+		Boxes:          boxes,
+		Keyframes:      prev.Keyframes,
+		Width:          prev.Width,
+		Height:         prev.Height,
+		PointsPerPixel: prev.PointsPerPixel,
+		PixelPerPoint:  prev.PixelPerPoint,
+		ForcedBreaks:   forced,
+		KeepTogether:   keep,
+		result:         res,
+		zoom:           prev.zoom,
+		ownsBoxes:      true,
+	}, true
+}
+
+func applySameBoxesPatches(
+	res *ilayout.Result, batch *ilayout.SubtreeBatchResult, zoom float64, boxes []Box, finalCount int,
+) bool {
+	opts := ilayout.WalkPlacedOptions{IncludeText: true, LayoutScale: zoom}
+
+	return ilayout.ApplySubtreeBoxPatches(
+		res, batch, opts, finalCount,
+		func(boxIdx int) int { return boxes[boxIdx].ParentIndex },
+		func(boxIdx int, newText string) bool { return boxes[boxIdx].Text != newText },
+		func(boxIdx int, item *ilayout.PlacedElement) { fillBoxFrom(&boxes[boxIdx], item) },
+		func(boxIdx int, opIDs []uint64, text string, updateText bool) {
+			boxes[boxIdx].OperationIDs = opIDs
+			if updateText {
+				boxes[boxIdx].Text = text
+			}
+		},
+	)
+}
+
+func spliceDisplayBoxes(boxes []Box, baseIdx, oldElem, newElem int) []Box {
+	parentIdx := boxes[baseIdx].ParentIndex
+	oldText := boxes[baseIdx].Text
+	delta := newElem - oldElem
+
+	if delta < 0 {
+		copy(boxes[baseIdx+newElem:], boxes[baseIdx+oldElem:])
+		clear(boxes[len(boxes)+delta:])
+		boxes = boxes[:len(boxes)+delta]
+	} else if delta > 0 {
+		oldLen := len(boxes)
+		if oldLen+delta <= cap(boxes) {
+			boxes = boxes[:oldLen+delta]
+		} else {
+			boxes = append(boxes, make([]Box, delta)...)
+		}
+
+		copy(boxes[baseIdx+newElem:], boxes[baseIdx+oldElem:oldLen])
+	}
+
+	boxes[baseIdx].ParentIndex = parentIdx
+	boxes[baseIdx].Text = oldText
+
+	for idx := baseIdx + 1; idx < baseIdx+newElem; idx++ {
+		boxes[idx] = Box{ParentIndex: -1} //nolint:exhaustruct // filled by ApplySubtreeBoxPatches below
+	}
+
+	for idx := baseIdx + newElem; idx < len(boxes); idx++ {
+		if boxes[idx].ParentIndex >= baseIdx+oldElem {
+			boxes[idx].ParentIndex += delta
+		}
+	}
+
+	return boxes
 }
 
 // paintOnlyBatchDisplay builds the display of a batch that only changed
@@ -371,6 +491,7 @@ func paintOnlyBatchDisplay(prev *Display, res *ilayout.Result) *Display {
 	}
 
 	display := *prev
+	prev.ownsBoxes = false
 	display.Ops = res.Ops
 	display.result = res
 	res.Retain()

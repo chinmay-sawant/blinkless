@@ -1,6 +1,7 @@
 package layout_test
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -219,5 +220,119 @@ func TestRelayoutElementsMixedBatchMatchesFull(t *testing.T) {
 
 	if &batched.Boxes[0] == &display.Boxes[0] {
 		t.Fatal("the mixed batch reused the previous display box list")
+	}
+}
+
+const sameBoxesTooltipSource = `<!doctype html><html><head><style>
+body { margin: 0; }
+.cell { position: relative; width: 120px; height: 40px; background: #cccccc; }
+.cell .tip {
+	display: none; position: absolute; top: 0; left: 0;
+	width: 80px; height: 20px; background: #111111; color: #ffffff;
+}
+.cell.open .tip { display: block; }
+</style></head><body>` +
+	`<div id="a" class="cell open"><span class="tip">Alpha tip</span></div>` +
+	`<div id="b" class="cell"><span class="tip">Beta tip</span></div>` +
+	`<div id="c" class="cell"><span class="tip">Gamma tip</span></div>` +
+	`</body></html>`
+
+// TestRelayoutElementsSameBoxesTooltipParity verifies that the SameBoxes
+// incremental box-list path produces exact Display parity with a full layout
+// when child boxes appear/disappear (tooltip toggle) in both forward and
+// reverse batch order, while leaving prev.Boxes untouched for transition
+// capture.
+func TestRelayoutElementsSameBoxesTooltipParity(t *testing.T) {
+	t.Parallel()
+
+	for _, order := range [][]string{{"a", "b"}, {"b", "a"}} {
+		tree, err := html.Parse([]byte(sameBoxesTooltipSource))
+		if err != nil {
+			t.Fatalf("parse: %v", err)
+		}
+
+		styled := mustApply(t, tree, 400, 300, "", "", "")
+		display := layRetained(t, styled)
+		prevCount := len(display.Boxes)
+		prevFirstID := display.Boxes[0].ID
+
+		if !tree.SetAttribute("a", "class", "cell") {
+			t.Fatal("SetAttribute a failed")
+		}
+
+		if !tree.SetAttribute("b", "class", "cell open") {
+			t.Fatal("SetAttribute b failed")
+		}
+
+		batched, err := layout.RelayoutElements(t.Context(), styled, display, order, layout.Options{})
+		if err != nil {
+			t.Fatalf("RelayoutElements(%v): %v", order, err)
+		}
+
+		if len(display.Boxes) != prevCount || display.Boxes[0].ID != prevFirstID {
+			t.Fatalf("order %v: prev.Boxes was mutated in place", order)
+		}
+
+		if &batched.Boxes[0] == &display.Boxes[0] {
+			t.Fatalf("order %v: SameBoxes must not alias prev.Boxes", order)
+		}
+
+		full := layOf(t, styled)
+		compareDisplaysIgnoringOpIDs(t, batched, full)
+	}
+}
+
+func compareDisplaysIgnoringOpIDs(t *testing.T, got, want *layout.Display) {
+	t.Helper()
+
+	if len(got.Boxes) != len(want.Boxes) {
+		t.Fatalf("boxes %d, want %d", len(got.Boxes), len(want.Boxes))
+	}
+
+	gotBoxOps := make(map[uint64]struct{}, len(got.Ops))
+	for idx := range got.Ops {
+		gotBoxOps[got.Ops[idx].ID] = struct{}{}
+	}
+
+	for idx := range want.Boxes {
+		compareBoxIgnoringOpIDs(t, idx, got.Boxes[idx], want.Boxes[idx], gotBoxOps)
+	}
+
+	if len(got.Ops) != len(want.Ops) {
+		t.Fatalf("ops %d, want %d", len(got.Ops), len(want.Ops))
+	}
+
+	for idx := range want.Ops {
+		compareOp(t, idx, &got.Ops[idx], &want.Ops[idx])
+	}
+
+	if !reflect.DeepEqual(got.OpOwners, want.OpOwners) {
+		t.Fatalf("op owners differ: %v, want %v", got.OpOwners, want.OpOwners)
+	}
+
+	if !reflect.DeepEqual(got.Order, want.Order) {
+		t.Fatalf("paint order differs: %v, want %v", got.Order, want.Order)
+	}
+}
+
+func compareBoxIgnoringOpIDs(
+	t *testing.T, idx int, gotBox, wantBox layout.Box, gotBoxOps map[uint64]struct{},
+) {
+	t.Helper()
+
+	if len(gotBox.OperationIDs) != len(wantBox.OperationIDs) {
+		t.Fatalf("box %d (%s) opID count = %d, want %d",
+			idx, gotBox.ID, len(gotBox.OperationIDs), len(wantBox.OperationIDs))
+	}
+
+	for _, opID := range gotBox.OperationIDs {
+		if _, ok := gotBoxOps[opID]; !ok {
+			t.Fatalf("box %d (%s) references unknown opID %d", idx, gotBox.ID, opID)
+		}
+	}
+
+	gotBox.OperationIDs = wantBox.OperationIDs
+	if !reflect.DeepEqual(gotBox, wantBox) {
+		t.Fatalf("box %d: %+v, want %+v", idx, gotBox, wantBox)
 	}
 }

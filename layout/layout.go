@@ -1,6 +1,10 @@
 package layout
 
-import ilayout "github.com/chinmay-sawant/blinkless/internal/layout"
+import (
+	"sync"
+
+	ilayout "github.com/chinmay-sawant/blinkless/internal/layout"
+)
 
 // ptToPx converts a layout point to one CSS pixel at zoom 1.
 const ptToPx = 96.0 / 72.0
@@ -393,9 +397,32 @@ func unquoteAnimationName(name string) string {
 	return name
 }
 
+type transitionSliceKey struct {
+	ptr *ilayout.TransitionRecord
+	n   int
+}
+
+const maxTransitionSliceCache = 512
+
+//nolint:gochecknoglobals // bounded cache mapping immutable engine transition slices to public slices
+var (
+	transitionSliceCacheMu sync.RWMutex
+	transitionSliceCache   = make(map[transitionSliceKey][]Transition)
+)
+
 func transitionsFrom(records []ilayout.TransitionRecord) []Transition {
 	if len(records) == 0 {
 		return nil
+	}
+
+	key := transitionSliceKey{ptr: &records[0], n: len(records)}
+
+	transitionSliceCacheMu.RLock()
+	cached, ok := transitionSliceCache[key]
+	transitionSliceCacheMu.RUnlock()
+
+	if ok {
+		return cached
 	}
 
 	items := make([]Transition, len(records))
@@ -408,6 +435,14 @@ func transitionsFrom(records []ilayout.TransitionRecord) []Transition {
 			Behavior:       record.Behavior,
 		}
 	}
+
+	transitionSliceCacheMu.Lock()
+	if len(transitionSliceCache) >= maxTransitionSliceCache {
+		clear(transitionSliceCache)
+	}
+
+	transitionSliceCache[key] = items
+	transitionSliceCacheMu.Unlock()
 
 	return items
 }

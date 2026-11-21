@@ -220,6 +220,11 @@ type Display struct {
 	// canvas width keeps that scale here, so a later element patch uses the
 	// same scale as the page it patches. Zero means no scale.
 	zoom float64
+
+	// ownsBoxes reports whether Release may clear and return Boxes to the
+	// display box slice pool. Cleared when a patch shares or reuses the
+	// slice on a successor display.
+	ownsBoxes bool
 }
 
 // Release returns retained resources (boxes, style chunks, store chunks)
@@ -232,6 +237,12 @@ func (d *Display) Release() {
 	if d.result != nil {
 		d.result.Release()
 		d.result = nil
+	}
+
+	if d.ownsBoxes && d.Boxes != nil {
+		releaseBoxSlice(d.Boxes)
+		d.Boxes = nil
+		d.ownsBoxes = false
 	}
 }
 
@@ -372,15 +383,58 @@ func releaseIntSlice(scratch []int) {
 	intSlicePool.Put(header)
 }
 
-// rentBoxSlice allocates the box slice for one display. Boxes stay with the
-// display: a patch shares the backing array with the display it replaced, so
-// the slice cannot go back to a pool while either one may still read it.
+const maxPooledBoxSliceCap = 4096
+
+// boxSlicePool stores cleared Box backing slices released from Display.Release.
+// boxSliceHdrPool recycles the *[]Box headers so Put never boxes a slice header.
+//
+//nolint:exhaustruct,gochecknoglobals // pools deliberately have no New so cold rents allocate exact size
+var (
+	boxSlicePool    = sync.Pool{}
+	boxSliceHdrPool = sync.Pool{}
+)
+
+// rentBoxSlice returns a zero-length Box slice with room for at least need
+// entries, reusing a released backing when its capacity fits without pinning
+// an oversized slice.
 func rentBoxSlice(need int) []Box {
 	if need <= 0 {
 		return nil
 	}
 
-	return make([]Box, need)
+	if need <= maxPooledBoxSliceCap {
+		if hdr, ok := boxSlicePool.Get().(*[]Box); ok {
+			scratch := *hdr
+			*hdr = nil
+
+			boxSliceHdrPool.Put(hdr)
+
+			if cap(scratch) >= need && cap(scratch) <= need*2 {
+				return scratch[:0]
+			}
+		}
+	}
+
+	return make([]Box, 0, need)
+}
+
+// releaseBoxSlice clears and returns an owned Display.Boxes backing to
+// boxSlicePool when its capacity is within maxPooledBoxSliceCap.
+func releaseBoxSlice(scratch []Box) {
+	if cap(scratch) == 0 || cap(scratch) > maxPooledBoxSliceCap {
+		return
+	}
+
+	clear(scratch[:cap(scratch)])
+	scratch = scratch[:0]
+
+	header, ok := boxSliceHdrPool.Get().(*[]Box)
+	if !ok {
+		header = new([]Box)
+	}
+
+	*header = scratch
+	boxSlicePool.Put(header)
 }
 
 func collectPlacedBoxes(res *ilayout.Result, zoom float64) ([]Box, []int) {
@@ -389,7 +443,7 @@ func collectPlacedBoxes(res *ilayout.Result, zoom float64) ([]Box, []int) {
 		boxCount = res.BoxCount()
 	}
 
-	boxes := make([]Box, 0, boxCount)
+	boxes := rentBoxSlice(boxCount)
 
 	var parents []int
 
@@ -445,6 +499,7 @@ func newDisplay(
 		KeepTogether:   keep,
 		result:         nil,
 		zoom:           0,
+		ownsBoxes:      boxes != nil,
 	}
 
 	if retain {
@@ -505,6 +560,7 @@ func newDisplayForPatch(
 		KeepTogether:   keep,
 		result:         res,
 		zoom:           prev.zoom,
+		ownsBoxes:      boxes != nil,
 	}
 
 	if deriveOwners {
@@ -535,6 +591,8 @@ func newDisplayForPatch(
 func patchBoxes(deriveOwners bool, prev *Display, boxCount int) []Box {
 	if deriveOwners && prev != nil {
 		if len(prev.Boxes) == boxCount {
+			prev.ownsBoxes = false
+
 			return prev.Boxes[:0]
 		}
 
@@ -542,6 +600,8 @@ func patchBoxes(deriveOwners bool, prev *Display, boxCount int) []Box {
 			if boxCount < len(prev.Boxes) {
 				clear(prev.Boxes[boxCount:])
 			}
+
+			prev.ownsBoxes = false
 
 			return prev.Boxes[:0]
 		}
@@ -551,7 +611,7 @@ func patchBoxes(deriveOwners bool, prev *Display, boxCount int) []Box {
 		return nil
 	}
 
-	return rentBoxSlice(boxCount)[:0]
+	return rentBoxSlice(boxCount)
 }
 
 // collectPatchBoxes fills the box slice from the placement and, when owners
@@ -569,7 +629,9 @@ func collectPatchBoxes(res *ilayout.Result, deriveOwners bool, boxes []Box, zoom
 		options := ilayout.WalkPlacedOptions{IncludeText: true, LayoutScale: zoom}
 
 		ilayout.WalkPlacedWithOptions(res, options, func(item *ilayout.PlacedElement) {
-			boxes = append(boxes, boxFrom(item))
+			idx := len(boxes)
+			boxes = append(boxes, Box{}) //nolint:exhaustruct // filled immediately below
+			fillBoxFrom(&boxes[idx], item)
 
 			if deriveOwners {
 				parents = append(parents, item.ParentIndex)

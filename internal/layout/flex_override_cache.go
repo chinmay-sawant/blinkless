@@ -45,6 +45,7 @@ type flexStyleOverrideKey struct {
 	base      *ResolvedStyle
 	mainBits  uint64
 	crossBits uint64
+	scaleBits uint64
 	flags     flexStyleOverrideFlags
 }
 
@@ -64,7 +65,7 @@ var (
 // forceStretch is set. valid is false for a nil base, which keeps the old
 // allocation path because the force functions need a style record.
 func flexRowOverrideKey(
-	base *ResolvedStyle, forceStretch bool, targetCross, availW float64,
+	base *ResolvedStyle, scale float64, forceStretch bool, targetCross, availW float64,
 ) (flexStyleOverrideKey, bool) {
 	if base == nil {
 		return flexStyleOverrideKey{}, false //nolint:exhaustruct // zero key means uncacheable
@@ -82,6 +83,7 @@ func flexRowOverrideKey(
 		base:      base,
 		mainBits:  math.Float64bits(availW),
 		crossBits: crossBits,
+		scaleBits: math.Float64bits(scale),
 		flags:     flags,
 	}, true
 }
@@ -90,7 +92,7 @@ func flexRowOverrideKey(
 // the forced cross height and crossBits the measured cross width when
 // forceCrossWidth is set.
 func flexColumnOverrideKey(
-	base *ResolvedStyle, height, crossW float64, forceCrossWidth bool,
+	base *ResolvedStyle, scale float64, height, crossW float64, forceCrossWidth bool,
 ) (flexStyleOverrideKey, bool) {
 	if base == nil {
 		return flexStyleOverrideKey{}, false //nolint:exhaustruct // zero key means uncacheable
@@ -108,6 +110,7 @@ func flexColumnOverrideKey(
 		base:      base,
 		mainBits:  math.Float64bits(height),
 		crossBits: crossBits,
+		scaleBits: math.Float64bits(scale),
 		flags:     flags,
 	}, true
 }
@@ -144,6 +147,26 @@ func (e *engine) allocFlexOverrideStyle(base *ResolvedStyle) *ResolvedStyle {
 	return &(*chunk)[len(*chunk)-1]
 }
 
+func (e *engine) lookupFlexStyleOverride(key flexStyleOverrideKey) (*ResolvedStyle, bool) {
+	if flexOverrideBypass.Load() {
+		return nil, false
+	}
+
+	if cached, ok := e.flexStyleOverrides[key]; ok {
+		flexOverrideHits.Add(1)
+
+		return cached, true
+	}
+
+	if cached, ok := e.inheritedFlexOverrides[key]; ok {
+		flexOverrideHits.Add(1)
+
+		return cached, true
+	}
+
+	return nil, false
+}
+
 // flexRowStyleOverride returns the immutable override of base used to build a
 // row or logical-axis flex item: the main width forced to availW and, when
 // forceStretch, the cross height forced to targetCross. Repeated items that
@@ -153,19 +176,13 @@ func (e *engine) allocFlexOverrideStyle(base *ResolvedStyle) *ResolvedStyle {
 func (e *engine) flexRowStyleOverride(
 	base *ResolvedStyle, stableBase bool, forceStretch bool, targetCross, availW float64,
 ) *ResolvedStyle {
-	key, cacheable := flexRowOverrideKey(base, forceStretch, targetCross, availW)
+	key, cacheable := flexRowOverrideKey(base, e.scale, forceStretch, targetCross, availW)
 	if !cacheable || !stableBase {
 		return e.allocFlexRowStyleOverride(base, forceStretch, targetCross, availW)
 	}
 
-	if !flexOverrideBypass.Load() {
-		if e.flexStyleOverrides != nil {
-			if cached, ok := e.flexStyleOverrides[key]; ok {
-				flexOverrideHits.Add(1)
-
-				return cached
-			}
-		}
+	if cached, ok := e.lookupFlexStyleOverride(key); ok {
+		return cached
 	}
 
 	if flexOverrideBypass.Load() || len(e.flexStyleOverrides) >= flexOverrideMaxEntries {
@@ -198,19 +215,13 @@ func (e *engine) flexRowStyleOverride(
 func (e *engine) flexColumnStyleOverride(
 	base *ResolvedStyle, stableBase bool, height, crossW float64, forceCrossWidth bool,
 ) *ResolvedStyle {
-	key, cacheable := flexColumnOverrideKey(base, height, crossW, forceCrossWidth)
+	key, cacheable := flexColumnOverrideKey(base, e.scale, height, crossW, forceCrossWidth)
 	if !cacheable || !stableBase {
 		return e.allocFlexColumnStyleOverride(base, height, crossW, forceCrossWidth)
 	}
 
-	if !flexOverrideBypass.Load() {
-		if e.flexStyleOverrides != nil {
-			if cached, ok := e.flexStyleOverrides[key]; ok {
-				flexOverrideHits.Add(1)
-
-				return cached
-			}
-		}
+	if cached, ok := e.lookupFlexStyleOverride(key); ok {
+		return cached
 	}
 
 	if flexOverrideBypass.Load() || len(e.flexStyleOverrides) >= flexOverrideMaxEntries {

@@ -297,3 +297,51 @@ func TestFlexAspectRatioHeightFromWidth(t *testing.T) {
 	behaviorBoxModelCheckUsedSize(t, res, "auto", 200, 0)
 	behaviorBoxModelCheckUsedSize(t, res, "flex", 200, 100)
 }
+
+// TestFlexStyleOverrideCacheInheritedAcrossRelayouts verifies that committed
+// subtree flex overrides populate Result.flexOverrides, carry across
+// CloneResult, and hit the cache on subsequent subtree relayouts.
+//
+//nolint:paralleltest // inspects global hit counter
+func TestFlexStyleOverrideCacheInheritedAcrossRelayouts(t *testing.T) {
+	cssText := `body{margin:0}` +
+		`.row{display:flex;width:200px;height:40px;align-items:stretch;background:#eee}` +
+		`.row.hot{background:#ddd}` +
+		`.item{flex:1 1 auto}`
+	htmlSrc := `<html><body><div id="r1" class="row">` +
+		`<div class="item">One</div><div class="item">Two</div>` +
+		`</div></body></html>`
+	root := mustParse(t, htmlSrc)
+	opts := relayoutOptionsForCSS(t, cssText)
+
+	res, err := Layout(root, opts)
+	if err != nil {
+		t.Fatalf("Layout: %v", err)
+	}
+
+	node := relayoutNodeByID(t, root, "r1")
+	node.Attrs["class"] = "row hot"
+
+	clone1 := CloneResult(res)
+	if _, err := RelayoutSubtrees(t.Context(), clone1, []string{"r1"}, opts,
+		OperationOwners(res), PaintOrder(res.Ops)); err != nil {
+		t.Fatalf("first RelayoutSubtrees: %v", err)
+	}
+
+	if len(clone1.flexOverrides) == 0 {
+		t.Fatal("expected first subtree relayout to populate Result.flexOverrides")
+	}
+
+	node.Attrs["class"] = "row"
+	clone2 := CloneResult(clone1)
+	hitsBefore := flexOverrideHits.Load()
+
+	if _, err := RelayoutSubtrees(t.Context(), clone2, []string{"r1"}, opts,
+		OperationOwners(clone1), PaintOrder(clone1.Ops)); err != nil {
+		t.Fatalf("second RelayoutSubtrees: %v", err)
+	}
+
+	if flexOverrideHits.Load() <= hitsBefore {
+		t.Fatal("expected second subtree relayout to hit inherited flexOverrides cache")
+	}
+}
