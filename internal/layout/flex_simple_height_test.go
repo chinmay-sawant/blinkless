@@ -198,7 +198,7 @@ func simpleFlexEngineForCase(t *testing.T, testCase simpleFlexRowCase) (*engine,
 	row := findElementByID(t, root, "row")
 
 	outerStyle := eng.stylePtr(outer)
-	outerW := resolveUsedWidth(*outerStyle, eng.opts.Width, eng)
+	outerW := resolveUsedWidth(outerStyle, eng.opts.Width, eng)
 	_, contentW := eng.contentBox(0, outerW, outerStyle)
 
 	if contentW <= 0 {

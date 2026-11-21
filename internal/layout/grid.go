@@ -49,7 +49,7 @@ func (e *engine) buildGrid(node *html.Node, sty *ResolvedStyle, availW, posX, po
 
 	ml := e.scalePt(sty.MarginLeft)
 	boxNode := e.allocBox(node, e.stylePtr(node), boxKindBlock, posX+ml, posY)
-	boxNode.w = resolveUsedWidth(*sty, availW, e)
+	boxNode.w = resolveUsedWidth(sty, availW, e)
 	contentX, contentW := e.contentBox(boxNode.x, boxNode.w, sty)
 
 	contentStart := len(e.ops)
@@ -79,13 +79,13 @@ func (e *engine) buildGrid(node *html.Node, sty *ResolvedStyle, availW, posX, po
 		cols = []float64{contentW}
 	}
 
-	contentH := resolveContentHeightForWidth(*sty, e, contentW)
+	contentH := resolveContentHeightForWidth(sty, e, contentW)
 
 	if masonryRows {
 		usedH := e.emitMasonryItems(boxNode, kids, cols, columnGap, rowGap, contentX, posY, curY)
 		usedH = resolveGridUsedHeight(e, *sty, usedH, contentH)
 		boxNode.height = usedH
-		e.prependChrome(contentStart, boxNode, *sty, boxNode.x, posY, boxNode.w, boxNode.height)
+		e.prependChrome(contentStart, boxNode, sty, boxNode.x, posY, boxNode.w, boxNode.height)
 
 		return boxNode
 	}
@@ -158,7 +158,7 @@ func (e *engine) layoutStandardGrid(
 	usedH := e.gridUsedHeightFromRows(sty, curY, rowYs, rows, numRows, contentH)
 
 	boxNode.height = usedH
-	e.prependChrome(contentStart, boxNode, *sty, boxNode.x, posY, boxNode.w, boxNode.height)
+	e.prependChrome(contentStart, boxNode, sty, boxNode.x, posY, boxNode.w, boxNode.height)
 
 	return boxNode
 }
@@ -852,7 +852,7 @@ func gridStretchBuildHeightPtr(align string, cellH float64, cstate *ResolvedStyl
 // resolveGridUsedHeight bumps the used height to the definite height and the
 // min border-box floor.
 func resolveGridUsedHeight(eng *engine, sty ResolvedStyle, usedH, contentH float64) float64 {
-	usedH = eng.borderBoxBottom(sty, usedH)
+	usedH = eng.borderBoxBottom(&sty, usedH)
 
 	if sty.Height >= 0 {
 		height := eng.scalePt(sty.Height)
@@ -886,7 +886,7 @@ func resolveGridUsedHeight(eng *engine, sty ResolvedStyle, usedH, contentH float
 // Shared by flex/grid/multicol (block keeps its own min/max/margin-auto path).
 //
 //nolint:cyclop,nestif // used-width resolution follows CSS percentage and auto rules
-func resolveUsedWidth(sty ResolvedStyle, availW float64, engN *engine) float64 {
+func resolveUsedWidth(sty *ResolvedStyle, availW float64, engN *engine) float64 {
 	ml, mr := engN.scalePt(sty.MarginLeft), engN.scalePt(sty.MarginRight)
 
 	width := availW - ml - mr
@@ -922,7 +922,7 @@ func resolveUsedWidth(sty ResolvedStyle, availW float64, engN *engine) float64 {
 // HeightPercent only resolves when Height was already made definite by a parent
 // stretch; unresolved HeightPercent (indefinite CB) is treated as auto.
 // Shared by flex/grid/multicol.
-func resolveContentHeight(sty ResolvedStyle, engN *engine) float64 {
+func resolveContentHeight(sty *ResolvedStyle, engN *engine) float64 {
 	return resolveContentHeightForWidth(sty, engN, -1)
 }
 
@@ -930,7 +930,7 @@ func resolveContentHeight(sty ResolvedStyle, engN *engine) float64 {
 // height is auto and contentW (scaled) is definite.
 //
 //nolint:wsl // percentage-height fallback keeps its guard and normalization together
-func resolveContentHeightForWidth(sty ResolvedStyle, engN *engine, contentW float64) float64 {
+func resolveContentHeightForWidth(sty *ResolvedStyle, engN *engine, contentW float64) float64 {
 	if sty.HeightPercent >= 0 && sty.Height < 0 {
 		cbH := engN.containingBlockHeight()
 		if cbH < 0 {
@@ -950,14 +950,19 @@ func resolveContentHeightForWidth(sty ResolvedStyle, engN *engine, contentW floa
 		return height
 	}
 
-	if sty.Height < 0 {
-		sty = withAspectRatioHeight(sty, contentW, engN)
-		if sty.Height < 0 {
+	hPt := sty.Height
+	if hPt < 0 {
+		if sty.AspectRatio <= 0 || contentW <= 0 {
+			return -1
+		}
+		var ok bool
+		hPt, ok = aspectRatioAutoHeightPt(sty, contentW, engN)
+		if !ok || hPt < 0 {
 			return -1
 		}
 	}
 
-	height := engN.scalePt(sty.Height)
+	height := engN.scalePt(hPt)
 	if sty.BoxSizing == borderBox {
 		height -= engN.scalePt(sty.PaddingTop) + engN.scalePt(sty.PaddingBottom) +
 			engN.scalePt(sty.BorderTop.Width) + engN.scalePt(sty.BorderBottom.Width)

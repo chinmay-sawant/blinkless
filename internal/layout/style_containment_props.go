@@ -230,12 +230,12 @@ func containHasKeyword(contain, keyword string) bool {
 }
 
 // containsSize reports size containment: contain: size or strict.
-func containsSize(st ResolvedStyle) bool {
+func containsSize(st *ResolvedStyle) bool {
 	return containHasKeyword(st.Contain, containKeywordSize)
 }
 
 // containsLayout reports layout containment: contain: layout, strict, content.
-func containsLayout(st ResolvedStyle) bool {
+func containsLayout(st *ResolvedStyle) bool {
 	return containHasKeyword(st.Contain, containKeywordLayout)
 }
 
@@ -243,7 +243,7 @@ func containsLayout(st ResolvedStyle) bool {
 // content-visibility hidden/auto imply paint containment too; hidden is
 // handled where descendants are skipped and auto has no print-observable
 // effect.
-func containsPaint(st ResolvedStyle) bool {
+func containsPaint(st *ResolvedStyle) bool {
 	return containHasKeyword(st.Contain, containKeywordPaint)
 }
 
@@ -252,7 +252,7 @@ func containsPaint(st ResolvedStyle) bool {
 // Physical longhands win over logical ones; the logical axis maps through the
 // writing mode (horizontal-tb: inline is width, block is height; vertical
 // modes swap them).
-func containmentIntrinsicWidth(st ResolvedStyle) float64 {
+func containmentIntrinsicWidth(st *ResolvedStyle) float64 {
 	if st.ContainIntrinsicWidth >= 0 {
 		return st.ContainIntrinsicWidth
 	}
@@ -266,7 +266,7 @@ func containmentIntrinsicWidth(st ResolvedStyle) float64 {
 
 // containmentIntrinsicHeight returns the physical-axis content height in
 // unscaled CSS points from the contain-intrinsic-* fields, or -1 when unset.
-func containmentIntrinsicHeight(st ResolvedStyle) float64 {
+func containmentIntrinsicHeight(st *ResolvedStyle) float64 {
 	if st.ContainIntrinsicHeight >= 0 {
 		return st.ContainIntrinsicHeight
 	}

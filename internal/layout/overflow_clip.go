@@ -39,7 +39,7 @@ func intersectClip(a, b clipRect) clipRect {
 	return clipRect{x: x1, y: y1, w: x2 - x1, h: y2 - y1}
 }
 
-func (e *engine) paddingBoxRect(posX, posY, width, height float64, sty ResolvedStyle) clipRect {
+func (e *engine) paddingBoxRect(posX, posY, width, height float64, sty *ResolvedStyle) clipRect {
 	left := e.scalePt(sty.BorderLeft.Width)
 	top := e.scalePt(sty.BorderTop.Width)
 	right := e.scalePt(sty.BorderRight.Width)
@@ -83,7 +83,7 @@ func (e *engine) paddingBoxOf(boxNode *box) clipRect {
 		return clipRect{} //nolint:exhaustruct // missing box
 	}
 
-	return e.paddingBoxRect(boxNode.x, boxNode.y, boxNode.w, boxNode.height, *boxNode.style)
+	return e.paddingBoxRect(boxNode.x, boxNode.y, boxNode.w, boxNode.height, boxNode.style)
 }
 
 // applyOverflowClips clips descendant paint to padding boxes of overflow
@@ -149,7 +149,7 @@ func (e *engine) computeBoxOverflowClip(boxNode *box, current *clipRect) *clipRe
 // clipsPaintAxis reports whether one overflow axis clips paint: the axis
 // longhand, the overflow shorthand, or contain: paint.
 func clipsPaintAxis(style *ResolvedStyle, axis string) bool {
-	return overflowClipsPaint(axis) || overflowClipsPaint(style.Overflow) || containsPaint(*style)
+	return overflowClipsPaint(axis) || overflowClipsPaint(style.Overflow) || containsPaint(style)
 }
 
 func (e *engine) clipOverflowTree(boxNode *box, clip *clipRect) {

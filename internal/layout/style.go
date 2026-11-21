@@ -1060,6 +1060,7 @@ func resolveStylesWithContextChunks(
 	}
 
 	styles, err := resolveStylesCtx(root, sc)
+	sc.releaseMatchCache()
 	if err != nil {
 		return nil, nil, err
 	}

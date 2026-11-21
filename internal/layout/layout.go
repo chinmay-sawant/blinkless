@@ -858,6 +858,17 @@ type engine struct {
 	// one-time document scan that registers sources ahead of their regions.
 	namedFlows        map[string]*namedFlow
 	namedFlowScanDone bool
+	// anonFlexStyles caches anonymous flex-item styles derived from a parent
+	// container style and continue-line limit so repeated direct-text flex
+	// items share one style record instead of allocating a 4.7KB copy per item.
+	anonFlexStyles map[anonFlexStyleKey]*ResolvedStyle
+	// decorBreak holds per-engine box-decoration-break state directly on the
+	// engine so inline formatting contexts avoid global mutex and map churn.
+	decorBreak decorBreakState
+	// chromeScratch and chromeSlabs reuse per-box chrome assembly buffers and
+	// pack deferred chrome ops into pooled contiguous slabs until finalizeChrome.
+	chromeScratch []Op
+	chromeSlabs   []*[]Op
 }
 
 // releaseScratch drops every per-run cache the Result does not adopt, so
@@ -899,6 +910,9 @@ func (e *engine) releaseScratch() {
 	e.bfcPool = nil
 	e.savedBFCFloats = nil
 	e.absCBHeights = nil
+	for _, items := range e.inlineItemPool {
+		putGlobalInlineItems(items)
+	}
 	e.inlineItemPool = nil
 	e.deferredChrome = nil
 	e.faceByStyle = nil
@@ -933,13 +947,19 @@ func (e *engine) releaseScratch() {
 	e.hasLastMeasureID = false
 	e.namedFlows = nil
 	e.namedFlowScanDone = false
+	e.anonFlexStyles = nil
+	e.decorBreak = decorBreakState{}
+	e.chromeScratch = nil
+	e.releaseChromeSlabs()
 }
 
 // releaseFlexScratch returns the flex memo maps to their pools when they are
 // small enough to keep and clears the engine fields either way.
 func (e *engine) releaseFlexScratch() {
+	const maxPooledFlexMemoEntries = 32768
+
 	if e.flexBaseH != nil {
-		if len(e.flexBaseH) <= maxPooledFlexScratch {
+		if len(e.flexBaseH) <= maxPooledFlexMemoEntries {
 			clear(e.flexBaseH)
 			flexBaseMapPool.Put(e.flexBaseH)
 		}
@@ -948,7 +968,7 @@ func (e *engine) releaseFlexScratch() {
 	}
 
 	if e.flexMinH != nil {
-		if len(e.flexMinH) <= maxPooledFlexScratch {
+		if len(e.flexMinH) <= maxPooledFlexMemoEntries {
 			clear(e.flexMinH)
 			flexMinMapPool.Put(e.flexMinH)
 		}
@@ -1635,8 +1655,10 @@ func estimateOpCapacity(root *html.Node) int {
 
 	nodes := 0
 
-	root.Walk(func(_ *html.Node) {
-		nodes++
+	root.Walk(func(n *html.Node) {
+		if n.Type == html.ElementNode {
+			nodes++
+		}
 	})
 
 	const initialOpPadding = 16
@@ -1685,6 +1707,13 @@ type box struct {
 	// without scanning the global engine.deferredChrome list.
 	deferredChrome      []Op
 	extraDeferredChrome [][]Op
+	// preorderRank and chromeSpan* are transient finalizeChrome scratch fields
+	// stamped directly on the box to avoid allocating per-box preorder and
+	// chrome-owner maps during deferred chrome merging.
+	preorderRank  int32
+	chromeStart   int32
+	chromeEnd     int32
+	hasChromeSpan bool
 	// overflowClip is the accumulated ancestor overflow padding box in
 	// canvas points recorded by clipOverflowTree. A host painting this
 	// element's ops through a transform intersects the paint with it,
@@ -1949,7 +1978,7 @@ func (e *engine) buildBlock(node *html.Node, style *ResolvedStyle, availW, posX,
 	// Root body: place the body and its first-child margin chain on the
 	// collapsed top margin before the children flow, so descendants,
 	// positioned boxes, and floats all share the final edge.
-	posY, marginOverrides := e.absorbRootBodyTopMargin(node, boxNode, *style, posY)
+	posY, marginOverrides := e.absorbRootBodyTopMargin(node, boxNode, style, posY)
 
 	curY = e.flowChildrenPtr(boxNode, children, style, contentW, contentX, posY, curY)
 	e.popStyleOverrides(marginOverrides)
@@ -1973,14 +2002,14 @@ func (e *engine) buildBlock(node *html.Node, style *ResolvedStyle, availW, posX,
 	heightStyle := e.blockHeightStyle(style, contentW)
 
 	boxNode.height = e.applyHeightConstraintsWithCB(heightStyle,
-		e.borderBoxBottom(*heightStyle, curY), e.containingBlockHeight())
+		e.borderBoxBottom(heightStyle, curY), e.containingBlockHeight())
 	applyElementZoomBorderBox(boxNode, style)
 	e.paintWidgetControl(node, style, boxNode, widget, chkWidget, posY)
 
 	e.paintPositionedPseudo(node, style, boxNode, pseudoBefore)
 	e.paintPositionedPseudo(node, style, boxNode, pseudoAfter)
 
-	e.prependChrome(contentStart, boxNode, *style, boxNode.x, boxNode.y, boxNode.w, boxNode.height)
+	e.prependChrome(contentStart, boxNode, style, boxNode.x, boxNode.y, boxNode.w, boxNode.height)
 
 	return boxNode
 }
@@ -2184,7 +2213,7 @@ func blockFlowChildren(node *html.Node, nativeControl bool) []*html.Node {
 	}
 
 	if node.Name == "details" {
-		_, open := node.Attrs["open"]
+		open := node.HasAttr("open")
 		if !open {
 			children = closedDetailsChildren(node)
 		}
@@ -2196,8 +2225,8 @@ func blockFlowChildren(node *html.Node, nativeControl bool) []*html.Node {
 // applyHeightConstraints enforces the used/min/max-height constraints on the
 // current content height (extracted so buildBlock stays readable).
 // cbH is the containing-block height for % heights: <0 means indefinite (auto).
-func (e *engine) applyHeightConstraints(style ResolvedStyle, curY float64) float64 {
-	return e.applyHeightConstraintsWithCB(&style, curY, -1)
+func (e *engine) applyHeightConstraints(style *ResolvedStyle, curY float64) float64 {
+	return e.applyHeightConstraintsWithCB(style, curY, -1)
 }
 
 func (e *engine) clampBlockMaxHeight(style *ResolvedStyle, curY, cbH, vChrome float64) float64 {
@@ -2268,8 +2297,7 @@ func (e *engine) clampBlockMinHeight(style *ResolvedStyle, curY, cbH, vChrome fl
 // so an auto-height bordered box is the same height whether it is a block,
 // flex container, multicol container, grid, table, or measured cell. The
 // border-image device width is used when the border paints as an image.
-func (e *engine) borderBoxBottom(style ResolvedStyle, contentBottom float64) float64 {
-	boxStyle := &style
+func (e *engine) borderBoxBottom(boxStyle *ResolvedStyle, contentBottom float64) float64 {
 	contentBottom += e.scalePt(boxStyle.PaddingBottom)
 	contentBottom += e.scalePt(borderLayoutWidth(boxStyle, boxStyle.BorderBottom))
 
@@ -2486,7 +2514,7 @@ func (e *engine) buildInFlowDisplay(nodeN *html.Node, sty *ResolvedStyle, availW
 		return e.buildGrid(nodeN, sty, availW, posX, posY)
 	}
 
-	if isMulticol(*sty) {
+	if isMulticol(sty) {
 		return e.buildMulticol(nodeN, *sty, availW, posX, posY)
 	}
 

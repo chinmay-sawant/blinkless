@@ -3,7 +3,7 @@ package layout
 // flexAspectRatioStyle borrows the cascade record unless aspect-ratio supplies
 // an auto height. Only that case needs a private style for the flex build.
 func (e *engine) flexAspectRatioStyle(style *ResolvedStyle, width float64) *ResolvedStyle {
-	height, ok := aspectRatioAutoHeightPt(*style, width, e)
+	height, ok := aspectRatioAutoHeightPt(style, width, e)
 	if !ok {
 		return style
 	}
@@ -19,7 +19,7 @@ func (e *engine) flexAspectRatioStyle(style *ResolvedStyle, width float64) *Reso
 // is the content-box width for content-box sizing and the border-box width
 // for border-box sizing (callers pass the matching axis).
 func withAspectRatioHeight(style ResolvedStyle, definiteWidthScaled float64, eng *engine) ResolvedStyle {
-	if h, ok := aspectRatioAutoHeightPt(style, definiteWidthScaled, eng); ok {
+	if h, ok := aspectRatioAutoHeightPt(&style, definiteWidthScaled, eng); ok {
 		style.Height = h
 	}
 
@@ -28,7 +28,7 @@ func withAspectRatioHeight(style ResolvedStyle, definiteWidthScaled float64, eng
 
 // aspectRatioAutoHeightPt returns the unscaled CSS pt height implied by
 // aspect-ratio when height is auto and width is definite.
-func aspectRatioAutoHeightPt(style ResolvedStyle, definiteWidthScaled float64, eng *engine) (float64, bool) {
+func aspectRatioAutoHeightPt(style *ResolvedStyle, definiteWidthScaled float64, eng *engine) (float64, bool) {
 	if style.AspectRatio <= 0 || definiteWidthScaled <= 0 {
 		return 0, false
 	}
@@ -47,7 +47,7 @@ func aspectRatioAutoHeightPt(style ResolvedStyle, definiteWidthScaled float64, e
 
 // aspectRatioAutoWidthPt returns the unscaled CSS pt width implied by
 // aspect-ratio when width is auto and height is definite.
-func aspectRatioAutoWidthPt(style ResolvedStyle, definiteHeightScaled float64, eng *engine) (float64, bool) {
+func aspectRatioAutoWidthPt(style *ResolvedStyle, definiteHeightScaled float64, eng *engine) (float64, bool) {
 	if style.AspectRatio <= 0 || definiteHeightScaled <= 0 {
 		return 0, false
 	}

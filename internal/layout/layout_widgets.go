@@ -228,7 +228,7 @@ func (e *engine) paintCheckboxWidget(
 	t := strings.ToLower(node.Attribute("type"))
 	isRadio := t == "radio"
 
-	_, isChecked := node.Attrs["checked"]
+	isChecked := node.HasAttr("checked")
 	if !isChecked {
 		if v := node.Attribute("checked"); v != "" && v != "false" {
 			isChecked = true

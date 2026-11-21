@@ -274,22 +274,22 @@ func TestContainmentKeywordHelpers(t *testing.T) {
 	t.Parallel()
 
 	strict := ResolvedStyle{Contain: "strict"}
-	if !containsSize(strict) || !containsLayout(strict) || !containsPaint(strict) {
+	if !containsSize(&strict) || !containsLayout(&strict) || !containsPaint(&strict) {
 		t.Fatalf("strict must expand to size layout paint style: %+v", strict)
 	}
 
 	content := ResolvedStyle{Contain: "content"}
-	if containsSize(content) || !containsLayout(content) || !containsPaint(content) {
+	if containsSize(&content) || !containsLayout(&content) || !containsPaint(&content) {
 		t.Fatalf("content must expand to layout paint style: %+v", content)
 	}
 
 	subset := ResolvedStyle{Contain: "size layout"}
-	if !containsSize(subset) || !containsLayout(subset) || containsPaint(subset) {
+	if !containsSize(&subset) || !containsLayout(&subset) || containsPaint(&subset) {
 		t.Fatalf("size layout must not imply paint containment: %+v", subset)
 	}
 
 	none := ResolvedStyle{Contain: "none"}
-	if containsSize(none) || containsLayout(none) || containsPaint(none) {
+	if containsSize(&none) || containsLayout(&none) || containsPaint(&none) {
 		t.Fatalf("none must not imply containment: %+v", none)
 	}
 }
@@ -304,22 +304,22 @@ func TestContainmentIntrinsicAxisMapping(t *testing.T) {
 		ContainIntrinsicInlineSize: 60,
 	}
 
-	if got := containmentIntrinsicWidth(horizontal); got != 60 {
+	if got := containmentIntrinsicWidth(&horizontal); got != 60 {
 		t.Fatalf("horizontal width = %v, want inline size 60", got)
 	}
 
-	if got := containmentIntrinsicHeight(horizontal); got != 30 {
+	if got := containmentIntrinsicHeight(&horizontal); got != 30 {
 		t.Fatalf("horizontal height = %v, want block size 30", got)
 	}
 
 	vertical := horizontal
 	vertical.WritingMode = writingModeVerticalRL
 
-	if got := containmentIntrinsicWidth(vertical); got != 30 {
+	if got := containmentIntrinsicWidth(&vertical); got != 30 {
 		t.Fatalf("vertical width = %v, want block size 30", got)
 	}
 
-	if got := containmentIntrinsicHeight(vertical); got != 60 {
+	if got := containmentIntrinsicHeight(&vertical); got != 60 {
 		t.Fatalf("vertical height = %v, want inline size 60", got)
 	}
 
@@ -327,11 +327,11 @@ func TestContainmentIntrinsicAxisMapping(t *testing.T) {
 	physical.ContainIntrinsicWidth = 11
 	physical.ContainIntrinsicHeight = 22
 
-	if got := containmentIntrinsicWidth(physical); got != 11 {
+	if got := containmentIntrinsicWidth(&physical); got != 11 {
 		t.Fatalf("physical width = %v, want 11", got)
 	}
 
-	if got := containmentIntrinsicHeight(physical); got != 22 {
+	if got := containmentIntrinsicHeight(&physical); got != 22 {
 		t.Fatalf("physical height = %v, want 22", got)
 	}
 }

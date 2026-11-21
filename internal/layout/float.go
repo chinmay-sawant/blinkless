@@ -240,7 +240,7 @@ func (f *floatState) extentCy(posY, cy float64) float64 {
 // establishesBFC reports whether st creates a new block formatting context
 // that traps floats (CSS2.1 / Display 3). Descendants' floats do not affect
 // the parent BFC; the box's used height encloses its floats.
-func establishesBFC(sty ResolvedStyle) bool {
+func establishesBFC(sty *ResolvedStyle) bool {
 	if sty.Float != cssDisplayNone {
 		return true
 	}

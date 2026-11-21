@@ -16,7 +16,7 @@ import (
 // marginCollapsesThrough reports whether a box's margin can collapse through
 // one edge: the edge has no padding or border, and the box is not a BFC root
 // or a layout-containment box.
-func (e *engine) marginCollapsesThrough(style ResolvedStyle, top bool) bool {
+func (e *engine) marginCollapsesThrough(style *ResolvedStyle, top bool) bool {
 	if establishesBFC(style) || containsLayout(style) {
 		return false
 	}
@@ -116,7 +116,7 @@ func (e *engine) lastInFlowBlockChild(parent *html.Node) *html.Node {
 // collapsedTopThrough returns the top margin that collapses through node's
 // top edge: the max of its own top margin and, when the edge has no border or
 // padding, its first in-flow block child's chain.
-func (e *engine) collapsedTopThrough(node *html.Node, style ResolvedStyle) float64 {
+func (e *engine) collapsedTopThrough(node *html.Node, style *ResolvedStyle) float64 {
 	margin := e.scalePt(style.MarginTop)
 	if !e.marginCollapsesThrough(style, true) {
 		return margin
@@ -127,7 +127,7 @@ func (e *engine) collapsedTopThrough(node *html.Node, style ResolvedStyle) float
 		return margin
 	}
 
-	if childMargin := e.collapsedTopThrough(child, *e.stylePtr(child)); childMargin > margin {
+	if childMargin := e.collapsedTopThrough(child, e.stylePtr(child)); childMargin > margin {
 		margin = childMargin
 	}
 
@@ -137,7 +137,7 @@ func (e *engine) collapsedTopThrough(node *html.Node, style ResolvedStyle) float
 // collapsedBottomThrough returns the bottom margin that collapses through
 // node's bottom edge: the max of its own bottom margin and, when the edge has
 // no border or padding, its last in-flow block child's chain.
-func (e *engine) collapsedBottomThrough(node *html.Node, style ResolvedStyle) float64 {
+func (e *engine) collapsedBottomThrough(node *html.Node, style *ResolvedStyle) float64 {
 	margin := e.scalePt(style.MarginBottom)
 	if !e.marginCollapsesThrough(style, false) {
 		return margin
@@ -148,7 +148,7 @@ func (e *engine) collapsedBottomThrough(node *html.Node, style ResolvedStyle) fl
 		return margin
 	}
 
-	if childMargin := e.collapsedBottomThrough(child, *e.stylePtr(child)); childMargin > margin {
+	if childMargin := e.collapsedBottomThrough(child, e.stylePtr(child)); childMargin > margin {
 		margin = childMargin
 	}
 
@@ -165,7 +165,7 @@ func (e *engine) collapsedBottomThrough(node *html.Node, style ResolvedStyle) fl
 // aligned with the moved body. It returns the adjusted flow origin and the
 // number of overrides the caller must pop.
 func (e *engine) absorbRootBodyTopMargin(
-	node *html.Node, boxNode *box, style ResolvedStyle, posY float64,
+	node *html.Node, boxNode *box, style *ResolvedStyle, posY float64,
 ) (float64, int) {
 	if node == nil || node.Name != htmlBodyName || !e.marginCollapsesThrough(style, true) {
 		return posY, 0
@@ -176,7 +176,7 @@ func (e *engine) absorbRootBodyTopMargin(
 		return posY, 0
 	}
 
-	childTop := e.collapsedTopThrough(child, *e.stylePtr(child))
+	childTop := e.collapsedTopThrough(child, e.stylePtr(child))
 	if childTop <= 0 {
 		return posY, 0
 	}
@@ -210,7 +210,7 @@ func (e *engine) pushCollapsedTopOverrides(child *html.Node) int {
 			pushed++
 		}
 
-		if !e.marginCollapsesThrough(*cst, true) {
+		if !e.marginCollapsesThrough(cst, true) {
 			break
 		}
 	}
@@ -222,7 +222,7 @@ func (e *engine) pushCollapsedTopOverrides(child *html.Node) int {
 // extend the html height, matching Chrome's root box.
 func (e *engine) extendRootHTMLHeight(boxNode *box, curY float64) float64 {
 	body := e.rootBodyBox(boxNode)
-	if body == nil || body.style == nil || !e.marginCollapsesThrough(*body.style, false) {
+	if body == nil || body.style == nil || !e.marginCollapsesThrough(body.style, false) {
 		return curY
 	}
 
@@ -230,7 +230,7 @@ func (e *engine) extendRootHTMLHeight(boxNode *box, curY float64) float64 {
 	// the absorbed child margins (absorbRootBodyTopMargin ran before the body
 	// flowed its children), so the escaped bottom margin is all that remains
 	// to extend the html height.
-	escaped := e.collapsedBottomThrough(body.node, *body.style)
+	escaped := e.collapsedBottomThrough(body.node, body.style)
 	bodyBottom := body.y + body.height - boxNode.y + escaped
 
 	if bodyBottom > curY {

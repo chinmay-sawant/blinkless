@@ -51,7 +51,7 @@ func parseColumnsShorthand(sty *ResolvedStyle, value string, fsize, viewportW fl
 
 // isMulticol reports whether st establishes a multi-column container
 // (column-count, column-width, or column-height is not auto).
-func isMulticol(st ResolvedStyle) bool {
+func isMulticol(st *ResolvedStyle) bool {
 	return st.ColumnCount > 0 || st.ColumnWidth >= 0 || st.ColumnHeight >= 0
 }
 

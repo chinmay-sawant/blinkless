@@ -252,10 +252,12 @@ func (e *engine) resetStyles(mark styleMark) {
 	}
 
 	if mark.chunkIdx < len(e.styleChunks) {
+		rewound := false
 		for i := mark.chunkIdx + 1; i < len(e.styleChunks); i++ {
 			clear(*e.styleChunks[i])
 			*e.styleChunks[i] = (*e.styleChunks[i])[:0]
 			e.spareChunks = append(e.spareChunks, e.styleChunks[i])
+			rewound = true
 		}
 
 		e.styleChunks = e.styleChunks[:mark.chunkIdx+1]
@@ -264,6 +266,11 @@ func (e *engine) resetStyles(mark styleMark) {
 		if mark.itemIdx < len(*chunk) {
 			clear((*chunk)[mark.itemIdx:])
 			*chunk = (*chunk)[:mark.itemIdx]
+			rewound = true
+		}
+
+		if rewound && len(e.anonFlexStyles) > 0 {
+			clear(e.anonFlexStyles)
 		}
 	}
 }

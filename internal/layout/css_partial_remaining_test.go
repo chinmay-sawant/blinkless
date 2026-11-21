@@ -56,7 +56,7 @@ func TestCSSPartialRemainingPaint(t *testing.T) {
 			BoxShadowSet:    true,
 			BoxShadowRaw:    "2px 2px 4px black, inset 1px 1px 2px red",
 		}
-		eng.prependChrome(0, &box{}, sty, 10, 10, 100, 50)
+		eng.prependChrome(0, &box{}, &sty, 10, 10, 100, 50)
 		if len(eng.deferredChrome) == 0 {
 			t.Fatal("no chrome generated for multi-layer background/shadow")
 		}

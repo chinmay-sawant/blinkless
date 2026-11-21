@@ -149,7 +149,7 @@ func TestTransparentBorderPaintsNothing(t *testing.T) {
 	// All four sides transparent: the block border box and the replaced
 	// element emitter stay silent while layout keeps the 8pt width.
 	allTransparent := resolve(map[string]string{"border": "8pt solid transparent"})
-	if ops := eng.borderOps(allTransparent, 0, 0, 300, 150); len(ops) != 0 {
+	if ops := eng.borderOps(&allTransparent, 0, 0, 300, 150); len(ops) != 0 {
 		t.Fatalf("transparent border ops = %d, want 0", len(ops))
 	}
 	eng.emitBorders(allTransparent, 0, 0, 300, 150)
@@ -171,14 +171,14 @@ func TestTransparentBorderPaintsNothing(t *testing.T) {
 	}
 	for name, props := range longhands {
 		sty := resolve(props)
-		if ops := eng.borderOpsSides(sty, 0, 0, 300, 150, true, false, false, false); len(ops) != 0 {
+		if ops := eng.borderOpsSides(&sty, 0, 0, 300, 150, true, false, false, false); len(ops) != 0 {
 			t.Fatalf("%s: transparent top border ops = %d, want 0", name, len(ops))
 		}
 	}
 
 	// The opaque control still paints so the gates cannot pass vacuously.
 	opaque := resolve(map[string]string{"border": "8pt solid black"})
-	if ops := eng.borderOps(opaque, 0, 0, 300, 150); len(ops) == 0 {
+	if ops := eng.borderOps(&opaque, 0, 0, 300, 150); len(ops) == 0 {
 		t.Fatal("opaque border ops = 0, want > 0")
 	}
 }

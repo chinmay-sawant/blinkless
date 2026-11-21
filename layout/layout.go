@@ -225,43 +225,85 @@ type Override struct {
 	Value string
 }
 
-func boxFrom(item *ilayout.PlacedElement) Box {
-	return Box{
-		Sticky:              stickyConstraintFrom(item.Sticky),
-		Fixed:               item.Fixed,
-		ID:                  item.ID,
-		Tag:                 item.Tag,
-		Action:              item.Action,
-		Text:                item.Text,
-		ParentIndex:         item.ParentIndex,
-		OperationIDs:        item.OperationIDs,
-		Animations:          animationsFrom(item.Animations),
-		Transitions:         transitionsFrom(item.Transitions),
-		TriggerScope:        item.TriggerScope,
-		ViewTransitionName:  item.ViewTransitionName,
-		ViewTransitionClass: item.ViewTransitionClass,
-		ViewTransitionGroup: item.ViewTransitionGroup,
-		ViewTransitionScope: item.ViewTransitionScope,
-		Timelines:           timelinesFrom(item.Timelines),
-		Declared:            item.Declared,
-		TimelineScope:       timelineScopeFrom(item.Triggers.TimelineScope),
-		TimelineTriggers:    timelineTriggersFrom(item.Triggers.TimelineTriggers),
-		EventTriggers:       eventTriggersFrom(item.Triggers.EventTriggers),
-		InterestDelay:       interestDelayFrom(item.Triggers.InterestDelay),
-		Interactivity:       item.Triggers.Interactivity,
-		Transform:           transformInfoFrom(item.Transform),
-		OverflowClip: [4]float64{
+func fillBoxFrom(dst *Box, item *ilayout.PlacedElement) {
+	if item.Sticky != nil {
+		dst.Sticky = stickyConstraintFrom(item.Sticky)
+	} else {
+		dst.Sticky = nil
+	}
+	dst.Fixed = item.Fixed
+	dst.ID = item.ID
+	dst.Tag = item.Tag
+	dst.Action = item.Action
+	dst.Text = item.Text
+	dst.ParentIndex = item.ParentIndex
+	dst.OperationIDs = item.OperationIDs
+	if len(item.Animations) > 0 {
+		dst.Animations = animationsFrom(item.Animations)
+	} else {
+		dst.Animations = nil
+	}
+	if len(item.Transitions) > 0 {
+		dst.Transitions = transitionsFrom(item.Transitions)
+	} else {
+		dst.Transitions = nil
+	}
+	dst.TriggerScope = item.TriggerScope
+	dst.ViewTransitionName = item.ViewTransitionName
+	dst.ViewTransitionClass = item.ViewTransitionClass
+	dst.ViewTransitionGroup = item.ViewTransitionGroup
+	dst.ViewTransitionScope = item.ViewTransitionScope
+	if len(item.Timelines) > 0 {
+		dst.Timelines = timelinesFrom(item.Timelines)
+	} else {
+		dst.Timelines = nil
+	}
+	dst.Declared = item.Declared
+	if item.Triggers.TimelineScope.None && !item.Triggers.TimelineScope.All && len(item.Triggers.TimelineScope.Names) == 0 {
+		dst.TimelineScope = TimelineScope{None: true}
+	} else {
+		dst.TimelineScope = timelineScopeFrom(item.Triggers.TimelineScope)
+	}
+	if len(item.Triggers.TimelineTriggers) > 0 {
+		dst.TimelineTriggers = timelineTriggersFrom(item.Triggers.TimelineTriggers)
+	} else {
+		dst.TimelineTriggers = nil
+	}
+	if len(item.Triggers.EventTriggers) > 0 {
+		dst.EventTriggers = eventTriggersFrom(item.Triggers.EventTriggers)
+	} else {
+		dst.EventTriggers = nil
+	}
+	dst.InterestDelay = InterestDelay{
+		StartNormal: item.Triggers.InterestDelay.StartNormal,
+		EndNormal:   item.Triggers.InterestDelay.EndNormal,
+		StartMs:     item.Triggers.InterestDelay.StartMs,
+		EndMs:       item.Triggers.InterestDelay.EndMs,
+	}
+	dst.Interactivity = item.Triggers.Interactivity
+	dst.Transform = transformInfoFrom(item.Transform)
+	if item.HasOverflowClip {
+		dst.OverflowClip = [4]float64{
 			item.OverflowClip[0] * ptToPx,
 			item.OverflowClip[1] * ptToPx,
 			item.OverflowClip[2] * ptToPx,
 			item.OverflowClip[3] * ptToPx,
-		},
-		HasOverflowClip: item.HasOverflowClip,
-		X:               item.X * ptToPx,
-		Y:               item.Y * ptToPx,
-		W:               item.W * ptToPx,
-		H:               item.H * ptToPx,
+		}
+		dst.HasOverflowClip = true
+	} else {
+		dst.OverflowClip = [4]float64{}
+		dst.HasOverflowClip = false
 	}
+	dst.X = item.X * ptToPx
+	dst.Y = item.Y * ptToPx
+	dst.W = item.W * ptToPx
+	dst.H = item.H * ptToPx
+}
+
+func boxFrom(item *ilayout.PlacedElement) Box {
+	var b Box
+	fillBoxFrom(&b, item)
+	return b
 }
 
 func boxesFrom(placed []ilayout.PlacedElement) []Box {

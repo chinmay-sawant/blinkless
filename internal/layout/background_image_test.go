@@ -60,7 +60,7 @@ func TestBackgroundImagePaints(t *testing.T) {
 		BackgroundImage:  `url("x.png")`,
 		BackgroundRepeat: "no-repeat",
 	}
-	eng.prependChrome(0, &box{}, sty, 10, 20, 100, 50)
+	eng.prependChrome(0, &box{}, &sty, 10, 20, 100, 50)
 
 	imageOp := wantSingleDeferredImage(t, eng)
 	wantW, wantH := pxToPt(10), pxToPt(20)
@@ -94,7 +94,7 @@ func TestBackgroundImagePaintsOverColor(t *testing.T) {
 		BackgroundImage:  `url("x.png")`,
 		BackgroundRepeat: "no-repeat",
 	}
-	eng.prependChrome(0, &box{}, sty, 0, 0, 80, 40)
+	eng.prependChrome(0, &box{}, &sty, 0, 0, 80, 40)
 
 	if len(eng.deferredChrome) != 1 {
 		t.Fatalf("deferred chrome entries = %d, want 1", len(eng.deferredChrome))
@@ -120,7 +120,7 @@ func TestBackgroundImageEmptySkips(t *testing.T) {
 
 		return nil, errors.New("should not fetch")
 	})
-	eng.prependChrome(0, &box{}, ResolvedStyle{}, 0, 0, 100, 50)
+	eng.prependChrome(0, &box{}, &ResolvedStyle{}, 0, 0, 100, 50)
 
 	if called {
 		t.Fatal("empty BackgroundImage fetched an image")
@@ -138,7 +138,7 @@ func TestBackgroundImageMissingSkips(t *testing.T) {
 		return nil, errors.New("missing")
 	})
 	sty := ResolvedStyle{BackgroundImage: "missing.png"}
-	eng.prependChrome(0, &box{}, sty, 0, 0, 100, 50)
+	eng.prependChrome(0, &box{}, &sty, 0, 0, 100, 50)
 
 	if len(eng.deferredChrome) != 0 {
 		t.Fatalf("missing image still painted chrome = %+v", eng.deferredChrome)
@@ -159,7 +159,7 @@ func TestBackgroundImageGradientRenders(t *testing.T) {
 		return tinyPNG(2, 2), nil
 	})
 	sty := ResolvedStyle{BackgroundImage: "linear-gradient(red, blue)"}
-	eng.prependChrome(0, &box{}, sty, 0, 0, 100, 50)
+	eng.prependChrome(0, &box{}, &sty, 0, 0, 100, 50)
 
 	if called {
 		t.Fatal("gradient unexpectedly fetched an external image")
@@ -180,7 +180,7 @@ func TestBackgroundImageMultiLayer(t *testing.T) {
 		return tinyPNG(2, 2), nil
 	})
 	sty := ResolvedStyle{BackgroundImage: `url("a.png"), url("b.png")`}
-	eng.prependChrome(0, &box{}, sty, 0, 0, 40, 20)
+	eng.prependChrome(0, &box{}, &sty, 0, 0, 40, 20)
 
 	if len(fetched) != 2 || fetched[0] != "b.png" || fetched[1] != "a.png" {
 		t.Errorf("fetched = %q, want [b.png a.png]", fetched)
@@ -198,7 +198,7 @@ func TestBackgroundBlendModeFollowsBackgroundLayerOrder(t *testing.T) {
 		BackgroundBlendMode: "multiply, screen",
 		BackgroundRepeat:    "no-repeat",
 	}
-	eng.prependChrome(0, &box{}, sty, 0, 0, 40, 20)
+	eng.prependChrome(0, &box{}, &sty, 0, 0, 40, 20)
 
 	var modes []string
 	for _, op := range eng.deferredChrome[0].ops {
@@ -223,7 +223,7 @@ func TestBackgroundImageNoBackgroundFlag(t *testing.T) {
 	})
 	eng.opts.Background = false
 	sty := ResolvedStyle{BackgroundImage: `url("x.png")`}
-	eng.prependChrome(0, &box{}, sty, 0, 0, 100, 50)
+	eng.prependChrome(0, &box{}, &sty, 0, 0, 100, 50)
 
 	if called {
 		t.Fatal("Background=false still fetched")
@@ -329,7 +329,7 @@ func TestBackgroundImageBarePath(t *testing.T) {
 		BackgroundImage:  "logo.png",
 		BackgroundRepeat: "no-repeat",
 	}
-	eng.prependChrome(0, &box{}, sty, 0, 0, 30, 30)
+	eng.prependChrome(0, &box{}, &sty, 0, 0, 30, 30)
 	imageOp := wantSingleDeferredImage(t, eng)
 
 	if !bytes.Equal(imageOp.Image, png) {
@@ -360,7 +360,7 @@ func TestBackgroundOriginContentBoxOverflowsIntoPadding(t *testing.T) {
 		PaddingTop:       10,
 		PaddingBottom:    10,
 	}
-	eng.prependChrome(0, &box{}, sty, 0, 0, 100, 50)
+	eng.prependChrome(0, &box{}, &sty, 0, 0, 100, 50)
 
 	imageOp := wantSingleDeferredImage(t, eng)
 	if imageOp.X != 10 || imageOp.Y != 10 {
@@ -388,7 +388,7 @@ func TestBackgroundPositionUsesCSSPxIntrinsicSize(t *testing.T) {
 		BackgroundPosY:   "bottom",
 	}
 	const boxW, boxH = 160.0, 36.0
-	eng.prependChrome(0, &box{}, sty, 0, 0, boxW, boxH)
+	eng.prependChrome(0, &box{}, &sty, 0, 0, boxW, boxH)
 
 	imageOp := wantSingleDeferredImage(t, eng)
 	wantW, wantH := pxToPt(160), pxToPt(48)

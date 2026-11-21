@@ -135,7 +135,7 @@ func exclusionDeclarationValueAccepted(prop, value string) (bool, bool) {
 // exclusionChildNode is the node shape an exclusion box must have: a
 // block-level element that is not floated (float != none computes wrap-flow
 // to auto per spec).
-func exclusionApplies(sty ResolvedStyle) bool {
+func exclusionApplies(sty *ResolvedStyle) bool {
 	return sty.WrapFlow != "" && sty.Float == cssDisplayNone
 }
 
@@ -202,7 +202,7 @@ func wrapFlowLineSide(fbox *box, wrapFlow string, contentX, contentW float64) st
 // wrapThroughBypass swaps in a scratch floatState while a wrap-through: none
 // element builds so exclusions from outside do not shorten its lines. The
 // returned state (nil when no bypass applies) restores the live state.
-func (e *engine) beginWrapThroughBypass(floats *floatState, sty ResolvedStyle) *floatState {
+func (e *engine) beginWrapThroughBypass(floats *floatState, sty *ResolvedStyle) *floatState {
 	if sty.WrapThrough != wrapThroughNone || floats == nil {
 		return nil
 	}

@@ -58,7 +58,7 @@ func (e *engine) simpleFlexRowHeight(
 		return 0, false
 	}
 
-	rowBoxW := resolveUsedWidth(*style, contentW, e)
+	rowBoxW := resolveUsedWidth(style, contentW, e)
 	if rowBoxW <= 0 {
 		return 0, false
 	}
@@ -305,7 +305,7 @@ func simpleFlexStackBoxOK(style *ResolvedStyle) bool {
 // make the as-if-empty stack height wrong.
 func simpleFlexStackPaintOK(style *ResolvedStyle) bool {
 	if style.AspectRatio > 0 || style.BorderImageSource != "" ||
-		containsSize(*style) || isMulticol(*style) ||
+		containsSize(style) || isMulticol(style) ||
 		style.ContentVisibility == contentVisibilityHidden ||
 		style.ContentVisibility == contentVisibilityAuto {
 		return false
@@ -389,7 +389,7 @@ func (e *engine) simpleFlexRowStyleOK(style *ResolvedStyle, contentW float64) bo
 		return false
 	}
 
-	if isMulticol(*style) {
+	if isMulticol(style) {
 		return false
 	}
 
@@ -411,7 +411,7 @@ func (e *engine) simpleFlexRowStyleOK(style *ResolvedStyle, contentW float64) bo
 		return false
 	}
 
-	if containsSize(*style) || style.ContentVisibility == contentVisibilityHidden {
+	if containsSize(style) || style.ContentVisibility == contentVisibilityHidden {
 		return false
 	}
 
@@ -488,7 +488,7 @@ func (e *engine) simpleFlexCellMetrics(child *html.Node) (float64, float64, bool
 		return 0, 0, false
 	}
 
-	if containsSize(*childStyle) || childStyle.ContentVisibility == contentVisibilityHidden {
+	if containsSize(childStyle) || childStyle.ContentVisibility == contentVisibilityHidden {
 		return 0, 0, false
 	}
 
@@ -621,7 +621,7 @@ func (e *engine) simpleFlexMinContentWidth(node *html.Node, style *ResolvedStyle
 		return 0, false
 	}
 
-	if isSimpleFlexReplacedElement(node) || containsSize(*style) ||
+	if isSimpleFlexReplacedElement(node) || containsSize(style) ||
 		style.ContentVisibility == contentVisibilityHidden {
 		return 0, false
 	}

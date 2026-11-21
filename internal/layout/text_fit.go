@@ -22,6 +22,10 @@ type textFitSpec struct {
 // consistent, per-line and per-line-all pick how several lines share one
 // scale. A block with one text line has one scale, so they read the same.
 func parseTextFit(value string) (textFitSpec, bool) {
+	if value == "" || value == "none" {
+		return textFitSpec{grow: false, shrink: false, limit: 0}, false
+	}
+
 	fields := strings.Fields(value)
 	if len(fields) == 0 {
 		return textFitSpec{grow: false, shrink: false, limit: 0}, false

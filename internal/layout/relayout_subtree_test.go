@@ -472,6 +472,8 @@ func relayoutNodeByID(t *testing.T, root *html.Node, elementID string) *html.Nod
 		t.Fatalf("no element with id %q", elementID)
 	}
 
+	found.EnsureAttrs()
+
 	return found
 }
 

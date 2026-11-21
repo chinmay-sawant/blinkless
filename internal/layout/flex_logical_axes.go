@@ -15,7 +15,7 @@ func (e *engine) flowFlexVerticalRow(
 	parent *box, kids []*html.Node, style ResolvedStyle,
 	contentW, contentX, topY, curY, gap float64,
 ) float64 {
-	contentH := resolveFlexColumnContentHeight(style, e)
+	contentH := resolveFlexColumnContentHeight(&style, e)
 	items := e.flexColumnItems(kids, contentW, contentH)
 	defer putFlexColMeas(items)
 	if len(items) == 0 {
@@ -33,7 +33,7 @@ func (e *engine) flowFlexVerticalRow(
 			mapped.Direction = cssDirectionRTL
 		}
 
-		return e.flowFlexColumnWrapped(parent, mapped, items, contentW, contentX, topY, curY, gap, 0, contentH)
+		return e.flowFlexColumnWrapped(parent, &mapped, items, contentW, contentX, topY, curY, gap, 0, contentH)
 	}
 
 	if flexRowPhysicalReverse(&style) {
@@ -80,7 +80,7 @@ func (e *engine) flowFlexVerticalColumn(
 	parent *box, kids []*html.Node, style ResolvedStyle,
 	contentW, contentX, topY, curY, gap float64,
 ) float64 {
-	contentH := resolveContentHeight(style, e)
+	contentH := resolveContentHeight(&style, e)
 	items := e.flexRowItems(kids, contentW, contentH)
 	defer putFlexMeas(items)
 	if len(items) == 0 {
@@ -107,7 +107,7 @@ func (e *engine) flowFlexVerticalColumn(
 			nodes[idx] = item.n
 		}
 
-		return e.flowFlexRow(parent, nodes, mapped, contentW, contentX, topY, curY, gap, 0)
+		return e.flowFlexRow(parent, nodes, &mapped, contentW, contentX, topY, curY, gap, 0)
 	}
 
 	mainReverse := style.FlexDirection == fxColRev

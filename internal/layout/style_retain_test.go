@@ -165,7 +165,7 @@ func TestRetainDirtySubtreeReresolves(t *testing.T) {
 	nodeA, nodeB, nodeC := findByID(root, "a"), findByID(root, "b"), findByID(root, "c")
 	ptrA, ptrB, ptrC := first[nodeA], first[nodeB], first[nodeC]
 
-	nodeA.Attrs["style"] = "color: green"
+	nodeA.EnsureAttrs()["style"] = "color: green"
 	dirty.Mark("a")
 
 	second := retainFirstPass(t, root, opts, dirty, ret)

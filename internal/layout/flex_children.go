@@ -174,10 +174,35 @@ func applyAnonymousFlexItemStyle(style *ResolvedStyle) {
 	style.HasTransform = false
 }
 
-func (e *engine) allocAnonymousFlexItemStyle(parent *ResolvedStyle) *ResolvedStyle {
-	style := e.allocStyle(parent)
-	limit := e.continueLimitFor(parent)
+type anonFlexStyleKey struct {
+	parent *ResolvedStyle
+	limit  int
+}
 
+func (e *engine) allocAnonymousFlexItemStyle(parent *ResolvedStyle) *ResolvedStyle {
+	limit := e.continueLimitFor(parent)
+	if parent != nil {
+		key := anonFlexStyleKey{parent: parent, limit: limit}
+		if cached, ok := e.anonFlexStyles[key]; ok {
+			return cached
+		}
+
+		style := e.allocFlexOverrideStyle(parent)
+		applyAnonymousFlexItemStyle(style)
+		style.Continue = ""
+		style.ContinueLines = limit
+
+		if e.anonFlexStyles == nil {
+			e.anonFlexStyles = make(map[anonFlexStyleKey]*ResolvedStyle, 8)
+		}
+		if len(e.anonFlexStyles) < flexOverrideMaxEntries {
+			e.anonFlexStyles[key] = style
+		}
+
+		return style
+	}
+
+	style := e.allocFlexOverrideStyle(parent)
 	applyAnonymousFlexItemStyle(style)
 	style.Continue = ""
 	style.ContinueLines = limit

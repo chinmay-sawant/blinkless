@@ -294,7 +294,7 @@ func fingerprintContentDOM(root *html.Node) uint64 {
 		}
 
 		if node.Type == html.ElementNode {
-			writeContentElement(hash, node.Type, node.Name, node.Attrs)
+			writeContentElement(hash, node.Type, node.Name, node.EnsureAttrs())
 		}
 
 		for _, child := range node.Children {
@@ -325,7 +325,7 @@ func fingerprintKeptContent(kept *box, ops []Op, start, count int) uint64 {
 		}
 
 		if node.node != nil && node.node.Type == html.ElementNode {
-			writeContentElement(hash, node.node.Type, node.node.Name, node.node.Attrs)
+			writeContentElement(hash, node.node.Type, node.node.Name, node.node.EnsureAttrs())
 		}
 
 		for _, child := range node.children {

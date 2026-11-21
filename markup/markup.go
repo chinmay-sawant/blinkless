@@ -139,7 +139,7 @@ func copyNode(node *html.Node) *Node {
 		Type:      kind,
 		Name:      node.Name,
 		Namespace: copyNamespace(node.Namespace),
-		Attrs:     copyAttrs(node.Attrs),
+		Attrs:     copyAttrs(node.EnsureAttrs()),
 		AttrList:  copyAttrList(node.AttrList),
 		Text:      node.Text,
 		Doctype:   copyDoctype(node.Doctype),
@@ -162,7 +162,10 @@ func copyChildren(nodes []*html.Node) []*Node {
 	return out
 }
 
-func copyDoctype(doctype html.Doctype) Doctype {
+func copyDoctype(doctype *html.Doctype) Doctype {
+	if doctype == nil {
+		return Doctype{}
+	}
 	return Doctype{
 		Name:        doctype.Name,
 		PublicID:    doctype.PublicID,

@@ -327,26 +327,33 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 
 const maxPooledIntSliceCap = 65536
 
-// intSlicePool stores typed slice headers. It deliberately has no New: an
-// empty pool must fall through to the caller's exact-size make instead of
-// allocating a header and an empty backing on every cold rent.
-var intSlicePool = sync.Pool{} //nolint:exhaustruct,gochecknoglobals // see the comment above
+// intSlicePool stores typed slice headers; intSliceHdrPool recycles empty
+// *[]int headers so rent and release never box headers or discard backings.
+var (
+	intSlicePool    = sync.Pool{} //nolint:exhaustruct,gochecknoglobals // see the comment above
+	intSliceHdrPool = sync.Pool{} //nolint:exhaustruct,gochecknoglobals // see the comment above
+)
 
 func rentIntSlice(need int) []int {
 	if need <= 0 {
 		return nil
 	}
 
-	if scratch, ok := intSlicePool.Get().(*[]int); ok && cap(*scratch) >= need {
-		return (*scratch)[:need]
+	if hdr, ok := intSlicePool.Get().(*[]int); ok {
+		s := *hdr
+		*hdr = nil
+		intSliceHdrPool.Put(hdr)
+		if cap(s) >= need {
+			return s[:need]
+		}
 	}
 
 	return make([]int, need)
 }
 
 // releaseIntSlice returns an int scratch to the pool. The stored header comes
-// back from the pool, or is created once on a cold return, so the slice header
-// is not boxed into a fresh allocation per call.
+// back from intSliceHdrPool, or is created once on a cold return, so the slice
+// header is not boxed into a fresh allocation per call.
 func releaseIntSlice(scratch []int) {
 	if cap(scratch) == 0 || cap(scratch) > maxPooledIntSliceCap {
 		return
@@ -354,7 +361,7 @@ func releaseIntSlice(scratch []int) {
 
 	scratch = scratch[:0]
 
-	header, ok := intSlicePool.Get().(*[]int)
+	header, ok := intSliceHdrPool.Get().(*[]int)
 	if !ok {
 		header = new([]int)
 	}
@@ -393,7 +400,8 @@ func newDisplay(
 		boxCount = res.BoxCount()
 	}
 
-	boxes := make([]Box, 0, boxCount)
+	boxes := make([]Box, boxCount)
+	nBoxes := 0
 
 	var parents []int
 
@@ -404,9 +412,15 @@ func newDisplay(
 	options := ilayout.WalkPlacedOptions{IncludeText: true, LayoutScale: zoom}
 
 	ilayout.WalkPlacedWithOptions(res, options, func(item *ilayout.PlacedElement) {
-		boxes = append(boxes, boxFrom(item))
+		if nBoxes < len(boxes) {
+			fillBoxFrom(&boxes[nBoxes], item)
+		} else {
+			boxes = append(boxes, boxFrom(item))
+		}
+		nBoxes++
 		parents = append(parents, item.ParentIndex)
 	})
+	boxes = boxes[:nBoxes]
 
 	owners, order := emitOwnersAndOrder(res, parents)
 

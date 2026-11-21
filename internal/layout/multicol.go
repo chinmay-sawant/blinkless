@@ -93,7 +93,7 @@ type multicolSeg struct {
 // path (best-effort; not Chrome-balanced with floats).
 func (e *engine) buildMulticol(node *html.Node, style ResolvedStyle, availW, x, yPos float64) *box {
 	boxNode := e.allocBox(node, e.stylePtr(node), boxKindBlock, x, yPos)
-	boxNode.w = resolveUsedWidth(style, availW, e)
+	boxNode.w = resolveUsedWidth(&style, availW, e)
 	boxNode.x = x + e.multicolAutoMargin(style, availW, boxNode.w)
 
 	contentX, contentW := e.contentBox(boxNode.x, boxNode.w, &style)
@@ -123,7 +123,7 @@ func (e *engine) buildMulticol(node *html.Node, style ResolvedStyle, availW, x, 
 
 	curY = clampMulticolHeight(curY, style, e)
 	boxNode.height = curY
-	e.prependChrome(contentStart, boxNode, style, boxNode.x, yPos, boxNode.w, boxNode.height)
+	e.prependChrome(contentStart, boxNode, &style, boxNode.x, yPos, boxNode.w, boxNode.height)
 
 	return boxNode
 }
@@ -256,7 +256,7 @@ func (e *engine) flowMulticolSingleColumn(
 	e.popBFCFloats(enclose)
 
 	boxNode.height = clampMulticolHeight(curY, style, e)
-	e.prependChrome(contentStart, boxNode, style, boxNode.x, yPos, boxNode.w, boxNode.height)
+	e.prependChrome(contentStart, boxNode, &style, boxNode.x, yPos, boxNode.w, boxNode.height)
 
 	return boxNode
 }
@@ -307,7 +307,7 @@ func clampMulticolHeight(curY float64, style ResolvedStyle, eng *engine) float64
 	// The shared resolver adds bottom padding and border. A definite height
 	// caps here (unlike block flow) so an oversized column strip cannot blow
 	// up table-row pagination into blank pages.
-	curY = eng.borderBoxBottom(style, curY)
+	curY = eng.borderBoxBottom(&style, curY)
 
 	if h, ok := resolveUsedHeight(&style, -1, eng); ok {
 		curY = h
@@ -450,7 +450,7 @@ func (e *engine) flowMulticolSegment(
 	}
 
 	balance := style.ColumnFill != overflowAuto
-	definiteH := resolveContentHeight(style, e)
+	definiteH := resolveContentHeight(&style, e)
 	padTop := e.scalePt(style.PaddingTop) + e.scalePt(style.BorderTop.Width)
 
 	// Single anonymous text item: fragment its line strip across columns.

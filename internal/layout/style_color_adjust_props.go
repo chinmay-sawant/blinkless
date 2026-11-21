@@ -350,13 +350,13 @@ func applyCanvasBackgroundGeometry(ops []Op, canvasW, canvasH float64) {
 // colors survive; the clamp only folds out-of-range computed values into
 // sRGB since the parser only produces 0..1 channels.
 func usedBGForPaint(sty ResolvedStyle) [4]float64 {
-	return usedBGForPaintActive(sty, forcedColorsActive())
+	return usedBGForPaintActive(&sty, forcedColorsActive())
 }
 
 // usedBGForPaintActive is usedBGForPaint with an explicit forced-colors mode
 // flag so engine paint paths can pass the document setting
 // (Options.ForcedColorsActive) instead of the test-only override.
-func usedBGForPaintActive(sty ResolvedStyle, forcedActive bool) [4]float64 {
+func usedBGForPaintActive(sty *ResolvedStyle, forcedActive bool) [4]float64 {
 	base := sty.BGColor
 	if base[3] <= 0 {
 		return base

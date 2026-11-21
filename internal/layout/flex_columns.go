@@ -23,15 +23,15 @@ type flexColumnLine struct {
 //nolint:cyclop,funlen,gocognit,nlreturn,wsl
 func (e *engine) flowFlexColumnWrapped(
 	parent *box,
-	style ResolvedStyle,
+	style *ResolvedStyle,
 	items []flexColMeas,
 	contentW, contentX, topY, curY, gap, crossGap, contentH float64,
 ) float64 {
 	if contentH < 0 {
-		nowrap := style
+		nowrap := *style
 		nowrap.FlexWrap = ""
 		return e.flowFlexColumn(
-			parent, itemsToNodes(items), nowrap, contentW, contentX, topY, curY, gap, crossGap,
+			parent, itemsToNodes(items), &nowrap, contentW, contentX, topY, curY, gap, crossGap,
 		)
 	}
 	if style.Height < 0 && style.HeightPercent < 0 {
@@ -85,9 +85,9 @@ func (e *engine) flowFlexColumnWrapped(
 			gaps = 0
 		}
 		startY, justifyGap := justifyColumnStart(
-			flexMainJustify(&style), contentH, curY, sumH+gaps, sumH, gaps, gap, len(heights),
+			flexMainJustify(style), contentH, curY, sumH+gaps, sumH, gaps, gap, len(heights),
 		)
-		if style.FlexDirection == fxColRev && flexStartJustify(flexMainJustify(&style)) &&
+		if style.FlexDirection == fxColRev && flexStartJustify(flexMainJustify(style)) &&
 			!flexColumnHasAutoMargins(line.items, e) {
 			startY = curY + contentH - sumH - gaps
 		}
@@ -98,7 +98,7 @@ func (e *engine) flowFlexColumnWrapped(
 
 		lineEndY := e.buildColumnItems(
 			parent,
-			&style,
+			style,
 			line.items,
 			heights,
 			lineWidth,
@@ -249,7 +249,7 @@ func flexColumnLineOffsets(align string, widths []float64, contentW, gap float64
 }
 
 //nolint:wsl // min-height normalization is a short, ordered fallback
-func resolveFlexColumnContentHeight(style ResolvedStyle, eng *engine) float64 {
+func resolveFlexColumnContentHeight(style *ResolvedStyle, eng *engine) float64 {
 	contentH := resolveContentHeight(style, eng)
 	if contentH < 0 && style.MaxHeight >= 0 {
 		contentH = eng.scalePt(style.MaxHeight)

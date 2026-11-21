@@ -105,7 +105,7 @@ func autoRowCompositingHazard(child *ResolvedStyle) bool {
 // layout at the stretched size.
 func autoRowLayoutHazard(child *ResolvedStyle) bool {
 	return child.Display == displayFlex || child.Display == displayInlineFlex ||
-		isMulticol(*child) || child.Display == displayTable || child.Display == displaySubgrid ||
+		isMulticol(child) || child.Display == displayTable || child.Display == displaySubgrid ||
 		isVerticalWritingMode(child.WritingMode)
 }
 
@@ -260,7 +260,7 @@ func (e *engine) layoutAutoRowGrid(
 	usedH := autoRowUsedHeight(curY, numRows, rowYs, rows)
 	usedH = resolveGridUsedHeight(e, sty, usedH, contentH)
 	boxNode.height = usedH
-	e.prependChrome(contentStart, boxNode, sty, boxNode.x, posY, boxNode.w, boxNode.height)
+	e.prependChrome(contentStart, boxNode, &sty, boxNode.x, posY, boxNode.w, boxNode.height)
 
 	return boxNode
 }
@@ -425,6 +425,6 @@ func (e *engine) stretchGridItemToHeight(itemBox *box, style ResolvedStyle, heig
 	}
 
 	scope := e.pushZ(&style, itemBox.style)
-	e.prependChrome(chromeAt, itemBox, style, itemBox.x, itemBox.y, itemBox.w, height)
+	e.prependChrome(chromeAt, itemBox, &style, itemBox.x, itemBox.y, itemBox.w, height)
 	e.popZ(scope, nil)
 }

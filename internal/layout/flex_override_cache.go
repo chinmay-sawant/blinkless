@@ -117,7 +117,7 @@ func flexColumnOverrideKey(
 // chunks, so their address can later hold another record; keying the override
 // cache on such a pointer would serve a stale override for a different base.
 func (e *engine) flexBaseStyleStable(node *html.Node, style *ResolvedStyle) bool {
-	return e.styles[node] == style
+	return e.styles[node] == style || (e.syntheticStyles != nil && e.syntheticStyles[node] == style)
 }
 
 //nolint:gochecknoglobals // global pool for reusable flex style override maps

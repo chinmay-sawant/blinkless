@@ -71,7 +71,7 @@ func (e *engine) borderBoundaryOps(child, parent *box) []Op {
 		return nil
 	}
 
-	radii, radiiY := usedBorderRadiiXY(*parent.style, parent.w, parent.height)
+	radii, radiiY := usedBorderRadiiXY(parent.style, parent.w, parent.height)
 	width := e.scalePt(borderPaint(side))
 	inset := width / 2 //nolint:mnd // stroke is centered on its path
 

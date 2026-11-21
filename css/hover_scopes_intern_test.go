@@ -47,6 +47,7 @@ func internTestNodeByID(t *testing.T, root *ihtml.Node, id string) *ihtml.Node {
 			return
 		}
 		if node.Type == ihtml.ElementNode && node.Attribute("id") == id {
+			node.EnsureAttrs()
 			found = node
 
 			return

@@ -161,6 +161,6 @@ func contentBaseInlineSize(sty ResolvedStyle, availW float64) (float64, bool) {
 }
 
 // isSizeContainer reports whether the style establishes a size query container.
-func isSizeContainer(st ResolvedStyle) bool {
+func isSizeContainer(st *ResolvedStyle) bool {
 	return st.ContainerType == containerInlineSize || st.ContainerType == containerSize
 }

@@ -1,6 +1,6 @@
 package layout
 
-import "sort"
+import "slices"
 
 // orphanLineEpsilonPt clusters text baselines into line rows. Ops on one
 // formatted line share a baseline exactly; distinct rows differ by a full
@@ -39,7 +39,9 @@ func stripLineBaselinesInto(ops []Op, start, end int, dst []float64) []float64 {
 		return collected
 	}
 
-	sort.Float64s(collected)
+	if len(collected) > 1 {
+		slices.Sort(collected)
+	}
 
 	out := collected[:0]
 
