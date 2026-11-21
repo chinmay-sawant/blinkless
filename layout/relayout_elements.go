@@ -79,7 +79,7 @@ func RelayoutElements(
 	// both derivations. A paint-only batch carries the previous display's
 	// boxes, breaks, keyframes, and size, and the text of the patched elements
 	// and their ancestors is refreshed in place.
-	display := patchedBatchDisplay(styled, prev, prev.result, clone, batch.PaintOnly)
+	display := patchedBatchDisplay(styled, prev, prev.result, clone, batch)
 	display.OpOwners = batch.Owners
 	display.Order = batch.Order
 

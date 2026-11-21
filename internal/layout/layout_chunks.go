@@ -16,16 +16,98 @@ func (r *Result) Retain() {
 	atomic.AddInt32(&r.refs, 1)
 }
 
-// DisownChunks clears the chunk slices on r without returning them to pools,
-// transferring ownership of those chunks to a clone.
+// DisownChunks clears the shared style chunk slices on r without returning
+// them to pools, transferring ownership of those chunks to a clone. Box
+// chunks stay owned by r because CloneResult allocates fresh box chunks for
+// every cloned box.
 func (r *Result) DisownChunks() {
 	if r == nil {
 		return
 	}
 
 	r.styleChunks = nil
-	r.boxChunks = nil
 	r.storeChunks = nil
+}
+
+// adoptRelayoutEngine transfers the live box and style chunks built by a
+// winning subtree relayout engine onto prev so they recycle when prev is
+// released, and immediately returns unused spare chunks and scratch caches.
+func adoptRelayoutEngine(prev *Result, eng *engine) {
+	if eng == nil {
+		return
+	}
+
+	if prev != nil {
+		adoptEngineOwnedChunks(prev, eng)
+	} else {
+		releaseEngineOwnedChunks(eng)
+	}
+
+	eng.boxChunks = nil
+	eng.styleChunks = nil
+
+	for _, chunk := range eng.spareBoxChunks {
+		putBoxChunk(chunk)
+	}
+
+	eng.spareBoxChunks = nil
+
+	for _, chunk := range eng.spareChunks {
+		putStyleChunk(chunk)
+	}
+
+	eng.spareChunks = nil
+	eng.releaseScratch()
+}
+
+func adoptEngineOwnedChunks(prev *Result, eng *engine) {
+	prev.boxChunks = append(prev.boxChunks, eng.boxChunks...)
+
+	if !eng.isSubtree {
+		prev.styleChunks = append(prev.styleChunks, eng.styleChunks...)
+		prev.styleChunks = append(prev.styleChunks, eng.overrideStyleChunks...)
+	} else {
+		adoptSubtreeFlexOverrides(prev, eng)
+	}
+
+	eng.overrideStyleChunks = nil
+}
+
+func adoptSubtreeFlexOverrides(prev *Result, eng *engine) {
+	if len(eng.flexStyleOverrides) == 0 || len(prev.flexOverrides) >= flexOverrideMaxEntries {
+		return
+	}
+
+	merged := make(map[flexStyleOverrideKey]*ResolvedStyle, len(prev.flexOverrides)+len(eng.flexStyleOverrides))
+	for k, v := range prev.flexOverrides {
+		merged[k] = v
+	}
+
+	for k, v := range eng.flexStyleOverrides {
+		if len(merged) >= flexOverrideMaxEntries {
+			break
+		}
+
+		merged[k] = v
+	}
+
+	prev.flexOverrides = merged
+}
+
+func releaseEngineOwnedChunks(eng *engine) {
+	for _, chunk := range eng.boxChunks {
+		putBoxChunk(chunk)
+	}
+
+	for _, chunk := range eng.styleChunks {
+		putStyleChunk(chunk)
+	}
+}
+
+// discardRelayoutEngine returns every chunk and scratch cache owned by an
+// aborted subtree relayout engine back to its pool.
+func discardRelayoutEngine(eng *engine) {
+	adoptRelayoutEngine(nil, eng)
 }
 
 // Release returns resources associated with Result back to pools
@@ -45,6 +127,12 @@ func (r *Result) Release() {
 	// live display aliases this backing: hand it back.
 	returnBoxPtrs(r.boxes)
 	r.boxes = nil
+
+	if r.ownsOps && r.Ops != nil {
+		returnOpSlice(r.Ops)
+		r.Ops = nil
+		r.ownsOps = false
+	}
 
 	for _, chunk := range r.styleChunks {
 		putStyleChunk(chunk)
@@ -198,11 +286,13 @@ func (p *styleChunkFreeList) get() *[]ResolvedStyle {
 	return &chunk
 }
 
-// put clears chunk and retains it when the list has room. Chunks larger than
-// defaultStyleChunkSize are dropped so one oversized backing cannot pin
-// memory.
+const subtreeStyleChunkSize = 1
+
+// put clears chunk and retains it when the list has room. Only full-size
+// chunks enter the pool so oversized or tiny subtree backings do not distort
+// pool capacity.
 func (p *styleChunkFreeList) put(chunk *[]ResolvedStyle) {
-	if chunk == nil || cap(*chunk) > defaultStyleChunkSize {
+	if chunk == nil || cap(*chunk) != defaultStyleChunkSize {
 		return
 	}
 
@@ -307,6 +397,13 @@ func (e *engine) nextStyleChunk(chunks *[]*[]ResolvedStyle) {
 		e.spareChunks = e.spareChunks[:last]
 
 		*chunks = append(*chunks, spare)
+
+		return
+	}
+
+	if e.isSubtree {
+		small := make([]ResolvedStyle, 0, subtreeStyleChunkSize)
+		*chunks = append(*chunks, &small)
 
 		return
 	}

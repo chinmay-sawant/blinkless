@@ -20,6 +20,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
 	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
@@ -194,6 +195,11 @@ type Result struct {
 	// restyles. It is created on the first RestyleSVGPaint and dropped with
 	// the Result, so it never outlives the layout it belongs to.
 	svgRasters *svgRasterCache
+	// flexOverrides caches committed immutable flex item style overrides
+	// across subtree relayouts of the same document so unchanged flex items
+	// reuse their 5872-byte override record without reallocating. Shared
+	// read-only by clones and copy-on-write updated on adoption.
+	flexOverrides map[flexStyleOverrideKey]*ResolvedStyle
 	// rootBox is the root of the element box tree. It is the same box as
 	// root and the entry point for the subtree lookups in layout_state.go
 	// (boxForID, nodeForID).
@@ -219,6 +225,7 @@ type Result struct {
 	boxChunks      []*[]box
 	storeChunks    [][]ResolvedStyle
 	refs           int32
+	ownsOps        bool
 
 	// Pages maps page index → indices into Ops of the ops painted on that
 	// page. Filled by Paint using its pagination semantics (an op goes to
@@ -279,14 +286,19 @@ func CloneResult(res *Result) *Result {
 	clone := *res
 	clone.refs = 0
 	clone.Ops = cloneOps(res.Ops)
+	clone.ownsOps = clone.Ops != nil
 	// A clone starts without the source's raster cache instead of sharing a
 	// mutable map of payloads.
 	clone.svgRasters = nil
-	boxes := make(map[*box]*box, len(res.boxes))
+
+	boxes := getCloneBoxMap(len(res.boxes))
+	defer putCloneBoxMap(boxes)
+
 	arena := boxArena{chunks: nil}
 	clone.root = cloneBoxGraph(res.root, boxes, &arena)
 	clone.rootBox = clone.root
-	clone.boxes = make([]*box, len(res.boxes))
+	clone.boxChunks = arena.chunks
+	clone.boxes = rentBoxPtrs(len(res.boxes))
 
 	for i, source := range res.boxes {
 		clone.boxes[i] = cloneBoxGraph(source, boxes, &arena)
@@ -295,22 +307,53 @@ func CloneResult(res *Result) *Result {
 	return &clone
 }
 
-// boxCloneChunk is how many box copies one arena allocation holds. A clone of
-// a large page allocates a handful of chunks instead of one object per box,
-// while interior pointers keep each chunk alive for the clone's lifetime.
-const boxCloneChunk = 256
+const (
+	cloneBoxMapInitCap          = 256
+	maxPooledCloneBoxMapEntries = 16384
+)
 
-// boxArena hands out box copies from chunked backing arrays.
+//nolint:gochecknoglobals // pool of reusable pointer maps for CloneResult
+var cloneBoxMapPool = sync.Pool{
+	New: func() any {
+		return make(map[*box]*box, cloneBoxMapInitCap)
+	},
+}
+
+func getCloneBoxMap(hint int) map[*box]*box {
+	if hint > maxPooledCloneBoxMapEntries {
+		return make(map[*box]*box, hint)
+	}
+
+	if seen, ok := cloneBoxMapPool.Get().(map[*box]*box); ok {
+		clear(seen)
+
+		return seen
+	}
+
+	return make(map[*box]*box, hint)
+}
+
+func putCloneBoxMap(seen map[*box]*box) {
+	if seen == nil || len(seen) > maxPooledCloneBoxMapEntries {
+		return
+	}
+
+	clear(seen)
+	cloneBoxMapPool.Put(seen)
+}
+
+// boxArena hands out box copies from pooled box chunks so cloned placements
+// recycle their box backing when Release runs.
 type boxArena struct {
-	chunks [][]box
+	chunks []*[]box
 }
 
 func (a *boxArena) alloc() *box {
-	if len(a.chunks) == 0 || len(a.chunks[len(a.chunks)-1]) == boxCloneChunk {
-		a.chunks = append(a.chunks, make([]box, 0, boxCloneChunk))
+	if len(a.chunks) == 0 || len(*a.chunks[len(a.chunks)-1]) == cap(*a.chunks[len(a.chunks)-1]) {
+		a.chunks = append(a.chunks, getBoxChunk())
 	}
 
-	chunk := &a.chunks[len(a.chunks)-1]
+	chunk := a.chunks[len(a.chunks)-1]
 	*chunk = append(*chunk, box{}) //nolint:exhaustruct // arena slots start zeroed and the clone walk fills them
 
 	return &(*chunk)[len(*chunk)-1]
@@ -332,17 +375,24 @@ func cloneBoxGraph(src *box, seen map[*box]*box, arena *boxArena) *box {
 	clone.stickyPort = nil
 	seen[src] = clone
 
-	for _, child := range src.children {
-		clone.children = append(clone.children, cloneBoxGraph(child, seen, arena))
+	if len(src.children) > 0 {
+		clone.children = make([]*box, len(src.children))
+		for i, child := range src.children {
+			clone.children[i] = cloneBoxGraph(child, seen, arena)
+		}
 	}
 
-	for _, row := range src.rows {
-		clonedRow := make([]*box, 0, len(row))
-		for _, cell := range row {
-			clonedRow = append(clonedRow, cloneBoxGraph(cell, seen, arena))
-		}
+	if len(src.rows) > 0 {
+		clone.rows = make([][]*box, len(src.rows))
 
-		clone.rows = append(clone.rows, clonedRow)
+		for rowIdx, row := range src.rows {
+			clonedRow := make([]*box, len(row))
+			for cellIdx, cell := range row {
+				clonedRow[cellIdx] = cloneBoxGraph(cell, seen, arena)
+			}
+
+			clone.rows[rowIdx] = clonedRow
+		}
 	}
 
 	clone.stickyPort = cloneBoxGraph(src.stickyPort, seen, arena)
@@ -657,6 +707,7 @@ type engine struct {
 	ops         []Op
 	gridScratch []GridSeg // reusable row-grid collector storage
 	noEmit      bool      // measurement mode: compute geometry without emitting ops
+	isSubtree   bool      // subtree relayout mode: use tiny style chunks instead of 94KB full-page chunks
 	// maxRotatedRunW is the widest rotated (sideways) text advance seen in the
 	// current build subtree. verticalWritingHeight consumes it instead of
 	// scanning e.ops so measured geometry matches emitted geometry when
@@ -721,6 +772,9 @@ type engine struct {
 	// record instead of copying it per item. The cache dies with the engine,
 	// so entries never outlive the run that built them.
 	flexStyleOverrides map[flexStyleOverrideKey]*ResolvedStyle
+	// inheritedFlexOverrides is a read-only cache of committed immutable flex
+	// overrides carried from the previous retained Result on subtree relayouts.
+	inheritedFlexOverrides map[flexStyleOverrideKey]*ResolvedStyle
 	// overrideStyleChunks holds ResolvedStyle chunks used exclusively by
 	// flexStyleOverrides so measure scopes that unwind e.styleChunks cannot
 	// invalidate cached overrides.

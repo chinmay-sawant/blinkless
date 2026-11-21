@@ -197,6 +197,7 @@ func restampElementPatch(
 // profile, so the patch shares those slices with prev and treats prev as stale.
 func restampedDisplay(prev *Display) *Display {
 	next := *prev
+	prev.ownsBoxes = false
 	next.Ops = prev.result.Ops
 	next.result = prev.result
 

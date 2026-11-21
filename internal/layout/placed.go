@@ -335,6 +335,320 @@ func PlacedElements(res *Result) []PlacedElement {
 	return out
 }
 
+const patchAncScratchCap = 16
+
+// finalizeSubtreeBoxPatches resolves any deferred PaintOnly base index in a
+// mixed batch and validates that patches can be applied in batch order.
+func finalizeSubtreeBoxPatches(root *box, patches []subtreeBoxPatch) bool {
+	if root == nil || len(patches) == 0 {
+		return false
+	}
+
+	hasCountChange := patchesHaveCountChange(patches)
+
+	for idx := range patches {
+		if patches[idx].oldElem <= 0 || patches[idx].newElem <= 0 {
+			return false
+		}
+
+		if patches[idx].baseIdx >= 0 {
+			continue
+		}
+
+		if hasCountChange {
+			return false
+		}
+
+		foundIdx, ok := findPlacedElementIndex(root, patches[idx].box)
+		if !ok {
+			return false
+		}
+
+		patches[idx].baseIdx = foundIdx
+	}
+
+	return true
+}
+
+func patchesHaveCountChange(patches []subtreeBoxPatch) bool {
+	for idx := range patches {
+		if patches[idx].oldElem != patches[idx].newElem {
+			return true
+		}
+	}
+
+	return false
+}
+
+func findPlacedElementIndex(root, target *box) (int, bool) {
+	count := 0
+
+	var walk func(node *box) bool
+	walk = func(node *box) bool {
+		if node == nil {
+			return false
+		}
+
+		if node == target {
+			return true
+		}
+
+		if node.node != nil && node.node.Type == html.ElementNode {
+			count++
+		}
+
+		for _, child := range node.children {
+			if walk(child) {
+				return true
+			}
+		}
+
+		return false
+	}
+
+	if walk(root) {
+		return count, true
+	}
+
+	return -1, false
+}
+
+// PrepareSubtreeBoxSplices applies each patch's element-count delta in batch
+// order through spliceFn and returns the final element box count, updating each
+// patch's baseIdx to its final post-batch index. It returns false if any two
+// patches overlap.
+func PrepareSubtreeBoxSplices(
+	batch *SubtreeBatchResult, initialCount int,
+	spliceFn func(baseIdx, oldElem, newElem int),
+) (int, bool) {
+	if batch == nil || !batch.SameBoxes || len(batch.boxPatches) == 0 {
+		return 0, false
+	}
+
+	curCount := initialCount
+
+	for idx := range batch.boxPatches {
+		patch := &batch.boxPatches[idx]
+		if patch.baseIdx < 0 || patch.baseIdx+patch.oldElem > curCount {
+			return 0, false
+		}
+
+		delta := patch.newElem - patch.oldElem
+		if !shiftPriorSubtreePatches(batch.boxPatches[:idx], patch.baseIdx, patch.oldElem, delta) {
+			return 0, false
+		}
+
+		if spliceFn != nil && delta != 0 {
+			spliceFn(patch.baseIdx, patch.oldElem, patch.newElem)
+		}
+
+		curCount += delta
+	}
+
+	return curCount, true
+}
+
+func shiftPriorSubtreePatches(prior []subtreeBoxPatch, baseIdx, oldElem, delta int) bool {
+	for prevIdx := range prior {
+		prev := &prior[prevIdx]
+		kStart := prev.baseIdx
+		kEnd := prev.baseIdx + prev.newElem
+
+		if kStart < baseIdx+oldElem && baseIdx < kEnd {
+			return false
+		}
+
+		if kStart >= baseIdx+oldElem {
+			prev.baseIdx += delta
+		}
+	}
+
+	return true
+}
+
+// ApplySubtreeBoxPatches walks only the patched subtrees of a batch, invoking
+// fn for each element box inside a patched subtree and ancFn for each unique
+// ancestor box up to the document root.
+//
+//nolint:varnamelen // fn is standard callback identifier
+func ApplySubtreeBoxPatches(
+	res *Result, batch *SubtreeBatchResult, opts WalkPlacedOptions,
+	boxCount int,
+	parentOf func(boxIdx int) int,
+	textChanged func(boxIdx int, newText string) bool,
+	fn func(boxIdx int, elem *PlacedElement),
+	ancFn func(boxIdx int, opIDs []uint64, text string, updateText bool),
+) bool {
+	if res == nil || res.root == nil || batch == nil || !batch.SameBoxes || len(batch.boxPatches) == 0 {
+		return false
+	}
+
+	capIDs, valid := estimateSubtreePatchOpIDs(res, batch.boxPatches, boxCount)
+	if !valid {
+		return false
+	}
+
+	allIDs := make([]uint64, 0, capIDs)
+
+	var item PlacedElement
+
+	ancBoxes := make(map[int]*box, patchAncScratchCap)
+	ancNeedText := make(map[int]*html.Node, patchAncScratchCap)
+	ancOrder := make([]int, 0, patchAncScratchCap)
+
+	for idx := range batch.boxPatches {
+		patch := &batch.boxPatches[idx]
+		rootTextChanged, ok := walkPatchedSubtreeBoxes(
+			res, patch, opts, &allIDs, &item, parentOf, textChanged, fn,
+		)
+
+		if !ok {
+			return false
+		}
+
+		if !collectPatchedAncestors(
+			patch, parentOf(patch.baseIdx), boxCount, rootTextChanged,
+			parentOf, ancBoxes, ancNeedText, &ancOrder,
+		) {
+			return false
+		}
+	}
+
+	emitPatchedAncestors(res.Ops, ancOrder, ancBoxes, ancNeedText, &allIDs, ancFn)
+
+	return true
+}
+
+func emitPatchedAncestors(
+	ops []Op, ancOrder []int, ancBoxes map[int]*box, ancNeedText map[int]*html.Node,
+	allIDs *[]uint64, ancFn func(boxIdx int, opIDs []uint64, text string, updateText bool),
+) {
+	for _, ancIdx := range ancOrder {
+		anc := ancBoxes[ancIdx]
+		opIDs := appendOperationIDs(ops, anc.opStart, anc.opEnd, allIDs)
+
+		if node, need := ancNeedText[ancIdx]; need {
+			ancFn(ancIdx, opIDs, node.TextContent(), true)
+		} else {
+			ancFn(ancIdx, opIDs, "", false)
+		}
+	}
+}
+
+func estimateSubtreePatchOpIDs(res *Result, patches []subtreeBoxPatch, boxCount int) (int, bool) {
+	capIDs := 0
+	seenAnc := make(map[*box]struct{}, patchAncScratchCap)
+
+	for idx := range patches {
+		patch := &patches[idx]
+		if patch.baseIdx < 0 || patch.baseIdx+patch.newElem > boxCount {
+			return 0, false
+		}
+
+		capIDs += countSubtreeOpIDs(patch.box, len(res.Ops))
+
+		for _, anc := range patch.ancestors {
+			if anc == nil || anc.opEnd < anc.opStart || anc.opStart < 0 {
+				continue
+			}
+
+			if _, seen := seenAnc[anc]; !seen {
+				seenAnc[anc] = struct{}{}
+				capIDs += anc.opEnd - anc.opStart + 1
+			}
+		}
+	}
+
+	return capIDs, true
+}
+
+func ancestorPlacedContext(
+	ancestors []*box, layoutScale float64,
+) (Matrix2D, svgViewport, placedScrollContext, placedScroller) {
+	parentAccum := IdentityMatrix()
+	viewport := svgViewport{x: 0, y: 0, w: 0, h: 0, set: false}
+	scroll := placedScrollContext{parent: nil, blocked: false, scale: layoutScale}
+	scroller := placedScroller{set: false, id: ""}
+
+	for _, anc := range ancestors {
+		if anc == nil {
+			continue
+		}
+
+		info := placedTransformInfo(anc, parentAccum, viewport)
+		if info.HasMatrix {
+			parentAccum = info.World
+		}
+
+		viewport = childViewportForBox(anc, viewport)
+		scroll = childScrollContext(anc, scroll)
+		scroller = scrollerBelow(anc, scroller)
+	}
+
+	return parentAccum, viewport, scroll, scroller
+}
+
+//nolint:varnamelen // fn is standard callback identifier
+func walkPatchedSubtreeBoxes(
+	res *Result, patch *subtreeBoxPatch, opts WalkPlacedOptions,
+	allIDs *[]uint64, item *PlacedElement,
+	parentOf func(boxIdx int) int,
+	textChanged func(boxIdx int, newText string) bool,
+	fn func(boxIdx int, elem *PlacedElement),
+) (bool, bool) {
+	parentAccum, viewport, scroll, scroller := ancestorPlacedContext(patch.ancestors, opts.LayoutScale)
+	parentIdx := parentOf(patch.baseIdx)
+	curIdx := patch.baseIdx
+	rootTextChanged := false
+
+	endIdx := walkPlacedFunc(
+		patch.box, res.Ops, parentIdx, parentAccum, viewport,
+		func(elem *PlacedElement) {
+			if curIdx == patch.baseIdx && opts.IncludeText {
+				rootTextChanged = textChanged(curIdx, elem.Text)
+			}
+
+			fn(curIdx, elem)
+
+			curIdx++
+		},
+		allIDs, patch.baseIdx, item, opts, scroll, scroller,
+	)
+
+	return rootTextChanged, endIdx == patch.baseIdx+patch.newElem
+}
+
+func collectPatchedAncestors(
+	patch *subtreeBoxPatch, currAncIdx, boxCount int, rootTextChanged bool,
+	parentOf func(boxIdx int) int,
+	ancBoxes map[int]*box, ancNeedText map[int]*html.Node, ancOrder *[]int,
+) bool {
+	for idx := len(patch.ancestors) - 1; idx >= 0; idx-- {
+		anc := patch.ancestors[idx]
+		if anc == nil || anc.node == nil || anc.node.Type != html.ElementNode {
+			continue
+		}
+
+		if currAncIdx < 0 || currAncIdx >= boxCount {
+			return false
+		}
+
+		if _, seen := ancBoxes[currAncIdx]; !seen {
+			ancBoxes[currAncIdx] = anc
+
+			*ancOrder = append(*ancOrder, currAncIdx)
+		}
+
+		if rootTextChanged {
+			ancNeedText[currAncIdx] = anc.node
+		}
+
+		currAncIdx = parentOf(currAncIdx)
+	}
+
+	return true
+}
+
 // elementOverflowClip reads the ancestor overflow box clipOverflowTree
 // recorded, in canvas points. Zero with no clip.
 func elementOverflowClip(boxNode *box) [4]float64 {

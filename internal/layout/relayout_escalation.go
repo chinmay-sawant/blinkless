@@ -63,6 +63,8 @@ func relayoutBuildEscalating(
 			return &relayoutBuiltTarget{target: target, styles: styles, eng: eng, box: newBox}, nil
 		}
 
+		discardRelayoutEngine(eng)
+
 		if !errors.Is(err, errSubtreeResized) {
 			return nil, err
 		}

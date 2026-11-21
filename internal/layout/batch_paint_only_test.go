@@ -254,3 +254,117 @@ func TestBatchPaintOnlyMixedFallsBackAsWhole(t *testing.T) {
 		t.Fatal("mixed-batch paint order differs from a full relayout")
 	}
 }
+
+const sameBoxesTooltipCSS = `
+	body { margin: 0; }
+	.cell { position: relative; width: 120px; height: 40px; background: #cccccc; }
+	.cell .tip {
+		display: none; position: absolute; top: 0; left: 0;
+		width: 80px; height: 20px; background: #111111; color: #ffffff;
+	}
+	.cell.open .tip { display: block; }
+`
+
+const sameBoxesTooltipHTML = `<html><body>` +
+	`<div id="a" class="cell open"><span class="tip">Alpha tip</span></div>` +
+	`<div id="b" class="cell"><span class="tip">Beta tip</span></div>` +
+	`<div id="c" class="cell"><span class="tip">Gamma tip</span></div>` +
+	`</body></html>`
+
+// TestBatchSameBoxesCountChangeMatchesFullLayout proves a batch that toggles
+// display:none <-> display:block children keeps SameBoxes true and produces
+// exact parity with a full layout in both forward and reverse batch order.
+func TestBatchSameBoxesCountChangeMatchesFullLayout(t *testing.T) {
+	t.Parallel()
+
+	for _, order := range [][]string{{"a", "b"}, {"b", "a"}} {
+		root := mustParse(t, sameBoxesTooltipHTML)
+		opts := relayoutOptionsForCSS(t, sameBoxesTooltipCSS)
+
+		prev, err := Layout(root, opts)
+		if err != nil {
+			t.Fatalf("Layout: %v", err)
+		}
+
+		relayoutNodeByID(t, root, "a").Attrs["class"] = "cell"
+		relayoutNodeByID(t, root, "b").Attrs["class"] = "cell open"
+
+		clone := CloneResult(prev)
+		out, err := RelayoutSubtrees(t.Context(), clone, order, opts,
+			OperationOwners(prev), PaintOrder(prev.Ops))
+		if err != nil {
+			t.Fatalf("RelayoutSubtrees(%v): %v", order, err)
+		}
+
+		if out.PaintOnly {
+			t.Fatalf("order %v: expected PaintOnly=false when child box appears/disappears", order)
+		}
+
+		if !out.SameBoxes {
+			t.Fatalf("order %v: expected SameBoxes=true for tooltip display toggle", order)
+		}
+
+		full, err := Layout(root, opts)
+		if err != nil {
+			t.Fatalf("Layout (full): %v", err)
+		}
+
+		if !reflect.DeepEqual(relayoutStripIDs(clone.Ops), relayoutStripIDs(full.Ops)) {
+			t.Fatalf("order %v: ops differ from full layout", order)
+		}
+
+		if !reflect.DeepEqual(out.Owners, OperationOwners(full)) {
+			t.Fatalf("order %v: owners differ from full layout", order)
+		}
+
+		if !reflect.DeepEqual(out.Order, PaintOrder(full.Ops)) {
+			t.Fatalf("order %v: paint order differs from full layout", order)
+		}
+	}
+}
+
+// TestOpSameExtraAndMixExtraStamp verifies pointer-receiver extra comparison
+// and hashing across nil, bound emptyExtra, and non-empty rare payloads.
+func TestOpSameExtraAndMixExtraStamp(t *testing.T) {
+	t.Parallel()
+
+	var a, b Op
+	if a.HasExtra() || a.HasBoundExtra() {
+		t.Fatal("zero Op must report HasExtra=false and HasBoundExtra=false")
+	}
+
+	if eq, _ := a.SameExtra(&b); !eq {
+		t.Fatal("two zero Ops must compare SameExtra=true")
+	}
+
+	b.BindEmptyExtra()
+	if b.HasExtra() || !b.HasBoundExtra() {
+		t.Fatal("bound emptyExtra must report HasExtra=false and HasBoundExtra=true")
+	}
+
+	if eq, _ := a.SameExtra(&b); eq {
+		t.Fatal("nil extra and bound emptyExtra must differ (IdentityMatrix vs zero Xform)")
+	}
+
+	var c Op
+	c.BindEmptyExtra()
+	if eq, _ := b.SameExtra(&c); !eq {
+		t.Fatal("two bound emptyExtra Ops must compare SameExtra=true")
+	}
+
+	c.SetURI("https://example.com")
+	if !c.HasExtra() {
+		t.Fatal("Op with URI must report HasExtra=true")
+	}
+
+	if eq, _ := b.SameExtra(&c); eq {
+		t.Fatal("emptyExtra and URI extra must compare SameExtra=false")
+	}
+
+	const basis, prime uint64 = 14695981039346656037, 1099511628211
+	h1, ok1 := b.MixExtraStamp(basis, prime)
+	h2, ok2 := c.MixExtraStamp(basis, prime)
+	if !ok1 || !ok2 || h1 == h2 {
+		t.Fatalf("MixExtraStamp mismatch: ok=(%v,%v) h=(%d,%d)", ok1, ok2, h1, h2)
+	}
+}
