@@ -192,6 +192,26 @@ func (ctx *styleContext) matchSignature(node *html.Node, pseudoElem string) matc
 	return matchCacheKey{tag: ctx.matchTag(node), attrs: ctx.canonicalNodeAttrKey(node), pseudo: pseudoElem}
 }
 
+func (ctx *styleContext) canonicalClassAttrKey(value string) string {
+	if ctx != nil {
+		if key, cached := ctx.classKeys[value]; cached {
+			return key
+		}
+	}
+
+	key := canonicalSingleAttrKey(classAttrName, value)
+
+	if ctx != nil {
+		if ctx.classKeys == nil {
+			ctx.classKeys = make(map[string]string)
+		}
+
+		ctx.classKeys[value] = key
+	}
+
+	return key
+}
+
 func (ctx *styleContext) canonicalNodeAttrKey(node *html.Node) string {
 	if node == nil {
 		return ""
@@ -205,26 +225,12 @@ func (ctx *styleContext) canonicalNodeAttrKey(node *html.Node) string {
 	case 0:
 		return ""
 	case 1:
-		a := &node.AttrList[0]
-		if a.Namespace == "" && a.Name == classAttrName {
-			if ctx != nil {
-				if key, cached := ctx.classKeys[a.Value]; cached {
-					return key
-				}
-			}
-
-			key := canonicalSingleAttrKey(classAttrName, a.Value)
-			if ctx != nil {
-				if ctx.classKeys == nil {
-					ctx.classKeys = make(map[string]string)
-				}
-				ctx.classKeys[a.Value] = key
-			}
-
-			return key
+		attr := &node.AttrList[0]
+		if attr.Namespace == "" && attr.Name == classAttrName {
+			return ctx.canonicalClassAttrKey(attr.Value)
 		}
 
-		return canonicalSingleAttrKey(a.Key(), a.Value)
+		return canonicalSingleAttrKey(attr.Key(), attr.Value)
 	default:
 		return canonicalAttrListKey(node.AttrList)
 	}
@@ -267,15 +273,18 @@ func canonicalSingleAttrKey(name, value string) string {
 
 func canonicalAttrListKey(list []html.Attr) string {
 	var stack [8]int
+
 	idx := stack[:0]
 	if len(list) > len(stack) {
 		idx = make([]int, 0, len(list))
 	}
 
 	sizes := 0
+
 	for i := range list {
 		idx = append(idx, i)
 		sizes += len(list[i].Name) + len(list[i].Value)
+
 		if list[i].Namespace != "" {
 			sizes += len(list[i].Namespace) + 1
 		}
@@ -285,20 +294,24 @@ func canonicalAttrListKey(list []html.Attr) string {
 	for i := 1; i < len(idx); i++ {
 		cur := idx[i]
 		curKey := list[cur].Key()
-		j := i - 1
-		for j >= 0 && list[idx[j]].Key() > curKey {
-			idx[j+1] = idx[j]
-			j--
+		pos := i - 1
+
+		for pos >= 0 && list[idx[pos]].Key() > curKey {
+			idx[pos+1] = idx[pos]
+			pos--
 		}
-		idx[j+1] = cur
+
+		idx[pos+1] = cur
 	}
 
 	var out strings.Builder
+
 	out.Grow(sizes + len(idx)*attrKeyOverhead)
 
 	for _, i := range idx {
 		name := list[i].Key()
 		value := list[i].Value
+
 		writeAttrKeyInt(&out, len(name))
 		out.WriteByte(':')
 		out.WriteString(name)
@@ -587,12 +600,15 @@ func (ctx *styleContext) scanMatches(
 	return hits
 }
 
-const maxPooledMatchCacheEntries = 4096
+const (
+	matchCacheInitCap          = 64
+	maxPooledMatchCacheEntries = 4096
+)
 
 //nolint:gochecknoglobals // per-pass selector match cache pool
 var matchCachePool = sync.Pool{
 	New: func() any {
-		return make(map[matchCacheKey]*matchCacheEntry, 64)
+		return make(map[matchCacheKey]*matchCacheEntry, matchCacheInitCap)
 	},
 }
 
@@ -615,6 +631,7 @@ func (ctx *styleContext) releaseMatchCache() {
 		clear(ctx.matchCache)
 		matchCachePool.Put(ctx.matchCache)
 	}
+
 	ctx.matchCache = nil
 }
 

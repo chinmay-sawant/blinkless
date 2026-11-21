@@ -111,11 +111,13 @@ func newFlexScratchPool[T any]() flexScratchPool[T] {
 func rentFlexScratch[T any](pool *flexScratchPool[T], size int) []T {
 	if size <= maxPooledFlexScratch {
 		if hdr, ok := pool.slices.Get().(*[]T); ok {
-			s := *hdr
+			scratch := *hdr
 			*hdr = nil
+
 			pool.hdrs.Put(hdr)
-			if cap(s) >= size {
-				return s[:0]
+
+			if cap(scratch) >= size {
+				return scratch[:0]
 			}
 		}
 	}
@@ -225,6 +227,7 @@ func getFlexBools(size int) []bool {
 	s := rentFlexScratch(&flexBoolPool, size)
 	bools := s[:size]
 	clear(bools)
+
 	return bools
 }
 
@@ -236,7 +239,7 @@ func putFlexBools(scratch []bool) {
 
 // buildFlex lays out a flex container with justify, align, gap, grow, and wrap.
 //
-//nolint:cyclop,gocritic,wsl // dispatch also installs the containing-block scope
+//nolint:cyclop,funlen,gocritic,wsl // dispatch also installs the containing-block scope
 func (e *engine) buildFlex(node *html.Node, sty *ResolvedStyle, availW, x, posY float64) *box {
 	ml := e.scalePt(sty.MarginLeft)
 	boxNode := e.allocBox(node, e.stylePtr(node), boxKindBlock, x+ml, posY)
@@ -401,7 +404,7 @@ func (e *engine) flushFlexDeferredOutOfFlow(
 	e.flushDeferredFlowChildren(boxNode, deferred, cbHeight, absCBW, absCBX, absOriginY)
 }
 
-//nolint:funlen // row flow combines line formation, sizing, and placement
+//nolint:cyclop,funlen // row flow combines line formation, sizing, and placement
 func (e *engine) flowFlexRow(
 	parent *box, kids []*html.Node, style *ResolvedStyle,
 	contentW, contentX, topY, curY, colGap, rowGap float64,
@@ -822,28 +825,34 @@ func (e *engine) flexItemContentBaseWidth(
 // and each noEmit ancestor measure re-runs the owning container, so the memo
 // keeps one content measure per item per run. Entries share the per-run
 // column auto-minimum map under the row domain (see flexRowDomainXor).
-func (e *engine) flexMinMainSize(item flexMeas, mainSize float64) float64 {
-	cstate := e.stylePtr(item.n)
-	// Fast-path O(1) minimum sizes (explicit min-width or non-visible overflow)
-	// without hashing or populating the per-run flexMinH memo map.
+func (e *engine) flexFastMinMainSize(cstate *ResolvedStyle, mainSize float64) (float64, bool) {
 	if cstate.MinWidthSet {
 		if cstate.MinWidthPercent >= 0 && mainSize >= 0 {
-			return mainSize * cstate.MinWidthPercent / oneHundred
+			return mainSize * cstate.MinWidthPercent / oneHundred, true
 		}
 
-		return e.scalePt(cstate.MinWidth)
+		return e.scalePt(cstate.MinWidth), true
 	}
 
-	if flexAutoMinSizeIsZero(cstate.Overflow) {
-		if cstate.MinWidthPercent >= 0 && mainSize >= 0 {
-			return mainSize * cstate.MinWidthPercent / oneHundred
-		}
+	if !flexAutoMinSizeIsZero(cstate.Overflow) {
+		return 0, false
+	}
 
-		if cstate.MinWidth > 0 {
-			return e.scalePt(cstate.MinWidth)
-		}
+	if cstate.MinWidthPercent >= 0 && mainSize >= 0 {
+		return mainSize * cstate.MinWidthPercent / oneHundred, true
+	}
 
-		return 0
+	if cstate.MinWidth > 0 {
+		return e.scalePt(cstate.MinWidth), true
+	}
+
+	return 0, true
+}
+
+func (e *engine) flexMinMainSize(item flexMeas, mainSize float64) float64 {
+	cstate := e.stylePtr(item.n)
+	if floor, ok := e.flexFastMinMainSize(cstate, mainSize); ok {
+		return floor
 	}
 
 	if e.flexMinBypass || flexRowMemoBypass.Load() {
@@ -1271,11 +1280,16 @@ func (e *engine) placeFlexLineMeasured(
 // line cross size known before buildRowItems (for cross-axis auto margins or
 // stretch sizing). When false, buildRowItems computes rowH in a single pass.
 func (e *engine) flexRowNeedsPreMeasureCross(style *ResolvedStyle, items []flexMeas) bool {
+	if len(items) <= 1 {
+		return false
+	}
+
 	for _, item := range items {
 		cstate := e.stylePtr(item.n)
 		if cstate == nil {
 			continue
 		}
+
 		if cstate.MarginTopAuto || flexItemCrossStretchNode(item.n, style, cstate) {
 			return true
 		}
@@ -1971,12 +1985,21 @@ func (e *engine) flexSpecifiedBaseHeight(style *ResolvedStyle, mainSize, padV fl
 // the memo a blotter-thick column (one flex item per row) re-flows each row
 // subtree once per query instead of once per run.
 func (e *engine) flexMinCrossMainSize(node *html.Node, baseH, mainSize float64) float64 {
+	cstate := e.stylePtr(node)
+	if cstate.MinHeightSet {
+		if cstate.MinHeightPercent >= 0 && mainSize >= 0 {
+			return mainSize * cstate.MinHeightPercent / oneHundred
+		}
+
+		return e.scalePt(cstate.MinHeight)
+	}
+
 	if e.flexMinBypass {
 		return e.flexMinCrossMainSizeUncached(node, baseH, mainSize)
 	}
 
 	key := flexMinKey{
-		node: node, style: e.stylePtr(node),
+		node: node, style: cstate,
 		baseBits: math.Float64bits(baseH), mainBits: math.Float64bits(mainSize),
 	}
 	if floor, ok := e.flexMinH[key]; ok {
@@ -2008,6 +2031,8 @@ type flexMinKey struct {
 // flexMinCrossMainSizeUncached computes the column-axis content-based
 // min-height floor (Flexbox §4.5 lite). mainSize is the definite flex
 // container content height.
+//
+//nolint:cyclop // CSS min-height suggestion decision tree
 func (e *engine) flexMinCrossMainSizeUncached(node *html.Node, baseH, mainSize float64) float64 {
 	cstate := e.stylePtr(node)
 	floor := 0.0
@@ -2024,6 +2049,11 @@ func (e *engine) flexMinCrossMainSizeUncached(node *html.Node, baseH, mainSize f
 
 	padV := e.scalePt(cstate.PaddingTop) + e.scalePt(cstate.PaddingBottom) +
 		e.scalePt(cstate.BorderTop.Width) + e.scalePt(cstate.BorderBottom.Width)
+
+	specSug := e.flexSpecifiedHeightSuggestion(cstate, baseH, mainSize, padV)
+	if specSug >= 0 && specSug <= floor {
+		return floor
+	}
 	// layoutCell flows the item's children while the container height is the
 	// active percentage basis. Measure without emitting, or prependChrome
 	// defers the child's background/border into e.deferredChrome and the ops
@@ -2044,8 +2074,6 @@ func (e *engine) flexMinCrossMainSizeUncached(node *html.Node, baseH, mainSize f
 	if contentSug < padV {
 		contentSug = padV + e.scalePt(cstate.FontSize)*textLineHeightFactor
 	}
-
-	specSug := e.flexSpecifiedHeightSuggestion(cstate, baseH, mainSize, padV)
 
 	autoMin := contentSug
 	if specSug >= 0 && specSug < autoMin {
@@ -2129,9 +2157,14 @@ func (e *engine) flowFlexColumn(
 		startY = curY + contentH - sumH - gaps
 	}
 
-	endY := e.buildColumnItems(
-		parent, style, items, heights, contentW, contentX, topY, curY, startY, justifyGap, contentH,
-	)
+	var endY float64
+	if e.noEmit {
+		endY = e.columnItemsEndY(items, heights, curY, startY, justifyGap, contentH)
+	} else {
+		endY = e.buildColumnItems(
+			parent, style, items, heights, contentW, contentX, topY, curY, startY, justifyGap, contentH,
+		)
+	}
 
 	if contentH >= 0 && endY < curY+contentH {
 		return curY + contentH

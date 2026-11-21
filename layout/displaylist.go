@@ -340,11 +340,13 @@ func rentIntSlice(need int) []int {
 	}
 
 	if hdr, ok := intSlicePool.Get().(*[]int); ok {
-		s := *hdr
+		scratch := *hdr
 		*hdr = nil
+
 		intSliceHdrPool.Put(hdr)
-		if cap(s) >= need {
-			return s[:need]
+
+		if cap(scratch) >= need {
+			return scratch[:need]
 		}
 	}
 
@@ -381,6 +383,33 @@ func rentBoxSlice(need int) []Box {
 	return make([]Box, need)
 }
 
+func collectPlacedBoxes(res *ilayout.Result, zoom float64) ([]Box, []int) {
+	boxCount := 0
+	if res != nil {
+		boxCount = res.BoxCount()
+	}
+
+	boxes := make([]Box, 0, boxCount)
+
+	var parents []int
+
+	if boxCount > 0 {
+		parents = rentIntSlice(boxCount)[:0]
+	}
+
+	options := ilayout.WalkPlacedOptions{IncludeText: true, LayoutScale: zoom}
+
+	ilayout.WalkPlacedWithOptions(res, options, func(item *ilayout.PlacedElement) {
+		idx := len(boxes)
+		boxes = append(boxes, Box{}) //nolint:exhaustruct // filled immediately below
+		fillBoxFrom(&boxes[idx], item)
+
+		parents = append(parents, item.ParentIndex)
+	})
+
+	return boxes, parents
+}
+
 // newDisplay builds the public display list from a placement.
 //
 // The retained layout state is opt-in. Without it the placement is dropped
@@ -395,33 +424,7 @@ func newDisplay(
 	zoom float64,
 	retain bool,
 ) *Display {
-	boxCount := 0
-	if res != nil {
-		boxCount = res.BoxCount()
-	}
-
-	boxes := make([]Box, boxCount)
-	nBoxes := 0
-
-	var parents []int
-
-	if boxCount > 0 {
-		parents = rentIntSlice(boxCount)[:0]
-	}
-
-	options := ilayout.WalkPlacedOptions{IncludeText: true, LayoutScale: zoom}
-
-	ilayout.WalkPlacedWithOptions(res, options, func(item *ilayout.PlacedElement) {
-		if nBoxes < len(boxes) {
-			fillBoxFrom(&boxes[nBoxes], item)
-		} else {
-			boxes = append(boxes, boxFrom(item))
-		}
-		nBoxes++
-		parents = append(parents, item.ParentIndex)
-	})
-	boxes = boxes[:nBoxes]
-
+	boxes, parents := collectPlacedBoxes(res, zoom)
 	owners, order := emitOwnersAndOrder(res, parents)
 
 	if parents != nil {
@@ -536,7 +539,9 @@ func patchBoxes(deriveOwners bool, prev *Display, boxCount int) []Box {
 		}
 
 		if cap(prev.Boxes) >= boxCount && cap(prev.Boxes) <= boxCount*2 {
-			clear(prev.Boxes[boxCount:])
+			if boxCount < len(prev.Boxes) {
+				clear(prev.Boxes[boxCount:])
+			}
 
 			return prev.Boxes[:0]
 		}

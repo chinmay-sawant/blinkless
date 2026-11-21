@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -910,9 +909,11 @@ func (e *engine) releaseScratch() {
 	e.bfcPool = nil
 	e.savedBFCFloats = nil
 	e.absCBHeights = nil
+
 	for _, items := range e.inlineItemPool {
 		putGlobalInlineItems(items)
 	}
+
 	e.inlineItemPool = nil
 	e.deferredChrome = nil
 	e.faceByStyle = nil
@@ -920,37 +921,51 @@ func (e *engine) releaseScratch() {
 	e.hasLastFace = false
 	e.faceByRune = nil
 	e.lineGapByFace = nil
+	e.releaseMeasureCaches()
+	e.releaseTransientState()
+}
+
+func (e *engine) releaseTransientState() {
+	e.namedFlows = nil
+	e.namedFlowScanDone = false
+	e.anonFlexStyles = nil
+	e.decorBreak = decorBreakState{} //nolint:exhaustruct // reset transient state
+	e.chromeScratch = nil
+	e.releaseChromeSlabs()
+}
+
+func (e *engine) releaseMeasureCaches() {
 	if e.textWidthCache != nil {
 		if len(e.textWidthCache) <= maxTextWidthCacheEntries {
 			clear(e.textWidthCache)
 			textWidthCachePool.Put(e.textWidthCache)
 		}
+
 		e.textWidthCache = nil
 	}
+
 	if e.runeWidthCache != nil {
 		if len(e.runeWidthCache) <= maxRuneWidthCacheEntries {
 			clear(e.runeWidthCache)
 			runeWidthCachePool.Put(e.runeWidthCache)
 		}
+
 		e.runeWidthCache = nil
 	}
+
 	if e.measureStyleIDs != nil {
 		if len(e.measureStyleIDs) <= maxTextWidthCacheEntries {
 			clear(e.measureStyleIDs)
 			measureStyleIDPool.Put(e.measureStyleIDs)
 		}
+
 		e.measureStyleIDs = nil
 	}
+
 	e.lastMeasureSty = nil
 	e.lastMeasureSize = 0
 	e.lastMeasureID = 0
 	e.hasLastMeasureID = false
-	e.namedFlows = nil
-	e.namedFlowScanDone = false
-	e.anonFlexStyles = nil
-	e.decorBreak = decorBreakState{}
-	e.chromeScratch = nil
-	e.releaseChromeSlabs()
 }
 
 // releaseFlexScratch returns the flex memo maps to their pools when they are
@@ -1357,18 +1372,19 @@ func sameSizeContainers(a, b map[*html.Node]sizeContainer) bool {
 }
 
 func (e *engine) stylePtr(node *html.Node) *ResolvedStyle {
-	for _, override := range slices.Backward(e.styleOverrides) {
-		if override.node == node {
-			return override.style
+	for i := len(e.styleOverrides) - 1; i >= 0; i-- {
+		if e.styleOverrides[i].node == node {
+			return e.styleOverrides[i].style
 		}
 	}
 
-	if p := e.syntheticStyles[node]; p != nil {
-		return p
+	if e.syntheticStyles != nil {
+		if p := e.syntheticStyles[node]; p != nil {
+			return p
+		}
 	}
 
-	styles := e.styles
-	if p := styles[node]; p != nil {
+	if p := e.styles[node]; p != nil {
 		return p
 	}
 
@@ -1535,15 +1551,9 @@ func (e *engine) blockContentFP(node *html.Node) uint64 {
 	return hash
 }
 
-// blockFPNodeType folds a node type into the content hash. The enum is small
-// and non-negative; a stray negative value hashes as zero so the int-to-uint64
-// conversion cannot overflow.
+// blockFPNodeType folds a node type into the content hash.
 func blockFPNodeType(nodeType html.NodeType) uint64 {
-	if nodeType < 0 {
-		return 0
-	}
-
-	return uint64(nodeType) //nolint:gosec // non-negative after the guard
+	return uint64(nodeType)
 }
 
 // storeBlockDelta records the counter deltas beside a memo Store under the

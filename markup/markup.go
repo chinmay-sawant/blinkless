@@ -164,8 +164,11 @@ func copyChildren(nodes []*html.Node) []*Node {
 
 func copyDoctype(doctype *html.Doctype) Doctype {
 	if doctype == nil {
-		return Doctype{}
+		var zero Doctype
+
+		return zero
 	}
+
 	return Doctype{
 		Name:        doctype.Name,
 		PublicID:    doctype.PublicID,

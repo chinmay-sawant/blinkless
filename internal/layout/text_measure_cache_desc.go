@@ -61,7 +61,7 @@ type measureStyleRef struct {
 	sizeBits uint64
 }
 
-//nolint:gochecknoglobals // per-layout measureStyleIDs map pool avoids reallocation on every layout
+//nolint:exhaustruct,gochecknoglobals // per-layout measureStyleIDs map pool avoids reallocation on every layout
 var measureStyleIDPool = sync.Pool{}
 
 // measureStyleID returns the interned ID for sty at sizeBits, interning the
@@ -80,6 +80,7 @@ func (e *engine) measureStyleID(sty *ResolvedStyle, primary *pdf.Font, sizeBits 
 	if e.measureStyleIDs != nil {
 		if id, ok := e.measureStyleIDs[ref]; ok {
 			e.lastMeasureSty, e.lastMeasureSize, e.lastMeasureID, e.hasLastMeasureID = sty, sizeBits, id, true
+
 			return id
 		}
 	}

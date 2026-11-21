@@ -52,6 +52,7 @@ func (e *engine) popInlineDecorationBreak() {
 		if len(state.ids) > 0 {
 			clear(state.ids)
 		}
+
 		state.next = 0
 		state.openID = 0
 		state.fill = 0

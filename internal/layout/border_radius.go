@@ -228,6 +228,14 @@ func snapRadiiXY(radiusX, radiusY [4]float64) ([4]float64, [4]float64) {
 // shorthand (Y left 0) copies X onto Y before a unified CSS overlap scale so
 // border-radius:999px on a wide short pill becomes half-height circles, not
 // half-width ellipses.
+func hasAnyAbsoluteBorderRadius(sty *ResolvedStyle) bool {
+	return sty.BorderRadius > 0 ||
+		sty.BorderRadiusTopLeft > 0 || sty.BorderRadiusTopRight > 0 ||
+		sty.BorderRadiusBottomRight > 0 || sty.BorderRadiusBottomLeft > 0 ||
+		sty.BorderRadiusTopLeftY > 0 || sty.BorderRadiusTopRightY > 0 ||
+		sty.BorderRadiusBottomRightY > 0 || sty.BorderRadiusBottomLeftY > 0
+}
+
 func usedBorderRadiiXY(sty *ResolvedStyle, width, height float64) ([4]float64, [4]float64) {
 	var radiusX, radiusY [4]float64
 
@@ -245,11 +253,7 @@ func usedBorderRadiiXY(sty *ResolvedStyle, width, height float64) ([4]float64, [
 		return snapRadiiXY(radiusX, radiusY)
 	}
 
-	if sty.BorderRadius <= 0 &&
-		sty.BorderRadiusTopLeft <= 0 && sty.BorderRadiusTopRight <= 0 &&
-		sty.BorderRadiusBottomRight <= 0 && sty.BorderRadiusBottomLeft <= 0 &&
-		sty.BorderRadiusTopLeftY <= 0 && sty.BorderRadiusTopRightY <= 0 &&
-		sty.BorderRadiusBottomRightY <= 0 && sty.BorderRadiusBottomLeftY <= 0 {
+	if !hasAnyAbsoluteBorderRadius(sty) {
 		return radiusX, radiusY
 	}
 

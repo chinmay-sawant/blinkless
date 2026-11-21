@@ -1436,6 +1436,7 @@ func sameInlineStyle(acc, boxN *ResolvedStyle) bool {
 	if acc == boxN {
 		return true
 	}
+
 	if acc == nil || boxN == nil {
 		return false
 	}

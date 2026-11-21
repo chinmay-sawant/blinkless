@@ -54,24 +54,26 @@ func declaredTakesParent(prop, keyword string) bool {
 //nolint:gochecknoglobals // shared read-only zero value for nil Declared pointers
 var emptyDeclaredStyle declaredStyle
 
-func (s *ResolvedStyle) declared() *declaredStyle {
-	if s == nil || s.Declared == nil {
+func (style *ResolvedStyle) declared() *declaredStyle {
+	if style == nil || style.Declared == nil {
 		return &emptyDeclaredStyle
 	}
 
-	return s.Declared
+	return style.Declared
 }
 
-func (s *ResolvedStyle) ensureDeclared() *declaredStyle {
-	if s.Declared == nil {
-		s.Declared = &declaredStyle{}
+func (style *ResolvedStyle) ensureDeclared() *declaredStyle {
+	if style.Declared == nil {
+		style.Declared = &declaredStyle{} //nolint:exhaustruct // lazy zero-initialized store
 	}
 
-	return s.Declared
+	return style.Declared
 }
 
 // applyDeclaredProps stores one declared property on style. It returns false
 // for a property it does not own.
+//
+//nolint:cyclop // handles CSS-wide keywords and lazy nil-store fast paths
 func applyDeclaredProps(style *ResolvedStyle, prop, value string, parent *ResolvedStyle, hasParent bool) bool {
 	if declaredField(&emptyDeclaredStyle, prop) == nil {
 		return false

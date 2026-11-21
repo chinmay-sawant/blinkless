@@ -190,6 +190,7 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.MaxWidthPercent == b.MaxWidthPercent &&
 		a.MinHeight == b.MinHeight &&
 		a.MinHeightPercent == b.MinHeightPercent &&
+		a.MinHeightSet == b.MinHeightSet &&
 		a.MaxHeight == b.MaxHeight &&
 		a.MaxHeightPercent == b.MaxHeightPercent &&
 		a.Overflow == b.Overflow &&
@@ -646,6 +647,7 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashFloat64(h, s.MaxWidthPercent)
 	h = styleInternHashFloat64(h, s.MinHeight)
 	h = styleInternHashFloat64(h, s.MinHeightPercent)
+	h = styleInternHashBool(h, s.MinHeightSet)
 	h = styleInternHashFloat64(h, s.MaxHeight)
 	h = styleInternHashFloat64(h, s.MaxHeightPercent)
 	h = styleInternHashString(h, s.Overflow)
@@ -1126,6 +1128,7 @@ func styleInternFields() []string {
 		"MaxWidthPercent",
 		"MinHeight",
 		"MinHeightPercent",
+		"MinHeightSet",
 		"MaxHeight",
 		"MaxHeightPercent",
 		"Overflow",

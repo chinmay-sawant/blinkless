@@ -212,6 +212,8 @@ func normalizeInteractivity(value string) (string, bool) {
 // parent unless the element declares them: the two interest delays and
 // interactivity. A declared value, including a CSS-wide keyword, is applied
 // later by applyTriggerLonghand.
+//
+//nolint:cyclop // inherits the three trigger-family properties with nil-store guards
 func inheritTriggerProps(dst, parent *ResolvedStyle, raw map[string]string) {
 	if parent == nil || parent.Triggers == nil {
 		return

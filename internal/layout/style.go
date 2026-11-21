@@ -206,6 +206,7 @@ type ResolvedStyle struct {
 	MaxWidthPercent     float64 // >=0 means % of containing block / img clamp context
 	MinHeight           float64
 	MinHeightPercent    float64 // >=0 means % of CB height; indefinite → ignore
+	MinHeightSet        bool    // true when min-height was explicitly declared (non-auto), including 0
 	MaxHeight           float64
 	MaxHeightPercent    float64 // >=0 means % of CB height; -1 = none/auto (mirrors MaxWidthPercent)
 	Overflow            string  // "visible" | "hidden" | "scroll" | "auto" | "clip" (non-visible = sticky scrollport)

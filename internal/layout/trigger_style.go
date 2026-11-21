@@ -224,20 +224,20 @@ func applyTriggerProps(
 //nolint:gochecknoglobals // shared read-only zero value for nil Triggers pointers
 var emptyTriggerStyle triggerStyle
 
-func (s *ResolvedStyle) triggers() *triggerStyle {
-	if s == nil || s.Triggers == nil {
+func (style *ResolvedStyle) triggers() *triggerStyle {
+	if style == nil || style.Triggers == nil {
 		return &emptyTriggerStyle
 	}
 
-	return s.Triggers
+	return style.Triggers
 }
 
-func (s *ResolvedStyle) ensureTriggers() *triggerStyle {
-	if s.Triggers == nil {
-		s.Triggers = &triggerStyle{}
+func (style *ResolvedStyle) ensureTriggers() *triggerStyle {
+	if style.Triggers == nil {
+		style.Triggers = &triggerStyle{} //nolint:exhaustruct // lazy zero-initialized store
 	}
 
-	return s.Triggers
+	return style.Triggers
 }
 
 // applyTriggerLonghand stores one longhand. The CSS-wide keywords resolve

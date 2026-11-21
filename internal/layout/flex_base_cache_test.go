@@ -158,6 +158,40 @@ func TestFlexColumnAutoMinMemoized(t *testing.T) {
 	}
 }
 
+// TestFlexColumnExplicitMinHeightZeroSkipsAutoMin pins CSS Flexbox §4.5: an
+// explicit min-height: 0 disables the content-based automatic minimum size.
+func TestFlexColumnExplicitMinHeightZeroSkipsAutoMin(t *testing.T) {
+	t.Parallel()
+
+	root := mustParse(t, `<div id="outer"><div class="cell"><span>alpha beta gamma</span></div></div>`)
+	cssText := `#outer{display:flex;flex-direction:column;width:400pt}.cell{min-height:0;overflow:visible}`
+	opts := Options{
+		Width: testViewport, Height: 800, Background: true,
+		Sheets: []*css.Stylesheet{sheet(t, cssText)},
+	}
+	eng, outer := flexMinTestEngine(t, root, opts)
+
+	var cell *html.Node
+
+	outer.Walk(func(node *html.Node) {
+		if cell == nil && node.Type == html.ElementNode && node.Attribute("class") == tableCellKind {
+			cell = node
+		}
+	})
+
+	if cell == nil {
+		t.Fatal("missing .cell element")
+	}
+
+	if got := eng.flexMinCrossMainSize(cell, 20, 300); got != 0 {
+		t.Fatalf("min-height:0 floor = %v, want 0", got)
+	}
+
+	if cached := len(eng.flexMinH); cached != 0 {
+		t.Fatalf("min-height:0 populated auto-min cache with %d entries", cached)
+	}
+}
+
 // TestFlexColumnAutoMinIdenticalOutput pins the memo's transparency: a
 // nested column-flex document lays out byte-identical display lists with and
 // without the auto-minimum cache.

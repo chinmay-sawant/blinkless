@@ -327,7 +327,7 @@ func (e *engine) textWidthCacheKey(
 	return local
 }
 
-//nolint:gochecknoglobals // per-layout text/rune width cache pools avoid map reallocation on every layout
+//nolint:exhaustruct,gochecknoglobals // per-layout text/rune width cache pools avoid map reallocation on every layout
 var (
 	textWidthCachePool = sync.Pool{}
 	runeWidthCachePool = sync.Pool{}

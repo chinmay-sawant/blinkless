@@ -191,56 +191,67 @@ func walkPlacedFunc(
 	return index
 }
 
+func defaultPlacedTriggers() PlacedTriggers {
+	return PlacedTriggers{
+		TimelineScope:    TimelineScopeDef{None: true, All: false, Names: nil},
+		TimelineTriggers: nil,
+		EventTriggers:    nil,
+		InterestDelay:    InterestDelayDef{StartNormal: true, EndNormal: true, StartMs: 0, EndMs: 0},
+		Interactivity:    overflowAuto,
+	}
+}
+
+func fillPlacedMeta(
+	item *PlacedElement, boxNode *box, sty *ResolvedStyle, elementID string,
+	scroll placedScrollContext, scroller placedScroller,
+) {
+	if boxNode.sticky {
+		item.Sticky = placedSticky(boxNode, scroll)
+	}
+
+	if sty.Animation.Set {
+		item.Animations = animationRecordsFromStyle(sty.Animation)
+	}
+
+	if sty.Transition.Set {
+		item.Transitions = transitionRecordsFromStyle(sty.Transition)
+	}
+
+	if sty.ScrollTimelineName != "" || sty.ViewTimelineName != "" || sty.Triggers != nil {
+		item.Timelines = placedTimelineDefs(boxNode, elementID, scroller)
+	}
+
+	if sty.Triggers != nil {
+		item.Triggers = placedTriggersFromStyle(sty)
+	} else {
+		item.Triggers = defaultPlacedTriggers()
+	}
+}
+
 func fillPlacedElement(
 	item *PlacedElement, boxNode *box, info TransformInfo, parentIndex int, ops []Op,
 	allIDs *[]uint64, opts WalkPlacedOptions, scroll placedScrollContext, scroller placedScroller,
 ) {
 	sty := boxNode.style
 	elementID := boxNode.node.AttrExact("id")
-	var sticky *StickyConstraint
-	if boxNode.sticky {
-		sticky = placedSticky(boxNode, scroll)
-	}
-	var anims []AnimationRecord
-	if sty.Animation.Set {
-		anims = animationRecordsFromStyle(sty.Animation)
-	}
-	var trans []TransitionRecord
-	if sty.Transition.Set {
-		trans = transitionRecordsFromStyle(sty.Transition)
-	}
-	var timelines []TimelineDef
-	if sty.ScrollTimelineName != "" || sty.ViewTimelineName != "" || sty.Triggers != nil {
-		timelines = placedTimelineDefs(boxNode, elementID, scroller)
-	}
-	var triggers PlacedTriggers
-	if sty.Triggers != nil {
-		triggers = placedTriggersFromStyle(sty)
-	} else {
-		triggers = PlacedTriggers{
-			TimelineScope: TimelineScopeDef{None: true},
-			InterestDelay: InterestDelayDef{StartNormal: true, EndNormal: true},
-			Interactivity: overflowAuto,
-		}
-	}
 
 	*item = PlacedElement{
-		Sticky:              sticky,
+		Sticky:              nil,
 		Fixed:               sty.Position == positionFixed,
 		ID:                  elementID,
 		Tag:                 boxNode.node.Name,
 		Action:              boxNode.node.AttrExact("data-action"),
 		ParentIndex:         parentIndex,
 		OperationIDs:        appendOperationIDs(ops, boxNode.opStart, boxNode.opEnd, allIDs),
-		Animations:          anims,
-		Transitions:         trans,
+		Animations:          nil,
+		Transitions:         nil,
 		TriggerScope:        sty.Animation.TriggerScope,
 		ViewTransitionName:  sty.Animation.ViewTransitionName,
 		ViewTransitionClass: sty.Animation.ViewTransitionClass,
 		ViewTransitionGroup: sty.Animation.ViewTransitionGroup,
 		ViewTransitionScope: sty.Animation.ViewTransitionScope,
-		Timelines:           timelines,
-		Triggers:            triggers,
+		Timelines:           nil,
+		Triggers:            defaultPlacedTriggers(),
 		OverflowClip:        elementOverflowClip(boxNode),
 		HasOverflowClip:     boxNode.overflowClip != nil,
 		Transform:           info,
@@ -252,9 +263,12 @@ func fillPlacedElement(
 		Declared:            nil,
 	}
 
+	fillPlacedMeta(item, boxNode, sty, elementID, scroll, scroller)
+
 	if sty.Declared != nil {
 		item.Declared = declaredValues(sty)
 	}
+
 	if opts.IncludeText {
 		item.Text = boxNode.node.TextContent()
 	}

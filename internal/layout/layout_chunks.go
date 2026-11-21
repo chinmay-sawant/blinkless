@@ -253,6 +253,7 @@ func (e *engine) resetStyles(mark styleMark) {
 
 	if mark.chunkIdx < len(e.styleChunks) {
 		rewound := false
+
 		for i := mark.chunkIdx + 1; i < len(e.styleChunks); i++ {
 			clear(*e.styleChunks[i])
 			*e.styleChunks[i] = (*e.styleChunks[i])[:0]

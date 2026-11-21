@@ -95,6 +95,7 @@ func (e *engine) buildGrid(node *html.Node, sty *ResolvedStyle, availW, posX, po
 	)
 }
 
+//nolint:funlen // grid track placement, row sizing, and emit stay together
 func (e *engine) layoutStandardGrid(
 	boxNode *box, sty *ResolvedStyle, kids []*html.Node, areas gridTemplateAreasMap,
 	cols []float64, columnGap, rowGap, contentX, contentW, curY, posY, contentH float64,
@@ -148,6 +149,13 @@ func (e *engine) layoutStandardGrid(
 		pboxes = measureGridPreferredHeights(
 			e, placed, cols, columnGap, rowGap, contentX, curY, posY, rows, lockedRows,
 		)
+	}
+
+	if e.noEmit {
+		rowYs := gridRowTops(curY, rows, rowGap, contentH, sty.AlignContent)
+		boxNode.height = e.gridUsedHeightFromRows(sty, curY, rowYs, rows, numRows, contentH)
+
+		return boxNode
 	}
 
 	rowYs := emitGridBoxes(e, sty, boxNode, pboxes, rows, rowGap, posY, curY, contentH)
@@ -929,7 +937,7 @@ func resolveContentHeight(sty *ResolvedStyle, engN *engine) float64 {
 // resolveContentHeightForWidth is resolveContentHeight plus aspect-ratio when
 // height is auto and contentW (scaled) is definite.
 //
-//nolint:wsl // percentage-height fallback keeps its guard and normalization together
+//nolint:cyclop,wsl // percentage-height and aspect-ratio fallbacks share border-box normalization
 func resolveContentHeightForWidth(sty *ResolvedStyle, engN *engine, contentW float64) float64 {
 	if sty.HeightPercent >= 0 && sty.Height < 0 {
 		cbH := engN.containingBlockHeight()

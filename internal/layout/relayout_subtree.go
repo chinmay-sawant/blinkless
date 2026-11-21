@@ -151,37 +151,42 @@ func findRelayoutTarget(root *box, node *html.Node) *relayoutTarget {
 
 	var found *relayoutTarget
 
-	var walk func(boxNode *box, parent *box, ancestors []*box) bool
+	var stack [16]*box
+	ancestors := stack[:0]
 
-	walk = func(boxNode *box, parent *box, ancestors []*box) bool {
+	var walk func(boxNode *box, parent *box) bool
+
+	walk = func(boxNode *box, parent *box) bool {
 		if boxNode.node == node {
-			found = &relayoutTarget{box: boxNode, parent: parent, ancestors: ancestors}
+			chain := make([]*box, len(ancestors))
+			copy(chain, ancestors)
+			found = &relayoutTarget{box: boxNode, parent: parent, ancestors: chain}
 
 			return true
 		}
 
-		chain := make([]*box, len(ancestors), len(ancestors)+1)
-		copy(chain, ancestors)
-		chain = append(chain, boxNode)
+		ancestors = append(ancestors, boxNode)
 
 		for _, child := range boxNode.children {
-			if walk(child, boxNode, chain) {
+			if walk(child, boxNode) {
 				return true
 			}
 		}
 
 		for _, row := range boxNode.rows {
 			for _, cell := range row {
-				if walk(cell, boxNode, chain) {
+				if walk(cell, boxNode) {
 					return true
 				}
 			}
 		}
 
+		ancestors = ancestors[:len(ancestors)-1]
+
 		return false
 	}
 
-	walk(root, nil, nil)
+	walk(root, nil)
 
 	return found
 }

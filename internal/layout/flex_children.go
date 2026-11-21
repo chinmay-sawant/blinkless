@@ -143,6 +143,7 @@ func applyAnonymousFlexItemStyle(style *ResolvedStyle) {
 	style.MaxWidthPercent = -1
 	style.MinHeight = 0
 	style.MinHeightPercent = -1
+	style.MinHeightSet = false
 	style.MaxHeight = -1
 	style.MarginTop = 0
 	style.MarginRight = 0
@@ -174,6 +175,8 @@ func applyAnonymousFlexItemStyle(style *ResolvedStyle) {
 	style.HasTransform = false
 }
 
+const anonFlexStyleInitCap = 8
+
 type anonFlexStyleKey struct {
 	parent *ResolvedStyle
 	limit  int
@@ -181,28 +184,29 @@ type anonFlexStyleKey struct {
 
 func (e *engine) allocAnonymousFlexItemStyle(parent *ResolvedStyle) *ResolvedStyle {
 	limit := e.continueLimitFor(parent)
-	if parent != nil {
+	if parent != nil && !e.noEmit {
 		key := anonFlexStyleKey{parent: parent, limit: limit}
 		if cached, ok := e.anonFlexStyles[key]; ok {
 			return cached
 		}
 
-		style := e.allocFlexOverrideStyle(parent)
-		applyAnonymousFlexItemStyle(style)
-		style.Continue = ""
-		style.ContinueLines = limit
-
-		if e.anonFlexStyles == nil {
-			e.anonFlexStyles = make(map[anonFlexStyleKey]*ResolvedStyle, 8)
-		}
 		if len(e.anonFlexStyles) < flexOverrideMaxEntries {
-			e.anonFlexStyles[key] = style
-		}
+			style := e.allocFlexOverrideStyle(parent)
+			applyAnonymousFlexItemStyle(style)
+			style.Continue = ""
+			style.ContinueLines = limit
 
-		return style
+			if e.anonFlexStyles == nil {
+				e.anonFlexStyles = make(map[anonFlexStyleKey]*ResolvedStyle, anonFlexStyleInitCap)
+			}
+
+			e.anonFlexStyles[key] = style
+
+			return style
+		}
 	}
 
-	style := e.allocFlexOverrideStyle(parent)
+	style := e.allocStyle(parent)
 	applyAnonymousFlexItemStyle(style)
 	style.Continue = ""
 	style.ContinueLines = limit

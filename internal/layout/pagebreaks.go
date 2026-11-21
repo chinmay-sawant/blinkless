@@ -262,6 +262,7 @@ func singleDistinctBaseline(ops []Op, start, end int) (float64, bool) {
 	if start < 0 {
 		start = 0
 	}
+
 	if end > len(ops) {
 		end = len(ops)
 	}
@@ -275,18 +276,20 @@ func singleDistinctBaseline(ops []Op, start, end int) (float64, bool) {
 			continue
 		}
 
-		y := ops[k].Y
+		baseY := ops[k].Y
+
 		if !hasAny {
 			hasAny = true
-			minY = y
-			maxY = y
+			minY = baseY
+			maxY = baseY
+
 			continue
 		}
 
-		if y < minY {
-			minY = y
-		} else if y > maxY {
-			maxY = y
+		if baseY < minY {
+			minY = baseY
+		} else if baseY > maxY {
+			maxY = baseY
 		}
 
 		if maxY-minY >= orphanLineEpsilonPt {

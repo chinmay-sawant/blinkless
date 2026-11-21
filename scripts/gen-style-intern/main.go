@@ -305,9 +305,10 @@ func (g *generator) classifyPtr(eqA, eqB, hashVar string, expr *ast.StarExpr) (s
 	g.helpers[name] = struct{}{}
 	g.ptrHelpers[name] = struct{}{}
 
-	return ptrEqualName(name) + "(" + eqA + ", " + eqB + ")", []string{
-		"if " + hashVar + " != nil && *" + hashVar + " != (" + name + "{}) {\n\t\th = " + helperName(name) + "(h, *" + hashVar + ")\n\t}",
-	}, nil
+	hashStmt := "if " + hashVar + " != nil && *" + hashVar + " != (" + name + "{}) {\n\t\th = " +
+		helperName(name) + "(h, *" + hashVar + ")\n\t}"
+
+	return ptrEqualName(name) + "(" + eqA + ", " + eqB + ")", []string{hashStmt}, nil
 }
 
 func (g *generator) classifyArray(eqA, eqB, hashVar string, expr *ast.ArrayType) (string, []string, error) {
@@ -488,6 +489,12 @@ func (g *generator) writeStructHelpers(buf *bytes.Buffer) error {
 		buf.WriteString("\n\treturn h\n}\n\n")
 	}
 
+	g.writePtrHelpers(buf)
+
+	return nil
+}
+
+func (g *generator) writePtrHelpers(buf *bytes.Buffer) {
 	ptrNames := make([]string, 0, len(g.ptrHelpers))
 	for name := range g.ptrHelpers {
 		ptrNames = append(ptrNames, name)
@@ -503,8 +510,6 @@ func (g *generator) writeStructHelpers(buf *bytes.Buffer) error {
 		buf.WriteString("\tif b == nil {\n\t\treturn *a == zero\n\t}\n")
 		buf.WriteString("\treturn *a == *b\n}\n\n")
 	}
-
-	return nil
 }
 
 func ptrEqualName(typeName string) string {

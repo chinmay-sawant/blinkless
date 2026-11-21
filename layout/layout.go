@@ -225,12 +225,42 @@ type Override struct {
 	Value string
 }
 
+func fillBoxTriggers(dst *Box, triggers *ilayout.PlacedTriggers) {
+	scope := triggers.TimelineScope
+	if scope.None && !scope.All && len(scope.Names) == 0 {
+		dst.TimelineScope = TimelineScope{None: true, All: false, Names: nil}
+	} else {
+		dst.TimelineScope = timelineScopeFrom(scope)
+	}
+
+	if len(triggers.TimelineTriggers) > 0 {
+		dst.TimelineTriggers = timelineTriggersFrom(triggers.TimelineTriggers)
+	} else {
+		dst.TimelineTriggers = nil
+	}
+
+	if len(triggers.EventTriggers) > 0 {
+		dst.EventTriggers = eventTriggersFrom(triggers.EventTriggers)
+	} else {
+		dst.EventTriggers = nil
+	}
+
+	dst.InterestDelay = InterestDelay{
+		StartNormal: triggers.InterestDelay.StartNormal,
+		EndNormal:   triggers.InterestDelay.EndNormal,
+		StartMs:     triggers.InterestDelay.StartMs,
+		EndMs:       triggers.InterestDelay.EndMs,
+	}
+	dst.Interactivity = triggers.Interactivity
+}
+
 func fillBoxFrom(dst *Box, item *ilayout.PlacedElement) {
 	if item.Sticky != nil {
 		dst.Sticky = stickyConstraintFrom(item.Sticky)
 	} else {
 		dst.Sticky = nil
 	}
+
 	dst.Fixed = item.Fixed
 	dst.ID = item.ID
 	dst.Tag = item.Tag
@@ -238,50 +268,35 @@ func fillBoxFrom(dst *Box, item *ilayout.PlacedElement) {
 	dst.Text = item.Text
 	dst.ParentIndex = item.ParentIndex
 	dst.OperationIDs = item.OperationIDs
+
 	if len(item.Animations) > 0 {
 		dst.Animations = animationsFrom(item.Animations)
 	} else {
 		dst.Animations = nil
 	}
+
 	if len(item.Transitions) > 0 {
 		dst.Transitions = transitionsFrom(item.Transitions)
 	} else {
 		dst.Transitions = nil
 	}
+
 	dst.TriggerScope = item.TriggerScope
 	dst.ViewTransitionName = item.ViewTransitionName
 	dst.ViewTransitionClass = item.ViewTransitionClass
 	dst.ViewTransitionGroup = item.ViewTransitionGroup
 	dst.ViewTransitionScope = item.ViewTransitionScope
+
 	if len(item.Timelines) > 0 {
 		dst.Timelines = timelinesFrom(item.Timelines)
 	} else {
 		dst.Timelines = nil
 	}
+
 	dst.Declared = item.Declared
-	if item.Triggers.TimelineScope.None && !item.Triggers.TimelineScope.All && len(item.Triggers.TimelineScope.Names) == 0 {
-		dst.TimelineScope = TimelineScope{None: true}
-	} else {
-		dst.TimelineScope = timelineScopeFrom(item.Triggers.TimelineScope)
-	}
-	if len(item.Triggers.TimelineTriggers) > 0 {
-		dst.TimelineTriggers = timelineTriggersFrom(item.Triggers.TimelineTriggers)
-	} else {
-		dst.TimelineTriggers = nil
-	}
-	if len(item.Triggers.EventTriggers) > 0 {
-		dst.EventTriggers = eventTriggersFrom(item.Triggers.EventTriggers)
-	} else {
-		dst.EventTriggers = nil
-	}
-	dst.InterestDelay = InterestDelay{
-		StartNormal: item.Triggers.InterestDelay.StartNormal,
-		EndNormal:   item.Triggers.InterestDelay.EndNormal,
-		StartMs:     item.Triggers.InterestDelay.StartMs,
-		EndMs:       item.Triggers.InterestDelay.EndMs,
-	}
-	dst.Interactivity = item.Triggers.Interactivity
+	fillBoxTriggers(dst, &item.Triggers)
 	dst.Transform = transformInfoFrom(item.Transform)
+
 	if item.HasOverflowClip {
 		dst.OverflowClip = [4]float64{
 			item.OverflowClip[0] * ptToPx,
@@ -294,6 +309,7 @@ func fillBoxFrom(dst *Box, item *ilayout.PlacedElement) {
 		dst.OverflowClip = [4]float64{}
 		dst.HasOverflowClip = false
 	}
+
 	dst.X = item.X * ptToPx
 	dst.Y = item.Y * ptToPx
 	dst.W = item.W * ptToPx
@@ -301,9 +317,11 @@ func fillBoxFrom(dst *Box, item *ilayout.PlacedElement) {
 }
 
 func boxFrom(item *ilayout.PlacedElement) Box {
-	var b Box
-	fillBoxFrom(&b, item)
-	return b
+	var box Box
+
+	fillBoxFrom(&box, item)
+
+	return box
 }
 
 func boxesFrom(placed []ilayout.PlacedElement) []Box {

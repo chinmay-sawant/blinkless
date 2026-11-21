@@ -39,9 +39,7 @@ func stripLineBaselinesInto(ops []Op, start, end int, dst []float64) []float64 {
 		return collected
 	}
 
-	if len(collected) > 1 {
-		slices.Sort(collected)
-	}
+	slices.Sort(collected)
 
 	out := collected[:0]
 

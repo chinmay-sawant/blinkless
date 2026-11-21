@@ -346,21 +346,54 @@ func (e *engine) flexShrinkHeights(items []flexColMeas, heights []float64, defic
 	}
 }
 
+func (e *engine) flexColumnAutoMinFloor(item flexColMeas, cstate *ResolvedStyle, height, contentH float64) float64 {
+	if cstate.MinHeightSet || flexAutoMinSizeIsZero(cstate.Overflow) {
+		return height
+	}
+
+	padV := e.scalePt(cstate.PaddingTop) + e.scalePt(cstate.PaddingBottom) +
+		e.scalePt(cstate.BorderTop.Width) + e.scalePt(cstate.BorderBottom.Width)
+
+	specSug := e.flexSpecifiedHeightSuggestion(cstate, item.baseH, contentH, padV)
+	if specSug >= 0 && height >= specSug {
+		return height
+	}
+
+	if floor := e.flexMinCrossMainSize(item.n, item.baseH, contentH); height < floor {
+		return floor
+	}
+
+	return height
+}
+
+func (e *engine) flexClampColumnHeightItem(item flexColMeas, height, contentH float64) float64 {
+	cstate := e.stylePtr(item.n)
+
+	minH := 0.0
+	if cstate.MinHeightPercent >= 0 && contentH >= 0 {
+		minH = contentH * cstate.MinHeightPercent / oneHundred
+	} else if cstate.MinHeight > 0 {
+		minH = e.scalePt(cstate.MinHeight)
+	}
+
+	if height < minH {
+		height = minH
+	}
+
+	height = e.flexColumnAutoMinFloor(item, cstate, height, contentH)
+
+	if cstate.MaxHeight >= 0 {
+		if maxH := e.scalePt(cstate.MaxHeight); height > maxH {
+			height = maxH
+		}
+	}
+
+	return height
+}
+
 func (e *engine) flexClampColumnHeights(items []flexColMeas, heights []float64, contentH float64) {
-	for idx, it := range items {
-		cstate := e.stylePtr(it.n)
-
-		floor := e.flexMinCrossMainSize(it.n, it.baseH, contentH)
-		if heights[idx] < floor {
-			heights[idx] = floor
-		}
-
-		if cstate.MaxHeight >= 0 {
-			mx := e.scalePt(cstate.MaxHeight)
-			if heights[idx] > mx {
-				heights[idx] = mx
-			}
-		}
+	for idx, item := range items {
+		heights[idx] = e.flexClampColumnHeightItem(item, heights[idx], contentH)
 	}
 }
 
@@ -383,6 +416,14 @@ func justifyColumnStart(
 	return curY, gap
 }
 
+func isDirectFlexColumnChild(cstate *ResolvedStyle) bool {
+	if cstate == nil || cstate.FlexOrder != 0 || cstate.FlexBasis >= 0 || cstate.FlexBasisPercent >= 0 {
+		return false
+	}
+
+	return cstate.AspectRatio <= 0 && !cstate.MarginTopAuto && !cstate.MarginBottomAuto
+}
+
 // canDirectFlowFlexColumn reports whether an auto-height, non-wrapping,
 // non-reversed flex column can place its children in a single pass without
 // pre-measuring every child's base height with noEmit.
@@ -390,18 +431,38 @@ func (e *engine) canDirectFlowFlexColumn(kids []*html.Node, style *ResolvedStyle
 	if contentH >= 0 || len(kids) == 0 {
 		return false
 	}
+
 	if style.FlexWrap == fxWrap || style.FlexWrap == fxWrapRev || style.FlexDirection == fxColRev {
 		return false
 	}
+
 	for _, kid := range kids {
-		cstate := e.stylePtr(kid)
-		if cstate == nil || cstate.FlexOrder != 0 || cstate.FlexBasis >= 0 || cstate.FlexBasisPercent >= 0 ||
-			cstate.AspectRatio > 0 || cstate.MarginTopAuto || cstate.MarginBottomAuto {
+		if !isDirectFlexColumnChild(e.stylePtr(kid)) {
 			return false
 		}
 	}
 
 	return true
+}
+
+func (e *engine) directFlexColumnChildStyle(
+	kid *html.Node, style, cstate *ResolvedStyle, contentW float64,
+) *ResolvedStyle {
+	if flexItemColumnCrossStretch(style, cstate) || cstate.Width >= 0 || cstate.WidthPercent >= 0 {
+		return cstate
+	}
+
+	crossW := e.measureFlexItemMaxContent(kid, cstate)
+	if crossW > contentW {
+		crossW = contentW
+	}
+
+	override := e.allocStyle(cstate)
+	override.BoxSizing = borderBox
+	override.Width = crossW / e.scale
+	override.WidthPercent = -1
+
+	return override
 }
 
 // flowFlexColumnDirect builds an indefinite-height flex column in one pass,
@@ -425,28 +486,14 @@ func (e *engine) flowFlexColumnDirect(
 
 		cstate := e.stylePtr(kid)
 		leftY += e.scalePt(cstate.MarginTop)
+		buildSty := e.directFlexColumnChildStyle(kid, style, cstate, contentW)
 
-		buildSty := cstate
-		forceCrossWidth := !(flexItemColumnCrossStretch(style, cstate) ||
-			cstate.Width >= 0 || cstate.WidthPercent >= 0)
-		if forceCrossWidth {
-			crossW := e.measureFlexItemMaxContent(kid, cstate)
-			if crossW > contentW {
-				crossW = contentW
-			}
-			override := e.allocStyle(cstate)
-			override.BoxSizing = "border-box"
-			override.Width = crossW / e.scale
-			override.WidthPercent = -1
-			buildSty = override
-		}
-
-		cblock := e.buildWithStyle(kid, buildSty, contentW, contentX, topY+leftY)
-		if cblock != nil {
+		if cblock := e.buildWithStyle(kid, buildSty, contentW, contentX, topY+leftY); cblock != nil {
 			desiredX := contentX
 			if !cstate.MarginLeftAuto {
 				desiredX += e.scalePt(cstate.MarginLeft)
 			}
+
 			dx := desiredX - cblock.x
 			dy := (topY + leftY) - cblock.y
 			e.shiftBoxOps(cblock, dx, dy)
@@ -467,6 +514,82 @@ func (e *engine) flowFlexColumnDirect(
 
 		if idx < len(kids)-1 && gap > 0 {
 			leftY += gap
+			endY = leftY
+		}
+	}
+
+	return endY
+}
+
+func (e *engine) columnAutoMarginUnit(
+	items []flexColMeas, heights []float64, justifyGap, contentH float64,
+) float64 {
+	if contentH < 0 {
+		return 0
+	}
+
+	autoMargins := 0
+
+	for _, item := range items {
+		itemStyle := e.stylePtr(item.n)
+		if itemStyle.MarginTopAuto {
+			autoMargins++
+		}
+
+		if itemStyle.MarginBottomAuto {
+			autoMargins++
+		}
+	}
+
+	if autoMargins == 0 {
+		return 0
+	}
+
+	used := justifyGap * float64(len(items)-1)
+
+	for _, height := range heights {
+		used += height
+	}
+
+	for _, item := range items {
+		used += flexColumnMainMargins(e, item)
+	}
+
+	if free := contentH - used; free > 0 {
+		return free / float64(autoMargins)
+	}
+
+	return 0
+}
+
+// columnItemsEndY computes the exact bottom Y that buildColumnItems would
+// return without constructing child boxes or ops (used during noEmit passes).
+func (e *engine) columnItemsEndY(
+	items []flexColMeas, heights []float64, curY, startY, justifyGap, contentH float64,
+) float64 {
+	leftY := startY
+	endY := curY
+	autoUnit := e.columnAutoMarginUnit(items, heights, justifyGap, contentH)
+
+	for idx, item := range items {
+		cstate := e.stylePtr(item.n)
+		if cstate.MarginTopAuto {
+			leftY += autoUnit
+		} else {
+			leftY += e.scalePt(cstate.MarginTop)
+		}
+
+		leftY += heights[idx]
+		if cstate.MarginBottomAuto {
+			leftY += autoUnit
+		} else {
+			leftY += e.scalePt(cstate.MarginBottom)
+		}
+
+		endY = leftY
+
+		if idx < len(items)-1 {
+			leftY += justifyGap
 			endY = leftY
 		}
 	}
