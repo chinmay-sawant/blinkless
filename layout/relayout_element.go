@@ -399,7 +399,7 @@ func sameBoxesBatchDisplay(
 	}
 
 	if prev.result != nil && prev.result != res {
-		prev.result.DisownChunks()
+		prev.result.TransferChunksTo(res)
 	}
 
 	res.Retain()
@@ -487,7 +487,7 @@ func spliceDisplayBoxes(boxes []Box, baseIdx, oldElem, newElem int) []Box {
 // clone: the previous display keeps reading its own operation backing.
 func paintOnlyBatchDisplay(prev *Display, res *ilayout.Result) *Display {
 	if prev != nil && prev.result != nil && prev.result != res {
-		prev.result.DisownChunks()
+		prev.result.TransferChunksTo(res)
 	}
 
 	display := *prev

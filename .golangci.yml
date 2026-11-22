@@ -1,5 +1,6 @@
 # golangci-lint configuration for blinkless.
-# All available linters are enabled except those listed under disable.
+# Uses a curated correctness, security, and maintainability linter set
+# compatible with golangci-lint v1.64.8.
 # Docs: https://golangci-lint.run/usage/configuration/
 #
 # Toolchain note: this module is go 1.26 / toolchain go1.26.4.
@@ -10,60 +11,41 @@ run:
   tests: true
 
 linters:
-  enable-all: true
-  disable:
-    # Deprecated since v1.64; replaced by usetesting (already enabled via enable-all).
-    - tenv
-    # Go 1.26: golangci-lint v1.64 embeds gofumpt v0.7, which does not correctly
-    # handle module language version 1.26 (false "File is not properly formatted"
-    # reports; standalone gofumpt/gofmt on the same tree is clean). Prefer gofmt
-    # (still enabled) until golangci-lint ships a gofumpt that supports go1.26.
-    - gofumpt
-    # Import allow-list is TestDirectModuleAllowlist (internal/fonts). Default
-    # depguard only allows $gostd and then accidentally matched the old module
-    # path blinkless* via the stdlib prefix "go". Not worth //nolint noise.
-    - depguard
+  disable-all: true
+  enable:
+    - bodyclose
+    - contextcheck
+    - copyloopvar
+    - durationcheck
+    - errcheck
+    - errname
+    - errorlint
+    - fatcontext
+    - gocritic
+    - gofmt
+    - gosec
+    - govet
+    - ineffassign
+    - makezero
+    - misspell
+    - nilerr
+    - nolintlint
+    - predeclared
+    - revive
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+    - usetesting
+    - wastedassign
 
 issues:
-  # Report every finding (default caps hide most of an enable-all run).
   max-issues-per-linter: 0
   max-same-issues: 0
-  exclude-rules:
-    # White-box tests intentionally use `package foo` to reach unexported
-    # internals; table fixtures intentionally leave struct fields zero.
-    # Centralized here so _test.go files do not need per-file //nolint.
-    - path: _test\.go
-      linters:
-        - testpackage
-        - exhaustruct
-    # Patch-path tests are table-heavy and several intentionally share
-    # process-wide caches, bypass flags, or font state. Keep correctness
-    # linters on tests, but do not apply the production cuddling,
-    # identifier-length, or complexity budget to test bodies.
-    - path: _test\.go
-      linters:
-        - wsl
-        - varnamelen
-        - cyclop
-        - gocognit
-        - funlen
-        - nlreturn
-        - intrange
-        - goconst
-        - mnd
-    # Output fixture comparisons run serially because PDF font/subset state is
-    # shared. Keep paralleltest active for every other test file.
-    - path: ^internal/convert/fixturetests/output_fixture_.*_test\.go$
-      text: missing the call to method parallel
-      linters:
-        - paralleltest
-  # npm install drops a vendored Go file under flatted; never lint that tree.
   exclude-dirs:
     - node_modules
     - frontend/dist
-    # bindings/wasm is a js/wasm entry point: enable-all style linters flag
-    # its struct mirrors, short locals, and unused-on-native version stamp.
-    # It is validated by make wasm-test and the WASM contract script.
+    # bindings/wasm is a js/wasm entry point validated by make wasm-test.
     - bindings/wasm
     # Scratch programs under temps are exploratory artifacts, not product
     # packages. They have never been part of the supported build or test path.

@@ -2,8 +2,11 @@ package html
 
 import (
 	"fmt"
+	"runtime"
+	"slices"
 	"sync"
 	"testing"
+	"weak"
 )
 
 func TestFindIndexParity(t *testing.T) {
@@ -154,4 +157,47 @@ func TestFindIndexRenameDrop(t *testing.T) {
 	if !ok || sib.Text != "y" {
 		t.Fatalf("Find(sib) = %+v, %v, want text y", sib, ok)
 	}
+}
+
+func TestDocumentCollectibleAfterIndexAndDirtyUse(t *testing.T) {
+	t.Parallel()
+
+	var weakDoc weak.Pointer[Document]
+
+	func() {
+		doc, err := Parse([]byte(`<div id="a">hello</div><div id="b">world</div>`))
+		if err != nil {
+			t.Fatalf("parse: %v", err)
+		}
+
+		if elem, ok := doc.Find("a"); !ok || elem.Text != "hello" {
+			t.Fatalf("Find(a) = %+v, %v, want hello", elem, ok)
+		}
+
+		if !doc.SetAttribute("a", "class", "active") {
+			t.Fatal("SetAttribute(a) reported false")
+		}
+
+		if !doc.SetText("b", "updated") {
+			t.Fatal("SetText(b) reported false")
+		}
+
+		if got := doc.DirtyIDs(); !slices.Equal(got, []string{"a", "b"}) {
+			t.Fatalf("DirtyIDs = %v, want [a b]", got)
+		}
+
+		doc.ClearDirty()
+
+		weakDoc = weak.Make(doc)
+	}()
+
+	for range 20 {
+		runtime.GC()
+
+		if weakDoc.Value() == nil {
+			return
+		}
+	}
+
+	t.Fatal("Document was not garbage-collected after Find, SetAttribute, SetText, and DirtyIDs")
 }

@@ -118,6 +118,50 @@ func TestStyleInternGeneratedNaNMatchesReflect(t *testing.T) {
 	}
 }
 
+// TestPaintOnlyBGDeltaMatchesReflect proves paintOnlyBGDelta agrees with
+// reflect.DeepEqual (with BGColor cleared) across random ResolvedStyle values,
+// BGColor-only mutations, and single non-BGColor mutations.
+func TestPaintOnlyBGDeltaMatchesReflect(t *testing.T) {
+	t.Parallel()
+
+	//nolint:gosec // PCG with a fixed seed is for deterministic tests, not security.
+	rng := rand.New(rand.NewPCG(7, 11))
+
+	check := func(label string, left, right *ResolvedStyle) {
+		t.Helper()
+
+		gotMoved, gotSame := paintOnlyBGDelta(left, right)
+
+		leftCopy, rightCopy := *left, *right
+		leftCopy.BGColor, rightCopy.BGColor = [4]float64{}, [4]float64{}
+		wantMoved := left.BGColor != right.BGColor
+		wantSame := reflect.DeepEqual(&leftCopy, &rightCopy)
+
+		if gotMoved != wantMoved || gotSame != wantSame {
+			t.Fatalf("%s: paintOnlyBGDelta=(%v, %v), want (%v, %v)",
+				label, gotMoved, gotSame, wantMoved, wantSame)
+		}
+	}
+
+	for range 1000 {
+		base := styleInternRandomStyle(rng)
+		copyStyle := base
+		check("identical", &base, &copyStyle)
+
+		bgOnly := base
+		bgOnly.BGColor = [4]float64{0.1, 0.2, 0.3, 1}
+		check("bg only", &base, &bgOnly)
+
+		other := base
+		styleInternMutateOneField(rng, &other)
+		check("single mutation", &base, &other)
+
+		both := other
+		both.BGColor = [4]float64{0.9, 0.8, 0.7, 1}
+		check("bg plus mutation", &base, &both)
+	}
+}
+
 // assertStyleInternAgreement requires the generated equality to agree with
 // reflect.DeepEqual and equal styles to share a fingerprint.
 func assertStyleInternAgreement(t *testing.T, label string, left, right *ResolvedStyle) {

@@ -30,6 +30,35 @@ import (
 // back before it commits, and a pass that fails leaves the cache empty, so
 // an error can never leave a half-overridden map behind. The cache lives and
 // dies with the Result and is never copied into a clone.
+// styleRetainInputs captures every resolveStyles input that can change an
+// outcome without touching the tree: the sheet set identity, the media and
+// viewport, the stateful pseudo-class ids, and the operator underline
+// policy. Zoom is layout scale only and never feeds the cascade.
+type styleRetainInputs struct {
+	sheetsKey          string
+	media              string
+	viewportW          float64
+	viewportH          float64
+	focus              string
+	hover              string
+	active             string
+	printLinkUnderline bool
+}
+
+// retainInputsOf folds the style inputs of one resolve into a comparable key.
+func retainInputsOf(opts Options) styleRetainInputs {
+	return styleRetainInputs{
+		sheetsKey:          sheetsCacheKey(opts.Sheets),
+		media:              opts.Media,
+		viewportW:          opts.Width,
+		viewportH:          opts.Height,
+		focus:              opts.State.Focus,
+		hover:              opts.State.Hover,
+		active:             opts.State.Active,
+		printLinkUnderline: opts.PrintLinkUnderline,
+	}
+}
+
 type overrideBase struct {
 	inputs          styleRetainInputs
 	remBase         float64

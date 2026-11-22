@@ -387,6 +387,14 @@ func applyImageFilterToImage(imgBytes []byte, filters []parsedFilter) []byte {
 	return applyImageFilterToImageWithInterp(imgBytes, filters, "srgb")
 }
 
+// filterAppliesToImage reports whether kind is implemented on decoded image
+// pixels. Opacity stays at the display-list level, and unimplemented filter
+// kinds are skipped so images are not pointlessly re-encoded or cached under
+// an empty signature.
+func filterAppliesToImage(kind filterKind) bool {
+	return kind == filterBlur || kind == filterGrayscale || kind == filterInvert
+}
+
 // applyImageFilterToImageWithInterp is applyImageFilterToImage with a working
 // space selector: "linearrgb" (or "linear-rgb") runs blur, grayscale, and
 // invert in linear light with an sRGB round-trip, every other value runs them
@@ -399,7 +407,7 @@ func applyImageFilterToImageWithInterp(imgBytes []byte, filters []parsedFilter, 
 
 	hasEffect := false
 	for _, f := range filters {
-		if f.kind != filterOpacity && f.kind != filterUnknown {
+		if filterAppliesToImage(f.kind) {
 			hasEffect = true
 			break
 		}
@@ -448,9 +456,7 @@ func applyImageFilterToImageWithInterp(imgBytes []byte, filters []parsedFilter, 
 	if err := pooledPNGEncoder.Encode(&out, nrgba); err != nil {
 		return imgBytes
 	}
-	res := out.Bytes()
-	storeImageFilterCache(cacheKey, res)
-	return res
+	return storeImageFilterCache(cacheKey, out.Bytes())
 }
 
 // applyGrayscaleInSpace mixes each pixel toward its luminance. In gamma space

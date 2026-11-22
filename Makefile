@@ -1,4 +1,4 @@
-.PHONY: test test-unit test-quick test-serial test-race lint lint-frontend size-check build wasm wasm-test fmt golden golden-update samples clean claim-scan catalog-check catalog-ownframe-check matrix-check final-evidence bench bench-engine bench-lib bench-inprocess bench-cli-compare
+.PHONY: test test-unit test-quick test-serial test-race lint lint-frontend size-check build wasm wasm-test fmt golden golden-update samples clean claim-scan catalog-check catalog-ownframe-check matrix-check final-evidence bench bench-engine bench-inprocess bench-cli-compare
 # Pure-Go runtime: the standard library plus the allowlisted direct modules
 # below. No cgo, browser, or native converter process is required.
 # Direct third-party requires must stay ⊆ {
@@ -49,9 +49,8 @@ test-serial:
 test-race:
 	go test -race -count=1 -p $(TEST_P) -parallel $(TEST_PARALLEL) $(GO_TEST_FLAGS) $(RACE_PKGS)
 
-# Runs every linter enabled in .golangci.yml (enable-all), the file-size gate
-# (scripts/check-file-size.sh), then frontend `npm run lint` (ESLint plus
-# src/data content/config checks). Installs the pinned golangci-lint binary
+# Runs the curated linter set in .golangci.yml, then the file-size gate
+# (scripts/check-file-size.sh). Installs the pinned golangci-lint binary
 # into $(go env GOPATH)/bin when missing. Always builds with GOTOOLCHAIN=local
 # so the binary matches go.mod's go1.26 toolchain.
 lint:
@@ -189,14 +188,6 @@ bench-engine:
 
 # Compatibility alias for the former target name.
 bench-inprocess: bench-engine
-
-# Public library allocation matrix. Measures Document.WritePDF and
-# ImageDocument.WriteImage without starting a CLI or reading an HTML file from
-# disk. The benchmark constructs the public documents before the timer; public
-# validation, mapping, and the full renderer remain inside the timed calls.
-bench-lib:
-	go test . -run '^$$' -bench '^BenchmarkLibrary(PDF|Image)$$' \
-		-benchmem -benchtime=10x -count=1
 
 # The only Makefile entry for the process-level comparison against installed
 # wkhtmltopdf. Requires `make build` and wkhtmltopdf on PATH. Writes

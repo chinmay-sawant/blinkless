@@ -495,7 +495,7 @@ func hasPotentialChrome(sty *ResolvedStyle, boxNode *box) bool {
 		sty.BorderImageSource != "" {
 		return true
 	}
-	if sty.OutlineWidth > 0 && sty.OutlineStyle != "" && sty.OutlineStyle != cssDisplayNone {
+	if outlinePaints(sty) {
 		return true
 	}
 	if boxNode != nil && isColorSchemeCanvasRoot(boxNode) {
@@ -543,13 +543,13 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty *ResolvedStyle, p
 	var cornerFillHandled, cornerBorderHandled bool
 	if sty.CornerShapeTopLeftKeyword != "" || sty.CornerShapeTopRightKeyword != "" ||
 		sty.CornerShapeBottomRightKeyword != "" || sty.CornerShapeBottomLeftKeyword != "" {
-		shapeK := cornerShapePaintK(*sty)
+		shapeK := cornerShapePaintK(sty)
 		cornerFillOps, cornerBorderOps, cornerFillHandled, cornerBorderHandled = cornerShapePaint(
-			e, boxNode, *sty, posX, posY, width, height, radii, radiiY, shapeK)
+			e, boxNode, sty, posX, posY, width, height, radii, radiiY, shapeK)
 	}
 	if !cornerFillHandled && !cornerBorderHandled && sty.Declared != nil && sty.Declared.BorderShape != "" {
 		cornerFillOps, cornerBorderOps, cornerFillHandled, cornerBorderHandled = borderShapePaint(
-			e, boxNode, *sty, posX, posY, width, height)
+			e, boxNode, sty, posX, posY, width, height)
 	}
 	radius := uniformRadius(radii)
 	// Outset box-shadow paints behind the background so blur rings do not
@@ -557,7 +557,7 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty *ResolvedStyle, p
 	// (CSS Backgrounds §7.1 / fixture-61 box-shadow-position), or the fill
 	// hides them.
 	if sty.BoxShadowSet || sty.BoxShadowRaw != "" {
-		chrome = e.appendBoxShadow(chrome, *sty, posX, posY, width, height, radii, radiiY, false)
+		chrome = e.appendBoxShadow(chrome, sty, posX, posY, width, height, radii, radiiY, false)
 	}
 	if cornerFillHandled {
 		chrome = append(chrome, cornerFillOps...)
@@ -571,7 +571,7 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty *ResolvedStyle, p
 
 		bgClip := sty.BackgroundClip
 		if backgroundClipIsPaddingBox(bgClip) || backgroundClipIsContentBox(bgClip) {
-			cx, cy, cw, ch := resolveBackgroundClipBox(*sty, posX, posY, width, height)
+			cx, cy, cw, ch := resolveBackgroundClipBox(sty, posX, posY, width, height)
 			clip := clipRect{x: cx, y: cy, w: cw, h: ch}
 			if !clip.empty() {
 				clipRectOp(&bgOp, clip)
@@ -594,14 +594,14 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty *ResolvedStyle, p
 		}
 	}
 	if sty.BackgroundImage != "" {
-		chrome = e.appendBackgroundImage(chrome, *sty, posX, posY, width, height)
+		chrome = e.appendBackgroundImage(chrome, sty, posX, posY, width, height)
 	}
 	if sty.BoxShadowSet || sty.BoxShadowRaw != "" {
-		chrome = e.appendBoxShadow(chrome, *sty, posX, posY, width, height, radii, radiiY, true)
+		chrome = e.appendBoxShadow(chrome, sty, posX, posY, width, height, radii, radiiY, true)
 	}
 
 	if sty.BorderImageSource != "" {
-		chrome = e.appendBorderImage(chrome, *sty, posX, posY, width, height)
+		chrome = e.appendBorderImage(chrome, sty, posX, posY, width, height)
 	} else if cornerBorderHandled {
 		chrome = append(chrome, cornerBorderOps...)
 	} else if sty.BorderTop.Width > 0 || sty.BorderRight.Width > 0 ||
@@ -615,8 +615,8 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty *ResolvedStyle, p
 			chrome = e.appendCollapsedOrFullBorderOps(chrome, boxNode, sty, posX, posY, width, height)
 		}
 	}
-	if sty.OutlineWidth > 0 && sty.OutlineStyle != "" && sty.OutlineStyle != cssDisplayNone {
-		if boxNode != nil && outlinePaints(sty) {
+	if outlinePaints(sty) {
+		if boxNode != nil {
 			effW, _ := effectiveOutline(sty)
 			boxNode.outlineInflate = e.scalePt(outlineInflate(effW, sty.OutlineOffset))
 		}

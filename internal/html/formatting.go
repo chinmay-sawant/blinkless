@@ -4,8 +4,6 @@
 // standard's reconstruction and adoption rules. Markers (nil entries)
 // separate the formatting opened inside cells, captions, and
 // applet/marquee/object elements.
-//
-//nolint:all // adoption agency; same custom Node model and conventions as tree.go
 package html
 
 // formattingTags are the elements tracked in the active formatting list.

@@ -1,7 +1,6 @@
 package html
 
 import (
-	"runtime"
 	"strings"
 	"sync"
 
@@ -246,18 +245,6 @@ type elementIndex struct {
 	byID map[string]*html.Node
 }
 
-var (
-	// elementRegistryMu guards the per-document id tables.
-	elementRegistryMu sync.RWMutex                    //nolint:gochecknoglobals // document-keyed registry
-	elementRegistry   = map[*Document]*elementIndex{} //nolint:gochecknoglobals // document-keyed registry
-)
-
-var (
-	// dirtyRegistryMu guards the per-document dirty sets.
-	dirtyRegistryMu sync.RWMutex                     //nolint:gochecknoglobals // document-keyed dirty sets
-	dirtyRegistry   = map[*Document]*html.DirtySet{} //nolint:gochecknoglobals // document-keyed dirty sets
-)
-
 // dirtyFor returns the dirty set for doc, creating it on first use. A nil
 // document gets a detached set so marking helpers never need a nil branch.
 func dirtyFor(doc *Document) *html.DirtySet {
@@ -265,25 +252,22 @@ func dirtyFor(doc *Document) *html.DirtySet {
 		return html.NewDirtySet()
 	}
 
-	dirtyRegistryMu.RLock()
-	set := dirtyRegistry[doc]
-	dirtyRegistryMu.RUnlock()
+	doc.stateMu.RLock()
+	set := doc.dirty
+	doc.stateMu.RUnlock()
 
 	if set != nil {
 		return set
 	}
 
-	dirtyRegistryMu.Lock()
-	defer dirtyRegistryMu.Unlock()
+	doc.stateMu.Lock()
+	defer doc.stateMu.Unlock()
 
-	if set = dirtyRegistry[doc]; set != nil {
-		return set
+	if doc.dirty == nil {
+		doc.dirty = html.NewDirtySet()
 	}
 
-	set = html.NewDirtySet()
-	dirtyRegistry[doc] = set
-
-	return set
+	return doc.dirty
 }
 
 // DirtyIDs returns the dirty element ids in sorted order. The set grows on
@@ -314,9 +298,9 @@ func (d *Document) ClearDirty() {
 		return
 	}
 
-	dirtyRegistryMu.RLock()
-	set := dirtyRegistry[d]
-	dirtyRegistryMu.RUnlock()
+	d.stateMu.RLock()
+	set := d.dirty
+	d.stateMu.RUnlock()
 
 	if set == nil {
 		return
@@ -372,47 +356,29 @@ func markTextChain(set *html.DirtySet, node *html.Node, elementID string) {
 	}
 }
 
-// elementIndexFor returns the lookup table for d, building it on first use.
-// The table lives beside the document (keyed by it) because Document is
-// defined in parse.go and this file may not grow it.
+// elementIndexFor returns the lookup table for doc, building it on first use.
 func elementIndexFor(doc *Document) *elementIndex {
-	elementRegistryMu.RLock()
-	idx := elementRegistry[doc]
-	elementRegistryMu.RUnlock()
+	doc.stateMu.RLock()
+	idx := doc.index
+	doc.stateMu.RUnlock()
 
 	if idx != nil {
 		return idx
 	}
 
-	elementRegistryMu.Lock()
-	defer elementRegistryMu.Unlock()
+	doc.stateMu.Lock()
+	defer doc.stateMu.Unlock()
 
-	if idx = elementRegistry[doc]; idx != nil {
-		return idx
+	if doc.index != nil {
+		return doc.index
 	}
 
 	idx = new(elementIndex)
 	idx.byID = map[string]*html.Node{}
 	idx.build(doc.root)
-	elementRegistry[doc] = idx
-
-	// Drop the table when the document goes away so parsed-and-discarded
-	// pages do not pin their id maps.
-	runtime.SetFinalizer(doc, dropElementIndex)
+	doc.index = idx
 
 	return idx
-}
-
-// dropElementIndex forgets the lookup table and the dirty set for a collected
-// document.
-func dropElementIndex(doc *Document) {
-	elementRegistryMu.Lock()
-	delete(elementRegistry, doc)
-	elementRegistryMu.Unlock()
-
-	dirtyRegistryMu.Lock()
-	delete(dirtyRegistry, doc)
-	dirtyRegistryMu.Unlock()
 }
 
 // build fills the table from root in document order, keeping the first

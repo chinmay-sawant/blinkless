@@ -156,7 +156,7 @@ func (g *generator) render(eqTerms, hashLines, fieldNames []string) ([]byte, err
 
 	g.renderHeader(&buf)
 	buf.WriteString(primitiveHelpers)
-	renderEqual(&buf, eqTerms)
+	renderEqual(&buf, eqTerms, fieldNames)
 	renderFingerprint(&buf, hashLines)
 	renderFields(&buf, fieldNames)
 
@@ -192,7 +192,50 @@ func (g *generator) renderHeader(buf *bytes.Buffer) {
 	buf.WriteString("\tstyleInternPrime = uint64(1099511628211)\n)\n\n")
 }
 
-func renderEqual(buf *bytes.Buffer, eqTerms []string) {
+func renderEqual(buf *bytes.Buffer, eqTerms, fieldNames []string) {
+	bgIndex := -1
+
+	for i, name := range fieldNames {
+		if name == "BGColor" {
+			bgIndex = i
+
+			break
+		}
+	}
+
+	if bgIndex >= 0 {
+		buf.WriteString("// styleInternEqualExceptBG reports exact semantic equality of two stored\n")
+		buf.WriteString("// styles ignoring BGColor. Used by paint-only background restyling so it\n")
+		buf.WriteString("// covers every ResolvedStyle field without copying or reflect.DeepEqual.\n")
+		buf.WriteString("func styleInternEqualExceptBG(a, b *ResolvedStyle) bool {\n")
+		buf.WriteString("\tif a == b {\n\t\treturn true\n\t}\n\n")
+		buf.WriteString("\treturn ")
+
+		written := 0
+
+		for i, term := range eqTerms {
+			if i == bgIndex {
+				continue
+			}
+
+			if written > 0 {
+				buf.WriteString(" &&\n\t\t")
+			}
+
+			buf.WriteString(term)
+			written++
+		}
+
+		buf.WriteString("\n}\n\n")
+		buf.WriteString("// styleInternEqual reports exact semantic equality of two stored styles.\n")
+		buf.WriteString("// It compares every ResolvedStyle field, slice, and map by value.\n")
+		buf.WriteString("func styleInternEqual(a, b *ResolvedStyle) bool {\n")
+		buf.WriteString("\tif a == b {\n\t\treturn true\n\t}\n\n")
+		buf.WriteString("\treturn " + eqTerms[bgIndex] + " && styleInternEqualExceptBG(a, b)\n}\n\n")
+
+		return
+	}
+
 	buf.WriteString("// styleInternEqual reports exact semantic equality of two stored styles.\n")
 	buf.WriteString("// It compares every ResolvedStyle field, slice, and map by value.\n")
 	buf.WriteString("func styleInternEqual(a, b *ResolvedStyle) bool {\n")

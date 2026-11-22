@@ -17,6 +17,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"strconv"
 	"strings"
@@ -291,10 +292,9 @@ func CloneResult(res *Result) *Result {
 	clone.refs = 0
 	clone.Ops = cloneOps(res.Ops)
 	clone.ownsOps = clone.Ops != nil
-	// A clone starts without the source's raster cache instead of sharing a
-	// mutable map of payloads.
-	clone.svgRasters = nil
-	clone.overrideBase = nil
+	clone.styles = maps.Clone(res.styles)
+	clone.styleChunks, clone.storeChunks = nil, nil
+	clone.svgRasters, clone.overrideBase = nil, nil
 
 	boxes := getCloneBoxMap(len(res.boxes))
 	defer putCloneBoxMap(boxes)
@@ -1156,14 +1156,11 @@ func (e *engine) pushZ(style *ResolvedStyle, owner *ResolvedStyle) blendScope {
 		prevGroupOwner: e.blendGroupOwner,
 		beginMark:      -1,
 	}
-	createsGroupContext := style.MixBlendMode != blendNormal || style.Isolation == unicodeBidiIsolate ||
-		maskGroupRequested(style)
-
 	if style.Position == positionAbsolute || style.Position == positionFixed {
 		e.positioned = true
 	}
 
-	e.enterStackingContext(style, createsGroupContext)
+	e.enterStackingContext(style, initiatesBlendGroup(style))
 	e.enterBlendIsolation(style, owner)
 
 	if e.blendGroup != prev.prevGroup {
@@ -1180,8 +1177,9 @@ func (e *engine) enterStackingContext(style *ResolvedStyle, createsGroupContext 
 	if style.ZIndexSet {
 		e.zIndex = style.ZIndex
 		e.zIndexSet = true
-	} else if style.HasTransform || style.Opacity < 1 || createsGroupContext {
-		// CSS: transform, opacity, blend, and isolation create a stacking context.
+	} else if !e.zIndexSet && (style.HasTransform || style.Opacity < 1 || createsGroupContext) {
+		// CSS: transform, opacity, blend, isolation, and backdrop-filter create
+		// a stacking context; keep an ancestor's explicit z-index band when set.
 		e.zIndex = 0
 		e.zIndexSet = true
 	}

@@ -72,6 +72,8 @@ func RelayoutElements(
 
 	batch, err := ilayout.RelayoutSubtrees(ctx, clone, elementIDs, baseOpts, owners, order)
 	if err != nil {
+		clone.Release()
+
 		if errors.Is(err, ilayout.ErrBatchUnknownID) {
 			return nil, ErrNoElement
 		}

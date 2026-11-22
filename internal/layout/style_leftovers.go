@@ -1,4 +1,3 @@
-//nolint:all // centralized property dispatch for Wave 80.5
 package layout
 
 import (

@@ -145,8 +145,8 @@ skip long perf tests (`make test-quick`), or fall back to single-threaded
 Run targeted single-package tests during a session (`go test ./internal/<pkg>`
 or `go test ./internal/<pkg> -run '<TestName>'`); run the full gate set once
 at session end before claiming done. GitHub CI (`.github/workflows/ci.yml`)
-runs only `make test` and `make lint`. It does not run claim-scan,
-catalog-check, matrix-check, race, wasm, or final-evidence.
+runs `make test`, `make test-race`, `make claim-scan`, `make catalog-check`,
+`make matrix-check`, and `make lint`. It does not run wasm or final-evidence.
 
 ## Things to AVOID (paid-for lessons)
 
@@ -243,12 +243,10 @@ catalog-check, matrix-check, race, wasm, or final-evidence.
 
 ## Code structure
 
-- **File size soft limit: ~2,000 lines.** One file exceeds it today:
-  `internal/layout/layout.go` (2,267). `internal/layout/inline_paint.go`
-  dropped under the limit when inline image emission moved to
-  `internal/layout/inline_image.go`. Do not grow the over-limit file
-  further; extract a cohesive piece into a same-package file whenever you
-  touch it.
+- **File size soft limit: ~2,000 lines.** Over-limit files are tracked in
+  `scripts/file-size-allowlist.txt` (currently nine files). Do not grow
+  over-limit files further; extract a cohesive piece into a same-package file
+  whenever you touch one.
   No new file crosses the limit without a written reason. `make size-check`
   scans every non-pruned `.go` file, test files included, and fails when the
   tree disagrees with `scripts/file-size-allowlist.txt`, the single source of

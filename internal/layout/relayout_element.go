@@ -111,16 +111,14 @@ func RelayoutSubtreeWithOverrides(
 	restoreOverrideStyles(styles, restore)
 	restoreOverrideBoxStyles(newBox, restore)
 
-	start, oldCount, err := relayoutWindow(prev, target)
+	start, oldCount, err := relayoutGroupWindow(prev, target)
 	if err != nil {
 		return nil, err
 	}
 
 	oldMax, oldFrag := censusOpsWindow(prev.Ops, start, oldCount)
 
-	if err := commitOverridePatch(prev, target, newBox, newOps, styles, start, oldMax, oldFrag); err != nil {
-		return nil, err
-	}
+	commitOverridePatch(prev, target, newBox, newOps, styles, start, oldCount, oldMax, oldFrag)
 
 	keepOverrideBase(prev, target.box.node, relayoutParentStyle(target), opts, styles)
 
@@ -155,18 +153,13 @@ func resolveOverrideTarget(prev *Result, node *html.Node) (*relayoutTarget, erro
 // retained census, style store, and op-ID high-water state.
 func commitOverridePatch(
 	prev *Result, target *relayoutTarget, newBox *box, newOps []Op,
-	styles map[*html.Node]*ResolvedStyle, start int, oldMax float64, oldFrag bool,
-) error {
-	if err := spliceOverridePatch(prev, target, newBox, newOps); err != nil {
-		return err
-	}
-
+	styles map[*html.Node]*ResolvedStyle, start, oldCount int, oldMax float64, oldFrag bool,
+) {
+	spliceOverridePatch(prev, target, newBox, newOps, start, oldCount)
 	relayoutKeepBoxes(prev)
 	relayoutKeepStyles(prev, styles)
 	refreshCensusSpliced(prev, oldMax, oldFrag, start, len(newOps))
 	storeOpIDHighWater(prev, newOps)
-
-	return nil
 }
 
 // buildOverrideTarget builds the target's subtree with the element's
@@ -208,12 +201,7 @@ func buildOverrideTarget(
 // subtree's operations and puts the new box tree in the target's place. It is
 // the splice RelayoutSubtree uses, scoped to the target the override pass
 // re-placed.
-func spliceOverridePatch(prev *Result, target *relayoutTarget, newBox *box, newOps []Op) error {
-	start, oldCount, err := relayoutWindow(prev, target)
-	if err != nil {
-		return err
-	}
-
+func spliceOverridePatch(prev *Result, target *relayoutTarget, newBox *box, newOps []Op, start, oldCount int) {
 	delta := len(newOps) - oldCount
 
 	relayoutSpliceOps(prev, start, oldCount, newOps)
@@ -221,8 +209,6 @@ func spliceOverridePatch(prev *Result, target *relayoutTarget, newBox *box, newO
 	relayoutSwapBox(target, newBox)
 	relayoutShiftRanges(prev.boxTreeRoot(), newBox, start, start+oldCount-1, delta)
 	unionChildOpRanges(prev.boxTreeRoot())
-
-	return nil
 }
 
 // overridePatchTarget returns the box the override patch re-places. An in-flow

@@ -421,16 +421,19 @@ func resolveCircleRadius(radius clipPathLength, cx, cy, w, h float64) float64 {
 	}
 }
 
+func resolveEllipseAxis(radius clipPathLength, center, span float64) float64 {
+	switch radius.keyword {
+	case "closest-side":
+		return math.Min(center, span-center)
+	case "farthest-side":
+		return math.Max(center, span-center)
+	default:
+		return radius.resolve(span)
+	}
+}
+
 func resolveEllipseRadii(rx, ry clipPathLength, cx, cy, w, h float64) (float64, float64) {
-	if rx.keyword == "farthest-side" || ry.keyword == "farthest-side" {
-		return math.Max(cx, w-cx), math.Max(cy, h-cy)
-	}
-
-	if rx.keyword == "closest-side" || ry.keyword == "closest-side" {
-		return math.Min(cx, w-cx), math.Min(cy, h-cy)
-	}
-
-	return rx.resolve(w), ry.resolve(h)
+	return resolveEllipseAxis(rx, cx, w), resolveEllipseAxis(ry, cy, h)
 }
 
 func polygonContains(points []clipPathPoint, fillRule string, x, y, w, h float64) bool {
@@ -531,9 +534,7 @@ func maskImageWithClipPath(
 		return nil
 	}
 
-	storeClipPathMaskCache(cacheKey, out)
-
-	return out
+	return storeClipPathMaskCache(cacheKey, out)
 }
 
 func insetSubpixelCount(p0, p1, lo, hi float64) int {

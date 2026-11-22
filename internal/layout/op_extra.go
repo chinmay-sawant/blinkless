@@ -500,12 +500,13 @@ func decorateTextOp(paintOp Op, sty *ResolvedStyle) Op {
 	return paintOp
 }
 
-// cloneOpExtraInto copies src into dst the way cloneOpExtra does: the image
-// bytes and the corner path are owned by the copy, every other field is
-// copied by value. cloneOps points dst at a slab slot instead of a fresh
-// allocation.
+// cloneOpExtraInto copies src into dst the way detachedExtraCopy does: the
+// image bytes, display path points, and corner path are owned by the copy,
+// every other field is copied by value. cloneOps points dst at a slab slot
+// instead of a fresh allocation.
 func cloneOpExtraInto(dst, src *opExtra) {
 	*dst = *src
 	dst.Image = append([]byte(nil), src.Image...)
+	dst.Path.Points = append([]DisplayPoint(nil), src.Path.Points...)
 	dst.CornerPath = cloneCornerPath(src.CornerPath)
 }

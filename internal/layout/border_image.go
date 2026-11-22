@@ -198,9 +198,9 @@ type borderImageDimension struct {
 // Implements basic 9-slice: outset expands bounds, slice determines corner/edge
 // geometry, width determines border thickness, repeat controls stretch vs tiled edges.
 func (e *engine) appendBorderImage(
-	dst []Op, sty ResolvedStyle, posX, posY, width, height float64,
+	dst []Op, sty *ResolvedStyle, posX, posY, width, height float64,
 ) []Op {
-	if sty.BorderImageSource == "" || width <= 0 || height <= 0 {
+	if sty == nil || sty.BorderImageSource == "" || width <= 0 || height <= 0 {
 		return dst
 	}
 
@@ -240,7 +240,7 @@ func (e *engine) appendBorderImage(
 
 // borderWidthsOf reads the painted widths of the four borders in top, right,
 // bottom, left order.
-func borderWidthsOf(sty ResolvedStyle) [4]float64 {
+func borderWidthsOf(sty *ResolvedStyle) [4]float64 {
 	return [4]float64{
 		borderPaint(sty.BorderTop), borderPaint(sty.BorderRight),
 		borderPaint(sty.BorderBottom), borderPaint(sty.BorderLeft),

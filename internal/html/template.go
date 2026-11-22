@@ -2,8 +2,6 @@
 // "after frameset", and "after after frameset", plus the template insertion
 // mode stack and contents helpers. These states extend the mode skeleton in
 // tree.go; the custom Node model and recovery conventions are shared.
-//
-//nolint:all // template/frameset insertion modes; same conventions as tree.go
 package html
 
 func (b *treeBuilder) processInTemplate(tokItem *token) bool {
