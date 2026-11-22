@@ -27,10 +27,21 @@ type relayoutBuiltTarget struct {
 // change the host must handle: the original errSubtreeResized is what a full
 // layout resolves. Anything else (context, engine) is reported as is, and a
 // first attempt that never resized keeps its own error.
-//
-//nolint:cyclop // the retry loop repeats the same guarded build for a wider target
 func relayoutBuildEscalating(
 	ctx context.Context, prev *Result, target *relayoutTarget, opts Options,
+) (*relayoutBuiltTarget, error) {
+	return relayoutBuildEscalatingWith(ctx, prev, target, opts, nil)
+}
+
+// relayoutBuildEscalatingWith is relayoutBuildEscalating with the first
+// attempt's subtree styles already resolved. A caller that resolved them to
+// try the paint restyle passes them here, so a declined attempt does not
+// resolve the same subtree twice. Wider targets resolve their own.
+//
+//nolint:cyclop // the retry loop repeats the same guarded build for a wider target
+func relayoutBuildEscalatingWith(
+	ctx context.Context, prev *Result, target *relayoutTarget, opts Options,
+	first map[*html.Node]*ResolvedStyle,
 ) (*relayoutBuiltTarget, error) {
 	var firstResize error
 
@@ -47,7 +58,13 @@ func relayoutBuildEscalating(
 			return nil, escalatingError(firstResize, err)
 		}
 
-		styles, err := relayoutSubtreeStyles(ctx, prev, target, target.box.node, opts)
+		styles, err := first, error(nil)
+		first = nil
+
+		if styles == nil {
+			styles, err = relayoutSubtreeStyles(ctx, prev, target, target.box.node, opts)
+		}
+
 		if err != nil {
 			return nil, escalatingError(firstResize, err)
 		}

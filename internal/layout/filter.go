@@ -408,6 +408,12 @@ func applyImageFilterToImageWithInterp(imgBytes []byte, filters []parsedFilter, 
 		return imgBytes
 	}
 
+	linear := filterUsesLinearLight(interp)
+	cacheKey := makeImageFilterCacheKey(imgBytes, filters, linear)
+	if cached, ok := lookupImageFilterCache(cacheKey); ok {
+		return cached
+	}
+
 	srcImg, err := decodeImageBytes(imgBytes)
 	if err != nil {
 		return imgBytes
@@ -416,7 +422,6 @@ func applyImageFilterToImageWithInterp(imgBytes []byte, filters []parsedFilter, 
 	nrgba := toNRGBA(srcImg)
 	bounds := nrgba.Bounds()
 	w, h := bounds.Dx(), bounds.Dy()
-	linear := filterUsesLinearLight(interp)
 
 	for _, f := range filters {
 		switch f.kind {
@@ -443,7 +448,9 @@ func applyImageFilterToImageWithInterp(imgBytes []byte, filters []parsedFilter, 
 	if err := pooledPNGEncoder.Encode(&out, nrgba); err != nil {
 		return imgBytes
 	}
-	return out.Bytes()
+	res := out.Bytes()
+	storeImageFilterCache(cacheKey, res)
+	return res
 }
 
 // applyGrayscaleInSpace mixes each pixel toward its luminance. In gamma space

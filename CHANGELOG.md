@@ -12,6 +12,7 @@ and are not listed here.
 Tracked in [`plans/v0.1.2/`](plans/v0.1.2/README.md).
 
 ### Added
+- **Font feature tests.** `internal/layout/font_feature_settings_test.go` pins how `font-feature-settings`, `font-kerning`, `font-variant-ligatures` and the `font-variant` shorthand reach `Op.FontFeatures`: double and single quoted tags, `on` and `off`, a bare tag, uppercase tags, numeric values, `normal`, invalid entries, inheritance, and font-feature-settings winning a tag collision with `font-variant-*`. No engine change. A declaration such as `font-feature-settings:"liga" 0` inside a double-quoted `style="..."` attribute loses its value because the HTML parser ends the attribute at the first inner double quote; use a single-quoted attribute, single-quoted tags, or a style sheet.
 - Store and export 61 more properties as `Box.Declared`: caret, `nav-*`, `spatial-navigation-*`, reading order, draft borders, motion path, bookmarks, and the SVG leftovers. The engine acts on 20 of them and the OwnFrame host acts on 20 more (caret, `nav-*`, `spatial-navigation-*`, slider, window drag, appearance, user-select, text-size-adjust, image-animation, field-sizing, will-change, input-security): the `border-*-clip` family, `border-limit`, `column-rule-visibility-items`, `offset-distance`, `offset-rotate`, `offset-anchor`, `bookmark-*` (through `layout.Outline`), and `block-ellipsis`. The other 21 are `partial`. The OwnFrame example `blinkless-all` shows them in six tabs.
 
 - **Timeline, trigger, interest, and interactivity export.** The engine
@@ -29,6 +30,71 @@ Tracked in [`plans/v0.1.2/`](plans/v0.1.2/README.md).
   timeline names the scroll container it reads in `TimelineDef.ScrollerID`,
   or sets `ScrollerAnonymous` when that container has no id. These ten rows
   are now `implemented`. Tests are in `layout/timeline_list_test.go`.
+
+- **Paint restyle for background-color changes.** `layout.RelayoutElements`
+  no longer lays out an element whose only change is the background color of
+  boxes it already placed. A hover on a 64-card glass grid (`rgba` fill,
+  `backdrop-filter`, shadow, border) went from about 4,800 allocations and
+  3.0 MB per patch to 134 allocations and 1.1 MB: the batch resolves the new
+  subtree styles, proves each changed element differs only in `BGColor`,
+  that it is a plain block-level box with one solid unclipped fill the
+  kept window holds exactly once, and that the DOM and text are unchanged,
+  then rewrites that fill's color in its private copy. Anything else falls
+  through to the ordinary relayout. The code is `internal/layout/paint_restyle.go`,
+  and `layout/relayout_paint_restyle_test.go` compares every case with a full
+  layout and with the forced slow path, including a seeded random chain. Only
+  `background-color` is on the allow list; `color`, borders, and outlines
+  move text and `currentColor` consumers and stay on the full build.
+- **Cloned operation payloads come from one slab.** `CloneResult` allocated one
+  payload per operation on every patch. `cloneOps` now carves them from a single
+  slice, so a patch of a 1,216-operation page makes about 1,200 fewer
+  allocations. A clone still owns every payload; `internal/layout/clone_ops_slab_test.go`
+  pins that.
+
+### Changed
+- **Layout animations reuse base styles between frames.** Layout overrides
+  such as animated `margin-left` reuse the containing block's resolved
+  styles while the inputs and retained styles still match. Each frame
+  still lays out the block with the new value so its siblings can move.
+- **Image filter and clip-path mask raster caching.** `applyImageFilterToImageWithInterp`
+  and `maskImageWithClipPath` now cache encoded PNG outputs in bounded
+  process-wide caches keyed by SHA-256 of the source bytes, relative
+  box geometry, and canonical filter/shape signatures, plus a direct-`Pix`
+  fast path for `clip-path: inset(...)`. Cuts 64-node `linear-gradient` +
+  `clip-path` build from 42.33 ms to 0.96 ms (44x faster, 48x less memory)
+  and `linear-gradient` + `filter: blur(4px)` from 12.03 ms to 0.77 ms
+  (15.7x faster).
+- **Zero-copy ASCII word breaking and pointer `ResolvedStyle`.** `(*engine).breakToken`
+  now takes `*ResolvedStyle` instead of copying the struct by value, and
+  `splitTextToWidthASCII` slices ASCII tokens directly without `[]rune`
+  allocations. Cuts 64-node narrow `width` / `max-width` memory by 77%
+  (3.23 MB to 731 KB) and latency by ~1.8x.
+
+### Fixed
+- **Explicit font kerning changes text width.** `font-kerning: normal` and
+  an explicit OpenType `kern` setting can now tighten or widen the layout
+  to match the kerning used by a shaping host. `font-kerning: auto` keeps
+  its existing layout widths.
+
+- **Grouped element patches replace their group markers.** Patching an
+  element with a backdrop filter, blend mode, or isolation no longer
+  adds another pair of group markers on every hover. This applies to
+  both single-element and batch relayout.
+
+- **Element patch ignored the root's own margin change.** `RelayoutElement`
+  and `RelayoutElements` rebuilt a patched element at its old border box, and
+  the engine applies top and bottom margins when the parent places a block, so
+  a standalone build never saw them. A hover rule such as
+  `#a:hover{margin-top:8px}`, `margin-bottom`, `margin-block*`, or a flex
+  item's `margin-right` was accepted with the box left in place, the siblings
+  unmoved, and the container the old size. `relayoutBuild` now compares the
+  element's margins with the style its kept placement was built with
+  (`prev.styles`, with `auto` compared by flag) and reports a change as
+  `errSubtreeResized`. The escalation then re-lays out the holder when the
+  holder keeps its size, and the call returns an error for a full layout when
+  it does not. Tests are in `layout/relayout_root_margin_test.go`: flex and
+  block parents, fixed and growing holders, ten margin spellings, enter and
+  leave.
 
 ## 0.1.1 (2026-11-10)
 

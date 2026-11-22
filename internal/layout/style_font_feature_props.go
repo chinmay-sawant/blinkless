@@ -402,8 +402,11 @@ func fontShapingFeatureSettings(sty *ResolvedStyle) string {
 		tags[tag] = val
 	}
 
-	if sty.FontKerning == fontKerningNone {
+	switch sty.FontKerning {
+	case fontKerningNone:
 		put("kern", 0)
+	case fontKerningNormal:
+		put("kern", 1)
 	}
 
 	appendVariantFeatureTags(sty, put)

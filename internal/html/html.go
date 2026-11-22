@@ -49,6 +49,9 @@ type Node struct {
 	Type      NodeType
 	Namespace Namespace
 	Mode      DocumentMode // document mode; only meaningful on the root
+	// MutationVersion changes when the public HTML document edits this tree.
+	// It is stored on the document root.
+	MutationVersion uint64
 }
 
 // AttrKey returns the canonical lookup key for a stored Attr (Name for ordinary

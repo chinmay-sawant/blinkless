@@ -63,11 +63,37 @@ func cloneOps(src []Op) []Op {
 	dst := rentOpSlice(len(src), capacity)
 	copy(dst, src)
 
-	for i := range src {
-		if src[i].opExtra != nil {
-			dst[i].opExtra = cloneOpExtra(src[i].opExtra)
+	// Every payload the clone must own comes out of one slab. A page of
+	// thousands of operations then pays one allocation for the payloads
+	// instead of one per operation, and the collector scans one object.
+	slab := make([]opExtra, countOwnedExtras(src))
+	next := 0
+
+	for index := range src {
+		extra := src[index].opExtra
+		if extra == nil || extra == emptyExtra {
+			continue
 		}
+
+		cloneOpExtraInto(&slab[next], extra)
+		dst[index].opExtra = &slab[next]
+		next++
 	}
 
 	return dst
+}
+
+// countOwnedExtras counts the operations whose payload is a real, unshared
+// extra: the ones cloneOps must copy. A nil payload and the shared empty
+// singleton stay as they are.
+func countOwnedExtras(ops []Op) int {
+	count := 0
+
+	for i := range ops {
+		if extra := ops[i].opExtra; extra != nil && extra != emptyExtra {
+			count++
+		}
+	}
+
+	return count
 }

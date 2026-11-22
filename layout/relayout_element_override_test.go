@@ -482,3 +482,28 @@ func assertDisplayUnchanged(
 		t.Fatal("a refused call changed the display boxes")
 	}
 }
+
+// A DOM edit can change selector matches while retained style pointers stay
+// the same. The next override frame must read the edited styles.
+func TestRelayoutElementWithOverridesReadsDOMEdits(t *testing.T) {
+	t.Parallel()
+
+	doc, styled := overridePage(t, overrideFlexSource)
+	first, err := layout.RelayoutElementWithOverrides(t.Context(), styled, layRetained(t, styled), "card",
+		[]layout.Override{{ElementID: "card", Property: "margin-left", Value: "4px"}}, layout.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !doc.SetAttribute("tail", "style", "width:80px") {
+		t.Fatal("could not edit tail")
+	}
+
+	second, err := layout.RelayoutElementWithOverrides(t.Context(), styled, first.Display, "card",
+		[]layout.Override{{ElementID: "card", Property: "margin-left", Value: "8px"}}, layout.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertCSSPixels(t, "edited sibling width", boxByID(t, second.Display, "tail").W, 80)
+}

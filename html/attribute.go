@@ -43,6 +43,8 @@ func (d *Document) SetAttribute(elementID, name, value string) bool {
 	node.Attrs[key] = value
 	setAttrListValue(node, key, value)
 
+	d.root.MutationVersion++
+
 	// The element's identity changed. Drop the cached resolutions that may
 	// now point at the wrong node; the next lookup re-resolves by walk.
 	// Identity edits are rare, so lazy repair keeps the common path O(1).
@@ -102,6 +104,7 @@ func (d *Document) SetText(elementID, text string) bool {
 	}
 
 	structural := setTextLocked(idx, node, text)
+	d.root.MutationVersion++
 
 	// The write landed: the target and the chain up to the nearest block are
 	// dirty, because new text can resize the line and shift siblings. Only a

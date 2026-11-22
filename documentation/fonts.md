@@ -122,6 +122,11 @@ that shaper; text operations carry the shaped run and the face reference.
   `font-kerning`, and `font-variant-caps` are Implemented (subset): the
   tags and keywords reach the shaper
   (`internal/layout/style_font_feature_props.go`).
+- **Explicit kerning:** `font-kerning: normal` and an enabled OpenType
+  `kern` setting include kerning in horizontal text widths and line fit.
+  A `kern` tag in `font-feature-settings` takes precedence. The default
+  `font-kerning: auto` keeps the original layout widths. Runs with
+  nonzero letter spacing use individual glyph advances.
 
 ## Image payloads
 

@@ -122,6 +122,8 @@ func RelayoutSubtreeWithOverrides(
 		return nil, err
 	}
 
+	keepOverrideBase(prev, target.box.node, relayoutParentStyle(target), opts, styles)
+
 	return elementSubtreeResult(prev, elementBox, styles), nil
 }
 
@@ -297,10 +299,16 @@ func overrideSubtreeStyles(
 	opts Options,
 ) (map[*html.Node]*ResolvedStyle, map[*html.Node]*ResolvedStyle, *ResolvedStyle, error) {
 	styleCtx := relayoutOverrideStyleContext(ctx, prev, opts)
+	parent := relayoutParentStyle(target)
 
-	styles, err := resolveOverrideStyles(styleCtx, target.box.node, relayoutParentStyle(target))
-	if err != nil {
-		return nil, nil, nil, err
+	styles := takeOverrideBase(prev, target.box.node, parent, opts)
+	if styles == nil {
+		var err error
+
+		styles, err = resolveOverrideStyles(styleCtx, target.box.node, parent)
+		if err != nil {
+			return nil, nil, nil, err
+		}
 	}
 
 	base := styles[node]

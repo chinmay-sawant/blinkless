@@ -36,6 +36,9 @@ type textMeasureDesc struct {
 	tabBits     uint64
 	tabIsLength bool
 	autospace   bool
+
+	kernFeatures string
+	kernLanguage string
 }
 
 // measureStyleTable interns descriptors to stable IDs. IDs start at 1; 0 is
@@ -131,6 +134,12 @@ func (e *engine) cachedMeasureStyleID(sty *ResolvedStyle, sizeBits uint64) (uint
 func measureStyleDescOf(sty *ResolvedStyle, primary *pdf.Font, sizeBits uint64) textMeasureDesc {
 	optical, variations, opticalSize := variationCacheBits(sty)
 
+	kernFeatures, kernLanguage := "", ""
+	if kernTextWidth(sty) {
+		kernFeatures = fontShapingFeatureSettings(sty)
+		kernLanguage = fontShapingLanguage(sty)
+	}
+
 	return textMeasureDesc{
 		face:        primary,
 		famHash:     sty.famHash,
@@ -146,6 +155,9 @@ func measureStyleDescOf(sty *ResolvedStyle, primary *pdf.Font, sizeBits uint64) 
 		tabBits:     math.Float64bits(sty.TabSize),
 		tabIsLength: isTabSizeLength(sty),
 		autospace:   autospaceIdeographAlpha(sty.TextAutospace),
+
+		kernFeatures: kernFeatures,
+		kernLanguage: kernLanguage,
 	}
 }
 

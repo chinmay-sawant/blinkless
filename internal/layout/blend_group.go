@@ -84,6 +84,11 @@ type MaskLayer struct {
 	Clip      string
 }
 
+func initiatesBlendGroup(style *ResolvedStyle) bool {
+	return style != nil && (nonNormalBlendMode(style.MixBlendMode) != "" ||
+		style.Isolation == "isolate" || maskGroupRequested(style) || hasBackdropFilter(style.BackdropFilter))
+}
+
 // IsGroupBegin reports whether the operation opens a blend group.
 func (op *Op) IsGroupBegin() bool {
 	return op.GroupBoundary() == groupMarkBegin

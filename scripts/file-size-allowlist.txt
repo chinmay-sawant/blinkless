@@ -6,12 +6,12 @@
 # Format: <repo-relative path><TAB><line count>, one entry per line.
 # Enforced by scripts/check-file-size.sh via `make size-check`, which `make lint`
 # calls, so CI fails when this list drifts from the tree.
-internal/html/html.go	2017
+internal/html/html.go	2020
 internal/html/tree.go	2169
 internal/layout/flex.go	2207
-internal/layout/inline_paint.go	2121
-internal/layout/layout.go	2599
-internal/layout/relayout_subtree.go	2893
+internal/layout/inline_paint.go	2129
+internal/layout/layout.go	2603
+internal/layout/relayout_subtree.go	2956
 internal/layout/style_cascade.go	2279
 internal/layout/style_value_accept.go	2053
 internal/layout/transform.go	2032

@@ -38,6 +38,17 @@ import (
 // the single display build: the cascade is resolved once per subtree from
 // the same document, the owners and order move incrementally, and the
 // display materializes once, with no per-call host round trip.
+//
+// An id whose only change is the background color of boxes the retained
+// placement already holds, such as a hover that moves a card's fill, skips
+// layout entirely. The batch resolves the new styles, proves that every
+// changed element differs from its kept style in the background color alone,
+// that each changed element is a plain block-level box with one solid fill, and
+// that the DOM and text below it are unchanged, then rewrites that fill's
+// color in the batch's private copy. Any doubt, such as a second change, an
+// image, a table, a replaced box, or a child that paints the same color, sends
+// the id through the ordinary relayout, so the result is the one the ordinary
+// path gives.
 func RelayoutElements(
 	ctx context.Context, doc *css.Document, prev *Display, elementIDs []string, options Options,
 ) (*Display, error) {
@@ -69,9 +80,10 @@ func RelayoutElements(
 	}
 
 	// The batch ran one engine pass per id, the count the per-element
-	// options build used to report. The font skips count the patched
+	// options build used to report, except for the ids the paint restyle
+	// patched without the engine. The font skips count the patched
 	// subtrees that shape no text.
-	atomic.AddInt64(&relayoutEngineCalls, int64(len(elementIDs)))
+	atomic.AddInt64(&relayoutEngineCalls, int64(len(elementIDs)-batch.Restyled))
 	atomic.AddInt64(&relayoutFontSkips, int64(batch.Textless))
 
 	// One display build materializes the patched placement; the owners and
