@@ -57,18 +57,10 @@ func applyCornerSideShorthand(style *ResolvedStyle, prop, value string, fsize fl
 		return true
 	}
 
-	firstX, firstY, secondX, secondY, targetsOK := cornerSideRadiusTargets(style, prop)
-	if !targetsOK {
-		return true
-	}
-
 	if radiusPiece == "" {
-		setCornerRadius(style, firstX, firstY, "0", fsize)
-		setCornerRadius(style, secondX, secondY, "0", fsize)
-	} else {
-		setCornerRadius(style, firstX, firstY, radiusPiece, fsize)
-		setCornerRadius(style, secondX, secondY, radiusPiece, fsize)
+		radiusPiece = "0"
 	}
+	setCornerRadii(style.editBorders(), first, second, radiusPiece, fsize)
 
 	cornerSideApplyShapes(style, first, second, shapeKs, shapeKeywords)
 
@@ -135,27 +127,6 @@ func cornerSideCorners(prop string) (string, string, bool) {
 	default:
 		return "", "", false
 	}
-}
-
-// cornerSideRadiusTargets maps a side shorthand to the two corner radius
-// field pairs its radius piece writes, reusing the same fixed corner map
-// as the shape pair.
-func cornerSideRadiusTargets(
-	style *ResolvedStyle, prop string,
-) (*float64, *float64, *float64, *float64, bool) {
-	first, second, ok := cornerSideCorners(prop)
-	if !ok {
-		return nil, nil, nil, nil, false
-	}
-
-	firstX, firstY, ok1 := borderRadiusFields(style, first)
-	secondX, secondY, ok2 := borderRadiusFields(style, second)
-
-	if !ok1 || !ok2 {
-		return nil, nil, nil, nil, false
-	}
-
-	return firstX, firstY, secondX, secondY, true
 }
 
 // splitCornerSidePieces partitions a side shorthand value into its radius

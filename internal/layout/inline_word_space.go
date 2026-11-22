@@ -43,7 +43,7 @@ func applyWordSpaceTransformProps(
 	}
 
 	if next, ok := resolveWordSpaceTransform(value, parent, hasParent); ok {
-		style.WordSpaceTransform = next
+		style.editInlineText().WordSpaceTransform = next
 	}
 
 	return true
@@ -61,8 +61,8 @@ func wordSpaceTransformValueAccepted(value string) bool {
 // is outside the grammar, so the caller keeps the previous value.
 func resolveWordSpaceTransform(value string, parent *ResolvedStyle, hasParent bool) (string, bool) {
 	parentValue := wordSpaceTransformNone
-	if hasParent && parent != nil && parent.WordSpaceTransform != "" {
-		parentValue = parent.WordSpaceTransform
+	if hasParent && parent != nil && parent.inlineText().WordSpaceTransform != "" {
+		parentValue = parent.inlineText().WordSpaceTransform
 	}
 
 	if used, ok := cssWideValue(value, parentValue, wordSpaceTransformNone, hasParent); ok {
@@ -119,7 +119,7 @@ func wordSpaceReplacement(style *ResolvedStyle) rune {
 		return 0
 	}
 
-	switch style.WordSpaceTransform {
+	switch style.inlineText().WordSpaceTransform {
 	case wordSpaceTransformSpace, wordSpaceTransformSpace + " " + wordSpaceTransformAutoPhrase:
 		return ' '
 	case wordSpaceTransformIdeographic, wordSpaceTransformIdeographic + " " + wordSpaceTransformAutoPhrase:

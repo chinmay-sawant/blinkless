@@ -40,10 +40,10 @@ func intersectClip(a, b clipRect) clipRect {
 }
 
 func (e *engine) paddingBoxRect(posX, posY, width, height float64, sty *ResolvedStyle) clipRect {
-	left := e.scalePt(sty.BorderLeft.Width)
-	top := e.scalePt(sty.BorderTop.Width)
-	right := e.scalePt(sty.BorderRight.Width)
-	bottom := e.scalePt(sty.BorderBottom.Width)
+	left := e.scalePt(sty.borders().BorderLeft.Width)
+	top := e.scalePt(sty.borders().BorderTop.Width)
+	right := e.scalePt(sty.borders().BorderRight.Width)
+	bottom := e.scalePt(sty.borders().BorderBottom.Width)
 	w := width - left - right
 	h := height - top - bottom
 
@@ -59,12 +59,12 @@ func (e *engine) paddingBoxRect(posX, posY, width, height float64, sty *Resolved
 
 	// Inflate for overflow-clip-margin (used by fixture-62 rows 27-37).
 	// Values are in points already via parseAdvancedLength.
-	if sty.OverflowClipMarginTop != 0 || sty.OverflowClipMarginRight != 0 ||
-		sty.OverflowClipMarginBottom != 0 || sty.OverflowClipMarginLeft != 0 {
-		rect.x -= sty.OverflowClipMarginLeft
-		rect.y -= sty.OverflowClipMarginTop
-		rect.w += sty.OverflowClipMarginLeft + sty.OverflowClipMarginRight
-		rect.h += sty.OverflowClipMarginTop + sty.OverflowClipMarginBottom
+	if sty.containment().OverflowClipMarginTop != 0 || sty.containment().OverflowClipMarginRight != 0 ||
+		sty.containment().OverflowClipMarginBottom != 0 || sty.containment().OverflowClipMarginLeft != 0 {
+		rect.x -= sty.containment().OverflowClipMarginLeft
+		rect.y -= sty.containment().OverflowClipMarginTop
+		rect.w += sty.containment().OverflowClipMarginLeft + sty.containment().OverflowClipMarginRight
+		rect.h += sty.containment().OverflowClipMarginTop + sty.containment().OverflowClipMarginBottom
 
 		if rect.w < 0 {
 			rect.w = 0
@@ -109,8 +109,8 @@ func (e *engine) computeBoxOverflowClip(boxNode *box, current *clipRect) *clipRe
 		return current
 	}
 
-	clipX := clipsPaintAxis(boxNode.style, boxNode.style.OverflowX)
-	clipY := clipsPaintAxis(boxNode.style, boxNode.style.OverflowY)
+	clipX := clipsPaintAxis(boxNode.style, boxNode.style.geometry().OverflowX)
+	clipY := clipsPaintAxis(boxNode.style, boxNode.style.geometry().OverflowY)
 
 	if !clipX && !clipY {
 		return current
@@ -646,7 +646,7 @@ func (e *engine) clipDeprecatedRect(boxNode *box) {
 func (e *engine) deprecatedClipEdges(boxNode *box) (clipRectEdges, bool) {
 	var empty clipRectEdges
 
-	if e == nil || boxNode == nil || boxNode.style == nil || boxNode.style.Clip == "" {
+	if e == nil || boxNode == nil || boxNode.style == nil || boxNode.style.effects().Clip == "" {
 		return empty, false
 	}
 
@@ -658,7 +658,7 @@ func (e *engine) deprecatedClipEdges(boxNode *box) (clipRectEdges, bool) {
 		return empty, false
 	}
 
-	return parseDeprecatedClipRect(boxNode.style.Clip, boxNode.style.FontSize)
+	return parseDeprecatedClipRect(boxNode.style.effects().Clip, boxNode.style.FontSize)
 }
 
 // deactivateBoxRange hides every op a box emitted.

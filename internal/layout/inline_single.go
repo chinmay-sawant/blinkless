@@ -179,13 +179,13 @@ func singleTextRunStyleOK(blockStyle, textStyle *ResolvedStyle) bool {
 // singleTextRunBlockGeometryOK rejects indentation, line-padding, clamps,
 // and shape or initial-letter declarations that narrow or reshape the run.
 func singleTextRunBlockGeometryOK(blockStyle, textStyle *ResolvedStyle) bool {
-	if blockStyle.TextIndent != 0 || blockStyle.LinePadding != 0 ||
-		textStyle.LinePadding != 0 || blockStyle.LineClamp > 0 || blockStyle.MaxLines > 0 ||
-		blockStyle.Continue != "" {
+	if blockStyle.inlineText().TextIndent != 0 || blockStyle.inlineText().LinePadding != 0 ||
+		textStyle.inlineText().LinePadding != 0 || blockStyle.inlineText().LineClamp > 0 || blockStyle.inlineText().MaxLines > 0 ||
+		blockStyle.inlineText().Continue != "" {
 		return false
 	}
 
-	if blockStyle.InitialLetterSize >= 1 || textStyle.InitialLetterSize >= 1 {
+	if blockStyle.inlineText().InitialLetterSize >= 1 || textStyle.inlineText().InitialLetterSize >= 1 {
 		return false
 	}
 
@@ -195,9 +195,9 @@ func singleTextRunBlockGeometryOK(blockStyle, textStyle *ResolvedStyle) bool {
 // singleTextRunShapeOK rejects a shape that narrows or reshapes the line even
 // on an otherwise simple run.
 func singleTextRunShapeOK(blockStyle *ResolvedStyle) bool {
-	source := blockStyle.ShapeInside
-	if blockStyle.ShapeInsideOutside {
-		source = blockStyle.ShapeOutside
+	source := blockStyle.positioning().ShapeInside
+	if blockStyle.positioning().ShapeInsideOutside {
+		source = blockStyle.positioning().ShapeOutside
 	}
 
 	return source == "" || source == shapeOutsideNone || source == shapeInsideAuto
@@ -206,12 +206,12 @@ func singleTextRunShapeOK(blockStyle *ResolvedStyle) bool {
 // singleTextRunWrapOK rejects wrapping, white-space, and break-hook
 // declarations that make the collector split or rewrite the run.
 func singleTextRunWrapOK(blockStyle, textStyle *ResolvedStyle) bool {
-	wrapStyle := blockStyle.TextWrapStyle
+	wrapStyle := blockStyle.inlineText().TextWrapStyle
 	if wrapStyle != "" && wrapStyle != textWrapStyleAuto && wrapStyle != textWrapStyleStable {
 		return false
 	}
 
-	if blockStyle.WhiteSpaceTrim != "" {
+	if blockStyle.inlineText().WhiteSpaceTrim != "" {
 		return false
 	}
 
@@ -224,15 +224,15 @@ func singleTextRunWrapOK(blockStyle, textStyle *ResolvedStyle) bool {
 
 // singleTextRunWritingOK rejects vertical writing, RTL, and scoped bidi.
 func singleTextRunWritingOK(blockStyle, textStyle *ResolvedStyle) bool {
-	if isVerticalWritingMode(blockStyle.WritingMode) || isVerticalWritingMode(textStyle.WritingMode) {
+	if isVerticalWritingMode(blockStyle.positioning().WritingMode) || isVerticalWritingMode(textStyle.positioning().WritingMode) {
 		return false
 	}
 
-	if blockStyle.Direction == cssDirectionRTL || textStyle.Direction == cssDirectionRTL {
+	if blockStyle.positioning().Direction == cssDirectionRTL || textStyle.positioning().Direction == cssDirectionRTL {
 		return false
 	}
 
-	return !isScopedBidi(blockStyle.UnicodeBidi) && !isScopedBidi(textStyle.UnicodeBidi)
+	return !isScopedBidi(blockStyle.inlineText().UnicodeBidi) && !isScopedBidi(textStyle.inlineText().UnicodeBidi)
 }
 
 // singleTextRunPaintOK rejects hidden paint, ellipsis, shadows, emphasis, and
@@ -242,7 +242,7 @@ func singleTextRunPaintOK(textStyle *ResolvedStyle) bool {
 		return false
 	}
 
-	if textStyle.TextOverflow == textOverflowEllipsis || textStyle.TextShadowSet {
+	if textStyle.inlineText().TextOverflow == textOverflowEllipsis || textStyle.inlineText().TextShadowSet {
 		return false
 	}
 
@@ -256,8 +256,8 @@ func singleTextRunPaintOK(textStyle *ResolvedStyle) bool {
 
 // singleTextRunAlignmentOK rejects a non-baseline vertical alignment.
 func singleTextRunAlignmentOK(textStyle *ResolvedStyle) bool {
-	return textStyle.VerticalAlignShift == 0 &&
-		(textStyle.VerticalAlign == "" || textStyle.VerticalAlign == baselineName)
+	return textStyle.inlineText().VerticalAlignShift == 0 &&
+		(textStyle.inlineText().VerticalAlign == "" || textStyle.inlineText().VerticalAlign == baselineName)
 }
 
 // singleTextRunText returns the one word the collector would emit for raw, or

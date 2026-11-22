@@ -26,7 +26,7 @@ func (e *engine) alignedInlineTop(item *inlineItem, lineY, lineH, baseline float
 		return baseline - item.h - item.marginB
 	}
 
-	switch item.style.VerticalAlign {
+	switch item.style.inlineText().VerticalAlign {
 	case cssVerticalAlignTop:
 		return lineY + item.marginT
 	case cssVerticalAlignMiddle:
@@ -53,7 +53,7 @@ func (e *engine) effectiveVerticalAlignShift(style *ResolvedStyle) float64 {
 		return 0
 	}
 
-	switch strings.ToLower(strings.TrimSpace(style.VerticalAlign)) {
+	switch strings.ToLower(strings.TrimSpace(style.inlineText().VerticalAlign)) {
 	case verticalAlignSub:
 		return style.FontSize * -verticalAlignSubRatio
 	case verticalAlignSuper:
@@ -61,7 +61,7 @@ func (e *engine) effectiveVerticalAlignShift(style *ResolvedStyle) float64 {
 	}
 	// If VerticalAlign looks like a percent (e.g. "50%"), compute against
 	// line-height per CSS spec.
-	if pct := strings.TrimSpace(style.VerticalAlign); strings.HasSuffix(pct, "%") {
+	if pct := strings.TrimSpace(style.inlineText().VerticalAlign); strings.HasSuffix(pct, "%") {
 		if percent, ok := parsePercent(pct); ok {
 			lineH := e.lineHeightOf(style)
 
@@ -69,7 +69,7 @@ func (e *engine) effectiveVerticalAlignShift(style *ResolvedStyle) float64 {
 		}
 	}
 
-	return style.VerticalAlignShift + e.alignmentBaselineShift(style)
+	return style.inlineText().VerticalAlignShift + e.alignmentBaselineShift(style)
 }
 
 // Baseline selector spellings and fallbacks shared by the metric shift
@@ -173,16 +173,16 @@ func (e *engine) alignmentBaselineShift(style *ResolvedStyle) float64 {
 		return 0
 	}
 
-	switch strings.ToLower(strings.TrimSpace(style.VerticalAlign)) {
+	switch strings.ToLower(strings.TrimSpace(style.inlineText().VerticalAlign)) {
 	case baselineName, "":
 		// Baseline default: the alignment baseline applies.
 	default:
 		return 0
 	}
 
-	switch selector := strings.ToLower(strings.TrimSpace(style.AlignmentBaseline)); selector {
+	switch selector := strings.ToLower(strings.TrimSpace(style.inlineText().AlignmentBaseline)); selector {
 	case "", "auto", baselineName:
-		return e.baselineShiftFromMetrics(style, strings.ToLower(strings.TrimSpace(style.DominantBaseline)))
+		return e.baselineShiftFromMetrics(style, strings.ToLower(strings.TrimSpace(style.inlineText().DominantBaseline)))
 	default:
 		return e.baselineShiftFromMetrics(style, selector)
 	}

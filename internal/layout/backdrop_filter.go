@@ -17,7 +17,7 @@ func setBackdropFilterValue(style *ResolvedStyle, value string) {
 		return
 	}
 
-	style.BackdropFilter = trimmed
+	style.editEffects().BackdropFilter = trimmed
 }
 
 // backdropFilterValueAccepted reports whether value is none or a list of

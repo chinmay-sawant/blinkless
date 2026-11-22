@@ -559,14 +559,24 @@ func TestRelayoutContainingBlockInsideStartsAtParent(t *testing.T) {
 		t.Fatal("a relative card accepted a fixed box")
 	}
 
-	styles[card] = &ResolvedStyle{Position: "static", HasTransform: true}
+	styles[card] = &ResolvedStyle{
+		Position: "static",
+		effectsGroup: &styleEffects{
+			HasTransform: true,
+		},
+	}
 
 	if !relayoutContainingBlockInside(boxNode, card, styles) {
 		t.Fatal("a transformed card did not accept a fixed box")
 	}
 
 	styles[card] = &ResolvedStyle{Position: "static"}
-	styles[body] = &ResolvedStyle{Position: positionRelative, HasTransform: true}
+	styles[body] = &ResolvedStyle{
+		Position: positionRelative,
+		effectsGroup: &styleEffects{
+			HasTransform: true,
+		},
+	}
 
 	if relayoutContainingBlockInside(boxNode, card, styles) {
 		t.Fatal("a transformed body above the subtree accepted a fixed box")

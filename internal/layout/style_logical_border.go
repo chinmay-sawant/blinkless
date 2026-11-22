@@ -1,74 +1,31 @@
 package layout
 
-func logicalRadiusCorner(style *ResolvedStyle, corner string) (*float64, *float64) {
-	switch corner {
-	case "start-start":
-		return &style.BorderRadiusTopLeft, &style.BorderRadiusTopLeftY
-	case "start-end":
-		return &style.BorderRadiusTopRight, &style.BorderRadiusTopRightY
-	case "end-start":
-		return &style.BorderRadiusBottomLeft, &style.BorderRadiusBottomLeftY
-	case "end-end":
-		return &style.BorderRadiusBottomRight, &style.BorderRadiusBottomRightY
-	default:
-		return nil, nil
-	}
-}
-
-// applyLogicalRadiusLonghand handles CSS logical corner radii and logical side radii.
+// applyLogicalRadiusLonghand maps logical corners and sides to their
+// physical fields in the engine's fixed left-to-right corner order.
 func applyLogicalRadiusLonghand(style *ResolvedStyle, prop, value string, fsize float64) bool {
+	var first, second string
 	switch prop {
 	case "border-start-start-radius":
-		dx, dy := logicalRadiusCorner(style, "start-start")
-		if dx != nil {
-			setCornerRadius(style, dx, dy, value, fsize)
-		}
+		first = cornerNameTopLeft
 	case "border-start-end-radius":
-		dx, dy := logicalRadiusCorner(style, "start-end")
-		if dx != nil {
-			setCornerRadius(style, dx, dy, value, fsize)
-		}
+		first = cornerNameTopRight
 	case "border-end-start-radius":
-		dx, dy := logicalRadiusCorner(style, "end-start")
-		if dx != nil {
-			setCornerRadius(style, dx, dy, value, fsize)
-		}
+		first = cornerNameBottomLeft
 	case "border-end-end-radius":
-		dx, dy := logicalRadiusCorner(style, "end-end")
-		if dx != nil {
-			setCornerRadius(style, dx, dy, value, fsize)
-		}
+		first = cornerNameBottomRight
 	case "border-block-start-radius":
-		d1x, d1y := logicalRadiusCorner(style, "start-start")
-		d2x, d2y := logicalRadiusCorner(style, "start-end")
-		if d1x != nil && d2x != nil {
-			setCornerRadius(style, d1x, d1y, value, fsize)
-			setCornerRadius(style, d2x, d2y, value, fsize)
-		}
+		first, second = cornerNameTopLeft, cornerNameTopRight
 	case "border-block-end-radius":
-		d1x, d1y := logicalRadiusCorner(style, "end-start")
-		d2x, d2y := logicalRadiusCorner(style, "end-end")
-		if d1x != nil && d2x != nil {
-			setCornerRadius(style, d1x, d1y, value, fsize)
-			setCornerRadius(style, d2x, d2y, value, fsize)
-		}
+		first, second = cornerNameBottomLeft, cornerNameBottomRight
 	case "border-inline-start-radius":
-		d1x, d1y := logicalRadiusCorner(style, "start-start")
-		d2x, d2y := logicalRadiusCorner(style, "end-start")
-		if d1x != nil && d2x != nil {
-			setCornerRadius(style, d1x, d1y, value, fsize)
-			setCornerRadius(style, d2x, d2y, value, fsize)
-		}
+		first, second = cornerNameTopLeft, cornerNameBottomLeft
 	case "border-inline-end-radius":
-		d1x, d1y := logicalRadiusCorner(style, "start-end")
-		d2x, d2y := logicalRadiusCorner(style, "end-end")
-		if d1x != nil && d2x != nil {
-			setCornerRadius(style, d1x, d1y, value, fsize)
-			setCornerRadius(style, d2x, d2y, value, fsize)
-		}
+		first, second = cornerNameTopRight, cornerNameBottomRight
 	default:
 		return false
 	}
+
+	setCornerRadii(style.editBorders(), first, second, value, fsize)
 
 	return true
 }

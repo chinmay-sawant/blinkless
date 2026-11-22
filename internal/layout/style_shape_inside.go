@@ -28,14 +28,14 @@ func applyShapeInsideProps(
 	switch prop {
 	case "shape-inside":
 		if inside, box, outside, ok := parseShapeInside(value); ok {
-			style.ShapeInside = inside
-			style.ShapeInsideBox = box
-			style.ShapeInsideOutside = outside
+			style.editPositioning().ShapeInside = inside
+			style.editPositioning().ShapeInsideBox = box
+			style.editPositioning().ShapeInsideOutside = outside
 		}
 	case "shape-padding":
 		if pt, pct, ok := parseShapePadding(value, fsize); ok {
-			style.ShapePadding = pt
-			style.ShapePaddingPercent = pct
+			style.editPositioning().ShapePadding = pt
+			style.editPositioning().ShapePaddingPercent = pct
 		}
 	default:
 		return false

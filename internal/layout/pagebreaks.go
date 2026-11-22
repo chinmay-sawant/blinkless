@@ -191,9 +191,9 @@ func sameBreakStyle(left, right *ResolvedStyle) bool {
 		return left == right
 	}
 
-	return left.PageBreakBefore == right.PageBreakBefore &&
-		left.PageBreakAfter == right.PageBreakAfter &&
-		left.PageBreakInside == right.PageBreakInside &&
+	return left.fragmentation().PageBreakBefore == right.fragmentation().PageBreakBefore &&
+		left.fragmentation().PageBreakAfter == right.fragmentation().PageBreakAfter &&
+		left.fragmentation().PageBreakInside == right.fragmentation().PageBreakInside &&
 		left.Position == right.Position &&
 		left.Float == right.Float &&
 		left.Display == right.Display
@@ -418,15 +418,15 @@ func (c *breakCollector) add(boxNode *box, canvasH float64) {
 		return
 	}
 
-	if boxNode.style.PageBreakBefore == pageBreakAlways && boxNode.y > 0 {
+	if boxNode.style.fragmentation().PageBreakBefore == pageBreakAlways && boxNode.y > 0 {
 		c.forced = append(c.forced, boxNode.y)
 	}
 
-	if boxNode.style.PageBreakAfter == pageBreakAlways && boxNode.y+boxNode.height < canvasH {
+	if boxNode.style.fragmentation().PageBreakAfter == pageBreakAlways && boxNode.y+boxNode.height < canvasH {
 		c.forced = append(c.forced, boxNode.y+boxNode.height)
 	}
 
-	if boxNode.style.PageBreakInside == avoidKeyword {
+	if boxNode.style.fragmentation().PageBreakInside == avoidKeyword {
 		c.keep = append(c.keep, [2]float64{boxNode.y, boxNode.y + boxNode.height})
 	}
 }

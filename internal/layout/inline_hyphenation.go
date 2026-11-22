@@ -21,7 +21,7 @@ func hyphenationAllowed(style *ResolvedStyle) bool {
 		return true // CSS initial hyphens:manual
 	}
 
-	switch style.Hyphens {
+	switch style.inlineText().Hyphens {
 	case cssDisplayNone:
 		return false
 	case hyphenationManual, "auto", "":
@@ -32,35 +32,35 @@ func hyphenationAllowed(style *ResolvedStyle) bool {
 }
 
 func hyphenateCharacterOf(style *ResolvedStyle) string {
-	if style == nil || style.HyphenateCharacter == "" || style.HyphenateCharacter == "auto" {
+	if style == nil || style.inlineText().HyphenateCharacter == "" || style.inlineText().HyphenateCharacter == "auto" {
 		return "-"
 	}
 
-	return style.HyphenateCharacter
+	return style.inlineText().HyphenateCharacter
 }
 
 func hyphenateLimitWord(style *ResolvedStyle) int {
-	if style == nil || style.HyphenateLimitMinWord <= 0 {
+	if style == nil || style.inlineText().HyphenateLimitMinWord <= 0 {
 		return defaultHyphenateWord
 	}
 
-	return style.HyphenateLimitMinWord
+	return style.inlineText().HyphenateLimitMinWord
 }
 
 func hyphenateLimitBefore(style *ResolvedStyle) int {
-	if style == nil || style.HyphenateLimitMinBefore <= 0 {
+	if style == nil || style.inlineText().HyphenateLimitMinBefore <= 0 {
 		return defaultHyphenateBefore
 	}
 
-	return style.HyphenateLimitMinBefore
+	return style.inlineText().HyphenateLimitMinBefore
 }
 
 func hyphenateLimitAfter(style *ResolvedStyle) int {
-	if style == nil || style.HyphenateLimitMinAfter <= 0 {
+	if style == nil || style.inlineText().HyphenateLimitMinAfter <= 0 {
 		return defaultHyphenateAfter
 	}
 
-	return style.HyphenateLimitMinAfter
+	return style.inlineText().HyphenateLimitMinAfter
 }
 
 // hyphenateZoneWidth is the trailing slack that must remain for a SHY break
@@ -70,12 +70,12 @@ func (e *engine) hyphenateZoneWidth(style *ResolvedStyle, lineW float64) float64
 		return 0
 	}
 
-	if style.HyphenateLimitZonePct >= 0 {
-		return lineW * style.HyphenateLimitZonePct / hyphenationPercentBase
+	if style.inlineText().HyphenateLimitZonePct >= 0 {
+		return lineW * style.inlineText().HyphenateLimitZonePct / hyphenationPercentBase
 	}
 
-	if style.HyphenateLimitZonePt > 0 {
-		return e.scalePt(style.HyphenateLimitZonePt)
+	if style.inlineText().HyphenateLimitZonePt > 0 {
+		return e.scalePt(style.inlineText().HyphenateLimitZonePt)
 	}
 
 	return 0
@@ -228,7 +228,7 @@ func (e *engine) hangingPunctuationFirstWidth(style *ResolvedStyle, text string)
 		return 0
 	}
 
-	if !hangingPunctuationHas(style.HangingPunctuation, hangingPunctuationFirst) {
+	if !hangingPunctuationHas(style.inlineText().HangingPunctuation, hangingPunctuationFirst) {
 		return 0
 	}
 
@@ -272,7 +272,7 @@ func hyphenateLimitLastBlocks(style *ResolvedStyle, lastLine bool) bool {
 		return false
 	}
 
-	switch style.HyphenateLimitLast {
+	switch style.inlineText().HyphenateLimitLast {
 	case pageBreakAlways, floatRefColumn, floatRefPage, "spread":
 		return true
 	default:

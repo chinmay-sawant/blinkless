@@ -386,8 +386,8 @@ func (env *contentEnv) cloneContentEnv() *contentEnv {
 func (e *engine) quotesFor(ctx *styleContext, node *html.Node) quoteStyle {
 	if e != nil {
 		for cur := node; cur != nil; cur = cur.Parent {
-			if sty := e.stylePtr(cur); sty != nil && sty.QuotesRaw != "" {
-				return parseQuotes(sty.QuotesRaw)
+			if sty := e.stylePtr(cur); sty != nil && sty.content().QuotesRaw != "" {
+				return parseQuotes(sty.content().QuotesRaw)
 			}
 		}
 	} else {
@@ -405,7 +405,7 @@ func (e *engine) quotesFor(ctx *styleContext, node *html.Node) quoteStyle {
 func (e *engine) counterResetSpec(ctx *styleContext, node *html.Node) string {
 	if e != nil {
 		if sty := e.stylePtr(node); sty != nil {
-			return sty.CounterReset
+			return sty.content().CounterReset
 		}
 	}
 
@@ -415,7 +415,7 @@ func (e *engine) counterResetSpec(ctx *styleContext, node *html.Node) string {
 func (e *engine) counterSetSpec(ctx *styleContext, node *html.Node) string {
 	if e != nil {
 		if sty := e.stylePtr(node); sty != nil {
-			return sty.CounterSet
+			return sty.content().CounterSet
 		}
 	}
 
@@ -425,7 +425,7 @@ func (e *engine) counterSetSpec(ctx *styleContext, node *html.Node) string {
 func (e *engine) counterIncrementSpec(ctx *styleContext, node *html.Node) string {
 	if e != nil {
 		if sty := e.stylePtr(node); sty != nil {
-			return sty.CounterIncrement
+			return sty.content().CounterIncrement
 		}
 	}
 

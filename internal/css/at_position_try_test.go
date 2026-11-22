@@ -64,20 +64,20 @@ func TestPositionTryAtRule(t *testing.T) {
 	}
 
 	tipStyle := styleForID(t, root, styles, "tip")
-	if len(tipStyle.PositionTryFallbacks) != 2 ||
-		tipStyle.PositionTryFallbacks[0] != "--above" ||
-		tipStyle.PositionTryFallbacks[1] != "--missing" {
+	if len(tipStyle.PositionTryFallbacks()) != 2 ||
+		tipStyle.PositionTryFallbacks()[0] != "--above" ||
+		tipStyle.PositionTryFallbacks()[1] != "--missing" {
 		t.Errorf("tip fallbacks = %q, want [--above --missing] (unknown kept for skip at use)",
-			tipStyle.PositionTryFallbacks)
+			tipStyle.PositionTryFallbacks())
 	}
 
-	if tipStyle.PositionArea != "bottom" {
-		t.Errorf("tip area = %q, want bottom (base kept, fallback wins at use)", tipStyle.PositionArea)
+	if tipStyle.PositionArea() != "bottom" {
+		t.Errorf("tip area = %q, want bottom (base kept, fallback wins at use)", tipStyle.PositionArea())
 	}
 
 	unknownStyle := styleForID(t, root, styles, "tip-unknown")
-	if len(unknownStyle.PositionTryFallbacks) != 1 || unknownStyle.PositionTryFallbacks[0] != "--missing" {
-		t.Errorf("tip-unknown fallbacks = %q, want [--missing]", unknownStyle.PositionTryFallbacks)
+	if len(unknownStyle.PositionTryFallbacks()) != 1 || unknownStyle.PositionTryFallbacks()[0] != "--missing" {
+		t.Errorf("tip-unknown fallbacks = %q, want [--missing]", unknownStyle.PositionTryFallbacks())
 	}
 
 	// The layout pass resolves --above to the stored top area and skips

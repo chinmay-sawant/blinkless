@@ -29,7 +29,7 @@ func withAspectRatioHeight(style ResolvedStyle, definiteWidthScaled float64, eng
 // aspectRatioAutoHeightPt returns the unscaled CSS pt height implied by
 // aspect-ratio when height is auto and width is definite.
 func aspectRatioAutoHeightPt(style *ResolvedStyle, definiteWidthScaled float64, eng *engine) (float64, bool) {
-	if style.AspectRatio <= 0 || definiteWidthScaled <= 0 {
+	if style.geometry().AspectRatio <= 0 || definiteWidthScaled <= 0 {
 		return 0, false
 	}
 
@@ -42,13 +42,13 @@ func aspectRatioAutoHeightPt(style *ResolvedStyle, definiteWidthScaled float64, 
 		scale = eng.scale
 	}
 
-	return (definiteWidthScaled / style.AspectRatio) / scale, true
+	return (definiteWidthScaled / style.geometry().AspectRatio) / scale, true
 }
 
 // aspectRatioAutoWidthPt returns the unscaled CSS pt width implied by
 // aspect-ratio when width is auto and height is definite.
 func aspectRatioAutoWidthPt(style *ResolvedStyle, definiteHeightScaled float64, eng *engine) (float64, bool) {
-	if style.AspectRatio <= 0 || definiteHeightScaled <= 0 {
+	if style.geometry().AspectRatio <= 0 || definiteHeightScaled <= 0 {
 		return 0, false
 	}
 
@@ -61,5 +61,5 @@ func aspectRatioAutoWidthPt(style *ResolvedStyle, definiteHeightScaled float64, 
 		scale = eng.scale
 	}
 
-	return (definiteHeightScaled * style.AspectRatio) / scale, true
+	return (definiteHeightScaled * style.geometry().AspectRatio) / scale, true
 }

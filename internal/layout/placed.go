@@ -209,15 +209,15 @@ func fillPlacedMeta(
 		item.Sticky = placedSticky(boxNode, scroll)
 	}
 
-	if sty.Animation.Set {
-		item.Animations = animationRecordsFromStyle(sty.Animation)
+	if sty.motion().Animation.Set {
+		item.Animations = animationRecordsFromStyle(sty.motion().Animation)
 	}
 
-	if sty.Transition.Set {
-		item.Transitions = transitionRecordsFromStyle(sty.Transition)
+	if sty.motion().Transition.Set {
+		item.Transitions = transitionRecordsFromStyle(sty.motion().Transition)
 	}
 
-	if sty.ScrollTimelineName != "" || sty.ViewTimelineName != "" || sty.Triggers != nil {
+	if sty.motion().ScrollTimelineName != "" || sty.motion().ViewTimelineName != "" || sty.Triggers != nil {
 		item.Timelines = placedTimelineDefs(boxNode, elementID, scroller)
 	}
 
@@ -245,11 +245,11 @@ func fillPlacedElement(
 		OperationIDs:        appendOperationIDs(ops, boxNode.opStart, boxNode.opEnd, allIDs),
 		Animations:          nil,
 		Transitions:         nil,
-		TriggerScope:        sty.Animation.TriggerScope,
-		ViewTransitionName:  sty.Animation.ViewTransitionName,
-		ViewTransitionClass: sty.Animation.ViewTransitionClass,
-		ViewTransitionGroup: sty.Animation.ViewTransitionGroup,
-		ViewTransitionScope: sty.Animation.ViewTransitionScope,
+		TriggerScope:        sty.motion().Animation.TriggerScope,
+		ViewTransitionName:  sty.motion().Animation.ViewTransitionName,
+		ViewTransitionClass: sty.motion().Animation.ViewTransitionClass,
+		ViewTransitionGroup: sty.motion().Animation.ViewTransitionGroup,
+		ViewTransitionScope: sty.motion().Animation.ViewTransitionScope,
 		Timelines:           nil,
 		Triggers:            defaultPlacedTriggers(),
 		OverflowClip:        elementOverflowClip(boxNode),
@@ -285,12 +285,12 @@ func placedTransformInfo(boxNode *box, parentAccum Matrix2D, viewport svgViewpor
 	}
 
 	sty := boxNode.style
-	originX, originY := resolveTransformOriginWithBox(sty.TransformOrigin, boxNode, sty.TransformBox, viewport)
+	originX, originY := resolveTransformOriginWithBox(sty.effects().TransformOrigin, boxNode, sty.effects().TransformBox, viewport)
 
 	own := IdentityMatrix()
 	world := parentAccum
 
-	if sty.HasTransform {
+	if sty.effects().HasTransform {
 		own = boxTransformAccum(boxNode, IdentityMatrix(), viewport)
 		world = parentAccum.Mul(own)
 	}
@@ -298,22 +298,22 @@ func placedTransformInfo(boxNode *box, parentAccum Matrix2D, viewport svgViewpor
 	info := TransformInfo{
 		OriginX:            originX,
 		OriginY:            originY,
-		Box:                sty.TransformBox,
+		Box:                sty.effects().TransformBox,
 		Parent:             parentAccum,
 		Own:                own,
 		World:              world,
-		HasMatrix:          sty.HasTransform,
-		HasTransform3D:     sty.HasTransform3D,
+		HasMatrix:          sty.effects().HasTransform,
+		HasTransform3D:     sty.effects().HasTransform3D,
 		Perspective:        0,
 		PerspectiveOriginX: 0,
 		PerspectiveOriginY: 0,
-		HasPerspective:     sty.HasPerspective,
-		Style:              sty.TransformStyle,
-		Backface:           sty.BackfaceVisibility,
+		HasPerspective:     sty.effects().HasPerspective,
+		Style:              sty.effects().TransformStyle,
+		Backface:           sty.effects().BackfaceVisibility,
 	}
 
-	if sty.HasPerspective {
-		info.Perspective = sty.PerspectiveDist
+	if sty.effects().HasPerspective {
+		info.Perspective = sty.effects().PerspectiveDist
 		info.PerspectiveOriginX, info.PerspectiveOriginY = perspectiveCenter(boxNode)
 	}
 

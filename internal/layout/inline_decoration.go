@@ -27,7 +27,7 @@ func underlinePositionShift(sty *ResolvedStyle, size, descent float64) float64 {
 		return 0
 	}
 
-	low := strings.ToLower(strings.TrimSpace(sty.TextUnderlinePosition))
+	low := strings.ToLower(strings.TrimSpace(sty.inlineText().TextUnderlinePosition))
 	if low == "" || low == "auto" || low == underlinePositionFromFont {
 		return 0
 	}

@@ -3,7 +3,6 @@ package layout
 import (
 	"context"
 	"encoding/binary"
-	"fmt"
 	"hash"
 	"hash/fnv"
 	"sort"
@@ -273,10 +272,7 @@ func hashLayoutStyle(style *ResolvedStyle) uint64 {
 	clone.BGColor = [4]float64{}
 	clone.Color = [3]float64{}
 
-	hash := fnv.New64a()
-	_, _ = fmt.Fprintf(hash, "%#v", clone)
-
-	return hash.Sum64()
+	return styleInternFingerprint(&clone)
 }
 
 // fingerprintContentDOM hashes the DOM shape and text of root's subtree,
@@ -398,10 +394,10 @@ func widthBasisFor(kept *box, opts Options) float64 {
 	}
 
 	chrome := (kept.style.PaddingLeft + kept.style.PaddingRight +
-		kept.style.BorderLeft.Width + kept.style.BorderRight.Width) * scale
+		kept.style.borders().BorderLeft.Width + kept.style.borders().BorderRight.Width) * scale
 
 	contentW := kept.w - chrome
-	if kept.style.BoxSizing != borderBox {
+	if kept.style.geometry().BoxSizing != borderBox {
 		contentW = kept.w
 	}
 

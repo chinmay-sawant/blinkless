@@ -94,7 +94,7 @@ func resolveGridRows(
 	lockRows := false
 
 	if definiteRows {
-		rowDefs := parseGridTrackDefs(sty.GridTemplateRows)
+		rowDefs := parseGridTrackDefs(sty.grid().GridTemplateRows)
 		// Pad/truncate defs to placed row count when template is shorter.
 		// The padded copy rents from the track-def pool and returns before
 		// resolveGridRows exits; sizes materialize into rows first.
@@ -103,7 +103,7 @@ func resolveGridRows(
 			padded = append(padded, rowDefs...)
 
 			for len(padded) < numRows {
-				padded = append(padded, gridAutoTrackDef(sty.GridAutoRows))
+				padded = append(padded, gridAutoTrackDef(sty.grid().GridAutoRows))
 			}
 
 			rowIntrinsics := measureTrackIntrinsics(eng, kids, len(padded), false)
@@ -121,7 +121,7 @@ func resolveGridRows(
 	case len(rows) == 0:
 		rows = make([]float64, numRows)
 
-		if mins := parseGridTrackFixedMins(sty.GridTemplateRows, eng); len(mins) > 0 {
+		if mins := parseGridTrackFixedMins(sty.grid().GridTemplateRows, eng); len(mins) > 0 {
 			for rowIndex := range numRows {
 				if rowIndex >= len(mins) {
 					break
@@ -133,8 +133,8 @@ func resolveGridRows(
 			}
 		}
 
-		if autoPt := gridAutoFixedPt(sty.GridAutoRows, eng); autoPt > 0 {
-			templateCount := len(parseGridTrackDefs(sty.GridTemplateRows))
+		if autoPt := gridAutoFixedPt(sty.grid().GridAutoRows, eng); autoPt > 0 {
+			templateCount := len(parseGridTrackDefs(sty.grid().GridTemplateRows))
 			for i := range numRows {
 				if i >= templateCount && rows[i] == 0 {
 					rows[i] = autoPt
@@ -153,7 +153,7 @@ func resolveGridRows(
 		}
 	case len(rows) < numRows:
 		rows = padGridRowSizes(rows, numRows)
-		if autoPt := gridAutoFixedPt(sty.GridAutoRows, eng); autoPt > 0 {
+		if autoPt := gridAutoFixedPt(sty.grid().GridAutoRows, eng); autoPt > 0 {
 			for i := range rows {
 				if rows[i] == 0 {
 					rows[i] = autoPt
@@ -310,7 +310,7 @@ func (e *engine) trackKidContributionUncached(kid *html.Node, axisColumns bool) 
 	// Height intrinsic: single-line text approximation via font size.
 	maxVal := e.scalePt(cstate.FontSize) * textLineHeightFactor
 	maxVal += e.scalePt(cstate.PaddingTop) + e.scalePt(cstate.PaddingBottom) +
-		e.scalePt(cstate.BorderTop.Width) + e.scalePt(cstate.BorderBottom.Width)
+		e.scalePt(cstate.borders().BorderTop.Width) + e.scalePt(cstate.borders().BorderBottom.Width)
 
 	return maxVal, maxVal
 }

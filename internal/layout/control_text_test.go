@@ -196,8 +196,8 @@ func TestButtonUADefaultFace(t *testing.T) {
 		t.Fatalf("button padding = T %.2f L %.2f, want 1px/6px", sty.PaddingTop, sty.PaddingLeft)
 	}
 
-	if !near(sty.BorderTop.Width, pxToPt(1)) {
-		t.Fatalf("button border width = %.2f, want 1px", sty.BorderTop.Width)
+	if !near(sty.borders().BorderTop.Width, pxToPt(1)) {
+		t.Fatalf("button border width = %.2f, want 1px", sty.borders().BorderTop.Width)
 	}
 
 	if !near(sty.BGColor[0], 0xef/255.0) || sty.BGColor[3] == 0 {
@@ -236,8 +236,8 @@ func TestAuthorOverridesButtonUADefaults(t *testing.T) {
 		t.Fatalf("author padding lost: T %.2f L %.2f", sty.PaddingTop, sty.PaddingLeft)
 	}
 
-	if !near(sty.BorderTop.Width, 0) {
-		t.Fatalf("author border:none lost: width %.2f", sty.BorderTop.Width)
+	if !near(sty.borders().BorderTop.Width, 0) {
+		t.Fatalf("author border:none lost: width %.2f", sty.borders().BorderTop.Width)
 	}
 
 	if !near(sty.BGColor[0], 0x12/255.0) {
@@ -280,8 +280,8 @@ func assertControlUAInlineBlockFace(
 			element, box.style.PaddingTop, box.style.PaddingLeft, padT, padL)
 	}
 
-	if !near(box.style.BorderTop.Width, pxToPt(1)) || !near(box.style.BGColor[0], bg0) {
-		t.Fatalf("%s face = border %.2f bg %v", element, box.style.BorderTop.Width, box.style.BGColor)
+	if !near(box.style.borders().BorderTop.Width, pxToPt(1)) || !near(box.style.BGColor[0], bg0) {
+		t.Fatalf("%s face = border %.2f bg %v", element, box.style.borders().BorderTop.Width, box.style.BGColor)
 	}
 }
 

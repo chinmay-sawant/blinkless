@@ -14,8 +14,8 @@ func TestFontStretchAliasesToWidth(t *testing.T) {
 		t.Fatal("font-stretch not owned")
 	}
 
-	if style.FontWidth != 75 {
-		t.Fatalf("font-stretch condensed = %v, want 75", style.FontWidth)
+	if style.font().FontWidth != 75 {
+		t.Fatalf("font-stretch condensed = %v, want 75", style.font().FontWidth)
 	}
 
 	style = initialStyle()
@@ -23,24 +23,24 @@ func TestFontStretchAliasesToWidth(t *testing.T) {
 		t.Fatal("font-width not owned")
 	}
 
-	if style.FontWidth != 125 {
-		t.Fatalf("font-width 125%% = %v", style.FontWidth)
+	if style.font().FontWidth != 125 {
+		t.Fatalf("font-width 125%% = %v", style.font().FontWidth)
 	}
 
 	parent := initialStyle()
-	parent.FontWidth = 75
+	parent.editFont().FontWidth = 75
 	child := initialStyle()
 	inheritProps(&child, &parent, nil)
 
-	if child.FontWidth != 75 {
-		t.Fatalf("inherited width = %v", child.FontWidth)
+	if child.font().FontWidth != 75 {
+		t.Fatalf("inherited width = %v", child.font().FontWidth)
 	}
 
 	ctx := &styleContext{ctx: context.Background(), viewportW: 800}
 	applyStyleProp(&child, "font-stretch", "expanded", 12, ctx, &parent, true)
 
-	if child.FontWidth != 125 {
-		t.Fatalf("declared stretch = %v, want 125", child.FontWidth)
+	if child.font().FontWidth != 125 {
+		t.Fatalf("declared stretch = %v, want 125", child.font().FontWidth)
 	}
 }
 
@@ -62,8 +62,8 @@ func TestFontWidthKeywords(t *testing.T) {
 			t.Fatalf("%s not owned", testCase.value)
 		}
 
-		if style.FontWidth != testCase.want {
-			t.Fatalf("%s = %v, want %v", testCase.value, style.FontWidth, testCase.want)
+		if style.font().FontWidth != testCase.want {
+			t.Fatalf("%s = %v, want %v", testCase.value, style.font().FontWidth, testCase.want)
 		}
 	}
 }

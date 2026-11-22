@@ -18,14 +18,14 @@ func TestStyleOverrideReachesFlexMeasurement(t *testing.T) {
 		t.Fatal("item has no stored style")
 	}
 
-	if stored.MinWidthSet {
-		t.Fatalf("stored min-width unexpectedly set: %+v", stored.MinWidth)
+	if stored.geometry().MinWidthSet {
+		t.Fatalf("stored min-width unexpectedly set: %+v", stored.geometry().MinWidth)
 	}
 
 	override := initialStyle()
-	override.MinWidth = 50
-	override.MinWidthSet = true
-	override.MinWidthPercent = -1
+	override.editGeometry().MinWidth = 50
+	override.editGeometry().MinWidthSet = true
+	override.editGeometry().MinWidthPercent = -1
 
 	eng := &engine{
 		scale:  1,

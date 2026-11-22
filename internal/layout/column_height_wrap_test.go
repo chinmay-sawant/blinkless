@@ -34,8 +34,8 @@ func TestColumnHeightCapsColumn(t *testing.T) {
 	styles := resolveStyles(root, []*css.Stylesheet{cssSheet}, "print", 500, 800)
 	st := styleByClass(t, styles, "mc")
 
-	if st.ColumnHeight < 47 || st.ColumnHeight > 49 {
-		t.Fatalf("column-height stored=%.1f, want ~48", st.ColumnHeight)
+	if st.columns().ColumnHeight < 47 || st.columns().ColumnHeight > 49 {
+		t.Fatalf("column-height stored=%.1f, want ~48", st.columns().ColumnHeight)
 	}
 
 	res := layoutHTML(t, `<html><body>
@@ -116,8 +116,8 @@ func TestColumnWrapCreatesRow(t *testing.T) {
 	styles := resolveStyles(root, []*css.Stylesheet{cssSheet}, "print", 500, 800)
 	st := styleByClass(t, styles, "mc")
 
-	if st.ColumnWrap != columnWrapWrap {
-		t.Fatalf("column-wrap=%q, want wrap", st.ColumnWrap)
+	if st.columns().ColumnWrap != columnWrapWrap {
+		t.Fatalf("column-wrap=%q, want wrap", st.columns().ColumnWrap)
 	}
 
 	res := layoutHTML(t, `<html><body>
@@ -191,8 +191,8 @@ func TestColumnWrapNowrapStopsAfterOneRow(t *testing.T) {
 	styles := resolveStyles(root, []*css.Stylesheet{cssSheet}, "print", 500, 800)
 	columnStyle := styleByClass(t, styles, "mc")
 
-	if columnStyle.ColumnWrap != columnWrapNowrap {
-		t.Fatalf("column-wrap=%q, want nowrap", columnStyle.ColumnWrap)
+	if columnStyle.columns().ColumnWrap != columnWrapNowrap {
+		t.Fatalf("column-wrap=%q, want nowrap", columnStyle.columns().ColumnWrap)
 	}
 
 	if columnWrapCreatesRows(*columnStyle) {
@@ -243,8 +243,8 @@ func TestColumnWrapAutoCreatesRowWhenHeightSet(t *testing.T) {
 	styles := resolveStyles(root, []*css.Stylesheet{cssSheet}, "print", 500, 800)
 	columnStyle := styleByClass(t, styles, "mc")
 
-	if columnStyle.ColumnWrap != columnWrapAuto {
-		t.Fatalf("column-wrap=%q, want auto", columnStyle.ColumnWrap)
+	if columnStyle.columns().ColumnWrap != columnWrapAuto {
+		t.Fatalf("column-wrap=%q, want auto", columnStyle.columns().ColumnWrap)
 	}
 
 	if !columnWrapCreatesRows(*columnStyle) {

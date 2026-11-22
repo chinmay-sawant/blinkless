@@ -432,8 +432,8 @@ func transitionLonghandIndex(prop string) (int, bool) {
 
 func setTransitionWideValue(style *ResolvedStyle, prop, keyword string, parent *ResolvedStyle, hasParent bool) {
 	value := transitionInitialValue(prop)
-	if keyword == inheritKeyword && hasParent && parent != nil && parent.Transition.Set {
-		value = transitionFieldValue(parent.Transition, prop)
+	if keyword == inheritKeyword && hasParent && parent != nil && parent.motion().Transition.Set {
+		value = transitionFieldValue(parent.motion().Transition, prop)
 		if value == "" {
 			value = transitionInitialValue(prop)
 		}
@@ -477,18 +477,18 @@ func transitionFieldValue(style transitionStyle, prop string) string {
 func setTransitionField(style *ResolvedStyle, prop, value string) {
 	switch prop {
 	case propTransitionProperty:
-		style.Transition.Property = value
+		style.editMotion().Transition.Property = value
 	case propTransitionDuration:
-		style.Transition.Duration = value
+		style.editMotion().Transition.Duration = value
 	case propTransitionDelay:
-		style.Transition.Delay = value
+		style.editMotion().Transition.Delay = value
 	case propTransitionTimingFunction:
-		style.Transition.TimingFunction = value
+		style.editMotion().Transition.TimingFunction = value
 	case propTransitionBehavior:
-		style.Transition.Behavior = value
+		style.editMotion().Transition.Behavior = value
 	default:
 		return
 	}
 
-	style.Transition.Set = true
+	style.editMotion().Transition.Set = true
 }

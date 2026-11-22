@@ -236,6 +236,6 @@ func TestColumnFillAloneIsNotMulticol(t *testing.T) {
 	st := styleByClass(t, styles, "cf")
 
 	if isMulticol(st) {
-		t.Fatalf("column-fill:auto alone must not establish multicol (count=%d width=%.1f)", st.ColumnCount, st.ColumnWidth)
+		t.Fatalf("column-fill:auto alone must not establish multicol (count=%d width=%.1f)", st.columns().ColumnCount, st.columns().ColumnWidth)
 	}
 }

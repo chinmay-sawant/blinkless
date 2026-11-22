@@ -18,15 +18,15 @@ func applyLineFitEdgeProps(
 	}
 
 	parentValue := lineFitEdgeLeading
-	if parent != nil && parent.LineFitEdge != "" {
-		parentValue = parent.LineFitEdge
+	if parent != nil && parent.inlineText().LineFitEdge != "" {
+		parentValue = parent.inlineText().LineFitEdge
 	}
 
 	next, ok := inheritedToken(
 		value, parentValue, lineFitEdgeLeading, hasParent, normalizeLineFitEdge,
 	)
 	if ok {
-		style.LineFitEdge = next
+		style.editInlineText().LineFitEdge = next
 	}
 
 	return true
@@ -65,5 +65,5 @@ func lineFitEdgeDropsChrome(item *inlineItem) bool {
 		return true
 	}
 
-	return item.style.LineFitEdge == lineFitEdgeText
+	return item.style.inlineText().LineFitEdge == lineFitEdgeText
 }

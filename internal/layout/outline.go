@@ -25,8 +25,8 @@ func effectiveOutline(sty *ResolvedStyle) (float64, string) {
 // style longhands: an empty style becomes solid when width>0 or a
 // color is set. An explicit "none" is respected and never defaulted.
 func defaultedOutlineStyle(sty *ResolvedStyle) string {
-	style := sty.OutlineStyle
-	if style == "" && (sty.OutlineWidth > 0 || sty.OutlineColorSet) {
+	style := sty.borders().OutlineStyle
+	if style == "" && (sty.borders().OutlineWidth > 0 || sty.borders().OutlineColorSet) {
 		return solidKeyword
 	}
 
@@ -36,8 +36,8 @@ func defaultedOutlineStyle(sty *ResolvedStyle) string {
 // defaultedOutlineWidth applies the CSS initial-value rule for isolated
 // width longhands: a zero width with a visible style becomes medium.
 func defaultedOutlineWidth(sty *ResolvedStyle, style string) float64 {
-	if sty.OutlineWidth > 0 || !outlineNeedsMediumWidth(style) {
-		return sty.OutlineWidth
+	if sty.borders().OutlineWidth > 0 || !outlineNeedsMediumWidth(style) {
+		return sty.borders().OutlineWidth
 	}
 
 	if medium := borderWidth("medium", sty.FontSize); medium > 0 {
@@ -83,8 +83,8 @@ func outlineStrokeColor(sty *ResolvedStyle) (float64, float64, float64) {
 		return 0, 0, 0
 	}
 
-	if sty.OutlineColorSet {
-		return sty.OutlineColor[0], sty.OutlineColor[1], sty.OutlineColor[2]
+	if sty.borders().OutlineColorSet {
+		return sty.borders().OutlineColor[0], sty.borders().OutlineColor[1], sty.borders().OutlineColor[2]
 	}
 
 	return sty.Color[0], sty.Color[1], sty.Color[2]
@@ -131,8 +131,8 @@ func appendOutlineOps(
 }
 
 func hasRoundedCorners(sty *ResolvedStyle) bool {
-	return sty.BorderRadiusTopLeft > 0 || sty.BorderRadiusTopRight > 0 ||
-		sty.BorderRadiusBottomRight > 0 || sty.BorderRadiusBottomLeft > 0
+	return sty.borders().BorderRadiusTopLeft > 0 || sty.borders().BorderRadiusTopRight > 0 ||
+		sty.borders().BorderRadiusBottomRight > 0 || sty.borders().BorderRadiusBottomLeft > 0
 }
 
 func inflateRadius(rad, inflate float64) float64 {
@@ -156,10 +156,10 @@ func (e *engine) roundedOutlineOp(
 		return Op{}, false //nolint:exhaustruct
 	}
 
-	radTL := inflateRadius(e.scalePt(sty.BorderRadiusTopLeft), inflate)
-	radTR := inflateRadius(e.scalePt(sty.BorderRadiusTopRight), inflate)
-	radBR := inflateRadius(e.scalePt(sty.BorderRadiusBottomRight), inflate)
-	radBL := inflateRadius(e.scalePt(sty.BorderRadiusBottomLeft), inflate)
+	radTL := inflateRadius(e.scalePt(sty.borders().BorderRadiusTopLeft), inflate)
+	radTR := inflateRadius(e.scalePt(sty.borders().BorderRadiusTopRight), inflate)
+	radBR := inflateRadius(e.scalePt(sty.borders().BorderRadiusBottomRight), inflate)
+	radBL := inflateRadius(e.scalePt(sty.borders().BorderRadiusBottomLeft), inflate)
 
 	outlineOp := Op{ //nolint:exhaustruct // outline rounded stroke op
 		Kind:              OpStrokeRect,
@@ -188,7 +188,7 @@ func (e *engine) appendOutlineOpsForStyle(dst []Op, sty *ResolvedStyle, posX, po
 
 	effW, effStyle := effectiveOutline(sty)
 	outlineWidth := e.scalePt(effW)
-	outlineOff := e.scalePt(sty.OutlineOffset)
+	outlineOff := e.scalePt(sty.borders().OutlineOffset)
 	red, green, blue := outlineStrokeColor(sty)
 
 	if effStyle == solidKeyword && hasRoundedCorners(sty) {

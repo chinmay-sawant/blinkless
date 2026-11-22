@@ -23,7 +23,7 @@ func (e *engine) collectInline(nodes []*html.Node, out *[]inlineItem, blockStyle
 	// Block-container unicode-bidi scope: a block's own value orders the
 	// items it directly contributes (nested inline elements with their own
 	// scope already ordered and marked themselves during collection).
-	if blockStyle != nil && isScopedBidi(blockStyle.UnicodeBidi) {
+	if blockStyle != nil && isScopedBidi(blockStyle.inlineText().UnicodeBidi) {
 		e.applyBidiScope(blockStyle, *out, start)
 	}
 
@@ -160,7 +160,7 @@ func isScopedBidi(mode string) bool {
 // direction and uses the strong-RTL content heuristic (first-strong subset).
 // All scoped items are marked so the document heuristic leaves them alone.
 func (e *engine) applyBidiScope(sty *ResolvedStyle, items []inlineItem, start int) {
-	if sty == nil || !isScopedBidi(sty.UnicodeBidi) || start >= len(items) {
+	if sty == nil || !isScopedBidi(sty.inlineText().UnicodeBidi) || start >= len(items) {
 		return
 	}
 
@@ -180,13 +180,13 @@ func bidiScopeReverses(sty *ResolvedStyle, items []inlineItem, start int) bool {
 		return false
 	}
 
-	switch sty.UnicodeBidi {
+	switch sty.inlineText().UnicodeBidi {
 	case unicodeBidiOverride, unicodeBidiIsolateOverride:
-		return sty.Direction == cssDirectionRTL
+		return sty.positioning().Direction == cssDirectionRTL
 	case unicodeBidiPlaintext:
 		return hasStrongRTLText(items, start)
 	case unicodeBidiEmbed, unicodeBidiIsolate:
-		return sty.Direction == cssDirectionRTL && hasStrongRTLText(items, start)
+		return sty.positioning().Direction == cssDirectionRTL && hasStrongRTLText(items, start)
 	default:
 		return false
 	}
@@ -228,7 +228,7 @@ func (e *engine) resolveInlineTextCtx(node *html.Node) inlineTextCtx {
 
 	ctx.parentStyle = e.stylePtr(parent)
 
-	ctx.vertical = isVerticalWritingMode(ctx.parentStyle.WritingMode)
+	ctx.vertical = isVerticalWritingMode(ctx.parentStyle.positioning().WritingMode)
 
 	var container *html.Node
 	if parent.Parent != nil && parent.Parent.Type == html.ElementNode {
@@ -255,7 +255,7 @@ func inlineChromeAppliesStyles(parentStyle, containerStyle *ResolvedStyle) bool 
 	}
 
 	if parentStyle.Display != cssDisplayInline || parentStyle.Position != positionStatic ||
-		isVerticalWritingMode(parentStyle.WritingMode) {
+		isVerticalWritingMode(parentStyle.positioning().WritingMode) {
 		return false
 	}
 
@@ -276,8 +276,8 @@ func inlineHasBorderPtr(style *ResolvedStyle) bool {
 		return false
 	}
 
-	return style.BorderLeft.Width > 0 || style.BorderRight.Width > 0 ||
-		style.BorderTop.Width > 0 || style.BorderBottom.Width > 0
+	return style.borders().BorderLeft.Width > 0 || style.borders().BorderRight.Width > 0 ||
+		style.borders().BorderTop.Width > 0 || style.borders().BorderBottom.Width > 0
 }
 
 // collectInlineText flattens one text node under its white-space mode.
@@ -458,7 +458,7 @@ func (e *engine) collectWrappedText(node *html.Node, sty ResolvedStyle, out *[]i
 // collectWrappedTextPtr is the pointer-based hot path used by inline
 // collection. The value wrapper above preserves the external test hook;
 // internal callers pass the already-resolved node style so the per-fragment
-// loop pays no second map lookup and no 6KB copy.
+// loop pays no second map lookup and no copy.
 func (e *engine) collectWrappedTextPtr(node *html.Node, sty *ResolvedStyle, out *[]inlineItem) {
 	// Whitespace-only text nodes still separate adjacent inlines
 	// (wiki "Cuba"+" "+"Spain" / pretty-printed newlines between
@@ -494,7 +494,7 @@ func (e *engine) collectWrappedTextPtr(node *html.Node, sty *ResolvedStyle, out 
 	// does face math too. Every word shares sty, so hoisting the pure reads
 	// changes no value.
 	lineH := e.lineHeightOf(sty) * e.scale
-	verticalRun := isVerticalWritingMode(sty.WritingMode)
+	verticalRun := isVerticalWritingMode(sty.positioning().WritingMode)
 
 	var vertW float64
 
@@ -630,7 +630,7 @@ func (e *engine) preserveTrailingGap(node *html.Node, nodeStyle *ResolvedStyle, 
 
 	item.text += " "
 
-	if !autospaceIdeographAlpha(nodeStyle.TextAutospace) {
+	if !autospaceIdeographAlpha(nodeStyle.inlineText().TextAutospace) {
 		item.w += e.measureTextFace(" ", nodeStyle)
 
 		return
@@ -681,19 +681,19 @@ func hasWrapBreakPropsPtr(sty *ResolvedStyle) bool {
 		return false
 	}
 
-	return sty.WrapBefore != "" || sty.WrapAfter != "" || sty.WrapInside != ""
+	return sty.inlineText().WrapBefore != "" || sty.inlineText().WrapAfter != "" || sty.inlineText().WrapInside != ""
 }
 
 func wrapBreakLineBeforePtr(sty *ResolvedStyle) bool {
-	return sty != nil && sty.WrapBefore == wrapBreakLine
+	return sty != nil && sty.inlineText().WrapBefore == wrapBreakLine
 }
 
 func wrapBreakLineAfterPtr(sty *ResolvedStyle) bool {
-	return sty != nil && sty.WrapAfter == wrapBreakLine
+	return sty != nil && sty.inlineText().WrapAfter == wrapBreakLine
 }
 
 // applyWrapBreakFlagsPtr marks the items one inline element contributed
-// without copying the 6KB style record. It mirrors applyWrapBreakFlags in
+// without copying the style record. It mirrors applyWrapBreakFlags in
 // wrap_break.go field for field; that value-based entry point stays for
 // external callers.
 func (e *engine) applyWrapBreakFlagsPtr(sty *ResolvedStyle, items []inlineItem, start int) {
@@ -703,7 +703,7 @@ func (e *engine) applyWrapBreakFlagsPtr(sty *ResolvedStyle, items []inlineItem, 
 
 	markWrapBoundaries(sty, items, start)
 
-	if !wrapBreakAvoids(sty.WrapInside) {
+	if !wrapBreakAvoids(sty.inlineText().WrapInside) {
 		return
 	}
 
@@ -719,11 +719,11 @@ func (e *engine) applyWrapBreakFlagsPtr(sty *ResolvedStyle, items []inlineItem, 
 // markWrapBoundaries flags the first and last item when the element's
 // wrap-before or wrap-after asks to avoid a break there.
 func markWrapBoundaries(sty *ResolvedStyle, items []inlineItem, start int) {
-	if wrapBreakAvoids(sty.WrapBefore) && !items[start].forceBreak {
+	if wrapBreakAvoids(sty.inlineText().WrapBefore) && !items[start].forceBreak {
 		items[start].avoidBefore = true
 	}
 
-	if wrapBreakAvoids(sty.WrapAfter) && !items[len(items)-1].forceBreak {
+	if wrapBreakAvoids(sty.inlineText().WrapAfter) && !items[len(items)-1].forceBreak {
 		items[len(items)-1].avoidAfter = true
 	}
 }
@@ -840,7 +840,7 @@ func (e *engine) collectInlineBlockItem(node *html.Node, sty *ResolvedStyle, out
 
 		if !marginBaseline && cblock.firstBaseline == 0 {
 			if last := e.lastInFlowBlockChild(node); last != nil &&
-				isVerticalWritingMode(e.stylePtr(last).WritingMode) {
+				isVerticalWritingMode(e.stylePtr(last).positioning().WritingMode) {
 				marginBaseline = true
 			}
 		}
@@ -965,9 +965,9 @@ func (e *engine) inlineBlockAvail(nodeN *html.Node, sty *ResolvedStyle, cbW floa
 		// buildBlock applies box-sizing to the specified width; pass enough
 		// avail that auto-fill does not stretch a definite-width box.
 		width := e.scalePt(sty.Width)
-		if sty.BoxSizing != borderBox {
+		if sty.geometry().BoxSizing != borderBox {
 			width += e.scalePt(sty.PaddingLeft) + e.scalePt(sty.PaddingRight) +
-				e.scalePt(sty.BorderLeft.Width) + e.scalePt(sty.BorderRight.Width)
+				e.scalePt(sty.borders().BorderLeft.Width) + e.scalePt(sty.borders().BorderRight.Width)
 		}
 
 		return width + e.scalePt(sty.MarginLeft) + e.scalePt(sty.MarginRight)
@@ -1003,7 +1003,7 @@ func (e *engine) inlineBlockAvail(nodeN *html.Node, sty *ResolvedStyle, cbW floa
 // apply in every case; an empty box is 0 wide, matching Chrome.
 func (e *engine) containmentInlineBlockAvail(sty *ResolvedStyle) float64 {
 	chrome := e.scalePt(sty.PaddingLeft) + e.scalePt(sty.PaddingRight) +
-		e.scalePt(sty.BorderLeft.Width) + e.scalePt(sty.BorderRight.Width)
+		e.scalePt(sty.borders().BorderLeft.Width) + e.scalePt(sty.borders().BorderRight.Width)
 	intr := chrome
 
 	if intrinsicW := containmentIntrinsicWidth(sty); intrinsicW >= 0 {
@@ -1045,7 +1045,7 @@ func (e *engine) nestedBlockHChrome(node *html.Node) float64 {
 
 		sum += e.scalePt(childStyle.MarginLeft) + e.scalePt(childStyle.MarginRight) +
 			e.scalePt(childStyle.PaddingLeft) + e.scalePt(childStyle.PaddingRight) +
-			e.scalePt(childStyle.BorderLeft.Width) + e.scalePt(childStyle.BorderRight.Width)
+			e.scalePt(childStyle.borders().BorderLeft.Width) + e.scalePt(childStyle.borders().BorderRight.Width)
 	}
 
 	return sum
@@ -1056,10 +1056,10 @@ func availWForInline() float64 { return inlineMeasureWidth }
 
 func (e *engine) textItem(text string, style *ResolvedStyle) inlineItem {
 	text = transformWordSpaceText(text, style)
-	textWidth := e.measureTextFace(transformInlineText(text, style.TextTransform), style)
+	textWidth := e.measureTextFace(transformInlineText(text, style.inlineText().TextTransform), style)
 	lineHeight := e.lineHeightOf(style) * e.scale
 
-	if isVerticalWritingMode(style.WritingMode) {
+	if isVerticalWritingMode(style.positioning().WritingMode) {
 		// In a vertical writing context the text advance runs along the
 		// block axis. The inline line still occupies only one glyph-width
 		// column; using the full measured string width here makes centered
@@ -1079,7 +1079,7 @@ func (e *engine) textItem(text string, style *ResolvedStyle) inlineItem {
 func (e *engine) wrappedWordItem(word string, style *ResolvedStyle, lineH, vertW float64, vertical bool) inlineItem {
 	word = transformWordSpaceText(word, style)
 
-	advance := e.measureTextFace(transformInlineText(word, style.TextTransform), style)
+	advance := e.measureTextFace(transformInlineText(word, style.inlineText().TextTransform), style)
 	if vertical {
 		advance = vertW
 	}
@@ -1109,19 +1109,19 @@ func (e *engine) inlineTextWidth(text string, st *ResolvedStyle, chrome bool) fl
 }
 
 func (e *engine) inlineChromeLeft(st *ResolvedStyle) float64 {
-	return e.scalePt(st.PaddingLeft) + e.scalePt(st.BorderLeft.Width)
+	return e.scalePt(st.PaddingLeft) + e.scalePt(st.borders().BorderLeft.Width)
 }
 
 func (e *engine) inlineChromeRight(st *ResolvedStyle) float64 {
-	return e.scalePt(st.PaddingRight) + e.scalePt(st.BorderRight.Width)
+	return e.scalePt(st.PaddingRight) + e.scalePt(st.borders().BorderRight.Width)
 }
 
 func (e *engine) inlineChromeTop(st *ResolvedStyle) float64 {
-	return e.scalePt(st.PaddingTop) + e.scalePt(st.BorderTop.Width)
+	return e.scalePt(st.PaddingTop) + e.scalePt(st.borders().BorderTop.Width)
 }
 
 func (e *engine) inlineChromeBottom(st *ResolvedStyle) float64 {
-	return e.scalePt(st.PaddingBottom) + e.scalePt(st.BorderBottom.Width)
+	return e.scalePt(st.PaddingBottom) + e.scalePt(st.borders().BorderBottom.Width)
 }
 
 // TransformInlineText applies CSS text-transform (uppercase, lowercase, capitalize).
@@ -1446,30 +1446,30 @@ func sameInlineStyle(acc, boxN *ResolvedStyle) bool {
 		acc.FontItalic == boxN.FontItalic &&
 		acc.famHash == boxN.famHash &&
 		acc.LineHeight == boxN.LineHeight &&
-		acc.TextTransform == boxN.TextTransform &&
-		acc.LetterSpacing == boxN.LetterSpacing &&
-		acc.WordSpacing == boxN.WordSpacing &&
+		acc.inlineText().TextTransform == boxN.inlineText().TextTransform &&
+		acc.inlineText().LetterSpacing == boxN.inlineText().LetterSpacing &&
+		acc.inlineText().WordSpacing == boxN.inlineText().WordSpacing &&
 		acc.Visibility == boxN.Visibility &&
 		acc.Color == boxN.Color &&
 		acc.BGColor == boxN.BGColor &&
 		acc.PaddingTop == boxN.PaddingTop && acc.PaddingRight == boxN.PaddingRight &&
 		acc.PaddingBottom == boxN.PaddingBottom && acc.PaddingLeft == boxN.PaddingLeft &&
-		acc.BorderTop == boxN.BorderTop && acc.BorderRight == boxN.BorderRight &&
-		acc.BorderBottom == boxN.BorderBottom && acc.BorderLeft == boxN.BorderLeft &&
-		acc.TextDecoration == boxN.TextDecoration &&
+		acc.borders().BorderTop == boxN.borders().BorderTop && acc.borders().BorderRight == boxN.borders().BorderRight &&
+		acc.borders().BorderBottom == boxN.borders().BorderBottom && acc.borders().BorderLeft == boxN.borders().BorderLeft &&
+		acc.inlineText().TextDecoration == boxN.inlineText().TextDecoration &&
 		acc.WhiteSpace == boxN.WhiteSpace &&
-		acc.WritingMode == boxN.WritingMode &&
-		acc.TextOrientation == boxN.TextOrientation &&
-		acc.TextCombineUpright == boxN.TextCombineUpright &&
-		acc.TextDecorationInset == boxN.TextDecorationInset &&
-		acc.TextDecorationSkip == boxN.TextDecorationSkip &&
-		acc.TextDecorationSkipBox == boxN.TextDecorationSkipBox &&
-		acc.TextDecorationSkipSelf == boxN.TextDecorationSkipSelf &&
-		acc.TextDecorationSkipSpaces == boxN.TextDecorationSkipSpaces &&
-		acc.TextDecorationSkipInk == boxN.TextDecorationSkipInk &&
-		acc.VerticalAlign == boxN.VerticalAlign &&
-		acc.VerticalAlignShift == boxN.VerticalAlignShift &&
-		acc.InlineSizing == boxN.InlineSizing
+		acc.positioning().WritingMode == boxN.positioning().WritingMode &&
+		acc.inlineText().TextOrientation == boxN.inlineText().TextOrientation &&
+		acc.inlineText().TextCombineUpright == boxN.inlineText().TextCombineUpright &&
+		acc.inlineText().TextDecorationInset == boxN.inlineText().TextDecorationInset &&
+		acc.inlineText().TextDecorationSkip == boxN.inlineText().TextDecorationSkip &&
+		acc.inlineText().TextDecorationSkipBox == boxN.inlineText().TextDecorationSkipBox &&
+		acc.inlineText().TextDecorationSkipSelf == boxN.inlineText().TextDecorationSkipSelf &&
+		acc.inlineText().TextDecorationSkipSpaces == boxN.inlineText().TextDecorationSkipSpaces &&
+		acc.inlineText().TextDecorationSkipInk == boxN.inlineText().TextDecorationSkipInk &&
+		acc.inlineText().VerticalAlign == boxN.inlineText().VerticalAlign &&
+		acc.inlineText().VerticalAlignShift == boxN.inlineText().VerticalAlignShift &&
+		acc.inlineText().InlineSizing == boxN.inlineText().InlineSizing
 }
 
 func borderPaint(side border) float64 {

@@ -54,7 +54,7 @@ func TestFragmentAssessBreakBeforeColumnForcesColumn(t *testing.T) {
 	plain := layoutHTML(t, fragmentAssessAutoDoc(""))
 	forced := layoutHTML(t, fragmentAssessAutoDoc("break-before:column"))
 
-	if got := boxByID(t, forced, "k3").style.PageBreakBefore; got != pageBreakAlways {
+	if got := boxByID(t, forced, "k3").style.fragmentation().PageBreakBefore; got != pageBreakAlways {
 		t.Fatalf("break-before:column used = %q, want always", got)
 	}
 
@@ -104,7 +104,7 @@ func TestFragmentAssessBreakAfterColumnForcesColumn(t *testing.T) {
 	plain := layoutHTML(t, doc(""))
 	forced := layoutHTML(t, doc("break-after:column"))
 
-	if got := boxByID(t, forced, "k2").style.PageBreakAfter; got != pageBreakAlways {
+	if got := boxByID(t, forced, "k2").style.fragmentation().PageBreakAfter; got != pageBreakAlways {
 		t.Fatalf("break-after:column used = %q, want always", got)
 	}
 
@@ -171,7 +171,7 @@ func TestFragmentAssessBreakAvoidMulticolNoEffect(t *testing.T) {
 	plain := layoutHTML(t, doc(""))
 	avoid := layoutHTML(t, doc("break-before:avoid"))
 
-	if got := boxByID(t, avoid, "k2").style.PageBreakBefore; got != "avoid" {
+	if got := boxByID(t, avoid, "k2").style.fragmentation().PageBreakBefore; got != "avoid" {
 		t.Fatalf("break-before:avoid used = %q, want avoid", got)
 	}
 
@@ -211,7 +211,7 @@ func TestFragmentAssessBreakInsideAvoidMulticolNoEffect(t *testing.T) {
 	plain := layoutHTML(t, doc(""))
 	avoid := layoutHTML(t, doc("break-inside:avoid"))
 
-	if got := boxByID(t, avoid, "k1").style.PageBreakInside; got != "avoid" {
+	if got := boxByID(t, avoid, "k1").style.fragmentation().PageBreakInside; got != "avoid" {
 		t.Fatalf("break-inside:avoid used = %q, want avoid", got)
 	}
 
@@ -248,11 +248,11 @@ func TestFragmentAssessOrphansWidowsAnonStripNoEffect(t *testing.T) {
 	plain := layoutHTML(t, doc(""))
 	fragment := layoutHTML(t, doc("orphans:5;widows:5"))
 
-	if got := boxByID(t, fragment, "mc").style.Orphans; got != 5 {
+	if got := boxByID(t, fragment, "mc").style.fragmentation().Orphans; got != 5 {
 		t.Fatalf("orphans used = %d, want 5", got)
 	}
 
-	if got := boxByID(t, fragment, "mc").style.Widows; got != 5 {
+	if got := boxByID(t, fragment, "mc").style.fragmentation().Widows; got != 5 {
 		t.Fatalf("widows used = %d, want 5", got)
 	}
 
@@ -288,7 +288,7 @@ func TestFragmentAssessMarginBreakMulticolNoEffect(t *testing.T) {
 	plain := layoutHTML(t, doc(""))
 	discard := layoutHTML(t, doc("margin-break:discard"))
 
-	if got := boxByID(t, discard, "k2").style.MarginBreak; got != "discard" {
+	if got := boxByID(t, discard, "k2").style.fragmentation().MarginBreak; got != "discard" {
 		t.Fatalf("margin-break used = %q, want discard", got)
 	}
 

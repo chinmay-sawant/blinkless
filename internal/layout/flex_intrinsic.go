@@ -20,7 +20,7 @@ func (e *engine) measureFlexItemMaxContent(node *html.Node, style *ResolvedStyle
 
 	_, maxW := e.measureCellMinMax(node, style)
 	chrome := e.scalePt(style.PaddingLeft) + e.scalePt(style.PaddingRight) +
-		e.scalePt(style.BorderLeft.Width) + e.scalePt(style.BorderRight.Width)
+		e.scalePt(style.borders().BorderLeft.Width) + e.scalePt(style.borders().BorderRight.Width)
 	contentW := maxW - chrome
 	if contentW < 0 {
 		contentW = 0
@@ -31,7 +31,7 @@ func (e *engine) measureFlexItemMaxContent(node *html.Node, style *ResolvedStyle
 			contentW = specified - chrome
 		}
 	}
-	rowFlex := style.Display == displayFlex && style.FlexDirection != fxCol && style.FlexDirection != fxColRev
+	rowFlex := style.Display == displayFlex && style.flex().FlexDirection != fxCol && style.flex().FlexDirection != fxColRev
 	rowContentW := 0.0
 	rowChildCount := 0
 
@@ -75,9 +75,9 @@ func (e *engine) measureFlexItemMaxContent(node *html.Node, style *ResolvedStyle
 //
 //nolint:cyclop,wsl // intrinsic flex contributions keep the row and column rules together
 func (e *engine) flexIntrinsicWidth(node *html.Node, style *ResolvedStyle, _ bool) float64 {
-	rowFlex := style.FlexDirection != fxCol && style.FlexDirection != fxColRev
+	rowFlex := style.flex().FlexDirection != fxCol && style.flex().FlexDirection != fxColRev
 	chrome := e.scalePt(style.PaddingLeft) + e.scalePt(style.PaddingRight) +
-		e.scalePt(style.BorderLeft.Width) + e.scalePt(style.BorderRight.Width)
+		e.scalePt(style.borders().BorderLeft.Width) + e.scalePt(style.borders().BorderRight.Width)
 	contentW := 0.0
 	if !rowFlex {
 		_, maxW := e.measureCellMinMax(node, style)
@@ -175,7 +175,7 @@ func (e *engine) accumulateIntrinsicElementWidth(
 
 	if childStyle.Width >= 0 && childStyle.WidthPercent < 0 {
 		pad := e.scalePt(childStyle.PaddingLeft) + e.scalePt(childStyle.PaddingRight) +
-			e.scalePt(childStyle.BorderLeft.Width) + e.scalePt(childStyle.BorderRight.Width)
+			e.scalePt(childStyle.borders().BorderLeft.Width) + e.scalePt(childStyle.borders().BorderRight.Width)
 		contribution = e.flexBoxSized(childStyle, e.scalePt(childStyle.Width), pad)
 	} else {
 		contribution = e.measureFlexItemMaxContent(child, childStyle)
@@ -199,10 +199,10 @@ func (e *engine) accumulateIntrinsicElementWidth(
 // through to the next specified size, then content.
 func (e *engine) flexSpecifiedBaseWidth(style *ResolvedStyle, mainSize, pad float64) (float64, bool) {
 	switch {
-	case style.FlexBasisPercent >= 0 && mainSize >= 0:
-		return e.flexBoxSized(style, mainSize*style.FlexBasisPercent/oneHundred, pad), true
-	case style.FlexBasis >= 0:
-		return e.flexBoxSized(style, e.scalePt(style.FlexBasis), pad), true
+	case style.flex().FlexBasisPercent >= 0 && mainSize >= 0:
+		return e.flexBoxSized(style, mainSize*style.flex().FlexBasisPercent/oneHundred, pad), true
+	case style.flex().FlexBasis >= 0:
+		return e.flexBoxSized(style, e.scalePt(style.flex().FlexBasis), pad), true
 	case style.WidthPercent >= 0 && mainSize >= 0:
 		return e.flexBoxSized(style, mainSize*style.WidthPercent/oneHundred, pad), true
 	case style.Width >= 0:
@@ -214,9 +214,9 @@ func (e *engine) flexSpecifiedBaseWidth(style *ResolvedStyle, mainSize, pad floa
 
 // flexBoxSized converts a content-box size to border-box when BoxSizing says so.
 // The style is read through a pointer so intrinsic measurement does not copy
-// the 6KB record per item.
+// the record per item.
 func (e *engine) flexBoxSized(style *ResolvedStyle, size, pad float64) float64 {
-	if style.BoxSizing != borderBox {
+	if style.geometry().BoxSizing != borderBox {
 		return size + pad
 	}
 

@@ -14,7 +14,7 @@ package layout
 // keeps at the top of a column it starts after a break. It is 0 for the first
 // column, for a column that already holds content, and for auto or discard.
 func (e *engine) keptBreakMargin(style *ResolvedStyle, col int, colHeight float64) float64 {
-	if style == nil || style.MarginBreak != marginBreakKeep || col <= 0 || colHeight > 0 {
+	if style == nil || style.fragmentation().MarginBreak != marginBreakKeep || col <= 0 || colHeight > 0 {
 		return 0
 	}
 

@@ -455,10 +455,10 @@ func (e *engine) measureRuneFace(curRune rune, sty *ResolvedStyle) float64 {
 func (e *engine) measureRuneFaceUncached(curRune rune, sty *ResolvedStyle) float64 {
 	if curRune == '\t' {
 		if isTabSizeLength(sty) {
-			return e.scalePt(sty.TabSize)
+			return e.scalePt(sty.inlineText().TabSize)
 		}
 
-		tabSize := sty.TabSize
+		tabSize := sty.inlineText().TabSize
 		if tabSize <= 0 {
 			tabSize = 8
 		}
@@ -484,12 +484,12 @@ func (e *engine) measureRuneFaceUncached(curRune rune, sty *ResolvedStyle) float
 		advance = em
 	}
 
-	if sty.LetterSpacing != 0 {
-		advance += sty.LetterSpacing * e.scale
+	if sty.inlineText().LetterSpacing != 0 {
+		advance += sty.inlineText().LetterSpacing * e.scale
 	}
 
-	if curRune == ' ' && sty.WordSpacing != 0 {
-		advance += sty.WordSpacing * e.scale
+	if curRune == ' ' && sty.inlineText().WordSpacing != 0 {
+		advance += sty.inlineText().WordSpacing * e.scale
 	}
 
 	return advance * fontWidthScale(sty)

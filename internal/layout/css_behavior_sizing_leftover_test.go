@@ -140,48 +140,48 @@ func TestBehaviorMaxSizeClampsUsedBorderBox(t *testing.T) {
 	behaviorBoxModelCheckUsedSize(t, res, "pct", 200, 100)
 
 	open := boxByID(t, res, "open")
-	if open.style.MaxWidth != -1 || open.style.MaxHeight != -1 {
+	if open.style.geometry().MaxWidth != -1 || open.style.geometry().MaxHeight != -1 {
 		t.Errorf("max-size:none MaxWidth=%v MaxHeight=%v, want -1 and -1",
-			open.style.MaxWidth, open.style.MaxHeight)
+			open.style.geometry().MaxWidth, open.style.geometry().MaxHeight)
 	}
 
 	kept := boxByID(t, res, "kept")
-	if !near(kept.style.MaxWidth, pxToPt(40)) || kept.style.MaxHeight != -1 {
+	if !near(kept.style.geometry().MaxWidth, pxToPt(40)) || kept.style.geometry().MaxHeight != -1 {
 		t.Errorf("bad max-size MaxWidth=%v (want 40px) MaxHeight=%v (want -1)",
-			kept.style.MaxWidth, kept.style.MaxHeight)
+			kept.style.geometry().MaxWidth, kept.style.geometry().MaxHeight)
 	}
 
 	item := boxByID(t, res, "item")
-	if !near(item.style.MaxWidth, pxToPt(180)) || !near(item.style.MaxHeight, pxToPt(60)) {
+	if !near(item.style.geometry().MaxWidth, pxToPt(180)) || !near(item.style.geometry().MaxHeight, pxToPt(60)) {
 		t.Fatalf("max-size 180px 60px MaxWidth=%v MaxHeight=%v, want 180px and 60px",
-			item.style.MaxWidth, item.style.MaxHeight)
+			item.style.geometry().MaxWidth, item.style.geometry().MaxHeight)
 	}
 
 	var ctx styleContext
 
 	applyStyleProp(item.style, "max-size", "none", item.style.FontSize, &ctx, nil, false)
 
-	if item.style.MaxWidth != -1 || item.style.MaxHeight != -1 ||
-		item.style.MaxWidthPercent != -1 || item.style.MaxHeightPercent != -1 {
+	if item.style.geometry().MaxWidth != -1 || item.style.geometry().MaxHeight != -1 ||
+		item.style.geometry().MaxWidthPercent != -1 || item.style.geometry().MaxHeightPercent != -1 {
 		t.Errorf("none after max-size MaxWidth=%v MaxHeight=%v percents %v %v, want -1",
-			item.style.MaxWidth, item.style.MaxHeight,
-			item.style.MaxWidthPercent, item.style.MaxHeightPercent)
+			item.style.geometry().MaxWidth, item.style.geometry().MaxHeight,
+			item.style.geometry().MaxWidthPercent, item.style.geometry().MaxHeightPercent)
 	}
 
 	pct := boxByID(t, res, "pct")
-	if pct.style.MaxWidthPercent != 50 || pct.style.MaxHeightPercent != 50 ||
-		pct.style.MaxWidth != -1 || pct.style.MaxHeight != -1 {
+	if pct.style.geometry().MaxWidthPercent != 50 || pct.style.geometry().MaxHeightPercent != 50 ||
+		pct.style.geometry().MaxWidth != -1 || pct.style.geometry().MaxHeight != -1 {
 		t.Errorf("max-size 50%% stored width %v/%v%% height %v/%v%%, want percent 50 and absolute -1",
-			pct.style.MaxWidth, pct.style.MaxWidthPercent,
-			pct.style.MaxHeight, pct.style.MaxHeightPercent)
+			pct.style.geometry().MaxWidth, pct.style.geometry().MaxWidthPercent,
+			pct.style.geometry().MaxHeight, pct.style.geometry().MaxHeightPercent)
 	}
 
 	applyStyleProp(pct.style, "max-size", "none", pct.style.FontSize, &ctx, nil, false)
 
-	if pct.style.MaxWidth != -1 || pct.style.MaxHeight != -1 ||
-		pct.style.MaxWidthPercent != -1 || pct.style.MaxHeightPercent != -1 {
+	if pct.style.geometry().MaxWidth != -1 || pct.style.geometry().MaxHeight != -1 ||
+		pct.style.geometry().MaxWidthPercent != -1 || pct.style.geometry().MaxHeightPercent != -1 {
 		t.Errorf("none after percentage max-size MaxWidth=%v MaxHeight=%v percents %v %v, want -1",
-			pct.style.MaxWidth, pct.style.MaxHeight,
-			pct.style.MaxWidthPercent, pct.style.MaxHeightPercent)
+			pct.style.geometry().MaxWidth, pct.style.geometry().MaxHeight,
+			pct.style.geometry().MaxWidthPercent, pct.style.geometry().MaxHeightPercent)
 	}
 }

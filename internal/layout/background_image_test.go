@@ -57,8 +57,10 @@ func TestBackgroundImagePaints(t *testing.T) {
 		return png, nil
 	})
 	sty := ResolvedStyle{
-		BackgroundImage:  `url("x.png")`,
-		BackgroundRepeat: "no-repeat",
+		backgroundGroup: &styleBackground{
+			BackgroundImage:  `url("x.png")`,
+			BackgroundRepeat: "no-repeat",
+		},
 	}
 	eng.prependChrome(0, &box{}, &sty, 10, 20, 100, 50)
 
@@ -90,9 +92,11 @@ func TestBackgroundImagePaintsOverColor(t *testing.T) {
 		return png, nil
 	})
 	sty := ResolvedStyle{
-		BGColor:          [4]float64{1, 0, 0, 1},
-		BackgroundImage:  `url("x.png")`,
-		BackgroundRepeat: "no-repeat",
+		BGColor: [4]float64{1, 0, 0, 1},
+		backgroundGroup: &styleBackground{
+			BackgroundImage:  `url("x.png")`,
+			BackgroundRepeat: "no-repeat",
+		},
 	}
 	eng.prependChrome(0, &box{}, &sty, 0, 0, 80, 40)
 
@@ -137,7 +141,11 @@ func TestBackgroundImageMissingSkips(t *testing.T) {
 	eng := newBackgroundImageEngine(func(string) ([]byte, error) {
 		return nil, errors.New("missing")
 	})
-	sty := ResolvedStyle{BackgroundImage: "missing.png"}
+	sty := ResolvedStyle{
+		backgroundGroup: &styleBackground{
+			BackgroundImage: "missing.png",
+		},
+	}
 	eng.prependChrome(0, &box{}, &sty, 0, 0, 100, 50)
 
 	if len(eng.deferredChrome) != 0 {
@@ -158,7 +166,11 @@ func TestBackgroundImageGradientRenders(t *testing.T) {
 
 		return tinyPNG(2, 2), nil
 	})
-	sty := ResolvedStyle{BackgroundImage: "linear-gradient(red, blue)"}
+	sty := ResolvedStyle{
+		backgroundGroup: &styleBackground{
+			BackgroundImage: "linear-gradient(red, blue)",
+		},
+	}
 	eng.prependChrome(0, &box{}, &sty, 0, 0, 100, 50)
 
 	if called {
@@ -179,7 +191,11 @@ func TestBackgroundImageMultiLayer(t *testing.T) {
 
 		return tinyPNG(2, 2), nil
 	})
-	sty := ResolvedStyle{BackgroundImage: `url("a.png"), url("b.png")`}
+	sty := ResolvedStyle{
+		backgroundGroup: &styleBackground{
+			BackgroundImage: `url("a.png"), url("b.png")`,
+		},
+	}
 	eng.prependChrome(0, &box{}, &sty, 0, 0, 40, 20)
 
 	if len(fetched) != 2 || fetched[0] != "b.png" || fetched[1] != "a.png" {
@@ -194,9 +210,11 @@ func TestBackgroundBlendModeFollowsBackgroundLayerOrder(t *testing.T) {
 		return tinyPNG(2, 2), nil
 	})
 	sty := ResolvedStyle{
-		BackgroundImage:     `url("a.png"), url("b.png")`,
-		BackgroundBlendMode: "multiply, screen",
-		BackgroundRepeat:    "no-repeat",
+		backgroundGroup: &styleBackground{
+			BackgroundImage:     `url("a.png"), url("b.png")`,
+			BackgroundBlendMode: "multiply, screen",
+			BackgroundRepeat:    "no-repeat",
+		},
 	}
 	eng.prependChrome(0, &box{}, &sty, 0, 0, 40, 20)
 
@@ -222,7 +240,11 @@ func TestBackgroundImageNoBackgroundFlag(t *testing.T) {
 		return tinyPNG(2, 2), nil
 	})
 	eng.opts.Background = false
-	sty := ResolvedStyle{BackgroundImage: `url("x.png")`}
+	sty := ResolvedStyle{
+		backgroundGroup: &styleBackground{
+			BackgroundImage: `url("x.png")`,
+		},
+	}
 	eng.prependChrome(0, &box{}, &sty, 0, 0, 100, 50)
 
 	if called {
@@ -326,8 +348,10 @@ func TestBackgroundImageBarePath(t *testing.T) {
 		return png, nil
 	})
 	sty := ResolvedStyle{
-		BackgroundImage:  "logo.png",
-		BackgroundRepeat: "no-repeat",
+		backgroundGroup: &styleBackground{
+			BackgroundImage:  "logo.png",
+			BackgroundRepeat: "no-repeat",
+		},
 	}
 	eng.prependChrome(0, &box{}, &sty, 0, 0, 30, 30)
 	imageOp := wantSingleDeferredImage(t, eng)
@@ -352,13 +376,15 @@ func TestBackgroundOriginContentBoxOverflowsIntoPadding(t *testing.T) {
 		return png, nil
 	})
 	sty := ResolvedStyle{
-		BackgroundImage:  `url("x.png")`,
-		BackgroundRepeat: "no-repeat",
-		BackgroundOrigin: "content-box",
-		PaddingLeft:      10,
-		PaddingRight:     10,
-		PaddingTop:       10,
-		PaddingBottom:    10,
+		PaddingLeft:   10,
+		PaddingRight:  10,
+		PaddingTop:    10,
+		PaddingBottom: 10,
+		backgroundGroup: &styleBackground{
+			BackgroundImage:  `url("x.png")`,
+			BackgroundRepeat: "no-repeat",
+			BackgroundOrigin: "content-box",
+		},
 	}
 	eng.prependChrome(0, &box{}, &sty, 0, 0, 100, 50)
 
@@ -382,10 +408,12 @@ func TestBackgroundPositionUsesCSSPxIntrinsicSize(t *testing.T) {
 		return png, nil
 	})
 	sty := ResolvedStyle{
-		BackgroundImage:  `url("logo.png")`,
-		BackgroundRepeat: "no-repeat",
-		BackgroundPosX:   "right",
-		BackgroundPosY:   "bottom",
+		backgroundGroup: &styleBackground{
+			BackgroundImage:  `url("logo.png")`,
+			BackgroundRepeat: "no-repeat",
+			BackgroundPosX:   "right",
+			BackgroundPosY:   "bottom",
+		},
 	}
 	const boxW, boxH = 160.0, 36.0
 	eng.prependChrome(0, &box{}, &sty, 0, 0, boxW, boxH)
@@ -418,12 +446,12 @@ func stampBackgroundImageIfEmpty(styles map[*html.Node]*ResolvedStyle, raw strin
 			continue
 		}
 
-		if st.BackgroundImage != "" {
+		if st.background().BackgroundImage != "" {
 			continue
 		}
 
 		copied := *st
-		copied.BackgroundImage = raw
+		copied.editBackground().BackgroundImage = raw
 		styles[node] = &copied
 	}
 }

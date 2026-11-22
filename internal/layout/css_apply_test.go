@@ -18,8 +18,8 @@ func TestWordSpacingInherits(t *testing.T) {
 	`)}, "print", testViewport, 800)
 
 	inner := styleByClass(t, styles, "inner")
-	if !near(inner.WordSpacing, 3) {
-		t.Fatalf("inner WordSpacing = %v, want 3 (inherited)", inner.WordSpacing)
+	if !near(inner.inlineText().WordSpacing, 3) {
+		t.Fatalf("inner WordSpacing = %v, want 3 (inherited)", inner.inlineText().WordSpacing)
 	}
 
 	ownRoot := mustParse(t, `<html><body><div class="outer"><p class="own">x</p></div></body></html>`)
@@ -29,8 +29,8 @@ func TestWordSpacingInherits(t *testing.T) {
 	`)}, "print", testViewport, 800)
 
 	own := styleByClass(t, ownStyles, "own")
-	if !near(own.WordSpacing, 1) {
-		t.Fatalf("own WordSpacing = %v, want 1", own.WordSpacing)
+	if !near(own.inlineText().WordSpacing, 1) {
+		t.Fatalf("own WordSpacing = %v, want 1", own.inlineText().WordSpacing)
 	}
 }
 
@@ -197,19 +197,19 @@ func TestLogicalInset(t *testing.T) {
 	`)}, "print", testViewport, 800)
 
 	all := styleByClass(t, styles, "all")
-	if all.TopAuto || all.RightAuto || all.BottomAuto || all.LeftAuto {
+	if all.positioning().TopAuto || all.positioning().RightAuto || all.positioning().BottomAuto || all.positioning().LeftAuto {
 		t.Fatal("inset should clear auto offsets")
 	}
 
-	if !near(all.Top, 10) || !near(all.Bottom, 10) || !near(all.Left, 20) || !near(all.Right, 20) {
+	if !near(all.positioning().Top, 10) || !near(all.positioning().Bottom, 10) || !near(all.positioning().Left, 20) || !near(all.positioning().Right, 20) {
 		t.Fatalf("inset = T %.2f R %.2f B %.2f L %.2f, want 10/20/10/20",
-			all.Top, all.Right, all.Bottom, all.Left)
+			all.positioning().Top, all.positioning().Right, all.positioning().Bottom, all.positioning().Left)
 	}
 
 	pair := styleByClass(t, styles, "pair")
-	if !near(pair.Top, 4) || !near(pair.Bottom, 4) || !near(pair.Left, 7) {
+	if !near(pair.positioning().Top, 4) || !near(pair.positioning().Bottom, 4) || !near(pair.positioning().Left, 7) {
 		t.Fatalf("inset-block/inline-start = T %.2f B %.2f L %.2f, want 4/4/7",
-			pair.Top, pair.Bottom, pair.Left)
+			pair.positioning().Top, pair.positioning().Bottom, pair.positioning().Left)
 	}
 }
 
@@ -233,13 +233,13 @@ func TestLogicalSize(t *testing.T) {
 	}
 
 	minmax := styleByClass(t, styles, "minmax")
-	if !near(minmax.MinWidth, 40) || !near(minmax.MaxWidth, 80) {
-		t.Fatalf("min/max-inline-size = %.2f/%.2f, want 40/80", minmax.MinWidth, minmax.MaxWidth)
+	if !near(minmax.geometry().MinWidth, 40) || !near(minmax.geometry().MaxWidth, 80) {
+		t.Fatalf("min/max-inline-size = %.2f/%.2f, want 40/80", minmax.geometry().MinWidth, minmax.geometry().MaxWidth)
 	}
 
 	minmaxblock := styleByClass(t, styles, "minmaxblock")
-	if !near(minmaxblock.MinHeight, 30) || !near(minmaxblock.MaxHeight, 60) {
-		t.Fatalf("min/max-block-size = %.2f/%.2f, want 30/60", minmaxblock.MinHeight, minmaxblock.MaxHeight)
+	if !near(minmaxblock.geometry().MinHeight, 30) || !near(minmaxblock.geometry().MaxHeight, 60) {
+		t.Fatalf("min/max-block-size = %.2f/%.2f, want 30/60", minmaxblock.geometry().MinHeight, minmaxblock.geometry().MaxHeight)
 	}
 }
 
@@ -255,24 +255,24 @@ func TestCaptionSideParse(t *testing.T) {
 	`)}, "print", testViewport, 800)
 
 	table := styleByClass(t, styles, "bottom")
-	if table.CaptionSide != cssVerticalAlignBottom {
-		t.Fatalf("table CaptionSide = %q, want bottom", table.CaptionSide)
+	if table.fragmentation().CaptionSide != cssVerticalAlignBottom {
+		t.Fatalf("table CaptionSide = %q, want bottom", table.fragmentation().CaptionSide)
 	}
 
 	captionSty := styleByClass(t, styles, "cap")
-	if captionSty.CaptionSide != cssVerticalAlignBottom {
-		t.Fatalf("caption did not inherit CaptionSide, got %q", captionSty.CaptionSide)
+	if captionSty.fragmentation().CaptionSide != cssVerticalAlignBottom {
+		t.Fatalf("caption did not inherit CaptionSide, got %q", captionSty.fragmentation().CaptionSide)
 	}
 
 	plain := styleByClass(t, styles, "plain")
-	if plain.CaptionSide != "" {
-		t.Fatalf("default CaptionSide = %q, want empty (top)", plain.CaptionSide)
+	if plain.fragmentation().CaptionSide != "" {
+		t.Fatalf("default CaptionSide = %q, want empty (top)", plain.fragmentation().CaptionSide)
 	}
 
 	topRoot := mustParse(t, `<html><body><table class="top"><tr><td>x</td></tr></table></body></html>`)
 	topStyles := resolveStyles(topRoot, []*css.Stylesheet{sheet(t, `.top { caption-side: top }`)},
 		"print", testViewport, 800)
-	if got := styleByClass(t, topStyles, "top").CaptionSide; got != cssVerticalAlignTop {
+	if got := styleByClass(t, topStyles, "top").fragmentation().CaptionSide; got != cssVerticalAlignTop {
 		t.Fatalf("caption-side:top = %q", got)
 	}
 
@@ -284,11 +284,11 @@ func TestCaptionSideParse(t *testing.T) {
 		.left { caption-side: left }
 		.right { caption-side: right }
 	`)}, "print", testViewport, 800)
-	if got := styleByClass(t, sideStyles, "left").CaptionSide; got != floatLeft {
+	if got := styleByClass(t, sideStyles, "left").fragmentation().CaptionSide; got != floatLeft {
 		t.Fatalf("caption-side:left = %q", got)
 	}
 
-	if got := styleByClass(t, sideStyles, "right").CaptionSide; got != floatRight {
+	if got := styleByClass(t, sideStyles, "right").fragmentation().CaptionSide; got != floatRight {
 		t.Fatalf("caption-side:right = %q", got)
 	}
 }
@@ -365,18 +365,18 @@ func TestOverflowAxesIndependent(t *testing.T) {
 	`)}, "print", testViewport, 800)
 
 	xHidden := styleByClass(t, styles, "x-hidden")
-	if xHidden.OverflowX != overflowHidden || xHidden.OverflowY != visibleKeyword {
-		t.Fatalf("x-hidden: OverflowX=%q OverflowY=%q, want hidden/visible", xHidden.OverflowX, xHidden.OverflowY)
+	if xHidden.geometry().OverflowX != overflowHidden || xHidden.geometry().OverflowY != visibleKeyword {
+		t.Fatalf("x-hidden: OverflowX=%q OverflowY=%q, want hidden/visible", xHidden.geometry().OverflowX, xHidden.geometry().OverflowY)
 	}
 
 	yScroll := styleByClass(t, styles, "y-scroll")
-	if yScroll.OverflowX != visibleKeyword || yScroll.OverflowY != overflowScroll {
-		t.Fatalf("y-scroll: OverflowX=%q OverflowY=%q, want visible/scroll", yScroll.OverflowX, yScroll.OverflowY)
+	if yScroll.geometry().OverflowX != visibleKeyword || yScroll.geometry().OverflowY != overflowScroll {
+		t.Fatalf("y-scroll: OverflowX=%q OverflowY=%q, want visible/scroll", yScroll.geometry().OverflowX, yScroll.geometry().OverflowY)
 	}
 
 	split := styleByClass(t, styles, "split")
-	if split.OverflowX != overflowHidden || split.OverflowY != visibleKeyword {
-		t.Fatalf("split: OverflowX=%q OverflowY=%q, want hidden/visible", split.OverflowX, split.OverflowY)
+	if split.geometry().OverflowX != overflowHidden || split.geometry().OverflowY != visibleKeyword {
+		t.Fatalf("split: OverflowX=%q OverflowY=%q, want hidden/visible", split.geometry().OverflowX, split.geometry().OverflowY)
 	}
 }
 

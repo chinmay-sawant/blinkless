@@ -46,26 +46,26 @@ func applyImageAdjustProps(
 	switch prop {
 	case "image-orientation":
 		if canonical, deg, ok := parseImageOrientation(value); ok {
-			style.ImageOrientation = canonical
-			style.ImageOrientationAngle = deg
+			style.editImages().ImageOrientation = canonical
+			style.editImages().ImageOrientationAngle = deg
 		}
 	case "image-resolution":
 		if canonical, dpi, ok := parseImageResolution(value); ok {
-			style.ImageResolution = canonical
-			style.ImageResolutionDPI = dpi
+			style.editImages().ImageResolution = canonical
+			style.editImages().ImageResolutionDPI = dpi
 		}
 	case "object-view-box":
 		if canonical, ok := parseObjectViewBox(value); ok {
-			style.ObjectViewBox = canonical
+			style.editImages().ObjectViewBox = canonical
 		}
 	case "object-fit":
 		if fit, ok := parseObjectFit(value); ok {
-			style.ObjectFit = fit
+			style.editImages().ObjectFit = fit
 		}
 	case "object-position":
 		if x, y, ok := parseObjectPosition(value); ok {
-			style.ObjectPositionX = x
-			style.ObjectPositionY = y
+			style.editImages().ObjectPositionX = x
+			style.editImages().ObjectPositionY = y
 		}
 	default:
 		return false

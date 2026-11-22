@@ -20,11 +20,11 @@ func (e *engine) emitColumnRuleEdges(style *ResolvedStyle, left, right, top, bot
 	}
 
 	col := style.Color
-	if style.ColumnRuleColorSet {
-		col = style.ColumnRuleColor
+	if style.columns().ColumnRuleColorSet {
+		col = style.columns().ColumnRuleColor
 	}
 
 	for _, x := range [2]float64{left, right} {
-		e.emitBorderLine(x, top, 0, bottom-top, ruleW, style.ColumnRuleStyle, col[0], col[1], col[2])
+		e.emitBorderLine(x, top, 0, bottom-top, ruleW, style.columns().ColumnRuleStyle, col[0], col[1], col[2])
 	}
 }

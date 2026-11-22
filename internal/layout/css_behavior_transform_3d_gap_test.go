@@ -42,7 +42,7 @@ func TestBehaviorTranslate3dAndScale3d(t *testing.T) {
 	rejected := layoutHTML(t, `<html><body style="margin:0">`+
 		`<div id="a" style="width:40px;height:20px;background:#f00;transform:scale3d(2)"></div>`+
 		`</body></html>`)
-	if boxByID(t, rejected, "a").style.HasTransform {
+	if boxByID(t, rejected, "a").style.effects().HasTransform {
 		t.Error("scale3d(2) applied, want the one-number form rejected")
 	}
 }
@@ -81,7 +81,7 @@ func TestBehaviorScaleZUnderPerspective(t *testing.T) {
 		t.Error("scale:1 1 2 with no perspective stamped a matrix, want identity depth")
 	}
 
-	if !boxByID(t, flat, "inner").style.HasTransform3D {
+	if !boxByID(t, flat, "inner").style.effects().HasTransform3D {
 		t.Error("scale:1 1 2 HasTransform3D = false, want the Z side matrix stored")
 	}
 
@@ -164,7 +164,7 @@ func TestBehaviorScaleZFunction(t *testing.T) {
 	}
 
 	under := layoutHTML(t, doc("perspective:500px"))
-	if !boxByID(t, under, "inner").style.HasTransform3D {
+	if !boxByID(t, under, "inner").style.effects().HasTransform3D {
 		t.Fatal("scaleZ(2) HasTransform3D = false, want the side matrix stored")
 	}
 

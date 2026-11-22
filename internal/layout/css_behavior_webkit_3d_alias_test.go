@@ -26,18 +26,18 @@ func TestBehaviorWebkitPerspectiveAliasForeshortens(t *testing.T) {
 	perspInner := boxByID(t, perspRes, "inner")
 	outer := boxByID(t, perspRes, "outer")
 
-	if !orthoInner.style.HasTransform3D || !perspInner.style.HasTransform3D {
+	if !orthoInner.style.effects().HasTransform3D || !perspInner.style.effects().HasTransform3D {
 		t.Fatalf("rotateY child HasTransform3D = %v/%v, want true/true",
-			orthoInner.style.HasTransform3D, perspInner.style.HasTransform3D)
+			orthoInner.style.effects().HasTransform3D, perspInner.style.effects().HasTransform3D)
 	}
 
 	if orthoInner.hasPerspDist {
 		t.Errorf("orthographic child hasPerspDist = true, want false")
 	}
 
-	if !outer.style.HasPerspective || outer.style.PerspectiveDist <= 0 {
+	if !outer.style.effects().HasPerspective || outer.style.effects().PerspectiveDist <= 0 {
 		t.Errorf("outer HasPerspective=%v PerspectiveDist=%g, want a positive camera from -webkit-perspective",
-			outer.style.HasPerspective, outer.style.PerspectiveDist)
+			outer.style.effects().HasPerspective, outer.style.effects().PerspectiveDist)
 	}
 
 	perspBuildAssertCamera(t, perspInner, outer)
@@ -60,32 +60,32 @@ func TestBehaviorWebkitPerspectiveOriginAlias(t *testing.T) {
 	alias := originBuildBox(t, "-webkit-perspective-origin:25% 75%")
 	plain := originBuildBox(t, "perspective-origin:25% 75%")
 
-	if !alias.style.PerspectiveOriginSet {
+	if !alias.style.effects().PerspectiveOriginSet {
 		t.Errorf("PerspectiveOriginSet = false, want true")
 	}
 
-	if !alias.style.PerspectiveOriginXPct || !alias.style.PerspectiveOriginYPct {
+	if !alias.style.effects().PerspectiveOriginXPct || !alias.style.effects().PerspectiveOriginYPct {
 		t.Errorf("origin percent flags = %v/%v, want true/true",
-			alias.style.PerspectiveOriginXPct, alias.style.PerspectiveOriginYPct)
+			alias.style.effects().PerspectiveOriginXPct, alias.style.effects().PerspectiveOriginYPct)
 	}
 
-	if !near(alias.style.PerspectiveOriginX, 25) || !near(alias.style.PerspectiveOriginY, 75) {
+	if !near(alias.style.effects().PerspectiveOriginX, 25) || !near(alias.style.effects().PerspectiveOriginY, 75) {
 		t.Errorf("stored origin = (%g, %g), want declared percents (25, 75)",
-			alias.style.PerspectiveOriginX, alias.style.PerspectiveOriginY)
+			alias.style.effects().PerspectiveOriginX, alias.style.effects().PerspectiveOriginY)
 	}
 
-	sameX := near(alias.style.PerspectiveOriginX, plain.style.PerspectiveOriginX)
-	sameY := near(alias.style.PerspectiveOriginY, plain.style.PerspectiveOriginY)
-	sameFlags := alias.style.PerspectiveOriginXPct == plain.style.PerspectiveOriginXPct &&
-		alias.style.PerspectiveOriginYPct == plain.style.PerspectiveOriginYPct &&
-		alias.style.PerspectiveOriginSet == plain.style.PerspectiveOriginSet
+	sameX := near(alias.style.effects().PerspectiveOriginX, plain.style.effects().PerspectiveOriginX)
+	sameY := near(alias.style.effects().PerspectiveOriginY, plain.style.effects().PerspectiveOriginY)
+	sameFlags := alias.style.effects().PerspectiveOriginXPct == plain.style.effects().PerspectiveOriginXPct &&
+		alias.style.effects().PerspectiveOriginYPct == plain.style.effects().PerspectiveOriginYPct &&
+		alias.style.effects().PerspectiveOriginSet == plain.style.effects().PerspectiveOriginSet
 
 	if !sameX || !sameY || !sameFlags {
 		t.Errorf("webkit origin set=%v x=%g pct=%v y=%g pct=%v, unprefixed set=%v x=%g pct=%v y=%g pct=%v",
-			alias.style.PerspectiveOriginSet, alias.style.PerspectiveOriginX, alias.style.PerspectiveOriginXPct,
-			alias.style.PerspectiveOriginY, alias.style.PerspectiveOriginYPct,
-			plain.style.PerspectiveOriginSet, plain.style.PerspectiveOriginX, plain.style.PerspectiveOriginXPct,
-			plain.style.PerspectiveOriginY, plain.style.PerspectiveOriginYPct)
+			alias.style.effects().PerspectiveOriginSet, alias.style.effects().PerspectiveOriginX, alias.style.effects().PerspectiveOriginXPct,
+			alias.style.effects().PerspectiveOriginY, alias.style.effects().PerspectiveOriginYPct,
+			plain.style.effects().PerspectiveOriginSet, plain.style.effects().PerspectiveOriginX, plain.style.effects().PerspectiveOriginXPct,
+			plain.style.effects().PerspectiveOriginY, plain.style.effects().PerspectiveOriginYPct)
 	}
 }
 
@@ -107,7 +107,7 @@ func TestBehaviorWebkitTransformStyleAliasPreserve3D(t *testing.T) {
 	res := layoutHTML(t, webkitPreserveDoc())
 	outer := boxByID(t, res, "outer")
 
-	if got := outer.style.TransformStyle; got != "preserve-3d" {
+	if got := outer.style.effects().TransformStyle; got != "preserve-3d" {
 		t.Errorf("outer transform-style used = %q, want preserve-3d", got)
 	}
 
@@ -151,7 +151,7 @@ func TestBehaviorWebkitBackfaceAliasHides(t *testing.T) {
 		}
 	}
 
-	if got := boxByID(t, hidden, "a").style.BackfaceVisibility; got != "hidden" {
+	if got := boxByID(t, hidden, "a").style.effects().BackfaceVisibility; got != "hidden" {
 		t.Errorf("backface-visibility used = %q, want hidden", got)
 	}
 
@@ -175,7 +175,7 @@ func TestBehaviorWebkitBackfaceAliasHides(t *testing.T) {
 			visibleFills[0].W, visibleFills[0].H)
 	}
 
-	if got := boxByID(t, visible, "a").style.BackfaceVisibility; got != "visible" {
+	if got := boxByID(t, visible, "a").style.effects().BackfaceVisibility; got != "visible" {
 		t.Errorf("backface-visibility used = %q, want visible", got)
 	}
 }
@@ -198,13 +198,13 @@ func TestBehaviorWebkitPerspectiveCascadeOrder(t *testing.T) {
 	standardLast := boxFor("-webkit-perspective:100px;perspective:500px")
 	aliasLast := boxFor("perspective:500px;-webkit-perspective:100px")
 
-	if !standardLast.style.HasPerspective || !near(standardLast.style.PerspectiveDist, pxToPt(500)) {
+	if !standardLast.style.effects().HasPerspective || !near(standardLast.style.effects().PerspectiveDist, pxToPt(500)) {
 		t.Errorf("standard last HasPerspective=%v dist=%g, want true and %g (500px)",
-			standardLast.style.HasPerspective, standardLast.style.PerspectiveDist, pxToPt(500))
+			standardLast.style.effects().HasPerspective, standardLast.style.effects().PerspectiveDist, pxToPt(500))
 	}
 
-	if !aliasLast.style.HasPerspective || !near(aliasLast.style.PerspectiveDist, pxToPt(100)) {
+	if !aliasLast.style.effects().HasPerspective || !near(aliasLast.style.effects().PerspectiveDist, pxToPt(100)) {
 		t.Errorf("alias last HasPerspective=%v dist=%g, want true and %g (100px)",
-			aliasLast.style.HasPerspective, aliasLast.style.PerspectiveDist, pxToPt(100))
+			aliasLast.style.effects().HasPerspective, aliasLast.style.effects().PerspectiveDist, pxToPt(100))
 	}
 }

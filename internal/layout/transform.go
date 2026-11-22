@@ -256,10 +256,10 @@ func resolveContentBoxOrigin(spec transformOriginSpec, boxNode *box) (float64, f
 
 	if sty := boxNode.style; sty != nil {
 		padL, padR, padT, padB = sty.PaddingLeft, sty.PaddingRight, sty.PaddingTop, sty.PaddingBottom
-		borderL = borderPaint(sty.BorderLeft)
-		borderR = borderPaint(sty.BorderRight)
-		borderT = borderPaint(sty.BorderTop)
-		borderB = borderPaint(sty.BorderBottom)
+		borderL = borderPaint(sty.borders().BorderLeft)
+		borderR = borderPaint(sty.borders().BorderRight)
+		borderT = borderPaint(sty.borders().BorderTop)
+		borderB = borderPaint(sty.borders().BorderBottom)
 	}
 
 	contentX := boxNode.x + borderL + padL
@@ -968,8 +968,8 @@ func ApplyRotate(style *ResolvedStyle, value string) bool {
 			return false
 		}
 
-		style.Transform = style.Transform.Mul(RotateDeg(deg))
-		style.HasTransform = true
+		style.editEffects().Transform = style.effects().Transform.Mul(RotateDeg(deg))
+		style.editEffects().HasTransform = true
 
 		return true
 	}
@@ -980,7 +980,7 @@ func ApplyRotate(style *ResolvedStyle, value string) bool {
 	}
 
 	appendTransform3D(style, side)
-	style.HasTransform = true
+	style.editEffects().HasTransform = true
 
 	return true
 }
@@ -1107,8 +1107,8 @@ func ApplyScale(style *ResolvedStyle, value string) bool {
 	}
 
 	scaled := Scale(scaleX, scaleY)
-	style.Transform = style.Transform.Mul(scaled)
-	style.HasTransform = true
+	style.editEffects().Transform = style.effects().Transform.Mul(scaled)
+	style.editEffects().HasTransform = true
 
 	return true
 }
@@ -1173,19 +1173,19 @@ func ApplyTranslate(style *ResolvedStyle, value string, fsize float64) bool {
 	}
 
 	formed := Translate(transX, transY)
-	style.Transform = style.Transform.Mul(formed)
+	style.editEffects().Transform = style.effects().Transform.Mul(formed)
 
 	if xIsPct {
-		style.TranslateXPercent = xPct
-		style.TranslateXPercentSet = true
+		style.editEffects().TranslateXPercent = xPct
+		style.editEffects().TranslateXPercentSet = true
 	}
 
 	if yIsPct {
-		style.TranslateYPercent = yPct
-		style.TranslateYPercentSet = true
+		style.editEffects().TranslateYPercent = yPct
+		style.editEffects().TranslateYPercentSet = true
 	}
 
-	style.HasTransform = true
+	style.editEffects().HasTransform = true
 
 	return true
 }
@@ -1244,7 +1244,7 @@ type stampBoxStep struct {
 // cannot drift from the static path.
 func advanceStamp(boxNode *box, state stampState) stampBoxStep {
 	sty := boxNode.style
-	has3D := sty != nil && sty.HasTransform3D
+	has3D := sty != nil && sty.effects().HasTransform3D
 	isPreserve := isPreserveBox(boxNode)
 
 	for _, child := range boxNode.children {
@@ -1346,7 +1346,7 @@ func subtreeNeedsCoveredMask(boxNode *box) bool {
 		return false
 	}
 
-	if sty := boxNode.style; sty != nil && (sty.HasTransform3D || sty.TransformStyle == "preserve-3d") {
+	if sty := boxNode.style; sty != nil && (sty.effects().HasTransform3D || sty.effects().TransformStyle == "preserve-3d") {
 		return true
 	}
 
@@ -1508,7 +1508,7 @@ func translate3D(tx, ty, tz float64) matrix3D {
 // rendering context. Only preserve-3d continues the chain; flat, missing, or
 // unknown styles flatten at the boundary. Reference: Chrome 143.0.7499.40.
 func isPreserveBox(boxNode *box) bool {
-	return boxNode != nil && boxNode.style != nil && boxNode.style.TransformStyle == "preserve-3d"
+	return boxNode != nil && boxNode.style != nil && boxNode.style.effects().TransformStyle == "preserve-3d"
 }
 
 // baked3DForBox returns the 3D matrix for one box in a form that flatten3D
@@ -1517,13 +1517,13 @@ func isPreserveBox(boxNode *box) bool {
 // 2D result), so the matrix passed here is the raw stored 3D transform.
 func baked3DForBox(boxNode *box) matrix3D {
 	sty := boxNode.style
-	if sty == nil || !sty.HasTransform3D {
+	if sty == nil || !sty.effects().HasTransform3D {
 		return identity3D()
 	}
 
 	var raw matrix3D
 
-	copy(raw[:], sty.Transform3D[:])
+	copy(raw[:], sty.effects().Transform3D[:])
 
 	return raw
 }
@@ -1543,13 +1543,13 @@ func flattenChainForBox(chain matrix3D, boxNode *box, originX, originY float64) 
 // without 3D it carries an empty chain so later 3D children still share one
 // flattening context.
 func preserveStarter(boxNode *box, accum2D Matrix2D, viewport svgViewport) (Matrix2D, matrix3D, Matrix2D) {
-	if boxNode.style == nil || !boxNode.style.HasTransform3D {
+	if boxNode.style == nil || !boxNode.style.effects().HasTransform3D {
 		return accum2D, identity3D(), accum2D
 	}
 
 	own := baked3DForBox(boxNode)
 	sty := boxNode.style
-	originX, originY := resolveTransformOriginWithBox(sty.TransformOrigin, boxNode, sty.TransformBox, viewport)
+	originX, originY := resolveTransformOriginWithBox(sty.effects().TransformOrigin, boxNode, sty.effects().TransformBox, viewport)
 	flat := flattenChainForBox(own, boxNode, originX, originY)
 	flat = BakeOrigin(flat, originX, originY)
 
@@ -1565,11 +1565,11 @@ func preserveContinuer(
 	_ = accum2D
 
 	sty := boxNode.style
-	if sty == nil || !sty.HasTransform3D {
+	if sty == nil || !sty.effects().HasTransform3D {
 		var originX, originY float64
 		if sty != nil {
 			originX, originY = resolveTransformOriginWithBox(
-				sty.TransformOrigin, boxNode, sty.TransformBox, viewport)
+				sty.effects().TransformOrigin, boxNode, sty.effects().TransformBox, viewport)
 		}
 
 		flat := flattenChainForBox(chain, boxNode, originX, originY)
@@ -1580,7 +1580,7 @@ func preserveContinuer(
 
 	own := baked3DForBox(boxNode)
 	grown := chain.mul(own)
-	originX, originY := resolveTransformOriginWithBox(sty.TransformOrigin, boxNode, sty.TransformBox, viewport)
+	originX, originY := resolveTransformOriginWithBox(sty.effects().TransformOrigin, boxNode, sty.effects().TransformBox, viewport)
 	flat := flattenChainForBox(grown, boxNode, originX, originY)
 
 	return chainBase.Mul(BakeOrigin(flat, originX, originY)), grown
@@ -1596,11 +1596,11 @@ func flatBoundaryAccum(
 	_ = accum2D
 
 	sty := boxNode.style
-	if sty == nil || !sty.HasTransform3D {
+	if sty == nil || !sty.effects().HasTransform3D {
 		var originX, originY float64
 		if sty != nil {
 			originX, originY = resolveTransformOriginWithBox(
-				sty.TransformOrigin, boxNode, sty.TransformBox, viewport)
+				sty.effects().TransformOrigin, boxNode, sty.effects().TransformBox, viewport)
 		}
 
 		flat := flattenChainForBox(chain, boxNode, originX, originY)
@@ -1611,7 +1611,7 @@ func flatBoundaryAccum(
 
 	own := baked3DForBox(boxNode)
 	grown := chain.mul(own)
-	originX, originY := resolveTransformOriginWithBox(sty.TransformOrigin, boxNode, sty.TransformBox, viewport)
+	originX, originY := resolveTransformOriginWithBox(sty.effects().TransformOrigin, boxNode, sty.effects().TransformBox, viewport)
 	flat := flattenChainForBox(grown, boxNode, originX, originY)
 
 	return chainBase.Mul(BakeOrigin(flat, originX, originY))
@@ -1619,20 +1619,20 @@ func flatBoundaryAccum(
 
 // withPercentTranslate folds deferred translate percents into the box transform.
 func withPercentTranslate(sty *ResolvedStyle, boxNode *box) Matrix2D {
-	tform := withMotionPath(sty, boxNode, sty.Transform)
+	tform := withMotionPath(sty, boxNode, sty.effects().Transform)
 
-	if !sty.TranslateXPercentSet && !sty.TranslateYPercentSet {
+	if !sty.effects().TranslateXPercentSet && !sty.effects().TranslateYPercentSet {
 		return tform
 	}
 
 	var transX, transY float64
 
-	if sty.TranslateXPercentSet {
-		transX = sty.TranslateXPercent / oneHundred * boxNode.w
+	if sty.effects().TranslateXPercentSet {
+		transX = sty.effects().TranslateXPercent / oneHundred * boxNode.w
 	}
 
-	if sty.TranslateYPercentSet {
-		transY = sty.TranslateYPercent / oneHundred * boxNode.height
+	if sty.effects().TranslateYPercentSet {
+		transY = sty.effects().TranslateYPercent / oneHundred * boxNode.height
 	}
 
 	return tform.Mul(Translate(transX, transY))
@@ -1646,16 +1646,16 @@ func withPercentTranslate(sty *ResolvedStyle, boxNode *box) Matrix2D {
 func boxTransformAccum(boxNode *box, parentAccum Matrix2D, viewport svgViewport) Matrix2D {
 	sty := boxNode.style
 
-	if sty == nil || !sty.HasTransform {
+	if sty == nil || !sty.effects().HasTransform {
 		return parentAccum
 	}
 
 	tform := withPercentTranslate(sty, boxNode)
-	originX, originY := resolveTransformOriginWithBox(sty.TransformOrigin, boxNode, sty.TransformBox, viewport)
+	originX, originY := resolveTransformOriginWithBox(sty.effects().TransformOrigin, boxNode, sty.effects().TransformBox, viewport)
 	baked := BakeOrigin(tform, originX, originY)
 
-	if sty.HasTransform3D && !boxNode.preserveComposed {
-		m3 := matrix3D(sty.Transform3D)
+	if sty.effects().HasTransform3D && !boxNode.preserveComposed {
+		m3 := matrix3D(sty.effects().Transform3D)
 		dist, vx, vy := perspectiveFlattenArgs(boxNode, m3, originX, originY)
 		proj, _ := m3.flatten3D(vx-originX, vy-originY, dist)
 		baked = baked.Mul(BakeOrigin(proj, originX, originY))
@@ -1800,13 +1800,13 @@ func stampBoxTransformOps(
 func projectiveStampForBox(
 	boxNode *box, parentAccum Matrix2D, viewport svgViewport,
 ) (ProjectiveTransform, bool) {
-	if boxNode == nil || boxNode.style == nil || !boxNode.style.HasTransform3D || boxNode.preserveComposed {
+	if boxNode == nil || boxNode.style == nil || !boxNode.style.effects().HasTransform3D || boxNode.preserveComposed {
 		return ProjectiveTransform{}, false //nolint:exhaustruct // no projection
 	}
 
 	style := boxNode.style
-	originX, originY := resolveTransformOriginWithBox(style.TransformOrigin, boxNode, style.TransformBox, viewport)
-	transform := matrix3D(style.Transform3D)
+	originX, originY := resolveTransformOriginWithBox(style.effects().TransformOrigin, boxNode, style.effects().TransformBox, viewport)
+	transform := matrix3D(style.effects().Transform3D)
 	dist, vanishX, vanishY := perspectiveFlattenArgs(boxNode, transform, originX, originY)
 
 	if dist <= 0 {
@@ -1929,7 +1929,7 @@ func composedChainFacing(
 	var originX, originY float64
 	if boxNode.style != nil {
 		originX, originY = resolveTransformOriginWithBox(
-			boxNode.style.TransformOrigin, boxNode, boxNode.style.TransformBox, viewport,
+			boxNode.style.effects().TransformOrigin, boxNode, boxNode.style.effects().TransformBox, viewport,
 		)
 	}
 
@@ -1944,7 +1944,7 @@ func backfaceCulled(boxNode *box, chainFacing float64, useChainFacing bool) bool
 		return false
 	}
 
-	if boxNode.style.BackfaceVisibility != "hidden" {
+	if boxNode.style.effects().BackfaceVisibility != "hidden" {
 		return false
 	}
 
@@ -1956,11 +1956,11 @@ func backfaceCulled(boxNode *box, chainFacing float64, useChainFacing bool) bool
 		return chainFacing < 0
 	}
 
-	if !boxNode.style.HasTransform3D {
+	if !boxNode.style.effects().HasTransform3D {
 		return false
 	}
 
-	_, facing := matrix3D(boxNode.style.Transform3D).flatten3D(0, 0, 0)
+	_, facing := matrix3D(boxNode.style.effects().Transform3D).flatten3D(0, 0, 0)
 
 	return facing < 0
 }

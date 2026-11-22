@@ -79,9 +79,9 @@ func TestResolveFontVariantsStaticBundledFaces(t *testing.T) {
 	eng := &engine{font: faces.Regular, faces: faces, scale: 1}
 
 	style := initialStyle()
-	style.FontVariationSettings = `"wght" 700`
-	style.FontOpticalSizing = fontOpticalAuto
-	style.FontPalette = fontPaletteDark
+	style.editFont().FontVariationSettings = `"wght" 700`
+	style.editFont().FontOpticalSizing = fontOpticalAuto
+	style.editFont().FontPalette = fontPaletteDark
 
 	if got := eng.lookupFaceFor(&style); got != faces.Regular {
 		t.Fatalf("static face lookup = %p, want bundled regular %p", got, faces.Regular)
@@ -120,9 +120,9 @@ func TestResolveFontVariantsCapableFaceDoesNotFakeInstancing(t *testing.T) {
 
 	style := initialStyle()
 	style.FontFamily = []string{"VarFace"}
-	style.FontVariationSettings = `"wght" 700`
-	style.FontOpticalSizing = fontOpticalNone
-	style.FontPalette = fontPaletteDark
+	style.editFont().FontVariationSettings = `"wght" 700`
+	style.editFont().FontOpticalSizing = fontOpticalNone
+	style.editFont().FontPalette = fontPaletteDark
 
 	if got := eng.lookupFaceFor(&style); got != capable {
 		t.Fatalf("renamed-tag face lookup = %p, want default instance %p", got, capable)
@@ -164,8 +164,8 @@ func TestVariationSettingsChangesAdvance(t *testing.T) {
 
 	style := initialStyle()
 	style.FontFamily = []string{"Gowk Var"}
-	style.FontVariationSettings = `"wght" 900`
-	style.FontOpticalSizing = fontOpticalNone
+	style.editFont().FontVariationSettings = `"wght" 900`
+	style.editFont().FontOpticalSizing = fontOpticalNone
 
 	got := eng.lookupFaceFor(&style)
 	if got == nil || got == base {
@@ -189,9 +189,9 @@ func TestOpticalSizingAutoSetsOpsz(t *testing.T) {
 
 	style := initialStyle()
 	style.FontFamily = []string{"Gowk Var"}
-	style.FontOpticalSizing = fontOpticalAuto
+	style.editFont().FontOpticalSizing = fontOpticalAuto
 	style.FontSize = 72
-	style.FontVariationSettings = fontVariantNormal
+	style.editFont().FontVariationSettings = fontVariantNormal
 
 	got := eng.lookupFaceFor(&style)
 	if got == nil || got == base {
@@ -210,9 +210,9 @@ func TestOpticalSizingNoneKeepsDefaultOpsz(t *testing.T) {
 
 	style := initialStyle()
 	style.FontFamily = []string{"Gowk Var"}
-	style.FontOpticalSizing = fontOpticalNone
+	style.editFont().FontOpticalSizing = fontOpticalNone
 	style.FontSize = 72
-	style.FontVariationSettings = fontVariantNormal
+	style.editFont().FontVariationSettings = fontVariantNormal
 
 	if got := eng.lookupFaceFor(&style); got != base {
 		t.Fatalf("optical-sizing:none at 72pt = %p, want default %p", got, base)
@@ -226,8 +226,8 @@ func TestResolveFontVariantsInstancesAxes(t *testing.T) {
 
 	style := initialStyle()
 	style.FontFamily = []string{"Gowk Var"}
-	style.FontVariationSettings = `"wght" 700, "wdth" 200`
-	style.FontOpticalSizing = fontOpticalNone
+	style.editFont().FontVariationSettings = `"wght" 700, "wdth" 200`
+	style.editFont().FontOpticalSizing = fontOpticalNone
 
 	got := resolveFontVariants(&style, base)
 	if got == base {

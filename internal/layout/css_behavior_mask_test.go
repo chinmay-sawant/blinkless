@@ -398,13 +398,13 @@ func TestBehaviorMaskSupportsMatchesAcceptedValues(t *testing.T) {
 	`)}, "print", testViewport, 800)
 
 	urlFeature := styles[findElementByID(t, root, "url")]
-	if urlFeature.MaskImage != "url(valid.png)" {
-		t.Fatalf("@supports url() mask-image = %q, want url(valid.png)", urlFeature.MaskImage)
+	if urlFeature.effects().MaskImage != "url(valid.png)" {
+		t.Fatalf("@supports url() mask-image = %q, want url(valid.png)", urlFeature.effects().MaskImage)
 	}
 
 	gradient := styles[findElementByID(t, root, "gradient")]
-	if gradient.MaskImage != "image-set(url(b.png) 1x)" || gradient.MaskComposite != "subtract" {
-		t.Fatalf("@supports mask result = image:%q composite:%q", gradient.MaskImage, gradient.MaskComposite)
+	if gradient.effects().MaskImage != "image-set(url(b.png) 1x)" || gradient.effects().MaskComposite != "subtract" {
+		t.Fatalf("@supports mask result = image:%q composite:%q", gradient.effects().MaskImage, gradient.effects().MaskComposite)
 	}
 }
 
@@ -418,8 +418,8 @@ func TestBehaviorMaskInvalidValuesDoNotReplaceEarlierDeclarations(t *testing.T) 
 	`)}, "print", testViewport, 800)
 
 	feature := styles[findElementByName(root, "div")]
-	if feature.MaskImage != "url(earlier.png)" || feature.MaskSize != "cover" {
-		t.Fatalf("invalid mask declarations won: image=%q size=%q", feature.MaskImage, feature.MaskSize)
+	if feature.effects().MaskImage != "url(earlier.png)" || feature.effects().MaskSize != "cover" {
+		t.Fatalf("invalid mask declarations won: image=%q size=%q", feature.effects().MaskImage, feature.effects().MaskSize)
 	}
 }
 
@@ -462,13 +462,13 @@ func TestBehaviorWebkitMaskCompositeExtraOperators(t *testing.T) {
 	`)}, "print", testViewport, 800)
 
 	kept := styles[findElementByID(t, root, "kept")]
-	if kept.MaskComposite != "source-atop, clear" {
-		t.Fatalf("invalid operator replaced composite with %q", kept.MaskComposite)
+	if kept.effects().MaskComposite != "source-atop, clear" {
+		t.Fatalf("invalid operator replaced composite with %q", kept.effects().MaskComposite)
 	}
 
 	probe := styles[findElementByID(t, root, "probe")]
-	if probe.MaskComposite != "destination-out" {
-		t.Fatalf("@supports destination-out composite = %q", probe.MaskComposite)
+	if probe.effects().MaskComposite != "destination-out" {
+		t.Fatalf("@supports destination-out composite = %q", probe.effects().MaskComposite)
 	}
 }
 
@@ -613,8 +613,8 @@ func TestBehaviorMaskImageSetEmptyDoesNotReplace(t *testing.T) {
 		#feature { mask-image:image-set() }
 	`)}, "print", testViewport, 800)
 	feature := styles[findElementByName(root, "div")]
-	if feature.MaskImage != "url(earlier.png)" {
-		t.Fatalf("empty image-set replaced mask-image with %q", feature.MaskImage)
+	if feature.effects().MaskImage != "url(earlier.png)" {
+		t.Fatalf("empty image-set replaced mask-image with %q", feature.effects().MaskImage)
 	}
 }
 
@@ -883,7 +883,7 @@ func TestBehaviorMaskTypeStylesheetChangesSVGMaskAlpha(t *testing.T) {
 func assertStoredMaskType(t *testing.T, res *Result, elementID, want string) {
 	t.Helper()
 
-	got := boxByID(t, res, elementID).style.MaskType
+	got := boxByID(t, res, elementID).style.effects().MaskType
 	if got != want {
 		t.Errorf("%s MaskType = %q, want %q", elementID, got, want)
 	}

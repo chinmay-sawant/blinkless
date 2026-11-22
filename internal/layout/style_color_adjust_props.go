@@ -42,38 +42,38 @@ func applyColorAdjustProps(
 	case "color-adjust", "print-color-adjust":
 		parentValue := colorAdjustEconomy
 		if parent != nil {
-			parentValue = parent.ColorAdjust
+			parentValue = parent.containment().ColorAdjust
 		}
 
 		if v, ok := inheritedToken(value, parentValue, colorAdjustEconomy, hasParent, normalizeColorAdjust); ok {
-			style.ColorAdjust = v
+			style.editContainment().ColorAdjust = v
 		}
 	case "forced-color-adjust":
 		parentValue := forcedColorAdjustAuto
 		if parent != nil {
-			parentValue = parent.ForcedColorAdjust
+			parentValue = parent.containment().ForcedColorAdjust
 		}
 
 		if v, ok := inheritedToken(value, parentValue, forcedColorAdjustAuto, hasParent, normalizeForcedColorAdjust); ok {
-			style.ForcedColorAdjust = v
+			style.editContainment().ForcedColorAdjust = v
 		}
 	case "color-scheme":
 		parentValue := colorSchemeNormal
 		if parent != nil {
-			parentValue = parent.ColorScheme
+			parentValue = parent.containment().ColorScheme
 		}
 
 		if v, ok := inheritedToken(value, parentValue, colorSchemeNormal, hasParent, normalizeColorScheme); ok {
-			style.ColorScheme = v
+			style.editContainment().ColorScheme = v
 		}
 	case "dynamic-range-limit":
 		parentValue := dynamicRangeLimitNoLimit
 		if parent != nil {
-			parentValue = parent.DynamicRangeLimit
+			parentValue = parent.containment().DynamicRangeLimit
 		}
 
 		if v, ok := inheritedToken(value, parentValue, dynamicRangeLimitNoLimit, hasParent, normalizeDynamicRangeLimit); ok {
-			style.DynamicRangeLimit = v
+			style.editContainment().DynamicRangeLimit = v
 		}
 	default:
 		return false
@@ -310,7 +310,7 @@ func canvasFillForRoot(rootStyle *ResolvedStyle) ([4]float64, bool) {
 		return [4]float64{}, false
 	}
 
-	fill := defaultCanvasForScheme(rootStyle.ColorScheme)
+	fill := defaultCanvasForScheme(rootStyle.containment().ColorScheme)
 	if fill[3] <= 0 {
 		return [4]float64{}, false
 	}
@@ -363,8 +363,8 @@ func usedBGForPaintActive(sty *ResolvedStyle, forcedActive bool) [4]float64 {
 	}
 
 	rgb := [3]float64{base[0], base[1], base[2]}
-	rgb = forcedColorsPaintColor(forcedActive, sty.ForcedColorAdjust, rgb, [3]float64{})
-	rgb = clampDynamicRangeColor(rgb, sty.DynamicRangeLimit)
+	rgb = forcedColorsPaintColor(forcedActive, sty.containment().ForcedColorAdjust, rgb, [3]float64{})
+	rgb = clampDynamicRangeColor(rgb, sty.containment().DynamicRangeLimit)
 
 	return [4]float64{rgb[0], rgb[1], rgb[2], base[3]}
 }

@@ -25,7 +25,7 @@ type decorBreakState struct {
 }
 
 func inlineDecorationClone(style *ResolvedStyle) bool {
-	return style != nil && style.BoxDecorationBreak == boxDecorationBreakClone
+	return style != nil && style.borders().BoxDecorationBreak == boxDecorationBreakClone
 }
 
 // pushInlineDecorationBreak opens one inline formatting context. A nested
@@ -224,7 +224,7 @@ func (e *engine) paintInlineDecorationBorder(style *ResolvedStyle, boxX, boxY, b
 
 	radii, radiiY := usedBorderRadiiXY(style, boxW, boxH)
 	if hasRoundedRadii(radii) && uniformRoundedBorder(style) {
-		side := style.BorderTop
+		side := style.borders().BorderTop
 		stroke := Op{ //nolint:exhaustruct // intentional zero fields
 			Kind: OpStrokeRect, X: boxX, Y: boxY, W: boxW, H: boxH,
 			R: side.Color[0], G: side.Color[1], B: side.Color[2],

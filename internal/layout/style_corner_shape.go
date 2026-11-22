@@ -190,17 +190,17 @@ func cornerShapeValueAccepted(value string) bool {
 func SetCornerShapeByName(style *ResolvedStyle, corner string, kValue float64, keyword string) {
 	switch corner {
 	case cornerNameTopLeft:
-		style.CornerShapeTopLeft = kValue
-		style.CornerShapeTopLeftKeyword = keyword
+		style.editBorders().CornerShapeTopLeft = kValue
+		style.editBorders().CornerShapeTopLeftKeyword = keyword
 	case cornerNameTopRight:
-		style.CornerShapeTopRight = kValue
-		style.CornerShapeTopRightKeyword = keyword
+		style.editBorders().CornerShapeTopRight = kValue
+		style.editBorders().CornerShapeTopRightKeyword = keyword
 	case cornerNameBottomRight:
-		style.CornerShapeBottomRight = kValue
-		style.CornerShapeBottomRightKeyword = keyword
+		style.editBorders().CornerShapeBottomRight = kValue
+		style.editBorders().CornerShapeBottomRightKeyword = keyword
 	case cornerNameBottomLeft:
-		style.CornerShapeBottomLeft = kValue
-		style.CornerShapeBottomLeftKeyword = keyword
+		style.editBorders().CornerShapeBottomLeft = kValue
+		style.editBorders().CornerShapeBottomLeftKeyword = keyword
 	}
 }
 
@@ -260,26 +260,26 @@ func cornerShapeValues(style *ResolvedStyle) [4]float64 {
 		return [4]float64{CornerShapeRoundK, CornerShapeRoundK, CornerShapeRoundK, CornerShapeRoundK}
 	}
 
-	topLeft := cornerShapeStored(style.CornerShapeTopLeft, style.CornerShapeTopLeftKeyword)
-	topRight := cornerShapeStored(style.CornerShapeTopRight, style.CornerShapeTopRightKeyword)
-	bottomRight := cornerShapeStored(style.CornerShapeBottomRight, style.CornerShapeBottomRightKeyword)
-	bottomLeft := cornerShapeStored(style.CornerShapeBottomLeft, style.CornerShapeBottomLeftKeyword)
+	topLeft := cornerShapeStored(style.borders().CornerShapeTopLeft, style.borders().CornerShapeTopLeftKeyword)
+	topRight := cornerShapeStored(style.borders().CornerShapeTopRight, style.borders().CornerShapeTopRightKeyword)
+	bottomRight := cornerShapeStored(style.borders().CornerShapeBottomRight, style.borders().CornerShapeBottomRightKeyword)
+	bottomLeft := cornerShapeStored(style.borders().CornerShapeBottomLeft, style.borders().CornerShapeBottomLeftKeyword)
 
 	return [4]float64{topLeft, topRight, bottomRight, bottomLeft}
 }
 
 // borderRadiusFields returns the X and Y border-radius fields for one
 // physical corner name, or ok false for an unknown name.
-func borderRadiusFields(style *ResolvedStyle, corner string) (*float64, *float64, bool) {
+func borderRadiusFields(borders *styleBorders, corner string) (*float64, *float64, bool) {
 	switch corner {
 	case cornerNameTopLeft:
-		return &style.BorderRadiusTopLeft, &style.BorderRadiusTopLeftY, true
+		return &borders.BorderRadiusTopLeft, &borders.BorderRadiusTopLeftY, true
 	case cornerNameTopRight:
-		return &style.BorderRadiusTopRight, &style.BorderRadiusTopRightY, true
+		return &borders.BorderRadiusTopRight, &borders.BorderRadiusTopRightY, true
 	case cornerNameBottomRight:
-		return &style.BorderRadiusBottomRight, &style.BorderRadiusBottomRightY, true
+		return &borders.BorderRadiusBottomRight, &borders.BorderRadiusBottomRightY, true
 	case cornerNameBottomLeft:
-		return &style.BorderRadiusBottomLeft, &style.BorderRadiusBottomLeftY, true
+		return &borders.BorderRadiusBottomLeft, &borders.BorderRadiusBottomLeftY, true
 	default:
 		return nil, nil, false
 	}

@@ -209,7 +209,7 @@ func TestApplyTransitionPropsStoresDefaults(t *testing.T) {
 		t.Fatal("applyTransitionProps(transition) = false")
 	}
 
-	transition := style.Transition
+	transition := style.motion().Transition
 	if !transition.Set || transition.Property != "width" || transition.Duration != "250ms" ||
 		transition.Delay != "0s" || transition.TimingFunction != "ease" || transition.Behavior != "normal" {
 		t.Fatalf("transition style = %#v", transition)
@@ -220,13 +220,15 @@ func TestApplyTransitionPropsWideKeywords(t *testing.T) {
 	t.Parallel()
 
 	parent := ResolvedStyle{
-		Transition: transitionStyle{
-			Set:            true,
-			Property:       "opacity",
-			Duration:       "2s",
-			Delay:          "-100ms",
-			TimingFunction: "ease-in",
-			Behavior:       "allow-discrete",
+		motionGroup: &styleMotion{
+			Transition: transitionStyle{
+				Set:            true,
+				Property:       "opacity",
+				Duration:       "2s",
+				Delay:          "-100ms",
+				TimingFunction: "ease-in",
+				Behavior:       "allow-discrete",
+			},
 		},
 	}
 	style := ResolvedStyle{}
@@ -235,16 +237,16 @@ func TestApplyTransitionPropsWideKeywords(t *testing.T) {
 		t.Fatal("applyTransitionProps(inherit) = false")
 	}
 
-	if style.Transition.Duration != "2s" {
-		t.Fatalf("inherited duration = %q, want 2s", style.Transition.Duration)
+	if style.motion().Transition.Duration != "2s" {
+		t.Fatalf("inherited duration = %q, want 2s", style.motion().Transition.Duration)
 	}
 
 	if !applyTransitionProps(&style, "transition-behavior", "initial", 16, nil, &parent, true) {
 		t.Fatal("applyTransitionProps(initial) = false")
 	}
 
-	if style.Transition.Behavior != "normal" {
-		t.Fatalf("initial behavior = %q, want normal", style.Transition.Behavior)
+	if style.motion().Transition.Behavior != "normal" {
+		t.Fatalf("initial behavior = %q, want normal", style.motion().Transition.Behavior)
 	}
 }
 

@@ -202,7 +202,7 @@ func cornerShapePaintBorder(
 	eng *engine, sty *ResolvedStyle,
 	posX, posY, width, height float64, radii, radiiY [4]float64, shapeK [4]float64,
 ) ([]Op, bool) {
-	if sty.BorderImageSource != "" {
+	if sty.borders().BorderImageSource != "" {
 		return nil, false
 	}
 
@@ -253,7 +253,7 @@ func cornerShapePathCommands(points []DisplayPoint) []PathCmd {
 func cornerShapePaintFillBox(
 	sty *ResolvedStyle, posX, posY, width, height float64,
 ) (float64, float64, float64, float64, bool) {
-	bgClip := strings.ToLower(strings.TrimSpace(sty.BackgroundClip))
+	bgClip := strings.ToLower(strings.TrimSpace(sty.background().BackgroundClip))
 	if bgClip != shapeBoxContent && bgClip != shapeBoxPadding {
 		if !(width > 0 && height > 0) {
 			return 0, 0, 0, 0, false
@@ -277,7 +277,7 @@ func cornerShapePaintFillBox(
 // transparency, or missing side returns false so the caller stays on the
 // existing stroke-rect path.
 func cornerShapePaintUniformBorder(sty *ResolvedStyle) (border, bool) {
-	sides := [4]border{sty.BorderTop, sty.BorderRight, sty.BorderBottom, sty.BorderLeft}
+	sides := [4]border{sty.borders().BorderTop, sty.borders().BorderRight, sty.borders().BorderBottom, sty.borders().BorderLeft}
 	base := sides[0]
 
 	if !cornerShapePaintBorderSideUsable(base) {

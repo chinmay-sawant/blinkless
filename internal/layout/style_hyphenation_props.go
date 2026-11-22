@@ -25,13 +25,13 @@ func applyHyphenationProps(
 	switch prop {
 	case "hanging-punctuation":
 		if isHangingPunctuationValue(val) {
-			style.HangingPunctuation = val
+			style.editInlineText().HangingPunctuation = val
 		}
 	case "hyphenate-limit-chars":
 		applyHyphenateLimitChars(style, val)
 	case "hyphenate-limit-last":
 		if isHyphenateLimitLastValue(val) {
-			style.HyphenateLimitLast = val
+			style.editInlineText().HyphenateLimitLast = val
 		}
 	case "hyphenate-limit-lines":
 		applyHyphenateLimitLines(style, val)
@@ -63,9 +63,9 @@ func isHangingPunctuationValue(val string) bool {
 
 func applyHyphenateLimitChars(style *ResolvedStyle, val string) {
 	if val == "auto" {
-		style.HyphenateLimitMinWord = 0
-		style.HyphenateLimitMinBefore = 0
-		style.HyphenateLimitMinAfter = 0
+		style.editInlineText().HyphenateLimitMinWord = 0
+		style.editInlineText().HyphenateLimitMinBefore = 0
+		style.editInlineText().HyphenateLimitMinAfter = 0
 
 		return
 	}
@@ -92,19 +92,19 @@ func applyHyphenateLimitChars(style *ResolvedStyle, val string) {
 		return
 	}
 
-	style.HyphenateLimitMinWord = nums[0]
-	style.HyphenateLimitMinBefore = 0
-	style.HyphenateLimitMinAfter = 0
+	style.editInlineText().HyphenateLimitMinWord = nums[0]
+	style.editInlineText().HyphenateLimitMinBefore = 0
+	style.editInlineText().HyphenateLimitMinAfter = 0
 
 	if len(nums) == 1 {
 		return
 	}
 
-	style.HyphenateLimitMinBefore = nums[1]
-	style.HyphenateLimitMinAfter = nums[1]
+	style.editInlineText().HyphenateLimitMinBefore = nums[1]
+	style.editInlineText().HyphenateLimitMinAfter = nums[1]
 
 	if len(nums) == maxHyphenateLimitValues {
-		style.HyphenateLimitMinAfter = nums[2]
+		style.editInlineText().HyphenateLimitMinAfter = nums[2]
 	}
 }
 
@@ -121,7 +121,7 @@ func isHyphenateLimitLastValue(val string) bool {
 
 func applyHyphenateLimitLines(style *ResolvedStyle, val string) {
 	if val == "no-limit" {
-		style.HyphenateLimitLines = -1
+		style.editInlineText().HyphenateLimitLines = -1
 
 		return
 	}
@@ -131,7 +131,7 @@ func applyHyphenateLimitLines(style *ResolvedStyle, val string) {
 		return
 	}
 
-	style.HyphenateLimitLines = n
+	style.editInlineText().HyphenateLimitLines = n
 }
 
 func applyHyphenateLimitZone(style *ResolvedStyle, val string, fsize float64, ctx *styleContext) {
@@ -142,8 +142,8 @@ func applyHyphenateLimitZone(style *ResolvedStyle, val string, fsize float64, ct
 			return
 		}
 
-		style.HyphenateLimitZonePct = n
-		style.HyphenateLimitZonePt = 0
+		style.editInlineText().HyphenateLimitZonePct = n
+		style.editInlineText().HyphenateLimitZonePt = 0
 
 		return
 	}
@@ -154,7 +154,7 @@ func applyHyphenateLimitZone(style *ResolvedStyle, val string, fsize float64, ct
 	}
 
 	if length, ok := plainLength(val, fsize, viewport); ok && length >= 0 {
-		style.HyphenateLimitZonePt = length
-		style.HyphenateLimitZonePct = -1
+		style.editInlineText().HyphenateLimitZonePt = length
+		style.editInlineText().HyphenateLimitZonePct = -1
 	}
 }

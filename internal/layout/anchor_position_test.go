@@ -17,8 +17,8 @@ func TestAnchorNameScope(t *testing.T) {
 		`<div id="a" style="anchor-name: --a"></div>`+
 		`<div id="b" style="anchor-name: --b"></div>`+
 		`</body></html>`)
-	aNames := boxByID(t, res, "a").style.AnchorNames
-	bNames := boxByID(t, res, "b").style.AnchorNames
+	aNames := boxByID(t, res, "a").style.positioning().AnchorNames
+	bNames := boxByID(t, res, "b").style.positioning().AnchorNames
 
 	if !slices.Equal(aNames, []string{"--a"}) {
 		t.Fatalf("a anchor-name = %q, want [--a]", aNames)
@@ -30,13 +30,13 @@ func TestAnchorNameScope(t *testing.T) {
 
 	// Comma list stores both names.
 	multi := layoutHTML(t, `<html><body><div id="m" style="anchor-name: --a, --b"></div></body></html>`)
-	if got := boxByID(t, multi, "m").style.AnchorNames; !slices.Equal(got, []string{"--a", "--b"}) {
+	if got := boxByID(t, multi, "m").style.positioning().AnchorNames; !slices.Equal(got, []string{"--a", "--b"}) {
 		t.Fatalf("multi anchor-name = %q, want [--a --b]", got)
 	}
 
 	// Missing leaves the initial (empty).
 	missing := layoutHTML(t, `<html><body><div id="p"></div></body></html>`)
-	if got := boxByID(t, missing, "p").style.AnchorNames; len(got) != 0 {
+	if got := boxByID(t, missing, "p").style.positioning().AnchorNames; len(got) != 0 {
 		t.Fatalf("missing anchor-name = %q, want empty", got)
 	}
 
@@ -44,13 +44,13 @@ func TestAnchorNameScope(t *testing.T) {
 	invalidSheet := sheet(t, `#a { anchor-name: --a; } #a { anchor-name: bogus; }`)
 	invalidRes := layoutHTML(t, `<html><body><div id="a"></div></body></html>`, invalidSheet)
 
-	if got := boxByID(t, invalidRes, "a").style.AnchorNames; !slices.Equal(got, []string{"--a"}) {
+	if got := boxByID(t, invalidRes, "a").style.positioning().AnchorNames; !slices.Equal(got, []string{"--a"}) {
 		t.Fatalf("invalid anchor-name kept = %q, want [--a]", got)
 	}
 
 	// A lone invalid declaration keeps the initial.
 	loneInvalid := layoutHTML(t, `<html><body><div id="q" style="anchor-name: bogus"></div></body></html>`)
-	if got := boxByID(t, loneInvalid, "q").style.AnchorNames; len(got) != 0 {
+	if got := boxByID(t, loneInvalid, "q").style.positioning().AnchorNames; len(got) != 0 {
 		t.Fatalf("lone invalid anchor-name = %q, want empty", got)
 	}
 
@@ -58,7 +58,7 @@ func TestAnchorNameScope(t *testing.T) {
 	noneSheet := sheet(t, `#c { anchor-name: --a; } #c { anchor-name: none; }`)
 	noneRes := layoutHTML(t, `<html><body><div id="c"></div></body></html>`, noneSheet)
 
-	if got := boxByID(t, noneRes, "c").style.AnchorNames; len(got) != 0 {
+	if got := boxByID(t, noneRes, "c").style.positioning().AnchorNames; len(got) != 0 {
 		t.Fatalf("anchor-name none = %q, want empty", got)
 	}
 
@@ -70,19 +70,19 @@ func TestAnchorNameScope(t *testing.T) {
 		`<div id="splain"></div>`+
 		`</body></html>`)
 
-	if got := boxByID(t, scopeRes, "snone").style.AnchorScope; got != "none" {
+	if got := boxByID(t, scopeRes, "snone").style.positioning().AnchorScope; got != "none" {
 		t.Fatalf("scope none = %q, want none", got)
 	}
 
-	if got := boxByID(t, scopeRes, "sall").style.AnchorScope; got != "all" {
+	if got := boxByID(t, scopeRes, "sall").style.positioning().AnchorScope; got != "all" {
 		t.Fatalf("scope all = %q, want all", got)
 	}
 
-	if got := boxByID(t, scopeRes, "slist").style.AnchorScope; got != "--a --b" {
+	if got := boxByID(t, scopeRes, "slist").style.positioning().AnchorScope; got != "--a --b" {
 		t.Fatalf("scope list = %q, want --a --b", got)
 	}
 
-	if got := boxByID(t, scopeRes, "splain").style.AnchorScope; got != "" {
+	if got := boxByID(t, scopeRes, "splain").style.positioning().AnchorScope; got != "" {
 		t.Fatalf("scope initial = %q, want empty", got)
 	}
 
@@ -90,7 +90,7 @@ func TestAnchorNameScope(t *testing.T) {
 	badScopeSheet := sheet(t, `#b { anchor-scope: --a; } #b { anchor-scope: bogus; }`)
 	badScopeRes := layoutHTML(t, `<html><body><div id="b"></div></body></html>`, badScopeSheet)
 
-	if got := boxByID(t, badScopeRes, "b").style.AnchorScope; got != "--a" {
+	if got := boxByID(t, badScopeRes, "b").style.positioning().AnchorScope; got != "--a" {
 		t.Fatalf("invalid scope kept = %q, want --a", got)
 	}
 
@@ -204,11 +204,11 @@ func TestAnchorScopeLookup(t *testing.T) {
 	inner := boxByID(t, res, "inner")
 	outer := boxByID(t, res, "outer")
 
-	if got := boxByID(t, res, "anchor").style.AnchorNames; !slices.Equal(got, []string{"--tip"}) {
+	if got := boxByID(t, res, "anchor").style.positioning().AnchorNames; !slices.Equal(got, []string{"--tip"}) {
 		t.Fatalf("anchor-name used value = %v, want [--tip]", got)
 	}
 
-	if got := inner.style.PositionAnchor; got != "--tip" {
+	if got := inner.style.positioning().PositionAnchor; got != "--tip" {
 		t.Fatalf("position-anchor used value = %q, want %q", got, "--tip")
 	}
 
@@ -286,27 +286,27 @@ func TestAnchorInvalidLeavesPrevious(t *testing.T) {
 	applyStyleProp(&style, "anchor-name", "--kept", 12, ctx, nil, false)
 	applyStyleProp(&style, "anchor-name", "bogus", 12, ctx, nil, false)
 
-	if len(style.AnchorNames) != 1 || style.AnchorNames[0] != "--kept" {
-		t.Fatalf("anchor-name after invalid = %v, want [--kept]", style.AnchorNames)
+	if len(style.positioning().AnchorNames) != 1 || style.positioning().AnchorNames[0] != "--kept" {
+		t.Fatalf("anchor-name after invalid = %v, want [--kept]", style.positioning().AnchorNames)
 	}
 
 	applyStyleProp(&style, "position-anchor", "--kept", 12, ctx, nil, false)
 	applyStyleProp(&style, "position-anchor", "bogus", 12, ctx, nil, false)
 
-	if style.PositionAnchor != "--kept" {
-		t.Fatalf("position-anchor after invalid = %q, want %q", style.PositionAnchor, "--kept")
+	if style.positioning().PositionAnchor != "--kept" {
+		t.Fatalf("position-anchor after invalid = %q, want %q", style.positioning().PositionAnchor, "--kept")
 	}
 
 	applyStyleProp(&style, "position-anchor", "auto", 12, ctx, nil, false)
 
-	if style.PositionAnchor != "auto" {
-		t.Fatalf("position-anchor auto = %q, want auto", style.PositionAnchor)
+	if style.positioning().PositionAnchor != "auto" {
+		t.Fatalf("position-anchor auto = %q, want auto", style.positioning().PositionAnchor)
 	}
 
 	applyStyleProp(&style, "anchor-scope", "--kept", 12, ctx, nil, false)
 	applyStyleProp(&style, "anchor-scope", "bogus", 12, ctx, nil, false)
 
-	if style.AnchorScope != "--kept" {
-		t.Fatalf("anchor-scope after invalid = %q, want --kept", style.AnchorScope)
+	if style.positioning().AnchorScope != "--kept" {
+		t.Fatalf("anchor-scope after invalid = %q, want --kept", style.positioning().AnchorScope)
 	}
 }

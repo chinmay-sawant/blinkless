@@ -48,8 +48,8 @@ func applyInitialLetterValue(style *ResolvedStyle, value string) bool {
 	}
 
 	if val == initialLetterNormal {
-		style.InitialLetterSize = 0
-		style.InitialLetterSink = 0
+		style.editInlineText().InitialLetterSize = 0
+		style.editInlineText().InitialLetterSink = 0
 
 		return true
 	}
@@ -64,8 +64,8 @@ func applyInitialLetterValue(style *ResolvedStyle, value string) bool {
 		return false
 	}
 
-	style.InitialLetterSize = size
-	style.InitialLetterSink = sink
+	style.editInlineText().InitialLetterSize = size
+	style.editInlineText().InitialLetterSink = sink
 
 	return true
 }
@@ -117,7 +117,7 @@ func applyInitialLetterAlignValue(style *ResolvedStyle, value string) bool {
 
 	switch val {
 	case initialLetterAlignAlpha, initialLetterAlignIdeo, initialLetterAlignHanging, initialLetterAlignLeading:
-		style.InitialLetterAlign = val
+		style.editInlineText().InitialLetterAlign = val
 
 		return true
 	default:
@@ -129,14 +129,14 @@ func applyInitialLetterWrapValue(style *ResolvedStyle, value string) bool {
 	val := strings.ToLower(strings.TrimSpace(value))
 	switch val {
 	case initialLetterWrapNone, initialLetterWrapFirst, initialLetterWrapAll, initialLetterWrapGrid:
-		style.InitialLetterWrap = val
+		style.editInlineText().InitialLetterWrap = val
 
 		return true
 	default:
 		// <length-percentage> stored raw for cascade fidelity; consumer
 		// treats unknown as none.
 		if v, ok := lengthBox(val, style.FontSize, 0, ""); ok && v >= 0 {
-			style.InitialLetterWrap = val
+			style.editInlineText().InitialLetterWrap = val
 
 			return true
 		}

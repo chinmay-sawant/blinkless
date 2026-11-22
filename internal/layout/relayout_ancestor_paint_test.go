@@ -15,30 +15,57 @@ func TestRelayoutEnterAncestorPaintStackingContext(t *testing.T) {
 		wantZVal int
 	}{
 		{
-			name:     "empty mix-blend-mode does not force stacking context",
-			style:    ResolvedStyle{Opacity: 1, MixBlendMode: ""},
+			name: "empty mix-blend-mode does not force stacking context",
+			style: ResolvedStyle{
+				Opacity: 1,
+				effectsGroup: &styleEffects{
+					MixBlendMode: "",
+				},
+			},
 			wantZSet: false,
 		},
 		{
-			name:     "normal mix-blend-mode does not force stacking context",
-			style:    ResolvedStyle{Opacity: 1, MixBlendMode: blendNormal},
+			name: "normal mix-blend-mode does not force stacking context",
+			style: ResolvedStyle{
+				Opacity: 1,
+				effectsGroup: &styleEffects{
+					MixBlendMode: blendNormal,
+				},
+			},
 			wantZSet: false,
 		},
 		{
-			name:     "backdrop-filter forces stacking context",
-			style:    ResolvedStyle{Opacity: 1, MixBlendMode: blendNormal, BackdropFilter: "blur(4px)"},
+			name: "backdrop-filter forces stacking context",
+			style: ResolvedStyle{
+				Opacity: 1,
+				effectsGroup: &styleEffects{
+					MixBlendMode:   blendNormal,
+					BackdropFilter: "blur(4px)",
+				},
+			},
 			wantZSet: true,
 			wantZVal: 0,
 		},
 		{
-			name:     "multiply mix-blend-mode forces stacking context",
-			style:    ResolvedStyle{Opacity: 1, MixBlendMode: "multiply"},
+			name: "multiply mix-blend-mode forces stacking context",
+			style: ResolvedStyle{
+				Opacity: 1,
+				effectsGroup: &styleEffects{
+					MixBlendMode: "multiply",
+				},
+			},
 			wantZSet: true,
 			wantZVal: 0,
 		},
 		{
-			name:     "isolation isolate forces stacking context",
-			style:    ResolvedStyle{Opacity: 1, MixBlendMode: blendNormal, Isolation: unicodeBidiIsolate},
+			name: "isolation isolate forces stacking context",
+			style: ResolvedStyle{
+				Opacity: 1,
+				effectsGroup: &styleEffects{
+					MixBlendMode: blendNormal,
+					Isolation:    unicodeBidiIsolate,
+				},
+			},
 			wantZSet: true,
 			wantZVal: 0,
 		},

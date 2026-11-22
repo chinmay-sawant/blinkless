@@ -37,16 +37,16 @@ func TestContainerPropsParsed(t *testing.T) {
 	}
 	walk(root)
 
-	if st := styles[byID["a"]]; st.ContainerType != "inline-size" || st.ContainerName != "card" {
-		t.Errorf("a: type=%q name=%q", st.ContainerType, st.ContainerName)
+	if st := styles[byID["a"]]; st.containment().ContainerType != "inline-size" || st.containment().ContainerName != "card" {
+		t.Errorf("a: type=%q name=%q", st.containment().ContainerType, st.containment().ContainerName)
 	}
 
-	if st := styles[byID["b"]]; st.ContainerType != "size" || st.ContainerName != "sidebar" {
-		t.Errorf("b: type=%q name=%q", st.ContainerType, st.ContainerName)
+	if st := styles[byID["b"]]; st.containment().ContainerType != "size" || st.containment().ContainerName != "sidebar" {
+		t.Errorf("b: type=%q name=%q", st.containment().ContainerType, st.containment().ContainerName)
 	}
 
-	if st := styles[byID["c"]]; st.ContainerType != "normal" {
-		t.Errorf("c: type=%q", st.ContainerType)
+	if st := styles[byID["c"]]; st.containment().ContainerType != "normal" {
+		t.Errorf("c: type=%q", st.containment().ContainerType)
 	}
 }
 
@@ -104,9 +104,9 @@ func TestContainerCSSWideKeywords(t *testing.T) {
 			t.Fatalf("%s: no resolved style", rowID)
 		}
 
-		if got.ContainerType != wantStyle.typ || got.ContainerName != wantStyle.name {
+		if got.containment().ContainerType != wantStyle.typ || got.containment().ContainerName != wantStyle.name {
 			t.Errorf("%s: type=%q name=%q, want type=%q name=%q",
-				rowID, got.ContainerType, got.ContainerName, wantStyle.typ, wantStyle.name)
+				rowID, got.containment().ContainerType, got.containment().ContainerName, wantStyle.typ, wantStyle.name)
 		}
 	}
 }

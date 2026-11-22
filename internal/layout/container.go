@@ -71,11 +71,11 @@ func measureSizeContainersContext(
 		}
 
 		borderW := contentInlineSize(*sty, availW)
-		if sty.ContainerType == containerInlineSize || sty.ContainerType == containerSize {
+		if sty.containment().ContainerType == containerInlineSize || sty.containment().ContainerType == containerSize {
 			out[node] = sizeContainer{
 				inlineSize: borderW,
 				fontSize:   sty.FontSize,
-				names:      sty.ContainerName,
+				names:      sty.containment().ContainerName,
 			}
 		}
 
@@ -111,16 +111,16 @@ func measureSizeContainersContext(
 // scaling, so the duplication is kept and documented here.
 func contentInlineSize(sty ResolvedStyle, availW float64) float64 {
 	width, definite := contentBaseInlineSize(sty, availW)
-	if definite && sty.BoxSizing != borderBox {
+	if definite && sty.geometry().BoxSizing != borderBox {
 		width += sty.HorizChrome()
 	}
 
-	if sty.MinWidth > 0 && width < sty.MinWidth {
-		width = sty.MinWidth
+	if sty.geometry().MinWidth > 0 && width < sty.geometry().MinWidth {
+		width = sty.geometry().MinWidth
 	}
 
-	if sty.MaxWidth >= 0 && width > sty.MaxWidth {
-		width = sty.MaxWidth
+	if sty.geometry().MaxWidth >= 0 && width > sty.geometry().MaxWidth {
+		width = sty.geometry().MaxWidth
 	}
 
 	contentW := width - sty.HorizChrome()
@@ -135,11 +135,11 @@ func contentInlineSize(sty ResolvedStyle, availW float64) float64 {
 // width minus margins) and whether the width is definite.
 func contentBaseInlineSize(sty ResolvedStyle, availW float64) (float64, bool) {
 	margL, margR := sty.MarginLeft, sty.MarginRight
-	if sty.MarginLeftAuto {
+	if sty.geometry().MarginLeftAuto {
 		margL = 0
 	}
 
-	if sty.MarginRightAuto {
+	if sty.geometry().MarginRightAuto {
 		margR = 0
 	}
 
@@ -162,5 +162,5 @@ func contentBaseInlineSize(sty ResolvedStyle, availW float64) (float64, bool) {
 
 // isSizeContainer reports whether the style establishes a size query container.
 func isSizeContainer(st *ResolvedStyle) bool {
-	return st.ContainerType == containerInlineSize || st.ContainerType == containerSize
+	return st.containment().ContainerType == containerInlineSize || st.containment().ContainerType == containerSize
 }

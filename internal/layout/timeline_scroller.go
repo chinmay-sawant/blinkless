@@ -23,7 +23,7 @@ func isScrollContainerBox(boxNode *box) bool {
 		return false
 	}
 
-	return scrollContainerOverflow(boxNode.style.OverflowX) || scrollContainerOverflow(boxNode.style.OverflowY)
+	return scrollContainerOverflow(boxNode.style.geometry().OverflowX) || scrollContainerOverflow(boxNode.style.geometry().OverflowY)
 }
 
 func scrollContainerOverflow(overflow string) bool {

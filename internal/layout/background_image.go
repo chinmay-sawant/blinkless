@@ -33,7 +33,7 @@ func (e *engine) backgroundPaintEnabled(sty *ResolvedStyle) bool {
 		return true
 	}
 
-	return sty != nil && sty.ColorAdjust == colorAdjustExact
+	return sty != nil && sty.containment().ColorAdjust == colorAdjustExact
 }
 
 // appendBackgroundImage paints all background-image layers (gradients, images)
@@ -41,11 +41,11 @@ func (e *engine) backgroundPaintEnabled(sty *ResolvedStyle) bool {
 func (e *engine) appendBackgroundImage(
 	dst []Op, sty *ResolvedStyle, posX, posY, width, height float64,
 ) []Op {
-	if sty == nil || !e.backgroundPaintEnabled(sty) || width <= 0 || height <= 0 || sty.BackgroundImage == "" {
+	if sty == nil || !e.backgroundPaintEnabled(sty) || width <= 0 || height <= 0 || sty.background().BackgroundImage == "" {
 		return dst
 	}
 
-	layers := splitCommaLayers(sty.BackgroundImage)
+	layers := splitCommaLayers(sty.background().BackgroundImage)
 	if len(layers) == 0 {
 		return dst
 	}
@@ -71,7 +71,7 @@ func (e *engine) appendBackgroundImage(
 
 		// A fixed layer is positioned against the viewport, not the box.
 		originX, originY, originW, originH := originX, originY, originW, originH
-		if backgroundAttachmentForLayer(sty.BackgroundAttachment, i) == backgroundAttachFixed &&
+		if backgroundAttachmentForLayer(sty.background().BackgroundAttachment, i) == backgroundAttachFixed &&
 			e.opts.Width > 0 && e.opts.Height > 0 {
 			originX, originY, originW, originH = 0, 0, e.opts.Width, e.opts.Height
 		}
@@ -89,7 +89,7 @@ func (e *engine) appendBackgroundImage(
 			continue
 		}
 
-		ref := e.resolveImageWith(src, sty.LinkParameters)
+		ref := e.resolveImageWith(src, sty.content().LinkParameters)
 		if ref == nil || ref.data == nil {
 			continue
 		}
@@ -104,7 +104,7 @@ func (e *engine) appendBackgroundImage(
 			imgH = originH
 		}
 
-		sizeSpec := backgroundSizeForLayer(sty.BackgroundSize, i)
+		sizeSpec := backgroundSizeForLayer(sty.background().BackgroundSize, i)
 		destW, destH := resolveBackgroundSize(sizeSpec, originW, originH, imgW, imgH)
 		if (sizeSpec == "" || strings.EqualFold(sizeSpec, "auto")) &&
 			(strings.EqualFold(repeatX, backgroundRepeatRepeat) ||
@@ -114,7 +114,7 @@ func (e *engine) appendBackgroundImage(
 			}
 		}
 		destX, destY := resolveBackgroundPosition(
-			sty.BackgroundPosX, sty.BackgroundPosY, originX, originY, originW, originH, destW, destH,
+			sty.background().BackgroundPosX, sty.background().BackgroundPosY, originX, originY, originW, originH, destW, destH,
 		)
 
 		baseOp := (Op{ //nolint:exhaustruct // intentional zero fields
@@ -126,11 +126,11 @@ func (e *engine) appendBackgroundImage(
 			IsJPEG:       ref.isJPEG,
 			IsBackground: true,
 		}).withImage(ref.data, ref.w, ref.h, "").withBlendMode(
-			backgroundBlendModeForLayer(sty.BackgroundBlendMode, i),
+			backgroundBlendModeForLayer(sty.background().BackgroundBlendMode, i),
 		)
-		if sty.Filter != "" {
-			filters := parseFilterList(sty.Filter, sty.Color, sty.FontSize)
-			filtered := applyImageFilterToImageWithInterp(baseOp.Image, filters, sty.ColorInterpolationFilters)
+		if sty.effects().Filter != "" {
+			filters := parseFilterList(sty.effects().Filter, sty.Color, sty.FontSize)
+			filtered := applyImageFilterToImageWithInterp(baseOp.Image, filters, sty.svg().ColorInterpolationFilters)
 			baseOp.setImage(filtered, ref.w, ref.h, "")
 		}
 
@@ -143,8 +143,8 @@ func (e *engine) appendBackgroundImage(
 
 	// clip-path basic shapes mask the raster layers of this element. Unsupported
 	// or invalid values parse to no shape and leave the ops untouched.
-	if clipShape, ok := parseClipPathShape(sty.ClipPath, sty.FontSize); ok {
-		maskClipPathOps(dst[layerStart:], withClipRule(clipShape, sty.ClipRule), posX, posY, width, height)
+	if clipShape, ok := parseClipPathShape(sty.effects().ClipPath, sty.FontSize); ok {
+		maskClipPathOps(dst[layerStart:], withClipRule(clipShape, sty.svg().ClipRule), posX, posY, width, height)
 	}
 
 	return dst
@@ -157,14 +157,14 @@ func (e *engine) appendGradientLayer(
 	originX, originY, originW, originH float64,
 	repeatX, repeatY string, clip clipRect,
 ) []Op {
-	sizeSpec := backgroundSizeForLayer(sty.BackgroundSize, layerIndex)
+	sizeSpec := backgroundSizeForLayer(sty.background().BackgroundSize, layerIndex)
 	destW, destH := resolveBackgroundSize(sizeSpec, originW, originH, originW, originH)
 	if sizeSpec == "" || strings.EqualFold(sizeSpec, "auto") {
 		destW, destH = originW, originH
 	}
 
 	destX, destY := resolveBackgroundPosition(
-		sty.BackgroundPosX, sty.BackgroundPosY, originX, originY, originW, originH, destW, destH,
+		sty.background().BackgroundPosX, sty.background().BackgroundPosY, originX, originY, originW, originH, destW, destH,
 	)
 	reqW, reqH := destW, destH
 	if is1D, isVert := isPureLinear1D(layer); is1D {
@@ -174,7 +174,7 @@ func (e *engine) appendGradientLayer(
 			reqH = 1
 		}
 	}
-	pngData, imgW, imgH, ok := renderGradientPNGWithInterp(layer, reqW, reqH, sty.Color, sty.ColorInterpolation)
+	pngData, imgW, imgH, ok := renderGradientPNGWithInterp(layer, reqW, reqH, sty.Color, sty.svg().ColorInterpolation)
 	if !ok {
 		return dst
 	}
@@ -188,13 +188,13 @@ func (e *engine) appendGradientLayer(
 		IsJPEG:       false,
 		IsBackground: true,
 	}).withImage(pngData, imgW, imgH, "")
-	blendMode := backgroundBlendModeForLayer(sty.BackgroundBlendMode, layerIndex)
+	blendMode := backgroundBlendModeForLayer(sty.background().BackgroundBlendMode, layerIndex)
 	if blendMode != "" && blendMode != blendNormal {
 		baseOp = baseOp.withBlendMode(blendMode)
 	}
-	if sty.Filter != "" {
-		filters := parseFilterList(sty.Filter, sty.Color, sty.FontSize)
-		filtered := applyImageFilterToImageWithInterp(baseOp.Image, filters, sty.ColorInterpolationFilters)
+	if sty.effects().Filter != "" {
+		filters := parseFilterList(sty.effects().Filter, sty.Color, sty.FontSize)
+		filtered := applyImageFilterToImageWithInterp(baseOp.Image, filters, sty.svg().ColorInterpolationFilters)
 		baseOp.setImage(filtered, imgW, imgH, "")
 	}
 
@@ -232,7 +232,7 @@ func backgroundAttachmentForLayer(spec string, layerIndex int) string {
 func resolveBackgroundClipBox(
 	sty *ResolvedStyle, posX, posY, width, height float64,
 ) (float64, float64, float64, float64) {
-	keyword := strings.ToLower(strings.TrimSpace(sty.BackgroundClip))
+	keyword := strings.ToLower(strings.TrimSpace(sty.background().BackgroundClip))
 	if keyword == "" || keyword == "border-box" {
 		return posX, posY, width, height
 	}
@@ -243,7 +243,7 @@ func resolveBackgroundClipBox(
 func resolveBackgroundOriginBox(
 	sty *ResolvedStyle, posX, posY, width, height float64,
 ) (float64, float64, float64, float64) {
-	keyword := strings.ToLower(strings.TrimSpace(sty.BackgroundOrigin))
+	keyword := strings.ToLower(strings.TrimSpace(sty.background().BackgroundOrigin))
 
 	return backgroundBoxForKeyword(keyword, sty, posX, posY, width, height)
 }
@@ -253,10 +253,10 @@ func backgroundBoxForKeyword(
 ) (float64, float64, float64, float64) {
 	switch keyword {
 	case "content-box":
-		x := posX + sty.BorderLeft.Width + sty.PaddingLeft
-		y := posY + sty.BorderTop.Width + sty.PaddingTop
-		w := width - sty.BorderLeft.Width - sty.BorderRight.Width - sty.PaddingLeft - sty.PaddingRight
-		h := height - sty.BorderTop.Width - sty.BorderBottom.Width - sty.PaddingTop - sty.PaddingBottom
+		x := posX + sty.borders().BorderLeft.Width + sty.PaddingLeft
+		y := posY + sty.borders().BorderTop.Width + sty.PaddingTop
+		w := width - sty.borders().BorderLeft.Width - sty.borders().BorderRight.Width - sty.PaddingLeft - sty.PaddingRight
+		h := height - sty.borders().BorderTop.Width - sty.borders().BorderBottom.Width - sty.PaddingTop - sty.PaddingBottom
 
 		return x, y, math.Max(0, w), math.Max(0, h)
 	case "border-box":
@@ -264,17 +264,17 @@ func backgroundBoxForKeyword(
 	case "text":
 		// background-clip:text clips to glyph bounds; glyph vector clipping
 		// is not implemented, so we approximate as content-box (conservative).
-		x := posX + sty.BorderLeft.Width + sty.PaddingLeft
-		y := posY + sty.BorderTop.Width + sty.PaddingTop
-		w := width - sty.BorderLeft.Width - sty.BorderRight.Width - sty.PaddingLeft - sty.PaddingRight
-		h := height - sty.BorderTop.Width - sty.BorderBottom.Width - sty.PaddingTop - sty.PaddingBottom
+		x := posX + sty.borders().BorderLeft.Width + sty.PaddingLeft
+		y := posY + sty.borders().BorderTop.Width + sty.PaddingTop
+		w := width - sty.borders().BorderLeft.Width - sty.borders().BorderRight.Width - sty.PaddingLeft - sty.PaddingRight
+		h := height - sty.borders().BorderTop.Width - sty.borders().BorderBottom.Width - sty.PaddingTop - sty.PaddingBottom
 
 		return x, y, math.Max(0, w), math.Max(0, h)
 	default: // padding-box (also the background-origin initial value)
-		x := posX + sty.BorderLeft.Width
-		y := posY + sty.BorderTop.Width
-		w := width - sty.BorderLeft.Width - sty.BorderRight.Width
-		h := height - sty.BorderTop.Width - sty.BorderBottom.Width
+		x := posX + sty.borders().BorderLeft.Width
+		y := posY + sty.borders().BorderTop.Width
+		w := width - sty.borders().BorderLeft.Width - sty.borders().BorderRight.Width
+		h := height - sty.borders().BorderTop.Width - sty.borders().BorderBottom.Width
 
 		return x, y, math.Max(0, w), math.Max(0, h)
 	}

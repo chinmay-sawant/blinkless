@@ -30,33 +30,33 @@ func applyTextSupportProps(
 	switch prop {
 	case "unicode-bidi":
 		if isUnicodeBidiValue(val) {
-			style.UnicodeBidi = val
+			style.editInlineText().UnicodeBidi = val
 		}
 	case "text-orientation":
 		if val == textOrientationMixed || val == textOrientationUpright || val == textOrientationSideways {
-			style.TextOrientation = val
+			style.editInlineText().TextOrientation = val
 		}
 	case "text-combine-upright":
 		if combined, ok := parseTextCombineUpright(val); ok {
-			style.TextCombineUpright = combined
+			style.editInlineText().TextCombineUpright = combined
 		}
 	case "text-decoration-inset":
 		if off, ok := parseTextDecorationInset(val, fsize); ok {
-			style.TextDecorationInset = off
+			style.editInlineText().TextDecorationInset = off
 		}
 	case "text-decoration-skip":
 		applyTextDecorationSkipShorthand(style, val)
 	case "text-decoration-skip-box":
 		if val == cssDisplayNone || val == columnSpanAll {
-			style.TextDecorationSkipBox = val
+			style.editInlineText().TextDecorationSkipBox = val
 		}
 	case "text-decoration-skip-self":
 		if self, ok := parseTextDecorationSkipSelf(val); ok {
-			style.TextDecorationSkipSelf = self
+			style.editInlineText().TextDecorationSkipSelf = self
 		}
 	case "text-decoration-skip-spaces":
 		if spaces, ok := parseTextDecorationSkipSpaces(val); ok {
-			style.TextDecorationSkipSpaces = spaces
+			style.editInlineText().TextDecorationSkipSpaces = spaces
 		}
 	default:
 		return false
@@ -160,30 +160,30 @@ func parseTextDecorationInset(val string, fsize float64) (float64, bool) {
 func applyTextDecorationSkipShorthand(style *ResolvedStyle, val string) bool {
 	switch val {
 	case cssDisplayNone:
-		style.TextDecorationSkip = cssDisplayNone
-		style.TextDecorationSkipSelf = textDecorationSkipNoSkip
-		style.TextDecorationSkipBox = cssDisplayNone
-		style.TextDecorationSkipSpaces = cssDisplayNone
-		style.TextDecorationSkipInk = cssDisplayNone
+		style.editInlineText().TextDecorationSkip = cssDisplayNone
+		style.editInlineText().TextDecorationSkipSelf = textDecorationSkipNoSkip
+		style.editInlineText().TextDecorationSkipBox = cssDisplayNone
+		style.editInlineText().TextDecorationSkipSpaces = cssDisplayNone
+		style.editInlineText().TextDecorationSkipInk = cssDisplayNone
 	case overflowAuto:
 		setTextDecorationSkipInitial(style)
-		style.TextDecorationSkip = overflowAuto
+		style.editInlineText().TextDecorationSkip = overflowAuto
 	case "objects", "box-decoration":
 		setTextDecorationSkipInitial(style)
-		style.TextDecorationSkip = val
-		style.TextDecorationSkipBox = columnSpanAll
+		style.editInlineText().TextDecorationSkip = val
+		style.editInlineText().TextDecorationSkipBox = columnSpanAll
 	case "spaces": //nolint:goconst // coincidental match with the ruby keyword const.
 		setTextDecorationSkipInitial(style)
-		style.TextDecorationSkip = val
-		style.TextDecorationSkipSpaces = columnSpanAll
+		style.editInlineText().TextDecorationSkip = val
+		style.editInlineText().TextDecorationSkipSpaces = columnSpanAll
 	case "edges":
 		setTextDecorationSkipInitial(style)
-		style.TextDecorationSkip = val
-		style.TextDecorationSkipSpaces = textDecorationSkipStartEnd
+		style.editInlineText().TextDecorationSkip = val
+		style.editInlineText().TextDecorationSkipSpaces = textDecorationSkipStartEnd
 	case "ink":
 		setTextDecorationSkipInitial(style)
-		style.TextDecorationSkip = val
-		style.TextDecorationSkipInk = overflowAuto
+		style.editInlineText().TextDecorationSkip = val
+		style.editInlineText().TextDecorationSkipInk = overflowAuto
 	default:
 		return false
 	}
@@ -196,10 +196,10 @@ func applyTextDecorationSkipShorthand(style *ResolvedStyle, val string) bool {
 // start end, skip-ink auto. The raw TextDecorationSkip field is the caller's
 // to set.
 func setTextDecorationSkipInitial(style *ResolvedStyle) {
-	style.TextDecorationSkipSelf = overflowAuto
-	style.TextDecorationSkipBox = cssDisplayNone
-	style.TextDecorationSkipSpaces = textDecorationSkipStartEnd
-	style.TextDecorationSkipInk = overflowAuto
+	style.editInlineText().TextDecorationSkipSelf = overflowAuto
+	style.editInlineText().TextDecorationSkipBox = cssDisplayNone
+	style.editInlineText().TextDecorationSkipSpaces = textDecorationSkipStartEnd
+	style.editInlineText().TextDecorationSkipInk = overflowAuto
 }
 
 // parseTextDecorationSkipSelf accepts auto | skip-all | no-skip or any

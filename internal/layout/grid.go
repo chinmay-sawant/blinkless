@@ -25,13 +25,13 @@ const (
 // grid-template-rows: masonry packs items into the shortest column and
 // keeps intrinsic heights (no shared row stretch).
 func prepareGridTemplateStyles(sty *ResolvedStyle) bool {
-	masonryRows := isMasonryTrackList(sty.GridTemplateRows)
-	sty.GridTemplateColumns = stripMasonryKeyword(sty.GridTemplateColumns)
+	masonryRows := isMasonryTrackList(sty.grid().GridTemplateRows)
+	sty.editGrid().GridTemplateColumns = stripMasonryKeyword(sty.grid().GridTemplateColumns)
 
 	if masonryRows {
-		sty.GridTemplateRows = ""
+		sty.editGrid().GridTemplateRows = ""
 	} else {
-		sty.GridTemplateRows = stripMasonryKeyword(sty.GridTemplateRows)
+		sty.editGrid().GridTemplateRows = stripMasonryKeyword(sty.grid().GridTemplateRows)
 	}
 
 	return masonryRows
@@ -53,20 +53,20 @@ func (e *engine) buildGrid(node *html.Node, sty *ResolvedStyle, availW, posX, po
 	contentX, contentW := e.contentBox(boxNode.x, boxNode.w, sty)
 
 	contentStart := len(e.ops)
-	curY := e.scalePt(sty.PaddingTop) + e.scalePt(sty.BorderTop.Width)
+	curY := e.scalePt(sty.PaddingTop) + e.scalePt(sty.borders().BorderTop.Width)
 
 	rowGap, columnGap := e.styleGaps(sty)
 
-	areas := parseGridTemplateAreas(sty.GridTemplateAreas)
-	colDefs := gridColumnDefs(sty.GridTemplateColumns, areas.cols)
+	areas := parseGridTemplateAreas(sty.grid().GridTemplateAreas)
+	colDefs := gridColumnDefs(sty.grid().GridTemplateColumns, areas.cols)
 
 	kids := collectGridKids(e, node)
-	colDefs = expandGridColumnDefsForExplicitPlacement(colDefs, kids, areas, e, sty.GridAutoColumns)
+	colDefs = expandGridColumnDefsForExplicitPlacement(colDefs, kids, areas, e, sty.grid().GridAutoColumns)
 
 	// Handle repeat(auto-fit/auto-fill, minmax(..., 1fr)) which parseGridTrackDefs collapses to auto.
 	// Expand at layout time when contentW is known: n = floor((contentW+gap)/(min+gap)), min from minmax.
 	if len(colDefs) == 1 && colDefs[0].min.kind == trackAuto && colDefs[0].max.kind == trackAuto {
-		if autoDefs := parseAutoFitDefs(sty.GridTemplateColumns, contentW, columnGap, e, len(kids)); len(autoDefs) > 0 {
+		if autoDefs := parseAutoFitDefs(sty.grid().GridTemplateColumns, contentW, columnGap, e, len(kids)); len(autoDefs) > 0 {
 			colDefs = autoDefs
 		}
 	}
@@ -101,8 +101,8 @@ func (e *engine) layoutStandardGrid(
 	cols []float64, columnGap, rowGap, contentX, contentW, curY, posY, contentH float64,
 	contentStart int,
 ) *box {
-	columnMajor, densePack := gridAutoFlowMode(sty.GridAutoFlow)
-	explicitRows := len(parseGridTrackDefs(sty.GridTemplateRows))
+	columnMajor, densePack := gridAutoFlowMode(sty.grid().GridAutoFlow)
+	explicitRows := len(parseGridTrackDefs(sty.grid().GridTemplateRows))
 	placed := placeGridItems(
 		e, kids, areas, newGridOccupation(len(cols)), len(cols), columnMajor, densePack, explicitRows,
 	)
@@ -126,7 +126,7 @@ func (e *engine) layoutStandardGrid(
 
 	numRows := gridRowCount(placed, areas)
 
-	rowTemplate := strings.TrimSpace(sty.GridTemplateRows)
+	rowTemplate := strings.TrimSpace(sty.grid().GridTemplateRows)
 	definiteRows := contentH >= 0 && rowTemplate != "" &&
 		strings.ToLower(rowTemplate) != cssDisplayNone
 
@@ -152,7 +152,7 @@ func (e *engine) layoutStandardGrid(
 	}
 
 	if e.noEmit {
-		rowYs := gridRowTops(curY, rows, rowGap, contentH, sty.AlignContent)
+		rowYs := gridRowTops(curY, rows, rowGap, contentH, sty.flex().AlignContent)
 		boxNode.height = e.gridUsedHeightFromRows(sty, curY, rowYs, rows, numRows, contentH)
 
 		return boxNode
@@ -187,15 +187,15 @@ func (e *engine) gridUsedHeightFromRows(
 }
 
 func inheritSubgridTracksAndGaps(sty, parentStyle *ResolvedStyle) {
-	if strings.TrimSpace(sty.GridTemplateColumns) == "" &&
-		strings.TrimSpace(parentStyle.GridTemplateColumns) != "" {
-		sty.GridTemplateColumns = parentStyle.GridTemplateColumns
+	if strings.TrimSpace(sty.grid().GridTemplateColumns) == "" &&
+		strings.TrimSpace(parentStyle.grid().GridTemplateColumns) != "" {
+		sty.editGrid().GridTemplateColumns = parentStyle.grid().GridTemplateColumns
 	}
 
-	if sty.RowGap == 0 && sty.ColumnGap == 0 && sty.Gap == 0 {
-		sty.RowGap = parentStyle.RowGap
-		sty.ColumnGap = parentStyle.ColumnGap
-		sty.Gap = parentStyle.Gap
+	if sty.flex().RowGap == 0 && sty.flex().ColumnGap == 0 && sty.flex().Gap == 0 {
+		sty.editFlex().RowGap = parentStyle.flex().RowGap
+		sty.editFlex().ColumnGap = parentStyle.flex().ColumnGap
+		sty.editFlex().Gap = parentStyle.flex().Gap
 	}
 }
 
@@ -302,7 +302,7 @@ func gridExplicitNeedForKid(
 	}
 
 	// Named area already covered by areas.cols; only check line-based placement.
-	if strings.TrimSpace(itemStyle.GridArea) != "" {
+	if strings.TrimSpace(itemStyle.grid().GridArea) != "" {
 		return need
 	}
 
@@ -317,8 +317,8 @@ func gridExplicitNeedForKid(
 func resolveExplicitColumnEnd(
 	itemStyle *ResolvedStyle, colDefs []gridTrackDef, areas gridTemplateAreasMap, need int,
 ) int {
-	if itemStyle.GridColumnEnd != -1 {
-		return itemStyle.GridColumnEnd
+	if itemStyle.grid().GridColumnEnd != -1 {
+		return itemStyle.grid().GridColumnEnd
 	}
 
 	base := len(colDefs)
@@ -337,9 +337,9 @@ func resolveExplicitColumnEnd(
 // line-based start/end/span placement.
 func explicitNeedForLinePlacement(itemStyle *ResolvedStyle, effEnd, need int) int {
 	switch {
-	case itemStyle.GridColumnStart > 0:
-		end := itemStyle.GridColumnStart - 1 + itemStyle.GridColumnSpan
-		if effEnd > itemStyle.GridColumnStart {
+	case itemStyle.grid().GridColumnStart > 0:
+		end := itemStyle.grid().GridColumnStart - 1 + itemStyle.grid().GridColumnSpan
+		if effEnd > itemStyle.grid().GridColumnStart {
 			end = effEnd - 1
 		}
 
@@ -615,14 +615,14 @@ func emitGridBoxes(
 		rowYs[r] = rowYs[r-1] + rows[r-1] + rowGap
 	}
 
-	applyGridAlignContentOffsets(rowYs, rows, rowGap, contentH, sty.AlignContent)
+	applyGridAlignContentOffsets(rowYs, rows, rowGap, contentH, sty.flex().AlignContent)
 
-	containerJustify := sty.JustifyItems
+	containerJustify := sty.flex().JustifyItems
 	if containerJustify == "" {
 		containerJustify = fxStretch
 	}
 
-	containerAlign := sty.AlignItems
+	containerAlign := sty.flex().AlignItems
 	if containerAlign == "" {
 		containerAlign = fxStretch
 	}
@@ -738,7 +738,7 @@ func emitGridItem(
 		override := eng.allocStyle(cstate)
 		override.Height = buildH
 		override.HeightPercent = -1
-		override.BoxSizing = borderBox
+		override.editGeometry().BoxSizing = borderBox
 		cblock = eng.buildWithStyle(pbox.n, override, buildW, pbox.cx, targetY)
 	} else {
 		cblock = eng.build(pbox.n, buildW, pbox.cx, targetY)
@@ -773,7 +773,7 @@ func gridItemBuildWidth(
 }
 
 // gridItemBuildWidthPtr is the pointer-based item width used by internal grid
-// emission so fit-content checks pay no 6KB copy.
+// emission so fit-content checks pay no copy.
 func gridItemBuildWidthPtr(
 	eng *engine, node *html.Node, style *ResolvedStyle, justify string, cellW float64,
 ) float64 {
@@ -815,7 +815,7 @@ func gridItemJustify(cstate ResolvedStyle, container string) string {
 // gridItemJustifyPtr is the pointer-based justify resolver used by internal
 // grid emission.
 func gridItemJustifyPtr(cstate *ResolvedStyle, container string) string {
-	justify := cstate.JustifySelf
+	justify := cstate.flex().JustifySelf
 	if justify == "" || justify == overflowAuto {
 		justify = container
 	}
@@ -831,7 +831,7 @@ func gridItemAlign(cstate ResolvedStyle, container string) string {
 // gridItemAlignPtr is the pointer-based align resolver used by internal grid
 // emission.
 func gridItemAlignPtr(cstate *ResolvedStyle, container string) string {
-	align := cstate.AlignSelf
+	align := cstate.flex().AlignSelf
 	if align == "" || align == overflowAuto {
 		align = container
 	}
@@ -864,9 +864,9 @@ func resolveGridUsedHeight(eng *engine, sty ResolvedStyle, usedH, contentH float
 
 	if sty.Height >= 0 {
 		height := eng.scalePt(sty.Height)
-		if sty.BoxSizing != borderBox {
+		if sty.geometry().BoxSizing != borderBox {
 			height += eng.scalePt(sty.PaddingTop) + eng.scalePt(sty.PaddingBottom) +
-				eng.scalePt(sty.BorderTop.Width) + eng.scalePt(sty.BorderBottom.Width)
+				eng.scalePt(sty.borders().BorderTop.Width) + eng.scalePt(sty.borders().BorderBottom.Width)
 		}
 
 		if usedH < height {
@@ -874,8 +874,8 @@ func resolveGridUsedHeight(eng *engine, sty ResolvedStyle, usedH, contentH float
 		}
 	}
 
-	minBorderH := eng.scalePt(sty.PaddingTop) + eng.scalePt(sty.BorderTop.Width) +
-		eng.scalePt(sty.PaddingBottom) + eng.scalePt(sty.BorderBottom.Width)
+	minBorderH := eng.scalePt(sty.PaddingTop) + eng.scalePt(sty.borders().BorderTop.Width) +
+		eng.scalePt(sty.PaddingBottom) + eng.scalePt(sty.borders().BorderBottom.Width)
 	if contentH >= 0 {
 		minBorderH += contentH
 	}
@@ -909,16 +909,16 @@ func resolveUsedWidth(sty *ResolvedStyle, availW float64, engN *engine) float64 
 		}
 	} else if sty.Width >= 0 {
 		width = engN.scalePt(sty.Width)
-		if sty.BoxSizing != borderBox {
+		if sty.geometry().BoxSizing != borderBox {
 			width += engN.scalePt(sty.PaddingLeft) + engN.scalePt(sty.PaddingRight) +
-				engN.scalePt(sty.BorderLeft.Width) + engN.scalePt(sty.BorderRight.Width)
+				engN.scalePt(sty.borders().BorderLeft.Width) + engN.scalePt(sty.borders().BorderRight.Width)
 		}
 	} else if contentH := resolveContentHeight(sty, engN); contentH >= 0 {
 		if wPt, ok := aspectRatioAutoWidthPt(sty, contentH, engN); ok {
 			width = engN.scalePt(wPt)
-			if sty.BoxSizing != borderBox {
+			if sty.geometry().BoxSizing != borderBox {
 				width += engN.scalePt(sty.PaddingLeft) + engN.scalePt(sty.PaddingRight) +
-					engN.scalePt(sty.BorderLeft.Width) + engN.scalePt(sty.BorderRight.Width)
+					engN.scalePt(sty.borders().BorderLeft.Width) + engN.scalePt(sty.borders().BorderRight.Width)
 			}
 		}
 	}
@@ -947,9 +947,9 @@ func resolveContentHeightForWidth(sty *ResolvedStyle, engN *engine, contentW flo
 		}
 
 		height := cbH * sty.HeightPercent / oneHundred
-		if sty.BoxSizing == borderBox {
+		if sty.geometry().BoxSizing == borderBox {
 			height -= engN.scalePt(sty.PaddingTop) + engN.scalePt(sty.PaddingBottom) +
-				engN.scalePt(sty.BorderTop.Width) + engN.scalePt(sty.BorderBottom.Width)
+				engN.scalePt(sty.borders().BorderTop.Width) + engN.scalePt(sty.borders().BorderBottom.Width)
 		}
 		if height < 0 {
 			height = 0
@@ -960,7 +960,7 @@ func resolveContentHeightForWidth(sty *ResolvedStyle, engN *engine, contentW flo
 
 	hPt := sty.Height
 	if hPt < 0 {
-		if sty.AspectRatio <= 0 || contentW <= 0 {
+		if sty.geometry().AspectRatio <= 0 || contentW <= 0 {
 			return -1
 		}
 		var ok bool
@@ -971,9 +971,9 @@ func resolveContentHeightForWidth(sty *ResolvedStyle, engN *engine, contentW flo
 	}
 
 	height := engN.scalePt(hPt)
-	if sty.BoxSizing == borderBox {
+	if sty.geometry().BoxSizing == borderBox {
 		height -= engN.scalePt(sty.PaddingTop) + engN.scalePt(sty.PaddingBottom) +
-			engN.scalePt(sty.BorderTop.Width) + engN.scalePt(sty.BorderBottom.Width)
+			engN.scalePt(sty.borders().BorderTop.Width) + engN.scalePt(sty.borders().BorderBottom.Width)
 	}
 
 	if height < 0 {
@@ -988,13 +988,13 @@ func resolveContentHeightForWidth(sty *ResolvedStyle, engN *engine, contentW flo
 // styleGaps returns scaled row/column gaps. When both longhands are unset (0),
 // fall back to the Gap shorthand for both axes. Shared by flex and grid.
 func (e *engine) styleGaps(sty *ResolvedStyle) (float64, float64) {
-	if sty.RowGap == 0 && sty.ColumnGap == 0 {
-		g := e.scalePt(sty.Gap)
+	if sty.flex().RowGap == 0 && sty.flex().ColumnGap == 0 {
+		g := e.scalePt(sty.flex().Gap)
 
 		return g, g
 	}
 
-	return e.scalePt(sty.RowGap), e.scalePt(sty.ColumnGap)
+	return e.scalePt(sty.flex().RowGap), e.scalePt(sty.flex().ColumnGap)
 }
 
 // gridAlignOffset returns the inline/block offset for start/end/center/stretch.

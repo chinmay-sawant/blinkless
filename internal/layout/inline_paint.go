@@ -176,7 +176,7 @@ func (e *engine) emitInlineText(
 
 	leftX += chromeLeft
 
-	if item.style.TextOverflow == textOverflowEllipsis {
+	if item.style.inlineText().TextOverflow == textOverflowEllipsis {
 		e.applyEllipsis(item)
 	}
 
@@ -190,7 +190,7 @@ func (e *engine) emitInlineText(
 
 	textBaseline := shiftedBaseline
 
-	if isVerticalWritingMode(item.style.WritingMode) {
+	if isVerticalWritingMode(item.style.positioning().WritingMode) {
 		// A rotated run uses the baseline as its vertical start. The normal
 		// horizontal baseline already includes ascent, which would otherwise
 		// push vertical labels down by one ascent before rotation.
@@ -272,7 +272,7 @@ func (e *engine) paintInlineChrome(item *inlineItem, leftX, baseline, ascent, de
 	radius := uniformRadius(radii)
 
 	if hasRoundedRadii(radii) && uniformRoundedBorder(style) {
-		b := style.BorderTop
+		b := style.borders().BorderTop
 		stroke := Op{ //nolint:exhaustruct // intentional zero fields
 			Kind: OpStrokeRect, X: leftX, Y: boxY, W: boxW, H: boxH,
 			R: b.Color[0], G: b.Color[1], B: b.Color[2], Width: e.scalePt(borderPaint(b)), Radius: radius,
@@ -290,8 +290,8 @@ func (e *engine) paintInlineChrome(item *inlineItem, leftX, baseline, ascent, de
 }
 
 func inlineHasBorder(st *ResolvedStyle) bool {
-	return inlineBorderVisible(st.BorderTop) || inlineBorderVisible(st.BorderRight) ||
-		inlineBorderVisible(st.BorderBottom) || inlineBorderVisible(st.BorderLeft)
+	return inlineBorderVisible(st.borders().BorderTop) || inlineBorderVisible(st.borders().BorderRight) ||
+		inlineBorderVisible(st.borders().BorderBottom) || inlineBorderVisible(st.borders().BorderLeft)
 }
 
 func writingModeRotate(mode string) float64 {
@@ -311,21 +311,21 @@ func writingModeRotate(mode string) float64 {
 // Subset: there is no per-character orientation pass and no scaled combine
 // cell, so a combined run is painted upright at its normal font size.
 func inlineRunRotation(sty *ResolvedStyle, text string) float32 {
-	if sty == nil || !isVerticalWritingMode(sty.WritingMode) {
+	if sty == nil || !isVerticalWritingMode(sty.positioning().WritingMode) {
 		return 0
 	}
 
-	switch strings.ToLower(strings.TrimSpace(sty.TextOrientation)) {
+	switch strings.ToLower(strings.TrimSpace(sty.inlineText().TextOrientation)) {
 	case textOrientationUpright:
 		return 0
 	case textOrientationSideways:
-		return float32(writingModeRotate(sty.WritingMode))
+		return float32(writingModeRotate(sty.positioning().WritingMode))
 	default:
-		if combinesUpright(sty.TextCombineUpright, text) {
+		if combinesUpright(sty.inlineText().TextCombineUpright, text) {
 			return 0
 		}
 
-		return float32(writingModeRotate(sty.WritingMode))
+		return float32(writingModeRotate(sty.positioning().WritingMode))
 	}
 }
 
@@ -380,7 +380,7 @@ func (e *engine) emitInlineTextRun(
 	// carry none and transform here as before.
 	shaped := run.paint
 	if shaped == "" {
-		shaped = transformInlineText(raw, item.style.TextTransform)
+		shaped = transformInlineText(raw, item.style.inlineText().TextTransform)
 	}
 	paintSize := size
 	paintBaseline := baseline
@@ -408,7 +408,7 @@ func (e *engine) emitInlineTextRun(
 		textX -= textDelta / two
 	}
 
-	if item.style.TextShadowSet {
+	if item.style.inlineText().TextShadowSet {
 		e.emitTextShadowRuns(item, run, textX, paintBaseline, textWidth, paintSize, descent)
 	}
 
@@ -416,7 +416,7 @@ func (e *engine) emitInlineTextRun(
 		Kind: OpText, X: textX, Y: paintBaseline, W: textWidth, H: item.h,
 		Text: raw, Font: run.face, Size: paintSize,
 		InkDescent:    descent,
-		LetterSpacing: item.style.LetterSpacing * e.scale * widthScale,
+		LetterSpacing: item.style.inlineText().LetterSpacing * e.scale * widthScale,
 		Bold:          item.style.FontWeight >= fontWeightBoldValue,
 		R:             child[0], G: child[1], B: child[2],
 		RotateDeg: e.noteRotatedRun(item, run, textWidth),
@@ -443,7 +443,7 @@ func (e *engine) emitTextShadowRuns(
 			Kind: OpText, X: textX + shadow.x, Y: baseline + shadow.y, W: textWidth, H: item.h,
 			Text: run.text, Font: run.face, Size: size,
 			InkDescent:    descent,
-			LetterSpacing: item.style.LetterSpacing * e.scale,
+			LetterSpacing: item.style.inlineText().LetterSpacing * e.scale,
 			Bold:          item.style.FontWeight >= fontWeightBoldValue,
 			R:             shadow.color[0], G: shadow.color[1], B: shadow.color[2],
 			RotateDeg: inlineRunRotation(item.style, run.text),
@@ -506,18 +506,18 @@ func resolveTextDecorationSkipPolicy(sty *ResolvedStyle) textDecorationSkipPolic
 		return policy
 	}
 
-	switch strings.ToLower(strings.TrimSpace(sty.TextDecorationSkipSelf)) {
+	switch strings.ToLower(strings.TrimSpace(sty.inlineText().TextDecorationSkipSelf)) {
 	case "skip-all":
 		policy.skipSelfAll = true
 	case textDecorationSkipNoSkip:
 		policy.noSkipSelf = true
 	}
 
-	if strings.EqualFold(strings.TrimSpace(sty.TextDecorationSkipBox), columnSpanAll) {
+	if strings.EqualFold(strings.TrimSpace(sty.inlineText().TextDecorationSkipBox), columnSpanAll) {
 		policy.skipBoxAll = true
 	}
 
-	spaces := strings.ToLower(strings.TrimSpace(sty.TextDecorationSkipSpaces))
+	spaces := strings.ToLower(strings.TrimSpace(sty.inlineText().TextDecorationSkipSpaces))
 	if spaces == "" || spaces == "objects" {
 		spaces = textDecorationSkipStartEnd
 	}
@@ -788,7 +788,7 @@ func (e *engine) paintDecoration(
 	// A visible border-bottom is already a link affordance (wiki
 	// `.mw-body a:not(.image){border-bottom:1px solid #aaa}`). Skip the
 	// CSS underline when a bottom border is already painted.
-	hasBottomBorder := inlineBorderVisible(item.style.BorderBottom)
+	hasBottomBorder := inlineBorderVisible(item.style.borders().BorderBottom)
 	wantUnderline := !hasBottomBorder && hasUnderline(item.style)
 	wsOnly := strings.TrimSpace(item.text) == ""
 	wantLineThrough := hasLineThrough(item.style)
@@ -809,16 +809,16 @@ func (e *engine) paintDecoration(
 	}
 
 	decColor := child
-	if item.style.TextDecorationColorSet {
-		decColor = item.style.TextDecorationColor
+	if item.style.inlineText().TextDecorationColorSet {
+		decColor = item.style.inlineText().TextDecorationColor
 	}
 
 	uWidth := underlineStrokeWidth(size)
-	if item.style.TextDecorationThickness > 0 {
-		uWidth = item.style.TextDecorationThickness
+	if item.style.inlineText().TextDecorationThickness > 0 {
+		uWidth = item.style.inlineText().TextDecorationThickness
 	}
 
-	underY := baseline + descent + size*0.22 + item.style.TextUnderlineOffset +
+	underY := baseline + descent + size*0.22 + item.style.inlineText().TextUnderlineOffset +
 		underlinePositionShift(item.style, size, descent)
 
 	if wsOnly {
@@ -839,7 +839,7 @@ func (e *engine) paintDecoration(
 		und.flush(e)
 	}
 
-	inset := e.scalePt(item.style.TextDecorationInset)
+	inset := e.scalePt(item.style.inlineText().TextDecorationInset)
 	segs := e.decorationSegments(item, runStart, runSpan, policy, inset)
 
 	if segs.count() == 0 {
@@ -852,7 +852,7 @@ func (e *engine) paintDecoration(
 	}
 
 	if wantUnderline {
-		skipInk := strings.ToLower(strings.TrimSpace(item.style.TextDecorationSkipInk))
+		skipInk := strings.ToLower(strings.TrimSpace(item.style.inlineText().TextDecorationSkipInk))
 		if policy.noSkipSelf {
 			skipInk = cssDisplayNone
 		}
@@ -908,19 +908,19 @@ func hasUnderline(style *ResolvedStyle) bool {
 		return false
 	}
 
-	if style.TextDecoration == cssTextDecorationLineThrough {
+	if style.inlineText().TextDecoration == cssTextDecorationLineThrough {
 		return false
 	}
 
-	if style.TextDecoration == cssTextDecorationOverline || hasOverline(style) {
+	if style.inlineText().TextDecoration == cssTextDecorationOverline || hasOverline(style) {
 		return false
 	}
 
-	if style.TextDecoration == cssTextDecorationUnderline {
+	if style.inlineText().TextDecoration == cssTextDecorationUnderline {
 		return true
 	}
 
-	return strings.Contains(strings.ToLower(style.TextDecorationLine), "underline")
+	return strings.Contains(strings.ToLower(style.inlineText().TextDecorationLine), "underline")
 }
 
 func hasOverline(style *ResolvedStyle) bool {
@@ -928,11 +928,11 @@ func hasOverline(style *ResolvedStyle) bool {
 		return false
 	}
 
-	if style.TextDecoration == cssTextDecorationOverline {
+	if style.inlineText().TextDecoration == cssTextDecorationOverline {
 		return true
 	}
 
-	return strings.Contains(strings.ToLower(style.TextDecorationLine), "overline")
+	return strings.Contains(strings.ToLower(style.inlineText().TextDecorationLine), "overline")
 }
 
 func hasLineThrough(style *ResolvedStyle) bool {
@@ -940,11 +940,11 @@ func hasLineThrough(style *ResolvedStyle) bool {
 		return false
 	}
 
-	if style.TextDecoration == cssTextDecorationLineThrough {
+	if style.inlineText().TextDecoration == cssTextDecorationLineThrough {
 		return true
 	}
 
-	return strings.Contains(strings.ToLower(style.TextDecorationLine), "line-through")
+	return strings.Contains(strings.ToLower(style.inlineText().TextDecorationLine), "line-through")
 }
 
 // paintDecorationSegments strokes each segment of one decoration line at lineY
@@ -963,7 +963,7 @@ func (e *engine) paintDecorationSegments(
 func (e *engine) emitDecorationLineStyled(
 	sty *ResolvedStyle, startX, lineY, lineW, width float64, col [3]float64,
 ) {
-	switch strings.ToLower(strings.TrimSpace(sty.TextDecorationStyle)) {
+	switch strings.ToLower(strings.TrimSpace(sty.inlineText().TextDecorationStyle)) {
 	case "dashed":
 		e.emitDashedLine(startX, lineY, lineW, width, col)
 	case "dotted":
@@ -1119,7 +1119,7 @@ func (e *engine) paintUnderline(
 	und.r, und.g, und.b = child[0], child[1], child[2]
 	und.href = item.href
 	und.hasHref = item.href != ""
-	und.style = item.style.TextDecorationStyle
+	und.style = item.style.inlineText().TextDecorationStyle
 	und.blendMode = e.blendMode
 	und.group = e.blendGroup
 }
@@ -1134,7 +1134,7 @@ func startsActiveUnder(item *inlineItem, und *undRun, runStart, underY, size flo
 	}
 
 	undStyle := strings.ToLower(strings.TrimSpace(und.style))
-	itemStyle := strings.ToLower(strings.TrimSpace(item.style.TextDecorationStyle))
+	itemStyle := strings.ToLower(strings.TrimSpace(item.style.inlineText().TextDecorationStyle))
 
 	if undStyle != itemStyle {
 		return false
@@ -1597,8 +1597,8 @@ func (e *engine) measureTextFace(cssSheet string, sty *ResolvedStyle) float64 {
 // measureTextFaceUncached sums per-rune advances for cssSheet without
 // consulting the string cache.
 func (e *engine) measureTextFaceUncached(cssSheet string, sty *ResolvedStyle, primary *pdf.Font, size float64) float64 {
-	lstyle := sty.LetterSpacing * e.scale
-	wstyle := sty.WordSpacing * e.scale
+	lstyle := sty.inlineText().LetterSpacing * e.scale
+	wstyle := sty.inlineText().WordSpacing * e.scale
 
 	total, runeCount, spaceCount := e.accumulateTextFaceWidth(cssSheet, sty, primary, size)
 
@@ -1674,10 +1674,10 @@ func (e *engine) accumulateTextFaceWidth(
 // when tab-size is a length, else TabSize (default 8) space widths.
 func (e *engine) tabStopAdvance(sty *ResolvedStyle, primary *pdf.Font, size float64) float64 {
 	if isTabSizeLength(sty) {
-		return e.scalePt(sty.TabSize)
+		return e.scalePt(sty.inlineText().TabSize)
 	}
 
-	tabSize := sty.TabSize
+	tabSize := sty.inlineText().TabSize
 	if tabSize <= 0 {
 		tabSize = 8
 	}
@@ -1747,8 +1747,8 @@ func (e *engine) splitTextByFace(cssSheet string, sty *ResolvedStyle) []faceRun 
 			runs = append(runs, faceRun{
 				text: cssSheet[start:idx],
 				face: current,
-				w: width + sty.LetterSpacing*e.scale*float64(runeCount) +
-					sty.WordSpacing*e.scale*float64(spaceCount),
+				w: width + sty.inlineText().LetterSpacing*e.scale*float64(runeCount) +
+					sty.inlineText().WordSpacing*e.scale*float64(spaceCount),
 				paint: "", // paint derives the string from text on this path
 			})
 			start = idx
@@ -1780,8 +1780,8 @@ func (e *engine) splitTextByFace(cssSheet string, sty *ResolvedStyle) []faceRun 
 		runs = append(runs, faceRun{
 			text: cssSheet[start:],
 			face: current,
-			w: width + sty.LetterSpacing*e.scale*float64(runeCount) +
-				sty.WordSpacing*e.scale*float64(spaceCount),
+			w: width + sty.inlineText().LetterSpacing*e.scale*float64(runeCount) +
+				sty.inlineText().WordSpacing*e.scale*float64(spaceCount),
 			paint: "", // paint derives the string from text on this path
 		})
 	}
@@ -1789,7 +1789,7 @@ func (e *engine) splitTextByFace(cssSheet string, sty *ResolvedStyle) []faceRun 
 	if kernTextWidth(sty) {
 		for i := range runs {
 			run := &runs[i]
-			paint := paintTextOf(run.text, sty.TextTransform)
+			paint := paintTextOf(run.text, sty.inlineText().TextTransform)
 			run.w += e.textKerningAdjustment(paint, sty, run.face, size, false)
 		}
 	}
@@ -1824,7 +1824,7 @@ func (e *engine) primaryFaceRun(cssSheet string, sty *ResolvedStyle) (faceRun, b
 	}
 
 	size := sty.FontSize * e.scale
-	paintText := paintTextOf(cssSheet, sty.TextTransform)
+	paintText := paintTextOf(cssSheet, sty.inlineText().TextTransform)
 	painted := primaryPaintedText(cssSheet, paintText, sty)
 
 	// Paint consults the collect-time width: collect measured the same
@@ -1853,11 +1853,11 @@ func (e *engine) primaryFaceRun(cssSheet string, sty *ResolvedStyle) (faceRun, b
 // transform-then-strip would lose a capitalize trigger after a leading soft
 // hyphen.
 func primaryPaintedText(cssSheet, paintText string, sty *ResolvedStyle) string {
-	if sty.TextTransform == "" || sty.TextTransform == textTransformNone {
+	if sty.inlineText().TextTransform == "" || sty.inlineText().TextTransform == textTransformNone {
 		return paintText
 	}
 
-	return transformInlineText(stripSoftHyphens(cssSheet), sty.TextTransform)
+	return transformInlineText(stripSoftHyphens(cssSheet), sty.inlineText().TextTransform)
 }
 
 // primaryFaceRunValue builds one primary-face run, carrying the paint string
@@ -1900,8 +1900,8 @@ func (e *engine) primaryRunWidth(primary *pdf.Font, paintText string, sty *Resol
 		prev = runic
 	}
 
-	return width + sty.LetterSpacing*e.scale*float64(runeCount) +
-		sty.WordSpacing*e.scale*float64(spaceCount) + e.textKerningAdjustment(paintText, sty, primary, size, false)
+	return width + sty.inlineText().LetterSpacing*e.scale*float64(runeCount) +
+		sty.inlineText().WordSpacing*e.scale*float64(spaceCount) + e.textKerningAdjustment(paintText, sty, primary, size, false)
 }
 
 // paintRunWidthReusable reports whether the collect-time string width may
@@ -2108,11 +2108,11 @@ type shadowPaint struct {
 }
 
 func (e *engine) collectTextShadows(sty *ResolvedStyle) []shadowPaint {
-	if sty == nil || !sty.TextShadowSet {
+	if sty == nil || !sty.inlineText().TextShadowSet {
 		return nil
 	}
 
-	base := shadowPaint{x: sty.TextShadowX, y: sty.TextShadowY, blur: sty.TextShadowBlur, color: sty.TextShadowColor}
+	base := shadowPaint{x: sty.inlineText().TextShadowX, y: sty.inlineText().TextShadowY, blur: sty.inlineText().TextShadowBlur, color: sty.inlineText().TextShadowColor}
 	shadows := []shadowPaint{base}
 
 	if sty.CustomProps != nil {

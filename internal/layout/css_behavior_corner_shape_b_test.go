@@ -107,8 +107,8 @@ func cornerShapeBStyleKs(sty *ResolvedStyle) [4]float64 {
 	}
 
 	return [4]float64{
-		sty.CornerShapeTopLeft, sty.CornerShapeTopRight,
-		sty.CornerShapeBottomRight, sty.CornerShapeBottomLeft,
+		sty.borders().CornerShapeTopLeft, sty.borders().CornerShapeTopRight,
+		sty.borders().CornerShapeBottomRight, sty.borders().CornerShapeBottomLeft,
 	}
 }
 
@@ -200,8 +200,8 @@ func cornerShapeBAssertStyleRadii(t *testing.T, sty *ResolvedStyle, want [4]floa
 	t.Helper()
 
 	got := [4]float64{
-		sty.BorderRadiusTopLeft, sty.BorderRadiusTopRight,
-		sty.BorderRadiusBottomRight, sty.BorderRadiusBottomLeft,
+		sty.borders().BorderRadiusTopLeft, sty.borders().BorderRadiusTopRight,
+		sty.borders().BorderRadiusBottomRight, sty.borders().BorderRadiusBottomLeft,
 	}
 
 	for idx := range 4 {

@@ -16,15 +16,15 @@ func applyGapProps(style *ResolvedStyle, prop, value string, fsize float64, ctx 
 
 func applyGapShorthand(style *ResolvedStyle, value string, fsize, viewportW float64) bool {
 	if value == contentNormal {
-		style.Gap = 0
-		style.RowGap = 0
-		style.ColumnGap = 0
-		style.ColumnGapNormal = true
+		style.editFlex().Gap = 0
+		style.editFlex().RowGap = 0
+		style.editFlex().ColumnGap = 0
+		style.editFlex().ColumnGapNormal = true
 	} else if v, ok := lengthBox(value, fsize, viewportW, cssDisplayNone); ok && v >= 0 {
-		style.Gap = v
-		style.RowGap = v
-		style.ColumnGap = v
-		style.ColumnGapNormal = false
+		style.editFlex().Gap = v
+		style.editFlex().RowGap = v
+		style.editFlex().ColumnGap = v
+		style.editFlex().ColumnGapNormal = false
 	}
 
 	return true
@@ -32,8 +32,8 @@ func applyGapShorthand(style *ResolvedStyle, value string, fsize, viewportW floa
 
 func applyRowGap(style *ResolvedStyle, value string, fsize, viewportW float64) bool {
 	if v, ok := lengthBox(value, fsize, viewportW, cssDisplayNone); ok && v >= 0 {
-		style.RowGap = v
-		style.Gap = v
+		style.editFlex().RowGap = v
+		style.editFlex().Gap = v
 	}
 
 	return true
@@ -41,11 +41,11 @@ func applyRowGap(style *ResolvedStyle, value string, fsize, viewportW float64) b
 
 func applyColumnGap(style *ResolvedStyle, value string, fsize, viewportW float64) bool {
 	if value == contentNormal {
-		style.ColumnGap = 0
-		style.ColumnGapNormal = true
+		style.editFlex().ColumnGap = 0
+		style.editFlex().ColumnGapNormal = true
 	} else if v, ok := lengthBox(value, fsize, viewportW, cssDisplayNone); ok && v >= 0 {
-		style.ColumnGap = v
-		style.ColumnGapNormal = false
+		style.editFlex().ColumnGap = v
+		style.editFlex().ColumnGapNormal = false
 	}
 
 	return true

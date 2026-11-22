@@ -78,13 +78,13 @@ func applyClipPathProps(
 
 	normalized := normalizeCSSValue(value)
 	if normalized == clipPathNone {
-		style.ClipPath = ""
+		style.editEffects().ClipPath = ""
 
 		return true
 	}
 
 	if _, ok := parseClipPathShape(normalized, fsize); ok {
-		style.ClipPath = normalized
+		style.editEffects().ClipPath = normalized
 	}
 
 	return true

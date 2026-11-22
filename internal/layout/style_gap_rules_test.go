@@ -28,12 +28,12 @@ func TestRowRuleWidthSixPx(t *testing.T) {
 
 	sty := rowRuleClass(t, `.w { row-rule-width: 6px }`, "w")
 
-	if !near(sty.RowRuleWidth, pxToPt(6)) {
-		t.Fatalf("width=%.3f, want %.3f", sty.RowRuleWidth, pxToPt(6))
+	if !near(sty.columns().RowRuleWidth, pxToPt(6)) {
+		t.Fatalf("width=%.3f, want %.3f", sty.columns().RowRuleWidth, pxToPt(6))
 	}
 
-	if len(sty.RowRuleWidths) != 1 || !near(sty.RowRuleWidths[0], pxToPt(6)) {
-		t.Fatalf("widths=%v, want one %.3f", sty.RowRuleWidths, pxToPt(6))
+	if len(sty.columns().RowRuleWidths) != 1 || !near(sty.columns().RowRuleWidths[0], pxToPt(6)) {
+		t.Fatalf("widths=%v, want one %.3f", sty.columns().RowRuleWidths, pxToPt(6))
 	}
 }
 
@@ -44,14 +44,14 @@ func TestRowRuleWidthListKeepsFirst(t *testing.T) {
 
 	sty := rowRuleClass(t, `.w { row-rule-width: 3px 6px }`, "w")
 
-	if len(sty.RowRuleWidths) != 2 ||
-		!near(sty.RowRuleWidths[0], pxToPt(3)) ||
-		!near(sty.RowRuleWidths[1], pxToPt(6)) {
-		t.Fatalf("widths=%v, want %.3f then %.3f", sty.RowRuleWidths, pxToPt(3), pxToPt(6))
+	if len(sty.columns().RowRuleWidths) != 2 ||
+		!near(sty.columns().RowRuleWidths[0], pxToPt(3)) ||
+		!near(sty.columns().RowRuleWidths[1], pxToPt(6)) {
+		t.Fatalf("widths=%v, want %.3f then %.3f", sty.columns().RowRuleWidths, pxToPt(3), pxToPt(6))
 	}
 
-	if !near(sty.RowRuleWidth, sty.RowRuleWidths[0]) {
-		t.Fatalf("RowRuleWidth=%.3f, want first item %.3f", sty.RowRuleWidth, sty.RowRuleWidths[0])
+	if !near(sty.columns().RowRuleWidth, sty.columns().RowRuleWidths[0]) {
+		t.Fatalf("RowRuleWidth=%.3f, want first item %.3f", sty.columns().RowRuleWidth, sty.columns().RowRuleWidths[0])
 	}
 }
 
@@ -62,8 +62,8 @@ func TestRowRuleWidthBadTokenKeepsEarlier(t *testing.T) {
 
 	sty := rowRuleClass(t, `.w { row-rule-width: 4px; row-rule-width: nope }`, "w")
 
-	if !near(sty.RowRuleWidth, pxToPt(4)) {
-		t.Fatalf("width=%.3f, want 4px kept (%.3f)", sty.RowRuleWidth, pxToPt(4))
+	if !near(sty.columns().RowRuleWidth, pxToPt(4)) {
+		t.Fatalf("width=%.3f, want 4px kept (%.3f)", sty.columns().RowRuleWidth, pxToPt(4))
 	}
 }
 
@@ -81,11 +81,11 @@ func TestRowRuleStyleDashed(t *testing.T) {
 .kept { row-rule-style: dashed; row-rule-style: nope }
 `)}, "print", testViewport, 800)
 
-	if got := styleByClass(t, styles, "dashed").RowRuleStyle; got != borderStyleDashed {
+	if got := styleByClass(t, styles, "dashed").columns().RowRuleStyle; got != borderStyleDashed {
 		t.Fatalf("dashed style=%q, want dashed", got)
 	}
 
-	if got := styleByClass(t, styles, "kept").RowRuleStyle; got != borderStyleDashed {
+	if got := styleByClass(t, styles, "kept").columns().RowRuleStyle; got != borderStyleDashed {
 		t.Fatalf("bad token replaced style with %q, want dashed kept", got)
 	}
 }
@@ -96,12 +96,12 @@ func TestRowRuleColorBlue(t *testing.T) {
 
 	sty := rowRuleClass(t, `.c { row-rule-color: #00f }`, "c")
 
-	if !sty.RowRuleColorSet {
+	if !sty.columns().RowRuleColorSet {
 		t.Fatal("RowRuleColorSet false, want true")
 	}
 
-	if sty.RowRuleColor != ([3]float64{0, 0, 1}) {
-		t.Fatalf("color=%v, want blue (0, 0, 1)", sty.RowRuleColor)
+	if sty.columns().RowRuleColor != ([3]float64{0, 0, 1}) {
+		t.Fatalf("color=%v, want blue (0, 0, 1)", sty.columns().RowRuleColor)
 	}
 }
 
@@ -111,20 +111,20 @@ func TestRowRuleShorthand(t *testing.T) {
 
 	sty := rowRuleClass(t, `.a { row-rule: 3px solid #c00 }`, "a")
 
-	if !near(sty.RowRuleWidth, pxToPt(3)) {
-		t.Fatalf("width=%.3f, want %.3f", sty.RowRuleWidth, pxToPt(3))
+	if !near(sty.columns().RowRuleWidth, pxToPt(3)) {
+		t.Fatalf("width=%.3f, want %.3f", sty.columns().RowRuleWidth, pxToPt(3))
 	}
 
-	if sty.RowRuleStyle != solidKeyword {
-		t.Fatalf("style=%q, want solid", sty.RowRuleStyle)
+	if sty.columns().RowRuleStyle != solidKeyword {
+		t.Fatalf("style=%q, want solid", sty.columns().RowRuleStyle)
 	}
 
-	if !sty.RowRuleColorSet {
+	if !sty.columns().RowRuleColorSet {
 		t.Fatal("RowRuleColorSet false, want true")
 	}
 
-	if !near(sty.RowRuleColor[0], 0.8) || !near(sty.RowRuleColor[1], 0) || !near(sty.RowRuleColor[2], 0) {
-		t.Fatalf("color=%v, want #c00 red", sty.RowRuleColor)
+	if !near(sty.columns().RowRuleColor[0], 0.8) || !near(sty.columns().RowRuleColor[1], 0) || !near(sty.columns().RowRuleColor[2], 0) {
+		t.Fatalf("color=%v, want #c00 red", sty.columns().RowRuleColor)
 	}
 }
 
@@ -136,12 +136,12 @@ func TestRowRuleShorthandResetsWidth(t *testing.T) {
 	sty := rowRuleClass(t, `.a { row-rule-width: 4px; row-rule: solid }`, "a")
 	want := borderWidth(mediumKeyword, 12)
 
-	if !near(sty.RowRuleWidth, want) {
-		t.Fatalf("width=%.3f, want medium %.3f", sty.RowRuleWidth, want)
+	if !near(sty.columns().RowRuleWidth, want) {
+		t.Fatalf("width=%.3f, want medium %.3f", sty.columns().RowRuleWidth, want)
 	}
 
-	if sty.RowRuleStyle != solidKeyword {
-		t.Fatalf("style=%q, want solid", sty.RowRuleStyle)
+	if sty.columns().RowRuleStyle != solidKeyword {
+		t.Fatalf("style=%q, want solid", sty.columns().RowRuleStyle)
 	}
 }
 
@@ -162,51 +162,53 @@ func TestRowRuleBadTokenKeepsEarlier(t *testing.T) {
 	t.Parallel()
 
 	cases := []rowRuleBadTokenCase{
-		{"row-rule-width", "4px", func(s *ResolvedStyle) bool { return near(s.RowRuleWidth, pxToPt(4)) }},
-		{"row-rule-style", "dashed", func(s *ResolvedStyle) bool { return s.RowRuleStyle == borderStyleDashed }},
-		{"row-rule-color", "#00f", func(s *ResolvedStyle) bool { return s.RowRuleColorSet && s.RowRuleColor == [3]float64{0, 0, 1} }},
-		{"row-rule", "3px solid #c00", func(s *ResolvedStyle) bool { return s.RowRuleStyle == solidKeyword }},
-		{"row-rule-break", "none", func(s *ResolvedStyle) bool { return s.RowRuleBreak == "none" }},
-		{"row-rule-visibility-items", "around", func(s *ResolvedStyle) bool { return s.RowRuleVisibility == "around" }},
-		{"row-rule-inset", "10px", func(s *ResolvedStyle) bool { return nearInset(s.RowRuleInsetCapStart, pxToPt(10)) }},
-		{"row-rule-inset-cap", "10px", func(s *ResolvedStyle) bool { return nearInset(s.RowRuleInsetCapStart, pxToPt(10)) }},
-		{"row-rule-inset-cap-start", "10px", func(s *ResolvedStyle) bool { return nearInset(s.RowRuleInsetCapStart, pxToPt(10)) }},
-		{"row-rule-inset-cap-end", "10px", func(s *ResolvedStyle) bool { return nearInset(s.RowRuleInsetCapEnd, pxToPt(10)) }},
-		{"row-rule-inset-start", "10px", func(s *ResolvedStyle) bool { return nearInset(s.RowRuleInsetCapStart, pxToPt(10)) }},
-		{"row-rule-inset-end", "10px", func(s *ResolvedStyle) bool { return nearInset(s.RowRuleInsetCapEnd, pxToPt(10)) }},
-		{"row-rule-inset-junction", "4px", func(s *ResolvedStyle) bool { return nearInset(s.RowRuleInsetJunctionStart, pxToPt(4)) }},
-		{"row-rule-inset-junction-start", "4px", func(s *ResolvedStyle) bool { return nearInset(s.RowRuleInsetJunctionStart, pxToPt(4)) }},
-		{"row-rule-inset-junction-end", "4px", func(s *ResolvedStyle) bool { return nearInset(s.RowRuleInsetJunctionEnd, pxToPt(4)) }},
+		{"row-rule-width", "4px", func(s *ResolvedStyle) bool { return near(s.columns().RowRuleWidth, pxToPt(4)) }},
+		{"row-rule-style", "dashed", func(s *ResolvedStyle) bool { return s.columns().RowRuleStyle == borderStyleDashed }},
+		{"row-rule-color", "#00f", func(s *ResolvedStyle) bool {
+			return s.columns().RowRuleColorSet && s.columns().RowRuleColor == [3]float64{0, 0, 1}
+		}},
+		{"row-rule", "3px solid #c00", func(s *ResolvedStyle) bool { return s.columns().RowRuleStyle == solidKeyword }},
+		{"row-rule-break", "none", func(s *ResolvedStyle) bool { return s.columns().RowRuleBreak == "none" }},
+		{"row-rule-visibility-items", "around", func(s *ResolvedStyle) bool { return s.columns().RowRuleVisibility == "around" }},
+		{"row-rule-inset", "10px", func(s *ResolvedStyle) bool { return nearInset(s.columns().RowRuleInsetCapStart, pxToPt(10)) }},
+		{"row-rule-inset-cap", "10px", func(s *ResolvedStyle) bool { return nearInset(s.columns().RowRuleInsetCapStart, pxToPt(10)) }},
+		{"row-rule-inset-cap-start", "10px", func(s *ResolvedStyle) bool { return nearInset(s.columns().RowRuleInsetCapStart, pxToPt(10)) }},
+		{"row-rule-inset-cap-end", "10px", func(s *ResolvedStyle) bool { return nearInset(s.columns().RowRuleInsetCapEnd, pxToPt(10)) }},
+		{"row-rule-inset-start", "10px", func(s *ResolvedStyle) bool { return nearInset(s.columns().RowRuleInsetCapStart, pxToPt(10)) }},
+		{"row-rule-inset-end", "10px", func(s *ResolvedStyle) bool { return nearInset(s.columns().RowRuleInsetCapEnd, pxToPt(10)) }},
+		{"row-rule-inset-junction", "4px", func(s *ResolvedStyle) bool { return nearInset(s.columns().RowRuleInsetJunctionStart, pxToPt(4)) }},
+		{"row-rule-inset-junction-start", "4px", func(s *ResolvedStyle) bool { return nearInset(s.columns().RowRuleInsetJunctionStart, pxToPt(4)) }},
+		{"row-rule-inset-junction-end", "4px", func(s *ResolvedStyle) bool { return nearInset(s.columns().RowRuleInsetJunctionEnd, pxToPt(4)) }},
 		{"rule", "3px solid #c00", func(s *ResolvedStyle) bool {
-			return s.RowRuleStyle == solidKeyword && s.ColumnRuleStyle == solidKeyword
+			return s.columns().RowRuleStyle == solidKeyword && s.columns().ColumnRuleStyle == solidKeyword
 		}},
 		{"rule-width", "6px", func(s *ResolvedStyle) bool {
-			return near(s.RowRuleWidth, pxToPt(6)) && near(s.ColumnRuleWidth, pxToPt(6))
+			return near(s.columns().RowRuleWidth, pxToPt(6)) && near(s.columns().ColumnRuleWidth, pxToPt(6))
 		}},
 		{"rule-style", "dashed", func(s *ResolvedStyle) bool {
-			return s.RowRuleStyle == borderStyleDashed && s.ColumnRuleStyle == borderStyleDashed
+			return s.columns().RowRuleStyle == borderStyleDashed && s.columns().ColumnRuleStyle == borderStyleDashed
 		}},
-		{"rule-color", "#00f", func(s *ResolvedStyle) bool { return s.RowRuleColorSet && s.ColumnRuleColorSet }},
+		{"rule-color", "#00f", func(s *ResolvedStyle) bool { return s.columns().RowRuleColorSet && s.columns().ColumnRuleColorSet }},
 		{"rule-break", "none", func(s *ResolvedStyle) bool {
-			return s.RowRuleBreak == "none" && s.ColumnRuleBreak == "none"
+			return s.columns().RowRuleBreak == "none" && s.columns().ColumnRuleBreak == "none"
 		}},
-		{"rule-visibility-items", "around", func(s *ResolvedStyle) bool { return s.RowRuleVisibility == "around" }},
-		{"rule-inset", "10px", func(s *ResolvedStyle) bool { return nearInset(s.RowRuleInsetCapStart, pxToPt(10)) }},
-		{"rule-inset-cap", "10px", func(s *ResolvedStyle) bool { return nearInset(s.RowRuleInsetCapEnd, pxToPt(10)) }},
-		{"rule-inset-start", "10px", func(s *ResolvedStyle) bool { return nearInset(s.RowRuleInsetCapStart, pxToPt(10)) }},
-		{"rule-inset-end", "10px", func(s *ResolvedStyle) bool { return nearInset(s.RowRuleInsetCapEnd, pxToPt(10)) }},
-		{"rule-inset-junction", "4px", func(s *ResolvedStyle) bool { return nearInset(s.RowRuleInsetJunctionStart, pxToPt(4)) }},
-		{"column-rule-break", "intersection", func(s *ResolvedStyle) bool { return s.ColumnRuleBreak == "intersection" }},
-		{"column-rule-inset", "10px", func(s *ResolvedStyle) bool { return nearInset(s.ColumnRuleInsetCapStart, pxToPt(10)) }},
-		{"column-rule-inset-cap", "10px", func(s *ResolvedStyle) bool { return nearInset(s.ColumnRuleInsetCapStart, pxToPt(10)) }},
-		{"column-rule-inset-cap-start", "10px", func(s *ResolvedStyle) bool { return nearInset(s.ColumnRuleInsetCapStart, pxToPt(10)) }},
-		{"column-rule-inset-cap-end", "10px", func(s *ResolvedStyle) bool { return nearInset(s.ColumnRuleInsetCapEnd, pxToPt(10)) }},
-		{"column-rule-inset-junction", "4px", func(s *ResolvedStyle) bool { return nearInset(s.ColumnRuleInsetJunctionStart, pxToPt(4)) }},
-		{"column-rule-inset-junction-start", "4px", func(s *ResolvedStyle) bool { return nearInset(s.ColumnRuleInsetJunctionStart, pxToPt(4)) }},
-		{"column-rule-inset-junction-end", "4px", func(s *ResolvedStyle) bool { return nearInset(s.ColumnRuleInsetJunctionEnd, pxToPt(4)) }},
-		{"column-rule-inset-start", "10px", func(s *ResolvedStyle) bool { return nearInset(s.ColumnRuleInsetCapStart, pxToPt(10)) }},
-		{"column-rule-inset-end", "10px", func(s *ResolvedStyle) bool { return nearInset(s.ColumnRuleInsetCapEnd, pxToPt(10)) }},
-		{"rule-overlap", "row-over-column", func(s *ResolvedStyle) bool { return s.RuleOverlap == "row-over-column" }},
+		{"rule-visibility-items", "around", func(s *ResolvedStyle) bool { return s.columns().RowRuleVisibility == "around" }},
+		{"rule-inset", "10px", func(s *ResolvedStyle) bool { return nearInset(s.columns().RowRuleInsetCapStart, pxToPt(10)) }},
+		{"rule-inset-cap", "10px", func(s *ResolvedStyle) bool { return nearInset(s.columns().RowRuleInsetCapEnd, pxToPt(10)) }},
+		{"rule-inset-start", "10px", func(s *ResolvedStyle) bool { return nearInset(s.columns().RowRuleInsetCapStart, pxToPt(10)) }},
+		{"rule-inset-end", "10px", func(s *ResolvedStyle) bool { return nearInset(s.columns().RowRuleInsetCapEnd, pxToPt(10)) }},
+		{"rule-inset-junction", "4px", func(s *ResolvedStyle) bool { return nearInset(s.columns().RowRuleInsetJunctionStart, pxToPt(4)) }},
+		{"column-rule-break", "intersection", func(s *ResolvedStyle) bool { return s.columns().ColumnRuleBreak == "intersection" }},
+		{"column-rule-inset", "10px", func(s *ResolvedStyle) bool { return nearInset(s.columns().ColumnRuleInsetCapStart, pxToPt(10)) }},
+		{"column-rule-inset-cap", "10px", func(s *ResolvedStyle) bool { return nearInset(s.columns().ColumnRuleInsetCapStart, pxToPt(10)) }},
+		{"column-rule-inset-cap-start", "10px", func(s *ResolvedStyle) bool { return nearInset(s.columns().ColumnRuleInsetCapStart, pxToPt(10)) }},
+		{"column-rule-inset-cap-end", "10px", func(s *ResolvedStyle) bool { return nearInset(s.columns().ColumnRuleInsetCapEnd, pxToPt(10)) }},
+		{"column-rule-inset-junction", "4px", func(s *ResolvedStyle) bool { return nearInset(s.columns().ColumnRuleInsetJunctionStart, pxToPt(4)) }},
+		{"column-rule-inset-junction-start", "4px", func(s *ResolvedStyle) bool { return nearInset(s.columns().ColumnRuleInsetJunctionStart, pxToPt(4)) }},
+		{"column-rule-inset-junction-end", "4px", func(s *ResolvedStyle) bool { return nearInset(s.columns().ColumnRuleInsetJunctionEnd, pxToPt(4)) }},
+		{"column-rule-inset-start", "10px", func(s *ResolvedStyle) bool { return nearInset(s.columns().ColumnRuleInsetCapStart, pxToPt(10)) }},
+		{"column-rule-inset-end", "10px", func(s *ResolvedStyle) bool { return nearInset(s.columns().ColumnRuleInsetCapEnd, pxToPt(10)) }},
+		{"rule-overlap", "row-over-column", func(s *ResolvedStyle) bool { return s.columns().RuleOverlap == "row-over-column" }},
 	}
 
 	runRowRuleBadTokenCases(t, cases)
@@ -263,14 +265,14 @@ func checkRuleInsetCapCopiedToJunction(t *testing.T, cssText string) {
 	t.Helper()
 
 	copied := rowRuleClass(t, cssText, "a")
-	if !nearInset(copied.RowRuleInsetCapStart, pxToPt(10)) ||
-		!nearInset(copied.RowRuleInsetCapEnd, pxToPt(4)) ||
-		!nearInset(copied.RowRuleInsetJunctionStart, pxToPt(10)) ||
-		!nearInset(copied.RowRuleInsetJunctionEnd, pxToPt(4)) {
+	if !nearInset(copied.columns().RowRuleInsetCapStart, pxToPt(10)) ||
+		!nearInset(copied.columns().RowRuleInsetCapEnd, pxToPt(4)) ||
+		!nearInset(copied.columns().RowRuleInsetJunctionStart, pxToPt(10)) ||
+		!nearInset(copied.columns().RowRuleInsetJunctionEnd, pxToPt(4)) {
 		t.Error("row-rule-inset: 10px 4px did not copy each cap field to its junction field")
 	}
 
-	if !nearInset(copied.ColumnRuleInsetCapStart, 0) {
+	if !nearInset(copied.columns().ColumnRuleInsetCapStart, 0) {
 		t.Error("row-rule-inset set a column inset")
 	}
 }
@@ -287,14 +289,14 @@ func checkRuleInsetPairSetBothAxes(t *testing.T, cssText string) {
 		got  ruleInset
 		want float64
 	}{
-		{"row cap-start", bothAxes.RowRuleInsetCapStart, pxToPt(10)},
-		{"row cap-end", bothAxes.RowRuleInsetCapEnd, pxToPt(10)},
-		{"row junction-start", bothAxes.RowRuleInsetJunctionStart, pxToPt(2)},
-		{"row junction-end", bothAxes.RowRuleInsetJunctionEnd, pxToPt(1)},
-		{"column cap-start", bothAxes.ColumnRuleInsetCapStart, pxToPt(10)},
-		{"column cap-end", bothAxes.ColumnRuleInsetCapEnd, pxToPt(10)},
-		{"column junction-start", bothAxes.ColumnRuleInsetJunctionStart, pxToPt(2)},
-		{"column junction-end", bothAxes.ColumnRuleInsetJunctionEnd, pxToPt(1)},
+		{"row cap-start", bothAxes.columns().RowRuleInsetCapStart, pxToPt(10)},
+		{"row cap-end", bothAxes.columns().RowRuleInsetCapEnd, pxToPt(10)},
+		{"row junction-start", bothAxes.columns().RowRuleInsetJunctionStart, pxToPt(2)},
+		{"row junction-end", bothAxes.columns().RowRuleInsetJunctionEnd, pxToPt(1)},
+		{"column cap-start", bothAxes.columns().ColumnRuleInsetCapStart, pxToPt(10)},
+		{"column cap-end", bothAxes.columns().ColumnRuleInsetCapEnd, pxToPt(10)},
+		{"column junction-start", bothAxes.columns().ColumnRuleInsetJunctionStart, pxToPt(2)},
+		{"column junction-end", bothAxes.columns().ColumnRuleInsetJunctionEnd, pxToPt(1)},
 	} {
 		if !nearInset(probe.got, probe.want) {
 			t.Errorf("rule-inset %s = %+v, want %.3fpt", probe.name, probe.got, probe.want)
@@ -308,12 +310,12 @@ func checkRuleInsetStartSide(t *testing.T, cssText string) {
 	t.Helper()
 
 	sided := rowRuleClass(t, cssText, "c")
-	if !nearInset(sided.RowRuleInsetCapStart, pxToPt(5)) ||
-		!nearInset(sided.RowRuleInsetJunctionStart, pxToPt(5)) {
+	if !nearInset(sided.columns().RowRuleInsetCapStart, pxToPt(5)) ||
+		!nearInset(sided.columns().RowRuleInsetJunctionStart, pxToPt(5)) {
 		t.Error("row-rule-inset-start: 5px did not set the row start cap and junction fields")
 	}
 
-	if !nearInset(sided.RowRuleInsetCapEnd, 0) || !nearInset(sided.ColumnRuleInsetCapStart, 0) {
+	if !nearInset(sided.columns().RowRuleInsetCapEnd, 0) || !nearInset(sided.columns().ColumnRuleInsetCapStart, 0) {
 		t.Error("row-rule-inset-start: 5px reached the row end or the column axis")
 	}
 }
@@ -324,9 +326,9 @@ func checkRuleInsetCapOnly(t *testing.T, cssText string) {
 	t.Helper()
 
 	capsOnly := rowRuleClass(t, cssText, "d")
-	if !nearInset(capsOnly.RowRuleInsetCapStart, pxToPt(3)) ||
-		!nearInset(capsOnly.RowRuleInsetCapEnd, pxToPt(3)) ||
-		!nearInset(capsOnly.RowRuleInsetJunctionStart, 0) {
+	if !nearInset(capsOnly.columns().RowRuleInsetCapStart, pxToPt(3)) ||
+		!nearInset(capsOnly.columns().RowRuleInsetCapEnd, pxToPt(3)) ||
+		!nearInset(capsOnly.columns().RowRuleInsetJunctionStart, 0) {
 		t.Error("row-rule-inset-cap: 3px did not set only the row cap fields")
 	}
 }
@@ -337,14 +339,14 @@ func checkRuleInsetOverlapJoin(t *testing.T, cssText string) {
 	t.Helper()
 
 	joined := rowRuleClass(t, cssText, "e")
-	if !joined.RowRuleInsetJunctionStart.OverlapJoin ||
-		!joined.RowRuleInsetJunctionEnd.OverlapJoin ||
-		!joined.ColumnRuleInsetJunctionStart.OverlapJoin ||
-		!joined.ColumnRuleInsetJunctionEnd.OverlapJoin {
+	if !joined.columns().RowRuleInsetJunctionStart.OverlapJoin ||
+		!joined.columns().RowRuleInsetJunctionEnd.OverlapJoin ||
+		!joined.columns().ColumnRuleInsetJunctionStart.OverlapJoin ||
+		!joined.columns().ColumnRuleInsetJunctionEnd.OverlapJoin {
 		t.Error("rule-inset-junction: overlap-join did not reach both axes")
 	}
 
-	if joined.RowRuleInsetCapStart.OverlapJoin || joined.ColumnRuleInsetCapEnd.OverlapJoin {
+	if joined.columns().RowRuleInsetCapStart.OverlapJoin || joined.columns().ColumnRuleInsetCapEnd.OverlapJoin {
 		t.Error("rule-inset-junction reached a cap field")
 	}
 }
@@ -355,13 +357,13 @@ func checkRuleInsetPercentJunction(t *testing.T, cssText string) {
 	t.Helper()
 
 	mixed := rowRuleClass(t, cssText, "f")
-	if !nearInset(mixed.RowRuleInsetCapStart, pxToPt(-6)) ||
-		!nearInset(mixed.RowRuleInsetCapEnd, pxToPt(-6)) {
+	if !nearInset(mixed.columns().RowRuleInsetCapStart, pxToPt(-6)) ||
+		!nearInset(mixed.columns().RowRuleInsetCapEnd, pxToPt(-6)) {
 		t.Error("row-rule-inset: -6px / 50% did not store the negative cap length")
 	}
 
-	if !mixed.RowRuleInsetJunctionStart.Percent || !mixed.RowRuleInsetJunctionEnd.Percent ||
-		!near(mixed.RowRuleInsetJunctionStart.Value, 50) {
+	if !mixed.columns().RowRuleInsetJunctionStart.Percent || !mixed.columns().RowRuleInsetJunctionEnd.Percent ||
+		!near(mixed.columns().RowRuleInsetJunctionStart.Value, 50) {
 		t.Error("row-rule-inset: -6px / 50% did not store the percentage junction halves")
 	}
 }

@@ -22,7 +22,7 @@ func applyAspectRatioProps(
 		return true
 	}
 
-	style.AspectRatio = ratio
+	style.editGeometry().AspectRatio = ratio
 
 	return true
 }

@@ -31,11 +31,11 @@ func applyImageRenderingProps(
 
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "auto":
-		style.ImageRendering = imageRenderingAuto
+		style.editImages().ImageRendering = imageRenderingAuto
 	case "optimizequality":
-		style.ImageRendering = imageRenderingQuality
+		style.editImages().ImageRendering = imageRenderingQuality
 	case imageRenderingSpeedKeyword:
-		style.ImageRendering = imageRenderingSpeed
+		style.editImages().ImageRendering = imageRenderingSpeed
 	}
 
 	return true
@@ -45,7 +45,7 @@ func applyImageRenderingProps(
 // hold: image-rendering and the text-stroke trio.
 func inheritExtraProps(dst, parent *ResolvedStyle, raw map[string]string) {
 	if _, ok := raw[imageRenderingProp]; !ok {
-		dst.ImageRendering = parent.ImageRendering
+		dst.editImages().ImageRendering = parent.images().ImageRendering
 	}
 
 	inheritTextStroke(dst, parent, raw)

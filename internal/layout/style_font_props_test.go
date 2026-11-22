@@ -24,23 +24,23 @@ func TestFontPropsWave4(t *testing.T) {
 	applyFontProps(&style, raw, 12, ctx)
 	applyRestProps(&style, raw, ctx, nil)
 
-	if style.FontFeatureSettings != `"liga" 1, "smcp" 1` {
-		t.Fatalf("feature-settings = %q", style.FontFeatureSettings)
+	if style.font().FontFeatureSettings != `"liga" 1, "smcp" 1` {
+		t.Fatalf("feature-settings = %q", style.font().FontFeatureSettings)
 	}
 
-	if style.FontKerning != "none" {
-		t.Fatalf("kerning = %q", style.FontKerning)
+	if style.font().FontKerning != "none" {
+		t.Fatalf("kerning = %q", style.font().FontKerning)
 	}
 
-	if style.FontVariantCaps != "small-caps" {
-		t.Fatalf("caps = %q", style.FontVariantCaps)
+	if style.font().FontVariantCaps != "small-caps" {
+		t.Fatalf("caps = %q", style.font().FontVariantCaps)
 	}
 
-	if style.FontWidth != 75 {
-		t.Fatalf("stretch/width = %v", style.FontWidth)
+	if style.font().FontWidth != 75 {
+		t.Fatalf("stretch/width = %v", style.font().FontWidth)
 	}
 
-	if !style.FontSizeAdjustSet || style.FontSizeAdjust != 0.58 {
-		t.Fatalf("size-adjust = set=%v value=%v", style.FontSizeAdjustSet, style.FontSizeAdjust)
+	if !style.font().FontSizeAdjustSet || style.font().FontSizeAdjust != 0.58 {
+		t.Fatalf("size-adjust = set=%v value=%v", style.font().FontSizeAdjustSet, style.font().FontSizeAdjust)
 	}
 }

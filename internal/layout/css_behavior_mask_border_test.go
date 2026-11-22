@@ -318,18 +318,18 @@ func TestBehaviorMaskBorderInvalidValuesKeepEarlier(t *testing.T) {
 	`)}, "print", testViewport, 800)
 
 	feature := styles[findElementByName(root, "div")]
-	if feature.MaskBorderSource != maskBorderTestEarlier {
-		t.Fatalf("invalid declarations replaced mask-border-source with %q", feature.MaskBorderSource)
+	if feature.effects().MaskBorderSource != maskBorderTestEarlier {
+		t.Fatalf("invalid declarations replaced mask-border-source with %q", feature.effects().MaskBorderSource)
 	}
 
-	if feature.MaskBorderSlice != "2 fill" || feature.MaskBorderWidth != "4px" || feature.MaskBorderOutset != "1px" {
+	if feature.effects().MaskBorderSlice != "2 fill" || feature.effects().MaskBorderWidth != "4px" || feature.effects().MaskBorderOutset != "1px" {
 		t.Fatalf("invalid declarations replaced slice/width/outset with %q/%q/%q",
-			feature.MaskBorderSlice, feature.MaskBorderWidth, feature.MaskBorderOutset)
+			feature.effects().MaskBorderSlice, feature.effects().MaskBorderWidth, feature.effects().MaskBorderOutset)
 	}
 
-	if feature.MaskBorderRepeat != "stretch" || feature.MaskBorderMode != maskModeAlpha {
+	if feature.effects().MaskBorderRepeat != "stretch" || feature.effects().MaskBorderMode != maskModeAlpha {
 		t.Fatalf("invalid declarations replaced repeat/mode with %q/%q",
-			feature.MaskBorderRepeat, feature.MaskBorderMode)
+			feature.effects().MaskBorderRepeat, feature.effects().MaskBorderMode)
 	}
 }
 
@@ -357,19 +357,19 @@ func TestBehaviorMaskBorderSupportsAcceptedValues(t *testing.T) {
 		@supports (-webkit-mask-box-image-slice: -5) { #bogus { mask-border-source:url(rejected2.png) } }
 	`)}, "print", testViewport, 800)
 
-	if got := styles[findElementByID(t, root, "shorthand")].MaskBorderSource; got != "url(ok.png)" {
+	if got := styles[findElementByID(t, root, "shorthand")].effects().MaskBorderSource; got != "url(ok.png)" {
 		t.Fatalf("shorthand @supports source = %q, want url(ok.png)", got)
 	}
 
-	if got := styles[findElementByID(t, root, "slice")].MaskBorderSource; got != "url(keep.png)" {
+	if got := styles[findElementByID(t, root, "slice")].effects().MaskBorderSource; got != "url(keep.png)" {
 		t.Fatalf("negative slice satisfied @supports; source = %q, want url(keep.png)", got)
 	}
 
-	if got := styles[findElementByID(t, root, "alias")].MaskBorderSource; got != "url(alias.png)" {
+	if got := styles[findElementByID(t, root, "alias")].effects().MaskBorderSource; got != "url(alias.png)" {
 		t.Fatalf("prefixed source @supports result = %q, want url(alias.png)", got)
 	}
 
-	if got := styles[findElementByID(t, root, "bogus")].MaskBorderSource; got != "url(keep2.png)" {
+	if got := styles[findElementByID(t, root, "bogus")].effects().MaskBorderSource; got != "url(keep2.png)" {
 		t.Fatalf("prefixed bogus slice satisfied @supports; source = %q, want url(keep2.png)", got)
 	}
 }

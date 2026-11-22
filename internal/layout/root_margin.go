@@ -22,10 +22,10 @@ func (e *engine) marginCollapsesThrough(style *ResolvedStyle, top bool) bool {
 	}
 
 	if top {
-		return style.PaddingTop == 0 && style.BorderTop.Width == 0
+		return style.PaddingTop == 0 && style.borders().BorderTop.Width == 0
 	}
 
-	return style.PaddingBottom == 0 && style.BorderBottom.Width == 0
+	return style.PaddingBottom == 0 && style.borders().BorderBottom.Width == 0
 }
 
 // applyRootBoxMargins applies the root html margin-collapse reporting

@@ -66,7 +66,7 @@ func (e *engine) borderBoundaryOps(child, parent *box) []Op {
 		return nil
 	}
 
-	side := child.style.BorderTop
+	side := child.style.borders().BorderTop
 	if !cornerShapePaintBorderSideUsable(side) {
 		return nil
 	}

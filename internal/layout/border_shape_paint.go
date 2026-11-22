@@ -136,7 +136,7 @@ func borderShapePaint(
 
 	_ = boxNode
 
-	if sty.BorderImageSource != "" {
+	if sty.borders().BorderImageSource != "" {
 		return fillOps, nil, fillHandled, false
 	}
 

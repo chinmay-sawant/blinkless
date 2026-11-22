@@ -425,15 +425,15 @@ func styleHasShapingFeatures(sty *ResolvedStyle) bool {
 		return false
 	}
 
-	if sty.FontKerning == fontKerningNone || sty.FontKerning == fontKerningNormal {
+	if sty.font().FontKerning == fontKerningNone || sty.font().FontKerning == fontKerningNormal {
 		return true
 	}
 
-	if sty.FontFeatureSettings != "" && sty.FontFeatureSettings != fontVariantNormal {
+	if sty.font().FontFeatureSettings != "" && sty.font().FontFeatureSettings != fontVariantNormal {
 		return true
 	}
 
-	if sty.FontLanguageOverride != "" && sty.FontLanguageOverride != fontVariantNormal {
+	if sty.font().FontLanguageOverride != "" && sty.font().FontLanguageOverride != fontVariantNormal {
 		return true
 	}
 
@@ -444,12 +444,12 @@ func styleHasShapingFeatures(sty *ResolvedStyle) bool {
 // value beyond the initial one. Split from styleHasShapingFeatures so the
 // per-run fast path stays a flat sequence of early returns.
 func fontVariantShapingSet(sty *ResolvedStyle) bool {
-	return isSetFontVariantValue(sty.FontVariantCaps) ||
-		isSetFontVariantValue(sty.FontVariantLigatures) ||
-		isSetFontVariantValue(sty.FontVariantNumeric) ||
-		isSetFontVariantValue(sty.FontVariantPosition) ||
-		isSetFontVariantValue(sty.FontVariantAlternates) ||
-		isSetFontVariantValue(sty.FontVariantEastAsian)
+	return isSetFontVariantValue(sty.font().FontVariantCaps) ||
+		isSetFontVariantValue(sty.font().FontVariantLigatures) ||
+		isSetFontVariantValue(sty.font().FontVariantNumeric) ||
+		isSetFontVariantValue(sty.font().FontVariantPosition) ||
+		isSetFontVariantValue(sty.font().FontVariantAlternates) ||
+		isSetFontVariantValue(sty.font().FontVariantEastAsian)
 }
 
 // isSetFontVariantValue reports whether a font-variant longhand carries a
@@ -477,10 +477,10 @@ func decorateTextOp(paintOp Op, sty *ResolvedStyle) Op {
 		features = fontShapingFeatureSettings(sty)
 	}
 
-	paintOp = paintOp.withTextTransform(sty.TextTransform).
+	paintOp = paintOp.withTextTransform(sty.inlineText().TextTransform).
 		withTextLanguage(language).
 		withFontFeatures(features).
-		withTextAutospace(sty.TextAutospace).
+		withTextAutospace(sty.inlineText().TextAutospace).
 		withTextStroke(sty)
 
 	if textOpDisablesFakeBold(sty) {

@@ -13,15 +13,15 @@ func applyLeftoversProps(style *ResolvedStyle, prop, value string, fsize float64
 		applyStrokeDashArray(style, value, fsize)
 	case "stroke-dashoffset":
 		if off, ok := plainLength(value, fsize, 0); ok {
-			style.StrokeDashOffset = off
+			style.editSvg().StrokeDashOffset = off
 		}
 	case "stroke-linecap":
-		style.StrokeLineCap = strings.ToLower(strings.TrimSpace(value))
+		style.editSvg().StrokeLineCap = strings.ToLower(strings.TrimSpace(value))
 	case "stroke-linejoin":
-		style.StrokeLineJoin = strings.ToLower(strings.TrimSpace(value))
+		style.editSvg().StrokeLineJoin = strings.ToLower(strings.TrimSpace(value))
 	case "stroke-miterlimit":
 		if n, err := strconv.ParseFloat(strings.TrimSpace(value), 64); err == nil && n >= 1 {
-			style.StrokeMiterLimit = n
+			style.editSvg().StrokeMiterLimit = n
 		}
 	case "clip-rule":
 		applyClipRuleProperty(style, value)
@@ -65,16 +65,17 @@ func applyLeftoversProps(style *ResolvedStyle, prop, value string, fsize float64
 
 func applyStrokeDashArray(style *ResolvedStyle, value string, fsize float64) {
 	val := strings.TrimSpace(value)
+	svg := style.editSvg()
 	if val == "none" || val == "" {
-		style.StrokeDashArray = nil
+		svg.StrokeDashArray = nil
 		return
 	}
 	raw := strings.ReplaceAll(val, ",", " ")
 	for _, tok := range strings.Fields(raw) {
 		if length, ok := plainLength(tok, fsize, 0); ok && length >= 0 {
-			style.StrokeDashArray = append(style.StrokeDashArray, length)
+			svg.StrokeDashArray = append(svg.StrokeDashArray, length)
 		} else if n, err := strconv.ParseFloat(tok, 64); err == nil && n >= 0 {
-			style.StrokeDashArray = append(style.StrokeDashArray, n)
+			svg.StrokeDashArray = append(svg.StrokeDashArray, n)
 		}
 	}
 }
@@ -85,7 +86,7 @@ func applyStrokeDashArray(style *ResolvedStyle, value string, fsize float64) {
 func applyClipRuleProperty(style *ResolvedStyle, value string) {
 	normalized := normalizeCSSValue(value)
 	if normalized == clipPathEvenOdd || normalized == clipPathNonZero {
-		style.ClipRule = normalized
+		style.editSvg().ClipRule = normalized
 	}
 }
 
@@ -100,9 +101,9 @@ func applyColorInterpolationProperty(style *ResolvedStyle, value string) {
 	switch normalized {
 	case "auto", "srgb", "linearrgb":
 		if normalized == "auto" {
-			style.ColorInterpolation = "srgb"
+			style.editSvg().ColorInterpolation = "srgb"
 		} else {
-			style.ColorInterpolation = normalized
+			style.editSvg().ColorInterpolation = normalized
 		}
 	}
 }
@@ -117,9 +118,9 @@ func applyColorInterpolationFiltersProperty(style *ResolvedStyle, value string) 
 	switch normalized {
 	case "auto", "srgb", "linearrgb":
 		if normalized == "auto" {
-			style.ColorInterpolationFilters = "srgb"
+			style.editSvg().ColorInterpolationFilters = "srgb"
 		} else {
-			style.ColorInterpolationFilters = normalized
+			style.editSvg().ColorInterpolationFilters = normalized
 		}
 	}
 }
@@ -131,7 +132,7 @@ func applyColorInterpolationFiltersProperty(style *ResolvedStyle, value string) 
 func applyTransformBoxProperty(style *ResolvedStyle, value string) {
 	switch normalized := normalizeCSSValue(value); normalized {
 	case "content-box", "border-box", "fill-box", "stroke-box", "view-box":
-		style.TransformBox = normalized
+		style.editEffects().TransformBox = normalized
 	}
 }
 
@@ -142,7 +143,7 @@ func applyTransformBoxProperty(style *ResolvedStyle, value string) {
 func applyTransformStyleProperty(style *ResolvedStyle, value string) {
 	switch normalized := normalizeCSSValue(value); normalized {
 	case "flat", "preserve-3d":
-		style.TransformStyle = normalized
+		style.editEffects().TransformStyle = normalized
 	}
 }
 
@@ -154,7 +155,7 @@ func applyTransformStyleProperty(style *ResolvedStyle, value string) {
 func applyBackfaceVisibilityProperty(style *ResolvedStyle, value string) {
 	switch normalized := normalizeCSSValue(value); normalized {
 	case "visible", "hidden":
-		style.BackfaceVisibility = normalized
+		style.editEffects().BackfaceVisibility = normalized
 	}
 }
 
@@ -165,8 +166,8 @@ func applyBackfaceVisibilityProperty(style *ResolvedStyle, value string) {
 func applyPerspectiveProperty(style *ResolvedStyle, value string) {
 	val := strings.TrimSpace(strings.ToLower(value))
 	if val == "" || val == cssDisplayNone {
-		style.HasPerspective = false
-		style.PerspectiveDist = 0
+		style.editEffects().HasPerspective = false
+		style.editEffects().PerspectiveDist = 0
 
 		return
 	}
@@ -176,8 +177,8 @@ func applyPerspectiveProperty(style *ResolvedStyle, value string) {
 		return
 	}
 
-	style.PerspectiveDist = pt
-	style.HasPerspective = true
+	style.editEffects().PerspectiveDist = pt
+	style.editEffects().HasPerspective = true
 }
 
 // applyPerspectiveOriginProperty owns perspective-origin. One or two tokens
@@ -252,11 +253,11 @@ func applyPerspectiveOriginProperty(style *ResolvedStyle, value string, fsize fl
 		// "top left" order: swap so X stays horizontal.
 		x, xPct, y, yPct = second, secondPct, first, firstPct
 	}
-	style.PerspectiveOriginX = x
-	style.PerspectiveOriginXPct = xPct
-	style.PerspectiveOriginY = y
-	style.PerspectiveOriginYPct = yPct
-	style.PerspectiveOriginSet = true
+	style.editEffects().PerspectiveOriginX = x
+	style.editEffects().PerspectiveOriginXPct = xPct
+	style.editEffects().PerspectiveOriginY = y
+	style.editEffects().PerspectiveOriginYPct = yPct
+	style.editEffects().PerspectiveOriginSet = true
 }
 
 // isHorizTok reports whether tok is a horizontal origin keyword.
@@ -273,7 +274,7 @@ func isHorizTok(tok string) bool {
 func applyFillRuleProperty(style *ResolvedStyle, value string) {
 	normalized := normalizeCSSValue(value)
 	if normalized == clipPathEvenOdd || normalized == clipPathNonZero {
-		style.FillRule = normalized
+		style.editSvg().FillRule = normalized
 	}
 }
 
@@ -285,7 +286,7 @@ func applyFillRuleProperty(style *ResolvedStyle, value string) {
 func applyShapeRenderingProperty(style *ResolvedStyle, value string) {
 	switch normalized := normalizeCSSValue(value); normalized {
 	case "auto", "optimizespeed", "crispedges", "geometricprecision":
-		style.ShapeRendering = normalized
+		style.editSvg().ShapeRendering = normalized
 	}
 }
 
@@ -302,7 +303,7 @@ func applyDominantBaselineProperty(style *ResolvedStyle, value string) {
 	switch normalized := normalizeCSSValue(value); normalized {
 	case "auto", "alphabetic", dominantBaselineHanging, "ideographic", "middle", "central",
 		"mathematical", "text-before-edge", "text-after-edge":
-		style.DominantBaseline = normalized
+		style.editInlineText().DominantBaseline = normalized
 	}
 }
 
@@ -316,7 +317,7 @@ func applyAlignmentBaselineProperty(style *ResolvedStyle, value string) {
 	switch normalized := normalizeCSSValue(value); normalized {
 	case "auto", baselineName, "alphabetic", "hanging", "ideographic", "middle", "central",
 		"mathematical", "text-before-edge", "text-after-edge", "before-edge", "after-edge":
-		style.AlignmentBaseline = normalized
+		style.editInlineText().AlignmentBaseline = normalized
 	}
 }
 
@@ -336,11 +337,11 @@ type clipRectEdges struct {
 func applyClipProperty(style *ResolvedStyle, value string, fsize float64) {
 	normalized := normalizeCSSValue(value)
 	if normalized == "auto" {
-		style.Clip = ""
+		style.editEffects().Clip = ""
 		return
 	}
 	if edges, ok := parseDeprecatedClipRect(normalized, fsize); ok {
-		style.Clip = formatDeprecatedClipRect(edges)
+		style.editEffects().Clip = formatDeprecatedClipRect(edges)
 	}
 }
 
@@ -405,8 +406,8 @@ func applyRotateProperty(style *ResolvedStyle, value string) {
 	cos := math.Cos(rad)
 	sin := math.Sin(rad)
 	rot := Matrix2D{A: cos, B: sin, C: -sin, D: cos, E: 0, F: 0}
-	style.Transform = style.Transform.Mul(rot)
-	style.HasTransform = true
+	style.editEffects().Transform = style.effects().Transform.Mul(rot)
+	style.editEffects().HasTransform = true
 }
 
 func applyScaleProperty(style *ResolvedStyle, value string) {
@@ -425,8 +426,8 @@ func applyScaleProperty(style *ResolvedStyle, value string) {
 		}
 	}
 	sc := Matrix2D{A: sx, B: 0, C: 0, D: sy, E: 0, F: 0}
-	style.Transform = style.Transform.Mul(sc)
-	style.HasTransform = true
+	style.editEffects().Transform = style.effects().Transform.Mul(sc)
+	style.editEffects().HasTransform = true
 }
 
 func applyTranslateProperty(style *ResolvedStyle, value string, fsize float64) {
@@ -445,8 +446,8 @@ func applyTranslateProperty(style *ResolvedStyle, value string, fsize float64) {
 		}
 	}
 	tr := Matrix2D{A: 1, B: 0, C: 0, D: 1, E: tx, F: ty}
-	style.Transform = style.Transform.Mul(tr)
-	style.HasTransform = true
+	style.editEffects().Transform = style.effects().Transform.Mul(tr)
+	style.editEffects().HasTransform = true
 }
 
 func parseCSSAngle(value string) (float64, bool) {

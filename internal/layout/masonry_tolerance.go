@@ -58,8 +58,8 @@ func applyFlowToleranceProps(
 		return true
 	}
 
-	style.FlowToleranceInfinite = infinite
-	style.FlowTolerancePt = points
+	style.editGrid().FlowToleranceInfinite = infinite
+	style.editGrid().FlowTolerancePt = points
 
 	return true
 }
@@ -117,11 +117,11 @@ func masonryToleranceOf(eng *engine, container *ResolvedStyle) masonryTolerance 
 		}
 	}
 
-	if container.FlowToleranceInfinite {
+	if container.grid().FlowToleranceInfinite {
 		return masonryTolerance{infinite: true, slack: 0}
 	}
 
-	points := container.FlowTolerancePt
+	points := container.grid().FlowTolerancePt
 	if points < 0 {
 		points = container.FontSize
 	}

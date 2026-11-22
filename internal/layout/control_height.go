@@ -13,7 +13,7 @@ import (
 // the caller adds bottom padding after this endpoint.
 func (e *engine) nativeWidgetAutoContentBottom(style ResolvedStyle) float64 {
 	targetHeight := e.scalePt(style.FontSize)
-	topChrome := e.scalePt(style.BorderTop.Width + style.PaddingTop)
+	topChrome := e.scalePt(style.borders().BorderTop.Width + style.PaddingTop)
 	contentHeight := targetHeight - topChrome - e.scalePt(style.PaddingBottom)
 
 	if contentHeight < 0 {
@@ -52,7 +52,7 @@ func (e *engine) textareaAutoContentBottom(
 
 	scaledLineH := e.scalePt(lineH)
 	contentH := scaledLineH * float64(rows)
-	topChrome := e.scalePt(boxStyle.PaddingTop) + e.scalePt(borderLayoutWidth(boxStyle, boxStyle.BorderTop))
+	topChrome := e.scalePt(boxStyle.PaddingTop) + e.scalePt(borderLayoutWidth(boxStyle, boxStyle.borders().BorderTop))
 	desired := topChrome + contentH
 
 	if curY < desired {

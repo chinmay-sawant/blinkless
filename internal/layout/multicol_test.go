@@ -44,30 +44,30 @@ func TestMulticolParseProps(t *testing.T) {
 	}
 
 	a := styles[nodes[0]]
-	if a.ColumnCount != 3 || a.ColumnGap != 12 || a.ColumnGapNormal || a.ColumnFill != overflowAuto {
-		t.Fatalf("a: count=%d gap=%.1f normal=%v fill=%q", a.ColumnCount, a.ColumnGap, a.ColumnGapNormal, a.ColumnFill)
+	if a.columns().ColumnCount != 3 || a.flex().ColumnGap != 12 || a.flex().ColumnGapNormal || a.columns().ColumnFill != overflowAuto {
+		t.Fatalf("a: count=%d gap=%.1f normal=%v fill=%q", a.columns().ColumnCount, a.flex().ColumnGap, a.flex().ColumnGapNormal, a.columns().ColumnFill)
 	}
 
 	b := styles[nodes[1]]
-	if b.ColumnCount != 2 || b.ColumnWidth < 99 || b.ColumnWidth > 101 ||
-		b.ColumnSpan != "all" || b.ColumnFill != "balance" {
-		t.Fatalf("b: count=%d width=%.1f span=%q fill=%q", b.ColumnCount, b.ColumnWidth, b.ColumnSpan, b.ColumnFill)
+	if b.columns().ColumnCount != 2 || b.columns().ColumnWidth < 99 || b.columns().ColumnWidth > 101 ||
+		b.columns().ColumnSpan != "all" || b.columns().ColumnFill != "balance" {
+		t.Fatalf("b: count=%d width=%.1f span=%q fill=%q", b.columns().ColumnCount, b.columns().ColumnWidth, b.columns().ColumnSpan, b.columns().ColumnFill)
 	}
 
 	c := styles[nodes[2]]
-	if !c.ColumnGapNormal || c.ColumnWidth < 79 || c.ColumnWidth > 81 || c.ColumnCount != 0 {
-		t.Fatalf("c: normal=%v width=%.1f count=%d", c.ColumnGapNormal, c.ColumnWidth, c.ColumnCount)
+	if !c.flex().ColumnGapNormal || c.columns().ColumnWidth < 79 || c.columns().ColumnWidth > 81 || c.columns().ColumnCount != 0 {
+		t.Fatalf("c: normal=%v width=%.1f count=%d", c.flex().ColumnGapNormal, c.columns().ColumnWidth, c.columns().ColumnCount)
 	}
 
 	decl := styles[nodes[3]]
 	// break-before:column ≈ page always; break-inside:avoid-column is
 	// column-only and must not set page-break-inside:avoid.
-	if decl.PageBreakBefore != pageBreakAlways {
-		t.Fatalf("d break-before: got %q, want always", decl.PageBreakBefore)
+	if decl.fragmentation().PageBreakBefore != pageBreakAlways {
+		t.Fatalf("d break-before: got %q, want always", decl.fragmentation().PageBreakBefore)
 	}
 
-	if decl.PageBreakInside == avoidKeyword {
-		t.Fatalf("d break-inside:avoid-column must not map to page avoid (got %q)", decl.PageBreakInside)
+	if decl.fragmentation().PageBreakInside == avoidKeyword {
+		t.Fatalf("d break-inside:avoid-column must not map to page avoid (got %q)", decl.fragmentation().PageBreakInside)
 	}
 }
 
@@ -280,63 +280,63 @@ func TestColumnRuleParse(t *testing.T) {
 	styles := resolveStyles(root, []*css.Stylesheet{cssSheet}, "print", 500, 800)
 
 	styleA := styleByClass(t, styles, "a")
-	if !near(styleA.ColumnRuleWidth, 4) {
-		t.Fatalf("a width=%.3f, want 4pt", styleA.ColumnRuleWidth)
+	if !near(styleA.columns().ColumnRuleWidth, 4) {
+		t.Fatalf("a width=%.3f, want 4pt", styleA.columns().ColumnRuleWidth)
 	}
 
-	if styleA.ColumnRuleStyle != borderStyleDashed {
-		t.Fatalf("a style=%q, want dashed", styleA.ColumnRuleStyle)
+	if styleA.columns().ColumnRuleStyle != borderStyleDashed {
+		t.Fatalf("a style=%q, want dashed", styleA.columns().ColumnRuleStyle)
 	}
 
-	if styleA.ColumnRuleColor != ([3]float64{1, 0, 0}) {
-		t.Fatalf("a color=%v, want red", styleA.ColumnRuleColor)
+	if styleA.columns().ColumnRuleColor != ([3]float64{1, 0, 0}) {
+		t.Fatalf("a color=%v, want red", styleA.columns().ColumnRuleColor)
 	}
 
 	styleB := styleByClass(t, styles, "b")
-	if !near(styleB.ColumnRuleWidth, borderWidth(mediumKeyword, 12)) {
-		t.Fatalf("b width:medium = %.3f", styleB.ColumnRuleWidth)
+	if !near(styleB.columns().ColumnRuleWidth, borderWidth(mediumKeyword, 12)) {
+		t.Fatalf("b width:medium = %.3f", styleB.columns().ColumnRuleWidth)
 	}
 
-	if styleB.ColumnRuleStyle != solidKeyword {
-		t.Fatalf("b style=%q, want solid", styleB.ColumnRuleStyle)
+	if styleB.columns().ColumnRuleStyle != solidKeyword {
+		t.Fatalf("b style=%q, want solid", styleB.columns().ColumnRuleStyle)
 	}
 
-	if styleB.ColumnRuleColor != ([3]float64{0, 0, 1}) {
-		t.Fatalf("b currentColor=%v, want blue", styleB.ColumnRuleColor)
+	if styleB.columns().ColumnRuleColor != ([3]float64{0, 0, 1}) {
+		t.Fatalf("b currentColor=%v, want blue", styleB.columns().ColumnRuleColor)
 	}
 
-	if !near(styleByClass(t, styles, "c").ColumnRuleWidth, borderWidth(thinKeyword, 12)) {
-		t.Fatalf("c thin width=%.3f", styleByClass(t, styles, "c").ColumnRuleWidth)
+	if !near(styleByClass(t, styles, "c").columns().ColumnRuleWidth, borderWidth(thinKeyword, 12)) {
+		t.Fatalf("c thin width=%.3f", styleByClass(t, styles, "c").columns().ColumnRuleWidth)
 	}
 
-	if !near(styleByClass(t, styles, "d").ColumnRuleWidth, borderWidth(thickKeyword, 12)) {
-		t.Fatalf("d thick width=%.3f", styleByClass(t, styles, "d").ColumnRuleWidth)
+	if !near(styleByClass(t, styles, "d").columns().ColumnRuleWidth, borderWidth(thickKeyword, 12)) {
+		t.Fatalf("d thick width=%.3f", styleByClass(t, styles, "d").columns().ColumnRuleWidth)
 	}
 
-	if styleByClass(t, styles, "e").ColumnRuleStyle != cssDisplayNone {
-		t.Fatalf("e style=%q, want none", styleByClass(t, styles, "e").ColumnRuleStyle)
+	if styleByClass(t, styles, "e").columns().ColumnRuleStyle != cssDisplayNone {
+		t.Fatalf("e style=%q, want none", styleByClass(t, styles, "e").columns().ColumnRuleStyle)
 	}
 
 	styleF := styleByClass(t, styles, "f")
-	if styleF.ColumnRuleStyle != borderStyleDotted {
-		t.Fatalf("f shorthand style=%q, want dotted", styleF.ColumnRuleStyle)
+	if styleF.columns().ColumnRuleStyle != borderStyleDotted {
+		t.Fatalf("f shorthand style=%q, want dotted", styleF.columns().ColumnRuleStyle)
 	}
 
-	if !near(styleF.ColumnRuleWidth, borderWidth(mediumKeyword, 12)) {
-		t.Fatalf("f shorthand width=%.3f, want medium", styleF.ColumnRuleWidth)
+	if !near(styleF.columns().ColumnRuleWidth, borderWidth(mediumKeyword, 12)) {
+		t.Fatalf("f shorthand width=%.3f, want medium", styleF.columns().ColumnRuleWidth)
 	}
 
 	styleG := styleByClass(t, styles, "g")
-	if !near(styleG.ColumnRuleWidth, borderPaintWidth("1px", 12)) {
-		t.Fatalf("g 1px width=%.3f, want %.3fpt", styleG.ColumnRuleWidth, borderPaintWidth("1px", 12))
+	if !near(styleG.columns().ColumnRuleWidth, borderPaintWidth("1px", 12)) {
+		t.Fatalf("g 1px width=%.3f, want %.3fpt", styleG.columns().ColumnRuleWidth, borderPaintWidth("1px", 12))
 	}
 
-	if styleG.ColumnRuleStyle != solidKeyword {
-		t.Fatalf("g style=%q, want solid", styleG.ColumnRuleStyle)
+	if styleG.columns().ColumnRuleStyle != solidKeyword {
+		t.Fatalf("g style=%q, want solid", styleG.columns().ColumnRuleStyle)
 	}
 
-	if styleG.ColumnRuleColor != ([3]float64{0.4, 0.4, 0.4}) {
-		t.Fatalf("g color=%v, want #666", styleG.ColumnRuleColor)
+	if styleG.columns().ColumnRuleColor != ([3]float64{0.4, 0.4, 0.4}) {
+		t.Fatalf("g color=%v, want #666", styleG.columns().ColumnRuleColor)
 	}
 }
 

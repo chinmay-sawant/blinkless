@@ -16,7 +16,7 @@ func applyFontWidthProps(
 	switch prop {
 	case "font-width", "font-stretch":
 		if width, ok := parseFontWidthValue(value); ok {
-			style.FontWidth = width
+			style.editFont().FontWidth = width
 		}
 	default:
 		return false

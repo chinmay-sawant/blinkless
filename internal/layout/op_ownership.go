@@ -211,11 +211,11 @@ func opOwnsChromeHorizontalSide(oper *Op, boxNode *box, tol float64, onTop, onBo
 		return true
 	}
 
-	if onTop && isDashedOrDottedStyle(style.BorderTop.Style) {
+	if onTop && isDashedOrDottedStyle(style.borders().BorderTop.Style) {
 		return true
 	}
 
-	if onBottom && isDashedOrDottedStyle(style.BorderBottom.Style) {
+	if onBottom && isDashedOrDottedStyle(style.borders().BorderBottom.Style) {
 		return true
 	}
 
@@ -240,9 +240,9 @@ func opMiteredHorizontalRail(oper *Op, boxNode *box, onTop bool) bool {
 		return false
 	}
 
-	stroke := style.BorderBottom
+	stroke := style.borders().BorderBottom
 	if onTop {
-		stroke = style.BorderTop
+		stroke = style.borders().BorderTop
 	}
 
 	rawStroke := borderPaint(stroke)
@@ -253,11 +253,11 @@ func opMiteredHorizontalRail(oper *Op, boxNode *box, onTop bool) bool {
 	scale := oper.Width / rawStroke
 	inset := 0.0
 
-	if wLeft := borderPaint(style.BorderLeft) * scale; wLeft > oper.Width {
+	if wLeft := borderPaint(style.borders().BorderLeft) * scale; wLeft > oper.Width {
 		inset += (wLeft + oper.Width) / two
 	}
 
-	if wRight := borderPaint(style.BorderRight) * scale; wRight > oper.Width {
+	if wRight := borderPaint(style.borders().BorderRight) * scale; wRight > oper.Width {
 		inset += (wRight + oper.Width) / two
 	}
 
@@ -277,11 +277,11 @@ func chromeVerticalBorderExists(oper *Op, boxNode *box, onLeft, onRight bool) bo
 
 	style := boxNode.style
 
-	if onLeft && !(style.BorderLeft.Width > 0 && style.BorderLeft.Style != cssDisplayNone) {
+	if onLeft && !(style.borders().BorderLeft.Width > 0 && style.borders().BorderLeft.Style != cssDisplayNone) {
 		return false
 	}
 
-	if onRight && !(style.BorderRight.Width > 0 && style.BorderRight.Style != cssDisplayNone) {
+	if onRight && !(style.borders().BorderRight.Width > 0 && style.borders().BorderRight.Style != cssDisplayNone) {
 		return false
 	}
 
@@ -323,7 +323,7 @@ func withinTol(a, b float64) bool {
 // translate it). Gated on the box's own shadow so an unrelated translated
 // fill of the same size cannot match.
 func opOwnsBoxShadow(oper *Op, boxNode *box, phase opOwnerPhase) bool {
-	if oper.Kind != OpFillRect || boxNode.style == nil || !boxNode.style.BoxShadowSet {
+	if oper.Kind != OpFillRect || boxNode.style == nil || !boxNode.style.effects().BoxShadowSet {
 		return false
 	}
 

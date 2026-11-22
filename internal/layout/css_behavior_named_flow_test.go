@@ -101,39 +101,39 @@ func TestBehaviorNamedFlowPropertyStorage(t *testing.T) {
 		`</body></html>`)
 
 	a := boxByID(t, res, "a")
-	if a.style.FlowInto != "article" || a.style.FlowIntoElement {
+	if a.style.fragmentation().FlowInto != "article" || a.style.fragmentation().FlowIntoElement {
 		t.Errorf("flow-into:article content stored %q element=%v, want article/content",
-			a.style.FlowInto, a.style.FlowIntoElement)
+			a.style.fragmentation().FlowInto, a.style.fragmentation().FlowIntoElement)
 	}
 
-	if a.style.FlowFrom != "region-a" {
-		t.Errorf("flow-from stored %q, want region-a", a.style.FlowFrom)
+	if a.style.fragmentation().FlowFrom != "region-a" {
+		t.Errorf("flow-from stored %q, want region-a", a.style.fragmentation().FlowFrom)
 	}
 
-	if a.style.RegionFragment != regionFragmentBreak {
-		t.Errorf("region-fragment stored %q, want break", a.style.RegionFragment)
+	if a.style.fragmentation().RegionFragment != regionFragmentBreak {
+		t.Errorf("region-fragment stored %q, want break", a.style.fragmentation().RegionFragment)
 	}
 
-	if !near(a.style.FlowTolerancePt, 6) || a.style.FlowToleranceInfinite {
+	if !near(a.style.grid().FlowTolerancePt, 6) || a.style.grid().FlowToleranceInfinite {
 		t.Errorf("flow-tolerance:8px stored pt=%v infinite=%v, want 6pt finite",
-			a.style.FlowTolerancePt, a.style.FlowToleranceInfinite)
+			a.style.grid().FlowTolerancePt, a.style.grid().FlowToleranceInfinite)
 	}
 
-	if a.style.WrapFlow != wrapFlowBoth || a.style.WrapThrough != wrapThroughNone {
+	if a.style.positioning().WrapFlow != wrapFlowBoth || a.style.positioning().WrapThrough != wrapThroughNone {
 		t.Errorf("wrap-flow/wrap-through stored %q/%q, want both/none",
-			a.style.WrapFlow, a.style.WrapThrough)
+			a.style.positioning().WrapFlow, a.style.positioning().WrapThrough)
 	}
 
-	if a.style.WrapBefore != wrapBreakLine || a.style.WrapAfter != wrapBreakAvoidLine ||
-		a.style.WrapInside != wrapBreakAvoid {
+	if a.style.inlineText().WrapBefore != wrapBreakLine || a.style.inlineText().WrapAfter != wrapBreakAvoidLine ||
+		a.style.inlineText().WrapInside != wrapBreakAvoid {
 		t.Errorf("wrap-before/after/inside stored %q/%q/%q, want line/avoid-line/avoid",
-			a.style.WrapBefore, a.style.WrapAfter, a.style.WrapInside)
+			a.style.inlineText().WrapBefore, a.style.inlineText().WrapAfter, a.style.inlineText().WrapInside)
 	}
 
 	b := boxByID(t, res, "b")
-	if b.style.FlowInto != "" || b.style.FlowIntoElement {
+	if b.style.fragmentation().FlowInto != "" || b.style.fragmentation().FlowIntoElement {
 		t.Errorf("element source built inside its region kept flow-into %q element=%v, want the override cleared",
-			b.style.FlowInto, b.style.FlowIntoElement)
+			b.style.fragmentation().FlowInto, b.style.fragmentation().FlowIntoElement)
 	}
 
 	if ident, element, ok := parseFlowInto("story element"); !ok || ident != "story" || !element {
@@ -145,20 +145,20 @@ func TestBehaviorNamedFlowPropertyStorage(t *testing.T) {
 	}
 
 	c := boxByID(t, res, "c")
-	if c.style.FlowInto != "" || c.style.FlowFrom != "" || c.style.RegionFragment != "" ||
-		c.style.WrapFlow != "" || c.style.WrapThrough != "" || c.style.WrapBefore != "" ||
-		!c.style.FlowToleranceInfinite || c.style.FlowTolerancePt != 0 {
+	if c.style.fragmentation().FlowInto != "" || c.style.fragmentation().FlowFrom != "" || c.style.fragmentation().RegionFragment != "" ||
+		c.style.positioning().WrapFlow != "" || c.style.positioning().WrapThrough != "" || c.style.inlineText().WrapBefore != "" ||
+		!c.style.grid().FlowToleranceInfinite || c.style.grid().FlowTolerancePt != 0 {
 		t.Errorf("none/auto resets stored %+v", c.style)
 	}
 
-	if c.style.WrapAfter != "" || c.style.WrapInside != "" {
-		t.Errorf("wrap auto stored %q/%q, want empty", c.style.WrapAfter, c.style.WrapInside)
+	if c.style.inlineText().WrapAfter != "" || c.style.inlineText().WrapInside != "" {
+		t.Errorf("wrap auto stored %q/%q, want empty", c.style.inlineText().WrapAfter, c.style.inlineText().WrapInside)
 	}
 
 	d := boxByID(t, res, "d")
-	if d.style.FlowInto != "first" || d.style.FlowIntoElement {
+	if d.style.fragmentation().FlowInto != "first" || d.style.fragmentation().FlowIntoElement {
 		t.Errorf("invalid flow-into replaced the valid one: stored %q element=%v",
-			d.style.FlowInto, d.style.FlowIntoElement)
+			d.style.fragmentation().FlowInto, d.style.fragmentation().FlowIntoElement)
 	}
 }
 
@@ -906,16 +906,16 @@ func TestBehaviorWrapBreakInvalidValuesKeepEarlier(t *testing.T) {
 
 	a := boxByID(t, res, "a")
 
-	if a.style.WrapBefore != wrapBreakLine {
-		t.Errorf("invalid wrap-before replaced earlier: got %q, want line", a.style.WrapBefore)
+	if a.style.inlineText().WrapBefore != wrapBreakLine {
+		t.Errorf("invalid wrap-before replaced earlier: got %q, want line", a.style.inlineText().WrapBefore)
 	}
 
-	if a.style.WrapAfter != wrapBreakLine {
-		t.Errorf("invalid wrap-after replaced earlier: got %q, want line", a.style.WrapAfter)
+	if a.style.inlineText().WrapAfter != wrapBreakLine {
+		t.Errorf("invalid wrap-after replaced earlier: got %q, want line", a.style.inlineText().WrapAfter)
 	}
 
-	if a.style.WrapInside != wrapBreakAvoid {
-		t.Errorf("invalid wrap-inside replaced earlier: got %q, want avoid", a.style.WrapInside)
+	if a.style.inlineText().WrapInside != wrapBreakAvoid {
+		t.Errorf("invalid wrap-inside replaced earlier: got %q, want avoid", a.style.inlineText().WrapInside)
 	}
 }
 

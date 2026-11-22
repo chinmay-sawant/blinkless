@@ -134,13 +134,13 @@ func TestBehaviorStrokeBakesPaint(t *testing.T) {
 	t.Parallel()
 
 	sty := behaviorSvgRectUsedStyle(t, "fill:none;stroke:#ff0000")
-	if !sty.StrokeSet {
+	if !sty.svg().StrokeSet {
 		t.Fatal("stroke:#ff0000: StrokeSet = false, want true")
 	}
 
-	if !near(sty.Stroke[0], 1) || !near(sty.Stroke[1], 0) || !near(sty.Stroke[2], 0) {
+	if !near(sty.svg().Stroke[0], 1) || !near(sty.svg().Stroke[1], 0) || !near(sty.svg().Stroke[2], 0) {
 		t.Errorf("stroke color = (%.3f, %.3f, %.3f), want (1, 0, 0)",
-			sty.Stroke[0], sty.Stroke[1], sty.Stroke[2])
+			sty.svg().Stroke[0], sty.svg().Stroke[1], sty.svg().Stroke[2])
 	}
 
 	serialized := behaviorSvgSerializeRect(t, "fill:none;stroke:#ff0000")
@@ -161,8 +161,8 @@ func TestBehaviorStrokeOpacityBakesPaint(t *testing.T) {
 	t.Parallel()
 
 	sty := behaviorSvgRectUsedStyle(t, "fill:none;stroke:#ff0000;stroke-opacity:0.3")
-	if !near(sty.StrokeOpacity, 0.3) {
-		t.Errorf("stroke-opacity used = %.4f, want 0.3", sty.StrokeOpacity)
+	if !near(sty.svg().StrokeOpacity, 0.3) {
+		t.Errorf("stroke-opacity used = %.4f, want 0.3", sty.svg().StrokeOpacity)
 	}
 
 	serialized := behaviorSvgSerializeRect(t, "fill:none;stroke:#ff0000;stroke-opacity:0.3")
@@ -183,12 +183,12 @@ func TestBehaviorStrokeWidthBakesPaint(t *testing.T) {
 	t.Parallel()
 
 	sty := behaviorSvgRectUsedStyle(t, "fill:none;stroke:#000000;stroke-width:3pt")
-	if !sty.StrokeWidthSet {
+	if !sty.svg().StrokeWidthSet {
 		t.Fatal("stroke-width:3pt: StrokeWidthSet = false, want true")
 	}
 
-	if !near(sty.StrokeWidth, 3) {
-		t.Errorf("stroke-width used = %.4fpt, want 3pt", sty.StrokeWidth)
+	if !near(sty.svg().StrokeWidth, 3) {
+		t.Errorf("stroke-width used = %.4fpt, want 3pt", sty.svg().StrokeWidth)
 	}
 
 	serialized := behaviorSvgSerializeRect(t, "fill:none;stroke:#000000;stroke-width:3pt")
@@ -209,13 +209,13 @@ func TestBehaviorFillBakesPaint(t *testing.T) {
 	t.Parallel()
 
 	sty := behaviorSvgRectUsedStyle(t, "fill:#ff0000")
-	if !sty.FillSet {
+	if !sty.svg().FillSet {
 		t.Fatal("fill:#ff0000: FillSet = false, want true")
 	}
 
-	if !near(sty.Fill[0], 1) || !near(sty.Fill[1], 0) || !near(sty.Fill[2], 0) {
+	if !near(sty.svg().Fill[0], 1) || !near(sty.svg().Fill[1], 0) || !near(sty.svg().Fill[2], 0) {
 		t.Errorf("fill color = (%.3f, %.3f, %.3f), want (1, 0, 0)",
-			sty.Fill[0], sty.Fill[1], sty.Fill[2])
+			sty.svg().Fill[0], sty.svg().Fill[1], sty.svg().Fill[2])
 	}
 
 	serialized := behaviorSvgSerializeRect(t, "fill:#ff0000")
@@ -236,8 +236,8 @@ func TestBehaviorFillOpacityBakesPaint(t *testing.T) {
 	t.Parallel()
 
 	sty := behaviorSvgRectUsedStyle(t, "fill:#00ff00;fill-opacity:0.4")
-	if !near(sty.FillOpacity, 0.4) {
-		t.Errorf("fill-opacity used = %.4f, want 0.4", sty.FillOpacity)
+	if !near(sty.svg().FillOpacity, 0.4) {
+		t.Errorf("fill-opacity used = %.4f, want 0.4", sty.svg().FillOpacity)
 	}
 
 	serialized := behaviorSvgSerializeRect(t, "fill:#00ff00;fill-opacity:0.4")
@@ -336,13 +336,13 @@ func TestBehaviorShapeMarginExpandsExclusion(t *testing.T) {
 	small := boxByID(t, doc("0px"), "fl")
 	large := boxByID(t, doc("10px"), "fl")
 
-	if !near(small.style.ShapeMargin, 0) {
-		t.Errorf("shape-margin:0px used = %.4fpt, want 0", small.style.ShapeMargin)
+	if !near(small.style.positioning().ShapeMargin, 0) {
+		t.Errorf("shape-margin:0px used = %.4fpt, want 0", small.style.positioning().ShapeMargin)
 	}
 
-	if !near(large.style.ShapeMargin, pxToPt(10)) {
+	if !near(large.style.positioning().ShapeMargin, pxToPt(10)) {
 		t.Errorf("shape-margin:10px used = %.4fpt (%.2fpx), want 10px",
-			large.style.ShapeMargin, large.style.ShapeMargin/ptPerCSSPx)
+			large.style.positioning().ShapeMargin, large.style.positioning().ShapeMargin/ptPerCSSPx)
 	}
 
 	smallExcl := buildShapeExclusion(*small.style, small, 0, 0, 1)

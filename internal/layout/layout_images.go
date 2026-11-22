@@ -12,24 +12,24 @@ import (
 )
 
 func (e *engine) emitBorders(sty ResolvedStyle, posX, posY, boxW, boxH float64) {
-	if !sty.BorderTop.Transparent {
-		e.emitBorderLine(posX, posY, boxW, 0, e.scalePt(borderPaint(sty.BorderTop)), sty.BorderTop.Style,
-			sty.BorderTop.Color[0], sty.BorderTop.Color[1], sty.BorderTop.Color[2])
+	if !sty.borders().BorderTop.Transparent {
+		e.emitBorderLine(posX, posY, boxW, 0, e.scalePt(borderPaint(sty.borders().BorderTop)), sty.borders().BorderTop.Style,
+			sty.borders().BorderTop.Color[0], sty.borders().BorderTop.Color[1], sty.borders().BorderTop.Color[2])
 	}
 
-	if !sty.BorderRight.Transparent {
-		e.emitBorderLine(posX+boxW, posY, 0, boxH, e.scalePt(borderPaint(sty.BorderRight)), sty.BorderRight.Style,
-			sty.BorderRight.Color[0], sty.BorderRight.Color[1], sty.BorderRight.Color[2])
+	if !sty.borders().BorderRight.Transparent {
+		e.emitBorderLine(posX+boxW, posY, 0, boxH, e.scalePt(borderPaint(sty.borders().BorderRight)), sty.borders().BorderRight.Style,
+			sty.borders().BorderRight.Color[0], sty.borders().BorderRight.Color[1], sty.borders().BorderRight.Color[2])
 	}
 
-	if !sty.BorderBottom.Transparent {
-		e.emitBorderLine(posX, posY+boxH, boxW, 0, e.scalePt(borderPaint(sty.BorderBottom)), sty.BorderBottom.Style,
-			sty.BorderBottom.Color[0], sty.BorderBottom.Color[1], sty.BorderBottom.Color[2])
+	if !sty.borders().BorderBottom.Transparent {
+		e.emitBorderLine(posX, posY+boxH, boxW, 0, e.scalePt(borderPaint(sty.borders().BorderBottom)), sty.borders().BorderBottom.Style,
+			sty.borders().BorderBottom.Color[0], sty.borders().BorderBottom.Color[1], sty.borders().BorderBottom.Color[2])
 	}
 
-	if !sty.BorderLeft.Transparent {
-		e.emitBorderLine(posX, posY, 0, boxH, e.scalePt(borderPaint(sty.BorderLeft)), sty.BorderLeft.Style,
-			sty.BorderLeft.Color[0], sty.BorderLeft.Color[1], sty.BorderLeft.Color[2])
+	if !sty.borders().BorderLeft.Transparent {
+		e.emitBorderLine(posX, posY, 0, boxH, e.scalePt(borderPaint(sty.borders().BorderLeft)), sty.borders().BorderLeft.Style,
+			sty.borders().BorderLeft.Color[0], sty.borders().BorderLeft.Color[1], sty.borders().BorderLeft.Color[2])
 	}
 }
 
@@ -119,12 +119,12 @@ func (e *engine) usedImageSize(
 
 	size = applyImageCSSRatio(size, cssW, cssH, ref)
 
-	if style.AspectRatio > 0 {
+	if style.geometry().AspectRatio > 0 {
 		switch {
 		case cssW && !cssH:
-			size.h = size.w / style.AspectRatio
+			size.h = size.w / style.geometry().AspectRatio
 		case cssH && !cssW:
-			size.w = size.h * style.AspectRatio
+			size.w = size.h * style.geometry().AspectRatio
 		}
 	}
 
@@ -214,11 +214,11 @@ func clampImageWidth(size imageUsedSize, maxW float64, heightDefinite bool) imag
 // is not back-propagated through the ratio (CSS 2.1 §10.4 replaced elements),
 // which is Chrome's behavior on test/chrome/cases/case-28-wpt-flex-minimum-width-aspect.html.
 func clampImageHeight(e *engine, size imageUsedSize, style ResolvedStyle, widthDefinite bool) imageUsedSize {
-	if style.MaxHeight < 0 {
+	if style.geometry().MaxHeight < 0 {
 		return size
 	}
 
-	maxH := e.scalePt(style.MaxHeight)
+	maxH := e.scalePt(style.geometry().MaxHeight)
 	if maxH >= 0 && size.h > maxH && size.h > 0 {
 		if widthDefinite {
 			size.h = maxH
@@ -237,13 +237,13 @@ func clampImageHeight(e *engine, size imageUsedSize, style ResolvedStyle, widthD
 // auto-sized images (a definite image width stays authoritative).
 func (e *engine) imageMaxWidth(style ResolvedStyle, cssW bool) float64 {
 	maxW := -1.0
-	if style.MaxWidth >= 0 {
-		maxW = e.scalePt(style.MaxWidth)
+	if style.geometry().MaxWidth >= 0 {
+		maxW = e.scalePt(style.geometry().MaxWidth)
 	}
 
-	if style.MaxWidthPercent >= 0 {
+	if style.geometry().MaxWidthPercent >= 0 {
 		if cb := e.imageContainingWidth(); cb > 0 {
-			pct := cb * style.MaxWidthPercent / oneHundred
+			pct := cb * style.geometry().MaxWidthPercent / oneHundred
 			if maxW < 0 || pct < maxW {
 				maxW = pct
 			}
@@ -265,7 +265,7 @@ func (e *engine) imageMaxWidth(style ResolvedStyle, cssW bool) float64 {
 // mirror, and whether the pixels need a transform. from-image reads the JPEG
 // EXIF orientation; none ignores it; an explicit angle replaces EXIF.
 func imageOrientationFor(style ResolvedStyle, ref *imageRef) (float64, bool, bool) {
-	switch style.ImageOrientation {
+	switch style.images().ImageOrientation {
 	case "", imageAdjustFromImage:
 		if ref == nil || !ref.isJPEG {
 			return 0, false, false
@@ -282,9 +282,9 @@ func imageOrientationFor(style ResolvedStyle, ref *imageRef) (float64, bool, boo
 	case "none": // none is the shared CSS keyword
 		return 0, false, false
 	default:
-		mirror := strings.HasSuffix(style.ImageOrientation, " flip")
+		mirror := strings.HasSuffix(style.images().ImageOrientation, " flip")
 
-		deg := normalizeDegrees(style.ImageOrientationAngle)
+		deg := normalizeDegrees(style.images().ImageOrientationAngle)
 		if deg == 0 && !mirror {
 			return 0, false, false
 		}
@@ -297,13 +297,13 @@ func imageOrientationFor(style ResolvedStyle, ref *imageRef) (float64, bool, boo
 // to CSS-px factor. from-image uses the image's own resolution when the bytes
 // declare one, otherwise 96dpi; an explicit resolution always wins.
 func imageResolutionScale(style ResolvedStyle, ref *imageRef) float64 {
-	value := strings.TrimSpace(style.ImageResolution)
+	value := strings.TrimSpace(style.images().ImageResolution)
 	if value == "" {
 		return 1
 	}
 
 	fromImage := strings.Contains(value, imageAdjustFromImage)
-	dpi := style.ImageResolutionDPI
+	dpi := style.images().ImageResolutionDPI
 
 	if fromImage && ref != nil {
 		if intrinsic := intrinsicImageResolutionDPI(ref.data); intrinsic > 0 {
@@ -367,7 +367,7 @@ func adjustedPaintImage(ref *imageRef, style ResolvedStyle) *imageRef {
 		w, h = h, w
 	}
 
-	cropRect, crop := objectViewBoxRect(style.ObjectViewBox, w, h)
+	cropRect, crop := objectViewBoxRect(style.images().ObjectViewBox, w, h)
 	if !orient && !crop {
 		return ref
 	}
@@ -424,7 +424,7 @@ func orientedPaintImage(ref *imageRef, deg float64, mirror bool, cropRect image.
 
 func (e *engine) buildImage(node *html.Node, sty ResolvedStyle, posX, posY float64, paint bool) *box {
 	boxNode := e.allocBox(node, e.stylePtr(node), boxKindReplaced, posX, posY)
-	boxNode.img = e.resolveImageWith(node.Attribute("src"), sty.LinkParameters)
+	boxNode.img = e.resolveImageWith(node.Attribute("src"), sty.content().LinkParameters)
 	size := e.usedImageSize(node, sty, boxNode.img)
 	// The paint copy carries orientation and object-view-box pixels; sizing
 	// above uses the original ref so the element keeps its intrinsic box.
@@ -434,10 +434,10 @@ func (e *engine) buildImage(node *html.Node, sty ResolvedStyle, posX, posY float
 	padR := e.scalePt(sty.PaddingRight)
 	padT := e.scalePt(sty.PaddingTop)
 	padB := e.scalePt(sty.PaddingBottom)
-	borderL := e.scalePt(borderPaint(sty.BorderLeft))
-	borderR := e.scalePt(borderPaint(sty.BorderRight))
-	borderT := e.scalePt(borderPaint(sty.BorderTop))
-	borderB := e.scalePt(borderPaint(sty.BorderBottom))
+	borderL := e.scalePt(borderPaint(sty.borders().BorderLeft))
+	borderR := e.scalePt(borderPaint(sty.borders().BorderRight))
+	borderT := e.scalePt(borderPaint(sty.borders().BorderTop))
+	borderB := e.scalePt(borderPaint(sty.borders().BorderBottom))
 
 	if thumbImg {
 		// Figure already owns the outer rails; keep the bitmap flush so a
@@ -501,7 +501,7 @@ func (e *engine) paintReplacedImage(
 		W:      fitW,
 		H:      fitH,
 		IsJPEG: isJPEG,
-	}).withImage(imgData, pixW, pixH, alt).withImageRendering(sty.ImageRendering))
+	}).withImage(imgData, pixW, pixH, alt).withImageRendering(sty.images().ImageRendering))
 
 	if thumbImg {
 		e.emitThumbImageBottomSeparator(sty, posX, posY, size.w, size.h)
@@ -530,12 +530,12 @@ func applyPaintClipPathMask(
 	sty ResolvedStyle, imgData []byte, isJPEG bool,
 	fitX, fitY, fitW, fitH, refX, refY, refW, refH float64,
 ) ([]byte, bool) {
-	clipShape, ok := parseClipPathShape(sty.ClipPath, sty.FontSize)
+	clipShape, ok := parseClipPathShape(sty.effects().ClipPath, sty.FontSize)
 	if !ok {
 		return imgData, isJPEG
 	}
 
-	clipShape = withClipRule(clipShape, sty.ClipRule)
+	clipShape = withClipRule(clipShape, sty.svg().ClipRule)
 
 	masked := maskImageWithClipPath(
 		imgData, clipShape, fitX, fitY, fitW, fitH, refX, refY, refW, refH,
@@ -551,7 +551,7 @@ func applyPaintClipPathMask(
 // collapsed figure thumb bitmap and its caption. Left/right/top belong to the
 // figure frame; emitting them again doubles the rails.
 func (e *engine) emitThumbImageBottomSeparator(sty ResolvedStyle, posX, posY, width, height float64) {
-	bottom := sty.BorderBottom
+	bottom := sty.borders().BorderBottom
 	if borderPaint(bottom) <= 0 || bottom.Style == cssDisplayNone || bottom.Transparent {
 		return
 	}
@@ -589,14 +589,14 @@ func (e *engine) buildHR(n *html.Node, sty ResolvedStyle, availW, posX, posY flo
 		boxNode.w = e.scalePt(sty.Width)
 	}
 
-	boxNode.height = e.scalePt(sty.BorderTop.Width) + e.scalePt(sty.BorderBottom.Width)
+	boxNode.height = e.scalePt(sty.borders().BorderTop.Width) + e.scalePt(sty.borders().BorderBottom.Width)
 	if boxNode.height <= 0 {
 		boxNode.height = 1
 	}
 
 	child := [3]float64{0, 0, 0}
-	if sty.BorderTop.Style != cssDisplayNone {
-		child = sty.BorderTop.Color
+	if sty.borders().BorderTop.Style != cssDisplayNone {
+		child = sty.borders().BorderTop.Color
 	}
 
 	if boxNode.height > 0 {

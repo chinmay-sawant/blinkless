@@ -706,7 +706,7 @@ func animationLonghand(prop string) bool {
 func setAnimationWideValue(style *ResolvedStyle, prop, keyword string, parent *ResolvedStyle, hasParent bool) {
 	value := animationInitialValue(prop)
 	if keyword == inheritKeyword && hasParent && parent != nil {
-		value = animationFieldValue(parent.Animation, prop)
+		value = animationFieldValue(parent.motion().Animation, prop)
 		if value == "" {
 			value = animationInitialValue(prop)
 		}
@@ -844,12 +844,12 @@ func animationViewTransitionFieldValue(style animationStyle, prop string) string
 }
 
 func setAnimationField(style *ResolvedStyle, prop, value string) {
-	if !setAnimationCoreField(&style.Animation, prop, value) {
-		setAnimationExtendedField(&style.Animation, prop, value)
+	if !setAnimationCoreField(&style.editMotion().Animation, prop, value) {
+		setAnimationExtendedField(&style.editMotion().Animation, prop, value)
 	}
 
 	if strings.HasPrefix(prop, "animation-") {
-		style.Animation.Set = true
+		style.editMotion().Animation.Set = true
 	}
 }
 

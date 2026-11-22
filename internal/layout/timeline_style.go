@@ -68,8 +68,8 @@ func timelineDefsFromStyle(style *ResolvedStyle, subjectID string) []TimelineDef
 		return nil
 	}
 
-	scroll := timelineListText(style.ScrollTimelineName)
-	view := timelineListText(style.ViewTimelineName)
+	scroll := timelineListText(style.motion().ScrollTimelineName)
+	view := timelineListText(style.motion().ViewTimelineName)
 	pointer := timelineListText(style.triggers().PointerName)
 
 	if len(scroll)+len(view)+len(pointer) == 0 {
@@ -78,16 +78,16 @@ func timelineDefsFromStyle(style *ResolvedStyle, subjectID string) []TimelineDef
 
 	defs := make([]TimelineDef, 0, len(scroll)+len(view)+len(pointer))
 	defs = appendTimelineKind(defs, scroll, timelineKindSpec{
-		kind: timelineKindScroll, axisList: style.ScrollTimelineAxis, writingMode: style.WritingMode,
+		kind: timelineKindScroll, axisList: style.motion().ScrollTimelineAxis, writingMode: style.positioning().WritingMode,
 		subjectID: "", insets: nil,
 	})
 	defs = appendTimelineKind(defs, view, timelineKindSpec{
-		kind: timelineKindView, axisList: style.ViewTimelineAxis, writingMode: style.WritingMode,
-		subjectID: subjectID, insets: viewInsetItems(style.ViewTimelineInsets),
+		kind: timelineKindView, axisList: style.motion().ViewTimelineAxis, writingMode: style.positioning().WritingMode,
+		subjectID: subjectID, insets: viewInsetItems(style.motion().ViewTimelineInsets),
 	})
 
 	return appendTimelineKind(defs, pointer, timelineKindSpec{
-		kind: timelineKindPointer, axisList: style.triggers().PointerAxis, writingMode: style.WritingMode,
+		kind: timelineKindPointer, axisList: style.triggers().PointerAxis, writingMode: style.positioning().WritingMode,
 		subjectID: subjectID, insets: nil,
 	})
 }
@@ -581,9 +581,9 @@ func applyTimelineNameProp(style *ResolvedStyle, prop, value string, parent *Res
 	}
 
 	if prop == propScrollTimelineName {
-		style.ScrollTimelineName = name
+		style.editMotion().ScrollTimelineName = name
 	} else {
-		style.ViewTimelineName = name
+		style.editMotion().ViewTimelineName = name
 	}
 }
 
@@ -615,9 +615,9 @@ func applyTimelineAxisProp(style *ResolvedStyle, prop, value string, parent *Res
 	}
 
 	if prop == propScrollTimelineAxis {
-		style.ScrollTimelineAxis = axis
+		style.editMotion().ScrollTimelineAxis = axis
 	} else {
-		style.ViewTimelineAxis = axis
+		style.editMotion().ViewTimelineAxis = axis
 	}
 }
 
@@ -643,14 +643,15 @@ func applyViewTimelineInsetProp(
 	items := make([]viewInset, len(pairs))
 
 	for idx, pair := range pairs {
-		scrollport := timelineScrollport(timelineAxisAt(style.ViewTimelineAxis, idx, style.WritingMode), ctx)
+		scrollport := timelineScrollport(timelineAxisAt(style.motion().ViewTimelineAxis, idx, style.positioning().WritingMode), ctx)
 		items[idx].start, items[idx].startSet = timelineInsetValue(pair[0], fsize, scrollport)
 		items[idx].end, items[idx].endSet = timelineInsetValue(pair[1], fsize, scrollport)
 	}
 
-	style.ViewTimelineInsets = encodeViewInsets(items)
-	style.ViewTimelineInsetStart, style.ViewTimelineInsetStartSet = items[0].start, items[0].startSet
-	style.ViewTimelineInsetEnd, style.ViewTimelineInsetEndSet = items[0].end, items[0].endSet
+	motion := style.editMotion()
+	motion.ViewTimelineInsets = encodeViewInsets(items)
+	motion.ViewTimelineInsetStart, motion.ViewTimelineInsetStartSet = items[0].start, items[0].startSet
+	motion.ViewTimelineInsetEnd, motion.ViewTimelineInsetEndSet = items[0].end, items[0].endSet
 }
 
 // timelineInsetValue resolves one inset token. auto resolves to zero with a
@@ -686,18 +687,18 @@ func timelineScrollport(usedAxis string, ctx *styleContext) float64 {
 }
 
 func applyViewTimelineInsetWide(style *ResolvedStyle, keyword string, parent *ResolvedStyle, hasParent bool) {
-	style.ViewTimelineInsets = ""
-	style.ViewTimelineInsetStart = 0
-	style.ViewTimelineInsetEnd = 0
-	style.ViewTimelineInsetStartSet = false
-	style.ViewTimelineInsetEndSet = false
+	style.editMotion().ViewTimelineInsets = ""
+	style.editMotion().ViewTimelineInsetStart = 0
+	style.editMotion().ViewTimelineInsetEnd = 0
+	style.editMotion().ViewTimelineInsetStartSet = false
+	style.editMotion().ViewTimelineInsetEndSet = false
 
 	if keyword == inheritKeyword && hasParent && parent != nil {
-		style.ViewTimelineInsets = parent.ViewTimelineInsets
-		style.ViewTimelineInsetStart = parent.ViewTimelineInsetStart
-		style.ViewTimelineInsetEnd = parent.ViewTimelineInsetEnd
-		style.ViewTimelineInsetStartSet = parent.ViewTimelineInsetStartSet
-		style.ViewTimelineInsetEndSet = parent.ViewTimelineInsetEndSet
+		style.editMotion().ViewTimelineInsets = parent.motion().ViewTimelineInsets
+		style.editMotion().ViewTimelineInsetStart = parent.motion().ViewTimelineInsetStart
+		style.editMotion().ViewTimelineInsetEnd = parent.motion().ViewTimelineInsetEnd
+		style.editMotion().ViewTimelineInsetStartSet = parent.motion().ViewTimelineInsetStartSet
+		style.editMotion().ViewTimelineInsetEndSet = parent.motion().ViewTimelineInsetEndSet
 	}
 }
 
@@ -725,7 +726,7 @@ func parentScrollTimelineName(parent *ResolvedStyle, hasParent bool) string {
 		return ""
 	}
 
-	return parent.ScrollTimelineName
+	return parent.motion().ScrollTimelineName
 }
 
 func parentScrollTimelineAxis(parent *ResolvedStyle, hasParent bool) string {
@@ -733,7 +734,7 @@ func parentScrollTimelineAxis(parent *ResolvedStyle, hasParent bool) string {
 		return ""
 	}
 
-	return parent.ScrollTimelineAxis
+	return parent.motion().ScrollTimelineAxis
 }
 
 func parentViewTimelineName(parent *ResolvedStyle, hasParent bool) string {
@@ -741,7 +742,7 @@ func parentViewTimelineName(parent *ResolvedStyle, hasParent bool) string {
 		return ""
 	}
 
-	return parent.ViewTimelineName
+	return parent.motion().ViewTimelineName
 }
 
 func parentViewTimelineAxis(parent *ResolvedStyle, hasParent bool) string {
@@ -749,5 +750,5 @@ func parentViewTimelineAxis(parent *ResolvedStyle, hasParent bool) string {
 		return ""
 	}
 
-	return parent.ViewTimelineAxis
+	return parent.motion().ViewTimelineAxis
 }

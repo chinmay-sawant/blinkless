@@ -22,7 +22,7 @@ func applyInlineSizingProps(
 	}
 
 	if used, ok := resolveInlineSizing(value, parent, hasParent); ok {
-		style.InlineSizing = used
+		style.editInlineText().InlineSizing = used
 	}
 
 	return true
@@ -43,8 +43,8 @@ func inlineSizingValueAccepted(value string) bool {
 // outside the grammar, so the caller keeps the previous value.
 func resolveInlineSizing(value string, parent *ResolvedStyle, hasParent bool) (string, bool) {
 	parentValue := contentNormal
-	if hasParent && parent != nil && parent.InlineSizing != "" {
-		parentValue = parent.InlineSizing
+	if hasParent && parent != nil && parent.inlineText().InlineSizing != "" {
+		parentValue = parent.inlineText().InlineSizing
 	}
 
 	if used, ok := cssWideValue(value, parentValue, contentNormal, hasParent); ok {
@@ -95,5 +95,5 @@ func inlineSizingStretches(item *inlineItem) bool {
 		return false
 	}
 
-	return item.style.InlineSizing == inlineSizingStretch
+	return item.style.inlineText().InlineSizing == inlineSizingStretch
 }

@@ -59,25 +59,25 @@ func TestBackfaceBreakBackfaceVisibilityStoresButPaintsIdentical(t *testing.T) {
 	front := layoutHTML(t, doc("visible"))
 	hidden := layoutHTML(t, doc("hidden"))
 
-	if got := boxByID(t, front, "a").style.BackfaceVisibility; got != "visible" {
+	if got := boxByID(t, front, "a").style.effects().BackfaceVisibility; got != "visible" {
 		t.Errorf("backface-visibility used = %q, want visible", got)
 	}
 
-	if got := boxByID(t, hidden, "a").style.BackfaceVisibility; got != "hidden" {
+	if got := boxByID(t, hidden, "a").style.effects().BackfaceVisibility; got != "hidden" {
 		t.Errorf("backface-visibility used = %q, want hidden", got)
 	}
 
 	behaviorColumnsAssertSameOps(t, front, hidden)
 
 	bogus := boxByID(t, layoutHTML(t, doc("bogus")), "a")
-	if bogus.style.BackfaceVisibility != "visible" {
-		t.Errorf("backface-visibility:bogus used = %q, want initial visible", bogus.style.BackfaceVisibility)
+	if bogus.style.effects().BackfaceVisibility != "visible" {
+		t.Errorf("backface-visibility:bogus used = %q, want initial visible", bogus.style.effects().BackfaceVisibility)
 	}
 
 	flat := boxByID(t, layoutHTML(t, `<html><body style="margin:0">`+
 		`<div id="a" style="width:100px;height:50px;transform:rotateY(180deg);`+
 		`backface-visibility:hidden"></div></body></html>`), "a")
-	if !flat.style.HasTransform3D {
+	if !flat.style.effects().HasTransform3D {
 		t.Errorf("rotateY(180deg) HasTransform3D = false, want true (3D parses onto the side channel)")
 	}
 
@@ -139,7 +139,7 @@ func TestBackfaceBreakBreakBeforePageNoForcedBreak(t *testing.T) {
 		`<div id="a" style="height:100px"></div>`+
 		`<div id="b" style="height:100px;break-before:page"></div></body></html>`)
 
-	if got := boxByID(t, forced, "b").style.PageBreakBefore; got != pageBreakAlways {
+	if got := boxByID(t, forced, "b").style.fragmentation().PageBreakBefore; got != pageBreakAlways {
 		t.Errorf("break-before:page used = %q, want always", got)
 	}
 
@@ -182,7 +182,7 @@ func TestBackfaceBreakBreakFamilyNoFragmentEffect(t *testing.T) {
 	plain := layoutHTML(t, blocks(""))
 
 	after := layoutHTML(t, blocks("break-after:page"))
-	if got := boxByID(t, after, "b").style.PageBreakAfter; got != pageBreakAlways {
+	if got := boxByID(t, after, "b").style.fragmentation().PageBreakAfter; got != pageBreakAlways {
 		t.Errorf("break-after:page used = %q, want always", got)
 	}
 
@@ -204,21 +204,21 @@ func TestBackfaceBreakBreakFamilyNoFragmentEffect(t *testing.T) {
 	defText := layoutHTML(t, textDoc(""))
 
 	orphans := layoutHTML(t, textDoc("orphans:5"))
-	if got := boxByID(t, orphans, "p").style.Orphans; got != 5 {
+	if got := boxByID(t, orphans, "p").style.fragmentation().Orphans; got != 5 {
 		t.Errorf("orphans used = %d, want 5", got)
 	}
 
 	behaviorColumnsAssertSameOps(t, defText, orphans)
 
 	widows := layoutHTML(t, textDoc("widows:5"))
-	if got := boxByID(t, widows, "p").style.Widows; got != 5 {
+	if got := boxByID(t, widows, "p").style.fragmentation().Widows; got != 5 {
 		t.Errorf("widows used = %d, want 5", got)
 	}
 
 	behaviorColumnsAssertSameOps(t, defText, widows)
 
 	discard := layoutHTML(t, blocks("margin-break:discard"))
-	if got := boxByID(t, discard, "b").style.MarginBreak; got != "discard" {
+	if got := boxByID(t, discard, "b").style.fragmentation().MarginBreak; got != "discard" {
 		t.Errorf("margin-break used = %q, want discard", got)
 	}
 

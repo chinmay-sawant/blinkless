@@ -15,16 +15,16 @@ const (
 // value, repeat, before applying the explicit axis value.
 func backgroundRepeatAxes(sty *ResolvedStyle) (string, string) {
 	repeatX, repeatY := backgroundRepeatBase(sty)
-	repeatX = overrideBackgroundRepeat(repeatX, sty.BackgroundRepeatX)
-	repeatY = overrideBackgroundRepeat(repeatY, sty.BackgroundRepeatY)
+	repeatX = overrideBackgroundRepeat(repeatX, sty.background().BackgroundRepeatX)
+	repeatY = overrideBackgroundRepeat(repeatY, sty.background().BackgroundRepeatY)
 
 	return applyLogicalBackgroundRepeat(sty, repeatX, repeatY)
 }
 
 func backgroundRepeatBase(sty *ResolvedStyle) (string, string) {
-	repeatX, repeatY := parseBackgroundRepeatShorthand(sty.BackgroundRepeat)
+	repeatX, repeatY := parseBackgroundRepeatShorthand(sty.background().BackgroundRepeat)
 
-	if sty.BackgroundRepeat == "" && hasBackgroundRepeatAxisLonghand(sty) {
+	if sty.background().BackgroundRepeat == "" && hasBackgroundRepeatAxisLonghand(sty) {
 		return backgroundRepeatRepeat, backgroundRepeatRepeat
 	}
 
@@ -32,8 +32,8 @@ func backgroundRepeatBase(sty *ResolvedStyle) (string, string) {
 }
 
 func hasBackgroundRepeatAxisLonghand(sty *ResolvedStyle) bool {
-	return sty.BackgroundRepeatX != "" || sty.BackgroundRepeatY != "" ||
-		sty.BackgroundRepeatBlock != "" || sty.BackgroundRepeatInline != ""
+	return sty.background().BackgroundRepeatX != "" || sty.background().BackgroundRepeatY != "" ||
+		sty.background().BackgroundRepeatBlock != "" || sty.background().BackgroundRepeatInline != ""
 }
 
 func overrideBackgroundRepeat(current, value string) string {
@@ -45,10 +45,10 @@ func overrideBackgroundRepeat(current, value string) string {
 }
 
 func applyLogicalBackgroundRepeat(sty *ResolvedStyle, repeatX, repeatY string) (string, string) {
-	block := normalizeBackgroundRepeatValue(sty.BackgroundRepeatBlock)
-	inline := normalizeBackgroundRepeatValue(sty.BackgroundRepeatInline)
+	block := normalizeBackgroundRepeatValue(sty.background().BackgroundRepeatBlock)
+	inline := normalizeBackgroundRepeatValue(sty.background().BackgroundRepeatInline)
 
-	if backgroundRepeatIsVerticalWritingMode(sty.WritingMode) {
+	if backgroundRepeatIsVerticalWritingMode(sty.positioning().WritingMode) {
 		return overrideBackgroundRepeat(repeatX, block), overrideBackgroundRepeat(repeatY, inline)
 	}
 
@@ -104,8 +104,9 @@ func normalizedRepeatOrDefault(value string) string {
 }
 
 func setBackgroundRepeatShorthand(style *ResolvedStyle, value string) {
-	style.BackgroundRepeat = strings.TrimSpace(value)
-	style.BackgroundRepeatX, style.BackgroundRepeatY = parseBackgroundRepeatShorthand(value)
-	style.BackgroundRepeatBlock = ""
-	style.BackgroundRepeatInline = ""
+	background := style.editBackground()
+	background.BackgroundRepeat = strings.TrimSpace(value)
+	background.BackgroundRepeatX, background.BackgroundRepeatY = parseBackgroundRepeatShorthand(value)
+	background.BackgroundRepeatBlock = ""
+	background.BackgroundRepeatInline = ""
 }

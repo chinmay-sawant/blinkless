@@ -22532,9 +22532,9 @@
       "implementation_scope": "blinkless+ownframe",
       "downstream_tests": [
         {
-          "file": "examples/css-preview/catalog_view_transition_class_test.go",
+          "file": "internal/viewtransition/catalog_test.go",
           "name": "TestCatalogViewTransitionClassChangesOwnFrameFrame",
-          "case_file": "examples/css-preview/catalog_view_transition_class_test.go",
+          "case_file": "internal/viewtransition/catalog_test.go",
           "case": "promo"
         }
       ]
@@ -22576,9 +22576,9 @@
       "implementation_scope": "blinkless+ownframe",
       "downstream_tests": [
         {
-          "file": "examples/css-preview/catalog_view_transition_group_test.go",
+          "file": "internal/viewtransition/catalog_test.go",
           "name": "TestCatalogViewTransitionGroupBuildsOwnFrameHierarchy",
-          "case_file": "examples/css-preview/catalog_view_transition_group_test.go",
+          "case_file": "internal/viewtransition/catalog_test.go",
           "case": "nearest"
         }
       ]
@@ -22620,9 +22620,9 @@
       "implementation_scope": "blinkless+ownframe",
       "downstream_tests": [
         {
-          "file": "examples/css-preview/catalog_view_transition_name_test.go",
+          "file": "internal/viewtransition/catalog_test.go",
           "name": "TestCatalogViewTransitionNameReachesOwnFrameFrames",
-          "case_file": "examples/css-preview/catalog_view_transition_name_test.go",
+          "case_file": "internal/viewtransition/catalog_test.go",
           "case": "card"
         }
       ]
@@ -22664,9 +22664,9 @@
       "implementation_scope": "blinkless+ownframe",
       "downstream_tests": [
         {
-          "file": "examples/css-preview/catalog_view_transition_scope_test.go",
+          "file": "internal/viewtransition/catalog_test.go",
           "name": "TestCatalogViewTransitionScopeLimitsOwnFrameFrames",
-          "case_file": "examples/css-preview/catalog_view_transition_scope_test.go",
+          "case_file": "internal/viewtransition/catalog_test.go",
           "case": "all"
         }
       ]

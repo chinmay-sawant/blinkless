@@ -20,19 +20,19 @@ const (
 )
 
 func fontWidthScale(sty *ResolvedStyle) float64 {
-	if sty == nil || sty.FontWidth <= 0 || sty.FontWidth == 100 {
+	if sty == nil || sty.font().FontWidth <= 0 || sty.font().FontWidth == 100 {
 		return 1
 	}
 
-	return sty.FontWidth / fontWidthReference
+	return sty.font().FontWidth / fontWidthReference
 }
 
 func synthesizeSmallCapsText(sty *ResolvedStyle, text string) (string, float64) {
-	if sty == nil || text == "" || !sty.FontSynthesisSmallCaps {
+	if sty == nil || text == "" || !sty.font().FontSynthesisSmallCaps {
 		return text, 1
 	}
 
-	switch sty.FontVariantCaps {
+	switch sty.font().FontVariantCaps {
 	case fontVariantCapsSmall, fontVariantCapsAllSmall, fontVariantCapsPetite, fontVariantCapsAllPetite:
 		return strings.ToUpper(text), synthSmallCapsScale
 	default:
@@ -41,11 +41,11 @@ func synthesizeSmallCapsText(sty *ResolvedStyle, text string) (string, float64) 
 }
 
 func synthesizePositionAdjust(sty *ResolvedStyle, size float64) (float64, float64) {
-	if sty == nil || !sty.FontSynthesisPosition {
+	if sty == nil || !sty.font().FontSynthesisPosition {
 		return 1, 0
 	}
 
-	switch sty.FontVariantPosition {
+	switch sty.font().FontVariantPosition {
 	case verticalAlignSub:
 		return synthSubSuperScale, size * synthSubShiftRatio
 	case verticalAlignSuper:
@@ -56,7 +56,7 @@ func synthesizePositionAdjust(sty *ResolvedStyle, size float64) (float64, float6
 }
 
 func needsFakeOblique(sty *ResolvedStyle, face *pdf.Font) bool {
-	if sty == nil || !sty.FontItalic || !sty.FontSynthesisStyle {
+	if sty == nil || !sty.FontItalic || !sty.font().FontSynthesisStyle {
 		return false
 	}
 

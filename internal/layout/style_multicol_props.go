@@ -39,7 +39,7 @@ func applyColumnRuleProps(style *ResolvedStyle, prop, value string, fsize float6
 	case "column-rule":
 		applyColumnRuleShorthand(style, value, fsize)
 	case "column-rule-break":
-		applyRowRuleKeyword(style, value, &style.ColumnRuleBreak, cssDisplayNone, contentNormal, "intersection")
+		applyRowRuleKeyword(style, value, &style.editColumns().ColumnRuleBreak, cssDisplayNone, contentNormal, "intersection")
 	default:
 		if applyColumnRuleLineProps(style, prop, value, fsize) {
 			return true
@@ -57,16 +57,16 @@ func applyColumnRuleLineProps(style *ResolvedStyle, prop, value string, fsize fl
 	switch prop {
 	case "column-rule-width":
 		if width, parsed := parseOutlineWidth(value, fsize); parsed {
-			style.ColumnRuleWidth = width
+			style.editColumns().ColumnRuleWidth = width
 		}
 	case "column-rule-style":
 		if ruleStyle, parsed := parseOutlineStyle(value); parsed {
-			style.ColumnRuleStyle = ruleStyle
+			style.editColumns().ColumnRuleStyle = ruleStyle
 		}
 	case "column-rule-color":
 		if color, parsed := parseUsedColor(value, style.Color); parsed {
-			style.ColumnRuleColor = color
-			style.ColumnRuleColorSet = true
+			style.editColumns().ColumnRuleColor = color
+			style.editColumns().ColumnRuleColorSet = true
 		}
 	default:
 		return false
@@ -79,13 +79,13 @@ func applyColumnRuleLineProps(style *ResolvedStyle, prop, value string, fsize fl
 func applyColumnRuleInsetProps(style *ResolvedStyle, prop, value string, fsize float64) bool {
 	switch prop {
 	case "column-rule-inset-cap-start":
-		applyRowRuleInsetSide(style, value, fsize, &style.ColumnRuleInsetCapStart)
+		applyRowRuleInsetSide(style, value, fsize, &style.editColumns().ColumnRuleInsetCapStart)
 	case "column-rule-inset-cap-end":
-		applyRowRuleInsetSide(style, value, fsize, &style.ColumnRuleInsetCapEnd)
+		applyRowRuleInsetSide(style, value, fsize, &style.editColumns().ColumnRuleInsetCapEnd)
 	case "column-rule-inset-junction-start":
-		applyRowRuleInsetSide(style, value, fsize, &style.ColumnRuleInsetJunctionStart)
+		applyRowRuleInsetSide(style, value, fsize, &style.editColumns().ColumnRuleInsetJunctionStart)
 	case "column-rule-inset-junction-end":
-		applyRowRuleInsetSide(style, value, fsize, &style.ColumnRuleInsetJunctionEnd)
+		applyRowRuleInsetSide(style, value, fsize, &style.editColumns().ColumnRuleInsetJunctionEnd)
 	default:
 		return false
 	}
@@ -99,10 +99,10 @@ func applyColumnRuleShorthand(style *ResolvedStyle, value string, fsize float64)
 		return
 	}
 
-	style.ColumnRuleWidth = width
-	style.ColumnRuleStyle = ruleStyle
-	style.ColumnRuleColor = color
-	style.ColumnRuleColorSet = true
+	style.editColumns().ColumnRuleWidth = width
+	style.editColumns().ColumnRuleStyle = ruleStyle
+	style.editColumns().ColumnRuleColor = color
+	style.editColumns().ColumnRuleColorSet = true
 }
 
 func applyColumnCountWidthProps(style *ResolvedStyle, prop, value string, fsize, viewportW float64) bool {
@@ -122,9 +122,9 @@ func applyColumnCountWidthProps(style *ResolvedStyle, prop, value string, fsize,
 
 func setColumnCountValue(style *ResolvedStyle, value string) bool {
 	if value == overflowAuto {
-		style.ColumnCount = 0
+		style.editColumns().ColumnCount = 0
 	} else if n, err := strconv.Atoi(strings.TrimSpace(value)); err == nil && n >= 1 {
-		style.ColumnCount = n
+		style.editColumns().ColumnCount = n
 	}
 
 	return true
@@ -132,9 +132,9 @@ func setColumnCountValue(style *ResolvedStyle, value string) bool {
 
 func setColumnWidthValue(style *ResolvedStyle, value string, fsize, viewportW float64) bool {
 	if value == overflowAuto {
-		style.ColumnWidth = -1
+		style.editColumns().ColumnWidth = -1
 	} else if v, ok := lengthBox(value, fsize, viewportW, overflowAuto); ok && v >= 0 {
-		style.ColumnWidth = v
+		style.editColumns().ColumnWidth = v
 	}
 
 	return true
@@ -154,13 +154,13 @@ func applyColumnHeightWrapProps(style *ResolvedStyle, prop, value string, fsize,
 func setColumnHeightValue(style *ResolvedStyle, value string, fsize, viewportW float64) bool {
 	val := strings.TrimSpace(value)
 	if val == overflowAuto {
-		style.ColumnHeight = -1
+		style.editColumns().ColumnHeight = -1
 
 		return true
 	}
 
 	if v, ok := lengthBox(val, fsize, viewportW, overflowAuto); ok && v >= 0 {
-		style.ColumnHeight = v
+		style.editColumns().ColumnHeight = v
 	}
 
 	return true
@@ -169,7 +169,7 @@ func setColumnHeightValue(style *ResolvedStyle, value string, fsize, viewportW f
 func setColumnWrapValue(style *ResolvedStyle, value string) bool {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case columnWrapAuto, columnWrapWrap, columnWrapNowrap:
-		style.ColumnWrap = strings.ToLower(strings.TrimSpace(value))
+		style.editColumns().ColumnWrap = strings.ToLower(strings.TrimSpace(value))
 	}
 
 	return true
@@ -180,12 +180,12 @@ func applyColumnFillSpanProps(style *ResolvedStyle, prop, value string) bool {
 	case "column-span":
 		switch value {
 		case cssDisplayNone, "all":
-			style.ColumnSpan = value
+			style.editColumns().ColumnSpan = value
 		}
 	case "column-fill":
 		switch value {
 		case balanceKeyword, overflowAuto:
-			style.ColumnFill = value
+			style.editColumns().ColumnFill = value
 		}
 	default:
 		return false
@@ -204,12 +204,12 @@ func applyColumnFillSpanProps(style *ResolvedStyle, prop, value string) bool {
 //     shipped; leftover items are not packed into a second block-direction row)
 //   - auto: wrap when column-height is definite, otherwise nowrap
 func columnWrapCreatesRows(style ResolvedStyle) bool {
-	switch style.ColumnWrap {
+	switch style.columns().ColumnWrap {
 	case columnWrapWrap:
 		return true
 	case columnWrapNowrap:
 		return false
 	default: // auto
-		return style.ColumnHeight >= 0
+		return style.columns().ColumnHeight >= 0
 	}
 }

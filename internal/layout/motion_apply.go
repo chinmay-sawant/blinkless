@@ -81,7 +81,7 @@ func motionActive(sty *ResolvedStyle) bool {
 // property is stored.
 func motionAfterDeclared(style *ResolvedStyle, prop string) {
 	if declaredGroupOf(prop) == declaredGroupMotion && motionActive(style) {
-		style.HasTransform = true
+		style.editEffects().HasTransform = true
 	}
 }
 
@@ -137,7 +137,7 @@ func motionLocalMatrix(sty *ResolvedStyle, boxNode *box) (Matrix2D, bool) {
 	pathX, pathY, heading := path.at(dist)
 	angle := motionHeading(spec.rot, spec.rotSet, heading)
 
-	originX, originY := resolveBorderBoxOrigin(sty.TransformOrigin, boxNode)
+	originX, originY := resolveBorderBoxOrigin(sty.effects().TransformOrigin, boxNode)
 	anchorX, anchorY := originX, originY
 
 	if spec.anchorSet {
@@ -197,10 +197,10 @@ func motionInset(anc *box, withPadding float64) (float64, float64, float64, floa
 		return anc.x, anc.y, anc.w, anc.height
 	}
 
-	left := sty.BorderLeft.Width + withPadding*sty.PaddingLeft
-	top := sty.BorderTop.Width + withPadding*sty.PaddingTop
-	right := sty.BorderRight.Width + withPadding*sty.PaddingRight
-	bottom := sty.BorderBottom.Width + withPadding*sty.PaddingBottom
+	left := sty.borders().BorderLeft.Width + withPadding*sty.PaddingLeft
+	top := sty.borders().BorderTop.Width + withPadding*sty.PaddingTop
+	right := sty.borders().BorderRight.Width + withPadding*sty.PaddingRight
+	bottom := sty.borders().BorderBottom.Width + withPadding*sty.PaddingBottom
 
 	return anc.x + left, anc.y + top, max(anc.w-left-right, 0), max(anc.height-top-bottom, 0)
 }

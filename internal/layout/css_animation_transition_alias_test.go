@@ -125,12 +125,12 @@ func assertAnimationTransitionAliasMatches(t *testing.T, testCase animationTrans
 	standard := styles[findAnimationTransitionAliasElement(t, root, "standard")]
 
 	if testCase.animation {
-		assertAnimationAliasStylesMatch(t, prefixed.Animation, standard.Animation)
+		assertAnimationAliasStylesMatch(t, prefixed.motion().Animation, standard.motion().Animation)
 
 		return
 	}
 
-	assertTransitionAliasStylesMatch(t, prefixed.Transition, standard.Transition)
+	assertTransitionAliasStylesMatch(t, prefixed.motion().Transition, standard.motion().Transition)
 }
 
 func assertAnimationAliasStylesMatch(t *testing.T, prefixed, standard animationStyle) {
@@ -206,14 +206,14 @@ func assertAnimationTransitionCascade(t *testing.T, testCase animationTransition
 	style := styles[node]
 
 	if strings.Contains(testCase.name, "animation") {
-		if got := style.Animation.Duration; got != testCase.want {
+		if got := style.motion().Animation.Duration; got != testCase.want {
 			t.Errorf("Animation.Duration = %q, want %q", got, testCase.want)
 		}
 
 		return
 	}
 
-	if got := style.Transition.Duration; got != testCase.want {
+	if got := style.motion().Transition.Duration; got != testCase.want {
 		t.Errorf("Transition.Duration = %q, want %q", got, testCase.want)
 	}
 }

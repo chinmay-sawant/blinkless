@@ -30,12 +30,12 @@ func (e *engine) flexRowItems(kids []*html.Node, contentW float64, crossSize ...
 	for _, kid := range kids {
 		cstate := e.stylePtr(kid)
 
-		grow := cstate.FlexGrow
+		grow := cstate.flex().FlexGrow
 		if grow < 0 {
 			grow = 0
 		}
 
-		shrink := cstate.FlexShrink
+		shrink := cstate.flex().FlexShrink
 		if shrink < 0 {
 			shrink = 1
 		}
@@ -49,7 +49,7 @@ func (e *engine) flexRowItems(kids []*html.Node, contentW float64, crossSize ...
 
 		item := flexMeas{
 			n: kid, baseW: baseW,
-			hypotheticalW: 0, grow: grow, shrink: shrink, order: cstate.FlexOrder,
+			hypotheticalW: 0, grow: grow, shrink: shrink, order: cstate.flex().FlexOrder,
 		}
 		item.hypotheticalW = e.flexHypotheticalMainSize(item, contentW)
 
@@ -74,19 +74,19 @@ func (e *engine) flexColumnItems(kids []*html.Node, contentW, contentH float64) 
 	for _, kid := range kids {
 		cstate := e.stylePtr(kid)
 
-		grow := cstate.FlexGrow
+		grow := cstate.flex().FlexGrow
 		if grow < 0 {
 			grow = 0
 		}
 
-		shrink := cstate.FlexShrink
+		shrink := cstate.flex().FlexShrink
 		if shrink < 0 {
 			shrink = 1
 		}
 
 		item := flexColMeas{
 			n: kid, baseH: e.flexItemBaseHeight(kid, cstate, contentW, contentH),
-			grow: grow, shrink: shrink, order: cstate.FlexOrder,
+			grow: grow, shrink: shrink, order: cstate.flex().FlexOrder,
 		}
 
 		if len(items) > 0 && items[len(items)-1].order > item.order {

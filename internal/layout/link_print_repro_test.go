@@ -47,8 +47,8 @@ a { text-decoration: none; color: #36c }
 	}
 
 	st := styles[acc]
-	if st.TextDecoration == "underline" {
-		t.Fatalf("decoration=%q: inherit must not force underline without --print-link-underline", st.TextDecoration)
+	if st.inlineText().TextDecoration == "underline" {
+		t.Fatalf("decoration=%q: inherit must not force underline without --print-link-underline", st.inlineText().TextDecoration)
 	}
 
 	res, err := Layout(root, Options{

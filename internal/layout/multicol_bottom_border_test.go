@@ -47,7 +47,7 @@ func findMulticolBoxByCount(root *box, count int) *box {
 			return
 		}
 
-		if current.node != nil && current.style != nil && current.style.ColumnCount == count {
+		if current.node != nil && current.style != nil && current.style.columns().ColumnCount == count {
 			found = current
 		}
 

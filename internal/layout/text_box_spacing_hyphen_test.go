@@ -21,8 +21,8 @@ func TestTextBoxTrimBothShrinksHalfLeading(t *testing.T) {
 	sty := initialStyle()
 	applyTextBoxProps(&sty, "text-box", "trim-both cap alphabetic", 12, nil, nil, false)
 
-	if sty.TextBoxTrim != "trim-both" || sty.TextBoxEdgeOver != "cap" || sty.TextBoxEdgeUnder != "alphabetic" {
-		t.Fatalf("shorthand apply: trim=%q over=%q under=%q", sty.TextBoxTrim, sty.TextBoxEdgeOver, sty.TextBoxEdgeUnder)
+	if sty.inlineText().TextBoxTrim != "trim-both" || sty.inlineText().TextBoxEdgeOver != "cap" || sty.inlineText().TextBoxEdgeUnder != "alphabetic" {
+		t.Fatalf("shorthand apply: trim=%q over=%q under=%q", sty.inlineText().TextBoxTrim, sty.inlineText().TextBoxEdgeOver, sty.inlineText().TextBoxEdgeUnder)
 	}
 }
 
@@ -48,9 +48,9 @@ func TestTextAutospaceIdeographAlpha(t *testing.T) {
 	applyTextAutospaceProps(&sty, "text-spacing-trim", "trim-start", 12, nil, nil, false)
 	applyTextAutospaceProps(&sty, "text-spacing", "trim-start", 12, nil, nil, false)
 
-	if sty.TextAutospace != "ideograph-alpha" || sty.TextSpacingTrim != "trim-start" {
+	if sty.inlineText().TextAutospace != "ideograph-alpha" || sty.inlineText().TextSpacingTrim != "trim-start" {
 		t.Fatalf("autospace/spacing apply: autospace=%q trim=%q spacing=%q",
-			sty.TextAutospace, sty.TextSpacingTrim, sty.TextSpacing)
+			sty.inlineText().TextAutospace, sty.inlineText().TextSpacingTrim, sty.inlineText().TextSpacing)
 	}
 }
 
@@ -80,8 +80,8 @@ func TestTextSpacingTrimApply(t *testing.T) {
 		t.Fatal("text-fit apply should consume the declaration")
 	}
 
-	if sty.TextFit != "scale" {
-		t.Fatalf("TextFit=%q, want scale (stored; scale-search consumer not shipped)", sty.TextFit)
+	if sty.inlineText().TextFit != "scale" {
+		t.Fatalf("TextFit=%q, want scale (stored; scale-search consumer not shipped)", sty.inlineText().TextFit)
 	}
 }
 
@@ -146,19 +146,19 @@ func TestHyphenateLimitChars(t *testing.T) {
 	applyHyphenationProps(&sty, "hyphenate-limit-last", "always", 12, nil, nil, false)
 	applyHyphenationProps(&sty, "hanging-punctuation", "first", 12, nil, nil, false)
 
-	if sty.HyphenateLimitMinWord != 6 || sty.HyphenateLimitMinBefore != 3 || sty.HyphenateLimitMinAfter != 3 {
+	if sty.inlineText().HyphenateLimitMinWord != 6 || sty.inlineText().HyphenateLimitMinBefore != 3 || sty.inlineText().HyphenateLimitMinAfter != 3 {
 		t.Fatalf(
 			"limit-chars got %d %d %d",
-			sty.HyphenateLimitMinWord,
-			sty.HyphenateLimitMinBefore,
-			sty.HyphenateLimitMinAfter,
+			sty.inlineText().HyphenateLimitMinWord,
+			sty.inlineText().HyphenateLimitMinBefore,
+			sty.inlineText().HyphenateLimitMinAfter,
 		)
 	}
 
-	if sty.HyphenateLimitZonePct != 8 || sty.HyphenateLimitLines != 2 ||
-		sty.HyphenateLimitLast != "always" || sty.HangingPunctuation != "first" {
+	if sty.inlineText().HyphenateLimitZonePct != 8 || sty.inlineText().HyphenateLimitLines != 2 ||
+		sty.inlineText().HyphenateLimitLast != "always" || sty.inlineText().HangingPunctuation != "first" {
 		t.Fatalf("limit/hanging apply failed: zonePct=%v lines=%d last=%q hang=%q",
-			sty.HyphenateLimitZonePct, sty.HyphenateLimitLines, sty.HyphenateLimitLast, sty.HangingPunctuation)
+			sty.inlineText().HyphenateLimitZonePct, sty.inlineText().HyphenateLimitLines, sty.inlineText().HyphenateLimitLast, sty.inlineText().HangingPunctuation)
 	}
 }
 

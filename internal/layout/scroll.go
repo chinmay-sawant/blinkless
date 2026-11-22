@@ -52,19 +52,19 @@ func applyScrollProps(
 ) bool {
 	switch prop {
 	case scrollMarginTopProp:
-		applyScrollMarginSide(&style.ScrollMarginTop, value, fsize)
+		applyScrollMarginSide(&style.editContainment().ScrollMarginTop, value, fsize)
 
 		return true
 	case scrollMarginRightProp:
-		applyScrollMarginSide(&style.ScrollMarginRight, value, fsize)
+		applyScrollMarginSide(&style.editContainment().ScrollMarginRight, value, fsize)
 
 		return true
 	case scrollMarginBottomProp:
-		applyScrollMarginSide(&style.ScrollMarginBottom, value, fsize)
+		applyScrollMarginSide(&style.editContainment().ScrollMarginBottom, value, fsize)
 
 		return true
 	case scrollMarginLeftProp:
-		applyScrollMarginSide(&style.ScrollMarginLeft, value, fsize)
+		applyScrollMarginSide(&style.editContainment().ScrollMarginLeft, value, fsize)
 
 		return true
 	case scrollMarginProp:
@@ -116,8 +116,9 @@ func applyScrollMarginShorthand(style *ResolvedStyle, value string, fsize float6
 		right, bottom, left = lengths[1], lengths[2], lengths[3]
 	}
 
-	style.ScrollMarginTop, style.ScrollMarginRight = top, right
-	style.ScrollMarginBottom, style.ScrollMarginLeft = bottom, left
+	containment := style.editContainment()
+	containment.ScrollMarginTop, containment.ScrollMarginRight = top, right
+	containment.ScrollMarginBottom, containment.ScrollMarginLeft = bottom, left
 }
 
 // parseScrollMarginLength parses one non-negative scroll-margin length into
@@ -160,10 +161,10 @@ func scrollMarginsOf(style *ResolvedStyle) ScrollMargins {
 		return margins
 	}
 
-	margins.Top = style.ScrollMarginTop
-	margins.Right = style.ScrollMarginRight
-	margins.Bottom = style.ScrollMarginBottom
-	margins.Left = style.ScrollMarginLeft
+	margins.Top = style.containment().ScrollMarginTop
+	margins.Right = style.containment().ScrollMarginRight
+	margins.Bottom = style.containment().ScrollMarginBottom
+	margins.Left = style.containment().ScrollMarginLeft
 
 	return margins
 }

@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"slices"
 	"testing"
+	"unsafe"
 )
 
 // TestStyleInternGeneratedFieldsComplete fails when ResolvedStyle gains or
@@ -17,8 +18,25 @@ func TestStyleInternGeneratedFieldsComplete(t *testing.T) {
 	typ := reflect.TypeOf(ResolvedStyle{})
 	live := make([]string, 0, typ.NumField())
 
+	groups := styleInternGroupFields()
 	for i := range typ.NumField() {
-		live = append(live, typ.Field(i).Name)
+		field := typ.Field(i)
+		if field.Tag.Get("styleintern") == "-" {
+			continue
+		}
+		live = append(live, field.Name)
+		if field.Tag.Get("stylegroup") == "" {
+			continue
+		}
+
+		group := field.Type.Elem()
+		fields := make([]string, 0, group.NumField())
+		for j := range group.NumField() {
+			fields = append(fields, group.Field(j).Name)
+		}
+		if !slices.Equal(fields, groups[field.Name]) {
+			t.Errorf("%s generated field list is stale: live %v, generated %v", field.Name, fields, groups[field.Name])
+		}
 	}
 
 	generated := styleInternFields()
@@ -55,12 +73,12 @@ func TestStyleInternGeneratedEqualityComparesContents(t *testing.T) {
 
 	left := initialStyle()
 	left.FontFamily = []string{"Helvetica", "sans-serif"}
-	left.StrokeDashArray = []float64{3, 1.5}
+	left.editSvg().StrokeDashArray = []float64{3, 1.5}
 	left.CustomProps = map[string]string{"--x": "1", "--y": "var(--x)"}
 
 	right := left
 	right.FontFamily = []string{"Helvetica", "sans-serif"}
-	right.StrokeDashArray = []float64{3, 1.5}
+	right.editSvg().StrokeDashArray = []float64{3, 1.5}
 	right.CustomProps = map[string]string{"--x": "1", "--y": "var(--x)"}
 
 	if !styleInternEqual(&left, &right) {
@@ -71,7 +89,7 @@ func TestStyleInternGeneratedEqualityComparesContents(t *testing.T) {
 		t.Fatal("equal slice and map contents must share a fingerprint")
 	}
 
-	right.StrokeDashArray[0] = 4
+	right.svg().StrokeDashArray[0] = 4
 	if styleInternEqual(&left, &right) {
 		t.Fatal("different dash contents must not compare equal")
 	}
@@ -106,13 +124,14 @@ func TestStyleInternGeneratedNaNMatchesReflect(t *testing.T) {
 	t.Parallel()
 
 	original := initialStyle()
-	original.Top = math.NaN()
+	original.editPositioning().Top = math.NaN()
 	copied := original
 
 	if styleInternEqual(&original, &copied) {
 		t.Fatal("NaN fields must not compare equal")
 	}
 
+	copied.editPositioning()
 	if reflect.DeepEqual(original, copied) {
 		t.Fatal("sanity: reflect.DeepEqual must also reject NaN fields")
 	}
@@ -188,8 +207,9 @@ func assertStyleInternAgreement(t *testing.T, label string, left, right *Resolve
 func styleInternRandomStyle(rng *rand.Rand) ResolvedStyle {
 	var style ResolvedStyle
 
-	fillStyleInternStruct(rng, reflect.ValueOf(&style).Elem())
-	style.famHash = rng.Uint64()
+	for _, field := range styleInternTestFields(&style) {
+		fillStyleInternValue(rng, field)
+	}
 
 	return style
 }
@@ -281,24 +301,48 @@ func fillStyleInternMap(rng *rand.Rand, value reflect.Value) {
 // styleInternMutateOneField changes one random settable field, including the
 // unexported famHash.
 func styleInternMutateOneField(rng *rand.Rand, style *ResolvedStyle) {
-	value := reflect.ValueOf(style).Elem()
-	typ := value.Type()
-	index := rng.IntN(typ.NumField())
-	field := value.Field(index)
+	fields := styleInternTestFields(style)
+	field := fields[rng.IntN(len(fields))]
+	fillStyleInternValue(rng, field)
+}
 
-	if field.CanSet() {
-		fillStyleInternValue(rng, field)
+// styleInternTestFields includes the private group slots. The randomizer
+// replaces a group's pointer before changing its data, as the edit accessors do.
+func styleInternTestFields(style *ResolvedStyle) []reflect.Value {
+	resolved := reflect.ValueOf(style).Elem()
+	fields := make([]reflect.Value, 0, resolved.NumField())
 
-		return
+	for i := range resolved.NumField() {
+		field := resolved.Field(i)
+		if field.CanSet() {
+			fields = append(fields, field)
+		}
 	}
 
-	if typ.Field(index).Name == "famHash" {
-		style.famHash = rng.Uint64() + 1
-
-		return
+	groups := []any{
+		&style.famHash,
+		&style.backgroundGroup,
+		&style.bordersGroup,
+		&style.columnsGroup,
+		&style.containmentGroup,
+		&style.contentGroup,
+		&style.effectsGroup,
+		&style.flexGroup,
+		&style.fontGroup,
+		&style.fragmentationGroup,
+		&style.geometryGroup,
+		&style.gridGroup,
+		&style.imagesGroup,
+		&style.inlineTextGroup,
+		&style.motionGroup,
+		&style.positioningGroup,
+		&style.svgGroup,
+	}
+	for _, group := range groups {
+		fields = append(fields, reflect.ValueOf(group).Elem())
 	}
 
-	panic("style intern randomizer: field " + typ.Field(index).Name + " is not settable")
+	return fields
 }
 
 func styleInternRandomString(rng *rand.Rand) string {
@@ -332,5 +376,56 @@ func styleInternRandomFloat(rng *rand.Rand) float64 {
 		return math.Inf(1)
 	default:
 		return math.Inf(-1)
+	}
+}
+
+func TestResolvedStyleCoreSize(t *testing.T) {
+	t.Parallel()
+
+	size := unsafe.Sizeof(ResolvedStyle{})
+	if size > 512 {
+		t.Fatalf("resolved style core uses %d bytes, max 512", size)
+	}
+	t.Logf("resolved style core uses %d bytes", size)
+}
+
+func TestResolvedStyleGroupsPreserveDefaultsAndCopies(t *testing.T) {
+	t.Parallel()
+
+	var zero ResolvedStyle
+	explicitZero := zero
+	explicitZero.editColumns().ColumnWidth = 0
+	if zero.columns().ColumnWidth != 0 || !styleInternEqual(&zero, &explicitZero) ||
+		styleInternFingerprint(&zero) != styleInternFingerprint(&explicitZero) {
+		t.Fatal("nil groups must read, compare and hash as zero values")
+	}
+
+	initial := initialStyle()
+	explicitInitial := initial
+	explicitInitial.editColumns().ColumnWidth = initial.columns().ColumnWidth
+	if initial.columns().ColumnWidth != -1 || !styleInternEqual(&initial, &explicitInitial) ||
+		styleInternFingerprint(&initial) != styleInternFingerprint(&explicitInitial) {
+		t.Fatal("explicit CSS defaults must match shared CSS defaults")
+	}
+
+	explicitInitial.editColumns().ColumnWidth = 12
+	copied := explicitInitial
+	copied.editColumns().ColumnWidth = 15
+	if initial.columns().ColumnWidth != -1 || explicitInitial.columns().ColumnWidth != 12 ||
+		copied.columns().ColumnWidth != 15 {
+		t.Fatal("editing a group changed a value shared by another style")
+	}
+
+	initial.beginStyleGroups()
+	initial.editColumns().ColumnWidth = 16
+	initial.finishStyleGroups()
+
+	reused := initialStyle()
+	reused.beginStyleGroups()
+	reused.editColumns().ColumnWidth = 22
+	reused.finishStyleGroups()
+	if initial.groups != nil || reused.groups != nil || initial.columns().ColumnWidth != 16 ||
+		reused.columns().ColumnWidth != 22 {
+		t.Fatal("finished styles must be independent from cascade scratch")
 	}
 }

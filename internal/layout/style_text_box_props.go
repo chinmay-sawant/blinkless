@@ -17,12 +17,12 @@ func applyTextBoxProps(
 		applyTextBoxShorthand(style, val)
 	case "text-box-trim":
 		if trim, ok := parseTextBoxTrim(val); ok {
-			style.TextBoxTrim = trim
+			style.editInlineText().TextBoxTrim = trim
 		}
 	case "text-box-edge":
 		if over, under, ok := parseTextBoxEdge(val); ok {
-			style.TextBoxEdgeOver = over
-			style.TextBoxEdgeUnder = under
+			style.editInlineText().TextBoxEdgeOver = over
+			style.editInlineText().TextBoxEdgeUnder = under
 		}
 	default:
 		return false
@@ -33,9 +33,9 @@ func applyTextBoxProps(
 
 func applyTextBoxShorthand(style *ResolvedStyle, val string) {
 	if val == contentNormal {
-		style.TextBoxTrim = cssDisplayNone
-		style.TextBoxEdgeOver = "auto"
-		style.TextBoxEdgeUnder = "auto"
+		style.editInlineText().TextBoxTrim = cssDisplayNone
+		style.editInlineText().TextBoxEdgeOver = "auto"
+		style.editInlineText().TextBoxEdgeUnder = "auto"
 
 		return
 	}
@@ -48,7 +48,7 @@ func applyTextBoxShorthand(style *ResolvedStyle, val string) {
 	rest := parts
 
 	if trim, ok := parseTextBoxTrim(parts[0]); ok {
-		style.TextBoxTrim = trim
+		style.editInlineText().TextBoxTrim = trim
 		rest = parts[1:]
 	}
 
@@ -57,8 +57,8 @@ func applyTextBoxShorthand(style *ResolvedStyle, val string) {
 	}
 
 	if over, under, ok := parseTextBoxEdge(strings.Join(rest, " ")); ok {
-		style.TextBoxEdgeOver = over
-		style.TextBoxEdgeUnder = under
+		style.editInlineText().TextBoxEdgeOver = over
+		style.editInlineText().TextBoxEdgeUnder = under
 	}
 }
 

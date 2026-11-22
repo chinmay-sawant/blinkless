@@ -16,9 +16,9 @@ const (
 )
 
 func parseColumnsShorthand(sty *ResolvedStyle, value string, fsize, viewportW float64) {
-	sty.ColumnCount = 0
-	sty.ColumnWidth = -1
-	sty.ColumnHeight = -1
+	sty.editColumns().ColumnCount = 0
+	sty.editColumns().ColumnWidth = -1
+	sty.editColumns().ColumnHeight = -1
 
 	// Multicol-2: [ <'column-width'> || <'column-count'> ] [ / <'column-height'> ]?
 	main, heightPart, hasHeight := strings.Cut(strings.TrimSpace(value), "/")
@@ -29,22 +29,22 @@ func parseColumnsShorthand(sty *ResolvedStyle, value string, fsize, viewportW fl
 		}
 
 		if n, err := strconv.Atoi(tok); err == nil && n >= 1 {
-			sty.ColumnCount = n
+			sty.editColumns().ColumnCount = n
 
 			continue
 		}
 
 		if v, ok := lengthBox(tok, fsize, viewportW, overflowAuto); ok && v >= 0 {
-			sty.ColumnWidth = v
+			sty.editColumns().ColumnWidth = v
 		}
 	}
 
 	if hasHeight {
 		hTok := strings.TrimSpace(heightPart)
 		if hTok == "" || hTok == overflowAuto {
-			sty.ColumnHeight = -1
+			sty.editColumns().ColumnHeight = -1
 		} else if v, ok := lengthBox(hTok, fsize, viewportW, overflowAuto); ok && v >= 0 {
-			sty.ColumnHeight = v
+			sty.editColumns().ColumnHeight = v
 		}
 	}
 }
@@ -52,7 +52,7 @@ func parseColumnsShorthand(sty *ResolvedStyle, value string, fsize, viewportW fl
 // isMulticol reports whether st establishes a multi-column container
 // (column-count, column-width, or column-height is not auto).
 func isMulticol(st *ResolvedStyle) bool {
-	return st.ColumnCount > 0 || st.ColumnWidth >= 0 || st.ColumnHeight >= 0
+	return st.columns().ColumnCount > 0 || st.columns().ColumnWidth >= 0 || st.columns().ColumnHeight >= 0
 }
 
 // parseFontShorthand handles "font: italic bold 12px/1.4 Arial, sans-serif".
@@ -109,13 +109,15 @@ func parseFlexShorthand(style *ResolvedStyle, value string, fontSize, pctBase fl
 	value = strings.TrimSpace(value)
 	switch value {
 	case cssDisplayNone:
-		style.FlexGrow, style.FlexShrink = 0, 0
-		style.FlexBasis, style.FlexBasisPercent = -1, -1
+		flex := style.editFlex()
+		flex.FlexGrow, flex.FlexShrink = 0, 0
+		flex.FlexBasis, flex.FlexBasisPercent = -1, -1
 
 		return
 	case overflowAuto:
-		style.FlexGrow, style.FlexShrink = 1, 1
-		style.FlexBasis, style.FlexBasisPercent = -1, -1
+		flex := style.editFlex()
+		flex.FlexGrow, flex.FlexShrink = 1, 1
+		flex.FlexBasis, flex.FlexBasisPercent = -1, -1
 
 		return
 	}
@@ -147,38 +149,39 @@ func flexIsBasis(tok string) bool {
 // flexSetBasis writes the basis longhands from a token.
 func flexSetBasis(style *ResolvedStyle, tok string, fontSize, pctBase float64) {
 	if tok == overflowAuto || tok == "content" {
-		style.FlexBasis = -1
-		style.FlexBasisPercent = -1
+		style.editFlex().FlexBasis = -1
+		style.editFlex().FlexBasisPercent = -1
 
 		return
 	}
 
 	if v, unit, ok := css.ParseLength(tok); ok && unit == "%" {
-		style.FlexBasisPercent = v
-		style.FlexBasis = -1
+		style.editFlex().FlexBasisPercent = v
+		style.editFlex().FlexBasis = -1
 
 		return
 	}
 
 	if v, ok := lengthBox(tok, fontSize, pctBase, overflowAuto); ok {
-		style.FlexBasis = v
-		style.FlexBasisPercent = -1
+		style.editFlex().FlexBasis = v
+		style.editFlex().FlexBasisPercent = -1
 	}
 }
 
 func parseFlexOne(style *ResolvedStyle, part string, fontSize, pctBase float64) {
 	if g, err := strconv.ParseFloat(part, 64); err == nil {
 		// flex: <number> → grow <number>, shrink 1, basis 0%
-		style.FlexGrow = g
-		style.FlexShrink = 1
-		style.FlexBasis = -1
-		style.FlexBasisPercent = 0
+		style.editFlex().FlexGrow = g
+		style.editFlex().FlexShrink = 1
+		style.editFlex().FlexBasis = -1
+		style.editFlex().FlexBasisPercent = 0
 
 		return
 	}
 
 	if flexIsBasis(part) {
-		style.FlexGrow, style.FlexShrink = 1, 1
+		flex := style.editFlex()
+		flex.FlexGrow, flex.FlexShrink = 1, 1
 
 		flexSetBasis(style, part, fontSize, pctBase)
 	}
@@ -190,16 +193,16 @@ func parseFlexTwo(style *ResolvedStyle, parts []string, fontSize, pctBase float6
 		return
 	}
 
-	style.FlexGrow = g
+	style.editFlex().FlexGrow = g
 	if sh, err := strconv.ParseFloat(parts[1], 64); err == nil {
-		style.FlexShrink = sh
-		style.FlexBasis = -1
-		style.FlexBasisPercent = 0
+		style.editFlex().FlexShrink = sh
+		style.editFlex().FlexBasis = -1
+		style.editFlex().FlexBasisPercent = 0
 
 		return
 	}
 
-	style.FlexShrink = 1
+	style.editFlex().FlexShrink = 1
 
 	if flexIsBasis(parts[1]) {
 		flexSetBasis(style, parts[1], fontSize, pctBase)
@@ -214,7 +217,8 @@ func parseFlexThree(style *ResolvedStyle, parts []string, fontSize, pctBase floa
 		return
 	}
 
-	style.FlexGrow, style.FlexShrink = gap, shval
+	flex := style.editFlex()
+	flex.FlexGrow, flex.FlexShrink = gap, shval
 
 	flexSetBasis(style, parts[2], fontSize, pctBase)
 }
@@ -243,8 +247,8 @@ func parseFlexFlow(style *ResolvedStyle, value string) {
 		return
 	}
 
-	style.FlexDirection = dir
-	style.FlexWrap = wrap
+	style.editFlex().FlexDirection = dir
+	style.editFlex().FlexWrap = wrap
 }
 
 // splitPlacePair splits a place-* shorthand: one token is copied to both
@@ -305,32 +309,33 @@ func parsePlaceSelf(style *ResolvedStyle, value string) {
 func setFourMargin(sty *ResolvedStyle, value string, fsize, ctxW float64) {
 	var val [4]string
 	count := splitSpaceTokens(value, val[:])
-	sty.MarginTopAuto, sty.MarginBottomAuto = false, false
-	sty.MarginLeftAuto, sty.MarginRightAuto = false, false
+	geometry := sty.editGeometry()
+	geometry.MarginTopAuto, geometry.MarginBottomAuto = false, false
+	geometry.MarginLeftAuto, geometry.MarginRightAuto = false, false
 
 	switch count {
 	case 0:
 		return
 	case 1:
-		sty.MarginTop, sty.MarginTopAuto = marginLenAuto(val[0], fsize, ctxW)
-		sty.MarginRight, sty.MarginRightAuto = marginLenAuto(val[0], fsize, ctxW)
-		sty.MarginBottom, sty.MarginBottomAuto = marginLenAuto(val[0], fsize, ctxW)
-		sty.MarginLeft, sty.MarginLeftAuto = marginLenAuto(val[0], fsize, ctxW)
+		sty.MarginTop, geometry.MarginTopAuto = marginLenAuto(val[0], fsize, ctxW)
+		sty.MarginRight, geometry.MarginRightAuto = marginLenAuto(val[0], fsize, ctxW)
+		sty.MarginBottom, geometry.MarginBottomAuto = marginLenAuto(val[0], fsize, ctxW)
+		sty.MarginLeft, geometry.MarginLeftAuto = marginLenAuto(val[0], fsize, ctxW)
 	case 2:
-		sty.MarginTop, sty.MarginTopAuto = marginLenAuto(val[0], fsize, ctxW)
-		sty.MarginRight, sty.MarginRightAuto = marginLenAuto(val[1], fsize, ctxW)
-		sty.MarginBottom, sty.MarginBottomAuto = marginLenAuto(val[0], fsize, ctxW)
-		sty.MarginLeft, sty.MarginLeftAuto = marginLenAuto(val[1], fsize, ctxW)
+		sty.MarginTop, geometry.MarginTopAuto = marginLenAuto(val[0], fsize, ctxW)
+		sty.MarginRight, geometry.MarginRightAuto = marginLenAuto(val[1], fsize, ctxW)
+		sty.MarginBottom, geometry.MarginBottomAuto = marginLenAuto(val[0], fsize, ctxW)
+		sty.MarginLeft, geometry.MarginLeftAuto = marginLenAuto(val[1], fsize, ctxW)
 	case 3:
-		sty.MarginTop, sty.MarginTopAuto = marginLenAuto(val[0], fsize, ctxW)
-		sty.MarginRight, sty.MarginRightAuto = marginLenAuto(val[1], fsize, ctxW)
-		sty.MarginBottom, sty.MarginBottomAuto = marginLenAuto(val[2], fsize, ctxW)
-		sty.MarginLeft, sty.MarginLeftAuto = marginLenAuto(val[1], fsize, ctxW)
+		sty.MarginTop, geometry.MarginTopAuto = marginLenAuto(val[0], fsize, ctxW)
+		sty.MarginRight, geometry.MarginRightAuto = marginLenAuto(val[1], fsize, ctxW)
+		sty.MarginBottom, geometry.MarginBottomAuto = marginLenAuto(val[2], fsize, ctxW)
+		sty.MarginLeft, geometry.MarginLeftAuto = marginLenAuto(val[1], fsize, ctxW)
 	default:
-		sty.MarginTop, sty.MarginTopAuto = marginLenAuto(val[0], fsize, ctxW)
-		sty.MarginRight, sty.MarginRightAuto = marginLenAuto(val[1], fsize, ctxW)
-		sty.MarginBottom, sty.MarginBottomAuto = marginLenAuto(val[2], fsize, ctxW)
-		sty.MarginLeft, sty.MarginLeftAuto = marginLenAuto(val[3], fsize, ctxW)
+		sty.MarginTop, geometry.MarginTopAuto = marginLenAuto(val[0], fsize, ctxW)
+		sty.MarginRight, geometry.MarginRightAuto = marginLenAuto(val[1], fsize, ctxW)
+		sty.MarginBottom, geometry.MarginBottomAuto = marginLenAuto(val[2], fsize, ctxW)
+		sty.MarginLeft, geometry.MarginLeftAuto = marginLenAuto(val[3], fsize, ctxW)
 	}
 }
 
@@ -1006,9 +1011,9 @@ func gridAutoFlowName(row, col, dense bool) string {
 }
 
 func clearGridTemplate(style *ResolvedStyle) {
-	style.GridTemplateRows = ""
-	style.GridTemplateColumns = ""
-	style.GridTemplateAreas = ""
+	style.editGrid().GridTemplateRows = ""
+	style.editGrid().GridTemplateColumns = ""
+	style.editGrid().GridTemplateAreas = ""
 }
 
 func gridValueHasMasonry(value string) bool {
@@ -1085,23 +1090,23 @@ func parseGridTemplateShorthand(style *ResolvedStyle, value string) {
 func applyGridTemplateParts(style *ResolvedStyle, before, after string, hasSlash bool) {
 	if gridPartHasAreaString(before) {
 		areas, rows := splitGridAreasAndRowSizes(before)
-		style.GridTemplateAreas = areas
-		style.GridTemplateRows = rows
-		style.GridTemplateColumns = ""
+		style.editGrid().GridTemplateAreas = areas
+		style.editGrid().GridTemplateRows = rows
+		style.editGrid().GridTemplateColumns = ""
 
 		if hasSlash {
-			style.GridTemplateColumns = after
+			style.editGrid().GridTemplateColumns = after
 		}
 
 		return
 	}
 
-	style.GridTemplateAreas = ""
-	style.GridTemplateRows = before
-	style.GridTemplateColumns = ""
+	style.editGrid().GridTemplateAreas = ""
+	style.editGrid().GridTemplateRows = before
+	style.editGrid().GridTemplateColumns = ""
 
 	if hasSlash {
-		style.GridTemplateColumns = after
+		style.editGrid().GridTemplateColumns = after
 	}
 }
 
@@ -1116,7 +1121,7 @@ func parseGridShorthand(style *ResolvedStyle, value string) {
 
 	if strings.EqualFold(value, cssDisplayNone) {
 		clearGridTemplate(style)
-		style.GridAutoFlow = fxRow
+		style.editGrid().GridAutoFlow = fxRow
 
 		return
 	}
@@ -1130,23 +1135,23 @@ func parseGridShorthand(style *ResolvedStyle, value string) {
 	}
 
 	parseGridTemplateShorthand(style, value)
-	style.GridAutoFlow = fxRow
+	style.editGrid().GridAutoFlow = fxRow
 }
 
 func applyGridAutoFlowShorthand(style *ResolvedStyle, before, after string, hasSlash bool) {
 	clearGridTemplate(style)
 
 	if gridPartHasAutoFlow(before) {
-		style.GridAutoFlow = parseGridAutoFlowValue(before)
+		style.editGrid().GridAutoFlow = parseGridAutoFlowValue(before)
 		if hasSlash {
-			style.GridTemplateColumns = after
+			style.editGrid().GridTemplateColumns = after
 		}
 
 		return
 	}
 
-	style.GridTemplateRows = before
-	style.GridAutoFlow = gridColumnAutoFlow(after)
+	style.editGrid().GridTemplateRows = before
+	style.editGrid().GridAutoFlow = gridColumnAutoFlow(after)
 }
 
 func gridColumnAutoFlow(after string) string {
@@ -1235,7 +1240,7 @@ func skipGridLineNames(part string, i int) int {
 func parseGridArea(sty *ResolvedStyle, value string) {
 	value = strings.TrimSpace(value)
 	if value == "" || strings.EqualFold(value, overflowAuto) {
-		sty.GridArea = ""
+		sty.editGrid().GridArea = ""
 
 		return
 	}
@@ -1250,24 +1255,24 @@ func parseGridArea(sty *ResolvedStyle, value string) {
 		if _, err := strconv.Atoi(tok); err == nil {
 			// Single line index → row-start (CSS shorthand lite).
 			parseGridRow(sty, tok)
-			sty.GridArea = ""
+			sty.editGrid().GridArea = ""
 
 			return
 		}
 
 		if strings.HasPrefix(tok, "span ") {
 			parseGridRow(sty, tok)
-			sty.GridArea = ""
+			sty.editGrid().GridArea = ""
 
 			return
 		}
 		// Named area.
-		sty.GridArea = tok
+		sty.editGrid().GridArea = tok
 
 		return
 	}
 
-	sty.GridArea = ""
+	sty.editGrid().GridArea = ""
 
 	switch len(parts) {
 	case 2:
@@ -1312,11 +1317,7 @@ func applyGridLineEnd(style *ResolvedStyle, isRow bool, end string) {
 	}
 
 	if end == "-1" {
-		if isRow {
-			style.GridRowEnd = -1
-		} else {
-			style.GridColumnEnd = -1
-		}
+		*target.end = -1
 		if *target.start != 0 {
 			*target.span = 1
 		}
@@ -1328,11 +1329,7 @@ func applyGridLineEnd(style *ResolvedStyle, isRow bool, end string) {
 		return
 	}
 
-	if isRow {
-		style.GridRowEnd = val
-	} else {
-		style.GridColumnEnd = val
-	}
+	*target.end = val
 
 	if *target.start != 0 && *target.start != -1 && val != -1 {
 		sp := val - *target.start
@@ -1349,14 +1346,14 @@ func applyGridLineEnd(style *ResolvedStyle, isRow bool, end string) {
 func parseGridColumn(st *ResolvedStyle, value string) {
 	parseGridLineAt(colGridTarget(st), value)
 	if isGridEndMinusOne(value) {
-		st.GridColumnEnd = -1
+		st.editGrid().GridColumnEnd = -1
 	}
 }
 
 func parseGridRow(st *ResolvedStyle, value string) {
 	parseGridLineAt(rowGridTarget(st), value)
 	if isGridEndMinusOne(value) {
-		st.GridRowEnd = -1
+		st.editGrid().GridRowEnd = -1
 	}
 }
 
@@ -1372,14 +1369,17 @@ func isGridEndMinusOne(value string) bool {
 type gridLineTarget struct {
 	start *int
 	span  *int
+	end   *int
 }
 
 func rowGridTarget(st *ResolvedStyle) gridLineTarget {
-	return gridLineTarget{start: &st.GridRowStart, span: &st.GridRowSpan}
+	grid := st.editGrid()
+	return gridLineTarget{start: &grid.GridRowStart, span: &grid.GridRowSpan, end: &grid.GridRowEnd}
 }
 
 func colGridTarget(st *ResolvedStyle) gridLineTarget {
-	return gridLineTarget{start: &st.GridColumnStart, span: &st.GridColumnSpan}
+	grid := st.editGrid()
+	return gridLineTarget{start: &grid.GridColumnStart, span: &grid.GridColumnSpan, end: &grid.GridColumnEnd}
 }
 
 func gridTarget(st *ResolvedStyle, isRow bool) gridLineTarget {
@@ -1535,11 +1535,7 @@ func applyGridEndOnly(style *ResolvedStyle, isRow bool, value string) {
 		return
 	}
 	if trimmed == "-1" {
-		if isRow {
-			style.GridRowEnd = -1
-		} else {
-			style.GridColumnEnd = -1
-		}
+		*target.end = -1
 		if *target.start != 0 {
 			*target.span = 1
 		}
@@ -1552,21 +1548,17 @@ func applyGridEndOnly(style *ResolvedStyle, isRow bool, value string) {
 		return
 	}
 
-	applyGridEndNumeric(style, target, isRow, trimmed)
+	applyGridEndNumeric(target, trimmed)
 }
 
-func applyGridEndNumeric(style *ResolvedStyle, target gridLineTarget, isRow bool, value string) {
+func applyGridEndNumeric(target gridLineTarget, value string) {
 	value = stripGridLineNames(value)
 	value = strings.TrimSpace(value)
 	if value == "" || isGridAutoToken(value) || strings.HasPrefix(value, "[") {
 		return
 	}
 	if value == "-1" {
-		if isRow {
-			style.GridRowEnd = -1
-		} else {
-			style.GridColumnEnd = -1
-		}
+		*target.end = -1
 		if *target.start != 0 {
 			*target.span = 1
 		}
@@ -1577,11 +1569,7 @@ func applyGridEndNumeric(style *ResolvedStyle, target gridLineTarget, isRow bool
 		return
 	}
 
-	if isRow {
-		style.GridRowEnd = val
-	} else {
-		style.GridColumnEnd = val
-	}
+	*target.end = val
 
 	if *target.start != 0 && *target.start != -1 && val != -1 {
 		sp := val - *target.start

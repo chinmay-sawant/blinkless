@@ -23,13 +23,13 @@ func setOverflowLogical(style *ResolvedStyle, prop, value string) {
 		return
 	}
 
-	blockIsY := !isVerticalWritingMode(style.WritingMode)
+	blockIsY := !isVerticalWritingMode(style.positioning().WritingMode)
 	toY := (prop == "overflow-block" && blockIsY) || (prop == "overflow-inline" && !blockIsY)
 
 	if toY {
-		style.OverflowY = overflow
+		style.editGeometry().OverflowY = overflow
 	} else {
-		style.OverflowX = overflow
+		style.editGeometry().OverflowX = overflow
 	}
 
 	if overflow != visibleKeyword {

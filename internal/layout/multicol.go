@@ -99,9 +99,9 @@ func (e *engine) buildMulticol(node *html.Node, style ResolvedStyle, availW, x, 
 	contentX, contentW := e.contentBox(boxNode.x, boxNode.w, &style)
 	contentStart := len(e.ops)
 
-	curY := e.scalePt(style.PaddingTop) + e.scalePt(style.BorderTop.Width)
+	curY := e.scalePt(style.PaddingTop) + e.scalePt(style.borders().BorderTop.Width)
 	gap := e.multicolGap(style)
-	nCols, colW := usedColumnCountWidth(contentW, gap, style.ColumnWidth, style.ColumnCount)
+	nCols, colW := usedColumnCountWidth(contentW, gap, style.columns().ColumnWidth, style.columns().ColumnCount)
 	// One column: use ordinary block flow. The multicol line/page snap path
 	// otherwise reserves a tall empty band before a single wide child
 	// (wiki reflist with column-width:30em on a narrow page).
@@ -134,7 +134,7 @@ func (e *engine) multicolAutoMargin(style ResolvedStyle, availW, boxW float64) f
 	margL := e.scalePt(style.MarginLeft)
 
 	if definiteW := style.Width >= 0 || style.WidthPercent >= 0; definiteW &&
-		(style.MarginLeftAuto || style.MarginRightAuto) {
+		(style.geometry().MarginLeftAuto || style.geometry().MarginRightAuto) {
 		free := availW - boxW
 		if free < 0 {
 			free = 0
@@ -143,9 +143,9 @@ func (e *engine) multicolAutoMargin(style ResolvedStyle, availW, boxW float64) f
 		margR := e.scalePt(style.MarginRight)
 
 		switch {
-		case style.MarginLeftAuto && style.MarginRightAuto:
+		case style.geometry().MarginLeftAuto && style.geometry().MarginRightAuto:
 			margL = free / 2
-		case style.MarginLeftAuto:
+		case style.geometry().MarginLeftAuto:
 			margL = free - margR
 			if margL < 0 {
 				margL = 0
@@ -162,7 +162,7 @@ func (e *engine) collectMulticolSegs(n *html.Node) []multicolSeg {
 	var segs []multicolSeg
 
 	for _, kid := range multicolKids(n, e) {
-		spanAll := kid.Type == html.ElementNode && e.stylePtr(kid).ColumnSpan == columnSpanAll
+		spanAll := kid.Type == html.ElementNode && e.stylePtr(kid).columns().ColumnSpan == columnSpanAll
 		if spanAll {
 			segs = append(segs, multicolSeg{spanner: true, nodes: []*html.Node{kid}})
 
@@ -231,12 +231,12 @@ func multicolKids(n *html.Node, e *engine) []*html.Node {
 // and resets the box/layout props so the anonymous item is a plain block.
 func anonymousMulticolItemStyle(parent ResolvedStyle) ResolvedStyle {
 	style := anonymousFlexItemStyle(&parent)
-	style.ColumnCount = 0
-	style.ColumnWidth = -1
-	style.ColumnSpan = ""
-	style.ColumnFill = ""
-	style.ColumnGap = 0
-	style.ColumnGapNormal = false
+	style.editColumns().ColumnCount = 0
+	style.editColumns().ColumnWidth = -1
+	style.editColumns().ColumnSpan = ""
+	style.editColumns().ColumnFill = ""
+	style.editFlex().ColumnGap = 0
+	style.editFlex().ColumnGapNormal = false
 
 	return style
 }
@@ -283,11 +283,11 @@ func (e *engine) flowMulticolSpanner(boxNode *box, nodes []*html.Node, contentW,
 // finalizeMulticolLineHeight keeps a Multicol-2 column-height row at the
 // authored size when content is short (empty space at the bottom of the row).
 func (e *engine) finalizeMulticolLineHeight(style ResolvedStyle, lineH, maxColH float64) float64 {
-	if style.ColumnHeight < 0 {
+	if style.columns().ColumnHeight < 0 {
 		return lineH
 	}
 
-	fixed := e.scalePt(style.ColumnHeight)
+	fixed := e.scalePt(style.columns().ColumnHeight)
 	if maxColH > 0 && maxColH < fixed {
 		fixed = maxColH
 	}
@@ -313,12 +313,12 @@ func clampMulticolHeight(curY float64, style ResolvedStyle, eng *engine) float64
 		curY = h
 	}
 
-	if style.MinHeight > 0 && curY < eng.scalePt(style.MinHeight) {
-		curY = eng.scalePt(style.MinHeight)
+	if style.geometry().MinHeight > 0 && curY < eng.scalePt(style.geometry().MinHeight) {
+		curY = eng.scalePt(style.geometry().MinHeight)
 	}
 
-	if style.MaxHeight >= 0 && curY > eng.scalePt(style.MaxHeight) {
-		curY = eng.scalePt(style.MaxHeight)
+	if style.geometry().MaxHeight >= 0 && curY > eng.scalePt(style.geometry().MaxHeight) {
+		curY = eng.scalePt(style.geometry().MaxHeight)
 	}
 
 	return curY
@@ -330,12 +330,12 @@ func clampMulticolHeight(curY float64, style ResolvedStyle, eng *engine) float64
 // deterministic even when map iteration order is stable-random (style_cascade
 // nondeterminism lives outside this package).
 func (e *engine) multicolGap(st ResolvedStyle) float64 {
-	if !st.ColumnGapNormal {
-		return e.scalePt(st.ColumnGap)
+	if !st.flex().ColumnGapNormal {
+		return e.scalePt(st.flex().ColumnGap)
 	}
 
-	if st.Gap != 0 {
-		return e.scalePt(st.Gap)
+	if st.flex().Gap != 0 {
+		return e.scalePt(st.flex().Gap)
 	}
 
 	return e.scalePt(st.FontSize)
@@ -449,9 +449,9 @@ func (e *engine) flowMulticolSegment(
 		return curY
 	}
 
-	balance := style.ColumnFill != overflowAuto
+	balance := style.columns().ColumnFill != overflowAuto
 	definiteH := resolveContentHeight(&style, e)
-	padTop := e.scalePt(style.PaddingTop) + e.scalePt(style.BorderTop.Width)
+	padTop := e.scalePt(style.PaddingTop) + e.scalePt(style.borders().BorderTop.Width)
 
 	// Single anonymous text item: fragment its line strip across columns.
 	if nCols > 1 && len(items) == 1 && isAnonymousMulticolItem(items[0].n) {
@@ -520,7 +520,7 @@ func (e *engine) flowMulticolSegment(
 
 		// column-wrap:nowrap: one row only; remaining items are not packed
 		// into further block-direction rows (overflow columns unsupported).
-		if idx < len(items) && !columnWrapCreatesRows(style) && style.ColumnHeight >= 0 {
+		if idx < len(items) && !columnWrapCreatesRows(style) && style.columns().ColumnHeight >= 0 {
 			break
 		}
 	}
@@ -579,7 +579,7 @@ func (e *engine) placeMulticolAnonColumns(
 	// keeps orphans lines together before a column break.
 	e.baselineScratch = stripLineBaselinesInto(e.ops, cblock.opStart, cblock.opEnd+1, e.baselineScratch)
 	if snapped, ok := snapAnonBandForOrphans(top, totalH, bandH, maxColH,
-		e.baselineScratch, style.Orphans); ok {
+		e.baselineScratch, style.fragmentation().Orphans); ok {
 		bandH = snapped
 	}
 
@@ -737,8 +737,8 @@ func (e *engine) multicolColumnHeight(
 
 	// Multicol-2 column-height: clamp each column box before spilling into
 	// more columns / rows. scalePt matches other used lengths.
-	if style.ColumnHeight >= 0 {
-		maxColH = clampMulticolRemainder(maxColH, e.scalePt(style.ColumnHeight))
+	if style.columns().ColumnHeight >= 0 {
+		maxColH = clampMulticolRemainder(maxColH, e.scalePt(style.columns().ColumnHeight))
 	}
 
 	// Oversized atomic items snap to the next page when mid-page. Anonymous
@@ -858,7 +858,7 @@ func (e *engine) placeMulticolLine(
 
 		kept := e.keptBreakMargin(st, col, colHeights[col])
 		cblock := e.build(item.n, colW, colX(col), yPos+curY+colHeights[col]+kept)
-		prevAfterAlways = st.PageBreakAfter == pageBreakAlways
+		prevAfterAlways = st.fragmentation().PageBreakAfter == pageBreakAlways
 		if cblock == nil {
 			continue
 		}
@@ -922,7 +922,7 @@ func multicolBreakInsideStraddle(
 		return false
 	}
 
-	if st.PageBreakInside != avoidKeyword && st.PageBreakInside != avoidColumnValue {
+	if st.fragmentation().PageBreakInside != avoidKeyword && st.fragmentation().PageBreakInside != avoidColumnValue {
 		return false
 	}
 
@@ -956,7 +956,7 @@ func multicolForcedColumnBreak(
 		return false
 	}
 
-	if st != nil && st.PageBreakBefore == pageBreakAlways {
+	if st != nil && st.fragmentation().PageBreakBefore == pageBreakAlways {
 		return true
 	}
 
@@ -1020,31 +1020,31 @@ func (e *engine) emitColumnRules(style ResolvedStyle, contentX, colW, gap float6
 		return
 	}
 
-	if style.ColumnRuleStyle == "" || style.ColumnRuleStyle == cssDisplayNone {
+	if style.columns().ColumnRuleStyle == "" || style.columns().ColumnRuleStyle == cssDisplayNone {
 		return
 	}
 
-	ruleW := e.scalePt(style.ColumnRuleWidth)
+	ruleW := e.scalePt(style.columns().ColumnRuleWidth)
 	if ruleW <= 0 {
 		return
 	}
 
-	ruleTop := yTop + e.columnRuleCapInset(style.ColumnRuleInsetCapStart)
-	ruleEnd := yTop + lineH - e.columnRuleCapInset(style.ColumnRuleInsetCapEnd)
+	ruleTop := yTop + e.columnRuleCapInset(style.columns().ColumnRuleInsetCapStart)
+	ruleEnd := yTop + lineH - e.columnRuleCapInset(style.columns().ColumnRuleInsetCapEnd)
 	if ruleTop >= ruleEnd {
 		return
 	}
 
 	var col [3]float64
-	if style.ColumnRuleColorSet {
-		col = style.ColumnRuleColor
+	if style.columns().ColumnRuleColorSet {
+		col = style.columns().ColumnRuleColor
 	} else {
 		col = style.Color
 	}
 
 	for i := 0; i < nCols-1; i++ {
 		ruleX := contentX + float64(i+1)*(colW+gap) - gap/2
-		e.emitBorderLine(ruleX, ruleTop, 0, ruleEnd-ruleTop, ruleW, style.ColumnRuleStyle, col[0], col[1], col[2])
+		e.emitBorderLine(ruleX, ruleTop, 0, ruleEnd-ruleTop, ruleW, style.columns().ColumnRuleStyle, col[0], col[1], col[2])
 	}
 	e.emitColumnRuleEdges(&style, contentX, contentX+float64(nCols)*colW+float64(nCols-1)*gap, ruleTop, ruleEnd, ruleW)
 }

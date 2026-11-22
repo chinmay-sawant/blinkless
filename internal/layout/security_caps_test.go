@@ -261,13 +261,13 @@ func TestHugeFontMulticolReturns(t *testing.T) {
 	}
 
 	column := boxByID(t, res, "mc")
-	if column.style == nil || column.style.ColumnCount != 2 || column.style.FontSize < 1000 {
+	if column.style == nil || column.style.columns().ColumnCount != 2 || column.style.FontSize < 1000 {
 		fontSize := 0.0
 		cols := 0
 
 		if column.style != nil {
 			fontSize = column.style.FontSize
-			cols = column.style.ColumnCount
+			cols = column.style.columns().ColumnCount
 		}
 
 		t.Fatalf("column-count = %d font-size = %.1f, want 2 and a font taller than the page", cols, fontSize)

@@ -87,5 +87,5 @@ func (e *engine) paintInlineImageItem(item *inlineItem, leftX, top, imgX, imgY, 
 
 	e.add((Op{ //nolint:exhaustruct // intentional zero fields
 		Kind: OpImage, X: fitX, Y: fitY, W: fitW, H: fitH, IsJPEG: isJPEG,
-	}).withImage(imgData, pixW, pixH, item.alt).withImageRendering(sty.ImageRendering))
+	}).withImage(imgData, pixW, pixH, item.alt).withImageRendering(sty.images().ImageRendering))
 }

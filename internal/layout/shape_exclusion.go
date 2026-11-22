@@ -109,7 +109,7 @@ func ellipseInterval(cx, cy, rx, ry, y float64) (float64, float64, bool) {
 func buildShapeExclusion(
 	sty ResolvedStyle, fbox *box, margL, margR, scale float64,
 ) *shapeExclusion {
-	raw := strings.TrimSpace(sty.ShapeOutside)
+	raw := strings.TrimSpace(sty.positioning().ShapeOutside)
 	if raw == "" || raw == shapeOutsideNone {
 		return nil
 	}
@@ -149,11 +149,11 @@ func buildShapeExclusion(
 }
 
 func resolveShapeMargin(sty ResolvedStyle, refW, refH, scale float64) float64 {
-	if sty.ShapeMarginPercent >= 0 {
-		return sty.ShapeMarginPercent / 100 * shapeReferenceDiagonal(refW, refH)
+	if sty.positioning().ShapeMarginPercent >= 0 {
+		return sty.positioning().ShapeMarginPercent / 100 * shapeReferenceDiagonal(refW, refH)
 	}
 
-	return sty.ShapeMargin * scale
+	return sty.positioning().ShapeMargin * scale
 }
 
 func resolveCircleExclusion(

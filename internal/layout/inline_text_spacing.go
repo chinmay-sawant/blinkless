@@ -18,7 +18,7 @@ const (
 // textAutospaceGap returns the extra advance inserted between prev and cur
 // when text-autospace requests ideograph/alpha spacing.
 func textAutospaceGap(style *ResolvedStyle, prev, cur rune, emSize float64) float64 {
-	if style == nil || !autospaceIdeographAlpha(style.TextAutospace) {
+	if style == nil || !autospaceIdeographAlpha(style.inlineText().TextAutospace) {
 		return 0
 	}
 
@@ -81,7 +81,7 @@ func autospaceForRun(sty *ResolvedStyle) autospaceRun {
 		return autospaceRun{enabled: false}
 	}
 
-	return autospaceRun{enabled: autospaceIdeographAlpha(sty.TextAutospace)}
+	return autospaceRun{enabled: autospaceIdeographAlpha(sty.inlineText().TextAutospace)}
 }
 
 // gap returns the extra advance between prev and cur, matching
@@ -132,7 +132,7 @@ func (e *engine) textSpacingTrimLeading(style *ResolvedStyle, text string) float
 		return 0
 	}
 
-	trim := style.TextSpacingTrim
+	trim := style.inlineText().TextSpacingTrim
 	if trim == "" || trim == "space-all" || trim == contentNormal {
 		return 0
 	}
@@ -167,7 +167,7 @@ func resolveTextGroupAlign(block *ResolvedStyle, textAlign string) string {
 		return textAlign
 	}
 
-	groupAlign := block.TextGroupAlign
+	groupAlign := block.inlineText().TextGroupAlign
 	if groupAlign == "" || groupAlign == cssDisplayNone {
 		return textAlign
 	}

@@ -37,12 +37,12 @@ func applyCheckboxAutoSize(eng *engine, style ResolvedStyle, boxNode *box, curY 
 
 	if style.Width < 0 && style.WidthPercent < 0 {
 		boxNode.w = chkSz + eng.scalePt(style.PaddingLeft) + eng.scalePt(style.PaddingRight) +
-			eng.scalePt(style.BorderLeft.Width) + eng.scalePt(style.BorderRight.Width)
+			eng.scalePt(style.borders().BorderLeft.Width) + eng.scalePt(style.borders().BorderRight.Width)
 	}
 
 	if style.Height < 0 && style.HeightPercent < 0 {
 		boxStyle := &style
-		curY = chkSz + eng.scalePt(boxStyle.PaddingTop) + eng.scalePt(borderLayoutWidth(boxStyle, boxStyle.BorderTop))
+		curY = chkSz + eng.scalePt(boxStyle.PaddingTop) + eng.scalePt(borderLayoutWidth(boxStyle, boxStyle.borders().BorderTop))
 	}
 
 	return curY
@@ -277,8 +277,8 @@ const formControlFontSizePt = 10
 // in widgetValueColor (0.46) is the rounded value checkboxes use; the range
 // thumb keeps Chrome's exact 117/255.
 func rangeThumbColor(style ResolvedStyle) [3]float64 {
-	if style.AccentColorSet {
-		return style.AccentColor
+	if style.content().AccentColorSet {
+		return style.content().AccentColor
 	}
 
 	return [3]float64{0, 117.0 / 255.0, 1}

@@ -199,8 +199,8 @@ func TestBehaviorPositionTryAlwaysKeepsBase(t *testing.T) {
 	anchor := boxByID(t, res, "anchor")
 	tip := boxByID(t, res, "tip")
 
-	if len(tip.style.PositionTryFallbacks) != 1 || tip.style.PositionTryFallbacks[0] != "bottom" {
-		t.Fatalf("fallbacks = %v, want [bottom]", tip.style.PositionTryFallbacks)
+	if len(tip.style.positioning().PositionTryFallbacks) != 1 || tip.style.positioning().PositionTryFallbacks[0] != "bottom" {
+		t.Fatalf("fallbacks = %v, want [bottom]", tip.style.positioning().PositionTryFallbacks)
 	}
 
 	// Base top would sit above the canvas (anchor.y - tip.height < 0), so the
@@ -276,8 +276,8 @@ func TestBehaviorPositionTryOrderMostInlineSizePicksWide(t *testing.T) {
 	anchor := boxByID(t, res, "anchor")
 	tip := boxByID(t, res, "tip")
 
-	if tip.style.PositionTryOrder != "most-inline-size" {
-		t.Fatalf("order = %q, want most-inline-size", tip.style.PositionTryOrder)
+	if tip.style.positioning().PositionTryOrder != "most-inline-size" {
+		t.Fatalf("order = %q, want most-inline-size", tip.style.positioning().PositionTryOrder)
 	}
 
 	// The base top area spills above the canvas. Right fits and is wider than
@@ -309,30 +309,30 @@ func TestBehaviorPositionTryFallbacksStored(t *testing.T) {
 		`</body></html>`, s)
 
 	area := boxByID(t, res, "area")
-	if len(area.style.PositionTryFallbacks) != 1 || area.style.PositionTryFallbacks[0] != "top" {
-		t.Errorf("area fallbacks = %v, want [top]", area.style.PositionTryFallbacks)
+	if len(area.style.positioning().PositionTryFallbacks) != 1 || area.style.positioning().PositionTryFallbacks[0] != "top" {
+		t.Errorf("area fallbacks = %v, want [top]", area.style.positioning().PositionTryFallbacks)
 	}
 
 	mix := boxByID(t, res, "mix")
 	wantMix := []string{"flip-block", "flip-x flip-y", "--my-try", "top"}
-	if len(mix.style.PositionTryFallbacks) != len(wantMix) {
-		t.Fatalf("mixed fallbacks = %v, want %v", mix.style.PositionTryFallbacks, wantMix)
+	if len(mix.style.positioning().PositionTryFallbacks) != len(wantMix) {
+		t.Fatalf("mixed fallbacks = %v, want %v", mix.style.positioning().PositionTryFallbacks, wantMix)
 	}
 
 	for i, want := range wantMix {
-		if mix.style.PositionTryFallbacks[i] != want {
-			t.Errorf("mixed[%d] = %q, want %q", i, mix.style.PositionTryFallbacks[i], want)
+		if mix.style.positioning().PositionTryFallbacks[i] != want {
+			t.Errorf("mixed[%d] = %q, want %q", i, mix.style.positioning().PositionTryFallbacks[i], want)
 		}
 	}
 
 	none := boxByID(t, res, "none")
-	if len(none.style.PositionTryFallbacks) != 0 {
-		t.Errorf("none fallbacks = %v, want empty", none.style.PositionTryFallbacks)
+	if len(none.style.positioning().PositionTryFallbacks) != 0 {
+		t.Errorf("none fallbacks = %v, want empty", none.style.positioning().PositionTryFallbacks)
 	}
 
 	keep := boxByID(t, res, "keep")
-	if len(keep.style.PositionTryFallbacks) != 1 || keep.style.PositionTryFallbacks[0] != "top" {
-		t.Errorf("invalid fallbacks = %v, want previous [top]", keep.style.PositionTryFallbacks)
+	if len(keep.style.positioning().PositionTryFallbacks) != 1 || keep.style.positioning().PositionTryFallbacks[0] != "top" {
+		t.Errorf("invalid fallbacks = %v, want previous [top]", keep.style.positioning().PositionTryFallbacks)
 	}
 }
 
@@ -352,18 +352,18 @@ func TestBehaviorPositionTryOrderStored(t *testing.T) {
 		`</body></html>`, s)
 
 	good := boxByID(t, res, "good")
-	if good.style.PositionTryOrder != "most-inline-size" {
-		t.Errorf("order = %q, want most-inline-size", good.style.PositionTryOrder)
+	if good.style.positioning().PositionTryOrder != "most-inline-size" {
+		t.Errorf("order = %q, want most-inline-size", good.style.positioning().PositionTryOrder)
 	}
 
 	keep := boxByID(t, res, "keep")
-	if keep.style.PositionTryOrder != "most-inline-size" {
-		t.Errorf("invalid order = %q, want previous most-inline-size", keep.style.PositionTryOrder)
+	if keep.style.positioning().PositionTryOrder != "most-inline-size" {
+		t.Errorf("invalid order = %q, want previous most-inline-size", keep.style.positioning().PositionTryOrder)
 	}
 
 	initial := boxByID(t, res, "initial")
-	if initial.style.PositionTryOrder != "" {
-		t.Errorf("initial order = %q, want empty (normal behavior)", initial.style.PositionTryOrder)
+	if initial.style.positioning().PositionTryOrder != "" {
+		t.Errorf("initial order = %q, want empty (normal behavior)", initial.style.positioning().PositionTryOrder)
 	}
 }
 
@@ -384,27 +384,27 @@ func TestBehaviorPositionTryShorthandExpands(t *testing.T) {
 		`</body></html>`, s)
 
 	only := boxByID(t, res, "only")
-	if only.style.PositionTryOrder != "normal" {
-		t.Errorf("fallbacks-only order = %q, want normal", only.style.PositionTryOrder)
+	if only.style.positioning().PositionTryOrder != "normal" {
+		t.Errorf("fallbacks-only order = %q, want normal", only.style.positioning().PositionTryOrder)
 	}
 
-	if len(only.style.PositionTryFallbacks) != 1 || only.style.PositionTryFallbacks[0] != "flip-block" {
-		t.Errorf("fallbacks-only = %v, want [flip-block]", only.style.PositionTryFallbacks)
+	if len(only.style.positioning().PositionTryFallbacks) != 1 || only.style.positioning().PositionTryFallbacks[0] != "flip-block" {
+		t.Errorf("fallbacks-only = %v, want [flip-block]", only.style.positioning().PositionTryFallbacks)
 	}
 
 	both := boxByID(t, res, "both")
-	if both.style.PositionTryOrder != "most-width" {
-		t.Errorf("both order = %q, want most-width", both.style.PositionTryOrder)
+	if both.style.positioning().PositionTryOrder != "most-width" {
+		t.Errorf("both order = %q, want most-width", both.style.positioning().PositionTryOrder)
 	}
 
-	if len(both.style.PositionTryFallbacks) != 2 {
-		t.Fatalf("both fallbacks = %v, want [flip-block top]", both.style.PositionTryFallbacks)
+	if len(both.style.positioning().PositionTryFallbacks) != 2 {
+		t.Fatalf("both fallbacks = %v, want [flip-block top]", both.style.positioning().PositionTryFallbacks)
 	}
 
 	wide := boxByID(t, res, "wide")
-	if wide.style.PositionTryOrder != "" || len(wide.style.PositionTryFallbacks) != 0 {
+	if wide.style.positioning().PositionTryOrder != "" || len(wide.style.positioning().PositionTryFallbacks) != 0 {
 		t.Errorf("CSS-wide reset = order %q fallbacks %v, want empty and empty",
-			wide.style.PositionTryOrder, wide.style.PositionTryFallbacks)
+			wide.style.positioning().PositionTryOrder, wide.style.positioning().PositionTryFallbacks)
 	}
 }
 
@@ -423,12 +423,12 @@ func TestBehaviorPositionTryShorthandCascadeOrder(t *testing.T) {
 		`</body></html>`, longhandWins)
 	tip := boxByID(t, res, "tip")
 
-	if tip.style.PositionTryOrder != "most-width" {
-		t.Errorf("longhand-after order = %q, want most-width", tip.style.PositionTryOrder)
+	if tip.style.positioning().PositionTryOrder != "most-width" {
+		t.Errorf("longhand-after order = %q, want most-width", tip.style.positioning().PositionTryOrder)
 	}
 
-	if len(tip.style.PositionTryFallbacks) != 1 || tip.style.PositionTryFallbacks[0] != "flip-block" {
-		t.Errorf("longhand-after fallbacks = %v, want [flip-block]", tip.style.PositionTryFallbacks)
+	if len(tip.style.positioning().PositionTryFallbacks) != 1 || tip.style.positioning().PositionTryFallbacks[0] != "flip-block" {
+		t.Errorf("longhand-after fallbacks = %v, want [flip-block]", tip.style.positioning().PositionTryFallbacks)
 	}
 
 	shorthandWins := sheet(t, `
@@ -440,12 +440,12 @@ func TestBehaviorPositionTryShorthandCascadeOrder(t *testing.T) {
 		`</body></html>`, shorthandWins)
 	tip2 := boxByID(t, res2, "tip")
 
-	if tip2.style.PositionTryOrder != "normal" {
-		t.Errorf("shorthand-after order = %q, want normal reset", tip2.style.PositionTryOrder)
+	if tip2.style.positioning().PositionTryOrder != "normal" {
+		t.Errorf("shorthand-after order = %q, want normal reset", tip2.style.positioning().PositionTryOrder)
 	}
 
-	if len(tip2.style.PositionTryFallbacks) != 1 || tip2.style.PositionTryFallbacks[0] != "flip-block" {
-		t.Errorf("shorthand-after fallbacks = %v, want [flip-block]", tip2.style.PositionTryFallbacks)
+	if len(tip2.style.positioning().PositionTryFallbacks) != 1 || tip2.style.positioning().PositionTryFallbacks[0] != "flip-block" {
+		t.Errorf("shorthand-after fallbacks = %v, want [flip-block]", tip2.style.positioning().PositionTryFallbacks)
 	}
 }
 
@@ -471,15 +471,15 @@ func TestBehaviorPositionVisibility(t *testing.T) {
 		}
 
 		sty := initialStyle()
-		if sty.PositionVisibility != "" {
-			t.Fatalf("initial visibility = %q, want empty (anchor-valid behavior)", sty.PositionVisibility)
+		if sty.positioning().PositionVisibility != "" {
+			t.Fatalf("initial visibility = %q, want empty (anchor-valid behavior)", sty.positioning().PositionVisibility)
 		}
 
 		if !applyAnchorProps(&sty, "position-visibility", "anchor-valid", 0, nil, nil, false) {
 			t.Fatalf("applyAnchorProps did not own position-visibility")
 		}
-		if sty.PositionVisibility != "anchor-valid" {
-			t.Fatalf("visibility = %q, want anchor-valid", sty.PositionVisibility)
+		if sty.positioning().PositionVisibility != "anchor-valid" {
+			t.Fatalf("visibility = %q, want anchor-valid", sty.positioning().PositionVisibility)
 		}
 
 		// Invalid must not replace the earlier valid value.
@@ -487,8 +487,8 @@ func TestBehaviorPositionVisibility(t *testing.T) {
 			t.Fatal("supportedDeclaration(bogus) = true, want false")
 		}
 		applyAnchorProps(&sty, "position-visibility", "bogus", 0, nil, nil, false)
-		if sty.PositionVisibility != "anchor-valid" {
-			t.Errorf("invalid replaced valid: visibility = %q, want anchor-valid", sty.PositionVisibility)
+		if sty.positioning().PositionVisibility != "anchor-valid" {
+			t.Errorf("invalid replaced valid: visibility = %q, want anchor-valid", sty.positioning().PositionVisibility)
 		}
 	})
 
@@ -694,12 +694,12 @@ func TestBehaviorPositionVisibilityNoOverflow(t *testing.T) {
 		tipValid := boxByID(t, resValid, "tip")
 		tipVisible := boxByID(t, resVisible, "tip")
 
-		if tipValid.style.PositionVisibility != "anchor-valid" {
-			t.Errorf("anchor-valid stored = %q, want %q", tipValid.style.PositionVisibility, "anchor-valid")
+		if tipValid.style.positioning().PositionVisibility != "anchor-valid" {
+			t.Errorf("anchor-valid stored = %q, want %q", tipValid.style.positioning().PositionVisibility, "anchor-valid")
 		}
 
-		if tipVisible.style.PositionVisibility != "anchor-visible" {
-			t.Errorf("anchor-visible stored = %q, want %q", tipVisible.style.PositionVisibility, "anchor-visible")
+		if tipVisible.style.positioning().PositionVisibility != "anchor-visible" {
+			t.Errorf("anchor-visible stored = %q, want %q", tipVisible.style.positioning().PositionVisibility, "anchor-visible")
 		}
 
 		if !near(tipValid.x, tipVisible.x) || !near(tipValid.y, tipVisible.y) {

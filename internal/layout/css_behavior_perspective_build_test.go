@@ -92,7 +92,7 @@ func TestPerspBuildRotateYNarrowsOrtho(t *testing.T) {
 	rotated := perspBuildDoc(t, "transform:rotateY(60deg)")
 	rotatedBox := boxByID(t, rotated, "a")
 
-	if !rotatedBox.style.HasTransform3D {
+	if !rotatedBox.style.effects().HasTransform3D {
 		t.Fatalf("rotateY(60deg) HasTransform3D = false, want true")
 	}
 
@@ -135,9 +135,9 @@ func TestPerspBuildAncestorPerspectiveForeshortens(t *testing.T) {
 	perspInner := boxByID(t, perspRes, "inner")
 	outer := boxByID(t, perspRes, "outer")
 
-	if !orthoInner.style.HasTransform3D || !perspInner.style.HasTransform3D {
+	if !orthoInner.style.effects().HasTransform3D || !perspInner.style.effects().HasTransform3D {
 		t.Fatalf("rotateY child HasTransform3D = %v/%v, want true/true",
-			orthoInner.style.HasTransform3D, perspInner.style.HasTransform3D)
+			orthoInner.style.effects().HasTransform3D, perspInner.style.effects().HasTransform3D)
 	}
 
 	if orthoInner.hasPerspDist {
@@ -167,9 +167,9 @@ func TestPerspBuildPerspectiveFunctionAppliesOwnDistance(t *testing.T) {
 	aloneBox := boxByID(t, alone, "a")
 	funcBox := boxByID(t, funcForm, "a")
 
-	if !aloneBox.style.HasTransform3D || !funcBox.style.HasTransform3D {
+	if !aloneBox.style.effects().HasTransform3D || !funcBox.style.effects().HasTransform3D {
 		t.Fatalf("HasTransform3D = %v/%v, want true/true",
-			aloneBox.style.HasTransform3D, funcBox.style.HasTransform3D)
+			aloneBox.style.effects().HasTransform3D, funcBox.style.effects().HasTransform3D)
 	}
 
 	if aloneBox.hasPerspDist || funcBox.hasPerspDist {

@@ -51,22 +51,22 @@ func applyContainmentProps(
 			return false
 		}
 
-		style.ContainIntrinsicWidth = width
-		style.ContainIntrinsicHeight = height
+		style.editContainment().ContainIntrinsicWidth = width
+		style.editContainment().ContainIntrinsicHeight = height
 
 		return true
 	case "contain-intrinsic-width":
-		return applyContainIntrinsicAxis(&style.ContainIntrinsicWidth, val, fsize)
+		return applyContainIntrinsicAxis(&style.editContainment().ContainIntrinsicWidth, val, fsize)
 	case "contain-intrinsic-height":
-		return applyContainIntrinsicAxis(&style.ContainIntrinsicHeight, val, fsize)
+		return applyContainIntrinsicAxis(&style.editContainment().ContainIntrinsicHeight, val, fsize)
 	case "contain-intrinsic-block-size":
-		return applyContainIntrinsicAxis(&style.ContainIntrinsicBlockSize, val, fsize)
+		return applyContainIntrinsicAxis(&style.editContainment().ContainIntrinsicBlockSize, val, fsize)
 	case "contain-intrinsic-inline-size":
-		return applyContainIntrinsicAxis(&style.ContainIntrinsicInlineSize, val, fsize)
+		return applyContainIntrinsicAxis(&style.editContainment().ContainIntrinsicInlineSize, val, fsize)
 	case "content-visibility":
 		switch val {
 		case contentVisibilityVisible, contentVisibilityAuto, contentVisibilityHidden:
-			style.ContentVisibility = val
+			style.editContainment().ContentVisibility = val
 
 			return true
 		}
@@ -85,7 +85,7 @@ func applyContainKeyword(style *ResolvedStyle, val string) bool {
 	if len(tokens) == 1 {
 		switch tokens[0] {
 		case containValueNone, containValueStrict, containValueContent:
-			style.Contain = tokens[0]
+			style.editContainment().Contain = tokens[0]
 
 			return true
 		}
@@ -111,7 +111,7 @@ func applyContainKeyword(style *ResolvedStyle, val string) bool {
 		return false
 	}
 
-	style.Contain = strings.Join(tokens, " ")
+	style.editContainment().Contain = strings.Join(tokens, " ")
 
 	return true
 }
@@ -231,12 +231,12 @@ func containHasKeyword(contain, keyword string) bool {
 
 // containsSize reports size containment: contain: size or strict.
 func containsSize(st *ResolvedStyle) bool {
-	return containHasKeyword(st.Contain, containKeywordSize)
+	return containHasKeyword(st.containment().Contain, containKeywordSize)
 }
 
 // containsLayout reports layout containment: contain: layout, strict, content.
 func containsLayout(st *ResolvedStyle) bool {
-	return containHasKeyword(st.Contain, containKeywordLayout)
+	return containHasKeyword(st.containment().Contain, containKeywordLayout)
 }
 
 // containsPaint reports paint containment: contain: paint, strict, content.
@@ -244,7 +244,7 @@ func containsLayout(st *ResolvedStyle) bool {
 // handled where descendants are skipped and auto has no print-observable
 // effect.
 func containsPaint(st *ResolvedStyle) bool {
-	return containHasKeyword(st.Contain, containKeywordPaint)
+	return containHasKeyword(st.containment().Contain, containKeywordPaint)
 }
 
 // containmentIntrinsicWidth returns the physical-axis content width in
@@ -253,27 +253,27 @@ func containsPaint(st *ResolvedStyle) bool {
 // writing mode (horizontal-tb: inline is width, block is height; vertical
 // modes swap them).
 func containmentIntrinsicWidth(st *ResolvedStyle) float64 {
-	if st.ContainIntrinsicWidth >= 0 {
-		return st.ContainIntrinsicWidth
+	if st.containment().ContainIntrinsicWidth >= 0 {
+		return st.containment().ContainIntrinsicWidth
 	}
 
-	if isVerticalWritingMode(st.WritingMode) {
-		return st.ContainIntrinsicBlockSize
+	if isVerticalWritingMode(st.positioning().WritingMode) {
+		return st.containment().ContainIntrinsicBlockSize
 	}
 
-	return st.ContainIntrinsicInlineSize
+	return st.containment().ContainIntrinsicInlineSize
 }
 
 // containmentIntrinsicHeight returns the physical-axis content height in
 // unscaled CSS points from the contain-intrinsic-* fields, or -1 when unset.
 func containmentIntrinsicHeight(st *ResolvedStyle) float64 {
-	if st.ContainIntrinsicHeight >= 0 {
-		return st.ContainIntrinsicHeight
+	if st.containment().ContainIntrinsicHeight >= 0 {
+		return st.containment().ContainIntrinsicHeight
 	}
 
-	if isVerticalWritingMode(st.WritingMode) {
-		return st.ContainIntrinsicInlineSize
+	if isVerticalWritingMode(st.positioning().WritingMode) {
+		return st.containment().ContainIntrinsicInlineSize
 	}
 
-	return st.ContainIntrinsicBlockSize
+	return st.containment().ContainIntrinsicBlockSize
 }

@@ -44,10 +44,10 @@ func (e *engine) buildInlineSVG(node *html.Node, sty ResolvedStyle, posX, posY f
 	padR := e.scalePt(sty.PaddingRight)
 	padT := e.scalePt(sty.PaddingTop)
 	padB := e.scalePt(sty.PaddingBottom)
-	borderL := e.scalePt(borderPaint(sty.BorderLeft))
-	borderR := e.scalePt(borderPaint(sty.BorderRight))
-	borderT := e.scalePt(borderPaint(sty.BorderTop))
-	borderB := e.scalePt(borderPaint(sty.BorderBottom))
+	borderL := e.scalePt(borderPaint(sty.borders().BorderLeft))
+	borderR := e.scalePt(borderPaint(sty.borders().BorderRight))
+	borderT := e.scalePt(borderPaint(sty.borders().BorderTop))
+	borderB := e.scalePt(borderPaint(sty.borders().BorderBottom))
 	boxNode.w = size.w + padL + padR + borderL + borderR
 	boxNode.height = size.h + padT + padB + borderT + borderB
 
@@ -57,7 +57,7 @@ func (e *engine) buildInlineSVG(node *html.Node, sty ResolvedStyle, posX, posY f
 		opStart := len(e.ops)
 		e.add((Op{ //nolint:exhaustruct // intentional zero fields
 			Kind: OpImage, X: imgX, Y: imgY, W: size.w, H: size.h,
-		}).withImage(ref.data, ref.w, ref.h, "").withImageRendering(sty.ImageRendering))
+		}).withImage(ref.data, ref.w, ref.h, "").withImageRendering(sty.images().ImageRendering))
 		e.prependChrome(opStart, boxNode, &sty, posX, posY, boxNode.w, boxNode.height)
 	}
 
@@ -379,54 +379,54 @@ func (e *engine) writeSVGPresentationAttrs(
 		if !written.has("fill") {
 			b.WriteString(` fill="none"`)
 		}
-	} else if st.FillSet && !written.has("fill") {
-		if st.FillOpacity == 0 && st.Fill == [3]float64{} {
+	} else if st.svg().FillSet && !written.has("fill") {
+		if st.svg().FillOpacity == 0 && st.svg().Fill == [3]float64{} {
 			b.WriteString(` fill="none"`)
 		} else {
-			fmt.Fprintf(b, ` fill="%s"`, cssColorHex(st.Fill))
+			fmt.Fprintf(b, ` fill="%s"`, cssColorHex(st.svg().Fill))
 		}
 	}
-	if st.FillOpacity >= 0 && st.FillOpacity < 1 && !written.has("fill-opacity") {
-		fmt.Fprintf(b, ` fill-opacity="%g"`, st.FillOpacity)
+	if st.svg().FillOpacity >= 0 && st.svg().FillOpacity < 1 && !written.has("fill-opacity") {
+		fmt.Fprintf(b, ` fill-opacity="%g"`, st.svg().FillOpacity)
 	}
-	if st.StrokeSet && !written.has("stroke") {
-		fmt.Fprintf(b, ` stroke="%s"`, cssColorHex(st.Stroke))
+	if st.svg().StrokeSet && !written.has("stroke") {
+		fmt.Fprintf(b, ` stroke="%s"`, cssColorHex(st.svg().Stroke))
 	}
-	if st.StrokeWidthSet && st.StrokeWidth > 0 && !written.has("stroke-width") {
-		fmt.Fprintf(b, ` stroke-width="%g"`, st.StrokeWidth)
+	if st.svg().StrokeWidthSet && st.svg().StrokeWidth > 0 && !written.has("stroke-width") {
+		fmt.Fprintf(b, ` stroke-width="%g"`, st.svg().StrokeWidth)
 	}
-	if st.StrokeOpacity >= 0 && st.StrokeOpacity < 1 && !written.has("stroke-opacity") {
-		fmt.Fprintf(b, ` stroke-opacity="%g"`, st.StrokeOpacity)
+	if st.svg().StrokeOpacity >= 0 && st.svg().StrokeOpacity < 1 && !written.has("stroke-opacity") {
+		fmt.Fprintf(b, ` stroke-opacity="%g"`, st.svg().StrokeOpacity)
 	}
-	if len(st.StrokeDashArray) > 0 && !written.has("stroke-dasharray") {
-		parts := make([]string, 0, len(st.StrokeDashArray))
-		for _, d := range st.StrokeDashArray {
+	if len(st.svg().StrokeDashArray) > 0 && !written.has("stroke-dasharray") {
+		parts := make([]string, 0, len(st.svg().StrokeDashArray))
+		for _, d := range st.svg().StrokeDashArray {
 			parts = append(parts, strconv.FormatFloat(d, 'g', -1, 64))
 		}
 		b.WriteString(` stroke-dasharray="`)
 		b.WriteString(escapeXML(strings.Join(parts, " ")))
 		b.WriteByte('"')
 	}
-	if st.StrokeDashOffset != 0 && !written.has("stroke-dashoffset") {
-		fmt.Fprintf(b, ` stroke-dashoffset="%g"`, st.StrokeDashOffset)
+	if st.svg().StrokeDashOffset != 0 && !written.has("stroke-dashoffset") {
+		fmt.Fprintf(b, ` stroke-dashoffset="%g"`, st.svg().StrokeDashOffset)
 	}
-	if st.StrokeLineCap != "" && !written.has("stroke-linecap") {
-		switch st.StrokeLineCap {
+	if st.svg().StrokeLineCap != "" && !written.has("stroke-linecap") {
+		switch st.svg().StrokeLineCap {
 		case "butt", "round", "square":
-			fmt.Fprintf(b, ` stroke-linecap="%s"`, st.StrokeLineCap)
+			fmt.Fprintf(b, ` stroke-linecap="%s"`, st.svg().StrokeLineCap)
 		}
 	}
 	// stroke-miterlimit is baked before stroke-linejoin on purpose: the
 	// pinned canvas parser keeps the limit in its state and only reads it
 	// when a later linejoin value builds the miter joiner, so the reverse
 	// order would leave a bare miterlimit with no observable effect.
-	if st.StrokeMiterLimit >= 1 && !written.has("stroke-miterlimit") {
-		fmt.Fprintf(b, ` stroke-miterlimit="%g"`, st.StrokeMiterLimit)
+	if st.svg().StrokeMiterLimit >= 1 && !written.has("stroke-miterlimit") {
+		fmt.Fprintf(b, ` stroke-miterlimit="%g"`, st.svg().StrokeMiterLimit)
 	}
-	if st.StrokeLineJoin != "" && !written.has("stroke-linejoin") {
-		switch st.StrokeLineJoin {
+	if st.svg().StrokeLineJoin != "" && !written.has("stroke-linejoin") {
+		switch st.svg().StrokeLineJoin {
 		case "miter", "miter-clip", "round", "bevel", "arcs":
-			fmt.Fprintf(b, ` stroke-linejoin="%s"`, st.StrokeLineJoin)
+			fmt.Fprintf(b, ` stroke-linejoin="%s"`, st.svg().StrokeLineJoin)
 		}
 	}
 	// fill-rule and shape-rendering have no ResolvedStyle field, so they are
@@ -1506,10 +1506,10 @@ func parseSVGPaintValues(
 
 	if override.HasStrokeDashArray {
 		dashed := *base
-		dashed.StrokeDashArray = nil
+		dashed.editSvg().StrokeDashArray = nil
 		applyStrokeDashArray(&dashed, override.StrokeDashArray, base.FontSize)
 		values.strokeDashArraySet = true
-		values.strokeDashArray = dashed.StrokeDashArray
+		values.strokeDashArray = dashed.svg().StrokeDashArray
 	}
 
 	if override.HasStrokeDashOffset {
@@ -1633,48 +1633,48 @@ func (values svgPaintValues) apply(style *ResolvedStyle) {
 		// representation, not a declared fill-opacity, so start from the
 		// initial one. An explicit fill-opacity override is applied below and
 		// still wins.
-		if style.FillSet && style.FillOpacity == 0 && style.Fill == [3]float64{} {
-			style.FillOpacity = 1
+		if style.svg().FillSet && style.svg().FillOpacity == 0 && style.svg().Fill == [3]float64{} {
+			style.editSvg().FillOpacity = 1
 		}
 
-		style.FillSet = true
+		style.editSvg().FillSet = true
 
 		if values.fillNone {
-			style.Fill = [3]float64{}
+			style.editSvg().Fill = [3]float64{}
 		} else {
-			style.Fill = values.fill
+			style.editSvg().Fill = values.fill
 		}
 	}
 
 	if values.fillOpacitySet {
-		style.FillOpacity = values.fillOpacity
+		style.editSvg().FillOpacity = values.fillOpacity
 	}
 
 	if values.strokeSet {
 		if values.strokeNone {
-			style.Stroke = [3]float64{}
-			style.StrokeSet = false
+			style.editSvg().Stroke = [3]float64{}
+			style.editSvg().StrokeSet = false
 		} else {
-			style.Stroke = values.stroke
-			style.StrokeSet = true
+			style.editSvg().Stroke = values.stroke
+			style.editSvg().StrokeSet = true
 		}
 	}
 
 	if values.strokeOpacitySet {
-		style.StrokeOpacity = values.strokeOpacity
+		style.editSvg().StrokeOpacity = values.strokeOpacity
 	}
 
 	if values.strokeWidthSet {
-		style.StrokeWidth = values.strokeWidth
-		style.StrokeWidthSet = true
+		style.editSvg().StrokeWidth = values.strokeWidth
+		style.editSvg().StrokeWidthSet = true
 	}
 
 	if values.strokeDashArraySet {
-		style.StrokeDashArray = values.strokeDashArray
+		style.editSvg().StrokeDashArray = values.strokeDashArray
 	}
 
 	if values.strokeDashOffsetSet {
-		style.StrokeDashOffset = values.strokeDashOffset
+		style.editSvg().StrokeDashOffset = values.strokeDashOffset
 	}
 }
 
@@ -1688,46 +1688,46 @@ func (values svgPaintValues) inherit(
 	var inherited svgPaintValues
 
 	if values.fillSet && !svgNodeDeclaresPaint(child, "fill") &&
-		parentBase.FillSet == childBase.FillSet && parentBase.Fill == childBase.Fill {
+		parentBase.svg().FillSet == childBase.svg().FillSet && parentBase.svg().Fill == childBase.svg().Fill {
 		inherited.fillSet = true
 		inherited.fill = values.fill
 		inherited.fillNone = values.fillNone
 	}
 
 	if values.fillOpacitySet && !svgNodeDeclaresPaint(child, "fill-opacity") &&
-		childBase.FillOpacity == 1 {
+		childBase.svg().FillOpacity == 1 {
 		inherited.fillOpacitySet = true
 		inherited.fillOpacity = values.fillOpacity
 	}
 
 	if values.strokeSet && !svgNodeDeclaresPaint(child, "stroke") &&
-		parentBase.StrokeSet == childBase.StrokeSet && parentBase.Stroke == childBase.Stroke {
+		parentBase.svg().StrokeSet == childBase.svg().StrokeSet && parentBase.svg().Stroke == childBase.svg().Stroke {
 		inherited.strokeSet = true
 		inherited.stroke = values.stroke
 		inherited.strokeNone = values.strokeNone
 	}
 
 	if values.strokeOpacitySet && !svgNodeDeclaresPaint(child, "stroke-opacity") &&
-		childBase.StrokeOpacity == 1 {
+		childBase.svg().StrokeOpacity == 1 {
 		inherited.strokeOpacitySet = true
 		inherited.strokeOpacity = values.strokeOpacity
 	}
 
 	if values.strokeWidthSet && !svgNodeDeclaresPaint(child, "stroke-width") &&
-		parentBase.StrokeWidthSet == childBase.StrokeWidthSet &&
-		parentBase.StrokeWidth == childBase.StrokeWidth {
+		parentBase.svg().StrokeWidthSet == childBase.svg().StrokeWidthSet &&
+		parentBase.svg().StrokeWidth == childBase.svg().StrokeWidth {
 		inherited.strokeWidthSet = true
 		inherited.strokeWidth = values.strokeWidth
 	}
 
 	if values.strokeDashArraySet && !svgNodeDeclaresPaint(child, "stroke-dasharray") &&
-		slices.Equal(parentBase.StrokeDashArray, childBase.StrokeDashArray) {
+		slices.Equal(parentBase.svg().StrokeDashArray, childBase.svg().StrokeDashArray) {
 		inherited.strokeDashArraySet = true
 		inherited.strokeDashArray = values.strokeDashArray
 	}
 
 	if values.strokeDashOffsetSet && !svgNodeDeclaresPaint(child, "stroke-dashoffset") &&
-		parentBase.StrokeDashOffset == childBase.StrokeDashOffset {
+		parentBase.svg().StrokeDashOffset == childBase.svg().StrokeDashOffset {
 		inherited.strokeDashOffsetSet = true
 		inherited.strokeDashOffset = values.strokeDashOffset
 	}

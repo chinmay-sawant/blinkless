@@ -48,12 +48,12 @@ func applyFloatPageProps(
 	switch prop {
 	case "float-offset":
 		if pt, pct, ok := parseFloatOffset(value, fsize, ctx); ok {
-			style.FloatOffset = pt
-			style.FloatOffsetPercent = pct
+			style.editPositioning().FloatOffset = pt
+			style.editPositioning().FloatOffsetPercent = pct
 		}
 	case "float-reference":
 		if ref, ok := parseFloatReference(value); ok {
-			style.FloatReference = ref
+			style.editPositioning().FloatReference = ref
 		}
 	case footnotePropDisplay:
 		setFootnoteCustom(style, parent, footnoteDisplayCustomKey, value, parseFootnoteDisplay)
@@ -166,10 +166,10 @@ func nudgeFloatOffset(e *engine, fbox *box, sty ResolvedStyle) {
 	var dy float64
 
 	switch {
-	case sty.FloatOffsetPercent >= 0:
-		dy = fbox.height * sty.FloatOffsetPercent / 100
-	case sty.FloatOffset != 0:
-		dy = e.scalePt(sty.FloatOffset)
+	case sty.positioning().FloatOffsetPercent >= 0:
+		dy = fbox.height * sty.positioning().FloatOffsetPercent / 100
+	case sty.positioning().FloatOffset != 0:
+		dy = e.scalePt(sty.positioning().FloatOffset)
 	default:
 		return
 	}
@@ -188,7 +188,7 @@ func nudgeFloatOffset(e *engine, fbox *box, sty ResolvedStyle) {
 func (e *engine) floatReferenceBox(
 	node *html.Node, sty ResolvedStyle, contentX, contentW, flowY float64,
 ) (float64, float64, float64) {
-	switch sty.FloatReference {
+	switch sty.positioning().FloatReference {
 	case floatRefPage:
 		refW := 0.0
 		if e != nil {
@@ -242,7 +242,7 @@ func hasMulticolAncestor(e *engine, n *html.Node) bool {
 			continue
 		}
 
-		if st.ColumnCount > 1 || st.ColumnWidth >= 0 || st.ColumnHeight >= 0 {
+		if st.columns().ColumnCount > 1 || st.columns().ColumnWidth >= 0 || st.columns().ColumnHeight >= 0 {
 			return true
 		}
 	}
@@ -253,7 +253,7 @@ func hasMulticolAncestor(e *engine, n *html.Node) bool {
 // pinFloatToReference reports whether placeFloat should pack against the
 // resolved reference box instead of the current BFC edges.
 func pinFloatToReference(sty ResolvedStyle, refX, refW, contentX, contentW float64) bool {
-	switch sty.FloatReference {
+	switch sty.positioning().FloatReference {
 	case floatRefPage:
 		return true
 	case floatRefColumn:

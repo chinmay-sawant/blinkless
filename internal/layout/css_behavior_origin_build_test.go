@@ -33,7 +33,7 @@ func TestOriginBuildDefaultIsCenter(t *testing.T) {
 
 	target := originBuildBox(t, "")
 
-	if target.style.PerspectiveOriginSet {
+	if target.style.effects().PerspectiveOriginSet {
 		t.Errorf("PerspectiveOriginSet = true, want false (no declaration)")
 	}
 
@@ -56,7 +56,7 @@ func TestOriginBuildPercentages(t *testing.T) {
 
 	target := originBuildBox(t, "perspective-origin:25% 75%")
 
-	if !target.style.PerspectiveOriginSet {
+	if !target.style.effects().PerspectiveOriginSet {
 		t.Errorf("PerspectiveOriginSet = false, want true (declared)")
 	}
 

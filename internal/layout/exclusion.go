@@ -61,14 +61,14 @@ func applyExclusionProps(
 			return true
 		}
 
-		style.WrapFlow = used
+		style.editPositioning().WrapFlow = used
 	case wrapThroughPropName:
 		used, ok := parseWrapThrough(value)
 		if !ok {
 			return true
 		}
 
-		style.WrapThrough = used
+		style.editPositioning().WrapThrough = used
 	default:
 		return false
 	}
@@ -136,7 +136,7 @@ func exclusionDeclarationValueAccepted(prop, value string) (bool, bool) {
 // block-level element that is not floated (float != none computes wrap-flow
 // to auto per spec).
 func exclusionApplies(sty *ResolvedStyle) bool {
-	return sty.WrapFlow != "" && sty.Float == cssDisplayNone
+	return sty.positioning().WrapFlow != "" && sty.Float == cssDisplayNone
 }
 
 // placeExclusion contributes one built exclusion box to the BFC's wrapping
@@ -203,7 +203,7 @@ func wrapFlowLineSide(fbox *box, wrapFlow string, contentX, contentW float64) st
 // element builds so exclusions from outside do not shorten its lines. The
 // returned state (nil when no bypass applies) restores the live state.
 func (e *engine) beginWrapThroughBypass(floats *floatState, sty *ResolvedStyle) *floatState {
-	if sty.WrapThrough != wrapThroughNone || floats == nil {
+	if sty.positioning().WrapThrough != wrapThroughNone || floats == nil {
 		return nil
 	}
 

@@ -27,11 +27,11 @@ func TestLeftoversPropsWave5(t *testing.T) {
 	}
 	applyRestProps(&s, raw, ctx, nil)
 
-	if len(s.StrokeDashArray) != 3 || s.StrokeDashArray[0] != 5 || s.StrokeDashArray[1] != 10 || s.StrokeDashArray[2] != 15 {
-		t.Errorf("mismatch on stroke-dasharray: %v", s.StrokeDashArray)
+	if len(s.svg().StrokeDashArray) != 3 || s.svg().StrokeDashArray[0] != 5 || s.svg().StrokeDashArray[1] != 10 || s.svg().StrokeDashArray[2] != 15 {
+		t.Errorf("mismatch on stroke-dasharray: %v", s.svg().StrokeDashArray)
 	}
-	if s.StrokeDashOffset != 2 || s.StrokeLineCap != "round" || s.StrokeLineJoin != "bevel" || s.StrokeMiterLimit != 4 {
+	if s.svg().StrokeDashOffset != 2 || s.svg().StrokeLineCap != "round" || s.svg().StrokeLineJoin != "bevel" || s.svg().StrokeMiterLimit != 4 {
 		t.Errorf("mismatch on stroke props: off=%v, cap=%q, join=%q, miter=%v",
-			s.StrokeDashOffset, s.StrokeLineCap, s.StrokeLineJoin, s.StrokeMiterLimit)
+			s.svg().StrokeDashOffset, s.svg().StrokeLineCap, s.svg().StrokeLineJoin, s.svg().StrokeMiterLimit)
 	}
 }

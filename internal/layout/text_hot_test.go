@@ -26,8 +26,8 @@ func loadHotFaces(t *testing.T) (*pdf.FaceSet, error) {
 func hotStyle(size float64, autospace, emoji string) ResolvedStyle {
 	style := initialStyle()
 	style.FontSize = size
-	style.TextAutospace = autospace
-	style.FontVariantEmoji = emoji
+	style.editInlineText().TextAutospace = autospace
+	style.editFont().FontVariantEmoji = emoji
 
 	return style
 }
@@ -36,8 +36,8 @@ func hotStyle(size float64, autospace, emoji string) ResolvedStyle {
 func hotSpacedStyle() ResolvedStyle {
 	style := initialStyle()
 	style.FontSize = 12
-	style.LetterSpacing = 1.5
-	style.WordSpacing = 2
+	style.editInlineText().LetterSpacing = 1.5
+	style.editInlineText().WordSpacing = 2
 
 	return style
 }
@@ -46,7 +46,7 @@ func hotSpacedStyle() ResolvedStyle {
 func hotTabStyle() ResolvedStyle {
 	style := initialStyle()
 	style.FontSize = 12
-	style.TabSize = 4
+	style.editInlineText().TabSize = 4
 
 	return style
 }
@@ -321,7 +321,7 @@ func TestInlineHotPaintWidthReuse(t *testing.T) {
 
 	plain := hotStyle(12, "", "")
 	upper := hotStyle(12, "", "")
-	upper.TextTransform = "uppercase"
+	upper.editInlineText().TextTransform = "uppercase"
 
 	clearHotCaches()
 

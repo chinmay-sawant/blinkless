@@ -96,14 +96,14 @@ func (e *engine) measureCellMinMax(node *html.Node, style *ResolvedStyle) (float
 	// as if the descendants were absent: contain-intrinsic inline size (else
 	// 0) plus box chrome. A fixed intrinsic length contributes the same to
 	// min-content and max-content.
-	if containsSize(style) || style.ContentVisibility == contentVisibilityHidden {
+	if containsSize(style) || style.containment().ContentVisibility == contentVisibilityHidden {
 		intrinsicW := containmentIntrinsicWidth(style)
 		if intrinsicW < 0 {
 			intrinsicW = 0
 		}
 
 		chrome := e.scalePt(style.PaddingLeft) + e.scalePt(style.PaddingRight) +
-			e.scalePt(style.BorderLeft.Width) + e.scalePt(style.BorderRight.Width)
+			e.scalePt(style.borders().BorderLeft.Width) + e.scalePt(style.borders().BorderRight.Width)
 		// Inline boxes measure their own chrome while walking text.
 		if style.Display == cssDisplayInline {
 			chrome = 0
@@ -123,7 +123,7 @@ func (e *engine) measureCellMinMax(node *html.Node, style *ResolvedStyle) (float
 	cellMeas.flushLine()
 
 	chrome := e.scalePt(style.PaddingLeft) + e.scalePt(style.PaddingRight) +
-		e.scalePt(style.BorderLeft.Width) + e.scalePt(style.BorderRight.Width)
+		e.scalePt(style.borders().BorderLeft.Width) + e.scalePt(style.borders().BorderRight.Width)
 	// Inline flex items measure their own padding/border while walking their
 	// text (inlineMeasurementChromeWidth). Do not add that chrome a second
 	// time as the outer cell contribution; this keeps intrinsic pill widths
@@ -145,7 +145,7 @@ func (e *engine) measureCellMinMax(node *html.Node, style *ResolvedStyle) (float
 // cellMeasure accumulates min/max-content width contributions while walking a
 // table cell's subtree (see measureCellMinMax). It keeps only the scalar
 // metrics: the resolved style is read through pointers, so a measurement
-// never copies the 6KB record per node.
+// never copies the record per node.
 type cellMeasure struct {
 	engine         *engine
 	root           *html.Node
@@ -212,7 +212,7 @@ func (m *cellMeasure) measureText(text string, cstate *ResolvedStyle, nowrap boo
 	// vertical-rl/lr: physical width is one glyph column (line-height), not the
 	// horizontal string advance. Matching Chrome shrink-to-fit for fixture-62
 	// #119 (narrow yellow column, not a wide rotated run box).
-	if isVerticalWritingMode(cstate.WritingMode) {
+	if isVerticalWritingMode(cstate.positioning().WritingMode) {
 		if !hasNonHTMLSpace(text) {
 			return
 		}
@@ -270,7 +270,7 @@ func (m *cellMeasure) measureText(text string, cstate *ResolvedStyle, nowrap boo
 			}
 
 			first = false
-			wordW := eng.measureTextFace(transformInlineText(word, cstate.TextTransform), cstate)
+			wordW := eng.measureTextFace(transformInlineText(word, cstate.inlineText().TextTransform), cstate)
 			m.lineW += wordW
 			m.noteWord(eng.minContentWidth(word, cstate, wordW+chromeW))
 
@@ -280,7 +280,7 @@ func (m *cellMeasure) measureText(text string, cstate *ResolvedStyle, nowrap boo
 		return
 	}
 
-	full := eng.measureTextFace(transformInlineText(text, cstate.TextTransform), cstate) +
+	full := eng.measureTextFace(transformInlineText(text, cstate.inlineText().TextTransform), cstate) +
 		inlineMeasurementChromeWidth(eng, cstate)
 	m.lineW += full
 	m.noteWord(eng.minContentWidth(text, cstate, full))
@@ -315,7 +315,7 @@ func inlineMeasurementChromeWidth(eng *engine, style *ResolvedStyle) float64 {
 	}
 
 	return eng.scalePt(style.PaddingLeft) + eng.scalePt(style.PaddingRight) +
-		eng.scalePt(style.BorderLeft.Width) + eng.scalePt(style.BorderRight.Width)
+		eng.scalePt(style.borders().BorderLeft.Width) + eng.scalePt(style.borders().BorderRight.Width)
 }
 
 // noteWord records a token's min-content width.
@@ -335,7 +335,7 @@ func (m *cellMeasure) measureElement(nodeN *html.Node, childCS *ResolvedStyle, n
 	// replaces the descendant-derived intrinsic width with contain-intrinsic
 	// inline size (else 0) plus box chrome, exactly like the measureCellMinMax
 	// root guard. Descendant content must not contribute.
-	if containsSize(childCS) || childCS.ContentVisibility == contentVisibilityHidden {
+	if containsSize(childCS) || childCS.containment().ContentVisibility == contentVisibilityHidden {
 		m.measureSizeContained(childCS)
 
 		return
@@ -423,7 +423,7 @@ func (m *cellMeasure) measureSizeContained(style *ResolvedStyle) {
 	}
 
 	chrome := m.engine.scalePt(style.PaddingLeft) + m.engine.scalePt(style.PaddingRight) +
-		m.engine.scalePt(style.BorderLeft.Width) + m.engine.scalePt(style.BorderRight.Width)
+		m.engine.scalePt(style.borders().BorderLeft.Width) + m.engine.scalePt(style.borders().BorderRight.Width)
 	if style.Display == cssDisplayInline {
 		chrome = 0
 	}
@@ -447,9 +447,9 @@ func (m *cellMeasure) measureSizeContained(style *ResolvedStyle) {
 
 func specifiedInlineBlockOuterWidth(eng *engine, style *ResolvedStyle) float64 {
 	width := eng.scalePt(style.Width)
-	if style.BoxSizing != borderBox {
+	if style.geometry().BoxSizing != borderBox {
 		width += eng.scalePt(style.PaddingLeft) + eng.scalePt(style.PaddingRight) +
-			eng.scalePt(style.BorderLeft.Width) + eng.scalePt(style.BorderRight.Width)
+			eng.scalePt(style.borders().BorderLeft.Width) + eng.scalePt(style.borders().BorderRight.Width)
 	}
 
 	return width + eng.scalePt(style.MarginLeft) + eng.scalePt(style.MarginRight)
@@ -459,7 +459,7 @@ func specifiedInlineBlockOuterWidth(eng *engine, style *ResolvedStyle) float64 {
 // specified width, the contribution measureElement records for that arm.
 func specifiedBlockOuterWidth(eng *engine, style *ResolvedStyle) float64 {
 	width := eng.scalePt(style.Width)
-	if style.BoxSizing != borderBox {
+	if style.geometry().BoxSizing != borderBox {
 		width += style.horizontalChrome(eng)
 	}
 
@@ -476,7 +476,7 @@ func countedBySpecifiedBlockMeasure(node *html.Node, style *ResolvedStyle) bool 
 		return false
 	}
 
-	if containsSize(style) || style.ContentVisibility == contentVisibilityHidden {
+	if containsSize(style) || style.containment().ContentVisibility == contentVisibilityHidden {
 		return false
 	}
 
@@ -555,16 +555,16 @@ func wordBreakOf(sty *ResolvedStyle) wordBreakPolicy {
 
 	// line-break:anywhere allows breaks between any typographic units, same
 	// practical effect as overflow-wrap:anywhere for our line breaker.
-	if sty.WordBreak == "break-all" || sty.OverflowWrap == overflowWrapAnywhere ||
-		sty.LineBreak == overflowWrapAnywhere {
+	if sty.inlineText().WordBreak == "break-all" || sty.inlineText().OverflowWrap == overflowWrapAnywhere ||
+		sty.inlineText().LineBreak == overflowWrapAnywhere {
 		return breakAll
 	}
 
-	if sty.WordBreak == "keep-all" {
+	if sty.inlineText().WordBreak == "keep-all" {
 		return breakKeepAll
 	}
 
-	if sty.OverflowWrap == overflowWrapBreakWord {
+	if sty.inlineText().OverflowWrap == overflowWrapBreakWord {
 		return breakWord
 	}
 
@@ -802,7 +802,7 @@ func (e *engine) measureImageWidth(n *html.Node, st ResolvedStyle) float64 {
 		return 0
 	}
 
-	return e.usedImageSize(n, st, e.resolveImageWith(n.Attribute("src"), st.LinkParameters)).w
+	return e.usedImageSize(n, st, e.resolveImageWith(n.Attribute("src"), st.content().LinkParameters)).w
 }
 
 // measureLargestImageWidth walks n for the widest descendant <img>.
@@ -841,7 +841,7 @@ func (e *engine) layoutCell(n *html.Node, sty ResolvedStyle, width float64) floa
 	}
 
 	_, contentW := e.contentBox(0, width, &sty)
-	curY := e.scalePt(sty.PaddingTop) + e.scalePt(sty.BorderTop.Width)
+	curY := e.scalePt(sty.PaddingTop) + e.scalePt(sty.borders().BorderTop.Width)
 	enclose := e.pushBFCFloats(sty, 0, contentW)
 	curY = e.flowChildren(nil, n.Children, sty, contentW, 0, 0, curY)
 
