@@ -102,7 +102,7 @@ func maskGroupRequested(style *ResolvedStyle) bool {
 		return false
 	}
 
-	return maskImageEnabled(style.MaskImage) || maskBorderEnabled(style.MaskBorderSource)
+	return maskImageEnabled(style.effects().MaskImage) || maskBorderEnabled(style.effects().MaskBorderSource)
 }
 
 // attachMaskDescriptors records the element's mask and mask-border frames on
@@ -112,11 +112,11 @@ func (e *engine) attachMaskDescriptors(group *BlendGroup, style *ResolvedStyle) 
 		return
 	}
 
-	if maskImageEnabled(style.MaskImage) {
+	if maskImageEnabled(style.effects().MaskImage) {
 		group.Mask = e.maskDescriptor(*style)
 	}
 
-	if maskBorderEnabled(style.MaskBorderSource) {
+	if maskBorderEnabled(style.effects().MaskBorderSource) {
 		group.MaskBorder = e.maskBorderDescriptor(style)
 	}
 }
@@ -125,14 +125,14 @@ func (e *engine) attachMaskDescriptors(group *BlendGroup, style *ResolvedStyle) 
 // recorded on the group. It borrows the slice, thickness, and outset
 // arithmetic from border_image.go and appends no operations.
 func (e *engine) maskBorderDescriptor(style *ResolvedStyle) *MaskBorder {
-	source := maskBorderUsedSource(style.MaskBorderSource)
-	mode := maskBorderUsedMode(style.MaskBorderMode)
+	source := maskBorderUsedSource(style.effects().MaskBorderSource)
+	mode := maskBorderUsedMode(style.effects().MaskBorderMode)
 	layer := e.resolveMaskLayer(MaskLayer{ //nolint:exhaustruct // only the source and mode are read
 		Source: source,
 		Mode:   mode,
 	}, "")
 	thick := borderImageThickness(
-		parseBorderImageDimensionFour(style.MaskBorderWidth, style.FontSize),
+		parseBorderImageDimensionFour(style.effects().MaskBorderWidth, style.FontSize),
 		borderWidthsOf(style),
 	)
 
@@ -141,13 +141,13 @@ func (e *engine) maskBorderDescriptor(style *ResolvedStyle) *MaskBorder {
 		ImageBytes:  layer.ImageBytes,
 		PixelWidth:  layer.PixelWidth,
 		PixelHeight: layer.PixelHeight,
-		Repeat:      maskBorderUsedRepeat(style.MaskBorderRepeat),
+		Repeat:      maskBorderUsedRepeat(style.effects().MaskBorderRepeat),
 		Mode:        mode,
 		Width:       thick,
 	}
-	descriptor.Slice, descriptor.SliceFill = maskBorderUsedSlice(style.MaskBorderSlice, layer)
+	descriptor.Slice, descriptor.SliceFill = maskBorderUsedSlice(style.effects().MaskBorderSlice, layer)
 	descriptor.Outset = borderImageOutset(
-		parseBorderImageDimensionFour(style.MaskBorderOutset, style.FontSize),
+		parseBorderImageDimensionFour(style.effects().MaskBorderOutset, style.FontSize),
 		thick,
 	)
 
@@ -261,8 +261,6 @@ func applyMaskBorderProps(
 }
 
 func maskBorderStylePropertyFor(style, parent *ResolvedStyle, prop string) (maskStyleProperty, bool) {
-	field := maskBorderStyleField(style, prop)
-
 	initial, ok := maskBorderStyleInitial(prop)
 	if !ok {
 		return maskStyleProperty{field: nil, parentField: nil, initial: "", lower: false}, false
@@ -270,18 +268,18 @@ func maskBorderStylePropertyFor(style, parent *ResolvedStyle, prop string) (mask
 
 	var parentField *string
 	if parent != nil {
-		parentField = maskBorderStyleField(parent, prop)
+		parentField = maskBorderStyleField(parent.effects(), prop)
 	}
 
 	return maskStyleProperty{
-		field:       field,
+		field:       maskBorderStyleField(style.editEffects(), prop),
 		parentField: parentField,
 		initial:     initial,
 		lower:       maskBorderStyleLowercase(prop),
 	}, true
 }
 
-func maskBorderStyleField(style *ResolvedStyle, prop string) *string {
+func maskBorderStyleField(style *styleEffects, prop string) *string {
 	switch prop {
 	case maskBorderSourceProperty:
 		return &style.MaskBorderSource

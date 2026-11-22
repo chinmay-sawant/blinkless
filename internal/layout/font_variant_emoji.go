@@ -100,11 +100,11 @@ func fontVariantEmojiFill(sty *ResolvedStyle, text string) (float64, float64, fl
 		return 0, 0, 0, false
 	}
 
-	if sty.FontVariantEmoji == fontVariantTextKW {
+	if sty.font().FontVariantEmoji == fontVariantTextKW {
 		return 0, 0, 0, false
 	}
 
-	variant := sty.FontVariantEmoji
+	variant := sty.font().FontVariantEmoji
 	hasEmoji := false
 
 	for _, r := range text {
@@ -135,7 +135,7 @@ func emojiAdvanceActive(sty *ResolvedStyle) bool {
 		return false
 	}
 
-	return sty.FontVariantEmoji != fontVariantTextKW
+	return sty.font().FontVariantEmoji != fontVariantTextKW
 }
 
 // emojiRunState is the per-run hoisted form of the emoji presentation
@@ -153,7 +153,7 @@ func emojiRunFor(sty *ResolvedStyle, size float64) emojiRunState {
 	}
 
 	return emojiRunState{
-		variant: sty.FontVariantEmoji,
+		variant: sty.font().FontVariantEmoji,
 		size:    size,
 		active:  emojiAdvanceActive(sty),
 	}

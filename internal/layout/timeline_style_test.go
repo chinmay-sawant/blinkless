@@ -206,36 +206,36 @@ func viewTimelineStyleCases() []timelineStyleCase {
 func assertTimelineStyle(t *testing.T, style *ResolvedStyle, want timelineStyleCase) {
 	t.Helper()
 
-	if style.ScrollTimelineName != want.scrollName {
-		t.Errorf("ScrollTimelineName = %q, want %q", style.ScrollTimelineName, want.scrollName)
+	if style.motion().ScrollTimelineName != want.scrollName {
+		t.Errorf("ScrollTimelineName = %q, want %q", style.motion().ScrollTimelineName, want.scrollName)
 	}
 
-	if style.ScrollTimelineAxis != want.scrollAxis {
-		t.Errorf("ScrollTimelineAxis = %q, want %q", style.ScrollTimelineAxis, want.scrollAxis)
+	if style.motion().ScrollTimelineAxis != want.scrollAxis {
+		t.Errorf("ScrollTimelineAxis = %q, want %q", style.motion().ScrollTimelineAxis, want.scrollAxis)
 	}
 
-	if style.ViewTimelineName != want.viewName {
-		t.Errorf("ViewTimelineName = %q, want %q", style.ViewTimelineName, want.viewName)
+	if style.motion().ViewTimelineName != want.viewName {
+		t.Errorf("ViewTimelineName = %q, want %q", style.motion().ViewTimelineName, want.viewName)
 	}
 
-	if style.ViewTimelineAxis != want.viewAxis {
-		t.Errorf("ViewTimelineAxis = %q, want %q", style.ViewTimelineAxis, want.viewAxis)
+	if style.motion().ViewTimelineAxis != want.viewAxis {
+		t.Errorf("ViewTimelineAxis = %q, want %q", style.motion().ViewTimelineAxis, want.viewAxis)
 	}
 
-	if !near(style.ViewTimelineInsetStart, want.insetStart) {
-		t.Errorf("ViewTimelineInsetStart = %v, want %v", style.ViewTimelineInsetStart, want.insetStart)
+	if !near(style.motion().ViewTimelineInsetStart, want.insetStart) {
+		t.Errorf("ViewTimelineInsetStart = %v, want %v", style.motion().ViewTimelineInsetStart, want.insetStart)
 	}
 
-	if !near(style.ViewTimelineInsetEnd, want.insetEnd) {
-		t.Errorf("ViewTimelineInsetEnd = %v, want %v", style.ViewTimelineInsetEnd, want.insetEnd)
+	if !near(style.motion().ViewTimelineInsetEnd, want.insetEnd) {
+		t.Errorf("ViewTimelineInsetEnd = %v, want %v", style.motion().ViewTimelineInsetEnd, want.insetEnd)
 	}
 
-	if style.ViewTimelineInsetStartSet != want.insetStartSet {
-		t.Errorf("ViewTimelineInsetStartSet = %t, want %t", style.ViewTimelineInsetStartSet, want.insetStartSet)
+	if style.motion().ViewTimelineInsetStartSet != want.insetStartSet {
+		t.Errorf("ViewTimelineInsetStartSet = %t, want %t", style.motion().ViewTimelineInsetStartSet, want.insetStartSet)
 	}
 
-	if style.ViewTimelineInsetEndSet != want.insetEndSet {
-		t.Errorf("ViewTimelineInsetEndSet = %t, want %t", style.ViewTimelineInsetEndSet, want.insetEndSet)
+	if style.motion().ViewTimelineInsetEndSet != want.insetEndSet {
+		t.Errorf("ViewTimelineInsetEndSet = %t, want %t", style.motion().ViewTimelineInsetEndSet, want.insetEndSet)
 	}
 }
 
@@ -325,21 +325,21 @@ func TestTimelineNamesNotInherited(t *testing.T) {
 func assertTimelineNotInherited(t *testing.T, child *ResolvedStyle) {
 	t.Helper()
 
-	if child.ScrollTimelineName != "" || child.ViewTimelineName != "" {
-		t.Fatalf("child names = (%q, %q), want empty", child.ScrollTimelineName, child.ViewTimelineName)
+	if child.motion().ScrollTimelineName != "" || child.motion().ViewTimelineName != "" {
+		t.Fatalf("child names = (%q, %q), want empty", child.motion().ScrollTimelineName, child.motion().ViewTimelineName)
 	}
 
-	if child.ScrollTimelineAxis != timelineAxisBlock || child.ViewTimelineAxis != timelineAxisBlock {
+	if child.motion().ScrollTimelineAxis != timelineAxisBlock || child.motion().ViewTimelineAxis != timelineAxisBlock {
 		t.Fatalf(
 			"child axes = (%q, %q), want the block initial",
-			child.ScrollTimelineAxis, child.ViewTimelineAxis,
+			child.motion().ScrollTimelineAxis, child.motion().ViewTimelineAxis,
 		)
 	}
 
-	if child.ViewTimelineInsetStartSet || child.ViewTimelineInsetEndSet {
+	if child.motion().ViewTimelineInsetStartSet || child.motion().ViewTimelineInsetEndSet {
 		t.Fatalf(
 			"child inset flags = (%t, %t), want false",
-			child.ViewTimelineInsetStartSet, child.ViewTimelineInsetEndSet,
+			child.motion().ViewTimelineInsetStartSet, child.motion().ViewTimelineInsetEndSet,
 		)
 	}
 }
@@ -349,25 +349,25 @@ func assertTimelineNotInherited(t *testing.T, child *ResolvedStyle) {
 func assertTimelineInherited(t *testing.T, inherit *ResolvedStyle) {
 	t.Helper()
 
-	if inherit.ScrollTimelineName != "--page" || inherit.ViewTimelineName != "--card" {
+	if inherit.motion().ScrollTimelineName != "--page" || inherit.motion().ViewTimelineName != "--card" {
 		t.Fatalf(
 			"inherit names = (%q, %q), want (--page, --card)",
-			inherit.ScrollTimelineName, inherit.ViewTimelineName,
+			inherit.motion().ScrollTimelineName, inherit.motion().ViewTimelineName,
 		)
 	}
 
-	if inherit.ScrollTimelineAxis != timelineAxisY ||
-		inherit.ViewTimelineAxis != timelineAxisBlock {
+	if inherit.motion().ScrollTimelineAxis != timelineAxisY ||
+		inherit.motion().ViewTimelineAxis != timelineAxisBlock {
 		t.Fatalf(
 			"inherit axes = (%q, %q), want (y, block)",
-			inherit.ScrollTimelineAxis, inherit.ViewTimelineAxis,
+			inherit.motion().ScrollTimelineAxis, inherit.motion().ViewTimelineAxis,
 		)
 	}
 
-	if !near(inherit.ViewTimelineInsetStart, pxToPt(10)) || !inherit.ViewTimelineInsetStartSet {
+	if !near(inherit.motion().ViewTimelineInsetStart, pxToPt(10)) || !inherit.motion().ViewTimelineInsetStartSet {
 		t.Fatalf(
 			"inherit inset start = (%v, %t), want (%v, true)",
-			inherit.ViewTimelineInsetStart, inherit.ViewTimelineInsetStartSet, pxToPt(10),
+			inherit.motion().ViewTimelineInsetStart, inherit.motion().ViewTimelineInsetStartSet, pxToPt(10),
 		)
 	}
 }
@@ -501,20 +501,20 @@ func viewTimelineInsetCases() []viewTimelineInsetCase {
 func assertViewTimelineInset(t *testing.T, style *ResolvedStyle, test viewTimelineInsetCase) {
 	t.Helper()
 
-	if !near(style.ViewTimelineInsetStart, test.insetStart) {
-		t.Fatalf("inset start = %v, want %v", style.ViewTimelineInsetStart, test.insetStart)
+	if !near(style.motion().ViewTimelineInsetStart, test.insetStart) {
+		t.Fatalf("inset start = %v, want %v", style.motion().ViewTimelineInsetStart, test.insetStart)
 	}
 
-	if !near(style.ViewTimelineInsetEnd, test.insetEnd) {
-		t.Fatalf("inset end = %v, want %v", style.ViewTimelineInsetEnd, test.insetEnd)
+	if !near(style.motion().ViewTimelineInsetEnd, test.insetEnd) {
+		t.Fatalf("inset end = %v, want %v", style.motion().ViewTimelineInsetEnd, test.insetEnd)
 	}
 
-	if style.ViewTimelineInsetStartSet != test.insetStartSet {
-		t.Fatalf("inset start set = %t, want %t", style.ViewTimelineInsetStartSet, test.insetStartSet)
+	if style.motion().ViewTimelineInsetStartSet != test.insetStartSet {
+		t.Fatalf("inset start set = %t, want %t", style.motion().ViewTimelineInsetStartSet, test.insetStartSet)
 	}
 
-	if style.ViewTimelineInsetEndSet != test.insetEndSet {
-		t.Fatalf("inset end set = %t, want %t", style.ViewTimelineInsetEndSet, test.insetEndSet)
+	if style.motion().ViewTimelineInsetEndSet != test.insetEndSet {
+		t.Fatalf("inset end set = %t, want %t", style.motion().ViewTimelineInsetEndSet, test.insetEndSet)
 	}
 }
 

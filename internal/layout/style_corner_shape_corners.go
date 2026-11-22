@@ -45,15 +45,16 @@ func applyCornerSingleShorthand(style *ResolvedStyle, prop, value string, fsize 
 		return false
 	}
 
-	destX, destY, ok := borderRadiusFields(style, corner)
+	borders := style.editBorders()
+	destX, destY, ok := borderRadiusFields(borders, corner)
 	if !ok {
 		return false
 	}
 
 	if hasRadius {
-		setCornerRadius(style, destX, destY, radiusText, fsize)
+		setCornerRadius(borders, destX, destY, radiusText, fsize)
 	} else {
-		setCornerRadius(style, destX, destY, "0", fsize)
+		setCornerRadius(borders, destX, destY, "0", fsize)
 	}
 
 	if hasShape {
@@ -67,7 +68,7 @@ func applyCornerSingleShorthand(style *ResolvedStyle, prop, value string, fsize 
 
 // cornerSingleTarget maps a shorthand name onto its physical corner.
 // Logical rows resolve through the same fixed left-to-right map as
-// logicalRadiusCorner: start-start is top-left, start-end is top-right,
+// applyLogicalRadiusLonghand: start-start is top-left, start-end is top-right,
 // end-start is bottom-left, end-end is bottom-right.
 func cornerSingleTarget(prop string) (string, bool) {
 	switch prop {

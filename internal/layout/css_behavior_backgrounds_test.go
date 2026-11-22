@@ -514,12 +514,12 @@ func TestBehaviorBackgroundTbdKeepsColor(t *testing.T) {
 	}
 
 	box := boxByID(t, good, "item")
-	if got := box.style.BackgroundAttachment; got != "fixed" {
+	if got := box.style.background().BackgroundAttachment; got != "fixed" {
 		t.Errorf("attachment = %q, want fixed", got)
 	}
 
 	bad := run("url(fail.png) red")
-	if got := boxByID(t, bad, "item").style.BackgroundImage; got != "old.png" {
+	if got := boxByID(t, bad, "item").style.background().BackgroundImage; got != "old.png" {
 		t.Errorf("image after a colored background-tbd = %q, want old.png", got)
 	}
 }

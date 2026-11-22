@@ -69,8 +69,8 @@ func (e *engine) paintTextInputWidget(
 	}
 
 	contentX, contentW := e.contentBox(leftX, width, &style)
-	contentY := topY + e.scalePt(style.BorderTop.Width) + e.scalePt(style.PaddingTop)
-	contentH := height - e.scalePt(style.BorderTop.Width+style.BorderBottom.Width) -
+	contentY := topY + e.scalePt(style.borders().BorderTop.Width) + e.scalePt(style.PaddingTop)
+	contentH := height - e.scalePt(style.borders().BorderTop.Width+style.borders().BorderBottom.Width) -
 		e.scalePt(style.PaddingTop+style.PaddingBottom)
 
 	if contentH < 0 {

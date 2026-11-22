@@ -91,15 +91,15 @@ func (e *engine) objectFitPaintForImage(
 	ref *imageRef, data []byte, isJPEG bool, sty ResolvedStyle,
 	boxX, boxY, boxW, boxH, clipX, clipY, clipW, clipH float64,
 ) ([]byte, bool, int, int, float64, float64, float64, float64) {
-	if sty.Filter != "" {
-		filters := parseFilterList(sty.Filter, sty.Color, sty.FontSize)
-		data = applyImageFilterToImageWithInterp(data, filters, sty.ColorInterpolationFilters)
+	if sty.effects().Filter != "" {
+		filters := parseFilterList(sty.effects().Filter, sty.Color, sty.FontSize)
+		data = applyImageFilterToImageWithInterp(data, filters, sty.svg().ColorInterpolationFilters)
 		isJPEG = false
 	}
 
 	intrinsicW, intrinsicH := replacedIntrinsicPt(e, sty, ref)
 	fitX, fitY, fitW, fitH, clip := objectFitPaintRect(
-		sty.ObjectFit, sty.ObjectPositionX, sty.ObjectPositionY,
+		sty.images().ObjectFit, sty.images().ObjectPositionX, sty.images().ObjectPositionY,
 		boxX, boxY, boxW, boxH, intrinsicW, intrinsicH,
 	)
 	pixW, pixH := ref.w, ref.h

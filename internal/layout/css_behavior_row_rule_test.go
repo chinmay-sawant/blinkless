@@ -264,7 +264,7 @@ func TestBehaviorRowRuleBreakNoneStillPaints(t *testing.T) {
 		t.Fatal("row-rule-break:none painted no line")
 	}
 
-	if got := boxByID(t, res, "g").style.RowRuleBreak; got != "none" {
+	if got := boxByID(t, res, "g").style.columns().RowRuleBreak; got != "none" {
 		t.Fatalf("RowRuleBreak = %q, want none", got)
 	}
 }
@@ -318,9 +318,9 @@ func TestBehaviorRuleLonghandsBothAxes(t *testing.T) {
 	}
 
 	sty := boxByID(t, res, "g").style
-	if !near(sty.ColumnRuleWidth, pxToPt(6)) || sty.ColumnRuleStyle != solidKeyword || !sty.ColumnRuleColorSet {
+	if !near(sty.columns().ColumnRuleWidth, pxToPt(6)) || sty.columns().ColumnRuleStyle != solidKeyword || !sty.columns().ColumnRuleColorSet {
 		t.Fatalf("column rule from rule longhands width %.3f style %q set %v",
-			sty.ColumnRuleWidth, sty.ColumnRuleStyle, sty.ColumnRuleColorSet)
+			sty.columns().ColumnRuleWidth, sty.columns().ColumnRuleStyle, sty.columns().ColumnRuleColorSet)
 	}
 }
 

@@ -24,7 +24,7 @@ func TestBreakInsideAvoidBalancedStraddleGap(t *testing.T) {
 
 	assertBreakInsidePushedToColumn2(t, avoid)
 
-	if got := boxByID(t, avoid, "k2").style.PageBreakInside; got != avoidKeyword {
+	if got := boxByID(t, avoid, "k2").style.fragmentation().PageBreakInside; got != avoidKeyword {
 		t.Fatalf("break-inside:avoid used = %q, want avoid", got)
 	}
 
@@ -52,8 +52,8 @@ func TestBehaviorBreakInsideAvoidColumnPushesStraddle(t *testing.T) {
 	assertBreakInsideOpsDiffer(t, plain, column)
 
 	k2 := boxByID(t, column, "k2")
-	if k2.style.PageBreakInside != avoidColumnValue {
-		t.Fatalf("PageBreakInside = %q, want avoid-column", k2.style.PageBreakInside)
+	if k2.style.fragmentation().PageBreakInside != avoidColumnValue {
+		t.Fatalf("PageBreakInside = %q, want avoid-column", k2.style.fragmentation().PageBreakInside)
 	}
 
 	if _, keep := PageBreaks(column, 0); len(keep) != 0 {
@@ -68,23 +68,23 @@ func TestBehaviorBreakInsideAvoidColumnPushesStraddle(t *testing.T) {
 		`<div id="cleared" style="break-inside:avoid;break-inside:auto"></div>`+
 		`</body></html>`)
 
-	if got := boxByID(t, stored, "kept").style.PageBreakInside; got != avoidKeyword {
+	if got := boxByID(t, stored, "kept").style.fragmentation().PageBreakInside; got != avoidKeyword {
 		t.Fatalf("bad token replaced avoid with %q", got)
 	}
 
-	if got := boxByID(t, stored, "region").style.PageBreakInside; got != "" {
+	if got := boxByID(t, stored, "region").style.fragmentation().PageBreakInside; got != "" {
 		t.Fatalf("avoid-region stored %q, want empty", got)
 	}
 
-	if got := boxByID(t, stored, "regionAfter").style.PageBreakInside; got != avoidKeyword {
+	if got := boxByID(t, stored, "regionAfter").style.fragmentation().PageBreakInside; got != avoidKeyword {
 		t.Fatalf("avoid-region replaced avoid with %q", got)
 	}
 
-	if got := boxByID(t, stored, "page").style.PageBreakInside; got != avoidKeyword {
+	if got := boxByID(t, stored, "page").style.fragmentation().PageBreakInside; got != avoidKeyword {
 		t.Fatalf("avoid-page stored %q, want avoid", got)
 	}
 
-	if got := boxByID(t, stored, "cleared").style.PageBreakInside; got != "" {
+	if got := boxByID(t, stored, "cleared").style.fragmentation().PageBreakInside; got != "" {
 		t.Fatalf("auto stored %q, want empty", got)
 	}
 
@@ -97,16 +97,16 @@ func TestBehaviorBreakInsideAvoidColumnPushesStraddle(t *testing.T) {
 		t.Fatal("bad token was accepted")
 	}
 
-	if direct.PageBreakInside != avoidKeyword {
-		t.Fatalf("apply bad token left %q, want avoid", direct.PageBreakInside)
+	if direct.fragmentation().PageBreakInside != avoidKeyword {
+		t.Fatalf("apply bad token left %q, want avoid", direct.fragmentation().PageBreakInside)
 	}
 
 	if applyBreakInsideProps(&direct, "avoid-region") {
 		t.Fatal("avoid-region was accepted")
 	}
 
-	if direct.PageBreakInside != avoidKeyword {
-		t.Fatalf("apply avoid-region left %q, want avoid", direct.PageBreakInside)
+	if direct.fragmentation().PageBreakInside != avoidKeyword {
+		t.Fatalf("apply avoid-region left %q, want avoid", direct.fragmentation().PageBreakInside)
 	}
 }
 

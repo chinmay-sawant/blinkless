@@ -58,8 +58,8 @@ func walkPerspective(rootBox, seed *box) {
 			return
 		}
 
-		if boxNode.style != nil && boxNode.style.HasTransform3D && ancestor != nil {
-			boxNode.perspDist = ancestor.style.PerspectiveDist
+		if boxNode.style != nil && boxNode.style.effects().HasTransform3D && ancestor != nil {
+			boxNode.perspDist = ancestor.style.effects().PerspectiveDist
 			boxNode.hasPerspDist = true
 
 			centerX, centerY := perspectiveCenter(ancestor)
@@ -67,7 +67,7 @@ func walkPerspective(rootBox, seed *box) {
 		}
 
 		nextAncestor := ancestor
-		if boxNode.style != nil && boxNode.style.HasPerspective {
+		if boxNode.style != nil && boxNode.style.effects().HasPerspective {
 			nextAncestor = boxNode
 		}
 

@@ -31,15 +31,15 @@ func applyBorderImageProps(style *ResolvedStyle, prop, value string) bool {
 	case "border-image":
 		parseBorderImageShorthand(style, value)
 	case "border-image-source":
-		style.BorderImageSource = strings.TrimSpace(value)
+		style.editBorders().BorderImageSource = strings.TrimSpace(value)
 	case "border-image-slice":
-		style.BorderImageSlice = strings.TrimSpace(value)
+		style.editBorders().BorderImageSlice = strings.TrimSpace(value)
 	case "border-image-width":
-		style.BorderImageWidth = strings.TrimSpace(value)
+		style.editBorders().BorderImageWidth = strings.TrimSpace(value)
 	case "border-image-outset":
-		style.BorderImageOutset = strings.TrimSpace(value)
+		style.editBorders().BorderImageOutset = strings.TrimSpace(value)
 	case "border-image-repeat":
-		style.BorderImageRepeat = strings.TrimSpace(value)
+		style.editBorders().BorderImageRepeat = strings.TrimSpace(value)
 	default:
 		return false
 	}
@@ -70,36 +70,36 @@ const (
 
 func parseBorderImageShorthand(style *ResolvedStyle, value string) {
 	trimmed := strings.TrimSpace(value)
-	style.BorderImageSource = ""
-	style.BorderImageSlice = ""
-	style.BorderImageWidth = ""
-	style.BorderImageOutset = ""
-	style.BorderImageRepeat = ""
+	style.editBorders().BorderImageSource = ""
+	style.editBorders().BorderImageSlice = ""
+	style.editBorders().BorderImageWidth = ""
+	style.editBorders().BorderImageOutset = ""
+	style.editBorders().BorderImageRepeat = ""
 
 	if trimmed == "" || strings.EqualFold(trimmed, "none") {
 		return
 	}
 
 	source, nonURL := borderImageSourceAndRemainder(trimmed)
-	style.BorderImageSource = source
+	style.editBorders().BorderImageSource = source
 
 	normalized := strings.ReplaceAll(nonURL, "/", " / ")
 	cleanedSections, repeatTokens := splitBorderImageSections(normalized)
 
 	if len(cleanedSections) > borderImageSliceSection {
-		style.BorderImageSlice = strings.TrimSpace(cleanedSections[borderImageSliceSection])
+		style.editBorders().BorderImageSlice = strings.TrimSpace(cleanedSections[borderImageSliceSection])
 	}
 
 	if len(cleanedSections) > borderImageWidthSection {
-		style.BorderImageWidth = strings.TrimSpace(cleanedSections[borderImageWidthSection])
+		style.editBorders().BorderImageWidth = strings.TrimSpace(cleanedSections[borderImageWidthSection])
 	}
 
 	if len(cleanedSections) > borderImageOutsetSection {
-		style.BorderImageOutset = strings.TrimSpace(cleanedSections[borderImageOutsetSection])
+		style.editBorders().BorderImageOutset = strings.TrimSpace(cleanedSections[borderImageOutsetSection])
 	}
 
 	if len(repeatTokens) > 0 {
-		style.BorderImageRepeat = strings.Join(repeatTokens, " ")
+		style.editBorders().BorderImageRepeat = strings.Join(repeatTokens, " ")
 	}
 }
 
@@ -200,14 +200,14 @@ type borderImageDimension struct {
 func (e *engine) appendBorderImage(
 	dst []Op, sty *ResolvedStyle, posX, posY, width, height float64,
 ) []Op {
-	if sty == nil || sty.BorderImageSource == "" || width <= 0 || height <= 0 {
+	if sty == nil || sty.borders().BorderImageSource == "" || width <= 0 || height <= 0 {
 		return dst
 	}
 
-	src := backgroundImageSrc(sty.BorderImageSource)
+	src := backgroundImageSrc(sty.borders().BorderImageSource)
 
 	if src == "" {
-		src = sty.BorderImageSource
+		src = sty.borders().BorderImageSource
 	}
 
 	ref := e.resolveImage(src)
@@ -216,10 +216,10 @@ func (e *engine) appendBorderImage(
 		return dst
 	}
 
-	outsetSpec := parseBorderImageDimensionFour(sty.BorderImageOutset, sty.FontSize)
-	widthSpec := parseBorderImageDimensionFour(sty.BorderImageWidth, sty.FontSize)
-	sliceFracs, hasSlice, hasFill := parseBorderImageSliceFracs(sty.BorderImageSlice, ref.w, ref.h)
-	repeat := strings.ToLower(strings.TrimSpace(sty.BorderImageRepeat))
+	outsetSpec := parseBorderImageDimensionFour(sty.borders().BorderImageOutset, sty.FontSize)
+	widthSpec := parseBorderImageDimensionFour(sty.borders().BorderImageWidth, sty.FontSize)
+	sliceFracs, hasSlice, hasFill := parseBorderImageSliceFracs(sty.borders().BorderImageSlice, ref.w, ref.h)
+	repeat := strings.ToLower(strings.TrimSpace(sty.borders().BorderImageRepeat))
 
 	thick := borderImageThickness(widthSpec, borderWidthsOf(sty))
 	outset := borderImageOutset(outsetSpec, thick)
@@ -242,8 +242,8 @@ func (e *engine) appendBorderImage(
 // bottom, left order.
 func borderWidthsOf(sty *ResolvedStyle) [4]float64 {
 	return [4]float64{
-		borderPaint(sty.BorderTop), borderPaint(sty.BorderRight),
-		borderPaint(sty.BorderBottom), borderPaint(sty.BorderLeft),
+		borderPaint(sty.borders().BorderTop), borderPaint(sty.borders().BorderRight),
+		borderPaint(sty.borders().BorderBottom), borderPaint(sty.borders().BorderLeft),
 	}
 }
 

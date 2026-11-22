@@ -90,15 +90,15 @@ func TestSharedTextWidthMissOnEachKeyComponent(t *testing.T) {
 			return baseText
 		}, scale: 1},
 		{name: "letter", apply: func(style *ResolvedStyle) string {
-			style.LetterSpacing = 1
+			style.editInlineText().LetterSpacing = 1
 			return baseText
 		}, scale: 1},
 		{name: "word", apply: func(style *ResolvedStyle) string {
-			style.WordSpacing = 1
+			style.editInlineText().WordSpacing = 1
 			return baseText
 		}, scale: 1},
 		{name: "tab", apply: func(style *ResolvedStyle) string {
-			style.TabSize = 4
+			style.editInlineText().TabSize = 4
 			return "a\tb-shared"
 		}, scale: 1},
 		{name: "tablen", apply: func(style *ResolvedStyle) string {
@@ -109,11 +109,11 @@ func TestSharedTextWidthMissOnEachKeyComponent(t *testing.T) {
 			return "a\tb-shared"
 		}, scale: 1},
 		{name: "autospace", apply: func(style *ResolvedStyle) string {
-			style.TextAutospace = "ideograph-alpha"
+			style.editInlineText().TextAutospace = "ideograph-alpha"
 			return baseText
 		}, scale: 1},
 		{name: "emoji", apply: func(style *ResolvedStyle) string {
-			style.FontVariantEmoji = "emoji"
+			style.editFont().FontVariantEmoji = "emoji"
 			return baseText
 		}, scale: 1},
 		{name: "weight", apply: func(style *ResolvedStyle) string {
@@ -125,11 +125,11 @@ func TestSharedTextWidthMissOnEachKeyComponent(t *testing.T) {
 			return baseText
 		}, scale: 1},
 		{name: "optical", apply: func(style *ResolvedStyle) string {
-			style.FontOpticalSizing = "none"
+			style.editFont().FontOpticalSizing = "none"
 			return baseText
 		}, scale: 1},
 		{name: "variations", apply: func(style *ResolvedStyle) string {
-			style.FontVariationSettings = `"wght" 700`
+			style.editFont().FontVariationSettings = `"wght" 700`
 			return baseText
 		}, scale: 1},
 		{name: "family", apply: func(style *ResolvedStyle) string {
@@ -262,8 +262,8 @@ func TestSharedTextWidthParityWithAndWithoutCache(t *testing.T) {
 	texts := []string{"parity label", "price 12.99", "a\tb", "Hello World"}
 	styles := []*ResolvedStyle{style}
 	wide := sharedTestStyleCopy(style)
-	wide.LetterSpacing = 1
-	wide.WordSpacing = 1
+	wide.editInlineText().LetterSpacing = 1
+	wide.editInlineText().WordSpacing = 1
 	styles = append(styles, wide)
 
 	for _, s := range styles {

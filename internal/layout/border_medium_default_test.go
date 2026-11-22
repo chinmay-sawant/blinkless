@@ -24,7 +24,7 @@ func TestBorderShorthandOmittedWidthUsesMedium(t *testing.T) {
 	sty := boxByID(t, res, "b").style
 	want := pxToPt(3)
 
-	for idx, side := range []border{sty.BorderTop, sty.BorderRight, sty.BorderBottom, sty.BorderLeft} {
+	for idx, side := range []border{sty.borders().BorderTop, sty.borders().BorderRight, sty.borders().BorderBottom, sty.borders().BorderLeft} {
 		if !near(side.Width, want) || !near(side.PaintWidth, want) {
 			t.Errorf("side %d width %.4f paint %.4f, want %.4f", idx, side.Width, side.PaintWidth, want)
 		}
@@ -34,8 +34,8 @@ func TestBorderShorthandOmittedWidthUsesMedium(t *testing.T) {
 		}
 	}
 
-	if sty.BorderTop.Color != [3]float64{1, 0, 0} {
-		t.Errorf("top color %v, want red", sty.BorderTop.Color)
+	if sty.borders().BorderTop.Color != [3]float64{1, 0, 0} {
+		t.Errorf("top color %v, want red", sty.borders().BorderTop.Color)
 	}
 }
 
@@ -72,15 +72,15 @@ func TestBorderSideShorthandsOmittedWidthUseMedium(t *testing.T) {
 	want := pxToPt(3)
 
 	top := boxByID(t, res, "top").style
-	checkBorderSide(t, "border-top", top.BorderTop, want, solidKeyword)
+	checkBorderSide(t, "border-top", top.borders().BorderTop, want, solidKeyword)
 
-	if top.BorderBottom.Width != 0 {
-		t.Errorf("border-top shorthand touched border-bottom: %.4f", top.BorderBottom.Width)
+	if top.borders().BorderBottom.Width != 0 {
+		t.Errorf("border-top shorthand touched border-bottom: %.4f", top.borders().BorderBottom.Width)
 	}
 
-	checkBorderSide(t, "border-right", boxByID(t, res, "right").style.BorderRight, want, borderStyleDashed)
-	checkBorderSide(t, "border-bottom", boxByID(t, res, "bottom").style.BorderBottom, want, borderStyleDotted)
-	checkBorderSide(t, "border-left", boxByID(t, res, "left").style.BorderLeft, want, solidKeyword)
+	checkBorderSide(t, "border-right", boxByID(t, res, "right").style.borders().BorderRight, want, borderStyleDashed)
+	checkBorderSide(t, "border-bottom", boxByID(t, res, "bottom").style.borders().BorderBottom, want, borderStyleDotted)
+	checkBorderSide(t, "border-left", boxByID(t, res, "left").style.borders().BorderLeft, want, solidKeyword)
 }
 
 // checkBorderSide asserts one side's layout width, paint width, and style.
@@ -121,9 +121,9 @@ func TestBorderShorthandKeywordWidthsMatchChrome(t *testing.T) {
 
 	for _, testCase := range testCases {
 		sty := boxByID(t, res, testCase.id).style
-		if !near(sty.BorderTop.Width, testCase.want) || !near(sty.BorderTop.PaintWidth, testCase.want) {
+		if !near(sty.borders().BorderTop.Width, testCase.want) || !near(sty.borders().BorderTop.PaintWidth, testCase.want) {
 			t.Errorf("%s width %.4f paint %.4f, want %.4f",
-				testCase.id, sty.BorderTop.Width, sty.BorderTop.PaintWidth, testCase.want)
+				testCase.id, sty.borders().BorderTop.Width, sty.borders().BorderTop.PaintWidth, testCase.want)
 		}
 	}
 }
@@ -141,21 +141,21 @@ func TestBorderShorthandExplicitWidthsStayExplicit(t *testing.T) {
 		`</body></html>`)
 
 	zero := boxByID(t, res, "zero").style
-	if zero.BorderTop.Width != 0 || zero.BorderTop.PaintWidth != 0 {
+	if zero.borders().BorderTop.Width != 0 || zero.borders().BorderTop.PaintWidth != 0 {
 		t.Errorf("border:0px = width %.4f paint %.4f, want 0",
-			zero.BorderTop.Width, zero.BorderTop.PaintWidth)
+			zero.borders().BorderTop.Width, zero.borders().BorderTop.PaintWidth)
 	}
 
 	two := boxByID(t, res, "two").style
-	if !near(two.BorderTop.Width, pxToPt(2)) || !near(two.BorderTop.PaintWidth, pxToPt(2)) {
+	if !near(two.borders().BorderTop.Width, pxToPt(2)) || !near(two.borders().BorderTop.PaintWidth, pxToPt(2)) {
 		t.Errorf("border:2px = width %.4f paint %.4f, want %.4f",
-			two.BorderTop.Width, two.BorderTop.PaintWidth, pxToPt(2))
+			two.borders().BorderTop.Width, two.borders().BorderTop.PaintWidth, pxToPt(2))
 	}
 
 	pt := boxByID(t, res, "pt").style
-	if !near(pt.BorderTop.Width, 1) || !near(pt.BorderTop.PaintWidth, 1) {
+	if !near(pt.borders().BorderTop.Width, 1) || !near(pt.borders().BorderTop.PaintWidth, 1) {
 		t.Errorf("border:1pt = width %.4f paint %.4f, want 1",
-			pt.BorderTop.Width, pt.BorderTop.PaintWidth)
+			pt.borders().BorderTop.Width, pt.borders().BorderTop.PaintWidth)
 	}
 }
 
@@ -183,9 +183,9 @@ func TestBorderWidthLonghandKeywordsMatchChrome(t *testing.T) {
 
 	for _, testCase := range testCases {
 		sty := boxByID(t, res, testCase.id).style
-		if !near(sty.BorderTop.Width, testCase.want) || !near(sty.BorderTop.PaintWidth, testCase.want) {
+		if !near(sty.borders().BorderTop.Width, testCase.want) || !near(sty.borders().BorderTop.PaintWidth, testCase.want) {
 			t.Errorf("%s width %.4f paint %.4f, want %.4f",
-				testCase.id, sty.BorderTop.Width, sty.BorderTop.PaintWidth, testCase.want)
+				testCase.id, sty.borders().BorderTop.Width, sty.borders().BorderTop.PaintWidth, testCase.want)
 		}
 	}
 }
@@ -196,7 +196,11 @@ func TestBorderWidthLonghandKeywordsMatchChrome(t *testing.T) {
 func TestOutlineOmittedWidthUsesMedium(t *testing.T) {
 	t.Parallel()
 
-	width, style := effectiveOutline(&ResolvedStyle{OutlineStyle: solidKeyword})
+	width, style := effectiveOutline(&ResolvedStyle{
+		bordersGroup: &styleBorders{
+			OutlineStyle: solidKeyword,
+		},
+	})
 	if style != solidKeyword {
 		t.Fatalf("outline style %q, want solid", style)
 	}

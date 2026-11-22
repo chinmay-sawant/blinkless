@@ -46,7 +46,7 @@ func TestOrphansKeepsLinesInFirstColumn(t *testing.T) {
 
 	frag := layoutHTML(t, doc(fmt.Sprintf("orphans:%d", want)))
 
-	if got := boxByID(t, frag, "mc").style.Orphans; got != want {
+	if got := boxByID(t, frag, "mc").style.fragmentation().Orphans; got != want {
 		t.Fatalf("orphans used = %d, want %d", got, want)
 	}
 

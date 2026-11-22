@@ -171,7 +171,7 @@ func (e *engine) lookupFlexStyleOverride(key flexStyleOverrideKey) (*ResolvedSty
 // row or logical-axis flex item: the main width forced to availW and, when
 // forceStretch, the cross height forced to targetCross. Repeated items that
 // share the interned base style and the same forced sizes share one override
-// instead of copying the 5872-byte record per item. The caller must not
+// instead of copying the record per item. The caller must not
 // mutate the returned style.
 func (e *engine) flexRowStyleOverride(
 	base *ResolvedStyle, stableBase bool, forceStretch bool, targetCross, availW float64,

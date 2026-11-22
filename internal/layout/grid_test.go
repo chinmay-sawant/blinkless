@@ -450,16 +450,16 @@ func TestParseGridRowSpan(t *testing.T) {
 	}
 
 	nodeA, nodeB, nodeC := nodes[0], nodes[1], nodes[2]
-	if styles[nodeA].GridRowSpan != 2 {
-		t.Fatalf("span 2: got %d", styles[nodeA].GridRowSpan)
+	if styles[nodeA].grid().GridRowSpan != 2 {
+		t.Fatalf("span 2: got %d", styles[nodeA].grid().GridRowSpan)
 	}
 
-	if styles[nodeB].GridRowStart != 2 || styles[nodeB].GridRowSpan != 3 {
-		t.Fatalf("2 / span 3: start=%d span=%d", styles[nodeB].GridRowStart, styles[nodeB].GridRowSpan)
+	if styles[nodeB].grid().GridRowStart != 2 || styles[nodeB].grid().GridRowSpan != 3 {
+		t.Fatalf("2 / span 3: start=%d span=%d", styles[nodeB].grid().GridRowStart, styles[nodeB].grid().GridRowSpan)
 	}
 
-	if styles[nodeC].GridRowStart != 3 {
-		t.Fatalf("row-start 3: got %d", styles[nodeC].GridRowStart)
+	if styles[nodeC].grid().GridRowStart != 3 {
+		t.Fatalf("row-start 3: got %d", styles[nodeC].grid().GridRowStart)
 	}
 }
 
@@ -525,22 +525,22 @@ func TestParseGridAreaAndAutoFlow(t *testing.T) {
 	}
 	collect(root)
 
-	if styles[nodes[0]].GridArea != "sidebar" {
-		t.Fatalf("named area: %q", styles[nodes[0]].GridArea)
+	if styles[nodes[0]].grid().GridArea != "sidebar" {
+		t.Fatalf("named area: %q", styles[nodes[0]].grid().GridArea)
 	}
 
 	l := styles[nodes[1]]
-	if l.GridRowStart != 1 || l.GridColumnStart != 2 || l.GridRowSpan != 2 || l.GridColumnSpan != 2 {
+	if l.grid().GridRowStart != 1 || l.grid().GridColumnStart != 2 || l.grid().GridRowSpan != 2 || l.grid().GridColumnSpan != 2 {
 		t.Fatalf("line area: row=%d col=%d rowSpan=%d colSpan=%d",
-			l.GridRowStart, l.GridColumnStart, l.GridRowSpan, l.GridColumnSpan)
+			l.grid().GridRowStart, l.grid().GridColumnStart, l.grid().GridRowSpan, l.grid().GridColumnSpan)
 	}
 
-	if styles[nodes[2]].GridAutoFlow != gridFlowDense {
-		t.Fatalf("dense: %q", styles[nodes[2]].GridAutoFlow)
+	if styles[nodes[2]].grid().GridAutoFlow != gridFlowDense {
+		t.Fatalf("dense: %q", styles[nodes[2]].grid().GridAutoFlow)
 	}
 
-	if styles[nodes[3]].GridAutoFlow != gridFlowColumnDense {
-		t.Fatalf("column dense: %q", styles[nodes[3]].GridAutoFlow)
+	if styles[nodes[3]].grid().GridAutoFlow != gridFlowColumnDense {
+		t.Fatalf("column dense: %q", styles[nodes[3]].grid().GridAutoFlow)
 	}
 
 	col, dense := gridAutoFlowMode(gridFlowRowDense)

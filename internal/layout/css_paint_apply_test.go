@@ -32,10 +32,10 @@ func TestCurrentColor(t *testing.T) {
 		t.Fatalf("inner Color = %v, want red inherited", inner.Color)
 	}
 
-	if inner.BorderTop.Color != red || inner.BorderRight.Color != red ||
-		inner.BorderBottom.Color != red || inner.BorderLeft.Color != red {
+	if inner.borders().BorderTop.Color != red || inner.borders().BorderRight.Color != red ||
+		inner.borders().BorderBottom.Color != red || inner.borders().BorderLeft.Color != red {
 		t.Fatalf("inner border-color currentColor = T%v R%v B%v L%v, want red",
-			inner.BorderTop.Color, inner.BorderRight.Color, inner.BorderBottom.Color, inner.BorderLeft.Color)
+			inner.borders().BorderTop.Color, inner.borders().BorderRight.Color, inner.borders().BorderBottom.Color, inner.borders().BorderLeft.Color)
 	}
 
 	own := styleByClass(t, styles, "own")
@@ -44,13 +44,13 @@ func TestCurrentColor(t *testing.T) {
 	}
 
 	outline := styleByClass(t, styles, "outline")
-	if outline.OutlineColor != red || !outline.OutlineColorSet {
-		t.Fatalf("outline-color currentColor = %v set=%v, want red", outline.OutlineColor, outline.OutlineColorSet)
+	if outline.borders().OutlineColor != red || !outline.borders().OutlineColorSet {
+		t.Fatalf("outline-color currentColor = %v set=%v, want red", outline.borders().OutlineColor, outline.borders().OutlineColorSet)
 	}
 
 	fold := styleByClass(t, styles, "fold")
-	if fold.BorderTop.Color != red {
-		t.Fatalf("border-top-color currentcolor = %v, want red", fold.BorderTop.Color)
+	if fold.borders().BorderTop.Color != red {
+		t.Fatalf("border-top-color currentcolor = %v, want red", fold.borders().BorderTop.Color)
 	}
 }
 
@@ -83,49 +83,49 @@ func TestOutlineParse(t *testing.T) {
 	`)}, "print", testViewport, 800)
 
 	sh := styleByClass(t, styles, "sh")
-	if !near(sh.OutlineWidth, 2) {
-		t.Fatalf("outline width = %.3f, want 2pt", sh.OutlineWidth)
+	if !near(sh.borders().OutlineWidth, 2) {
+		t.Fatalf("outline width = %.3f, want 2pt", sh.borders().OutlineWidth)
 	}
 
-	if sh.OutlineStyle != solidKeyword {
-		t.Fatalf("outline style = %q, want solid", sh.OutlineStyle)
+	if sh.borders().OutlineStyle != solidKeyword {
+		t.Fatalf("outline style = %q, want solid", sh.borders().OutlineStyle)
 	}
 
-	if sh.OutlineColor != ([3]float64{1, 0, 0}) || !sh.OutlineColorSet {
-		t.Fatalf("outline color = %v set=%v, want red", sh.OutlineColor, sh.OutlineColorSet)
+	if sh.borders().OutlineColor != ([3]float64{1, 0, 0}) || !sh.borders().OutlineColorSet {
+		t.Fatalf("outline color = %v set=%v, want red", sh.borders().OutlineColor, sh.borders().OutlineColorSet)
 	}
 
-	if !near(styleByClass(t, styles, "width").OutlineWidth, borderWidth(mediumKeyword, 12)) {
-		t.Fatalf("outline-width:medium = %.3f, want medium", styleByClass(t, styles, "width").OutlineWidth)
+	if !near(styleByClass(t, styles, "width").borders().OutlineWidth, borderWidth(mediumKeyword, 12)) {
+		t.Fatalf("outline-width:medium = %.3f, want medium", styleByClass(t, styles, "width").borders().OutlineWidth)
 	}
 
-	if !near(styleByClass(t, styles, "thin").OutlineWidth, borderWidth("thin", 12)) {
-		t.Fatalf("outline-width:thin = %.3f", styleByClass(t, styles, "thin").OutlineWidth)
+	if !near(styleByClass(t, styles, "thin").borders().OutlineWidth, borderWidth("thin", 12)) {
+		t.Fatalf("outline-width:thin = %.3f", styleByClass(t, styles, "thin").borders().OutlineWidth)
 	}
 
-	if !near(styleByClass(t, styles, "thick").OutlineWidth, borderWidth("thick", 12)) {
-		t.Fatalf("outline-width:thick = %.3f", styleByClass(t, styles, "thick").OutlineWidth)
+	if !near(styleByClass(t, styles, "thick").borders().OutlineWidth, borderWidth("thick", 12)) {
+		t.Fatalf("outline-width:thick = %.3f", styleByClass(t, styles, "thick").borders().OutlineWidth)
 	}
 
-	if got := styleByClass(t, styles, "dashed").OutlineStyle; got != "dashed" {
+	if got := styleByClass(t, styles, "dashed").borders().OutlineStyle; got != "dashed" {
 		t.Fatalf("outline-style:dashed = %q", got)
 	}
 
-	if got := styleByClass(t, styles, "dotted").OutlineStyle; got != "dotted" {
+	if got := styleByClass(t, styles, "dotted").borders().OutlineStyle; got != "dotted" {
 		t.Fatalf("outline-style:dotted = %q", got)
 	}
 
-	if got := styleByClass(t, styles, "none").OutlineStyle; got != cssDisplayNone {
+	if got := styleByClass(t, styles, "none").borders().OutlineStyle; got != cssDisplayNone {
 		t.Fatalf("outline-style:none = %q", got)
 	}
 
 	blue := styleByClass(t, styles, "color")
-	if blue.OutlineColor != ([3]float64{0, 0, 1}) || !blue.OutlineColorSet {
-		t.Fatalf("outline-color:blue = %v set=%v", blue.OutlineColor, blue.OutlineColorSet)
+	if blue.borders().OutlineColor != ([3]float64{0, 0, 1}) || !blue.borders().OutlineColorSet {
+		t.Fatalf("outline-color:blue = %v set=%v", blue.borders().OutlineColor, blue.borders().OutlineColorSet)
 	}
 
-	if !near(styleByClass(t, styles, "offset").OutlineOffset, 4) {
-		t.Fatalf("outline-offset = %.3f, want 4pt", styleByClass(t, styles, "offset").OutlineOffset)
+	if !near(styleByClass(t, styles, "offset").borders().OutlineOffset, 4) {
+		t.Fatalf("outline-offset = %.3f, want 4pt", styleByClass(t, styles, "offset").borders().OutlineOffset)
 	}
 
 	box := styleByClass(t, styles, "box")
@@ -133,8 +133,8 @@ func TestOutlineParse(t *testing.T) {
 		t.Fatalf("outline changed layout size: width=%.3f height=%.3f", box.Width, box.Height)
 	}
 
-	if !near(box.OutlineWidth, 8) || box.OutlineStyle != solidKeyword {
-		t.Fatalf("box outline = width %.3f style %q", box.OutlineWidth, box.OutlineStyle)
+	if !near(box.borders().OutlineWidth, 8) || box.borders().OutlineStyle != solidKeyword {
+		t.Fatalf("box outline = width %.3f style %q", box.borders().OutlineWidth, box.borders().OutlineStyle)
 	}
 }
 
@@ -157,33 +157,33 @@ func TestRadiusLonghand(t *testing.T) {
 	`)}, "print", testViewport, 800)
 
 	tl := styleByClass(t, styles, "tl")
-	if !near(tl.BorderRadiusTopLeft, 8) {
-		t.Fatalf("border-top-left-radius = %.3f, want 8pt", tl.BorderRadiusTopLeft)
+	if !near(tl.borders().BorderRadiusTopLeft, 8) {
+		t.Fatalf("border-top-left-radius = %.3f, want 8pt", tl.borders().BorderRadiusTopLeft)
 	}
 
-	if !near(tl.BorderRadiusPercent, -1) {
-		t.Fatalf("absolute longhand should clear BorderRadiusPercent, got %.3f", tl.BorderRadiusPercent)
+	if !near(tl.borders().BorderRadiusPercent, -1) {
+		t.Fatalf("absolute longhand should clear BorderRadiusPercent, got %.3f", tl.borders().BorderRadiusPercent)
 	}
 
-	if !near(styleByClass(t, styles, "tr").BorderRadiusTopRight, 6) {
-		t.Fatalf("border-top-right-radius = %.3f, want 6pt", styleByClass(t, styles, "tr").BorderRadiusTopRight)
+	if !near(styleByClass(t, styles, "tr").borders().BorderRadiusTopRight, 6) {
+		t.Fatalf("border-top-right-radius = %.3f, want 6pt", styleByClass(t, styles, "tr").borders().BorderRadiusTopRight)
 	}
 
-	if !near(styleByClass(t, styles, "br").BorderRadiusBottomRight, 4) {
-		t.Fatalf("border-bottom-right-radius = %.3f, want 4pt", styleByClass(t, styles, "br").BorderRadiusBottomRight)
+	if !near(styleByClass(t, styles, "br").borders().BorderRadiusBottomRight, 4) {
+		t.Fatalf("border-bottom-right-radius = %.3f, want 4pt", styleByClass(t, styles, "br").borders().BorderRadiusBottomRight)
 	}
 
-	if !near(styleByClass(t, styles, "bl").BorderRadiusBottomLeft, 2) {
-		t.Fatalf("border-bottom-left-radius = %.3f, want 2pt", styleByClass(t, styles, "bl").BorderRadiusBottomLeft)
+	if !near(styleByClass(t, styles, "bl").borders().BorderRadiusBottomLeft, 2) {
+		t.Fatalf("border-bottom-left-radius = %.3f, want 2pt", styleByClass(t, styles, "bl").borders().BorderRadiusBottomLeft)
 	}
 
 	pct := styleByClass(t, styles, "pct")
-	if !near(pct.BorderRadiusPercent, 50) {
-		t.Fatalf("border-top-left-radius:50%% BorderRadiusPercent = %.3f, want 50", pct.BorderRadiusPercent)
+	if !near(pct.borders().BorderRadiusPercent, 50) {
+		t.Fatalf("border-top-left-radius:50%% BorderRadiusPercent = %.3f, want 50", pct.borders().BorderRadiusPercent)
 	}
 
-	if !near(pct.BorderRadiusTopLeft, 50) {
-		t.Fatalf("border-top-left-radius:50%% corner = %.3f, want 50", pct.BorderRadiusTopLeft)
+	if !near(pct.borders().BorderRadiusTopLeft, 50) {
+		t.Fatalf("border-top-left-radius:50%% corner = %.3f, want 50", pct.borders().BorderRadiusTopLeft)
 	}
 }
 
@@ -210,36 +210,36 @@ func TestBackgroundImageParse(t *testing.T) {
 		.clear { background: none }
 	`)}, "print", testViewport, 800)
 
-	if got := styleByClass(t, styles, "dq").BackgroundImage; got != "logo.png" {
+	if got := styleByClass(t, styles, "dq").background().BackgroundImage; got != "logo.png" {
 		t.Fatalf("double-quoted url = %q, want logo.png", got)
 	}
 
-	if got := styleByClass(t, styles, "sq").BackgroundImage; got != "mark.jpg" {
+	if got := styleByClass(t, styles, "sq").background().BackgroundImage; got != "mark.jpg" {
 		t.Fatalf("single-quoted url = %q, want mark.jpg", got)
 	}
 
-	if got := styleByClass(t, styles, "bare").BackgroundImage; got != "icon.svg" {
+	if got := styleByClass(t, styles, "bare").background().BackgroundImage; got != "icon.svg" {
 		t.Fatalf("bare url = %q, want icon.svg", got)
 	}
 
-	if got := styleByClass(t, styles, "none").BackgroundImage; got != "" {
+	if got := styleByClass(t, styles, "none").background().BackgroundImage; got != "" {
 		t.Fatalf("background-image:none = %q, want empty", got)
 	}
 
-	if got := styleByClass(t, styles, "grad").BackgroundImage; got != "linear-gradient(red, blue)" {
+	if got := styleByClass(t, styles, "grad").background().BackgroundImage; got != "linear-gradient(red, blue)" {
 		t.Fatalf("gradient background = %q, want linear-gradient(red, blue)", got)
 	}
 
 	sh := styleByClass(t, styles, "sh")
-	if sh.BackgroundImage != "banner.png" {
-		t.Fatalf("background shorthand url = %q, want banner.png", sh.BackgroundImage)
+	if sh.background().BackgroundImage != "banner.png" {
+		t.Fatalf("background shorthand url = %q, want banner.png", sh.background().BackgroundImage)
 	}
 
 	if sh.BGColor != ([4]float64{1, 0, 0, 1}) {
 		t.Fatalf("background shorthand color = %v, want red", sh.BGColor)
 	}
 
-	if got := styleByClass(t, styles, "clear").BackgroundImage; got != "" {
+	if got := styleByClass(t, styles, "clear").background().BackgroundImage; got != "" {
 		t.Fatalf("background:none image = %q, want empty", got)
 	}
 }
@@ -263,30 +263,30 @@ func TestListStylePositionParse(t *testing.T) {
 		.type { list-style-type: decimal }
 	`)}, "print", testViewport, 800)
 
-	if got := styleByClass(t, styles, "in").ListStylePosition; got != listPosInside {
+	if got := styleByClass(t, styles, "in").content().ListStylePosition; got != listPosInside {
 		t.Fatalf("list-style-position:inside = %q", got)
 	}
 
-	if got := styleByClass(t, styles, "out").ListStylePosition; got != listPosOutside {
+	if got := styleByClass(t, styles, "out").content().ListStylePosition; got != listPosOutside {
 		t.Fatalf("list-style-position:outside = %q", got)
 	}
 
 	sh := styleByClass(t, styles, "sh")
-	if sh.ListStylePosition != listPosInside {
-		t.Fatalf("list-style shorthand position = %q, want inside", sh.ListStylePosition)
+	if sh.content().ListStylePosition != listPosInside {
+		t.Fatalf("list-style shorthand position = %q, want inside", sh.content().ListStylePosition)
 	}
 
-	if sh.ListStyleType != listStyleSquare {
-		t.Fatalf("list-style shorthand type = %q, want square", sh.ListStyleType)
+	if sh.content().ListStyleType != listStyleSquare {
+		t.Fatalf("list-style shorthand type = %q, want square", sh.content().ListStyleType)
 	}
 
 	inherited := styleByClass(t, styles, "type")
-	if inherited.ListStylePosition != listPosInside {
-		t.Fatalf("list-style-position did not inherit (type-only child) = %q", inherited.ListStylePosition)
+	if inherited.content().ListStylePosition != listPosInside {
+		t.Fatalf("list-style-position did not inherit (type-only child) = %q", inherited.content().ListStylePosition)
 	}
 
-	if inherited.ListStyleType != listStyleDecimal {
-		t.Fatalf("list-style-type override = %q, want decimal", inherited.ListStyleType)
+	if inherited.content().ListStyleType != listStyleDecimal {
+		t.Fatalf("list-style-type override = %q, want decimal", inherited.content().ListStyleType)
 	}
 }
 
@@ -305,30 +305,30 @@ func TestCounterResetIncrement(t *testing.T) {
 	`)}, "print", testViewport, 800)
 
 	outer := styleByClass(t, styles, "outer")
-	if outer.CounterReset != "section 0" {
-		t.Fatalf("counter-reset = %q, want %q", outer.CounterReset, "section 0")
+	if outer.content().CounterReset != "section 0" {
+		t.Fatalf("counter-reset = %q, want %q", outer.content().CounterReset, "section 0")
 	}
 
-	if outer.CounterIncrement != "" {
-		t.Fatalf("outer CounterIncrement = %q, want empty", outer.CounterIncrement)
+	if outer.content().CounterIncrement != "" {
+		t.Fatalf("outer CounterIncrement = %q, want empty", outer.content().CounterIncrement)
 	}
 
 	child := styleByClass(t, styles, "child")
-	if child.CounterReset != "" {
-		t.Fatalf("counter-reset inherited = %q, want empty", child.CounterReset)
+	if child.content().CounterReset != "" {
+		t.Fatalf("counter-reset inherited = %q, want empty", child.content().CounterReset)
 	}
 
-	if child.CounterIncrement != "" {
-		t.Fatalf("counter-increment inherited = %q, want empty", child.CounterIncrement)
+	if child.content().CounterIncrement != "" {
+		t.Fatalf("counter-increment inherited = %q, want empty", child.content().CounterIncrement)
 	}
 
 	inc := styleByClass(t, styles, "inc")
-	if inc.CounterIncrement != "section" {
-		t.Fatalf("counter-increment = %q, want section", inc.CounterIncrement)
+	if inc.content().CounterIncrement != "section" {
+		t.Fatalf("counter-increment = %q, want section", inc.content().CounterIncrement)
 	}
 
-	if inc.CounterReset != "" {
-		t.Fatalf("inc CounterReset = %q, want empty", inc.CounterReset)
+	if inc.content().CounterReset != "" {
+		t.Fatalf("inc CounterReset = %q, want empty", inc.content().CounterReset)
 	}
 }
 
@@ -349,23 +349,23 @@ func TestQuotesParse(t *testing.T) {
 	`)}, "print", testViewport, 800)
 
 	q := styleByClass(t, styles, "q")
-	if q.QuotesOpen != "«" || q.QuotesClose != "»" {
-		t.Fatalf("quotes = %q %q, want « »", q.QuotesOpen, q.QuotesClose)
+	if q.content().QuotesOpen != "«" || q.content().QuotesClose != "»" {
+		t.Fatalf("quotes = %q %q, want « »", q.content().QuotesOpen, q.content().QuotesClose)
 	}
 
 	child := styleByClass(t, styles, "child")
-	if child.QuotesOpen != "«" || child.QuotesClose != "»" {
-		t.Fatalf("quotes did not inherit: %q %q", child.QuotesOpen, child.QuotesClose)
+	if child.content().QuotesOpen != "«" || child.content().QuotesClose != "»" {
+		t.Fatalf("quotes did not inherit: %q %q", child.content().QuotesOpen, child.content().QuotesClose)
 	}
 
 	none := styleByClass(t, styles, "none")
-	if none.QuotesOpen != "" || none.QuotesClose != "" {
-		t.Fatalf("quotes:none = %q %q, want empty", none.QuotesOpen, none.QuotesClose)
+	if none.content().QuotesOpen != "" || none.content().QuotesClose != "" {
+		t.Fatalf("quotes:none = %q %q, want empty", none.content().QuotesOpen, none.content().QuotesClose)
 	}
 
 	own := styleByClass(t, styles, "own")
-	if own.QuotesOpen != "‹" || own.QuotesClose != "›" {
-		t.Fatalf("single-quoted quotes = %q %q, want ‹ ›", own.QuotesOpen, own.QuotesClose)
+	if own.content().QuotesOpen != "‹" || own.content().QuotesClose != "›" {
+		t.Fatalf("single-quoted quotes = %q %q, want ‹ ›", own.content().QuotesOpen, own.content().QuotesClose)
 	}
 }
 
@@ -380,7 +380,7 @@ func TestOutlineDoesNotInherit(t *testing.T) {
 	`)}, "print", testViewport, 800)
 
 	child := styleByClass(t, styles, "child")
-	if child.OutlineStyle != "" || child.OutlineWidth != 0 {
-		t.Fatalf("outline inherited: style=%q width=%.3f", child.OutlineStyle, child.OutlineWidth)
+	if child.borders().OutlineStyle != "" || child.borders().OutlineWidth != 0 {
+		t.Fatalf("outline inherited: style=%q width=%.3f", child.borders().OutlineStyle, child.borders().OutlineWidth)
 	}
 }

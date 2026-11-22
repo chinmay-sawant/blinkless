@@ -15,7 +15,7 @@ const shapeMaskRowCap = 256
 // from the image's alpha channel; every other shape goes through
 // buildShapeExclusion.
 func (e *engine) buildShapeOutside(sty ResolvedStyle, fbox *box, margL, margR float64) *shapeExclusion {
-	raw := strings.TrimSpace(sty.ShapeOutside)
+	raw := strings.TrimSpace(sty.positioning().ShapeOutside)
 	if !strings.HasPrefix(raw, "url(") {
 		return buildShapeExclusion(sty, fbox, margL, margR, e.scale)
 	}

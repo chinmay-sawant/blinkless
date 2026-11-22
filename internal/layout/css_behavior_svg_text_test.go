@@ -103,7 +103,7 @@ func svgTextAlignDoc(decl string) string {
 func behaviorABCAlignUsed(t *testing.T, extra string) string {
 	t.Helper()
 
-	return boxByID(t, layoutHTML(t, svgTextAlignDoc(extra)), "p").style.AlignmentBaseline
+	return boxByID(t, layoutHTML(t, svgTextAlignDoc(extra)), "p").style.inlineText().AlignmentBaseline
 }
 
 // svgTextY returns the baseline Y of the first text op.
@@ -211,7 +211,7 @@ func TestSvgTextClipRectCutsAbsposBox(t *testing.T) {
 	plain := layoutHTML(t, absDiv(""))
 	clipped := layoutHTML(t, absDiv("clip:rect(0px,50px,20px,0px)"))
 
-	if got := boxByID(t, clipped, "a").style.Clip; got == "" {
+	if got := boxByID(t, clipped, "a").style.effects().Clip; got == "" {
 		t.Error("clip used = empty, want the canonical rect()")
 	}
 

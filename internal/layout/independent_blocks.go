@@ -105,11 +105,11 @@ func independentCandidate(sty *ResolvedStyle, isFirst bool) bool {
 		return false
 	}
 
-	if !isFirst && sty.PageBreakBefore != pageBreakAlways {
+	if !isFirst && sty.fragmentation().PageBreakBefore != pageBreakAlways {
 		return false
 	}
 
-	if sty.PageBreakInside != avoidKeyword && sty.PageBreakInside != avoidPageValue {
+	if sty.fragmentation().PageBreakInside != avoidKeyword && sty.fragmentation().PageBreakInside != avoidPageValue {
 		return false
 	}
 

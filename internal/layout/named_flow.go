@@ -106,22 +106,22 @@ func applyNamedFlowProps(
 			return true
 		}
 
-		style.FlowInto = ident
-		style.FlowIntoElement = element
+		style.editFragmentation().FlowInto = ident
+		style.editFragmentation().FlowIntoElement = element
 	case flowFromPropName:
 		ident, ok := parseFlowFrom(value)
 		if !ok {
 			return true
 		}
 
-		style.FlowFrom = ident
+		style.editFragmentation().FlowFrom = ident
 	case regionFragmentPropName:
 		used, ok := parseRegionFragment(value)
 		if !ok {
 			return true
 		}
 
-		style.RegionFragment = used
+		style.editFragmentation().RegionFragment = used
 	default:
 		return false
 	}
@@ -255,7 +255,7 @@ func namedFlowChildMentions(eng *engine, children []*html.Node) bool {
 		}
 
 		style := eng.stylePtr(child)
-		if style != nil && (style.FlowInto != "" || style.FlowFrom != "") {
+		if style != nil && (style.fragmentation().FlowInto != "" || style.fragmentation().FlowFrom != "") {
 			return true
 		}
 	}
@@ -292,17 +292,17 @@ func (e *engine) scanNamedFlows(root *html.Node) {
 		}
 
 		style := e.stylePtr(node)
-		if style == nil || style.FlowInto == "" {
+		if style == nil || style.fragmentation().FlowInto == "" {
 			return
 		}
 
-		if _, exists := e.namedFlows[style.FlowInto]; exists {
+		if _, exists := e.namedFlows[style.fragmentation().FlowInto]; exists {
 			return
 		}
 
-		e.namedFlows[style.FlowInto] = &namedFlow{ //nolint:exhaustruct // placed/pending start zero
+		e.namedFlows[style.fragmentation().FlowInto] = &namedFlow{ //nolint:exhaustruct // placed/pending start zero
 			source:  node,
-			element: style.FlowIntoElement,
+			element: style.fragmentation().FlowIntoElement,
 		}
 	})
 }
@@ -322,7 +322,7 @@ func (e *engine) namedFlowBegin(
 	}
 
 	if !e.namedFlowScanDone &&
-		(sty.FlowInto != "" || sty.FlowFrom != "" || namedFlowChildMentions(e, *children)) {
+		(sty.fragmentation().FlowInto != "" || sty.fragmentation().FlowFrom != "" || namedFlowChildMentions(e, *children)) {
 		e.scanNamedFlows(namedFlowRoot(namedFlowSeedNode(parent, *children)))
 		e.namedFlowScanDone = true
 	}
@@ -330,13 +330,13 @@ func (e *engine) namedFlowBegin(
 	// A source's own flow walk keeps its children out of normal flow. The
 	// element keyword is authorised by its style override clearing flow-into
 	// while the source builds inside its region.
-	if sty.FlowInto != "" {
+	if sty.fragmentation().FlowInto != "" {
 		*children = nil
 
 		return nil
 	}
 
-	if sty.FlowFrom == "" {
+	if sty.fragmentation().FlowFrom == "" {
 		if e.namedFlows != nil {
 			*children = e.namedFlowFilterChildren(*children)
 		}
@@ -344,7 +344,7 @@ func (e *engine) namedFlowBegin(
 		return nil
 	}
 
-	flow := e.namedFlows[sty.FlowFrom]
+	flow := e.namedFlows[sty.fragmentation().FlowFrom]
 	if flow == nil {
 		*children = nil
 
@@ -392,8 +392,8 @@ func (e *engine) namedFlowRegionChildren(
 
 	*children = []*html.Node{flow.source}
 	override := *e.stylePtr(flow.source)
-	override.FlowInto = ""
-	override.FlowIntoElement = false
+	override.editFragmentation().FlowInto = ""
+	override.editFragmentation().FlowIntoElement = false
 
 	e.styleOverrides = append(e.styleOverrides, styleOverride{node: flow.source, style: &override})
 	frame.sourceOverride = true
@@ -440,7 +440,7 @@ func namedFlowIsElementSource(e *engine, child *html.Node) bool {
 
 	st := e.stylePtr(child)
 
-	return st != nil && st.FlowInto != "" && st.FlowIntoElement
+	return st != nil && st.fragmentation().FlowInto != "" && st.fragmentation().FlowIntoElement
 }
 
 // namedFlowSeedNode picks any node that can reach the parsed root.
@@ -468,9 +468,9 @@ func (e *engine) namedFlowContentLimit(sty ResolvedStyle) (float64, bool) {
 
 	limit := e.scalePt(sty.Height)
 
-	if sty.BoxSizing == borderBox {
+	if sty.geometry().BoxSizing == borderBox {
 		limit -= e.scalePt(sty.PaddingTop+sty.PaddingBottom) +
-			e.scalePt(sty.BorderTop.Width+sty.BorderBottom.Width)
+			e.scalePt(sty.borders().BorderTop.Width+sty.borders().BorderBottom.Width)
 	}
 
 	if limit <= 0 {
@@ -615,7 +615,7 @@ func (e *engine) namedFlowBoxMovesWhole(boxNode *box, cutY float64) bool {
 		return false
 	}
 
-	return boxNode.style != nil && boxNode.style.RegionFragment == regionFragmentBreak
+	return boxNode.style != nil && boxNode.style.fragmentation().RegionFragment == regionFragmentBreak
 }
 
 // collectNamedFlowOverflowOps collects the individually moved ops: ops inside

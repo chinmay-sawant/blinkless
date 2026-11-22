@@ -20,15 +20,15 @@ func applyContainerProps(
 	switch prop {
 	case "container-type":
 		if v, ok := containerWideValue(value, parentType, contentNormal, hasParent); ok {
-			style.ContainerType = v
+			style.editContainment().ContainerType = v
 		} else if v, ok := normalizeContainerType(value); ok {
-			style.ContainerType = v
+			style.editContainment().ContainerType = v
 		}
 	case "container-name":
 		if v, ok := containerWideValue(value, parentName, "", hasParent); ok {
-			style.ContainerName = v
+			style.editContainment().ContainerName = v
 		} else {
-			style.ContainerName = css.ParseContainerNameValue(value)
+			style.editContainment().ContainerName = css.ParseContainerNameValue(value)
 		}
 	case containerKeyword:
 		applyContainerShorthand(style, value, parentType, parentName, hasParent)
@@ -47,12 +47,12 @@ func containerParentValues(parent *ResolvedStyle) (string, string) {
 		return contentNormal, ""
 	}
 
-	parentType := parent.ContainerType
+	parentType := parent.containment().ContainerType
 	if parentType == "" {
 		parentType = contentNormal
 	}
 
-	return parentType, parent.ContainerName
+	return parentType, parent.containment().ContainerName
 }
 
 // normalizeContainerType validates a container-type value against the
@@ -69,23 +69,24 @@ func normalizeContainerType(value string) (string, bool) {
 // applyContainerShorthand resolves container as one declaration because every
 // CSS-wide keyword applies to both longhands at once.
 func applyContainerShorthand(style *ResolvedStyle, value, parentType, parentName string, hasParent bool) {
+	containment := style.editContainment()
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case inheritKeyword:
 		if hasParent {
-			style.ContainerType, style.ContainerName = parentType, parentName
+			containment.ContainerType, containment.ContainerName = parentType, parentName
 
 			return
 		}
 
-		style.ContainerType, style.ContainerName = contentNormal, ""
+		containment.ContainerType, containment.ContainerName = contentNormal, ""
 	case cssKeywordInitial, cssKeywordUnset, cssKeywordRevert:
-		style.ContainerType, style.ContainerName = contentNormal, ""
+		containment.ContainerType, containment.ContainerName = contentNormal, ""
 	default:
 		name, ctype := css.ParseContainerShorthand(value)
-		style.ContainerName = name
+		containment.ContainerName = name
 
 		if ctype != "" {
-			style.ContainerType = ctype
+			containment.ContainerType = ctype
 		}
 	}
 }

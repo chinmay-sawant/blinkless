@@ -123,11 +123,11 @@ func TestPaintOutputTransformBoxFillViewShareBorderOrigin(t *testing.T) {
 	fillRes := layoutHTML(t, doc("fill-box"))
 	viewRes := layoutHTML(t, doc("view-box"))
 
-	if got := boxByID(t, fillRes, "box").style.TransformBox; got != "fill-box" {
+	if got := boxByID(t, fillRes, "box").style.effects().TransformBox; got != "fill-box" {
 		t.Errorf("transform-box used = %q, want fill-box", got)
 	}
 
-	if got := boxByID(t, viewRes, "box").style.TransformBox; got != "view-box" {
+	if got := boxByID(t, viewRes, "box").style.effects().TransformBox; got != "view-box" {
 		t.Errorf("transform-box used = %q, want view-box", got)
 	}
 
@@ -222,8 +222,16 @@ func TestPaintOutputPrettyKeepsGoodBreaks(t *testing.T) {
 func TestPaintOutputPrettyApplyGates(t *testing.T) {
 	t.Parallel()
 
-	pretty := &ResolvedStyle{TextWrapStyle: "pretty"}
-	balance := &ResolvedStyle{TextWrapStyle: "balance"}
+	pretty := &ResolvedStyle{
+		inlineTextGroup: &styleInlineText{
+			TextWrapStyle: "pretty",
+		},
+	}
+	balance := &ResolvedStyle{
+		inlineTextGroup: &styleInlineText{
+			TextWrapStyle: "balance",
+		},
+	}
 
 	if !prettyCanApply(nil, 0, pretty) {
 		t.Error("prettyCanApply(nil, 0, pretty) = false, want true")
@@ -237,7 +245,12 @@ func TestPaintOutputPrettyApplyGates(t *testing.T) {
 		t.Error("prettyCanApply with line clamp = true, want false")
 	}
 
-	indented := &ResolvedStyle{TextWrapStyle: "pretty", TextIndent: 12}
+	indented := &ResolvedStyle{
+		inlineTextGroup: &styleInlineText{
+			TextWrapStyle: "pretty",
+			TextIndent:    12,
+		},
+	}
 	if prettyCanApply(nil, 0, indented) {
 		t.Error("prettyCanApply with indent = true, want false")
 	}

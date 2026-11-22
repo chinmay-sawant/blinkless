@@ -5,7 +5,7 @@ func applyLogicalMargin(style *ResolvedStyle, prop, value string, fsize, viewpor
 		return true
 	}
 
-	switch style.WritingMode {
+	switch style.positioning().WritingMode {
 	case writingModeVerticalRL:
 		return applyLogicalMarginVerticalRL(style, prop, value, fsize, viewportW)
 	case writingModeVerticalLR:
@@ -18,21 +18,21 @@ func applyLogicalMargin(style *ResolvedStyle, prop, value string, fsize, viewpor
 func applyLogicalMarginVerticalRL(style *ResolvedStyle, prop, value string, fsize, viewportW float64) bool {
 	switch prop {
 	case propMarginInlineStart:
-		if style.Direction == cssDirectionRTL {
-			style.MarginBottom, style.MarginBottomAuto = marginLenAuto(value, fsize, viewportW)
+		if style.positioning().Direction == cssDirectionRTL {
+			style.MarginBottom, style.editGeometry().MarginBottomAuto = marginLenAuto(value, fsize, viewportW)
 		} else {
-			style.MarginTop, style.MarginTopAuto = marginLenAuto(value, fsize, viewportW)
+			style.MarginTop, style.editGeometry().MarginTopAuto = marginLenAuto(value, fsize, viewportW)
 		}
 	case propMarginInlineEnd:
-		if style.Direction == cssDirectionRTL {
-			style.MarginTop, style.MarginTopAuto = marginLenAuto(value, fsize, viewportW)
+		if style.positioning().Direction == cssDirectionRTL {
+			style.MarginTop, style.editGeometry().MarginTopAuto = marginLenAuto(value, fsize, viewportW)
 		} else {
-			style.MarginBottom, style.MarginBottomAuto = marginLenAuto(value, fsize, viewportW)
+			style.MarginBottom, style.editGeometry().MarginBottomAuto = marginLenAuto(value, fsize, viewportW)
 		}
 	case propMarginBlockStart:
-		style.MarginRight, style.MarginRightAuto = marginLenAuto(value, fsize, viewportW)
+		style.MarginRight, style.editGeometry().MarginRightAuto = marginLenAuto(value, fsize, viewportW)
 	case propMarginBlockEnd:
-		style.MarginLeft, style.MarginLeftAuto = marginLenAuto(value, fsize, viewportW)
+		style.MarginLeft, style.editGeometry().MarginLeftAuto = marginLenAuto(value, fsize, viewportW)
 	default:
 		return false
 	}
@@ -43,21 +43,21 @@ func applyLogicalMarginVerticalRL(style *ResolvedStyle, prop, value string, fsiz
 func applyLogicalMarginVerticalLR(style *ResolvedStyle, prop, value string, fsize, viewportW float64) bool {
 	switch prop {
 	case propMarginInlineStart:
-		if style.Direction == cssDirectionRTL {
-			style.MarginBottom, style.MarginBottomAuto = marginLenAuto(value, fsize, viewportW)
+		if style.positioning().Direction == cssDirectionRTL {
+			style.MarginBottom, style.editGeometry().MarginBottomAuto = marginLenAuto(value, fsize, viewportW)
 		} else {
-			style.MarginTop, style.MarginTopAuto = marginLenAuto(value, fsize, viewportW)
+			style.MarginTop, style.editGeometry().MarginTopAuto = marginLenAuto(value, fsize, viewportW)
 		}
 	case propMarginInlineEnd:
-		if style.Direction == cssDirectionRTL {
-			style.MarginTop, style.MarginTopAuto = marginLenAuto(value, fsize, viewportW)
+		if style.positioning().Direction == cssDirectionRTL {
+			style.MarginTop, style.editGeometry().MarginTopAuto = marginLenAuto(value, fsize, viewportW)
 		} else {
-			style.MarginBottom, style.MarginBottomAuto = marginLenAuto(value, fsize, viewportW)
+			style.MarginBottom, style.editGeometry().MarginBottomAuto = marginLenAuto(value, fsize, viewportW)
 		}
 	case propMarginBlockStart:
-		style.MarginLeft, style.MarginLeftAuto = marginLenAuto(value, fsize, viewportW)
+		style.MarginLeft, style.editGeometry().MarginLeftAuto = marginLenAuto(value, fsize, viewportW)
 	case propMarginBlockEnd:
-		style.MarginRight, style.MarginRightAuto = marginLenAuto(value, fsize, viewportW)
+		style.MarginRight, style.editGeometry().MarginRightAuto = marginLenAuto(value, fsize, viewportW)
 	default:
 		return false
 	}
@@ -71,20 +71,20 @@ func applyLogicalMarginPair(style *ResolvedStyle, prop, value string, fsize, vie
 	case cssPropMarginInline:
 		start, end, parsed := logicalPair(value)
 		if parsed {
-			if isVerticalWritingMode(style.WritingMode) {
-				if style.Direction == cssDirectionRTL {
-					style.MarginBottom, style.MarginBottomAuto = marginLenAuto(start, fsize, viewportW)
-					style.MarginTop, style.MarginTopAuto = marginLenAuto(end, fsize, viewportW)
+			if isVerticalWritingMode(style.positioning().WritingMode) {
+				if style.positioning().Direction == cssDirectionRTL {
+					style.MarginBottom, style.editGeometry().MarginBottomAuto = marginLenAuto(start, fsize, viewportW)
+					style.MarginTop, style.editGeometry().MarginTopAuto = marginLenAuto(end, fsize, viewportW)
 				} else {
-					style.MarginTop, style.MarginTopAuto = marginLenAuto(start, fsize, viewportW)
-					style.MarginBottom, style.MarginBottomAuto = marginLenAuto(end, fsize, viewportW)
+					style.MarginTop, style.editGeometry().MarginTopAuto = marginLenAuto(start, fsize, viewportW)
+					style.MarginBottom, style.editGeometry().MarginBottomAuto = marginLenAuto(end, fsize, viewportW)
 				}
-			} else if style.Direction == cssDirectionRTL {
-				style.MarginRight, style.MarginRightAuto = marginLenAuto(start, fsize, viewportW)
-				style.MarginLeft, style.MarginLeftAuto = marginLenAuto(end, fsize, viewportW)
+			} else if style.positioning().Direction == cssDirectionRTL {
+				style.MarginRight, style.editGeometry().MarginRightAuto = marginLenAuto(start, fsize, viewportW)
+				style.MarginLeft, style.editGeometry().MarginLeftAuto = marginLenAuto(end, fsize, viewportW)
 			} else {
-				style.MarginLeft, style.MarginLeftAuto = marginLenAuto(start, fsize, viewportW)
-				style.MarginRight, style.MarginRightAuto = marginLenAuto(end, fsize, viewportW)
+				style.MarginLeft, style.editGeometry().MarginLeftAuto = marginLenAuto(start, fsize, viewportW)
+				style.MarginRight, style.editGeometry().MarginRightAuto = marginLenAuto(end, fsize, viewportW)
 			}
 		}
 	case cssPropMarginBlock:
@@ -102,16 +102,16 @@ func applyLogicalMarginBlockPair(style *ResolvedStyle, value string, fsize, view
 		return
 	}
 
-	switch style.WritingMode {
+	switch style.positioning().WritingMode {
 	case writingModeVerticalRL:
-		style.MarginRight, style.MarginRightAuto = marginLenAuto(start, fsize, viewportW)
-		style.MarginLeft, style.MarginLeftAuto = marginLenAuto(end, fsize, viewportW)
+		style.MarginRight, style.editGeometry().MarginRightAuto = marginLenAuto(start, fsize, viewportW)
+		style.MarginLeft, style.editGeometry().MarginLeftAuto = marginLenAuto(end, fsize, viewportW)
 	case writingModeVerticalLR:
-		style.MarginLeft, style.MarginLeftAuto = marginLenAuto(start, fsize, viewportW)
-		style.MarginRight, style.MarginRightAuto = marginLenAuto(end, fsize, viewportW)
+		style.MarginLeft, style.editGeometry().MarginLeftAuto = marginLenAuto(start, fsize, viewportW)
+		style.MarginRight, style.editGeometry().MarginRightAuto = marginLenAuto(end, fsize, viewportW)
 	default:
-		style.MarginTop, style.MarginTopAuto = marginLenAuto(start, fsize, viewportW)
-		style.MarginBottom, style.MarginBottomAuto = marginLenAuto(end, fsize, viewportW)
+		style.MarginTop, style.editGeometry().MarginTopAuto = marginLenAuto(start, fsize, viewportW)
+		style.MarginBottom, style.editGeometry().MarginBottomAuto = marginLenAuto(end, fsize, viewportW)
 	}
 }
 
@@ -120,7 +120,7 @@ func applyLogicalPadding(style *ResolvedStyle, prop, value string, fsize, viewpo
 		return true
 	}
 
-	switch style.WritingMode {
+	switch style.positioning().WritingMode {
 	case writingModeVerticalRL:
 		return applyLogicalPaddingVerticalRL(style, prop, value, fsize, viewportW)
 	case writingModeVerticalLR:
@@ -133,13 +133,13 @@ func applyLogicalPadding(style *ResolvedStyle, prop, value string, fsize, viewpo
 func applyLogicalPaddingVerticalRL(style *ResolvedStyle, prop, value string, fsize, viewportW float64) bool {
 	switch prop {
 	case propPaddingInlineStart:
-		if style.Direction == cssDirectionRTL {
+		if style.positioning().Direction == cssDirectionRTL {
 			style.PaddingBottom = marginLen(value, fsize, viewportW)
 		} else {
 			style.PaddingTop = marginLen(value, fsize, viewportW)
 		}
 	case propPaddingInlineEnd:
-		if style.Direction == cssDirectionRTL {
+		if style.positioning().Direction == cssDirectionRTL {
 			style.PaddingTop = marginLen(value, fsize, viewportW)
 		} else {
 			style.PaddingBottom = marginLen(value, fsize, viewportW)
@@ -158,13 +158,13 @@ func applyLogicalPaddingVerticalRL(style *ResolvedStyle, prop, value string, fsi
 func applyLogicalPaddingVerticalLR(style *ResolvedStyle, prop, value string, fsize, viewportW float64) bool {
 	switch prop {
 	case propPaddingInlineStart:
-		if style.Direction == cssDirectionRTL {
+		if style.positioning().Direction == cssDirectionRTL {
 			style.PaddingBottom = marginLen(value, fsize, viewportW)
 		} else {
 			style.PaddingTop = marginLen(value, fsize, viewportW)
 		}
 	case propPaddingInlineEnd:
-		if style.Direction == cssDirectionRTL {
+		if style.positioning().Direction == cssDirectionRTL {
 			style.PaddingTop = marginLen(value, fsize, viewportW)
 		} else {
 			style.PaddingBottom = marginLen(value, fsize, viewportW)
@@ -186,15 +186,15 @@ func applyLogicalPaddingPair(style *ResolvedStyle, prop, value string, fsize, vi
 	case cssPropPaddingInline:
 		start, end, parsed := logicalPair(value)
 		if parsed {
-			if isVerticalWritingMode(style.WritingMode) {
-				if style.Direction == cssDirectionRTL {
+			if isVerticalWritingMode(style.positioning().WritingMode) {
+				if style.positioning().Direction == cssDirectionRTL {
 					style.PaddingBottom = marginLen(start, fsize, viewportW)
 					style.PaddingTop = marginLen(end, fsize, viewportW)
 				} else {
 					style.PaddingTop = marginLen(start, fsize, viewportW)
 					style.PaddingBottom = marginLen(end, fsize, viewportW)
 				}
-			} else if style.Direction == cssDirectionRTL {
+			} else if style.positioning().Direction == cssDirectionRTL {
 				style.PaddingRight = marginLen(start, fsize, viewportW)
 				style.PaddingLeft = marginLen(end, fsize, viewportW)
 			} else {
@@ -217,7 +217,7 @@ func applyLogicalPaddingBlockPair(style *ResolvedStyle, value string, fsize, vie
 		return
 	}
 
-	switch style.WritingMode {
+	switch style.positioning().WritingMode {
 	case writingModeVerticalRL:
 		style.PaddingRight = marginLen(start, fsize, viewportW)
 		style.PaddingLeft = marginLen(end, fsize, viewportW)

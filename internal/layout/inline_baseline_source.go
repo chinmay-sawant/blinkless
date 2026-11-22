@@ -26,7 +26,7 @@ func applyBaselineSourceProps(
 
 	switch normalized := normalizeCSSValue(value); normalized {
 	case baselineSourceAuto, baselineSourceFirst, baselineSourceLast:
-		style.BaselineSource = normalized
+		style.editInlineText().BaselineSource = normalized
 	}
 
 	return true
@@ -63,9 +63,9 @@ func baselineSourceChoice(item *inlineItem) (string, bool) {
 		return "", false
 	}
 
-	switch item.style.BaselineSource {
+	switch item.style.inlineText().BaselineSource {
 	case baselineSourceFirst, baselineSourceLast:
-		return item.style.BaselineSource, true
+		return item.style.inlineText().BaselineSource, true
 	case baselineSourceAuto, "":
 		if item.style.Display != cssDisplayInlineBlock {
 			return "", false

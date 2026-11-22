@@ -109,8 +109,8 @@ func firstRadiusPercent(horiz, vert string) float64 {
 }
 
 func applyUniformRadiusPercent(style *ResolvedStyle, percent float64) {
-	style.BorderRadius = 0
-	style.BorderRadiusPercent = percent
+	style.editBorders().BorderRadius = 0
+	style.editBorders().BorderRadiusPercent = percent
 	clearCornerRadiiY(style)
 }
 
@@ -157,31 +157,31 @@ func expandRadius4(values []float64) []float64 {
 }
 
 func assignCornerRadiiX(style *ResolvedStyle, values []float64) {
-	style.BorderRadiusTopLeft = values[0]
-	style.BorderRadiusTopRight = values[1]
-	style.BorderRadiusBottomRight = values[2]
-	style.BorderRadiusBottomLeft = values[3]
-	style.BorderRadiusPercent = -1
+	style.editBorders().BorderRadiusTopLeft = values[0]
+	style.editBorders().BorderRadiusTopRight = values[1]
+	style.editBorders().BorderRadiusBottomRight = values[2]
+	style.editBorders().BorderRadiusBottomLeft = values[3]
+	style.editBorders().BorderRadiusPercent = -1
 
 	if values[0] == values[1] && values[1] == values[2] && values[2] == values[3] {
-		style.BorderRadius = values[0]
+		style.editBorders().BorderRadius = values[0]
 	} else {
-		style.BorderRadius = 0
+		style.editBorders().BorderRadius = 0
 	}
 }
 
 func assignCornerRadiiY(style *ResolvedStyle, values []float64) {
-	style.BorderRadiusTopLeftY = values[0]
-	style.BorderRadiusTopRightY = values[1]
-	style.BorderRadiusBottomRightY = values[2]
-	style.BorderRadiusBottomLeftY = values[3]
+	style.editBorders().BorderRadiusTopLeftY = values[0]
+	style.editBorders().BorderRadiusTopRightY = values[1]
+	style.editBorders().BorderRadiusBottomRightY = values[2]
+	style.editBorders().BorderRadiusBottomLeftY = values[3]
 }
 
 func clearCornerRadiiY(style *ResolvedStyle) {
-	style.BorderRadiusTopLeftY = 0
-	style.BorderRadiusTopRightY = 0
-	style.BorderRadiusBottomRightY = 0
-	style.BorderRadiusBottomLeftY = 0
+	style.editBorders().BorderRadiusTopLeftY = 0
+	style.editBorders().BorderRadiusTopRightY = 0
+	style.editBorders().BorderRadiusBottomRightY = 0
+	style.editBorders().BorderRadiusBottomLeftY = 0
 }
 
 const borderRadiusPercentBasis = 100.0
@@ -229,19 +229,19 @@ func snapRadiiXY(radiusX, radiusY [4]float64) ([4]float64, [4]float64) {
 // border-radius:999px on a wide short pill becomes half-height circles, not
 // half-width ellipses.
 func hasAnyAbsoluteBorderRadius(sty *ResolvedStyle) bool {
-	return sty.BorderRadius > 0 ||
-		sty.BorderRadiusTopLeft > 0 || sty.BorderRadiusTopRight > 0 ||
-		sty.BorderRadiusBottomRight > 0 || sty.BorderRadiusBottomLeft > 0 ||
-		sty.BorderRadiusTopLeftY > 0 || sty.BorderRadiusTopRightY > 0 ||
-		sty.BorderRadiusBottomRightY > 0 || sty.BorderRadiusBottomLeftY > 0
+	return sty.borders().BorderRadius > 0 ||
+		sty.borders().BorderRadiusTopLeft > 0 || sty.borders().BorderRadiusTopRight > 0 ||
+		sty.borders().BorderRadiusBottomRight > 0 || sty.borders().BorderRadiusBottomLeft > 0 ||
+		sty.borders().BorderRadiusTopLeftY > 0 || sty.borders().BorderRadiusTopRightY > 0 ||
+		sty.borders().BorderRadiusBottomRightY > 0 || sty.borders().BorderRadiusBottomLeftY > 0
 }
 
 func usedBorderRadiiXY(sty *ResolvedStyle, width, height float64) ([4]float64, [4]float64) {
 	var radiusX, radiusY [4]float64
 
-	if sty.BorderRadiusPercent >= 0 {
-		pctX := width * sty.BorderRadiusPercent / borderRadiusPercentBasis
-		pctY := height * sty.BorderRadiusPercent / borderRadiusPercentBasis
+	if sty.borders().BorderRadiusPercent >= 0 {
+		pctX := width * sty.borders().BorderRadiusPercent / borderRadiusPercentBasis
+		pctY := height * sty.borders().BorderRadiusPercent / borderRadiusPercentBasis
 
 		for i := range radiusX {
 			radiusX[i] = pctX
@@ -259,8 +259,8 @@ func usedBorderRadiiXY(sty *ResolvedStyle, width, height float64) ([4]float64, [
 
 	radiusX = borderRadiusValues(sty, width, height)
 	radiusY = [4]float64{
-		sty.BorderRadiusTopLeftY, sty.BorderRadiusTopRightY,
-		sty.BorderRadiusBottomRightY, sty.BorderRadiusBottomLeftY,
+		sty.borders().BorderRadiusTopLeftY, sty.borders().BorderRadiusTopRightY,
+		sty.borders().BorderRadiusBottomRightY, sty.borders().BorderRadiusBottomLeftY,
 	}
 
 	for idx := range radiusX {
@@ -297,20 +297,20 @@ func borderRadiusValues(sty *ResolvedStyle, width, _ float64) [4]float64 {
 	var radii [4]float64
 
 	switch {
-	case sty.BorderRadiusPercent >= 0:
-		radius := width * sty.BorderRadiusPercent / borderRadiusPercentBasis
+	case sty.borders().BorderRadiusPercent >= 0:
+		radius := width * sty.borders().BorderRadiusPercent / borderRadiusPercentBasis
 		for i := range radii {
 			radii[i] = radius
 		}
-	case sty.BorderRadiusTopLeft != 0 || sty.BorderRadiusTopRight != 0 ||
-		sty.BorderRadiusBottomRight != 0 || sty.BorderRadiusBottomLeft != 0:
+	case sty.borders().BorderRadiusTopLeft != 0 || sty.borders().BorderRadiusTopRight != 0 ||
+		sty.borders().BorderRadiusBottomRight != 0 || sty.borders().BorderRadiusBottomLeft != 0:
 		radii = [4]float64{
-			sty.BorderRadiusTopLeft, sty.BorderRadiusTopRight,
-			sty.BorderRadiusBottomRight, sty.BorderRadiusBottomLeft,
+			sty.borders().BorderRadiusTopLeft, sty.borders().BorderRadiusTopRight,
+			sty.borders().BorderRadiusBottomRight, sty.borders().BorderRadiusBottomLeft,
 		}
 	default:
 		for i := range radii {
-			radii[i] = sty.BorderRadius
+			radii[i] = sty.borders().BorderRadius
 		}
 	}
 

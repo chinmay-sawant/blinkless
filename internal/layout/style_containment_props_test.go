@@ -27,8 +27,8 @@ func TestApplyContainmentPropsParsing(t *testing.T) {
 			check: func(t *testing.T, st ResolvedStyle) {
 				t.Helper()
 
-				if st.Contain != "none" {
-					t.Errorf("Contain = %q, want none", st.Contain)
+				if st.containment().Contain != "none" {
+					t.Errorf("Contain = %q, want none", st.containment().Contain)
 				}
 			},
 		},
@@ -37,8 +37,8 @@ func TestApplyContainmentPropsParsing(t *testing.T) {
 			check: func(t *testing.T, st ResolvedStyle) {
 				t.Helper()
 
-				if st.Contain != "strict" {
-					t.Errorf("Contain = %q, want strict", st.Contain)
+				if st.containment().Contain != "strict" {
+					t.Errorf("Contain = %q, want strict", st.containment().Contain)
 				}
 			},
 		},
@@ -47,8 +47,8 @@ func TestApplyContainmentPropsParsing(t *testing.T) {
 			check: func(t *testing.T, st ResolvedStyle) {
 				t.Helper()
 
-				if st.Contain != "content" {
-					t.Errorf("Contain = %q, want content", st.Contain)
+				if st.containment().Contain != "content" {
+					t.Errorf("Contain = %q, want content", st.containment().Contain)
 				}
 			},
 		},
@@ -58,8 +58,8 @@ func TestApplyContainmentPropsParsing(t *testing.T) {
 			check: func(t *testing.T, st ResolvedStyle) {
 				t.Helper()
 
-				if st.Contain != "size layout paint style" {
-					t.Errorf("Contain = %q, want normalized keyword list", st.Contain)
+				if st.containment().Contain != "size layout paint style" {
+					t.Errorf("Contain = %q, want normalized keyword list", st.containment().Contain)
 				}
 			},
 		},
@@ -68,8 +68,8 @@ func TestApplyContainmentPropsParsing(t *testing.T) {
 			check: func(t *testing.T, st ResolvedStyle) {
 				t.Helper()
 
-				if st.Contain != "paint size" {
-					t.Errorf("Contain = %q, want paint size", st.Contain)
+				if st.containment().Contain != "paint size" {
+					t.Errorf("Contain = %q, want paint size", st.containment().Contain)
 				}
 			},
 		},
@@ -82,9 +82,9 @@ func TestApplyContainmentPropsParsing(t *testing.T) {
 			check: func(t *testing.T, st ResolvedStyle) {
 				t.Helper()
 
-				if st.ContainIntrinsicWidth != 225 || st.ContainIntrinsicHeight != 225 {
+				if st.containment().ContainIntrinsicWidth != 225 || st.containment().ContainIntrinsicHeight != 225 {
 					t.Errorf("size = %v x %v, want 225 x 225",
-						st.ContainIntrinsicWidth, st.ContainIntrinsicHeight)
+						st.containment().ContainIntrinsicWidth, st.containment().ContainIntrinsicHeight)
 				}
 			},
 		},
@@ -94,9 +94,9 @@ func TestApplyContainmentPropsParsing(t *testing.T) {
 			check: func(t *testing.T, st ResolvedStyle) {
 				t.Helper()
 
-				if st.ContainIntrinsicWidth != 225 || st.ContainIntrinsicHeight != 200 {
+				if st.containment().ContainIntrinsicWidth != 225 || st.containment().ContainIntrinsicHeight != 200 {
 					t.Errorf("size = %v x %v, want 225 x 200",
-						st.ContainIntrinsicWidth, st.ContainIntrinsicHeight)
+						st.containment().ContainIntrinsicWidth, st.containment().ContainIntrinsicHeight)
 				}
 			},
 		},
@@ -106,9 +106,9 @@ func TestApplyContainmentPropsParsing(t *testing.T) {
 			check: func(t *testing.T, st ResolvedStyle) {
 				t.Helper()
 
-				if st.ContainIntrinsicWidth != 225 || st.ContainIntrinsicHeight != 225 {
+				if st.containment().ContainIntrinsicWidth != 225 || st.containment().ContainIntrinsicHeight != 225 {
 					t.Errorf("size = %v x %v, want 225 x 225",
-						st.ContainIntrinsicWidth, st.ContainIntrinsicHeight)
+						st.containment().ContainIntrinsicWidth, st.containment().ContainIntrinsicHeight)
 				}
 			},
 		},
@@ -118,9 +118,9 @@ func TestApplyContainmentPropsParsing(t *testing.T) {
 			check: func(t *testing.T, st ResolvedStyle) {
 				t.Helper()
 
-				if st.ContainIntrinsicWidth != 225 || st.ContainIntrinsicHeight != 200 {
+				if st.containment().ContainIntrinsicWidth != 225 || st.containment().ContainIntrinsicHeight != 200 {
 					t.Errorf("size = %v x %v, want 225 x 200",
-						st.ContainIntrinsicWidth, st.ContainIntrinsicHeight)
+						st.containment().ContainIntrinsicWidth, st.containment().ContainIntrinsicHeight)
 				}
 			},
 		},
@@ -129,9 +129,9 @@ func TestApplyContainmentPropsParsing(t *testing.T) {
 			check: func(t *testing.T, st ResolvedStyle) {
 				t.Helper()
 
-				if st.ContainIntrinsicWidth != 24 || st.ContainIntrinsicHeight != 24 {
+				if st.containment().ContainIntrinsicWidth != 24 || st.containment().ContainIntrinsicHeight != 24 {
 					t.Errorf("size = %v x %v, want 24 x 24",
-						st.ContainIntrinsicWidth, st.ContainIntrinsicHeight)
+						st.containment().ContainIntrinsicWidth, st.containment().ContainIntrinsicHeight)
 				}
 			},
 		},
@@ -140,9 +140,9 @@ func TestApplyContainmentPropsParsing(t *testing.T) {
 			check: func(t *testing.T, st ResolvedStyle) {
 				t.Helper()
 
-				if st.ContainIntrinsicWidth != -1 || st.ContainIntrinsicHeight != -1 {
+				if st.containment().ContainIntrinsicWidth != -1 || st.containment().ContainIntrinsicHeight != -1 {
 					t.Errorf("size = %v x %v, want -1 x -1",
-						st.ContainIntrinsicWidth, st.ContainIntrinsicHeight)
+						st.containment().ContainIntrinsicWidth, st.containment().ContainIntrinsicHeight)
 				}
 			},
 		},
@@ -154,8 +154,8 @@ func TestApplyContainmentPropsParsing(t *testing.T) {
 			check: func(t *testing.T, st ResolvedStyle) {
 				t.Helper()
 
-				if st.ContainIntrinsicWidth != 40 {
-					t.Errorf("ContainIntrinsicWidth = %v, want 40", st.ContainIntrinsicWidth)
+				if st.containment().ContainIntrinsicWidth != 40 {
+					t.Errorf("ContainIntrinsicWidth = %v, want 40", st.containment().ContainIntrinsicWidth)
 				}
 			},
 		},
@@ -164,8 +164,8 @@ func TestApplyContainmentPropsParsing(t *testing.T) {
 			check: func(t *testing.T, st ResolvedStyle) {
 				t.Helper()
 
-				if st.ContainIntrinsicWidth != -1 {
-					t.Errorf("ContainIntrinsicWidth = %v, want -1 (unset)", st.ContainIntrinsicWidth)
+				if st.containment().ContainIntrinsicWidth != -1 {
+					t.Errorf("ContainIntrinsicWidth = %v, want -1 (unset)", st.containment().ContainIntrinsicWidth)
 				}
 			},
 		},
@@ -174,8 +174,8 @@ func TestApplyContainmentPropsParsing(t *testing.T) {
 			check: func(t *testing.T, st ResolvedStyle) {
 				t.Helper()
 
-				if st.ContainIntrinsicWidth != 7.5 {
-					t.Errorf("ContainIntrinsicWidth = %v, want 7.5", st.ContainIntrinsicWidth)
+				if st.containment().ContainIntrinsicWidth != 7.5 {
+					t.Errorf("ContainIntrinsicWidth = %v, want 7.5", st.containment().ContainIntrinsicWidth)
 				}
 			},
 		},
@@ -184,8 +184,8 @@ func TestApplyContainmentPropsParsing(t *testing.T) {
 			check: func(t *testing.T, st ResolvedStyle) {
 				t.Helper()
 
-				if st.ContainIntrinsicHeight != 15 {
-					t.Errorf("ContainIntrinsicHeight = %v, want 15", st.ContainIntrinsicHeight)
+				if st.containment().ContainIntrinsicHeight != 15 {
+					t.Errorf("ContainIntrinsicHeight = %v, want 15", st.containment().ContainIntrinsicHeight)
 				}
 			},
 		},
@@ -194,8 +194,8 @@ func TestApplyContainmentPropsParsing(t *testing.T) {
 			check: func(t *testing.T, st ResolvedStyle) {
 				t.Helper()
 
-				if st.ContainIntrinsicBlockSize != 25 {
-					t.Errorf("ContainIntrinsicBlockSize = %v, want 25", st.ContainIntrinsicBlockSize)
+				if st.containment().ContainIntrinsicBlockSize != 25 {
+					t.Errorf("ContainIntrinsicBlockSize = %v, want 25", st.containment().ContainIntrinsicBlockSize)
 				}
 			},
 		},
@@ -204,8 +204,8 @@ func TestApplyContainmentPropsParsing(t *testing.T) {
 			check: func(t *testing.T, st ResolvedStyle) {
 				t.Helper()
 
-				if st.ContainIntrinsicInlineSize != 12 {
-					t.Errorf("ContainIntrinsicInlineSize = %v, want 12", st.ContainIntrinsicInlineSize)
+				if st.containment().ContainIntrinsicInlineSize != 12 {
+					t.Errorf("ContainIntrinsicInlineSize = %v, want 12", st.containment().ContainIntrinsicInlineSize)
 				}
 			},
 		},
@@ -218,8 +218,8 @@ func TestApplyContainmentPropsParsing(t *testing.T) {
 			check: func(t *testing.T, st ResolvedStyle) {
 				t.Helper()
 
-				if st.ContentVisibility != "visible" {
-					t.Errorf("ContentVisibility = %q, want visible", st.ContentVisibility)
+				if st.containment().ContentVisibility != "visible" {
+					t.Errorf("ContentVisibility = %q, want visible", st.containment().ContentVisibility)
 				}
 			},
 		},
@@ -228,8 +228,8 @@ func TestApplyContainmentPropsParsing(t *testing.T) {
 			check: func(t *testing.T, st ResolvedStyle) {
 				t.Helper()
 
-				if st.ContentVisibility != "auto" {
-					t.Errorf("ContentVisibility = %q, want auto", st.ContentVisibility)
+				if st.containment().ContentVisibility != "auto" {
+					t.Errorf("ContentVisibility = %q, want auto", st.containment().ContentVisibility)
 				}
 			},
 		},
@@ -238,8 +238,8 @@ func TestApplyContainmentPropsParsing(t *testing.T) {
 			check: func(t *testing.T, st ResolvedStyle) {
 				t.Helper()
 
-				if st.ContentVisibility != "hidden" {
-					t.Errorf("ContentVisibility = %q, want hidden", st.ContentVisibility)
+				if st.containment().ContentVisibility != "hidden" {
+					t.Errorf("ContentVisibility = %q, want hidden", st.containment().ContentVisibility)
 				}
 			},
 		},
@@ -272,22 +272,38 @@ func TestApplyContainmentPropsParsing(t *testing.T) {
 func TestContainmentKeywordHelpers(t *testing.T) {
 	t.Parallel()
 
-	strict := ResolvedStyle{Contain: "strict"}
+	strict := ResolvedStyle{
+		containmentGroup: &styleContainment{
+			Contain: "strict",
+		},
+	}
 	if !containsSize(&strict) || !containsLayout(&strict) || !containsPaint(&strict) {
 		t.Fatalf("strict must expand to size layout paint style: %+v", strict)
 	}
 
-	content := ResolvedStyle{Contain: "content"}
+	content := ResolvedStyle{
+		containmentGroup: &styleContainment{
+			Contain: "content",
+		},
+	}
 	if containsSize(&content) || !containsLayout(&content) || !containsPaint(&content) {
 		t.Fatalf("content must expand to layout paint style: %+v", content)
 	}
 
-	subset := ResolvedStyle{Contain: "size layout"}
+	subset := ResolvedStyle{
+		containmentGroup: &styleContainment{
+			Contain: "size layout",
+		},
+	}
 	if !containsSize(&subset) || !containsLayout(&subset) || containsPaint(&subset) {
 		t.Fatalf("size layout must not imply paint containment: %+v", subset)
 	}
 
-	none := ResolvedStyle{Contain: "none"}
+	none := ResolvedStyle{
+		containmentGroup: &styleContainment{
+			Contain: "none",
+		},
+	}
 	if containsSize(&none) || containsLayout(&none) || containsPaint(&none) {
 		t.Fatalf("none must not imply containment: %+v", none)
 	}
@@ -297,10 +313,12 @@ func TestContainmentIntrinsicAxisMapping(t *testing.T) {
 	t.Parallel()
 
 	horizontal := ResolvedStyle{
-		ContainIntrinsicWidth:      -1,
-		ContainIntrinsicHeight:     -1,
-		ContainIntrinsicBlockSize:  30,
-		ContainIntrinsicInlineSize: 60,
+		containmentGroup: &styleContainment{
+			ContainIntrinsicWidth:      -1,
+			ContainIntrinsicHeight:     -1,
+			ContainIntrinsicBlockSize:  30,
+			ContainIntrinsicInlineSize: 60,
+		},
 	}
 
 	if got := containmentIntrinsicWidth(&horizontal); got != 60 {
@@ -312,7 +330,7 @@ func TestContainmentIntrinsicAxisMapping(t *testing.T) {
 	}
 
 	vertical := horizontal
-	vertical.WritingMode = writingModeVerticalRL
+	vertical.editPositioning().WritingMode = writingModeVerticalRL
 
 	if got := containmentIntrinsicWidth(&vertical); got != 30 {
 		t.Fatalf("vertical width = %v, want block size 30", got)
@@ -323,8 +341,8 @@ func TestContainmentIntrinsicAxisMapping(t *testing.T) {
 	}
 
 	physical := horizontal
-	physical.ContainIntrinsicWidth = 11
-	physical.ContainIntrinsicHeight = 22
+	physical.editContainment().ContainIntrinsicWidth = 11
+	physical.editContainment().ContainIntrinsicHeight = 22
 
 	if got := containmentIntrinsicWidth(&physical); got != 11 {
 		t.Fatalf("physical width = %v, want 11", got)

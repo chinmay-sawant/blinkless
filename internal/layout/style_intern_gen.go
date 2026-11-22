@@ -6,6 +6,7 @@ import (
 	"maps"
 	"math"
 	"slices"
+	"strings"
 )
 
 // styleInternSeed and styleInternPrime are the FNV-1a 64 offset and prime.
@@ -97,151 +98,23 @@ func styleInternEqualExceptBG(a, b *ResolvedStyle) bool {
 	}
 
 	return a.Display == b.Display &&
-		a.IsWebkitBox == b.IsWebkitBox &&
 		a.Position == b.Position &&
 		a.Float == b.Float &&
-		a.Clear == b.Clear &&
-		a.BoxSizing == b.BoxSizing &&
-		a.Top == b.Top &&
-		a.Right == b.Right &&
-		a.Bottom == b.Bottom &&
-		a.Left == b.Left &&
-		a.TopAuto == b.TopAuto &&
-		a.RightAuto == b.RightAuto &&
-		a.BottomAuto == b.BottomAuto &&
-		a.LeftAuto == b.LeftAuto &&
-		a.FlexDirection == b.FlexDirection &&
-		a.FlexWrap == b.FlexWrap &&
-		a.JustifyContent == b.JustifyContent &&
-		a.AlignItems == b.AlignItems &&
-		a.AlignContent == b.AlignContent &&
-		a.AlignSelf == b.AlignSelf &&
-		a.JustifyItems == b.JustifyItems &&
-		a.JustifySelf == b.JustifySelf &&
-		a.Gap == b.Gap &&
-		a.RowGap == b.RowGap &&
-		a.ColumnGap == b.ColumnGap &&
-		a.ColumnGapNormal == b.ColumnGapNormal &&
-		a.ColumnCount == b.ColumnCount &&
-		a.ColumnWidth == b.ColumnWidth &&
-		a.ColumnHeight == b.ColumnHeight &&
-		a.ColumnWrap == b.ColumnWrap &&
-		a.ColumnSpan == b.ColumnSpan &&
-		a.ColumnFill == b.ColumnFill &&
-		a.ColumnRuleWidth == b.ColumnRuleWidth &&
-		a.ColumnRuleStyle == b.ColumnRuleStyle &&
-		a.ColumnRuleColor == b.ColumnRuleColor &&
-		a.ColumnRuleColorSet == b.ColumnRuleColorSet &&
-		a.RowRuleWidth == b.RowRuleWidth &&
-		a.RowRuleStyle == b.RowRuleStyle &&
-		a.RowRuleColor == b.RowRuleColor &&
-		a.RowRuleColorSet == b.RowRuleColorSet &&
-		slices.Equal(a.RowRuleWidths, b.RowRuleWidths) &&
-		slices.Equal(a.RowRuleStyles, b.RowRuleStyles) &&
-		slices.Equal(a.RowRuleColors, b.RowRuleColors) &&
-		a.RowRuleBreak == b.RowRuleBreak &&
-		a.RowRuleVisibility == b.RowRuleVisibility &&
-		a.RowRuleInsetCapStart == b.RowRuleInsetCapStart &&
-		a.RowRuleInsetCapEnd == b.RowRuleInsetCapEnd &&
-		a.RowRuleInsetJunctionStart == b.RowRuleInsetJunctionStart &&
-		a.RowRuleInsetJunctionEnd == b.RowRuleInsetJunctionEnd &&
-		a.ColumnRuleBreak == b.ColumnRuleBreak &&
-		a.ColumnRuleInsetCapStart == b.ColumnRuleInsetCapStart &&
-		a.ColumnRuleInsetCapEnd == b.ColumnRuleInsetCapEnd &&
-		a.ColumnRuleInsetJunctionStart == b.ColumnRuleInsetJunctionStart &&
-		a.ColumnRuleInsetJunctionEnd == b.ColumnRuleInsetJunctionEnd &&
-		a.RuleOverlap == b.RuleOverlap &&
-		a.InitialLetterSize == b.InitialLetterSize &&
-		a.InitialLetterSink == b.InitialLetterSink &&
-		a.InitialLetterAlign == b.InitialLetterAlign &&
-		a.InitialLetterWrap == b.InitialLetterWrap &&
-		a.FlexGrow == b.FlexGrow &&
-		a.FlexShrink == b.FlexShrink &&
-		a.FlexBasis == b.FlexBasis &&
-		a.FlexBasisPercent == b.FlexBasisPercent &&
-		a.FlexOrder == b.FlexOrder &&
-		a.ZIndex == b.ZIndex &&
-		a.ZIndexSet == b.ZIndexSet &&
-		a.WritingMode == b.WritingMode &&
-		a.Direction == b.Direction &&
-		a.Filter == b.Filter &&
-		a.BackdropFilter == b.BackdropFilter &&
-		a.MixBlendMode == b.MixBlendMode &&
-		a.BackgroundBlendMode == b.BackgroundBlendMode &&
-		a.Isolation == b.Isolation &&
-		a.GridTemplateColumns == b.GridTemplateColumns &&
-		a.GridTemplateRows == b.GridTemplateRows &&
-		a.GridTemplateAreas == b.GridTemplateAreas &&
-		a.GridArea == b.GridArea &&
-		a.GridAutoFlow == b.GridAutoFlow &&
-		a.GridAutoColumns == b.GridAutoColumns &&
-		a.GridAutoRows == b.GridAutoRows &&
-		a.GridColumnSpan == b.GridColumnSpan &&
-		a.GridColumnStart == b.GridColumnStart &&
-		a.GridRowSpan == b.GridRowSpan &&
-		a.GridRowStart == b.GridRowStart &&
 		a.Width == b.Width &&
 		a.WidthPercent == b.WidthPercent &&
 		a.Height == b.Height &&
 		a.HeightPercent == b.HeightPercent &&
-		a.MinWidth == b.MinWidth &&
-		a.MinWidthPercent == b.MinWidthPercent &&
-		a.MinWidthSet == b.MinWidthSet &&
-		a.MaxWidth == b.MaxWidth &&
-		a.MaxWidthPercent == b.MaxWidthPercent &&
-		a.MinHeight == b.MinHeight &&
-		a.MinHeightPercent == b.MinHeightPercent &&
-		a.MinHeightSet == b.MinHeightSet &&
-		a.MaxHeight == b.MaxHeight &&
-		a.MaxHeightPercent == b.MaxHeightPercent &&
 		a.Overflow == b.Overflow &&
-		a.OverflowX == b.OverflowX &&
-		a.OverflowY == b.OverflowY &&
 		a.Visibility == b.Visibility &&
-		slices.Equal(a.AnchorNames, b.AnchorNames) &&
-		a.AnchorScope == b.AnchorScope &&
-		a.PositionAnchor == b.PositionAnchor &&
-		a.PositionArea == b.PositionArea &&
-		slices.Equal(a.PositionTryFallbacks, b.PositionTryFallbacks) &&
-		a.PositionTryOrder == b.PositionTryOrder &&
-		a.PositionVisibility == b.PositionVisibility &&
 		a.MarginTop == b.MarginTop &&
 		a.MarginRight == b.MarginRight &&
 		a.MarginBottom == b.MarginBottom &&
 		a.MarginLeft == b.MarginLeft &&
-		a.MarginTopAuto == b.MarginTopAuto &&
-		a.MarginBottomAuto == b.MarginBottomAuto &&
-		a.MarginLeftAuto == b.MarginLeftAuto &&
-		a.MarginRightAuto == b.MarginRightAuto &&
 		a.PaddingTop == b.PaddingTop &&
 		a.PaddingRight == b.PaddingRight &&
 		a.PaddingBottom == b.PaddingBottom &&
 		a.PaddingLeft == b.PaddingLeft &&
-		a.BorderTop == b.BorderTop &&
-		a.BorderRight == b.BorderRight &&
-		a.BorderBottom == b.BorderBottom &&
-		a.BorderLeft == b.BorderLeft &&
-		a.BorderRadius == b.BorderRadius &&
-		a.BorderRadiusPercent == b.BorderRadiusPercent &&
-		a.BorderRadiusTopLeft == b.BorderRadiusTopLeft &&
-		a.BorderRadiusTopRight == b.BorderRadiusTopRight &&
-		a.BorderRadiusBottomRight == b.BorderRadiusBottomRight &&
-		a.BorderRadiusBottomLeft == b.BorderRadiusBottomLeft &&
-		a.BorderRadiusTopLeftY == b.BorderRadiusTopLeftY &&
-		a.BorderRadiusTopRightY == b.BorderRadiusTopRightY &&
-		a.BorderRadiusBottomRightY == b.BorderRadiusBottomRightY &&
-		a.BorderRadiusBottomLeftY == b.BorderRadiusBottomLeftY &&
-		a.CornerShapeTopLeft == b.CornerShapeTopLeft &&
-		a.CornerShapeTopRight == b.CornerShapeTopRight &&
-		a.CornerShapeBottomRight == b.CornerShapeBottomRight &&
-		a.CornerShapeBottomLeft == b.CornerShapeBottomLeft &&
-		a.CornerShapeTopLeftKeyword == b.CornerShapeTopLeftKeyword &&
-		a.CornerShapeTopRightKeyword == b.CornerShapeTopRightKeyword &&
-		a.CornerShapeBottomRightKeyword == b.CornerShapeBottomRightKeyword &&
-		a.CornerShapeBottomLeftKeyword == b.CornerShapeBottomLeftKeyword &&
 		a.Color == b.Color &&
-		a.AccentColor == b.AccentColor &&
-		a.AccentColorSet == b.AccentColorSet &&
 		slices.Equal(a.FontFamily, b.FontFamily) &&
 		a.famHash == b.famHash &&
 		a.FontSize == b.FontSize &&
@@ -250,298 +123,28 @@ func styleInternEqualExceptBG(a, b *ResolvedStyle) bool {
 		a.LineHeight == b.LineHeight &&
 		a.LineHeightUnitless == b.LineHeightUnitless &&
 		a.TextAlign == b.TextAlign &&
-		a.TextAlignLast == b.TextAlignLast &&
-		a.TextTransform == b.TextTransform &&
-		a.VerticalAlign == b.VerticalAlign &&
-		a.VerticalAlignShift == b.VerticalAlignShift &&
 		a.WhiteSpace == b.WhiteSpace &&
-		a.WhiteSpaceCollapse == b.WhiteSpaceCollapse &&
-		a.WhiteSpaceTrim == b.WhiteSpaceTrim &&
-		a.TextWrap == b.TextWrap &&
-		a.TextWrapMode == b.TextWrapMode &&
-		a.TextWrapStyle == b.TextWrapStyle &&
-		a.TabSize == b.TabSize &&
-		a.Hyphens == b.Hyphens &&
-		a.HyphenateCharacter == b.HyphenateCharacter &&
-		a.HyphenateLimitMinWord == b.HyphenateLimitMinWord &&
-		a.HyphenateLimitMinBefore == b.HyphenateLimitMinBefore &&
-		a.HyphenateLimitMinAfter == b.HyphenateLimitMinAfter &&
-		a.HyphenateLimitLast == b.HyphenateLimitLast &&
-		a.HyphenateLimitLines == b.HyphenateLimitLines &&
-		a.HyphenateLimitZonePt == b.HyphenateLimitZonePt &&
-		a.HyphenateLimitZonePct == b.HyphenateLimitZonePct &&
-		a.HangingPunctuation == b.HangingPunctuation &&
-		a.TextJustify == b.TextJustify &&
-		a.LineBreak == b.LineBreak &&
-		a.OverflowWrap == b.OverflowWrap &&
-		a.WordBreak == b.WordBreak &&
-		a.TextDecoration == b.TextDecoration &&
-		a.TextDecorationLine == b.TextDecorationLine &&
-		a.TextDecorationColor == b.TextDecorationColor &&
-		a.TextDecorationColorSet == b.TextDecorationColorSet &&
-		a.TextDecorationStyle == b.TextDecorationStyle &&
-		a.TextDecorationThickness == b.TextDecorationThickness &&
-		a.TextUnderlineOffset == b.TextUnderlineOffset &&
-		a.TextUnderlinePosition == b.TextUnderlinePosition &&
-		a.TextShadowX == b.TextShadowX &&
-		a.TextShadowY == b.TextShadowY &&
-		a.TextShadowBlur == b.TextShadowBlur &&
-		a.TextShadowColor == b.TextShadowColor &&
-		a.TextShadowSet == b.TextShadowSet &&
-		a.LetterSpacing == b.LetterSpacing &&
-		a.WordSpacing == b.WordSpacing &&
-		a.WordSpaceTransform == b.WordSpaceTransform &&
-		a.TextIndent == b.TextIndent &&
-		a.LinePadding == b.LinePadding &&
-		a.ListStyleType == b.ListStyleType &&
-		a.BorderCollapse == b.BorderCollapse &&
-		a.BorderSpacing == b.BorderSpacing &&
-		a.BorderSpacingV == b.BorderSpacingV &&
-		a.TableLayout == b.TableLayout &&
-		a.CaptionSide == b.CaptionSide &&
 		a.IsReplaced == b.IsReplaced &&
-		a.PageBreakBefore == b.PageBreakBefore &&
-		a.PageBreakAfter == b.PageBreakAfter &&
-		a.PageBreakInside == b.PageBreakInside &&
-		a.MarginBreak == b.MarginBreak &&
-		a.PageName == b.PageName &&
-		a.Orphans == b.Orphans &&
-		a.Widows == b.Widows &&
-		a.EmptyCells == b.EmptyCells &&
-		a.ContainerType == b.ContainerType &&
-		a.ContainerName == b.ContainerName &&
-		a.Transform == b.Transform &&
-		a.HasTransform == b.HasTransform &&
-		a.TransformOrigin == b.TransformOrigin &&
-		a.TranslateXPercent == b.TranslateXPercent &&
-		a.TranslateXPercentSet == b.TranslateXPercentSet &&
-		a.TranslateYPercent == b.TranslateYPercent &&
-		a.TranslateYPercentSet == b.TranslateYPercentSet &&
 		a.Opacity == b.Opacity &&
-		a.Content == b.Content &&
-		a.GridColumnEnd == b.GridColumnEnd &&
-		a.GridRowEnd == b.GridRowEnd &&
-		a.OutlineWidth == b.OutlineWidth &&
-		a.OutlineStyle == b.OutlineStyle &&
-		a.OutlineColor == b.OutlineColor &&
-		a.OutlineColorSet == b.OutlineColorSet &&
-		a.OutlineOffset == b.OutlineOffset &&
-		a.BackgroundImage == b.BackgroundImage &&
-		a.BackgroundPosX == b.BackgroundPosX &&
-		a.BackgroundPosY == b.BackgroundPosY &&
-		a.BackgroundSize == b.BackgroundSize &&
-		a.BackgroundRepeat == b.BackgroundRepeat &&
-		a.BackgroundRepeatX == b.BackgroundRepeatX &&
-		a.BackgroundRepeatY == b.BackgroundRepeatY &&
-		a.BackgroundRepeatBlock == b.BackgroundRepeatBlock &&
-		a.BackgroundRepeatInline == b.BackgroundRepeatInline &&
-		a.BackgroundClip == b.BackgroundClip &&
-		a.BackgroundOrigin == b.BackgroundOrigin &&
-		a.BackgroundAttachment == b.BackgroundAttachment &&
-		a.MaskImage == b.MaskImage &&
-		a.MaskMode == b.MaskMode &&
-		a.MaskComposite == b.MaskComposite &&
-		a.MaskPosition == b.MaskPosition &&
-		a.MaskRepeat == b.MaskRepeat &&
-		a.MaskSize == b.MaskSize &&
-		a.MaskOrigin == b.MaskOrigin &&
-		a.MaskClip == b.MaskClip &&
-		a.MaskType == b.MaskType &&
-		a.MaskBorderSource == b.MaskBorderSource &&
-		a.MaskBorderSlice == b.MaskBorderSlice &&
-		a.MaskBorderWidth == b.MaskBorderWidth &&
-		a.MaskBorderOutset == b.MaskBorderOutset &&
-		a.MaskBorderRepeat == b.MaskBorderRepeat &&
-		a.MaskBorderMode == b.MaskBorderMode &&
-		a.ClipPath == b.ClipPath &&
-		a.ClipRule == b.ClipRule &&
-		a.BorderImageSource == b.BorderImageSource &&
-		a.BorderImageSlice == b.BorderImageSlice &&
-		a.BorderImageWidth == b.BorderImageWidth &&
-		a.BorderImageOutset == b.BorderImageOutset &&
-		a.BorderImageRepeat == b.BorderImageRepeat &&
-		a.ListStylePosition == b.ListStylePosition &&
-		a.QuotesRaw == b.QuotesRaw &&
-		a.QuotesOpen == b.QuotesOpen &&
-		a.QuotesClose == b.QuotesClose &&
-		a.CounterReset == b.CounterReset &&
-		a.CounterIncrement == b.CounterIncrement &&
-		a.CounterSet == b.CounterSet &&
-		a.ListStyleImage == b.ListStyleImage &&
-		a.BoxShadowX == b.BoxShadowX &&
-		a.BoxShadowY == b.BoxShadowY &&
-		a.BoxShadowBlur == b.BoxShadowBlur &&
-		a.BoxShadowSpread == b.BoxShadowSpread &&
-		a.BoxShadowColor == b.BoxShadowColor &&
-		a.BoxShadowSet == b.BoxShadowSet &&
-		a.BoxShadowInset == b.BoxShadowInset &&
-		a.BoxShadowRaw == b.BoxShadowRaw &&
-		a.Fill == b.Fill &&
-		a.FillSet == b.FillSet &&
-		a.FillOpacity == b.FillOpacity &&
-		a.Stroke == b.Stroke &&
-		a.StrokeSet == b.StrokeSet &&
-		a.StrokeWidth == b.StrokeWidth &&
-		a.StrokeWidthSet == b.StrokeWidthSet &&
-		a.StrokeOpacity == b.StrokeOpacity &&
-		slices.Equal(a.StrokeDashArray, b.StrokeDashArray) &&
-		a.StrokeDashOffset == b.StrokeDashOffset &&
-		a.StrokeLineCap == b.StrokeLineCap &&
-		a.StrokeLineJoin == b.StrokeLineJoin &&
-		a.StrokeMiterLimit == b.StrokeMiterLimit &&
-		a.TextOverflow == b.TextOverflow &&
-		a.LineClamp == b.LineClamp &&
-		a.MaxLines == b.MaxLines &&
-		a.MarginTrim == b.MarginTrim &&
-		a.BoxDecorationBreak == b.BoxDecorationBreak &&
-		a.TextDecorationSkipInk == b.TextDecorationSkipInk &&
-		a.OverflowClipMarginTop == b.OverflowClipMarginTop &&
-		a.OverflowClipMarginRight == b.OverflowClipMarginRight &&
-		a.OverflowClipMarginBottom == b.OverflowClipMarginBottom &&
-		a.OverflowClipMarginLeft == b.OverflowClipMarginLeft &&
-		a.ScrollMarginTop == b.ScrollMarginTop &&
-		a.ScrollMarginRight == b.ScrollMarginRight &&
-		a.ScrollMarginBottom == b.ScrollMarginBottom &&
-		a.ScrollMarginLeft == b.ScrollMarginLeft &&
-		a.Contain == b.Contain &&
-		a.ContainIntrinsicWidth == b.ContainIntrinsicWidth &&
-		a.ContainIntrinsicHeight == b.ContainIntrinsicHeight &&
-		a.ContainIntrinsicBlockSize == b.ContainIntrinsicBlockSize &&
-		a.ContainIntrinsicInlineSize == b.ContainIntrinsicInlineSize &&
-		a.ContentVisibility == b.ContentVisibility &&
-		a.ColorAdjust == b.ColorAdjust &&
-		a.ForcedColorAdjust == b.ForcedColorAdjust &&
-		a.ColorScheme == b.ColorScheme &&
-		a.DynamicRangeLimit == b.DynamicRangeLimit &&
-		a.FontLanguageOverride == b.FontLanguageOverride &&
-		a.FontOpticalSizing == b.FontOpticalSizing &&
-		a.FontPalette == b.FontPalette &&
-		a.FontVariationSettings == b.FontVariationSettings &&
-		a.FontFeatureSettings == b.FontFeatureSettings &&
-		a.FontKerning == b.FontKerning &&
-		a.FontSizeAdjust == b.FontSizeAdjust &&
-		a.FontSizeAdjustSet == b.FontSizeAdjustSet &&
-		a.FontWidth == b.FontWidth &&
-		a.FontSynthesisWeight == b.FontSynthesisWeight &&
-		a.FontSynthesisStyle == b.FontSynthesisStyle &&
-		a.FontSynthesisSmallCaps == b.FontSynthesisSmallCaps &&
-		a.FontSynthesisPosition == b.FontSynthesisPosition &&
-		a.FontVariantCaps == b.FontVariantCaps &&
-		a.FontVariantLigatures == b.FontVariantLigatures &&
-		a.FontVariantNumeric == b.FontVariantNumeric &&
-		a.FontVariantPosition == b.FontVariantPosition &&
-		a.FontVariantEastAsian == b.FontVariantEastAsian &&
-		a.FontVariantAlternates == b.FontVariantAlternates &&
-		a.FontVariantEmoji == b.FontVariantEmoji &&
-		a.ImageOrientation == b.ImageOrientation &&
-		a.ImageOrientationAngle == b.ImageOrientationAngle &&
-		a.ImageResolution == b.ImageResolution &&
-		a.ImageResolutionDPI == b.ImageResolutionDPI &&
-		a.ObjectViewBox == b.ObjectViewBox &&
-		a.ObjectFit == b.ObjectFit &&
-		a.ObjectPositionX == b.ObjectPositionX &&
-		a.ObjectPositionY == b.ObjectPositionY &&
-		a.AspectRatio == b.AspectRatio &&
-		a.Zoom == b.Zoom &&
-		a.ShapeOutside == b.ShapeOutside &&
-		a.ShapeMargin == b.ShapeMargin &&
-		a.ShapeMarginPercent == b.ShapeMarginPercent &&
-		a.FloatOffset == b.FloatOffset &&
-		a.FloatOffsetPercent == b.FloatOffsetPercent &&
-		a.FloatReference == b.FloatReference &&
-		a.ShapeInside == b.ShapeInside &&
-		a.ShapeInsideBox == b.ShapeInsideBox &&
-		a.ShapeInsideOutside == b.ShapeInsideOutside &&
-		a.ShapePadding == b.ShapePadding &&
-		a.ShapePaddingPercent == b.ShapePaddingPercent &&
-		a.TextCombineUpright == b.TextCombineUpright &&
-		a.TextDecorationInset == b.TextDecorationInset &&
-		a.TextDecorationSkip == b.TextDecorationSkip &&
-		a.TextDecorationSkipBox == b.TextDecorationSkipBox &&
-		a.TextDecorationSkipSelf == b.TextDecorationSkipSelf &&
-		a.TextDecorationSkipSpaces == b.TextDecorationSkipSpaces &&
-		a.TextOrientation == b.TextOrientation &&
-		a.UnicodeBidi == b.UnicodeBidi &&
-		a.TextBoxTrim == b.TextBoxTrim &&
-		a.TextBoxEdgeOver == b.TextBoxEdgeOver &&
-		a.TextBoxEdgeUnder == b.TextBoxEdgeUnder &&
-		a.LineFitEdge == b.LineFitEdge &&
-		a.TextAutospace == b.TextAutospace &&
-		a.TextSpacing == b.TextSpacing &&
-		a.TextSpacingTrim == b.TextSpacingTrim &&
-		a.TextGroupAlign == b.TextGroupAlign &&
-		a.TextFit == b.TextFit &&
-		a.TransformBox == b.TransformBox &&
-		a.TransformStyle == b.TransformStyle &&
-		a.BackfaceVisibility == b.BackfaceVisibility &&
-		a.Transform3D == b.Transform3D &&
-		a.HasTransform3D == b.HasTransform3D &&
-		a.PerspectiveDist == b.PerspectiveDist &&
-		a.HasPerspective == b.HasPerspective &&
-		a.PerspectiveOriginX == b.PerspectiveOriginX &&
-		a.PerspectiveOriginXPct == b.PerspectiveOriginXPct &&
-		a.PerspectiveOriginY == b.PerspectiveOriginY &&
-		a.PerspectiveOriginYPct == b.PerspectiveOriginYPct &&
-		a.PerspectiveOriginSet == b.PerspectiveOriginSet &&
-		a.FillRule == b.FillRule &&
-		a.ShapeRendering == b.ShapeRendering &&
-		a.DominantBaseline == b.DominantBaseline &&
-		a.AlignmentBaseline == b.AlignmentBaseline &&
-		a.BaselineSource == b.BaselineSource &&
-		a.Continue == b.Continue &&
-		a.ImageRendering == b.ImageRendering &&
-		a.TextStrokeWidth == b.TextStrokeWidth &&
-		a.TextStrokeColor == b.TextStrokeColor &&
-		a.TextStrokeColorSet == b.TextStrokeColorSet &&
-		a.LinkParameters == b.LinkParameters &&
-		a.ContinueLines == b.ContinueLines &&
-		a.InlineSizing == b.InlineSizing &&
-		a.Clip == b.Clip &&
-		a.ColorInterpolation == b.ColorInterpolation &&
-		a.ColorInterpolationFilters == b.ColorInterpolationFilters &&
-		a.FlowInto == b.FlowInto &&
-		a.FlowIntoElement == b.FlowIntoElement &&
-		a.FlowFrom == b.FlowFrom &&
-		a.RegionFragment == b.RegionFragment &&
-		a.FlowTolerancePt == b.FlowTolerancePt &&
-		a.FlowToleranceInfinite == b.FlowToleranceInfinite &&
-		a.WrapFlow == b.WrapFlow &&
-		a.WrapThrough == b.WrapThrough &&
-		a.WrapBefore == b.WrapBefore &&
-		a.WrapAfter == b.WrapAfter &&
-		a.WrapInside == b.WrapInside &&
 		maps.Equal(a.CustomProps, b.CustomProps) &&
-		a.Animation == b.Animation &&
-		a.Transition == b.Transition &&
-		a.ScrollTimelineName == b.ScrollTimelineName &&
-		a.ScrollTimelineAxis == b.ScrollTimelineAxis &&
-		a.ViewTimelineName == b.ViewTimelineName &&
-		a.ViewTimelineAxis == b.ViewTimelineAxis &&
-		a.ViewTimelineInsetStart == b.ViewTimelineInsetStart &&
-		a.ViewTimelineInsetEnd == b.ViewTimelineInsetEnd &&
-		a.ViewTimelineInsetStartSet == b.ViewTimelineInsetStartSet &&
-		a.ViewTimelineInsetEndSet == b.ViewTimelineInsetEndSet &&
-		a.ViewTimelineInsets == b.ViewTimelineInsets &&
 		styleInternEqualPtrTriggerStyle(a.Triggers, b.Triggers) &&
 		styleInternEqualPtrDeclaredStyle(a.Declared, b.Declared) &&
-		a.SVGCx == b.SVGCx &&
-		a.SVGCy == b.SVGCy &&
-		a.SVGR == b.SVGR &&
-		a.SVGRx == b.SVGRx &&
-		a.SVGRy == b.SVGRy &&
-		a.SVGX == b.SVGX &&
-		a.SVGY == b.SVGY &&
-		a.SVGD == b.SVGD &&
-		a.SVGMarkerStart == b.SVGMarkerStart &&
-		a.SVGMarkerMid == b.SVGMarkerMid &&
-		a.SVGMarkerEnd == b.SVGMarkerEnd &&
-		a.SVGStopColor == b.SVGStopColor &&
-		a.SVGStopOpacity == b.SVGStopOpacity &&
-		a.SVGPaintOrder == b.SVGPaintOrder &&
-		a.SVGPathLength == b.SVGPathLength &&
-		a.SVGVectorEffect == b.SVGVectorEffect &&
-		a.SVGFloodColor == b.SVGFloodColor &&
-		a.SVGFloodOpacity == b.SVGFloodOpacity
+		styleInternEqualBackground(a.backgroundGroup, b.backgroundGroup) &&
+		styleInternEqualBorders(a.bordersGroup, b.bordersGroup) &&
+		styleInternEqualColumns(a.columnsGroup, b.columnsGroup) &&
+		styleInternEqualContainment(a.containmentGroup, b.containmentGroup) &&
+		styleInternEqualContent(a.contentGroup, b.contentGroup) &&
+		styleInternEqualEffects(a.effectsGroup, b.effectsGroup) &&
+		styleInternEqualFlex(a.flexGroup, b.flexGroup) &&
+		styleInternEqualFont(a.fontGroup, b.fontGroup) &&
+		styleInternEqualFragmentation(a.fragmentationGroup, b.fragmentationGroup) &&
+		styleInternEqualGeometry(a.geometryGroup, b.geometryGroup) &&
+		styleInternEqualGrid(a.gridGroup, b.gridGroup) &&
+		styleInternEqualImages(a.imagesGroup, b.imagesGroup) &&
+		styleInternEqualInlineText(a.inlineTextGroup, b.inlineTextGroup) &&
+		styleInternEqualMotion(a.motionGroup, b.motionGroup) &&
+		styleInternEqualPositioning(a.positioningGroup, b.positioningGroup) &&
+		styleInternEqualSvg(a.svgGroup, b.svgGroup)
 }
 
 // styleInternEqual reports exact semantic equality of two stored styles.
@@ -559,162 +162,28 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h := styleInternSeed
 	h = styleInternHashString(h, s.Display)
-	h = styleInternHashBool(h, s.IsWebkitBox)
 	h = styleInternHashString(h, s.Position)
 	h = styleInternHashString(h, s.Float)
-	h = styleInternHashString(h, s.Clear)
-	h = styleInternHashString(h, s.BoxSizing)
-	h = styleInternHashFloat64(h, s.Top)
-	h = styleInternHashFloat64(h, s.Right)
-	h = styleInternHashFloat64(h, s.Bottom)
-	h = styleInternHashFloat64(h, s.Left)
-	h = styleInternHashBool(h, s.TopAuto)
-	h = styleInternHashBool(h, s.RightAuto)
-	h = styleInternHashBool(h, s.BottomAuto)
-	h = styleInternHashBool(h, s.LeftAuto)
-	h = styleInternHashString(h, s.FlexDirection)
-	h = styleInternHashString(h, s.FlexWrap)
-	h = styleInternHashString(h, s.JustifyContent)
-	h = styleInternHashString(h, s.AlignItems)
-	h = styleInternHashString(h, s.AlignContent)
-	h = styleInternHashString(h, s.AlignSelf)
-	h = styleInternHashString(h, s.JustifyItems)
-	h = styleInternHashString(h, s.JustifySelf)
-	h = styleInternHashFloat64(h, s.Gap)
-	h = styleInternHashFloat64(h, s.RowGap)
-	h = styleInternHashFloat64(h, s.ColumnGap)
-	h = styleInternHashBool(h, s.ColumnGapNormal)
-	h = styleInternHashInt(h, s.ColumnCount)
-	h = styleInternHashFloat64(h, s.ColumnWidth)
-	h = styleInternHashFloat64(h, s.ColumnHeight)
-	h = styleInternHashString(h, s.ColumnWrap)
-	h = styleInternHashString(h, s.ColumnSpan)
-	h = styleInternHashString(h, s.ColumnFill)
-	h = styleInternHashFloat64(h, s.ColumnRuleWidth)
-	h = styleInternHashString(h, s.ColumnRuleStyle)
-	for _, e := range s.ColumnRuleColor {
-		h = styleInternHashFloat64(h, e)
-	}
-	h = styleInternHashBool(h, s.ColumnRuleColorSet)
-	h = styleInternHashFloat64(h, s.RowRuleWidth)
-	h = styleInternHashString(h, s.RowRuleStyle)
-	for _, e := range s.RowRuleColor {
-		h = styleInternHashFloat64(h, e)
-	}
-	h = styleInternHashBool(h, s.RowRuleColorSet)
-	h = styleInternHashFloat64Slice(h, s.RowRuleWidths)
-	h = styleInternHashStringSlice(h, s.RowRuleStyles)
-	h = styleInternHashStringSlice(h, s.RowRuleColors)
-	h = styleInternHashString(h, s.RowRuleBreak)
-	h = styleInternHashString(h, s.RowRuleVisibility)
-	h = styleInternHashRuleInset(h, s.RowRuleInsetCapStart)
-	h = styleInternHashRuleInset(h, s.RowRuleInsetCapEnd)
-	h = styleInternHashRuleInset(h, s.RowRuleInsetJunctionStart)
-	h = styleInternHashRuleInset(h, s.RowRuleInsetJunctionEnd)
-	h = styleInternHashString(h, s.ColumnRuleBreak)
-	h = styleInternHashRuleInset(h, s.ColumnRuleInsetCapStart)
-	h = styleInternHashRuleInset(h, s.ColumnRuleInsetCapEnd)
-	h = styleInternHashRuleInset(h, s.ColumnRuleInsetJunctionStart)
-	h = styleInternHashRuleInset(h, s.ColumnRuleInsetJunctionEnd)
-	h = styleInternHashString(h, s.RuleOverlap)
-	h = styleInternHashFloat64(h, s.InitialLetterSize)
-	h = styleInternHashInt(h, s.InitialLetterSink)
-	h = styleInternHashString(h, s.InitialLetterAlign)
-	h = styleInternHashString(h, s.InitialLetterWrap)
-	h = styleInternHashFloat64(h, s.FlexGrow)
-	h = styleInternHashFloat64(h, s.FlexShrink)
-	h = styleInternHashFloat64(h, s.FlexBasis)
-	h = styleInternHashFloat64(h, s.FlexBasisPercent)
-	h = styleInternHashInt(h, s.FlexOrder)
-	h = styleInternHashInt(h, s.ZIndex)
-	h = styleInternHashBool(h, s.ZIndexSet)
-	h = styleInternHashString(h, s.WritingMode)
-	h = styleInternHashString(h, s.Direction)
-	h = styleInternHashString(h, s.Filter)
-	h = styleInternHashString(h, s.BackdropFilter)
-	h = styleInternHashString(h, s.MixBlendMode)
-	h = styleInternHashString(h, s.BackgroundBlendMode)
-	h = styleInternHashString(h, s.Isolation)
-	h = styleInternHashString(h, s.GridTemplateColumns)
-	h = styleInternHashString(h, s.GridTemplateRows)
-	h = styleInternHashString(h, s.GridTemplateAreas)
-	h = styleInternHashString(h, s.GridArea)
-	h = styleInternHashString(h, s.GridAutoFlow)
-	h = styleInternHashString(h, s.GridAutoColumns)
-	h = styleInternHashString(h, s.GridAutoRows)
-	h = styleInternHashInt(h, s.GridColumnSpan)
-	h = styleInternHashInt(h, s.GridColumnStart)
-	h = styleInternHashInt(h, s.GridRowSpan)
-	h = styleInternHashInt(h, s.GridRowStart)
 	h = styleInternHashFloat64(h, s.Width)
 	h = styleInternHashFloat64(h, s.WidthPercent)
 	h = styleInternHashFloat64(h, s.Height)
 	h = styleInternHashFloat64(h, s.HeightPercent)
-	h = styleInternHashFloat64(h, s.MinWidth)
-	h = styleInternHashFloat64(h, s.MinWidthPercent)
-	h = styleInternHashBool(h, s.MinWidthSet)
-	h = styleInternHashFloat64(h, s.MaxWidth)
-	h = styleInternHashFloat64(h, s.MaxWidthPercent)
-	h = styleInternHashFloat64(h, s.MinHeight)
-	h = styleInternHashFloat64(h, s.MinHeightPercent)
-	h = styleInternHashBool(h, s.MinHeightSet)
-	h = styleInternHashFloat64(h, s.MaxHeight)
-	h = styleInternHashFloat64(h, s.MaxHeightPercent)
 	h = styleInternHashString(h, s.Overflow)
-	h = styleInternHashString(h, s.OverflowX)
-	h = styleInternHashString(h, s.OverflowY)
 	h = styleInternHashString(h, s.Visibility)
-	h = styleInternHashStringSlice(h, s.AnchorNames)
-	h = styleInternHashString(h, s.AnchorScope)
-	h = styleInternHashString(h, s.PositionAnchor)
-	h = styleInternHashString(h, s.PositionArea)
-	h = styleInternHashStringSlice(h, s.PositionTryFallbacks)
-	h = styleInternHashString(h, s.PositionTryOrder)
-	h = styleInternHashString(h, s.PositionVisibility)
 	h = styleInternHashFloat64(h, s.MarginTop)
 	h = styleInternHashFloat64(h, s.MarginRight)
 	h = styleInternHashFloat64(h, s.MarginBottom)
 	h = styleInternHashFloat64(h, s.MarginLeft)
-	h = styleInternHashBool(h, s.MarginTopAuto)
-	h = styleInternHashBool(h, s.MarginBottomAuto)
-	h = styleInternHashBool(h, s.MarginLeftAuto)
-	h = styleInternHashBool(h, s.MarginRightAuto)
 	h = styleInternHashFloat64(h, s.PaddingTop)
 	h = styleInternHashFloat64(h, s.PaddingRight)
 	h = styleInternHashFloat64(h, s.PaddingBottom)
 	h = styleInternHashFloat64(h, s.PaddingLeft)
-	h = styleInternHashBorder(h, s.BorderTop)
-	h = styleInternHashBorder(h, s.BorderRight)
-	h = styleInternHashBorder(h, s.BorderBottom)
-	h = styleInternHashBorder(h, s.BorderLeft)
-	h = styleInternHashFloat64(h, s.BorderRadius)
-	h = styleInternHashFloat64(h, s.BorderRadiusPercent)
-	h = styleInternHashFloat64(h, s.BorderRadiusTopLeft)
-	h = styleInternHashFloat64(h, s.BorderRadiusTopRight)
-	h = styleInternHashFloat64(h, s.BorderRadiusBottomRight)
-	h = styleInternHashFloat64(h, s.BorderRadiusBottomLeft)
-	h = styleInternHashFloat64(h, s.BorderRadiusTopLeftY)
-	h = styleInternHashFloat64(h, s.BorderRadiusTopRightY)
-	h = styleInternHashFloat64(h, s.BorderRadiusBottomRightY)
-	h = styleInternHashFloat64(h, s.BorderRadiusBottomLeftY)
-	h = styleInternHashFloat64(h, s.CornerShapeTopLeft)
-	h = styleInternHashFloat64(h, s.CornerShapeTopRight)
-	h = styleInternHashFloat64(h, s.CornerShapeBottomRight)
-	h = styleInternHashFloat64(h, s.CornerShapeBottomLeft)
-	h = styleInternHashString(h, s.CornerShapeTopLeftKeyword)
-	h = styleInternHashString(h, s.CornerShapeTopRightKeyword)
-	h = styleInternHashString(h, s.CornerShapeBottomRightKeyword)
-	h = styleInternHashString(h, s.CornerShapeBottomLeftKeyword)
 	for _, e := range s.Color {
 		h = styleInternHashFloat64(h, e)
 	}
 	for _, e := range s.BGColor {
 		h = styleInternHashFloat64(h, e)
 	}
-	for _, e := range s.AccentColor {
-		h = styleInternHashFloat64(h, e)
-	}
-	h = styleInternHashBool(h, s.AccentColorSet)
 	h = styleInternHashStringSlice(h, s.FontFamily)
 	h = styleInternHashUint64(h, s.famHash)
 	h = styleInternHashFloat64(h, s.FontSize)
@@ -723,318 +192,32 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashFloat64(h, s.LineHeight)
 	h = styleInternHashFloat64(h, s.LineHeightUnitless)
 	h = styleInternHashString(h, s.TextAlign)
-	h = styleInternHashString(h, s.TextAlignLast)
-	h = styleInternHashString(h, s.TextTransform)
-	h = styleInternHashString(h, s.VerticalAlign)
-	h = styleInternHashFloat64(h, s.VerticalAlignShift)
 	h = styleInternHashString(h, s.WhiteSpace)
-	h = styleInternHashString(h, s.WhiteSpaceCollapse)
-	h = styleInternHashString(h, s.WhiteSpaceTrim)
-	h = styleInternHashString(h, s.TextWrap)
-	h = styleInternHashString(h, s.TextWrapMode)
-	h = styleInternHashString(h, s.TextWrapStyle)
-	h = styleInternHashFloat64(h, s.TabSize)
-	h = styleInternHashString(h, s.Hyphens)
-	h = styleInternHashString(h, s.HyphenateCharacter)
-	h = styleInternHashInt(h, s.HyphenateLimitMinWord)
-	h = styleInternHashInt(h, s.HyphenateLimitMinBefore)
-	h = styleInternHashInt(h, s.HyphenateLimitMinAfter)
-	h = styleInternHashString(h, s.HyphenateLimitLast)
-	h = styleInternHashInt(h, s.HyphenateLimitLines)
-	h = styleInternHashFloat64(h, s.HyphenateLimitZonePt)
-	h = styleInternHashFloat64(h, s.HyphenateLimitZonePct)
-	h = styleInternHashString(h, s.HangingPunctuation)
-	h = styleInternHashString(h, s.TextJustify)
-	h = styleInternHashString(h, s.LineBreak)
-	h = styleInternHashString(h, s.OverflowWrap)
-	h = styleInternHashString(h, s.WordBreak)
-	h = styleInternHashString(h, s.TextDecoration)
-	h = styleInternHashString(h, s.TextDecorationLine)
-	for _, e := range s.TextDecorationColor {
-		h = styleInternHashFloat64(h, e)
-	}
-	h = styleInternHashBool(h, s.TextDecorationColorSet)
-	h = styleInternHashString(h, s.TextDecorationStyle)
-	h = styleInternHashFloat64(h, s.TextDecorationThickness)
-	h = styleInternHashFloat64(h, s.TextUnderlineOffset)
-	h = styleInternHashString(h, s.TextUnderlinePosition)
-	h = styleInternHashFloat64(h, s.TextShadowX)
-	h = styleInternHashFloat64(h, s.TextShadowY)
-	h = styleInternHashFloat64(h, s.TextShadowBlur)
-	for _, e := range s.TextShadowColor {
-		h = styleInternHashFloat64(h, e)
-	}
-	h = styleInternHashBool(h, s.TextShadowSet)
-	h = styleInternHashFloat64(h, s.LetterSpacing)
-	h = styleInternHashFloat64(h, s.WordSpacing)
-	h = styleInternHashString(h, s.WordSpaceTransform)
-	h = styleInternHashFloat64(h, s.TextIndent)
-	h = styleInternHashFloat64(h, s.LinePadding)
-	h = styleInternHashString(h, s.ListStyleType)
-	h = styleInternHashString(h, s.BorderCollapse)
-	h = styleInternHashFloat64(h, s.BorderSpacing)
-	h = styleInternHashFloat64(h, s.BorderSpacingV)
-	h = styleInternHashString(h, s.TableLayout)
-	h = styleInternHashString(h, s.CaptionSide)
 	h = styleInternHashBool(h, s.IsReplaced)
-	h = styleInternHashString(h, s.PageBreakBefore)
-	h = styleInternHashString(h, s.PageBreakAfter)
-	h = styleInternHashString(h, s.PageBreakInside)
-	h = styleInternHashString(h, s.MarginBreak)
-	h = styleInternHashString(h, s.PageName)
-	h = styleInternHashInt(h, s.Orphans)
-	h = styleInternHashInt(h, s.Widows)
-	h = styleInternHashString(h, s.EmptyCells)
-	h = styleInternHashString(h, s.ContainerType)
-	h = styleInternHashString(h, s.ContainerName)
-	h = styleInternHashMatrix2D(h, s.Transform)
-	h = styleInternHashBool(h, s.HasTransform)
-	h = styleInternHashTransformOriginSpec(h, s.TransformOrigin)
-	h = styleInternHashFloat64(h, s.TranslateXPercent)
-	h = styleInternHashBool(h, s.TranslateXPercentSet)
-	h = styleInternHashFloat64(h, s.TranslateYPercent)
-	h = styleInternHashBool(h, s.TranslateYPercentSet)
 	h = styleInternHashFloat64(h, s.Opacity)
-	h = styleInternHashString(h, s.Content)
-	h = styleInternHashInt(h, s.GridColumnEnd)
-	h = styleInternHashInt(h, s.GridRowEnd)
-	h = styleInternHashFloat64(h, s.OutlineWidth)
-	h = styleInternHashString(h, s.OutlineStyle)
-	for _, e := range s.OutlineColor {
-		h = styleInternHashFloat64(h, e)
-	}
-	h = styleInternHashBool(h, s.OutlineColorSet)
-	h = styleInternHashFloat64(h, s.OutlineOffset)
-	h = styleInternHashString(h, s.BackgroundImage)
-	h = styleInternHashString(h, s.BackgroundPosX)
-	h = styleInternHashString(h, s.BackgroundPosY)
-	h = styleInternHashString(h, s.BackgroundSize)
-	h = styleInternHashString(h, s.BackgroundRepeat)
-	h = styleInternHashString(h, s.BackgroundRepeatX)
-	h = styleInternHashString(h, s.BackgroundRepeatY)
-	h = styleInternHashString(h, s.BackgroundRepeatBlock)
-	h = styleInternHashString(h, s.BackgroundRepeatInline)
-	h = styleInternHashString(h, s.BackgroundClip)
-	h = styleInternHashString(h, s.BackgroundOrigin)
-	h = styleInternHashString(h, s.BackgroundAttachment)
-	h = styleInternHashString(h, s.MaskImage)
-	h = styleInternHashString(h, s.MaskMode)
-	h = styleInternHashString(h, s.MaskComposite)
-	h = styleInternHashString(h, s.MaskPosition)
-	h = styleInternHashString(h, s.MaskRepeat)
-	h = styleInternHashString(h, s.MaskSize)
-	h = styleInternHashString(h, s.MaskOrigin)
-	h = styleInternHashString(h, s.MaskClip)
-	h = styleInternHashString(h, s.MaskType)
-	h = styleInternHashString(h, s.MaskBorderSource)
-	h = styleInternHashString(h, s.MaskBorderSlice)
-	h = styleInternHashString(h, s.MaskBorderWidth)
-	h = styleInternHashString(h, s.MaskBorderOutset)
-	h = styleInternHashString(h, s.MaskBorderRepeat)
-	h = styleInternHashString(h, s.MaskBorderMode)
-	h = styleInternHashString(h, s.ClipPath)
-	h = styleInternHashString(h, s.ClipRule)
-	h = styleInternHashString(h, s.BorderImageSource)
-	h = styleInternHashString(h, s.BorderImageSlice)
-	h = styleInternHashString(h, s.BorderImageWidth)
-	h = styleInternHashString(h, s.BorderImageOutset)
-	h = styleInternHashString(h, s.BorderImageRepeat)
-	h = styleInternHashString(h, s.ListStylePosition)
-	h = styleInternHashString(h, s.QuotesRaw)
-	h = styleInternHashString(h, s.QuotesOpen)
-	h = styleInternHashString(h, s.QuotesClose)
-	h = styleInternHashString(h, s.CounterReset)
-	h = styleInternHashString(h, s.CounterIncrement)
-	h = styleInternHashString(h, s.CounterSet)
-	h = styleInternHashString(h, s.ListStyleImage)
-	h = styleInternHashFloat64(h, s.BoxShadowX)
-	h = styleInternHashFloat64(h, s.BoxShadowY)
-	h = styleInternHashFloat64(h, s.BoxShadowBlur)
-	h = styleInternHashFloat64(h, s.BoxShadowSpread)
-	for _, e := range s.BoxShadowColor {
-		h = styleInternHashFloat64(h, e)
-	}
-	h = styleInternHashBool(h, s.BoxShadowSet)
-	h = styleInternHashBool(h, s.BoxShadowInset)
-	h = styleInternHashString(h, s.BoxShadowRaw)
-	for _, e := range s.Fill {
-		h = styleInternHashFloat64(h, e)
-	}
-	h = styleInternHashBool(h, s.FillSet)
-	h = styleInternHashFloat64(h, s.FillOpacity)
-	for _, e := range s.Stroke {
-		h = styleInternHashFloat64(h, e)
-	}
-	h = styleInternHashBool(h, s.StrokeSet)
-	h = styleInternHashFloat64(h, s.StrokeWidth)
-	h = styleInternHashBool(h, s.StrokeWidthSet)
-	h = styleInternHashFloat64(h, s.StrokeOpacity)
-	h = styleInternHashFloat64Slice(h, s.StrokeDashArray)
-	h = styleInternHashFloat64(h, s.StrokeDashOffset)
-	h = styleInternHashString(h, s.StrokeLineCap)
-	h = styleInternHashString(h, s.StrokeLineJoin)
-	h = styleInternHashFloat64(h, s.StrokeMiterLimit)
-	h = styleInternHashString(h, s.TextOverflow)
-	h = styleInternHashInt(h, s.LineClamp)
-	h = styleInternHashInt(h, s.MaxLines)
-	h = styleInternHashString(h, s.MarginTrim)
-	h = styleInternHashString(h, s.BoxDecorationBreak)
-	h = styleInternHashString(h, s.TextDecorationSkipInk)
-	h = styleInternHashFloat64(h, s.OverflowClipMarginTop)
-	h = styleInternHashFloat64(h, s.OverflowClipMarginRight)
-	h = styleInternHashFloat64(h, s.OverflowClipMarginBottom)
-	h = styleInternHashFloat64(h, s.OverflowClipMarginLeft)
-	h = styleInternHashFloat64(h, s.ScrollMarginTop)
-	h = styleInternHashFloat64(h, s.ScrollMarginRight)
-	h = styleInternHashFloat64(h, s.ScrollMarginBottom)
-	h = styleInternHashFloat64(h, s.ScrollMarginLeft)
-	h = styleInternHashString(h, s.Contain)
-	h = styleInternHashFloat64(h, s.ContainIntrinsicWidth)
-	h = styleInternHashFloat64(h, s.ContainIntrinsicHeight)
-	h = styleInternHashFloat64(h, s.ContainIntrinsicBlockSize)
-	h = styleInternHashFloat64(h, s.ContainIntrinsicInlineSize)
-	h = styleInternHashString(h, s.ContentVisibility)
-	h = styleInternHashString(h, s.ColorAdjust)
-	h = styleInternHashString(h, s.ForcedColorAdjust)
-	h = styleInternHashString(h, s.ColorScheme)
-	h = styleInternHashString(h, s.DynamicRangeLimit)
-	h = styleInternHashString(h, s.FontLanguageOverride)
-	h = styleInternHashString(h, s.FontOpticalSizing)
-	h = styleInternHashString(h, s.FontPalette)
-	h = styleInternHashString(h, s.FontVariationSettings)
-	h = styleInternHashString(h, s.FontFeatureSettings)
-	h = styleInternHashString(h, s.FontKerning)
-	h = styleInternHashFloat64(h, s.FontSizeAdjust)
-	h = styleInternHashBool(h, s.FontSizeAdjustSet)
-	h = styleInternHashFloat64(h, s.FontWidth)
-	h = styleInternHashBool(h, s.FontSynthesisWeight)
-	h = styleInternHashBool(h, s.FontSynthesisStyle)
-	h = styleInternHashBool(h, s.FontSynthesisSmallCaps)
-	h = styleInternHashBool(h, s.FontSynthesisPosition)
-	h = styleInternHashString(h, s.FontVariantCaps)
-	h = styleInternHashString(h, s.FontVariantLigatures)
-	h = styleInternHashString(h, s.FontVariantNumeric)
-	h = styleInternHashString(h, s.FontVariantPosition)
-	h = styleInternHashString(h, s.FontVariantEastAsian)
-	h = styleInternHashString(h, s.FontVariantAlternates)
-	h = styleInternHashString(h, s.FontVariantEmoji)
-	h = styleInternHashString(h, s.ImageOrientation)
-	h = styleInternHashFloat64(h, s.ImageOrientationAngle)
-	h = styleInternHashString(h, s.ImageResolution)
-	h = styleInternHashFloat64(h, s.ImageResolutionDPI)
-	h = styleInternHashString(h, s.ObjectViewBox)
-	h = styleInternHashString(h, s.ObjectFit)
-	h = styleInternHashString(h, s.ObjectPositionX)
-	h = styleInternHashString(h, s.ObjectPositionY)
-	h = styleInternHashFloat64(h, s.AspectRatio)
-	h = styleInternHashFloat64(h, s.Zoom)
-	h = styleInternHashString(h, s.ShapeOutside)
-	h = styleInternHashFloat64(h, s.ShapeMargin)
-	h = styleInternHashFloat64(h, s.ShapeMarginPercent)
-	h = styleInternHashFloat64(h, s.FloatOffset)
-	h = styleInternHashFloat64(h, s.FloatOffsetPercent)
-	h = styleInternHashString(h, s.FloatReference)
-	h = styleInternHashString(h, s.ShapeInside)
-	h = styleInternHashString(h, s.ShapeInsideBox)
-	h = styleInternHashBool(h, s.ShapeInsideOutside)
-	h = styleInternHashFloat64(h, s.ShapePadding)
-	h = styleInternHashFloat64(h, s.ShapePaddingPercent)
-	h = styleInternHashString(h, s.TextCombineUpright)
-	h = styleInternHashFloat64(h, s.TextDecorationInset)
-	h = styleInternHashString(h, s.TextDecorationSkip)
-	h = styleInternHashString(h, s.TextDecorationSkipBox)
-	h = styleInternHashString(h, s.TextDecorationSkipSelf)
-	h = styleInternHashString(h, s.TextDecorationSkipSpaces)
-	h = styleInternHashString(h, s.TextOrientation)
-	h = styleInternHashString(h, s.UnicodeBidi)
-	h = styleInternHashString(h, s.TextBoxTrim)
-	h = styleInternHashString(h, s.TextBoxEdgeOver)
-	h = styleInternHashString(h, s.TextBoxEdgeUnder)
-	h = styleInternHashString(h, s.LineFitEdge)
-	h = styleInternHashString(h, s.TextAutospace)
-	h = styleInternHashString(h, s.TextSpacing)
-	h = styleInternHashString(h, s.TextSpacingTrim)
-	h = styleInternHashString(h, s.TextGroupAlign)
-	h = styleInternHashString(h, s.TextFit)
-	h = styleInternHashString(h, s.TransformBox)
-	h = styleInternHashString(h, s.TransformStyle)
-	h = styleInternHashString(h, s.BackfaceVisibility)
-	for _, e := range s.Transform3D {
-		h = styleInternHashFloat64(h, e)
-	}
-	h = styleInternHashBool(h, s.HasTransform3D)
-	h = styleInternHashFloat64(h, s.PerspectiveDist)
-	h = styleInternHashBool(h, s.HasPerspective)
-	h = styleInternHashFloat64(h, s.PerspectiveOriginX)
-	h = styleInternHashBool(h, s.PerspectiveOriginXPct)
-	h = styleInternHashFloat64(h, s.PerspectiveOriginY)
-	h = styleInternHashBool(h, s.PerspectiveOriginYPct)
-	h = styleInternHashBool(h, s.PerspectiveOriginSet)
-	h = styleInternHashString(h, s.FillRule)
-	h = styleInternHashString(h, s.ShapeRendering)
-	h = styleInternHashString(h, s.DominantBaseline)
-	h = styleInternHashString(h, s.AlignmentBaseline)
-	h = styleInternHashString(h, s.BaselineSource)
-	h = styleInternHashString(h, s.Continue)
-	h = styleInternHashString(h, s.ImageRendering)
-	h = styleInternHashFloat64(h, s.TextStrokeWidth)
-	for _, e := range s.TextStrokeColor {
-		h = styleInternHashFloat64(h, e)
-	}
-	h = styleInternHashBool(h, s.TextStrokeColorSet)
-	h = styleInternHashString(h, s.LinkParameters)
-	h = styleInternHashInt(h, s.ContinueLines)
-	h = styleInternHashString(h, s.InlineSizing)
-	h = styleInternHashString(h, s.Clip)
-	h = styleInternHashString(h, s.ColorInterpolation)
-	h = styleInternHashString(h, s.ColorInterpolationFilters)
-	h = styleInternHashString(h, s.FlowInto)
-	h = styleInternHashBool(h, s.FlowIntoElement)
-	h = styleInternHashString(h, s.FlowFrom)
-	h = styleInternHashString(h, s.RegionFragment)
-	h = styleInternHashFloat64(h, s.FlowTolerancePt)
-	h = styleInternHashBool(h, s.FlowToleranceInfinite)
-	h = styleInternHashString(h, s.WrapFlow)
-	h = styleInternHashString(h, s.WrapThrough)
-	h = styleInternHashString(h, s.WrapBefore)
-	h = styleInternHashString(h, s.WrapAfter)
-	h = styleInternHashString(h, s.WrapInside)
 	h = styleInternHashStringMap(h, s.CustomProps)
-	h = styleInternHashAnimationStyle(h, s.Animation)
-	h = styleInternHashTransitionStyle(h, s.Transition)
-	h = styleInternHashString(h, s.ScrollTimelineName)
-	h = styleInternHashString(h, s.ScrollTimelineAxis)
-	h = styleInternHashString(h, s.ViewTimelineName)
-	h = styleInternHashString(h, s.ViewTimelineAxis)
-	h = styleInternHashFloat64(h, s.ViewTimelineInsetStart)
-	h = styleInternHashFloat64(h, s.ViewTimelineInsetEnd)
-	h = styleInternHashBool(h, s.ViewTimelineInsetStartSet)
-	h = styleInternHashBool(h, s.ViewTimelineInsetEndSet)
-	h = styleInternHashString(h, s.ViewTimelineInsets)
 	if s.Triggers != nil && *s.Triggers != (triggerStyle{}) {
 		h = styleInternHashTriggerStyle(h, *s.Triggers)
 	}
 	if s.Declared != nil && *s.Declared != (declaredStyle{}) {
 		h = styleInternHashDeclaredStyle(h, *s.Declared)
 	}
-	h = styleInternHashString(h, s.SVGCx)
-	h = styleInternHashString(h, s.SVGCy)
-	h = styleInternHashString(h, s.SVGR)
-	h = styleInternHashString(h, s.SVGRx)
-	h = styleInternHashString(h, s.SVGRy)
-	h = styleInternHashString(h, s.SVGX)
-	h = styleInternHashString(h, s.SVGY)
-	h = styleInternHashString(h, s.SVGD)
-	h = styleInternHashString(h, s.SVGMarkerStart)
-	h = styleInternHashString(h, s.SVGMarkerMid)
-	h = styleInternHashString(h, s.SVGMarkerEnd)
-	h = styleInternHashString(h, s.SVGStopColor)
-	h = styleInternHashString(h, s.SVGStopOpacity)
-	h = styleInternHashString(h, s.SVGPaintOrder)
-	h = styleInternHashString(h, s.SVGPathLength)
-	h = styleInternHashString(h, s.SVGVectorEffect)
-	h = styleInternHashString(h, s.SVGFloodColor)
-	h = styleInternHashString(h, s.SVGFloodOpacity)
+	h = styleInternHashUint64(h, styleInternHashBackground(s.backgroundGroup))
+	h = styleInternHashUint64(h, styleInternHashBorders(s.bordersGroup))
+	h = styleInternHashUint64(h, styleInternHashColumns(s.columnsGroup))
+	h = styleInternHashUint64(h, styleInternHashContainment(s.containmentGroup))
+	h = styleInternHashUint64(h, styleInternHashContent(s.contentGroup))
+	h = styleInternHashUint64(h, styleInternHashEffects(s.effectsGroup))
+	h = styleInternHashUint64(h, styleInternHashFlex(s.flexGroup))
+	h = styleInternHashUint64(h, styleInternHashFont(s.fontGroup))
+	h = styleInternHashUint64(h, styleInternHashFragmentation(s.fragmentationGroup))
+	h = styleInternHashUint64(h, styleInternHashGeometry(s.geometryGroup))
+	h = styleInternHashUint64(h, styleInternHashGrid(s.gridGroup))
+	h = styleInternHashUint64(h, styleInternHashImages(s.imagesGroup))
+	h = styleInternHashUint64(h, styleInternHashInlineText(s.inlineTextGroup))
+	h = styleInternHashUint64(h, styleInternHashMotion(s.motionGroup))
+	h = styleInternHashUint64(h, styleInternHashPositioning(s.positioningGroup))
+	h = styleInternHashUint64(h, styleInternHashSvg(s.svgGroup))
 
 	return h
 }
@@ -1044,152 +227,24 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 func styleInternFields() []string {
 	return []string{
 		"Display",
-		"IsWebkitBox",
 		"Position",
 		"Float",
-		"Clear",
-		"BoxSizing",
-		"Top",
-		"Right",
-		"Bottom",
-		"Left",
-		"TopAuto",
-		"RightAuto",
-		"BottomAuto",
-		"LeftAuto",
-		"FlexDirection",
-		"FlexWrap",
-		"JustifyContent",
-		"AlignItems",
-		"AlignContent",
-		"AlignSelf",
-		"JustifyItems",
-		"JustifySelf",
-		"Gap",
-		"RowGap",
-		"ColumnGap",
-		"ColumnGapNormal",
-		"ColumnCount",
-		"ColumnWidth",
-		"ColumnHeight",
-		"ColumnWrap",
-		"ColumnSpan",
-		"ColumnFill",
-		"ColumnRuleWidth",
-		"ColumnRuleStyle",
-		"ColumnRuleColor",
-		"ColumnRuleColorSet",
-		"RowRuleWidth",
-		"RowRuleStyle",
-		"RowRuleColor",
-		"RowRuleColorSet",
-		"RowRuleWidths",
-		"RowRuleStyles",
-		"RowRuleColors",
-		"RowRuleBreak",
-		"RowRuleVisibility",
-		"RowRuleInsetCapStart",
-		"RowRuleInsetCapEnd",
-		"RowRuleInsetJunctionStart",
-		"RowRuleInsetJunctionEnd",
-		"ColumnRuleBreak",
-		"ColumnRuleInsetCapStart",
-		"ColumnRuleInsetCapEnd",
-		"ColumnRuleInsetJunctionStart",
-		"ColumnRuleInsetJunctionEnd",
-		"RuleOverlap",
-		"InitialLetterSize",
-		"InitialLetterSink",
-		"InitialLetterAlign",
-		"InitialLetterWrap",
-		"FlexGrow",
-		"FlexShrink",
-		"FlexBasis",
-		"FlexBasisPercent",
-		"FlexOrder",
-		"ZIndex",
-		"ZIndexSet",
-		"WritingMode",
-		"Direction",
-		"Filter",
-		"BackdropFilter",
-		"MixBlendMode",
-		"BackgroundBlendMode",
-		"Isolation",
-		"GridTemplateColumns",
-		"GridTemplateRows",
-		"GridTemplateAreas",
-		"GridArea",
-		"GridAutoFlow",
-		"GridAutoColumns",
-		"GridAutoRows",
-		"GridColumnSpan",
-		"GridColumnStart",
-		"GridRowSpan",
-		"GridRowStart",
 		"Width",
 		"WidthPercent",
 		"Height",
 		"HeightPercent",
-		"MinWidth",
-		"MinWidthPercent",
-		"MinWidthSet",
-		"MaxWidth",
-		"MaxWidthPercent",
-		"MinHeight",
-		"MinHeightPercent",
-		"MinHeightSet",
-		"MaxHeight",
-		"MaxHeightPercent",
 		"Overflow",
-		"OverflowX",
-		"OverflowY",
 		"Visibility",
-		"AnchorNames",
-		"AnchorScope",
-		"PositionAnchor",
-		"PositionArea",
-		"PositionTryFallbacks",
-		"PositionTryOrder",
-		"PositionVisibility",
 		"MarginTop",
 		"MarginRight",
 		"MarginBottom",
 		"MarginLeft",
-		"MarginTopAuto",
-		"MarginBottomAuto",
-		"MarginLeftAuto",
-		"MarginRightAuto",
 		"PaddingTop",
 		"PaddingRight",
 		"PaddingBottom",
 		"PaddingLeft",
-		"BorderTop",
-		"BorderRight",
-		"BorderBottom",
-		"BorderLeft",
-		"BorderRadius",
-		"BorderRadiusPercent",
-		"BorderRadiusTopLeft",
-		"BorderRadiusTopRight",
-		"BorderRadiusBottomRight",
-		"BorderRadiusBottomLeft",
-		"BorderRadiusTopLeftY",
-		"BorderRadiusTopRightY",
-		"BorderRadiusBottomRightY",
-		"BorderRadiusBottomLeftY",
-		"CornerShapeTopLeft",
-		"CornerShapeTopRight",
-		"CornerShapeBottomRight",
-		"CornerShapeBottomLeft",
-		"CornerShapeTopLeftKeyword",
-		"CornerShapeTopRightKeyword",
-		"CornerShapeBottomRightKeyword",
-		"CornerShapeBottomLeftKeyword",
 		"Color",
 		"BGColor",
-		"AccentColor",
-		"AccentColorSet",
 		"FontFamily",
 		"famHash",
 		"FontSize",
@@ -1198,298 +253,28 @@ func styleInternFields() []string {
 		"LineHeight",
 		"LineHeightUnitless",
 		"TextAlign",
-		"TextAlignLast",
-		"TextTransform",
-		"VerticalAlign",
-		"VerticalAlignShift",
 		"WhiteSpace",
-		"WhiteSpaceCollapse",
-		"WhiteSpaceTrim",
-		"TextWrap",
-		"TextWrapMode",
-		"TextWrapStyle",
-		"TabSize",
-		"Hyphens",
-		"HyphenateCharacter",
-		"HyphenateLimitMinWord",
-		"HyphenateLimitMinBefore",
-		"HyphenateLimitMinAfter",
-		"HyphenateLimitLast",
-		"HyphenateLimitLines",
-		"HyphenateLimitZonePt",
-		"HyphenateLimitZonePct",
-		"HangingPunctuation",
-		"TextJustify",
-		"LineBreak",
-		"OverflowWrap",
-		"WordBreak",
-		"TextDecoration",
-		"TextDecorationLine",
-		"TextDecorationColor",
-		"TextDecorationColorSet",
-		"TextDecorationStyle",
-		"TextDecorationThickness",
-		"TextUnderlineOffset",
-		"TextUnderlinePosition",
-		"TextShadowX",
-		"TextShadowY",
-		"TextShadowBlur",
-		"TextShadowColor",
-		"TextShadowSet",
-		"LetterSpacing",
-		"WordSpacing",
-		"WordSpaceTransform",
-		"TextIndent",
-		"LinePadding",
-		"ListStyleType",
-		"BorderCollapse",
-		"BorderSpacing",
-		"BorderSpacingV",
-		"TableLayout",
-		"CaptionSide",
 		"IsReplaced",
-		"PageBreakBefore",
-		"PageBreakAfter",
-		"PageBreakInside",
-		"MarginBreak",
-		"PageName",
-		"Orphans",
-		"Widows",
-		"EmptyCells",
-		"ContainerType",
-		"ContainerName",
-		"Transform",
-		"HasTransform",
-		"TransformOrigin",
-		"TranslateXPercent",
-		"TranslateXPercentSet",
-		"TranslateYPercent",
-		"TranslateYPercentSet",
 		"Opacity",
-		"Content",
-		"GridColumnEnd",
-		"GridRowEnd",
-		"OutlineWidth",
-		"OutlineStyle",
-		"OutlineColor",
-		"OutlineColorSet",
-		"OutlineOffset",
-		"BackgroundImage",
-		"BackgroundPosX",
-		"BackgroundPosY",
-		"BackgroundSize",
-		"BackgroundRepeat",
-		"BackgroundRepeatX",
-		"BackgroundRepeatY",
-		"BackgroundRepeatBlock",
-		"BackgroundRepeatInline",
-		"BackgroundClip",
-		"BackgroundOrigin",
-		"BackgroundAttachment",
-		"MaskImage",
-		"MaskMode",
-		"MaskComposite",
-		"MaskPosition",
-		"MaskRepeat",
-		"MaskSize",
-		"MaskOrigin",
-		"MaskClip",
-		"MaskType",
-		"MaskBorderSource",
-		"MaskBorderSlice",
-		"MaskBorderWidth",
-		"MaskBorderOutset",
-		"MaskBorderRepeat",
-		"MaskBorderMode",
-		"ClipPath",
-		"ClipRule",
-		"BorderImageSource",
-		"BorderImageSlice",
-		"BorderImageWidth",
-		"BorderImageOutset",
-		"BorderImageRepeat",
-		"ListStylePosition",
-		"QuotesRaw",
-		"QuotesOpen",
-		"QuotesClose",
-		"CounterReset",
-		"CounterIncrement",
-		"CounterSet",
-		"ListStyleImage",
-		"BoxShadowX",
-		"BoxShadowY",
-		"BoxShadowBlur",
-		"BoxShadowSpread",
-		"BoxShadowColor",
-		"BoxShadowSet",
-		"BoxShadowInset",
-		"BoxShadowRaw",
-		"Fill",
-		"FillSet",
-		"FillOpacity",
-		"Stroke",
-		"StrokeSet",
-		"StrokeWidth",
-		"StrokeWidthSet",
-		"StrokeOpacity",
-		"StrokeDashArray",
-		"StrokeDashOffset",
-		"StrokeLineCap",
-		"StrokeLineJoin",
-		"StrokeMiterLimit",
-		"TextOverflow",
-		"LineClamp",
-		"MaxLines",
-		"MarginTrim",
-		"BoxDecorationBreak",
-		"TextDecorationSkipInk",
-		"OverflowClipMarginTop",
-		"OverflowClipMarginRight",
-		"OverflowClipMarginBottom",
-		"OverflowClipMarginLeft",
-		"ScrollMarginTop",
-		"ScrollMarginRight",
-		"ScrollMarginBottom",
-		"ScrollMarginLeft",
-		"Contain",
-		"ContainIntrinsicWidth",
-		"ContainIntrinsicHeight",
-		"ContainIntrinsicBlockSize",
-		"ContainIntrinsicInlineSize",
-		"ContentVisibility",
-		"ColorAdjust",
-		"ForcedColorAdjust",
-		"ColorScheme",
-		"DynamicRangeLimit",
-		"FontLanguageOverride",
-		"FontOpticalSizing",
-		"FontPalette",
-		"FontVariationSettings",
-		"FontFeatureSettings",
-		"FontKerning",
-		"FontSizeAdjust",
-		"FontSizeAdjustSet",
-		"FontWidth",
-		"FontSynthesisWeight",
-		"FontSynthesisStyle",
-		"FontSynthesisSmallCaps",
-		"FontSynthesisPosition",
-		"FontVariantCaps",
-		"FontVariantLigatures",
-		"FontVariantNumeric",
-		"FontVariantPosition",
-		"FontVariantEastAsian",
-		"FontVariantAlternates",
-		"FontVariantEmoji",
-		"ImageOrientation",
-		"ImageOrientationAngle",
-		"ImageResolution",
-		"ImageResolutionDPI",
-		"ObjectViewBox",
-		"ObjectFit",
-		"ObjectPositionX",
-		"ObjectPositionY",
-		"AspectRatio",
-		"Zoom",
-		"ShapeOutside",
-		"ShapeMargin",
-		"ShapeMarginPercent",
-		"FloatOffset",
-		"FloatOffsetPercent",
-		"FloatReference",
-		"ShapeInside",
-		"ShapeInsideBox",
-		"ShapeInsideOutside",
-		"ShapePadding",
-		"ShapePaddingPercent",
-		"TextCombineUpright",
-		"TextDecorationInset",
-		"TextDecorationSkip",
-		"TextDecorationSkipBox",
-		"TextDecorationSkipSelf",
-		"TextDecorationSkipSpaces",
-		"TextOrientation",
-		"UnicodeBidi",
-		"TextBoxTrim",
-		"TextBoxEdgeOver",
-		"TextBoxEdgeUnder",
-		"LineFitEdge",
-		"TextAutospace",
-		"TextSpacing",
-		"TextSpacingTrim",
-		"TextGroupAlign",
-		"TextFit",
-		"TransformBox",
-		"TransformStyle",
-		"BackfaceVisibility",
-		"Transform3D",
-		"HasTransform3D",
-		"PerspectiveDist",
-		"HasPerspective",
-		"PerspectiveOriginX",
-		"PerspectiveOriginXPct",
-		"PerspectiveOriginY",
-		"PerspectiveOriginYPct",
-		"PerspectiveOriginSet",
-		"FillRule",
-		"ShapeRendering",
-		"DominantBaseline",
-		"AlignmentBaseline",
-		"BaselineSource",
-		"Continue",
-		"ImageRendering",
-		"TextStrokeWidth",
-		"TextStrokeColor",
-		"TextStrokeColorSet",
-		"LinkParameters",
-		"ContinueLines",
-		"InlineSizing",
-		"Clip",
-		"ColorInterpolation",
-		"ColorInterpolationFilters",
-		"FlowInto",
-		"FlowIntoElement",
-		"FlowFrom",
-		"RegionFragment",
-		"FlowTolerancePt",
-		"FlowToleranceInfinite",
-		"WrapFlow",
-		"WrapThrough",
-		"WrapBefore",
-		"WrapAfter",
-		"WrapInside",
 		"CustomProps",
-		"Animation",
-		"Transition",
-		"ScrollTimelineName",
-		"ScrollTimelineAxis",
-		"ViewTimelineName",
-		"ViewTimelineAxis",
-		"ViewTimelineInsetStart",
-		"ViewTimelineInsetEnd",
-		"ViewTimelineInsetStartSet",
-		"ViewTimelineInsetEndSet",
-		"ViewTimelineInsets",
 		"Triggers",
 		"Declared",
-		"SVGCx",
-		"SVGCy",
-		"SVGR",
-		"SVGRx",
-		"SVGRy",
-		"SVGX",
-		"SVGY",
-		"SVGD",
-		"SVGMarkerStart",
-		"SVGMarkerMid",
-		"SVGMarkerEnd",
-		"SVGStopColor",
-		"SVGStopOpacity",
-		"SVGPaintOrder",
-		"SVGPathLength",
-		"SVGVectorEffect",
-		"SVGFloodColor",
-		"SVGFloodOpacity",
+		"backgroundGroup",
+		"bordersGroup",
+		"columnsGroup",
+		"containmentGroup",
+		"contentGroup",
+		"effectsGroup",
+		"flexGroup",
+		"fontGroup",
+		"fragmentationGroup",
+		"geometryGroup",
+		"gridGroup",
+		"imagesGroup",
+		"inlineTextGroup",
+		"motionGroup",
+		"positioningGroup",
+		"svgGroup",
 	}
 }
 
@@ -1681,4 +466,1419 @@ func styleInternEqualPtrTriggerStyle(a, b *triggerStyle) bool {
 		return *a == zero
 	}
 	return *a == *b
+}
+
+var zeroStyleBackground styleBackground                                              //nolint:gochecknoglobals // shared zero group
+var zeroStyleBackgroundHash = computeStyleHashBackground(&zeroStyleBackground)       //nolint:gochecknoglobals // immutable fingerprint
+var initialStyleBackgroundHash = computeStyleHashBackground(&initialStyleBackground) //nolint:gochecknoglobals // immutable fingerprint
+
+func styleInternEqualBackground(a, b *styleBackground) bool {
+	if a == b && (a == nil || a == &initialStyleBackground) {
+		return true
+	}
+	if a == nil {
+		a = &zeroStyleBackground
+	}
+	if b == nil {
+		b = &zeroStyleBackground
+	}
+
+	return a.BackgroundBlendMode == b.BackgroundBlendMode &&
+		a.BackgroundImage == b.BackgroundImage &&
+		a.BackgroundPosX == b.BackgroundPosX &&
+		a.BackgroundPosY == b.BackgroundPosY &&
+		a.BackgroundSize == b.BackgroundSize &&
+		a.BackgroundRepeat == b.BackgroundRepeat &&
+		a.BackgroundRepeatX == b.BackgroundRepeatX &&
+		a.BackgroundRepeatY == b.BackgroundRepeatY &&
+		a.BackgroundRepeatBlock == b.BackgroundRepeatBlock &&
+		a.BackgroundRepeatInline == b.BackgroundRepeatInline &&
+		a.BackgroundClip == b.BackgroundClip &&
+		a.BackgroundOrigin == b.BackgroundOrigin &&
+		a.BackgroundAttachment == b.BackgroundAttachment
+}
+
+func styleInternHashBackground(s *styleBackground) uint64 {
+	switch s {
+	case nil:
+		return zeroStyleBackgroundHash
+	case &initialStyleBackground:
+		return initialStyleBackgroundHash
+	default:
+		return computeStyleHashBackground(s)
+	}
+}
+
+func computeStyleHashBackground(s *styleBackground) uint64 {
+	h := styleInternSeed
+	h = styleInternHashString(h, s.BackgroundBlendMode)
+	h = styleInternHashString(h, s.BackgroundImage)
+	h = styleInternHashString(h, s.BackgroundPosX)
+	h = styleInternHashString(h, s.BackgroundPosY)
+	h = styleInternHashString(h, s.BackgroundSize)
+	h = styleInternHashString(h, s.BackgroundRepeat)
+	h = styleInternHashString(h, s.BackgroundRepeatX)
+	h = styleInternHashString(h, s.BackgroundRepeatY)
+	h = styleInternHashString(h, s.BackgroundRepeatBlock)
+	h = styleInternHashString(h, s.BackgroundRepeatInline)
+	h = styleInternHashString(h, s.BackgroundClip)
+	h = styleInternHashString(h, s.BackgroundOrigin)
+	h = styleInternHashString(h, s.BackgroundAttachment)
+
+	return h
+}
+
+var zeroStyleBorders styleBorders                                           //nolint:gochecknoglobals // shared zero group
+var zeroStyleBordersHash = computeStyleHashBorders(&zeroStyleBorders)       //nolint:gochecknoglobals // immutable fingerprint
+var initialStyleBordersHash = computeStyleHashBorders(&initialStyleBorders) //nolint:gochecknoglobals // immutable fingerprint
+
+func styleInternEqualBorders(a, b *styleBorders) bool {
+	if a == b && (a == nil || a == &initialStyleBorders) {
+		return true
+	}
+	if a == nil {
+		a = &zeroStyleBorders
+	}
+	if b == nil {
+		b = &zeroStyleBorders
+	}
+
+	return a.BorderTop == b.BorderTop &&
+		a.BorderRight == b.BorderRight &&
+		a.BorderBottom == b.BorderBottom &&
+		a.BorderLeft == b.BorderLeft &&
+		a.BorderRadius == b.BorderRadius &&
+		a.BorderRadiusPercent == b.BorderRadiusPercent &&
+		a.BorderRadiusTopLeft == b.BorderRadiusTopLeft &&
+		a.BorderRadiusTopRight == b.BorderRadiusTopRight &&
+		a.BorderRadiusBottomRight == b.BorderRadiusBottomRight &&
+		a.BorderRadiusBottomLeft == b.BorderRadiusBottomLeft &&
+		a.BorderRadiusTopLeftY == b.BorderRadiusTopLeftY &&
+		a.BorderRadiusTopRightY == b.BorderRadiusTopRightY &&
+		a.BorderRadiusBottomRightY == b.BorderRadiusBottomRightY &&
+		a.BorderRadiusBottomLeftY == b.BorderRadiusBottomLeftY &&
+		a.CornerShapeTopLeft == b.CornerShapeTopLeft &&
+		a.CornerShapeTopRight == b.CornerShapeTopRight &&
+		a.CornerShapeBottomRight == b.CornerShapeBottomRight &&
+		a.CornerShapeBottomLeft == b.CornerShapeBottomLeft &&
+		a.CornerShapeTopLeftKeyword == b.CornerShapeTopLeftKeyword &&
+		a.CornerShapeTopRightKeyword == b.CornerShapeTopRightKeyword &&
+		a.CornerShapeBottomRightKeyword == b.CornerShapeBottomRightKeyword &&
+		a.CornerShapeBottomLeftKeyword == b.CornerShapeBottomLeftKeyword &&
+		a.OutlineWidth == b.OutlineWidth &&
+		a.OutlineStyle == b.OutlineStyle &&
+		a.OutlineColor == b.OutlineColor &&
+		a.OutlineColorSet == b.OutlineColorSet &&
+		a.OutlineOffset == b.OutlineOffset &&
+		a.BorderImageSource == b.BorderImageSource &&
+		a.BorderImageSlice == b.BorderImageSlice &&
+		a.BorderImageWidth == b.BorderImageWidth &&
+		a.BorderImageOutset == b.BorderImageOutset &&
+		a.BorderImageRepeat == b.BorderImageRepeat &&
+		a.BoxDecorationBreak == b.BoxDecorationBreak
+}
+
+func styleInternHashBorders(s *styleBorders) uint64 {
+	switch s {
+	case nil:
+		return zeroStyleBordersHash
+	case &initialStyleBorders:
+		return initialStyleBordersHash
+	default:
+		return computeStyleHashBorders(s)
+	}
+}
+
+func computeStyleHashBorders(s *styleBorders) uint64 {
+	h := styleInternSeed
+	h = styleInternHashBorder(h, s.BorderTop)
+	h = styleInternHashBorder(h, s.BorderRight)
+	h = styleInternHashBorder(h, s.BorderBottom)
+	h = styleInternHashBorder(h, s.BorderLeft)
+	h = styleInternHashFloat64(h, s.BorderRadius)
+	h = styleInternHashFloat64(h, s.BorderRadiusPercent)
+	h = styleInternHashFloat64(h, s.BorderRadiusTopLeft)
+	h = styleInternHashFloat64(h, s.BorderRadiusTopRight)
+	h = styleInternHashFloat64(h, s.BorderRadiusBottomRight)
+	h = styleInternHashFloat64(h, s.BorderRadiusBottomLeft)
+	h = styleInternHashFloat64(h, s.BorderRadiusTopLeftY)
+	h = styleInternHashFloat64(h, s.BorderRadiusTopRightY)
+	h = styleInternHashFloat64(h, s.BorderRadiusBottomRightY)
+	h = styleInternHashFloat64(h, s.BorderRadiusBottomLeftY)
+	h = styleInternHashFloat64(h, s.CornerShapeTopLeft)
+	h = styleInternHashFloat64(h, s.CornerShapeTopRight)
+	h = styleInternHashFloat64(h, s.CornerShapeBottomRight)
+	h = styleInternHashFloat64(h, s.CornerShapeBottomLeft)
+	h = styleInternHashString(h, s.CornerShapeTopLeftKeyword)
+	h = styleInternHashString(h, s.CornerShapeTopRightKeyword)
+	h = styleInternHashString(h, s.CornerShapeBottomRightKeyword)
+	h = styleInternHashString(h, s.CornerShapeBottomLeftKeyword)
+	h = styleInternHashFloat64(h, s.OutlineWidth)
+	h = styleInternHashString(h, s.OutlineStyle)
+	for _, e := range s.OutlineColor {
+		h = styleInternHashFloat64(h, e)
+	}
+	h = styleInternHashBool(h, s.OutlineColorSet)
+	h = styleInternHashFloat64(h, s.OutlineOffset)
+	h = styleInternHashString(h, s.BorderImageSource)
+	h = styleInternHashString(h, s.BorderImageSlice)
+	h = styleInternHashString(h, s.BorderImageWidth)
+	h = styleInternHashString(h, s.BorderImageOutset)
+	h = styleInternHashString(h, s.BorderImageRepeat)
+	h = styleInternHashString(h, s.BoxDecorationBreak)
+
+	return h
+}
+
+var zeroStyleColumns styleColumns                                           //nolint:gochecknoglobals // shared zero group
+var zeroStyleColumnsHash = computeStyleHashColumns(&zeroStyleColumns)       //nolint:gochecknoglobals // immutable fingerprint
+var initialStyleColumnsHash = computeStyleHashColumns(&initialStyleColumns) //nolint:gochecknoglobals // immutable fingerprint
+
+func styleInternEqualColumns(a, b *styleColumns) bool {
+	if a == b && (a == nil || a == &initialStyleColumns) {
+		return true
+	}
+	if a == nil {
+		a = &zeroStyleColumns
+	}
+	if b == nil {
+		b = &zeroStyleColumns
+	}
+
+	return a.ColumnCount == b.ColumnCount &&
+		a.ColumnWidth == b.ColumnWidth &&
+		a.ColumnHeight == b.ColumnHeight &&
+		a.ColumnWrap == b.ColumnWrap &&
+		a.ColumnSpan == b.ColumnSpan &&
+		a.ColumnFill == b.ColumnFill &&
+		a.ColumnRuleWidth == b.ColumnRuleWidth &&
+		a.ColumnRuleStyle == b.ColumnRuleStyle &&
+		a.ColumnRuleColor == b.ColumnRuleColor &&
+		a.ColumnRuleColorSet == b.ColumnRuleColorSet &&
+		a.RowRuleWidth == b.RowRuleWidth &&
+		a.RowRuleStyle == b.RowRuleStyle &&
+		a.RowRuleColor == b.RowRuleColor &&
+		a.RowRuleColorSet == b.RowRuleColorSet &&
+		slices.Equal(a.RowRuleWidths, b.RowRuleWidths) &&
+		slices.Equal(a.RowRuleStyles, b.RowRuleStyles) &&
+		slices.Equal(a.RowRuleColors, b.RowRuleColors) &&
+		a.RowRuleBreak == b.RowRuleBreak &&
+		a.RowRuleVisibility == b.RowRuleVisibility &&
+		a.RowRuleInsetCapStart == b.RowRuleInsetCapStart &&
+		a.RowRuleInsetCapEnd == b.RowRuleInsetCapEnd &&
+		a.RowRuleInsetJunctionStart == b.RowRuleInsetJunctionStart &&
+		a.RowRuleInsetJunctionEnd == b.RowRuleInsetJunctionEnd &&
+		a.ColumnRuleBreak == b.ColumnRuleBreak &&
+		a.ColumnRuleInsetCapStart == b.ColumnRuleInsetCapStart &&
+		a.ColumnRuleInsetCapEnd == b.ColumnRuleInsetCapEnd &&
+		a.ColumnRuleInsetJunctionStart == b.ColumnRuleInsetJunctionStart &&
+		a.ColumnRuleInsetJunctionEnd == b.ColumnRuleInsetJunctionEnd &&
+		a.RuleOverlap == b.RuleOverlap
+}
+
+func styleInternHashColumns(s *styleColumns) uint64 {
+	switch s {
+	case nil:
+		return zeroStyleColumnsHash
+	case &initialStyleColumns:
+		return initialStyleColumnsHash
+	default:
+		return computeStyleHashColumns(s)
+	}
+}
+
+func computeStyleHashColumns(s *styleColumns) uint64 {
+	h := styleInternSeed
+	h = styleInternHashInt(h, s.ColumnCount)
+	h = styleInternHashFloat64(h, s.ColumnWidth)
+	h = styleInternHashFloat64(h, s.ColumnHeight)
+	h = styleInternHashString(h, s.ColumnWrap)
+	h = styleInternHashString(h, s.ColumnSpan)
+	h = styleInternHashString(h, s.ColumnFill)
+	h = styleInternHashFloat64(h, s.ColumnRuleWidth)
+	h = styleInternHashString(h, s.ColumnRuleStyle)
+	for _, e := range s.ColumnRuleColor {
+		h = styleInternHashFloat64(h, e)
+	}
+	h = styleInternHashBool(h, s.ColumnRuleColorSet)
+	h = styleInternHashFloat64(h, s.RowRuleWidth)
+	h = styleInternHashString(h, s.RowRuleStyle)
+	for _, e := range s.RowRuleColor {
+		h = styleInternHashFloat64(h, e)
+	}
+	h = styleInternHashBool(h, s.RowRuleColorSet)
+	h = styleInternHashFloat64Slice(h, s.RowRuleWidths)
+	h = styleInternHashStringSlice(h, s.RowRuleStyles)
+	h = styleInternHashStringSlice(h, s.RowRuleColors)
+	h = styleInternHashString(h, s.RowRuleBreak)
+	h = styleInternHashString(h, s.RowRuleVisibility)
+	h = styleInternHashRuleInset(h, s.RowRuleInsetCapStart)
+	h = styleInternHashRuleInset(h, s.RowRuleInsetCapEnd)
+	h = styleInternHashRuleInset(h, s.RowRuleInsetJunctionStart)
+	h = styleInternHashRuleInset(h, s.RowRuleInsetJunctionEnd)
+	h = styleInternHashString(h, s.ColumnRuleBreak)
+	h = styleInternHashRuleInset(h, s.ColumnRuleInsetCapStart)
+	h = styleInternHashRuleInset(h, s.ColumnRuleInsetCapEnd)
+	h = styleInternHashRuleInset(h, s.ColumnRuleInsetJunctionStart)
+	h = styleInternHashRuleInset(h, s.ColumnRuleInsetJunctionEnd)
+	h = styleInternHashString(h, s.RuleOverlap)
+
+	return h
+}
+
+var zeroStyleContainment styleContainment                                               //nolint:gochecknoglobals // shared zero group
+var zeroStyleContainmentHash = computeStyleHashContainment(&zeroStyleContainment)       //nolint:gochecknoglobals // immutable fingerprint
+var initialStyleContainmentHash = computeStyleHashContainment(&initialStyleContainment) //nolint:gochecknoglobals // immutable fingerprint
+
+func styleInternEqualContainment(a, b *styleContainment) bool {
+	if a == b && (a == nil || a == &initialStyleContainment) {
+		return true
+	}
+	if a == nil {
+		a = &zeroStyleContainment
+	}
+	if b == nil {
+		b = &zeroStyleContainment
+	}
+
+	return a.ContainerType == b.ContainerType &&
+		a.ContainerName == b.ContainerName &&
+		a.OverflowClipMarginTop == b.OverflowClipMarginTop &&
+		a.OverflowClipMarginRight == b.OverflowClipMarginRight &&
+		a.OverflowClipMarginBottom == b.OverflowClipMarginBottom &&
+		a.OverflowClipMarginLeft == b.OverflowClipMarginLeft &&
+		a.ScrollMarginTop == b.ScrollMarginTop &&
+		a.ScrollMarginRight == b.ScrollMarginRight &&
+		a.ScrollMarginBottom == b.ScrollMarginBottom &&
+		a.ScrollMarginLeft == b.ScrollMarginLeft &&
+		a.Contain == b.Contain &&
+		a.ContainIntrinsicWidth == b.ContainIntrinsicWidth &&
+		a.ContainIntrinsicHeight == b.ContainIntrinsicHeight &&
+		a.ContainIntrinsicBlockSize == b.ContainIntrinsicBlockSize &&
+		a.ContainIntrinsicInlineSize == b.ContainIntrinsicInlineSize &&
+		a.ContentVisibility == b.ContentVisibility &&
+		a.ColorAdjust == b.ColorAdjust &&
+		a.ForcedColorAdjust == b.ForcedColorAdjust &&
+		a.ColorScheme == b.ColorScheme &&
+		a.DynamicRangeLimit == b.DynamicRangeLimit
+}
+
+func styleInternHashContainment(s *styleContainment) uint64 {
+	switch s {
+	case nil:
+		return zeroStyleContainmentHash
+	case &initialStyleContainment:
+		return initialStyleContainmentHash
+	default:
+		return computeStyleHashContainment(s)
+	}
+}
+
+func computeStyleHashContainment(s *styleContainment) uint64 {
+	h := styleInternSeed
+	h = styleInternHashString(h, s.ContainerType)
+	h = styleInternHashString(h, s.ContainerName)
+	h = styleInternHashFloat64(h, s.OverflowClipMarginTop)
+	h = styleInternHashFloat64(h, s.OverflowClipMarginRight)
+	h = styleInternHashFloat64(h, s.OverflowClipMarginBottom)
+	h = styleInternHashFloat64(h, s.OverflowClipMarginLeft)
+	h = styleInternHashFloat64(h, s.ScrollMarginTop)
+	h = styleInternHashFloat64(h, s.ScrollMarginRight)
+	h = styleInternHashFloat64(h, s.ScrollMarginBottom)
+	h = styleInternHashFloat64(h, s.ScrollMarginLeft)
+	h = styleInternHashString(h, s.Contain)
+	h = styleInternHashFloat64(h, s.ContainIntrinsicWidth)
+	h = styleInternHashFloat64(h, s.ContainIntrinsicHeight)
+	h = styleInternHashFloat64(h, s.ContainIntrinsicBlockSize)
+	h = styleInternHashFloat64(h, s.ContainIntrinsicInlineSize)
+	h = styleInternHashString(h, s.ContentVisibility)
+	h = styleInternHashString(h, s.ColorAdjust)
+	h = styleInternHashString(h, s.ForcedColorAdjust)
+	h = styleInternHashString(h, s.ColorScheme)
+	h = styleInternHashString(h, s.DynamicRangeLimit)
+
+	return h
+}
+
+var zeroStyleContent styleContent                                           //nolint:gochecknoglobals // shared zero group
+var zeroStyleContentHash = computeStyleHashContent(&zeroStyleContent)       //nolint:gochecknoglobals // immutable fingerprint
+var initialStyleContentHash = computeStyleHashContent(&initialStyleContent) //nolint:gochecknoglobals // immutable fingerprint
+
+func styleInternEqualContent(a, b *styleContent) bool {
+	if a == b && (a == nil || a == &initialStyleContent) {
+		return true
+	}
+	if a == nil {
+		a = &zeroStyleContent
+	}
+	if b == nil {
+		b = &zeroStyleContent
+	}
+
+	return a.AccentColor == b.AccentColor &&
+		a.AccentColorSet == b.AccentColorSet &&
+		a.ListStyleType == b.ListStyleType &&
+		a.Content == b.Content &&
+		a.ListStylePosition == b.ListStylePosition &&
+		a.QuotesRaw == b.QuotesRaw &&
+		a.QuotesOpen == b.QuotesOpen &&
+		a.QuotesClose == b.QuotesClose &&
+		a.CounterReset == b.CounterReset &&
+		a.CounterIncrement == b.CounterIncrement &&
+		a.CounterSet == b.CounterSet &&
+		a.ListStyleImage == b.ListStyleImage &&
+		a.LinkParameters == b.LinkParameters
+}
+
+func styleInternHashContent(s *styleContent) uint64 {
+	switch s {
+	case nil:
+		return zeroStyleContentHash
+	case &initialStyleContent:
+		return initialStyleContentHash
+	default:
+		return computeStyleHashContent(s)
+	}
+}
+
+func computeStyleHashContent(s *styleContent) uint64 {
+	h := styleInternSeed
+	for _, e := range s.AccentColor {
+		h = styleInternHashFloat64(h, e)
+	}
+	h = styleInternHashBool(h, s.AccentColorSet)
+	h = styleInternHashString(h, s.ListStyleType)
+	h = styleInternHashString(h, s.Content)
+	h = styleInternHashString(h, s.ListStylePosition)
+	h = styleInternHashString(h, s.QuotesRaw)
+	h = styleInternHashString(h, s.QuotesOpen)
+	h = styleInternHashString(h, s.QuotesClose)
+	h = styleInternHashString(h, s.CounterReset)
+	h = styleInternHashString(h, s.CounterIncrement)
+	h = styleInternHashString(h, s.CounterSet)
+	h = styleInternHashString(h, s.ListStyleImage)
+	h = styleInternHashString(h, s.LinkParameters)
+
+	return h
+}
+
+var zeroStyleEffects styleEffects                                           //nolint:gochecknoglobals // shared zero group
+var zeroStyleEffectsHash = computeStyleHashEffects(&zeroStyleEffects)       //nolint:gochecknoglobals // immutable fingerprint
+var initialStyleEffectsHash = computeStyleHashEffects(&initialStyleEffects) //nolint:gochecknoglobals // immutable fingerprint
+
+func styleInternEqualEffects(a, b *styleEffects) bool {
+	if a == b && (a == nil || a == &initialStyleEffects) {
+		return true
+	}
+	if a == nil {
+		a = &zeroStyleEffects
+	}
+	if b == nil {
+		b = &zeroStyleEffects
+	}
+
+	return a.Filter == b.Filter &&
+		a.BackdropFilter == b.BackdropFilter &&
+		a.MixBlendMode == b.MixBlendMode &&
+		a.Isolation == b.Isolation &&
+		a.Transform == b.Transform &&
+		a.HasTransform == b.HasTransform &&
+		a.TransformOrigin == b.TransformOrigin &&
+		a.TranslateXPercent == b.TranslateXPercent &&
+		a.TranslateXPercentSet == b.TranslateXPercentSet &&
+		a.TranslateYPercent == b.TranslateYPercent &&
+		a.TranslateYPercentSet == b.TranslateYPercentSet &&
+		a.MaskImage == b.MaskImage &&
+		a.MaskMode == b.MaskMode &&
+		a.MaskComposite == b.MaskComposite &&
+		a.MaskPosition == b.MaskPosition &&
+		a.MaskRepeat == b.MaskRepeat &&
+		a.MaskSize == b.MaskSize &&
+		a.MaskOrigin == b.MaskOrigin &&
+		a.MaskClip == b.MaskClip &&
+		a.MaskType == b.MaskType &&
+		a.MaskBorderSource == b.MaskBorderSource &&
+		a.MaskBorderSlice == b.MaskBorderSlice &&
+		a.MaskBorderWidth == b.MaskBorderWidth &&
+		a.MaskBorderOutset == b.MaskBorderOutset &&
+		a.MaskBorderRepeat == b.MaskBorderRepeat &&
+		a.MaskBorderMode == b.MaskBorderMode &&
+		a.ClipPath == b.ClipPath &&
+		a.BoxShadowX == b.BoxShadowX &&
+		a.BoxShadowY == b.BoxShadowY &&
+		a.BoxShadowBlur == b.BoxShadowBlur &&
+		a.BoxShadowSpread == b.BoxShadowSpread &&
+		a.BoxShadowColor == b.BoxShadowColor &&
+		a.BoxShadowSet == b.BoxShadowSet &&
+		a.BoxShadowInset == b.BoxShadowInset &&
+		a.BoxShadowRaw == b.BoxShadowRaw &&
+		a.TransformBox == b.TransformBox &&
+		a.TransformStyle == b.TransformStyle &&
+		a.BackfaceVisibility == b.BackfaceVisibility &&
+		a.Transform3D == b.Transform3D &&
+		a.HasTransform3D == b.HasTransform3D &&
+		a.PerspectiveDist == b.PerspectiveDist &&
+		a.HasPerspective == b.HasPerspective &&
+		a.PerspectiveOriginX == b.PerspectiveOriginX &&
+		a.PerspectiveOriginXPct == b.PerspectiveOriginXPct &&
+		a.PerspectiveOriginY == b.PerspectiveOriginY &&
+		a.PerspectiveOriginYPct == b.PerspectiveOriginYPct &&
+		a.PerspectiveOriginSet == b.PerspectiveOriginSet &&
+		a.Clip == b.Clip
+}
+
+func styleInternHashEffects(s *styleEffects) uint64 {
+	switch s {
+	case nil:
+		return zeroStyleEffectsHash
+	case &initialStyleEffects:
+		return initialStyleEffectsHash
+	default:
+		return computeStyleHashEffects(s)
+	}
+}
+
+func computeStyleHashEffects(s *styleEffects) uint64 {
+	h := styleInternSeed
+	h = styleInternHashString(h, s.Filter)
+	h = styleInternHashString(h, s.BackdropFilter)
+	h = styleInternHashString(h, s.MixBlendMode)
+	h = styleInternHashString(h, s.Isolation)
+	h = styleInternHashMatrix2D(h, s.Transform)
+	h = styleInternHashBool(h, s.HasTransform)
+	h = styleInternHashTransformOriginSpec(h, s.TransformOrigin)
+	h = styleInternHashFloat64(h, s.TranslateXPercent)
+	h = styleInternHashBool(h, s.TranslateXPercentSet)
+	h = styleInternHashFloat64(h, s.TranslateYPercent)
+	h = styleInternHashBool(h, s.TranslateYPercentSet)
+	h = styleInternHashString(h, s.MaskImage)
+	h = styleInternHashString(h, s.MaskMode)
+	h = styleInternHashString(h, s.MaskComposite)
+	h = styleInternHashString(h, s.MaskPosition)
+	h = styleInternHashString(h, s.MaskRepeat)
+	h = styleInternHashString(h, s.MaskSize)
+	h = styleInternHashString(h, s.MaskOrigin)
+	h = styleInternHashString(h, s.MaskClip)
+	h = styleInternHashString(h, s.MaskType)
+	h = styleInternHashString(h, s.MaskBorderSource)
+	h = styleInternHashString(h, s.MaskBorderSlice)
+	h = styleInternHashString(h, s.MaskBorderWidth)
+	h = styleInternHashString(h, s.MaskBorderOutset)
+	h = styleInternHashString(h, s.MaskBorderRepeat)
+	h = styleInternHashString(h, s.MaskBorderMode)
+	h = styleInternHashString(h, s.ClipPath)
+	h = styleInternHashFloat64(h, s.BoxShadowX)
+	h = styleInternHashFloat64(h, s.BoxShadowY)
+	h = styleInternHashFloat64(h, s.BoxShadowBlur)
+	h = styleInternHashFloat64(h, s.BoxShadowSpread)
+	for _, e := range s.BoxShadowColor {
+		h = styleInternHashFloat64(h, e)
+	}
+	h = styleInternHashBool(h, s.BoxShadowSet)
+	h = styleInternHashBool(h, s.BoxShadowInset)
+	h = styleInternHashString(h, s.BoxShadowRaw)
+	h = styleInternHashString(h, s.TransformBox)
+	h = styleInternHashString(h, s.TransformStyle)
+	h = styleInternHashString(h, s.BackfaceVisibility)
+	for _, e := range s.Transform3D {
+		h = styleInternHashFloat64(h, e)
+	}
+	h = styleInternHashBool(h, s.HasTransform3D)
+	h = styleInternHashFloat64(h, s.PerspectiveDist)
+	h = styleInternHashBool(h, s.HasPerspective)
+	h = styleInternHashFloat64(h, s.PerspectiveOriginX)
+	h = styleInternHashBool(h, s.PerspectiveOriginXPct)
+	h = styleInternHashFloat64(h, s.PerspectiveOriginY)
+	h = styleInternHashBool(h, s.PerspectiveOriginYPct)
+	h = styleInternHashBool(h, s.PerspectiveOriginSet)
+	h = styleInternHashString(h, s.Clip)
+
+	return h
+}
+
+var zeroStyleFlex styleFlex                                        //nolint:gochecknoglobals // shared zero group
+var zeroStyleFlexHash = computeStyleHashFlex(&zeroStyleFlex)       //nolint:gochecknoglobals // immutable fingerprint
+var initialStyleFlexHash = computeStyleHashFlex(&initialStyleFlex) //nolint:gochecknoglobals // immutable fingerprint
+
+func styleInternEqualFlex(a, b *styleFlex) bool {
+	if a == b && (a == nil || a == &initialStyleFlex) {
+		return true
+	}
+	if a == nil {
+		a = &zeroStyleFlex
+	}
+	if b == nil {
+		b = &zeroStyleFlex
+	}
+
+	return a.IsWebkitBox == b.IsWebkitBox &&
+		a.FlexDirection == b.FlexDirection &&
+		a.FlexWrap == b.FlexWrap &&
+		a.JustifyContent == b.JustifyContent &&
+		a.AlignItems == b.AlignItems &&
+		a.AlignContent == b.AlignContent &&
+		a.AlignSelf == b.AlignSelf &&
+		a.JustifyItems == b.JustifyItems &&
+		a.JustifySelf == b.JustifySelf &&
+		a.Gap == b.Gap &&
+		a.RowGap == b.RowGap &&
+		a.ColumnGap == b.ColumnGap &&
+		a.ColumnGapNormal == b.ColumnGapNormal &&
+		a.FlexGrow == b.FlexGrow &&
+		a.FlexShrink == b.FlexShrink &&
+		a.FlexBasis == b.FlexBasis &&
+		a.FlexBasisPercent == b.FlexBasisPercent &&
+		a.FlexOrder == b.FlexOrder
+}
+
+func styleInternHashFlex(s *styleFlex) uint64 {
+	switch s {
+	case nil:
+		return zeroStyleFlexHash
+	case &initialStyleFlex:
+		return initialStyleFlexHash
+	default:
+		return computeStyleHashFlex(s)
+	}
+}
+
+func computeStyleHashFlex(s *styleFlex) uint64 {
+	h := styleInternSeed
+	h = styleInternHashBool(h, s.IsWebkitBox)
+	h = styleInternHashString(h, s.FlexDirection)
+	h = styleInternHashString(h, s.FlexWrap)
+	h = styleInternHashString(h, s.JustifyContent)
+	h = styleInternHashString(h, s.AlignItems)
+	h = styleInternHashString(h, s.AlignContent)
+	h = styleInternHashString(h, s.AlignSelf)
+	h = styleInternHashString(h, s.JustifyItems)
+	h = styleInternHashString(h, s.JustifySelf)
+	h = styleInternHashFloat64(h, s.Gap)
+	h = styleInternHashFloat64(h, s.RowGap)
+	h = styleInternHashFloat64(h, s.ColumnGap)
+	h = styleInternHashBool(h, s.ColumnGapNormal)
+	h = styleInternHashFloat64(h, s.FlexGrow)
+	h = styleInternHashFloat64(h, s.FlexShrink)
+	h = styleInternHashFloat64(h, s.FlexBasis)
+	h = styleInternHashFloat64(h, s.FlexBasisPercent)
+	h = styleInternHashInt(h, s.FlexOrder)
+
+	return h
+}
+
+var zeroStyleFont styleFont                                        //nolint:gochecknoglobals // shared zero group
+var zeroStyleFontHash = computeStyleHashFont(&zeroStyleFont)       //nolint:gochecknoglobals // immutable fingerprint
+var initialStyleFontHash = computeStyleHashFont(&initialStyleFont) //nolint:gochecknoglobals // immutable fingerprint
+
+func styleInternEqualFont(a, b *styleFont) bool {
+	if a == b && (a == nil || a == &initialStyleFont) {
+		return true
+	}
+	if a == nil {
+		a = &zeroStyleFont
+	}
+	if b == nil {
+		b = &zeroStyleFont
+	}
+
+	return a.FontLanguageOverride == b.FontLanguageOverride &&
+		a.FontOpticalSizing == b.FontOpticalSizing &&
+		a.FontPalette == b.FontPalette &&
+		a.FontVariationSettings == b.FontVariationSettings &&
+		a.FontFeatureSettings == b.FontFeatureSettings &&
+		a.FontKerning == b.FontKerning &&
+		a.FontSizeAdjust == b.FontSizeAdjust &&
+		a.FontSizeAdjustSet == b.FontSizeAdjustSet &&
+		a.FontWidth == b.FontWidth &&
+		a.FontSynthesisWeight == b.FontSynthesisWeight &&
+		a.FontSynthesisStyle == b.FontSynthesisStyle &&
+		a.FontSynthesisSmallCaps == b.FontSynthesisSmallCaps &&
+		a.FontSynthesisPosition == b.FontSynthesisPosition &&
+		a.FontVariantCaps == b.FontVariantCaps &&
+		a.FontVariantLigatures == b.FontVariantLigatures &&
+		a.FontVariantNumeric == b.FontVariantNumeric &&
+		a.FontVariantPosition == b.FontVariantPosition &&
+		a.FontVariantEastAsian == b.FontVariantEastAsian &&
+		a.FontVariantAlternates == b.FontVariantAlternates &&
+		a.FontVariantEmoji == b.FontVariantEmoji
+}
+
+func styleInternHashFont(s *styleFont) uint64 {
+	switch s {
+	case nil:
+		return zeroStyleFontHash
+	case &initialStyleFont:
+		return initialStyleFontHash
+	default:
+		return computeStyleHashFont(s)
+	}
+}
+
+func computeStyleHashFont(s *styleFont) uint64 {
+	h := styleInternSeed
+	h = styleInternHashString(h, s.FontLanguageOverride)
+	h = styleInternHashString(h, s.FontOpticalSizing)
+	h = styleInternHashString(h, s.FontPalette)
+	h = styleInternHashString(h, s.FontVariationSettings)
+	h = styleInternHashString(h, s.FontFeatureSettings)
+	h = styleInternHashString(h, s.FontKerning)
+	h = styleInternHashFloat64(h, s.FontSizeAdjust)
+	h = styleInternHashBool(h, s.FontSizeAdjustSet)
+	h = styleInternHashFloat64(h, s.FontWidth)
+	h = styleInternHashBool(h, s.FontSynthesisWeight)
+	h = styleInternHashBool(h, s.FontSynthesisStyle)
+	h = styleInternHashBool(h, s.FontSynthesisSmallCaps)
+	h = styleInternHashBool(h, s.FontSynthesisPosition)
+	h = styleInternHashString(h, s.FontVariantCaps)
+	h = styleInternHashString(h, s.FontVariantLigatures)
+	h = styleInternHashString(h, s.FontVariantNumeric)
+	h = styleInternHashString(h, s.FontVariantPosition)
+	h = styleInternHashString(h, s.FontVariantEastAsian)
+	h = styleInternHashString(h, s.FontVariantAlternates)
+	h = styleInternHashString(h, s.FontVariantEmoji)
+
+	return h
+}
+
+var zeroStyleFragmentation styleFragmentation                                                 //nolint:gochecknoglobals // shared zero group
+var zeroStyleFragmentationHash = computeStyleHashFragmentation(&zeroStyleFragmentation)       //nolint:gochecknoglobals // immutable fingerprint
+var initialStyleFragmentationHash = computeStyleHashFragmentation(&initialStyleFragmentation) //nolint:gochecknoglobals // immutable fingerprint
+
+func styleInternEqualFragmentation(a, b *styleFragmentation) bool {
+	if a == b && (a == nil || a == &initialStyleFragmentation) {
+		return true
+	}
+	if a == nil {
+		a = &zeroStyleFragmentation
+	}
+	if b == nil {
+		b = &zeroStyleFragmentation
+	}
+
+	return a.BorderCollapse == b.BorderCollapse &&
+		a.BorderSpacing == b.BorderSpacing &&
+		a.BorderSpacingV == b.BorderSpacingV &&
+		a.TableLayout == b.TableLayout &&
+		a.CaptionSide == b.CaptionSide &&
+		a.PageBreakBefore == b.PageBreakBefore &&
+		a.PageBreakAfter == b.PageBreakAfter &&
+		a.PageBreakInside == b.PageBreakInside &&
+		a.MarginBreak == b.MarginBreak &&
+		a.PageName == b.PageName &&
+		a.Orphans == b.Orphans &&
+		a.Widows == b.Widows &&
+		a.EmptyCells == b.EmptyCells &&
+		a.FlowInto == b.FlowInto &&
+		a.FlowIntoElement == b.FlowIntoElement &&
+		a.FlowFrom == b.FlowFrom &&
+		a.RegionFragment == b.RegionFragment
+}
+
+func styleInternHashFragmentation(s *styleFragmentation) uint64 {
+	switch s {
+	case nil:
+		return zeroStyleFragmentationHash
+	case &initialStyleFragmentation:
+		return initialStyleFragmentationHash
+	default:
+		return computeStyleHashFragmentation(s)
+	}
+}
+
+func computeStyleHashFragmentation(s *styleFragmentation) uint64 {
+	h := styleInternSeed
+	h = styleInternHashString(h, s.BorderCollapse)
+	h = styleInternHashFloat64(h, s.BorderSpacing)
+	h = styleInternHashFloat64(h, s.BorderSpacingV)
+	h = styleInternHashString(h, s.TableLayout)
+	h = styleInternHashString(h, s.CaptionSide)
+	h = styleInternHashString(h, s.PageBreakBefore)
+	h = styleInternHashString(h, s.PageBreakAfter)
+	h = styleInternHashString(h, s.PageBreakInside)
+	h = styleInternHashString(h, s.MarginBreak)
+	h = styleInternHashString(h, s.PageName)
+	h = styleInternHashInt(h, s.Orphans)
+	h = styleInternHashInt(h, s.Widows)
+	h = styleInternHashString(h, s.EmptyCells)
+	h = styleInternHashString(h, s.FlowInto)
+	h = styleInternHashBool(h, s.FlowIntoElement)
+	h = styleInternHashString(h, s.FlowFrom)
+	h = styleInternHashString(h, s.RegionFragment)
+
+	return h
+}
+
+var zeroStyleGeometry styleGeometry                                            //nolint:gochecknoglobals // shared zero group
+var zeroStyleGeometryHash = computeStyleHashGeometry(&zeroStyleGeometry)       //nolint:gochecknoglobals // immutable fingerprint
+var initialStyleGeometryHash = computeStyleHashGeometry(&initialStyleGeometry) //nolint:gochecknoglobals // immutable fingerprint
+
+func styleInternEqualGeometry(a, b *styleGeometry) bool {
+	if a == b && (a == nil || a == &initialStyleGeometry) {
+		return true
+	}
+	if a == nil {
+		a = &zeroStyleGeometry
+	}
+	if b == nil {
+		b = &zeroStyleGeometry
+	}
+
+	return a.BoxSizing == b.BoxSizing &&
+		a.MinWidth == b.MinWidth &&
+		a.MinWidthPercent == b.MinWidthPercent &&
+		a.MinWidthSet == b.MinWidthSet &&
+		a.MaxWidth == b.MaxWidth &&
+		a.MaxWidthPercent == b.MaxWidthPercent &&
+		a.MinHeight == b.MinHeight &&
+		a.MinHeightPercent == b.MinHeightPercent &&
+		a.MinHeightSet == b.MinHeightSet &&
+		a.MaxHeight == b.MaxHeight &&
+		a.MaxHeightPercent == b.MaxHeightPercent &&
+		a.OverflowX == b.OverflowX &&
+		a.OverflowY == b.OverflowY &&
+		a.MarginTopAuto == b.MarginTopAuto &&
+		a.MarginBottomAuto == b.MarginBottomAuto &&
+		a.MarginLeftAuto == b.MarginLeftAuto &&
+		a.MarginRightAuto == b.MarginRightAuto &&
+		a.MarginTrim == b.MarginTrim &&
+		a.AspectRatio == b.AspectRatio &&
+		a.Zoom == b.Zoom
+}
+
+func styleInternHashGeometry(s *styleGeometry) uint64 {
+	switch s {
+	case nil:
+		return zeroStyleGeometryHash
+	case &initialStyleGeometry:
+		return initialStyleGeometryHash
+	default:
+		return computeStyleHashGeometry(s)
+	}
+}
+
+func computeStyleHashGeometry(s *styleGeometry) uint64 {
+	h := styleInternSeed
+	h = styleInternHashString(h, s.BoxSizing)
+	h = styleInternHashFloat64(h, s.MinWidth)
+	h = styleInternHashFloat64(h, s.MinWidthPercent)
+	h = styleInternHashBool(h, s.MinWidthSet)
+	h = styleInternHashFloat64(h, s.MaxWidth)
+	h = styleInternHashFloat64(h, s.MaxWidthPercent)
+	h = styleInternHashFloat64(h, s.MinHeight)
+	h = styleInternHashFloat64(h, s.MinHeightPercent)
+	h = styleInternHashBool(h, s.MinHeightSet)
+	h = styleInternHashFloat64(h, s.MaxHeight)
+	h = styleInternHashFloat64(h, s.MaxHeightPercent)
+	h = styleInternHashString(h, s.OverflowX)
+	h = styleInternHashString(h, s.OverflowY)
+	h = styleInternHashBool(h, s.MarginTopAuto)
+	h = styleInternHashBool(h, s.MarginBottomAuto)
+	h = styleInternHashBool(h, s.MarginLeftAuto)
+	h = styleInternHashBool(h, s.MarginRightAuto)
+	h = styleInternHashString(h, s.MarginTrim)
+	h = styleInternHashFloat64(h, s.AspectRatio)
+	h = styleInternHashFloat64(h, s.Zoom)
+
+	return h
+}
+
+var zeroStyleGrid styleGrid                                        //nolint:gochecknoglobals // shared zero group
+var zeroStyleGridHash = computeStyleHashGrid(&zeroStyleGrid)       //nolint:gochecknoglobals // immutable fingerprint
+var initialStyleGridHash = computeStyleHashGrid(&initialStyleGrid) //nolint:gochecknoglobals // immutable fingerprint
+
+func styleInternEqualGrid(a, b *styleGrid) bool {
+	if a == b && (a == nil || a == &initialStyleGrid) {
+		return true
+	}
+	if a == nil {
+		a = &zeroStyleGrid
+	}
+	if b == nil {
+		b = &zeroStyleGrid
+	}
+
+	return a.GridTemplateColumns == b.GridTemplateColumns &&
+		a.GridTemplateRows == b.GridTemplateRows &&
+		a.GridTemplateAreas == b.GridTemplateAreas &&
+		a.GridArea == b.GridArea &&
+		a.GridAutoFlow == b.GridAutoFlow &&
+		a.GridAutoColumns == b.GridAutoColumns &&
+		a.GridAutoRows == b.GridAutoRows &&
+		a.GridColumnSpan == b.GridColumnSpan &&
+		a.GridColumnStart == b.GridColumnStart &&
+		a.GridRowSpan == b.GridRowSpan &&
+		a.GridRowStart == b.GridRowStart &&
+		a.GridColumnEnd == b.GridColumnEnd &&
+		a.GridRowEnd == b.GridRowEnd &&
+		a.FlowTolerancePt == b.FlowTolerancePt &&
+		a.FlowToleranceInfinite == b.FlowToleranceInfinite
+}
+
+func styleInternHashGrid(s *styleGrid) uint64 {
+	switch s {
+	case nil:
+		return zeroStyleGridHash
+	case &initialStyleGrid:
+		return initialStyleGridHash
+	default:
+		return computeStyleHashGrid(s)
+	}
+}
+
+func computeStyleHashGrid(s *styleGrid) uint64 {
+	h := styleInternSeed
+	h = styleInternHashString(h, s.GridTemplateColumns)
+	h = styleInternHashString(h, s.GridTemplateRows)
+	h = styleInternHashString(h, s.GridTemplateAreas)
+	h = styleInternHashString(h, s.GridArea)
+	h = styleInternHashString(h, s.GridAutoFlow)
+	h = styleInternHashString(h, s.GridAutoColumns)
+	h = styleInternHashString(h, s.GridAutoRows)
+	h = styleInternHashInt(h, s.GridColumnSpan)
+	h = styleInternHashInt(h, s.GridColumnStart)
+	h = styleInternHashInt(h, s.GridRowSpan)
+	h = styleInternHashInt(h, s.GridRowStart)
+	h = styleInternHashInt(h, s.GridColumnEnd)
+	h = styleInternHashInt(h, s.GridRowEnd)
+	h = styleInternHashFloat64(h, s.FlowTolerancePt)
+	h = styleInternHashBool(h, s.FlowToleranceInfinite)
+
+	return h
+}
+
+var zeroStyleImages styleImages                                          //nolint:gochecknoglobals // shared zero group
+var zeroStyleImagesHash = computeStyleHashImages(&zeroStyleImages)       //nolint:gochecknoglobals // immutable fingerprint
+var initialStyleImagesHash = computeStyleHashImages(&initialStyleImages) //nolint:gochecknoglobals // immutable fingerprint
+
+func styleInternEqualImages(a, b *styleImages) bool {
+	if a == b && (a == nil || a == &initialStyleImages) {
+		return true
+	}
+	if a == nil {
+		a = &zeroStyleImages
+	}
+	if b == nil {
+		b = &zeroStyleImages
+	}
+
+	return a.ImageOrientation == b.ImageOrientation &&
+		a.ImageOrientationAngle == b.ImageOrientationAngle &&
+		a.ImageResolution == b.ImageResolution &&
+		a.ImageResolutionDPI == b.ImageResolutionDPI &&
+		a.ObjectViewBox == b.ObjectViewBox &&
+		a.ObjectFit == b.ObjectFit &&
+		a.ObjectPositionX == b.ObjectPositionX &&
+		a.ObjectPositionY == b.ObjectPositionY &&
+		a.ImageRendering == b.ImageRendering
+}
+
+func styleInternHashImages(s *styleImages) uint64 {
+	switch s {
+	case nil:
+		return zeroStyleImagesHash
+	case &initialStyleImages:
+		return initialStyleImagesHash
+	default:
+		return computeStyleHashImages(s)
+	}
+}
+
+func computeStyleHashImages(s *styleImages) uint64 {
+	h := styleInternSeed
+	h = styleInternHashString(h, s.ImageOrientation)
+	h = styleInternHashFloat64(h, s.ImageOrientationAngle)
+	h = styleInternHashString(h, s.ImageResolution)
+	h = styleInternHashFloat64(h, s.ImageResolutionDPI)
+	h = styleInternHashString(h, s.ObjectViewBox)
+	h = styleInternHashString(h, s.ObjectFit)
+	h = styleInternHashString(h, s.ObjectPositionX)
+	h = styleInternHashString(h, s.ObjectPositionY)
+	h = styleInternHashString(h, s.ImageRendering)
+
+	return h
+}
+
+var zeroStyleInlineText styleInlineText                                              //nolint:gochecknoglobals // shared zero group
+var zeroStyleInlineTextHash = computeStyleHashInlineText(&zeroStyleInlineText)       //nolint:gochecknoglobals // immutable fingerprint
+var initialStyleInlineTextHash = computeStyleHashInlineText(&initialStyleInlineText) //nolint:gochecknoglobals // immutable fingerprint
+
+func styleInternEqualInlineText(a, b *styleInlineText) bool {
+	if a == b && (a == nil || a == &initialStyleInlineText) {
+		return true
+	}
+	if a == nil {
+		a = &zeroStyleInlineText
+	}
+	if b == nil {
+		b = &zeroStyleInlineText
+	}
+
+	return a.InitialLetterSize == b.InitialLetterSize &&
+		a.InitialLetterSink == b.InitialLetterSink &&
+		a.InitialLetterAlign == b.InitialLetterAlign &&
+		a.InitialLetterWrap == b.InitialLetterWrap &&
+		a.TextAlignLast == b.TextAlignLast &&
+		a.TextTransform == b.TextTransform &&
+		a.VerticalAlign == b.VerticalAlign &&
+		a.VerticalAlignShift == b.VerticalAlignShift &&
+		a.WhiteSpaceCollapse == b.WhiteSpaceCollapse &&
+		a.WhiteSpaceTrim == b.WhiteSpaceTrim &&
+		a.TextWrap == b.TextWrap &&
+		a.TextWrapMode == b.TextWrapMode &&
+		a.TextWrapStyle == b.TextWrapStyle &&
+		a.TabSize == b.TabSize &&
+		a.Hyphens == b.Hyphens &&
+		a.HyphenateCharacter == b.HyphenateCharacter &&
+		a.HyphenateLimitMinWord == b.HyphenateLimitMinWord &&
+		a.HyphenateLimitMinBefore == b.HyphenateLimitMinBefore &&
+		a.HyphenateLimitMinAfter == b.HyphenateLimitMinAfter &&
+		a.HyphenateLimitLast == b.HyphenateLimitLast &&
+		a.HyphenateLimitLines == b.HyphenateLimitLines &&
+		a.HyphenateLimitZonePt == b.HyphenateLimitZonePt &&
+		a.HyphenateLimitZonePct == b.HyphenateLimitZonePct &&
+		a.HangingPunctuation == b.HangingPunctuation &&
+		a.TextJustify == b.TextJustify &&
+		a.LineBreak == b.LineBreak &&
+		a.OverflowWrap == b.OverflowWrap &&
+		a.WordBreak == b.WordBreak &&
+		a.TextDecoration == b.TextDecoration &&
+		a.TextDecorationLine == b.TextDecorationLine &&
+		a.TextDecorationColor == b.TextDecorationColor &&
+		a.TextDecorationColorSet == b.TextDecorationColorSet &&
+		a.TextDecorationStyle == b.TextDecorationStyle &&
+		a.TextDecorationThickness == b.TextDecorationThickness &&
+		a.TextUnderlineOffset == b.TextUnderlineOffset &&
+		a.TextUnderlinePosition == b.TextUnderlinePosition &&
+		a.TextShadowX == b.TextShadowX &&
+		a.TextShadowY == b.TextShadowY &&
+		a.TextShadowBlur == b.TextShadowBlur &&
+		a.TextShadowColor == b.TextShadowColor &&
+		a.TextShadowSet == b.TextShadowSet &&
+		a.LetterSpacing == b.LetterSpacing &&
+		a.WordSpacing == b.WordSpacing &&
+		a.WordSpaceTransform == b.WordSpaceTransform &&
+		a.TextIndent == b.TextIndent &&
+		a.LinePadding == b.LinePadding &&
+		a.TextOverflow == b.TextOverflow &&
+		a.LineClamp == b.LineClamp &&
+		a.MaxLines == b.MaxLines &&
+		a.TextDecorationSkipInk == b.TextDecorationSkipInk &&
+		a.TextCombineUpright == b.TextCombineUpright &&
+		a.TextDecorationInset == b.TextDecorationInset &&
+		a.TextDecorationSkip == b.TextDecorationSkip &&
+		a.TextDecorationSkipBox == b.TextDecorationSkipBox &&
+		a.TextDecorationSkipSelf == b.TextDecorationSkipSelf &&
+		a.TextDecorationSkipSpaces == b.TextDecorationSkipSpaces &&
+		a.TextOrientation == b.TextOrientation &&
+		a.UnicodeBidi == b.UnicodeBidi &&
+		a.TextBoxTrim == b.TextBoxTrim &&
+		a.TextBoxEdgeOver == b.TextBoxEdgeOver &&
+		a.TextBoxEdgeUnder == b.TextBoxEdgeUnder &&
+		a.LineFitEdge == b.LineFitEdge &&
+		a.TextAutospace == b.TextAutospace &&
+		a.TextSpacing == b.TextSpacing &&
+		a.TextSpacingTrim == b.TextSpacingTrim &&
+		a.TextGroupAlign == b.TextGroupAlign &&
+		a.TextFit == b.TextFit &&
+		a.DominantBaseline == b.DominantBaseline &&
+		a.AlignmentBaseline == b.AlignmentBaseline &&
+		a.BaselineSource == b.BaselineSource &&
+		a.Continue == b.Continue &&
+		a.TextStrokeWidth == b.TextStrokeWidth &&
+		a.TextStrokeColor == b.TextStrokeColor &&
+		a.TextStrokeColorSet == b.TextStrokeColorSet &&
+		a.ContinueLines == b.ContinueLines &&
+		a.InlineSizing == b.InlineSizing &&
+		a.WrapBefore == b.WrapBefore &&
+		a.WrapAfter == b.WrapAfter &&
+		a.WrapInside == b.WrapInside
+}
+
+func styleInternHashInlineText(s *styleInlineText) uint64 {
+	switch s {
+	case nil:
+		return zeroStyleInlineTextHash
+	case &initialStyleInlineText:
+		return initialStyleInlineTextHash
+	default:
+		return computeStyleHashInlineText(s)
+	}
+}
+
+func computeStyleHashInlineText(s *styleInlineText) uint64 {
+	h := styleInternSeed
+	h = styleInternHashFloat64(h, s.InitialLetterSize)
+	h = styleInternHashInt(h, s.InitialLetterSink)
+	h = styleInternHashString(h, s.InitialLetterAlign)
+	h = styleInternHashString(h, s.InitialLetterWrap)
+	h = styleInternHashString(h, s.TextAlignLast)
+	h = styleInternHashString(h, s.TextTransform)
+	h = styleInternHashString(h, s.VerticalAlign)
+	h = styleInternHashFloat64(h, s.VerticalAlignShift)
+	h = styleInternHashString(h, s.WhiteSpaceCollapse)
+	h = styleInternHashString(h, s.WhiteSpaceTrim)
+	h = styleInternHashString(h, s.TextWrap)
+	h = styleInternHashString(h, s.TextWrapMode)
+	h = styleInternHashString(h, s.TextWrapStyle)
+	h = styleInternHashFloat64(h, s.TabSize)
+	h = styleInternHashString(h, s.Hyphens)
+	h = styleInternHashString(h, s.HyphenateCharacter)
+	h = styleInternHashInt(h, s.HyphenateLimitMinWord)
+	h = styleInternHashInt(h, s.HyphenateLimitMinBefore)
+	h = styleInternHashInt(h, s.HyphenateLimitMinAfter)
+	h = styleInternHashString(h, s.HyphenateLimitLast)
+	h = styleInternHashInt(h, s.HyphenateLimitLines)
+	h = styleInternHashFloat64(h, s.HyphenateLimitZonePt)
+	h = styleInternHashFloat64(h, s.HyphenateLimitZonePct)
+	h = styleInternHashString(h, s.HangingPunctuation)
+	h = styleInternHashString(h, s.TextJustify)
+	h = styleInternHashString(h, s.LineBreak)
+	h = styleInternHashString(h, s.OverflowWrap)
+	h = styleInternHashString(h, s.WordBreak)
+	h = styleInternHashString(h, s.TextDecoration)
+	h = styleInternHashString(h, s.TextDecorationLine)
+	for _, e := range s.TextDecorationColor {
+		h = styleInternHashFloat64(h, e)
+	}
+	h = styleInternHashBool(h, s.TextDecorationColorSet)
+	h = styleInternHashString(h, s.TextDecorationStyle)
+	h = styleInternHashFloat64(h, s.TextDecorationThickness)
+	h = styleInternHashFloat64(h, s.TextUnderlineOffset)
+	h = styleInternHashString(h, s.TextUnderlinePosition)
+	h = styleInternHashFloat64(h, s.TextShadowX)
+	h = styleInternHashFloat64(h, s.TextShadowY)
+	h = styleInternHashFloat64(h, s.TextShadowBlur)
+	for _, e := range s.TextShadowColor {
+		h = styleInternHashFloat64(h, e)
+	}
+	h = styleInternHashBool(h, s.TextShadowSet)
+	h = styleInternHashFloat64(h, s.LetterSpacing)
+	h = styleInternHashFloat64(h, s.WordSpacing)
+	h = styleInternHashString(h, s.WordSpaceTransform)
+	h = styleInternHashFloat64(h, s.TextIndent)
+	h = styleInternHashFloat64(h, s.LinePadding)
+	h = styleInternHashString(h, s.TextOverflow)
+	h = styleInternHashInt(h, s.LineClamp)
+	h = styleInternHashInt(h, s.MaxLines)
+	h = styleInternHashString(h, s.TextDecorationSkipInk)
+	h = styleInternHashString(h, s.TextCombineUpright)
+	h = styleInternHashFloat64(h, s.TextDecorationInset)
+	h = styleInternHashString(h, s.TextDecorationSkip)
+	h = styleInternHashString(h, s.TextDecorationSkipBox)
+	h = styleInternHashString(h, s.TextDecorationSkipSelf)
+	h = styleInternHashString(h, s.TextDecorationSkipSpaces)
+	h = styleInternHashString(h, s.TextOrientation)
+	h = styleInternHashString(h, s.UnicodeBidi)
+	h = styleInternHashString(h, s.TextBoxTrim)
+	h = styleInternHashString(h, s.TextBoxEdgeOver)
+	h = styleInternHashString(h, s.TextBoxEdgeUnder)
+	h = styleInternHashString(h, s.LineFitEdge)
+	h = styleInternHashString(h, s.TextAutospace)
+	h = styleInternHashString(h, s.TextSpacing)
+	h = styleInternHashString(h, s.TextSpacingTrim)
+	h = styleInternHashString(h, s.TextGroupAlign)
+	h = styleInternHashString(h, s.TextFit)
+	h = styleInternHashString(h, s.DominantBaseline)
+	h = styleInternHashString(h, s.AlignmentBaseline)
+	h = styleInternHashString(h, s.BaselineSource)
+	h = styleInternHashString(h, s.Continue)
+	h = styleInternHashFloat64(h, s.TextStrokeWidth)
+	for _, e := range s.TextStrokeColor {
+		h = styleInternHashFloat64(h, e)
+	}
+	h = styleInternHashBool(h, s.TextStrokeColorSet)
+	h = styleInternHashInt(h, s.ContinueLines)
+	h = styleInternHashString(h, s.InlineSizing)
+	h = styleInternHashString(h, s.WrapBefore)
+	h = styleInternHashString(h, s.WrapAfter)
+	h = styleInternHashString(h, s.WrapInside)
+
+	return h
+}
+
+var zeroStyleMotion styleMotion                                          //nolint:gochecknoglobals // shared zero group
+var zeroStyleMotionHash = computeStyleHashMotion(&zeroStyleMotion)       //nolint:gochecknoglobals // immutable fingerprint
+var initialStyleMotionHash = computeStyleHashMotion(&initialStyleMotion) //nolint:gochecknoglobals // immutable fingerprint
+
+func styleInternEqualMotion(a, b *styleMotion) bool {
+	if a == b && (a == nil || a == &initialStyleMotion) {
+		return true
+	}
+	if a == nil {
+		a = &zeroStyleMotion
+	}
+	if b == nil {
+		b = &zeroStyleMotion
+	}
+
+	return a.Animation == b.Animation &&
+		a.Transition == b.Transition &&
+		a.ScrollTimelineName == b.ScrollTimelineName &&
+		a.ScrollTimelineAxis == b.ScrollTimelineAxis &&
+		a.ViewTimelineName == b.ViewTimelineName &&
+		a.ViewTimelineAxis == b.ViewTimelineAxis &&
+		a.ViewTimelineInsetStart == b.ViewTimelineInsetStart &&
+		a.ViewTimelineInsetEnd == b.ViewTimelineInsetEnd &&
+		a.ViewTimelineInsetStartSet == b.ViewTimelineInsetStartSet &&
+		a.ViewTimelineInsetEndSet == b.ViewTimelineInsetEndSet &&
+		a.ViewTimelineInsets == b.ViewTimelineInsets
+}
+
+func styleInternHashMotion(s *styleMotion) uint64 {
+	switch s {
+	case nil:
+		return zeroStyleMotionHash
+	case &initialStyleMotion:
+		return initialStyleMotionHash
+	default:
+		return computeStyleHashMotion(s)
+	}
+}
+
+func computeStyleHashMotion(s *styleMotion) uint64 {
+	h := styleInternSeed
+	h = styleInternHashAnimationStyle(h, s.Animation)
+	h = styleInternHashTransitionStyle(h, s.Transition)
+	h = styleInternHashString(h, s.ScrollTimelineName)
+	h = styleInternHashString(h, s.ScrollTimelineAxis)
+	h = styleInternHashString(h, s.ViewTimelineName)
+	h = styleInternHashString(h, s.ViewTimelineAxis)
+	h = styleInternHashFloat64(h, s.ViewTimelineInsetStart)
+	h = styleInternHashFloat64(h, s.ViewTimelineInsetEnd)
+	h = styleInternHashBool(h, s.ViewTimelineInsetStartSet)
+	h = styleInternHashBool(h, s.ViewTimelineInsetEndSet)
+	h = styleInternHashString(h, s.ViewTimelineInsets)
+
+	return h
+}
+
+var zeroStylePositioning stylePositioning                                               //nolint:gochecknoglobals // shared zero group
+var zeroStylePositioningHash = computeStyleHashPositioning(&zeroStylePositioning)       //nolint:gochecknoglobals // immutable fingerprint
+var initialStylePositioningHash = computeStyleHashPositioning(&initialStylePositioning) //nolint:gochecknoglobals // immutable fingerprint
+
+func styleInternEqualPositioning(a, b *stylePositioning) bool {
+	if a == b && (a == nil || a == &initialStylePositioning) {
+		return true
+	}
+	if a == nil {
+		a = &zeroStylePositioning
+	}
+	if b == nil {
+		b = &zeroStylePositioning
+	}
+
+	return a.Clear == b.Clear &&
+		a.Top == b.Top &&
+		a.Right == b.Right &&
+		a.Bottom == b.Bottom &&
+		a.Left == b.Left &&
+		a.TopAuto == b.TopAuto &&
+		a.RightAuto == b.RightAuto &&
+		a.BottomAuto == b.BottomAuto &&
+		a.LeftAuto == b.LeftAuto &&
+		a.ZIndex == b.ZIndex &&
+		a.ZIndexSet == b.ZIndexSet &&
+		a.WritingMode == b.WritingMode &&
+		a.Direction == b.Direction &&
+		slices.Equal(a.AnchorNames, b.AnchorNames) &&
+		a.AnchorScope == b.AnchorScope &&
+		a.PositionAnchor == b.PositionAnchor &&
+		a.PositionArea == b.PositionArea &&
+		slices.Equal(a.PositionTryFallbacks, b.PositionTryFallbacks) &&
+		a.PositionTryOrder == b.PositionTryOrder &&
+		a.PositionVisibility == b.PositionVisibility &&
+		a.ShapeOutside == b.ShapeOutside &&
+		a.ShapeMargin == b.ShapeMargin &&
+		a.ShapeMarginPercent == b.ShapeMarginPercent &&
+		a.FloatOffset == b.FloatOffset &&
+		a.FloatOffsetPercent == b.FloatOffsetPercent &&
+		a.FloatReference == b.FloatReference &&
+		a.ShapeInside == b.ShapeInside &&
+		a.ShapeInsideBox == b.ShapeInsideBox &&
+		a.ShapeInsideOutside == b.ShapeInsideOutside &&
+		a.ShapePadding == b.ShapePadding &&
+		a.ShapePaddingPercent == b.ShapePaddingPercent &&
+		a.WrapFlow == b.WrapFlow &&
+		a.WrapThrough == b.WrapThrough
+}
+
+func styleInternHashPositioning(s *stylePositioning) uint64 {
+	switch s {
+	case nil:
+		return zeroStylePositioningHash
+	case &initialStylePositioning:
+		return initialStylePositioningHash
+	default:
+		return computeStyleHashPositioning(s)
+	}
+}
+
+func computeStyleHashPositioning(s *stylePositioning) uint64 {
+	h := styleInternSeed
+	h = styleInternHashString(h, s.Clear)
+	h = styleInternHashFloat64(h, s.Top)
+	h = styleInternHashFloat64(h, s.Right)
+	h = styleInternHashFloat64(h, s.Bottom)
+	h = styleInternHashFloat64(h, s.Left)
+	h = styleInternHashBool(h, s.TopAuto)
+	h = styleInternHashBool(h, s.RightAuto)
+	h = styleInternHashBool(h, s.BottomAuto)
+	h = styleInternHashBool(h, s.LeftAuto)
+	h = styleInternHashInt(h, s.ZIndex)
+	h = styleInternHashBool(h, s.ZIndexSet)
+	h = styleInternHashString(h, s.WritingMode)
+	h = styleInternHashString(h, s.Direction)
+	h = styleInternHashStringSlice(h, s.AnchorNames)
+	h = styleInternHashString(h, s.AnchorScope)
+	h = styleInternHashString(h, s.PositionAnchor)
+	h = styleInternHashString(h, s.PositionArea)
+	h = styleInternHashStringSlice(h, s.PositionTryFallbacks)
+	h = styleInternHashString(h, s.PositionTryOrder)
+	h = styleInternHashString(h, s.PositionVisibility)
+	h = styleInternHashString(h, s.ShapeOutside)
+	h = styleInternHashFloat64(h, s.ShapeMargin)
+	h = styleInternHashFloat64(h, s.ShapeMarginPercent)
+	h = styleInternHashFloat64(h, s.FloatOffset)
+	h = styleInternHashFloat64(h, s.FloatOffsetPercent)
+	h = styleInternHashString(h, s.FloatReference)
+	h = styleInternHashString(h, s.ShapeInside)
+	h = styleInternHashString(h, s.ShapeInsideBox)
+	h = styleInternHashBool(h, s.ShapeInsideOutside)
+	h = styleInternHashFloat64(h, s.ShapePadding)
+	h = styleInternHashFloat64(h, s.ShapePaddingPercent)
+	h = styleInternHashString(h, s.WrapFlow)
+	h = styleInternHashString(h, s.WrapThrough)
+
+	return h
+}
+
+var zeroStyleSvg styleSvg                                       //nolint:gochecknoglobals // shared zero group
+var zeroStyleSvgHash = computeStyleHashSvg(&zeroStyleSvg)       //nolint:gochecknoglobals // immutable fingerprint
+var initialStyleSvgHash = computeStyleHashSvg(&initialStyleSvg) //nolint:gochecknoglobals // immutable fingerprint
+
+func styleInternEqualSvg(a, b *styleSvg) bool {
+	if a == b && (a == nil || a == &initialStyleSvg) {
+		return true
+	}
+	if a == nil {
+		a = &zeroStyleSvg
+	}
+	if b == nil {
+		b = &zeroStyleSvg
+	}
+
+	return a.ClipRule == b.ClipRule &&
+		a.Fill == b.Fill &&
+		a.FillSet == b.FillSet &&
+		a.FillOpacity == b.FillOpacity &&
+		a.Stroke == b.Stroke &&
+		a.StrokeSet == b.StrokeSet &&
+		a.StrokeWidth == b.StrokeWidth &&
+		a.StrokeWidthSet == b.StrokeWidthSet &&
+		a.StrokeOpacity == b.StrokeOpacity &&
+		slices.Equal(a.StrokeDashArray, b.StrokeDashArray) &&
+		a.StrokeDashOffset == b.StrokeDashOffset &&
+		a.StrokeLineCap == b.StrokeLineCap &&
+		a.StrokeLineJoin == b.StrokeLineJoin &&
+		a.StrokeMiterLimit == b.StrokeMiterLimit &&
+		a.FillRule == b.FillRule &&
+		a.ShapeRendering == b.ShapeRendering &&
+		a.ColorInterpolation == b.ColorInterpolation &&
+		a.ColorInterpolationFilters == b.ColorInterpolationFilters &&
+		a.SVGCx == b.SVGCx &&
+		a.SVGCy == b.SVGCy &&
+		a.SVGR == b.SVGR &&
+		a.SVGRx == b.SVGRx &&
+		a.SVGRy == b.SVGRy &&
+		a.SVGX == b.SVGX &&
+		a.SVGY == b.SVGY &&
+		a.SVGD == b.SVGD &&
+		a.SVGMarkerStart == b.SVGMarkerStart &&
+		a.SVGMarkerMid == b.SVGMarkerMid &&
+		a.SVGMarkerEnd == b.SVGMarkerEnd &&
+		a.SVGStopColor == b.SVGStopColor &&
+		a.SVGStopOpacity == b.SVGStopOpacity &&
+		a.SVGPaintOrder == b.SVGPaintOrder &&
+		a.SVGPathLength == b.SVGPathLength &&
+		a.SVGVectorEffect == b.SVGVectorEffect &&
+		a.SVGFloodColor == b.SVGFloodColor &&
+		a.SVGFloodOpacity == b.SVGFloodOpacity
+}
+
+func styleInternHashSvg(s *styleSvg) uint64 {
+	switch s {
+	case nil:
+		return zeroStyleSvgHash
+	case &initialStyleSvg:
+		return initialStyleSvgHash
+	default:
+		return computeStyleHashSvg(s)
+	}
+}
+
+func computeStyleHashSvg(s *styleSvg) uint64 {
+	h := styleInternSeed
+	h = styleInternHashString(h, s.ClipRule)
+	for _, e := range s.Fill {
+		h = styleInternHashFloat64(h, e)
+	}
+	h = styleInternHashBool(h, s.FillSet)
+	h = styleInternHashFloat64(h, s.FillOpacity)
+	for _, e := range s.Stroke {
+		h = styleInternHashFloat64(h, e)
+	}
+	h = styleInternHashBool(h, s.StrokeSet)
+	h = styleInternHashFloat64(h, s.StrokeWidth)
+	h = styleInternHashBool(h, s.StrokeWidthSet)
+	h = styleInternHashFloat64(h, s.StrokeOpacity)
+	h = styleInternHashFloat64Slice(h, s.StrokeDashArray)
+	h = styleInternHashFloat64(h, s.StrokeDashOffset)
+	h = styleInternHashString(h, s.StrokeLineCap)
+	h = styleInternHashString(h, s.StrokeLineJoin)
+	h = styleInternHashFloat64(h, s.StrokeMiterLimit)
+	h = styleInternHashString(h, s.FillRule)
+	h = styleInternHashString(h, s.ShapeRendering)
+	h = styleInternHashString(h, s.ColorInterpolation)
+	h = styleInternHashString(h, s.ColorInterpolationFilters)
+	h = styleInternHashString(h, s.SVGCx)
+	h = styleInternHashString(h, s.SVGCy)
+	h = styleInternHashString(h, s.SVGR)
+	h = styleInternHashString(h, s.SVGRx)
+	h = styleInternHashString(h, s.SVGRy)
+	h = styleInternHashString(h, s.SVGX)
+	h = styleInternHashString(h, s.SVGY)
+	h = styleInternHashString(h, s.SVGD)
+	h = styleInternHashString(h, s.SVGMarkerStart)
+	h = styleInternHashString(h, s.SVGMarkerMid)
+	h = styleInternHashString(h, s.SVGMarkerEnd)
+	h = styleInternHashString(h, s.SVGStopColor)
+	h = styleInternHashString(h, s.SVGStopOpacity)
+	h = styleInternHashString(h, s.SVGPaintOrder)
+	h = styleInternHashString(h, s.SVGPathLength)
+	h = styleInternHashString(h, s.SVGVectorEffect)
+	h = styleInternHashString(h, s.SVGFloodColor)
+	h = styleInternHashString(h, s.SVGFloodOpacity)
+
+	return h
+}
+
+func styleInternGroupFields() map[string][]string {
+	return map[string][]string{
+		"backgroundGroup":    strings.Fields("BackgroundBlendMode BackgroundImage BackgroundPosX BackgroundPosY BackgroundSize BackgroundRepeat BackgroundRepeatX BackgroundRepeatY BackgroundRepeatBlock BackgroundRepeatInline BackgroundClip BackgroundOrigin BackgroundAttachment"),
+		"bordersGroup":       strings.Fields("BorderTop BorderRight BorderBottom BorderLeft BorderRadius BorderRadiusPercent BorderRadiusTopLeft BorderRadiusTopRight BorderRadiusBottomRight BorderRadiusBottomLeft BorderRadiusTopLeftY BorderRadiusTopRightY BorderRadiusBottomRightY BorderRadiusBottomLeftY CornerShapeTopLeft CornerShapeTopRight CornerShapeBottomRight CornerShapeBottomLeft CornerShapeTopLeftKeyword CornerShapeTopRightKeyword CornerShapeBottomRightKeyword CornerShapeBottomLeftKeyword OutlineWidth OutlineStyle OutlineColor OutlineColorSet OutlineOffset BorderImageSource BorderImageSlice BorderImageWidth BorderImageOutset BorderImageRepeat BoxDecorationBreak"),
+		"columnsGroup":       strings.Fields("ColumnCount ColumnWidth ColumnHeight ColumnWrap ColumnSpan ColumnFill ColumnRuleWidth ColumnRuleStyle ColumnRuleColor ColumnRuleColorSet RowRuleWidth RowRuleStyle RowRuleColor RowRuleColorSet RowRuleWidths RowRuleStyles RowRuleColors RowRuleBreak RowRuleVisibility RowRuleInsetCapStart RowRuleInsetCapEnd RowRuleInsetJunctionStart RowRuleInsetJunctionEnd ColumnRuleBreak ColumnRuleInsetCapStart ColumnRuleInsetCapEnd ColumnRuleInsetJunctionStart ColumnRuleInsetJunctionEnd RuleOverlap"),
+		"containmentGroup":   strings.Fields("ContainerType ContainerName OverflowClipMarginTop OverflowClipMarginRight OverflowClipMarginBottom OverflowClipMarginLeft ScrollMarginTop ScrollMarginRight ScrollMarginBottom ScrollMarginLeft Contain ContainIntrinsicWidth ContainIntrinsicHeight ContainIntrinsicBlockSize ContainIntrinsicInlineSize ContentVisibility ColorAdjust ForcedColorAdjust ColorScheme DynamicRangeLimit"),
+		"contentGroup":       strings.Fields("AccentColor AccentColorSet ListStyleType Content ListStylePosition QuotesRaw QuotesOpen QuotesClose CounterReset CounterIncrement CounterSet ListStyleImage LinkParameters"),
+		"effectsGroup":       strings.Fields("Filter BackdropFilter MixBlendMode Isolation Transform HasTransform TransformOrigin TranslateXPercent TranslateXPercentSet TranslateYPercent TranslateYPercentSet MaskImage MaskMode MaskComposite MaskPosition MaskRepeat MaskSize MaskOrigin MaskClip MaskType MaskBorderSource MaskBorderSlice MaskBorderWidth MaskBorderOutset MaskBorderRepeat MaskBorderMode ClipPath BoxShadowX BoxShadowY BoxShadowBlur BoxShadowSpread BoxShadowColor BoxShadowSet BoxShadowInset BoxShadowRaw TransformBox TransformStyle BackfaceVisibility Transform3D HasTransform3D PerspectiveDist HasPerspective PerspectiveOriginX PerspectiveOriginXPct PerspectiveOriginY PerspectiveOriginYPct PerspectiveOriginSet Clip"),
+		"flexGroup":          strings.Fields("IsWebkitBox FlexDirection FlexWrap JustifyContent AlignItems AlignContent AlignSelf JustifyItems JustifySelf Gap RowGap ColumnGap ColumnGapNormal FlexGrow FlexShrink FlexBasis FlexBasisPercent FlexOrder"),
+		"fontGroup":          strings.Fields("FontLanguageOverride FontOpticalSizing FontPalette FontVariationSettings FontFeatureSettings FontKerning FontSizeAdjust FontSizeAdjustSet FontWidth FontSynthesisWeight FontSynthesisStyle FontSynthesisSmallCaps FontSynthesisPosition FontVariantCaps FontVariantLigatures FontVariantNumeric FontVariantPosition FontVariantEastAsian FontVariantAlternates FontVariantEmoji"),
+		"fragmentationGroup": strings.Fields("BorderCollapse BorderSpacing BorderSpacingV TableLayout CaptionSide PageBreakBefore PageBreakAfter PageBreakInside MarginBreak PageName Orphans Widows EmptyCells FlowInto FlowIntoElement FlowFrom RegionFragment"),
+		"geometryGroup":      strings.Fields("BoxSizing MinWidth MinWidthPercent MinWidthSet MaxWidth MaxWidthPercent MinHeight MinHeightPercent MinHeightSet MaxHeight MaxHeightPercent OverflowX OverflowY MarginTopAuto MarginBottomAuto MarginLeftAuto MarginRightAuto MarginTrim AspectRatio Zoom"),
+		"gridGroup":          strings.Fields("GridTemplateColumns GridTemplateRows GridTemplateAreas GridArea GridAutoFlow GridAutoColumns GridAutoRows GridColumnSpan GridColumnStart GridRowSpan GridRowStart GridColumnEnd GridRowEnd FlowTolerancePt FlowToleranceInfinite"),
+		"imagesGroup":        strings.Fields("ImageOrientation ImageOrientationAngle ImageResolution ImageResolutionDPI ObjectViewBox ObjectFit ObjectPositionX ObjectPositionY ImageRendering"),
+		"inlineTextGroup":    strings.Fields("InitialLetterSize InitialLetterSink InitialLetterAlign InitialLetterWrap TextAlignLast TextTransform VerticalAlign VerticalAlignShift WhiteSpaceCollapse WhiteSpaceTrim TextWrap TextWrapMode TextWrapStyle TabSize Hyphens HyphenateCharacter HyphenateLimitMinWord HyphenateLimitMinBefore HyphenateLimitMinAfter HyphenateLimitLast HyphenateLimitLines HyphenateLimitZonePt HyphenateLimitZonePct HangingPunctuation TextJustify LineBreak OverflowWrap WordBreak TextDecoration TextDecorationLine TextDecorationColor TextDecorationColorSet TextDecorationStyle TextDecorationThickness TextUnderlineOffset TextUnderlinePosition TextShadowX TextShadowY TextShadowBlur TextShadowColor TextShadowSet LetterSpacing WordSpacing WordSpaceTransform TextIndent LinePadding TextOverflow LineClamp MaxLines TextDecorationSkipInk TextCombineUpright TextDecorationInset TextDecorationSkip TextDecorationSkipBox TextDecorationSkipSelf TextDecorationSkipSpaces TextOrientation UnicodeBidi TextBoxTrim TextBoxEdgeOver TextBoxEdgeUnder LineFitEdge TextAutospace TextSpacing TextSpacingTrim TextGroupAlign TextFit DominantBaseline AlignmentBaseline BaselineSource Continue TextStrokeWidth TextStrokeColor TextStrokeColorSet ContinueLines InlineSizing WrapBefore WrapAfter WrapInside"),
+		"motionGroup":        strings.Fields("Animation Transition ScrollTimelineName ScrollTimelineAxis ViewTimelineName ViewTimelineAxis ViewTimelineInsetStart ViewTimelineInsetEnd ViewTimelineInsetStartSet ViewTimelineInsetEndSet ViewTimelineInsets"),
+		"positioningGroup":   strings.Fields("Clear Top Right Bottom Left TopAuto RightAuto BottomAuto LeftAuto ZIndex ZIndexSet WritingMode Direction AnchorNames AnchorScope PositionAnchor PositionArea PositionTryFallbacks PositionTryOrder PositionVisibility ShapeOutside ShapeMargin ShapeMarginPercent FloatOffset FloatOffsetPercent FloatReference ShapeInside ShapeInsideBox ShapeInsideOutside ShapePadding ShapePaddingPercent WrapFlow WrapThrough"),
+		"svgGroup":           strings.Fields("ClipRule Fill FillSet FillOpacity Stroke StrokeSet StrokeWidth StrokeWidthSet StrokeOpacity StrokeDashArray StrokeDashOffset StrokeLineCap StrokeLineJoin StrokeMiterLimit FillRule ShapeRendering ColorInterpolation ColorInterpolationFilters SVGCx SVGCy SVGR SVGRx SVGRy SVGX SVGY SVGD SVGMarkerStart SVGMarkerMid SVGMarkerEnd SVGStopColor SVGStopOpacity SVGPaintOrder SVGPathLength SVGVectorEffect SVGFloodColor SVGFloodOpacity"),
+	}
 }

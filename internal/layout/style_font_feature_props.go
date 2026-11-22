@@ -21,46 +21,46 @@ func applyFontFeatureProps(
 	switch prop {
 	case "font-feature-settings":
 		if settings, ok := parseFontFeatureSettingsValue(value); ok {
-			style.FontFeatureSettings = settings
+			style.editFont().FontFeatureSettings = settings
 		}
 	case "font-kerning":
 		switch strings.ToLower(strings.TrimSpace(value)) {
 		case fontKerningAuto:
-			style.FontKerning = fontKerningAuto
+			style.editFont().FontKerning = fontKerningAuto
 		case fontKerningNormal:
-			style.FontKerning = fontKerningNormal
+			style.editFont().FontKerning = fontKerningNormal
 		case fontKerningNone:
-			style.FontKerning = fontKerningNone
+			style.editFont().FontKerning = fontKerningNone
 		}
 	case "font-variant":
 		applyFontVariantShorthand(style, value)
 	case "font-variant-caps":
 		if v, ok := normalizeFontVariantCaps(value); ok {
-			style.FontVariantCaps = v
+			style.editFont().FontVariantCaps = v
 		}
 	case "font-variant-ligatures":
 		if v, ok := normalizeFontVariantLigatures(value); ok {
-			style.FontVariantLigatures = v
+			style.editFont().FontVariantLigatures = v
 		}
 	case "font-variant-numeric":
 		if v, ok := normalizeFontVariantNumeric(value); ok {
-			style.FontVariantNumeric = v
+			style.editFont().FontVariantNumeric = v
 		}
 	case "font-variant-position":
 		if v, ok := normalizeFontVariantPosition(value); ok {
-			style.FontVariantPosition = v
+			style.editFont().FontVariantPosition = v
 		}
 	case "font-variant-east-asian":
 		if v, ok := normalizeFontVariantEastAsian(value); ok {
-			style.FontVariantEastAsian = v
+			style.editFont().FontVariantEastAsian = v
 		}
 	case "font-variant-alternates":
 		if v, ok := normalizeFontVariantAlternates(value); ok {
-			style.FontVariantAlternates = v
+			style.editFont().FontVariantAlternates = v
 		}
 	case "font-variant-emoji":
 		if v, ok := normalizeFontVariantEmoji(value); ok {
-			style.FontVariantEmoji = v
+			style.editFont().FontVariantEmoji = v
 		}
 	default:
 		return false
@@ -71,26 +71,26 @@ func applyFontFeatureProps(
 
 // copyInheritedFontShapingProps copies the coalesced CSS Fonts inherit cluster.
 func copyInheritedFontShapingProps(dst, src *ResolvedStyle) {
-	dst.FontLanguageOverride = src.FontLanguageOverride
-	dst.FontOpticalSizing = src.FontOpticalSizing
-	dst.FontPalette = src.FontPalette
-	dst.FontVariationSettings = src.FontVariationSettings
-	dst.FontFeatureSettings = src.FontFeatureSettings
-	dst.FontKerning = src.FontKerning
-	dst.FontSizeAdjust = src.FontSizeAdjust
-	dst.FontSizeAdjustSet = src.FontSizeAdjustSet
-	dst.FontWidth = src.FontWidth
-	dst.FontSynthesisWeight = src.FontSynthesisWeight
-	dst.FontSynthesisStyle = src.FontSynthesisStyle
-	dst.FontSynthesisSmallCaps = src.FontSynthesisSmallCaps
-	dst.FontSynthesisPosition = src.FontSynthesisPosition
-	dst.FontVariantCaps = src.FontVariantCaps
-	dst.FontVariantLigatures = src.FontVariantLigatures
-	dst.FontVariantNumeric = src.FontVariantNumeric
-	dst.FontVariantPosition = src.FontVariantPosition
-	dst.FontVariantEastAsian = src.FontVariantEastAsian
-	dst.FontVariantAlternates = src.FontVariantAlternates
-	dst.FontVariantEmoji = src.FontVariantEmoji
+	dst.editFont().FontLanguageOverride = src.font().FontLanguageOverride
+	dst.editFont().FontOpticalSizing = src.font().FontOpticalSizing
+	dst.editFont().FontPalette = src.font().FontPalette
+	dst.editFont().FontVariationSettings = src.font().FontVariationSettings
+	dst.editFont().FontFeatureSettings = src.font().FontFeatureSettings
+	dst.editFont().FontKerning = src.font().FontKerning
+	dst.editFont().FontSizeAdjust = src.font().FontSizeAdjust
+	dst.editFont().FontSizeAdjustSet = src.font().FontSizeAdjustSet
+	dst.editFont().FontWidth = src.font().FontWidth
+	dst.editFont().FontSynthesisWeight = src.font().FontSynthesisWeight
+	dst.editFont().FontSynthesisStyle = src.font().FontSynthesisStyle
+	dst.editFont().FontSynthesisSmallCaps = src.font().FontSynthesisSmallCaps
+	dst.editFont().FontSynthesisPosition = src.font().FontSynthesisPosition
+	dst.editFont().FontVariantCaps = src.font().FontVariantCaps
+	dst.editFont().FontVariantLigatures = src.font().FontVariantLigatures
+	dst.editFont().FontVariantNumeric = src.font().FontVariantNumeric
+	dst.editFont().FontVariantPosition = src.font().FontVariantPosition
+	dst.editFont().FontVariantEastAsian = src.font().FontVariantEastAsian
+	dst.editFont().FontVariantAlternates = src.font().FontVariantAlternates
+	dst.editFont().FontVariantEmoji = src.font().FontVariantEmoji
 }
 
 func parseFontFeatureSettingsValue(raw string) (string, bool) {
@@ -182,26 +182,26 @@ func applyFontVariantShorthand(style *ResolvedStyle, raw string) {
 	}
 
 	if value == fontVariantNormal {
-		style.FontVariantCaps = fontVariantNormal
-		style.FontVariantLigatures = fontVariantNormal
-		style.FontVariantNumeric = fontVariantNormal
-		style.FontVariantPosition = fontVariantNormal
-		style.FontVariantEastAsian = fontVariantNormal
-		style.FontVariantAlternates = fontVariantNormal
-		style.FontVariantEmoji = fontVariantNormal
+		style.editFont().FontVariantCaps = fontVariantNormal
+		style.editFont().FontVariantLigatures = fontVariantNormal
+		style.editFont().FontVariantNumeric = fontVariantNormal
+		style.editFont().FontVariantPosition = fontVariantNormal
+		style.editFont().FontVariantEastAsian = fontVariantNormal
+		style.editFont().FontVariantAlternates = fontVariantNormal
+		style.editFont().FontVariantEmoji = fontVariantNormal
 
 		return
 	}
 
 	if value == fontKerningNone {
-		style.FontVariantLigatures = fontKerningNone
+		style.editFont().FontVariantLigatures = fontKerningNone
 
 		return
 	}
 
 	// CSS2 small-caps alone is still the common print form.
 	if value == fontVariantCapsSmall {
-		style.FontVariantCaps = fontVariantCapsSmall
+		style.editFont().FontVariantCaps = fontVariantCapsSmall
 
 		return
 	}
@@ -240,11 +240,11 @@ func applyFontVariantShorthand(style *ResolvedStyle, raw string) {
 		east = strings.Join(eastParts, " ")
 	}
 
-	style.FontVariantCaps = caps
-	style.FontVariantLigatures = lig
-	style.FontVariantNumeric = num
-	style.FontVariantPosition = pos
-	style.FontVariantEastAsian = east
+	style.editFont().FontVariantCaps = caps
+	style.editFont().FontVariantLigatures = lig
+	style.editFont().FontVariantNumeric = num
+	style.editFont().FontVariantPosition = pos
+	style.editFont().FontVariantEastAsian = east
 }
 
 func normalizeFontVariantCaps(raw string) (string, bool) {
@@ -402,7 +402,7 @@ func fontShapingFeatureSettings(sty *ResolvedStyle) string {
 		tags[tag] = val
 	}
 
-	switch sty.FontKerning {
+	switch sty.font().FontKerning {
 	case fontKerningNone:
 		put("kern", 0)
 	case fontKerningNormal:
@@ -411,8 +411,8 @@ func fontShapingFeatureSettings(sty *ResolvedStyle) string {
 
 	appendVariantFeatureTags(sty, put)
 
-	if sty.FontFeatureSettings != "" && sty.FontFeatureSettings != fontVariantNormal {
-		for _, part := range splitFontVariationList(sty.FontFeatureSettings) {
+	if sty.font().FontFeatureSettings != "" && sty.font().FontFeatureSettings != fontVariantNormal {
+		for _, part := range splitFontVariationList(sty.font().FontFeatureSettings) {
 			tag, val, ok := parseFeatureSettingsPart(part)
 			if !ok {
 				continue
@@ -443,7 +443,7 @@ func fontShapingFeatureSettings(sty *ResolvedStyle) string {
 }
 
 func appendVariantFeatureTags(sty *ResolvedStyle, put func(string, uint32)) {
-	switch sty.FontVariantCaps {
+	switch sty.font().FontVariantCaps {
 	case fontVariantCapsSmall:
 		put("smcp", 1)
 	case "all-small-caps":
@@ -460,7 +460,7 @@ func appendVariantFeatureTags(sty *ResolvedStyle, put func(string, uint32)) {
 		put("titl", 1)
 	}
 
-	for _, tok := range strings.Fields(sty.FontVariantLigatures) {
+	for _, tok := range strings.Fields(sty.font().FontVariantLigatures) {
 		switch tok {
 		case fontKerningNone:
 			put("liga", 0)
@@ -489,7 +489,7 @@ func appendVariantFeatureTags(sty *ResolvedStyle, put func(string, uint32)) {
 		}
 	}
 
-	for _, tok := range strings.Fields(sty.FontVariantNumeric) {
+	for _, tok := range strings.Fields(sty.font().FontVariantNumeric) {
 		switch tok {
 		case "lining-nums":
 			put("lnum", 1)
@@ -510,16 +510,16 @@ func appendVariantFeatureTags(sty *ResolvedStyle, put func(string, uint32)) {
 		}
 	}
 
-	switch sty.FontVariantPosition {
+	switch sty.font().FontVariantPosition {
 	case verticalAlignSub:
 		put("subs", 1)
 	case verticalAlignSuper:
 		put("sups", 1)
 	}
 
-	appendAlternateOTTags(sty.FontVariantAlternates, put)
+	appendAlternateOTTags(sty.font().FontVariantAlternates, put)
 
-	for _, tok := range strings.Fields(sty.FontVariantEastAsian) {
+	for _, tok := range strings.Fields(sty.font().FontVariantEastAsian) {
 		switch tok {
 		case "jis78":
 			put("jp78", 1)

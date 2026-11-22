@@ -247,32 +247,32 @@ func (e *engine) appendBorderOpsSides(
 ) []Op {
 	clipStart := len(dst)
 	wTop := 0.0
-	if top && sty.BorderTop.Style != cssDisplayNone && !sty.BorderTop.Transparent && borderPaint(sty.BorderTop) > 0 {
-		wTop = e.scalePt(borderPaint(sty.BorderTop))
+	if top && sty.borders().BorderTop.Style != cssDisplayNone && !sty.borders().BorderTop.Transparent && borderPaint(sty.borders().BorderTop) > 0 {
+		wTop = e.scalePt(borderPaint(sty.borders().BorderTop))
 	}
 
 	wRight := 0.0
-	if right && sty.BorderRight.Style != cssDisplayNone && !sty.BorderRight.Transparent && borderPaint(sty.BorderRight) > 0 {
-		wRight = e.scalePt(borderPaint(sty.BorderRight))
+	if right && sty.borders().BorderRight.Style != cssDisplayNone && !sty.borders().BorderRight.Transparent && borderPaint(sty.borders().BorderRight) > 0 {
+		wRight = e.scalePt(borderPaint(sty.borders().BorderRight))
 	}
 
 	wBottom := 0.0
-	if bottom && sty.BorderBottom.Style != cssDisplayNone && !sty.BorderBottom.Transparent &&
-		borderPaint(sty.BorderBottom) > 0 {
-		wBottom = e.scalePt(borderPaint(sty.BorderBottom))
+	if bottom && sty.borders().BorderBottom.Style != cssDisplayNone && !sty.borders().BorderBottom.Transparent &&
+		borderPaint(sty.borders().BorderBottom) > 0 {
+		wBottom = e.scalePt(borderPaint(sty.borders().BorderBottom))
 	}
 
 	wLeft := 0.0
-	if left && sty.BorderLeft.Style != cssDisplayNone && !sty.BorderLeft.Transparent && borderPaint(sty.BorderLeft) > 0 {
-		wLeft = e.scalePt(borderPaint(sty.BorderLeft))
+	if left && sty.borders().BorderLeft.Style != cssDisplayNone && !sty.borders().BorderLeft.Transparent && borderPaint(sty.borders().BorderLeft) > 0 {
+		wLeft = e.scalePt(borderPaint(sty.borders().BorderLeft))
 	}
 
 	mixed := wTop != wRight || wTop != wBottom || wTop != wLeft
 
-	topInset := borderSideLineInset(mixed, sty.BorderTop.Style, LineInsetTop)
-	rightInset := borderSideLineInset(mixed, sty.BorderRight.Style, LineInsetRight)
-	bottomInset := borderSideLineInset(mixed, sty.BorderBottom.Style, LineInsetBottom)
-	leftInset := borderSideLineInset(mixed, sty.BorderLeft.Style, LineInsetLeft)
+	topInset := borderSideLineInset(mixed, sty.borders().BorderTop.Style, LineInsetTop)
+	rightInset := borderSideLineInset(mixed, sty.borders().BorderRight.Style, LineInsetRight)
+	bottomInset := borderSideLineInset(mixed, sty.borders().BorderBottom.Style, LineInsetBottom)
+	leftInset := borderSideLineInset(mixed, sty.borders().BorderLeft.Style, LineInsetLeft)
 
 	// Size the slice once for the active sides. Edge lengths passed to the
 	// dashed splitter are at most wid/height, so bounding with those keeps the
@@ -280,19 +280,19 @@ func (e *engine) appendBorderOpsSides(
 	// covers every other appendDashedLineSegments caller.
 	capHint := 0
 	if wTop > 0 {
-		capHint += borderSideOpCount(wid, wTop, sty.BorderTop.Style)
+		capHint += borderSideOpCount(wid, wTop, sty.borders().BorderTop.Style)
 	}
 
 	if wRight > 0 {
-		capHint += borderSideOpCount(height, wRight, sty.BorderRight.Style)
+		capHint += borderSideOpCount(height, wRight, sty.borders().BorderRight.Style)
 	}
 
 	if wBottom > 0 {
-		capHint += borderSideOpCount(wid, wBottom, sty.BorderBottom.Style)
+		capHint += borderSideOpCount(wid, wBottom, sty.borders().BorderBottom.Style)
 	}
 
 	if wLeft > 0 {
-		capHint += borderSideOpCount(height, wLeft, sty.BorderLeft.Style)
+		capHint += borderSideOpCount(height, wLeft, sty.borders().BorderLeft.Style)
 	}
 
 	if dst == nil && capHint > 0 {
@@ -315,8 +315,8 @@ func (e *engine) appendBorderOpsSides(
 		topX := posX + adjL
 		topW := wid - adjL - adjR
 		if topW > 0 {
-			ops = appendBorderLineOpsForSide(ops, topX, posY, topW, 0, wTop, sty.BorderTop.Style,
-				sty.BorderTop.Color[0], sty.BorderTop.Color[1], sty.BorderTop.Color[2], topInset)
+			ops = appendBorderLineOpsForSide(ops, topX, posY, topW, 0, wTop, sty.borders().BorderTop.Style,
+				sty.borders().BorderTop.Color[0], sty.borders().BorderTop.Color[1], sty.borders().BorderTop.Color[2], topInset)
 		}
 	}
 
@@ -332,8 +332,8 @@ func (e *engine) appendBorderOpsSides(
 		rightY := posY + adjT
 		rightH := height - adjT - adjB
 		if rightH > 0 {
-			ops = appendBorderLineOpsForSide(ops, posX+wid, rightY, 0, rightH, wRight, sty.BorderRight.Style,
-				sty.BorderRight.Color[0], sty.BorderRight.Color[1], sty.BorderRight.Color[2], rightInset)
+			ops = appendBorderLineOpsForSide(ops, posX+wid, rightY, 0, rightH, wRight, sty.borders().BorderRight.Style,
+				sty.borders().BorderRight.Color[0], sty.borders().BorderRight.Color[1], sty.borders().BorderRight.Color[2], rightInset)
 		}
 	}
 
@@ -349,8 +349,8 @@ func (e *engine) appendBorderOpsSides(
 		botX := posX + adjL
 		botW := wid - adjL - adjR
 		if botW > 0 {
-			ops = appendBorderLineOpsForSide(ops, botX, posY+height, botW, 0, wBottom, sty.BorderBottom.Style,
-				sty.BorderBottom.Color[0], sty.BorderBottom.Color[1], sty.BorderBottom.Color[2], bottomInset)
+			ops = appendBorderLineOpsForSide(ops, botX, posY+height, botW, 0, wBottom, sty.borders().BorderBottom.Style,
+				sty.borders().BorderBottom.Color[0], sty.borders().BorderBottom.Color[1], sty.borders().BorderBottom.Color[2], bottomInset)
 		}
 	}
 
@@ -366,8 +366,8 @@ func (e *engine) appendBorderOpsSides(
 		leftY := posY + adjT
 		leftH := height - adjT - adjB
 		if leftH > 0 {
-			ops = appendBorderLineOpsForSide(ops, posX, leftY, 0, leftH, wLeft, sty.BorderLeft.Style,
-				sty.BorderLeft.Color[0], sty.BorderLeft.Color[1], sty.BorderLeft.Color[2], leftInset)
+			ops = appendBorderLineOpsForSide(ops, posX, leftY, 0, leftH, wLeft, sty.borders().BorderLeft.Style,
+				sty.borders().BorderLeft.Color[0], sty.borders().BorderLeft.Color[1], sty.borders().BorderLeft.Color[2], leftInset)
 		}
 	}
 
@@ -388,8 +388,8 @@ func borderSideLineInset(mixed bool, style string, flag uint8) uint8 {
 }
 
 func hasVerticalBorder(sty ResolvedStyle) bool {
-	left := borderPaint(sty.BorderLeft) > 0 && sty.BorderLeft.Style != cssDisplayNone
-	right := borderPaint(sty.BorderRight) > 0 && sty.BorderRight.Style != cssDisplayNone
+	left := borderPaint(sty.borders().BorderLeft) > 0 && sty.borders().BorderLeft.Style != cssDisplayNone
+	right := borderPaint(sty.borders().BorderRight) > 0 && sty.borders().BorderRight.Style != cssDisplayNone
 
 	return left || right
 }
@@ -414,11 +414,11 @@ func isCollapsedThumbPair(parent *html.Node, parentStyle, captionStyle *Resolved
 		return false
 	}
 
-	if parentStyle.BorderCollapse == borderCollapseValue {
+	if parentStyle.fragmentation().BorderCollapse == borderCollapseValue {
 		return true
 	}
 
-	return borderPaint(parentStyle.BorderBottom) <= 0 && borderPaint(captionStyle.BorderTop) <= 0
+	return borderPaint(parentStyle.borders().BorderBottom) <= 0 && borderPaint(captionStyle.borders().BorderTop) <= 0
 }
 
 // collapsedThumbCaption reports a MediaWiki-style figure/figcaption pair
@@ -474,7 +474,7 @@ func (e *engine) thumbImageInsideFigure(node *html.Node) bool {
 // during the build: sticky (StickyID stamp), fixed (Fixed stamp), and
 // transform (op-range exclusive CTM stamp). Common static/relative boxes defer.
 func chromeMustSpliceImmediately(st *ResolvedStyle) bool {
-	if st.HasTransform {
+	if st.effects().HasTransform {
 		return true
 	}
 
@@ -487,12 +487,12 @@ func chromeMustSpliceImmediately(st *ResolvedStyle) bool {
 }
 
 func hasPotentialChrome(sty *ResolvedStyle, boxNode *box) bool {
-	if sty.BGColor[3] > 0 || sty.BackgroundImage != "" || sty.BoxShadowSet || sty.BoxShadowRaw != "" {
+	if sty.BGColor[3] > 0 || sty.background().BackgroundImage != "" || sty.effects().BoxShadowSet || sty.effects().BoxShadowRaw != "" {
 		return true
 	}
-	if sty.BorderTop.Width > 0 || sty.BorderRight.Width > 0 ||
-		sty.BorderBottom.Width > 0 || sty.BorderLeft.Width > 0 ||
-		sty.BorderImageSource != "" {
+	if sty.borders().BorderTop.Width > 0 || sty.borders().BorderRight.Width > 0 ||
+		sty.borders().BorderBottom.Width > 0 || sty.borders().BorderLeft.Width > 0 ||
+		sty.borders().BorderImageSource != "" {
 		return true
 	}
 	if outlinePaints(sty) {
@@ -518,7 +518,7 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty *ResolvedStyle, p
 	}
 	if boxNode != nil && isNeutralFrameSection(boxNode.node, sty) {
 		local := *sty
-		local.BorderTop = local.BorderBottom
+		local.editBorders().BorderTop = local.borders().BorderBottom
 		sty = &local
 	}
 
@@ -541,8 +541,8 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty *ResolvedStyle, p
 	radii, radiiY := usedBorderRadiiXY(sty, width, height)
 	var cornerFillOps, cornerBorderOps []Op
 	var cornerFillHandled, cornerBorderHandled bool
-	if sty.CornerShapeTopLeftKeyword != "" || sty.CornerShapeTopRightKeyword != "" ||
-		sty.CornerShapeBottomRightKeyword != "" || sty.CornerShapeBottomLeftKeyword != "" {
+	if sty.borders().CornerShapeTopLeftKeyword != "" || sty.borders().CornerShapeTopRightKeyword != "" ||
+		sty.borders().CornerShapeBottomRightKeyword != "" || sty.borders().CornerShapeBottomLeftKeyword != "" {
 		shapeK := cornerShapePaintK(sty)
 		cornerFillOps, cornerBorderOps, cornerFillHandled, cornerBorderHandled = cornerShapePaint(
 			e, boxNode, sty, posX, posY, width, height, radii, radiiY, shapeK)
@@ -556,7 +556,7 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty *ResolvedStyle, p
 	// cover the border box. Inset shadows must paint after the background
 	// (CSS Backgrounds §7.1 / fixture-61 box-shadow-position), or the fill
 	// hides them.
-	if sty.BoxShadowSet || sty.BoxShadowRaw != "" {
+	if sty.effects().BoxShadowSet || sty.effects().BoxShadowRaw != "" {
 		chrome = e.appendBoxShadow(chrome, sty, posX, posY, width, height, radii, radiiY, false)
 	}
 	if cornerFillHandled {
@@ -569,7 +569,7 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty *ResolvedStyle, p
 			RadiusTopLeft: radii[0], RadiusTopRight: radii[1], RadiusBottomRight: radii[2], RadiusBottomLeft: radii[3],
 		}
 
-		bgClip := sty.BackgroundClip
+		bgClip := sty.background().BackgroundClip
 		if backgroundClipIsPaddingBox(bgClip) || backgroundClipIsContentBox(bgClip) {
 			cx, cy, cw, ch := resolveBackgroundClipBox(sty, posX, posY, width, height)
 			clip := clipRect{x: cx, y: cy, w: cw, h: ch}
@@ -593,19 +593,19 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty *ResolvedStyle, p
 			chrome = append(chrome, bgOp)
 		}
 	}
-	if sty.BackgroundImage != "" {
+	if sty.background().BackgroundImage != "" {
 		chrome = e.appendBackgroundImage(chrome, sty, posX, posY, width, height)
 	}
-	if sty.BoxShadowSet || sty.BoxShadowRaw != "" {
+	if sty.effects().BoxShadowSet || sty.effects().BoxShadowRaw != "" {
 		chrome = e.appendBoxShadow(chrome, sty, posX, posY, width, height, radii, radiiY, true)
 	}
 
-	if sty.BorderImageSource != "" {
+	if sty.borders().BorderImageSource != "" {
 		chrome = e.appendBorderImage(chrome, sty, posX, posY, width, height)
 	} else if cornerBorderHandled {
 		chrome = append(chrome, cornerBorderOps...)
-	} else if sty.BorderTop.Width > 0 || sty.BorderRight.Width > 0 ||
-		sty.BorderBottom.Width > 0 || sty.BorderLeft.Width > 0 {
+	} else if sty.borders().BorderTop.Width > 0 || sty.borders().BorderRight.Width > 0 ||
+		sty.borders().BorderBottom.Width > 0 || sty.borders().BorderLeft.Width > 0 {
 		switch {
 		case hasRoundedRadii(radii) && roundedSolidBorder(sty):
 			chrome = e.appendRoundedBorderOps(chrome, sty, posX, posY, width, height, radii)
@@ -618,7 +618,7 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty *ResolvedStyle, p
 	if outlinePaints(sty) {
 		if boxNode != nil {
 			effW, _ := effectiveOutline(sty)
-			boxNode.outlineInflate = e.scalePt(outlineInflate(effW, sty.OutlineOffset))
+			boxNode.outlineInflate = e.scalePt(outlineInflate(effW, sty.borders().OutlineOffset))
 		}
 		chrome = e.appendOutlineOpsForStyle(chrome, sty, posX, posY, width, height)
 	}
@@ -818,8 +818,8 @@ func (e *engine) appendCollapsedOrFullBorderOps(
 		return e.appendBorderOps(dst, sty, posX, posY, width, height)
 	}
 
-	padL := e.scalePt(parentStyle.PaddingLeft + parentStyle.BorderLeft.Width)
-	padR := e.scalePt(parentStyle.PaddingRight + parentStyle.BorderRight.Width)
+	padL := e.scalePt(parentStyle.PaddingLeft + parentStyle.borders().BorderLeft.Width)
+	padR := e.scalePt(parentStyle.PaddingRight + parentStyle.borders().BorderRight.Width)
 
 	return e.appendBorderOpsSides(dst, sty, posX-padL, posY, width+padL+padR, height, false, false, true, false)
 }
@@ -833,11 +833,11 @@ func isNeutralFrameSection(node *html.Node, sty *ResolvedStyle) bool {
 	if node == nil || node.Name != htmlSection {
 		return false
 	}
-	if sty.BorderTop.Style != solidKeyword || sty.BorderBottom.Style != solidKeyword {
+	if sty.borders().BorderTop.Style != solidKeyword || sty.borders().BorderBottom.Style != solidKeyword {
 		return false
 	}
 
-	return nearlyEqual(sty.BorderTop.Width, sty.BorderBottom.Width)
+	return nearlyEqual(sty.borders().BorderTop.Width, sty.borders().BorderBottom.Width)
 }
 
 func uniformRadius(radii [4]float64) float64 {
@@ -859,24 +859,24 @@ func hasRoundedRadii(radii [4]float64) bool {
 }
 
 func uniformRoundedBorder(sty *ResolvedStyle) bool {
-	top := sty.BorderTop
+	top := sty.borders().BorderTop
 
 	return top.Width > 0 && top.Style == solidKeyword &&
-		top == sty.BorderRight && top == sty.BorderBottom && top == sty.BorderLeft
+		top == sty.borders().BorderRight && top == sty.borders().BorderBottom && top == sty.borders().BorderLeft
 }
 
 func roundedSolidBorder(sty *ResolvedStyle) bool {
-	return sty.BorderTop.Width > 0 && sty.BorderRight.Width > 0 &&
-		sty.BorderBottom.Width > 0 && sty.BorderLeft.Width > 0 &&
-		sty.BorderTop.Style == solidKeyword && sty.BorderRight.Style == solidKeyword &&
-		sty.BorderBottom.Style == solidKeyword && sty.BorderLeft.Style == solidKeyword
+	return sty.borders().BorderTop.Width > 0 && sty.borders().BorderRight.Width > 0 &&
+		sty.borders().BorderBottom.Width > 0 && sty.borders().BorderLeft.Width > 0 &&
+		sty.borders().BorderTop.Style == solidKeyword && sty.borders().BorderRight.Style == solidKeyword &&
+		sty.borders().BorderBottom.Style == solidKeyword && sty.borders().BorderLeft.Style == solidKeyword
 }
 
 func roundedAccentBorder(sty *ResolvedStyle) bool {
-	return (sty.BorderTop.Width > 0 && sty.BorderTop.Style == solidKeyword) ||
-		(sty.BorderRight.Width > 0 && sty.BorderRight.Style == solidKeyword) ||
-		(sty.BorderBottom.Width > 0 && sty.BorderBottom.Style == solidKeyword) ||
-		(sty.BorderLeft.Width > 0 && sty.BorderLeft.Style == solidKeyword)
+	return (sty.borders().BorderTop.Width > 0 && sty.borders().BorderTop.Style == solidKeyword) ||
+		(sty.borders().BorderRight.Width > 0 && sty.borders().BorderRight.Style == solidKeyword) ||
+		(sty.borders().BorderBottom.Width > 0 && sty.borders().BorderBottom.Style == solidKeyword) ||
+		(sty.borders().BorderLeft.Width > 0 && sty.borders().BorderLeft.Style == solidKeyword)
 }
 
 func squareSideBorderRadii(side border, radii [4]float64, left bool) [4]float64 {
@@ -913,7 +913,7 @@ func (e *engine) appendRoundedBorderOps(
 	// accented top rail (for example the architecture pipeline cards); using
 	// BorderTop here would spread that accent across the rounded stroke on all
 	// four sides before the per-side overlays are painted.
-	base := sty.BorderBottom
+	base := sty.borders().BorderBottom
 	// At most one base stroke plus one overlay per side; growing once keeps
 	// the sequential appends below from leaving growth garbage.
 	ops := growChromeOps(dst, 5)
@@ -927,10 +927,10 @@ func (e *engine) appendRoundedBorderOps(
 	}
 
 	var sides [4]mixedChromeSide
-	sides[0] = mixedChromeSide{border: sty.BorderTop, mask: StrokeMaskTop}
-	sides[1] = mixedChromeSide{border: sty.BorderRight, mask: StrokeMaskRight}
-	sides[2] = mixedChromeSide{border: sty.BorderBottom, mask: StrokeMaskBottom}
-	sides[3] = mixedChromeSide{border: sty.BorderLeft, mask: StrokeMaskLeft}
+	sides[0] = mixedChromeSide{border: sty.borders().BorderTop, mask: StrokeMaskTop}
+	sides[1] = mixedChromeSide{border: sty.borders().BorderRight, mask: StrokeMaskRight}
+	sides[2] = mixedChromeSide{border: sty.borders().BorderBottom, mask: StrokeMaskBottom}
+	sides[3] = mixedChromeSide{border: sty.borders().BorderLeft, mask: StrokeMaskLeft}
 
 	for _, side := range sides {
 		if side.border == base || side.border.Style != solidKeyword || side.border.Transparent {
@@ -994,17 +994,17 @@ func (e *engine) appendRoundedAccentBorderOps(
 		)
 	}
 
-	rightRadii := squareSideBorderRadii(sty.BorderRight, radii, false)
-	leftRadii := squareSideBorderRadii(sty.BorderLeft, radii, true)
-	appendSolidMask(sty.BorderTop, StrokeMaskTop, radii)
-	appendSolidMask(sty.BorderRight, StrokeMaskRight, rightRadii)
-	appendSolidMask(sty.BorderBottom, StrokeMaskBottom, radii)
-	appendSolidMask(sty.BorderLeft, StrokeMaskLeft, leftRadii)
+	rightRadii := squareSideBorderRadii(sty.borders().BorderRight, radii, false)
+	leftRadii := squareSideBorderRadii(sty.borders().BorderLeft, radii, true)
+	appendSolidMask(sty.borders().BorderTop, StrokeMaskTop, radii)
+	appendSolidMask(sty.borders().BorderRight, StrokeMaskRight, rightRadii)
+	appendSolidMask(sty.borders().BorderBottom, StrokeMaskBottom, radii)
+	appendSolidMask(sty.borders().BorderLeft, StrokeMaskLeft, leftRadii)
 
-	appendDashedSide(posX+radii[0], posY, math.Max(width-radii[0]-radii[1], 0), 0, sty.BorderTop)
-	appendDashedSide(posX+width, posY+radii[1], 0, math.Max(height-radii[1]-radii[2], 0), sty.BorderRight)
-	appendDashedSide(posX+radii[3], posY+height, math.Max(width-radii[3]-radii[2], 0), 0, sty.BorderBottom)
-	appendDashedSide(posX, posY+radii[0], 0, math.Max(height-radii[0]-radii[3], 0), sty.BorderLeft)
+	appendDashedSide(posX+radii[0], posY, math.Max(width-radii[0]-radii[1], 0), 0, sty.borders().BorderTop)
+	appendDashedSide(posX+width, posY+radii[1], 0, math.Max(height-radii[1]-radii[2], 0), sty.borders().BorderRight)
+	appendDashedSide(posX+radii[3], posY+height, math.Max(width-radii[3]-radii[2], 0), 0, sty.borders().BorderBottom)
+	appendDashedSide(posX, posY+radii[0], 0, math.Max(height-radii[0]-radii[3], 0), sty.borders().BorderLeft)
 
 	return ops
 }
@@ -1085,14 +1085,14 @@ func (e *engine) applyColorAdjustPaintPolicy(root *box) {
 		return
 	}
 
-	rootScheme := rootStyle.ColorScheme
+	rootScheme := rootStyle.containment().ColorScheme
 	dark := colorSchemeHasDark(rootScheme)
 	if !dark {
 		rootScheme = colorSchemeNormal
 	}
 
-	rootAdjust := rootStyle.ForcedColorAdjust
-	rootLimit := rootStyle.DynamicRangeLimit
+	rootAdjust := rootStyle.containment().ForcedColorAdjust
+	rootLimit := rootStyle.containment().DynamicRangeLimit
 	forced := e.forcedColorsForPaint()
 
 	// Fast path for the ordinary document: a light color scheme leaves the

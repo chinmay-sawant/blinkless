@@ -98,8 +98,8 @@ func balanceBaseLines(items []inlineItem, contentW, epsilon float64) (int, float
 // active floats, no line clamp, and a text-wrap-style: balance block without
 // a first-line indent. See balanceLineWidth for the indent reason.
 func balanceCanApply(floats *floatState, clampLimit int, blockStyle *ResolvedStyle) bool {
-	if blockStyle == nil || clampLimit != 0 || blockStyle.TextIndent != 0 ||
-		blockStyle.TextWrapStyle != textWrapStyleBalance {
+	if blockStyle == nil || clampLimit != 0 || blockStyle.inlineText().TextIndent != 0 ||
+		blockStyle.inlineText().TextWrapStyle != textWrapStyleBalance {
 		return false
 	}
 
@@ -120,8 +120,8 @@ func (e *engine) balanceSegmentWidth(items []inlineItem, idx int, contentW float
 // future wiring, never by shipped layout. Reference: Chrome 143.0.7499.40
 // keeps pretty paragraphs greedy except for the short-tail fix below.
 func prettyCanApply(floats *floatState, clampLimit int, blockStyle *ResolvedStyle) bool {
-	if blockStyle == nil || clampLimit != 0 || blockStyle.TextIndent != 0 ||
-		blockStyle.TextWrapStyle != textWrapStylePretty {
+	if blockStyle == nil || clampLimit != 0 || blockStyle.inlineText().TextIndent != 0 ||
+		blockStyle.inlineText().TextWrapStyle != textWrapStylePretty {
 		return false
 	}
 
@@ -239,8 +239,8 @@ const avoidShortMinLastWords = 2
 // text-wrap-style: avoid-short-last-line block without a first-line indent.
 // It mirrors prettyCanApply so the two stay aligned.
 func avoidShortCanApply(floats *floatState, clampLimit int, blockStyle *ResolvedStyle) bool {
-	if blockStyle == nil || clampLimit != 0 || blockStyle.TextIndent != 0 ||
-		blockStyle.TextWrapStyle != textWrapStyleAvoidShort {
+	if blockStyle == nil || clampLimit != 0 || blockStyle.inlineText().TextIndent != 0 ||
+		blockStyle.inlineText().TextWrapStyle != textWrapStyleAvoidShort {
 		return false
 	}
 

@@ -52,9 +52,13 @@ func TestCSSPartialRemainingPaint(t *testing.T) {
 			return makeTestPNG(10, 10, color.RGBA{255, 0, 0, 255}), nil
 		})
 		sty := ResolvedStyle{
-			BackgroundImage: `url("layer1.png"), url("layer2.png")`,
-			BoxShadowSet:    true,
-			BoxShadowRaw:    "2px 2px 4px black, inset 1px 1px 2px red",
+			backgroundGroup: &styleBackground{
+				BackgroundImage: `url("layer1.png"), url("layer2.png")`,
+			},
+			effectsGroup: &styleEffects{
+				BoxShadowSet: true,
+				BoxShadowRaw: "2px 2px 4px black, inset 1px 1px 2px red",
+			},
 		}
 		eng.prependChrome(0, &box{}, &sty, 10, 10, 100, 50)
 		if len(eng.deferredChrome) == 0 {
@@ -78,8 +82,10 @@ func TestCSSPartialRemainingPaint(t *testing.T) {
 	t.Run("accent-color-on-widgets", func(t *testing.T) {
 		t.Parallel()
 		st := ResolvedStyle{
-			AccentColorSet: true,
-			AccentColor:    [3]float64{0.8, 0.2, 0.2},
+			contentGroup: &styleContent{
+				AccentColorSet: true,
+				AccentColor:    [3]float64{0.8, 0.2, 0.2},
+			},
 		}
 		col := widgetValueColor("progress", st)
 		if col != ([3]float64{0.8, 0.2, 0.2}) {
@@ -104,8 +110,10 @@ func TestCSSPartialRemainingTablesOverflow(t *testing.T) {
 	t.Run("border-spacing-two-lengths", func(t *testing.T) {
 		t.Parallel()
 		st := ResolvedStyle{
-			BorderSpacing:  10,
-			BorderSpacingV: 20,
+			fragmentationGroup: &styleFragmentation{
+				BorderSpacing:  10,
+				BorderSpacingV: 20,
+			},
 		}
 		eng := &engine{scale: 1, opts: Options{Background: true}}
 		if h := eng.tableHSpacing(st); h != 10 {
@@ -120,7 +128,12 @@ func TestCSSPartialRemainingTablesOverflow(t *testing.T) {
 		t.Parallel()
 		root := &box{
 			x: 0, y: 0, w: 100, height: 100,
-			style: &ResolvedStyle{OverflowX: "hidden", OverflowY: "visible"},
+			style: &ResolvedStyle{
+				geometryGroup: &styleGeometry{
+					OverflowX: "hidden",
+					OverflowY: "visible",
+				},
+			},
 		}
 		eng := &engine{scale: 1, ops: []Op{
 			{Kind: OpFillRect, X: 150, Y: 50, W: 20, H: 20}, // Outside X
@@ -139,7 +152,12 @@ func TestCSSPartialRemainingSizingGrid(t *testing.T) {
 	t.Run("max-width-percent-clamping", func(t *testing.T) {
 		t.Parallel()
 		eng := &engine{scale: 1}
-		st := ResolvedStyle{MaxWidthPercent: 50, MaxWidth: -1}
+		st := ResolvedStyle{
+			geometryGroup: &styleGeometry{
+				MaxWidthPercent: 50,
+				MaxWidth:        -1,
+			},
+		}
 		w := clampBlockMinMax(eng, &st, 200, 150)
 		if w != 100 {
 			t.Fatalf("clampBlockMinMax width = %.1f, want 100", w)
@@ -149,9 +167,11 @@ func TestCSSPartialRemainingSizingGrid(t *testing.T) {
 	t.Run("grid-column-and-row-end-placement", func(t *testing.T) {
 		t.Parallel()
 		st := ResolvedStyle{
-			GridColumnStart: 1,
-			GridColumnEnd:   4, // Span 3
-			GridRowEnd:      3, // Auto start -> start at 2, span 1
+			gridGroup: &styleGrid{
+				GridColumnStart: 1,
+				GridColumnEnd:   4,
+				GridRowEnd:      3,
+			},
 		}
 		rowStart, colStart, rowSpan, colSpan, _ := gridItemSpans(st, gridTemplateAreasMap{}, 4)
 		if colSpan != 3 || colStart != 0 {
@@ -168,7 +188,11 @@ func TestCSSPartialRemainingTextContent(t *testing.T) {
 
 	t.Run("word-break-keep-all", func(t *testing.T) {
 		t.Parallel()
-		st := ResolvedStyle{WordBreak: "keep-all"}
+		st := ResolvedStyle{
+			inlineTextGroup: &styleInlineText{
+				WordBreak: "keep-all",
+			},
+		}
 		pol := wordBreakOf(&st)
 		if pol != breakKeepAll {
 			t.Fatalf("wordBreakOf = %v, want breakKeepAll", pol)
@@ -182,8 +206,8 @@ func TestCSSPartialRemainingTextContent(t *testing.T) {
 		t.Parallel()
 		var st ResolvedStyle
 		applyGeneratedContentProps(&st, "content", `"Chapter 1: Intro"`)
-		if st.Content != `"Chapter 1: Intro"` {
-			t.Fatalf("st.Content = %q, want Chapter 1: Intro", st.Content)
+		if st.content().Content != `"Chapter 1: Intro"` {
+			t.Fatalf("st.Content = %q, want Chapter 1: Intro", st.content().Content)
 		}
 	})
 }
@@ -193,7 +217,11 @@ func TestCSSPartialRemainingPagedWritingMode(t *testing.T) {
 
 	t.Run("writing-mode-logical-mapping", func(t *testing.T) {
 		t.Parallel()
-		st := ResolvedStyle{WritingMode: "vertical-rl"}
+		st := ResolvedStyle{
+			positioningGroup: &stylePositioning{
+				WritingMode: "vertical-rl",
+			},
+		}
 		var ctx styleContext
 		ctx.viewportW = 500
 		ctx.viewportH = 800
@@ -209,9 +237,13 @@ func TestCSSPartialRemainingPagedWritingMode(t *testing.T) {
 
 	t.Run("break-inside-avoid-page", func(t *testing.T) {
 		t.Parallel()
-		st := ResolvedStyle{PageBreakInside: "avoid-page"}
-		if st.PageBreakInside != "avoid-page" {
-			t.Fatalf("PageBreakInside = %q, want avoid-page", st.PageBreakInside)
+		st := ResolvedStyle{
+			fragmentationGroup: &styleFragmentation{
+				PageBreakInside: "avoid-page",
+			},
+		}
+		if st.fragmentation().PageBreakInside != "avoid-page" {
+			t.Fatalf("PageBreakInside = %q, want avoid-page", st.fragmentation().PageBreakInside)
 		}
 	})
 }

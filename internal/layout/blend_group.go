@@ -85,8 +85,8 @@ type MaskLayer struct {
 }
 
 func initiatesBlendGroup(style *ResolvedStyle) bool {
-	return style != nil && (nonNormalBlendMode(style.MixBlendMode) != "" ||
-		style.Isolation == "isolate" || maskGroupRequested(style) || hasBackdropFilter(style.BackdropFilter))
+	return style != nil && (nonNormalBlendMode(style.effects().MixBlendMode) != "" ||
+		style.effects().Isolation == "isolate" || maskGroupRequested(style) || hasBackdropFilter(style.effects().BackdropFilter))
 }
 
 // IsGroupBegin reports whether the operation opens a blend group.

@@ -134,14 +134,14 @@ func TestInlineCollectWrappedWordItemParity(t *testing.T) {
 	leading.LineHeight = 15
 
 	spaced := base
-	spaced.LetterSpacing = 1.5
-	spaced.WordSpacing = 2
+	spaced.editInlineText().LetterSpacing = 1.5
+	spaced.editInlineText().WordSpacing = 2
 
 	upper := base
-	upper.TextTransform = textTransformUppercase
+	upper.editInlineText().TextTransform = textTransformUppercase
 
 	vertical := base
-	vertical.WritingMode = writingModeVerticalRL
+	vertical.editPositioning().WritingMode = writingModeVerticalRL
 
 	words := []string{"hello ", "world", "x", "with-hyphen "}
 
@@ -154,7 +154,7 @@ func TestInlineCollectWrappedWordItemParity(t *testing.T) {
 		"vertical": vertical,
 	} {
 		lineH := eng.lineHeightOf(&style) * eng.scale
-		isVert := isVerticalWritingMode(style.WritingMode)
+		isVert := isVerticalWritingMode(style.positioning().WritingMode)
 
 		var vertW float64
 
@@ -191,7 +191,7 @@ func TestInlineCollectPreserveTrailingGap(t *testing.T) {
 		node := &html.Node{Type: html.TextNode, Text: text}
 		style := initialStyle()
 		style.FontSize = 12
-		style.TextAutospace = autospace
+		style.editInlineText().TextAutospace = autospace
 		eng := &engine{
 			font:   faces.Regular,
 			faces:  faces,
@@ -244,12 +244,20 @@ func TestInlineCollectHasWrapBreakProps(t *testing.T) {
 		t.Fatal("empty style reports wrap props, want the skip path")
 	}
 
-	withBefore := ResolvedStyle{WrapBefore: wrapBreakAvoid}
+	withBefore := ResolvedStyle{
+		inlineTextGroup: &styleInlineText{
+			WrapBefore: wrapBreakAvoid,
+		},
+	}
 	if !hasWrapBreakProps(withBefore) {
 		t.Fatal("wrap-before:avoid reports no props, want the hook path")
 	}
 
-	withInside := ResolvedStyle{WrapInside: wrapBreakAvoid}
+	withInside := ResolvedStyle{
+		inlineTextGroup: &styleInlineText{
+			WrapInside: wrapBreakAvoid,
+		},
+	}
 	if !hasWrapBreakProps(withInside) {
 		t.Fatal("wrap-inside:avoid reports no props, want the hook path")
 	}

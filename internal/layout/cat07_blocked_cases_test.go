@@ -33,14 +33,14 @@ func TestBorderWidthLengthUnitsUsePoints(t *testing.T) {
 				`</body></html>`)
 
 			boxNode := boxByID(t, res, "b")
-			if !near(boxNode.style.BorderTop.Width, testCase.want) {
+			if !near(boxNode.style.borders().BorderTop.Width, testCase.want) {
 				t.Errorf("layout border width = %.4fpt, want %.4fpt",
-					boxNode.style.BorderTop.Width, testCase.want)
+					boxNode.style.borders().BorderTop.Width, testCase.want)
 			}
 
-			if !near(boxNode.style.BorderTop.PaintWidth, testCase.want) {
+			if !near(boxNode.style.borders().BorderTop.PaintWidth, testCase.want) {
 				t.Errorf("paint border width = %.4fpt, want %.4fpt",
-					boxNode.style.BorderTop.PaintWidth, testCase.want)
+					boxNode.style.borders().BorderTop.PaintWidth, testCase.want)
 			}
 		})
 	}

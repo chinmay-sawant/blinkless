@@ -131,20 +131,20 @@ func TestApplyAnimationPropsStoresCommaLists(t *testing.T) {
 		}
 	}
 
-	if !style.Animation.Set {
+	if !style.motion().Animation.Set {
 		t.Fatal("Animation.Set = false, want true")
 	}
 
-	if style.Animation.Duration != "250ms, auto" {
-		t.Errorf("Animation.Duration = %q, want %q", style.Animation.Duration, "250ms, auto")
+	if style.motion().Animation.Duration != "250ms, auto" {
+		t.Errorf("Animation.Duration = %q, want %q", style.motion().Animation.Duration, "250ms, auto")
 	}
 
-	if style.Animation.Name != "slide-in, \"fade out\"" {
-		t.Errorf("Animation.Name = %q, want %q", style.Animation.Name, "slide-in, \"fade out\"")
+	if style.motion().Animation.Name != "slide-in, \"fade out\"" {
+		t.Errorf("Animation.Name = %q, want %q", style.motion().Animation.Name, "slide-in, \"fade out\"")
 	}
 
-	if style.Animation.RangeStart != "entry 10%, calc(100% - 10px)" {
-		t.Errorf("Animation.RangeStart = %q", style.Animation.RangeStart)
+	if style.motion().Animation.RangeStart != "entry 10%, calc(100% - 10px)" {
+		t.Errorf("Animation.RangeStart = %q", style.motion().Animation.RangeStart)
 	}
 }
 
@@ -152,7 +152,9 @@ func TestApplyAnimationPropsCSSWideKeywords(t *testing.T) {
 	t.Parallel()
 
 	parent := ResolvedStyle{
-		Animation: animationStyle{Set: true, Duration: "2s", Name: "parent-animation"},
+		motionGroup: &styleMotion{
+			Animation: animationStyle{Set: true, Duration: "2s", Name: "parent-animation"},
+		},
 	}
 	style := ResolvedStyle{}
 
@@ -160,24 +162,24 @@ func TestApplyAnimationPropsCSSWideKeywords(t *testing.T) {
 		t.Fatal("applyAnimationProps(inherit) = false")
 	}
 
-	if style.Animation.Duration != "2s" {
-		t.Fatalf("inherited duration = %q, want 2s", style.Animation.Duration)
+	if style.motion().Animation.Duration != "2s" {
+		t.Fatalf("inherited duration = %q, want 2s", style.motion().Animation.Duration)
 	}
 
 	if !applyAnimationProps(&style, "animation-name", "initial", 16, nil, &parent, true) {
 		t.Fatal("applyAnimationProps(initial) = false")
 	}
 
-	if style.Animation.Name != "none" {
-		t.Errorf("initial animation-name = %q, want none", style.Animation.Name)
+	if style.motion().Animation.Name != "none" {
+		t.Errorf("initial animation-name = %q, want none", style.motion().Animation.Name)
 	}
 
 	if !applyAnimationProps(&style, "animation-duration", "initial", 16, nil, &parent, true) {
 		t.Fatal("applyAnimationProps(animation-duration: initial) = false")
 	}
 
-	if style.Animation.Duration != "auto" {
-		t.Errorf("initial animation-duration = %q, want auto", style.Animation.Duration)
+	if style.motion().Animation.Duration != "auto" {
+		t.Errorf("initial animation-duration = %q, want auto", style.motion().Animation.Duration)
 	}
 }
 
@@ -189,11 +191,11 @@ func TestApplyAnimationPropsShorthandDefaultsDurationToAuto(t *testing.T) {
 		t.Fatal("applyAnimationProps(animation: slide) = false")
 	}
 
-	if style.Animation.Duration != "auto" {
-		t.Fatalf("animation duration = %q, want auto", style.Animation.Duration)
+	if style.motion().Animation.Duration != "auto" {
+		t.Fatalf("animation duration = %q, want auto", style.motion().Animation.Duration)
 	}
 
-	records := animationRecordsFromStyle(style.Animation)
+	records := animationRecordsFromStyle(style.motion().Animation)
 
 	if len(records) != 1 || !records[0].DurationAuto {
 		t.Fatalf("animation records = %#v, want one auto-duration record", records)
@@ -204,7 +206,9 @@ func TestApplyAnimationPropsInheritsViewTransitionWithoutAnimationRecord(t *test
 	t.Parallel()
 
 	parent := ResolvedStyle{
-		Animation: animationStyle{ViewTransitionName: "parent-transition"},
+		motionGroup: &styleMotion{
+			Animation: animationStyle{ViewTransitionName: "parent-transition"},
+		},
 	}
 	style := ResolvedStyle{}
 
@@ -212,8 +216,8 @@ func TestApplyAnimationPropsInheritsViewTransitionWithoutAnimationRecord(t *test
 		t.Fatal("applyAnimationProps(view-transition-name: inherit) = false")
 	}
 
-	if style.Animation.ViewTransitionName != "parent-transition" {
-		t.Fatalf("inherited view-transition-name = %q, want %q", style.Animation.ViewTransitionName, "parent-transition")
+	if style.motion().Animation.ViewTransitionName != "parent-transition" {
+		t.Fatalf("inherited view-transition-name = %q, want %q", style.motion().Animation.ViewTransitionName, "parent-transition")
 	}
 }
 

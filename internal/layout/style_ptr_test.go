@@ -143,7 +143,7 @@ func TestStylePtrNoMutationCollect(t *testing.T) {
 	parentStyle.FontSize = 12
 	parentStyle.Display = cssDisplayInline
 	parentStyle.Position = "static"
-	parentStyle.WritingMode = writingModeHorizontalTB
+	parentStyle.editPositioning().WritingMode = writingModeHorizontalTB
 
 	eng := &engine{
 		font:   faces.Regular,
@@ -236,7 +236,7 @@ func TestStylePtrVerticalChromeBits(t *testing.T) {
 		pStyle := initialStyle()
 		pStyle.Display = parentDisplay
 		pStyle.Position = "static"
-		pStyle.WritingMode = writingModeHorizontalTB
+		pStyle.editPositioning().WritingMode = writingModeHorizontalTB
 
 		cStyle := initialStyle()
 		cStyle.Display = containerDisplay

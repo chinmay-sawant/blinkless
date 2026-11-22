@@ -52,19 +52,19 @@ func applySVGPaintProps(style *ResolvedStyle, prop, value string) bool {
 func applySVGPaintSwitch(style *ResolvedStyle, prop, trimmed string) bool {
 	switch prop {
 	case svgPropFloodColor:
-		return storeSVGColorHex(&style.SVGFloodColor, style.Color, trimmed)
+		return storeSVGColorHex(&style.editSvg().SVGFloodColor, style.Color, trimmed)
 	case svgPropFloodOpacity:
-		return storeSVGString(&style.SVGFloodOpacity, trimmed, svgBakeOpacityValue)
+		return storeSVGString(&style.editSvg().SVGFloodOpacity, trimmed, svgBakeOpacityValue)
 	case svgPropVectorEffect:
-		return storeSVGString(&style.SVGVectorEffect, trimmed, svgBakeVectorEffect)
+		return storeSVGString(&style.editSvg().SVGVectorEffect, trimmed, svgBakeVectorEffect)
 	case svgPropStopColor:
 		return storeSVGStopColor(style, trimmed)
 	case svgPropStopOpacity:
-		return storeSVGString(&style.SVGStopOpacity, trimmed, svgBakeOpacityValue)
+		return storeSVGString(&style.editSvg().SVGStopOpacity, trimmed, svgBakeOpacityValue)
 	case svgPropPaintOrder:
-		return storeSVGString(&style.SVGPaintOrder, trimmed, svgBakePaintOrder)
+		return storeSVGString(&style.editSvg().SVGPaintOrder, trimmed, svgBakePaintOrder)
 	case svgPropPathLength:
-		return storeSVGString(&style.SVGPathLength, trimmed, svgPathLengthValue)
+		return storeSVGString(&style.editSvg().SVGPathLength, trimmed, svgPathLengthValue)
 	default:
 		return false
 	}
@@ -117,15 +117,15 @@ func storeSVGMarker(style *ResolvedStyle, value string, start, mid, end bool) bo
 	}
 
 	if start {
-		style.SVGMarkerStart = value
+		style.editSvg().SVGMarkerStart = value
 	}
 
 	if mid {
-		style.SVGMarkerMid = value
+		style.editSvg().SVGMarkerMid = value
 	}
 
 	if end {
-		style.SVGMarkerEnd = value
+		style.editSvg().SVGMarkerEnd = value
 	}
 
 	return true
@@ -140,7 +140,7 @@ func storeSVGStopColor(style *ResolvedStyle, value string) bool {
 	}
 
 	if svgBakeStopColorValid(value) {
-		style.SVGStopColor = value
+		style.editSvg().SVGStopColor = value
 
 		return true
 	}
@@ -154,7 +154,7 @@ func storeSVGStopColor(style *ResolvedStyle, value string) bool {
 		return false
 	}
 
-	style.SVGStopColor = cssColorHex(color)
+	style.editSvg().SVGStopColor = cssColorHex(color)
 
 	return true
 }
@@ -189,9 +189,9 @@ func (e *engine) prepareSVGStylesheetPaint(node *html.Node, decls *svgStyleDecls
 	inlineMarker := decls.prop(svgPropMarker) != ""
 
 	for _, marker := range [3]struct{ prop, value string }{
-		{svgPropMarkerStart, style.SVGMarkerStart},
-		{svgPropMarkerMid, style.SVGMarkerMid},
-		{svgPropMarkerEnd, style.SVGMarkerEnd},
+		{svgPropMarkerStart, style.svg().SVGMarkerStart},
+		{svgPropMarkerMid, style.svg().SVGMarkerMid},
+		{svgPropMarkerEnd, style.svg().SVGMarkerEnd},
 	} {
 		if inlineMarker {
 			continue
@@ -200,21 +200,21 @@ func (e *engine) prepareSVGStylesheetPaint(node *html.Node, decls *svgStyleDecls
 		skip.note(decls, marker.prop, marker.value)
 	}
 
-	skip.note(decls, svgPropPaintOrder, style.SVGPaintOrder)
-	skip.note(decls, svgPropVectorEffect, style.SVGVectorEffect)
+	skip.note(decls, svgPropPaintOrder, style.svg().SVGPaintOrder)
+	skip.note(decls, svgPropVectorEffect, style.svg().SVGVectorEffect)
 
 	if node.Name == "feFlood" {
-		skip.note(decls, svgPropFloodColor, style.SVGFloodColor)
-		skip.note(decls, svgPropFloodOpacity, style.SVGFloodOpacity)
+		skip.note(decls, svgPropFloodColor, style.svg().SVGFloodColor)
+		skip.note(decls, svgPropFloodOpacity, style.svg().SVGFloodOpacity)
 	}
 
 	if node.Name == "stop" {
-		skip.note(decls, svgPropStopColor, style.SVGStopColor)
-		skip.note(decls, svgPropStopOpacity, style.SVGStopOpacity)
+		skip.note(decls, svgPropStopColor, style.svg().SVGStopColor)
+		skip.note(decls, svgPropStopOpacity, style.svg().SVGStopOpacity)
 	}
 
-	if style.SVGPathLength != "" && decls.prop(svgPropPathLength) == "" {
-		decls.add(svgPropPathLength, style.SVGPathLength)
+	if style.svg().SVGPathLength != "" && decls.prop(svgPropPathLength) == "" {
+		decls.add(svgPropPathLength, style.svg().SVGPathLength)
 		skip.add("pathLength")
 		skip.add("pathlength")
 	}

@@ -21,12 +21,12 @@ func applyZoomProps(
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case inheritKeyword:
 		if parent != nil {
-			style.Zoom = elementZoom(parent)
+			style.editGeometry().Zoom = elementZoom(parent)
 		}
 
 		return true
 	case cssKeywordInitial, cssKeywordUnset, cssKeywordRevert, stringSetRevertLayer:
-		style.Zoom = 1
+		style.editGeometry().Zoom = 1
 
 		return true
 	}
@@ -36,7 +36,7 @@ func applyZoomProps(
 		return true
 	}
 
-	style.Zoom = factor
+	style.editGeometry().Zoom = factor
 
 	return true
 }
@@ -89,11 +89,11 @@ func zoomNumber(raw string, percentage bool) (float64, bool) {
 // elementZoom returns the element's own factor. The initial value and a zero
 // style are both 1. This is not the document zoom in layout_faces.go.
 func elementZoom(style *ResolvedStyle) float64 {
-	if style == nil || style.Zoom <= 0 || math.IsNaN(style.Zoom) || math.IsInf(style.Zoom, 0) {
+	if style == nil || style.geometry().Zoom <= 0 || math.IsNaN(style.geometry().Zoom) || math.IsInf(style.geometry().Zoom, 0) {
 		return 1
 	}
 
-	return style.Zoom
+	return style.geometry().Zoom
 }
 
 // applyElementZoomBorderBox multiplies a block's used border box by the

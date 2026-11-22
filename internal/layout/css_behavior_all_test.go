@@ -102,10 +102,10 @@ func TestBehaviorAllInitialResetsColorAndKeepsDirection(t *testing.T) {
 		"all: initial;")
 
 	child := boxByID(t, res, "child")
-	if child.style == nil || child.style.Direction != cssDirectionRTL {
+	if child.style == nil || child.style.positioning().Direction != cssDirectionRTL {
 		got := ""
 		if child.style != nil {
-			got = child.style.Direction
+			got = child.style.positioning().Direction
 		}
 
 		t.Fatalf("direction = %q, want rtl", got)

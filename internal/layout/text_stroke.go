@@ -27,7 +27,7 @@ func applyTextStrokeProps(
 	switch prop {
 	case textStrokeWidthProp:
 		if width, ok := parseTextStrokeWidth(value, fsize); ok {
-			style.TextStrokeWidth = width
+			style.editInlineText().TextStrokeWidth = width
 		}
 	case textStrokeColorProp:
 		setTextStrokeColor(style, value)
@@ -54,14 +54,14 @@ func parseTextStrokeWidth(value string, fsize float64) (float64, bool) {
 // the stroke follows the fill.
 func setTextStrokeColor(style *ResolvedStyle, value string) {
 	if isCurrentColor(strings.TrimSpace(value)) {
-		style.TextStrokeColorSet = false
+		style.editInlineText().TextStrokeColorSet = false
 
 		return
 	}
 
 	if color, ok := parseUsedColor(value, style.Color); ok {
-		style.TextStrokeColor = color
-		style.TextStrokeColorSet = true
+		style.editInlineText().TextStrokeColor = color
+		style.editInlineText().TextStrokeColorSet = true
 	}
 }
 
@@ -91,8 +91,8 @@ func applyTextStrokeShorthand(style *ResolvedStyle, value string, fsize float64)
 		return
 	}
 
-	style.TextStrokeWidth = width
-	style.TextStrokeColorSet = false
+	style.editInlineText().TextStrokeWidth = width
+	style.editInlineText().TextStrokeColorSet = false
 
 	if haveColor {
 		setTextStrokeColor(style, color)
@@ -145,24 +145,24 @@ func inheritTextStroke(dst, parent *ResolvedStyle, raw map[string]string) {
 		}
 	}
 
-	dst.TextStrokeWidth = parent.TextStrokeWidth
-	dst.TextStrokeColor = parent.TextStrokeColor
-	dst.TextStrokeColorSet = parent.TextStrokeColorSet
+	dst.editInlineText().TextStrokeWidth = parent.inlineText().TextStrokeWidth
+	dst.editInlineText().TextStrokeColor = parent.inlineText().TextStrokeColor
+	dst.editInlineText().TextStrokeColorSet = parent.inlineText().TextStrokeColorSet
 }
 
 // withTextStroke records the stroke on a text op. A run with no stroke width
 // pays nothing. An unset color follows the run's fill.
 func (op Op) withTextStroke(style *ResolvedStyle) Op {
-	if style == nil || style.TextStrokeWidth <= 0 {
+	if style == nil || style.inlineText().TextStrokeWidth <= 0 {
 		return op
 	}
 
 	extra := op.detachedExtraCopy()
-	extra.TextStrokeWidth = style.TextStrokeWidth
+	extra.TextStrokeWidth = style.inlineText().TextStrokeWidth
 	extra.TextStrokeColor = [3]float64{op.R, op.G, op.B}
 
-	if style.TextStrokeColorSet {
-		extra.TextStrokeColor = style.TextStrokeColor
+	if style.inlineText().TextStrokeColorSet {
+		extra.TextStrokeColor = style.inlineText().TextStrokeColor
 	}
 
 	op.opExtra = extra

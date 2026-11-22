@@ -48,19 +48,19 @@ func applyRowRuleGroup(
 	case "row-rule-color":
 		applyRowRuleColors(style, value)
 	case "row-rule-break":
-		applyRowRuleKeyword(style, value, &style.RowRuleBreak, cssDisplayNone, contentNormal, "intersection")
+		applyRowRuleKeyword(style, value, &style.editColumns().RowRuleBreak, cssDisplayNone, contentNormal, "intersection")
 	case "row-rule-visibility-items":
-		applyRowRuleKeyword(style, value, &style.RowRuleVisibility, "all", "around", "between", contentNormal)
+		applyRowRuleKeyword(style, value, &style.editColumns().RowRuleVisibility, "all", "around", "between", contentNormal)
 	case "row-rule-inset-cap-start":
-		applyRowRuleInsetSide(style, value, fsize, &style.RowRuleInsetCapStart)
+		applyRowRuleInsetSide(style, value, fsize, &style.editColumns().RowRuleInsetCapStart)
 	case "row-rule-inset-cap-end":
-		applyRowRuleInsetSide(style, value, fsize, &style.RowRuleInsetCapEnd)
+		applyRowRuleInsetSide(style, value, fsize, &style.editColumns().RowRuleInsetCapEnd)
 	case "row-rule-inset-junction-start":
-		applyRowRuleInsetSide(style, value, fsize, &style.RowRuleInsetJunctionStart)
+		applyRowRuleInsetSide(style, value, fsize, &style.editColumns().RowRuleInsetJunctionStart)
 	case "row-rule-inset-junction-end":
-		applyRowRuleInsetSide(style, value, fsize, &style.RowRuleInsetJunctionEnd)
+		applyRowRuleInsetSide(style, value, fsize, &style.editColumns().RowRuleInsetJunctionEnd)
 	case "rule-overlap":
-		applyRowRuleKeyword(style, value, &style.RuleOverlap, "row-over-column", "column-over-row")
+		applyRowRuleKeyword(style, value, &style.editColumns().RuleOverlap, "row-over-column", "column-over-row")
 	default:
 		return false
 	}
@@ -435,13 +435,13 @@ func applyRowRuleShorthand(style *ResolvedStyle, value string, fsize float64) {
 		return
 	}
 
-	style.RowRuleWidth = width
-	style.RowRuleStyle = ruleStyle
-	style.RowRuleColor = color
-	style.RowRuleColorSet = true
-	style.RowRuleWidths = []float64{width}
-	style.RowRuleStyles = []string{ruleStyle}
-	style.RowRuleColors = rowRuleShorthandColors(value, fsize, style.Color)
+	style.editColumns().RowRuleWidth = width
+	style.editColumns().RowRuleStyle = ruleStyle
+	style.editColumns().RowRuleColor = color
+	style.editColumns().RowRuleColorSet = true
+	style.editColumns().RowRuleWidths = []float64{width}
+	style.editColumns().RowRuleStyles = []string{ruleStyle}
+	style.editColumns().RowRuleColors = rowRuleShorthandColors(value, fsize, style.Color)
 }
 
 func applyRowRuleWidths(style *ResolvedStyle, value string, fsize float64) {
@@ -461,8 +461,8 @@ func applyRowRuleWidths(style *ResolvedStyle, value string, fsize float64) {
 		return
 	}
 
-	style.RowRuleWidths = widths
-	style.RowRuleWidth = widths[0]
+	style.editColumns().RowRuleWidths = widths
+	style.editColumns().RowRuleWidth = widths[0]
 }
 
 func applyRowRuleStyles(style *ResolvedStyle, value string) {
@@ -482,8 +482,8 @@ func applyRowRuleStyles(style *ResolvedStyle, value string) {
 		return
 	}
 
-	style.RowRuleStyles = ruleStyles
-	style.RowRuleStyle = ruleStyles[0]
+	style.editColumns().RowRuleStyles = ruleStyles
+	style.editColumns().RowRuleStyle = ruleStyles[0]
 }
 
 func applyRowRuleColors(style *ResolvedStyle, value string) {
@@ -509,9 +509,9 @@ func applyRowRuleColors(style *ResolvedStyle, value string) {
 		return
 	}
 
-	style.RowRuleColor = first
-	style.RowRuleColorSet = true
-	style.RowRuleColors = colors
+	style.editColumns().RowRuleColor = first
+	style.editColumns().RowRuleColorSet = true
+	style.editColumns().RowRuleColors = colors
 }
 
 // rowRuleTokensAccepted reports whether every space-separated token is

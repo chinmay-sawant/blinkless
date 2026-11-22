@@ -48,22 +48,22 @@ func applyFontVariantProps(
 	switch prop {
 	case "font-language-override":
 		if tag, ok := normalizeFontLanguageOverride(value); ok {
-			style.FontLanguageOverride = tag
+			style.editFont().FontLanguageOverride = tag
 		}
 	case "font-optical-sizing":
 		switch strings.ToLower(strings.TrimSpace(value)) {
 		case fontOpticalAuto:
-			style.FontOpticalSizing = fontOpticalAuto
+			style.editFont().FontOpticalSizing = fontOpticalAuto
 		case fontOpticalNone:
-			style.FontOpticalSizing = fontOpticalNone
+			style.editFont().FontOpticalSizing = fontOpticalNone
 		}
 	case "font-palette":
 		if palette, ok := normalizeFontPalette(value); ok {
-			style.FontPalette = palette
+			style.editFont().FontPalette = palette
 		}
 	case "font-variation-settings":
 		if settings, ok := parseFontVariationSettings(value); ok {
-			style.FontVariationSettings = settings
+			style.editFont().FontVariationSettings = settings
 		}
 	default:
 		return false
@@ -376,9 +376,9 @@ func isASCIIDigit(c byte) bool {
 // internal/layout attaches the result to each OpText and the shaper consumes
 // it in internal/fonts/shape_gotext.go (shapingInput).
 func fontShapingLanguage(sty *ResolvedStyle) string {
-	if sty == nil || sty.FontLanguageOverride == fontVariantNormal {
+	if sty == nil || sty.font().FontLanguageOverride == fontVariantNormal {
 		return ""
 	}
 
-	return sty.FontLanguageOverride
+	return sty.font().FontLanguageOverride
 }

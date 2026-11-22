@@ -21,11 +21,11 @@ const (
 // multicolWidowsValue returns the used widows minimum for a multicol
 // container style, falling back to the CSS initial.
 func multicolWidowsValue(style ResolvedStyle) int {
-	if style.Widows < 1 {
+	if style.fragmentation().Widows < 1 {
 		return multicolFragmentInitial
 	}
 
-	return style.Widows
+	return style.fragmentation().Widows
 }
 
 // multicolOrphansValue returns the used orphans minimum for a multicol
@@ -33,11 +33,11 @@ func multicolWidowsValue(style ResolvedStyle) int {
 // widows shift so an earlier break does not strand too few lines at the
 // bottom of the current column.
 func multicolOrphansValue(style ResolvedStyle) int {
-	if style.Orphans < 1 {
+	if style.fragmentation().Orphans < 1 {
 		return multicolFragmentInitial
 	}
 
-	return style.Orphans
+	return style.fragmentation().Orphans
 }
 
 // multicolWidowsLineCount estimates the line count of one multicol item as

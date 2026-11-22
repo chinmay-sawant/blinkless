@@ -344,13 +344,13 @@ func parseScale3DFunc(parts []string) (Matrix2D, matrix3D, bool) {
 // appendTransform3D post-multiplies one side matrix onto the style.
 func appendTransform3D(style *ResolvedStyle, extra matrix3D) {
 	base := identity3D()
-	if style.HasTransform3D {
-		base = matrix3D(style.Transform3D)
+	if style.effects().HasTransform3D {
+		base = matrix3D(style.effects().Transform3D)
 	}
 
 	next := base.mul(extra)
-	style.Transform3D = next
-	style.HasTransform3D = true
+	style.editEffects().Transform3D = next
+	style.editEffects().HasTransform3D = true
 }
 
 // parseTranslateZFunc parses translateZ(length); percentages are meaningless
@@ -441,20 +441,20 @@ func perspectiveCenter(perspBox *box) (float64, float64) {
 		percentDivisor = 100
 	)
 
-	if perspBox.style == nil || !perspBox.style.PerspectiveOriginSet {
+	if perspBox.style == nil || !perspBox.style.effects().PerspectiveOriginSet {
 		return perspBox.x + perspBox.w/halfDivisor, perspBox.y + perspBox.height/halfDivisor
 	}
 
-	originX := perspBox.style.PerspectiveOriginX
+	originX := perspBox.style.effects().PerspectiveOriginX
 
-	if perspBox.style.PerspectiveOriginXPct {
-		originX = perspBox.style.PerspectiveOriginX / percentDivisor * perspBox.w
+	if perspBox.style.effects().PerspectiveOriginXPct {
+		originX = perspBox.style.effects().PerspectiveOriginX / percentDivisor * perspBox.w
 	}
 
-	originY := perspBox.style.PerspectiveOriginY
+	originY := perspBox.style.effects().PerspectiveOriginY
 
-	if perspBox.style.PerspectiveOriginYPct {
-		originY = perspBox.style.PerspectiveOriginY / percentDivisor * perspBox.height
+	if perspBox.style.effects().PerspectiveOriginYPct {
+		originY = perspBox.style.effects().PerspectiveOriginY / percentDivisor * perspBox.height
 	}
 
 	return perspBox.x + originX, perspBox.y + originY

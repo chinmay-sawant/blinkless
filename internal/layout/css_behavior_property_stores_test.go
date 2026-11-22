@@ -34,12 +34,12 @@ func TestPropertyStoreTransformBoxContentBoxShiftsOrigin(t *testing.T) {
 	borderBox := boxByID(t, borderRes, "box")
 	contentBox := boxByID(t, contentRes, "box")
 
-	if borderBox.style.TransformBox != "border-box" {
-		t.Errorf("transform-box used = %q, want %q", borderBox.style.TransformBox, "border-box")
+	if borderBox.style.effects().TransformBox != "border-box" {
+		t.Errorf("transform-box used = %q, want %q", borderBox.style.effects().TransformBox, "border-box")
 	}
 
-	if contentBox.style.TransformBox != "content-box" {
-		t.Errorf("transform-box used = %q, want %q", contentBox.style.TransformBox, "content-box")
+	if contentBox.style.effects().TransformBox != "content-box" {
+		t.Errorf("transform-box used = %q, want %q", contentBox.style.effects().TransformBox, "content-box")
 	}
 
 	borderMoved := behaviorPaintFxXformed(borderRes)
@@ -76,19 +76,19 @@ func TestPropertyStoreTransformBoxFillViewAlias(t *testing.T) {
 	fillRes := layoutHTML(t, doc("fill-box"))
 	viewRes := layoutHTML(t, doc("view-box"))
 
-	if got := boxByID(t, fillRes, "box").style.TransformBox; got != "fill-box" {
+	if got := boxByID(t, fillRes, "box").style.effects().TransformBox; got != "fill-box" {
 		t.Errorf("transform-box used = %q, want fill-box", got)
 	}
 
-	if got := boxByID(t, viewRes, "box").style.TransformBox; got != "view-box" {
+	if got := boxByID(t, viewRes, "box").style.effects().TransformBox; got != "view-box" {
 		t.Errorf("transform-box used = %q, want view-box", got)
 	}
 
 	behaviorSvgAssertSameOps(t, fillRes, viewRes)
 
 	bogus := boxByID(t, layoutHTML(t, doc("bogus")), "box")
-	if bogus.style.TransformBox != "view-box" {
-		t.Errorf("transform-box:bogus used = %q, want initial view-box", bogus.style.TransformBox)
+	if bogus.style.effects().TransformBox != "view-box" {
+		t.Errorf("transform-box:bogus used = %q, want initial view-box", bogus.style.effects().TransformBox)
 	}
 }
 
@@ -112,19 +112,19 @@ func TestPropertyStoreTransformStyleStoresFlatVsPreserve3D(t *testing.T) {
 	flat := layoutHTML(t, doc("flat"))
 	preserved := layoutHTML(t, doc("preserve-3d"))
 
-	if got := boxByID(t, flat, "outer").style.TransformStyle; got != "flat" {
+	if got := boxByID(t, flat, "outer").style.effects().TransformStyle; got != "flat" {
 		t.Errorf("transform-style used = %q, want flat", got)
 	}
 
-	if got := boxByID(t, preserved, "outer").style.TransformStyle; got != "preserve-3d" {
+	if got := boxByID(t, preserved, "outer").style.effects().TransformStyle; got != "preserve-3d" {
 		t.Errorf("transform-style used = %q, want preserve-3d", got)
 	}
 
 	behaviorSvgAssertSameOps(t, flat, preserved)
 
 	bogus := boxByID(t, layoutHTML(t, doc("bogus")), "outer")
-	if bogus.style.TransformStyle != "flat" {
-		t.Errorf("transform-style:bogus used = %q, want initial flat", bogus.style.TransformStyle)
+	if bogus.style.effects().TransformStyle != "flat" {
+		t.Errorf("transform-style:bogus used = %q, want initial flat", bogus.style.effects().TransformStyle)
 	}
 }
 
@@ -140,26 +140,26 @@ func TestPropertyStoreFillRuleStoresAndInherits(t *testing.T) {
 
 	plain := boxByID(t, layoutHTML(t, `<html><body style="margin:0">`+
 		`<div id="a" style="width:10pt;height:10pt"></div></body></html>`), "a")
-	if plain.style.FillRule != "nonzero" {
-		t.Errorf("fill-rule initial used = %q, want nonzero", plain.style.FillRule)
+	if plain.style.svg().FillRule != "nonzero" {
+		t.Errorf("fill-rule initial used = %q, want nonzero", plain.style.svg().FillRule)
 	}
 
 	ruled := boxByID(t, layoutHTML(t, `<html><body style="margin:0">`+
 		`<div id="a" style="width:10pt;height:10pt;fill-rule:evenodd"></div></body></html>`), "a")
-	if ruled.style.FillRule != "evenodd" {
-		t.Errorf("fill-rule used = %q, want evenodd", ruled.style.FillRule)
+	if ruled.style.svg().FillRule != "evenodd" {
+		t.Errorf("fill-rule used = %q, want evenodd", ruled.style.svg().FillRule)
 	}
 
 	child := boxByID(t, layoutHTML(t, `<html><body style="margin:0">`+
 		`<div style="fill-rule:evenodd"><div id="a" style="width:10pt;height:10pt"></div></div></body></html>`), "a")
-	if child.style.FillRule != "evenodd" {
-		t.Errorf("fill-rule inherited used = %q, want evenodd", child.style.FillRule)
+	if child.style.svg().FillRule != "evenodd" {
+		t.Errorf("fill-rule inherited used = %q, want evenodd", child.style.svg().FillRule)
 	}
 
 	bogus := boxByID(t, layoutHTML(t, `<html><body style="margin:0">`+
 		`<div id="a" style="width:10pt;height:10pt;fill-rule:bogus"></div></body></html>`), "a")
-	if bogus.style.FillRule != "nonzero" {
-		t.Errorf("fill-rule:bogus used = %q, want initial nonzero", bogus.style.FillRule)
+	if bogus.style.svg().FillRule != "nonzero" {
+		t.Errorf("fill-rule:bogus used = %q, want initial nonzero", bogus.style.svg().FillRule)
 	}
 }
 
@@ -173,26 +173,26 @@ func TestPropertyStoreShapeRenderingStoresHint(t *testing.T) {
 
 	plain := boxByID(t, layoutHTML(t, `<html><body style="margin:0">`+
 		`<div id="a" style="width:10pt;height:10pt"></div></body></html>`), "a")
-	if plain.style.ShapeRendering != "auto" {
-		t.Errorf("shape-rendering initial used = %q, want auto", plain.style.ShapeRendering)
+	if plain.style.svg().ShapeRendering != "auto" {
+		t.Errorf("shape-rendering initial used = %q, want auto", plain.style.svg().ShapeRendering)
 	}
 
 	crisp := boxByID(t, layoutHTML(t, `<html><body style="margin:0">`+
 		`<div id="a" style="width:10pt;height:10pt;shape-rendering:crispEdges"></div></body></html>`), "a")
-	if crisp.style.ShapeRendering != "crispedges" {
-		t.Errorf("shape-rendering used = %q, want crispedges", crisp.style.ShapeRendering)
+	if crisp.style.svg().ShapeRendering != "crispedges" {
+		t.Errorf("shape-rendering used = %q, want crispedges", crisp.style.svg().ShapeRendering)
 	}
 
 	child := boxByID(t, layoutHTML(t, `<html><body style="margin:0">`+
 		`<div style="shape-rendering:crispEdges"><div id="a" style="width:10pt;height:10pt"></div></div></body></html>`), "a")
-	if child.style.ShapeRendering != "crispedges" {
-		t.Errorf("shape-rendering inherited used = %q, want crispedges", child.style.ShapeRendering)
+	if child.style.svg().ShapeRendering != "crispedges" {
+		t.Errorf("shape-rendering inherited used = %q, want crispedges", child.style.svg().ShapeRendering)
 	}
 
 	bogus := boxByID(t, layoutHTML(t, `<html><body style="margin:0">`+
 		`<div id="a" style="width:10pt;height:10pt;shape-rendering:bogus"></div></body></html>`), "a")
-	if bogus.style.ShapeRendering != "auto" {
-		t.Errorf("shape-rendering:bogus used = %q, want initial auto", bogus.style.ShapeRendering)
+	if bogus.style.svg().ShapeRendering != "auto" {
+		t.Errorf("shape-rendering:bogus used = %q, want initial auto", bogus.style.svg().ShapeRendering)
 	}
 }
 
@@ -213,19 +213,19 @@ func TestPropertyStoreBackfaceVisibilityStoresHidden(t *testing.T) {
 	front := layoutHTML(t, doc("visible"))
 	hidden := layoutHTML(t, doc("hidden"))
 
-	if got := boxByID(t, front, "a").style.BackfaceVisibility; got != "visible" {
+	if got := boxByID(t, front, "a").style.effects().BackfaceVisibility; got != "visible" {
 		t.Errorf("backface-visibility used = %q, want visible", got)
 	}
 
-	if got := boxByID(t, hidden, "a").style.BackfaceVisibility; got != "hidden" {
+	if got := boxByID(t, hidden, "a").style.effects().BackfaceVisibility; got != "hidden" {
 		t.Errorf("backface-visibility used = %q, want hidden", got)
 	}
 
 	behaviorSvgAssertSameOps(t, front, hidden)
 
 	bogus := boxByID(t, layoutHTML(t, doc("bogus")), "a")
-	if bogus.style.BackfaceVisibility != "visible" {
-		t.Errorf("backface-visibility:bogus used = %q, want initial visible", bogus.style.BackfaceVisibility)
+	if bogus.style.effects().BackfaceVisibility != "visible" {
+		t.Errorf("backface-visibility:bogus used = %q, want initial visible", bogus.style.effects().BackfaceVisibility)
 	}
 }
 
@@ -258,14 +258,14 @@ func TestPropertyStoreDominantBaselineHangingRaisesText(t *testing.T) {
 
 	hangStyle := boxByID(t, layoutHTML(t, `<html><body style="margin:0">`+
 		`<p id="p" style="margin:0;font-size:16px;dominant-baseline:hanging">Ag</p></body></html>`), "p")
-	if hangStyle.style.DominantBaseline != "hanging" {
-		t.Errorf("dominant-baseline used = %q, want hanging", hangStyle.style.DominantBaseline)
+	if hangStyle.style.inlineText().DominantBaseline != "hanging" {
+		t.Errorf("dominant-baseline used = %q, want hanging", hangStyle.style.inlineText().DominantBaseline)
 	}
 
 	defStyle := boxByID(t, layoutHTML(t, `<html><body style="margin:0">`+
 		`<p id="p" style="margin:0;font-size:16px">Ag</p></body></html>`), "p")
-	if defStyle.style.DominantBaseline != "auto" {
-		t.Errorf("dominant-baseline initial used = %q, want auto", defStyle.style.DominantBaseline)
+	if defStyle.style.inlineText().DominantBaseline != "auto" {
+		t.Errorf("dominant-baseline initial used = %q, want auto", defStyle.style.inlineText().DominantBaseline)
 	}
 
 	lift := plainTexts[0].Y - hangTexts[0].Y

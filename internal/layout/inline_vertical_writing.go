@@ -15,7 +15,7 @@ func (e *engine) emitVerticalUprightRun(
 	item *inlineItem, leftX, baseline, size, ascent, descent float64,
 ) (float64, bool) {
 	style := item.style
-	if style == nil || !isVerticalWritingMode(style.WritingMode) {
+	if style == nil || !isVerticalWritingMode(style.positioning().WritingMode) {
 		return 0, false
 	}
 
@@ -23,12 +23,12 @@ func (e *engine) emitVerticalUprightRun(
 		return 0, false
 	}
 
-	if strings.EqualFold(strings.TrimSpace(style.TextOrientation), textOrientationUpright) {
+	if strings.EqualFold(strings.TrimSpace(style.inlineText().TextOrientation), textOrientationUpright) {
 		return e.emitUprightColumn(item, leftX, baseline, size, ascent, descent), true
 	}
 
 	// text-combine-upright: one upright cell centered in the column.
-	runWidth := e.measureTextFace(transformInlineText(item.text, style.TextTransform), style)
+	runWidth := e.measureTextFace(transformInlineText(item.text, style.inlineText().TextTransform), style)
 	e.emitInlineFaceRuns(item, leftX+(item.w-runWidth)/two, baseline, size, ascent, descent)
 
 	return item.w, true
@@ -45,7 +45,7 @@ func (e *engine) emitUprightColumn(
 
 	for _, r := range item.text {
 		glyph := string(r)
-		glyphWidth := e.measureTextFace(transformInlineText(glyph, item.style.TextTransform), item.style)
+		glyphWidth := e.measureTextFace(transformInlineText(glyph, item.style.inlineText().TextTransform), item.style)
 		e.emitGlyphRuns(item, glyph, leftX+(item.w-glyphWidth)/two, step, size, ascent, descent)
 		step += glyphWidth
 	}
@@ -93,7 +93,7 @@ func (e *engine) verticalWritingHeight(current float64, style ResolvedStyle) flo
 	// current is a content-flow bottom that already includes the top chrome;
 	// the caller adds bottom padding and border through borderBoxBottom, so
 	// needed must not include them a second time.
-	topChrome := e.scalePt(style.PaddingTop) + e.scalePt(style.BorderTop.Width)
+	topChrome := e.scalePt(style.PaddingTop) + e.scalePt(style.borders().BorderTop.Width)
 
 	needed := textWidth + topChrome
 	if needed > current {

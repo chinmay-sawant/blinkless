@@ -18,10 +18,10 @@ func (e *engine) tagSticky(boxNode *box) {
 	e.stickySeq++
 	boxNode.stickyID = e.stickySeq
 
-	boxNode.stickyTopSet, boxNode.stickyTop = stickyInset(e, boxNode.style.TopAuto, boxNode.style.Top)
-	boxNode.stickyRightSet, boxNode.stickyRight = stickyInset(e, boxNode.style.RightAuto, boxNode.style.Right)
-	boxNode.stickyBottomSet, boxNode.stickyBottom = stickyInset(e, boxNode.style.BottomAuto, boxNode.style.Bottom)
-	boxNode.stickyLeftSet, boxNode.stickyLeft = stickyInset(e, boxNode.style.LeftAuto, boxNode.style.Left)
+	boxNode.stickyTopSet, boxNode.stickyTop = stickyInset(e, boxNode.style.positioning().TopAuto, boxNode.style.positioning().Top)
+	boxNode.stickyRightSet, boxNode.stickyRight = stickyInset(e, boxNode.style.positioning().RightAuto, boxNode.style.positioning().Right)
+	boxNode.stickyBottomSet, boxNode.stickyBottom = stickyInset(e, boxNode.style.positioning().BottomAuto, boxNode.style.positioning().Bottom)
+	boxNode.stickyLeftSet, boxNode.stickyLeft = stickyInset(e, boxNode.style.positioning().LeftAuto, boxNode.style.positioning().Left)
 
 	if boxNode.opEnd >= boxNode.opStart && boxNode.opStart >= 0 {
 		for i := boxNode.opStart; i <= boxNode.opEnd && i < len(e.ops); i++ {

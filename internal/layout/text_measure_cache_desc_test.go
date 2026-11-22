@@ -66,11 +66,11 @@ func TestMeasureStyleIDDiffersForOpticalVariationEmoji(t *testing.T) {
 		name  string
 		apply func(*ResolvedStyle)
 	}{
-		{name: "optical", apply: func(style *ResolvedStyle) { style.FontOpticalSizing = "none" }},
+		{name: "optical", apply: func(style *ResolvedStyle) { style.editFont().FontOpticalSizing = "none" }},
 		{name: "variations", apply: func(style *ResolvedStyle) {
-			style.FontVariationSettings = `"wght" 700`
+			style.editFont().FontVariationSettings = `"wght" 700`
 		}},
-		{name: "emoji", apply: func(style *ResolvedStyle) { style.FontVariantEmoji = "emoji" }},
+		{name: "emoji", apply: func(style *ResolvedStyle) { style.editFont().FontVariantEmoji = "emoji" }},
 	}
 
 	seen := map[uint64]string{baseID: "base"}
@@ -112,11 +112,11 @@ func TestSharedTextWidthSeparatesOpticalVariationEmoji(t *testing.T) {
 		name  string
 		apply func(*ResolvedStyle)
 	}{
-		{name: "optical", apply: func(style *ResolvedStyle) { style.FontOpticalSizing = "none" }},
+		{name: "optical", apply: func(style *ResolvedStyle) { style.editFont().FontOpticalSizing = "none" }},
 		{name: "variations", apply: func(style *ResolvedStyle) {
-			style.FontVariationSettings = `"wght" 700`
+			style.editFont().FontVariationSettings = `"wght" 700`
 		}},
-		{name: "emoji", apply: func(style *ResolvedStyle) { style.FontVariantEmoji = "emoji" }},
+		{name: "emoji", apply: func(style *ResolvedStyle) { style.editFont().FontVariantEmoji = "emoji" }},
 	}
 
 	//nolint:paralleltest // each subtest resets the process-wide measure counters

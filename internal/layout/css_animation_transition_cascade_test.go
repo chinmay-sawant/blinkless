@@ -26,14 +26,14 @@ func TestAnimationTransitionCascadeRoundTrips(t *testing.T) {
 	target := findElementByName(root, "div")
 	style := styles[target]
 
-	if !style.Animation.Set || style.Animation.Name != "slide" ||
-		style.Animation.Duration != animationCascadeDuration || style.Animation.TimingFunction != "ease-in" {
-		t.Errorf("Animation = %+v, want name slide, duration 250ms, timing ease-in", style.Animation)
+	if !style.motion().Animation.Set || style.motion().Animation.Name != "slide" ||
+		style.motion().Animation.Duration != animationCascadeDuration || style.motion().Animation.TimingFunction != "ease-in" {
+		t.Errorf("Animation = %+v, want name slide, duration 250ms, timing ease-in", style.motion().Animation)
 	}
 
-	if !style.Transition.Set || style.Transition.Property != "opacity" ||
-		style.Transition.Duration != "400ms" || style.Transition.TimingFunction != "steps(4, jump-end)" {
-		t.Errorf("Transition = %+v, want opacity, 400ms, steps(4, jump-end)", style.Transition)
+	if !style.motion().Transition.Set || style.motion().Transition.Property != "opacity" ||
+		style.motion().Transition.Duration != "400ms" || style.motion().Transition.TimingFunction != "steps(4, jump-end)" {
+		t.Errorf("Transition = %+v, want opacity, 400ms, steps(4, jump-end)", style.motion().Transition)
 	}
 }
 
@@ -53,11 +53,11 @@ func TestInvalidLaterAnimationTransitionDeclarationsDoNotWin(t *testing.T) {
 	`)}, "print", testViewport, 800)
 	style := styles[findElementByName(root, "div")]
 
-	if got := style.Animation.Duration; got != animationCascadeDuration {
+	if got := style.motion().Animation.Duration; got != animationCascadeDuration {
 		t.Errorf("Animation.Duration = %q, want earlier valid 250ms", got)
 	}
 
-	if got := style.Transition.Duration; got != "400ms" {
+	if got := style.motion().Transition.Duration; got != "400ms" {
 		t.Errorf("Transition.Duration = %q, want earlier valid 400ms", got)
 	}
 }
@@ -116,11 +116,11 @@ func TestAnimationTransitionSupportsAcceptanceAndCascade(t *testing.T) {
 	`)}, "print", testViewport, 800)
 	style := styles[findElementByName(root, "div")]
 
-	if got := style.Animation.Name; got != "supported-animation" {
+	if got := style.motion().Animation.Name; got != "supported-animation" {
 		t.Errorf("Animation.Name = %q, want valid @supports value", got)
 	}
 
-	if got := style.Transition.Property; got != "width" {
+	if got := style.motion().Transition.Property; got != "width" {
 		t.Errorf("Transition.Property = %q, want valid @supports value", got)
 	}
 }
@@ -146,11 +146,11 @@ func TestWebkitAnimationTransitionAliasesUseStandardHandlers(t *testing.T) {
 	standard := findElementByClass(t, root, "standard")
 	prefixed := findElementByClass(t, root, "prefixed")
 
-	if got, want := styles[prefixed].Animation, styles[standard].Animation; got != want {
+	if got, want := styles[prefixed].motion().Animation, styles[standard].motion().Animation; got != want {
 		t.Errorf("prefixed Animation = %+v, standard Animation = %+v", got, want)
 	}
 
-	if got, want := styles[prefixed].Transition, styles[standard].Transition; got != want {
+	if got, want := styles[prefixed].motion().Transition, styles[standard].motion().Transition; got != want {
 		t.Errorf("prefixed Transition = %+v, standard Transition = %+v", got, want)
 	}
 }

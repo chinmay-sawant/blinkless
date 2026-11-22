@@ -137,8 +137,16 @@ func TestAvoidShortKeepsGoodBreaks(t *testing.T) {
 func TestAvoidShortApplyGates(t *testing.T) {
 	t.Parallel()
 
-	avoided := &ResolvedStyle{TextWrapStyle: "avoid-short-last-line"}
-	pretty := &ResolvedStyle{TextWrapStyle: "pretty"}
+	avoided := &ResolvedStyle{
+		inlineTextGroup: &styleInlineText{
+			TextWrapStyle: "avoid-short-last-line",
+		},
+	}
+	pretty := &ResolvedStyle{
+		inlineTextGroup: &styleInlineText{
+			TextWrapStyle: "pretty",
+		},
+	}
 
 	if !avoidShortCanApply(nil, 0, avoided) {
 		t.Error("avoidShortCanApply(nil, 0, avoid) = false, want true")
@@ -152,7 +160,12 @@ func TestAvoidShortApplyGates(t *testing.T) {
 		t.Error("avoidShortCanApply with line clamp = true, want false")
 	}
 
-	indented := &ResolvedStyle{TextWrapStyle: "avoid-short-last-line", TextIndent: 12}
+	indented := &ResolvedStyle{
+		inlineTextGroup: &styleInlineText{
+			TextWrapStyle: "avoid-short-last-line",
+			TextIndent:    12,
+		},
+	}
 	if avoidShortCanApply(nil, 0, indented) {
 		t.Error("avoidShortCanApply with indent = true, want false")
 	}

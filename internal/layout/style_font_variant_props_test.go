@@ -6,10 +6,10 @@ import (
 	"testing"
 )
 
-func langField(s *ResolvedStyle) string      { return s.FontLanguageOverride }
-func opticalField(s *ResolvedStyle) string   { return s.FontOpticalSizing }
-func paletteField(s *ResolvedStyle) string   { return s.FontPalette }
-func variationField(s *ResolvedStyle) string { return s.FontVariationSettings }
+func langField(s *ResolvedStyle) string      { return s.font().FontLanguageOverride }
+func opticalField(s *ResolvedStyle) string   { return s.font().FontOpticalSizing }
+func paletteField(s *ResolvedStyle) string   { return s.font().FontPalette }
+func variationField(s *ResolvedStyle) string { return s.font().FontVariationSettings }
 
 // TestApplyFontVariantProps parses every property in the group. Invalid
 // declarations are dropped: the field keeps its initial value instead of a
@@ -90,22 +90,22 @@ func TestFontVariantPropsDispatchAndInheritance(t *testing.T) {
 	t.Parallel()
 
 	parent := initialStyle()
-	parent.FontLanguageOverride = "TRK"
-	parent.FontOpticalSizing = fontOpticalNone
-	parent.FontPalette = fontPaletteDark
-	parent.FontVariationSettings = `"wght" 700`
+	parent.editFont().FontLanguageOverride = "TRK"
+	parent.editFont().FontOpticalSizing = fontOpticalNone
+	parent.editFont().FontPalette = fontPaletteDark
+	parent.editFont().FontVariationSettings = `"wght" 700`
 
 	child := initialStyle()
 	inheritProps(&child, &parent, nil)
 
-	if child.FontLanguageOverride != "TRK" ||
-		child.FontOpticalSizing != fontOpticalNone ||
-		child.FontPalette != fontPaletteDark ||
-		child.FontVariationSettings != `"wght" 700` {
+	if child.font().FontLanguageOverride != "TRK" ||
+		child.font().FontOpticalSizing != fontOpticalNone ||
+		child.font().FontPalette != fontPaletteDark ||
+		child.font().FontVariationSettings != `"wght" 700` {
 		t.Fatalf(
 			"inherited fields = %q / %q / %q / %q",
-			child.FontLanguageOverride, child.FontOpticalSizing,
-			child.FontPalette, child.FontVariationSettings,
+			child.font().FontLanguageOverride, child.font().FontOpticalSizing,
+			child.font().FontPalette, child.font().FontVariationSettings,
 		)
 	}
 
@@ -113,8 +113,8 @@ func TestFontVariantPropsDispatchAndInheritance(t *testing.T) {
 
 	applyStyleProp(&child, "font-language-override", `"ENG"`, 12, ctx, &parent, true)
 
-	if child.FontLanguageOverride != "ENG" {
-		t.Fatalf("declared font-language-override = %q, want ENG", child.FontLanguageOverride)
+	if child.font().FontLanguageOverride != "ENG" {
+		t.Fatalf("declared font-language-override = %q, want ENG", child.font().FontLanguageOverride)
 	}
 }
 
@@ -143,7 +143,7 @@ func TestFontShapingLanguageOverride(t *testing.T) {
 		t.Fatalf("normal override = %q, want empty (no override)", got)
 	}
 
-	style.FontLanguageOverride = "TRK"
+	style.editFont().FontLanguageOverride = "TRK"
 
 	if got := fontShapingLanguage(&style); got != "TRK" {
 		t.Fatalf("override = %q, want TRK", got)

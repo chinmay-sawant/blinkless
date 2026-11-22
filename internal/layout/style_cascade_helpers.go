@@ -16,20 +16,20 @@ func inheritGapBPropsWide(dst *ResolvedStyle, parent *ResolvedStyle, raw map[str
 	// line-fit-edge inherits. The 64-entry mask is full, so it cannot join
 	// inheritableProps; a declared value is applied later and wins.
 	if _, ok := raw["line-fit-edge"]; !ok {
-		dst.LineFitEdge = parent.LineFitEdge
+		dst.editInlineText().LineFitEdge = parent.inlineText().LineFitEdge
 	}
 
 	// line-padding inherits, but the uint64 inherit mask is full.
 	if _, ok := raw["line-padding"]; !ok {
-		dst.LinePadding = parent.LinePadding
+		dst.editInlineText().LinePadding = parent.inlineText().LinePadding
 	}
 
 	if _, ok := raw[inlineSizingProp]; !ok {
-		dst.InlineSizing = parent.InlineSizing
+		dst.editInlineText().InlineSizing = parent.inlineText().InlineSizing
 	}
 
 	// word-space-transform inherits, but the uint64 inherit mask is full.
 	if _, ok := raw["word-space-transform"]; !ok {
-		dst.WordSpaceTransform = parent.WordSpaceTransform
+		dst.editInlineText().WordSpaceTransform = parent.inlineText().WordSpaceTransform
 	}
 }

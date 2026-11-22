@@ -43,16 +43,16 @@ func TestHasSelectorArticleBorder(t *testing.T) {
 	stWith := styles[with]
 	stWithout := styles[without]
 
-	if stWith.BorderLeft.Width < 2.9 || stWith.BorderLeft.Width > 3.1 {
-		t.Errorf("article:has(.footnote) border-left width = %v, want 3pt", stWith.BorderLeft.Width)
+	if stWith.borders().BorderLeft.Width < 2.9 || stWith.borders().BorderLeft.Width > 3.1 {
+		t.Errorf("article:has(.footnote) border-left width = %v, want 3pt", stWith.borders().BorderLeft.Width)
 	}
 
-	if stWith.BorderLeft.Color[2] < 0.9 {
-		t.Errorf("article:has(.footnote) border color = %v, want blue", stWith.BorderLeft.Color)
+	if stWith.borders().BorderLeft.Color[2] < 0.9 {
+		t.Errorf("article:has(.footnote) border color = %v, want blue", stWith.borders().BorderLeft.Color)
 	}
 
-	if stWithout.BorderLeft.Width > 0.01 {
-		t.Errorf("plain article should have no left border, got width %v", stWithout.BorderLeft.Width)
+	if stWithout.borders().BorderLeft.Width > 0.01 {
+		t.Errorf("plain article should have no left border, got width %v", stWithout.borders().BorderLeft.Width)
 	}
 }
 

@@ -29,7 +29,7 @@ func applyContinueProps(
 
 	switch normalized := normalizeCSSValue(value); normalized {
 	case continueNormal, continueDiscard, continueCollapse, continueWebkitLegacy:
-		style.Continue = normalized
+		style.editInlineText().Continue = normalized
 		// A vertical -webkit-box forces single-line white space through its
 		// display mapping. continue clamps lines, so wrapping must come back,
 		// the same way line-clamp does it.
@@ -47,11 +47,11 @@ func continueActive(style *ResolvedStyle) bool {
 		return false
 	}
 
-	switch style.Continue {
+	switch style.inlineText().Continue {
 	case continueCollapse, continueDiscard:
 		return true
 	case continueWebkitLegacy:
-		return style.IsWebkitBox && style.FlexDirection == fxCol
+		return style.flex().IsWebkitBox && style.flex().FlexDirection == fxCol
 	default:
 		return false
 	}
@@ -66,8 +66,8 @@ func (e *engine) continueLineLimit(boxNode *box) int {
 		return 0
 	}
 
-	if boxNode.style.ContinueLines > 0 {
-		return boxNode.style.ContinueLines
+	if boxNode.style.inlineText().ContinueLines > 0 {
+		return boxNode.style.inlineText().ContinueLines
 	}
 
 	return e.continueLimitFor(boxNode.style)
@@ -80,15 +80,15 @@ const continueEpsilon = 1e-6
 // when the style has no definite cap.
 func continueHeightCap(style *ResolvedStyle) float64 {
 	limit := -1.0
-	if style.Continue == continueDiscard && style.Height >= 0 && style.HeightPercent < 0 {
+	if style.inlineText().Continue == continueDiscard && style.Height >= 0 && style.HeightPercent < 0 {
 		limit = style.Height
 	}
 
-	if style.MaxHeight >= 0 && style.MaxHeightPercent < 0 && (limit < 0 || style.MaxHeight < limit) {
-		limit = style.MaxHeight
+	if style.geometry().MaxHeight >= 0 && style.geometry().MaxHeightPercent < 0 && (limit < 0 || style.geometry().MaxHeight < limit) {
+		limit = style.geometry().MaxHeight
 	}
 
-	if limit >= 0 && style.BoxSizing == "border-box" {
+	if limit >= 0 && style.geometry().BoxSizing == "border-box" {
 		limit -= style.PaddingTop + style.PaddingBottom
 	}
 

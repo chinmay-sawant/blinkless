@@ -202,7 +202,7 @@ type Result struct {
 	svgRasters *svgRasterCache
 	// flexOverrides caches committed immutable flex item style overrides
 	// across subtree relayouts of the same document so unchanged flex items
-	// reuse their 5872-byte override record without reallocating. Shared
+	// reuse their override record without reallocating. Shared
 	// read-only by clones and copy-on-write updated on adoption.
 	flexOverrides map[flexStyleOverrideKey]*ResolvedStyle
 	// rootBox is the root of the element box tree. It is the same box as
@@ -1145,7 +1145,7 @@ type blendScope struct {
 // pushZ enters one element's stacking and compositing scope, emitting the
 // group begin marker when masking, blending, isolation, or backdrop filtering creates a group.
 // style is the element's resolved style; pushZ reads it without copying the
-// 5872-byte record, and owner is the same pointer that identifies the element.
+// record, and owner is the same pointer that identifies the element.
 func (e *engine) pushZ(style *ResolvedStyle, owner *ResolvedStyle) blendScope {
 	prev := blendScope{
 		prevZ:          e.zIndex,
@@ -1174,10 +1174,10 @@ func (e *engine) pushZ(style *ResolvedStyle, owner *ResolvedStyle) blendScope {
 // z-index wins, otherwise transform, opacity, masking, blending, or isolation
 // reset the level to zero.
 func (e *engine) enterStackingContext(style *ResolvedStyle, createsGroupContext bool) {
-	if style.ZIndexSet {
-		e.zIndex = style.ZIndex
+	if style.positioning().ZIndexSet {
+		e.zIndex = style.positioning().ZIndex
 		e.zIndexSet = true
-	} else if !e.zIndexSet && (style.HasTransform || style.Opacity < 1 || createsGroupContext) {
+	} else if !e.zIndexSet && (style.effects().HasTransform || style.Opacity < 1 || createsGroupContext) {
 		// CSS: transform, opacity, blend, isolation, and backdrop-filter create
 		// a stacking context; keep an ancestor's explicit z-index band when set.
 		e.zIndex = 0
@@ -1189,7 +1189,7 @@ func (e *engine) enterStackingContext(style *ResolvedStyle, createsGroupContext 
 // paint group. Descendants inherit its membership so the host can apply the
 // element's mask, blend, isolation, or backdrop effect at one boundary.
 func (e *engine) enterBlendIsolation(style *ResolvedStyle, owner *ResolvedStyle) {
-	if style.HasTransform || style.Opacity < 1 {
+	if style.effects().HasTransform || style.Opacity < 1 {
 		e.needsXformStamp = true
 	}
 
@@ -1199,14 +1199,14 @@ func (e *engine) enterBlendIsolation(style *ResolvedStyle, owner *ResolvedStyle)
 		return
 	}
 
-	mode := nonNormalBlendMode(style.MixBlendMode)
+	mode := nonNormalBlendMode(style.effects().MixBlendMode)
 
 	e.nextGroupID++
 
 	e.blendGroup = &BlendGroup{ //nolint:exhaustruct // mask frames are attached below
 		ID:             e.nextGroupID,
 		Mode:           mode,
-		BackdropFilter: style.BackdropFilter,
+		BackdropFilter: style.effects().BackdropFilter,
 		Isolate:        true,
 		Parent:         e.blendGroup,
 		Mask:           nil,
@@ -1477,21 +1477,21 @@ func (style *ResolvedStyle) HorizChrome() float64 {
 		return 0
 	}
 
-	return style.PaddingLeft + style.PaddingRight + style.BorderLeft.Width + style.BorderRight.Width
+	return style.PaddingLeft + style.PaddingRight + style.borders().BorderLeft.Width + style.borders().BorderRight.Width
 }
 
 // horizontalChrome returns the scaled horizontal padding and border width for
 // sizing helpers.
 func (style *ResolvedStyle) horizontalChrome(eng *engine) float64 {
 	return eng.scalePt(style.PaddingLeft) + eng.scalePt(style.PaddingRight) +
-		eng.scalePt(style.BorderLeft.Width) + eng.scalePt(style.BorderRight.Width)
+		eng.scalePt(style.borders().BorderLeft.Width) + eng.scalePt(style.borders().BorderRight.Width)
 }
 
 // verticalChrome returns the scaled vertical padding and border width for
 // sizing helpers.
 func (style *ResolvedStyle) verticalChrome(eng *engine) float64 {
 	return eng.scalePt(style.PaddingTop) + eng.scalePt(style.PaddingBottom) +
-		eng.scalePt(style.BorderTop.Width) + eng.scalePt(style.BorderBottom.Width)
+		eng.scalePt(style.borders().BorderTop.Width) + eng.scalePt(style.borders().BorderBottom.Width)
 }
 
 // buildWithStyle builds node with an engine-local style override. The override
@@ -1929,7 +1929,7 @@ func (e *engine) buildDisplayBox(
 		boxNode = e.buildOutOfFlowIfPositioned(node, sty, availW, posX, posY, underXformCB)
 	}
 	// Descendants of a transformed box see this as a containing block.
-	if sty.HasTransform {
+	if sty.effects().HasTransform {
 		e.transformCBDepth++
 		defer func() { e.transformCBDepth-- }()
 	}
@@ -2024,7 +2024,7 @@ func (e *engine) buildBlock(node *html.Node, style *ResolvedStyle, availW, posX,
 	// bg → borders → children (otherwise fills cover text).
 	contentStart := len(e.ops)
 
-	curY := e.scalePt(boxStyle.PaddingTop) + e.scalePt(borderLayoutWidth(boxStyle, boxStyle.BorderTop))
+	curY := e.scalePt(boxStyle.PaddingTop) + e.scalePt(borderLayoutWidth(boxStyle, boxStyle.borders().BorderTop))
 	enclose := e.pushBFCFloatsForcePtr(style, contentX, contentW, e.isFlexItemNode(node))
 	widget := node.Name == htmlMeter || node.Name == "progress"
 	chkWidget := isInputCheckbox(node)
@@ -2085,7 +2085,7 @@ func (e *engine) buildBlock(node *html.Node, style *ResolvedStyle, availW, posX,
 // boxes that declare a ratio pay for it; the common path keeps the shared
 // style.
 func (e *engine) blockHeightStyle(style *ResolvedStyle, contentW float64) *ResolvedStyle {
-	if style.AspectRatio <= 0 {
+	if style.geometry().AspectRatio <= 0 {
 		return style
 	}
 
@@ -2099,7 +2099,7 @@ func (e *engine) blockHeightStyle(style *ResolvedStyle, contentW float64) *Resol
 func (e *engine) finishBlockWritingAndMarker(
 	node *html.Node, style *ResolvedStyle, boxNode *box, contentX, curY float64,
 ) float64 {
-	if isVerticalWritingMode(style.WritingMode) && style.Height < 0 && style.HeightPercent < 0 {
+	if isVerticalWritingMode(style.positioning().WritingMode) && style.Height < 0 && style.HeightPercent < 0 {
 		curY = e.verticalWritingHeight(curY, *style)
 	}
 
@@ -2142,14 +2142,14 @@ func (e *engine) paintPositionedPseudo( //nolint:cyclop
 	contentX, contentW := e.contentBox(boxNode.x, boxNode.w, host)
 	pseudoX := contentX + e.scalePt(style.MarginLeft)
 
-	if !style.LeftAuto {
-		pseudoX = contentX + e.scalePt(style.Left)
-	} else if !style.RightAuto {
-		pseudoX = contentX + contentW - e.measureTextFace(text, style) - e.scalePt(style.Right)
+	if !style.positioning().LeftAuto {
+		pseudoX = contentX + e.scalePt(style.positioning().Left)
+	} else if !style.positioning().RightAuto {
+		pseudoX = contentX + contentW - e.measureTextFace(text, style) - e.scalePt(style.positioning().Right)
 	}
 
-	staticAfter := pseudoElem == pseudoAfter && style.TopAuto && style.BottomAuto
-	pseudoY := boxNode.y + e.scalePt(host.PaddingTop) + e.scalePt(host.BorderTop.Width) +
+	staticAfter := pseudoElem == pseudoAfter && style.positioning().TopAuto && style.positioning().BottomAuto
+	pseudoY := boxNode.y + e.scalePt(host.PaddingTop) + e.scalePt(host.borders().BorderTop.Width) +
 		e.scalePt(style.MarginTop)
 
 	if staticAfter {
@@ -2159,10 +2159,10 @@ func (e *engine) paintPositionedPseudo( //nolint:cyclop
 		pseudoY = boxNode.y + boxNode.height + e.scalePt(style.MarginTop)
 	}
 
-	if !style.TopAuto {
-		pseudoY = boxNode.y + e.scalePt(style.Top)
-	} else if !style.BottomAuto {
-		pseudoY = boxNode.y + boxNode.height - e.scalePt(style.Bottom)
+	if !style.positioning().TopAuto {
+		pseudoY = boxNode.y + e.scalePt(style.positioning().Top)
+	} else if !style.positioning().BottomAuto {
+		pseudoY = boxNode.y + boxNode.height - e.scalePt(style.positioning().Bottom)
 	}
 
 	baseline := pseudoY + e.fontAscent(size)
@@ -2203,9 +2203,9 @@ func (e *engine) paintValueWidget(node *html.Node, style ResolvedStyle, leftX, t
 	}
 
 	contentX, contentW := e.contentBox(leftX, width, &style)
-	contentY := topY + e.scalePt(style.BorderTop.Width) + e.scalePt(style.PaddingTop)
+	contentY := topY + e.scalePt(style.borders().BorderTop.Width) + e.scalePt(style.PaddingTop)
 
-	contentH := height - e.scalePt(style.BorderTop.Width+style.BorderBottom.Width) -
+	contentH := height - e.scalePt(style.borders().BorderTop.Width+style.borders().BorderBottom.Width) -
 		e.scalePt(style.PaddingTop+style.PaddingBottom)
 	if contentW <= 0 || contentH <= 0 || ratio <= 0 {
 		return
@@ -2234,8 +2234,8 @@ func (e *engine) paintValueWidget(node *html.Node, style ResolvedStyle, leftX, t
 }
 
 func widgetValueColor(tag string, style ResolvedStyle) [3]float64 {
-	if style.AccentColorSet {
-		return style.AccentColor
+	if style.content().AccentColorSet {
+		return style.content().AccentColor
 	}
 
 	if tag == htmlMeter {
@@ -2296,9 +2296,9 @@ func (e *engine) applyHeightConstraints(style *ResolvedStyle, curY float64) floa
 }
 
 func (e *engine) clampBlockMaxHeight(style *ResolvedStyle, curY, cbH, vChrome float64) float64 {
-	if style.MaxHeightPercent >= 0 && cbH >= 0 && cbH < 1e12 {
-		maxH := cbH * style.MaxHeightPercent / oneHundred
-		if style.BoxSizing != borderBox {
+	if style.geometry().MaxHeightPercent >= 0 && cbH >= 0 && cbH < 1e12 {
+		maxH := cbH * style.geometry().MaxHeightPercent / oneHundred
+		if style.geometry().BoxSizing != borderBox {
 			maxH += vChrome
 		}
 
@@ -2309,9 +2309,9 @@ func (e *engine) clampBlockMaxHeight(style *ResolvedStyle, curY, cbH, vChrome fl
 		return curY
 	}
 
-	if style.MaxHeight >= 0 {
-		maxHeight := e.scalePt(style.MaxHeight)
-		if style.BoxSizing != borderBox {
+	if style.geometry().MaxHeight >= 0 {
+		maxHeight := e.scalePt(style.geometry().MaxHeight)
+		if style.geometry().BoxSizing != borderBox {
 			maxHeight += vChrome
 		}
 
@@ -2324,9 +2324,9 @@ func (e *engine) clampBlockMaxHeight(style *ResolvedStyle, curY, cbH, vChrome fl
 }
 
 func (e *engine) calcMinHeight(style *ResolvedStyle, cbH, vChrome float64) float64 {
-	if style.MinHeightPercent >= 0 && cbH >= 0 && cbH < 1e12 {
-		minH := cbH * style.MinHeightPercent / oneHundred
-		if style.BoxSizing != borderBox {
+	if style.geometry().MinHeightPercent >= 0 && cbH >= 0 && cbH < 1e12 {
+		minH := cbH * style.geometry().MinHeightPercent / oneHundred
+		if style.geometry().BoxSizing != borderBox {
 			minH += vChrome
 		}
 
@@ -2337,8 +2337,8 @@ func (e *engine) calcMinHeight(style *ResolvedStyle, cbH, vChrome float64) float
 		return minH
 	}
 
-	minHeight := e.scalePt(style.MinHeight)
-	if style.BoxSizing != borderBox {
+	minHeight := e.scalePt(style.geometry().MinHeight)
+	if style.geometry().BoxSizing != borderBox {
 		minHeight += vChrome
 	}
 
@@ -2365,7 +2365,7 @@ func (e *engine) clampBlockMinHeight(style *ResolvedStyle, curY, cbH, vChrome fl
 // border-image device width is used when the border paints as an image.
 func (e *engine) borderBoxBottom(boxStyle *ResolvedStyle, contentBottom float64) float64 {
 	contentBottom += e.scalePt(boxStyle.PaddingBottom)
-	contentBottom += e.scalePt(borderLayoutWidth(boxStyle, boxStyle.BorderBottom))
+	contentBottom += e.scalePt(borderLayoutWidth(boxStyle, boxStyle.borders().BorderBottom))
 
 	return contentBottom
 }
@@ -2380,7 +2380,7 @@ func (e *engine) applyHeightConstraintsWithCB(style *ResolvedStyle, curY float64
 	}
 
 	vChrome := 0.0
-	if style.BoxSizing != borderBox {
+	if style.geometry().BoxSizing != borderBox {
 		vChrome = style.verticalChrome(e)
 	}
 
@@ -2399,7 +2399,7 @@ func resolveUsedHeight(sty *ResolvedStyle, cbH float64, engN *engine) (float64, 
 		}
 
 		height := cbH * sty.HeightPercent / oneHundred
-		if sty.BoxSizing != borderBox {
+		if sty.geometry().BoxSizing != borderBox {
 			height += sty.verticalChrome(engN)
 		}
 
@@ -2411,7 +2411,7 @@ func resolveUsedHeight(sty *ResolvedStyle, cbH float64, engN *engine) (float64, 
 	}
 
 	height := engN.scalePt(sty.Height)
-	if sty.BoxSizing != borderBox {
+	if sty.geometry().BoxSizing != borderBox {
 		height += sty.verticalChrome(engN)
 	}
 
@@ -2440,7 +2440,7 @@ func (e *engine) buildOutOfFlow(node *html.Node, sty *ResolvedStyle, availW, x, 
 	// CSS 2.1 §10.6.4: an absolutely positioned box with auto height and
 	// both top and bottom set stretches to fill the containing block (see
 	// absStretchUsedHeight). The synthesized height feeds the build below.
-	// The stretch copies the 6KB style once (rare abspos path) instead of
+	// The stretch copies the style once (rare abspos path) instead of
 	// mutating the shared cascade record.
 	if stretch, stretched := e.absStretchUsedHeight(sty, cbH, viewportFixed); stretched {
 		stretchCopy := *sty
@@ -2458,10 +2458,10 @@ func (e *engine) buildOutOfFlow(node *html.Node, sty *ResolvedStyle, availW, x, 
 	boxNode.opStart, boxNode.opEnd = start, len(e.ops)-1
 
 	absX := cbX
-	if !sty.LeftAuto {
-		absX = cbX + e.scalePt(sty.Left)
-	} else if !sty.RightAuto {
-		absX = cbX + cbW - boxNode.w - e.scalePt(sty.Right)
+	if !sty.positioning().LeftAuto {
+		absX = cbX + e.scalePt(sty.positioning().Left)
+	} else if !sty.positioning().RightAuto {
+		absX = cbX + cbW - boxNode.w - e.scalePt(sty.positioning().Right)
 	}
 
 	absY := e.resolveAbsY(sty, boxNode, cbY, viewportFixed, cbH)
@@ -2483,16 +2483,16 @@ func (e *engine) buildOutOfFlow(node *html.Node, sty *ResolvedStyle, availW, x, 
 // Split from buildOutOfFlow so the placement sequence stays within the
 // complexity budget.
 func (e *engine) absStretchUsedHeight(sty *ResolvedStyle, cbH float64, viewportFixed bool) (float64, bool) {
-	if viewportFixed || sty.Height >= 0 || sty.HeightPercent >= 0 || sty.TopAuto || sty.BottomAuto || cbH <= 0 {
+	if viewportFixed || sty.Height >= 0 || sty.HeightPercent >= 0 || sty.positioning().TopAuto || sty.positioning().BottomAuto || cbH <= 0 {
 		return 0, false
 	}
 
-	stretch := cbH - e.scalePt(sty.Top) - e.scalePt(sty.Bottom) - e.scalePt(sty.MarginTop) - e.scalePt(sty.MarginBottom)
+	stretch := cbH - e.scalePt(sty.positioning().Top) - e.scalePt(sty.positioning().Bottom) - e.scalePt(sty.MarginTop) - e.scalePt(sty.MarginBottom)
 	if stretch < 0 {
 		stretch = 0
 	}
 
-	if sty.BoxSizing == borderBox {
+	if sty.geometry().BoxSizing == borderBox {
 		stretch -= sty.verticalChrome(e)
 		if stretch < 0 {
 			stretch = 0
@@ -2511,8 +2511,8 @@ func (e *engine) absoluteBuildWidth(node *html.Node, sty *ResolvedStyle, cbW flo
 		return cbW
 	}
 
-	if !sty.LeftAuto && !sty.RightAuto {
-		buildW := cbW - e.scalePt(sty.Left+sty.Right)
+	if !sty.positioning().LeftAuto && !sty.positioning().RightAuto {
+		buildW := cbW - e.scalePt(sty.positioning().Left+sty.positioning().Right)
 		if buildW < 0 {
 			return 0
 		}
@@ -2521,12 +2521,12 @@ func (e *engine) absoluteBuildWidth(node *html.Node, sty *ResolvedStyle, cbW flo
 	}
 
 	avail := cbW
-	if !sty.LeftAuto {
-		avail -= e.scalePt(sty.Left)
+	if !sty.positioning().LeftAuto {
+		avail -= e.scalePt(sty.positioning().Left)
 	}
 
-	if !sty.RightAuto {
-		avail -= e.scalePt(sty.Right)
+	if !sty.positioning().RightAuto {
+		avail -= e.scalePt(sty.positioning().Right)
 	}
 
 	if avail < 0 {
@@ -2545,27 +2545,27 @@ func (e *engine) absoluteBuildWidth(node *html.Node, sty *ResolvedStyle, cbW flo
 //
 //nolint:wsl // ordered absolute-positioning cases mirror CSS precedence
 func (e *engine) resolveAbsY(sty *ResolvedStyle, boxNode *box, cbY float64, viewportFixed bool, cbH float64) float64 {
-	if !sty.TopAuto {
-		return cbY + e.scalePt(sty.Top)
+	if !sty.positioning().TopAuto {
+		return cbY + e.scalePt(sty.positioning().Top)
 	}
 
-	if sty.BottomAuto {
+	if sty.positioning().BottomAuto {
 		return cbY
 	}
 
 	if viewportFixed {
-		absY := e.opts.Height - boxNode.height - e.scalePt(sty.Bottom)
+		absY := e.opts.Height - boxNode.height - e.scalePt(sty.positioning().Bottom)
 		if absY < 0 {
-			return e.scalePt(sty.Bottom)
+			return e.scalePt(sty.positioning().Bottom)
 		}
 
 		return absY
 	}
 	if cbH > 0 {
-		return cbY + cbH - boxNode.height - e.scalePt(sty.Bottom)
+		return cbY + cbH - boxNode.height - e.scalePt(sty.positioning().Bottom)
 	}
 
-	return cbY + e.scalePt(sty.Bottom)
+	return cbY + e.scalePt(sty.positioning().Bottom)
 }
 
 // buildInFlowDisplay builds flex/grid/multicol/table/block ignoring position.

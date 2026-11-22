@@ -24,26 +24,26 @@ func applyTextPropsWave3(
 	case "text-wrap-mode":
 		setTextWrapMode(style, value)
 	case propTextWrapStyle:
-		style.TextWrapStyle = strings.ToLower(strings.TrimSpace(value))
+		style.editInlineText().TextWrapStyle = strings.ToLower(strings.TrimSpace(value))
 	case "white-space-collapse":
 		setWhiteSpaceCollapse(style, value)
 	case "white-space-trim":
-		style.WhiteSpaceTrim = strings.ToLower(strings.TrimSpace(value))
+		style.editInlineText().WhiteSpaceTrim = strings.ToLower(strings.TrimSpace(value))
 	case propHyphens:
 		setHyphens(style, value)
 	case "hyphenate-character":
-		style.HyphenateCharacter = strings.Trim(strings.TrimSpace(value), `"'`)
+		style.editInlineText().HyphenateCharacter = strings.Trim(strings.TrimSpace(value), `"'`)
 	case "text-justify":
-		style.TextJustify = strings.ToLower(strings.TrimSpace(value))
+		style.editInlineText().TextJustify = strings.ToLower(strings.TrimSpace(value))
 	case "line-break":
-		style.LineBreak = strings.ToLower(strings.TrimSpace(value))
+		style.editInlineText().LineBreak = strings.ToLower(strings.TrimSpace(value))
 
 	case "text-decoration-line":
 		setTextDecorationLine(style, value)
 	case propTextDecorationColor:
 		if c, ok := parseUsedColor(value, style.Color); ok {
-			style.TextDecorationColor = c
-			style.TextDecorationColorSet = true
+			style.editInlineText().TextDecorationColor = c
+			style.editInlineText().TextDecorationColorSet = true
 		}
 	case "text-decoration-style":
 		setTextDecorationStyle(style, value)
@@ -51,10 +51,10 @@ func applyTextPropsWave3(
 		setTextDecorationThickness(style, value, fsize)
 	case "text-underline-offset":
 		if off, ok := plainLength(value, fsize, 0); ok {
-			style.TextUnderlineOffset = off
+			style.editInlineText().TextUnderlineOffset = off
 		}
 	case "text-underline-position":
-		style.TextUnderlinePosition = strings.ToLower(strings.TrimSpace(value))
+		style.editInlineText().TextUnderlinePosition = strings.ToLower(strings.TrimSpace(value))
 	case textShadowProperty:
 		applyTextShadow(style, value, fsize)
 	case textEmphasisProperty:
@@ -91,7 +91,7 @@ func textJustifyMode(style *ResolvedStyle) string {
 		return "auto"
 	}
 
-	cleaned := strings.ReplaceAll(strings.ToLower(style.TextJustify), "no-compress", " ")
+	cleaned := strings.ReplaceAll(strings.ToLower(style.inlineText().TextJustify), "no-compress", " ")
 	fields := strings.Fields(cleaned)
 
 	for _, field := range fields {
@@ -163,41 +163,41 @@ func setTextAlignLast(style *ResolvedStyle, value string) {
 	val := strings.ToLower(strings.TrimSpace(value))
 	switch val {
 	case "auto", floatLeft, floatRight, fxCenter, cssTextAlignJustify, "start", "end":
-		style.TextAlignLast = val
+		style.editInlineText().TextAlignLast = val
 	}
 }
 
 func setTabSize(style *ResolvedStyle, value string, fsize float64) {
 	val := strings.TrimSpace(value)
 	if n, err := strconv.ParseFloat(val, 64); err == nil && n >= 0 {
-		style.TabSize = n
+		style.editInlineText().TabSize = n
 		if style.CustomProps != nil {
 			delete(style.CustomProps, "__tab_size_is_length")
 		}
 		return
 	}
 	if length, ok := plainLength(val, fsize, 0); ok && length >= 0 {
-		style.TabSize = length
+		style.editInlineText().TabSize = length
 		ensureEmphasisMap(style)
 		style.CustomProps["__tab_size_is_length"] = "1"
 	}
 }
 
 func setTextWrap(style *ResolvedStyle, value string) {
-	style.TextWrap = strings.TrimSpace(value)
+	style.editInlineText().TextWrap = strings.TrimSpace(value)
 	for _, tok := range strings.Fields(value) {
 		tok = strings.ToLower(tok)
 		if tok == "wrap" || tok == "nowrap" {
 			setTextWrapMode(style, tok)
 		} else {
-			style.TextWrapStyle = tok
+			style.editInlineText().TextWrapStyle = tok
 		}
 	}
 }
 
 func setTextWrapMode(style *ResolvedStyle, value string) {
 	val := strings.ToLower(strings.TrimSpace(value))
-	style.TextWrapMode = val
+	style.editInlineText().TextWrapMode = val
 	if val == "nowrap" {
 		style.WhiteSpace = cssWhiteSpaceNowrap
 	} else if val == "wrap" && style.WhiteSpace == cssWhiteSpaceNowrap {
@@ -207,7 +207,7 @@ func setTextWrapMode(style *ResolvedStyle, value string) {
 
 func setWhiteSpaceCollapse(style *ResolvedStyle, value string) {
 	val := strings.ToLower(strings.TrimSpace(value))
-	style.WhiteSpaceCollapse = val
+	style.editInlineText().WhiteSpaceCollapse = val
 	switch val {
 	case "collapse":
 		style.WhiteSpace = contentNormal
@@ -224,20 +224,20 @@ func setHyphens(style *ResolvedStyle, value string) {
 	val := strings.ToLower(strings.TrimSpace(value))
 	switch val {
 	case "none", "manual", "auto":
-		style.Hyphens = val
+		style.editInlineText().Hyphens = val
 	}
 }
 
 func setTextDecorationLine(style *ResolvedStyle, value string) {
 	val := strings.ToLower(strings.TrimSpace(value))
-	style.TextDecorationLine = val
+	style.editInlineText().TextDecorationLine = val
 	switch {
 	case strings.Contains(val, "underline"):
-		style.TextDecoration = cssTextDecorationUnderline
+		style.editInlineText().TextDecoration = cssTextDecorationUnderline
 	case strings.Contains(val, "line-through"):
-		style.TextDecoration = cssTextDecorationLineThrough
+		style.editInlineText().TextDecoration = cssTextDecorationLineThrough
 	case val == "none":
-		style.TextDecoration = cssDisplayNone
+		style.editInlineText().TextDecoration = cssDisplayNone
 	}
 }
 
@@ -245,26 +245,27 @@ func setTextDecorationStyle(style *ResolvedStyle, value string) {
 	val := strings.ToLower(strings.TrimSpace(value))
 	switch val {
 	case solidKeyword, "double", "dotted", "dashed", "wavy":
-		style.TextDecorationStyle = val
+		style.editInlineText().TextDecorationStyle = val
 	}
 }
 
 func setTextDecorationThickness(style *ResolvedStyle, value string, fsize float64) {
 	val := strings.TrimSpace(value)
 	if val == "auto" || val == "from-font" {
-		style.TextDecorationThickness = 0
+		style.editInlineText().TextDecorationThickness = 0
 		return
 	}
 	if th, ok := plainLength(val, fsize, 0); ok && th > 0 {
-		style.TextDecorationThickness = th
+		style.editInlineText().TextDecorationThickness = th
 	}
 }
 
 func applyTextShadow(style *ResolvedStyle, value string, fsize float64) {
 	val := strings.TrimSpace(value)
 	if val == "" || strings.EqualFold(val, cssDisplayNone) {
-		style.TextShadowSet = false
-		style.TextShadowX, style.TextShadowY, style.TextShadowBlur = 0, 0, 0
+		inlineText := style.editInlineText()
+		inlineText.TextShadowSet = false
+		inlineText.TextShadowX, inlineText.TextShadowY, inlineText.TextShadowBlur = 0, 0, 0
 		if style.CustomProps != nil {
 			delete(style.CustomProps, "__text_shadow_extra")
 			delete(style.CustomProps, "__text_shadow_raw")
@@ -274,7 +275,7 @@ func applyTextShadow(style *ResolvedStyle, value string, fsize float64) {
 
 	shadows := splitCommaRespectParens(val)
 	if len(shadows) == 0 {
-		style.TextShadowSet = false
+		style.editInlineText().TextShadowSet = false
 		return
 	}
 	// First shadow goes into the primary fields for backward compat.
@@ -282,30 +283,30 @@ func applyTextShadow(style *ResolvedStyle, value string, fsize float64) {
 	parts := strings.Fields(first)
 	if len(parts) >= 2 {
 		if x, ok := plainLength(parts[0], fsize, 0); ok {
-			style.TextShadowX = x
+			style.editInlineText().TextShadowX = x
 		}
 		if y, ok := plainLength(parts[1], fsize, 0); ok {
-			style.TextShadowY = y
+			style.editInlineText().TextShadowY = y
 		}
-		style.TextShadowSet = true
+		style.editInlineText().TextShadowSet = true
 	}
 	if len(parts) >= 3 {
 		if b, ok := plainLength(parts[2], fsize, 0); ok && b >= 0 {
-			style.TextShadowBlur = b
+			style.editInlineText().TextShadowBlur = b
 		} else {
-			style.TextShadowBlur = 0
+			style.editInlineText().TextShadowBlur = 0
 		}
 	} else {
-		style.TextShadowBlur = 0
+		style.editInlineText().TextShadowBlur = 0
 	}
 	if len(parts) >= 4 {
 		if c, ok := parseUsedColor(strings.Join(parts[3:], " "), style.Color); ok {
-			style.TextShadowColor = c
+			style.editInlineText().TextShadowColor = c
 		} else {
-			style.TextShadowColor = style.Color
+			style.editInlineText().TextShadowColor = style.Color
 		}
 	} else {
-		style.TextShadowColor = style.Color
+		style.editInlineText().TextShadowColor = style.Color
 	}
 	// Store remaining shadows encoded for paint.
 	if len(shadows) > 1 {

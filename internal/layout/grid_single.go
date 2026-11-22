@@ -7,19 +7,19 @@ import "strings"
 // built once at its final position. Explicit rows, areas, placement, spans,
 // and percentage heights still take the two-pass path.
 func canBuildSingleColumnGrid(eng *engine, sty ResolvedStyle, placed []gridCell, cols []float64) bool {
-	if len(placed) == 0 || len(cols) != 1 || strings.TrimSpace(sty.GridTemplateRows) != "" ||
-		strings.TrimSpace(sty.GridTemplateAreas) != "" {
+	if len(placed) == 0 || len(cols) != 1 || strings.TrimSpace(sty.grid().GridTemplateRows) != "" ||
+		strings.TrimSpace(sty.grid().GridTemplateAreas) != "" {
 		return false
 	}
 
-	if autoRows := strings.TrimSpace(sty.GridAutoRows); autoRows != "" && !strings.EqualFold(autoRows, "auto") {
+	if autoRows := strings.TrimSpace(sty.grid().GridAutoRows); autoRows != "" && !strings.EqualFold(autoRows, "auto") {
 		return false
 	}
 
 	seen := make(map[int]bool, len(placed))
 
 	for _, page := range placed {
-		if !singleColumnCellEligible(eng, page, sty.JustifyItems, seen) {
+		if !singleColumnCellEligible(eng, page, sty.flex().JustifyItems, seen) {
 			return false
 		}
 	}
@@ -63,7 +63,7 @@ func (e *engine) layoutSingleColumnGrid(
 	byRow := singleColumnByRow(placed, numRows)
 	cellW := cols[0]
 
-	containerJustify := sty.JustifyItems
+	containerJustify := sty.flex().JustifyItems
 	if containerJustify == "" {
 		containerJustify = fxStretch
 	}
@@ -94,7 +94,7 @@ func (e *engine) layoutSingleColumnGrid(
 		rowTop += cblock.height + rowGap
 	}
 
-	rowYs := gridRowTops(curY, rows, rowGap, contentH, sty.AlignContent)
+	rowYs := gridRowTops(curY, rows, rowGap, contentH, sty.flex().AlignContent)
 
 	e.shiftSingleColumnRows(children, numRows, rowYs, posY)
 	e.paintGridGapRules(sty, placed, contentX, contentW, cols, columnGap, rowYs, rows, posY)

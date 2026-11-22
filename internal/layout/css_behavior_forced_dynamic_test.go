@@ -24,9 +24,11 @@ func forcedModeFillDiverges(t *testing.T) {
 
 	blueBG := func(adjust string) ResolvedStyle {
 		return ResolvedStyle{
-			BGColor:           [4]float64{0, 0, 1, 1},
-			ForcedColorAdjust: adjust,
-			DynamicRangeLimit: "no-limit",
+			BGColor: [4]float64{0, 0, 1, 1},
+			containmentGroup: &styleContainment{
+				ForcedColorAdjust: adjust,
+				DynamicRangeLimit: "no-limit",
+			},
 		}
 	}
 
@@ -150,9 +152,11 @@ func TestBehaviorForcedColorAdjustPrintKeepsAuthor(t *testing.T) {
 // parser clamps every channel into 0..1.
 func dynamicRangeWideBG(limit string) ResolvedStyle {
 	return ResolvedStyle{
-		BGColor:           [4]float64{1.4, -0.2, 0.6, 1},
-		ForcedColorAdjust: "auto",
-		DynamicRangeLimit: limit,
+		BGColor: [4]float64{1.4, -0.2, 0.6, 1},
+		containmentGroup: &styleContainment{
+			ForcedColorAdjust: "auto",
+			DynamicRangeLimit: limit,
+		},
 	}
 }
 
@@ -310,9 +314,11 @@ func TestBehaviorForcedColorAdjustActiveHelpersDiverge(t *testing.T) {
 
 	blueBG := func(adjust string) ResolvedStyle {
 		return ResolvedStyle{
-			BGColor:           [4]float64{0, 0, 1, 1},
-			ForcedColorAdjust: adjust,
-			DynamicRangeLimit: "no-limit",
+			BGColor: [4]float64{0, 0, 1, 1},
+			containmentGroup: &styleContainment{
+				ForcedColorAdjust: adjust,
+				DynamicRangeLimit: "no-limit",
+			},
 		}
 	}
 

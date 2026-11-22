@@ -26,10 +26,10 @@ func TestBorderSideStyles(t *testing.T) {
 	}
 	applyRestProps(&s, raw, ctx, nil)
 
-	if s.BorderTop.Style != "dashed" || s.BorderRight.Style != "dotted" ||
-		s.BorderBottom.Style != "solid" || s.BorderLeft.Style != "none" {
+	if s.borders().BorderTop.Style != "dashed" || s.borders().BorderRight.Style != "dotted" ||
+		s.borders().BorderBottom.Style != "solid" || s.borders().BorderLeft.Style != "none" {
 		t.Errorf("mismatch on border side styles: top=%v, right=%v, bot=%v, left=%v",
-			s.BorderTop.Style, s.BorderRight.Style, s.BorderBottom.Style, s.BorderLeft.Style)
+			s.borders().BorderTop.Style, s.borders().BorderRight.Style, s.borders().BorderBottom.Style, s.borders().BorderLeft.Style)
 	}
 }
 
@@ -57,15 +57,15 @@ func TestBackgroundLonghands(t *testing.T) {
 	}
 	applyRestProps(&s, raw, ctx, nil)
 
-	if s.BackgroundImage != "header.png" || s.BackgroundPosX != "center" || s.BackgroundPosY != "top" {
-		t.Errorf("mismatch on bg image/pos: img=%q, posX=%q, posY=%q", s.BackgroundImage, s.BackgroundPosX, s.BackgroundPosY)
+	if s.background().BackgroundImage != "header.png" || s.background().BackgroundPosX != "center" || s.background().BackgroundPosY != "top" {
+		t.Errorf("mismatch on bg image/pos: img=%q, posX=%q, posY=%q", s.background().BackgroundImage, s.background().BackgroundPosX, s.background().BackgroundPosY)
 	}
-	if s.BackgroundSize != "cover" || s.BackgroundRepeat != "no-repeat" {
-		t.Errorf("mismatch on bg size/repeat: size=%q, repeat=%q", s.BackgroundSize, s.BackgroundRepeat)
+	if s.background().BackgroundSize != "cover" || s.background().BackgroundRepeat != "no-repeat" {
+		t.Errorf("mismatch on bg size/repeat: size=%q, repeat=%q", s.background().BackgroundSize, s.background().BackgroundRepeat)
 	}
-	if s.BackgroundClip != "padding-box" || s.BackgroundOrigin != "content-box" || s.BackgroundAttachment != "fixed" {
+	if s.background().BackgroundClip != "padding-box" || s.background().BackgroundOrigin != "content-box" || s.background().BackgroundAttachment != "fixed" {
 		t.Errorf("mismatch on bg clip/origin/attachment: clip=%q, origin=%q, attachment=%q",
-			s.BackgroundClip, s.BackgroundOrigin, s.BackgroundAttachment)
+			s.background().BackgroundClip, s.background().BackgroundOrigin, s.background().BackgroundAttachment)
 	}
 }
 
@@ -90,8 +90,8 @@ func TestBorderImageProps(t *testing.T) {
 	}
 	applyRestProps(&s, raw, ctx, nil)
 
-	if s.BorderImageSource != "url(border.png)" || s.BorderImageSlice != "30" ||
-		s.BorderImageWidth != "10pt" || s.BorderImageOutset != "2pt" || s.BorderImageRepeat != "round" {
+	if s.borders().BorderImageSource != "url(border.png)" || s.borders().BorderImageSlice != "30" ||
+		s.borders().BorderImageWidth != "10pt" || s.borders().BorderImageOutset != "2pt" || s.borders().BorderImageRepeat != "round" {
 		t.Errorf("mismatch on border image props: %+v", s)
 	}
 }
@@ -113,10 +113,10 @@ func TestBorderColorFourValues(t *testing.T) {
 	}
 	applyRestProps(&s, raw, ctx, nil)
 
-	if s.BorderTop.Color[0] < 0.9 || s.BorderRight.Color[2] < 0.9 ||
-		s.BorderBottom.Color[1] < 0.7 || s.BorderLeft.Color[0] < 0.9 {
+	if s.borders().BorderTop.Color[0] < 0.9 || s.borders().BorderRight.Color[2] < 0.9 ||
+		s.borders().BorderBottom.Color[1] < 0.7 || s.borders().BorderLeft.Color[0] < 0.9 {
 		t.Errorf("mismatch on four-value border-color: top=%v, right=%v, bot=%v, left=%v",
-			s.BorderTop.Color, s.BorderRight.Color, s.BorderBottom.Color, s.BorderLeft.Color)
+			s.borders().BorderTop.Color, s.borders().BorderRight.Color, s.borders().BorderBottom.Color, s.borders().BorderLeft.Color)
 	}
 }
 
@@ -156,8 +156,8 @@ func TestTransparentBorderPaintsNothing(t *testing.T) {
 	if len(eng.ops) != 0 {
 		t.Fatalf("transparent replaced-element border ops = %d, want 0", len(eng.ops))
 	}
-	if !near(allTransparent.BorderTop.Width, borderWidthPt) {
-		t.Fatalf("transparent border width = %.2fpt, want %dpt", allTransparent.BorderTop.Width, borderWidthPt)
+	if !near(allTransparent.borders().BorderTop.Width, borderWidthPt) {
+		t.Fatalf("transparent border width = %.2fpt, want %dpt", allTransparent.borders().BorderTop.Width, borderWidthPt)
 	}
 
 	// Longhand color declarations take the same alpha path.

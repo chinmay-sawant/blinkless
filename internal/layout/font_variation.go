@@ -29,8 +29,8 @@ func resolveFontVariants(sty *ResolvedStyle, face *pdf.Font) *pdf.Font {
 		return face
 	}
 
-	wantsAxes := sty.FontVariationSettings != fontVariantNormal || sty.FontOpticalSizing == fontOpticalAuto
-	wantsPalette := sty.FontPalette != fontVariantNormal
+	wantsAxes := sty.font().FontVariationSettings != fontVariantNormal || sty.font().FontOpticalSizing == fontOpticalAuto
+	wantsPalette := sty.font().FontPalette != fontVariantNormal
 
 	if !wantsAxes && !wantsPalette {
 		return face
@@ -71,15 +71,15 @@ func variationSettingsFor(sty *ResolvedStyle, face *pdf.Font) []pdf.Variation {
 	vars := make([]pdf.Variation, 0, fontVariationInitialCapacity)
 	seen := map[string]int{}
 
-	if sty.FontOpticalSizing == fontOpticalAuto {
+	if sty.font().FontOpticalSizing == fontOpticalAuto {
 		if axis, ok := findVariationAxis(face, "opsz"); ok {
 			vars = append(vars, pdf.Variation{Tag: axis.Tag, Value: float32(sty.FontSize)})
 			seen[axis.Tag] = 0
 		}
 	}
 
-	if sty.FontVariationSettings != fontVariantNormal {
-		for _, part := range splitFontVariationList(sty.FontVariationSettings) {
+	if sty.font().FontVariationSettings != fontVariantNormal {
+		for _, part := range splitFontVariationList(sty.font().FontVariationSettings) {
 			tag, number, ok := parseFontVariationPair(part)
 			if !ok {
 				continue
@@ -120,8 +120,8 @@ func variationCacheBits(sty *ResolvedStyle) (string, string, uint64) {
 		return "", "", 0
 	}
 
-	optical := sty.FontOpticalSizing
-	variations := sty.FontVariationSettings
+	optical := sty.font().FontOpticalSizing
+	variations := sty.font().FontVariationSettings
 
 	if optical == fontOpticalAuto {
 		return optical, variations, math.Float64bits(sty.FontSize)

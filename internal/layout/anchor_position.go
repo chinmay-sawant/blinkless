@@ -393,9 +393,9 @@ func applyAnchorNameProp(style *ResolvedStyle, value string, parent *ResolvedSty
 	if cssWideKeyword(strings.ToLower(trimmed)) {
 		kw := strings.ToLower(trimmed)
 		if kw == inheritKeyword && hasParent && parent != nil {
-			style.AnchorNames = append([]string(nil), parent.AnchorNames...)
+			style.editPositioning().AnchorNames = append([]string(nil), parent.positioning().AnchorNames...)
 		} else {
-			style.AnchorNames = nil
+			style.editPositioning().AnchorNames = nil
 		}
 
 		return true
@@ -406,7 +406,7 @@ func applyAnchorNameProp(style *ResolvedStyle, value string, parent *ResolvedSty
 		return true
 	}
 
-	style.AnchorNames = names
+	style.editPositioning().AnchorNames = names
 
 	return true
 }
@@ -416,9 +416,9 @@ func applyAnchorScopeProp(style *ResolvedStyle, value string, parent *ResolvedSt
 	if cssWideKeyword(strings.ToLower(trimmed)) {
 		kw := strings.ToLower(trimmed)
 		if kw == inheritKeyword && hasParent && parent != nil {
-			style.AnchorScope = parent.AnchorScope
+			style.editPositioning().AnchorScope = parent.positioning().AnchorScope
 		} else {
-			style.AnchorScope = ""
+			style.editPositioning().AnchorScope = ""
 		}
 
 		return true
@@ -429,7 +429,7 @@ func applyAnchorScopeProp(style *ResolvedStyle, value string, parent *ResolvedSt
 		return true
 	}
 
-	style.AnchorScope = scope
+	style.editPositioning().AnchorScope = scope
 
 	return true
 }
@@ -441,10 +441,10 @@ func applyPositionAnchorProp(style *ResolvedStyle, value string, parent *Resolve
 		var parentVal string
 
 		if hasParent && parent != nil {
-			parentVal = parent.PositionAnchor
+			parentVal = parent.positioning().PositionAnchor
 		}
 
-		style.PositionAnchor = applyAnchorWideKeywordString(parentVal, kw, hasParent)
+		style.editPositioning().PositionAnchor = applyAnchorWideKeywordString(parentVal, kw, hasParent)
 
 		return true
 	}
@@ -454,7 +454,7 @@ func applyPositionAnchorProp(style *ResolvedStyle, value string, parent *Resolve
 		return true
 	}
 
-	style.PositionAnchor = anchor
+	style.editPositioning().PositionAnchor = anchor
 
 	return true
 }
@@ -466,16 +466,16 @@ func applyPositionAreaProp(style *ResolvedStyle, value string, parent *ResolvedS
 		var parentVal string
 
 		if hasParent && parent != nil {
-			parentVal = parent.PositionArea
+			parentVal = parent.positioning().PositionArea
 		}
 
-		style.PositionArea = applyAnchorWideKeywordString(parentVal, kw, hasParent)
+		style.editPositioning().PositionArea = applyAnchorWideKeywordString(parentVal, kw, hasParent)
 
 		return true
 	}
 
 	if strings.EqualFold(trimmed, "none") {
-		style.PositionArea = "none"
+		style.editPositioning().PositionArea = "none"
 
 		return true
 	}
@@ -485,7 +485,7 @@ func applyPositionAreaProp(style *ResolvedStyle, value string, parent *ResolvedS
 		return true
 	}
 
-	style.PositionArea = area
+	style.editPositioning().PositionArea = area
 
 	return true
 }
@@ -495,9 +495,9 @@ func applyPositionTryFallbacksProp(style *ResolvedStyle, value string, parent *R
 	if cssWideKeyword(strings.ToLower(trimmed)) {
 		kw := strings.ToLower(trimmed)
 		if kw == inheritKeyword && hasParent && parent != nil {
-			style.PositionTryFallbacks = append([]string(nil), parent.PositionTryFallbacks...)
+			style.editPositioning().PositionTryFallbacks = append([]string(nil), parent.positioning().PositionTryFallbacks...)
 		} else {
-			style.PositionTryFallbacks = nil
+			style.editPositioning().PositionTryFallbacks = nil
 		}
 
 		return true
@@ -508,7 +508,7 @@ func applyPositionTryFallbacksProp(style *ResolvedStyle, value string, parent *R
 		return true
 	}
 
-	style.PositionTryFallbacks = fallbacks
+	style.editPositioning().PositionTryFallbacks = fallbacks
 
 	return true
 }
@@ -520,10 +520,10 @@ func applyPositionTryOrderProp(style *ResolvedStyle, value string, parent *Resol
 		var parentVal string
 
 		if hasParent && parent != nil {
-			parentVal = parent.PositionTryOrder
+			parentVal = parent.positioning().PositionTryOrder
 		}
 
-		style.PositionTryOrder = applyAnchorWideKeywordString(parentVal, kw, hasParent)
+		style.editPositioning().PositionTryOrder = applyAnchorWideKeywordString(parentVal, kw, hasParent)
 
 		return true
 	}
@@ -533,7 +533,7 @@ func applyPositionTryOrderProp(style *ResolvedStyle, value string, parent *Resol
 		return true
 	}
 
-	style.PositionTryOrder = order
+	style.editPositioning().PositionTryOrder = order
 
 	return true
 }
@@ -545,10 +545,10 @@ func applyPositionVisibilityProp(style *ResolvedStyle, value string, parent *Res
 		var parentVal string
 
 		if hasParent && parent != nil {
-			parentVal = parent.PositionVisibility
+			parentVal = parent.positioning().PositionVisibility
 		}
 
-		style.PositionVisibility = applyAnchorWideKeywordString(parentVal, kw, hasParent)
+		style.editPositioning().PositionVisibility = applyAnchorWideKeywordString(parentVal, kw, hasParent)
 
 		return true
 	}
@@ -558,7 +558,7 @@ func applyPositionVisibilityProp(style *ResolvedStyle, value string, parent *Res
 		return true
 	}
 
-	style.PositionVisibility = vis
+	style.editPositioning().PositionVisibility = vis
 
 	return true
 }
@@ -802,7 +802,7 @@ func buildAnchorMap(root *box, styles map[*html.Node]*ResolvedStyle) map[string]
 
 		if b.node != nil {
 			if sty := styles[b.node]; sty != nil {
-				for _, name := range sty.AnchorNames {
+				for _, name := range sty.positioning().AnchorNames {
 					out[name] = append(out[name], b)
 				}
 			}
@@ -829,7 +829,7 @@ func findTargetAnchor(
 		return nil
 	}
 
-	name := strings.TrimSpace(target.style.PositionAnchor)
+	name := strings.TrimSpace(target.style.positioning().PositionAnchor)
 
 	if isAnchorDashedIdent(name) {
 		candidates := inScopeAnchorBoxes(anchorMap[name], target.node, name, styles)
@@ -922,7 +922,7 @@ func isAnchorInScope(
 			continue
 		}
 
-		scope := strings.TrimSpace(sty.AnchorScope)
+		scope := strings.TrimSpace(sty.positioning().AnchorScope)
 		if scope == "" || strings.EqualFold(scope, "none") {
 			continue
 		}
@@ -1079,7 +1079,7 @@ func collectAnchorCandidates(
 	sheets []*css.Stylesheet,
 ) []anchorCandidate {
 	base := make([]anchorCandidate, 0, 1)
-	fallbacks := make([]anchorCandidate, 0, len(sty.PositionTryFallbacks))
+	fallbacks := make([]anchorCandidate, 0, len(sty.positioning().PositionTryFallbacks))
 
 	add := func(area string, flipV, flipH bool, into *[]anchorCandidate) {
 		if anchor == nil || target == nil {
@@ -1090,17 +1090,17 @@ func collectAnchorCandidates(
 			return
 		}
 
-		leftAuto := sty.LeftAuto
-		topAuto := sty.TopAuto
+		leftAuto := sty.positioning().LeftAuto
+		topAuto := sty.positioning().TopAuto
 		fallbackX := target.x
 		fallbackY := target.y
 
 		if flipV {
-			topAuto = sty.BottomAuto
+			topAuto = sty.positioning().BottomAuto
 		}
 
 		if flipH {
-			leftAuto = sty.RightAuto
+			leftAuto = sty.positioning().RightAuto
 		}
 
 		x, y, trackW, trackH, ok := anchorAreaGeometry(
@@ -1123,10 +1123,10 @@ func collectAnchorCandidates(
 		})
 	}
 
-	add(sty.PositionArea, false, false, &base)
+	add(sty.positioning().PositionArea, false, false, &base)
 
-	for _, entry := range sty.PositionTryFallbacks {
-		area, ok, flipV, flipH := resolveAnchorFallbackItem(entry, sty.PositionArea, sheets)
+	for _, entry := range sty.positioning().PositionTryFallbacks {
+		area, ok, flipV, flipH := resolveAnchorFallbackItem(entry, sty.positioning().PositionArea, sheets)
 		if !ok {
 			continue
 		}
@@ -1134,7 +1134,7 @@ func collectAnchorCandidates(
 		add(area, flipV, flipH, &fallbacks)
 	}
 
-	fallbacks = orderAnchorCandidates(fallbacks, sty.PositionTryOrder)
+	fallbacks = orderAnchorCandidates(fallbacks, sty.positioning().PositionTryOrder)
 
 	return append(base, fallbacks...)
 }
@@ -1285,7 +1285,7 @@ func pickAnchorCandidate(
 		}
 	}
 
-	if strings.Contains(normalizeCSSValue(sty.PositionVisibility), "no-overflow") {
+	if strings.Contains(normalizeCSSValue(sty.positioning().PositionVisibility), "no-overflow") {
 		return nil, true
 	}
 
@@ -1878,4 +1878,14 @@ func isAmbiguousAreaKeyword(tok string) bool {
 	default:
 		return false
 	}
+}
+
+// PositionTryFallbacks returns the declared fallback list in document order.
+func (s *ResolvedStyle) PositionTryFallbacks() []string {
+	return s.positioning().PositionTryFallbacks
+}
+
+// PositionArea returns the used position-area value.
+func (s *ResolvedStyle) PositionArea() string {
+	return s.positioning().PositionArea
 }

@@ -30,10 +30,10 @@ func (e *engine) buildShapeInside(
 		return nil
 	}
 
-	source := sty.ShapeInside
+	source := sty.positioning().ShapeInside
 
-	if sty.ShapeInsideOutside {
-		source = sty.ShapeOutside
+	if sty.positioning().ShapeInsideOutside {
+		source = sty.positioning().ShapeOutside
 	}
 
 	if source == "" || source == shapeOutsideNone || source == shapeInsideAuto {
@@ -46,7 +46,7 @@ func (e *engine) buildShapeInside(
 	}
 
 	contentTop := boxNode.y + e.scalePt(sty.PaddingTop) +
-		e.scalePt(borderLayoutWidth(&sty, sty.BorderTop))
+		e.scalePt(borderLayoutWidth(&sty, sty.borders().BorderTop))
 
 	refX, refY, refW, refH := e.insideReferenceBox(sty, contentX, contentW, contentTop, contentH)
 
@@ -115,14 +115,14 @@ func (e *engine) insideReferenceBox(
 	padR := e.scalePt(sty.PaddingRight)
 	padT := e.scalePt(sty.PaddingTop)
 	padB := e.scalePt(sty.PaddingBottom)
-	bordL := e.scalePt(borderLayoutWidth(&sty, sty.BorderLeft))
-	bordR := e.scalePt(borderLayoutWidth(&sty, sty.BorderRight))
-	bordT := e.scalePt(borderLayoutWidth(&sty, sty.BorderTop))
-	bordB := e.scalePt(borderLayoutWidth(&sty, sty.BorderBottom))
+	bordL := e.scalePt(borderLayoutWidth(&sty, sty.borders().BorderLeft))
+	bordR := e.scalePt(borderLayoutWidth(&sty, sty.borders().BorderRight))
+	bordT := e.scalePt(borderLayoutWidth(&sty, sty.borders().BorderTop))
+	bordB := e.scalePt(borderLayoutWidth(&sty, sty.borders().BorderBottom))
 
 	var left, right, top, bottom float64
 
-	switch sty.ShapeInsideBox {
+	switch sty.positioning().ShapeInsideBox {
 	case shapeBoxPadding:
 		left, right, top, bottom = padL, padR, padT, padB
 	case shapeBoxBorder:
@@ -142,11 +142,11 @@ func (e *engine) insideReferenceBox(
 // resolves shape-margin (shape_exclusion.go): a percentage against the
 // reference diagonal sqrt(w^2+h^2)/sqrt(2), a length scaled to canvas points.
 func resolveShapePadding(sty ResolvedStyle, refW, refH, scale float64) float64 {
-	if sty.ShapePaddingPercent >= 0 {
-		return sty.ShapePaddingPercent / 100 * shapeReferenceDiagonal(refW, refH)
+	if sty.positioning().ShapePaddingPercent >= 0 {
+		return sty.positioning().ShapePaddingPercent / 100 * shapeReferenceDiagonal(refW, refH)
 	}
 
-	return sty.ShapePadding * scale
+	return sty.positioning().ShapePadding * scale
 }
 
 // shrinkInsideShape insets the contour by pad: an ellipse loses the padding

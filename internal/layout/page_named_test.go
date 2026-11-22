@@ -19,17 +19,17 @@ func TestPageNameInherits(t *testing.T) {
 	`)}, "print", testViewport, 800)
 
 	inner := styleByClass(t, styles, "inner")
-	if inner.PageName != chapterPageName {
-		t.Fatalf("inner PageName = %q, want chapter (used-value inherit)", inner.PageName)
+	if inner.fragmentation().PageName != chapterPageName {
+		t.Fatalf("inner PageName = %q, want chapter (used-value inherit)", inner.fragmentation().PageName)
 	}
 
 	own := styleByClass(t, styles, "own")
-	if own.PageName != "cover" {
-		t.Fatalf("own PageName = %q, want cover", own.PageName)
+	if own.fragmentation().PageName != "cover" {
+		t.Fatalf("own PageName = %q, want cover", own.fragmentation().PageName)
 	}
 
 	outer := styleByClass(t, styles, "outer")
-	if outer.PageName != chapterPageName {
-		t.Fatalf("outer PageName = %q, want chapter", outer.PageName)
+	if outer.fragmentation().PageName != chapterPageName {
+		t.Fatalf("outer PageName = %q, want chapter", outer.fragmentation().PageName)
 	}
 }

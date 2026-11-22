@@ -11,9 +11,9 @@ func fontPaletteFill(sty *ResolvedStyle, face *pdf.Font) (float64, float64, floa
 		return 0, 0, 0, false
 	}
 
-	if sty.FontPalette == "" || sty.FontPalette == fontVariantNormal {
+	if sty.font().FontPalette == "" || sty.font().FontPalette == fontVariantNormal {
 		return 0, 0, 0, false
 	}
 
-	return face.PaletteSolidFill(sty.FontPalette)
+	return face.PaletteSolidFill(sty.font().FontPalette)
 }

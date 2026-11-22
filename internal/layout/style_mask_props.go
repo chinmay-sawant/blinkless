@@ -67,8 +67,6 @@ func maskParentValue(parentField *string) string {
 }
 
 func maskStylePropertyFor(style, parent *ResolvedStyle, prop string) (maskStyleProperty, bool) {
-	field := maskStyleField(style, prop)
-
 	initial, ok := maskStyleInitial(prop)
 	if !ok {
 		return maskStyleProperty{field: nil, parentField: nil, initial: "", lower: false}, false
@@ -76,18 +74,18 @@ func maskStylePropertyFor(style, parent *ResolvedStyle, prop string) (maskStyleP
 
 	var parentField *string
 	if parent != nil {
-		parentField = maskStyleField(parent, prop)
+		parentField = maskStyleField(parent.effects(), prop)
 	}
 
 	return maskStyleProperty{
-		field:       field,
+		field:       maskStyleField(style.editEffects(), prop),
 		parentField: parentField,
 		initial:     initial,
 		lower:       maskStyleLowercase(prop),
 	}, true
 }
 
-func maskStyleField(style *ResolvedStyle, prop string) *string {
+func maskStyleField(style *styleEffects, prop string) *string {
 	switch prop {
 	case maskTypeProperty:
 		return &style.MaskType
@@ -96,7 +94,7 @@ func maskStyleField(style *ResolvedStyle, prop string) *string {
 	}
 }
 
-func maskStyleLayerField(style *ResolvedStyle, prop string) *string {
+func maskStyleLayerField(style *styleEffects, prop string) *string {
 	switch prop {
 	case maskImageProperty:
 		return &style.MaskImage

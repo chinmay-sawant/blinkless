@@ -18,7 +18,7 @@ func textBoxTrimFlags(block *ResolvedStyle, firstLine, lastLine bool) (bool, boo
 		return false, false
 	}
 
-	switch block.TextBoxTrim {
+	switch block.inlineText().TextBoxTrim {
 	case textBoxTrimStartKeyword:
 		return firstLine, false
 	case "trim-end":
@@ -50,12 +50,12 @@ func (e *engine) adjustTextBoxMetrics(
 	under := "auto"
 
 	if style != nil {
-		if style.TextBoxEdgeOver != "" {
-			over = style.TextBoxEdgeOver
+		if style.inlineText().TextBoxEdgeOver != "" {
+			over = style.inlineText().TextBoxEdgeOver
 		}
 
-		if style.TextBoxEdgeUnder != "" {
-			under = style.TextBoxEdgeUnder
+		if style.inlineText().TextBoxEdgeUnder != "" {
+			under = style.inlineText().TextBoxEdgeUnder
 		}
 	}
 

@@ -21,8 +21,8 @@ func TestShapeOutsideStoreRejectedTokensKeepEarlier(t *testing.T) {
 		t.Fatal("applyShapeProps rejected the circle() baseline")
 	}
 
-	if sty.ShapeOutside != "circle(10px)" {
-		t.Fatalf("baseline ShapeOutside = %q, want circle(10px)", sty.ShapeOutside)
+	if sty.positioning().ShapeOutside != "circle(10px)" {
+		t.Fatalf("baseline ShapeOutside = %q, want circle(10px)", sty.positioning().ShapeOutside)
 	}
 
 	for _, rejected := range []string{
@@ -34,9 +34,9 @@ func TestShapeOutsideStoreRejectedTokensKeepEarlier(t *testing.T) {
 			t.Fatalf("applyShapeProps(%q) = false, want the group to own the property", rejected)
 		}
 
-		if sty.ShapeOutside != "circle(10px)" {
+		if sty.positioning().ShapeOutside != "circle(10px)" {
 			t.Errorf("rejected %q replaced the earlier value: got %q, want circle(10px)",
-				rejected, sty.ShapeOutside)
+				rejected, sty.positioning().ShapeOutside)
 		}
 	}
 }
@@ -61,16 +61,16 @@ func TestShapeInsideStoreInitials(t *testing.T) {
 
 	sty := initialStyle()
 
-	if sty.ShapeInside != shapeInsideAuto {
-		t.Errorf("initial ShapeInside = %q, want %q", sty.ShapeInside, shapeInsideAuto)
+	if sty.positioning().ShapeInside != shapeInsideAuto {
+		t.Errorf("initial ShapeInside = %q, want %q", sty.positioning().ShapeInside, shapeInsideAuto)
 	}
 
-	if sty.ShapeInsideBox != "" || sty.ShapeInsideOutside {
-		t.Errorf("initial box/outside = %q/%v, want empty/false", sty.ShapeInsideBox, sty.ShapeInsideOutside)
+	if sty.positioning().ShapeInsideBox != "" || sty.positioning().ShapeInsideOutside {
+		t.Errorf("initial box/outside = %q/%v, want empty/false", sty.positioning().ShapeInsideBox, sty.positioning().ShapeInsideOutside)
 	}
 
-	if sty.ShapePadding != 0 || sty.ShapePaddingPercent != -1 {
-		t.Errorf("initial padding = %v/%v, want 0/-1", sty.ShapePadding, sty.ShapePaddingPercent)
+	if sty.positioning().ShapePadding != 0 || sty.positioning().ShapePaddingPercent != -1 {
+		t.Errorf("initial padding = %v/%v, want 0/-1", sty.positioning().ShapePadding, sty.positioning().ShapePaddingPercent)
 	}
 }
 
@@ -101,10 +101,10 @@ func TestShapeInsideStoreAcceptsSubset(t *testing.T) {
 		sty := initialStyle()
 		shapeInsideApply(t, &sty, "shape-inside", testCase.value)
 
-		if sty.ShapeInside != testCase.wantShape || sty.ShapeInsideBox != testCase.wantBox ||
-			sty.ShapeInsideOutside != testCase.wantOutside {
+		if sty.positioning().ShapeInside != testCase.wantShape || sty.positioning().ShapeInsideBox != testCase.wantBox ||
+			sty.positioning().ShapeInsideOutside != testCase.wantOutside {
 			t.Errorf("shape-inside:%s stored %q/%q/%v, want %q/%q/%v",
-				testCase.value, sty.ShapeInside, sty.ShapeInsideBox, sty.ShapeInsideOutside,
+				testCase.value, sty.positioning().ShapeInside, sty.positioning().ShapeInsideBox, sty.positioning().ShapeInsideOutside,
 				testCase.wantShape, testCase.wantBox, testCase.wantOutside)
 		}
 	}
@@ -132,10 +132,10 @@ func TestShapeInsideStoreRejectedTokensKeepEarlierValue(t *testing.T) {
 	for _, bad := range rejected {
 		shapeInsideApply(t, &sty, "shape-inside", bad)
 
-		if sty.ShapeInside != "circle(10px at 20% 30%)" || sty.ShapeInsideBox != "padding-box" ||
-			sty.ShapeInsideOutside {
+		if sty.positioning().ShapeInside != "circle(10px at 20% 30%)" || sty.positioning().ShapeInsideBox != "padding-box" ||
+			sty.positioning().ShapeInsideOutside {
 			t.Errorf("shape-inside:%s replaced the earlier value with %q/%q/%v",
-				bad, sty.ShapeInside, sty.ShapeInsideBox, sty.ShapeInsideOutside)
+				bad, sty.positioning().ShapeInside, sty.positioning().ShapeInsideBox, sty.positioning().ShapeInsideOutside)
 		}
 	}
 }
@@ -150,16 +150,16 @@ func TestShapeInsideStoreOutsideShapeFlagAndAutoReset(t *testing.T) {
 	shapeInsideApply(t, &sty, "shape-inside", "circle() border-box")
 	shapeInsideApply(t, &sty, "shape-inside", "outside-shape")
 
-	if sty.ShapeInside != shapeInsideAuto || sty.ShapeInsideBox != "" || !sty.ShapeInsideOutside {
+	if sty.positioning().ShapeInside != shapeInsideAuto || sty.positioning().ShapeInsideBox != "" || !sty.positioning().ShapeInsideOutside {
 		t.Fatalf("outside-shape stored %q/%q/%v, want auto/empty/true",
-			sty.ShapeInside, sty.ShapeInsideBox, sty.ShapeInsideOutside)
+			sty.positioning().ShapeInside, sty.positioning().ShapeInsideBox, sty.positioning().ShapeInsideOutside)
 	}
 
 	shapeInsideApply(t, &sty, "shape-inside", "auto")
 
-	if sty.ShapeInside != shapeInsideAuto || sty.ShapeInsideBox != "" || sty.ShapeInsideOutside {
+	if sty.positioning().ShapeInside != shapeInsideAuto || sty.positioning().ShapeInsideBox != "" || sty.positioning().ShapeInsideOutside {
 		t.Errorf("auto stored %q/%q/%v, want auto/empty/false",
-			sty.ShapeInside, sty.ShapeInsideBox, sty.ShapeInsideOutside)
+			sty.positioning().ShapeInside, sty.positioning().ShapeInsideBox, sty.positioning().ShapeInsideOutside)
 	}
 }
 
@@ -172,32 +172,32 @@ func TestShapePaddingStoreLengthPercentAndReject(t *testing.T) {
 	sty := initialStyle()
 	shapeInsideApply(t, &sty, "shape-padding", "10px")
 
-	if !near(sty.ShapePadding, pxToPt(10)) || sty.ShapePaddingPercent != -1 {
+	if !near(sty.positioning().ShapePadding, pxToPt(10)) || sty.positioning().ShapePaddingPercent != -1 {
 		t.Errorf("shape-padding:10px stored %v/%v, want %v/-1",
-			sty.ShapePadding, sty.ShapePaddingPercent, pxToPt(10))
+			sty.positioning().ShapePadding, sty.positioning().ShapePaddingPercent, pxToPt(10))
 	}
 
 	shapeInsideApply(t, &sty, "shape-padding", "5%")
 
-	if sty.ShapePadding != 0 || sty.ShapePaddingPercent != 5 {
+	if sty.positioning().ShapePadding != 0 || sty.positioning().ShapePaddingPercent != 5 {
 		t.Errorf("shape-padding:5%% stored %v/%v, want 0/5",
-			sty.ShapePadding, sty.ShapePaddingPercent)
+			sty.positioning().ShapePadding, sty.positioning().ShapePaddingPercent)
 	}
 
 	for _, bad := range []string{"-2px", "bogus", ""} {
 		shapeInsideApply(t, &sty, "shape-padding", bad)
 
-		if sty.ShapePadding != 0 || sty.ShapePaddingPercent != 5 {
+		if sty.positioning().ShapePadding != 0 || sty.positioning().ShapePaddingPercent != 5 {
 			t.Errorf("shape-padding:%q replaced the earlier percentage with %v/%v",
-				bad, sty.ShapePadding, sty.ShapePaddingPercent)
+				bad, sty.positioning().ShapePadding, sty.positioning().ShapePaddingPercent)
 		}
 	}
 
 	shapeInsideApply(t, &sty, "shape-padding", "0")
 
-	if sty.ShapePadding != 0 || sty.ShapePaddingPercent != -1 {
+	if sty.positioning().ShapePadding != 0 || sty.positioning().ShapePaddingPercent != -1 {
 		t.Errorf("shape-padding:0 stored %v/%v, want 0/-1",
-			sty.ShapePadding, sty.ShapePaddingPercent)
+			sty.positioning().ShapePadding, sty.positioning().ShapePaddingPercent)
 	}
 }
 
@@ -227,13 +227,13 @@ func TestShapeInsideStoreThroughCascadeDispatch(t *testing.T) {
 		"shape-padding": "4px",
 	}, shapeInsideStoreCtx(), nil)
 
-	if sty.ShapeInside != "inset(2px)" || sty.ShapeInsideBox != "padding-box" {
+	if sty.positioning().ShapeInside != "inset(2px)" || sty.positioning().ShapeInsideBox != "padding-box" {
 		t.Errorf("cascade dispatch stored %q/%q, want inset(2px)/padding-box",
-			sty.ShapeInside, sty.ShapeInsideBox)
+			sty.positioning().ShapeInside, sty.positioning().ShapeInsideBox)
 	}
 
-	if !near(sty.ShapePadding, pxToPt(4)) || sty.ShapePaddingPercent != -1 {
+	if !near(sty.positioning().ShapePadding, pxToPt(4)) || sty.positioning().ShapePaddingPercent != -1 {
 		t.Errorf("cascade dispatch stored padding %v/%v, want %v/-1",
-			sty.ShapePadding, sty.ShapePaddingPercent, pxToPt(4))
+			sty.positioning().ShapePadding, sty.positioning().ShapePaddingPercent, pxToPt(4))
 	}
 }

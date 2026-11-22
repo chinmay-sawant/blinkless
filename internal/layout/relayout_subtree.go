@@ -302,7 +302,7 @@ func checkRelayoutAncestors(target *relayoutTarget) error {
 			continue
 		}
 
-		if ancestor.style.HasTransform || ancestor.style.Opacity < 1 {
+		if ancestor.style.effects().HasTransform || ancestor.style.Opacity < 1 {
 			return fmt.Errorf(
 				"%w: an ancestor carries a transform or an opacity",
 				errSubtreeNotSplicable,
@@ -356,8 +356,8 @@ func relayoutViewportFixed(root *box, styles map[*html.Node]*ResolvedStyle) bool
 		return false
 	}
 
-	if len(root.style.AnchorNames) > 0 || root.style.PositionAnchor != "" ||
-		root.style.FlowInto != "" || root.style.FlowFrom != "" {
+	if len(root.style.positioning().AnchorNames) > 0 || root.style.positioning().PositionAnchor != "" ||
+		root.style.fragmentation().FlowInto != "" || root.style.fragmentation().FlowFrom != "" {
 		return false
 	}
 
@@ -429,7 +429,7 @@ func relayoutCBAncestor(style *ResolvedStyle, fixed bool) bool {
 // block for a fixed box. Position alone does not: a fixed box against a
 // relative ancestor still uses the viewport.
 func fixedContainingBlock(style *ResolvedStyle) bool {
-	if style.HasTransform {
+	if style.effects().HasTransform {
 		return true
 	}
 
@@ -454,9 +454,9 @@ func relayoutSubtreeReason(style *ResolvedStyle) string {
 		return relayoutOutOfFlowReason
 	case style.Position == positionSticky:
 		return "the subtree holds a sticky box"
-	case len(style.AnchorNames) > 0 || style.PositionAnchor != "":
+	case len(style.positioning().AnchorNames) > 0 || style.positioning().PositionAnchor != "":
 		return "the subtree holds an anchored element"
-	case style.FlowInto != "" || style.FlowFrom != "":
+	case style.fragmentation().FlowInto != "" || style.fragmentation().FlowFrom != "":
 		return "the subtree holds a named flow"
 	}
 
@@ -474,7 +474,7 @@ func checkRelayoutAnchors(root *box, patched *box) error {
 			return nil
 		}
 
-		if boxNode.style != nil && boxNode.style.PositionAnchor != "" {
+		if boxNode.style != nil && boxNode.style.positioning().PositionAnchor != "" {
 			return fmt.Errorf("%w: an anchored box sits outside the subtree", errSubtreeNotSplicable)
 		}
 
@@ -500,8 +500,8 @@ func checkRelayoutAnchors(root *box, patched *box) error {
 
 // maxSubtreeStyleStores bounds the pooled subtree style stores: up to two
 // entries per recently patched document. maxSubtreeStyleStoreChunks bounds one
-// entry: four chunks hold 8+16+32+64 records, about 700 KB of 5872-byte
-// styles. maxSubtreeStyleStoreInternLen bounds one entry's intern map:
+// entry: four chunks hold 8+16+32+64 style cores, 60 KiB on 64-bit targets
+// plus optional groups. maxSubtreeStyleStoreInternLen bounds the intern map:
 // a pathological document could otherwise grow one pooled store's buckets
 // without bound and the pool slot would pin them. A store past either bound
 // is rejected from the pool, transferring its chunk backings to the containing
@@ -767,7 +767,7 @@ func relayoutSubtreeStyles(
 
 	// The pooled store carries the chunks and the intern map of the last
 	// patch for this document, so a repeated hover patch shares its records
-	// through styleStore.append instead of appending fresh 5872-byte copies.
+	// through styleStore.append instead of appending fresh copies.
 	tag := subtreeStyleDocTagOf(prev, opts)
 	store := rentSubtreeStyleStore(tag)
 	styleCtx.memo = store.memo
@@ -1058,15 +1058,15 @@ func relayoutAssignedBlockSize(
 // flex container assigned an item. forceFlexItemCrossSize writes the used
 // border-box height into Height and MaxHeight and clears both percentages.
 func relayoutFlexAssignedHeight(style *ResolvedStyle) bool {
-	if style == nil || style.Height < 0 || style.MaxHeight < 0 {
+	if style == nil || style.Height < 0 || style.geometry().MaxHeight < 0 {
 		return false
 	}
 
-	if style.HeightPercent >= 0 || style.MaxHeightPercent >= 0 {
+	if style.HeightPercent >= 0 || style.geometry().MaxHeightPercent >= 0 {
 		return false
 	}
 
-	return relayoutNear(style.Height, style.MaxHeight)
+	return relayoutNear(style.Height, style.geometry().MaxHeight)
 }
 
 // relayoutFlexAssignsBlockSize reports whether the parent flex container
@@ -1077,7 +1077,7 @@ func relayoutFlexAssignsBlockSize(
 ) bool {
 	parentStyle := target.parent.style
 
-	if isVerticalWritingMode(parentStyle.WritingMode) || isVerticalWritingMode(fresh.WritingMode) {
+	if isVerticalWritingMode(parentStyle.positioning().WritingMode) || isVerticalWritingMode(fresh.positioning().WritingMode) {
 		return false
 	}
 
@@ -1108,7 +1108,7 @@ func relayoutFlexAssignsBlockSize(
 // power. Wrapped lines have per-line free space the sum does not expose, so
 // they keep the full layout.
 func relayoutFlexColumnFilled(eng *engine, parent *box) bool {
-	if parent.style.FlexWrap == fxWrap || parent.style.FlexWrap == fxWrapRev {
+	if parent.style.flex().FlexWrap == fxWrap || parent.style.flex().FlexWrap == fxWrapRev {
 		return false
 	}
 
@@ -1146,11 +1146,11 @@ func relayoutFlexColumnFilled(eng *engine, parent *box) bool {
 // relayoutFlexDirection returns the container's main axis, applying the
 // initial row direction when the declaration is absent.
 func relayoutFlexDirection(style *ResolvedStyle) string {
-	if style.FlexDirection == "" {
+	if style.flex().FlexDirection == "" {
 		return fxRow
 	}
 
-	return style.FlexDirection
+	return style.flex().FlexDirection
 }
 
 // relayoutOrigin returns the width the element is laid out in, the x it is
@@ -1199,10 +1199,10 @@ func relayoutMarginsChanged(prev *Result, kept *box, node *html.Node, fresh *Res
 		return false
 	}
 
-	return relayoutMarginSideChanged(old.MarginTop, old.MarginTopAuto, fresh.MarginTop, fresh.MarginTopAuto) ||
-		relayoutMarginSideChanged(old.MarginBottom, old.MarginBottomAuto, fresh.MarginBottom, fresh.MarginBottomAuto) ||
-		relayoutMarginSideChanged(old.MarginLeft, old.MarginLeftAuto, fresh.MarginLeft, fresh.MarginLeftAuto) ||
-		relayoutMarginSideChanged(old.MarginRight, old.MarginRightAuto, fresh.MarginRight, fresh.MarginRightAuto)
+	return relayoutMarginSideChanged(old.MarginTop, old.geometry().MarginTopAuto, fresh.MarginTop, fresh.geometry().MarginTopAuto) ||
+		relayoutMarginSideChanged(old.MarginBottom, old.geometry().MarginBottomAuto, fresh.MarginBottom, fresh.geometry().MarginBottomAuto) ||
+		relayoutMarginSideChanged(old.MarginLeft, old.geometry().MarginLeftAuto, fresh.MarginLeft, fresh.geometry().MarginLeftAuto) ||
+		relayoutMarginSideChanged(old.MarginRight, old.geometry().MarginRightAuto, fresh.MarginRight, fresh.geometry().MarginRightAuto)
 }
 
 // relayoutMarginSideChanged compares one margin side of the old and fresh
@@ -1228,7 +1228,7 @@ func relayoutAvailableWidth(eng *engine, kept *box, marginL, marginR float64) fl
 	}
 
 	contentW := kept.w
-	if kept.style.BoxSizing != borderBox {
+	if kept.style.geometry().BoxSizing != borderBox {
 		contentW -= kept.style.horizontalChrome(eng)
 	}
 
@@ -1387,7 +1387,7 @@ func sameBoxKindUntransformed(left, right *box) bool {
 
 // boxCarriesTransform reports whether the box has a transform of any kind.
 func boxCarriesTransform(boxNode *box) bool {
-	return boxNode.style != nil && (boxNode.style.HasTransform || boxNode.style.HasTransform3D)
+	return boxNode.style != nil && (boxNode.style.effects().HasTransform || boxNode.style.effects().HasTransform3D)
 }
 
 // sameBoxOpWindow compares one box's operation range after rebasing the old

@@ -124,55 +124,55 @@ func applyAnonymousFlexItemStyle(style *ResolvedStyle) {
 	style.Display = displayBlock
 	style.Position = positionStatic
 	style.Float = cssDisplayNone
-	style.Clear = cssDisplayNone
-	style.FlexDirection = fxRow
-	style.FlexWrap = cssWhiteSpaceNowrap
-	style.FlexGrow = 0
-	style.FlexShrink = 1
-	style.FlexBasis = -1
-	style.FlexBasisPercent = -1
-	style.FlexOrder = 0
+	style.editPositioning().Clear = cssDisplayNone
+	style.editFlex().FlexDirection = fxRow
+	style.editFlex().FlexWrap = cssWhiteSpaceNowrap
+	style.editFlex().FlexGrow = 0
+	style.editFlex().FlexShrink = 1
+	style.editFlex().FlexBasis = -1
+	style.editFlex().FlexBasisPercent = -1
+	style.editFlex().FlexOrder = 0
 	style.Width = -1
 	style.WidthPercent = -1
 	style.Height = -1
 	style.HeightPercent = -1
-	style.MinWidth = 0
-	style.MinWidthPercent = -1
-	style.MinWidthSet = false
-	style.MaxWidth = -1
-	style.MaxWidthPercent = -1
-	style.MinHeight = 0
-	style.MinHeightPercent = -1
-	style.MinHeightSet = false
-	style.MaxHeight = -1
+	style.editGeometry().MinWidth = 0
+	style.editGeometry().MinWidthPercent = -1
+	style.editGeometry().MinWidthSet = false
+	style.editGeometry().MaxWidth = -1
+	style.editGeometry().MaxWidthPercent = -1
+	style.editGeometry().MinHeight = 0
+	style.editGeometry().MinHeightPercent = -1
+	style.editGeometry().MinHeightSet = false
+	style.editGeometry().MaxHeight = -1
 	style.MarginTop = 0
 	style.MarginRight = 0
 	style.MarginBottom = 0
 	style.MarginLeft = 0
-	style.MarginTopAuto = false
-	style.MarginRightAuto = false
-	style.MarginBottomAuto = false
-	style.MarginLeftAuto = false
+	style.editGeometry().MarginTopAuto = false
+	style.editGeometry().MarginRightAuto = false
+	style.editGeometry().MarginBottomAuto = false
+	style.editGeometry().MarginLeftAuto = false
 	style.PaddingTop = 0
 	style.PaddingRight = 0
 	style.PaddingBottom = 0
 	style.PaddingLeft = 0
-	style.BorderTop = border{}    //nolint:exhaustruct // zero border
-	style.BorderRight = border{}  //nolint:exhaustruct // zero border
-	style.BorderBottom = border{} //nolint:exhaustruct // zero border
-	style.BorderLeft = border{}   //nolint:exhaustruct // zero border
-	style.BorderRadius = 0
-	style.BorderRadiusPercent = 0
-	style.BorderRadiusTopLeft = 0
-	style.BorderRadiusTopRight = 0
-	style.BorderRadiusBottomRight = 0
-	style.BorderRadiusBottomLeft = 0
+	style.editBorders().BorderTop = border{}    //nolint:exhaustruct // zero border
+	style.editBorders().BorderRight = border{}  //nolint:exhaustruct // zero border
+	style.editBorders().BorderBottom = border{} //nolint:exhaustruct // zero border
+	style.editBorders().BorderLeft = border{}   //nolint:exhaustruct // zero border
+	style.editBorders().BorderRadius = 0
+	style.editBorders().BorderRadiusPercent = 0
+	style.editBorders().BorderRadiusTopLeft = 0
+	style.editBorders().BorderRadiusTopRight = 0
+	style.editBorders().BorderRadiusBottomRight = 0
+	style.editBorders().BorderRadiusBottomLeft = 0
 	style.BGColor = [4]float64{}
-	style.ListStyleType = cssDisplayNone
-	style.PageBreakBefore = ""
-	style.PageBreakAfter = ""
-	style.PageBreakInside = ""
-	style.HasTransform = false
+	style.editContent().ListStyleType = cssDisplayNone
+	style.editFragmentation().PageBreakBefore = ""
+	style.editFragmentation().PageBreakAfter = ""
+	style.editFragmentation().PageBreakInside = ""
+	style.editEffects().HasTransform = false
 }
 
 const anonFlexStyleInitCap = 8
@@ -193,8 +193,8 @@ func (e *engine) allocAnonymousFlexItemStyle(parent *ResolvedStyle) *ResolvedSty
 		if len(e.anonFlexStyles) < flexOverrideMaxEntries {
 			style := e.allocFlexOverrideStyle(parent)
 			applyAnonymousFlexItemStyle(style)
-			style.Continue = ""
-			style.ContinueLines = limit
+			style.editInlineText().Continue = ""
+			style.editInlineText().ContinueLines = limit
 
 			if e.anonFlexStyles == nil {
 				e.anonFlexStyles = make(map[anonFlexStyleKey]*ResolvedStyle, anonFlexStyleInitCap)
@@ -208,8 +208,8 @@ func (e *engine) allocAnonymousFlexItemStyle(parent *ResolvedStyle) *ResolvedSty
 
 	style := e.allocStyle(parent)
 	applyAnonymousFlexItemStyle(style)
-	style.Continue = ""
-	style.ContinueLines = limit
+	style.editInlineText().Continue = ""
+	style.editInlineText().ContinueLines = limit
 
 	return style
 }

@@ -20,20 +20,20 @@ func TestApplyTextSupportPropsUnicodeBidi(t *testing.T) {
 			t.Fatalf("unicode-bidi %q: handled = false, want true", val)
 		}
 
-		if sty.UnicodeBidi != val {
-			t.Fatalf("UnicodeBidi = %q, want %q", sty.UnicodeBidi, val)
+		if sty.inlineText().UnicodeBidi != val {
+			t.Fatalf("UnicodeBidi = %q, want %q", sty.inlineText().UnicodeBidi, val)
 		}
 	}
 
 	sty, handled := applySupportProp("unicode-bidi", "BIDI-OVERRIDE", 12)
-	if !handled || sty.UnicodeBidi != "bidi-override" {
-		t.Fatalf("case-insensitive value: handled=%v UnicodeBidi=%q", handled, sty.UnicodeBidi)
+	if !handled || sty.inlineText().UnicodeBidi != "bidi-override" {
+		t.Fatalf("case-insensitive value: handled=%v UnicodeBidi=%q", handled, sty.inlineText().UnicodeBidi)
 	}
 
 	// Malformed keeps the initial value.
 	sty, _ = applySupportProp("unicode-bidi", "sideways", 12)
-	if sty.UnicodeBidi != "normal" {
-		t.Fatalf("malformed UnicodeBidi = %q, want initial normal", sty.UnicodeBidi)
+	if sty.inlineText().UnicodeBidi != "normal" {
+		t.Fatalf("malformed UnicodeBidi = %q, want initial normal", sty.inlineText().UnicodeBidi)
 	}
 
 	if _, handled := applySupportProp("font-size", "12pt", 12); handled {
@@ -46,14 +46,14 @@ func TestApplyTextSupportPropsTextOrientation(t *testing.T) {
 
 	for _, val := range []string{"mixed", "upright", "sideways"} {
 		sty, handled := applySupportProp("text-orientation", val, 12)
-		if !handled || sty.TextOrientation != val {
-			t.Fatalf("text-orientation %q: handled=%v TextOrientation=%q", val, handled, sty.TextOrientation)
+		if !handled || sty.inlineText().TextOrientation != val {
+			t.Fatalf("text-orientation %q: handled=%v TextOrientation=%q", val, handled, sty.inlineText().TextOrientation)
 		}
 	}
 
 	sty, _ := applySupportProp("text-orientation", "upright-ish", 12)
-	if sty.TextOrientation != "mixed" {
-		t.Fatalf("malformed TextOrientation = %q, want initial mixed", sty.TextOrientation)
+	if sty.inlineText().TextOrientation != "mixed" {
+		t.Fatalf("malformed TextOrientation = %q, want initial mixed", sty.inlineText().TextOrientation)
 	}
 }
 
@@ -62,8 +62,8 @@ func TestApplyTextSupportPropsTextCombineUpright(t *testing.T) {
 
 	for _, val := range []string{"none", "all"} {
 		sty, handled := applySupportProp("text-combine-upright", val, 12)
-		if !handled || sty.TextCombineUpright != val {
-			t.Fatalf("text-combine-upright %q: handled=%v value=%q", val, handled, sty.TextCombineUpright)
+		if !handled || sty.inlineText().TextCombineUpright != val {
+			t.Fatalf("text-combine-upright %q: handled=%v value=%q", val, handled, sty.inlineText().TextCombineUpright)
 		}
 	}
 
@@ -73,15 +73,15 @@ func TestApplyTextSupportPropsTextCombineUpright(t *testing.T) {
 		"digits 04": "digits 4",
 	} {
 		sty, handled := applySupportProp("text-combine-upright", val, 12)
-		if !handled || sty.TextCombineUpright != want {
-			t.Fatalf("text-combine-upright %q: handled=%v value=%q, want %q", val, handled, sty.TextCombineUpright, want)
+		if !handled || sty.inlineText().TextCombineUpright != want {
+			t.Fatalf("text-combine-upright %q: handled=%v value=%q, want %q", val, handled, sty.inlineText().TextCombineUpright, want)
 		}
 	}
 
 	for _, val := range []string{"digits", "digits 0", "digits -1", "digits two", "digits 2 3", "combine"} {
 		sty, _ := applySupportProp("text-combine-upright", val, 12)
-		if sty.TextCombineUpright != "none" {
-			t.Fatalf("malformed text-combine-upright %q left %q, want initial none", val, sty.TextCombineUpright)
+		if sty.inlineText().TextCombineUpright != "none" {
+			t.Fatalf("malformed text-combine-upright %q left %q, want initial none", val, sty.inlineText().TextCombineUpright)
 		}
 	}
 }
@@ -104,8 +104,8 @@ func TestApplyTextSupportPropsTextDecorationInset(t *testing.T) {
 			t.Fatalf("text-decoration-inset %q: handled = false", val)
 		}
 
-		if !near(sty.TextDecorationInset, want) {
-			t.Fatalf("TextDecorationInset(%q) = %v, want %v", val, sty.TextDecorationInset, want)
+		if !near(sty.inlineText().TextDecorationInset, want) {
+			t.Fatalf("TextDecorationInset(%q) = %v, want %v", val, sty.inlineText().TextDecorationInset, want)
 		}
 	}
 
@@ -114,14 +114,14 @@ func TestApplyTextSupportPropsTextDecorationInset(t *testing.T) {
 	applyTextSupportProps(&sty, "text-decoration-inset", "6pt", 16, nil, nil, false)
 	applyTextSupportProps(&sty, "text-decoration-inset", "50%", 16, nil, nil, false)
 
-	if !near(sty.TextDecorationInset, 6) {
-		t.Fatalf("percentage inset changed stored value to %v, want 6 (rejected)", sty.TextDecorationInset)
+	if !near(sty.inlineText().TextDecorationInset, 6) {
+		t.Fatalf("percentage inset changed stored value to %v, want 6 (rejected)", sty.inlineText().TextDecorationInset)
 	}
 
 	applyTextSupportProps(&sty, "text-decoration-inset", "1pt 2pt 3pt", 16, nil, nil, false)
 
-	if !near(sty.TextDecorationInset, 6) {
-		t.Fatalf("three-value inset changed stored value to %v, want 6 (rejected)", sty.TextDecorationInset)
+	if !near(sty.inlineText().TextDecorationInset, 6) {
+		t.Fatalf("three-value inset changed stored value to %v, want 6 (rejected)", sty.inlineText().TextDecorationInset)
 	}
 }
 
@@ -133,12 +133,12 @@ func TestApplyTextSupportPropsTextDecorationSkipShorthand(t *testing.T) {
 		t.Fatal("text-decoration-skip none: handled = false")
 	}
 
-	if sty.TextDecorationSkip != "none" || sty.TextDecorationSkipSelf != "no-skip" ||
-		sty.TextDecorationSkipBox != "none" || sty.TextDecorationSkipSpaces != "none" ||
-		sty.TextDecorationSkipInk != "none" {
+	if sty.inlineText().TextDecorationSkip != "none" || sty.inlineText().TextDecorationSkipSelf != "no-skip" ||
+		sty.inlineText().TextDecorationSkipBox != "none" || sty.inlineText().TextDecorationSkipSpaces != "none" ||
+		sty.inlineText().TextDecorationSkipInk != "none" {
 		t.Fatalf("skip none expanded to self=%q box=%q spaces=%q ink=%q",
-			sty.TextDecorationSkipSelf, sty.TextDecorationSkipBox,
-			sty.TextDecorationSkipSpaces, sty.TextDecorationSkipInk)
+			sty.inlineText().TextDecorationSkipSelf, sty.inlineText().TextDecorationSkipBox,
+			sty.inlineText().TextDecorationSkipSpaces, sty.inlineText().TextDecorationSkipInk)
 	}
 
 	sty, handled = applySupportProp("text-decoration-skip", "auto", 12)
@@ -146,12 +146,12 @@ func TestApplyTextSupportPropsTextDecorationSkipShorthand(t *testing.T) {
 		t.Fatal("text-decoration-skip auto: handled = false")
 	}
 
-	if sty.TextDecorationSkip != "auto" || sty.TextDecorationSkipSelf != "auto" ||
-		sty.TextDecorationSkipBox != "none" || sty.TextDecorationSkipSpaces != textDecorationSkipStartEnd ||
-		sty.TextDecorationSkipInk != "auto" {
+	if sty.inlineText().TextDecorationSkip != "auto" || sty.inlineText().TextDecorationSkipSelf != "auto" ||
+		sty.inlineText().TextDecorationSkipBox != "none" || sty.inlineText().TextDecorationSkipSpaces != textDecorationSkipStartEnd ||
+		sty.inlineText().TextDecorationSkipInk != "auto" {
 		t.Fatalf("skip auto expanded to self=%q box=%q spaces=%q ink=%q",
-			sty.TextDecorationSkipSelf, sty.TextDecorationSkipBox,
-			sty.TextDecorationSkipSpaces, sty.TextDecorationSkipInk)
+			sty.inlineText().TextDecorationSkipSelf, sty.inlineText().TextDecorationSkipBox,
+			sty.inlineText().TextDecorationSkipSpaces, sty.inlineText().TextDecorationSkipInk)
 	}
 
 	// CSS Text Decoration 3 legacy keywords each set the longhand they name
@@ -173,19 +173,19 @@ func TestApplyTextSupportPropsTextDecorationSkipShorthand(t *testing.T) {
 			t.Fatalf("text-decoration-skip %q: handled = false", val)
 		}
 
-		if sty.TextDecorationSkip != val || sty.TextDecorationSkipSelf != overflowAuto ||
-			sty.TextDecorationSkipBox != want.skipBox ||
-			sty.TextDecorationSkipSpaces != want.skipSpaces ||
-			sty.TextDecorationSkipInk != want.skipInk {
+		if sty.inlineText().TextDecorationSkip != val || sty.inlineText().TextDecorationSkipSelf != overflowAuto ||
+			sty.inlineText().TextDecorationSkipBox != want.skipBox ||
+			sty.inlineText().TextDecorationSkipSpaces != want.skipSpaces ||
+			sty.inlineText().TextDecorationSkipInk != want.skipInk {
 			t.Fatalf("skip %q expanded to self=%q box=%q spaces=%q ink=%q",
-				val, sty.TextDecorationSkipSelf, sty.TextDecorationSkipBox,
-				sty.TextDecorationSkipSpaces, sty.TextDecorationSkipInk)
+				val, sty.inlineText().TextDecorationSkipSelf, sty.inlineText().TextDecorationSkipBox,
+				sty.inlineText().TextDecorationSkipSpaces, sty.inlineText().TextDecorationSkipInk)
 		}
 	}
 
 	sty, _ = applySupportProp("text-decoration-skip", "bogus", 12)
-	if sty.TextDecorationSkip != overflowAuto {
-		t.Fatalf("malformed shorthand changed value to %q, want initial auto", sty.TextDecorationSkip)
+	if sty.inlineText().TextDecorationSkip != overflowAuto {
+		t.Fatalf("malformed shorthand changed value to %q, want initial auto", sty.inlineText().TextDecorationSkip)
 	}
 }
 
@@ -195,14 +195,14 @@ func TestApplyTextSupportPropsTextDecorationSkipLonghands(t *testing.T) {
 	boxCases := map[string]string{"none": "none", "all": "all"}
 	for val, want := range boxCases {
 		sty, handled := applySupportProp("text-decoration-skip-box", val, 12)
-		if !handled || sty.TextDecorationSkipBox != want {
-			t.Fatalf("skip-box %q: handled=%v value=%q", val, handled, sty.TextDecorationSkipBox)
+		if !handled || sty.inlineText().TextDecorationSkipBox != want {
+			t.Fatalf("skip-box %q: handled=%v value=%q", val, handled, sty.inlineText().TextDecorationSkipBox)
 		}
 	}
 
 	sty, _ := applySupportProp("text-decoration-skip-box", "some", 12)
-	if sty.TextDecorationSkipBox != "none" {
-		t.Fatalf("malformed skip-box left %q, want initial none", sty.TextDecorationSkipBox)
+	if sty.inlineText().TextDecorationSkipBox != "none" {
+		t.Fatalf("malformed skip-box left %q, want initial none", sty.inlineText().TextDecorationSkipBox)
 	}
 
 	selfCases := map[string]string{
@@ -215,15 +215,15 @@ func TestApplyTextSupportPropsTextDecorationSkipLonghands(t *testing.T) {
 	}
 	for val, want := range selfCases {
 		sty, handled := applySupportProp("text-decoration-skip-self", val, 12)
-		if !handled || sty.TextDecorationSkipSelf != want {
-			t.Fatalf("skip-self %q: handled=%v value=%q, want %q", val, handled, sty.TextDecorationSkipSelf, want)
+		if !handled || sty.inlineText().TextDecorationSkipSelf != want {
+			t.Fatalf("skip-self %q: handled=%v value=%q, want %q", val, handled, sty.inlineText().TextDecorationSkipSelf, want)
 		}
 	}
 
 	//nolint:dupword // duplicate tokens must be rejected
 	sty, _ = applySupportProp("text-decoration-skip-self", "skip-underline skip-underline", 12)
-	if sty.TextDecorationSkipSelf != "auto" {
-		t.Fatalf("duplicate skip-self left %q, want initial auto", sty.TextDecorationSkipSelf)
+	if sty.inlineText().TextDecorationSkipSelf != "auto" {
+		t.Fatalf("duplicate skip-self left %q, want initial auto", sty.inlineText().TextDecorationSkipSelf)
 	}
 
 	spacesCases := map[string]string{
@@ -235,20 +235,20 @@ func TestApplyTextSupportPropsTextDecorationSkipLonghands(t *testing.T) {
 	}
 	for val, want := range spacesCases {
 		sty, handled := applySupportProp("text-decoration-skip-spaces", val, 12)
-		if !handled || sty.TextDecorationSkipSpaces != want {
-			t.Fatalf("skip-spaces %q: handled=%v value=%q, want %q", val, handled, sty.TextDecorationSkipSpaces, want)
+		if !handled || sty.inlineText().TextDecorationSkipSpaces != want {
+			t.Fatalf("skip-spaces %q: handled=%v value=%q, want %q", val, handled, sty.inlineText().TextDecorationSkipSpaces, want)
 		}
 	}
 
 	//nolint:dupword // duplicate tokens must be rejected
 	sty, _ = applySupportProp("text-decoration-skip-spaces", "start start", 12)
-	if sty.TextDecorationSkipSpaces != textDecorationSkipStartEnd {
-		t.Fatalf("duplicate skip-spaces left %q, want initial start end", sty.TextDecorationSkipSpaces)
+	if sty.inlineText().TextDecorationSkipSpaces != textDecorationSkipStartEnd {
+		t.Fatalf("duplicate skip-spaces left %q, want initial start end", sty.inlineText().TextDecorationSkipSpaces)
 	}
 
 	sty, _ = applySupportProp("text-decoration-skip-spaces", "none all", 12)
-	if sty.TextDecorationSkipSpaces != textDecorationSkipStartEnd {
-		t.Fatalf("mixed skip-spaces left %q, want initial start end", sty.TextDecorationSkipSpaces)
+	if sty.inlineText().TextDecorationSkipSpaces != textDecorationSkipStartEnd {
+		t.Fatalf("mixed skip-spaces left %q, want initial start end", sty.inlineText().TextDecorationSkipSpaces)
 	}
 }
 
@@ -273,7 +273,7 @@ func TestDecorationSkipPolicyTreatsPlumbingInitialsPerSpec(t *testing.T) {
 		t.Fatalf("legacy initial objects produced active skips: %+v", policy)
 	}
 
-	sty.TextDecorationSkipSpaces = "none"
+	sty.editInlineText().TextDecorationSkipSpaces = "none"
 	policy = resolveTextDecorationSkipPolicy(&sty)
 
 	if policy.skipSpacesStart || policy.skipSpacesEnd || policy.skipSpacesAll {

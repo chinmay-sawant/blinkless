@@ -31,7 +31,7 @@ func childScrollContext(parent *box, context placedScrollContext) placedScrollCo
 func blocksViewportSticky(parent *box) bool {
 	style := parent.style
 	if parent.sticky || style.Position == positionFixed ||
-		style.HasTransform || style.HasTransform3D || style.HasPerspective {
+		style.effects().HasTransform || style.effects().HasTransform3D || style.effects().HasPerspective {
 		return true
 	}
 
@@ -39,7 +39,7 @@ func blocksViewportSticky(parent *box) bool {
 		return false
 	}
 
-	return stickyScrollContainer(style.OverflowX) || stickyScrollContainer(style.OverflowY) ||
+	return stickyScrollContainer(style.geometry().OverflowX) || stickyScrollContainer(style.geometry().OverflowY) ||
 		stickyScrollContainer(style.Overflow)
 }
 
@@ -68,7 +68,7 @@ func placedSticky(node *box, context placedScrollContext) *StickyConstraint {
 		Viewport: !context.blocked,
 	}
 
-	if node.style.HasTransform || node.style.HasTransform3D || node.style.HasPerspective {
+	if node.style.effects().HasTransform || node.style.effects().HasTransform3D || node.style.effects().HasPerspective {
 		constraint.Viewport = false
 	}
 
@@ -80,10 +80,10 @@ func placedSticky(node *box, context placedScrollContext) *StickyConstraint {
 	}
 
 	style := parent.style
-	left := (style.BorderLeft.Width + style.PaddingLeft) * scale
-	top := (style.BorderTop.Width + style.PaddingTop) * scale
-	right := (style.BorderRight.Width + style.PaddingRight) * scale
-	bottom := (style.BorderBottom.Width + style.PaddingBottom) * scale
+	left := (style.borders().BorderLeft.Width + style.PaddingLeft) * scale
+	top := (style.borders().BorderTop.Width + style.PaddingTop) * scale
+	right := (style.borders().BorderRight.Width + style.PaddingRight) * scale
+	bottom := (style.borders().BorderBottom.Width + style.PaddingBottom) * scale
 	originX, originY := parent.x+left, parent.y+top
 	endX, endY := parent.x+parent.w-right, parent.y+parent.height-bottom
 	// The position box uses margins only as far as the containing block has room.

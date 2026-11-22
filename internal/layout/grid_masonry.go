@@ -89,7 +89,7 @@ func (e *engine) emitMasonryItems(
 
 		// Explicit placement is kept; auto-placed items may move once the
 		// built block size is known.
-		if stylePtr == nil || stylePtr.GridColumnStart == 0 {
+		if stylePtr == nil || stylePtr.grid().GridColumnStart == 0 {
 			if moved := tolerance.column(colBot, span, cblock.height); moved != col {
 				col = moved
 				targetY = posY + curY + masonrySpanStart(colBot, col, span)
@@ -114,8 +114,8 @@ func masonryPlacement(
 	nCols := len(cols)
 	span := 1
 
-	if stylePtr != nil && stylePtr.GridColumnSpan > 1 {
-		span = stylePtr.GridColumnSpan
+	if stylePtr != nil && stylePtr.grid().GridColumnSpan > 1 {
+		span = stylePtr.grid().GridColumnSpan
 	}
 
 	if span > nCols {
@@ -123,8 +123,8 @@ func masonryPlacement(
 	}
 
 	var col int
-	if stylePtr != nil && stylePtr.GridColumnStart > 0 {
-		col = stylePtr.GridColumnStart - 1
+	if stylePtr != nil && stylePtr.grid().GridColumnStart > 0 {
+		col = stylePtr.grid().GridColumnStart - 1
 		if col < 0 {
 			col = 0
 		}

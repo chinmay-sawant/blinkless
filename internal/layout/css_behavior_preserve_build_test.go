@@ -49,17 +49,17 @@ func TestPreserveBuildNestedCounterRotationDiverges(t *testing.T) {
 	preserved := layoutHTML(t, preserveBuildDoc("preserve-3d"))
 
 	flatBox := boxByID(t, flat, "outer")
-	if got := flatBox.style.TransformStyle; got != "flat" {
+	if got := flatBox.style.effects().TransformStyle; got != "flat" {
 		t.Errorf("outer transform-style used = %q, want flat", got)
 	}
 
 	preservedBox := boxByID(t, preserved, "outer")
-	if got := preservedBox.style.TransformStyle; got != "preserve-3d" {
+	if got := preservedBox.style.effects().TransformStyle; got != "preserve-3d" {
 		t.Errorf("outer transform-style used = %q, want preserve-3d", got)
 	}
 
 	flatInner := boxByID(t, flat, "inner")
-	if !flatInner.style.HasTransform3D {
+	if !flatInner.style.effects().HasTransform3D {
 		t.Errorf("inner HasTransform3D = false, want true (rotateY parses onto the side channel)")
 	}
 

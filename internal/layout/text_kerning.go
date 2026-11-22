@@ -11,14 +11,14 @@ import (
 // geometry still uses individual glyph advances. Explicit kern settings
 // take precedence over font-kerning, as they do when painting.
 func kernTextWidth(style *ResolvedStyle) bool {
-	if style.LetterSpacing != 0 {
+	if style.inlineText().LetterSpacing != 0 {
 		return false
 	}
 
-	enabled := style.FontKerning == fontKerningNormal
+	enabled := style.font().FontKerning == fontKerningNormal
 
-	if strings.Contains(style.FontFeatureSettings, `"kern"`) {
-		for _, part := range splitFontVariationList(style.FontFeatureSettings) {
+	if strings.Contains(style.font().FontFeatureSettings, `"kern"`) {
+		for _, part := range splitFontVariationList(style.font().FontFeatureSettings) {
 			if tag, value, ok := parseFeatureSettingsPart(part); ok && tag == "kern" {
 				enabled = value != 0
 			}

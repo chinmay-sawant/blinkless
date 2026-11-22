@@ -51,11 +51,11 @@ func applyWrapBreakProps(
 
 	switch prop {
 	case wrapBeforePropName:
-		style.WrapBefore = used
+		style.editInlineText().WrapBefore = used
 	case wrapAfterPropName:
-		style.WrapAfter = used
+		style.editInlineText().WrapAfter = used
 	case wrapInsidePropName:
-		style.WrapInside = used
+		style.editInlineText().WrapInside = used
 	default:
 		return false
 	}
@@ -98,12 +98,12 @@ func wrapBreakDeclarationValueAccepted(prop, value string) (bool, bool) {
 
 // wrapBreakForcesFlexBefore reports wrap-before: flex on a flex item.
 func wrapBreakForcesFlexBefore(sty *ResolvedStyle) bool {
-	return sty.WrapBefore == wrapBreakFlex
+	return sty.inlineText().WrapBefore == wrapBreakFlex
 }
 
 // wrapBreakForcesFlexAfter reports wrap-after: flex on a flex item.
 func wrapBreakForcesFlexAfter(sty *ResolvedStyle) bool {
-	return sty.WrapAfter == wrapBreakFlex
+	return sty.inlineText().WrapAfter == wrapBreakFlex
 }
 
 // flexWrapBreakBefore reports wrap-before: flex on one measured flex item.

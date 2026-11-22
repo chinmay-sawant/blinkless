@@ -143,7 +143,7 @@ func (e *engine) applyWhiteSpaceTrim(items []inlineItem, blockStyle *ResolvedSty
 		return items
 	}
 
-	trim := blockStyle.WhiteSpaceTrim
+	trim := blockStyle.inlineText().WhiteSpaceTrim
 	if trim == "" {
 		return items
 	}
@@ -354,10 +354,10 @@ func (e *engine) layoutInlineFloatsGeneric(
 	clampLimit := 0
 
 	if boxNode != nil && boxNode.style != nil {
-		if boxNode.style.LineClamp > 0 {
-			clampLimit = boxNode.style.LineClamp
-		} else if boxNode.style.MaxLines > 0 {
-			clampLimit = boxNode.style.MaxLines
+		if boxNode.style.inlineText().LineClamp > 0 {
+			clampLimit = boxNode.style.inlineText().LineClamp
+		} else if boxNode.style.inlineText().MaxLines > 0 {
+			clampLimit = boxNode.style.inlineText().MaxLines
 		}
 	}
 
@@ -415,8 +415,8 @@ func (e *engine) layoutInlineFloatsGeneric(
 	for idx < len(items) {
 		lineX, lineW := e.lineBounds(floats, inside, contentX, contentW, leftY)
 
-		if idx == 0 && boxNode != nil && boxNode.style != nil && boxNode.style.TextIndent != 0 {
-			indent := e.scalePt(boxNode.style.TextIndent)
+		if idx == 0 && boxNode != nil && boxNode.style != nil && boxNode.style.inlineText().TextIndent != 0 {
+			indent := e.scalePt(boxNode.style.inlineText().TextIndent)
 			lineX += indent
 			lineW -= indent
 
@@ -483,8 +483,8 @@ func (e *engine) layoutInlineFloatsGeneric(
 				blockHyphen = false
 			}
 
-			if blockStyle.HyphenateLimitLines >= 0 &&
-				consecHyphenLines >= blockStyle.HyphenateLimitLines {
+			if blockStyle.inlineText().HyphenateLimitLines >= 0 &&
+				consecHyphenLines >= blockStyle.inlineText().HyphenateLimitLines {
 				blockHyphen = false
 			}
 		}
@@ -1295,7 +1295,7 @@ func (e *engine) emitLine( //nolint:funlen
 	textAlign := floatLeft
 
 	if blockStyle != nil {
-		if blockStyle.Direction == cssDirectionRTL {
+		if blockStyle.positioning().Direction == cssDirectionRTL {
 			textAlign = "right"
 		}
 
@@ -1305,8 +1305,8 @@ func (e *engine) emitLine( //nolint:funlen
 	}
 
 	if lastLine && blockStyle != nil &&
-		blockStyle.TextAlignLast != "" && blockStyle.TextAlignLast != "auto" {
-		textAlign = blockStyle.TextAlignLast
+		blockStyle.inlineText().TextAlignLast != "" && blockStyle.inlineText().TextAlignLast != "auto" {
+		textAlign = blockStyle.inlineText().TextAlignLast
 	}
 
 	textAlign = resolveTextGroupAlign(blockStyle, textAlign)
@@ -1314,7 +1314,7 @@ func (e *engine) emitLine( //nolint:funlen
 	// text-justify:none disables justification even when text-align asks for
 	// it (Chrome 143 justifies nothing and start-aligns the line).
 	if textAlign == cssTextAlignJustify && textJustifyMode(blockStyle) == textJustifyNone {
-		if blockStyle != nil && blockStyle.Direction == cssDirectionRTL {
+		if blockStyle != nil && blockStyle.positioning().Direction == cssDirectionRTL {
 			textAlign = floatRight
 		} else {
 			textAlign = floatLeft
@@ -1325,7 +1325,7 @@ func (e *engine) emitLine( //nolint:funlen
 	// anchors at the content box's right edge. text-align along the vertical
 	// axis is not implemented; justify keeps the shared path.
 	if blockStyle != nil &&
-		blockStyle.WritingMode == writingModeVerticalRL && textAlign != cssTextAlignJustify {
+		blockStyle.positioning().WritingMode == writingModeVerticalRL && textAlign != cssTextAlignJustify {
 		textAlign = floatRight
 	}
 
@@ -1333,7 +1333,7 @@ func (e *engine) emitLine( //nolint:funlen
 	// paint advances match layout (avoids word-by-word gaps). Skip when
 	// justifying — gaps are distributed between word items. Legacy
 	// -webkit-box keeps items separate so pack backgrounds stay distinct.
-	if textAlign != cssTextAlignJustify && (blockStyle == nil || !blockStyle.IsWebkitBox) {
+	if textAlign != cssTextAlignJustify && (blockStyle == nil || !blockStyle.flex().IsWebkitBox) {
 		line = e.coalesceTextItems(line)
 	}
 
@@ -1505,7 +1505,7 @@ func (e *engine) pushInlineBlend(style *ResolvedStyle) inlineBlendScope {
 		return scope
 	}
 
-	mode := nonNormalBlendMode(style.MixBlendMode)
+	mode := nonNormalBlendMode(style.effects().MixBlendMode)
 
 	hasMask := maskGroupRequested(style)
 
@@ -1514,7 +1514,7 @@ func (e *engine) pushInlineBlend(style *ResolvedStyle) inlineBlendScope {
 	e.blendGroup = &BlendGroup{ //nolint:exhaustruct // mask frames are attached below
 		ID:             e.nextGroupID,
 		Mode:           mode,
-		BackdropFilter: style.BackdropFilter,
+		BackdropFilter: style.effects().BackdropFilter,
 		Isolate:        true,
 		Parent:         e.blendGroup,
 		Mask:           nil,
@@ -1551,12 +1551,12 @@ func (e *engine) inlineBlendOpensGroup(style *ResolvedStyle) bool {
 		return false
 	}
 
-	if nonNormalBlendMode(style.MixBlendMode) != "" {
+	if nonNormalBlendMode(style.effects().MixBlendMode) != "" {
 		return true
 	}
 
-	return style.Isolation == unicodeBidiIsolate ||
-		maskGroupRequested(style) || hasBackdropFilter(style.BackdropFilter)
+	return style.effects().Isolation == unicodeBidiIsolate ||
+		maskGroupRequested(style) || hasBackdropFilter(style.effects().BackdropFilter)
 }
 
 // inlineBlendWork reports whether an item's style can request an inline
@@ -1569,16 +1569,16 @@ func inlineBlendWork(style *ResolvedStyle) bool {
 		return false
 	}
 
-	if style.MixBlendMode != "" && style.MixBlendMode != blendNormal {
+	if style.effects().MixBlendMode != "" && style.effects().MixBlendMode != blendNormal {
 		return true
 	}
 
-	if style.Isolation == unicodeBidiIsolate ||
-		maskImageEnabled(style.MaskImage) || maskBorderEnabled(style.MaskBorderSource) {
+	if style.effects().Isolation == unicodeBidiIsolate ||
+		maskImageEnabled(style.effects().MaskImage) || maskBorderEnabled(style.effects().MaskBorderSource) {
 		return true
 	}
 
-	return hasBackdropFilter(style.BackdropFilter)
+	return hasBackdropFilter(style.effects().BackdropFilter)
 }
 
 func nonNormalBlendMode(mode string) string {
@@ -1590,7 +1590,7 @@ func nonNormalBlendMode(mode string) string {
 }
 
 func (e *engine) applyBlendMode(style *ResolvedStyle, mode string) {
-	if style.Isolation == unicodeBidiIsolate {
+	if style.effects().Isolation == unicodeBidiIsolate {
 		e.blendMode = ""
 	}
 
@@ -1687,8 +1687,8 @@ func (e *engine) lineMetrics( //nolint:funlen
 		face := e.faceFor(item.style)
 		metricStyle := item.style
 
-		if edgeStyle != nil && metricStyle.TextBoxEdgeOver == "auto" &&
-			metricStyle.TextBoxEdgeUnder == "auto" {
+		if edgeStyle != nil && metricStyle.inlineText().TextBoxEdgeOver == "auto" &&
+			metricStyle.inlineText().TextBoxEdgeUnder == "auto" {
 			// Inherit edge from the block when the inline kept initials.
 			metricStyle = edgeStyle
 		}
@@ -1759,7 +1759,7 @@ func (e *engine) strutMetrics(block *ResolvedStyle, trimStart, trimEnd bool) (fl
 // (positive) or lowers (negative) the box relative to the baseline.
 func (e *engine) atomicInlineAlign(item *inlineItem) (float64, float64) {
 	if item.style != nil {
-		switch item.style.VerticalAlign {
+		switch item.style.inlineText().VerticalAlign {
 		case cssVerticalAlignTop, cssVerticalAlignMiddle, cssVerticalAlignBottom:
 			return item.marginT + item.h + item.marginB, 0
 		}
@@ -1777,7 +1777,7 @@ func (e *engine) atomicInlineAlign(item *inlineItem) (float64, float64) {
 
 	shift := 0.0
 	if item.style != nil {
-		shift = e.scalePt(item.style.VerticalAlignShift)
+		shift = e.scalePt(item.style.inlineText().VerticalAlignShift)
 	}
 
 	ascent += shift
@@ -1832,7 +1832,7 @@ func (e *engine) justifyGapOf(
 	}
 
 	allowLastLine := lastLine && len(line) > 0 &&
-		line[0].style != nil && line[0].style.TextAlignLast == cssTextAlignJustify
+		line[0].style != nil && line[0].style.inlineText().TextAlignLast == cssTextAlignJustify
 
 	if (lastLine && !allowLastLine) || availW <= totalW || len(line) <= 1 {
 		return 0
@@ -1922,8 +1922,8 @@ func (e *engine) applyInterCharJustify(
 // always, last lines only with text-align-last:justify.
 func justifyLineEligible(lastLine bool, line []inlineItem, blockStyle *ResolvedStyle) bool {
 	allowLastLine := lastLine && len(line) > 0 &&
-		line[0].style != nil && line[0].style.TextAlignLast == cssTextAlignJustify
-	if blockStyle != nil && blockStyle.TextAlignLast == cssTextAlignJustify {
+		line[0].style != nil && line[0].style.inlineText().TextAlignLast == cssTextAlignJustify
+	if blockStyle != nil && blockStyle.inlineText().TextAlignLast == cssTextAlignJustify {
 		allowLastLine = allowLastLine || lastLine
 	}
 
@@ -1974,7 +1974,7 @@ func spreadInterCharSpacing(line []inlineItem, counts []int, perChar, delta floa
 		}
 
 		cloned := *line[idx].style
-		cloned.LetterSpacing += delta
+		cloned.editInlineText().LetterSpacing += delta
 		line[idx].style = &cloned
 		line[idx].w += perChar * float64(counts[idx])
 	}

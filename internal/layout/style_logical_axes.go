@@ -1,25 +1,25 @@
 package layout
 
 func applyLogicalMarginHorizontal(style *ResolvedStyle, prop, value string, fsize, viewportW float64) bool {
-	rtl := style.Direction == cssDirectionRTL
+	rtl := style.positioning().Direction == cssDirectionRTL
 
 	switch prop {
 	case propMarginInlineStart:
 		if rtl {
-			style.MarginRight, style.MarginRightAuto = marginLenAuto(value, fsize, viewportW)
+			style.MarginRight, style.editGeometry().MarginRightAuto = marginLenAuto(value, fsize, viewportW)
 		} else {
-			style.MarginLeft, style.MarginLeftAuto = marginLenAuto(value, fsize, viewportW)
+			style.MarginLeft, style.editGeometry().MarginLeftAuto = marginLenAuto(value, fsize, viewportW)
 		}
 	case propMarginInlineEnd:
 		if rtl {
-			style.MarginLeft, style.MarginLeftAuto = marginLenAuto(value, fsize, viewportW)
+			style.MarginLeft, style.editGeometry().MarginLeftAuto = marginLenAuto(value, fsize, viewportW)
 		} else {
-			style.MarginRight, style.MarginRightAuto = marginLenAuto(value, fsize, viewportW)
+			style.MarginRight, style.editGeometry().MarginRightAuto = marginLenAuto(value, fsize, viewportW)
 		}
 	case propMarginBlockStart:
-		style.MarginTop, style.MarginTopAuto = marginLenAuto(value, fsize, viewportW)
+		style.MarginTop, style.editGeometry().MarginTopAuto = marginLenAuto(value, fsize, viewportW)
 	case propMarginBlockEnd:
-		style.MarginBottom, style.MarginBottomAuto = marginLenAuto(value, fsize, viewportW)
+		style.MarginBottom, style.editGeometry().MarginBottomAuto = marginLenAuto(value, fsize, viewportW)
 	default:
 		return false
 	}
@@ -28,7 +28,7 @@ func applyLogicalMarginHorizontal(style *ResolvedStyle, prop, value string, fsiz
 }
 
 func applyLogicalPaddingHorizontal(style *ResolvedStyle, prop, value string, fsize, viewportW float64) bool {
-	rtl := style.Direction == cssDirectionRTL
+	rtl := style.positioning().Direction == cssDirectionRTL
 
 	switch prop {
 	case propPaddingInlineStart:

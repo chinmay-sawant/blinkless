@@ -41,11 +41,13 @@ func viewportTestChildStyle(t *testing.T, transformBox string) *ResolvedStyle {
 	t.Helper()
 
 	return &ResolvedStyle{
-		Transform:       viewportTestRotate(t),
-		HasTransform:    true,
-		TransformOrigin: viewportTestOrigin(t),
-		TransformBox:    transformBox,
-		Opacity:         1,
+		Opacity: 1,
+		effectsGroup: &styleEffects{
+			Transform:       viewportTestRotate(t),
+			HasTransform:    true,
+			TransformOrigin: viewportTestOrigin(t),
+			TransformBox:    transformBox,
+		},
 	}
 }
 

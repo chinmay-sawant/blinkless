@@ -79,7 +79,7 @@ func TestBehaviorWidowsKeepsMinLinesInNextColumn(t *testing.T) {
 	ids := []string{"k1", "k2", "k3", "k4", "k5"}
 
 	plain := layoutHTML(t, widowsBuildDoc(""))
-	if got := boxByID(t, plain, "mc").style.Widows; got != 2 {
+	if got := boxByID(t, plain, "mc").style.fragmentation().Widows; got != 2 {
 		t.Fatalf("plain widows used = %d, want initial 2", got)
 	}
 
@@ -89,7 +89,7 @@ func TestBehaviorWidowsKeepsMinLinesInNextColumn(t *testing.T) {
 	}
 
 	styled := layoutHTML(t, widowsBuildDoc("widows:3"))
-	if got := boxByID(t, styled, "mc").style.Widows; got != 3 {
+	if got := boxByID(t, styled, "mc").style.fragmentation().Widows; got != 3 {
 		t.Fatalf("widows used = %d, want 3", got)
 	}
 

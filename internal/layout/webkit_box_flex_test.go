@@ -10,12 +10,12 @@ import (
 func TestWebkitBoxDisplayMapsToFlex(t *testing.T) {
 	t.Parallel()
 	st := styleForDecl(t, "display: -webkit-box")
-	if st.Display != displayFlex || !st.IsWebkitBox {
-		t.Fatalf("display=%q IsWebkitBox=%v, want flex+true", st.Display, st.IsWebkitBox)
+	if st.Display != displayFlex || !st.flex().IsWebkitBox {
+		t.Fatalf("display=%q IsWebkitBox=%v, want flex+true", st.Display, st.flex().IsWebkitBox)
 	}
 	st = styleForDecl(t, "display: -webkit-inline-box")
-	if st.Display != displayInlineFlex || !st.IsWebkitBox {
-		t.Fatalf("inline-box display=%q IsWebkitBox=%v, want inline-flex+true", st.Display, st.IsWebkitBox)
+	if st.Display != displayInlineFlex || !st.flex().IsWebkitBox {
+		t.Fatalf("inline-box display=%q IsWebkitBox=%v, want inline-flex+true", st.Display, st.flex().IsWebkitBox)
 	}
 }
 

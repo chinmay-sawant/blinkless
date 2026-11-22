@@ -455,19 +455,20 @@ func applyTransformOverride(style *ResolvedStyle, value string) error {
 		matrix, has = IdentityMatrix(), false
 	}
 
-	style.Transform = matrix
-	style.HasTransform = has
-	style.Transform3D = accum3D
-	style.HasTransform3D = has3D
+	effects := style.editEffects()
+	effects.Transform = matrix
+	effects.HasTransform = has
+	effects.Transform3D = accum3D
+	effects.HasTransform3D = has3D
 
-	style.TranslateXPercent, style.TranslateXPercentSet = 0, false
+	effects.TranslateXPercent, effects.TranslateXPercentSet = 0, false
 	if !math.IsNaN(xPercent) {
-		style.TranslateXPercent, style.TranslateXPercentSet = xPercent, true
+		effects.TranslateXPercent, effects.TranslateXPercentSet = xPercent, true
 	}
 
-	style.TranslateYPercent, style.TranslateYPercentSet = 0, false
+	effects.TranslateYPercent, effects.TranslateYPercentSet = 0, false
 	if !math.IsNaN(yPercent) {
-		style.TranslateYPercent, style.TranslateYPercentSet = yPercent, true
+		effects.TranslateYPercent, effects.TranslateYPercentSet = yPercent, true
 	}
 
 	return nil
@@ -477,13 +478,13 @@ func applyTransformOverride(style *ResolvedStyle, value string) error {
 // the caller hands back. The offset from the border box lands on that point, so
 // the override bypasses the transform-box reference box.
 func (style *ResolvedStyle) applyOriginOverride(boxNode *box, originX, originY float64) {
-	style.TransformOrigin = transformOriginSpec{
+	style.editEffects().TransformOrigin = transformOriginSpec{
 		X:        originX - boxNode.x,
 		Y:        originY - boxNode.y,
 		XPercent: false,
 		YPercent: false,
 	}
-	style.TransformBox = "border-box"
+	style.editEffects().TransformBox = "border-box"
 }
 
 // applyPerspectiveOverride replaces the perspective distance in layout points.
@@ -493,8 +494,8 @@ func (style *ResolvedStyle) applyPerspectiveOverride(distance float64) error {
 		return fmt.Errorf("%w: %g", errInvalidPerspective, distance)
 	}
 
-	style.PerspectiveDist = distance
-	style.HasPerspective = distance > 0
+	style.editEffects().PerspectiveDist = distance
+	style.editEffects().HasPerspective = distance > 0
 
 	return nil
 }
@@ -502,11 +503,11 @@ func (style *ResolvedStyle) applyPerspectiveOverride(distance float64) error {
 // applyPerspectiveOriginOverride replaces perspective-origin with the resolved
 // page point the caller hands back.
 func (style *ResolvedStyle) applyPerspectiveOriginOverride(boxNode *box, originX, originY float64) {
-	style.PerspectiveOriginX = originX - boxNode.x
-	style.PerspectiveOriginXPct = false
-	style.PerspectiveOriginY = originY - boxNode.y
-	style.PerspectiveOriginYPct = false
-	style.PerspectiveOriginSet = true
+	style.editEffects().PerspectiveOriginX = originX - boxNode.x
+	style.editEffects().PerspectiveOriginXPct = false
+	style.editEffects().PerspectiveOriginY = originY - boxNode.y
+	style.editEffects().PerspectiveOriginYPct = false
+	style.editEffects().PerspectiveOriginSet = true
 }
 
 // restampStyleValues is the transform slice of a ResolvedStyle. It is a
@@ -534,23 +535,23 @@ type restampStyleValues struct {
 // styleValues snapshots the transform state one style declares.
 func styleValues(style *ResolvedStyle) restampStyleValues {
 	return restampStyleValues{
-		transform:             style.Transform,
-		origin:                style.TransformOrigin,
-		transform3D:           style.Transform3D,
-		translateXPercent:     style.TranslateXPercent,
-		translateYPercent:     style.TranslateYPercent,
-		perspective:           style.PerspectiveDist,
-		perspectiveOriginX:    style.PerspectiveOriginX,
-		perspectiveOriginY:    style.PerspectiveOriginY,
-		transformBox:          style.TransformBox,
-		hasTransform:          style.HasTransform,
-		hasTransform3D:        style.HasTransform3D,
-		translateXPercentSet:  style.TranslateXPercentSet,
-		translateYPercentSet:  style.TranslateYPercentSet,
-		hasPerspective:        style.HasPerspective,
-		perspectiveOriginXPct: style.PerspectiveOriginXPct,
-		perspectiveOriginYPct: style.PerspectiveOriginYPct,
-		perspectiveOriginSet:  style.PerspectiveOriginSet,
+		transform:             style.effects().Transform,
+		origin:                style.effects().TransformOrigin,
+		transform3D:           style.effects().Transform3D,
+		translateXPercent:     style.effects().TranslateXPercent,
+		translateYPercent:     style.effects().TranslateYPercent,
+		perspective:           style.effects().PerspectiveDist,
+		perspectiveOriginX:    style.effects().PerspectiveOriginX,
+		perspectiveOriginY:    style.effects().PerspectiveOriginY,
+		transformBox:          style.effects().TransformBox,
+		hasTransform:          style.effects().HasTransform,
+		hasTransform3D:        style.effects().HasTransform3D,
+		translateXPercentSet:  style.effects().TranslateXPercentSet,
+		translateYPercentSet:  style.effects().TranslateYPercentSet,
+		hasPerspective:        style.effects().HasPerspective,
+		perspectiveOriginXPct: style.effects().PerspectiveOriginXPct,
+		perspectiveOriginYPct: style.effects().PerspectiveOriginYPct,
+		perspectiveOriginSet:  style.effects().PerspectiveOriginSet,
 	}
 }
 
@@ -679,7 +680,7 @@ func nearestPerspectiveAncestor(root, target *box) *box {
 		}
 
 		next := nearest
-		if boxNode.style != nil && boxNode.style.HasPerspective {
+		if boxNode.style != nil && boxNode.style.effects().HasPerspective {
 			next = boxNode
 		}
 

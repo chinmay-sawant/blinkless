@@ -12,6 +12,5 @@ internal/layout/flex.go	2207
 internal/layout/inline_paint.go	2129
 internal/layout/layout.go	2601
 internal/layout/relayout_subtree.go	2954
-internal/layout/style_cascade.go	2105
 internal/layout/style_value_accept.go	2053
 internal/layout/transform.go	2032

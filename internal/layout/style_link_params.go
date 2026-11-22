@@ -27,13 +27,13 @@ func applyLinkParams(
 
 	trimmed := strings.TrimSpace(value)
 	if strings.EqualFold(trimmed, svgValueNone) {
-		style.LinkParameters = ""
+		style.editContent().LinkParameters = ""
 
 		return true
 	}
 
 	if canon, ok := parseLinkParameters(trimmed); ok {
-		style.LinkParameters = canon
+		style.editContent().LinkParameters = canon
 	}
 
 	return true

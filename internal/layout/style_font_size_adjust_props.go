@@ -17,8 +17,8 @@ func applyFontSizeAdjustProps(
 	}
 
 	if adjust, set, ok := parseFontSizeAdjustValue(value); ok {
-		style.FontSizeAdjust = adjust
-		style.FontSizeAdjustSet = set
+		style.editFont().FontSizeAdjust = adjust
+		style.editFont().FontSizeAdjustSet = set
 	}
 
 	return true
@@ -55,7 +55,7 @@ func usedFontSize(sty *ResolvedStyle, face *pdf.Font) float64 {
 	}
 
 	size := sty.FontSize
-	if !sty.FontSizeAdjustSet || face == nil {
+	if !sty.font().FontSizeAdjustSet || face == nil {
 		return size
 	}
 
@@ -64,5 +64,5 @@ func usedFontSize(sty *ResolvedStyle, face *pdf.Font) float64 {
 		return size
 	}
 
-	return size * (sty.FontSizeAdjust / aspect)
+	return size * (sty.font().FontSizeAdjust / aspect)
 }

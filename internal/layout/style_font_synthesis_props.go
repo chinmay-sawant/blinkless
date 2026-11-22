@@ -20,13 +20,13 @@ func applyFontSynthesisProps(
 
 	switch prop {
 	case "font-synthesis-weight":
-		target = &style.FontSynthesisWeight
+		target = &style.editFont().FontSynthesisWeight
 	case "font-synthesis-style":
-		target = &style.FontSynthesisStyle
+		target = &style.editFont().FontSynthesisStyle
 	case "font-synthesis-small-caps":
-		target = &style.FontSynthesisSmallCaps
+		target = &style.editFont().FontSynthesisSmallCaps
 	case "font-synthesis-position":
-		target = &style.FontSynthesisPosition
+		target = &style.editFont().FontSynthesisPosition
 	default:
 		return false
 	}
@@ -56,10 +56,10 @@ func applyFontSynthesisShorthand(style *ResolvedStyle, raw string) bool {
 	}
 
 	if value == "none" {
-		style.FontSynthesisWeight = false
-		style.FontSynthesisStyle = false
-		style.FontSynthesisSmallCaps = false
-		style.FontSynthesisPosition = false
+		style.editFont().FontSynthesisWeight = false
+		style.editFont().FontSynthesisStyle = false
+		style.editFont().FontSynthesisSmallCaps = false
+		style.editFont().FontSynthesisPosition = false
 
 		return true
 	}
@@ -86,15 +86,15 @@ func applyFontSynthesisShorthand(style *ResolvedStyle, raw string) bool {
 		}
 	}
 
-	style.FontSynthesisWeight = weight
-	style.FontSynthesisStyle = styleAllow
-	style.FontSynthesisSmallCaps = smallCaps
-	style.FontSynthesisPosition = position
+	style.editFont().FontSynthesisWeight = weight
+	style.editFont().FontSynthesisStyle = styleAllow
+	style.editFont().FontSynthesisSmallCaps = smallCaps
+	style.editFont().FontSynthesisPosition = position
 
 	return true
 }
 
 // textOpDisablesFakeBold reports whether CSS font-synthesis forbids fake bold.
 func textOpDisablesFakeBold(sty *ResolvedStyle) bool {
-	return sty != nil && !sty.FontSynthesisWeight
+	return sty != nil && !sty.font().FontSynthesisWeight
 }

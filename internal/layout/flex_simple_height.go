@@ -70,9 +70,9 @@ func (e *engine) simpleFlexRowHeight(
 		return 0, false
 	}
 
-	rowH := e.scalePt(style.PaddingTop) + e.scalePt(style.BorderTop.Width) +
+	rowH := e.scalePt(style.PaddingTop) + e.scalePt(style.borders().BorderTop.Width) +
 		rowContentH +
-		e.scalePt(style.PaddingBottom) + e.scalePt(style.BorderBottom.Width)
+		e.scalePt(style.PaddingBottom) + e.scalePt(style.borders().BorderBottom.Width)
 
 	if rowH <= 0 {
 		return 0, false
@@ -211,9 +211,9 @@ func (e *engine) simpleFlexStackHeight(
 		return 0, false
 	}
 
-	boxH := e.scalePt(style.PaddingTop) + e.scalePt(style.BorderTop.Width) +
+	boxH := e.scalePt(style.PaddingTop) + e.scalePt(style.borders().BorderTop.Width) +
 		contentH +
-		e.scalePt(style.PaddingBottom) + e.scalePt(style.BorderBottom.Width)
+		e.scalePt(style.PaddingBottom) + e.scalePt(style.borders().BorderBottom.Width)
 	if boxH <= 0 {
 		return 0, false
 	}
@@ -272,7 +272,7 @@ func simpleFlexStackStyleOK(style *ResolvedStyle) bool {
 		return false
 	}
 
-	if isVerticalWritingMode(style.WritingMode) || style.Direction == cssDirectionRTL {
+	if isVerticalWritingMode(style.positioning().WritingMode) || style.positioning().Direction == cssDirectionRTL {
 		return false
 	}
 
@@ -293,8 +293,8 @@ func simpleFlexOutOfFlowStyleOK(style *ResolvedStyle) bool {
 // simple stack measure cannot reproduce.
 func simpleFlexStackBoxOK(style *ResolvedStyle) bool {
 	if style.Height >= 0 || style.HeightPercent >= 0 ||
-		style.MinHeight > 0 || style.MinHeightPercent >= 0 ||
-		style.MaxHeight >= 0 || style.MaxHeightPercent >= 0 {
+		style.geometry().MinHeight > 0 || style.geometry().MinHeightPercent >= 0 ||
+		style.geometry().MaxHeight >= 0 || style.geometry().MaxHeightPercent >= 0 {
 		return false
 	}
 
@@ -304,10 +304,10 @@ func simpleFlexStackBoxOK(style *ResolvedStyle) bool {
 // simpleFlexStackPaintOK refuses the containment and painting properties that
 // make the as-if-empty stack height wrong.
 func simpleFlexStackPaintOK(style *ResolvedStyle) bool {
-	if style.AspectRatio > 0 || style.BorderImageSource != "" ||
+	if style.geometry().AspectRatio > 0 || style.borders().BorderImageSource != "" ||
 		containsSize(style) || isMulticol(style) ||
-		style.ContentVisibility == contentVisibilityHidden ||
-		style.ContentVisibility == contentVisibilityAuto {
+		style.containment().ContentVisibility == contentVisibilityHidden ||
+		style.containment().ContentVisibility == contentVisibilityAuto {
 		return false
 	}
 
@@ -348,7 +348,7 @@ func (e *engine) simpleFlexStackChildHeight(child *html.Node, rowContentW float6
 // simpleFlexRowMarginsZero reports whether the row carries no vertical margins,
 // the shape the simple stack's trivial margin collapsing needs.
 func (e *engine) simpleFlexRowMarginsZero(style *ResolvedStyle) bool {
-	if style.MarginTopAuto || style.MarginBottomAuto {
+	if style.geometry().MarginTopAuto || style.geometry().MarginBottomAuto {
 		return false
 	}
 
@@ -365,15 +365,15 @@ func (e *engine) simpleFlexRowStyleOK(style *ResolvedStyle, contentW float64) bo
 		return false
 	}
 
-	if style.FlexDirection != "" && style.FlexDirection != fxRow {
+	if style.flex().FlexDirection != "" && style.flex().FlexDirection != fxRow {
 		return false
 	}
 
-	if style.FlexWrap != "" && style.FlexWrap != cssWhiteSpaceNowrap {
+	if style.flex().FlexWrap != "" && style.flex().FlexWrap != cssWhiteSpaceNowrap {
 		return false
 	}
 
-	if isVerticalWritingMode(style.WritingMode) || style.Direction == cssDirectionRTL {
+	if isVerticalWritingMode(style.positioning().WritingMode) || style.positioning().Direction == cssDirectionRTL {
 		return false
 	}
 
@@ -385,7 +385,7 @@ func (e *engine) simpleFlexRowStyleOK(style *ResolvedStyle, contentW float64) bo
 		return false
 	}
 
-	if style.AspectRatio > 0 || style.IsWebkitBox || isIntrinsicWidth(style.Width) {
+	if style.geometry().AspectRatio > 0 || style.flex().IsWebkitBox || isIntrinsicWidth(style.Width) {
 		return false
 	}
 
@@ -400,18 +400,18 @@ func (e *engine) simpleFlexRowStyleOK(style *ResolvedStyle, contentW float64) bo
 		return false
 	}
 
-	if style.MinHeight > 0 || style.MinHeightPercent >= 0 ||
-		style.MaxHeight >= 0 || style.MaxHeightPercent >= 0 {
+	if style.geometry().MinHeight > 0 || style.geometry().MinHeightPercent >= 0 ||
+		style.geometry().MaxHeight >= 0 || style.geometry().MaxHeightPercent >= 0 {
 		return false
 	}
 
 	// Border-image replaces the border layout width on some sides. The simple
 	// path reads the plain border widths, so refuse the image case.
-	if style.BorderImageSource != "" {
+	if style.borders().BorderImageSource != "" {
 		return false
 	}
 
-	if containsSize(style) || style.ContentVisibility == contentVisibilityHidden {
+	if containsSize(style) || style.containment().ContentVisibility == contentVisibilityHidden {
 		return false
 	}
 
@@ -459,17 +459,17 @@ func (e *engine) simpleFlexCellMetrics(child *html.Node) (float64, float64, bool
 		return 0, 0, false
 	}
 
-	if childStyle.FlexBasis >= 0 || childStyle.FlexBasisPercent >= 0 || childStyle.FlexGrow > 0 {
+	if childStyle.flex().FlexBasis >= 0 || childStyle.flex().FlexBasisPercent >= 0 || childStyle.flex().FlexGrow > 0 {
 		return 0, 0, false
 	}
 
-	if childStyle.MinWidth > 0 || childStyle.MinWidthPercent >= 0 ||
-		childStyle.MaxWidth >= 0 || childStyle.MaxWidthPercent >= 0 {
+	if childStyle.geometry().MinWidth > 0 || childStyle.geometry().MinWidthPercent >= 0 ||
+		childStyle.geometry().MaxWidth >= 0 || childStyle.geometry().MaxWidthPercent >= 0 {
 		return 0, 0, false
 	}
 
-	if childStyle.MarginTopAuto || childStyle.MarginRightAuto ||
-		childStyle.MarginBottomAuto || childStyle.MarginLeftAuto {
+	if childStyle.geometry().MarginTopAuto || childStyle.geometry().MarginRightAuto ||
+		childStyle.geometry().MarginBottomAuto || childStyle.geometry().MarginLeftAuto {
 		return 0, 0, false
 	}
 
@@ -479,26 +479,26 @@ func (e *engine) simpleFlexCellMetrics(child *html.Node) (float64, float64, bool
 		return 0, 0, false
 	}
 
-	if childStyle.MinHeight > 0 || childStyle.MinHeightPercent >= 0 ||
-		childStyle.MaxHeight >= 0 || childStyle.MaxHeightPercent >= 0 {
+	if childStyle.geometry().MinHeight > 0 || childStyle.geometry().MinHeightPercent >= 0 ||
+		childStyle.geometry().MaxHeight >= 0 || childStyle.geometry().MaxHeightPercent >= 0 {
 		return 0, 0, false
 	}
 
-	if childStyle.AspectRatio > 0 || childStyle.BorderImageSource != "" {
+	if childStyle.geometry().AspectRatio > 0 || childStyle.borders().BorderImageSource != "" {
 		return 0, 0, false
 	}
 
-	if containsSize(childStyle) || childStyle.ContentVisibility == contentVisibilityHidden {
+	if containsSize(childStyle) || childStyle.containment().ContentVisibility == contentVisibilityHidden {
 		return 0, 0, false
 	}
 
-	if isVerticalWritingMode(childStyle.WritingMode) || childStyle.Direction == cssDirectionRTL {
+	if isVerticalWritingMode(childStyle.positioning().WritingMode) || childStyle.positioning().Direction == cssDirectionRTL {
 		return 0, 0, false
 	}
 
 	// Text-box trim drops half-leading on the first and last line. That
 	// changes the line height even when the text fits.
-	if childStyle.TextBoxTrim != "" && childStyle.TextBoxTrim != cssDisplayNone {
+	if childStyle.inlineText().TextBoxTrim != "" && childStyle.inlineText().TextBoxTrim != cssDisplayNone {
 		return 0, 0, false
 	}
 
@@ -518,10 +518,10 @@ func (e *engine) simpleFlexCellMetrics(child *html.Node) (float64, float64, bool
 		return 0, 0, false
 	}
 
-	textW := e.measureTextFace(transformInlineText(text, textStyle.TextTransform), textStyle)
+	textW := e.measureTextFace(transformInlineText(text, textStyle.inlineText().TextTransform), textStyle)
 
 	padH := e.scalePt(childStyle.PaddingLeft) + e.scalePt(childStyle.PaddingRight) +
-		e.scalePt(childStyle.BorderLeft.Width) + e.scalePt(childStyle.BorderRight.Width)
+		e.scalePt(childStyle.borders().BorderLeft.Width) + e.scalePt(childStyle.borders().BorderRight.Width)
 	childW := e.flexBoxSized(childStyle, e.scalePt(childStyle.Width), padH)
 	innerW := childW - padH
 
@@ -535,7 +535,7 @@ func (e *engine) simpleFlexCellMetrics(child *html.Node) (float64, float64, bool
 	}
 
 	padV := e.scalePt(childStyle.PaddingTop) + e.scalePt(childStyle.PaddingBottom) +
-		e.scalePt(childStyle.BorderTop.Width) + e.scalePt(childStyle.BorderBottom.Width)
+		e.scalePt(childStyle.borders().BorderTop.Width) + e.scalePt(childStyle.borders().BorderBottom.Width)
 	outerH := padV + lineH +
 		e.scalePt(childStyle.MarginTop) + e.scalePt(childStyle.MarginBottom)
 	outerW := childW + e.scalePt(childStyle.MarginLeft) + e.scalePt(childStyle.MarginRight)
@@ -622,7 +622,7 @@ func (e *engine) simpleFlexMinContentWidth(node *html.Node, style *ResolvedStyle
 	}
 
 	if isSimpleFlexReplacedElement(node) || containsSize(style) ||
-		style.ContentVisibility == contentVisibilityHidden {
+		style.containment().ContentVisibility == contentVisibilityHidden {
 		return 0, false
 	}
 
@@ -649,7 +649,7 @@ func (e *engine) simpleFlexMinContentWidth(node *html.Node, style *ResolvedStyle
 	}
 
 	chrome := e.scalePt(style.PaddingLeft) + e.scalePt(style.PaddingRight) +
-		e.scalePt(style.BorderLeft.Width) + e.scalePt(style.BorderRight.Width)
+		e.scalePt(style.borders().BorderLeft.Width) + e.scalePt(style.borders().BorderRight.Width)
 	// Inline boxes fold that same chrome into every measured word inside the
 	// cell walk, while block boxes add it once at the end; both reduce to the
 	// widest word plus the chrome.
@@ -677,7 +677,7 @@ func (e *engine) simpleFlexLongestWord(text string, style *ResolvedStyle) float6
 			end++
 		}
 
-		word := transformInlineText(text[start:end], style.TextTransform)
+		word := transformInlineText(text[start:end], style.inlineText().TextTransform)
 		if width := e.measureTextFace(word, style); width > longest {
 			longest = width
 		}

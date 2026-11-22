@@ -10,11 +10,11 @@ type colorAdjustField struct {
 }
 
 var colorAdjustFields = []colorAdjustField{ //nolint:gochecknoglobals // static test table
-	{name: "color-adjust", get: func(s *ResolvedStyle) string { return s.ColorAdjust }},
-	{name: "print-color-adjust", get: func(s *ResolvedStyle) string { return s.ColorAdjust }},
-	{name: "forced-color-adjust", get: func(s *ResolvedStyle) string { return s.ForcedColorAdjust }},
-	{name: "color-scheme", get: func(s *ResolvedStyle) string { return s.ColorScheme }},
-	{name: "dynamic-range-limit", get: func(s *ResolvedStyle) string { return s.DynamicRangeLimit }},
+	{name: "color-adjust", get: func(s *ResolvedStyle) string { return s.containment().ColorAdjust }},
+	{name: "print-color-adjust", get: func(s *ResolvedStyle) string { return s.containment().ColorAdjust }},
+	{name: "forced-color-adjust", get: func(s *ResolvedStyle) string { return s.containment().ForcedColorAdjust }},
+	{name: "color-scheme", get: func(s *ResolvedStyle) string { return s.containment().ColorScheme }},
+	{name: "dynamic-range-limit", get: func(s *ResolvedStyle) string { return s.containment().DynamicRangeLimit }},
 }
 
 func colorAdjustFieldFor(t *testing.T, prop string) func(*ResolvedStyle) string {
@@ -114,44 +114,44 @@ func TestColorAdjustPropsCSSWideKeywords(t *testing.T) {
 	t.Parallel()
 
 	parent := initialStyle()
-	parent.ColorAdjust = colorAdjustExact
-	parent.ForcedColorAdjust = forcedColorAdjustNone
-	parent.ColorScheme = colorSchemeDark
-	parent.DynamicRangeLimit = dynamicRangeLimitHigh
+	parent.editContainment().ColorAdjust = colorAdjustExact
+	parent.editContainment().ForcedColorAdjust = forcedColorAdjustNone
+	parent.editContainment().ColorScheme = colorSchemeDark
+	parent.editContainment().DynamicRangeLimit = dynamicRangeLimitHigh
 
 	child := initialStyle()
 	for _, field := range colorAdjustFields {
 		applyColorAdjustProps(&child, field.name, "inherit", 12, nil, &parent, true)
 	}
 
-	if child.ColorAdjust != colorAdjustExact ||
-		child.ForcedColorAdjust != forcedColorAdjustNone ||
-		child.ColorScheme != colorSchemeDark ||
-		child.DynamicRangeLimit != dynamicRangeLimitHigh {
+	if child.containment().ColorAdjust != colorAdjustExact ||
+		child.containment().ForcedColorAdjust != forcedColorAdjustNone ||
+		child.containment().ColorScheme != colorSchemeDark ||
+		child.containment().DynamicRangeLimit != dynamicRangeLimitHigh {
 		t.Errorf("inherit did not copy the parent: %+v", child)
 	}
 
 	unset := initialStyle()
 	applyColorAdjustProps(&unset, "color-scheme", "unset", 12, nil, &parent, true)
 
-	if unset.ColorScheme != colorSchemeDark {
-		t.Errorf("unset = %q, want parent dark", unset.ColorScheme)
+	if unset.containment().ColorScheme != colorSchemeDark {
+		t.Errorf("unset = %q, want parent dark", unset.containment().ColorScheme)
 	}
 
 	reset := initialStyle()
-	reset.ColorAdjust = colorAdjustExact // simulate the inherited copy
+	reset.editContainment().ColorAdjust = colorAdjustExact // simulate the inherited copy
 	applyColorAdjustProps(&reset, "color-adjust", "initial", 12, nil, &parent, true)
 
-	if reset.ColorAdjust != colorAdjustEconomy {
-		t.Errorf("initial = %q, want economy", reset.ColorAdjust)
+	if reset.containment().ColorAdjust != colorAdjustEconomy {
+		t.Errorf("initial = %q, want economy", reset.containment().ColorAdjust)
 	}
 
 	revert := initialStyle()
-	revert.DynamicRangeLimit = dynamicRangeLimitHigh
+	revert.editContainment().DynamicRangeLimit = dynamicRangeLimitHigh
 	applyColorAdjustProps(&revert, "dynamic-range-limit", "revert", 12, nil, &parent, true)
 
-	if revert.DynamicRangeLimit != dynamicRangeLimitNoLimit {
-		t.Errorf("revert = %q, want no-limit", revert.DynamicRangeLimit)
+	if revert.containment().DynamicRangeLimit != dynamicRangeLimitNoLimit {
+		t.Errorf("revert = %q, want no-limit", revert.containment().DynamicRangeLimit)
 	}
 }
 
@@ -183,10 +183,10 @@ func TestColorAdjustPropsReachRestPass(t *testing.T) {
 		"dynamic-range-limit": "constrained-high",
 	}, ctx, nil)
 
-	if style.ColorAdjust != colorAdjustExact ||
-		style.ForcedColorAdjust != forcedColorAdjustNone ||
-		style.ColorScheme != "only dark" ||
-		style.DynamicRangeLimit != dynamicRangeLimitConstrainedHigh {
+	if style.containment().ColorAdjust != colorAdjustExact ||
+		style.containment().ForcedColorAdjust != forcedColorAdjustNone ||
+		style.containment().ColorScheme != "only dark" ||
+		style.containment().DynamicRangeLimit != dynamicRangeLimitConstrainedHigh {
 		t.Errorf("cascade dispatch missed a value: %+v", style)
 	}
 }

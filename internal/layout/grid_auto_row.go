@@ -32,17 +32,17 @@ func canBuildAutoRowGrid(eng *engine, sty ResolvedStyle, placed []gridCell, cols
 		return false
 	}
 
-	if strings.TrimSpace(sty.GridTemplateRows) != "" ||
-		strings.TrimSpace(sty.GridTemplateAreas) != "" {
+	if strings.TrimSpace(sty.grid().GridTemplateRows) != "" ||
+		strings.TrimSpace(sty.grid().GridTemplateAreas) != "" {
 		return false
 	}
 
-	if autoRows := strings.TrimSpace(sty.GridAutoRows); autoRows != "" && !strings.EqualFold(autoRows, "auto") {
+	if autoRows := strings.TrimSpace(sty.grid().GridAutoRows); autoRows != "" && !strings.EqualFold(autoRows, "auto") {
 		return false
 	}
 
 	for _, page := range placed {
-		if !autoRowCellEligible(eng, page, cols, sty.JustifyItems) {
+		if !autoRowCellEligible(eng, page, cols, sty.flex().JustifyItems) {
 			return false
 		}
 	}
@@ -79,8 +79,8 @@ func autoRowCellShape(page gridCell, cols []float64) bool {
 
 // autoRowExplicitPlacement reports whether the item names a grid line or area.
 func autoRowExplicitPlacement(child *ResolvedStyle) bool {
-	return child.GridRowStart != 0 || child.GridColumnStart != 0 ||
-		child.GridRowEnd != 0 || child.GridColumnEnd != 0 || child.GridArea != ""
+	return child.grid().GridRowStart != 0 || child.grid().GridColumnStart != 0 ||
+		child.grid().GridRowEnd != 0 || child.grid().GridColumnEnd != 0 || child.grid().GridArea != ""
 }
 
 // autoRowPaintHazard reports styles that carry their own compositing or
@@ -97,8 +97,8 @@ func autoRowOutOfFlowHazard(child *ResolvedStyle) bool {
 
 // autoRowCompositingHazard reports boxes that create their own paint group.
 func autoRowCompositingHazard(child *ResolvedStyle) bool {
-	return child.HasTransform || child.Isolation == unicodeBidiIsolate ||
-		nonNormalBlendMode(child.MixBlendMode) != "" || maskGroupRequested(child)
+	return child.effects().HasTransform || child.effects().Isolation == unicodeBidiIsolate ||
+		nonNormalBlendMode(child.effects().MixBlendMode) != "" || maskGroupRequested(child)
 }
 
 // autoRowLayoutHazard reports boxes whose used height depends on a second
@@ -106,19 +106,19 @@ func autoRowCompositingHazard(child *ResolvedStyle) bool {
 func autoRowLayoutHazard(child *ResolvedStyle) bool {
 	return child.Display == displayFlex || child.Display == displayInlineFlex ||
 		isMulticol(child) || child.Display == displayTable || child.Display == displaySubgrid ||
-		isVerticalWritingMode(child.WritingMode)
+		isVerticalWritingMode(child.positioning().WritingMode)
 }
 
 // autoRowClipHazard reports boxes that clip their own paint. A chrome-only
 // stretch cannot re-clip the item's descendants safely.
 func autoRowClipHazard(child *ResolvedStyle) bool {
-	return clipsPaintAxis(child, child.OverflowX) || clipsPaintAxis(child, child.OverflowY)
+	return clipsPaintAxis(child, child.geometry().OverflowX) || clipsPaintAxis(child, child.geometry().OverflowY)
 }
 
 // autoRowHeightHazard reports percentage heights that depend on a definite
 // row height the one-pass path has not resolved yet.
 func autoRowHeightHazard(child *ResolvedStyle) bool {
-	return child.HeightPercent >= 0 || child.MinHeightPercent >= 0 || child.MaxHeightPercent >= 0
+	return child.HeightPercent >= 0 || child.geometry().MinHeightPercent >= 0 || child.geometry().MaxHeightPercent >= 0
 }
 
 // gridJustifyEligible reports whether the item's inline justify leaves the
@@ -137,11 +137,11 @@ func autoRowInnerGridEligible(child *ResolvedStyle) bool {
 		return true
 	}
 
-	if strings.TrimSpace(child.GridTemplateRows) != "" {
+	if strings.TrimSpace(child.grid().GridTemplateRows) != "" {
 		return false
 	}
 
-	align := strings.TrimSpace(child.AlignContent)
+	align := strings.TrimSpace(child.flex().AlignContent)
 
 	return align == "" || align == "normal" || align == fxStretch
 }
@@ -196,11 +196,11 @@ func styleHasStretchHazard(style *ResolvedStyle) bool {
 		return false
 	}
 
-	if style.HeightPercent >= 0 || style.MinHeightPercent >= 0 || style.MaxHeightPercent >= 0 {
+	if style.HeightPercent >= 0 || style.geometry().MinHeightPercent >= 0 || style.geometry().MaxHeightPercent >= 0 {
 		return true
 	}
 
-	return (style.Position == positionAbsolute || style.Position == positionFixed) && !style.BottomAuto
+	return (style.Position == positionAbsolute || style.Position == positionFixed) && !style.positioning().BottomAuto
 }
 
 // layoutAutoRowGrid builds each item once, then stretches or aligns it after
@@ -217,12 +217,12 @@ func (e *engine) layoutAutoRowGrid(
 	items := make([]autoRowBuiltItem, len(placed))
 	rows := make([]float64, numRows)
 
-	containerJustify := sty.JustifyItems
+	containerJustify := sty.flex().JustifyItems
 	if containerJustify == "" {
 		containerJustify = fxStretch
 	}
 
-	containerAlign := sty.AlignItems
+	containerAlign := sty.flex().AlignItems
 	if containerAlign == "" {
 		containerAlign = fxStretch
 	}
@@ -252,7 +252,7 @@ func (e *engine) layoutAutoRowGrid(
 
 	e.appendAutoRowBoxes(boxNode, items)
 
-	rowYs := gridRowTops(curY, rows, rowGap, contentH, sty.AlignContent)
+	rowYs := gridRowTops(curY, rows, rowGap, contentH, sty.flex().AlignContent)
 
 	e.shiftAutoRowBoxes(placed, items, rowYs, posY)
 	e.paintGridGapRules(sty, placed, contentX, contentW, cols, columnGap, rowYs, rows, posY)
@@ -374,8 +374,8 @@ func (e *engine) applyAutoRowStretch(
 
 		if buildH > 0 {
 			target := buildH
-			if item.style.MaxHeight >= 0 {
-				if maxHeight := e.scalePt(item.style.MaxHeight); maxHeight < target {
+			if item.style.geometry().MaxHeight >= 0 {
+				if maxHeight := e.scalePt(item.style.geometry().MaxHeight); maxHeight < target {
 					target = maxHeight
 				}
 			}

@@ -27,7 +27,7 @@ func (e *engine) buildTable(node *html.Node, style ResolvedStyle, availW, posX, 
 	// copies of their child pointers.
 	tableBox.children = make([]*box, 0, len(placed)+1)
 
-	fixedTable := style.TableLayout == positionFixed
+	fixedTable := style.fragmentation().TableLayout == positionFixed
 	colW, colMin, colPct, colAbs, cellData := e.measureTableColumns(placed, nCols, fixedTable)
 	if e.checkContext() {
 		return tableBox
@@ -39,7 +39,7 @@ func (e *engine) buildTable(node *html.Node, style ResolvedStyle, availW, posX, 
 	spacingH := e.tableHSpacing(style)
 	spacingV := e.tableVSpacing(style)
 	chrome := spacingH*float64(nCols+1) +
-		e.scalePt(style.BorderLeft.Width) + e.scalePt(style.BorderRight.Width) +
+		e.scalePt(style.borders().BorderLeft.Width) + e.scalePt(style.borders().BorderRight.Width) +
 		e.scalePt(style.PaddingLeft) + e.scalePt(style.PaddingRight)
 
 	tableHint := e.tableWidthHint(style, availW)
@@ -83,7 +83,7 @@ func (e *engine) layoutTableGrid(
 	tableBox *box, style ResolvedStyle, rows [][]*html.Node, cellData [][]*box,
 	colW []float64, spacingH, spacingV float64, nCols int, posX, tableY float64,
 ) {
-	padL := e.scalePt(style.PaddingLeft) + e.scalePt(style.BorderLeft.Width)
+	padL := e.scalePt(style.PaddingLeft) + e.scalePt(style.borders().BorderLeft.Width)
 	rowHeights, rowTops, curY := e.measureTableRows(
 		tableBox, rows, cellData, colW, spacingH, spacingV, nCols, posX, tableY, padL,
 	)
@@ -120,10 +120,10 @@ func (e *engine) attachCaption(tableBox *box, capNode *html.Node, tableW, posX, 
 
 func captionSideValue(tableStyle ResolvedStyle, captionStyle *ResolvedStyle) string {
 	raw := ""
-	if tableStyle.CaptionSide != "" {
-		raw = tableStyle.CaptionSide
+	if tableStyle.fragmentation().CaptionSide != "" {
+		raw = tableStyle.fragmentation().CaptionSide
 	} else if captionStyle != nil {
-		raw = captionStyle.CaptionSide
+		raw = captionStyle.fragmentation().CaptionSide
 	}
 	if raw == "" {
 		return ""
@@ -260,24 +260,24 @@ func (e *engine) buildCaptionAt(capNode *html.Node, width, posX, posY float64) *
 
 // tableHSpacing is the horizontal inter-cell gap: border-collapse suppresses it.
 func (e *engine) tableHSpacing(st ResolvedStyle) float64 {
-	if st.BorderCollapse == borderCollapseValue {
+	if st.fragmentation().BorderCollapse == borderCollapseValue {
 		return 0
 	}
 
-	return e.scalePt(st.BorderSpacing)
+	return e.scalePt(st.fragmentation().BorderSpacing)
 }
 
 // tableVSpacing is the vertical inter-cell gap: border-collapse suppresses it.
 func (e *engine) tableVSpacing(style ResolvedStyle) float64 {
-	if style.BorderCollapse == borderCollapseValue {
+	if style.fragmentation().BorderCollapse == borderCollapseValue {
 		return 0
 	}
 
-	if style.BorderSpacingV != 0 {
-		return e.scalePt(style.BorderSpacingV)
+	if style.fragmentation().BorderSpacingV != 0 {
+		return e.scalePt(style.fragmentation().BorderSpacingV)
 	}
 
-	return e.scalePt(style.BorderSpacing)
+	return e.scalePt(style.fragmentation().BorderSpacing)
 }
 
 // emitTableCells paints the cell backgrounds/borders and the collapsed grid
@@ -289,7 +289,7 @@ func (e *engine) emitTableCells(
 	tableBox *box, sty ResolvedStyle, posX, posY, tableHeight, padL float64,
 	colW, rowTops, rowHeights []float64, cellData [][]*box,
 ) {
-	collapse := sty.BorderCollapse == borderCollapseValue
+	collapse := sty.fragmentation().BorderCollapse == borderCollapseValue
 	// Separate borders: stroke the table box. Collapsed grids include the
 	// outer perimeter — stroking both doubles the outer edge and leaves the
 	// table chrome behind when only cell ops shift across pages.
@@ -665,7 +665,7 @@ func (e *engine) measureTableRows(
 	nRows := len(cellData)
 	rowHeights := make([]float64, nRows)
 	rowTops := make([]float64, nRows)
-	curY := e.scalePt(tableBox.style.PaddingTop) + e.scalePt(tableBox.style.BorderTop.Width) + spacingV
+	curY := e.scalePt(tableBox.style.PaddingTop) + e.scalePt(tableBox.style.borders().BorderTop.Width) + spacingV
 	// Measure each cell at its final column width; row height from single-row
 	// cells first. Rowspan cells enlarge the spanned rows afterward.
 	// Rows with no local cells (rowspan holes) or only ink-less cells stay at
@@ -699,7 +699,7 @@ func (e *engine) measureTableRows(
 	growRowspanRows(tableBox, nRows, rowHeights, spacingV)
 
 	// Recompute tops and assign final cell heights after rowspan growth.
-	curY = e.scalePt(tableBox.style.PaddingTop) + e.scalePt(tableBox.style.BorderTop.Width) + spacingV
+	curY = e.scalePt(tableBox.style.PaddingTop) + e.scalePt(tableBox.style.borders().BorderTop.Width) + spacingV
 	for rowIdx := range rowHeights {
 		rowTops[rowIdx] = posY + curY
 		curY += rowHeights[rowIdx] + spacingV
@@ -1054,21 +1054,21 @@ func horizontalTableBorder(tableBox *box, boundary, col int) (border, bool) {
 			continue
 		}
 
-		if cell.row == boundary && borderVisible(cell.style.BorderTop) {
+		if cell.row == boundary && borderVisible(cell.style.borders().BorderTop) {
 			if !found {
-				best = cell.style.BorderTop
+				best = cell.style.borders().BorderTop
 				found = true
 			} else {
-				best = resolveBorderConflict(best, cell.style.BorderTop)
+				best = resolveBorderConflict(best, cell.style.borders().BorderTop)
 			}
 		}
 
-		if cell.row+cell.rowSpan == boundary && borderVisible(cell.style.BorderBottom) {
+		if cell.row+cell.rowSpan == boundary && borderVisible(cell.style.borders().BorderBottom) {
 			if !found {
-				best = cell.style.BorderBottom
+				best = cell.style.borders().BorderBottom
 				found = true
 			} else {
-				best = resolveBorderConflict(best, cell.style.BorderBottom)
+				best = resolveBorderConflict(best, cell.style.borders().BorderBottom)
 			}
 		}
 	}
@@ -1092,21 +1092,21 @@ func verticalTableBorder(tableBox *box, row, boundary int) (border, bool) {
 			continue
 		}
 
-		if cell.col == boundary && borderVisible(cell.style.BorderLeft) {
+		if cell.col == boundary && borderVisible(cell.style.borders().BorderLeft) {
 			if !found {
-				best = cell.style.BorderLeft
+				best = cell.style.borders().BorderLeft
 				found = true
 			} else {
-				best = resolveBorderConflict(best, cell.style.BorderLeft)
+				best = resolveBorderConflict(best, cell.style.borders().BorderLeft)
 			}
 		}
 
-		if cell.col+cell.span == boundary && borderVisible(cell.style.BorderRight) {
+		if cell.col+cell.span == boundary && borderVisible(cell.style.borders().BorderRight) {
 			if !found {
-				best = cell.style.BorderRight
+				best = cell.style.borders().BorderRight
 				found = true
 			} else {
-				best = resolveBorderConflict(best, cell.style.BorderRight)
+				best = resolveBorderConflict(best, cell.style.borders().BorderRight)
 			}
 		}
 	}
@@ -1275,9 +1275,9 @@ func (e *engine) emitCell(cell *box, skipBorders bool) {
 
 	if e.backgroundPaintEnabled(&sty) && !hideEmpty {
 		if r, g, bl, a, ok := e.cellBG(cell); ok {
-			rgb := forcedColorsPaintColor(e.forcedColorsForPaint(), sty.ForcedColorAdjust,
+			rgb := forcedColorsPaintColor(e.forcedColorsForPaint(), sty.containment().ForcedColorAdjust,
 				[3]float64{r, g, bl}, [3]float64{})
-			rgb = clampDynamicRangeColor(rgb, sty.DynamicRangeLimit)
+			rgb = clampDynamicRangeColor(rgb, sty.containment().DynamicRangeLimit)
 			e.add(Op{ //nolint:exhaustruct // intentional zero fields
 				Kind: OpFillRect, X: cell.x, Y: cell.y, W: cell.w, H: cell.height,
 				R: rgb[0], G: rgb[1], B: rgb[2], Alpha: a,
@@ -1291,7 +1291,7 @@ func (e *engine) emitCell(cell *box, skipBorders bool) {
 
 	contentStart := len(e.ops)
 	curX, contentW := e.contentBox(cell.x, cell.w, &sty)
-	curY := cell.y + e.scalePt(sty.PaddingTop) + e.scalePt(sty.BorderTop.Width)
+	curY := cell.y + e.scalePt(sty.PaddingTop) + e.scalePt(sty.borders().BorderTop.Width)
 	curY = cellVerticalAlignOffset(cell, curY)
 	// flowChildren advances cy; cell content is rooted at absolute canvas y
 	// (pass y=0, contentX=cx, cy=content top) so floats pack inside the cell
@@ -1341,7 +1341,7 @@ func cellVerticalAlignOffset(cell *box, curY float64) float64 {
 		return curY
 	}
 
-	switch cell.style.VerticalAlign {
+	switch cell.style.inlineText().VerticalAlign {
 	case cssVerticalAlignMiddle:
 		return curY + extra/2
 	case cssVerticalAlignBottom:
@@ -1375,16 +1375,16 @@ func isEmptyCellHidden(e *engine, cell *box, sty ResolvedStyle) bool {
 	if !isEmpty {
 		return false
 	}
-	if sty.EmptyCells == "hide" {
+	if sty.fragmentation().EmptyCells == "hide" {
 		return true
 	}
-	if sty.EmptyCells == "show" {
+	if sty.fragmentation().EmptyCells == "show" {
 		return false
 	}
 	if cell.node != nil {
 		for n := cell.node.Parent; n != nil; n = n.Parent {
 			if n.Name == "table" {
-				if ts := e.stylePtr(n); ts != nil && ts.EmptyCells == "hide" {
+				if ts := e.stylePtr(n); ts != nil && ts.fragmentation().EmptyCells == "hide" {
 					return true
 				}
 				break

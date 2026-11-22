@@ -61,7 +61,7 @@ func applySVGGeometryProps(style *ResolvedStyle, prop, value string) bool {
 	case svgPropCx, svgPropCy, svgPropX, svgPropY, svgPropR, svgPropRx, svgPropRy:
 		return storeSVGGeometryLength(svgGeomLengthField(style, prop), value, svgGeomRadiusProp(prop))
 	case svgPropD:
-		return storeSVGGeometryPath(&style.SVGD, value)
+		return storeSVGGeometryPath(&style.editSvg().SVGD, value)
 	default:
 		return false
 	}
@@ -79,13 +79,13 @@ func svgGeomRadiusProp(prop string) bool {
 func svgGeomLengthField(style *ResolvedStyle, prop string) *string {
 	switch prop {
 	case svgPropCx:
-		return &style.SVGCx
+		return &style.editSvg().SVGCx
 	case svgPropCy:
-		return &style.SVGCy
+		return &style.editSvg().SVGCy
 	case svgPropX:
-		return &style.SVGX
+		return &style.editSvg().SVGX
 	case svgPropY:
-		return &style.SVGY
+		return &style.editSvg().SVGY
 	default:
 		return svgGeomRadiusField(style, prop)
 	}
@@ -94,11 +94,11 @@ func svgGeomLengthField(style *ResolvedStyle, prop string) *string {
 func svgGeomRadiusField(style *ResolvedStyle, prop string) *string {
 	switch prop {
 	case svgPropR:
-		return &style.SVGR
+		return &style.editSvg().SVGR
 	case svgPropRx:
-		return &style.SVGRx
+		return &style.editSvg().SVGRx
 	case svgPropRy:
-		return &style.SVGRy
+		return &style.editSvg().SVGRy
 	default:
 		return nil
 	}
@@ -185,16 +185,16 @@ func (e *engine) prepareSVGStylesheetGeometry(node *html.Node, decls *svgStyleDe
 	}
 
 	style := e.stylePtr(node)
-	skip.note(decls, svgPropCx, style.SVGCx)
-	skip.note(decls, svgPropCy, style.SVGCy)
-	skip.note(decls, svgPropR, style.SVGR)
-	skip.note(decls, svgPropRx, style.SVGRx)
-	skip.note(decls, svgPropRy, style.SVGRy)
-	skip.note(decls, svgPropX, style.SVGX)
-	skip.note(decls, svgPropY, style.SVGY)
+	skip.note(decls, svgPropCx, style.svg().SVGCx)
+	skip.note(decls, svgPropCy, style.svg().SVGCy)
+	skip.note(decls, svgPropR, style.svg().SVGR)
+	skip.note(decls, svgPropRx, style.svg().SVGRx)
+	skip.note(decls, svgPropRy, style.svg().SVGRy)
+	skip.note(decls, svgPropX, style.svg().SVGX)
+	skip.note(decls, svgPropY, style.svg().SVGY)
 
 	if node.Name == "path" {
-		skip.note(decls, svgPropD, style.SVGD)
+		skip.note(decls, svgPropD, style.svg().SVGD)
 	}
 
 	return skip

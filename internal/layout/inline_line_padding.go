@@ -32,7 +32,7 @@ func applyLinePaddingProps(
 
 	pt, ok := linePaddingSpecified(value, fsize, viewportW, parent, hasParent)
 	if ok {
-		style.LinePadding = pt
+		style.editInlineText().LinePadding = pt
 	}
 
 	return true
@@ -48,7 +48,7 @@ func linePaddingSpecified(
 		return 0, true
 	case inheritKeyword, cssKeywordUnset:
 		if hasParent && parent != nil {
-			return parent.LinePadding, true
+			return parent.inlineText().LinePadding, true
 		}
 
 		return 0, true
@@ -93,7 +93,7 @@ func (e *engine) linePaddingInset(boxNode *box, lineX, lineW float64) (float64, 
 		return lineX, lineW
 	}
 
-	pad := e.scalePt(boxNode.style.LinePadding)
+	pad := e.scalePt(boxNode.style.inlineText().LinePadding)
 	if pad == 0 {
 		return lineX, lineW
 	}

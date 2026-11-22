@@ -53,7 +53,7 @@ func resolveBlockWidth(eng *engine, node *html.Node, style *ResolvedStyle, avail
 	// content-box (default): specified width is the content width, so the
 	// border box grows by horizontal padding + border. border-box: specified
 	// width already is the border-box size.
-	if definiteW && !intrinsicW && style.BoxSizing != borderBox {
+	if definiteW && !intrinsicW && style.geometry().BoxSizing != borderBox {
 		width += style.horizontalChrome(eng)
 	}
 
@@ -70,7 +70,7 @@ func orthogonalAutoWidth(
 	eng *engine, node *html.Node, style *ResolvedStyle, margL, margR float64,
 ) float64 {
 	if eng.flowWritingMode == "" ||
-		isVerticalWritingMode(eng.flowWritingMode) == isVerticalWritingMode(style.WritingMode) ||
+		isVerticalWritingMode(eng.flowWritingMode) == isVerticalWritingMode(style.positioning().WritingMode) ||
 		style.Width >= 0 || style.WidthPercent >= 0 || isIntrinsicWidth(style.Width) {
 		return -1
 	}
@@ -91,16 +91,16 @@ func orthogonalAutoWidth(
 // resolveAutoMargins centers (or pushes) a definite-width block via auto
 // horizontal margins (CSS2.1 §10.3.3).
 func resolveAutoMargins(style *ResolvedStyle, definiteW bool, width, availW, margL, margR float64) float64 {
-	if definiteW && (style.MarginLeftAuto || style.MarginRightAuto) {
+	if definiteW && (style.geometry().MarginLeftAuto || style.geometry().MarginRightAuto) {
 		free := availW - width
 		if free < 0 {
 			free = 0
 		}
 
 		switch {
-		case style.MarginLeftAuto && style.MarginRightAuto:
+		case style.geometry().MarginLeftAuto && style.geometry().MarginRightAuto:
 			margL = free / two
-		case style.MarginLeftAuto:
+		case style.geometry().MarginLeftAuto:
 			margL = free - margR
 			if margL < 0 {
 				margL = 0
@@ -120,14 +120,14 @@ func clampBlockMinMax(eng *engine, style *ResolvedStyle, availW, width float64) 
 
 func clampBlockMinWidth(eng *engine, style *ResolvedStyle, availW, width float64) float64 {
 	hChrome := 0.0
-	if style.BoxSizing != borderBox {
+	if style.geometry().BoxSizing != borderBox {
 		hChrome = style.horizontalChrome(eng)
 	}
 
-	if style.MinWidthPercent >= 0 && availW > 0 && availW < 1e12 {
-		minW := availW * style.MinWidthPercent / oneHundred
+	if style.geometry().MinWidthPercent >= 0 && availW > 0 && availW < 1e12 {
+		minW := availW * style.geometry().MinWidthPercent / oneHundred
 
-		if style.BoxSizing != borderBox {
+		if style.geometry().BoxSizing != borderBox {
 			minW += hChrome
 		}
 
@@ -138,9 +138,9 @@ func clampBlockMinWidth(eng *engine, style *ResolvedStyle, availW, width float64
 		return width
 	}
 
-	if style.MinWidth > 0 {
-		minW := eng.scalePt(style.MinWidth)
-		if style.BoxSizing != borderBox {
+	if style.geometry().MinWidth > 0 {
+		minW := eng.scalePt(style.geometry().MinWidth)
+		if style.geometry().BoxSizing != borderBox {
 			minW += hChrome
 		}
 
@@ -154,14 +154,14 @@ func clampBlockMinWidth(eng *engine, style *ResolvedStyle, availW, width float64
 
 func clampBlockMaxWidth(eng *engine, style *ResolvedStyle, availW, width float64) float64 {
 	hChrome := 0.0
-	if style.BoxSizing != borderBox {
+	if style.geometry().BoxSizing != borderBox {
 		hChrome = style.horizontalChrome(eng)
 	}
 
-	if style.MaxWidthPercent >= 0 && availW > 0 && availW < 1e12 {
-		maxW := availW * style.MaxWidthPercent / oneHundred
+	if style.geometry().MaxWidthPercent >= 0 && availW > 0 && availW < 1e12 {
+		maxW := availW * style.geometry().MaxWidthPercent / oneHundred
 
-		if style.BoxSizing != borderBox {
+		if style.geometry().BoxSizing != borderBox {
 			maxW += hChrome
 		}
 
@@ -172,9 +172,9 @@ func clampBlockMaxWidth(eng *engine, style *ResolvedStyle, availW, width float64
 		return width
 	}
 
-	if style.MaxWidth >= 0 {
-		maxW := eng.scalePt(style.MaxWidth)
-		if style.BoxSizing != borderBox {
+	if style.geometry().MaxWidth >= 0 {
+		maxW := eng.scalePt(style.geometry().MaxWidth)
+		if style.geometry().BoxSizing != borderBox {
 			maxW += hChrome
 		}
 

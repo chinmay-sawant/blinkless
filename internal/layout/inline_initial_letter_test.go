@@ -30,12 +30,12 @@ p {
 	styles := resolveStyles(root, []*css.Stylesheet{cssSheet}, "print", 500, 800)
 	dropStyle := styleByClass(t, styles, "drop")
 
-	if dropStyle.InitialLetterSize != 3 {
-		t.Fatalf("initial-letter size=%.1f, want 3", dropStyle.InitialLetterSize)
+	if dropStyle.inlineText().InitialLetterSize != 3 {
+		t.Fatalf("initial-letter size=%.1f, want 3", dropStyle.inlineText().InitialLetterSize)
 	}
 
-	if dropStyle.InitialLetterSink != 3 {
-		t.Fatalf("initial-letter sink=%d, want 3", dropStyle.InitialLetterSink)
+	if dropStyle.inlineText().InitialLetterSink != 3 {
+		t.Fatalf("initial-letter sink=%d, want 3", dropStyle.inlineText().InitialLetterSink)
 	}
 
 	res := layoutHTML(t, `<html><body>
@@ -122,17 +122,17 @@ func TestInitialLetterParseAlignWrap(t *testing.T) {
 	styles := resolveStyles(root, []*css.Stylesheet{cssSheet}, "print", 500, 800)
 
 	alignStyle := styleByClass(t, styles, "a")
-	if alignStyle.InitialLetterSize != 2 || alignStyle.InitialLetterSink != 1 {
-		t.Fatalf("a size=%.1f sink=%d, want 2 / 1 (raise)", alignStyle.InitialLetterSize, alignStyle.InitialLetterSink)
+	if alignStyle.inlineText().InitialLetterSize != 2 || alignStyle.inlineText().InitialLetterSink != 1 {
+		t.Fatalf("a size=%.1f sink=%d, want 2 / 1 (raise)", alignStyle.inlineText().InitialLetterSize, alignStyle.inlineText().InitialLetterSink)
 	}
 
-	if alignStyle.InitialLetterAlign != "hanging" || alignStyle.InitialLetterWrap != initialLetterWrapAll {
-		t.Fatalf("a align=%q wrap=%q", alignStyle.InitialLetterAlign, alignStyle.InitialLetterWrap)
+	if alignStyle.inlineText().InitialLetterAlign != "hanging" || alignStyle.inlineText().InitialLetterWrap != initialLetterWrapAll {
+		t.Fatalf("a align=%q wrap=%q", alignStyle.inlineText().InitialLetterAlign, alignStyle.inlineText().InitialLetterWrap)
 	}
 
 	b := styleByClass(t, styles, "b")
-	if b.InitialLetterSize != 0 {
-		t.Fatalf("b size=%.1f, want 0 (normal)", b.InitialLetterSize)
+	if b.inlineText().InitialLetterSize != 0 {
+		t.Fatalf("b size=%.1f, want 0 (normal)", b.inlineText().InitialLetterSize)
 	}
 }
 

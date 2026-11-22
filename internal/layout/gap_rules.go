@@ -141,7 +141,7 @@ func (e *engine) emitRowGapRule(style ResolvedStyle, contentX, contentW, gapTop,
 		return
 	}
 
-	if style.RowRuleStyle == "" || style.RowRuleStyle == cssDisplayNone {
+	if style.columns().RowRuleStyle == "" || style.columns().RowRuleStyle == cssDisplayNone {
 		return
 	}
 
@@ -156,11 +156,11 @@ func (e *engine) emitRowRuleLine(style ResolvedStyle, contentX, contentW, lineY 
 		return
 	}
 
-	if style.RowRuleStyle == "" || style.RowRuleStyle == cssDisplayNone {
+	if style.columns().RowRuleStyle == "" || style.columns().RowRuleStyle == cssDisplayNone {
 		return
 	}
 
-	ruleW := e.scalePt(style.RowRuleWidth)
+	ruleW := e.scalePt(style.columns().RowRuleWidth)
 	if ruleW <= 0 {
 		return
 	}
@@ -168,7 +168,7 @@ func (e *engine) emitRowRuleLine(style ResolvedStyle, contentX, contentW, lineY 
 	segments := e.gapRuleSegments(&gapRuleGeometry{
 		bounds:     [2]float64{contentX, contentX + contentW},
 		insets:     rowRuleInsets(style),
-		brk:        style.RowRuleBreak,
+		brk:        style.columns().RowRuleBreak,
 		junctions:  nil,
 		spans:      nil,
 		crossRuleW: 0,
@@ -185,7 +185,7 @@ const gapCenter = 0.5
 
 // rowRulePaintsAround reports whether a rule is also drawn on the content edges.
 func rowRulePaintsAround(style ResolvedStyle) bool {
-	switch style.RowRuleVisibility {
+	switch style.columns().RowRuleVisibility {
 	case rowRuleVisibilityAround, rowRuleVisibilityAll:
 		return true
 	default:
@@ -196,20 +196,20 @@ func rowRulePaintsAround(style ResolvedStyle) bool {
 // rowRuleInsets is the inset set for row rules.
 func rowRuleInsets(style ResolvedStyle) gapInsetSet {
 	return gapInsetSet{
-		capStart:      style.RowRuleInsetCapStart,
-		capEnd:        style.RowRuleInsetCapEnd,
-		junctionStart: style.RowRuleInsetJunctionStart,
-		junctionEnd:   style.RowRuleInsetJunctionEnd,
+		capStart:      style.columns().RowRuleInsetCapStart,
+		capEnd:        style.columns().RowRuleInsetCapEnd,
+		junctionStart: style.columns().RowRuleInsetJunctionStart,
+		junctionEnd:   style.columns().RowRuleInsetJunctionEnd,
 	}
 }
 
 // columnRuleInsets is the inset set for column rules.
 func columnRuleInsets(style ResolvedStyle) gapInsetSet {
 	return gapInsetSet{
-		capStart:      style.ColumnRuleInsetCapStart,
-		capEnd:        style.ColumnRuleInsetCapEnd,
-		junctionStart: style.ColumnRuleInsetJunctionStart,
-		junctionEnd:   style.ColumnRuleInsetJunctionEnd,
+		capStart:      style.columns().ColumnRuleInsetCapStart,
+		capEnd:        style.columns().ColumnRuleInsetCapEnd,
+		junctionStart: style.columns().ColumnRuleInsetJunctionStart,
+		junctionEnd:   style.columns().ColumnRuleInsetJunctionEnd,
 	}
 }
 
@@ -390,7 +390,7 @@ func gapRuleColor(base, override [3]float64, overrideSet bool) [3]float64 {
 func (e *engine) emitRowRuleSegments(
 	style ResolvedStyle, lineY float64, segments []ruleSegment, ruleW float64,
 ) {
-	col := gapRuleColor(style.Color, style.RowRuleColor, style.RowRuleColorSet)
+	col := gapRuleColor(style.Color, style.columns().RowRuleColor, style.columns().RowRuleColorSet)
 
 	for _, segment := range segments {
 		width := segment.end - segment.start
@@ -399,7 +399,7 @@ func (e *engine) emitRowRuleSegments(
 		}
 
 		e.emitBorderLine(
-			segment.start, lineY, width, 0, ruleW, style.RowRuleStyle, col[0], col[1], col[2],
+			segment.start, lineY, width, 0, ruleW, style.columns().RowRuleStyle, col[0], col[1], col[2],
 		)
 	}
 }
@@ -416,7 +416,7 @@ func (e *engine) paintGridGapRules(
 		return
 	}
 
-	paintColumnsFirst := style.RuleOverlap != "column-over-row"
+	paintColumnsFirst := style.columns().RuleOverlap != "column-over-row"
 	if paintColumnsFirst {
 		e.paintGridColumnRules(style, placed, contentX, cols, columnGap, rowYs, rows, posY)
 	}
@@ -465,11 +465,11 @@ func (e *engine) emitGridRowGapRule(
 		return
 	}
 
-	if style.RowRuleStyle == "" || style.RowRuleStyle == cssDisplayNone {
+	if style.columns().RowRuleStyle == "" || style.columns().RowRuleStyle == cssDisplayNone {
 		return
 	}
 
-	ruleW := e.scalePt(style.RowRuleWidth)
+	ruleW := e.scalePt(style.columns().RowRuleWidth)
 	if ruleW <= 0 {
 		return
 	}
@@ -477,10 +477,10 @@ func (e *engine) emitGridRowGapRule(
 	segments := e.gapRuleSegments(&gapRuleGeometry{
 		bounds:     [2]float64{contentX, contentX + contentW},
 		insets:     rowRuleInsets(style),
-		brk:        style.RowRuleBreak,
+		brk:        style.columns().RowRuleBreak,
 		junctions:  gridRowGapJunctions(placed, cols, columnGap, contentX, gapIndex),
 		spans:      gridRowGapSpans(placed, cols, columnGap, contentX, gapIndex),
-		crossRuleW: e.scalePt(style.ColumnRuleWidth),
+		crossRuleW: e.scalePt(style.columns().ColumnRuleWidth),
 	})
 
 	e.emitRowRuleSegments(style, lineY, segments, ruleW)
@@ -490,12 +490,12 @@ func (e *engine) paintGridColumnRules(
 	style ResolvedStyle, placed []gridCell, contentX float64, cols []float64, columnGap float64,
 	rowYs, rows []float64, posY float64,
 ) {
-	if style.ColumnRuleStyle == "" || style.ColumnRuleStyle == cssDisplayNone ||
+	if style.columns().ColumnRuleStyle == "" || style.columns().ColumnRuleStyle == cssDisplayNone ||
 		columnGap <= 0 || len(cols) < 2 || e == nil || e.noEmit {
 		return
 	}
 
-	ruleW := e.scalePt(style.ColumnRuleWidth)
+	ruleW := e.scalePt(style.columns().ColumnRuleWidth)
 	if ruleW <= 0 {
 		return
 	}
@@ -508,7 +508,7 @@ func (e *engine) paintGridColumnRules(
 	}
 
 	insets := columnRuleInsets(style)
-	crossRuleW := e.scalePt(style.RowRuleWidth)
+	crossRuleW := e.scalePt(style.columns().RowRuleWidth)
 
 	cursor := contentX
 
@@ -520,7 +520,7 @@ func (e *engine) paintGridColumnRules(
 		segments := e.gapRuleSegments(&gapRuleGeometry{
 			bounds:     [2]float64{top, bottom},
 			insets:     insets,
-			brk:        style.ColumnRuleBreak,
+			brk:        style.columns().ColumnRuleBreak,
 			junctions:  gridColumnGapJunctions(placed, rowYs, rows, posY, index),
 			spans:      gridColumnGapSpans(placed, rowYs, rows, posY, index),
 			crossRuleW: crossRuleW,
@@ -536,7 +536,7 @@ func (e *engine) paintGridColumnRules(
 func (e *engine) emitColumnRuleSegments(
 	style ResolvedStyle, center float64, segments []ruleSegment, ruleW float64,
 ) {
-	col := gapRuleColor(style.Color, style.ColumnRuleColor, style.ColumnRuleColorSet)
+	col := gapRuleColor(style.Color, style.columns().ColumnRuleColor, style.columns().ColumnRuleColorSet)
 
 	for _, segment := range segments {
 		height := segment.end - segment.start
@@ -545,7 +545,7 @@ func (e *engine) emitColumnRuleSegments(
 		}
 
 		e.emitBorderLine(
-			center, segment.start, 0, height, ruleW, style.ColumnRuleStyle,
+			center, segment.start, 0, height, ruleW, style.columns().ColumnRuleStyle,
 			col[0], col[1], col[2],
 		)
 	}

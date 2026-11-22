@@ -280,10 +280,10 @@ func TestBehaviorWideGamutTextCascadeEndToEnd(t *testing.T) {
 	stdStyle := boxByID(t, layoutHTML(t, doc("standard")), "w").style
 	keptStyle := boxByID(t, layoutHTML(t, doc("no-limit")), "w").style
 
-	stdUsed := usedTextForPaintActive(stdStyle.Color, "", stdStyle.ForcedColorAdjust,
-		stdStyle.DynamicRangeLimit, false)
-	keptUsed := usedTextForPaintActive(keptStyle.Color, "", keptStyle.ForcedColorAdjust,
-		keptStyle.DynamicRangeLimit, false)
+	stdUsed := usedTextForPaintActive(stdStyle.Color, "", stdStyle.containment().ForcedColorAdjust,
+		stdStyle.containment().DynamicRangeLimit, false)
+	keptUsed := usedTextForPaintActive(keptStyle.Color, "", keptStyle.containment().ForcedColorAdjust,
+		keptStyle.containment().DynamicRangeLimit, false)
 
 	if wideGamutHeadroom(stdUsed) {
 		t.Errorf("standard used ink = %v, want folded into sRGB [0, 1]", stdUsed)

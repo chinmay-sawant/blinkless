@@ -18,23 +18,23 @@ func applyTextAutospaceProps(
 	switch prop {
 	case "text-autospace":
 		if isTextAutospaceValue(val) {
-			style.TextAutospace = val
+			style.editInlineText().TextAutospace = val
 		}
 	case "text-spacing":
 		applyTextSpacingShorthand(style, val)
 	case "text-spacing-trim":
 		if isTextSpacingTrimValue(val) {
-			style.TextSpacingTrim = val
+			style.editInlineText().TextSpacingTrim = val
 		}
 	case "text-group-align":
 		if isTextGroupAlignValue(val) {
-			style.TextGroupAlign = val
+			style.editInlineText().TextGroupAlign = val
 		}
 	case "text-fit":
 		// The legacy none/auto/scale keywords. grow and shrink live in the declared store and run in text_fit.go.
 		// none, grow and shrink belong to the declared store (declared_shapes.go).
 		if isTextFitValue(val) && val != cssDisplayNone {
-			style.TextFit = val
+			style.editInlineText().TextFit = val
 
 			return true
 		}
@@ -48,11 +48,11 @@ func applyTextAutospaceProps(
 }
 
 func applyTextSpacingShorthand(style *ResolvedStyle, val string) {
-	style.TextSpacing = val
+	style.editInlineText().TextSpacing = val
 	// Mirror trim keywords onto text-spacing-trim when present.
 	for _, tok := range strings.Fields(val) {
 		if isTextSpacingTrimValue(tok) {
-			style.TextSpacingTrim = tok
+			style.editInlineText().TextSpacingTrim = tok
 		}
 	}
 }

@@ -189,8 +189,8 @@ func cornerShapeAStyleKs(sty *ResolvedStyle) [4]float64 {
 	}
 
 	return [4]float64{
-		sty.CornerShapeTopLeft, sty.CornerShapeTopRight,
-		sty.CornerShapeBottomRight, sty.CornerShapeBottomLeft,
+		sty.borders().CornerShapeTopLeft, sty.borders().CornerShapeTopRight,
+		sty.borders().CornerShapeBottomRight, sty.borders().CornerShapeBottomLeft,
 	}
 }
 

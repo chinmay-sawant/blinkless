@@ -31,23 +31,23 @@ func TestTextPropsWave3(t *testing.T) {
 	}
 	applyRestProps(&s, raw, ctx, nil)
 
-	if s.TextAlignLast != "center" {
-		t.Errorf("expected TextAlignLast 'center', got %q", s.TextAlignLast)
+	if s.inlineText().TextAlignLast != "center" {
+		t.Errorf("expected TextAlignLast 'center', got %q", s.inlineText().TextAlignLast)
 	}
-	if s.TabSize != 4 {
-		t.Errorf("expected TabSize 4, got %v", s.TabSize)
+	if s.inlineText().TabSize != 4 {
+		t.Errorf("expected TabSize 4, got %v", s.inlineText().TabSize)
 	}
-	if s.TextWrapMode != "nowrap" || s.TextWrapStyle != "balance" {
-		t.Errorf("expected text-wrap mode/style nowrap/balance, got mode=%q, style=%q", s.TextWrapMode, s.TextWrapStyle)
+	if s.inlineText().TextWrapMode != "nowrap" || s.inlineText().TextWrapStyle != "balance" {
+		t.Errorf("expected text-wrap mode/style nowrap/balance, got mode=%q, style=%q", s.inlineText().TextWrapMode, s.inlineText().TextWrapStyle)
 	}
-	if s.WhiteSpaceCollapse != "preserve" || s.WhiteSpaceTrim != "discard-inner" {
-		t.Errorf("expected white-space collapse/trim preserve/discard-inner, got %q, %q", s.WhiteSpaceCollapse, s.WhiteSpaceTrim)
+	if s.inlineText().WhiteSpaceCollapse != "preserve" || s.inlineText().WhiteSpaceTrim != "discard-inner" {
+		t.Errorf("expected white-space collapse/trim preserve/discard-inner, got %q, %q", s.inlineText().WhiteSpaceCollapse, s.inlineText().WhiteSpaceTrim)
 	}
-	if s.Hyphens != "manual" || s.HyphenateCharacter != "~" {
-		t.Errorf("expected hyphens manual/~, got %q, %q", s.Hyphens, s.HyphenateCharacter)
+	if s.inlineText().Hyphens != "manual" || s.inlineText().HyphenateCharacter != "~" {
+		t.Errorf("expected hyphens manual/~, got %q, %q", s.inlineText().Hyphens, s.inlineText().HyphenateCharacter)
 	}
-	if s.TextJustify != "inter-word" || s.LineBreak != "strict" {
-		t.Errorf("expected text-justify inter-word / line-break strict, got %q, %q", s.TextJustify, s.LineBreak)
+	if s.inlineText().TextJustify != "inter-word" || s.inlineText().LineBreak != "strict" {
+		t.Errorf("expected text-justify inter-word / line-break strict, got %q, %q", s.inlineText().TextJustify, s.inlineText().LineBreak)
 	}
 }
 
@@ -74,22 +74,22 @@ func TestTextDecorationPropsWave3(t *testing.T) {
 	}
 	applyRestProps(&s, raw, ctx, nil)
 
-	if s.TextDecorationLine != "underline" || s.TextDecoration != cssTextDecorationUnderline {
-		t.Errorf("mismatch on decoration line: line=%q, dec=%q", s.TextDecorationLine, s.TextDecoration)
+	if s.inlineText().TextDecorationLine != "underline" || s.inlineText().TextDecoration != cssTextDecorationUnderline {
+		t.Errorf("mismatch on decoration line: line=%q, dec=%q", s.inlineText().TextDecorationLine, s.inlineText().TextDecoration)
 	}
-	if s.TextDecorationColor != [3]float64{1, 0, 0} || !s.TextDecorationColorSet {
-		t.Errorf("mismatch on decoration color: color=%v, set=%v", s.TextDecorationColor, s.TextDecorationColorSet)
+	if s.inlineText().TextDecorationColor != [3]float64{1, 0, 0} || !s.inlineText().TextDecorationColorSet {
+		t.Errorf("mismatch on decoration color: color=%v, set=%v", s.inlineText().TextDecorationColor, s.inlineText().TextDecorationColorSet)
 	}
-	if s.TextDecorationStyle != "dashed" || s.TextDecorationThickness != 2 {
-		t.Errorf("mismatch on decoration style/thickness: style=%q, th=%v", s.TextDecorationStyle, s.TextDecorationThickness)
+	if s.inlineText().TextDecorationStyle != "dashed" || s.inlineText().TextDecorationThickness != 2 {
+		t.Errorf("mismatch on decoration style/thickness: style=%q, th=%v", s.inlineText().TextDecorationStyle, s.inlineText().TextDecorationThickness)
 	}
-	if s.TextUnderlineOffset != 3 || s.TextUnderlinePosition != "under" {
-		t.Errorf("mismatch on underline offset/pos: off=%v, pos=%q", s.TextUnderlineOffset, s.TextUnderlinePosition)
+	if s.inlineText().TextUnderlineOffset != 3 || s.inlineText().TextUnderlinePosition != "under" {
+		t.Errorf("mismatch on underline offset/pos: off=%v, pos=%q", s.inlineText().TextUnderlineOffset, s.inlineText().TextUnderlinePosition)
 	}
-	if !s.TextShadowSet || s.TextShadowX != 1 || s.TextShadowY != 2 || s.TextShadowBlur != 3 ||
-		s.TextShadowColor != [3]float64{0, 0, 1} {
+	if !s.inlineText().TextShadowSet || s.inlineText().TextShadowX != 1 || s.inlineText().TextShadowY != 2 || s.inlineText().TextShadowBlur != 3 ||
+		s.inlineText().TextShadowColor != [3]float64{0, 0, 1} {
 		t.Errorf("mismatch on text shadow: set=%v, x=%v, y=%v, blur=%v, color=%v",
-			s.TextShadowSet, s.TextShadowX, s.TextShadowY, s.TextShadowBlur, s.TextShadowColor)
+			s.inlineText().TextShadowSet, s.inlineText().TextShadowX, s.inlineText().TextShadowY, s.inlineText().TextShadowBlur, s.inlineText().TextShadowColor)
 	}
 }
 

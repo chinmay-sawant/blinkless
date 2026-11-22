@@ -351,15 +351,15 @@ func paintRestyleNodeOK(node *html.Node) bool {
 // smaller box or to text, no corner or border shape, and a block-level
 // display the chrome pass paints the ordinary way.
 func solidBackground(style *ResolvedStyle) bool {
-	if style.BGColor[3] <= 0 || style.BackgroundImage != "" {
+	if style.BGColor[3] <= 0 || style.background().BackgroundImage != "" {
 		return false
 	}
 
-	if mode := style.BackgroundBlendMode; mode != "" && mode != blendNormal {
+	if mode := style.background().BackgroundBlendMode; mode != "" && mode != blendNormal {
 		return false
 	}
 
-	if clip := style.BackgroundClip; clip != "" && !asciiFoldEqual(trimSpaceASCII(clip), "border-box") {
+	if clip := style.background().BackgroundClip; clip != "" && !asciiFoldEqual(trimSpaceASCII(clip), "border-box") {
 		return false
 	}
 
@@ -379,8 +379,8 @@ func solidBackground(style *ResolvedStyle) bool {
 // no border shape is declared, so the fill paints as an ordinary rounded rect.
 func plainCorners(style *ResolvedStyle) bool {
 	for _, keyword := range [...]string{
-		style.CornerShapeTopLeftKeyword, style.CornerShapeTopRightKeyword,
-		style.CornerShapeBottomRightKeyword, style.CornerShapeBottomLeftKeyword,
+		style.borders().CornerShapeTopLeftKeyword, style.borders().CornerShapeTopRightKeyword,
+		style.borders().CornerShapeBottomRightKeyword, style.borders().CornerShapeBottomLeftKeyword,
 	} {
 		if keyword != "" && keyword != "round" {
 			return false
@@ -465,7 +465,7 @@ func paintRestyleImageSafe(opts Options, styles map[*html.Node]*ResolvedStyle, a
 // styleNamesImage reports whether any image-valued property of style is set.
 func styleNamesImage(style *ResolvedStyle) bool {
 	for _, value := range [...]string{
-		style.BackgroundImage, style.BorderImageSource, style.ListStyleImage, style.MaskImage, style.MaskBorderSource,
+		style.background().BackgroundImage, style.borders().BorderImageSource, style.content().ListStyleImage, style.effects().MaskImage, style.effects().MaskBorderSource,
 	} {
 		if value != "" && value != "none" {
 			return true

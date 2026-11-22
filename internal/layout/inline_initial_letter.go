@@ -28,7 +28,7 @@ func (e *engine) prepareInitialLetter(
 	}
 
 	sty := items[start].style
-	if sty == nil || sty.InitialLetterSize < 1 {
+	if sty == nil || sty.inlineText().InitialLetterSize < 1 {
 		return nil, items, false
 	}
 
@@ -55,7 +55,7 @@ func firstInitialLetterIndex(items []inlineItem) int {
 			continue
 		}
 
-		if it.style != nil && it.style.InitialLetterSize >= 1 {
+		if it.style != nil && it.style.inlineText().InitialLetterSize >= 1 {
 			return itemIndex
 		}
 	}
@@ -69,7 +69,7 @@ func (e *engine) sizeInitialLetterRun(letter []inlineItem, blockStyle, letterSty
 	}
 
 	parentLH := e.surroundingLineHeight(blockStyle, letterStyle) * e.scale
-	size := letterStyle.InitialLetterSize
+	size := letterStyle.inlineText().InitialLetterSize
 
 	if size < 1 {
 		size = 1
@@ -98,7 +98,7 @@ func (e *engine) sizeInitialLetterRun(letter []inlineItem, blockStyle, letterSty
 		}
 
 		letter[itemIndex].w = e.measureTextFace(
-			transformInlineText(letter[itemIndex].text, cloned.TextTransform), &cloned,
+			transformInlineText(letter[itemIndex].text, cloned.inlineText().TextTransform), &cloned,
 		)
 		letter[itemIndex].h = targetH
 	}
@@ -123,12 +123,12 @@ func initialLetterSinkLines(sty *ResolvedStyle) int {
 		return 0
 	}
 
-	if sty.InitialLetterSink > 0 {
-		return sty.InitialLetterSink
+	if sty.inlineText().InitialLetterSink > 0 {
+		return sty.inlineText().InitialLetterSink
 	}
 
-	if sty.InitialLetterSize >= 1 {
-		return int(sty.InitialLetterSize + 0.5)
+	if sty.inlineText().InitialLetterSize >= 1 {
+		return int(sty.inlineText().InitialLetterSize + 0.5)
 	}
 
 	return 0
@@ -173,7 +173,7 @@ func initialLetterExclusionHeight(sty *ResolvedStyle, parentLH float64) float64 
 		return 0
 	}
 
-	wrap := sty.InitialLetterWrap
+	wrap := sty.inlineText().InitialLetterWrap
 	if wrap == "" {
 		wrap = initialLetterWrapNone
 	}
@@ -216,8 +216,8 @@ func (e *engine) placeInitialLetter(
 	}
 
 	align := initialLetterAlignAlpha
-	if sty != nil && sty.InitialLetterAlign != "" {
-		align = sty.InitialLetterAlign
+	if sty != nil && sty.inlineText().InitialLetterAlign != "" {
+		align = sty.inlineText().InitialLetterAlign
 	}
 
 	letterTop := lineY + initialLetterAlignOffset(align, letter[0].h, parentLH)

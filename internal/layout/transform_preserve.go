@@ -11,17 +11,17 @@ func worldTransform3DForBox(boxNode *box, viewport svgViewport) matrix3D {
 	style := boxNode.style
 
 	local2D := IdentityMatrix()
-	if style.HasTransform {
+	if style.effects().HasTransform {
 		local2D = withPercentTranslate(style, boxNode)
 	}
 
 	local3D := identity3D()
-	if style.HasTransform3D {
+	if style.effects().HasTransform3D {
 		local3D = baked3DForBox(boxNode)
 	}
 
 	originX, originY := resolveTransformOriginWithBox(
-		style.TransformOrigin, boxNode, style.TransformBox, viewport,
+		style.effects().TransformOrigin, boxNode, style.effects().TransformBox, viewport,
 	)
 	local := matrix3DFromAffine(local2D).mul(local3D)
 
@@ -65,7 +65,7 @@ func preserveRangePaint(
 	boxNode *box, worldChain matrix3D, parentAccum Matrix2D, viewport svgViewport,
 ) (float64, ProjectiveTransform, Matrix2D) {
 	originX, originY := resolveTransformOriginWithBox(
-		boxNode.style.TransformOrigin, boxNode, boxNode.style.TransformBox, viewport,
+		boxNode.style.effects().TransformOrigin, boxNode, boxNode.style.effects().TransformBox, viewport,
 	)
 	dist, vanishX, vanishY := perspectiveFlattenArgs(boxNode, worldChain, originX, originY)
 

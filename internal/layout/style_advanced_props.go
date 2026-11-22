@@ -20,16 +20,16 @@ func applyAdvancedProps(style *ResolvedStyle, prop, value string, fsize float64)
 	// Wave B: Text Truncation, Clamping, Margins
 	case "text-overflow":
 		if val == "clip" || val == "ellipsis" {
-			style.TextOverflow = val
+			style.editInlineText().TextOverflow = val
 			return true
 		}
 	case "line-clamp", "-webkit-line-clamp":
 		if val == "none" {
-			style.LineClamp = 0
+			style.editInlineText().LineClamp = 0
 			return true
 		}
 		if n, err := strconv.Atoi(val); err == nil && n > 0 {
-			style.LineClamp = n
+			style.editInlineText().LineClamp = n
 			// display:-webkit-box maps to flex and forces nowrap; line-clamp
 			// needs normal wrapping so the clamp can keep N lines.
 			if style.WhiteSpace == cssWhiteSpaceNowrap {
@@ -39,36 +39,36 @@ func applyAdvancedProps(style *ResolvedStyle, prop, value string, fsize float64)
 		}
 	case "max-lines":
 		if val == "none" {
-			style.MaxLines = 0
+			style.editInlineText().MaxLines = 0
 			return true
 		}
 		if n, err := strconv.Atoi(val); err == nil && n > 0 {
-			style.MaxLines = n
+			style.editInlineText().MaxLines = n
 			return true
 		}
 	case "margin-trim":
 		if val == "none" || val == "block" || val == "inline" ||
 			val == "block-start" || val == "block-end" || val == "inline-start" || val == "inline-end" {
-			style.MarginTrim = val
+			style.editGeometry().MarginTrim = val
 			return true
 		}
 	case "empty-cells":
 		if val == "show" || val == "hide" {
-			style.EmptyCells = val
+			style.editFragmentation().EmptyCells = val
 			return true
 		}
 
 	// Wave C: Fragmentation
 	case "box-decoration-break", "-webkit-box-decoration-break":
 		if val == "slice" || val == "clone" {
-			style.BoxDecorationBreak = val
+			style.editBorders().BoxDecorationBreak = val
 			return true
 		}
 
 	// Wave D: Blend Modes and Text Decoration
 	case "mix-blend-mode":
 		if mode, ok := normalizeBlendMode(val); ok {
-			style.MixBlendMode = mode
+			style.editEffects().MixBlendMode = mode
 			return true
 		}
 	case "background-blend-mode":
@@ -84,29 +84,29 @@ func applyAdvancedProps(style *ResolvedStyle, prop, value string, fsize float64)
 			}
 			normalized = append(normalized, mode)
 		}
-		style.BackgroundBlendMode = strings.Join(normalized, ", ")
+		style.editBackground().BackgroundBlendMode = strings.Join(normalized, ", ")
 		return true
 	case "isolation":
 		if val == "auto" || val == "isolate" {
-			style.Isolation = val
+			style.editEffects().Isolation = val
 			return true
 		}
 	case "text-decoration-skip-ink":
 		if val == "auto" || val == "none" || val == "all" {
-			style.TextDecorationSkipInk = val
+			style.editInlineText().TextDecorationSkipInk = val
 			return true
 		}
 	case "overflow-clip-margin-top":
-		style.OverflowClipMarginTop = parseAdvancedLength(val, fsize)
+		style.editContainment().OverflowClipMarginTop = parseAdvancedLength(val, fsize)
 		return true
 	case "overflow-clip-margin-right":
-		style.OverflowClipMarginRight = parseAdvancedLength(val, fsize)
+		style.editContainment().OverflowClipMarginRight = parseAdvancedLength(val, fsize)
 		return true
 	case "overflow-clip-margin-bottom":
-		style.OverflowClipMarginBottom = parseAdvancedLength(val, fsize)
+		style.editContainment().OverflowClipMarginBottom = parseAdvancedLength(val, fsize)
 		return true
 	case "overflow-clip-margin-left":
-		style.OverflowClipMarginLeft = parseAdvancedLength(val, fsize)
+		style.editContainment().OverflowClipMarginLeft = parseAdvancedLength(val, fsize)
 		return true
 	case "overflow-clip-margin", "overflow-clip-margin-inline",
 		"overflow-clip-margin-inline-start", "overflow-clip-margin-inline-end",
@@ -121,40 +121,40 @@ func applyAdvancedProps(style *ResolvedStyle, prop, value string, fsize float64)
 		case "overflow-clip-margin":
 			switch len(vals) {
 			case 1:
-				style.OverflowClipMarginTop = vals[0]
-				style.OverflowClipMarginRight = vals[0]
-				style.OverflowClipMarginBottom = vals[0]
-				style.OverflowClipMarginLeft = vals[0]
+				style.editContainment().OverflowClipMarginTop = vals[0]
+				style.editContainment().OverflowClipMarginRight = vals[0]
+				style.editContainment().OverflowClipMarginBottom = vals[0]
+				style.editContainment().OverflowClipMarginLeft = vals[0]
 			case 2:
-				style.OverflowClipMarginTop = vals[0]
-				style.OverflowClipMarginBottom = vals[0]
-				style.OverflowClipMarginRight = vals[1]
-				style.OverflowClipMarginLeft = vals[1]
+				style.editContainment().OverflowClipMarginTop = vals[0]
+				style.editContainment().OverflowClipMarginBottom = vals[0]
+				style.editContainment().OverflowClipMarginRight = vals[1]
+				style.editContainment().OverflowClipMarginLeft = vals[1]
 			case 3:
-				style.OverflowClipMarginTop = vals[0]
-				style.OverflowClipMarginRight = vals[1]
-				style.OverflowClipMarginLeft = vals[1]
-				style.OverflowClipMarginBottom = vals[2]
+				style.editContainment().OverflowClipMarginTop = vals[0]
+				style.editContainment().OverflowClipMarginRight = vals[1]
+				style.editContainment().OverflowClipMarginLeft = vals[1]
+				style.editContainment().OverflowClipMarginBottom = vals[2]
 			default:
-				style.OverflowClipMarginTop = vals[0]
-				style.OverflowClipMarginRight = vals[1]
-				style.OverflowClipMarginBottom = vals[2]
-				style.OverflowClipMarginLeft = vals[3]
+				style.editContainment().OverflowClipMarginTop = vals[0]
+				style.editContainment().OverflowClipMarginRight = vals[1]
+				style.editContainment().OverflowClipMarginBottom = vals[2]
+				style.editContainment().OverflowClipMarginLeft = vals[3]
 			}
 		case "overflow-clip-margin-inline":
-			style.OverflowClipMarginLeft = vals[0]
-			style.OverflowClipMarginRight = vals[0]
+			style.editContainment().OverflowClipMarginLeft = vals[0]
+			style.editContainment().OverflowClipMarginRight = vals[0]
 		case "overflow-clip-margin-inline-start":
-			style.OverflowClipMarginLeft = vals[0]
+			style.editContainment().OverflowClipMarginLeft = vals[0]
 		case "overflow-clip-margin-inline-end":
-			style.OverflowClipMarginRight = vals[0]
+			style.editContainment().OverflowClipMarginRight = vals[0]
 		case "overflow-clip-margin-block":
-			style.OverflowClipMarginTop = vals[0]
-			style.OverflowClipMarginBottom = vals[0]
+			style.editContainment().OverflowClipMarginTop = vals[0]
+			style.editContainment().OverflowClipMarginBottom = vals[0]
 		case "overflow-clip-margin-block-start":
-			style.OverflowClipMarginTop = vals[0]
+			style.editContainment().OverflowClipMarginTop = vals[0]
 		case "overflow-clip-margin-block-end":
-			style.OverflowClipMarginBottom = vals[0]
+			style.editContainment().OverflowClipMarginBottom = vals[0]
 		}
 		return true
 	}

@@ -31,12 +31,12 @@ func applyShapeProps(
 	switch prop {
 	case "shape-outside":
 		if canonical, ok := parseShapeOutside(value); ok {
-			style.ShapeOutside = canonical
+			style.editPositioning().ShapeOutside = canonical
 		}
 	case "shape-margin":
 		if pt, pct, ok := parseShapeMargin(value, fsize, ctx); ok {
-			style.ShapeMargin = pt
-			style.ShapeMarginPercent = pct
+			style.editPositioning().ShapeMargin = pt
+			style.editPositioning().ShapeMarginPercent = pct
 		}
 	default:
 		return false

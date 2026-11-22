@@ -21,16 +21,16 @@ func (e *engine) flowFlexVerticalRow(
 	if len(items) == 0 {
 		return curY
 	}
-	if style.FlexWrap == fxWrap || style.FlexWrap == fxWrapRev {
+	if style.flex().FlexWrap == fxWrap || style.flex().FlexWrap == fxWrapRev {
 		mapped := style
 		if flexRowPhysicalReverse(&style) {
-			mapped.FlexDirection = fxColRev
+			mapped.editFlex().FlexDirection = fxColRev
 		} else {
-			mapped.FlexDirection = fxCol
+			mapped.editFlex().FlexDirection = fxCol
 		}
-		mapped.Direction = cssDirectionLTR
-		if style.WritingMode == writingModeVerticalRL {
-			mapped.Direction = cssDirectionRTL
+		mapped.editPositioning().Direction = cssDirectionLTR
+		if style.positioning().WritingMode == writingModeVerticalRL {
+			mapped.editPositioning().Direction = cssDirectionRTL
 		}
 
 		return e.flowFlexColumnWrapped(parent, &mapped, items, contentW, contentX, topY, curY, gap, 0, contentH)
@@ -86,19 +86,19 @@ func (e *engine) flowFlexVerticalColumn(
 	if len(items) == 0 {
 		return curY
 	}
-	if style.FlexWrap == fxWrap || style.FlexWrap == fxWrapRev {
+	if style.flex().FlexWrap == fxWrap || style.flex().FlexWrap == fxWrapRev {
 		mapped := style
-		if style.FlexDirection == fxColRev {
-			mapped.FlexDirection = fxRowRev
+		if style.flex().FlexDirection == fxColRev {
+			mapped.editFlex().FlexDirection = fxRowRev
 		} else {
-			mapped.FlexDirection = fxRow
+			mapped.editFlex().FlexDirection = fxRow
 		}
-		mapped.Direction = cssDirectionLTR
-		if style.Direction == cssDirectionRTL {
-			if style.FlexWrap == fxWrap {
-				mapped.FlexWrap = fxWrapRev
+		mapped.editPositioning().Direction = cssDirectionLTR
+		if style.positioning().Direction == cssDirectionRTL {
+			if style.flex().FlexWrap == fxWrap {
+				mapped.editFlex().FlexWrap = fxWrapRev
 			} else {
-				mapped.FlexWrap = fxWrap
+				mapped.editFlex().FlexWrap = fxWrap
 			}
 		}
 
@@ -110,8 +110,8 @@ func (e *engine) flowFlexVerticalColumn(
 		return e.flowFlexRow(parent, nodes, &mapped, contentW, contentX, topY, curY, gap, 0)
 	}
 
-	mainReverse := style.FlexDirection == fxColRev
-	if style.WritingMode == writingModeVerticalRL {
+	mainReverse := style.flex().FlexDirection == fxColRev
+	if style.positioning().WritingMode == writingModeVerticalRL {
 		mainReverse = !mainReverse
 	}
 	if mainReverse {
@@ -208,7 +208,7 @@ func (e *engine) buildVerticalColumnItems(
 	}
 
 	leftX := startX
-	crossReverse := style.Direction == cssDirectionRTL
+	crossReverse := style.positioning().Direction == cssDirectionRTL
 	baselineTarget := verticalColumnBaselineTarget(style, items, topY+curY, e)
 	poll := newCtxPoll(e.ctx)
 	for idx, item := range items {
@@ -218,7 +218,7 @@ func (e *engine) buildVerticalColumnItems(
 		}
 
 		itemStyle := e.stylePtr(item.n)
-		if itemStyle.MarginLeftAuto {
+		if itemStyle.geometry().MarginLeftAuto {
 			leftX += autoMainUnit
 		} else {
 			leftX += e.scalePt(itemStyle.MarginLeft)
@@ -258,7 +258,7 @@ func (e *engine) buildVerticalColumnItems(
 		}
 
 		leftX += widths[idx]
-		if itemStyle.MarginRightAuto {
+		if itemStyle.geometry().MarginRightAuto {
 			leftX += autoMainUnit
 		} else {
 			leftX += e.scalePt(itemStyle.MarginRight)
@@ -272,7 +272,7 @@ func (e *engine) buildVerticalColumnItems(
 // flexVerticalColumnCrossAutoMargin reports auto margins on the physical
 // vertical cross axis of a column in vertical writing mode.
 func flexVerticalColumnCrossAutoMargin(style *ResolvedStyle) bool {
-	return style.MarginTopAuto || style.MarginBottomAuto
+	return style.geometry().MarginTopAuto || style.geometry().MarginBottomAuto
 }
 
 func (e *engine) measureVerticalColumnItemCross(
@@ -341,11 +341,11 @@ func verticalColumnBaselineTarget(
 // flexCrossAlignment resolves one item's cross-axis alignment: its own
 // align-self when set, otherwise the container's align-items.
 func flexCrossAlignment(container, item *ResolvedStyle) string {
-	if item.AlignSelf != "" && item.AlignSelf != fxAuto {
-		return item.AlignSelf
+	if item.flex().AlignSelf != "" && item.flex().AlignSelf != fxAuto {
+		return item.flex().AlignSelf
 	}
 
-	return container.AlignItems
+	return container.flex().AlignItems
 }
 
 //nolint:cyclop,wsl,nlreturn // vertical cross-axis alignment keeps CSS branches together
@@ -355,30 +355,30 @@ func verticalColumnCrossY(
 ) float64 {
 	top := e.scalePt(itemStyle.MarginTop)
 	bottom := e.scalePt(itemStyle.MarginBottom)
-	if itemStyle.MarginTopAuto || itemStyle.MarginBottomAuto {
+	if itemStyle.geometry().MarginTopAuto || itemStyle.geometry().MarginBottomAuto {
 		free := lineCross - itemCross
-		if !itemStyle.MarginTopAuto {
+		if !itemStyle.geometry().MarginTopAuto {
 			free -= top
 		}
-		if !itemStyle.MarginBottomAuto {
+		if !itemStyle.geometry().MarginBottomAuto {
 			free -= bottom
 		}
 		if free < 0 {
 			free = 0
 		}
 		switch {
-		case itemStyle.MarginTopAuto && itemStyle.MarginBottomAuto:
+		case itemStyle.geometry().MarginTopAuto && itemStyle.geometry().MarginBottomAuto:
 			return lineTop + top + free/2
-		case itemStyle.MarginTopAuto:
+		case itemStyle.geometry().MarginTopAuto:
 			return lineTop + top + free
 		default:
 			return lineTop + top
 		}
 	}
 
-	align := containerStyle.AlignItems
-	if itemStyle.AlignSelf != "" && itemStyle.AlignSelf != fxAuto {
-		align = itemStyle.AlignSelf
+	align := containerStyle.flex().AlignItems
+	if itemStyle.flex().AlignSelf != "" && itemStyle.flex().AlignSelf != fxAuto {
+		align = itemStyle.flex().AlignSelf
 	}
 	switch align {
 	case baselineName:
@@ -418,12 +418,12 @@ func (e *engine) buildVerticalRowItems(
 	used := 0.0
 	for idx, item := range items {
 		style := e.stylePtr(item.n)
-		if style.MarginTopAuto {
+		if style.geometry().MarginTopAuto {
 			autoMargins++
 		} else {
 			used += e.scalePt(style.MarginTop)
 		}
-		if style.MarginBottomAuto {
+		if style.geometry().MarginBottomAuto {
 			autoMargins++
 		} else {
 			used += e.scalePt(style.MarginBottom)
@@ -448,7 +448,7 @@ func (e *engine) buildVerticalRowItems(
 		}
 
 		cstate := e.stylePtr(item.n)
-		if cstate.MarginTopAuto {
+		if cstate.geometry().MarginTopAuto {
 			leftY += autoUnit
 		} else {
 			leftY += e.scalePt(cstate.MarginTop)
@@ -470,7 +470,7 @@ func (e *engine) buildVerticalRowItems(
 		}
 
 		leftY += heights[idx]
-		if cstate.MarginBottomAuto {
+		if cstate.geometry().MarginBottomAuto {
 			leftY += autoUnit
 		} else {
 			leftY += e.scalePt(cstate.MarginBottom)
@@ -491,28 +491,28 @@ func verticalRowCrossX(
 	itemStyle *ResolvedStyle, itemW float64,
 	e *engine,
 ) float64 {
-	align := containerStyle.AlignItems
-	if itemStyle.AlignSelf != "" && itemStyle.AlignSelf != fxAuto {
-		align = itemStyle.AlignSelf
+	align := containerStyle.flex().AlignItems
+	if itemStyle.flex().AlignSelf != "" && itemStyle.flex().AlignSelf != fxAuto {
+		align = itemStyle.flex().AlignSelf
 	}
 
 	left := e.scalePt(itemStyle.MarginLeft)
 	right := e.scalePt(itemStyle.MarginRight)
-	if itemStyle.MarginLeftAuto || itemStyle.MarginRightAuto {
+	if itemStyle.geometry().MarginLeftAuto || itemStyle.geometry().MarginRightAuto {
 		free := contentW - itemW
-		if !itemStyle.MarginLeftAuto {
+		if !itemStyle.geometry().MarginLeftAuto {
 			free -= left
 		}
-		if !itemStyle.MarginRightAuto {
+		if !itemStyle.geometry().MarginRightAuto {
 			free -= right
 		}
 		if free < 0 {
 			free = 0
 		}
 		switch {
-		case itemStyle.MarginLeftAuto && itemStyle.MarginRightAuto:
+		case itemStyle.geometry().MarginLeftAuto && itemStyle.geometry().MarginRightAuto:
 			return contentX + left + free/2
-		case itemStyle.MarginLeftAuto:
+		case itemStyle.geometry().MarginLeftAuto:
 			return contentX + left + free
 		default:
 			return contentX + left
@@ -523,7 +523,7 @@ func verticalRowCrossX(
 		return contentX + (contentW-itemW)/2
 	}
 
-	reverseCross := containerStyle.WritingMode == writingModeVerticalRL
+	reverseCross := containerStyle.positioning().WritingMode == writingModeVerticalRL
 	switch align {
 	case fxFlexEnd, fxEnd:
 		if reverseCross {
@@ -546,8 +546,8 @@ func verticalRowCrossX(
 // the physical left or top edge when the logical direction is applied.
 // direction reverses row and row-reverse in horizontal and vertical writing.
 func flexRowPhysicalReverse(style *ResolvedStyle) bool {
-	reverse := style.FlexDirection == fxRowRev
-	if style.Direction == cssDirectionRTL {
+	reverse := style.flex().FlexDirection == fxRowRev
+	if style.positioning().Direction == cssDirectionRTL {
 		return !reverse
 	}
 
@@ -562,10 +562,10 @@ func flexRowPhysicalReverse(style *ResolvedStyle) bool {
 func flexRowNormalMargins(e *engine, item flexMeas) float64 {
 	style := e.stylePtr(item.n)
 	margins := 0.0
-	if !style.MarginLeftAuto {
+	if !style.geometry().MarginLeftAuto {
 		margins += e.scalePt(style.MarginLeft)
 	}
-	if !style.MarginRightAuto {
+	if !style.geometry().MarginRightAuto {
 		margins += e.scalePt(style.MarginRight)
 	}
 
@@ -580,10 +580,10 @@ func flexRowNormalMargins(e *engine, item flexMeas) float64 {
 func flexColumnMainMargins(e *engine, item flexColMeas) float64 {
 	style := e.stylePtr(item.n)
 	margins := 0.0
-	if !style.MarginTopAuto {
+	if !style.geometry().MarginTopAuto {
 		margins += e.scalePt(style.MarginTop)
 	}
-	if !style.MarginBottomAuto {
+	if !style.geometry().MarginBottomAuto {
 		margins += e.scalePt(style.MarginBottom)
 	}
 

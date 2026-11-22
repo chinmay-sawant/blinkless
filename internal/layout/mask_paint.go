@@ -33,7 +33,7 @@ func maskImageEnabled(value string) bool {
 }
 
 func (e *engine) maskDescriptor(style ResolvedStyle) *MaskDescriptor {
-	images, ok := splitMaskLayerList(style.MaskImage)
+	images, ok := splitMaskLayerList(style.effects().MaskImage)
 	if !ok || len(images) == 0 {
 		return nil
 	}
@@ -43,13 +43,13 @@ func (e *engine) maskDescriptor(style ResolvedStyle) *MaskDescriptor {
 	for index, source := range images {
 		layer := MaskLayer{
 			Source:       strings.TrimSpace(source),
-			Mode:         maskLayerValue(style.MaskMode, index, maskModeMatchSource),
-			Composite:    maskLayerValue(style.MaskComposite, index, maskCompositeAdd),
-			Position:     maskLayerValue(style.MaskPosition, index, maskInitialPosition),
-			Repeat:       maskLayerValue(style.MaskRepeat, index, "repeat"),
-			Size:         maskLayerValue(style.MaskSize, index, "auto"),
-			Origin:       maskLayerValue(style.MaskOrigin, index, "border-box"),
-			Clip:         maskLayerValue(style.MaskClip, index, "border-box"),
+			Mode:         maskLayerValue(style.effects().MaskMode, index, maskModeMatchSource),
+			Composite:    maskLayerValue(style.effects().MaskComposite, index, maskCompositeAdd),
+			Position:     maskLayerValue(style.effects().MaskPosition, index, maskInitialPosition),
+			Repeat:       maskLayerValue(style.effects().MaskRepeat, index, "repeat"),
+			Size:         maskLayerValue(style.effects().MaskSize, index, "auto"),
+			Origin:       maskLayerValue(style.effects().MaskOrigin, index, "border-box"),
+			Clip:         maskLayerValue(style.effects().MaskClip, index, "border-box"),
 			ImageBytes:   nil,
 			PixelWidth:   0,
 			PixelHeight:  0,
@@ -67,7 +67,7 @@ func (e *engine) maskDescriptor(style ResolvedStyle) *MaskDescriptor {
 				layer.Mode = maskModeAlpha
 			}
 		} else if !strings.EqualFold(layer.Source, "none") {
-			layer = e.resolveMaskLayer(layer, style.MaskType)
+			layer = e.resolveMaskLayer(layer, style.effects().MaskType)
 		}
 
 		descriptor.Layers = append(descriptor.Layers, layer)
@@ -128,15 +128,15 @@ func (e *engine) maskGradientPaintSize(style ResolvedStyle, size string) (float6
 }
 
 func maskGradientBorderBox(style ResolvedStyle) (float64, float64) {
-	contentBox := style.BoxSizing != borderBox
+	contentBox := style.geometry().BoxSizing != borderBox
 	width := maskGradientBorderSide(
 		style.Width,
-		style.PaddingLeft+style.PaddingRight+style.BorderLeft.Width+style.BorderRight.Width,
+		style.PaddingLeft+style.PaddingRight+style.borders().BorderLeft.Width+style.borders().BorderRight.Width,
 		contentBox,
 	)
 	height := maskGradientBorderSide(
 		style.Height,
-		style.PaddingTop+style.PaddingBottom+style.BorderTop.Width+style.BorderBottom.Width,
+		style.PaddingTop+style.PaddingBottom+style.borders().BorderTop.Width+style.borders().BorderBottom.Width,
 		contentBox,
 	)
 

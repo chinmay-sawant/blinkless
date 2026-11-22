@@ -92,30 +92,30 @@ func applySVGPresentationProps(style *ResolvedStyle, prop, value string, fsize f
 	switch prop {
 	case "fill":
 		if strings.EqualFold(strings.TrimSpace(value), "none") {
-			style.Fill = [3]float64{}
-			style.FillSet = true
-			style.FillOpacity = 0
+			style.editSvg().Fill = [3]float64{}
+			style.editSvg().FillSet = true
+			style.editSvg().FillOpacity = 0
 		} else if color, parsed := parseUsedColor(value, style.Color); parsed {
-			style.Fill = color
-			style.FillSet = true
+			style.editSvg().Fill = color
+			style.editSvg().FillSet = true
 		}
 	case "fill-opacity":
 		if opacity, parsed := parseOpacityValue(value); parsed {
-			style.FillOpacity = opacity
+			style.editSvg().FillOpacity = opacity
 		}
 	case "stroke":
 		if color, parsed := parseUsedColor(value, style.Color); parsed {
-			style.Stroke = color
-			style.StrokeSet = true
+			style.editSvg().Stroke = color
+			style.editSvg().StrokeSet = true
 		}
 	case "stroke-width":
 		if width, parsed := plainLength(value, fsize, 0); parsed {
-			style.StrokeWidth = width
-			style.StrokeWidthSet = true
+			style.editSvg().StrokeWidth = width
+			style.editSvg().StrokeWidthSet = true
 		}
 	case "stroke-opacity":
 		if opacity, parsed := parseOpacityValue(value); parsed {
-			style.StrokeOpacity = opacity
+			style.editSvg().StrokeOpacity = opacity
 		}
 	case "stroke-dasharray", "stroke-dashoffset", "stroke-linecap", "stroke-linejoin",
 		"stroke-miterlimit", "fill-rule", "clip-rule", "color-interpolation",
@@ -140,20 +140,20 @@ func applyOutlineLonghands(style *ResolvedStyle, prop, value string, fsize float
 	switch prop {
 	case "outline-width":
 		if width, parsed := parseOutlineWidth(value, fsize); parsed {
-			style.OutlineWidth = width
+			style.editBorders().OutlineWidth = width
 		}
 	case "outline-style":
 		if outlineStyle, parsed := parseOutlineStyle(value); parsed {
-			style.OutlineStyle = outlineStyle
+			style.editBorders().OutlineStyle = outlineStyle
 		}
 	case "outline-color":
 		if color, parsed := parseUsedColor(value, style.Color); parsed {
-			style.OutlineColor = color
-			style.OutlineColorSet = true
+			style.editBorders().OutlineColor = color
+			style.editBorders().OutlineColorSet = true
 		}
 	case "outline-offset":
 		if offset, parsed := plainLength(value, fsize, 0); parsed {
-			style.OutlineOffset = offset
+			style.editBorders().OutlineOffset = offset
 		}
 	default:
 		return false
@@ -201,25 +201,25 @@ func applyBoxShadowValue(style *ResolvedStyle, value string, fsize float64) {
 	}
 
 	first := shadows[0]
-	style.BoxShadowX = first.x
-	style.BoxShadowY = first.y
-	style.BoxShadowBlur = first.blur
-	style.BoxShadowSpread = first.spread
-	style.BoxShadowColor = first.color
-	style.BoxShadowInset = first.inset
-	style.BoxShadowRaw = value
-	style.BoxShadowSet = true
+	style.editEffects().BoxShadowX = first.x
+	style.editEffects().BoxShadowY = first.y
+	style.editEffects().BoxShadowBlur = first.blur
+	style.editEffects().BoxShadowSpread = first.spread
+	style.editEffects().BoxShadowColor = first.color
+	style.editEffects().BoxShadowInset = first.inset
+	style.editEffects().BoxShadowRaw = value
+	style.editEffects().BoxShadowSet = true
 }
 
 func clearBoxShadow(style *ResolvedStyle) {
-	style.BoxShadowX = 0
-	style.BoxShadowY = 0
-	style.BoxShadowBlur = 0
-	style.BoxShadowSpread = 0
-	style.BoxShadowColor = [3]float64{}
-	style.BoxShadowSet = false
-	style.BoxShadowInset = false
-	style.BoxShadowRaw = ""
+	style.editEffects().BoxShadowX = 0
+	style.editEffects().BoxShadowY = 0
+	style.editEffects().BoxShadowBlur = 0
+	style.editEffects().BoxShadowSpread = 0
+	style.editEffects().BoxShadowColor = [3]float64{}
+	style.editEffects().BoxShadowSet = false
+	style.editEffects().BoxShadowInset = false
+	style.editEffects().BoxShadowRaw = ""
 }
 
 func parseRuleShorthand(value string, fsize float64, current [3]float64) (float64, string, [3]float64, bool) {
@@ -261,10 +261,10 @@ func applyOutlineShorthand(style *ResolvedStyle, value string, fsize float64) {
 		return
 	}
 
-	style.OutlineWidth = width
-	style.OutlineStyle = outlineStyle
-	style.OutlineColor = color
-	style.OutlineColorSet = true
+	style.editBorders().OutlineWidth = width
+	style.editBorders().OutlineStyle = outlineStyle
+	style.editBorders().OutlineColor = color
+	style.editBorders().OutlineColorSet = true
 }
 
 // applyRadiusLonghand sets one corner radius. Percentages store the percent
@@ -274,50 +274,53 @@ func applyOutlineShorthand(style *ResolvedStyle, value string, fsize float64) {
 //
 //nolint:cyclop // radius longhands
 func applyRadiusLonghand(style *ResolvedStyle, prop, value string, fsize float64) bool {
+	var first, second string
 	switch prop {
 	case "border-top-left-radius":
-		setCornerRadius(style, &style.BorderRadiusTopLeft, &style.BorderRadiusTopLeftY, value, fsize)
+		first = cornerNameTopLeft
 	case "border-top-right-radius":
-		setCornerRadius(style, &style.BorderRadiusTopRight, &style.BorderRadiusTopRightY, value, fsize)
+		first = cornerNameTopRight
 	case "border-bottom-right-radius":
-		setCornerRadius(style, &style.BorderRadiusBottomRight, &style.BorderRadiusBottomRightY, value, fsize)
+		first = cornerNameBottomRight
 	case "border-bottom-left-radius":
-		setCornerRadius(style, &style.BorderRadiusBottomLeft, &style.BorderRadiusBottomLeftY, value, fsize)
+		first = cornerNameBottomLeft
 	case "border-top-radius":
-		setCornerRadius(style, &style.BorderRadiusTopLeft, &style.BorderRadiusTopLeftY, value, fsize)
-		setCornerRadius(style, &style.BorderRadiusTopRight, &style.BorderRadiusTopRightY, value, fsize)
+		first, second = cornerNameTopLeft, cornerNameTopRight
 	case "border-bottom-radius":
-		setCornerRadius(style, &style.BorderRadiusBottomLeft, &style.BorderRadiusBottomLeftY, value, fsize)
-		setCornerRadius(style, &style.BorderRadiusBottomRight, &style.BorderRadiusBottomRightY, value, fsize)
+		first, second = cornerNameBottomLeft, cornerNameBottomRight
 	case "border-left-radius":
-		setCornerRadius(style, &style.BorderRadiusTopLeft, &style.BorderRadiusTopLeftY, value, fsize)
-		setCornerRadius(style, &style.BorderRadiusBottomLeft, &style.BorderRadiusBottomLeftY, value, fsize)
+		first, second = cornerNameTopLeft, cornerNameBottomLeft
 	case "border-right-radius":
-		setCornerRadius(style, &style.BorderRadiusTopRight, &style.BorderRadiusTopRightY, value, fsize)
-		setCornerRadius(style, &style.BorderRadiusBottomRight, &style.BorderRadiusBottomRightY, value, fsize)
-	case "border-start-start-radius", "border-start-end-radius",
-		"border-end-start-radius", "border-end-end-radius",
-		"border-block-start-radius", "border-block-end-radius",
-		"border-inline-start-radius", "border-inline-end-radius":
-		return applyLogicalRadiusLonghand(style, prop, value, fsize)
+		first, second = cornerNameTopRight, cornerNameBottomRight
 	default:
-		return false
+		return applyLogicalRadiusLonghand(style, prop, value, fsize)
 	}
+
+	setCornerRadii(style.editBorders(), first, second, value, fsize)
 
 	return true
 }
 
-func setCornerRadius(style *ResolvedStyle, destX, destY *float64, value string, fsize float64) {
+func setCornerRadii(borders *styleBorders, first, second, value string, fsize float64) {
+	if x, y, ok := borderRadiusFields(borders, first); ok {
+		setCornerRadius(borders, x, y, value, fsize)
+	}
+	if x, y, ok := borderRadiusFields(borders, second); ok {
+		setCornerRadius(borders, x, y, value, fsize)
+	}
+}
+
+func setCornerRadius(borders *styleBorders, destX, destY *float64, value string, fsize float64) {
 	rxTok, ryTok, hasY := splitCornerRadiusTokens(value)
 	if rxTok == "" {
 		return
 	}
 
-	if applyCornerRadiusPercent(style, destX, destY, rxTok) {
+	if applyCornerRadiusPercent(borders, destX, destY, rxTok) {
 		return
 	}
 
-	if !applyCornerRadiusX(style, destX, destY, rxTok, fsize) {
+	if !applyCornerRadiusX(borders, destX, destY, rxTok, fsize) {
 		return
 	}
 
@@ -326,7 +329,7 @@ func setCornerRadius(style *ResolvedStyle, destX, destY *float64, value string, 
 	}
 }
 
-func applyCornerRadiusX(style *ResolvedStyle, destX, destY *float64, token string, fsize float64) bool {
+func applyCornerRadiusX(borders *styleBorders, destX, destY *float64, token string, fsize float64) bool {
 	radius, ok := lengthBox(token, fsize, 0, cssDisplayNone)
 	if !ok || radius < 0 {
 		return false
@@ -334,8 +337,8 @@ func applyCornerRadiusX(style *ResolvedStyle, destX, destY *float64, token strin
 
 	*destX = radius
 	*destY = 0
-	style.BorderRadius = 0
-	style.BorderRadiusPercent = -1
+	borders.BorderRadius = 0
+	borders.BorderRadiusPercent = -1
 
 	return true
 }
@@ -357,7 +360,7 @@ func applyCornerRadiusY(destY *float64, token string, fsize float64) {
 	*destY = radiusY
 }
 
-func applyCornerRadiusPercent(style *ResolvedStyle, destX, destY *float64, token string) bool {
+func applyCornerRadiusPercent(borders *styleBorders, destX, destY *float64, token string) bool {
 	percent, unit, ok := css.ParseLength(token)
 	if !ok || unit != "%" || percent < 0 {
 		return false
@@ -365,8 +368,8 @@ func applyCornerRadiusPercent(style *ResolvedStyle, destX, destY *float64, token
 
 	*destX = percent
 	*destY = 0
-	style.BorderRadius = 0
-	style.BorderRadiusPercent = percent
+	borders.BorderRadius = 0
+	borders.BorderRadiusPercent = percent
 
 	return true
 }
@@ -382,19 +385,19 @@ func applyBackgroundShorthand(style *ResolvedStyle, value string) {
 func applyBackgroundImageValue(style *ResolvedStyle, value string) {
 	trimmed := strings.TrimSpace(value)
 	if strings.EqualFold(trimmed, cssDisplayNone) {
-		style.BackgroundImage = ""
+		style.editBackground().BackgroundImage = ""
 
 		return
 	}
 
 	if url, ok := firstCSSUrl(trimmed); ok && !strings.Contains(trimmed, ",") && !isGradientFunc(trimmed) {
-		style.BackgroundImage = url
+		style.editBackground().BackgroundImage = url
 
 		return
 	}
 
 	if trimmed != "" {
-		style.BackgroundImage = trimmed
+		style.editBackground().BackgroundImage = trimmed
 	}
 }
 
@@ -412,15 +415,15 @@ func applyGeneratedContentProps(style *ResolvedStyle, prop, value string) bool {
 	case "quotes":
 		applyQuotesValue(style, value)
 	case "counter-reset":
-		setTrimmedStyleValue(&style.CounterReset, value)
+		setTrimmedStyleValue(&style.editContent().CounterReset, value)
 	case "counter-set":
-		setTrimmedStyleValue(&style.CounterSet, value)
+		setTrimmedStyleValue(&style.editContent().CounterSet, value)
 	case "counter-increment":
-		setTrimmedStyleValue(&style.CounterIncrement, value)
+		setTrimmedStyleValue(&style.editContent().CounterIncrement, value)
 	case "list-style-image":
 		applyListStyleImageValue(style, value)
 	case propContent:
-		style.Content = strings.TrimSpace(value)
+		style.editContent().Content = strings.TrimSpace(value)
 	default:
 		return applyGeneratedGCPMProps(style, prop, value)
 	}
@@ -451,10 +454,10 @@ func applyGeneratedGCPMProps(style *ResolvedStyle, prop, value string) bool {
 }
 
 func applyQuotesValue(style *ResolvedStyle, value string) {
-	style.QuotesRaw = value
+	style.editContent().QuotesRaw = value
 	if openQuote, closeQuote, parsed := parseQuotesPair(value); parsed {
-		style.QuotesOpen = openQuote
-		style.QuotesClose = closeQuote
+		style.editContent().QuotesOpen = openQuote
+		style.editContent().QuotesClose = closeQuote
 	}
 }
 
@@ -636,13 +639,13 @@ func ensureGeneratedMap(style *ResolvedStyle) {
 // no url) clears the image so the type marker is used instead.
 func applyListStyleImageValue(style *ResolvedStyle, value string) {
 	if url, ok := firstCSSUrl(value); ok {
-		style.ListStyleImage = url
+		style.editContent().ListStyleImage = url
 
 		return
 	}
 
 	if listStyleImageNone(value) {
-		style.ListStyleImage = ""
+		style.editContent().ListStyleImage = ""
 	}
 }
 

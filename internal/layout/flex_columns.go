@@ -29,7 +29,7 @@ func (e *engine) flowFlexColumnWrapped(
 ) float64 {
 	if contentH < 0 {
 		nowrap := *style
-		nowrap.FlexWrap = ""
+		nowrap.editFlex().FlexWrap = ""
 		return e.flowFlexColumn(
 			parent, itemsToNodes(items), &nowrap, contentW, contentX, topY, curY, gap, crossGap,
 		)
@@ -57,10 +57,10 @@ func (e *engine) flowFlexColumnWrapped(
 		widths[idx] = e.flexColumnLineCrossWidth(line.items)
 	}
 
-	widths = stretchFlexColumnLineWidths(style.AlignContent, widths, contentW, crossGap)
-	offsets := flexColumnLineOffsets(style.AlignContent, widths, contentW, crossGap)
-	reverseCross := style.Direction == cssDirectionRTL
-	if style.FlexWrap == fxWrapRev {
+	widths = stretchFlexColumnLineWidths(style.flex().AlignContent, widths, contentW, crossGap)
+	offsets := flexColumnLineOffsets(style.flex().AlignContent, widths, contentW, crossGap)
+	reverseCross := style.positioning().Direction == cssDirectionRTL
+	if style.flex().FlexWrap == fxWrapRev {
 		reverseCross = !reverseCross
 	}
 	maxEndY := curY
@@ -87,11 +87,11 @@ func (e *engine) flowFlexColumnWrapped(
 		startY, justifyGap := justifyColumnStart(
 			flexMainJustify(style), contentH, curY, sumH+gaps, sumH, gaps, gap, len(heights),
 		)
-		if style.FlexDirection == fxColRev && flexStartJustify(flexMainJustify(style)) &&
+		if style.flex().FlexDirection == fxColRev && flexStartJustify(flexMainJustify(style)) &&
 			!flexColumnHasAutoMargins(line.items, e) {
 			startY = curY + contentH - sumH - gaps
 		}
-		if style.FlexDirection == fxColRev {
+		if style.flex().FlexDirection == fxColRev {
 			slices.Reverse(line.items)
 			slices.Reverse(heights)
 		}
@@ -168,10 +168,10 @@ func (e *engine) flexColumnLineCrossWidth(items []flexColMeas) float64 {
 		switch {
 		case style.Width >= 0:
 			chrome := e.scalePt(style.PaddingLeft + style.PaddingRight +
-				style.BorderLeft.Width + style.BorderRight.Width)
+				style.borders().BorderLeft.Width + style.borders().BorderRight.Width)
 			itemWidth = e.flexBoxSized(style, e.scalePt(style.Width), chrome)
-		case style.MinWidth > 0:
-			itemWidth = e.scalePt(style.MinWidth)
+		case style.geometry().MinWidth > 0:
+			itemWidth = e.scalePt(style.geometry().MinWidth)
 		default:
 			itemWidth = e.measureFlexItemMaxContent(item.n, style)
 		}
@@ -188,7 +188,7 @@ func (e *engine) flexColumnLineCrossWidth(items []flexColMeas) float64 {
 func flexColumnHasAutoMargins(items []flexColMeas, e *engine) bool {
 	for _, item := range items {
 		style := e.stylePtr(item.n)
-		if style.MarginTopAuto || style.MarginBottomAuto {
+		if style.geometry().MarginTopAuto || style.geometry().MarginBottomAuto {
 			return true
 		}
 	}
@@ -251,21 +251,21 @@ func flexColumnLineOffsets(align string, widths []float64, contentW, gap float64
 //nolint:wsl // min-height normalization is a short, ordered fallback
 func resolveFlexColumnContentHeight(style *ResolvedStyle, eng *engine) float64 {
 	contentH := resolveContentHeight(style, eng)
-	if contentH < 0 && style.MaxHeight >= 0 {
-		contentH = eng.scalePt(style.MaxHeight)
-		if style.BoxSizing == borderBox {
+	if contentH < 0 && style.geometry().MaxHeight >= 0 {
+		contentH = eng.scalePt(style.geometry().MaxHeight)
+		if style.geometry().BoxSizing == borderBox {
 			contentH -= eng.scalePt(style.PaddingTop) + eng.scalePt(style.PaddingBottom) +
-				eng.scalePt(style.BorderTop.Width) + eng.scalePt(style.BorderBottom.Width)
+				eng.scalePt(style.borders().BorderTop.Width) + eng.scalePt(style.borders().BorderBottom.Width)
 		}
 	}
-	if contentH >= 0 || style.MinHeight <= 0 {
+	if contentH >= 0 || style.geometry().MinHeight <= 0 {
 		return contentH
 	}
 
-	contentH = eng.scalePt(style.MinHeight)
-	if style.BoxSizing == borderBox {
+	contentH = eng.scalePt(style.geometry().MinHeight)
+	if style.geometry().BoxSizing == borderBox {
 		contentH -= eng.scalePt(style.PaddingTop) + eng.scalePt(style.PaddingBottom) +
-			eng.scalePt(style.BorderTop.Width) + eng.scalePt(style.BorderBottom.Width)
+			eng.scalePt(style.borders().BorderTop.Width) + eng.scalePt(style.borders().BorderBottom.Width)
 	}
 	if contentH < 0 {
 		contentH = 0
@@ -347,12 +347,12 @@ func (e *engine) flexShrinkHeights(items []flexColMeas, heights []float64, defic
 }
 
 func (e *engine) flexColumnAutoMinFloor(item flexColMeas, cstate *ResolvedStyle, height, contentH float64) float64 {
-	if cstate.MinHeightSet || flexAutoMinSizeIsZero(cstate.Overflow) {
+	if cstate.geometry().MinHeightSet || flexAutoMinSizeIsZero(cstate.Overflow) {
 		return height
 	}
 
 	padV := e.scalePt(cstate.PaddingTop) + e.scalePt(cstate.PaddingBottom) +
-		e.scalePt(cstate.BorderTop.Width) + e.scalePt(cstate.BorderBottom.Width)
+		e.scalePt(cstate.borders().BorderTop.Width) + e.scalePt(cstate.borders().BorderBottom.Width)
 
 	specSug := e.flexSpecifiedHeightSuggestion(cstate, item.baseH, contentH, padV)
 	if specSug >= 0 && height >= specSug {
@@ -370,10 +370,10 @@ func (e *engine) flexClampColumnHeightItem(item flexColMeas, height, contentH fl
 	cstate := e.stylePtr(item.n)
 
 	minH := 0.0
-	if cstate.MinHeightPercent >= 0 && contentH >= 0 {
-		minH = contentH * cstate.MinHeightPercent / oneHundred
-	} else if cstate.MinHeight > 0 {
-		minH = e.scalePt(cstate.MinHeight)
+	if cstate.geometry().MinHeightPercent >= 0 && contentH >= 0 {
+		minH = contentH * cstate.geometry().MinHeightPercent / oneHundred
+	} else if cstate.geometry().MinHeight > 0 {
+		minH = e.scalePt(cstate.geometry().MinHeight)
 	}
 
 	if height < minH {
@@ -382,8 +382,8 @@ func (e *engine) flexClampColumnHeightItem(item flexColMeas, height, contentH fl
 
 	height = e.flexColumnAutoMinFloor(item, cstate, height, contentH)
 
-	if cstate.MaxHeight >= 0 {
-		if maxH := e.scalePt(cstate.MaxHeight); height > maxH {
+	if cstate.geometry().MaxHeight >= 0 {
+		if maxH := e.scalePt(cstate.geometry().MaxHeight); height > maxH {
 			height = maxH
 		}
 	}
@@ -417,11 +417,11 @@ func justifyColumnStart(
 }
 
 func isDirectFlexColumnChild(cstate *ResolvedStyle) bool {
-	if cstate == nil || cstate.FlexOrder != 0 || cstate.FlexBasis >= 0 || cstate.FlexBasisPercent >= 0 {
+	if cstate == nil || cstate.flex().FlexOrder != 0 || cstate.flex().FlexBasis >= 0 || cstate.flex().FlexBasisPercent >= 0 {
 		return false
 	}
 
-	return cstate.AspectRatio <= 0 && !cstate.MarginTopAuto && !cstate.MarginBottomAuto
+	return cstate.geometry().AspectRatio <= 0 && !cstate.geometry().MarginTopAuto && !cstate.geometry().MarginBottomAuto
 }
 
 // canDirectFlowFlexColumn reports whether an auto-height, non-wrapping,
@@ -432,7 +432,7 @@ func (e *engine) canDirectFlowFlexColumn(kids []*html.Node, style *ResolvedStyle
 		return false
 	}
 
-	if style.FlexWrap == fxWrap || style.FlexWrap == fxWrapRev || style.FlexDirection == fxColRev {
+	if style.flex().FlexWrap == fxWrap || style.flex().FlexWrap == fxWrapRev || style.flex().FlexDirection == fxColRev {
 		return false
 	}
 
@@ -458,7 +458,7 @@ func (e *engine) directFlexColumnChildStyle(
 	}
 
 	override := e.allocStyle(cstate)
-	override.BoxSizing = borderBox
+	override.editGeometry().BoxSizing = borderBox
 	override.Width = crossW / e.scale
 	override.WidthPercent = -1
 
@@ -490,7 +490,7 @@ func (e *engine) flowFlexColumnDirect(
 
 		if cblock := e.buildWithStyle(kid, buildSty, contentW, contentX, topY+leftY); cblock != nil {
 			desiredX := contentX
-			if !cstate.MarginLeftAuto {
+			if !cstate.geometry().MarginLeftAuto {
 				desiredX += e.scalePt(cstate.MarginLeft)
 			}
 
@@ -532,11 +532,11 @@ func (e *engine) columnAutoMarginUnit(
 
 	for _, item := range items {
 		itemStyle := e.stylePtr(item.n)
-		if itemStyle.MarginTopAuto {
+		if itemStyle.geometry().MarginTopAuto {
 			autoMargins++
 		}
 
-		if itemStyle.MarginBottomAuto {
+		if itemStyle.geometry().MarginBottomAuto {
 			autoMargins++
 		}
 	}
@@ -573,14 +573,14 @@ func (e *engine) columnItemsEndY(
 
 	for idx, item := range items {
 		cstate := e.stylePtr(item.n)
-		if cstate.MarginTopAuto {
+		if cstate.geometry().MarginTopAuto {
 			leftY += autoUnit
 		} else {
 			leftY += e.scalePt(cstate.MarginTop)
 		}
 
 		leftY += heights[idx]
-		if cstate.MarginBottomAuto {
+		if cstate.geometry().MarginBottomAuto {
 			leftY += autoUnit
 		} else {
 			leftY += e.scalePt(cstate.MarginBottom)
@@ -614,10 +614,10 @@ func (e *engine) buildColumnItems(
 		}
 
 		itemStyle := e.stylePtr(item.n)
-		if itemStyle.MarginTopAuto {
+		if itemStyle.geometry().MarginTopAuto {
 			autoMargins++
 		}
-		if itemStyle.MarginBottomAuto {
+		if itemStyle.geometry().MarginBottomAuto {
 			autoMargins++
 		}
 	}
@@ -638,7 +638,7 @@ func (e *engine) buildColumnItems(
 
 	for idx, item := range items {
 		cstate := e.stylePtr(item.n)
-		if cstate.MarginTopAuto {
+		if cstate.geometry().MarginTopAuto {
 			leftY += autoUnit
 		} else {
 			leftY += e.scalePt(cstate.MarginTop)
@@ -649,7 +649,7 @@ func (e *engine) buildColumnItems(
 
 		if cblock == nil {
 			leftY += heights[idx]
-			if cstate.MarginBottomAuto {
+			if cstate.geometry().MarginBottomAuto {
 				leftY += autoUnit
 			} else {
 				leftY += e.scalePt(cstate.MarginBottom)
@@ -662,7 +662,7 @@ func (e *engine) buildColumnItems(
 		}
 
 		desiredX := contentX
-		if !cstate.MarginLeftAuto {
+		if !cstate.geometry().MarginLeftAuto {
 			desiredX += e.scalePt(cstate.MarginLeft)
 		}
 		dx := desiredX - cblock.x
@@ -678,7 +678,7 @@ func (e *engine) buildColumnItems(
 		}
 
 		leftY += heights[idx]
-		if cstate.MarginBottomAuto {
+		if cstate.geometry().MarginBottomAuto {
 			leftY += autoUnit
 		} else {
 			leftY += e.scalePt(cstate.MarginBottom)
@@ -731,16 +731,16 @@ func (e *engine) alignColumnItem(
 		}
 	}
 
-	align := containerStyle.AlignItems
+	align := containerStyle.flex().AlignItems
 	if align == "" {
 		align = fxStretch
 	}
-	if itemStyle.AlignSelf != "" && itemStyle.AlignSelf != fxAuto {
-		align = itemStyle.AlignSelf
+	if itemStyle.flex().AlignSelf != "" && itemStyle.flex().AlignSelf != fxAuto {
+		align = itemStyle.flex().AlignSelf
 	}
 
-	reverseCross := containerStyle.Direction == cssDirectionRTL
-	if containerStyle.FlexWrap == fxWrapRev {
+	reverseCross := containerStyle.positioning().Direction == cssDirectionRTL
+	if containerStyle.flex().FlexWrap == fxWrapRev {
 		reverseCross = !reverseCross
 	}
 	if adx := columnAlignOffset(align, cblock, itemStyle, contentX, contentW, reverseCross, e); adx != 0 {
@@ -758,9 +758,9 @@ func columnCrossAutoMarginOffset(itemStyle *ResolvedStyle, free float64) (float6
 	}
 
 	switch {
-	case itemStyle.MarginLeftAuto && itemStyle.MarginRightAuto:
+	case itemStyle.geometry().MarginLeftAuto && itemStyle.geometry().MarginRightAuto:
 		return free / two, true
-	case itemStyle.MarginLeftAuto:
+	case itemStyle.geometry().MarginLeftAuto:
 		return free, true
 	}
 
@@ -816,7 +816,7 @@ func columnAlignOffset(
 // flexColumnCrossAutoMargin reports whether a column item has an auto
 // cross-axis (horizontal) margin.
 func flexColumnCrossAutoMargin(style *ResolvedStyle) bool {
-	return style.MarginLeftAuto || style.MarginRightAuto
+	return style.geometry().MarginLeftAuto || style.geometry().MarginRightAuto
 }
 
 // flexItemColumnCrossStretch reports whether an auto-width column item uses
@@ -829,13 +829,13 @@ func flexItemColumnCrossStretch(cstate, cstate2 *ResolvedStyle) bool {
 		return false
 	}
 
-	align := cstate.AlignItems
+	align := cstate.flex().AlignItems
 	if align == "" {
 		align = fxStretch
 	}
 
-	if cstate2.AlignSelf != "" && cstate2.AlignSelf != fxAuto {
-		align = cstate2.AlignSelf
+	if cstate2.flex().AlignSelf != "" && cstate2.flex().AlignSelf != fxAuto {
+		align = cstate2.flex().AlignSelf
 	}
 
 	switch align {

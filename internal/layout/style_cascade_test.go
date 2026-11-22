@@ -66,7 +66,7 @@ func TestCascadeVendorAliasesShareSourceOrder(t *testing.T) {
 			styles := resolveStyles(root, nil, "print", testViewport, 800)
 			div := findElementByName(root, "div")
 
-			if got := styles[div].BoxSizing; got != testCase.want {
+			if got := styles[div].geometry().BoxSizing; got != testCase.want {
 				t.Fatalf("BoxSizing = %q, want %q", got, testCase.want)
 			}
 		})
@@ -209,17 +209,17 @@ func TestMaskBorderShorthandResolvesCustomProperties(t *testing.T) {
 	styles := resolveStyles(root, nil, "print", testViewport, 800)
 
 	shorthand := styles[findElementByID(t, root, "shorthand-wins")]
-	if shorthand.MaskBorderSource != "url(variable.png)" || shorthand.MaskBorderSlice != "30 fill" ||
-		shorthand.MaskBorderWidth != "10px" || shorthand.MaskBorderMode != maskModeLuminance {
+	if shorthand.effects().MaskBorderSource != "url(variable.png)" || shorthand.effects().MaskBorderSlice != "30 fill" ||
+		shorthand.effects().MaskBorderWidth != "10px" || shorthand.effects().MaskBorderMode != maskModeLuminance {
 		t.Fatalf("var() shorthand fields = %q/%q/%q/%q, want variable/30 fill/10px/luminance",
-			shorthand.MaskBorderSource, shorthand.MaskBorderSlice,
-			shorthand.MaskBorderWidth, shorthand.MaskBorderMode)
+			shorthand.effects().MaskBorderSource, shorthand.effects().MaskBorderSlice,
+			shorthand.effects().MaskBorderWidth, shorthand.effects().MaskBorderMode)
 	}
 
 	longhand := styles[findElementByID(t, root, "longhand-wins")]
-	if longhand.MaskBorderMode != maskModeLuminance || longhand.MaskBorderSource != "url(variable.png)" {
+	if longhand.effects().MaskBorderMode != maskModeLuminance || longhand.effects().MaskBorderSource != "url(variable.png)" {
 		t.Fatalf("later longhand lost to var() shorthand: mode=%q source=%q",
-			longhand.MaskBorderMode, longhand.MaskBorderSource)
+			longhand.effects().MaskBorderMode, longhand.effects().MaskBorderSource)
 	}
 }
 
@@ -409,11 +409,11 @@ func TestCascadeListStyleShorthandBeatsUADisc(t *testing.T) {
 	ul := findElementByName(root, "ul")
 	listItem := findElementByName(root, "li")
 
-	if got := styles[ul].ListStyleType; got != "none" {
+	if got := styles[ul].content().ListStyleType; got != "none" {
 		t.Fatalf("ul list-style:none type = %q, want none", got)
 	}
 
-	if got := styles[listItem].ListStyleType; got != "none" {
+	if got := styles[listItem].content().ListStyleType; got != "none" {
 		t.Fatalf("li inherited type = %q, want none", got)
 	}
 
@@ -462,18 +462,18 @@ section.d03 { border-top: 3px solid #2563eb }
 	sec := findElementByName(root, "section")
 	sty := styles[sec]
 
-	if sty.BorderTop.Width > 1.5 {
-		t.Fatalf("border-top width = %.2f, want ≤1.5 after later border shorthand", sty.BorderTop.Width)
+	if sty.borders().BorderTop.Width > 1.5 {
+		t.Fatalf("border-top width = %.2f, want ≤1.5 after later border shorthand", sty.borders().BorderTop.Width)
 	}
 
 	// #2563eb accent must not survive; #cbd5e1 frame is ~ (0.80, 0.84, 0.88).
-	if sty.BorderTop.Color[0] < 0.5 && sty.BorderTop.Color[2] > 0.85 {
+	if sty.borders().BorderTop.Color[0] < 0.5 && sty.borders().BorderTop.Color[2] > 0.85 {
 		t.Fatalf("border-top still accent blue (%.2f,%.2f,%.2f), want neutral frame",
-			sty.BorderTop.Color[0], sty.BorderTop.Color[1], sty.BorderTop.Color[2])
+			sty.borders().BorderTop.Color[0], sty.borders().BorderTop.Color[1], sty.borders().BorderTop.Color[2])
 	}
 
-	if sty.BorderLeft.Width < 2.5 {
-		t.Fatalf("border-left width = %.2f, want accent rail ≥2.5", sty.BorderLeft.Width)
+	if sty.borders().BorderLeft.Width < 2.5 {
+		t.Fatalf("border-left width = %.2f, want accent rail ≥2.5", sty.borders().BorderLeft.Width)
 	}
 }
 
@@ -518,8 +518,8 @@ func TestWritingModeInherits(t *testing.T) {
 	styles := resolveStyles(root, nil, "print", testViewport, 800)
 	pElem := findElementByName(root, "p")
 
-	if styles[pElem].WritingMode != "vertical-rl" {
-		t.Fatalf("p WritingMode = %q, want %q", styles[pElem].WritingMode, "vertical-rl")
+	if styles[pElem].positioning().WritingMode != "vertical-rl" {
+		t.Fatalf("p WritingMode = %q, want %q", styles[pElem].positioning().WritingMode, "vertical-rl")
 	}
 
 	doc, err := html.Parse(`<html><body><div style="writing-mode: vertical-rl"><p>vertical</p></div></body></html>`)
@@ -565,12 +565,12 @@ func TestTextIndentInheritsAndShiftsFirstLine(t *testing.T) {
 	pNode := findElementByName(root, "p")
 	spanNode := findElementByName(root, "span")
 
-	if styles[pNode].TextIndent <= 0 {
-		t.Fatalf("p TextIndent = %v, want > 0", styles[pNode].TextIndent)
+	if styles[pNode].inlineText().TextIndent <= 0 {
+		t.Fatalf("p TextIndent = %v, want > 0", styles[pNode].inlineText().TextIndent)
 	}
 
-	if styles[spanNode].TextIndent != styles[pNode].TextIndent {
-		t.Fatalf("span TextIndent = %v, want %v (inherited)", styles[spanNode].TextIndent, styles[pNode].TextIndent)
+	if styles[spanNode].inlineText().TextIndent != styles[pNode].inlineText().TextIndent {
+		t.Fatalf("span TextIndent = %v, want %v (inherited)", styles[spanNode].inlineText().TextIndent, styles[pNode].inlineText().TextIndent)
 	}
 
 	docPlain, err := html.Parse(`<html><body><p style="margin:0;font-size:16px">hello</p></body></html>`)
@@ -658,67 +658,67 @@ func TestWebkitPrefixAliases(t *testing.T) {
 		sty := styles[child]
 		switch child.Attribute("class") {
 		case "box-sizing":
-			if sty.BoxSizing != "border-box" {
-				t.Fatalf("-webkit-box-sizing: got %q, want border-box", sty.BoxSizing)
+			if sty.geometry().BoxSizing != "border-box" {
+				t.Fatalf("-webkit-box-sizing: got %q, want border-box", sty.geometry().BoxSizing)
 			}
 		case "radius":
-			if !near(sty.BorderRadius, 12) {
-				t.Fatalf("-webkit-border-radius: got %.1f, want 12", sty.BorderRadius)
+			if !near(sty.borders().BorderRadius, 12) {
+				t.Fatalf("-webkit-border-radius: got %.1f, want 12", sty.borders().BorderRadius)
 			}
 		case "flex":
-			if sty.FlexDirection != "column" {
-				t.Fatalf("-webkit-flex-direction: got %q, want column", sty.FlexDirection)
+			if sty.flex().FlexDirection != "column" {
+				t.Fatalf("-webkit-flex-direction: got %q, want column", sty.flex().FlexDirection)
 			}
-			if sty.FlexWrap != "wrap" {
-				t.Fatalf("-webkit-flex-wrap: got %q, want wrap", sty.FlexWrap)
+			if sty.flex().FlexWrap != "wrap" {
+				t.Fatalf("-webkit-flex-wrap: got %q, want wrap", sty.flex().FlexWrap)
 			}
-			if sty.JustifyContent != fxCenter {
-				t.Fatalf("-webkit-justify-content: got %q, want center", sty.JustifyContent)
+			if sty.flex().JustifyContent != fxCenter {
+				t.Fatalf("-webkit-justify-content: got %q, want center", sty.flex().JustifyContent)
 			}
-			if sty.AlignItems != fxCenter {
-				t.Fatalf("-webkit-align-items: got %q, want center", sty.AlignItems)
+			if sty.flex().AlignItems != fxCenter {
+				t.Fatalf("-webkit-align-items: got %q, want center", sty.flex().AlignItems)
 			}
-			if sty.AlignContent != "space-between" {
-				t.Fatalf("-webkit-align-content: got %q, want space-between", sty.AlignContent)
+			if sty.flex().AlignContent != "space-between" {
+				t.Fatalf("-webkit-align-content: got %q, want space-between", sty.flex().AlignContent)
 			}
-			if sty.FlexOrder != 3 {
-				t.Fatalf("-webkit-order: got %d, want 3", sty.FlexOrder)
+			if sty.flex().FlexOrder != 3 {
+				t.Fatalf("-webkit-order: got %d, want 3", sty.flex().FlexOrder)
 			}
 		case "transform":
-			if !sty.HasTransform {
+			if !sty.effects().HasTransform {
 				t.Fatal("-webkit-transform: HasTransform false, want true")
 			}
 		case "shadow":
-			if !sty.BoxShadowSet {
+			if !sty.effects().BoxShadowSet {
 				t.Fatal("-webkit-box-shadow: BoxShadowSet false, want true")
 			}
 		case "box-align-start":
-			if sty.AlignItems != flexStartKeyword {
-				t.Fatalf("-webkit-box-align: start got %q, want %q", sty.AlignItems, flexStartKeyword)
+			if sty.flex().AlignItems != flexStartKeyword {
+				t.Fatalf("-webkit-box-align: start got %q, want %q", sty.flex().AlignItems, flexStartKeyword)
 			}
 		case "box-align-baseline":
-			if sty.AlignItems != "baseline" {
-				t.Fatalf("-webkit-box-align: baseline got %q, want baseline", sty.AlignItems)
+			if sty.flex().AlignItems != "baseline" {
+				t.Fatalf("-webkit-box-align: baseline got %q, want baseline", sty.flex().AlignItems)
 			}
 		case "box-flex":
-			if sty.FlexGrow != 2 {
-				t.Fatalf("-webkit-box-flex: got %.1f, want 2", sty.FlexGrow)
+			if sty.flex().FlexGrow != 2 {
+				t.Fatalf("-webkit-box-flex: got %.1f, want 2", sty.flex().FlexGrow)
 			}
 		case "box-ordinal":
-			if sty.FlexOrder != 2 {
-				t.Fatalf("-webkit-box-ordinal-group: 3 got %d, want 2 (order = group-1)", sty.FlexOrder)
+			if sty.flex().FlexOrder != 2 {
+				t.Fatalf("-webkit-box-ordinal-group: 3 got %d, want 2 (order = group-1)", sty.flex().FlexOrder)
 			}
 		case "box-orient-h":
-			if sty.FlexDirection != fxRow {
-				t.Fatalf("-webkit-box-orient: horizontal got %q, want %q", sty.FlexDirection, fxRow)
+			if sty.flex().FlexDirection != fxRow {
+				t.Fatalf("-webkit-box-orient: horizontal got %q, want %q", sty.flex().FlexDirection, fxRow)
 			}
 		case "box-orient-v":
-			if sty.FlexDirection != fxCol {
-				t.Fatalf("-webkit-box-orient: vertical got %q, want %q", sty.FlexDirection, fxCol)
+			if sty.flex().FlexDirection != fxCol {
+				t.Fatalf("-webkit-box-orient: vertical got %q, want %q", sty.flex().FlexDirection, fxCol)
 			}
 		case "box-pack":
-			if sty.JustifyContent != fxBetween {
-				t.Fatalf("-webkit-box-pack: justify got %q, want %q", sty.JustifyContent, fxBetween)
+			if sty.flex().JustifyContent != fxBetween {
+				t.Fatalf("-webkit-box-pack: justify got %q, want %q", sty.flex().JustifyContent, fxBetween)
 			}
 		case "text-fill":
 			if sty.Color != [3]float64{1, 0, 0} {
@@ -728,7 +728,7 @@ func TestWebkitPrefixAliases(t *testing.T) {
 			if sty.Display != displayFlex {
 				t.Fatalf("display: -webkit-box got %q, want %q", sty.Display, displayFlex)
 			}
-			if !sty.IsWebkitBox {
+			if !sty.flex().IsWebkitBox {
 				t.Fatal("display: -webkit-box IsWebkitBox=false, want true")
 			}
 		case "webkit-inline-box":
@@ -798,15 +798,15 @@ func styleForDecl(t *testing.T, decl string) *ResolvedStyle {
 func stylesEqualForProp(prop string, first, second *ResolvedStyle) bool {
 	switch prop {
 	case "-webkit-box-align":
-		return first.AlignItems == second.AlignItems
+		return first.flex().AlignItems == second.flex().AlignItems
 	case "-webkit-box-flex":
-		return first.FlexGrow == second.FlexGrow
+		return first.flex().FlexGrow == second.flex().FlexGrow
 	case "-webkit-box-ordinal-group":
-		return first.FlexOrder == second.FlexOrder
+		return first.flex().FlexOrder == second.flex().FlexOrder
 	case "-webkit-box-orient":
-		return first.FlexDirection == second.FlexDirection
+		return first.flex().FlexDirection == second.flex().FlexDirection
 	case "-webkit-box-pack":
-		return first.JustifyContent == second.JustifyContent
+		return first.flex().JustifyContent == second.flex().JustifyContent
 	case "-webkit-text-fill-color":
 		return first.Color == second.Color
 	default:
@@ -832,24 +832,24 @@ func TestSVGPresentationProps(t *testing.T) {
 	}
 
 	sty := styles[svgElem]
-	if !sty.FillSet || sty.Fill != [3]float64{1, 0, 0} {
-		t.Fatalf("Fill = %v, FillSet = %v, want red (1,0,0) and true", sty.Fill, sty.FillSet)
+	if !sty.svg().FillSet || sty.svg().Fill != [3]float64{1, 0, 0} {
+		t.Fatalf("Fill = %v, FillSet = %v, want red (1,0,0) and true", sty.svg().Fill, sty.svg().FillSet)
 	}
 
-	if !sty.StrokeSet || sty.Stroke != [3]float64{0, 0, 1} {
-		t.Fatalf("Stroke = %v, StrokeSet = %v, want blue (0,0,1) and true", sty.Stroke, sty.StrokeSet)
+	if !sty.svg().StrokeSet || sty.svg().Stroke != [3]float64{0, 0, 1} {
+		t.Fatalf("Stroke = %v, StrokeSet = %v, want blue (0,0,1) and true", sty.svg().Stroke, sty.svg().StrokeSet)
 	}
 
-	if !sty.StrokeWidthSet || !near(sty.StrokeWidth, 2) {
-		t.Fatalf("StrokeWidth = %.1f, StrokeWidthSet = %v, want 2 and true", sty.StrokeWidth, sty.StrokeWidthSet)
+	if !sty.svg().StrokeWidthSet || !near(sty.svg().StrokeWidth, 2) {
+		t.Fatalf("StrokeWidth = %.1f, StrokeWidthSet = %v, want 2 and true", sty.svg().StrokeWidth, sty.svg().StrokeWidthSet)
 	}
 
-	if !near(sty.FillOpacity, 0.8) {
-		t.Fatalf("FillOpacity = %.2f, want 0.8", sty.FillOpacity)
+	if !near(sty.svg().FillOpacity, 0.8) {
+		t.Fatalf("FillOpacity = %.2f, want 0.8", sty.svg().FillOpacity)
 	}
 
-	if !near(sty.StrokeOpacity, 0.5) {
-		t.Fatalf("StrokeOpacity = %.2f, want 0.5", sty.StrokeOpacity)
+	if !near(sty.svg().StrokeOpacity, 0.5) {
+		t.Fatalf("StrokeOpacity = %.2f, want 0.5", sty.svg().StrokeOpacity)
 	}
 }
 
@@ -1101,7 +1101,7 @@ func TestCascadeKeepsOrderingAfterAcceptanceGate(t *testing.T) {
 		styles := resolveStyles(root, nil, "print", testViewport, 800)
 		div := findElementByName(root, "div")
 
-		if got := styles[div].BoxSizing; got != borderBox {
+		if got := styles[div].geometry().BoxSizing; got != borderBox {
 			t.Fatalf("BoxSizing = %q, want %q from -webkit-box-sizing", got, borderBox)
 		}
 	})
@@ -1208,14 +1208,14 @@ type maskStyleValues struct {
 
 func maskStyleValuesOf(style *ResolvedStyle) maskStyleValues {
 	return maskStyleValues{
-		image:     style.MaskImage,
-		mode:      style.MaskMode,
-		position:  style.MaskPosition,
-		size:      style.MaskSize,
-		repeat:    style.MaskRepeat,
-		origin:    style.MaskOrigin,
-		clip:      style.MaskClip,
-		composite: style.MaskComposite,
+		image:     style.effects().MaskImage,
+		mode:      style.effects().MaskMode,
+		position:  style.effects().MaskPosition,
+		size:      style.effects().MaskSize,
+		repeat:    style.effects().MaskRepeat,
+		origin:    style.effects().MaskOrigin,
+		clip:      style.effects().MaskClip,
+		composite: style.effects().MaskComposite,
 	}
 }
 

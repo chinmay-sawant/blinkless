@@ -164,8 +164,8 @@ func ApplyBoxShadowBlur(style *ResolvedStyle, value string, fsize float64) bool 
 		}
 		return false
 	}
-	style.BoxShadowBlur = v
-	style.BoxShadowSet = true
+	style.editEffects().BoxShadowBlur = v
+	style.editEffects().BoxShadowSet = true
 	return true
 }
 
@@ -197,8 +197,8 @@ func ApplyBoxShadowSpread(style *ResolvedStyle, value string, fsize float64) boo
 		}
 		return false
 	}
-	style.BoxShadowSpread = v
-	style.BoxShadowSet = true
+	style.editEffects().BoxShadowSpread = v
+	style.editEffects().BoxShadowSet = true
 	return true
 }
 
@@ -231,8 +231,8 @@ func ApplyBoxShadowColor(style *ResolvedStyle, value string) bool {
 	if !ok {
 		return false
 	}
-	style.BoxShadowColor = c
-	style.BoxShadowSet = true
+	style.editEffects().BoxShadowColor = c
+	style.editEffects().BoxShadowSet = true
 	return true
 }
 
@@ -274,9 +274,9 @@ func ApplyBoxShadowOffset(style *ResolvedStyle, value string, fsize float64) boo
 	if !ok {
 		return false
 	}
-	style.BoxShadowX = x
-	style.BoxShadowY = y
-	style.BoxShadowSet = true
+	style.editEffects().BoxShadowX = x
+	style.editEffects().BoxShadowY = y
+	style.editEffects().BoxShadowSet = true
 	return true
 }
 
@@ -318,8 +318,8 @@ func ApplyBoxShadowPosition(style *ResolvedStyle, value string) bool {
 	if !ok {
 		return false
 	}
-	style.BoxShadowInset = inset
-	style.BoxShadowSet = true
+	style.editEffects().BoxShadowInset = inset
+	style.editEffects().BoxShadowSet = true
 	return true
 }
 
@@ -330,15 +330,15 @@ func (e *engine) appendBoxShadow(
 	dst []Op, sty *ResolvedStyle, posX, posY, width, height float64,
 	radiusX, radiusY [4]float64, insetOnly bool,
 ) []Op {
-	if e == nil || sty == nil || !sty.BoxShadowSet || width <= 0 || height <= 0 {
+	if e == nil || sty == nil || !sty.effects().BoxShadowSet || width <= 0 || height <= 0 {
 		return dst
 	}
 
-	shadows := parseBoxShadowList(sty.BoxShadowRaw, sty.Color, sty.FontSize)
+	shadows := parseBoxShadowList(sty.effects().BoxShadowRaw, sty.Color, sty.FontSize)
 	if len(shadows) == 0 {
 		shadows = []parsedBoxShadow{{
-			x: sty.BoxShadowX, y: sty.BoxShadowY, blur: sty.BoxShadowBlur,
-			spread: sty.BoxShadowSpread, color: sty.BoxShadowColor, alpha: 1.0, inset: sty.BoxShadowInset,
+			x: sty.effects().BoxShadowX, y: sty.effects().BoxShadowY, blur: sty.effects().BoxShadowBlur,
+			spread: sty.effects().BoxShadowSpread, color: sty.effects().BoxShadowColor, alpha: 1.0, inset: sty.effects().BoxShadowInset,
 		}}
 	}
 

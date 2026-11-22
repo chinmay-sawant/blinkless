@@ -59,16 +59,16 @@ func TestPerspPerspectiveNoEffectOn2DChild(t *testing.T) {
 	plain := layoutHTML(t, doc(""))
 	persp := layoutHTML(t, doc("perspective:500px;"))
 
-	if got := boxByID(t, persp, "outer").style.HasTransform; got {
+	if got := boxByID(t, persp, "outer").style.effects().HasTransform; got {
 		t.Errorf("perspective container HasTransform = true, want false (property is dropped, not a 2D transform)")
 	}
 
 	inner := boxByID(t, persp, "inner")
-	if !inner.style.HasTransform {
+	if !inner.style.effects().HasTransform {
 		t.Errorf("2D rotate child HasTransform = false, want true")
 	}
 
-	if inner.style.HasTransform3D {
+	if inner.style.effects().HasTransform3D {
 		t.Errorf("2D rotate child HasTransform3D = true, want false (no 3D to project)")
 	}
 
@@ -96,7 +96,7 @@ func TestPerspPerspectiveFunctionDepthless(t *testing.T) {
 		`<div id="a" style="width:100px;height:50px;transform:perspective(500px) rotate(10deg)">`+
 		`sample text here</div></body></html>`)
 
-	if got := boxByID(t, funcForm, "a").style.HasTransform3D; !got {
+	if got := boxByID(t, funcForm, "a").style.effects().HasTransform3D; !got {
 		t.Errorf("perspective() list HasTransform3D = false, want true (3D parses onto the side channel)")
 	}
 
@@ -125,7 +125,7 @@ func TestPerspRotate3DOrthographic(t *testing.T) {
 	} {
 		res := layoutHTML(t, `<html><body style="margin:0">`+
 			`<div id="a" style="width:100px;height:50px;`+decl+`">sample text here</div></body></html>`)
-		if got := boxByID(t, res, "a").style.HasTransform3D; !got {
+		if got := boxByID(t, res, "a").style.effects().HasTransform3D; !got {
 			t.Errorf("%s HasTransform3D = false, want true (3D parses onto the side channel)", decl)
 		}
 
@@ -147,7 +147,7 @@ func TestPerspRotate3DOrthographic(t *testing.T) {
 
 	control := layoutHTML(t, `<html><body style="margin:0">`+
 		`<div id="a" style="width:100px;height:50px;transform:rotate(10deg)">sample text here</div></body></html>`)
-	if got := boxByID(t, control, "a").style.HasTransform; !got {
+	if got := boxByID(t, control, "a").style.effects().HasTransform; !got {
 		t.Errorf("2D rotate control HasTransform = false, want true")
 	}
 }
@@ -169,7 +169,7 @@ func TestPerspPerspectiveOriginNoEffect(t *testing.T) {
 		`<div id="a" style="width:100px;height:50px;perspective:500px;perspective-origin:25% 75%">`+
 		`sample text here</div></body></html>`)
 
-	if got := boxByID(t, origin, "a").style.HasTransform; got {
+	if got := boxByID(t, origin, "a").style.effects().HasTransform; got {
 		t.Errorf("perspective-origin HasTransform = true, want false (property is dropped)")
 	}
 
@@ -200,11 +200,11 @@ func TestPerspTransformStyleFlatteningIdentical(t *testing.T) {
 	flat := layoutHTML(t, doc("flat"))
 	preserved := layoutHTML(t, doc("preserve-3d"))
 
-	if got := boxByID(t, flat, "outer").style.TransformStyle; got != "flat" {
+	if got := boxByID(t, flat, "outer").style.effects().TransformStyle; got != "flat" {
 		t.Errorf("transform-style used = %q, want flat", got)
 	}
 
-	if got := boxByID(t, preserved, "outer").style.TransformStyle; got != "preserve-3d" {
+	if got := boxByID(t, preserved, "outer").style.effects().TransformStyle; got != "preserve-3d" {
 		t.Errorf("transform-style used = %q, want preserve-3d", got)
 	}
 
@@ -225,8 +225,8 @@ func TestPerspTransformStyleFlatteningIdentical(t *testing.T) {
 	}
 
 	bogus := boxByID(t, layoutHTML(t, doc("bogus")), "outer")
-	if bogus.style.TransformStyle != "flat" {
-		t.Errorf("transform-style:bogus used = %q, want initial flat", bogus.style.TransformStyle)
+	if bogus.style.effects().TransformStyle != "flat" {
+		t.Errorf("transform-style:bogus used = %q, want initial flat", bogus.style.effects().TransformStyle)
 	}
 }
 
@@ -257,7 +257,7 @@ func TestPerspDominantBaselineBeyondHanging(t *testing.T) {
 	raises := []string{"middle", "central", "mathematical", "text-before-edge"}
 	for _, sel := range raises {
 		res := layoutHTML(t, doc("dominant-baseline:"+sel))
-		if got := boxByID(t, res, "p").style.DominantBaseline; got != sel {
+		if got := boxByID(t, res, "p").style.inlineText().DominantBaseline; got != sel {
 			t.Errorf("dominant-baseline used = %q, want %q", got, sel)
 		}
 
@@ -274,7 +274,7 @@ func TestPerspDominantBaselineBeyondHanging(t *testing.T) {
 	lowers := []string{"ideographic", "text-after-edge"}
 	for _, sel := range lowers {
 		res := layoutHTML(t, doc("dominant-baseline:"+sel))
-		if got := boxByID(t, res, "p").style.DominantBaseline; got != sel {
+		if got := boxByID(t, res, "p").style.inlineText().DominantBaseline; got != sel {
 			t.Errorf("dominant-baseline used = %q, want %q", got, sel)
 		}
 
@@ -304,20 +304,20 @@ func TestPerspDominantBaselineInitialAndBogus(t *testing.T) {
 	}
 
 	defStyle := boxByID(t, layoutHTML(t, doc("")), "p")
-	if defStyle.style.DominantBaseline != "auto" {
-		t.Errorf("dominant-baseline initial used = %q, want auto", defStyle.style.DominantBaseline)
+	if defStyle.style.inlineText().DominantBaseline != "auto" {
+		t.Errorf("dominant-baseline initial used = %q, want auto", defStyle.style.inlineText().DominantBaseline)
 	}
 
 	alphaRes := layoutHTML(t, doc("dominant-baseline:alphabetic"))
-	if got := boxByID(t, alphaRes, "p").style.DominantBaseline; got != "alphabetic" {
+	if got := boxByID(t, alphaRes, "p").style.inlineText().DominantBaseline; got != "alphabetic" {
 		t.Errorf("dominant-baseline used = %q, want alphabetic", got)
 	}
 
 	perspAssertSameOps(t, layoutHTML(t, doc("")), alphaRes)
 
 	bogus := boxByID(t, layoutHTML(t, doc("dominant-baseline:bogus")), "p")
-	if bogus.style.DominantBaseline != "auto" {
-		t.Errorf("dominant-baseline:bogus used = %q, want initial auto", bogus.style.DominantBaseline)
+	if bogus.style.inlineText().DominantBaseline != "auto" {
+		t.Errorf("dominant-baseline:bogus used = %q, want initial auto", bogus.style.inlineText().DominantBaseline)
 	}
 }
 
@@ -334,8 +334,8 @@ func TestPerspDominantBaselineInherits(t *testing.T) {
 		`<div style="dominant-baseline:hanging"><p id="p" style="margin:0;font-size:16px">Ag</p></div></body></html>`)
 
 	child := boxByID(t, inherited, "p")
-	if child.style.DominantBaseline != "hanging" {
-		t.Errorf("inherited dominant-baseline used = %q, want hanging", child.style.DominantBaseline)
+	if child.style.inlineText().DominantBaseline != "hanging" {
+		t.Errorf("inherited dominant-baseline used = %q, want hanging", child.style.inlineText().DominantBaseline)
 	}
 
 	plainTexts := opsOfKind(plain, OpText)

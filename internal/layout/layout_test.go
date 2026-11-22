@@ -957,16 +957,16 @@ func TestPageBreakParsing(t *testing.T) {
 
 		switch n.Attribute("class") {
 		case "brk":
-			if sty.PageBreakBefore != pageBreakAlways {
-				t.Errorf("div.brk page-break-before = %q, want always", sty.PageBreakBefore)
+			if sty.fragmentation().PageBreakBefore != pageBreakAlways {
+				t.Errorf("div.brk page-break-before = %q, want always", sty.fragmentation().PageBreakBefore)
 			}
 		case avoidKeyword:
-			if sty.PageBreakInside != avoidKeyword {
-				t.Errorf("div.avoid break-inside = %q, want avoid", sty.PageBreakInside)
+			if sty.fragmentation().PageBreakInside != avoidKeyword {
+				t.Errorf("div.avoid break-inside = %q, want avoid", sty.fragmentation().PageBreakInside)
 			}
 		case "aft":
-			if sty.PageBreakAfter != pageBreakAlways {
-				t.Errorf("p.aft break-after = %q, want always", sty.PageBreakAfter)
+			if sty.fragmentation().PageBreakAfter != pageBreakAlways {
+				t.Errorf("p.aft break-after = %q, want always", sty.fragmentation().PageBreakAfter)
 			}
 		}
 	}

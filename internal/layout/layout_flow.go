@@ -36,8 +36,8 @@ const (
 )
 
 func (e *engine) contentBox(posX, boxW float64, style *ResolvedStyle) (float64, float64) {
-	borderLeft := borderLayoutWidth(style, style.BorderLeft)
-	borderRight := borderLayoutWidth(style, style.BorderRight)
+	borderLeft := borderLayoutWidth(style, style.borders().BorderLeft)
+	borderRight := borderLayoutWidth(style, style.borders().BorderRight)
 	contentW := boxW - e.scalePt(style.PaddingLeft) - e.scalePt(style.PaddingRight) -
 		e.scalePt(borderLeft) - e.scalePt(borderRight)
 
@@ -52,7 +52,7 @@ func (e *engine) contentBox(posX, boxW float64, style *ResolvedStyle) (float64, 
 // image replaces the normal border paint, so its content area must use the
 // same converted width as the emitted image slices.
 func borderLayoutWidth(style *ResolvedStyle, side border) float64 {
-	if style.BorderImageSource != "" && side.PaintWidth > 0 {
+	if style.borders().BorderImageSource != "" && side.PaintWidth > 0 {
 		return side.PaintWidth
 	}
 
@@ -237,7 +237,7 @@ func (e *engine) flowChildren(
 }
 
 // flowChildrenPtr is the pointer-based flow used by internal callers so one
-// block lays out without copying its 6KB style record. The value wrapper
+// block lays out without copying its style record. The value wrapper
 // above preserves the external table, multicol, and measure call sites.
 //
 // flowFloatsOrLocal returns the BFC float state, or a fresh local one when none
@@ -261,14 +261,14 @@ func (e *engine) flowChildrenPtr(
 	// Children resolve an auto inline size against this containing block's
 	// writing mode: an orthogonal child shrink-wraps (CSS Writing Modes).
 	previousWM := e.flowWritingMode
-	e.flowWritingMode = sty.WritingMode
+	e.flowWritingMode = sty.positioning().WritingMode
 
 	defer func() { e.flowWritingMode = previousWM }()
 
 	// CSS Containment: content-visibility: hidden skips descendant layout and
 	// paint entirely. The box keeps its own chrome and uses the
 	// contain-intrinsic height (0 when unset) as its content size.
-	if sty.ContentVisibility == contentVisibilityHidden {
+	if sty.containment().ContentVisibility == contentVisibilityHidden {
 		return curY + e.containmentHiddenHeight(sty)
 	}
 
@@ -293,7 +293,7 @@ func (e *engine) flowChildrenPtr(
 	absTop := posY + curY
 
 	// margin-trim lite: find first/last in-flow block child for trimming.
-	parentTrim := sty.MarginTrim
+	parentTrim := sty.geometry().MarginTrim
 	firstBlockIdx, lastBlockIdx := e.flowTrimBounds(children, parentTrim)
 
 	idx := 0
@@ -366,7 +366,7 @@ func (e *engine) sizeContainedHeight(sty *ResolvedStyle) float64 {
 		*e.bfcFloats = newFloatState(e.bfcFloats.contentX, e.bfcFloats.contentW)
 	}
 
-	return e.scalePt(sty.PaddingTop) + e.scalePt(borderLayoutWidth(sty, sty.BorderTop)) +
+	return e.scalePt(sty.PaddingTop) + e.scalePt(borderLayoutWidth(sty, sty.borders().BorderTop)) +
 		e.scalePt(intrinsicH)
 }
 
@@ -401,7 +401,7 @@ func flowKeepsTrailingMargin(sty *ResolvedStyle, sizeContained bool) bool {
 		return false
 	}
 
-	return sty.PaddingBottom > 0 || sty.BorderBottom.Width > 0 || establishesBFC(sty)
+	return sty.PaddingBottom > 0 || sty.borders().BorderBottom.Width > 0 || establishesBFC(sty)
 }
 
 // flowAbsCB resolves the containing block for absolute/fixed descendants:
@@ -420,7 +420,7 @@ func (e *engine) flowAbsCBPtr(
 ) (float64, float64, float64, bool) {
 	absCBX, absCBW := contentX, contentW
 
-	paddingBoxCB := sty.HasTransform || containsLayout(sty) || containsPaint(sty)
+	paddingBoxCB := sty.effects().HasTransform || containsLayout(sty) || containsPaint(sty)
 
 	if sty.Position == positionRelative && !paddingBoxCB {
 		if e.deferredNeedsPaddingBox(deferred) || e.relativeAbsChildNeedsPaddingBox(children) {
@@ -461,7 +461,7 @@ func (e *engine) deferredNeedsPaddingBox(deferred []*html.Node) bool {
 	for _, child := range deferred {
 		childStyle := e.stylePtr(child)
 		if childStyle.Position == positionAbsolute &&
-			(!childStyle.BottomAuto || (childStyle.Height < 0 && childStyle.HeightPercent < 0)) {
+			(!childStyle.positioning().BottomAuto || (childStyle.Height < 0 && childStyle.HeightPercent < 0)) {
 			return true
 		}
 	}
@@ -475,7 +475,7 @@ func (e *engine) relativeAbsChildNeedsPaddingBox(children []*html.Node) bool {
 	for _, child := range children {
 		childStyle := e.stylePtr(child)
 		if childStyle.Position == positionAbsolute &&
-			(!childStyle.BottomAuto || (childStyle.Height < 0 && childStyle.HeightPercent < 0)) {
+			(!childStyle.positioning().BottomAuto || (childStyle.Height < 0 && childStyle.HeightPercent < 0)) {
 			return true
 		}
 	}
@@ -509,7 +509,7 @@ func establishesAbsCBPtr(style *ResolvedStyle) bool {
 		return true
 	}
 
-	return style.HasTransform || containsLayout(style) || containsPaint(style)
+	return style.effects().HasTransform || containsLayout(style) || containsPaint(style)
 }
 
 // flowTrimBounds finds the first/last in-flow block child indexes for
@@ -610,7 +610,7 @@ func (e *engine) flowOneChild(
 		deferred = append(deferred, node)
 		idx++
 	case isFlowFloat(node, cst):
-		curY = floats.clearFloats(cst.Clear, posY, curY)
+		curY = floats.clearFloats(cst.positioning().Clear, posY, curY)
 		attachFlowBox(parent, e.placeFloat(node, cst, floats, contentW, contentX, posY, curY), e)
 
 		prevBottom = 0
@@ -788,8 +788,8 @@ func (e *engine) stampContainmentClip(boxNode *box, sty *ResolvedStyle) {
 	}
 
 	if overflowClipsPaint(boxNode.style.Overflow) ||
-		overflowClipsPaint(boxNode.style.OverflowX) ||
-		overflowClipsPaint(boxNode.style.OverflowY) {
+		overflowClipsPaint(boxNode.style.geometry().OverflowX) ||
+		overflowClipsPaint(boxNode.style.geometry().OverflowY) {
 		return
 	}
 
@@ -869,7 +869,7 @@ func (e *engine) layoutBlockChild(
 	}
 	// In-flow tables always clear below preceding floats (deterministic
 	// report policy). Shrink-to-fit / squeeze-beside is unsupported.
-	clearVal := cstate.Clear
+	clearVal := cstate.positioning().Clear
 	if cstate.Display == displayTable {
 		clearVal = clearBoth
 	}
@@ -919,7 +919,7 @@ func (e *engine) finishBlockChild(
 	entryCurY, prevBottom, curY, contentX, contentW float64,
 ) (float64, float64, *box) {
 	if exclusionApplies(cstate) && floats != nil {
-		floats.placeExclusion(cblock, cstate.WrapFlow, contentX, contentW)
+		floats.placeExclusion(cblock, cstate.positioning().WrapFlow, contentX, contentW)
 
 		return entryCurY, prevBottom, cblock
 	}
@@ -995,11 +995,11 @@ func (e *engine) applyJustifySelfFitContent(
 		return boxX, boxW
 	}
 
-	return boxX + gridAlignOffset(style.JustifySelf, boxW, fit), fit
+	return boxX + gridAlignOffset(style.flex().JustifySelf, boxW, fit), fit
 }
 
 // justifySelfUsesFitContentPtr is the pointer-based fit-content test used by
-// flow so justification checks pay no 6KB copy.
+// flow so justification checks pay no copy.
 func justifySelfUsesFitContentPtr(style *ResolvedStyle) bool {
 	if style == nil {
 		return false
@@ -1009,7 +1009,7 @@ func justifySelfUsesFitContentPtr(style *ResolvedStyle) bool {
 		return false
 	}
 
-	return isPlaceAlignmentKeyword(style.JustifySelf)
+	return isPlaceAlignmentKeyword(style.flex().JustifySelf)
 }
 
 // blockFitContentMarginBox is the shrink-to-fit margin-box width used when
@@ -1025,7 +1025,7 @@ func (e *engine) blockFitContentMarginBox(node *html.Node, style ResolvedStyle) 
 // by internal callers; the value wrapper above preserves the external
 // grid and width call sites.
 func (e *engine) blockFitContentMarginBoxPtr(node *html.Node, style *ResolvedStyle) float64 {
-	if containsSize(style) || style.ContentVisibility == contentVisibilityHidden {
+	if containsSize(style) || style.containment().ContentVisibility == contentVisibilityHidden {
 		intrinsicW := containmentIntrinsicWidth(style)
 		if intrinsicW < 0 {
 			intrinsicW = 0
@@ -1066,7 +1066,7 @@ func (e *engine) pushBFCFloatsForce(style ResolvedStyle, contentX, contentW floa
 }
 
 // pushBFCFloatsForcePtr is the pointer-based BFC installer used by internal
-// flow so block layout pays no 6KB copy to test for a new formatting context.
+// flow so block layout pays no copy to test for a new formatting context.
 func (e *engine) pushBFCFloatsForcePtr(style *ResolvedStyle, contentX, contentW float64, force bool) bool {
 	if e.bfcFloats != nil && !force && !establishesBFC(style) && !containsLayout(style) {
 		return false
@@ -1163,7 +1163,7 @@ func (e *engine) emitListMarker(node *html.Node, style *ResolvedStyle, contentX,
 		return
 	}
 
-	typ := style.ListStyleType
+	typ := style.content().ListStyleType
 	if typ == "" {
 		typ = listStyleDisc
 	}
@@ -1188,7 +1188,7 @@ func (e *engine) emitListMarker(node *html.Node, style *ResolvedStyle, contentX,
 		minW = size * float64(len([]rune(text))) * markerHalfWidth
 	}
 
-	posX := listMarkerX(style.ListStylePosition, contentX, size, minW)
+	posX := listMarkerX(style.content().ListStylePosition, contentX, size, minW)
 
 	e.add(Op{ //nolint:exhaustruct // intentional zero fields
 		Kind: OpBullet, X: posX, Y: baseline, Text: text, Font: face, Size: size,
@@ -1202,11 +1202,11 @@ func (e *engine) emitListMarker(node *html.Node, style *ResolvedStyle, contentX,
 func (e *engine) emitListStyleImageMarker(
 	style *ResolvedStyle, contentX, baseline, size float64,
 ) bool {
-	if style.ListStyleImage == "" {
+	if style.content().ListStyleImage == "" {
 		return false
 	}
 
-	src := backgroundImageSrc(style.ListStyleImage)
+	src := backgroundImageSrc(style.content().ListStyleImage)
 	if src == "" {
 		return false
 	}
@@ -1227,7 +1227,7 @@ func (e *engine) emitListStyleImageMarker(
 		imgH = size
 	}
 
-	posX := listMarkerX(style.ListStylePosition, contentX, size, imgW)
+	posX := listMarkerX(style.content().ListStylePosition, contentX, size, imgW)
 
 	e.add((Op{ //nolint:exhaustruct // intentional zero fields
 		Kind:   OpImage,
@@ -1507,14 +1507,14 @@ func (e *engine) floatIntrinsicAvail(node *html.Node, style *ResolvedStyle, avai
 
 		intr = e.scalePt(intrinsicW) +
 			e.scalePt(style.PaddingLeft) + e.scalePt(style.PaddingRight) +
-			e.scalePt(style.BorderLeft.Width) + e.scalePt(style.BorderRight.Width) +
+			e.scalePt(style.borders().BorderLeft.Width) + e.scalePt(style.borders().BorderRight.Width) +
 			e.scalePt(style.MarginLeft) + e.scalePt(style.MarginRight)
 	} else if imgW := e.measureLargestImageWidth(node); imgW > 0 {
 		// Wiki thumbs: size the float to the image, not the unwrapped
 		// figcaption max-content (which letterboxed images in a wide frame).
 		intr = imgW +
 			e.scalePt(style.PaddingLeft) + e.scalePt(style.PaddingRight) +
-			e.scalePt(style.BorderLeft.Width) + e.scalePt(style.BorderRight.Width) +
+			e.scalePt(style.borders().BorderLeft.Width) + e.scalePt(style.borders().BorderRight.Width) +
 			e.scalePt(style.MarginLeft) + e.scalePt(style.MarginRight)
 	} else {
 		// measureCellContent is already the border-box max-content (content +
