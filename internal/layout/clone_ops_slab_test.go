@@ -8,12 +8,13 @@ import "testing"
 func TestCloneOpsOwnsEveryPayload(t *testing.T) {
 	t.Parallel()
 
-	src := make([]Op, 5)
+	src := make([]Op, 6)
 	src[0].SetXform(Matrix2D{A: 1, D: 1, E: 7})
 	src[1].bindEmptyExtra()
 	// src[2] keeps a nil payload.
 	src[3].setImage([]byte{1, 2, 3}, 1, 1, "alt")
 	src[4].SetOverflowClip(1, 2, 3, 4)
+	src[5].setDisplayPath([]DisplayPoint{{X: 1, Y: 2}, {X: 3, Y: 4}}, true)
 
 	dst := cloneOps(src)
 	if len(dst) != len(src) {
@@ -28,7 +29,7 @@ func TestCloneOpsOwnsEveryPayload(t *testing.T) {
 		t.Fatal("a nil payload gained a value")
 	}
 
-	for _, i := range []int{0, 3, 4} {
+	for _, i := range []int{0, 3, 4, 5} {
 		if dst[i].opExtra == src[i].opExtra {
 			t.Fatalf("op %d shares its payload with the source", i)
 		}
@@ -49,6 +50,12 @@ func TestCloneOpsOwnsEveryPayload(t *testing.T) {
 
 	if src[3].opExtra.Image[0] != 1 {
 		t.Fatal("the clone aliases the source image bytes")
+	}
+
+	dst[5].opExtra.Path.Points[0].X = 99
+
+	if src[5].opExtra.Path.Points[0].X != 1 {
+		t.Fatalf("the clone aliases the source display path points: got %v, want 1", src[5].opExtra.Path.Points[0].X)
 	}
 }
 

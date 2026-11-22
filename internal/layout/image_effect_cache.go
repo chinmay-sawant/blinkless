@@ -1,6 +1,8 @@
 package layout
 
 import (
+	"bytes"
+	"container/list"
 	"crypto/sha256"
 	"math"
 	"strconv"
@@ -11,6 +13,7 @@ import (
 const (
 	imageEffectCacheMaxEntries = 256
 	imageEffectCacheMaxBytes   = 512 << 10
+	imageEffectCacheTotalBytes = 32 << 20
 )
 
 type imageFilterCacheKey struct {
@@ -32,13 +35,102 @@ type clipPathMaskCacheKey struct {
 	shapeSig string
 }
 
+type byteLRUCacheEntry[K comparable] struct {
+	key K
+	val []byte
+}
+
+// byteLRUCache is a bounded, thread-safe LRU cache for immutable encoded image
+// payloads. Stored slices are cloned to exact length (cap == len) so they never
+// retain oversized encoder buffers and caller appends cannot alias cache memory.
+type byteLRUCache[K comparable] struct {
+	mu            sync.Mutex
+	maxEntries    int
+	maxEntryBytes int
+	maxTotalBytes int
+	totalBytes    int
+	items         map[K]*list.Element
+	order         list.List
+}
+
+func newByteLRUCache[K comparable](maxEntries, maxEntryBytes, maxTotalBytes int) *byteLRUCache[K] {
+	return &byteLRUCache[K]{ //nolint:exhaustruct // order starts empty
+		maxEntries:    maxEntries,
+		maxEntryBytes: maxEntryBytes,
+		maxTotalBytes: maxTotalBytes,
+		items:         make(map[K]*list.Element, maxEntries),
+	}
+}
+
+func (c *byteLRUCache[K]) get(key K) ([]byte, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	elem, ok := c.items[key]
+	if !ok {
+		return nil, false
+	}
+
+	c.order.MoveToFront(elem)
+
+	//nolint:forcetypeassert // list only stores *byteLRUCacheEntry[K]
+	return elem.Value.(*byteLRUCacheEntry[K]).val, true
+}
+
+func (c *byteLRUCache[K]) put(key K, out []byte) []byte {
+	trimmed := bytes.Clone(out)
+	if len(trimmed) == 0 {
+		return out
+	}
+
+	// Cap slice capacity to length so caller append() allocates instead of
+	// overwriting anything adjacent in memory.
+	trimmed = trimmed[:len(trimmed):len(trimmed)]
+	if len(trimmed) > c.maxEntryBytes || len(trimmed) > c.maxTotalBytes {
+		return trimmed
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if elem, ok := c.items[key]; ok {
+		//nolint:forcetypeassert // list only stores *byteLRUCacheEntry[K]
+		entry := elem.Value.(*byteLRUCacheEntry[K])
+		c.totalBytes += len(trimmed) - len(entry.val)
+		entry.val = trimmed
+		c.order.MoveToFront(elem)
+		c.evictLocked()
+
+		return trimmed
+	}
+
+	entry := &byteLRUCacheEntry[K]{key: key, val: trimmed}
+	c.items[key] = c.order.PushFront(entry)
+	c.totalBytes += len(trimmed)
+	c.evictLocked()
+
+	return trimmed
+}
+
+func (c *byteLRUCache[K]) evictLocked() {
+	for len(c.items) > c.maxEntries || c.totalBytes > c.maxTotalBytes {
+		back := c.order.Back()
+		if back == nil {
+			break
+		}
+
+		//nolint:forcetypeassert // list only stores *byteLRUCacheEntry[K]
+		entry := back.Value.(*byteLRUCacheEntry[K])
+		c.order.Remove(back)
+		delete(c.items, entry.key)
+		c.totalBytes -= len(entry.val)
+	}
+}
+
 //nolint:gochecknoglobals // bounded process-wide raster effect caches matching gradCache
 var (
-	imageFilterCacheMu sync.RWMutex
-	imageFilterCache   = make(map[imageFilterCacheKey][]byte, imageEffectCacheMaxEntries)
-
-	clipPathMaskCacheMu sync.RWMutex
-	clipPathMaskCache   = make(map[clipPathMaskCacheKey][]byte, imageEffectCacheMaxEntries)
+	imageFilterCache  = newByteLRUCache[imageFilterCacheKey](imageEffectCacheMaxEntries, imageEffectCacheMaxBytes, imageEffectCacheTotalBytes)
+	clipPathMaskCache = newByteLRUCache[clipPathMaskCacheKey](imageEffectCacheMaxEntries, imageEffectCacheMaxBytes, imageEffectCacheTotalBytes)
 )
 
 func canonicalFloat64Bits(val float64) uint64 {
@@ -53,7 +145,7 @@ func makeImageFilterCacheKey(imgBytes []byte, filters []parsedFilter, linear boo
 	var sig strings.Builder
 
 	for _, flt := range filters {
-		if flt.kind != filterBlur && flt.kind != filterGrayscale && flt.kind != filterInvert {
+		if !filterAppliesToImage(flt.kind) {
 			continue
 		}
 
@@ -71,26 +163,15 @@ func makeImageFilterCacheKey(imgBytes []byte, filters []parsedFilter, linear boo
 	}
 }
 
+// lookupImageFilterCache returns a read-only cached PNG slice (cap == len).
 func lookupImageFilterCache(key imageFilterCacheKey) ([]byte, bool) {
-	imageFilterCacheMu.RLock()
-	cached, ok := imageFilterCache[key]
-	imageFilterCacheMu.RUnlock()
-
-	return cached, ok
+	return imageFilterCache.get(key)
 }
 
-func storeImageFilterCache(key imageFilterCacheKey, out []byte) {
-	if len(out) == 0 || len(out) > imageEffectCacheMaxBytes {
-		return
-	}
-
-	imageFilterCacheMu.Lock()
-	if len(imageFilterCache) >= imageEffectCacheMaxEntries {
-		clear(imageFilterCache)
-	}
-
-	imageFilterCache[key] = out
-	imageFilterCacheMu.Unlock()
+// storeImageFilterCache clones out to exact length, stores it when within cache
+// limits, and returns the immutable read-only slice.
+func storeImageFilterCache(key imageFilterCacheKey, out []byte) []byte {
+	return imageFilterCache.put(key, out)
 }
 
 func appendClipPathLengthSig(buf *strings.Builder, length clipPathLength) {
@@ -158,24 +239,13 @@ func makeClipPathMaskCacheKey(
 	}
 }
 
+// lookupClipPathMaskCache returns a read-only cached PNG slice (cap == len).
 func lookupClipPathMaskCache(key clipPathMaskCacheKey) ([]byte, bool) {
-	clipPathMaskCacheMu.RLock()
-	cached, ok := clipPathMaskCache[key]
-	clipPathMaskCacheMu.RUnlock()
-
-	return cached, ok
+	return clipPathMaskCache.get(key)
 }
 
-func storeClipPathMaskCache(key clipPathMaskCacheKey, out []byte) {
-	if len(out) == 0 || len(out) > imageEffectCacheMaxBytes {
-		return
-	}
-
-	clipPathMaskCacheMu.Lock()
-	if len(clipPathMaskCache) >= imageEffectCacheMaxEntries {
-		clear(clipPathMaskCache)
-	}
-
-	clipPathMaskCache[key] = out
-	clipPathMaskCacheMu.Unlock()
+// storeClipPathMaskCache clones out to exact length, stores it when within
+// cache limits, and returns the immutable read-only slice.
+func storeClipPathMaskCache(key clipPathMaskCacheKey, out []byte) []byte {
+	return clipPathMaskCache.put(key, out)
 }

@@ -1,4 +1,3 @@
-//nolint:all
 //go:generate go run ../../scripts/gen-style-intern -dir . -out style_intern_gen.go
 package layout
 
@@ -1329,29 +1328,6 @@ func putStyleStoreChunk(chunk *[]ResolvedStyle) {
 	case free <- chunk:
 	default:
 	}
-}
-
-// putStyleStoreChunkSlice is putStyleStoreChunk for slice values.
-func putStyleStoreChunkSlice(chunk []ResolvedStyle) {
-	putStyleStoreChunk(&chunk)
-}
-
-// recycle returns all chunks allocated by this store back to their per-size
-// free lists with zeroed buffers, and resets the store.
-func (s *styleStore) recycle() {
-	if s == nil {
-		return
-	}
-
-	for i := range s.chunks {
-		c := s.chunks[i]
-		putStyleStoreChunk(&c)
-	}
-
-	s.chunks = nil
-	s.intern = nil
-	s.memo = styleResolutionMemo{entries: nil, disabled: false}
-	s.candidate = zeroResolvedStyle
 }
 
 // styleStore owns resolved styles for one resolution pass. It deliberately

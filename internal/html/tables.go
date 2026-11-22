@@ -3,8 +3,6 @@
 // implement the standard's table tree construction on the HTML-02a mode
 // skeleton in tree.go; the custom Node model and recovery conventions are
 // shared.
-//
-//nolint:all // table insertion modes; same custom Node model and conventions as tree.go
 package html
 
 import "strings"

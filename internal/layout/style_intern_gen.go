@@ -88,9 +88,10 @@ func styleInternHashStringMap(h uint64, m map[string]string) uint64 {
 	return (h^uint64(len(m)))*styleInternPrime ^ acc
 }
 
-// styleInternEqual reports exact semantic equality of two stored styles.
-// It compares every ResolvedStyle field, slice, and map by value.
-func styleInternEqual(a, b *ResolvedStyle) bool {
+// styleInternEqualExceptBG reports exact semantic equality of two stored
+// styles ignoring BGColor. Used by paint-only background restyling so it
+// covers every ResolvedStyle field without copying or reflect.DeepEqual.
+func styleInternEqualExceptBG(a, b *ResolvedStyle) bool {
 	if a == b {
 		return true
 	}
@@ -239,7 +240,6 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.CornerShapeBottomRightKeyword == b.CornerShapeBottomRightKeyword &&
 		a.CornerShapeBottomLeftKeyword == b.CornerShapeBottomLeftKeyword &&
 		a.Color == b.Color &&
-		a.BGColor == b.BGColor &&
 		a.AccentColor == b.AccentColor &&
 		a.AccentColorSet == b.AccentColorSet &&
 		slices.Equal(a.FontFamily, b.FontFamily) &&
@@ -542,6 +542,16 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 		a.SVGVectorEffect == b.SVGVectorEffect &&
 		a.SVGFloodColor == b.SVGFloodColor &&
 		a.SVGFloodOpacity == b.SVGFloodOpacity
+}
+
+// styleInternEqual reports exact semantic equality of two stored styles.
+// It compares every ResolvedStyle field, slice, and map by value.
+func styleInternEqual(a, b *ResolvedStyle) bool {
+	if a == b {
+		return true
+	}
+
+	return a.BGColor == b.BGColor && styleInternEqualExceptBG(a, b)
 }
 
 // styleInternFingerprint hashes every ResolvedStyle field. Equal styles

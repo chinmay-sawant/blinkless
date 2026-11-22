@@ -1,6 +1,5 @@
-// recovery conventions as the tokenizer in html.go
-//
-//nolint:all // doctype tokenizer states and quirks-mode classification; same
+// Doctype tokenizer states and quirks-mode classification; same recovery
+// conventions as the tokenizer in html.go.
 package html
 
 import "strings"

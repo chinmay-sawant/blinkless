@@ -5,8 +5,6 @@
 // carrying the selected attribute wins, otherwise the first option. Because
 // this engine builds the whole tree before returning, the mirroring runs as
 // one post-pass over the finished tree.
-//
-//nolint:all // post-pass over the custom Node model; same conventions as tree.go
 package html
 
 // applySelectedContentIfNeeded runs the selectedcontent mirroring post-pass

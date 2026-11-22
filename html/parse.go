@@ -2,6 +2,7 @@ package html
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/chinmay-sawant/blinkless/internal/html"
 	"github.com/chinmay-sawant/blinkless/internal/pubstate"
@@ -21,7 +22,10 @@ var _ = pubstate.RegisterRoot(func(doc any) *html.Node {
 // Document is one parsed HTML tree.
 // The CSS package reads it. Callers do not see the engine node.
 type Document struct {
-	root *html.Node
+	root    *html.Node
+	stateMu sync.RWMutex
+	index   *elementIndex
+	dirty   *html.DirtySet
 }
 
 // Element is one element found by id.
@@ -43,7 +47,7 @@ func Parse(source []byte) (*Document, error) {
 		return nil, errEmpty
 	}
 
-	return &Document{root: root}, nil
+	return &Document{root: root}, nil //nolint:exhaustruct // index and dirty initialize on first use
 }
 
 // Find returns the element with the given id.

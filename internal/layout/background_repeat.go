@@ -13,7 +13,7 @@ const (
 // backgroundRepeatAxes resolves the independent horizontal and vertical
 // repeat values. An axis longhand starts the other axis at its CSS initial
 // value, repeat, before applying the explicit axis value.
-func backgroundRepeatAxes(sty ResolvedStyle) (string, string) {
+func backgroundRepeatAxes(sty *ResolvedStyle) (string, string) {
 	repeatX, repeatY := backgroundRepeatBase(sty)
 	repeatX = overrideBackgroundRepeat(repeatX, sty.BackgroundRepeatX)
 	repeatY = overrideBackgroundRepeat(repeatY, sty.BackgroundRepeatY)
@@ -21,7 +21,7 @@ func backgroundRepeatAxes(sty ResolvedStyle) (string, string) {
 	return applyLogicalBackgroundRepeat(sty, repeatX, repeatY)
 }
 
-func backgroundRepeatBase(sty ResolvedStyle) (string, string) {
+func backgroundRepeatBase(sty *ResolvedStyle) (string, string) {
 	repeatX, repeatY := parseBackgroundRepeatShorthand(sty.BackgroundRepeat)
 
 	if sty.BackgroundRepeat == "" && hasBackgroundRepeatAxisLonghand(sty) {
@@ -31,7 +31,7 @@ func backgroundRepeatBase(sty ResolvedStyle) (string, string) {
 	return repeatX, repeatY
 }
 
-func hasBackgroundRepeatAxisLonghand(sty ResolvedStyle) bool {
+func hasBackgroundRepeatAxisLonghand(sty *ResolvedStyle) bool {
 	return sty.BackgroundRepeatX != "" || sty.BackgroundRepeatY != "" ||
 		sty.BackgroundRepeatBlock != "" || sty.BackgroundRepeatInline != ""
 }
@@ -44,7 +44,7 @@ func overrideBackgroundRepeat(current, value string) string {
 	return current
 }
 
-func applyLogicalBackgroundRepeat(sty ResolvedStyle, repeatX, repeatY string) (string, string) {
+func applyLogicalBackgroundRepeat(sty *ResolvedStyle, repeatX, repeatY string) (string, string) {
 	block := normalizeBackgroundRepeatValue(sty.BackgroundRepeatBlock)
 	inline := normalizeBackgroundRepeatValue(sty.BackgroundRepeatInline)
 

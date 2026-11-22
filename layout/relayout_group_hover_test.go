@@ -180,3 +180,109 @@ func TestRelayoutElementsKeepsParentGroup(t *testing.T) {
 
 	t.Fatal("patch removed the parent's multiply group")
 }
+
+// TestRelayoutElementWithOverridesGroupedContainerKeepsOpCount verifies that
+// animating a layout override inside a grouped containing block replaces the
+// container's group markers instead of adding two markers per tick.
+func TestRelayoutElementWithOverridesGroupedContainerKeepsOpCount(t *testing.T) {
+	t.Parallel()
+
+	for _, group := range []string{
+		"backdrop-filter:blur(4px)",
+		"isolation:isolate",
+	} {
+		t.Run(group, func(t *testing.T) {
+			t.Parallel()
+
+			source := `<style>#wrap{width:240px;height:60px;` + group + `;background:#eee}` +
+				`#child{width:60px;height:20px;background:#336}</style>` +
+				`<div id="wrap"><div id="child">x</div></div>`
+
+			doc := applyAt(t, source, 320, 200, "", "", "")
+			current := layRetained(t, doc)
+			steady := len(current.Ops)
+
+			for step := range 10 {
+				margin := "10px"
+				if step%2 == 1 {
+					margin = "24px"
+				}
+
+				patch, err := layout.RelayoutElementWithOverrides(
+					t.Context(), doc, current, "child",
+					[]layout.Override{{Property: "margin-left", Value: margin}},
+					layout.Options{RetainState: true},
+				)
+				if err != nil {
+					t.Fatalf("step %d: override relayout refused: %v", step, err)
+				}
+
+				checkGroupStructure(t, step, patch.Display)
+
+				if len(patch.Display.Ops) != steady {
+					t.Fatalf("step %d: %d ops, want steady %d", step, len(patch.Display.Ops), steady)
+				}
+
+				current = patch.Display
+			}
+		})
+	}
+}
+
+// TestRelayoutElementsRemovingGroupStripsMarkers verifies that hover-leave
+// removing backdrop-filter or isolation:isolate strips the old group begin and
+// end markers cleanly instead of stranding an empty wrapper.
+func TestRelayoutElementsRemovingGroupStripsMarkers(t *testing.T) {
+	t.Parallel()
+
+	for _, group := range []string{
+		"backdrop-filter:blur(4px)",
+		"isolation:isolate",
+	} {
+		t.Run(group, func(t *testing.T) {
+			t.Parallel()
+
+			source := `<style>.g{display:flex;gap:4px}` +
+				`.i{width:84px;height:24px;background:#eee;color:#222}` +
+				`#a:hover{` + group + `;color:#c00}</style>` +
+				`<div class="g"><div id="a" class="i">a</div><div id="b" class="i">b</div></div>`
+
+			resting := applyAt(t, source, 320, 200, "", "", "")
+			hovered := restyleHover(t, resting, "a")
+			unhovered := restyleHover(t, hovered, "")
+
+			baseDisplay := layRetained(t, resting)
+			baseOps := len(baseDisplay.Ops)
+
+			entered, err := layout.RelayoutElements(
+				t.Context(), hovered, baseDisplay, []string{"a"}, layout.Options{RetainState: true})
+			if err != nil {
+				t.Fatalf("hover enter refused: %v", err)
+			}
+
+			checkGroupStructure(t, 0, entered)
+
+			if len(entered.Ops) != baseOps+2 {
+				t.Fatalf("hover enter ops = %d, want %d (base + 2 markers)", len(entered.Ops), baseOps+2)
+			}
+
+			left, err := layout.RelayoutElements(
+				t.Context(), unhovered, entered, []string{"a"}, layout.Options{RetainState: true})
+			if err != nil {
+				t.Fatalf("hover leave refused: %v", err)
+			}
+
+			checkGroupStructure(t, 1, left)
+
+			if len(left.Ops) != baseOps {
+				t.Fatalf("hover leave ops = %d, want %d (stale group markers leaked)", len(left.Ops), baseOps)
+			}
+
+			for i := range left.Ops {
+				if left.Ops[i].IsGroupBegin() || left.Ops[i].IsGroupEnd() {
+					t.Fatalf("hover leave left stale group marker at op %d", i)
+				}
+			}
+		})
+	}
+}

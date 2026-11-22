@@ -39,9 +39,9 @@ func (e *engine) backgroundPaintEnabled(sty *ResolvedStyle) bool {
 // appendBackgroundImage paints all background-image layers (gradients, images)
 // with position, size, repeat, origin, and clip.
 func (e *engine) appendBackgroundImage(
-	dst []Op, sty ResolvedStyle, posX, posY, width, height float64,
+	dst []Op, sty *ResolvedStyle, posX, posY, width, height float64,
 ) []Op {
-	if !e.backgroundPaintEnabled(&sty) || width <= 0 || height <= 0 || sty.BackgroundImage == "" {
+	if sty == nil || !e.backgroundPaintEnabled(sty) || width <= 0 || height <= 0 || sty.BackgroundImage == "" {
 		return dst
 	}
 
@@ -153,7 +153,7 @@ func (e *engine) appendBackgroundImage(
 // appendGradientLayer renders one gradient background layer, applies the
 // element filter, and tiles it across the clip box.
 func (e *engine) appendGradientLayer(
-	dst []Op, sty ResolvedStyle, layer string, layerIndex int,
+	dst []Op, sty *ResolvedStyle, layer string, layerIndex int,
 	originX, originY, originW, originH float64,
 	repeatX, repeatY string, clip clipRect,
 ) []Op {
@@ -230,7 +230,7 @@ func backgroundAttachmentForLayer(spec string, layerIndex int) string {
 }
 
 func resolveBackgroundClipBox(
-	sty ResolvedStyle, posX, posY, width, height float64,
+	sty *ResolvedStyle, posX, posY, width, height float64,
 ) (float64, float64, float64, float64) {
 	keyword := strings.ToLower(strings.TrimSpace(sty.BackgroundClip))
 	if keyword == "" || keyword == "border-box" {
@@ -241,7 +241,7 @@ func resolveBackgroundClipBox(
 }
 
 func resolveBackgroundOriginBox(
-	sty ResolvedStyle, posX, posY, width, height float64,
+	sty *ResolvedStyle, posX, posY, width, height float64,
 ) (float64, float64, float64, float64) {
 	keyword := strings.ToLower(strings.TrimSpace(sty.BackgroundOrigin))
 
@@ -249,7 +249,7 @@ func resolveBackgroundOriginBox(
 }
 
 func backgroundBoxForKeyword(
-	keyword string, sty ResolvedStyle, posX, posY, width, height float64,
+	keyword string, sty *ResolvedStyle, posX, posY, width, height float64,
 ) (float64, float64, float64, float64) {
 	switch keyword {
 	case "content-box":

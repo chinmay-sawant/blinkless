@@ -16,17 +16,25 @@ func (r *Result) Retain() {
 	atomic.AddInt32(&r.refs, 1)
 }
 
-// DisownChunks clears the shared style chunk slices on r without returning
-// them to pools, transferring ownership of those chunks to a clone. Box
-// chunks stay owned by r because CloneResult allocates fresh box chunks for
-// every cloned box.
-func (r *Result) DisownChunks() {
-	if r == nil {
+// TransferChunksTo moves ownership of r's style and store chunk backings onto
+// dst without returning them to pools. Used when a batch commits a clone to
+// replace r so releasing r later does not recycle style backings dst still
+// references. Box chunks stay owned by r because CloneResult allocates fresh
+// box chunks for every cloned box.
+func (r *Result) TransferChunksTo(dst *Result) {
+	if r == nil || dst == nil || r == dst {
 		return
 	}
 
-	r.styleChunks = nil
-	r.storeChunks = nil
+	if len(r.styleChunks) > 0 {
+		dst.styleChunks = append(dst.styleChunks, r.styleChunks...)
+		r.styleChunks = nil
+	}
+
+	if len(r.storeChunks) > 0 {
+		dst.storeChunks = append(dst.storeChunks, r.storeChunks...)
+		r.storeChunks = nil
+	}
 }
 
 // adoptRelayoutEngine transfers the live box and style chunks built by a

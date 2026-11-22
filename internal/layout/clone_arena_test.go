@@ -60,6 +60,46 @@ func TestCloneResultArenaCopiesEveryBox(t *testing.T) {
 	}
 }
 
+// TestCloneResultIsolatesStylesAndChunkOwnership proves that mutating a clone's
+// style map does not affect the source result and that releasing both clone and
+// source never double-returns shared style or store chunks to pools.
+func TestCloneResultIsolatesStylesAndChunkOwnership(t *testing.T) {
+	t.Parallel()
+
+	res := layoutHTML(t, `<html><body style="margin:0"><div id="a" style="width:80px;height:20px;background:#eee">a</div></body></html>`)
+	if len(res.styles) == 0 {
+		t.Fatal("layout produced no styles")
+	}
+
+	node := res.boxForID("a").node
+	origStyle := res.styles[node]
+	if origStyle == nil {
+		t.Fatal("missing retained style for #a")
+	}
+
+	clone := CloneResult(res)
+	if clone.styleChunks != nil || clone.storeChunks != nil {
+		t.Fatal("CloneResult must not share source styleChunks or storeChunks ownership")
+	}
+
+	replacement := *origStyle
+	replacement.BGColor = [4]float64{1, 0, 0, 1}
+	clone.styles[node] = &replacement
+
+	if res.styles[node] != origStyle {
+		t.Fatal("mutating clone.styles mutated source res.styles")
+	}
+
+	// Releasing clone must not clear or return chunks still owned by res.
+	clone.Release()
+
+	if res.styles[node].Width != origStyle.Width {
+		t.Fatal("releasing clone corrupted source style backing")
+	}
+
+	res.Release()
+}
+
 // TestCloneResultArenaAllocationBudget pins the reason for the arena: a large
 // clone pays for chunks and slices, not one heap object per box.
 func TestCloneResultArenaAllocationBudget(t *testing.T) { //nolint:paralleltest // reads process-wide allocation stats

@@ -578,7 +578,7 @@ func newDisplayForPatch(
 	}
 
 	if prev != nil && prev.result != nil && prev.result != res {
-		prev.result.DisownChunks()
+		prev.result.TransferChunksTo(res)
 	}
 
 	res.Retain()

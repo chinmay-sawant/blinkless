@@ -6,8 +6,6 @@
 // layout stage.
 //
 // ponytail: custom Node tree (Parent/Attrs/void); migrate to x/net/html only if layout/css rewritten, not free delete.
-//
-//nolint:all
 package html
 
 import (
@@ -158,12 +156,6 @@ func (n *Node) FirstChild(name string) *Node {
 	}
 
 	return nil
-}
-
-var textBuilderPool = sync.Pool{
-	New: func() any {
-		return &strings.Builder{}
-	},
 }
 
 // tagAttrBuilderPool reuses the name/value scratch builders across tags so a
@@ -494,6 +486,8 @@ type tokenSink func(token)
 
 // tokenize collects tokens for tokenizer-level tests. Parse uses scanTokens
 // directly so a document does not retain a whole token slice before tree build.
+//
+//nolint:unparam // error return kept for tokenizer test callers
 func tokenize(src string) ([]token, error) {
 	toks := make([]token, 0, strings.Count(src, "<")+1)
 
@@ -1165,7 +1159,7 @@ func scanTagAttributesInto(
 
 				i++
 			case c == '>':
-				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), "")
+				attrs, _ = appendCappedAttr(attrs, attrBytes, getAttrName(), "")
 
 				return attrs, selfClosing, i + 1, true
 			default:
@@ -1188,7 +1182,7 @@ func scanTagAttributesInto(
 
 				i++
 			case c == '>':
-				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), "")
+				attrs, _ = appendCappedAttr(attrs, attrBytes, getAttrName(), "")
 
 				return attrs, selfClosing, i + 1, true
 			default:
@@ -1297,7 +1291,7 @@ func scanTagAttributesInto(
 
 				i++
 			case c == '>':
-				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), getAttrVal())
+				attrs, _ = appendCappedAttr(attrs, attrBytes, getAttrName(), getAttrVal())
 
 				return attrs, selfClosing, i + 1, true
 			case c == 0:
@@ -1337,7 +1331,7 @@ func scanTagAttributesInto(
 
 				i++
 			case c == '>':
-				attrs, attrBytes = appendCappedAttr(attrs, attrBytes, getAttrName(), getAttrVal())
+				attrs, _ = appendCappedAttr(attrs, attrBytes, getAttrName(), getAttrVal())
 
 				return attrs, selfClosing, i + 1, true
 			default:
@@ -1355,17 +1349,6 @@ func scanTagAttributesInto(
 	}
 
 	return nil, false, len(src), false
-}
-
-// appendNULReplaced appends c to buf, mapping a literal NUL byte to U+FFFD.
-func appendNULReplaced(buf *strings.Builder, c byte) {
-	if c == 0 {
-		buf.WriteString(nulReplacement)
-
-		return
-	}
-
-	buf.WriteByte(c)
 }
 
 // decodeAttributeReference decodes the character reference at the '&' at
@@ -1408,12 +1391,13 @@ func scanStartTag(src string, pos int, emit tokenSink, attrScratch *[]string) in
 		w++
 	}
 
-	if w < len(src) && src[w] == '>' {
+	switch {
+	case w < len(src) && src[w] == '>':
 		next = w + 1
-	} else if w+1 < len(src) && src[w] == '/' && src[w+1] == '>' {
+	case w+1 < len(src) && src[w] == '/' && src[w+1] == '>':
 		selfClosing = true
 		next = w + 2
-	} else {
+	default:
 		if attrScratch != nil {
 			attrs = *attrScratch
 		}

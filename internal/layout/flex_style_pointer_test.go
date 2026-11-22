@@ -3,6 +3,8 @@ package layout
 import (
 	"reflect"
 	"testing"
+
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 func TestFlexBuildKeepsSharedStyleImmutable(t *testing.T) {
@@ -22,7 +24,9 @@ func TestFlexBuildKeepsSharedStyleImmutable(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			node := findByID(root, "flex")
+			node := root.FindFirst(func(candidate *html.Node) bool {
+				return candidate.Type == html.ElementNode && candidate.Attribute("id") == "flex"
+			})
 			before := *styles[node]
 			// Layout's normal entry initializes fonts and caches; its resolved style
 			// must still carry the same declared values after building the flex box.

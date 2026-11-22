@@ -92,7 +92,7 @@ func RelayoutSubtree(ctx context.Context, prev *Result, node *html.Node, opts Op
 		return nil, err
 	}
 
-	start, oldCount, err := relayoutGroupWindow(prev, built.target, built.eng.ops)
+	start, oldCount, err := relayoutGroupWindow(prev, built.target)
 	if err != nil {
 		discardRelayoutEngine(built.eng)
 
@@ -973,9 +973,7 @@ func relayoutEnterAncestorPaint(eng *engine, target *relayoutTarget) bool {
 			eng.positioned = true
 		}
 
-		createsGroupContext := style.MixBlendMode != blendNormal ||
-			style.Isolation == unicodeBidiIsolate || maskGroupRequested(style)
-		eng.enterStackingContext(style, createsGroupContext)
+		eng.enterStackingContext(style, initiatesBlendGroup(style))
 
 		if style.Position == positionFixed && !containingBlock {
 			viewportFixed = true
@@ -2680,7 +2678,7 @@ func relayoutSpliceOne(
 
 	target, styles, eng, newBox := built.target, built.styles, built.eng, built.box
 
-	start, oldCount, err := relayoutGroupWindow(prev, target, eng.ops)
+	start, oldCount, err := relayoutGroupWindow(prev, target)
 	if err != nil {
 		discardRelayoutEngine(eng)
 

@@ -60,6 +60,29 @@ func TestOutlineStyleNoneEmitsNoOps(t *testing.T) {
 	}
 }
 
+// TestOutlineStyleSolidDefaultsMediumWidth: outline-style:solid with no
+// explicit outline-width defaults to CSS medium width and still paints four
+// outline sides.
+func TestOutlineStyleSolidDefaultsMediumWidth(t *testing.T) {
+	t.Parallel()
+
+	res := layoutHTML(t, `<html><body style="margin:0">`+
+		`<div id="o" style="width:60pt;height:20pt;outline-style:solid;outline-color:blue"></div>`+
+		`</body></html>`)
+
+	strokes := outlineOpsFrom(res.Ops)
+	if len(strokes) != 4 {
+		t.Fatalf("outline-style:solid ops = %d, want 4 sides", len(strokes))
+	}
+
+	for _, stroke := range strokes {
+		if stroke.Kind != OpLine || stroke.Width <= 0 {
+			t.Fatalf("outline side = kind %v width %.2f, want OpLine with positive medium width",
+				stroke.Kind, stroke.Width)
+		}
+	}
+}
+
 func outlineOpsFrom(ops []Op) []Op {
 	var strokes []Op
 

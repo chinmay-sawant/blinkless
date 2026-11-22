@@ -1,6 +1,5 @@
-// tree rules; same conventions as html.go
-//
-//nolint:all // SVG/MathML namespace, adjustment tables, and foreign-content
+// SVG/MathML namespace, adjustment tables, and foreign-content tree rules;
+// same conventions as html.go.
 package html
 
 import "strings"

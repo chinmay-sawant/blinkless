@@ -1,4 +1,3 @@
-//nolint:all
 package layout
 
 func logicalRadiusCorner(style *ResolvedStyle, corner string) (*float64, *float64) {

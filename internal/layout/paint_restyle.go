@@ -3,7 +3,6 @@ package layout
 import (
 	"context"
 	"math"
-	"reflect"
 	"sync/atomic"
 
 	"github.com/chinmay-sawant/blinkless/internal/html"
@@ -304,13 +303,10 @@ func planElementChange(
 
 // paintOnlyBGDelta compares two used styles of one element. The first result
 // reports that BGColor differs; the second is false when they differ in any
-// field but BGColor. The compare runs on copies with BGColor cleared, over
-// the whole struct.
+// field but BGColor. The generated comparator covers every ResolvedStyle field
+// without copying either struct or calling reflect.DeepEqual.
 func paintOnlyBGDelta(kept, next *ResolvedStyle) (bool, bool) {
-	left, right := *kept, *next
-	left.BGColor, right.BGColor = [4]float64{}, [4]float64{}
-
-	return kept.BGColor != next.BGColor, reflect.DeepEqual(&left, &right)
+	return kept.BGColor != next.BGColor, styleInternEqualExceptBG(kept, next)
 }
 
 // planBackgroundChange proves that one element's background is a single solid

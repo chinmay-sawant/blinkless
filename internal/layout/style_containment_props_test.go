@@ -1,4 +1,3 @@
-//nolint:all // targeted unit tests
 package layout
 
 import (

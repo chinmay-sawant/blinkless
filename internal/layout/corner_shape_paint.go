@@ -60,8 +60,8 @@ const (
 // cornerShapePaintK reports the four corner K values in top-left,
 // top-right, bottom-right, bottom-left order from the canonical store in
 // style_corner_shape.go.
-func cornerShapePaintK(sty ResolvedStyle) [4]float64 {
-	return cornerShapeValues(&sty)
+func cornerShapePaintK(sty *ResolvedStyle) [4]float64 {
+	return cornerShapeValues(sty)
 }
 
 // cornerShapePaintIsRound reports whether every corner is round (K == 1).
@@ -93,11 +93,11 @@ func cornerShapePaintIsRound(shapeK [4]float64) bool {
 // When every corner is round it returns no ops and no handled flags: zero
 // OpPath, today's OpFillRect and OpStrokeRect stay exactly as they are.
 func cornerShapePaint(
-	eng *engine, boxNode *box, sty ResolvedStyle,
+	eng *engine, boxNode *box, sty *ResolvedStyle,
 	posX, posY, width, height float64,
 	radii, radiiY [4]float64, shapeK [4]float64,
 ) ([]Op, []Op, bool, bool) {
-	if eng == nil || cornerShapePaintIsRound(shapeK) {
+	if eng == nil || sty == nil || cornerShapePaintIsRound(shapeK) {
 		return nil, nil, false, false
 	}
 
@@ -118,17 +118,17 @@ func cornerShapePaint(
 // radiused OpFillRect. fillHandled is true when the shaped box owns the
 // fill layer even if the painted op list is empty.
 func cornerShapePaintFill(
-	eng *engine, boxNode *box, sty ResolvedStyle,
+	eng *engine, boxNode *box, sty *ResolvedStyle,
 	posX, posY, width, height float64, radii, radiiY [4]float64, shapeK [4]float64,
 ) ([]Op, bool) {
-	if sty.BGColor[3] > 0 && eng.backgroundPaintEnabled(&sty) {
+	if sty.BGColor[3] > 0 && eng.backgroundPaintEnabled(sty) {
 		// Claimed even when the clipped box is empty: the default
 		// radiused fill must not reappear for a shaped box.
 		return cornerShapePaintColorFill(eng, sty, posX, posY, width, height, radii, radiiY, shapeK), true
 	}
 
 	if isColorSchemeCanvasRoot(boxNode) {
-		fill, ok := canvasFillForRoot(&sty)
+		fill, ok := canvasFillForRoot(sty)
 		if !ok {
 			return nil, false
 		}
@@ -151,10 +151,10 @@ func cornerShapePaintFill(
 // same background-clip box the radiused fill uses, or nil when that box is
 // empty.
 func cornerShapePaintColorFill(
-	eng *engine, sty ResolvedStyle,
+	eng *engine, sty *ResolvedStyle,
 	posX, posY, width, height float64, radii, radiiY [4]float64, shapeK [4]float64,
 ) []Op {
-	usedBG := usedBGForPaintActive(&sty, eng.forcedColorsForPaint())
+	usedBG := usedBGForPaintActive(sty, eng.forcedColorsForPaint())
 
 	fillX, fillY, fillW, fillH, ok := cornerShapePaintFillBox(sty, posX, posY, width, height)
 	if !ok {
@@ -199,7 +199,7 @@ func cornerShapePaintFillOp(
 // existing border emission: a border image, or sides that differ in paint
 // width, color, or style.
 func cornerShapePaintBorder(
-	eng *engine, sty ResolvedStyle,
+	eng *engine, sty *ResolvedStyle,
 	posX, posY, width, height float64, radii, radiiY [4]float64, shapeK [4]float64,
 ) ([]Op, bool) {
 	if sty.BorderImageSource != "" {
@@ -251,7 +251,7 @@ func cornerShapePathCommands(points []DisplayPoint) []PathCmd {
 // border-box) keeps the border box, and the clip never follows a scooped
 // outer path. n is false when the box is empty.
 func cornerShapePaintFillBox(
-	sty ResolvedStyle, posX, posY, width, height float64,
+	sty *ResolvedStyle, posX, posY, width, height float64,
 ) (float64, float64, float64, float64, bool) {
 	bgClip := strings.ToLower(strings.TrimSpace(sty.BackgroundClip))
 	if bgClip != shapeBoxContent && bgClip != shapeBoxPadding {
@@ -276,7 +276,7 @@ func cornerShapePaintFillBox(
 // this wave and never runs dash segments through the curve. Any mismatch,
 // transparency, or missing side returns false so the caller stays on the
 // existing stroke-rect path.
-func cornerShapePaintUniformBorder(sty ResolvedStyle) (border, bool) {
+func cornerShapePaintUniformBorder(sty *ResolvedStyle) (border, bool) {
 	sides := [4]border{sty.BorderTop, sty.BorderRight, sty.BorderBottom, sty.BorderLeft}
 	base := sides[0]
 

@@ -327,10 +327,10 @@ func ApplyBoxShadowPosition(style *ResolvedStyle, value string) bool {
 // top. insetOnly selects inset vs outset layers: callers paint outset behind
 // the background and inset after it so the fill does not hide inner rims.
 func (e *engine) appendBoxShadow(
-	dst []Op, sty ResolvedStyle, posX, posY, width, height float64,
+	dst []Op, sty *ResolvedStyle, posX, posY, width, height float64,
 	radiusX, radiusY [4]float64, insetOnly bool,
 ) []Op {
-	if e == nil || !sty.BoxShadowSet || width <= 0 || height <= 0 {
+	if e == nil || sty == nil || !sty.BoxShadowSet || width <= 0 || height <= 0 {
 		return dst
 	}
 

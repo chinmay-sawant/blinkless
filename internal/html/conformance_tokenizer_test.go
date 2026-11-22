@@ -1,4 +1,3 @@
-//nolint:all // conformance harness: corpus format parsing and diff plumbing, not product code
 package html
 
 import (

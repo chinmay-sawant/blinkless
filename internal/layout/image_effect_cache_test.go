@@ -52,6 +52,62 @@ func TestImageFilterCacheHitsAndDifferentiatesInputs(t *testing.T) {
 	if &first[0] == &diffSpace[0] {
 		t.Fatal("different interpolation space unexpectedly shared cache entry")
 	}
+
+	if cap(first) != len(first) {
+		t.Fatalf("cached filter slice retained extra capacity: len=%d cap=%d", len(first), cap(first))
+	}
+
+	unimplemented := applyImageFilterToImageWithInterp(pngA, []parsedFilter{{kind: filterBrightness, val: 1.5}}, "srgb")
+	if &unimplemented[0] != &pngA[0] {
+		t.Fatal("unimplemented filter kind should return source bytes untouched without re-encoding")
+	}
+}
+
+func TestByteLRUCacheBoundsEntriesAndBytes(t *testing.T) {
+	t.Parallel()
+
+	cache := newByteLRUCache[string](3, 16, 20)
+
+	a := cache.put("a", make([]byte, 8, 64))
+	if cap(a) != len(a) {
+		t.Fatalf("put did not trim buffer capacity: len=%d cap=%d", len(a), cap(a))
+	}
+
+	cache.put("b", make([]byte, 8))
+	// Touch "a" so "b" becomes least recently used.
+	if _, ok := cache.get("a"); !ok {
+		t.Fatal("expected hit for a")
+	}
+
+	// Adding 8 more bytes pushes total to 24 > 20, evicting LRU ("b") while
+	// keeping "a" and "c".
+	cache.put("c", make([]byte, 8))
+
+	if _, ok := cache.get("b"); ok {
+		t.Fatal("expected LRU entry b to be evicted on byte ceiling")
+	}
+
+	if _, ok := cache.get("a"); !ok {
+		t.Fatal("expected MRU entry a to survive byte ceiling eviction")
+	}
+
+	if _, ok := cache.get("c"); !ok {
+		t.Fatal("expected newly inserted entry c to be present")
+	}
+
+	// Oversized entry bypasses storage without evicting existing items.
+	big := cache.put("huge", make([]byte, 32))
+	if len(big) != 32 || cap(big) != 32 {
+		t.Fatalf("oversized put returned len=%d cap=%d, want 32/32", len(big), cap(big))
+	}
+
+	if _, ok := cache.get("huge"); ok {
+		t.Fatal("oversized entry should not be stored in cache")
+	}
+
+	if _, ok := cache.get("a"); !ok {
+		t.Fatal("oversized put unexpectedly evicted a")
+	}
 }
 
 func TestClipPathMaskCacheHitsAcrossTranslatedBoxes(t *testing.T) {

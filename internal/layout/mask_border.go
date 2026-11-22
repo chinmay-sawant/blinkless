@@ -117,14 +117,14 @@ func (e *engine) attachMaskDescriptors(group *BlendGroup, style *ResolvedStyle) 
 	}
 
 	if maskBorderEnabled(style.MaskBorderSource) {
-		group.MaskBorder = e.maskBorderDescriptor(*style)
+		group.MaskBorder = e.maskBorderDescriptor(style)
 	}
 }
 
 // maskBorderDescriptor resolves the used longhands into the mask-border frame
 // recorded on the group. It borrows the slice, thickness, and outset
 // arithmetic from border_image.go and appends no operations.
-func (e *engine) maskBorderDescriptor(style ResolvedStyle) *MaskBorder {
+func (e *engine) maskBorderDescriptor(style *ResolvedStyle) *MaskBorder {
 	source := maskBorderUsedSource(style.MaskBorderSource)
 	mode := maskBorderUsedMode(style.MaskBorderMode)
 	layer := e.resolveMaskLayer(MaskLayer{ //nolint:exhaustruct // only the source and mode are read
