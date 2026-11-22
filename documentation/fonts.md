@@ -34,12 +34,49 @@ layout falls through the author’s comma stack and then to Liberation Sans.
 
 Missing glyphs walk: CSS family (registry, then bundled) → Liberation
 weight/style → DejaVu Regular/Bold → any opt-in registry face that covers the
-codepoint (`FindWithGlyph`, prefers DejaVu/Noto names).
+codepoint (`FindWithGlyph`, prefers DejaVu/Noto names) → the automatic system
+CJK fallback below.
+
+## Automatic system CJK fallback
+
+The bundled faces carry no Han, kana, or Hangul. So that Japanese, Chinese, and
+Korean text does not render as missing-glyph boxes, layout borrows an installed
+operating-system face for those characters. It is **on by default** and needs
+no configuration; the host OS is detected at run time.
+
+| Host | Files tried, in order |
+|------|-----------------------|
+| **Windows** | `%WINDIR%\Fonts`: Yu Gothic, Meiryo, MS Gothic, BIZ UDGothic, Microsoft YaHei and JhengHei, SimSun, Malgun Gothic (bold variants for bold text) |
+| **macOS** | Hiragino Sans, Hiragino Sans GB, PingFang, Apple SD Gothic Neo, STHeiti, Arial Unicode |
+| **Linux, Android** | TrueType families found by name under `/usr/share/fonts`, `/usr/local/share/fonts`, `/system/fonts`, `~/.fonts`, `~/.local/share/fonts`: Droid Sans Fallback, Takao, VL Gothic, IPA, WenQuanYi, Noto Sans CJK, Unifont |
+| **WSL** | The Linux list, then `/mnt/c/Windows/Fonts` |
+
+Boundaries:
+
+- It serves only CJK and fullwidth code points (CJK symbols, kana, Han,
+  Hangul, compatibility and fullwidth forms, Han extensions). Latin documents
+  never read a font file, and emoji and general symbols are not served.
+- Each candidate file is read and parsed once, on the first lookup that needs
+  it. A miss is cached per code point.
+- `.ttc` collections are split into standalone faces (`fonts.SplitTTC`), so a
+  shaper that loads one face per byte slice keeps working.
+- CFF/`OTTO` faces are skipped like everywhere else. Noto Sans CJK ships as
+  CFF on most Linux distributions, so a Linux box needs a TrueType CJK family
+  (Droid Sans Fallback, Takao, WenQuanYi, and similar) for coverage.
+- Output depends on the fonts installed on the machine. A host with no CJK
+  font still shows boxes. Pin or bundle fonts with `@font-face` when a
+  document must render the same everywhere.
+- Opt out with `layout.SetSystemFontFallback(false)` or the environment
+  variable `BLINKLESS_SYSTEM_FONTS=off`.
+- macOS and Linux candidate lists are written from platform conventions and
+  are not exercised on those hosts by CI. Windows and WSL are validated
+  against real fonts.
 
 ## Opt-in discovery
 
-Discovery is **opt-in** (privacy + startup). The public engine scans nothing
-by default; document faces arrive through `@font-face`. The settings model
+Directory discovery is **opt-in** (privacy + startup). The public engine
+scans no font directory by default; document faces arrive through
+`@font-face`. The only default read is the narrow CJK fallback above. The settings model
 carries the wkhtmltopdf-compatible font keys for engine callers that build a
 font registry directly:
 
