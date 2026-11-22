@@ -2,6 +2,7 @@ package fonts
 
 import (
 	"encoding/binary"
+	"slices"
 	"testing"
 
 	"github.com/chinmay-sawant/blinkless/internal/fonts/assets"
@@ -12,28 +13,36 @@ import (
 func buildTTC(t *testing.T, faces ...[]byte) []byte {
 	t.Helper()
 
-	out := make([]byte, ttcHeaderSize+4*len(faces))
-	copy(out, "ttcf")
-	binary.BigEndian.PutUint32(out[4:], 0x00010000)
-	binary.BigEndian.PutUint32(out[8:], uint32(len(faces)))
+	header := make([]byte, ttcHeaderSize+4*len(faces))
+	copy(header, "ttcf")
+	binary.BigEndian.PutUint32(header[4:], 0x00010000)
+	binary.BigEndian.PutUint32(header[8:], testU32(len(faces)))
+
+	out := slices.Clone(header)
 
 	for i, face := range faces {
 		base := len(out)
-		binary.BigEndian.PutUint32(out[ttcHeaderSize+4*i:], uint32(base))
+		binary.BigEndian.PutUint32(out[ttcHeaderSize+4*i:], testU32(base))
 
-		member := append([]byte(nil), face...)
+		member := slices.Clone(face)
 		numTables := int(binary.BigEndian.Uint16(member[4:]))
 
 		for tb := range numTables {
 			rec := member[sfntHeaderSize+sfntRecordSize*tb:]
 			offset := binary.BigEndian.Uint32(rec[8:12])
-			binary.BigEndian.PutUint32(rec[8:12], offset+uint32(base))
+			binary.BigEndian.PutUint32(rec[8:12], offset+testU32(base))
 		}
 
 		out = append(out, member...)
 	}
 
 	return out
+}
+
+// testU32 converts a small test offset or length to the 32 bits a font file
+// stores. The values here are bounded by the size of the test fonts.
+func testU32(n int) uint32 {
+	return uint32(n) //nolint:gosec // reason: test offsets and lengths are small.
 }
 
 func TestSplitTTCRoundTrip(t *testing.T) {
@@ -78,13 +87,13 @@ func TestSplitTTCRejectsMalformed(t *testing.T) {
 
 	// A member offset past the end of the file.
 	badOffset := append([]byte(nil), good...)
-	binary.BigEndian.PutUint32(badOffset[ttcHeaderSize:], uint32(len(good)+10))
+	binary.BigEndian.PutUint32(badOffset[ttcHeaderSize:], testU32(len(good)+10))
 	cases["member offset out of range"] = badOffset
 
 	// A table that claims bytes beyond the file.
 	badTable := append([]byte(nil), good...)
 	member := int(binary.BigEndian.Uint32(badTable[ttcHeaderSize:]))
-	binary.BigEndian.PutUint32(badTable[member+sfntHeaderSize+12:], uint32(len(good)))
+	binary.BigEndian.PutUint32(badTable[member+sfntHeaderSize+12:], testU32(len(good)))
 	cases["table length out of range"] = badTable
 
 	for name, data := range cases {

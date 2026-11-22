@@ -104,8 +104,11 @@ func TestSystemFallbackDisabled(t *testing.T) {
 func TestSystemFallbackCachesMisses(t *testing.T) {
 	fb := newSystemFallback(fakePlatform("windows", nil, nil))
 
-	if fb.find('か', false) != nil || fb.find('か', false) != nil {
-		t.Fatal("no candidates must produce no face")
+	// The second lookup is answered from the cache, not by a second scan.
+	for range 2 {
+		if fb.find('か', false) != nil {
+			t.Fatal("no candidates must produce no face")
+		}
 	}
 
 	if !fb.discovered || len(fb.results) != 1 {
