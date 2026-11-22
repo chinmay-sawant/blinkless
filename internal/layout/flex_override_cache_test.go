@@ -304,6 +304,11 @@ func TestFlexAspectRatioHeightFromWidth(t *testing.T) {
 //
 //nolint:paralleltest // inspects global hit counter
 func TestFlexStyleOverrideCacheInheritedAcrossRelayouts(t *testing.T) {
+	// The class edit below only moves a background color, which the paint
+	// restyle patches without the engine. This test is about the engine's
+	// override cache, so it keeps the engine path.
+	defer DisablePaintRestyle()()
+
 	cssText := `body{margin:0}` +
 		`.row{display:flex;width:200px;height:40px;align-items:stretch;background:#eee}` +
 		`.row.hot{background:#ddd}` +

@@ -75,6 +75,23 @@ returns `layout.ErrNoElement`; any refused or missing id aborts the whole
 batch and leaves `prev` untouched. Adopt the returned display only on a nil
 error. The ids run sequentially; each splice feeds the next.
 
+An id whose only change is the background color of a box the placement
+already holds skips layout. The batch resolves the new styles for the
+subtree and takes the fast path only when all of these hold
+(`internal/layout/paint_restyle.go`): the subtree has the same elements,
+order, and text as the kept boxes and operations; each changed element
+differs from its kept style in `background-color` and in no other field; each
+changed element is a plain `block`, `flex`, `grid`, or `flow-root` box with one
+solid, unclipped fill, no image, blend, or corner shape; the subtree holds no
+table, replaced box, or image reference; and the kept window holds exactly one
+operation with the old color, a rectangle fill over the border box. The batch
+then rewrites that fill in its private copy and points the retained styles at
+the new ones. Any other case, including `color`, border, outline, size, or
+display changes, runs the ordinary relayout. A hover on 64 glass cards went from
+about 4,800 allocations and 3.0 MB per patch to 134 allocations and 1.1 MB;
+the remaining bytes are the private copy of the operation list the batch makes
+so `prev` stays intact.
+
 `html.Document.SetAttribute(id, name, value)` writes one attribute on the
 element with that id. It returns false when no element has that id, or when the
 attribute name is empty (`html/attribute.go:18`). `html.Document.SetText(id,

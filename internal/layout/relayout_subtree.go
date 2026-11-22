@@ -903,6 +903,18 @@ func relayoutMaxOpID(ops []Op) uint64 {
 func relayoutBuild(
 	eng *engine, prev *Result, target *relayoutTarget, node *html.Node, opts Options,
 ) (*box, error) {
+	// A standalone build never sees the margins its parent applies: the
+	// parent puts the border box at its margin edge and sizes the next
+	// sibling or the container from the margin box. A changed margin
+	// therefore leaves the rebuilt box where it was while its neighbours
+	// and its holder must move, so the change reports as a size change and
+	// the escalation re-lays the holder out instead.
+	if relayoutMarginsChanged(prev, target.box, node, eng.styles[node]) {
+		return nil, fmt.Errorf(
+			"%w: the element's margins changed, so its parent must place it again", errSubtreeResized,
+		)
+	}
+
 	availW, posX, posY := relayoutOrigin(eng, target, opts)
 	viewportFixed := relayoutEnterAncestorPaint(eng, target)
 
@@ -1166,6 +1178,43 @@ func relayoutOrigin(eng *engine, target *relayoutTarget, opts Options) (float64,
 	marginR := eng.scalePt(kept.style.MarginRight)
 
 	return relayoutAvailableWidth(eng, kept, marginL, marginR), kept.x - marginL, posY
+}
+
+// relayoutMarginsChanged reports whether the element's margins differ from the
+// ones its kept placement was built with. The baseline is the style the last
+// layout or patch resolved for the node, because the kept box can carry a
+// trimmed or collapsed copy whose margins were zeroed on purpose. Without a
+// retained style the kept box's own style stands in, which can only make the
+// check refuse more often, never less. An auto margin compares by its flag,
+// since its used value comes from the parent's free space.
+func relayoutMarginsChanged(prev *Result, kept *box, node *html.Node, fresh *ResolvedStyle) bool {
+	if fresh == nil || kept == nil {
+		return false
+	}
+
+	old := prev.styles[node]
+	if old == nil {
+		old = kept.style
+	}
+
+	if old == nil {
+		return false
+	}
+
+	return relayoutMarginSideChanged(old.MarginTop, old.MarginTopAuto, fresh.MarginTop, fresh.MarginTopAuto) ||
+		relayoutMarginSideChanged(old.MarginBottom, old.MarginBottomAuto, fresh.MarginBottom, fresh.MarginBottomAuto) ||
+		relayoutMarginSideChanged(old.MarginLeft, old.MarginLeftAuto, fresh.MarginLeft, fresh.MarginLeftAuto) ||
+		relayoutMarginSideChanged(old.MarginRight, old.MarginRightAuto, fresh.MarginRight, fresh.MarginRightAuto)
+}
+
+// relayoutMarginSideChanged compares one margin side of the old and fresh
+// style.
+func relayoutMarginSideChanged(oldValue float64, oldAuto bool, freshValue float64, freshAuto bool) bool {
+	if oldAuto != freshAuto {
+		return true
+	}
+
+	return !freshAuto && !relayoutNear(oldValue, freshValue)
 }
 
 // relayoutAvailableWidth returns the width the element is laid out in.
@@ -2452,6 +2501,10 @@ type SubtreeBatchResult struct {
 	Owners, Order []int
 	Windows       []SpliceWindow
 	Textless      int
+	// Restyled counts the ids the paint restyle patched without running the
+	// engine: their only change was a background color the retained boxes
+	// already placed.
+	Restyled int
 	// PaintOnly reports that every window was committed in place, so the
 	// result's box list, operation ranges, owners, order, and page breaks are
 	// the previous ones. The host can build the patched display by reusing
@@ -2511,6 +2564,7 @@ func RelayoutSubtrees(
 		Order:      order,
 		Windows:    make([]SpliceWindow, 0, len(elementIDs)),
 		Textless:   0,
+		Restyled:   0,
 		Texts:      nil,
 		PaintOnly:  true,
 		SameBoxes:  true,
@@ -2610,7 +2664,16 @@ func relayoutSpliceOne(
 	// A size-changing id widens to the nearest ancestor that keeps its size,
 	// the same escalation the single-element call runs, so a batch carrying
 	// one resized element still commits instead of aborting.
-	built, err := relayoutBuildEscalating(ctx, prev, target, opts)
+	// A restyle that only moves background colors skips the build: the fill
+	// is rewritten in place and the retained styles follow.
+	resolved, done := tryPaintRestyle(ctx, prev, target, node, opts, out)
+	if done {
+		out.Restyled++
+
+		return nil
+	}
+
+	built, err := relayoutBuildEscalatingWith(ctx, prev, target, opts, resolved)
 	if err != nil {
 		return relayoutSpliceError(err)
 	}
