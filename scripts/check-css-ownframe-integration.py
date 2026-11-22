@@ -23,7 +23,7 @@ def main() -> int:
         raise SystemExit("catalog has no downstream OwnFrame behavior cases")
     if not ownframe.is_dir():
         raise SystemExit(f"OwnFrame checkout not found: {ownframe}")
-    tests = set()
+    tests_by_package: dict[Path, set[str]] = {}
     for prop, ref in refs:
         test_file = ownframe / ref["file"]
         case_file = ownframe / ref["case_file"]
@@ -34,7 +34,8 @@ def main() -> int:
             raise SystemExit(f"{prop}: {ref['name']} missing from {ref['file']}")
         if f'"{ref["case"]}"' not in case_file.read_text():
             raise SystemExit(f"{prop}: case missing from {ref['case_file']}")
-        tests.add(ref["name"])
+        package = Path(ref["file"]).parent
+        tests_by_package.setdefault(package, set()).add(ref["name"])
 
     version = re.search(r"^go\s+(\S+)", (ownframe / "go.mod").read_text(), re.M)
     if not version:
@@ -47,15 +48,21 @@ def main() -> int:
         workfile = Path(temp_dir) / "go.work"
         workfile.write_text(workspace)
         env = dict(os.environ, GOWORK=str(workfile))
-        command = [
-            "go", "test", "-p", "1", "./examples/css-preview",
-            "-run", "^(" + "|".join(sorted(tests)) + ")$", "-count=1",
-        ]
         print(
-            f"catalog-ownframe: {len(refs)} property cases, tests: {', '.join(sorted(tests))}",
+            f"catalog-ownframe: {len(refs)} property cases",
             flush=True,
         )
-        return subprocess.run(command, cwd=ownframe, env=env).returncode
+        for package, tests in sorted(tests_by_package.items()):
+            names = sorted(tests)
+            print(f"catalog-ownframe: {package}: {', '.join(names)}", flush=True)
+            command = [
+                "go", "test", "-p", "1", f"./{package.as_posix()}",
+                "-run", "^(" + "|".join(map(re.escape, names)) + ")$", "-count=1",
+            ]
+            result = subprocess.run(command, cwd=ownframe, env=env)
+            if result.returncode:
+                return result.returncode
+    return 0
 
 
 if __name__ == "__main__":
