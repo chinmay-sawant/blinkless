@@ -1610,7 +1610,7 @@ func (e *engine) measureTextFaceUncached(cssSheet string, sty *ResolvedStyle, pr
 		total += wstyle * float64(spaceCount)
 	}
 
-	return total
+	return total + e.textKerningAdjustment(cssSheet, sty, primary, size, true)
 }
 
 func (e *engine) accumulateTextFaceWidth(
@@ -1786,6 +1786,14 @@ func (e *engine) splitTextByFace(cssSheet string, sty *ResolvedStyle) []faceRun 
 		})
 	}
 
+	if kernTextWidth(sty) {
+		for i := range runs {
+			run := &runs[i]
+			paint := paintTextOf(run.text, sty.TextTransform)
+			run.w += e.textKerningAdjustment(paint, sty, run.face, size, false)
+		}
+	}
+
 	return runs
 }
 
@@ -1893,7 +1901,7 @@ func (e *engine) primaryRunWidth(primary *pdf.Font, paintText string, sty *Resol
 	}
 
 	return width + sty.LetterSpacing*e.scale*float64(runeCount) +
-		sty.WordSpacing*e.scale*float64(spaceCount)
+		sty.WordSpacing*e.scale*float64(spaceCount) + e.textKerningAdjustment(paintText, sty, primary, size, false)
 }
 
 // paintRunWidthReusable reports whether the collect-time string width may

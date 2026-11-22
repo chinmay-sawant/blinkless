@@ -51,7 +51,23 @@ Tracked in [`plans/v0.1.2/`](plans/v0.1.2/README.md).
   allocations. A clone still owns every payload; `internal/layout/clone_ops_slab_test.go`
   pins that.
 
+### Changed
+- **Layout animations reuse base styles between frames.** Layout overrides
+  such as animated `margin-left` reuse the containing block's resolved
+  styles while the inputs and retained styles still match. Each frame
+  still lays out the block with the new value so its siblings can move.
+
 ### Fixed
+- **Explicit font kerning changes text width.** `font-kerning: normal` and
+  an explicit OpenType `kern` setting can now tighten or widen the layout
+  to match the kerning used by a shaping host. `font-kerning: auto` keeps
+  its existing layout widths.
+
+- **Grouped element patches replace their group markers.** Patching an
+  element with a backdrop filter, blend mode, or isolation no longer
+  adds another pair of group markers on every hover. This applies to
+  both single-element and batch relayout.
+
 - **Element patch ignored the root's own margin change.** `RelayoutElement`
   and `RelayoutElements` rebuilt a patched element at its old border box, and
   the engine applies top and bottom margins when the parent places a block, so

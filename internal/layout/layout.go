@@ -191,6 +191,10 @@ type Result struct {
 	// lets a later run re-lay out one subtree without resolving the whole
 	// document again.
 	styles map[*html.Node]*ResolvedStyle
+	// overrideBase keeps the base styles of the last layout override pass so
+	// the next frame of a layout animation skips the cascade (override_base.go).
+	// It is never copied into a clone.
+	overrideBase *overrideBase
 	// svgRasters caches the raster of a serialized inline SVG across paint
 	// restyles. It is created on the first RestyleSVGPaint and dropped with
 	// the Result, so it never outlives the layout it belongs to.
@@ -290,6 +294,7 @@ func CloneResult(res *Result) *Result {
 	// A clone starts without the source's raster cache instead of sharing a
 	// mutable map of payloads.
 	clone.svgRasters = nil
+	clone.overrideBase = nil
 
 	boxes := getCloneBoxMap(len(res.boxes))
 	defer putCloneBoxMap(boxes)
@@ -1192,12 +1197,11 @@ func (e *engine) enterBlendIsolation(style *ResolvedStyle, owner *ResolvedStyle)
 
 	// normalizeBlendMode accepts the CSS vocabulary; the style apply arm
 	// already normalized MixBlendMode, so only "normal"/empty skip.
-	mode := nonNormalBlendMode(style.MixBlendMode)
-
-	hasMask := maskGroupRequested(style)
-	if mode == "" && style.Isolation != "isolate" && !hasMask && !hasBackdropFilter(style.BackdropFilter) {
+	if !initiatesBlendGroup(style) {
 		return
 	}
+
+	mode := nonNormalBlendMode(style.MixBlendMode)
 
 	e.nextGroupID++
 
@@ -1209,7 +1213,7 @@ func (e *engine) enterBlendIsolation(style *ResolvedStyle, owner *ResolvedStyle)
 		Parent:         e.blendGroup,
 		Mask:           nil,
 	}
-	if hasMask {
+	if maskGroupRequested(style) {
 		e.attachMaskDescriptors(e.blendGroup, style)
 	}
 

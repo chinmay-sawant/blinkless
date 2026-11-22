@@ -92,7 +92,7 @@ func RelayoutSubtree(ctx context.Context, prev *Result, node *html.Node, opts Op
 		return nil, err
 	}
 
-	start, oldCount, err := relayoutWindow(prev, built.target)
+	start, oldCount, err := relayoutGroupWindow(prev, built.target, built.eng.ops)
 	if err != nil {
 		discardRelayoutEngine(built.eng)
 
@@ -2680,7 +2680,7 @@ func relayoutSpliceOne(
 
 	target, styles, eng, newBox := built.target, built.styles, built.eng, built.box
 
-	start, oldCount, err := relayoutWindow(prev, target)
+	start, oldCount, err := relayoutGroupWindow(prev, target, eng.ops)
 	if err != nil {
 		discardRelayoutEngine(eng)
 

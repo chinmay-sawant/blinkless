@@ -425,7 +425,7 @@ func styleHasShapingFeatures(sty *ResolvedStyle) bool {
 		return false
 	}
 
-	if sty.FontKerning == fontKerningNone {
+	if sty.FontKerning == fontKerningNone || sty.FontKerning == fontKerningNormal {
 		return true
 	}
 
