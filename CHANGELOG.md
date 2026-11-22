@@ -9,6 +9,10 @@ and are not listed here.
 
 ## Unreleased
 
+### Added
+- **Automatic system CJK font fallback.** Han, kana, Hangul, and fullwidth characters that no CSS family, bundled face, or opt-in registry face covers now resolve to an installed operating-system face instead of a missing-glyph box. It is on by default, reads a short per-OS candidate list lazily (Yu Gothic, Meiryo, and MS Gothic on Windows, Hiragino and Arial Unicode on macOS, common TrueType CJK families on Linux and Android, and the Windows font folder under WSL), and never runs for Latin text. Turn it off with `layout.SetSystemFontFallback(false)` or `BLINKLESS_SYSTEM_FONTS=off`.
+- **TrueType collection (`.ttc`) support** for system fallback faces. `fonts.SplitTTC` rebuilds each member as a standalone SFNT, so shapers that load one face per byte slice keep working.
+
 ### Fixed
 - **`html.Document` memory leak.** Moved the per-document element index and dirty set onto unexported fields of `html.Document` and removed the global `elementRegistry`/`dirtyRegistry` maps and dead finalizer so discarded documents are garbage-collected.
 - **`CloneResult` style map and chunk ownership isolation.** `CloneResult` now clones `Result.styles` and leaves `styleChunks`/`storeChunks` unowned until a batch commits via `TransferChunksTo`, so aborted `RelayoutElements` batches leave `prev` intact and releasing a clone alongside its source cannot double-free pooled chunks.

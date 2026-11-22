@@ -199,14 +199,22 @@ func isRuneWhitespace(r rune) bool {
 	return r == ' ' || r == '\t' || r == '\n' || r == '\r'
 }
 
-// registryGlyphFallback is the last-resort registry lookup: any opt-in face
-// covering r, regardless of CSS font-family.
+// registryGlyphFallback is the last-resort lookup: any opt-in face covering r
+// regardless of CSS font-family, then the operating-system CJK fallback.
 func (e *engine) registryGlyphFallback(st *ResolvedStyle, r rune) *pdf.Font {
-	if e.registry == nil || st == nil {
+	if st == nil {
 		return nil
 	}
 
-	return e.registry.FindWithGlyph(r, st.FontWeight, st.FontItalic)
+	if e.registry != nil {
+		if f := e.registry.FindWithGlyph(r, st.FontWeight, st.FontItalic); f != nil {
+			return f
+		}
+	}
+
+	// Nothing the document or the opt-in registry carries covers r. For CJK
+	// code points, borrow an installed operating-system face.
+	return pdf.FindSystemGlyph(r, st.FontWeight, st.FontItalic)
 }
 
 // registryFamilyWithGlyph looks up the first CSS font-family face that has a
