@@ -949,7 +949,7 @@ func (e *engine) breakOverflowItem(
 		return nil
 	}
 
-	chunks := e.breakToken(item.text, *item.style, firstRoom, restRoom)
+	chunks := e.breakToken(item.text, item.style, firstRoom, restRoom)
 	if len(chunks) <= 1 {
 		return nil
 	}
@@ -1048,17 +1048,17 @@ func (e *engine) chunkParts(item inlineItem, chunks []string) []inlineItem {
 // breakToken splits s into chunks that each fit firstMax (first piece) then
 // restMax under wordBreakOf(st). Shared by inline overflow packing; soft-mode
 // selection lives only here (and softModeOf) so measure and pack cannot drift.
-func (e *engine) breakToken(cssSheet string, sty ResolvedStyle, firstMax, restMax float64) []string {
-	if cssSheet == "" {
+func (e *engine) breakToken(cssSheet string, sty *ResolvedStyle, firstMax, restMax float64) []string {
+	if cssSheet == "" || sty == nil {
 		return nil
 	}
 
-	pol := wordBreakOf(&sty)
+	pol := wordBreakOf(sty)
 	if pol == breakNever {
 		return []string{cssSheet}
 	}
 
-	return e.splitTextToWidth(cssSheet, &sty, firstMax, restMax, softModeOf(pol))
+	return e.splitTextToWidth(cssSheet, sty, firstMax, restMax, softModeOf(pol))
 }
 
 // preferFloatClearForTail reports whether remaining inline content from i
@@ -1161,6 +1161,10 @@ func (e *engine) splitTextToWidth(
 ) []string {
 	if text == "" || style == nil {
 		return nil
+	}
+
+	if isASCIIText(text) {
+		return e.splitTextToWidthASCII(text, style, firstMax, restMax, mode)
 	}
 
 	runes := []rune(text)

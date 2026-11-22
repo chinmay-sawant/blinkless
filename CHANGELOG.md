@@ -56,6 +56,19 @@ Tracked in [`plans/v0.1.2/`](plans/v0.1.2/README.md).
   such as animated `margin-left` reuse the containing block's resolved
   styles while the inputs and retained styles still match. Each frame
   still lays out the block with the new value so its siblings can move.
+- **Image filter and clip-path mask raster caching.** `applyImageFilterToImageWithInterp`
+  and `maskImageWithClipPath` now cache encoded PNG outputs in bounded
+  process-wide caches keyed by SHA-256 of the source bytes, relative
+  box geometry, and canonical filter/shape signatures, plus a direct-`Pix`
+  fast path for `clip-path: inset(...)`. Cuts 64-node `linear-gradient` +
+  `clip-path` build from 42.33 ms to 0.96 ms (44x faster, 48x less memory)
+  and `linear-gradient` + `filter: blur(4px)` from 12.03 ms to 0.77 ms
+  (15.7x faster).
+- **Zero-copy ASCII word breaking and pointer `ResolvedStyle`.** `(*engine).breakToken`
+  now takes `*ResolvedStyle` instead of copying the struct by value, and
+  `splitTextToWidthASCII` slices ASCII tokens directly without `[]rune`
+  allocations. Cuts 64-node narrow `width` / `max-width` memory by 77%
+  (3.23 MB to 731 KB) and latency by ~1.8x.
 
 ### Fixed
 - **Explicit font kerning changes text width.** `font-kerning: normal` and

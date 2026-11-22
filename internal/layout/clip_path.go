@@ -2,6 +2,7 @@
 package layout
 
 import (
+	"image"
 	"math"
 	"strconv"
 	"strings"
@@ -494,6 +495,13 @@ func maskImageWithClipPath(
 		return nil
 	}
 
+	cacheKey := makeClipPathMaskCacheKey(
+		data, shape, drawnX, drawnY, drawnW, drawnH, refX, refY, refW, refH,
+	)
+	if cached, ok := lookupClipPathMaskCache(cacheKey); ok {
+		return cached
+	}
+
 	src, err := decodeImageBytes(data)
 	if err != nil {
 		return nil
@@ -507,29 +515,15 @@ func maskImageWithClipPath(
 		return nil
 	}
 
-	for y := range h {
-		for x := range w {
-			c := nrgba.NRGBAAt(x, y)
-			if c.A == 0 {
-				continue
-			}
+	relX := drawnX - refX
+	relY := drawnY - refY
+	scaleX := drawnW / float64(w)
+	scaleY := drawnH / float64(h)
 
-			coverage := 0
-
-			for subY := range 2 {
-				for subX := range 2 {
-					px := drawnX + (float64(x)+(float64(subX)+0.5)/2)*drawnW/float64(w) - refX
-
-					py := drawnY + (float64(y)+(float64(subY)+0.5)/2)*drawnH/float64(h) - refY
-					if shape.contains(px, py, refW, refH) {
-						coverage++
-					}
-				}
-			}
-
-			c.A = uint8(float64(c.A) * float64(coverage) / 4)
-			nrgba.SetNRGBA(x, y, c)
-		}
+	if shape.kind == clipPathInset {
+		maskNRGBAWithInset(nrgba, w, h, shape, relX, relY, scaleX, scaleY, refW, refH)
+	} else {
+		maskNRGBAWithShape(nrgba, w, h, shape, relX, relY, scaleX, scaleY, refW, refH)
 	}
 
 	out, err := encodePNGImage(nrgba)
@@ -537,5 +531,100 @@ func maskImageWithClipPath(
 		return nil
 	}
 
+	storeClipPathMaskCache(cacheKey, out)
+
 	return out
+}
+
+func insetSubpixelCount(p0, p1, lo, hi float64) int {
+	count := 0
+	if p0 >= lo && p0 <= hi {
+		count++
+	}
+
+	if p1 >= lo && p1 <= hi {
+		count++
+	}
+
+	return count
+}
+
+func maskNRGBAWithInset(
+	nrgba *image.NRGBA, w, h int, shape clipPathShape,
+	relX, relY, scaleX, scaleY, refW, refH float64,
+) {
+	minX := shape.left.resolve(refW)
+	maxX := refW - shape.right.resolve(refW)
+	minY := shape.top.resolve(refH)
+	maxY := refH - shape.bottom.resolve(refH)
+
+	for y := range h {
+		rowOff := y * nrgba.Stride
+		yCount := insetSubpixelCount(
+			relY+(float64(y)+0.25)*scaleY,
+			relY+(float64(y)+0.75)*scaleY,
+			minY, maxY,
+		)
+
+		for x := range w {
+			alphaIdx := rowOff + x*4 + 3
+			alpha := nrgba.Pix[alphaIdx]
+
+			if alpha == 0 {
+				continue
+			}
+
+			if yCount == 0 {
+				nrgba.Pix[alphaIdx] = 0
+
+				continue
+			}
+
+			xCount := insetSubpixelCount(
+				relX+(float64(x)+0.25)*scaleX,
+				relX+(float64(x)+0.75)*scaleX,
+				minX, maxX,
+			)
+
+			coverage := xCount * yCount
+			if coverage == 4 {
+				continue
+			}
+
+			nrgba.Pix[alphaIdx] = uint8(float64(alpha) * float64(coverage) / 4)
+		}
+	}
+}
+
+func maskNRGBAWithShape(
+	nrgba *image.NRGBA, w, h int, shape clipPathShape,
+	relX, relY, scaleX, scaleY, refW, refH float64,
+) {
+	for y := range h {
+		rowOff := y * nrgba.Stride
+
+		for x := range w {
+			alphaIdx := rowOff + x*4 + 3
+			alpha := nrgba.Pix[alphaIdx]
+
+			if alpha == 0 {
+				continue
+			}
+
+			coverage := 0
+
+			for subY := range 2 {
+				py := relY + (float64(y)+(float64(subY)+0.5)/2)*scaleY
+
+				for subX := range 2 {
+					px := relX + (float64(x)+(float64(subX)+0.5)/2)*scaleX
+					if shape.contains(px, py, refW, refH) {
+						coverage++
+					}
+				}
+			}
+
+			nrgba.Pix[alphaIdx] = uint8(float64(alpha) * float64(coverage) / 4)
+		}
+	}
 }
