@@ -112,3 +112,26 @@ func TestCloneResultArenaAllocationBudget(t *testing.T) {
 		t.Fatalf("CloneResult allocated %.0f objects for 1000 boxes, want at most 64", allocs)
 	}
 }
+
+// TestCloneResultRemapsMotionParent checks that a cloned box does not keep a
+// pointer into the source result. The source arena is recycled when the
+// source is released, so a stale motionParent turns into a data race.
+func TestCloneResultRemapsMotionParent(t *testing.T) {
+	t.Parallel()
+
+	res := cloneArenaFixture(8)
+	for _, child := range res.root.children {
+		child.motionParent = res.root
+	}
+
+	clone := CloneResult(res)
+	if clone == nil || clone.root == res.root {
+		t.Fatal("CloneResult must return a distinct tree")
+	}
+
+	for i, child := range clone.root.children {
+		if child.motionParent != clone.root {
+			t.Fatalf("child %d motionParent = %p, want the cloned root %p (source root %p)", i, child.motionParent, clone.root, res.root)
+		}
+	}
+}
