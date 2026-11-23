@@ -384,6 +384,11 @@ func cloneBoxGraph(src *box, seen map[*box]*box, arena *boxArena) *box {
 	clone.stickyPort = nil
 	seen[src] = clone
 
+	// motionParent points at another box of the same placement. Leaving the
+	// copied pointer would keep the clone reading the source arena, which is
+	// recycled once the source result is released.
+	clone.motionParent = cloneBoxGraph(src.motionParent, seen, arena)
+
 	if len(src.children) > 0 {
 		clone.children = make([]*box, len(src.children))
 		for i, child := range src.children {
