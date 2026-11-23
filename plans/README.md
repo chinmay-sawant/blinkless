@@ -27,3 +27,5 @@ Patch-path and render-cost release: [v0.1.1 release note](v0.1.1/release-note/v0
 Pending CSS for the next cut: [v0.1.2 checklists](v0.1.2/README.md). Nine phase files, quickest first. Ledger 1 is the three `-webkit-background-*` aliases and the four partial rows. Ledgers 6, 8, and 9 are parked. Open rows in the v0.0.3 SVG, scroll, and speech files now point here.
 
 v0.1.6 Go review hardening: [v0.1.6 checklists](v0.1.6/README.md) ([go-review-hardening](v0.1.6/go-review-hardening/README.md)). Four phase files covering cross-checked P0 concurrency/correctness fixes, P1 lock contention/cache bounds/API edge cases, P1 CI race/fuzz/Makefile repair, and P2 lint hygiene/`internal/layout` extraction.
+
+v0.1.6 release note: [v0.1.6 release note](v0.1.6/release/v0.1.6.md). Covers PRs #45 through #49 after tag `v0.1.5`: system CJK font fallback, the 512-byte `ResolvedStyle`, two data-race fixes, CSS correctness fixes, and CI repair. Tag `v0.1.6` is not cut yet.
