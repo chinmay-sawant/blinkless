@@ -186,10 +186,7 @@ bench-engine:
 FUZZ_TIME ?= 10s
 
 fuzz-smoke:
-	@set -e; while read -r target pkg; do \
-		echo "fuzz-smoke: $$target $$pkg"; \
-		go test -run '^$$' -fuzz "^$$target$$" -fuzztime=$(FUZZ_TIME) $$pkg; \
-	done <scripts/fuzz-targets.txt
+	@bash scripts/fuzz-smoke.sh $(FUZZ_TIME)
 
 # Known-vulnerability scan of the module graph and the Go standard library.
 vuln:
