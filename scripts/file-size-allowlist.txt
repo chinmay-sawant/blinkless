@@ -10,7 +10,7 @@ internal/html/html.go	2071
 internal/html/tree.go	2168
 internal/layout/flex.go	2185
 internal/layout/inline_paint.go	2120
-internal/layout/layout.go	2603
+internal/layout/layout.go	2608
 internal/layout/relayout_subtree.go	2968
 internal/layout/style_value_accept.go	2049
 internal/layout/transform.go	2026

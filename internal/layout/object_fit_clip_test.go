@@ -3,6 +3,7 @@ package layout
 import (
 	"bytes"
 	"image"
+	"io/fs"
 	"math"
 	"os"
 	"path/filepath"
@@ -191,7 +192,9 @@ func layoutFixture59(t *testing.T) *Result {
 	})
 
 	resolver := func(src string) ([]byte, error) {
-		return os.ReadFile(filepath.Join("..", "..", "testdata", "golden", filepath.FromSlash(src))) //nolint:gosec // test resolver reads fixed testdata fixtures named by the test table
+		// DirFS confines the read to the golden fixtures, so gosec has no
+		// path-traversal finding and no nolint directive is needed.
+		return fs.ReadFile(os.DirFS(filepath.Join("..", "..", "testdata", "golden")), filepath.ToSlash(src))
 	}
 
 	res, err := Layout(root, Options{
