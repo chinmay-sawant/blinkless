@@ -25,3 +25,5 @@ Stabilization release: [v0.1.0 release note](v0.1.0/release-note/v0.1.0.md), wit
 Patch-path and render-cost release: [v0.1.1 release note](v0.1.1/release-note/v0.1.1.md), with the [39-commit ledger](v0.1.1/release-note/commits.md) and the [agent context pack](v0.1.1/README.md). Tag `v0.1.1` follows the release PR merge. The `0.1.0` CHANGELOG section was backfilled in the `0.1.1` release PR.
 
 Pending CSS for the next cut: [v0.1.2 checklists](v0.1.2/README.md). Nine phase files, quickest first. Ledger 1 is the three `-webkit-background-*` aliases and the four partial rows. Ledgers 6, 8, and 9 are parked. Open rows in the v0.0.3 SVG, scroll, and speech files now point here.
+
+v0.1.6 Go review hardening: [v0.1.6 checklists](v0.1.6/README.md) ([go-review-hardening](v0.1.6/go-review-hardening/README.md)). Four phase files covering cross-checked P0 concurrency/correctness fixes, P1 lock contention/cache bounds/API edge cases, P1 CI race/fuzz/Makefile repair, and P2 lint hygiene/`internal/layout` extraction.
