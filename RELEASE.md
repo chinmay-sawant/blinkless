@@ -1,10 +1,10 @@
 # Release
 
-blinkless 0.1.1 is the performance and patch-path release on the 0.1 line.
-It follows 0.1.0. The PDF writer is not part of this tree.
+blinkless 0.1.6 is the current release on the 0.1 line.
+It follows 0.1.5. The PDF writer is not part of this tree.
 
 `VERSION` is not used. There is no image binary and no `internal/cli` package.
-The release record is `CHANGELOG.md` plus the ledger under `plans/v0.1.1/`.
+The release record is `CHANGELOG.md` plus the ledger under `plans/v0.1.6/`.
 
 ## Gates
 
@@ -14,8 +14,9 @@ Run these before calling the tree releasable:
 2. `make test-quick`
 3. `make golden`
 4. `make lint`
-5. `make claim-scan` after documentation matches the renderer
-6. `make matrix-check` after documentation matches the catalog
+5. `make test-race`, which CI also runs
+6. `make claim-scan` after documentation matches the renderer
+7. `make matrix-check` after documentation matches the catalog
 
 Do not run veraPDF or a PDF byte compare. Those checks measured the writer.
 

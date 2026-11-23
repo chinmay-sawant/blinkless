@@ -9,6 +9,10 @@ and are not listed here.
 
 ## Unreleased
 
+## 0.1.6 (2026-11-23)
+
+Work after tag `v0.1.5` (`d486e95`), merged in PRs #45 to #49. The full account is in `plans/v0.1.6/release/v0.1.6.md`.
+
 ### Added
 - **Automatic system CJK font fallback.** Han, kana, Hangul, and fullwidth characters that no CSS family, bundled face, or opt-in registry face covers now resolve to an installed operating-system face instead of a missing-glyph box. It is on by default, reads a short per-OS candidate list lazily (Yu Gothic, Meiryo, and MS Gothic on Windows, Hiragino and Arial Unicode on macOS, common TrueType CJK families on Linux and Android, and the Windows font folder under WSL), and never runs for Latin text. Turn it off with `layout.SetSystemFontFallback(false)` or `BLINKLESS_SYSTEM_FONTS=off`.
 - **TrueType collection (`.ttc`) support** for system fallback faces. `fonts.SplitTTC` rebuilds each member as a standalone SFNT, so shapers that load one face per byte slice keep working.
@@ -22,6 +26,9 @@ and are not listed here.
 - **`clip-path: ellipse(...)` mixed radii and `outline-style: solid`.** `resolveEllipseRadii` now resolves `rx` and `ry` independently per axis, and `hasPotentialChrome`/`prependChrome` guard outlines with `outlinePaints(sty)` so `outline-style: solid` paints with default `medium` width.
 - **Bounded LRU image effect caches and filter gating.** `image_effect_cache.go` now trims cached PNG slices with `bytes.Clone` (exact `cap == len`), bounds total bytes (32 MiB) with LRU eviction instead of full-map clears, and aligns `applyImageFilterToImageWithInterp` with implemented filter kinds.
 - **Allocation-free `paintOnlyBGDelta`.** Replaced struct copies and `reflect.DeepEqual` in `paintOnlyBGDelta` with generated `styleInternEqualExceptBG`.
+
+- **Go review hardening (PR #48, PR #49).** Fixed the `Node.EnsureAttrs` race, the `prepare.SheetCache` map race, and the shared `transitionsFrom` slice, so callers no longer need an engine-wide lock. Fixed combinator backtracking, UTF-8 offset bugs, case-sensitive custom-property resolution (depth cap 64), sibling cache invalidation, and nested `@media` ordering with a 64-entry cross-product cap. `html.Parse` now caps source at 64 MiB, and `html.ParseWithLimit` takes an explicit limit. `css.Apply` clones `opts.Extra`.
+- **`ResolvedStyle` shrinks from 5,872 to 512 bytes (PR #46)** through lazily shared groups. Benchmarks were mixed: invoice layout 3.2% slower, medium relayout 6.7% faster.
 
 ### Changed
 - **Pointer `*ResolvedStyle` in chrome helpers.** Updated internal chrome paint helpers called from `layout_chrome.go` to take `*ResolvedStyle` instead of copying the struct by value.
