@@ -98,7 +98,7 @@ func (e *engine) layoutTableGrid(
 
 	if style.BGColor[3] > 0 && e.backgroundPaintEnabled(&style) {
 		usedBG := usedBGForPaintActive(&style, e.forcedColorsForPaint())
-		e.add(Op{ //nolint:exhaustruct // intentional zero fields
+		e.add(Op{
 			Kind: OpFillRect, X: posX, Y: tableY, W: tableBox.w, H: tableHeight,
 			R: usedBG[0], G: usedBG[1], B: usedBG[2], Alpha: usedBG[3],
 		})
@@ -283,8 +283,6 @@ func (e *engine) tableVSpacing(style ResolvedStyle) float64 {
 // emitTableCells paints the cell backgrounds/borders and the collapsed grid
 // row-by-row so a row's grid segments land in the same op index span as its
 // cells (pagination moves them together).
-//
-//nolint:wsl // collapsed and separate border paths intentionally share one emitter
 func (e *engine) emitTableCells(
 	tableBox *box, sty ResolvedStyle, posX, posY, tableHeight, padL float64,
 	colW, rowTops, rowHeights []float64, cellData [][]*box,
@@ -751,8 +749,6 @@ func (e *engine) measureRowCells(
 
 // growRowspanRows enlarges the spanned rows so rowspan cells fit their
 // content across the whole band.
-//
-//nolint:wsl // table geometry guards intentionally stay adjacent to the scan
 func growRowspanRows(tableBox *box, nRows int, rowHeights []float64, spacing float64) {
 	for _, cell := range tableBox.children {
 		if cell.kind != boxKindCell {
@@ -790,8 +786,6 @@ func growRowspanRows(tableBox *box, nRows int, rowHeights []float64, spacing flo
 }
 
 // assignFinalCellHeights sets cell.y/height/rowBoxH from the resolved rows.
-//
-//nolint:wsl // table geometry guards intentionally stay adjacent to the scan
 func assignFinalCellHeights(tb *box, nRows int, rowHeights, rowTops []float64, spacing float64) {
 	for _, cell := range tb.children {
 		if cell.kind != boxKindCell {
@@ -974,7 +968,6 @@ func borderVisible(side border) bool {
 	return side.Width > 0 && side.Style != cssDisplayNone
 }
 
-//nolint:mnd // CSS 2.1 border-style precedence ranking
 func borderStyleRank(style string) int {
 	switch style {
 	case "double":
@@ -994,7 +987,7 @@ func borderStyleRank(style string) int {
 
 func resolveBorderConflict(firstBorder, secondBorder border) border {
 	if firstBorder.Style == overflowHidden || secondBorder.Style == overflowHidden {
-		return border{Style: overflowHidden} //nolint:exhaustruct // intentional zero fields
+		return border{Style: overflowHidden}
 	}
 
 	firstVisible := borderVisible(firstBorder)
@@ -1028,7 +1021,7 @@ func resolveBorderConflict(firstBorder, secondBorder border) border {
 
 func resolveOneVisibleBorder(firstBorder, secondBorder border, firstVisible, secondVisible bool) border {
 	if !firstVisible && !secondVisible {
-		return border{} //nolint:exhaustruct // intentional zero fields
+		return border{}
 	}
 
 	if !firstVisible {
@@ -1038,7 +1031,6 @@ func resolveOneVisibleBorder(firstBorder, secondBorder border, firstVisible, sec
 	return firstBorder
 }
 
-//nolint:cyclop,dupl // horizontal and vertical border scanning are symmetric axis routines
 func horizontalTableBorder(tableBox *box, boundary, col int) (border, bool) {
 	var (
 		best  border
@@ -1076,7 +1068,6 @@ func horizontalTableBorder(tableBox *box, boundary, col int) (border, bool) {
 	return best, found && borderVisible(best)
 }
 
-//nolint:cyclop,dupl // horizontal and vertical border scanning are symmetric axis routines
 func verticalTableBorder(tableBox *box, row, boundary int) (border, bool) {
 	var (
 		best  border
@@ -1145,8 +1136,6 @@ func expandRowOpRange(row []*box, start, end int) {
 
 // rowspanCovers reports whether some cell occupies column ci across the
 // boundary between row above and row below (so the horizontal rule is omitted).
-//
-//nolint:wsl // table coverage predicates are intentionally sequential
 func rowspanCovers(tb *box, above, below, cidx int) bool {
 	for _, cell := range tb.children {
 		if cell.kind != boxKindCell {
@@ -1187,8 +1176,6 @@ func colspanCovers(tableBox *box, rowIdx, leftCol, rightCol int) bool {
 
 // rowspanCellCovers reports whether a rowspan>1 cell whose vertical range
 // includes ri spans columns (leftCol, rightCol).
-//
-//nolint:wsl // table coverage predicates are intentionally sequential
 func rowspanCellCovers(tableBox *box, rowIdx, leftCol, rightCol int) bool {
 	for _, cell := range tableBox.children {
 		if cell.kind != boxKindCell {
@@ -1278,7 +1265,7 @@ func (e *engine) emitCell(cell *box, skipBorders bool) {
 			rgb := forcedColorsPaintColor(e.forcedColorsForPaint(), sty.containment().ForcedColorAdjust,
 				[3]float64{r, g, bl}, [3]float64{})
 			rgb = clampDynamicRangeColor(rgb, sty.containment().DynamicRangeLimit)
-			e.add(Op{ //nolint:exhaustruct // intentional zero fields
+			e.add(Op{
 				Kind: OpFillRect, X: cell.x, Y: cell.y, W: cell.w, H: cell.height,
 				R: rgb[0], G: rgb[1], B: rgb[2], Alpha: a,
 			})

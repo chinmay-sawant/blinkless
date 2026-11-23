@@ -616,7 +616,6 @@ func TestTextIndentInheritsAndShiftsFirstLine(t *testing.T) {
 	}
 }
 
-//nolint:gocyclo // table-driven webkit aliases assertion
 func TestWebkitPrefixAliases(t *testing.T) {
 	t.Parallel()
 

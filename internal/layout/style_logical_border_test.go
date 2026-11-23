@@ -1,4 +1,3 @@
-//nolint:all // targeted unit tests for Phase 80
 package layout
 
 import (

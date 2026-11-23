@@ -62,8 +62,6 @@ func UnescapeEntities(text string) string {
 // false for an ambiguous ampersand and, in attribute context, for named
 // references without a semicolon followed by '=' or an ASCII alphanumeric,
 // which the spec flushes literally for historical reasons.
-//
-//nolint:cyclop // flat decision tree over the character reference states
 func decodeCharRefAt(src string, offset int, inAttribute bool) (string, int, bool) {
 	if offset+1 >= len(src) {
 		return "", 0, false

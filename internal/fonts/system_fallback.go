@@ -302,15 +302,22 @@ func scanLinuxFonts(plat fontPlatform) []systemFontCandidate {
 
 // loadedSystemFont is one candidate file after its first read.
 type loadedSystemFont struct {
-	loaded bool
-	faces  []*Font
+	once  sync.Once
+	faces []*Font
 }
 
 // systemFallback lazily loads candidate files and answers glyph lookups.
+//
+// mu guards only the result map and the discovered flag. Candidate discovery
+// and every file read run outside it (behind sync.Once), so a slow disk never
+// blocks lookups that hit the result cache.
 type systemFallback struct {
-	mu         sync.Mutex
-	plat       fontPlatform
-	discovered bool
+	mu           sync.Mutex
+	plat         fontPlatform
+	discoverOnce sync.Once
+	discovered   bool
+	// candidates and files are written once inside discoverOnce and read-only
+	// afterwards.
 	candidates []systemFontCandidate
 	files      []loadedSystemFont
 	// results caches the answer per code point and boldness, including
@@ -324,7 +331,7 @@ type systemFallbackKey struct {
 }
 
 func newSystemFallback(plat fontPlatform) *systemFallback {
-	return &systemFallback{plat: plat} //nolint:exhaustruct // lazy fields start zero
+	return &systemFallback{plat: plat}
 }
 
 var hostSystemFallback = newSystemFallback(hostFontPlatform())
@@ -342,19 +349,26 @@ func FindSystemGlyph(r rune, weight int, _ bool) *Font {
 }
 
 func (s *systemFallback) find(r rune, bold bool) *Font {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	key := systemFallbackKey{r: r, bold: bold}
-	if face, ok := s.results[key]; ok {
+
+	s.mu.Lock()
+	face, ok := s.results[key]
+	s.mu.Unlock()
+
+	if ok {
 		return face
 	}
 
-	if !s.discovered {
-		s.candidates = systemFontCandidates(s.plat)
-		s.files = make([]loadedSystemFont, len(s.candidates))
+	s.discoverOnce.Do(func() {
+		candidates := systemFontCandidates(s.plat)
+		files := make([]loadedSystemFont, len(candidates))
+
+		s.mu.Lock()
+		s.candidates = candidates
+		s.files = files
 		s.discovered = true
-	}
+		s.mu.Unlock()
+	})
 
 	var found *Font
 
@@ -366,17 +380,20 @@ func (s *systemFallback) find(r rune, bold bool) *Font {
 		}
 	}
 
+	s.mu.Lock()
 	if s.results == nil || len(s.results) >= systemFallbackCacheMax {
 		s.results = make(map[systemFallbackKey]*Font)
 	}
 
 	s.results[key] = found
+	s.mu.Unlock()
 
 	return found
 }
 
 // scan returns the first loaded face of the requested boldness with a glyph
-// for r, loading candidate files as needed.
+// for r, loading candidate files as needed (each file is read once, outside
+// the result lock).
 func (s *systemFallback) scan(r rune, bold bool) *Font {
 	for i, cand := range s.candidates {
 		if cand.bold != bold {
@@ -384,10 +401,7 @@ func (s *systemFallback) scan(r rune, bold bool) *Font {
 		}
 
 		file := &s.files[i]
-		if !file.loaded {
-			file.faces = loadSystemFontFile(cand.path)
-			file.loaded = true
-		}
+		file.once.Do(func() { file.faces = loadSystemFontFile(cand.path) })
 
 		for _, face := range file.faces {
 			if face.GlyphID(r) != 0 {

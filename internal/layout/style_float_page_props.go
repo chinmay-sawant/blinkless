@@ -1,4 +1,3 @@
-//nolint:mnd,varnamelen // page-float property parsers + place nudge
 package layout
 
 import (

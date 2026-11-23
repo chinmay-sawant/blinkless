@@ -1,4 +1,3 @@
-//nolint:varnamelen,cyclop,gocyclo,funlen,mnd,goconst,wsl,nlreturn,gocognit,maintidx // advanced print CSS properties
 package layout
 
 import (
@@ -208,13 +207,4 @@ func parseOverflowClipMarginLengths(val string, fsize float64) []float64 {
 		}
 	}
 	return out
-}
-
-//nolint:unused
-func parseAdvancedColor(val string) ([3]float64, bool) {
-	r, g, b, _, ok := css.ParseColor(val)
-	if !ok {
-		return [3]float64{}, false
-	}
-	return [3]float64{float64(r) / 255.0, float64(g) / 255.0, float64(b) / 255.0}, true
 }

@@ -1,4 +1,3 @@
-//nolint:cyclop,mnd,varnamelen // font variation property parsers
 package layout
 
 import (

@@ -17,8 +17,6 @@ There is no CLI in this tree. `cmd/` is empty and no Makefile target writes a CL
 
 `internal/convert/prepare` is the shared load, parse, stylesheet, and `@font-face` phase. `prepare.Document` (`internal/convert/prepare/prepare.go:210`) returns `Prepared{Resource, Root, Resources, Sheets, Registry}` (`prepare.go:198`). `css.Apply` drives it: it builds a `ResourceContext` (`css/css.go:176`) and calls `CollectTreeSheets` (`css/css.go:186`) and `MergeFontFaces` (`css/css.go:200`).
 
-`internal/convert/render` owns the stage order `RenderObjects` -> `Assemble` -> `Finalize` (`internal/convert/render/pipeline.go:14-18`, `Run` at `pipeline.go:28`). No production pipeline implements it today; the test pipeline in `pipeline_test.go` exercises the ordering.
-
 ## Browser adapter
 
 `bindings/wasm` is the browser entry. It exposes `blinklessWASM` (`bindings/wasm/main_js_wasm.go:15`). The request is JSON: `html`, `mode`, `width`, `height` (`bindings/wasm/contract.go:46-51`). `mode` accepts only `"display"`, and the old writer fields (pageSize, orientation, padding, quality) are rejected as unknown (`contract.go:43-45`). The response is the versioned drawing list, schema `blinkless.drawinglist/1` (`bindings/wasm/drawing_list.go:21`). Images resolve from `data:` URLs only (`bindings/wasm/resources.go:24-51`).

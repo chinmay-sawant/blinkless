@@ -9,7 +9,7 @@ import (
 // TestParseNestedFunctionalPseudoDepth proves recursive selector parsing is
 // depth bounded. Before the guard, 200k nested :not( rescanned to the matching
 // paren at every level (quadratic in the input size) and never finished.
-func TestParseNestedFunctionalPseudoDepth(t *testing.T) { //nolint:paralleltest // timeout probe is intentionally serial
+func TestParseNestedFunctionalPseudoDepth(t *testing.T) {
 	const probeDepth = 200000
 
 	done := make(chan struct{})

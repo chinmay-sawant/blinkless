@@ -175,7 +175,6 @@ const (
 	maxStyleChunksRetained = 40
 )
 
-//nolint:gochecknoglobals // global pool for contiguous box chunks
 var boxChunkPool = sync.Pool{
 	New: func() any {
 		b := make([]box, 0, defaultBoxChunkSize)
@@ -184,7 +183,6 @@ var boxChunkPool = sync.Pool{
 	},
 }
 
-//nolint:forcetypeassert // pool stores *[]box
 func getBoxChunk() *[]box {
 	chunk := boxChunkPool.Get().(*[]box)
 	*chunk = (*chunk)[:0]
@@ -254,7 +252,7 @@ func (e *engine) allocBox(node *html.Node, sty *ResolvedStyle, kind boxKind, pos
 
 	last := len(e.boxChunks) - 1
 	chunk := e.boxChunks[last]
-	*chunk = append(*chunk, box{ //nolint:exhaustruct // intentional zero fields
+	*chunk = append(*chunk, box{
 		node:  node,
 		style: sty,
 		kind:  kind,
@@ -318,7 +316,6 @@ func (p *styleChunkFreeList) retained() int {
 	return len(p.free)
 }
 
-//nolint:gochecknoglobals // global free list for contiguous resolved style chunks
 var styleChunkPool = newStyleChunkFreeList(maxStyleChunksRetained)
 
 func getStyleChunk() *[]ResolvedStyle {

@@ -106,7 +106,7 @@ type footnoteCollector struct {
 
 func newFootnoteCollector(sheets []*css.Stylesheet) *footnoteCollector {
 	return &footnoteCollector{
-		ctx: &styleContext{ //nolint:exhaustruct // footnote pass needs sheets only
+		ctx: &styleContext{
 			sheets: sheets,
 		},
 		counter: 0,

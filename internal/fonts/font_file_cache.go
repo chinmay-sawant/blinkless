@@ -41,7 +41,6 @@ type fontFileCache struct {
 	maxEntries int
 }
 
-//nolint:gochecknoglobals // cross-conversion cache
 var parsedFontCache = newFontFileCache()
 
 func newFontFileCache() *fontFileCache {
@@ -49,7 +48,7 @@ func newFontFileCache() *fontFileCache {
 }
 
 func newFontFileCacheWithLimits(maxBytes int64, maxEntries int) *fontFileCache {
-	return &fontFileCache{ //nolint:exhaustruct // zero-value mutex and byte counter are intentional
+	return &fontFileCache{
 		entries:    make(map[fontFileKey]*Font),
 		order:      make([]fontFileKey, 0, maxEntries),
 		maxBytes:   maxBytes,

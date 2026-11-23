@@ -261,7 +261,6 @@ func (p *exactSlicePool[T]) returnSlice(slice []T) {
 	p.put(capacity, full[:0])
 }
 
-//nolint:gochecknoglobals // package-level pools are the point of this file
 var (
 	boxPtrSlicePool exactSlicePool[*box]
 	floatSlicePool  exactSlicePool[float64]
@@ -273,7 +272,6 @@ var (
 	placedSlicePool exactSlicePool[PlacedElement]
 )
 
-//nolint:gochecknoglobals // package-level struct pools and immutable zero sentinels
 var (
 	boxStructPool = sync.Pool{
 		New: func() any { return new(box) },
@@ -285,7 +283,6 @@ var (
 	zeroClipRectValue clipRect
 )
 
-//nolint:gochecknoglobals // retained counters bound the struct pools
 var (
 	retainedBoxes atomic.Int64
 	retainedClips atomic.Int64

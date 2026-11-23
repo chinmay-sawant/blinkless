@@ -1,4 +1,3 @@
-//nolint:all // shared text cache tests run sequentially and use unexported internals.
 package layout
 
 import (
@@ -84,7 +83,7 @@ func TestSharedTextWidthMissOnEachKeyComponent(t *testing.T) {
 	}
 
 	variants := []variant{
-		{name: "content", apply: func(style *ResolvedStyle) string { return baseText + "!" }, scale: 1},
+		{name: "content", apply: func(_ *ResolvedStyle) string { return baseText + "!" }, scale: 1},
 		{name: "size", apply: func(style *ResolvedStyle) string {
 			style.FontSize = 13
 			return baseText
@@ -137,7 +136,7 @@ func TestSharedTextWidthMissOnEachKeyComponent(t *testing.T) {
 			style.famHash = hashFontFamily(style.FontFamily)
 			return baseText
 		}, scale: 1},
-		{name: "width", apply: func(style *ResolvedStyle) string { return baseText }, scale: 2},
+		{name: "width", apply: func(_ *ResolvedStyle) string { return baseText }, scale: 2},
 	}
 
 	for _, v := range variants {
@@ -183,19 +182,11 @@ func TestSharedTextWidthFontChangeMisses(t *testing.T) {
 }
 
 func TestSharedTextWidthBoundedEviction(t *testing.T) {
-	oldTextBound := maxSharedTextWidthEntries
-	oldRuneBound := maxSharedRuneWidthEntries
-	maxSharedTextWidthEntries = 8
-	maxSharedRuneWidthEntries = 8
-	defer func() {
-		maxSharedTextWidthEntries = oldTextBound
-		maxSharedRuneWidthEntries = oldRuneBound
-	}()
-
 	clearSharedMeasureCaches()
 	resetSharedMeasureCounters()
 
 	eng, style := sharedTestEngine(t, 1)
+	eng.testCfg = &TestConfig{MaxSharedTextWidthEntries: 8, MaxSharedRuneWidthEntries: 8}
 	for i := 0; i < 32; i++ {
 		text := "evict-label-" + string(rune('a'+i%26)) + "-" + string(rune('0'+i/26))
 		_ = eng.measureTextFace(text, style)

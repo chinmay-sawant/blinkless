@@ -220,7 +220,6 @@ func TestApplyTextSupportPropsTextDecorationSkipLonghands(t *testing.T) {
 		}
 	}
 
-	//nolint:dupword // duplicate tokens must be rejected
 	sty, _ = applySupportProp("text-decoration-skip-self", "skip-underline skip-underline", 12)
 	if sty.inlineText().TextDecorationSkipSelf != "auto" {
 		t.Fatalf("duplicate skip-self left %q, want initial auto", sty.inlineText().TextDecorationSkipSelf)
@@ -240,7 +239,6 @@ func TestApplyTextSupportPropsTextDecorationSkipLonghands(t *testing.T) {
 		}
 	}
 
-	//nolint:dupword // duplicate tokens must be rejected
 	sty, _ = applySupportProp("text-decoration-skip-spaces", "start start", 12)
 	if sty.inlineText().TextDecorationSkipSpaces != textDecorationSkipStartEnd {
 		t.Fatalf("duplicate skip-spaces left %q, want initial start end", sty.inlineText().TextDecorationSkipSpaces)

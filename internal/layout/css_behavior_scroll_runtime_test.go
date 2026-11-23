@@ -67,10 +67,10 @@ func TestScrollRuntimeOffsetShiftsScrollerClip(t *testing.T) {
 	res := layoutHTML(t, scrollRuntimeDoc(""))
 	clipBox := boxByID(t, res, "rt-clip")
 
-	setTestScrollOffset(clipBox, ScrollOffset{X: pxToPt(20), Y: pxToPt(10)})
-	defer unsetTestScrollOffset(clipBox)
+	cfg := &TestConfig{}
+	cfg.setScrollOffset(clipBox, ScrollOffset{X: pxToPt(20), Y: pxToPt(10)})
 
-	eng := &engine{scale: 1}
+	eng := &engine{scale: 1, testCfg: cfg}
 	view := eng.scrollRegionViewport(clipBox)
 
 	if !near(view.At.X, pxToPt(20)) || !near(view.At.Y, pxToPt(10)) {
@@ -161,10 +161,10 @@ func scrollRuntimeMarginCase(t *testing.T, decl string, want scrollProbeWidths) 
 	clipBox := boxByID(t, res, "rt-clip")
 	itemBox := boxByID(t, res, "rt-item")
 
-	setTestScrollOffset(clipBox, ScrollOffset{X: pxToPt(20), Y: pxToPt(10)})
-	defer unsetTestScrollOffset(clipBox)
+	cfg := &TestConfig{}
+	cfg.setScrollOffset(clipBox, ScrollOffset{X: pxToPt(20), Y: pxToPt(10)})
 
-	eng := &engine{scale: 1}
+	eng := &engine{scale: 1, testCfg: cfg}
 	view := eng.scrollRegionViewport(clipBox)
 	margins := scrollMarginsOf(itemBox.style)
 
@@ -241,11 +241,7 @@ func TestScrollRuntimeSnapRectOutsetsTarget(t *testing.T) {
 	t.Parallel()
 
 	res := layoutHTML(t, scrollRuntimeDoc("scroll-margin:40px"))
-	clipBox := boxByID(t, res, "rt-clip")
 	itemBox := boxByID(t, res, "rt-item")
-
-	setTestScrollOffset(clipBox, ScrollOffset{X: pxToPt(20), Y: pxToPt(10)})
-	defer unsetTestScrollOffset(clipBox)
 
 	margins := scrollMarginsOf(itemBox.style)
 	target := clipRect{x: itemBox.x, y: itemBox.y, w: itemBox.w, h: itemBox.height}

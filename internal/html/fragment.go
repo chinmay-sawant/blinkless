@@ -11,8 +11,6 @@
 // spec-sanctioned PLAINTEXT substitution: no appropriate end tag token exists
 // in a fragment, so the whole input is one raw text run. Data contexts run the
 // ordinary tokenizer.
-//
-//nolint:all // fragment entry point; same custom Node model and conventions as tree.go
 package html
 
 // fragmentContextMode returns the tokenizer state a context element selects.
@@ -33,30 +31,15 @@ func fragmentContextMode(context *Node) textMode {
 	}
 }
 
-// newFragmentTreeBuilder builds the fragment parser state: the stack holds
-// only the synthetic root html element, and the context element is remembered
-// for the adjusted current node and the reset-insertion-mode substitution.
-func newFragmentTreeBuilder(context *Node) *treeBuilder {
-	root := &Node{Type: ElementNode, Name: "html"} //nolint:exhaustruct
-
-	return &treeBuilder{
-		root:            root,
-		stack:           []*Node{root},
-		framesetOK:      true,
-		fragment:        true,
-		fragmentContext: context,
-	}
-}
-
 // parseFragment parses src with the given context element. The returned root
 // is the synthetic html element; its Children are the fragment output, which
 // is what the standard returns as the fragment (the context element itself is
 // never part of the output).
 func parseFragment(contextName string, contextNS Namespace, contextAttrs []string, src string) *Node {
-	context := &Node{Type: ElementNode, Name: contextName, Namespace: contextNS} //nolint:exhaustruct
+	context := &Node{Type: ElementNode, Name: contextName, Namespace: contextNS}
 	applyAttributes(context, contextAttrs)
 
-	root := &Node{Type: ElementNode, Name: "html"} //nolint:exhaustruct
+	root := &Node{Type: ElementNode, Name: "html"}
 	builder := getTreeBuilder(root)
 	builder.fragment = true
 	builder.fragmentContext = context
@@ -90,14 +73,14 @@ func scanFragmentTokens(src string, context *Node, builder *treeBuilder) {
 	case textRCDATA:
 		text, _, _ := scanRawText(preprocessInput(src), 0, "")
 		if text != "" {
-			emit(token{kind: tokText, data: UnescapeEntities(replaceNUL(text))}) //nolint:exhaustruct
+			emit(token{kind: tokText, data: UnescapeEntities(replaceNUL(text))})
 		}
 	default:
 		// RAWTEXT and script data: PLAINTEXT substitution, sanctioned by the
 		// standard for fragments because no end tag can match.
 		text := preprocessInput(src)
 		if text != "" {
-			emit(token{kind: tokText, data: replaceNUL(text)}) //nolint:exhaustruct
+			emit(token{kind: tokText, data: replaceNUL(text)})
 		}
 	}
 }

@@ -50,7 +50,7 @@ func resolveFontVariants(sty *ResolvedStyle, face *pdf.Font) *pdf.Font {
 // tables. Both are false for the static bundled faces.
 func faceFontVariantCapability(face *pdf.Font) fontVariantCapability {
 	if face == nil {
-		return fontVariantCapability{} //nolint:exhaustruct // zero value means neither capability
+		return fontVariantCapability{}
 	}
 
 	return fontVariantCapability{
@@ -112,7 +112,7 @@ func findVariationAxis(face *pdf.Font, tag string) (pdf.VariationAxis, bool) {
 		}
 	}
 
-	return pdf.VariationAxis{}, false //nolint:exhaustruct // not found
+	return pdf.VariationAxis{}, false
 }
 
 func variationCacheBits(sty *ResolvedStyle) (string, string, uint64) {

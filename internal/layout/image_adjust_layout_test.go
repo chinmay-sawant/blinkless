@@ -363,7 +363,7 @@ func imgAdjustEXIFSegment(orientation int) []byte {
 		0x00, 0x00, 0x00, 0x00, // Value, patched below.
 		0x00, 0x00, 0x00, 0x00, // No next IFD.
 	}
-	tiff[18] = byte(orientation)
+	tiff[18] = byte(orientation) //nolint:gosec // EXIF orientation is 1..8
 
 	payload := append([]byte("Exif\x00\x00"), tiff...)
 

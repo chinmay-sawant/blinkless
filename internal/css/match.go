@@ -85,9 +85,10 @@ type sibParentData struct {
 	elems    []*html.Node
 	infos    map[*html.Node]siblingInfo
 	childLen int
+	// version is parent.ChildVersion when the entry was built.
+	version uint64
 }
 
-//nolint:gochecknoglobals // bounded shared sibling memo and its atomic counters
 var (
 	sibMu      sync.RWMutex
 	sibParents map[weak.Pointer[html.Node]]weak.Pointer[sibParentData]
@@ -167,7 +168,7 @@ func buildSibEntry(parent *html.Node) *sibParentData {
 		}
 	}
 
-	return &sibParentData{elems: elems, infos: infos, childLen: len(parent.Children)}
+	return &sibParentData{elems: elems, infos: infos, childLen: len(parent.Children), version: parent.ChildVersion}
 }
 
 // siblingEntryFor returns the memoized entry for parent, building it once.
@@ -185,7 +186,7 @@ func siblingEntryFor(parent *html.Node) *sibParentData {
 
 	curLen := len(parent.Children)
 
-	if entry != nil && entry.childLen == curLen {
+	if entry != nil && entry.childLen == curLen && entry.version == parent.ChildVersion {
 		atomic.AddInt64(&sibHits, 1)
 
 		return entry
@@ -195,7 +196,7 @@ func siblingEntryFor(parent *html.Node) *sibParentData {
 
 	sibMu.Lock()
 
-	if existing := sibParents[key].Value(); existing != nil && existing.childLen == curLen {
+	if existing := sibParents[key].Value(); existing != nil && existing.childLen == curLen && existing.version == parent.ChildVersion {
 		sibMu.Unlock()
 		atomic.AddInt64(&sibHits, 1)
 
@@ -423,20 +424,7 @@ func matchPseudoWalk(state MatchState, sel Selector, node *html.Node) bool {
 		return false
 	}
 
-	cur := node
-
-	const prevPartOffset = 2 // walk left: last part is host, start at len-2
-
-	for i := len(sel.Parts) - prevPartOffset; i >= 0; i-- {
-		next := leftmostStep(state, sel.Parts[i+1].Combinator, sel.Parts[i], cur)
-		if next == nil {
-			return false
-		}
-
-		cur = next
-	}
-
-	return true
+	return leftmostChain(state, sel.Parts, len(sel.Parts)-2, node, nil) != nil
 }
 
 // leftmostMatch walks the selector combinator chain right-to-left (same walk
@@ -451,21 +439,109 @@ func leftmostMatch(state MatchState, sel Selector, node *html.Node) *html.Node {
 		return nil
 	}
 
-	cur := node
 	// Combinator is stored on the right-hand part of each pair (how that
-	// part attaches to the previous). Walk left using Parts[i+1].Combinator.
-	const prevPartOffset = 2 // walk left: last part is host, start at len-2
+	// part attaches to the previous), so the walk uses Parts[i+1].Combinator.
+	return leftmostChain(state, sel.Parts, len(sel.Parts)-2, node, nil)
+}
 
-	for i := len(sel.Parts) - prevPartOffset; i >= 0; i-- {
-		next := leftmostStep(state, sel.Parts[i+1].Combinator, sel.Parts[i], cur)
+// chainFail memoizes (part index, node) pairs that already failed to match
+// the remaining left chain, keeping backtracking over descendant and general
+// sibling combinators polynomial. It is allocated on the first real branch.
+type chainFail map[chainFailKey]struct{}
+
+type chainFailKey struct {
+	i    int
+	node *html.Node
+}
+
+// leftmostChain matches parts[0..i] to the left of cur, which already matched
+// parts[i+1]. Descendant and general-sibling combinators try every candidate
+// (nearest first) and backtrack when the rest of the chain fails; child and
+// adjacent combinators have exactly one candidate. It returns the element
+// matching parts[0], or cur when i < 0, or nil when no assignment exists.
+func leftmostChain(state MatchState, parts []SelectorPart, i int, cur *html.Node, fail chainFail) *html.Node {
+	if i < 0 {
+		return cur
+	}
+
+	part := parts[i]
+
+	switch parts[i+1].Combinator {
+	case ">", "+":
+		next := leftmostStep(state, parts[i+1].Combinator, part, cur)
 		if next == nil {
 			return nil
 		}
 
-		cur = next
+		return leftmostChain(state, parts, i-1, next, fail)
+	case "~":
+		return leftmostSiblingChain(state, parts, i, cur, fail)
+	default: // descendant
+		for anc := cur.Parent; anc != nil; anc = anc.Parent {
+			if anc.Type != html.ElementNode || !matchPart(state, part, anc) {
+				continue
+			}
+
+			if got := leftmostTry(state, parts, i, anc, &fail); got != nil {
+				return got
+			}
+		}
+
+		return nil
+	}
+}
+
+// leftmostSiblingChain tries each earlier element sibling of cur (nearest
+// first) that matches parts[i].
+func leftmostSiblingChain(state MatchState, parts []SelectorPart, i int, cur *html.Node, fail chainFail) *html.Node {
+	if cur == nil || cur.Parent == nil {
+		return nil
 	}
 
-	return cur
+	entry := siblingEntryFor(cur.Parent)
+	if entry == nil {
+		return nil
+	}
+
+	info, ok := entry.infos[cur]
+	if !ok {
+		return nil
+	}
+
+	for k := info.index - 2; k >= 0; k-- {
+		cand := entry.elems[k]
+		if !matchPart(state, parts[i], cand) {
+			continue
+		}
+
+		if got := leftmostTry(state, parts, i, cand, &fail); got != nil {
+			return got
+		}
+	}
+
+	return nil
+}
+
+// leftmostTry recurses into the rest of the chain from a candidate for
+// parts[i], consulting and updating the failure memo.
+func leftmostTry(state MatchState, parts []SelectorPart, i int, cand *html.Node, fail *chainFail) *html.Node {
+	key := chainFailKey{i: i, node: cand}
+
+	if _, bad := (*fail)[key]; bad {
+		return nil
+	}
+
+	if got := leftmostChain(state, parts, i-1, cand, *fail); got != nil {
+		return got
+	}
+
+	if *fail == nil {
+		*fail = make(chainFail)
+	}
+
+	(*fail)[key] = struct{}{}
+
+	return nil
 }
 
 // leftmostStep advances cur one step left through the combinator chain: it
@@ -671,7 +747,6 @@ type attrCacheVal struct {
 	lowered string
 }
 
-//nolint:gochecknoglobals // bounded shared lowered-attribute memo
 var (
 	attrCacheMu sync.RWMutex
 	attrCache   map[attrCacheKey]attrCacheVal

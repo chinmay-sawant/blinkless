@@ -51,7 +51,6 @@ func declaredTakesParent(prop, keyword string) bool {
 	return keyword == inheritKeyword || (keyword == cssKeywordUnset && declaredInheritsByDefault(prop))
 }
 
-//nolint:gochecknoglobals // shared read-only zero value for nil Declared pointers
 var emptyDeclaredStyle declaredStyle
 
 func (style *ResolvedStyle) declared() *declaredStyle {
@@ -64,7 +63,7 @@ func (style *ResolvedStyle) declared() *declaredStyle {
 
 func (style *ResolvedStyle) ensureDeclared() *declaredStyle {
 	if style.Declared == nil {
-		style.Declared = &declaredStyle{} //nolint:exhaustruct // lazy zero-initialized store
+		style.Declared = &declaredStyle{}
 	}
 
 	return style.Declared
@@ -72,8 +71,6 @@ func (style *ResolvedStyle) ensureDeclared() *declaredStyle {
 
 // applyDeclaredProps stores one declared property on style. It returns false
 // for a property it does not own.
-//
-//nolint:cyclop // handles CSS-wide keywords and lazy nil-store fast paths
 func applyDeclaredProps(style *ResolvedStyle, prop, value string, parent *ResolvedStyle, hasParent bool) bool {
 	if declaredField(&emptyDeclaredStyle, prop) == nil {
 		return false

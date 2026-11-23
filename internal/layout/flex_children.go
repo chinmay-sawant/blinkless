@@ -16,8 +16,6 @@ const (
 )
 
 // flexKidPool provides reusable slices of html.Node pointers for flex child layout.
-//
-//nolint:gochecknoglobals // worker pool for child slices
 var flexKidPool = sync.Pool{
 	New: func() any {
 		s := make([]*html.Node, 0, defaultFlexKidsCapacity)
@@ -26,7 +24,6 @@ var flexKidPool = sync.Pool{
 	},
 }
 
-//nolint:forcetypeassert // pool stores *[]*html.Node
 func getFlexKids(capacity int) *[]*html.Node {
 	kidsPtr := flexKidPool.Get().(*[]*html.Node)
 	*kidsPtr = (*kidsPtr)[:0]
@@ -54,7 +51,6 @@ func (e *engine) flexChildren(node *html.Node, parentStyle *ResolvedStyle) []*ht
 	return kids
 }
 
-//nolint:cyclop // inspects DOM children for non-whitespace text runs and anonymous flex wrappers
 func (e *engine) flexChildrenPooled(node *html.Node, parentStyle *ResolvedStyle) ([]*html.Node, *[]*html.Node) {
 	allElements := true
 
@@ -102,7 +98,7 @@ func (e *engine) flexChildrenPooled(node *html.Node, parentStyle *ResolvedStyle)
 			}
 		}
 
-		anonymous := &html.Node{ //nolint:exhaustruct // synthetic anonymous flex item
+		anonymous := &html.Node{
 			Type: html.ElementNode, Name: "span", Parent: node, Children: textNodes,
 		}
 		anonymousStyle := e.allocAnonymousFlexItemStyle(parentStyle)
@@ -118,8 +114,6 @@ func (e *engine) flexChildrenPooled(node *html.Node, parentStyle *ResolvedStyle)
 
 // anonymousFlexItemStyle preserves inherited text properties while removing
 // the flex container's own box and layout properties from the anonymous item.
-//
-//nolint:funlen // resets the complete anonymous box model
 func applyAnonymousFlexItemStyle(style *ResolvedStyle) {
 	style.Display = displayBlock
 	style.Position = positionStatic
@@ -157,10 +151,10 @@ func applyAnonymousFlexItemStyle(style *ResolvedStyle) {
 	style.PaddingRight = 0
 	style.PaddingBottom = 0
 	style.PaddingLeft = 0
-	style.editBorders().BorderTop = border{}    //nolint:exhaustruct // zero border
-	style.editBorders().BorderRight = border{}  //nolint:exhaustruct // zero border
-	style.editBorders().BorderBottom = border{} //nolint:exhaustruct // zero border
-	style.editBorders().BorderLeft = border{}   //nolint:exhaustruct // zero border
+	style.editBorders().BorderTop = border{}
+	style.editBorders().BorderRight = border{}
+	style.editBorders().BorderBottom = border{}
+	style.editBorders().BorderLeft = border{}
 	style.editBorders().BorderRadius = 0
 	style.editBorders().BorderRadiusPercent = 0
 	style.editBorders().BorderRadiusTopLeft = 0

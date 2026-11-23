@@ -1,4 +1,3 @@
-//nolint:lll,dupword,gocyclo,maintidx // behavior fixtures
 package layout
 
 import (

@@ -649,15 +649,15 @@ func expectedKindName(op *layout.DisplayOp) string {
 	}
 
 	kindNames := map[layout.DisplayKind]string{
-		layout.DisplayOpNoop:     kindNoop,
-		layout.DisplayOpFillRect: kindFillRect,
+		layout.DisplayOpNoop:       kindNoop,
+		layout.DisplayOpFillRect:   kindFillRect,
 		layout.DisplayOpStrokeRect: kindStrokeRect,
-		layout.DisplayOpLine:     kindLine,
-		layout.DisplayOpText:     kindText,
-		layout.DisplayOpImage:    kindImage,
-		layout.DisplayOpLinkURI:  kindLinkURI,
-		layout.DisplayOpBullet:   kindBullet,
-		layout.DisplayOpGridRun:  kindGridRun,
+		layout.DisplayOpLine:       kindLine,
+		layout.DisplayOpText:       kindText,
+		layout.DisplayOpImage:      kindImage,
+		layout.DisplayOpLinkURI:    kindLinkURI,
+		layout.DisplayOpBullet:     kindBullet,
+		layout.DisplayOpGridRun:    kindGridRun,
 	}
 
 	if kindName, exists := kindNames[op.Kind]; exists {
@@ -865,58 +865,58 @@ func TestKindCoverage(t *testing.T) {
 		{
 			name:   "fillRect",
 			source: `<div style="width:40px;height:20px;background:#123456"></div>`,
-			check: assertFillRectCoverage,
+			check:  assertFillRectCoverage,
 		},
 		{
 			name:   "strokeRect",
 			source: `<div style="width:40px;height:20px;border:3px solid #f00;border-radius:4px;box-sizing:border-box"></div>`,
-			check: assertStrokeRectCoverage,
+			check:  assertStrokeRectCoverage,
 		},
 		{
 			name:   "line",
 			source: `<div style="width:40px;height:20px;border-left:3px solid #00f;box-sizing:border-box"></div>`,
-			check: assertLineCoverage,
+			check:  assertLineCoverage,
 		},
 		{
 			name:   "text",
 			source: `<p style="font-weight:bold">hello</p>`,
-			check: assertTextCoverage,
+			check:  assertTextCoverage,
 		},
 		{
 			name:   "image",
 			source: `<img alt="dot" src="` + dotPNG + `">`,
-			check: assertImageCoverage,
+			check:  assertImageCoverage,
 		},
 		{
 			name:   "linkURI",
 			source: `<a href="https://example.com/page">go</a>`,
-			check: assertLinkCoverage,
+			check:  assertLinkCoverage,
 		},
 		{
 			name:   "bullet",
 			source: `<ul><li>item</li></ul>`,
-			check: assertBulletCoverage,
+			check:  assertBulletCoverage,
 		},
 		{
 			name:   "gridRun",
 			source: `<table style="border-collapse:collapse"><tr><td style="border:1px solid #000">cell</td></tr></table>`,
-			check: assertGridCoverage,
+			check:  assertGridCoverage,
 		},
 		{
 			name:   "groupBegin",
 			source: `<div style="isolation:isolate"><p>in</p></div>`,
-			check: assertGroupBeginCoverage,
+			check:  assertGroupBeginCoverage,
 		},
 		{
 			name:   "groupEnd",
 			source: `<div style="mix-blend-mode:multiply"><p>in</p></div>`,
-			check: assertGroupEndCoverage,
+			check:  assertGroupEndCoverage,
 		},
 		{
 			name:   "transform",
 			kind:   "fillRect",
 			source: `<div style="transform:rotate(30deg);transform-origin:0 0;width:40px;height:20px;background:#0aa"></div>`,
-			check: assertTransformCoverage,
+			check:  assertTransformCoverage,
 		},
 	}
 
@@ -1118,7 +1118,7 @@ func assertImageOperationsShared(t *testing.T, list drawingListJSON) {
 func TestInlineImageResolverRejectsNonDataSources(t *testing.T) {
 	t.Parallel()
 
-	resolver := inlineImageResolver(context.Background()) //nolint:contextcheck // resolver captures the test context
+	resolver := inlineImageResolver(context.Background())
 
 	for _, source := range []string{"https://example.com/a.png", "logo.png", "/tmp/a.png", ""} {
 		if _, err := resolver(source); !errors.Is(err, errNonInlineImage) {
@@ -1188,7 +1188,7 @@ func findPaintTextOp(ops []drawOpJSON, text string) int {
 	}
 
 	return -1
-	}
+}
 
 func paintPosition(order []int, opIndex int) int {
 	for position, candidate := range order {

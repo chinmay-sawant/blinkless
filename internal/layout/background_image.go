@@ -1,4 +1,3 @@
-//nolint:varnamelen,cyclop,wsl,nlreturn,funlen,mnd,goconst,gocognit // background layers
 package layout
 
 import (
@@ -117,7 +116,7 @@ func (e *engine) appendBackgroundImage(
 			sty.background().BackgroundPosX, sty.background().BackgroundPosY, originX, originY, originW, originH, destW, destH,
 		)
 
-		baseOp := (Op{ //nolint:exhaustruct // intentional zero fields
+		baseOp := (Op{
 			Kind:         OpImage,
 			X:            destX,
 			Y:            destY,
@@ -179,7 +178,7 @@ func (e *engine) appendGradientLayer(
 		return dst
 	}
 
-	baseOp := (Op{ //nolint:exhaustruct // intentional zero fields
+	baseOp := (Op{
 		Kind:         OpImage,
 		X:            destX,
 		Y:            destY,
@@ -549,7 +548,7 @@ func backgroundImageSrc(layer string) string {
 // splitCommaLayers splits raw by top-level commas, not splitting commas inside
 // quotes or parentheses. Delegates to splitParenArgs helper.
 func splitCommaLayers(raw string) []string {
-	return splitParenArgs(raw, ',')
+	return splitParenArgs(raw)
 }
 
 func urlFunctionTarget(layer string) string {

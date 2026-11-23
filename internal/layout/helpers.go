@@ -1,13 +1,12 @@
-//nolint:all
 package layout
 
 import "strings"
 
-// splitParenArgs splits s by sep at top-level paren depth, respecting single and
+// splitParenArgs splits s on commas at top-level paren depth, respecting single and
 // double quotes. It trims each part and skips empty trailing parts, returning
 // nil for empty input. This consolidates depth-only parsers (transform,
 // grid_parse, gradient) and the quoted-aware background-image parser.
-func splitParenArgs(s string, sep byte) []string {
+func splitParenArgs(s string) []string {
 	if strings.TrimSpace(s) == "" {
 		return nil
 	}
@@ -38,7 +37,7 @@ func splitParenArgs(s string, sep byte) []string {
 				depth--
 			}
 		default:
-			if char == sep && depth == 0 {
+			if char == ',' && depth == 0 {
 				parts = append(parts, strings.TrimSpace(s[start:idx]))
 				start = idx + 1
 			}

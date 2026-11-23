@@ -49,7 +49,6 @@ func objectFitPaintRect(
 		imgX+imgW > boxX+boxW+0.01 || imgY+imgH > boxY+boxH+0.01)
 }
 
-//nolint:cyclop // object-fit has separate contain, cover, none, and scale-down rules
 func objectFitSize(fit string, boxW, boxH, intrinsicW, intrinsicH float64) (float64, float64) {
 	switch fit {
 	case "contain":

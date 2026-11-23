@@ -58,9 +58,8 @@ type sheetCollector struct {
 	inlineByNode map[*html.Node]*css.Stylesheet
 }
 
-//nolint:wsl,lll // stylesheet collection flow
 func collectSheets(ctx context.Context, resources load.ResourceContext, root *html.Node, opts SheetOptions, log io.Writer) ([]*css.Stylesheet, error) {
-	collector := sheetCollector{ //nolint:exhaustruct // empty result state
+	collector := sheetCollector{
 		resources: resources, opts: opts, log: log, seen: make(map[string]struct{}),
 	}
 	if root != nil {
@@ -152,7 +151,6 @@ func (collector *sheetCollector) preparseInlineStyles(ctx context.Context, root 
 	})
 }
 
-//nolint:nlreturn // collector traversal flow
 func (collector *sheetCollector) collectStyle(ctx context.Context, node *html.Node) {
 	if collector.err != nil {
 		return
@@ -177,7 +175,6 @@ func (collector *sheetCollector) collectStyle(ctx context.Context, node *html.No
 	collector.addWithImports(ctx, sheet, collector.resources.Base(), 0)
 }
 
-//nolint:wsl,nlreturn // collector traversal flow
 func (collector *sheetCollector) collectLink(ctx context.Context, node *html.Node) {
 	if collector.err != nil {
 		return
@@ -229,8 +226,6 @@ func (collector *sheetCollector) collectLink(ctx context.Context, node *html.Nod
 
 // addWithImports appends imported sheets (recursively) before sheet so @import
 // rules precede the importer, matching CSS cascade order.
-//
-//nolint:wsl // collector import flow
 func (collector *sheetCollector) addWithImports(ctx context.Context, sheet *css.Stylesheet, base string, depth int) {
 	if sheet == nil || collector.err != nil {
 		return
@@ -242,7 +237,6 @@ func (collector *sheetCollector) addWithImports(ctx context.Context, sheet *css.
 	collector.add(sheet)
 }
 
-//nolint:wsl,nlreturn // collector import flow
 func (collector *sheetCollector) fetchImports(ctx context.Context, sheet *css.Stylesheet, base string, depth int) {
 	if collector.err != nil || sheet == nil || len(sheet.Imports) == 0 {
 		return
@@ -370,7 +364,7 @@ func (collector *sheetCollector) fetchRef(ctx context.Context, base, ref string)
 	resources := collector.resources
 	if base != "" && base != resources.Base() {
 		if loader := resources.Loader(); loader != nil {
-			resources = loader.ForResource(&load.Resource{Base: base}, resources.PageLoad()) //nolint:exhaustruct,lll // base-only resource reference
+			resources = loader.ForResource(&load.Resource{Base: base}, resources.PageLoad())
 		}
 	}
 
@@ -471,7 +465,6 @@ func resolvedRef(base, ref string) string {
 	return baseURL.ResolveReference(parsed).String()
 }
 
-//nolint:wsl,nlreturn // collector accumulation flow
 func (collector *sheetCollector) add(sheet *css.Stylesheet) {
 	if sheet == nil {
 		return
@@ -485,7 +478,6 @@ func (collector *sheetCollector) add(sheet *css.Stylesheet) {
 	collector.sheets = append(collector.sheets, sheet)
 }
 
-//nolint:wsl,nlreturn // warning routing flow
 func (collector *sheetCollector) warn(format string, args ...any) {
 	if collector.log == nil {
 		return
@@ -497,7 +489,6 @@ func (collector *sheetCollector) warn(format string, args ...any) {
 	line.Emit(collector.log, line.Warn, format, args...)
 }
 
-//nolint:wsl,nlreturn // text extraction flow
 func styleText(node *html.Node) string {
 	var out strings.Builder
 	for _, child := range node.Children {
@@ -508,7 +499,6 @@ func styleText(node *html.Node) string {
 	return out.String()
 }
 
-//nolint:wsl,nlreturn // media predicate
 func linkStylesheet(node *html.Node, viewportW, viewportH float64, mediaType string) bool {
 	if node.Name != "link" || node.Attribute("href") == "" {
 		return false
@@ -520,7 +510,6 @@ func linkStylesheet(node *html.Node, viewportW, viewportH float64, mediaType str
 	return media == "" || css.MediaMatches(media, mediaType, viewportW, viewportH)
 }
 
-//nolint:wsl,nlreturn // font-face collection flow
 func mergeFontFaces(
 	ctx context.Context,
 	resources load.ResourceContext,
@@ -549,7 +538,6 @@ func mergeFontFaces(
 	return registry
 }
 
-//nolint:wsl,nlreturn // font-face collection flow
 func mergeFontFace(
 	ctx context.Context,
 	resources load.ResourceContext,
@@ -632,7 +620,6 @@ func allowFontFetch(fetches *int, capped *bool, idx int, log io.Writer) bool {
 	return true
 }
 
-//nolint:wsl,nlreturn // font-face collection flow
 func fetchFontFace(
 	ctx context.Context,
 	resources load.ResourceContext,

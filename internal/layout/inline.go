@@ -265,12 +265,12 @@ func (e *engine) makeInflowPseudoItem(
 	txt := e.pseudoContent(node, pseudoEl)
 
 	if txt == "" {
-		return inlineItem{}, false //nolint:exhaustruct
+		return inlineItem{}, false
 	}
 
 	pstyle := e.pseudoStyle(node, pseudoEl, host)
 	if pstyle.Position == positionAbsolute || pstyle.Position == positionFixed {
-		return inlineItem{}, false //nolint:exhaustruct
+		return inlineItem{}, false
 	}
 
 	item := e.textItem(txt, pstyle)
@@ -284,7 +284,7 @@ func (e *engine) inflowPseudoImage(
 ) (inlineItem, bool) {
 	pstyle := e.pseudoStyle(node, pseudoEl, host)
 	if pstyle.Position == positionAbsolute || pstyle.Position == positionFixed {
-		return inlineItem{}, false //nolint:exhaustruct
+		return inlineItem{}, false
 	}
 
 	imgW := e.scalePt(pxToPt(float64(ref.w)))
@@ -298,7 +298,7 @@ func (e *engine) inflowPseudoImage(
 		imgH = e.scalePt(pstyle.FontSize)
 	}
 
-	return inlineItem{img: true, imgRef: ref, w: imgW, h: imgH, style: pstyle}, true //nolint:exhaustruct
+	return inlineItem{img: true, imgRef: ref, w: imgW, h: imgH, style: pstyle}, true
 }
 
 // layoutInlineFloats lays out inline content into line boxes and emits
@@ -329,8 +329,6 @@ func (e *engine) layoutInlineFloats(
 
 // layoutInlineFloatsGeneric is the general inline collector and packer. The
 // fast path calls it whenever any guard in layoutSingleTextRun is uncertain.
-//
-//nolint:cyclop,gocognit,gocyclo,funlen,mnd,wsl,maintidx // hot path: per-line wrap against float exclusion zones
 func (e *engine) layoutInlineFloatsGeneric(
 	boxNode *box, nodes []*html.Node, contentW, contentX, lineY float64,
 	floats *floatState,
@@ -552,8 +550,8 @@ const maxPooledInlineItems = 256
 const initialInlineItemCapacity = 32
 
 var (
-	inlineItemGlobalPool = sync.Pool{} //nolint:exhaustruct,gochecknoglobals // shared inline-item slices
-	inlineItemHdrPool    = sync.Pool{} //nolint:exhaustruct,gochecknoglobals // shared slice headers
+	inlineItemGlobalPool = sync.Pool{}
+	inlineItemHdrPool    = sync.Pool{}
 )
 
 func getGlobalInlineItems() []inlineItem {
@@ -609,8 +607,6 @@ func (e *engine) releaseInlineItems(items []inlineItem) {
 // current float exclusion, splitting overlong tokens as needed. It returns
 // the next index and the updated line geometry (items may be replaced by the
 // split, hence the pointer).
-//
-//nolint:cyclop,gocognit,nestif,funlen // line packing has separate split, fit, and float paths
 func (e *engine) packInlineLine(
 	items *[]inlineItem, start int, lineX, lineW, leftY float64,
 	contentX, contentW float64, floats *floatState, inside *shapeExclusion, allowHyphen bool,
@@ -1154,8 +1150,6 @@ const (
 // splitTextToWidth breaks s into substrings that each fit max widths.
 // firstMax is for the first chunk (remaining space on the current line);
 // restMax is for subsequent chunks (full line content width).
-//
-//nolint:cyclop // multi-chunk text width splitting
 func (e *engine) splitTextToWidth(
 	text string, style *ResolvedStyle, firstMax, restMax float64, mode softBreakMode,
 ) []string {
@@ -1273,9 +1267,7 @@ func hidesPaint(style *ResolvedStyle) bool {
 // lastLine is true for the final line of the inline formatting context (used
 // so text-align:justify leaves the last line start-aligned). firstLine gates
 // text-box-trim on the block's first line box.
-//
-//nolint:cyclop // line emission and alignment dispatch
-func (e *engine) emitLine( //nolint:funlen
+func (e *engine) emitLine(
 	boxNode *box, items []inlineItem, start, end int,
 	availW, startX, lineY float64, lastLine, firstLine bool,
 ) float64 {
@@ -1381,8 +1373,6 @@ func (e *engine) emitLine( //nolint:funlen
 
 // emitLineItems paints each item of a line at the given baseline, flushing
 // the accumulated underline run when the styling changes.
-//
-//nolint:cyclop,wsl // blend scope restoration belongs immediately after item emission
 func (e *engine) emitLineItems(boxNode *box, line []inlineItem, leftX, baseline, lineH, lineY, justifyGap float64) {
 	var und undRun
 
@@ -1511,7 +1501,7 @@ func (e *engine) pushInlineBlend(style *ResolvedStyle) inlineBlendScope {
 
 	e.nextGroupID++
 
-	e.blendGroup = &BlendGroup{ //nolint:exhaustruct // mask frames are attached below
+	e.blendGroup = &BlendGroup{
 		ID:             e.nextGroupID,
 		Mode:           mode,
 		BackdropFilter: style.effects().BackdropFilter,
@@ -1633,9 +1623,7 @@ func (e *engine) trimTrailingSpace(line []inlineItem) {
 // lineMetrics returns the height of a line and the Y of its baseline.
 // block + trimStart/trimEnd apply CSS text-box-trim / text-box-edge on the
 // first and last line of a block container.
-//
-//nolint:cyclop // line metrics combine inline item classes and chrome
-func (e *engine) lineMetrics( //nolint:funlen
+func (e *engine) lineMetrics(
 	line []inlineItem, lineY float64, block *ResolvedStyle, trimStart, trimEnd bool,
 ) (float64, float64) {
 	maxAscent, maxDescent := 0.0, 0.0
@@ -1821,8 +1809,6 @@ func (e *engine) lineOriginAndGap(
 // ("word [1]"), and apostrophes ("Roth 's") on wiki print pages.
 // text-justify:none disables the expansion and text-justify:inter-character
 // expands inside the runs instead, so both return no word gap here.
-//
-//nolint:cyclop // text justification spacing
 func (e *engine) justifyGapOf(
 	line []inlineItem, availW, totalW float64, lastLine bool, blockStyle *ResolvedStyle,
 ) float64 {

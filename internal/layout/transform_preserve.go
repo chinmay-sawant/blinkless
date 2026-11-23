@@ -72,11 +72,10 @@ func preserveRangePaint(
 	if dist > 0 {
 		projection := projectiveTransform3DWorld(worldChain, vanishX, vanishY, dist)
 
-		return dist, composeProjectiveAffine(projection, parentAccum), Matrix2D{} //nolint:exhaustruct // projective path
+		return dist, composeProjectiveAffine(projection, parentAccum), Matrix2D{}
 	}
 
 	// Orthographic: no projective matrix, only the flattened affine.
-	//nolint:exhaustruct // the zero projective is unused on this path
 	return dist, ProjectiveTransform{}, parentAccum.Mul(matrix2DFromWorld3D(worldChain))
 }
 
@@ -210,7 +209,7 @@ func projectiveTransform3DWorld(world matrix3D, vanishX, vanishY, dist float64) 
 }
 
 func composeProjectiveInputAffine(projective ProjectiveTransform, affine Matrix2D) ProjectiveTransform {
-	return composeProjectiveTransforms(projective, ProjectiveTransform{ //nolint:exhaustruct // affine lift: G, H stay zero
+	return composeProjectiveTransforms(projective, ProjectiveTransform{
 		A: affine.A, B: affine.B, C: affine.C, D: affine.D, E: affine.E, F: affine.F, I: 1,
 	})
 }

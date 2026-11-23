@@ -103,7 +103,7 @@ func collectBookmarks(
 		return props, flat
 	}
 
-	bookmarks := &styleContext{ //nolint:exhaustruct // bookmark pass needs only cascade inputs
+	bookmarks := &styleContext{
 		sheets:     opts.Sheets,
 		properties: registeredProperties(opts.Sheets),
 		media:      opts.Media,

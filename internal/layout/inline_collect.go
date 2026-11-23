@@ -368,7 +368,7 @@ func (e *engine) collectPreservingNewlines(node *html.Node, sty *ResolvedStyle, 
 			return
 		}
 
-		*out = append(*out, inlineItem{forceBreak: true}) //nolint:exhaustruct // intentional zero fields
+		*out = append(*out, inlineItem{forceBreak: true})
 		start += end + 1
 	}
 }
@@ -649,7 +649,7 @@ func (e *engine) collectInlineElement(node *html.Node, sty *ResolvedStyle, out *
 	}
 
 	if wrapBreakLineBeforePtr(sty) {
-		*out = append(*out, inlineItem{forceBreak: true}) //nolint:exhaustruct // intentional zero fields
+		*out = append(*out, inlineItem{forceBreak: true})
 	}
 
 	start := len(*out)
@@ -663,7 +663,7 @@ func (e *engine) collectInlineElement(node *html.Node, sty *ResolvedStyle, out *
 	}
 
 	if wrapBreakLineAfterPtr(sty) {
-		*out = append(*out, inlineItem{forceBreak: true}) //nolint:exhaustruct // intentional zero fields
+		*out = append(*out, inlineItem{forceBreak: true})
 	}
 }
 
@@ -760,7 +760,7 @@ func (e *engine) collectInlineElementInner(node *html.Node, sty *ResolvedStyle, 
 	opEnd := len(e.ops)
 
 	if cblock != nil {
-		*out = append(*out, inlineItem{ //nolint:exhaustruct // intentional zero fields
+		*out = append(*out, inlineItem{
 			img: true, w: cblock.w, h: cblock.height, style: e.stylePtr(node),
 			blockBox: cblock, opStart: opStart, opEnd: opEnd,
 		})
@@ -774,7 +774,7 @@ func (e *engine) collectInlineElementInner(node *html.Node, sty *ResolvedStyle, 
 func (e *engine) collectInlineAtomic(node *html.Node, sty *ResolvedStyle, out *[]inlineItem) bool {
 	switch node.Name {
 	case cssTagBR:
-		*out = append(*out, inlineItem{forceBreak: true}) //nolint:exhaustruct // intentional zero fields
+		*out = append(*out, inlineItem{forceBreak: true})
 	case wordSpaceTagWBR:
 		e.collectWbr(node, sty, out)
 	case cssTagImg:
@@ -800,7 +800,7 @@ func (e *engine) collectImageItem(node *html.Node, sty *ResolvedStyle, out *[]in
 	// buildImage still takes a value (layout_images.go, outside this change),
 	// so one copy happens at this boundary; everything below uses the pointer.
 	imgBox := e.buildImage(node, *sty, 0, 0, false)
-	*out = append(*out, inlineItem{ //nolint:exhaustruct // intentional zero fields
+	*out = append(*out, inlineItem{
 		img:      true,
 		thumbImg: e.thumbImageInsideFigure(node),
 		imgRef:   imgBox.img,
@@ -845,7 +845,7 @@ func (e *engine) collectInlineBlockItem(node *html.Node, sty *ResolvedStyle, out
 			}
 		}
 
-		*out = append(*out, inlineItem{ //nolint:exhaustruct // intentional zero fields
+		*out = append(*out, inlineItem{
 			img: true, w: cblock.w, h: cblock.height, style: e.stylePtr(node),
 			blockBox: cblock, opStart: opStart, opEnd: opEnd,
 			marginL: e.scalePt(sty.MarginLeft), marginR: e.scalePt(sty.MarginRight),
@@ -941,7 +941,7 @@ func (e *engine) appendPseudoImage(
 		imgH = e.scalePt(pstyle.FontSize)
 	}
 
-	*out = append(*out, inlineItem{ //nolint:exhaustruct // pseudo url image
+	*out = append(*out, inlineItem{
 		img: true, imgRef: ref, w: imgW, h: imgH, style: pstyle,
 	})
 }
@@ -1067,7 +1067,7 @@ func (e *engine) textItem(text string, style *ResolvedStyle) inlineItem {
 		textWidth = verticalWritingColumnWidth(e, style)
 	}
 
-	return inlineItem{ //nolint:exhaustruct // intentional zero fields
+	return inlineItem{
 		text: text, style: style, w: textWidth, h: lineHeight,
 	}
 }
@@ -1084,7 +1084,7 @@ func (e *engine) wrappedWordItem(word string, style *ResolvedStyle, lineH, vertW
 		advance = vertW
 	}
 
-	return inlineItem{ //nolint:exhaustruct // intentional zero fields
+	return inlineItem{
 		text: word, style: style, w: advance, h: lineH,
 	}
 }
@@ -1142,7 +1142,6 @@ func transformInlineText(text, transform string) string {
 	}
 }
 
-//nolint:wsl,varnamelen // small Unicode word-start transform helper
 func capitalizeInlineText(text string) string {
 	var out strings.Builder
 	out.Grow(len(text))
@@ -1357,8 +1356,6 @@ func isAllWhitespace(s string) bool {
 // and href so one text op paints the whole phrase. Each merged string is
 // built once with a Builder (no per-merge string churn); items are compacted
 // in place, returning the surviving prefix.
-//
-//nolint:cyclop // per-item merge decision: image/break/href/style compare plus in-place compaction
 func (e *engine) coalesceTextItems(line []inlineItem) []inlineItem {
 	if len(line) < minInlinePairLen {
 		return line
@@ -1369,25 +1366,27 @@ func (e *engine) coalesceTextItems(line []inlineItem) []inlineItem {
 	writeIdx := 0
 	merged := false
 
+	// prev is the last surviving item, line[writeIdx-1] once writeIdx > 0.
+	var prev *inlineItem
+
 	for i := range line {
 		cur := line[i]
-		mergeable := writeIdx > 0 &&
-			!cur.img && !line[writeIdx-1].img && !cur.forceBreak &&
-			cur.href == line[writeIdx-1].href &&
-			cur.chrome == line[writeIdx-1].chrome &&
-			!cur.rubyAnnot && !line[writeIdx-1].rubyAnnot &&
-			sameInlineStyle(line[writeIdx-1].style, cur.style)
+		mergeable := prev != nil &&
+			!cur.img && !prev.img && !cur.forceBreak &&
+			cur.href == prev.href &&
+			cur.chrome == prev.chrome &&
+			!cur.rubyAnnot && !prev.rubyAnnot &&
+			sameInlineStyle(prev.style, cur.style)
 
 		if mergeable {
 			if !merged {
 				merged = true
 
-				builder.WriteString(line[writeIdx-1].text)
+				builder.WriteString(prev.text)
 			}
 
 			builder.WriteString(cur.text)
 
-			prev := &line[writeIdx-1]
 			// first item keeps marginL; last item's marginR wins
 			prev.w += cur.w
 			if prev.chrome {
@@ -1403,18 +1402,19 @@ func (e *engine) coalesceTextItems(line []inlineItem) []inlineItem {
 		}
 
 		if merged {
-			line[writeIdx-1].text = builder.String()
+			prev.text = builder.String()
 			builder.Reset()
 
 			merged = false
 		}
 
 		line[writeIdx] = cur
+		prev = &line[writeIdx]
 		writeIdx++
 	}
 
 	if merged {
-		line[writeIdx-1].text = builder.String()
+		prev.text = builder.String()
 	}
 
 	return line[:writeIdx]
@@ -1430,8 +1430,6 @@ func (e *engine) coalesceTextItems(line []inlineItem) []inlineItem {
 // comparison: a coalesced run paints with the surviving item's style, so
 // merging items whose rotation or decoration differs would silently drop the
 // second item's value.
-//
-//nolint:cyclop,dupl,gocyclo // intentionally a subset of the generated comparison
 func sameInlineStyle(acc, boxN *ResolvedStyle) bool {
 	if acc == boxN {
 		return true
@@ -1480,7 +1478,7 @@ func borderPaint(side border) float64 {
 	return side.Width
 }
 
-func collapseWS(src string) string { //nolint:cyclop // hot path: byte-wise whitespace collapsing
+func collapseWS(src string) string {
 	// Fast path: already a single-space-collapsed ASCII-friendly run with
 	// no tab/newline/formfeed and no double spaces. Skip Builder entirely.
 	if collapseWSNoop(src) {

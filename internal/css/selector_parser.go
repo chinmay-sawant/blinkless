@@ -165,15 +165,15 @@ func writePseudoLiteral(cur *strings.Builder, out []string, sel string, idx int)
 func parseCompoundCtx(sel string, insideHas bool) (SelectorPart, bool) {
 	sel = strings.TrimSpace(sel)
 	if sel == "" {
-		return SelectorPart{Tag: "*"}, true //nolint:exhaustruct // intentional zero-value fields
+		return SelectorPart{Tag: "*"}, true
 	}
 
 	tag, idx, valid := parseCompoundTag(sel)
 	if !valid {
-		return SelectorPart{}, false //nolint:exhaustruct // intentional zero-value fields
+		return SelectorPart{}, false
 	}
 
-	part := SelectorPart{Tag: tag} //nolint:exhaustruct // intentional zero-value fields
+	part := SelectorPart{Tag: tag}
 
 	for idx < len(sel) {
 		switch sel[idx] {
@@ -186,11 +186,11 @@ func parseCompoundCtx(sel string, insideHas bool) (SelectorPart, bool) {
 		case ':':
 			part, idx, valid = parseCompoundPseudo(sel, part, insideHas, idx)
 		default:
-			return SelectorPart{}, false //nolint:exhaustruct // intentional zero-value fields
+			return SelectorPart{}, false
 		}
 
 		if !valid {
-			return SelectorPart{}, false //nolint:exhaustruct // intentional zero-value fields
+			return SelectorPart{}, false
 		}
 	}
 
@@ -461,22 +461,22 @@ func isWherePseudo(name string, sels []Selector) PseudoClass {
 func parseAttrSelector(sel string) (AttrSelector, bool) {
 	// sel includes brackets: [href], [href="x"], [typeof~='mw:File/Thumb'], [class*="noprint"]
 	if len(sel) < 3 || sel[0] != '[' || sel[len(sel)-1] != ']' {
-		return AttrSelector{}, false //nolint:exhaustruct // intentional zero-value fields
+		return AttrSelector{}, false
 	}
 
 	inner := strings.TrimSpace(sel[1 : len(sel)-1])
 	if inner == "" {
-		return AttrSelector{}, false //nolint:exhaustruct // intentional zero-value fields
+		return AttrSelector{}, false
 	}
 	// Operator forms: ~= *= ^= $= |= =  (check multi-char before bare =)
 	nameEnd, oper := findAttrOperator(inner)
 
 	if nameEnd < 0 {
 		if !validIdent(inner) {
-			return AttrSelector{}, false //nolint:exhaustruct // intentional zero-value fields
+			return AttrSelector{}, false
 		}
 
-		return AttrSelector{Name: strings.ToLower(inner)}, true //nolint:exhaustruct // intentional zero-value fields
+		return AttrSelector{Name: strings.ToLower(inner)}, true
 	}
 
 	name := strings.TrimSpace(inner[:nameEnd])
@@ -492,7 +492,7 @@ func buildAttrSelector(name, oper, rawVal string) (AttrSelector, bool) {
 	val := stripAttrQuotes(rawVal)
 
 	if !validIdent(name) {
-		return AttrSelector{}, false //nolint:exhaustruct // intentional zero-value fields
+		return AttrSelector{}, false
 	}
 
 	switch oper {
@@ -509,7 +509,7 @@ func buildAttrSelector(name, oper, rawVal string) (AttrSelector, bool) {
 
 		return attr, true
 	default:
-		return AttrSelector{}, false //nolint:exhaustruct // intentional zero-value fields
+		return AttrSelector{}, false
 	}
 }
 

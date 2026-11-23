@@ -1,4 +1,3 @@
-//nolint:cyclop,exhaustruct,mnd,varnamelen // CSS shape-outside float exclusion geometry
 package layout
 
 import (

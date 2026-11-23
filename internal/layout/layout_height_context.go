@@ -44,7 +44,6 @@ func (e *engine) definiteContentHeight(style *ResolvedStyle) (float64, bool) {
 	return content, true
 }
 
-//nolint:wsl // setting and returning the previous scope are one state transition
 func (e *engine) setFlowCB(style *ResolvedStyle) (*float64, float64) {
 	previous := e.flowCBHeight
 	parentCB := e.containingBlockHeight()

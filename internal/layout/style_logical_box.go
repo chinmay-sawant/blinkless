@@ -65,7 +65,7 @@ func applyLogicalMarginVerticalLR(style *ResolvedStyle, prop, value string, fsiz
 	return true
 }
 
-//nolint:gocritic,nestif // writing mode and direction are independent cascade axes
+//nolint:gocritic // writing mode and direction are independent cascade axes
 func applyLogicalMarginPair(style *ResolvedStyle, prop, value string, fsize, viewportW float64) bool {
 	switch prop {
 	case cssPropMarginInline:
@@ -180,7 +180,7 @@ func applyLogicalPaddingVerticalLR(style *ResolvedStyle, prop, value string, fsi
 	return true
 }
 
-//nolint:gocritic,nestif // writing mode and direction are independent cascade axes
+//nolint:gocritic // writing mode and direction are independent cascade axes
 func applyLogicalPaddingPair(style *ResolvedStyle, prop, value string, fsize, viewportW float64) bool {
 	switch prop {
 	case cssPropPaddingInline:

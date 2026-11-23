@@ -65,8 +65,6 @@ func WalkPlaced(res *Result, fn func(elem *PlacedElement)) {
 // WalkPlacedWithOptions walks like WalkPlaced, computing only what opts
 // requests. Callers that need boxes, transforms, and operation ownership
 // without text use the zero value.
-//
-//nolint:varnamelen // fn is standard callback identifier
 func WalkPlacedWithOptions(res *Result, opts WalkPlacedOptions, fn func(elem *PlacedElement)) {
 	if res == nil || res.root == nil {
 		return
@@ -148,7 +146,6 @@ func countSubtreeOpIDs(boxNode *box, nOps int) int {
 	return total
 }
 
-//nolint:varnamelen // fn is standard callback identifier
 func walkPlacedFunc(
 	boxNode *box, ops []Op, parentIndex int, parentAccum Matrix2D, viewport svgViewport,
 	fn func(elem *PlacedElement), allIDs *[]uint64, index int, item *PlacedElement,
@@ -281,7 +278,7 @@ func fillPlacedElement(
 // skip the bake entirely and hand the parent matrix through.
 func placedTransformInfo(boxNode *box, parentAccum Matrix2D, viewport svgViewport) TransformInfo {
 	if boxNode == nil || boxNode.style == nil {
-		return TransformInfo{} //nolint:exhaustruct // no box, no metadata
+		return TransformInfo{}
 	}
 
 	sty := boxNode.style
@@ -469,8 +466,6 @@ func shiftPriorSubtreePatches(prior []subtreeBoxPatch, baseIdx, oldElem, delta i
 // ApplySubtreeBoxPatches walks only the patched subtrees of a batch, invoking
 // fn for each element box inside a patched subtree and ancFn for each unique
 // ancestor box up to the document root.
-//
-//nolint:varnamelen // fn is standard callback identifier
 func ApplySubtreeBoxPatches(
 	res *Result, batch *SubtreeBatchResult, opts WalkPlacedOptions,
 	boxCount int,
@@ -588,7 +583,6 @@ func ancestorPlacedContext(
 	return parentAccum, viewport, scroll, scroller
 }
 
-//nolint:varnamelen // fn is standard callback identifier
 func walkPatchedSubtreeBoxes(
 	res *Result, patch *subtreeBoxPatch, opts WalkPlacedOptions,
 	allIDs *[]uint64, item *PlacedElement,
@@ -661,7 +655,6 @@ func elementOverflowClip(boxNode *box) [4]float64 {
 	return [4]float64{c.x, c.y, c.w, c.h}
 }
 
-//nolint:gochecknoglobals // non-nil empty slice for elements without operation ownership
 var emptyOperationIDs = []uint64{}
 
 // appendOperationIDs collects the non-zero operation IDs in range in one

@@ -9,8 +9,6 @@ import (
 // flowFlexVerticalRow maps a row flex container's logical inline axis onto
 // physical Y. The ordinary row path is intentionally horizontal-only; this
 // path keeps vertical writing modes from silently laying their main axis on X.
-//
-//nolint:cyclop,wsl // logical-axis setup stays adjacent to its placement phases
 func (e *engine) flowFlexVerticalRow(
 	parent *box, kids []*html.Node, style ResolvedStyle,
 	contentW, contentX, topY, curY, gap float64,
@@ -74,8 +72,6 @@ func (e *engine) flowFlexVerticalRow(
 // flowFlexVerticalColumn maps a column flex container's logical block axis
 // onto physical X. Its cross axis is the logical inline axis, which is
 // physical Y in vertical writing modes.
-//
-//nolint:cyclop,funlen,nestif,wsl // the physical-axis mapping mirrors the row path
 func (e *engine) flowFlexVerticalColumn(
 	parent *box, kids []*html.Node, style ResolvedStyle,
 	contentW, contentX, topY, curY, gap float64,
@@ -160,7 +156,6 @@ func (e *engine) flowFlexVerticalColumn(
 	return curY + lineCross
 }
 
-//nolint:lll,wsl // intrinsic cross-size measurement mirrors the placement pass
 func (e *engine) measureVerticalColumnCrossMax(
 	items []flexMeas, widths []float64, startX, topY float64,
 ) float64 {
@@ -185,8 +180,6 @@ func (e *engine) measureVerticalColumnCrossMax(
 }
 
 // Cross-axis alignment is explicit for this path and keeps the physical mapping auditable.
-//
-//nolint:cyclop,funlen,gocognit,nlreturn,wsl
 func (e *engine) buildVerticalColumnItems(
 	parent *box, style *ResolvedStyle, items []flexMeas, widths []float64,
 	contentW, _ /* contentX */, topY, curY, startX, justifyGap, lineCross float64, definiteCross bool,
@@ -296,7 +289,6 @@ func (e *engine) measureVerticalColumnItemCross(
 	return itemHeight
 }
 
-//nolint:wsl // baseline target collection keeps each item decision adjacent
 func verticalColumnBaselineTarget(
 	container *ResolvedStyle, items []flexMeas, lineTop float64, eng *engine,
 ) map[*html.Node]float64 {
@@ -348,7 +340,6 @@ func flexCrossAlignment(container, item *ResolvedStyle) string {
 	return container.flex().AlignItems
 }
 
-//nolint:cyclop,wsl,nlreturn // vertical cross-axis alignment keeps CSS branches together
 func verticalColumnCrossY(
 	containerStyle, itemStyle *ResolvedStyle, lineTop, lineCross, itemCross float64,
 	crossReverse bool, baselineTarget float64, e *engine,
@@ -405,7 +396,6 @@ func verticalColumnCrossY(
 	return lineTop + top
 }
 
-//nolint:cyclop,funlen,wsl // vertical row placement mirrors the column placement phases
 func (e *engine) buildVerticalRowItems(
 	parent *box, style *ResolvedStyle, items []flexColMeas, heights []float64,
 	contentW, contentX, topY, curY, startY, justifyGap float64,
@@ -485,7 +475,6 @@ func (e *engine) buildVerticalRowItems(
 	return endY
 }
 
-//nolint:cyclop,nlreturn,varnamelen,wsl // vertical writing maps cross-axis alignment explicitly
 func verticalRowCrossX(
 	containerStyle *ResolvedStyle, contentX, contentW float64,
 	itemStyle *ResolvedStyle, itemW float64,
@@ -557,8 +546,6 @@ func flexRowPhysicalReverse(style *ResolvedStyle) bool {
 // flexRowNormalMargins returns the non-auto outer margins that consume row
 // main-axis space. Auto margins absorb only the positive space left after
 // flex sizing.
-//
-//nolint:varnamelen,wsl // e is the package's established engine receiver name
 func flexRowNormalMargins(e *engine, item flexMeas) float64 {
 	style := e.stylePtr(item.n)
 	margins := 0.0
@@ -575,8 +562,6 @@ func flexRowNormalMargins(e *engine, item flexMeas) float64 {
 // flexColumnMainMargins returns the normal, non-auto margins that consume
 // space on a column flex container's main axis. Flex items do not collapse
 // their vertical margins with one another.
-//
-//nolint:varnamelen,wsl // e is the package's established engine receiver name
 func flexColumnMainMargins(e *engine, item flexColMeas) float64 {
 	style := e.stylePtr(item.n)
 	margins := 0.0

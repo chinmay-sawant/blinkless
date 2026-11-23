@@ -16,8 +16,6 @@ const (
 // It does not key on class names or HTML comments. contentH is the page
 // content height convert will paint at; the CSS detector does not layout.
 // styles must be the document cascade resolved for the same options.
-//
-//nolint:cyclop // fail-closed detector is a flat checklist of disqualifiers
 func IndependentBlocks(
 	root *html.Node, styles map[*html.Node]*ResolvedStyle, contentH float64,
 ) ([]*html.Node, bool) {

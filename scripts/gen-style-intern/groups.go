@@ -89,7 +89,7 @@ type styleGroupBuilder struct {
 	}
 	buf.WriteString(`}
 
-var styleGroupBuilders = sync.Pool{New: func() any { return new(styleGroupBuilder) }} //nolint:gochecknoglobals // cascade scratch pool
+var styleGroupBuilders = sync.Pool{New: func() any { return new(styleGroupBuilder) }}
 
 func (s *ResolvedStyle) beginStyleGroups() {
 	s.groups = styleGroupBuilders.Get().(*styleGroupBuilder)
@@ -163,9 +163,9 @@ func (g *generator) renderStyleGroups(buf *bytes.Buffer) error {
 }
 
 func renderStyleGroup(buf *bytes.Buffer, g styleGroup, eqTerms, hashLines []string) {
-	fmt.Fprintf(buf, `var zeroStyle%[3]s %[4]s //nolint:gochecknoglobals // shared zero group
-var zeroStyle%[3]sHash = computeStyleHash%[3]s(&zeroStyle%[3]s) //nolint:gochecknoglobals // immutable fingerprint
-var initialStyle%[3]sHash = computeStyleHash%[3]s(&initialStyle%[3]s) //nolint:gochecknoglobals // immutable fingerprint
+	fmt.Fprintf(buf, `var zeroStyle%[3]s %[4]s
+var zeroStyle%[3]sHash = computeStyleHash%[3]s(&zeroStyle%[3]s)
+var initialStyle%[3]sHash = computeStyleHash%[3]s(&initialStyle%[3]s)
 
 func styleInternEqual%[3]s(a, b *%[4]s) bool {
 	if a == b && (a == nil || a == &initialStyle%[3]s) {

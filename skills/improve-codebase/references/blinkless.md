@@ -24,8 +24,7 @@ position are report features, not CSS completeness.
 | JSON | Browser contract | `bindings/wasm` (`serializeDisplay`) |
 
 `internal/convert/prepare` owns the load, parse, stylesheet, and
-font-resource phase; `internal/convert/render` owns the stage lifecycle
-(`Pipeline`). `internal/pubstate` carries the styled document between the
+font-resource phase. `internal/pubstate` carries the styled document between the
 public packages.
 
 ## DAG (do not invert)

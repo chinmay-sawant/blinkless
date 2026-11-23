@@ -78,31 +78,33 @@ The patch uses two pieces that already live in the engine:
 
 ## Selector index
 
-`internal/layout/style_rule_index.go` narrows the selectors one style pass has
-to test. `newRuleIndex` (`style_rule_index.go:47`) walks every sheet once and
-puts each selector in the bucket of its rightmost compound: an id, else the
-first class, else the tag, else the universal bucket (`ruleBucket`,
-`style_rule_index.go:35`). One key is enough because every key a selector lists
+`internal/style/ruleindex.go` (package `internal/style`, moved out of
+`internal/layout`; it imports only `internal/css` and `internal/html`) narrows
+the selectors one style pass has to test. `NewRuleIndex`
+(`ruleindex.go:70`) walks every sheet once and puts each selector in the
+bucket of its rightmost compound: an id, else the first class, else the tag,
+else the universal bucket (`ruleBucket`, `ruleindex.go:46`). One key is enough because every key a selector lists
 must be present for the selector to match.
 
 The index keeps the element cascade and the generated-content pass apart:
-`ruleIndex.host` holds selectors that end on the element, `ruleIndex.pseudo`
-holds selectors that end on `::before` or `::after`, and `ruleIndex.content`
+`RuleIndex.host` holds selectors that end on the element, `RuleIndex.pseudo`
+holds selectors that end on `::before` or `::after`, and `RuleIndex.content`
 records whether any pseudo rule declares `content`, so the generated-content
 walk can skip pseudo matching when no rule can generate content
-(`style_rule_index.go:24-32`). `candidates` (`:142`) returns the selectors
-whose rightmost compound can match the node, and `sortCandidates` (`:173`)
+(`ruleindex.go:35`). `Candidates` (`:320`) returns the selectors
+whose rightmost compound can match the node, and `SortCandidates` (`:397`)
 restores the sheet, rule, and selector order the linear walk used, so
 equal-order ties keep their result.
 
-`matchedRules` builds or reuses the index once per pass
-(`internal/layout/style_cascade.go:600`) and asks it for candidates before the
-media, container, and `@supports` gates (`style_cascade.go:542-582`). The
+`styleContext.matchedRules` (`internal/layout/style_match_cache.go:532`) takes
+the pass's shared index (`sharedRuleIndex`, `style_match_cache.go:149`, built
+by `style.NewRuleIndex` at `:140`) and asks it for candidates before the
+media, container, and `@supports` gates. The
 matcher still walks every part of a candidate. `forEachClass`
-(`style_rule_index.go:190`) splits class attributes on the same Unicode
+(`ruleindex.go:414`) splits class attributes on the same Unicode
 whitespace the matcher uses (`internal/css/match.go:789`, `:818`), so the index
 never skips a class the matcher would accept. The generated-content path builds
-its own index (`internal/layout/pseudo_content.go:104`).
+its own index (`engine.styleRuleIndex`, `internal/layout/pseudo_content.go:120`).
 
 `css.Document.UsesStatePseudo` lets a host skip a redraw for `:hover`,
 `:active`, or `:focus` when no selector can match that state

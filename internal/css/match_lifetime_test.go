@@ -8,7 +8,6 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
-//nolint:paralleltest // checks the process-wide selector memos across garbage collection
 func TestSelectorMemosDoNotKeepDroppedTreesAlive(t *testing.T) {
 	resetMatchMemoForTest()
 	defer resetMatchMemoForTest()

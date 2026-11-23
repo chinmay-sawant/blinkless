@@ -84,8 +84,6 @@ func (e *engine) hyphenateZoneWidth(style *ResolvedStyle, lineW float64) float64
 // shyBreakIndex picks a soft-hyphen split that fits remainW, honors
 // hyphenate-limit-chars, and (when zone > 0) keeps leftover slack inside the
 // zone. Returns the rune index of the SHY (exclusive end of left piece) or -1.
-//
-//nolint:cyclop,nestif // soft-hyphen selection combines width, zone, and limit rules
 func (e *engine) shyBreakIndex(
 	text string, style *ResolvedStyle, remainW, lineW float64,
 ) int {

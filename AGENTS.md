@@ -123,7 +123,7 @@ The real gates, in order of cost:
 |------|---------|----------------|
 | Unit + integration | `make test` | Full suite green (`-p 2 -parallel 2` by default; see Makefile) |
 | Claims | `make claim-scan` | No forbidden claims (stdlib-only, Qt WebKit, byte-identical determinism, etc.) in doc.go, README.md, documentation/*.md, documentation/architecture/*.md |
-| Lint | `make lint` | golangci-lint (pinned v1.64.8) clean; chains `size-check` (file-size ledger) |
+| Lint | `make lint` | golangci-lint (pinned v2.15.0, strict `nolintlint`) clean on the host build and on `bindings/wasm` under `GOOS=js GOARCH=wasm`; chains `size-check` (file-size ledger) |
 | Golden corpus | `make golden` | Public drawing-list tests in `./layout` (`TestDisplay`) |
 | Release | `RELEASE.md` checklist | Hard gates for any release: `go build ./...`, `make test-quick`, `make golden`, `make lint`, `make claim-scan`; the removed writer-era checks (veraPDF, PDF byte compares) are off the table |
 

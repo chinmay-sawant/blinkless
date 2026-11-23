@@ -94,7 +94,7 @@ func TestRelayoutSpliceOpsMatchesTheAllocatingCopy(t *testing.T) {
 // splice that keeps the operation count overwrites the window and copies
 // nothing page-wide. It is deliberately sequential: AllocsPerRun refuses to run
 // inside a parallel test.
-func TestRelayoutSpliceOpsSameLengthDoesNotAllocate(t *testing.T) { //nolint:paralleltest // AllocsPerRun needs serial
+func TestRelayoutSpliceOpsSameLengthDoesNotAllocate(t *testing.T) {
 	const (
 		total    = 2048
 		start    = 100

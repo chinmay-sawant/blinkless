@@ -64,6 +64,10 @@ func TestRegistryResolvesBundledDejaVuSans(t *testing.T) {
 }
 
 func TestLookupExactBeforeGeneric(t *testing.T) {
+	if testing.Short() {
+		t.Skip("scans system font directories (~2s); skipped by make test-quick")
+	}
+
 	t.Parallel()
 
 	reg := ScanFontDirs(DefaultSystemFontDirs())

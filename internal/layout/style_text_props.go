@@ -1,4 +1,3 @@
-//nolint:cyclop,funlen,mnd,goconst,wsl,nlreturn // text and decoration property helpers
 package layout
 
 import (

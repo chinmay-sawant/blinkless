@@ -276,6 +276,10 @@ const oversizeShapeSlop = 16
 // on this face, so an unchanged result on the big run must come from the cap.
 // Latin needs no shaping, so the fallback is the input unchanged.
 func TestOversizeShapeRunFallsBack(t *testing.T) {
+	if testing.Short() {
+		t.Skip("wall-clock fallback budget on an oversized run; skipped by make test-quick")
+	}
+
 	t.Parallel()
 
 	fnt := bundledDejaVu(t)
@@ -324,14 +328,9 @@ func buildTwoTableDirectory(t *testing.T, off1, len1, off2, len2 int) []byte {
 	putTable := func(rec int, tag string, off, length int) {
 		base := sfntOffsetTableSize + rec*sfntTableRecordSize
 		copy(data[base:], tag)
-		data[base+8] = byte(off >> 24)
-		data[base+9] = byte(off >> 16)
-		data[base+10] = byte(off >> 8)
-		data[base+11] = byte(off)
-		data[base+12] = byte(length >> 24)
-		data[base+13] = byte(length >> 16)
-		data[base+14] = byte(length >> 8)
-		data[base+15] = byte(length)
+		// Fixture offsets and lengths are small positive ints.
+		binary.BigEndian.PutUint32(data[base+8:], uint32(off))     //nolint:gosec // small positive test fixture value
+		binary.BigEndian.PutUint32(data[base+12:], uint32(length)) //nolint:gosec // small positive test fixture value
 	}
 
 	putTable(0, "head", off1, len1)

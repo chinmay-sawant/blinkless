@@ -41,8 +41,6 @@ var (
 )
 
 // woff2KnownTags maps the 6-bit tag index from the WOFF2 specification.
-//
-//nolint:gochecknoglobals // immutable WOFF2 vocabulary
 var woff2KnownTags = [woff2TagMask]string{
 	"cmap", "head", "hhea", "hmtx", "maxp", "name", "OS/2", "post",
 	"cvt ", "fpgm", "glyf", "loca", "prep", "CFF ", "VORG", "EBDT",

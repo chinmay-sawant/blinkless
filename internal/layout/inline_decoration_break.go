@@ -225,7 +225,7 @@ func (e *engine) paintInlineDecorationBorder(style *ResolvedStyle, boxX, boxY, b
 	radii, radiiY := usedBorderRadiiXY(style, boxW, boxH)
 	if hasRoundedRadii(radii) && uniformRoundedBorder(style) {
 		side := style.borders().BorderTop
-		stroke := Op{ //nolint:exhaustruct // intentional zero fields
+		stroke := Op{
 			Kind: OpStrokeRect, X: boxX, Y: boxY, W: boxW, H: boxH,
 			R: side.Color[0], G: side.Color[1], B: side.Color[2],
 			Width: e.scalePt(borderPaint(side)), Radius: uniformRadius(radii),

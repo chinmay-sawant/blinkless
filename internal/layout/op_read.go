@@ -305,7 +305,7 @@ func (op Op) Transform() Matrix2D {
 // Unlike Transform, it does not allocate or bind the shared empty payload.
 func (op *Op) XformValue() Matrix2D {
 	if op == nil || op.opExtra == nil {
-		return Matrix2D{} //nolint:exhaustruct // no transform payload
+		return Matrix2D{}
 	}
 
 	return op.opExtra.Xform
@@ -315,7 +315,7 @@ func (op *Op) XformValue() Matrix2D {
 // The returned points belong to the display list and must not be modified.
 func (op Op) PathValue() (DisplayPath, bool) {
 	if op.opExtra == nil || !op.opExtra.HasPath {
-		return DisplayPath{}, false //nolint:exhaustruct // intentional zero-value fields
+		return DisplayPath{}, false
 	}
 
 	return op.opExtra.Path, true
@@ -324,7 +324,7 @@ func (op Op) PathValue() (DisplayPath, bool) {
 // GlyphBasisValue returns the final local basis for a projected text run.
 func (op Op) GlyphBasisValue() (GlyphBasis, bool) {
 	if op.opExtra == nil || !op.opExtra.HasGlyphBasis {
-		return GlyphBasis{}, false //nolint:exhaustruct // intentional zero-value fields
+		return GlyphBasis{}, false
 	}
 
 	return op.opExtra.GlyphBasis, true
@@ -334,7 +334,7 @@ func (op Op) GlyphBasisValue() (GlyphBasis, bool) {
 // list could not turn into final vector geometry, such as a textured image.
 func (op Op) ProjectiveTransformValue() (ProjectiveTransform, bool) {
 	if op.opExtra == nil || !op.opExtra.HasProjective {
-		return ProjectiveTransform{}, false //nolint:exhaustruct // intentional zero-value fields
+		return ProjectiveTransform{}, false
 	}
 
 	return op.opExtra.Projective, true

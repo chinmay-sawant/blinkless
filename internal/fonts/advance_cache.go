@@ -16,7 +16,7 @@ const maxAdvUnitsCacheEntries = 2048
 // than maxAdvUnitsCacheEntries.
 const initialAdvUnitsCacheEntries = 64
 
-// maxScaledFaces bounds the shared scaled-face cache. A document with a
+// maxScaledFaces bounds the scaled faces cached on one Font. A document with a
 // dozen sizes stays far below the cap, while a hostile size sweep stops
 // storing instead of pinning one entry per distinct size.
 const maxScaledFaces = 256
@@ -88,15 +88,6 @@ func (f *Font) advanceUnits(runeValue rune) float64 {
 	return units
 }
 
-// scaleCacheKey identifies one shared scaled face: the resolved face pointer
-// plus the requested size bits. The face pointer already encodes family,
-// weight, and style because FaceSet resolution returns a distinct *Font per
-// style variant and Instance returns a distinct *Font per variation set.
-type scaleCacheKey struct {
-	face     *Font
-	sizeBits uint64
-}
-
 // ScaledFace is one face at one size with a shared points-advance cache. Face
 // and Size are immutable after creation. Advance is safe for concurrent use,
 // and SharedScaledFace shares each instance across layouts.
@@ -166,63 +157,55 @@ func (s *ScaledFace) Advance(runeValue rune) float64 {
 	return value
 }
 
-// scaledFaceCache is the cross-layout store of ScaledFace values. The RWMutex
-// guards every map access so concurrent layouts share without racing.
-type scaledFaceCache struct {
-	mu      sync.RWMutex
-	entries map[scaleCacheKey]*ScaledFace
-}
-
-//nolint:gochecknoglobals // cross-layout scaled-face cache, guarded by RWMutex.
-var sharedScaledFaces = &scaledFaceCache{ //nolint:exhaustruct // mutex zero value is intentional.
-	entries: make(map[scaleCacheKey]*ScaledFace),
-}
-
 // SharedScaledFace returns the shared scaled face for one resolved face at one
 // size. Identical requests return the same pointer, so their points-advance
 // caches survive across layouts. A nil face or a non-positive or non-finite
-// size bypasses the cache with a transient instance. When the cache is full,
-// the call also returns a transient instance that still measures correctly.
+// size bypasses the cache with a transient instance. When the face already
+// holds maxScaledFaces sizes, the call also returns a transient instance that
+// still measures correctly.
+//
+// The cache lives on the Font, not in a process-global map, so an unloaded
+// font (and the scaled faces that point back at it) is garbage collected as
+// one unit instead of being pinned by a global key.
 func SharedScaledFace(face *Font, size float64) *ScaledFace {
 	if face == nil || !isValidScaleSize(size) {
-		return &ScaledFace{ //nolint:exhaustruct // transient, never stored.
+		return &ScaledFace{
 			face: face,
 			size: size,
 		}
 	}
 
-	key := scaleCacheKey{face: face, sizeBits: math.Float64bits(size)}
+	bits := math.Float64bits(size)
 
-	sharedScaledFaces.mu.RLock()
+	face.scaledMu.RLock()
+	cached, ok := face.scaledFaces[bits]
+	face.scaledMu.RUnlock()
 
-	if cached, ok := sharedScaledFaces.entries[key]; ok {
-		sharedScaledFaces.mu.RUnlock()
-
+	if ok {
 		return cached
 	}
 
-	sharedScaledFaces.mu.RUnlock()
+	face.scaledMu.Lock()
+	defer face.scaledMu.Unlock()
 
-	sharedScaledFaces.mu.Lock()
-	defer sharedScaledFaces.mu.Unlock()
-
-	if cached, ok := sharedScaledFaces.entries[key]; ok {
+	if cached, ok := face.scaledFaces[bits]; ok {
 		return cached
 	}
 
-	if len(sharedScaledFaces.entries) >= maxScaledFaces {
-		return &ScaledFace{ //nolint:exhaustruct // cache full, never stored.
-			face: face,
-			size: size,
-		}
-	}
-
-	scaled := &ScaledFace{ //nolint:exhaustruct // points map grows on first Advance.
+	scaled := &ScaledFace{
 		face: face,
 		size: size,
 	}
 
-	sharedScaledFaces.entries[key] = scaled
+	if len(face.scaledFaces) >= maxScaledFaces {
+		return scaled
+	}
+
+	if face.scaledFaces == nil {
+		face.scaledFaces = make(map[uint64]*ScaledFace)
+	}
+
+	face.scaledFaces[bits] = scaled
 
 	return scaled
 }

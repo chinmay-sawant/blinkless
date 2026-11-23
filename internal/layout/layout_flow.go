@@ -129,7 +129,7 @@ func imageCacheKey(src, linkParams string) string {
 
 // decodeImageRef rasterizes SVG bytes, or reads the size of a raster image.
 func (e *engine) decodeImageRef(src string, data []byte) *imageRef {
-	ref := &imageRef{src: src, sourceData: data, data: data} //nolint:exhaustruct // intentional zero fields
+	ref := &imageRef{src: src, sourceData: data, data: data}
 	if png, pw, ph, err := svg.RasterizeContext(e.rasterContext(), data, svgRasterMaxDim); err == nil {
 		ref.data, ref.w, ref.h = png, pw, ph
 	} else if w, h, jpeg, ok := imageDims(data); ok {
@@ -155,8 +155,6 @@ func (e *engine) resolveImageData(src string) ([]byte, error) {
 }
 
 // isInlineChild reports whether n participates in an inline formatting context.
-//
-//nolint:cyclop // inline classification follows display and replaced-content rules
 func (e *engine) isInlineChild(node *html.Node) bool {
 	if node.Type == html.TextNode {
 		return true
@@ -703,8 +701,6 @@ func isFlowFloat(node *html.Node, st *ResolvedStyle) bool {
 
 // collectInlineRun gathers a maximal run of inline children starting at idx,
 // skipping display:none elements and keeping interior whitespace.
-//
-//nolint:cyclop // hot-path run scanner; splitting adds indirection for no clarity
 func collectInlineRun(children []*html.Node, idx int, engine *engine) ([]*html.Node, int) {
 	start := idx
 	hasDisplayNone := false
@@ -771,7 +767,7 @@ func attachFlowBox(parent *box, child *box, engine *engine) {
 	parent.children = append(parent.children, child)
 
 	if engine.opts.DebugBoxes {
-		engine.add(Op{ //nolint:exhaustruct // intentional zero fields
+		engine.add(Op{
 			Kind: OpStrokeRect, X: child.x, Y: child.y, W: child.w, H: child.height, R: 1, G: 0, B: 0,
 		})
 	}
@@ -1096,7 +1092,7 @@ func (e *engine) popBFCFloats(enclose bool) {
 	}
 
 	if cur := e.bfcFloats; cur != nil {
-		*cur = floatState{} //nolint:exhaustruct // clear before pool reuse
+		*cur = floatState{}
 		e.bfcPool = append(e.bfcPool, cur)
 	}
 
@@ -1190,7 +1186,7 @@ func (e *engine) emitListMarker(node *html.Node, style *ResolvedStyle, contentX,
 
 	posX := listMarkerX(style.content().ListStylePosition, contentX, size, minW)
 
-	e.add(Op{ //nolint:exhaustruct // intentional zero fields
+	e.add(Op{
 		Kind: OpBullet, X: posX, Y: baseline, Text: text, Font: face, Size: size,
 		InkDescent: e.fontDescentFace(face, size),
 		R:          style.Color[0], G: style.Color[1], B: style.Color[2],
@@ -1229,7 +1225,7 @@ func (e *engine) emitListStyleImageMarker(
 
 	posX := listMarkerX(style.content().ListStylePosition, contentX, size, imgW)
 
-	e.add((Op{ //nolint:exhaustruct // intentional zero fields
+	e.add((Op{
 		Kind:   OpImage,
 		X:      posX,
 		Y:      baseline - imgH,
@@ -1361,7 +1357,7 @@ func romanMarker(node int, upper bool) string {
 // placeFloat lays out n as a float:left|right box and records it in floats.
 // Consecutive same-side floats pack horizontally when width remains;
 // otherwise they stack below the previous float bottom.
-func (e *engine) placeFloat( //nolint:cyclop,funlen
+func (e *engine) placeFloat(
 	node *html.Node, cstate *ResolvedStyle, floats *floatState, contentW, contentX, posY, curY float64,
 ) *box {
 	flowY := posY + curY

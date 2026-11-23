@@ -47,6 +47,11 @@ type Node struct {
 	Type      NodeType
 	Namespace Namespace
 	Mode      DocumentMode // document mode; only meaningful on the root
+	// ChildVersion changes whenever this node's Children slice is replaced or
+	// spliced after parsing. Memoized sibling data keys on it, so a same-length
+	// replacement (an element swapped for a text node) is not mistaken for an
+	// unchanged child list. Code that edits Children must bump it.
+	ChildVersion uint64
 	// MutationVersion changes when the public HTML document edits this tree.
 	// It is stored on the document root.
 	MutationVersion uint64
@@ -106,8 +111,30 @@ func (n *Node) HasAttr(name string) bool {
 	return ok
 }
 
+// AttrMap returns the node's attributes as a map without mutating n. When the
+// parser kept the list map-free it builds a fresh map each call, so it is safe
+// for concurrent read-only passes over a shared tree; callers must not write
+// to the result. Use EnsureAttrs only on mutation paths that own the tree.
+func (n *Node) AttrMap() map[string]string {
+	if n == nil {
+		return nil
+	}
+
+	if n.Attrs != nil || len(n.AttrList) == 0 {
+		return n.Attrs
+	}
+
+	m := make(map[string]string, len(n.AttrList))
+	for _, a := range n.AttrList {
+		m[a.Key()] = a.Value
+	}
+
+	return m
+}
+
 // EnsureAttrs returns n.Attrs, materializing it from n.AttrList on demand when
-// the parser kept small attribute lists map-free.
+// the parser kept small attribute lists map-free. It writes n.Attrs, so it is
+// NOT safe on a tree shared between goroutines; read-only passes use AttrMap.
 func (n *Node) EnsureAttrs() map[string]string {
 	if n == nil {
 		return nil
@@ -361,7 +388,7 @@ const maxParseInputBytes = 64 * 1024 * 1024
 // ParseDocument for the bytes-to-tree path (it strips the BOM), or
 // ParseWithLimit when an explicit bound is needed.
 func Parse(source string) (*Node, error) {
-	root := &Node{Type: ElementNode, Name: "#document"} //nolint:exhaustruct
+	root := &Node{Type: ElementNode, Name: "#document"}
 	builder := getTreeBuilder(root)
 
 	scanTokens(source, builder.appendToken, builder.foreignCDATAAllowed)
@@ -589,14 +616,14 @@ func scanTokens(src string, emit tokenSink, allowCDATA cdataPolicy) {
 				span = srcLen - pos
 			}
 
-			emit(token{kind: tokText, data: UnescapeEntities(src[pos : pos+span])}) //nolint:exhaustruct
+			emit(token{kind: tokText, data: UnescapeEntities(src[pos : pos+span])})
 			pos += span
 
 			continue
 		}
 
 		if pos+1 >= srcLen {
-			emit(token{kind: tokText, data: "<"}) //nolint:exhaustruct
+			emit(token{kind: tokText, data: "<"})
 
 			break
 		}
@@ -613,7 +640,7 @@ func scanTokens(src string, emit tokenSink, allowCDATA cdataPolicy) {
 		case isASCIILetter(src[pos+1]):
 			next = scanStartTag(src, pos, emit, &attrScratch)
 		default:
-			emit(token{kind: tokText, data: "<"}) //nolint:exhaustruct
+			emit(token{kind: tokText, data: "<"})
 
 			next = pos + 1
 		}
@@ -665,7 +692,7 @@ func scanCDATA(src string, pos int, emit tokenSink) int {
 
 		if j < len(src) && src[j] == '>' && j-i >= 2 {
 			if text := src[start : j-2]; text != "" {
-				emit(token{kind: tokText, data: text}) //nolint:exhaustruct
+				emit(token{kind: tokText, data: text})
 			}
 
 			return j + 1
@@ -675,7 +702,7 @@ func scanCDATA(src string, pos int, emit tokenSink) int {
 	}
 
 	if text := src[start:]; text != "" {
-		emit(token{kind: tokText, data: text}) //nolint:exhaustruct
+		emit(token{kind: tokText, data: text})
 	}
 
 	return len(src)
@@ -686,12 +713,12 @@ func scanCDATA(src string, pos int, emit tokenSink) int {
 func scanBogusComment(src string, from int, initial string, emit tokenSink) int {
 	end := strings.IndexByte(src[from:], '>')
 	if end < 0 {
-		emit(token{kind: tokComment, data: replaceNUL(initial + src[from:])}) //nolint:exhaustruct
+		emit(token{kind: tokComment, data: replaceNUL(initial + src[from:])})
 
 		return len(src)
 	}
 
-	emit(token{kind: tokComment, data: replaceNUL(initial + src[from:from+end])}) //nolint:exhaustruct
+	emit(token{kind: tokComment, data: replaceNUL(initial + src[from:from+end])})
 
 	return from + end + 1
 }
@@ -728,7 +755,7 @@ func scanComment(src string, pos int, emit tokenSink) int {
 
 				i++
 			case '>':
-				emit(token{kind: tokComment, data: b.String()}) //nolint:exhaustruct
+				emit(token{kind: tokComment, data: b.String()})
 
 				return i + 1
 			default:
@@ -741,7 +768,7 @@ func scanComment(src string, pos int, emit tokenSink) int {
 
 				i++
 			case '>':
-				emit(token{kind: tokComment, data: b.String()}) //nolint:exhaustruct
+				emit(token{kind: tokComment, data: b.String()})
 
 				return i + 1
 			default:
@@ -777,7 +804,7 @@ func scanComment(src string, pos int, emit tokenSink) int {
 		case commentEndState:
 			switch c {
 			case '>':
-				emit(token{kind: tokComment, data: b.String()}) //nolint:exhaustruct
+				emit(token{kind: tokComment, data: b.String()})
 
 				return i + 1
 			case '!':
@@ -802,7 +829,7 @@ func scanComment(src string, pos int, emit tokenSink) int {
 
 				i++
 			case '>':
-				emit(token{kind: tokComment, data: b.String()}) //nolint:exhaustruct
+				emit(token{kind: tokComment, data: b.String()})
 
 				return i + 1
 			default:
@@ -813,7 +840,7 @@ func scanComment(src string, pos int, emit tokenSink) int {
 		}
 	}
 
-	emit(token{kind: tokComment, data: b.String()}) //nolint:exhaustruct
+	emit(token{kind: tokComment, data: b.String()})
 
 	return len(src)
 }
@@ -950,7 +977,7 @@ func internTagName(s string) string {
 func scanEndTag(src string, pos int, emit tokenSink) int {
 	i := pos + 2
 	if i >= len(src) {
-		emit(token{kind: tokText, data: "</"}) //nolint:exhaustruct
+		emit(token{kind: tokText, data: "</"})
 
 		return len(src)
 	}
@@ -980,13 +1007,13 @@ func scanEndTag(src string, pos int, emit tokenSink) int {
 	}
 
 	if w < len(src) && src[w] == '>' {
-		emit(token{kind: tokEnd, data: name}) //nolint:exhaustruct
+		emit(token{kind: tokEnd, data: name})
 
 		return w + 1
 	}
 
 	if w+1 < len(src) && src[w] == '/' && src[w+1] == '>' {
-		emit(token{kind: tokEnd, data: name}) //nolint:exhaustruct
+		emit(token{kind: tokEnd, data: name})
 
 		return w + 2 // end tag with trailing solidus
 	}
@@ -997,7 +1024,7 @@ func scanEndTag(src string, pos int, emit tokenSink) int {
 		return len(src)
 	}
 
-	emit(token{kind: tokEnd, data: name}) //nolint:exhaustruct
+	emit(token{kind: tokEnd, data: name})
 
 	return next
 }
@@ -1438,11 +1465,11 @@ func scanStartTag(src string, pos int, emit tokenSink, attrScratch *[]string) in
 		}
 
 		if text != "" {
-			emit(token{kind: tokText, data: text}) //nolint:exhaustruct
+			emit(token{kind: tokText, data: text})
 		}
 
 		if closed {
-			emit(token{kind: tokEnd, data: name}) //nolint:exhaustruct
+			emit(token{kind: tokEnd, data: name})
 
 			return after
 		}
@@ -1452,7 +1479,7 @@ func scanStartTag(src string, pos int, emit tokenSink, attrScratch *[]string) in
 
 	if name == "plaintext" {
 		if rest := replaceNUL(src[next:]); rest != "" {
-			emit(token{kind: tokText, data: rest}) //nolint:exhaustruct
+			emit(token{kind: tokText, data: rest})
 		}
 
 		return len(src)

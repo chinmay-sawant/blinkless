@@ -1,74 +1,11 @@
-//nolint:all
 package layout
 
 import (
-	"math"
-	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
-
-func bandEmSize(ops []Op, indices []int) float64 {
-	emSize := 8.0
-
-	for _, i := range indices {
-		if ops[i].Size > 0 {
-			emSize = ops[i].Size
-
-			break
-		}
-	}
-
-	return emSize
-}
-
-// band is a group of op indices sharing a baseline Y (average kept coherent).
-type band struct {
-	y   float64
-	idx []int
-}
-
-// bandShift maps an old baseline to the delta that lands it on its target.
-type bandShift struct{ y0, dy float64 }
-
-// collectTextBands groups text/bullet ops into baseline bands.
-func collectTextBands(ops []Op, start, end int, yEps float64) []band {
-	var bands []band
-
-	for idx := start; idx < end && idx < len(ops); idx++ {
-		paintOp := ops[idx]
-		if paintOp.Kind != OpText && paintOp.Kind != OpBullet {
-			continue
-		}
-
-		placed := false
-
-		for bi := range bands {
-			if math.Abs(bands[bi].y-paintOp.Y) <= yEps {
-				bands[bi].idx = append(bands[bi].idx, idx)
-				// Keep average Y so multi-glyph lines stay coherent.
-				n := float64(len(bands[bi].idx))
-				bands[bi].y = (bands[bi].y*(n-1) + paintOp.Y) / n
-				placed = true
-
-				break
-			}
-		}
-
-		if !placed {
-			bands = append(bands, band{y: paintOp.Y, idx: []int{idx}})
-		}
-	}
-
-	return bands
-}
-
-// sortBandsTopDown sorts bands by Y ascending.
-func sortBandsTopDown(bands []band) {
-	sort.Slice(bands, func(i, j int) bool { return bands[i].y < bands[j].y })
-}
 
 // measureCellContent returns the max-content border-box width of the cell
 // (longest unwrapped line, not longest word). Using min-content here made
@@ -114,7 +51,7 @@ func (e *engine) measureCellMinMax(node *html.Node, style *ResolvedStyle) (float
 		return width, width
 	}
 
-	cellMeas := &cellMeasure{ //nolint:exhaustruct // zero fields are the flushed-line state
+	cellMeas := &cellMeasure{
 		engine: e,
 		em:     style.FontSize,
 		root:   node,
@@ -200,8 +137,6 @@ func (m *cellMeasure) walk(nodeN *html.Node, cstate *ResolvedStyle, nowrap bool)
 // measureText accumulates a text run into the current line, using the same
 // face selection as paint (measureTextFace) - mismatched metrics undersize
 // columns and force emergency wraps on words that should fit.
-//
-//nolint:cyclop,funlen // word-scan and nowrap paths share state; splitting hurts readability
 func (m *cellMeasure) measureText(text string, cstate *ResolvedStyle, nowrap bool) {
 	if cstate == nil {
 		return

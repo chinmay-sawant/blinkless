@@ -79,7 +79,7 @@ func DecodeRequest(raw string) (Request, error) {
 
 	var request Request
 	if err := decoder.Decode(&request); err != nil {
-		return Request{}, fmt.Errorf("%w: %v", errInvalidRequest, err)
+		return Request{}, fmt.Errorf("%w: %w", errInvalidRequest, err)
 	}
 
 	var extra any
@@ -88,7 +88,7 @@ func DecodeRequest(raw string) (Request, error) {
 			return Request{}, fmt.Errorf("%w: multiple JSON values", errInvalidRequest)
 		}
 
-		return Request{}, fmt.Errorf("%w: %v", errInvalidRequest, err)
+		return Request{}, fmt.Errorf("%w: %w", errInvalidRequest, err)
 	}
 
 	if err := request.validate(); err != nil {

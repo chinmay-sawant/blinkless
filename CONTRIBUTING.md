@@ -40,11 +40,11 @@ make build
 | Target | Purpose |
 |--------|---------|
 | `make test` | Full `go test ./...` with capped concurrency (`-p 2 -parallel 2`) so ~8 GiB machines do not thrash |
-| `make test-unit` | Same caps, every package except `internal/convert` (pair with `make golden` for layout or convert work) |
-| `make test-quick` | `make test` plus `-short` (skips long perf-budget tests) |
+| `make test-unit` | Same caps, every package except the scratch trees under `temps/` (pair with `make golden` for layout work) |
+| `make test-quick` | `make test` plus `-short` (skips slow and wall-clock perf-budget tests that call `testing.Short`) |
 | `make test-serial` | `-p 1 -parallel 1` when even capped runs freeze the desktop |
-| `make test-race` | `-race` on the hot packages (`./internal/layout`, `./internal/load`, `./internal/fonts`), same concurrency caps |
-| `make lint` | `golangci-lint run` (pinned v1.64.8, all linters via `.golangci.yml`), then `make size-check` (file-size ledger) |
+| `make test-race` | `-race` on every package (`./...`), same concurrency caps |
+| `make lint` | `golangci-lint run` (pinned v2.15.0, linters and strict `nolintlint` via `.golangci.yml`; `bindings/wasm` is linted under `GOOS=js GOARCH=wasm`), then `make size-check` (file-size ledger) |
 | `make build` | `CGO_ENABLED=0 go build ./...`; compiles every package and writes no binary |
 | `make golden` | Public drawing-list tests (`TestDisplay*`) in `./layout`, capped parallelism |
 | `make samples` | Alias for `make golden`; writes nothing (there is no page raster) |

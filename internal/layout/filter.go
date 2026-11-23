@@ -1,4 +1,4 @@
-//nolint:varnamelen,funlen,cyclop,mnd,wsl,intrange,nlreturn,goconst,dupl,unparam,exhaustive // filter
+//nolint:unparam // filter
 package layout
 
 import (
@@ -70,37 +70,37 @@ func parseFilterList(value string, current [3]float64, fsize float64) []parsedFi
 		switch lowName {
 		case "blur":
 			if r, ok := plainLength(args, fsize, 0); ok && r >= 0 {
-				filters = append(filters, parsedFilter{kind: filterBlur, val: r}) //nolint:exhaustruct
+				filters = append(filters, parsedFilter{kind: filterBlur, val: r})
 			}
 		case "opacity":
 			if op, ok := parseOpacityValue(args); ok {
-				filters = append(filters, parsedFilter{kind: filterOpacity, val: op}) //nolint:exhaustruct
+				filters = append(filters, parsedFilter{kind: filterOpacity, val: op})
 			}
 		case "drop-shadow":
 			if shadow, ok := parseBoxShadowLayer(args, current, fsize); ok {
-				filters = append(filters, parsedFilter{kind: filterDropShadow, dropShadow: shadow}) //nolint:exhaustruct
+				filters = append(filters, parsedFilter{kind: filterDropShadow, dropShadow: shadow})
 			}
 		case "grayscale":
 			v := parseFilterAmount(args, 1.0)
-			filters = append(filters, parsedFilter{kind: filterGrayscale, val: v}) //nolint:exhaustruct
+			filters = append(filters, parsedFilter{kind: filterGrayscale, val: v})
 		case "brightness":
 			v := parseFilterAmount(args, 1.0)
-			filters = append(filters, parsedFilter{kind: filterBrightness, val: v}) //nolint:exhaustruct
+			filters = append(filters, parsedFilter{kind: filterBrightness, val: v})
 		case "contrast":
 			v := parseFilterAmount(args, 1.0)
-			filters = append(filters, parsedFilter{kind: filterContrast, val: v}) //nolint:exhaustruct
+			filters = append(filters, parsedFilter{kind: filterContrast, val: v})
 		case "invert":
 			v := parseFilterAmount(args, 1.0)
-			filters = append(filters, parsedFilter{kind: filterInvert, val: v}) //nolint:exhaustruct
+			filters = append(filters, parsedFilter{kind: filterInvert, val: v})
 		case "sepia":
 			v := parseFilterAmount(args, 1.0)
-			filters = append(filters, parsedFilter{kind: filterSepia, val: v}) //nolint:exhaustruct
+			filters = append(filters, parsedFilter{kind: filterSepia, val: v})
 		case "saturate":
 			v := parseFilterAmount(args, 1.0)
-			filters = append(filters, parsedFilter{kind: filterSaturate, val: v}) //nolint:exhaustruct
+			filters = append(filters, parsedFilter{kind: filterSaturate, val: v})
 		case "hue-rotate":
 			if deg, ok := parseAngleDeg(args); ok {
-				filters = append(filters, parsedFilter{kind: filterHueRotate, val: deg}) //nolint:exhaustruct
+				filters = append(filters, parsedFilter{kind: filterHueRotate, val: deg})
 			}
 		}
 

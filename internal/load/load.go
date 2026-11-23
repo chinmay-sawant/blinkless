@@ -1,6 +1,5 @@
-// Package load reimplements the MultiPageLoader orchestration layer:
-// URL guessing, HTTP(S)/file fetching, cookies, proxy, auth, local ACL,
-// and POST bodies. Not a browser: it hands raw bytes to the HTML/CSS/layout
+// Package load implements URL guessing and HTTP(S)/file fetching with proxy,
+// auth, and local ACL handling. Not a browser: it hands raw bytes to the HTML/CSS/layout
 // pipeline. JS-related settings flags are accepted by the settings layer
 // but not consumed here (no JS engine).
 package load
@@ -45,8 +44,6 @@ const (
 	DefaultMaxRedirects    = 10
 	// These caps bound operator-supplied request metadata and response headers.
 	MaxCustomHeaders       = 128
-	MaxCookies             = 128
-	MaxPostItems           = 1024
 	MaxMetadataBytes       = 8 << 10
 	MaxResponseHeaders     = 128
 	MaxResponseHeaderBytes = 1 << 20
@@ -94,35 +91,16 @@ var (
 )
 
 // checkRequestMetadataLimits bounds operator-supplied request metadata so a
-// misconfigured caller cannot attach unbounded headers, cookies, or POST
-// fields to outbound requests.
+// misconfigured caller cannot attach unbounded headers to outbound requests.
 func checkRequestMetadataLimits(pageLoad settings.LoadPage) error {
 	if len(pageLoad.CustomHeaders) > MaxCustomHeaders {
 		return fmt.Errorf("%w: %d custom headers, limit %d",
 			errMetadataTooLarge, len(pageLoad.CustomHeaders), MaxCustomHeaders)
 	}
 
-	if len(pageLoad.Cookies) > MaxCookies {
-		return fmt.Errorf("%w: %d cookies, limit %d",
-			errMetadataTooLarge, len(pageLoad.Cookies), MaxCookies)
-	}
-
-	if len(pageLoad.Post) > MaxPostItems {
-		return fmt.Errorf("%w: %d POST items, limit %d",
-			errMetadataTooLarge, len(pageLoad.Post), MaxPostItems)
-	}
-
 	total := 0
 	for key, value := range pageLoad.CustomHeaders {
 		total += len(key) + len(value)
-	}
-
-	for key, value := range pageLoad.Cookies {
-		total += len(key) + len(value)
-	}
-
-	for _, item := range pageLoad.Post {
-		total += len(item.Name) + len(item.Value)
 	}
 
 	if total > MaxMetadataBytes {
@@ -192,7 +170,7 @@ type NetworkPolicy struct {
 // URLs are allowed, including localhost and private addresses, and redirects
 // may cross hosts. It is the default for existing constructors.
 func CompatibleNetworkPolicy() NetworkPolicy {
-	return NetworkPolicy{ //nolint:exhaustruct // compatibility defaults
+	return NetworkPolicy{
 		AllowedSchemes: []string{"http", "https"},
 	}
 }
@@ -201,7 +179,7 @@ func CompatibleNetworkPolicy() NetworkPolicy {
 // service. Private/link-local destinations are blocked unless explicitly
 // allowlisted, and redirects stay on the original host.
 func RestrictedNetworkPolicy() NetworkPolicy {
-	return NetworkPolicy{ //nolint:exhaustruct // explicit safety defaults
+	return NetworkPolicy{
 		AllowedSchemes:          []string{"http", "https"},
 		BlockPrivateNetworks:    true,
 		BlockCrossHostRedirects: true,
@@ -575,7 +553,7 @@ func (l *Loader) SetResolver(r IPResolver) {
 // proxy configuration before installing the HTTP transport. It is the
 // fail-fast constructor.
 func NewLoaderWithError(global settings.LoadGlobal) (*Loader, error) {
-	effective := ResolveEffectiveLoadGlobal(global, settings.LoadGlobal{}) //nolint:exhaustruct // empty mode override
+	effective := ResolveEffectiveLoadGlobal(global, settings.LoadGlobal{})
 
 	return NewLoaderWithNetworkPolicy(effective, networkPolicyFromGlobal(effective))
 }
@@ -597,9 +575,9 @@ func networkPolicyFromGlobal(global settings.LoadGlobal) NetworkPolicy {
 // NewLoaderWithError is the fail-fast constructor for callers that use the
 // historical permissive HTTP behavior with global settings.
 func NewLoaderWithNetworkPolicy(global settings.LoadGlobal, network NetworkPolicy) (*Loader, error) {
-	policy := ResolveEffectiveLoadGlobal(global, settings.LoadGlobal{}) //nolint:exhaustruct // empty mode override
+	policy := ResolveEffectiveLoadGlobal(global, settings.LoadGlobal{})
 
-	loader := &Loader{ //nolint:exhaustruct // intentional zero/partial fields
+	loader := &Loader{
 		Global:                policy,
 		Network:               cloneNetworkPolicy(network),
 		Log:                   io.Discard,
@@ -622,11 +600,11 @@ func (l *Loader) initClient() error {
 	}
 
 	// Default TLS verification stays on (http.Transport system roots).
-	dialer := &net.Dialer{ //nolint:exhaustruct // intentional zero/partial fields
+	dialer := &net.Dialer{
 		Timeout:   DefaultConnectTimeout,
 		KeepAlive: defaultKeepAliveSec * time.Second,
 	}
-	transport := &http.Transport{ //nolint:exhaustruct // intentional zero/partial fields
+	transport := &http.Transport{
 		ForceAttemptHTTP2:      true,
 		DialContext:            l.policyDialContext(dialer),
 		MaxResponseHeaderBytes: MaxResponseHeaderBytes,
@@ -641,7 +619,7 @@ func (l *Loader) initClient() error {
 		transport.Proxy = http.ProxyURL(pu)
 	}
 
-	l.Client = &http.Client{ //nolint:exhaustruct // intentional zero/partial fields
+	l.Client = &http.Client{
 		Transport: transport,
 		Jar:       jar,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -671,7 +649,7 @@ func (l *Loader) initClient() error {
 	return nil
 }
 
-func (l *Loader) policyDialContext( //nolint:cyclop // hostname vs IP vs proxy policy
+func (l *Loader) policyDialContext(
 	dialer *net.Dialer,
 ) func(context.Context, string, string) (net.Conn, error) {
 	return func(ctx context.Context, network, address string) (net.Conn, error) {
@@ -939,7 +917,6 @@ func sameNetworkHost(left, right *url.URL) bool {
 	return canonicalNetworkHost(left) == canonicalNetworkHost(right)
 }
 
-//nolint:gochecknoglobals // precomputed immutable CIDR and target IP values for SSRF filtering
 var (
 	cgnatCIDR          = mustCIDR("100.64.0.0/10")
 	metaCIDR           = mustCIDR("169.254.169.0/24")
@@ -1061,7 +1038,7 @@ func (l *Loader) inlineResource(body []byte, base string) (*Resource, error) {
 		return nil, err
 	}
 
-	return &Resource{ //nolint:exhaustruct // intentional zero/partial fields
+	return &Resource{
 		Kind:        KindInline,
 		URL:         "inline:",
 		Base:        base,
@@ -1093,7 +1070,7 @@ func (l *Loader) loadByKind(
 				return nil, err
 			}
 
-			res = &Resource{ //nolint:exhaustruct // intentional zero/partial fields
+			res = &Resource{
 				Kind:        KindInline,
 				URL:         target,
 				Body:        body,
@@ -1388,7 +1365,7 @@ func (l *Loader) loadFile(ctx context.Context, path string, pageLoad settings.Lo
 		return nil, err
 	}
 
-	return &Resource{ //nolint:exhaustruct // intentional zero/partial fields
+	return &Resource{
 		Kind:        KindFile,
 		URL:         "file://" + filepath.ToSlash(filepath.Clean(filePath)),
 		Base:        "file://" + filepath.ToSlash(filepath.Dir(filePath)) + "/",
@@ -1524,7 +1501,7 @@ func (l *Loader) loadHTTP(ctx context.Context, target string, pageLoad settings.
 	ctype := resp.Header.Get("Content-Type")
 	final := resp.Request.URL.String()
 
-	return &Resource{ //nolint:exhaustruct // intentional zero/partial fields
+	return &Resource{
 		Kind:        KindHTTP,
 		URL:         final,
 		Base:        final,
@@ -1574,8 +1551,6 @@ func (l *Loader) readHTTPBody(parsed *url.URL, resp *http.Response) ([]byte, err
 func cloneLoadPage(src settings.LoadPage) settings.LoadPage {
 	dst := src
 	dst.CustomHeaders = cloneStringMap(src.CustomHeaders)
-	dst.Cookies = cloneStringMap(src.Cookies)
-	dst.Post = clonePostItems(src.Post)
 	dst.InlineHTML = cloneBytes(src.InlineHTML)
 
 	return dst
@@ -1589,37 +1564,19 @@ func cloneStrings(src []string) []string {
 	return slices.Clone(src)
 }
 
-func clonePostItems(src []settings.PostItem) []settings.PostItem {
-	return slices.Clone(src)
-}
-
 func cloneBytes(src []byte) []byte {
 	return slices.Clone(src)
 }
 
 // buildHTTPRequest assembles the request for target according to the page
-// load policy: method/POST body, user agent, basic auth, custom headers and
-// cookies.
+// load policy: user agent, basic auth, and custom headers.
 func buildHTTPRequest(ctx context.Context, parsed *url.URL, pageLoad settings.LoadPage) (*http.Request, error) {
-	method := http.MethodGet
-
-	var reqBody io.Reader
-
-	if len(pageLoad.Post) > 0 {
-		method = http.MethodPost
-		reqBody = strings.NewReader(urlEncodePost(pageLoad.Post))
-	}
-
-	req, err := http.NewRequestWithContext(ctx, method, parsed.String(), reqBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsed.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("build request for %s: %w", parsed.String(), err)
 	}
 
 	req.Header.Set("User-Agent", "github.com/chinmay-sawant/blinkless/0.1 (pure-Go wkhtmltopdf reimplementation)")
-
-	if method == http.MethodPost {
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	}
 
 	if pageLoad.Username != "" {
 		req.SetBasicAuth(pageLoad.Username, pageLoad.Password)
@@ -1627,10 +1584,6 @@ func buildHTTPRequest(ctx context.Context, parsed *url.URL, pageLoad settings.Lo
 
 	for k, v := range pageLoad.CustomHeaders {
 		req.Header.Set(k, v)
-	}
-
-	for k, v := range pageLoad.Cookies {
-		req.AddCookie(&http.Cookie{Name: k, Value: v}) //nolint:exhaustruct // intentional zero/partial fields
 	}
 
 	return req, nil
@@ -1654,14 +1607,14 @@ func (l *Loader) loadErrorResponse(
 ) (*Resource, error) {
 	switch pageLoad.LoadErrorHandling {
 	case settings.LoadErrorSkip:
-		return &Resource{ //nolint:exhaustruct // intentional zero/partial fields
+		return &Resource{
 			Kind:       KindHTTP,
 			URL:        parsed.String(),
 			StatusCode: resp.StatusCode,
 			Skip:       true,
 		}, nil
 	case settings.LoadErrorIgnore:
-		return &Resource{ //nolint:exhaustruct // intentional zero/partial fields
+		return &Resource{
 			Kind:       KindHTTP,
 			URL:        parsed.String(),
 			StatusCode: resp.StatusCode,
@@ -1674,8 +1627,6 @@ func (l *Loader) loadErrorResponse(
 }
 
 // FetchSub fetches a subresource (css/img) resolved against base.
-//
-//nolint:cyclop // multi-branch subresource loader
 func (l *Loader) FetchSub(ctx context.Context, base, ref string, pageLoad settings.LoadPage) (*Resource, error) {
 	if l == nil {
 		return nil, ErrNilLoader
@@ -1712,7 +1663,7 @@ func (l *Loader) FetchSub(ctx context.Context, base, ref string, pageLoad settin
 			return nil, err
 		}
 
-		return &Resource{ //nolint:exhaustruct // intentional zero/partial fields
+		return &Resource{
 			Kind:        KindInline,
 			URL:         abs.String(),
 			Body:        body,
@@ -1745,15 +1696,6 @@ func resolveReference(base, ref string) (*url.URL, error) {
 	}
 
 	return baseURL.ResolveReference(refURL), nil
-}
-
-func urlEncodePost(items []settings.PostItem) string {
-	vals := url.Values{}
-	for _, it := range items {
-		vals.Add(it.Name, it.Value)
-	}
-
-	return vals.Encode()
 }
 
 // decodeDataURLLimited decodes a data URL while enforcing the same non-negative

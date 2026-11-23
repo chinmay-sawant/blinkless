@@ -1,4 +1,3 @@
-//nolint:cyclop,mnd,varnamelen // containment property parser and layout helpers
 package layout
 
 import "strings"

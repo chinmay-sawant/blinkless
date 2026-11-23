@@ -117,7 +117,7 @@ func CopiedFragments(root *html.Node, opts Options) []CopiedFragment {
 		return nil
 	}
 
-	ctx := &styleContext{ //nolint:exhaustruct // copy pass needs only cascade inputs
+	ctx := &styleContext{
 		sheets:     opts.Sheets,
 		properties: registeredProperties(opts.Sheets),
 		media:      opts.Media,

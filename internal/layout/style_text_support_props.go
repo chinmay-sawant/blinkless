@@ -1,4 +1,3 @@
-//nolint:cyclop,varnamelen // text support property parsers
 package layout
 
 import (
@@ -172,7 +171,7 @@ func applyTextDecorationSkipShorthand(style *ResolvedStyle, val string) bool {
 		setTextDecorationSkipInitial(style)
 		style.editInlineText().TextDecorationSkip = val
 		style.editInlineText().TextDecorationSkipBox = columnSpanAll
-	case "spaces": //nolint:goconst // coincidental match with the ruby keyword const.
+	case "spaces":
 		setTextDecorationSkipInitial(style)
 		style.editInlineText().TextDecorationSkip = val
 		style.editInlineText().TextDecorationSkipSpaces = columnSpanAll

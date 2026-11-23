@@ -114,8 +114,6 @@ func forcedModeLayoutDiverges(t *testing.T) {
 // the system color (black) while none preserves them. Print keeps the mode
 // off, so both values paint author colors there. Reference: Chrome
 // 143.0.7499.40 keeps author colors under none when forced-colors is active.
-//
-//nolint:paralleltest // flips a global test-only paint override
 func TestBehaviorForcedColorAdjustTestModeDiverges(t *testing.T) {
 	setForcedColorsTestActive(true)
 	defer setForcedColorsTestActive(false)

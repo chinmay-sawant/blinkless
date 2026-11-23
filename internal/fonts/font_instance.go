@@ -21,7 +21,7 @@ type Variation struct {
 	Value float32
 }
 
-var droppedVariationTables = map[string]bool{ //nolint:gochecknoglobals // immutable tag set
+var droppedVariationTables = map[string]bool{
 	"fvar": true,
 	"gvar": true,
 	"avar": true,
@@ -117,7 +117,7 @@ func instanceFont(src *Font, vars []Variation) (*Font, error) {
 	lsbs := make([]int16, src.numGlyphs)
 
 	for gid := range src.numGlyphs {
-		glyph := gtfont.GID(gid) //nolint:gosec // gid < numGlyphs, TrueType ids are uint16
+		glyph := gtfont.GID(gid)
 		advances[gid] = clampAdvance(face.HorizontalAdvance(glyph))
 		lsbs[gid] = instancedLSB(face, glyph, src, gid)
 		outlines[gid] = encodeInstancedOutline(face, glyph)
@@ -483,7 +483,7 @@ func encodeHmtx(advances []int32, lsbs []int16) []byte {
 			lsb = lsbs[glyphIndex]
 		}
 
-		binary.BigEndian.PutUint16(out[glyphIndex*bytesPerHMetric+uint16Bytes:], uint16(lsb)) //nolint:gosec // lsb is int16
+		binary.BigEndian.PutUint16(out[glyphIndex*bytesPerHMetric+uint16Bytes:], uint16(lsb))
 	}
 
 	return out

@@ -1,4 +1,3 @@
-//nolint:dupword // behavior fixtures repeat the same filler word across a line
 package layout
 
 import (

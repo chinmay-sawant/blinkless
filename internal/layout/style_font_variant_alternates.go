@@ -164,7 +164,6 @@ func splitAlternateArgs(inner string) []string {
 	return args
 }
 
-//nolint:cyclop // CSS alternate-function grammar is intentionally explicit.
 func canonicalAlternateFunction(name string, args []string) (string, bool) {
 	switch name {
 	case altStylistic, altSwash, altOrnaments, altAnnotation:
@@ -251,7 +250,6 @@ func atoiBounded(arg string) (int, bool) {
 	return n, true
 }
 
-//nolint:cyclop // OpenType tag mapping stays aligned with CSS function names.
 func appendAlternateOTTags(value string, put func(string, uint32)) {
 	if value == "" || value == fontVariantNormal {
 		return

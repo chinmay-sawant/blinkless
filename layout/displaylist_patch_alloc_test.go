@@ -11,8 +11,6 @@ import (
 // TestNewDisplayForPatchReusesBoxesAndSlices verifies that newDisplayForPatch
 // reuses prev.Boxes, pools parents, and reuses prev.OpOwners and prev.Order
 // when boxCount and opCount match.
-//
-//nolint:paralleltest // shares the process-wide display slice pools
 func TestNewDisplayForPatchReusesBoxesAndSlices(t *testing.T) {
 	display := renderEmitDisplay(t, emitTableRows, emitTableCols, true)
 	if display.result == nil || len(display.Boxes) == 0 {
@@ -68,8 +66,6 @@ func TestPatchBoxesGrowWithinSpareCapacity(t *testing.T) {
 // TestNewDisplayForPatchParityWithFresh verifies that the display produced by
 // newDisplayForPatch has identical contents (Boxes, OpOwners, Order) to a fresh
 // display built from the same placement.
-//
-//nolint:paralleltest // shares the process-wide display slice pools
 func TestNewDisplayForPatchParityWithFresh(t *testing.T) {
 	fresh := renderEmitDisplay(t, 20, 4, true)
 	base := renderEmitDisplay(t, 20, 4, true)
@@ -98,8 +94,6 @@ func TestNewDisplayForPatchParityWithFresh(t *testing.T) {
 
 // TestNewDisplayForPatchNilPrev verifies that newDisplayForPatch handles a nil
 // prev safely by renting or allocating slices.
-//
-//nolint:paralleltest // shares the process-wide display slice pools
 func TestNewDisplayForPatchNilPrev(t *testing.T) {
 	display := renderEmitDisplay(t, 10, 2, true)
 	if display.result == nil {
@@ -132,8 +126,6 @@ func TestNewDisplayForPatchNilPrev(t *testing.T) {
 
 // TestNewDisplayForPatchDeriveOwnersFalse verifies that when deriveOwners is
 // false, OpOwners and Order remain nil as expected by the batch splice path.
-//
-//nolint:paralleltest // shares the process-wide display slice pools
 func TestNewDisplayForPatchDeriveOwnersFalse(t *testing.T) {
 	display := renderEmitDisplay(t, 10, 2, true)
 	if display.result == nil {

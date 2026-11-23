@@ -211,24 +211,17 @@ func simpleFlexEngineForCase(t *testing.T, testCase simpleFlexRowCase) (*engine,
 // TestSimpleFlexRowHeightMatchesFullMeasure compares the fast height with the
 // full noEmit subtree measure for every accepted shape, and pins the shapes
 // that must fall back.
-//
-//nolint:paralleltest // flips the package bypass, so the cases must run serially
 func TestSimpleFlexRowHeightMatchesFullMeasure(t *testing.T) {
-	t.Cleanup(func() {
-		simpleFlexHeightBypass.Store(false)
-	})
-
-	//nolint:paralleltest // flips the package bypass, so the cases must run serially
 	for _, testCase := range simpleFlexRowCases() {
 		t.Run(testCase.name, func(t *testing.T) {
 			eng, row, contentW := simpleFlexEngineForCase(t, testCase)
 			rowStyle := eng.stylePtr(row)
 
-			simpleFlexHeightBypass.Store(true)
+			eng.testCfg = &TestConfig{SimpleFlexHeightBypass: true}
 
 			oldH := eng.flexItemBaseHeight(row, rowStyle, contentW, -1)
 
-			simpleFlexHeightBypass.Store(false)
+			eng.testCfg = nil
 
 			fastH, accepted := eng.simpleFlexRowHeight(row, rowStyle, contentW)
 
@@ -249,14 +242,26 @@ func TestSimpleFlexRowHeightMatchesFullMeasure(t *testing.T) {
 }
 
 // layoutSimpleFlexCase lays out one case with the fast path on or bypassed.
-// The caller must not run these concurrently: the bypass is package state.
 func layoutSimpleFlexCase(t *testing.T, testCase simpleFlexRowCase, bypass bool) *Result {
 	t.Helper()
 
-	simpleFlexHeightBypass.Store(bypass)
-	t.Cleanup(func() { simpleFlexHeightBypass.Store(false) })
+	return layoutHTMLCfg(t, `<div id="outer">`+testCase.body+`</div>`,
+		&TestConfig{SimpleFlexHeightBypass: bypass}, sheet(t, testCase.css))
+}
 
-	return layoutHTML(t, `<div id="outer">`+testCase.body+`</div>`, sheet(t, testCase.css))
+// layoutHTMLCfg is layoutHTML with a per-run test config, so the run's
+// switches never leak into other tests.
+func layoutHTMLCfg(t *testing.T, src string, cfg *TestConfig, sheets ...*css.Stylesheet) *Result {
+	t.Helper()
+
+	res, err := Layout(mustParse(t, src), Options{
+		Width: testViewport, Height: 800, Sheets: sheets, Background: true, testCfg: cfg,
+	})
+	if err != nil {
+		t.Fatalf("Layout: %v", err)
+	}
+
+	return res
 }
 
 // simpleFlexRowHeights returns the laid-out row heights in document order.
@@ -275,15 +280,11 @@ func simpleFlexRowHeights(res *Result) []float64 {
 // TestSimpleFlexRowHeightLayoutParity pins full-layout parity: the fast path
 // and the forced old measure produce identical ops, page height, and row box
 // heights for accepted and rejected shapes alike.
-//
-//nolint:paralleltest // flips the package bypass, so the cases must run serially
 func TestSimpleFlexRowHeightLayoutParity(t *testing.T) {
 	t.Cleanup(func() {
-		simpleFlexHeightBypass.Store(false)
 		simpleFlexHeightHits.Store(0)
 	})
 
-	//nolint:paralleltest // flips the package bypass, so the cases must run serially
 	for _, testCase := range simpleFlexRowCases() {
 		t.Run(testCase.name, func(t *testing.T) {
 			simpleFlexHeightHits.Store(0)
@@ -322,17 +323,12 @@ func TestSimpleFlexRowHeightLayoutParity(t *testing.T) {
 
 // TestSimpleFlexInvoiceFixtureHitsFastPath proves the benchmark fixture shape
 // is accepted: every invoice row must take the fast height.
-//
-//nolint:paralleltest // flips the package bypass, so the test must run serially
 func TestSimpleFlexInvoiceFixtureHitsFastPath(t *testing.T) {
 	t.Cleanup(func() {
-		simpleFlexHeightBypass.Store(false)
 		simpleFlexHeightHits.Store(0)
 	})
 
 	const rows = 24
-
-	simpleFlexHeightBypass.Store(false)
 
 	simpleFlexHeightHits.Store(0)
 
@@ -349,25 +345,15 @@ func TestSimpleFlexInvoiceFixtureHitsFastPath(t *testing.T) {
 // TestSimpleFlexInvoiceFixtureParity is the full-document differential for the
 // benchmark fixture: 24 rows of fixed-width cells lay out identically with the
 // fast path on and with it bypassed.
-//
-//nolint:paralleltest // flips the package bypass, so the test must run serially
 func TestSimpleFlexInvoiceFixtureParity(t *testing.T) {
 	t.Cleanup(func() {
-		simpleFlexHeightBypass.Store(false)
 		simpleFlexHeightHits.Store(0)
 	})
 
 	doc := simpleFlexInvoiceDoc(24)
 
-	simpleFlexHeightBypass.Store(false)
-
 	fast := layoutHTML(t, doc, sheet(t, simpleFlexInvoiceCSS))
-
-	simpleFlexHeightBypass.Store(true)
-
-	plain := layoutHTML(t, doc, sheet(t, simpleFlexInvoiceCSS))
-
-	simpleFlexHeightBypass.Store(false)
+	plain := layoutHTMLCfg(t, doc, &TestConfig{SimpleFlexHeightBypass: true}, sheet(t, simpleFlexInvoiceCSS))
 
 	if !opsDeeplyEqual(fast.Ops, plain.Ops) {
 		t.Fatalf("invoice ops differ: fast %d, bypass %d", len(fast.Ops), len(plain.Ops))
@@ -580,15 +566,12 @@ func compareSimpleFlexLayout(t *testing.T, fast, plain *Result) {
 // the line height from the cell metrics and the bypass measures each item. Both
 // must produce identical ops, heights, and boxes for accepted and refused
 // shapes alike.
-//
-//nolint:paralleltest // flips the package bypass, so the cases must run serially
 func TestSimpleFlexRowContentCrossParity(t *testing.T) {
 	t.Cleanup(func() {
 		simpleFlexCrossBypass.Store(false)
 		simpleFlexCrossHits.Store(0)
 	})
 
-	//nolint:paralleltest // flips the package bypass, so the cases must run serially
 	for _, testCase := range simpleFlexStackCases() {
 		t.Run(testCase.name, func(t *testing.T) {
 			simpleFlexCrossHits.Store(0)
@@ -753,15 +736,12 @@ func simpleFlexMinHelperCase(t *testing.T, testCase simpleFlexMinCase) (*engine,
 // TestSimpleFlexMinContentWidthMatchesCellMeasure pins the min-content fast
 // path to the full cell walk: accepted shapes return the identical min-content
 // width and every refused shape keeps measureCellMinMax.
-//
-//nolint:paralleltest // flips the package bypass, so the cases must run serially
 func TestSimpleFlexMinContentWidthMatchesCellMeasure(t *testing.T) {
 	t.Cleanup(func() {
 		simpleFlexMinBypass.Store(false)
 		simpleFlexMinHits.Store(0)
 	})
 
-	//nolint:paralleltest // flips the package bypass, so the cases must run serially
 	for _, testCase := range simpleFlexMinCases() {
 		t.Run(testCase.name, func(t *testing.T) {
 			eng, cell := simpleFlexMinHelperCase(t, testCase)
@@ -818,8 +798,6 @@ func layoutSimpleFlexMinDoc(t *testing.T, cssSrc, body string, bypass bool) *Res
 // document level: forcing the cells below their declared width exercises the
 // auto-minimum floor, and the bypassed cell walk must produce identical ops,
 // heights, and boxes.
-//
-//nolint:paralleltest // flips the package bypass, so the cases must run serially
 func TestSimpleFlexMinContentLayoutParity(t *testing.T) {
 	t.Cleanup(func() {
 		simpleFlexMinBypass.Store(false)
@@ -850,7 +828,6 @@ func TestSimpleFlexMinContentLayoutParity(t *testing.T) {
 		},
 	}
 
-	//nolint:paralleltest // flips the package bypass, so the cases must run serially
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			simpleFlexMinHits.Store(0)

@@ -105,7 +105,7 @@ These are always findings if you see them in current source:
 - Document-global Y shifts of all ops below a baseline.
 - Stripping unknown pseudos so `li:target` becomes `li`.
 - New dependency outside the allowlist.
-- Promoting an `Ignored` key to a typed stub.
+- Adding a settings field with no engine consumer.
 - Encoding a look the CSS does not ask for as an engine default.
 
 ## 6. If the user is about to extend (design mode)

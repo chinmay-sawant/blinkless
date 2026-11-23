@@ -12,7 +12,8 @@ import (
 //
 // The name is matched the way the parser stores attributes: an attribute the
 // element already carries keeps its stored spelling, a new one is stored
-// lowercased. An empty name changes nothing and reports false.
+// lowercased (kept as given on an SVG or MathML element, where names such as
+// viewBox are case-sensitive). An empty name changes nothing and reports false.
 //
 // The change lands on the parsed tree, so the next style cascade and the
 // next layout see it.
@@ -38,7 +39,7 @@ func (d *Document) SetAttribute(elementID, name, value string) bool {
 		node.Attrs = make(map[string]string, 1)
 	}
 
-	key := attributeKey(node.Attrs, name)
+	key := attributeKey(node.Attrs, name, node.Namespace != html.NamespaceHTML)
 	node.Attrs[key] = value
 	setAttrListValue(node, key, value)
 
@@ -66,6 +67,8 @@ func (d *Document) SetAttribute(elementID, name, value string) bool {
 // invalidateIDLocked drops the cached resolutions that may now point at the
 // wrong node after an id attribute write. The caller holds idx.mu.
 func invalidateIDLocked(idx *elementIndex, node *html.Node, elementID, value string) {
+	idx.complete = false
+
 	if node.Attribute("id") != elementID {
 		delete(idx.byID, elementID)
 	}
@@ -132,6 +135,7 @@ func setTextLocked(idx *elementIndex, node *html.Node, text string) bool {
 		}
 
 		node.Children = textChild(node, text)
+		node.ChildVersion++
 
 		return true
 	}
@@ -143,6 +147,7 @@ func setTextLocked(idx *elementIndex, node *html.Node, text string) bool {
 	}
 
 	node.Children = textChild(node, text)
+	node.ChildVersion++
 
 	return true
 }
@@ -153,6 +158,7 @@ func setSingleTextChild(node *html.Node, text string) bool {
 	if text == "" {
 		node.Children[0].Parent = nil
 		node.Children = nil
+		node.ChildVersion++
 
 		return true
 	}
@@ -176,6 +182,8 @@ func textChild(parent *html.Node, text string) []*html.Node {
 func dropChildrenLocked(idx *elementIndex, node *html.Node) {
 	old := node.Children
 	node.Children = nil
+	node.ChildVersion++
+	idx.complete = false
 
 	dropped := make(map[*html.Node]bool)
 
@@ -221,11 +229,16 @@ func (d *Document) elementByID(elementID string) *html.Node {
 	valid := ok && idx.root == d.root &&
 		node.Attribute("id") == elementID &&
 		attachedTo(node, d.root)
+	definitiveMiss := !ok && idx.complete && idx.root == d.root
 
 	idx.mu.RUnlock()
 
 	if valid {
 		return node
+	}
+
+	if definitiveMiss {
+		return nil
 	}
 
 	idx.mu.Lock()
@@ -243,6 +256,10 @@ type elementIndex struct {
 	mu   sync.RWMutex
 	root *html.Node
 	byID map[string]*html.Node
+	// complete reports that byID holds the first element of every id in the
+	// tree as of the last build, so an absent id is a definitive miss. An id
+	// rename or a dropped subtree clears it; the next miss rebuilds once.
+	complete bool
 }
 
 // dirtyFor returns the dirty set for doc, creating it on first use. A nil
@@ -403,33 +420,28 @@ func (idx *elementIndex) build(root *html.Node) {
 
 	idx.root = root
 	idx.byID = byID
+	idx.complete = true
 }
 
-// findLocked resolves elementID through the table. A plain miss falls back
-// to one authoritative walk (which also heals the table); a hit that fails
-// validation rebuilds the table first. The caller holds idx.mu for writing.
+// findLocked resolves elementID through the table. An incomplete table or a
+// hit that fails validation rebuilds the table first (one walk), after which
+// the table is authoritative. The caller holds idx.mu for writing.
 func (idx *elementIndex) findLocked(root *html.Node, elementID string) *html.Node {
-	if idx.root != root {
+	if idx.root != root || !idx.complete {
 		idx.build(root)
 	} else if node, ok := idx.byID[elementID]; ok &&
 		(node.Attribute("id") != elementID || !attachedTo(node, root)) {
 		idx.build(root)
 	}
 
+	// The table is complete here, so it answers authoritatively: a miss needs
+	// no further walk.
 	if node, ok := idx.byID[elementID]; ok &&
 		node.Attribute("id") == elementID && attachedTo(node, root) {
 		return node
 	}
 
-	found := root.FindFirst(func(candidate *html.Node) bool {
-		return candidate.Type == html.ElementNode && candidate.Attribute("id") == elementID
-	})
-
-	if found != nil {
-		idx.byID[elementID] = found
-	}
-
-	return found
+	return nil
 }
 
 // attachedTo reports whether node sits under root.
@@ -444,12 +456,18 @@ func attachedTo(node, root *html.Node) bool {
 }
 
 // attributeKey returns the map key for name: the key the element already
-// stores for that attribute, or the lowercased name for a new attribute.
-func attributeKey(attrs map[string]string, name string) string {
+// stores for that attribute, or the lowercased name for a new attribute. A
+// foreign (SVG or MathML) element keeps the caller's spelling for a new
+// attribute, because names such as viewBox are case-sensitive there.
+func attributeKey(attrs map[string]string, name string, foreign bool) string {
 	for key := range attrs {
 		if strings.EqualFold(key, name) {
 			return key
 		}
+	}
+
+	if foreign {
+		return name
 	}
 
 	return strings.ToLower(name)

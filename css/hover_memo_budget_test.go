@@ -35,7 +35,6 @@ func budgetEntryInternBytes(entry *hoverListEntry) int {
 	return total
 }
 
-//nolint:paralleltest // resetHoverCache drives the process-wide hover caches and counters
 func TestHoverMemoByteBudgetFloodStaysBoundedAndCorrect(t *testing.T) {
 	resetHoverCache()
 
@@ -104,7 +103,6 @@ func TestHoverMemoByteBudgetFloodStaysBoundedAndCorrect(t *testing.T) {
 	}
 }
 
-//nolint:paralleltest // resetHoverCache drives the process-wide hover caches and counters
 func TestHoverMemoFatNodeSharesOneCanonicalSignature(t *testing.T) {
 	resetHoverCache()
 

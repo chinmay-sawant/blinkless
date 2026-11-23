@@ -27,15 +27,13 @@ func ContextWithStyles(
 // and ContextWithStyles. A non-nil styles map skips style resolution
 // unless the sheets carry @container rules, in which case the map is ignored
 // and containers are populated by the full remount.
-//
-//nolint:cyclop // layout preflight and staged style/container passes are explicit lifecycle gates.
 func layoutContextWithStyles(
 	ctx context.Context,
 	root *html.Node, opts Options, workspace *Workspace,
 	styles map[*html.Node]*ResolvedStyle,
 ) (*Result, error) {
 	if root == nil {
-		return nil, errors.New("layout: nil root") //nolint:err113 // static sentinel-free message matches legacy behavior
+		return nil, errors.New("layout: nil root")
 	}
 
 	if err := opts.validate(); err != nil {

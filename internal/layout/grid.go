@@ -95,7 +95,6 @@ func (e *engine) buildGrid(node *html.Node, sty *ResolvedStyle, availW, posX, po
 	)
 }
 
-//nolint:funlen // grid track placement, row sizing, and emit stay together
 func (e *engine) layoutStandardGrid(
 	boxNode *box, sty *ResolvedStyle, kids []*html.Node, areas gridTemplateAreasMap,
 	cols []float64, columnGap, rowGap, contentX, contentW, curY, posY, contentH float64,
@@ -365,7 +364,6 @@ func explicitNeedForLinePlacement(itemStyle *ResolvedStyle, effEnd, need int) in
 	}
 }
 
-//nolint:cyclop,funlen,mnd // auto-fit calculation handles balanced track distribution
 func parseAutoFitDefs(raw string, contentW, gap float64, eng *engine, kidCount int) []gridTrackDef {
 	lower := strings.ToLower(strings.TrimSpace(raw))
 
@@ -892,8 +890,6 @@ func resolveGridUsedHeight(eng *engine, sty ResolvedStyle, usedH, contentH float
 // resolveUsedWidth computes border-box width. WidthPercent against a
 // non-positive (indefinite) availW is treated as auto (fill remaining).
 // Shared by flex/grid/multicol (block keeps its own min/max/margin-auto path).
-//
-//nolint:cyclop,nestif // used-width resolution follows CSS percentage and auto rules
 func resolveUsedWidth(sty *ResolvedStyle, availW float64, engN *engine) float64 {
 	ml, mr := engN.scalePt(sty.MarginLeft), engN.scalePt(sty.MarginRight)
 
@@ -936,8 +932,6 @@ func resolveContentHeight(sty *ResolvedStyle, engN *engine) float64 {
 
 // resolveContentHeightForWidth is resolveContentHeight plus aspect-ratio when
 // height is auto and contentW (scaled) is definite.
-//
-//nolint:cyclop,wsl // percentage-height and aspect-ratio fallbacks share border-box normalization
 func resolveContentHeightForWidth(sty *ResolvedStyle, engN *engine, contentW float64) float64 {
 	if sty.HeightPercent >= 0 && sty.Height < 0 {
 		cbH := engN.containingBlockHeight()

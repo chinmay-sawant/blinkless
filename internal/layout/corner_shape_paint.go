@@ -177,15 +177,15 @@ func cornerShapePaintFillOp(
 	radii, radiiY [4]float64, shapeK [4]float64,
 ) (Op, bool) {
 	if !(width > 0 && height > 0) {
-		return Op{}, false //nolint:exhaustruct // zero op on no-paint
+		return Op{}, false
 	}
 
 	points := cornerShapePaintOuterPath(posX, posY, width, height, radii, radiiY, shapeK)
 	if len(points) == 0 {
-		return Op{}, false //nolint:exhaustruct // zero op on no-paint
+		return Op{}, false
 	}
 
-	fillOp := Op{ //nolint:exhaustruct // intentional zero fields
+	fillOp := Op{
 		Kind: OpPath, X: posX, Y: posY, W: width, H: height,
 		R: red, G: green, B: blue, Alpha: alpha,
 	}
@@ -216,7 +216,7 @@ func cornerShapePaintBorder(
 		return nil, false
 	}
 
-	borderOp := Op{ //nolint:exhaustruct // intentional zero fields
+	borderOp := Op{
 		Kind: OpPath, X: posX, Y: posY, W: width, H: height,
 		R: base.Color[0], G: base.Color[1], B: base.Color[2],
 		Width: eng.scalePt(borderPaint(base)),
@@ -281,7 +281,7 @@ func cornerShapePaintUniformBorder(sty *ResolvedStyle) (border, bool) {
 	base := sides[0]
 
 	if !cornerShapePaintBorderSideUsable(base) {
-		return border{}, false //nolint:exhaustruct // zero border on no-match
+		return border{}, false
 	}
 
 	for _, side := range sides[1:] {
@@ -289,7 +289,7 @@ func cornerShapePaintUniformBorder(sty *ResolvedStyle) (border, bool) {
 			side.Style != base.Style ||
 			borderPaint(side) != borderPaint(base) ||
 			side.Color != base.Color {
-			return border{}, false //nolint:exhaustruct // zero border on no-match
+			return border{}, false
 		}
 	}
 

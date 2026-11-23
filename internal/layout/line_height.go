@@ -179,7 +179,6 @@ type lineHeightStore struct {
 	entries map[lineHeightKey]*lastLineHeightEntry
 }
 
-//nolint:gochecknoglobals,exhaustruct // cross-layout line-height cache, guarded by RWMutex.
 var sharedLineHeights = &lineHeightStore{
 	entries: make(map[lineHeightKey]*lastLineHeightEntry, maxLineHeightCacheEntries),
 }
@@ -194,13 +193,10 @@ type lastLineHeightEntry struct {
 	height float64
 }
 
-//nolint:gochecknoglobals // one-entry read-mostly cache, replaced atomically
 var lastLineHeight atomic.Pointer[lastLineHeightEntry]
 
-//nolint:gochecknoglobals // cross-layout line-height hit counter for tests, updated atomically.
 var sharedLineHeightHits atomic.Uint64
 
-//nolint:gochecknoglobals // cross-layout line-height miss counter for tests, updated atomically.
 var sharedLineHeightMisses atomic.Uint64
 
 // lookupLineHeight returns the memoized line-height:normal for face, size,

@@ -51,32 +51,20 @@ type sharedRuneWidthStore struct {
 	entries map[sharedRuneWidthKey]float64
 }
 
-//nolint:gochecknoglobals,exhaustruct // cross-layout string width cache, guarded by RWMutex.
 var sharedTextWidths = &sharedTextWidthStore{
 	entries: make(map[sharedTextWidthKey]float64, initialWidthCacheEntries),
 }
 
-//nolint:gochecknoglobals,exhaustruct // cross-layout rune width cache, guarded by RWMutex.
 var sharedRuneWidths = &sharedRuneWidthStore{
 	entries: make(map[sharedRuneWidthKey]float64, initialWidthCacheEntries),
 }
 
-//nolint:gochecknoglobals // test hook to prove bounded eviction without filling 8k entries.
-var maxSharedTextWidthEntries = maxTextWidthCacheEntries
-
-//nolint:gochecknoglobals // test hook to prove bounded eviction without filling 4k entries.
-var maxSharedRuneWidthEntries = maxRuneWidthCacheEntries
-
-//nolint:gochecknoglobals // cross-layout hit counters for tests, updated atomically.
 var sharedTextHits atomic.Uint64
 
-//nolint:gochecknoglobals // cross-layout miss counter for tests, updated atomically.
 var sharedTextMisses atomic.Uint64
 
-//nolint:gochecknoglobals // cross-layout rune hit counter for tests, updated atomically.
 var sharedRuneHits atomic.Uint64
 
-//nolint:gochecknoglobals // cross-layout rune miss counter for tests, updated atomically.
 var sharedRuneMisses atomic.Uint64
 
 // scaledAdvance returns the advance for r at size through the shared sized
@@ -94,24 +82,6 @@ func isValidSharedScale(scale float64) bool {
 	}
 
 	return scale > 0
-}
-
-// sharedTextBound returns the effective string cache bound.
-func sharedTextBound() int {
-	if maxSharedTextWidthEntries <= 0 {
-		return maxTextWidthCacheEntries
-	}
-
-	return maxSharedTextWidthEntries
-}
-
-// sharedRuneBound returns the effective rune cache bound.
-func sharedRuneBound() int {
-	if maxSharedRuneWidthEntries <= 0 {
-		return maxRuneWidthCacheEntries
-	}
-
-	return maxSharedRuneWidthEntries
 }
 
 // lookupSharedTextWidth returns the cross-layout string width for base and
@@ -140,7 +110,7 @@ func lookupSharedTextWidth(base textWidthKey, scale float64) (float64, bool) {
 // storeSharedTextWidth records width under base and scale unless the shared
 // cache is bypassed or full. A full cache evicts one arbitrary entry to make
 // room so the size stays bounded across layouts.
-func storeSharedTextWidth(base textWidthKey, scale float64, width float64) {
+func storeSharedTextWidth(base textWidthKey, scale float64, width float64, bound int) {
 	if !isValidSharedScale(scale) {
 		return
 	}
@@ -164,7 +134,7 @@ func storeSharedTextWidth(base textWidthKey, scale float64, width float64) {
 		return
 	}
 
-	if len(sharedTextWidths.entries) >= sharedTextBound() {
+	if len(sharedTextWidths.entries) >= bound {
 		for evict := range sharedTextWidths.entries {
 			delete(sharedTextWidths.entries, evict)
 
@@ -199,7 +169,7 @@ func lookupSharedRuneWidth(base runeWidthKey, scale float64) (float64, bool) {
 
 // storeSharedRuneWidth records a rune width with the same bounded eviction
 // as the string path.
-func storeSharedRuneWidth(base runeWidthKey, scale float64, width float64) {
+func storeSharedRuneWidth(base runeWidthKey, scale float64, width float64, bound int) {
 	if !isValidSharedScale(scale) {
 		return
 	}
@@ -223,7 +193,7 @@ func storeSharedRuneWidth(base runeWidthKey, scale float64, width float64) {
 		return
 	}
 
-	if len(sharedRuneWidths.entries) >= sharedRuneBound() {
+	if len(sharedRuneWidths.entries) >= bound {
 		for evict := range sharedRuneWidths.entries {
 			delete(sharedRuneWidths.entries, evict)
 
@@ -327,7 +297,6 @@ func (e *engine) textWidthCacheKey(
 	return local
 }
 
-//nolint:exhaustruct,gochecknoglobals // per-layout text/rune width cache pools avoid map reallocation on every layout
 var (
 	textWidthCachePool = sync.Pool{}
 	runeWidthCachePool = sync.Pool{}
@@ -409,22 +378,22 @@ func (e *engine) storeRuneWidth(key runeWidthLocalKey, width float64) {
 
 // storeSharedTextWidthFor records a string width in the shared cache only when
 // the key carries an interned style ID.
-func storeSharedTextWidthFor(key textWidthLocalKey, scale, width float64) {
+func storeSharedTextWidthFor(key textWidthLocalKey, scale, width float64, bound int) {
 	if key.key.styleID == 0 {
 		return
 	}
 
-	storeSharedTextWidth(key.key, scale, width)
+	storeSharedTextWidth(key.key, scale, width, bound)
 }
 
 // storeSharedRuneWidthFor records a rune width in the shared cache only when
 // the key carries an interned style ID.
-func storeSharedRuneWidthFor(key runeWidthLocalKey, scale, width float64) {
+func storeSharedRuneWidthFor(key runeWidthLocalKey, scale, width float64, bound int) {
 	if key.key.styleID == 0 {
 		return
 	}
 
-	storeSharedRuneWidth(key.key, scale, width)
+	storeSharedRuneWidth(key.key, scale, width, bound)
 }
 
 // measureRuneFace measures a single rune with the same face selection as
@@ -446,7 +415,7 @@ func (e *engine) measureRuneFace(curRune rune, sty *ResolvedStyle) float64 {
 
 	w := e.measureRuneFaceUncached(curRune, sty)
 	e.storeRuneWidth(key, w)
-	storeSharedRuneWidthFor(key, e.scale, w)
+	storeSharedRuneWidthFor(key, e.scale, w, e.testCfg.sharedRuneBound())
 
 	return w
 }
@@ -521,15 +490,12 @@ type textCoverageStore struct {
 	entries map[textCoverageKey]bool
 }
 
-//nolint:gochecknoglobals,exhaustruct // cross-layout coverage cache, guarded by RWMutex.
 var sharedTextCoverage = &textCoverageStore{
 	entries: make(map[textCoverageKey]bool, initialWidthCacheEntries),
 }
 
-//nolint:gochecknoglobals // cross-layout coverage hit counter for tests, updated atomically.
 var sharedCoverageHits atomic.Uint64
 
-//nolint:gochecknoglobals // cross-layout coverage miss counter for tests, updated atomically.
 var sharedCoverageMisses atomic.Uint64
 
 // lookupTextCoverage returns the cached all-primary bit for face and text.
@@ -575,7 +541,7 @@ func storeTextCoverage(face *pdf.Font, text string, covered bool) {
 		return
 	}
 
-	if len(sharedTextCoverage.entries) >= sharedTextBound() {
+	if len(sharedTextCoverage.entries) >= maxTextWidthCacheEntries {
 		for evict := range sharedTextCoverage.entries {
 			delete(sharedTextCoverage.entries, evict)
 
@@ -772,7 +738,7 @@ func (e *engine) measureRuneLeftovers(sty *ResolvedStyle, keys []runeWidthLocalK
 
 		width := e.measureRuneFaceUncached(runes[i], sty)
 		e.storeRuneWidth(key, width)
-		storeSharedRuneWidthFor(key, e.scale, width)
+		storeSharedRuneWidthFor(key, e.scale, width, e.testCfg.sharedRuneBound())
 	}
 }
 

@@ -77,8 +77,6 @@ type undRun struct {
 }
 
 // flush emits the accumulated underline stroke, if any.
-//
-//nolint:varnamelen,wsl,goconst // underline variants share the existing engine helpers
 func (u *undRun) flush(e *engine) {
 	if u.active && u.w > 0.01 {
 		col := [3]float64{u.r, u.g, u.b}
@@ -94,7 +92,7 @@ func (u *undRun) flush(e *engine) {
 		case "double":
 			e.emitDoubleLine(u.x, u.y, u.w, u.uw, col)
 		default:
-			e.add(Op{ //nolint:exhaustruct // intentional zero fields
+			e.add(Op{
 				Kind: OpLine, X: u.x, Y: u.y, W: u.w, H: 0,
 				Width: u.uw, R: u.r, G: u.g, B: u.b,
 			})
@@ -103,7 +101,7 @@ func (u *undRun) flush(e *engine) {
 		e.blendGroup = prevGroup
 	}
 
-	*u = undRun{} //nolint:exhaustruct // intentional zero fields
+	*u = undRun{}
 }
 
 // emitInlineBlock relocates a block-in-inline box onto the current line and
@@ -254,7 +252,7 @@ func (e *engine) paintInlineChrome(item *inlineItem, leftX, baseline, ascent, de
 
 	if style.BGColor[3] > 0 && e.backgroundPaintEnabled(style) {
 		radii, radiiY := usedBorderRadiiXY(style, boxW, boxH)
-		fill := Op{ //nolint:exhaustruct // intentional zero fields
+		fill := Op{
 			Kind: OpFillRect, X: leftX, Y: boxY, W: boxW, H: boxH,
 			R: style.BGColor[0], G: style.BGColor[1], B: style.BGColor[2], Alpha: style.BGColor[3],
 			Radius: uniformRadius(radii), RadiusTopLeft: radii[0], RadiusTopRight: radii[1],
@@ -273,7 +271,7 @@ func (e *engine) paintInlineChrome(item *inlineItem, leftX, baseline, ascent, de
 
 	if hasRoundedRadii(radii) && uniformRoundedBorder(style) {
 		b := style.borders().BorderTop
-		stroke := Op{ //nolint:exhaustruct // intentional zero fields
+		stroke := Op{
 			Kind: OpStrokeRect, X: leftX, Y: boxY, W: boxW, H: boxH,
 			R: b.Color[0], G: b.Color[1], B: b.Color[2], Width: e.scalePt(borderPaint(b)), Radius: radius,
 			RadiusTopLeft: radii[0], RadiusTopRight: radii[1], RadiusBottomRight: radii[2], RadiusBottomLeft: radii[3],
@@ -365,7 +363,6 @@ func inlineBorderVisible(side border) bool {
 	return side.Width > 0 && side.Style != cssDisplayNone && !side.Transparent
 }
 
-//nolint:cyclop,wsl // transform width and alignment are one geometry decision
 func (e *engine) emitInlineTextRun(
 	item *inlineItem,
 	run faceRun,
@@ -412,7 +409,7 @@ func (e *engine) emitInlineTextRun(
 		e.emitTextShadowRuns(item, run, textX, paintBaseline, textWidth, paintSize, descent)
 	}
 
-	e.add(decorateTextOp(Op{ //nolint:exhaustruct // intentional zero fields
+	e.add(decorateTextOp(Op{
 		Kind: OpText, X: textX, Y: paintBaseline, W: textWidth, H: item.h,
 		Text: raw, Font: run.face, Size: paintSize,
 		InkDescent:    descent,
@@ -423,7 +420,7 @@ func (e *engine) emitInlineTextRun(
 	}, item.style))
 
 	if item.href != "" {
-		e.add((Op{ //nolint:exhaustruct // intentional zero fields
+		e.add((Op{
 			Kind: OpLinkURI, X: textX, Y: baseline - ascent, W: textWidth,
 			H: ascent + descent,
 		}).withURI(item.href))
@@ -439,7 +436,7 @@ func (e *engine) emitTextShadowRuns(
 	for _, shadow := range shadows {
 		opacity := shadowOpacity(shadow.blur)
 
-		shadowOp := decorateTextOp(Op{ //nolint:exhaustruct // intentional zero fields
+		shadowOp := decorateTextOp(Op{
 			Kind: OpText, X: textX + shadow.x, Y: baseline + shadow.y, W: textWidth, H: item.h,
 			Text: run.text, Font: run.face, Size: size,
 			InkDescent:    descent,
@@ -497,8 +494,6 @@ type textDecorationSkipPolicy struct {
 //   - skip-box:all breaks a continuous stroke at an item with inline chrome
 //     (padding/border) instead of drawing across it; there are no ink bounds
 //     to compute the full margin-box skip geometry.
-//
-//nolint:cyclop // skip longhands resolve into one flat policy
 func resolveTextDecorationSkipPolicy(sty *ResolvedStyle) textDecorationSkipPolicy {
 	var policy textDecorationSkipPolicy
 
@@ -772,8 +767,6 @@ func isDecorationSpacer(r rune) bool {
 
 // paintDecoration draws the underline / line-through / overline strokes for one text
 // item, extending the active underline run when the styling continues.
-//
-//nolint:cyclop,funlen,gocognit // decoration painting
 func (e *engine) paintDecoration(
 	item *inlineItem, runStart, runSpan, size, ascent, descent, baseline float64,
 	child [3]float64, und *undRun,
@@ -973,7 +966,7 @@ func (e *engine) emitDecorationLineStyled(
 	case "double":
 		e.emitDoubleLine(startX, lineY, lineW, width, col)
 	default:
-		e.add(Op{ //nolint:exhaustruct // intentional zero fields
+		e.add(Op{
 			Kind: OpLine, X: startX, Y: lineY, W: lineW, H: 0,
 			Width: width, R: col[0], G: col[1], B: col[2],
 		})
@@ -1056,7 +1049,7 @@ func (e *engine) paintUnderlineSkipInk(
 
 		w := endX - segStart
 		if w > emptyRunEpsilon {
-			e.add(Op{ //nolint:exhaustruct // intentional zero fields
+			e.add(Op{
 				Kind: OpLine, X: segStart, Y: underY, W: w, H: 0,
 				Width: uWidth, R: col[0], G: col[1], B: col[2],
 			})
@@ -1203,7 +1196,7 @@ func (e *engine) emitDashedLine(startX, lineY, lineW, width float64, col [3]floa
 		}
 
 		if seg > minVisibleSeg {
-			e.add(Op{ //nolint:exhaustruct // intentional zero fields
+			e.add(Op{
 				Kind: OpLine, X: cur, Y: lineY, W: seg, H: 0,
 				Width: width, R: col[0], G: col[1], B: col[2],
 			})
@@ -1231,7 +1224,7 @@ func (e *engine) emitDottedLine(startX, lineY, lineW, width float64, col [3]floa
 		}
 
 		if seg > minVisibleSeg {
-			e.add(Op{ //nolint:exhaustruct // intentional zero fields
+			e.add(Op{
 				Kind: OpLine, X: cur, Y: lineY, W: seg, H: 0,
 				Width: width, R: col[0], G: col[1], B: col[2],
 			})
@@ -1300,12 +1293,12 @@ func (e *engine) emitWavyLine(startX, lineY, lineW, width float64, col [3]float6
 		// approximate wave with two diagonals
 		segMid := (segStart + segEnd) / two
 
-		e.add(Op{ //nolint:exhaustruct // intentional zero fields
+		e.add(Op{
 			Kind: OpLine, X: segStart, Y: segStartY, W: segMid - segStart, H: lineY - segStartY,
 			Width: width, R: col[0], G: col[1], B: col[2],
 		})
 
-		e.add(Op{ //nolint:exhaustruct // intentional zero fields
+		e.add(Op{
 			Kind: OpLine, X: segMid, Y: lineY, W: segEnd - segMid, H: segEndY - lineY,
 			Width: width, R: col[0], G: col[1], B: col[2],
 		})
@@ -1315,12 +1308,12 @@ func (e *engine) emitWavyLine(startX, lineY, lineW, width float64, col [3]float6
 func (e *engine) emitDoubleLine(startX, lineY, lineW, width float64, col [3]float64) {
 	gap := width + 1.0
 
-	e.add(Op{ //nolint:exhaustruct // intentional zero fields
+	e.add(Op{
 		Kind: OpLine, X: startX, Y: lineY - gap/2, W: lineW, H: 0,
 		Width: width, R: col[0], G: col[1], B: col[2],
 	})
 
-	e.add(Op{ //nolint:exhaustruct // intentional zero fields
+	e.add(Op{
 		Kind: OpLine, X: startX, Y: lineY + gap/2, W: lineW, H: 0,
 		Width: width, R: col[0], G: col[1], B: col[2],
 	})
@@ -1454,17 +1447,17 @@ func (e *engine) emitEmphasisDot(
 	case isTriangle:
 		// triangle emphasis: keep visible as square with slight offset
 		// (true triangle would need path ops; square is distinguishable and visible)
-		e.add(Op{ //nolint:exhaustruct // intentional zero fields
+		e.add(Op{
 			Kind: OpFillRect, X: centerX, Y: dotY, W: dotD, H: dotD,
 			R: red, G: green, B: blue, Alpha: 1,
 		})
 	case isOpen:
-		e.add(Op{ //nolint:exhaustruct // intentional zero fields
+		e.add(Op{
 			Kind: OpStrokeRect, X: centerX, Y: dotY, W: dotD, H: dotD,
 			R: red, G: green, B: blue, Alpha: 1, Width: emphasisOpenStrokeWidth, Radius: radius,
 		})
 	default:
-		e.add(Op{ //nolint:exhaustruct // intentional zero fields
+		e.add(Op{
 			Kind: OpFillRect, X: centerX, Y: dotY, W: dotD, H: dotD,
 			R: red, G: green, B: blue, Alpha: 1, Radius: radius,
 		})
@@ -1589,7 +1582,7 @@ func (e *engine) measureTextFace(cssSheet string, sty *ResolvedStyle) float64 {
 
 	w := e.measureTextFaceUncached(cssSheet, sty, primary, size)
 	e.storeTextWidth(key, w)
-	storeSharedTextWidthFor(key, e.scale, w)
+	storeSharedTextWidthFor(key, e.scale, w, e.testCfg.sharedTextBound())
 
 	return w
 }
@@ -1692,8 +1685,6 @@ func (e *engine) tabStopAdvance(sty *ResolvedStyle, primary *pdf.Font, size floa
 
 // splitTextByFace splits s into contiguous runs that share the same face
 // under CSS font-family fallback.
-//
-//nolint:cyclop,funlen,wsl // hot path: per-rune face-fallback run splitting
 func (e *engine) splitTextByFace(cssSheet string, sty *ResolvedStyle) []faceRun {
 	if cssSheet == "" || sty == nil {
 		return nil
@@ -1811,7 +1802,7 @@ func paintTextOf(runText, transform string) string {
 
 func (e *engine) primaryFaceRun(cssSheet string, sty *ResolvedStyle) (faceRun, bool) {
 	if cssSheet == "" || sty == nil {
-		return faceRun{}, false //nolint:exhaustruct // intentional zero fields
+		return faceRun{}, false
 	}
 
 	primary := e.faceFor(sty)
@@ -1820,7 +1811,7 @@ func (e *engine) primaryFaceRun(cssSheet string, sty *ResolvedStyle) (faceRun, b
 	}
 
 	if !faceRunAllPrimary(cssSheet, primary) {
-		return faceRun{}, false //nolint:exhaustruct // intentional zero fields
+		return faceRun{}, false
 	}
 
 	size := sty.FontSize * e.scale
@@ -1842,7 +1833,7 @@ func (e *engine) primaryFaceRun(cssSheet string, sty *ResolvedStyle) (faceRun, b
 	if len(paintText) <= maxCachedTextLen && paintRunWidthReusable(sty, paintText) {
 		key := e.textWidthCacheKey(sty, primary, size, paintText)
 		e.storeTextWidth(key, width)
-		storeSharedTextWidthFor(key, e.scale, width)
+		storeSharedTextWidthFor(key, e.scale, width, e.testCfg.sharedTextBound())
 	}
 
 	return primaryFaceRunValue(cssSheet, primary, width, painted), true
@@ -2004,7 +1995,7 @@ func (e *engine) inlineFontMetrics(text string, style *ResolvedStyle) (float64, 
 	runs := e.splitTextByFace(text, style)
 
 	if len(runs) == 0 {
-		runs = []faceRun{{face: e.faceFor(style)}} //nolint:exhaustruct // text and width are filled by shaping
+		runs = []faceRun{{face: e.faceFor(style)}}
 	}
 
 	maxAscent, maxDescent := 0.0, 0.0

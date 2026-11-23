@@ -113,8 +113,7 @@ func flowToleranceDeclarationValueAccepted(prop, value string) (bool, bool) {
 // the shortest-column choice (hand-built engines and tests).
 func masonryToleranceOf(eng *engine, container *ResolvedStyle) masonryTolerance {
 	if container == nil {
-		return masonryTolerance{ //nolint:exhaustruct // infinite is false; slack still zero
-		}
+		return masonryTolerance{}
 	}
 
 	if container.grid().FlowToleranceInfinite {

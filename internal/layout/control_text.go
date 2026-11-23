@@ -95,7 +95,7 @@ func (e *engine) paintTextInputWidget(
 	ascent := e.fontAscentFace(face, size)
 	descent := e.fontDescentFace(face, size)
 
-	e.add(Op{ //nolint:exhaustruct // intentional zero fields
+	e.add(Op{
 		Kind: OpText, X: contentX,
 		Y: contentY + (contentH+ascent-descent)/two, W: textW, H: ascent + descent,
 		Text: text, Font: face, Size: size, InkDescent: descent,

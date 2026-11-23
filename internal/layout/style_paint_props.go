@@ -87,7 +87,6 @@ func applyOutlineProps(style *ResolvedStyle, prop, value string, fsize float64) 
 	return applyOutlineLonghands(style, prop, value, fsize)
 }
 
-//nolint:cyclop // SVG presentation longhands
 func applySVGPresentationProps(style *ResolvedStyle, prop, value string, fsize float64) bool {
 	switch prop {
 	case "fill":
@@ -271,8 +270,6 @@ func applyOutlineShorthand(style *ResolvedStyle, value string, fsize float64) {
 // number on both the corner field and BorderRadiusPercent (paint uses the
 // uniform percent path). Absolute lengths clear BorderRadiusPercent so paint
 // uses the per-corner fields.
-//
-//nolint:cyclop // radius longhands
 func applyRadiusLonghand(style *ResolvedStyle, prop, value string, fsize float64) bool {
 	var first, second string
 	switch prop {

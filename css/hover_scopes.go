@@ -27,7 +27,6 @@ const (
 	maxHoverMemoBytes = 512 * 1024
 )
 
-//nolint:gochecknoglobals // bounded hover caches: sheets and signatures only, never documents.
 var (
 	hoverListMu     sync.Mutex
 	hoverLists      []*hoverListEntry
@@ -192,7 +191,7 @@ func hoverMatchChangedCached(node *html.Node, entry *hoverListEntry, old, next i
 
 			if !sigReady {
 				tag = hoverTagName(node)
-				attrs = hoverAttrKey(node.EnsureAttrs())
+				attrs = hoverAttrKey(node.AttrMap())
 				sigReady = true
 			}
 

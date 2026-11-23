@@ -1,4 +1,3 @@
-//nolint:cyclop,exhaustruct,mnd,varnamelen,wsl // image adjustment property parsers
 package layout
 
 import (

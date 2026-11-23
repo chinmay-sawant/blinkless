@@ -368,10 +368,10 @@ internal/convert/prepare/prepare.go:210
 ```
 
 - **Charset seam:** `internal/load` enforces UTF-8/ASCII before the parser
-  sees bytes (`checkDocumentCharset`, `internal/load/load.go:968-984`; the
-  `<meta charset>` fallback scan is `metaCharset`, `load.go:1016`).
+  sees bytes (`checkDocumentCharset`, `internal/load/load.go:1097-1111`; the
+  `<meta charset>` fallback scan is `metaCharset`, `load.go:1139`).
 - **BOM mirror:** `ParseDocument` strips `\ufeff` (`html.go:178`), the same
-  way `load.IsHTML` recognizes inline HTML (`load.go:303`).
+  way `load.IsHTML` recognizes inline HTML (`load.go:347`).
 
 ### 4.2 Tokenizer -> tree flow (inside `Parse`)
 
@@ -571,15 +571,15 @@ The parser is the first trust boundary for *markup*, and the design leans on
   (`html.go:836-852`) and the layout UA sheet sets `display: none`
   (`internal/layout/style_values.go:1837-1839`). No code path evaluates
   scripts (`documentation/compatibility-matrix.md:921`).
-- **No form submission path.** POST happens only when the caller configures
-  `settings.Load.Post`, and no cookies are forwarded
+- **No form submission path.** The loader only issues GET requests, and no
+  cookies exist
   (`documentation/compatibility-matrix.md:1175`).
 - **Deterministic, non-crashing parsing.** Recovery replaces fatal errors;
   `maxElementDepth` bounds recursion; `TestParseUsableTreeNoPanic`
   (`html_test.go:1781`) and `FuzzParseHTML` (`fuzz_test.go:9-30`) lock in the
   no-panic invariant.
 - **Charset is enforced before parse.** Only UTF-8/ASCII reaches the parser
-  (`load.checkDocumentCharset`, `internal/load/load.go:968-984`).
+  (`load.checkDocumentCharset`, `internal/load/load.go:1097-1111`).
 - **Attribute values are decoded, not executed.** Entity decoding happens at
   parse time (`tree.go:1269-1291`); there is no mechanism to turn attribute
   content into behavior.

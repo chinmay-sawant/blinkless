@@ -1,4 +1,3 @@
-//nolint:cyclop // color-adjust, forced-colors, and dynamic-range property dispatch
 package layout
 
 import (
@@ -268,7 +267,7 @@ func forcedColorsPaintColor(forcedActive bool, adjust string, author, system [3]
 // so paint defaults to off. Tests enable it to observe the auto vs none
 // split: auto maps to the system color while none keeps author colors,
 // matching Chrome 143.0.7499.40 with forced-colors active.
-var forcedColorsTestActive bool //nolint:gochecknoglobals // test-only forced-colors mode override
+var forcedColorsTestActive bool
 
 // setForcedColorsTestActive enables the test-only forced-colors mode.
 // Callers must defer setForcedColorsTestActive(false) and must not run in

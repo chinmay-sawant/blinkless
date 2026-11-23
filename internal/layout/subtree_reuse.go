@@ -26,8 +26,6 @@ import (
 // patch). The batch entry is the same function with overrides: the override
 // allow list is layout only, so an override always changes layout inputs and
 // the attempt falls back to the normal override build.
-//
-//nolint:gochecknoglobals // process-wide reuse counters back ReuseStatsSnapshot
 var (
 	reuseHitCount        atomic.Uint64
 	reuseMissCount       atomic.Uint64
@@ -290,7 +288,7 @@ func fingerprintContentDOM(root *html.Node) uint64 {
 		}
 
 		if node.Type == html.ElementNode {
-			writeContentElement(hash, node.Type, node.Name, node.EnsureAttrs())
+			writeContentElement(hash, node.Type, node.Name, node.AttrMap())
 		}
 
 		for _, child := range node.Children {
@@ -321,7 +319,7 @@ func fingerprintKeptContent(kept *box, ops []Op, start, count int) uint64 {
 		}
 
 		if node.node != nil && node.node.Type == html.ElementNode {
-			writeContentElement(hash, node.node.Type, node.node.Name, node.node.EnsureAttrs())
+			writeContentElement(hash, node.node.Type, node.node.Name, node.node.AttrMap())
 		}
 
 		for _, child := range node.children {

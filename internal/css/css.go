@@ -246,7 +246,7 @@ func parse(src string) (*Stylesheet, error) {
 		return nil, ErrStylesheetTooLarge
 	}
 
-	str := &Stylesheet{} //nolint:exhaustruct // intentional zero-value fields
+	str := &Stylesheet{}
 	src = stripComments(src)
 	order := 0
 
@@ -372,7 +372,7 @@ func pageDescriptors(declarations string) (string, string) {
 
 func applyPageDescriptors(page *PageStyle, margin, size string) *PageStyle {
 	if page == nil {
-		page = &PageStyle{} //nolint:exhaustruct // zero values represent omitted @page properties
+		page = &PageStyle{}
 	}
 
 	if margin != "" {
@@ -549,10 +549,10 @@ func parseTopLevelRule(src string, str *Stylesheet, order *int) (string, error) 
 func parseOneRule(selText, block, media string, contQ *ContainerQuery, order *int) (Rule, bool) {
 	sel, ok := parseSelectorList(selText)
 	if !ok || len(sel) == 0 {
-		return Rule{}, false //nolint:exhaustruct // intentional zero-value fields
+		return Rule{}, false
 	}
 
-	rVal := Rule{ //nolint:exhaustruct // intentional zero-value fields
+	rVal := Rule{
 		Selectors: sel,
 		Decls:     parseDeclarations(block),
 		Media:     media,
@@ -616,21 +616,18 @@ func parseFontFace(block string) FontFace {
 func FontFaceURLs(src string) []string {
 	var out []string
 
-	// Search the lowercased copy for "url(" but extract from the original
-	// case: the URL itself must keep its case (file paths are case-sensitive).
-	// ToLower is 1:1 in byte length for the ASCII "url(" marker, so both
-	// remainders advance by the same offsets.
-	low := src
-	search := strings.ToLower(src)
+	// "url(" is matched ASCII-case-insensitively against the original text so
+	// byte offsets stay valid in src; the URL itself keeps its case (file
+	// paths are case-sensitive).
+	rest := src
 
 	for {
-		urlIdx := strings.Index(search, "url(")
+		urlIdx := IndexASCIIFold(rest, "url(")
 		if urlIdx < 0 {
 			break
 		}
 
-		rest := low[urlIdx+4:]
-		search = search[urlIdx+4:]
+		rest = rest[urlIdx+4:]
 
 		end := strings.IndexByte(rest, ')')
 		if end < 0 {
@@ -644,8 +641,7 @@ func FontFaceURLs(src string) []string {
 			out = append(out, raw)
 		}
 
-		low = rest[end+1:]
-		search = search[end+1:]
+		rest = rest[end+1:]
 	}
 
 	return out
@@ -743,6 +739,8 @@ func parseNestedAtRule(
 		return parseNestedSupportsRule(str, block, media, contQ, orderPtr, depth)
 	case hasFoldPrefix(block, "@layer"):
 		return parseLayerBlockRules(block, str, orderPtr, media, contQ, depth)
+	case hasFoldPrefix(block, "@media"):
+		return parseNestedMediaRule(str, block, media, contQ, orderPtr, depth)
 	default:
 		rest, err := skipAtRule(block)
 		if err != nil {
@@ -751,6 +749,113 @@ func parseNestedAtRule(
 
 		return rest, nil, nil
 	}
+}
+
+// parseNestedMediaRule handles @media inside @layer, @supports, @container or
+// another @media. The inner query is ANDed with the enclosing one, so the
+// rules apply only when both hold. A query pair the media grammar cannot
+// conjoin (a "not" query, or conflicting media types) drops the block, which
+// matches the old skip behaviour for that pair only.
+func parseNestedMediaRule(
+	str *Stylesheet, block, media string, contQ *ContainerQuery, orderPtr *int, depth int,
+) (string, []Rule, error) {
+	open := strings.IndexByte(block, '{')
+	if open < 0 {
+		return "", nil, errUnbalanced
+	}
+
+	inner := strings.TrimSpace(block[len("@media"):open])
+
+	innerBlock, rem, err := takeBlock(block, open)
+	if err != nil {
+		return "", nil, err
+	}
+
+	combined, ok := combineMediaQueries(media, inner)
+	if !ok {
+		return rem, nil, nil
+	}
+
+	nested, err := parseRuleList(str, combined, contQ, innerBlock, orderPtr, depth+1)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return rem, nested, nil
+}
+
+// combineMediaQueries returns the media query list matching exactly when both
+// outer and inner match. Comma lists are OR lists, so the result is the cross
+// product of their members joined with "and". ok is false when no member pair
+// can be expressed.
+func combineMediaQueries(outer, inner string) (string, bool) {
+	outer, inner = strings.TrimSpace(outer), strings.TrimSpace(inner)
+
+	switch {
+	case outer == "" || strings.EqualFold(outer, "all"):
+		if inner == "" {
+			return "all", true
+		}
+
+		return inner, true
+	case inner == "" || strings.EqualFold(inner, "all"):
+		return outer, true
+	}
+
+	var out []string
+
+	for _, left := range splitMediaList(outer) {
+		for _, right := range splitMediaList(inner) {
+			if joined, ok := joinMediaQuery(left, right); ok {
+				out = append(out, joined)
+			}
+		}
+	}
+
+	if len(out) == 0 {
+		return "", false
+	}
+
+	return strings.Join(out, ", "), true
+}
+
+// joinMediaQuery conjoins two single media queries. A "not" query cannot be
+// conjoined in this grammar; two different media types never both match, so
+// that pair is omitted.
+func joinMediaQuery(left, right string) (string, bool) {
+	left, right = strings.TrimSpace(left), strings.TrimSpace(right)
+	if hasFoldPrefix(left, "not ") || hasFoldPrefix(right, "not ") {
+		return "", false
+	}
+
+	left = trimFoldPrefix(left, "only ")
+	right = trimFoldPrefix(right, "only ")
+
+	_, leftRest := extractMediaFeatures(left)
+	_, rightRest := extractMediaFeatures(right)
+	leftType := mediaTypeWord(strings.ToLower(strings.TrimSpace(leftRest)))
+	rightType := mediaTypeWord(strings.ToLower(strings.TrimSpace(rightRest)))
+
+	if leftType != "" && rightType != "" && leftType != "all" && rightType != "all" && leftType != rightType {
+		return "", false
+	}
+
+	// The matcher reads the first non-"and" token as the media type, so a
+	// typed query must lead the joined text.
+	if leftType == "" && rightType != "" {
+		left, right = right, left
+	}
+
+	return left + " and " + right, true
+}
+
+// trimFoldPrefix removes prefix (any case) from s when present.
+func trimFoldPrefix(s, prefix string) string {
+	if hasFoldPrefix(s, prefix) {
+		return strings.TrimSpace(s[len(prefix):])
+	}
+
+	return s
 }
 
 // parseNestedContainerRule handles @container inside @media/@container. The

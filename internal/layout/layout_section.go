@@ -14,7 +14,7 @@ import (
 // once so independent blocks share interned style pointers.
 func ResolveStyles(ctx context.Context, root *html.Node, opts Options) (map[*html.Node]*ResolvedStyle, error) {
 	if root == nil {
-		return nil, errors.New("layout: nil root") //nolint:err113 // matches LayoutContext
+		return nil, errors.New("layout: nil root")
 	}
 
 	if err := opts.validate(); err != nil {
@@ -43,11 +43,11 @@ func NodeWithWorkspace(
 	workspace *Workspace,
 ) (*Result, error) {
 	if node == nil {
-		return nil, errors.New("layout: nil node") //nolint:err113 // matches LayoutContext
+		return nil, errors.New("layout: nil node")
 	}
 
 	if styles == nil {
-		return nil, errors.New("layout: nil styles") //nolint:err113 // required shared cascade
+		return nil, errors.New("layout: nil styles")
 	}
 
 	if err := opts.validate(); err != nil {
@@ -106,7 +106,7 @@ func assembleNodeResult(eng *engine, rootBox *box, opts Options, workspace *Work
 	boxes := rented[:0]
 	flattenBoxes(rootBox, &boxes)
 
-	res := &Result{ //nolint:exhaustruct // intentional zero fields
+	res := &Result{
 		Ops:            eng.ops,
 		Width:          opts.Width,
 		Height:         opts.Height,

@@ -49,5 +49,5 @@ func run(fixture, out string, width, height int) error {
 		return err
 	}
 
-	return os.WriteFile(out, result.Bytes, 0o644)
+	return os.WriteFile(out, result.Bytes, 0o644) //nolint:gosec // operator-chosen output path; the drawing-list JSON is not secret
 }

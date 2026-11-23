@@ -70,7 +70,6 @@ func applyInitialLetterValue(style *ResolvedStyle, value string) bool {
 	return true
 }
 
-//nolint:cyclop // Initial-letter grammar keeps drop, raise, and sink visible.
 func parseInitialLetterTokens(tokens []string) (float64, int, bool) {
 	size, err := strconv.ParseFloat(tokens[0], 64)
 	if err != nil || size < 1 {

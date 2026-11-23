@@ -139,7 +139,7 @@ func copyNode(node *html.Node) *Node {
 		Type:      kind,
 		Name:      node.Name,
 		Namespace: copyNamespace(node.Namespace),
-		Attrs:     copyAttrs(node.EnsureAttrs()),
+		Attrs:     copyAttrs(node.AttrMap()),
 		AttrList:  copyAttrList(node.AttrList),
 		Text:      node.Text,
 		Doctype:   copyDoctype(node.Doctype),

@@ -476,7 +476,6 @@ func buildNameTable(family, subfamily, full, postScriptName string) []byte {
 		binary.BigEndian.PutUint16(buf[pos+6:], rec.id)
 		//nolint:gosec // name string lengths are tiny
 		binary.BigEndian.PutUint16(buf[pos+8:], uint16(len(encoded[recordIndex])))
-		//nolint:gosec // name string offsets are tiny
 		binary.BigEndian.PutUint16(buf[pos+10:], uint16(off))
 		copy(buf[header+off:], encoded[recordIndex])
 		off += len(encoded[recordIndex])

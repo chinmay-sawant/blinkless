@@ -26,7 +26,7 @@ import (
 // A nil ctx means no cancellation: the walk then runs to the end.
 func resolveStylesForSubtree(
 	ctx context.Context,
-	sc *styleContext, //nolint:varnamelen // short name kept: the style context of the pass
+	sc *styleContext,
 	node *html.Node,
 	parent *ResolvedStyle,
 	remBase float64,
@@ -42,7 +42,7 @@ func resolveStylesForSubtree(
 		sc.remBase = remBase
 	}
 
-	store := styleStore{} //nolint:exhaustruct // intentional zero-value store
+	store := styleStore{}
 
 	visited := 0
 

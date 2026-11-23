@@ -8,7 +8,7 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
-func TestJustifyDoesNotGapBeforePunctuation(t *testing.T) { //nolint:gocyclo // punctuation boundary walk
+func TestJustifyDoesNotGapBeforePunctuation(t *testing.T) {
 	t.Parallel()
 
 	cssSheet := sheet(t, `

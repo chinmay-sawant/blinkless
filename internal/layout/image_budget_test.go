@@ -26,11 +26,9 @@ func pngHeader(width, height uint32) []byte {
 
 func gifHeader(width, height uint16) []byte {
 	header := []byte("GIF89a")
-	header = append(header,
-		byte(width), byte(width>>8),
-		byte(height), byte(height>>8),
-		0, 0, 0,
-	)
+	header = binary.LittleEndian.AppendUint16(header, width)
+	header = binary.LittleEndian.AppendUint16(header, height)
+	header = append(header, 0, 0, 0)
 
 	return header
 }

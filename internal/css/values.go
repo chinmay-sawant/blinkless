@@ -32,7 +32,13 @@ func parseDeclarations(block string) []Declaration {
 			continue
 		}
 
-		prop := strings.ToLower(strings.TrimSpace(part[:colon]))
+		prop := strings.TrimSpace(part[:colon])
+		// Custom property names are case-sensitive (CSS Custom Properties
+		// Level 1); every other property name is ASCII case-insensitive.
+		if !strings.HasPrefix(prop, "--") {
+			prop = strings.ToLower(prop)
+		}
+
 		value := strings.TrimSpace(part[colon+1:])
 
 		if prop == "" || value == "" {
@@ -59,9 +65,12 @@ func validPropName(page string) bool {
 		return false
 	}
 
+	custom := strings.HasPrefix(page, "--")
+
 	for i := range len(page) {
 		c := page[i]
-		if !(c == '-' || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+		if !(c == '-' || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) &&
+			!(custom && c >= 'A' && c <= 'Z') {
 			return false
 		}
 	}
@@ -190,8 +199,6 @@ func ParseColor(val string) (int, int, int, float64, bool) {
 
 // parseColorDepth is ParseColor with a var() fallback depth. depth counts
 // fallbacks already entered. At maxColorVarDepth another var() is rejected.
-//
-//nolint:cyclop // linear dispatch across color forms; extraction would obscure it
 func parseColorDepth(val string, depth int) (int, int, int, float64, bool) {
 	val = strings.TrimSpace(val)
 	if val == "" {
@@ -283,8 +290,6 @@ func parseHexColor(hex string) (int, int, int, float64, bool) {
 // channels (low is the lower-cased original). The channel list is scanned in
 // place between '(' and ')': no split slice, no per-channel allocation except
 // the trimmed channel strings themselves.
-//
-//nolint:cyclop // single-pass in-place channel scan; splitting loses the no-alloc property
 func parseRGBColor(val, low string) (int, int, int, float64, bool) {
 	open := strings.IndexByte(val, '(')
 	closeIdx := strings.LastIndexByte(val, ')')
@@ -581,7 +586,7 @@ func parseVarFn(val string) (string, string, bool) {
 			}
 		case ',':
 			if depth == 0 {
-				name := strings.ToLower(strings.TrimSpace(inner[:idx]))
+				name := strings.TrimSpace(inner[:idx])
 				fallback := strings.TrimSpace(inner[idx+1:])
 
 				return name, fallback, name != ""
@@ -589,7 +594,7 @@ func parseVarFn(val string) (string, string, bool) {
 		}
 	}
 
-	name := strings.ToLower(strings.TrimSpace(inner))
+	name := strings.TrimSpace(inner)
 
 	return name, "", name != ""
 }
@@ -711,6 +716,14 @@ func matchingVarParen(value string, open int) int {
 	return -1
 }
 
+// maxCustomPropDepth bounds var() chains between custom properties; a longer
+// chain resolves to invalid (empty). maxCustomPropEvals bounds the total work
+// one ResolveCustomProps call spends on depth-capped chains.
+const (
+	maxCustomPropDepth = 64
+	maxCustomPropEvals = 1 << 16
+)
+
 // ResolveCustomProps walks a custom-property graph: the inherited overlay
 // plus declared --* values, with var() chains expanded once using a memo and
 // a cycle stack (cycles resolve to invalid → empty). The single place
@@ -726,28 +739,41 @@ func ResolveCustomProps(declared, inherited map[string]string) map[string]string
 	}
 
 	memo := map[string]string{}
+	budget := maxCustomPropEvals
 
-	var eval func(name string, stack map[string]bool) string
+	// eval resolves one custom property. tainted reports that the value was
+	// cut short by the depth cap or the work budget: such a value is not
+	// memoized, so every property's result depends only on its own chain
+	// length and never on the map iteration order that reached it.
+	var eval func(name string, stack map[string]bool) (string, bool)
 
-	eval = func(name string, stack map[string]bool) string {
+	eval = func(name string, stack map[string]bool) (string, bool) {
 		if v, ok := memo[name]; ok {
-			return v
+			return v, false
 		}
 
 		raw, ok := work[name]
 		if !ok || !strings.Contains(strings.ToLower(raw), "var(") {
 			memo[name] = raw
 
-			return raw
+			return raw, false
 		}
 
 		if stack[name] {
-			return ""
+			return "", false
 		}
 
+		if len(stack) >= maxCustomPropDepth || budget <= 0 {
+			return "", true
+		}
+
+		budget--
+
 		stack[name] = true
-		val := ResolveVar(raw, func(n string) (string, bool) {
-			s := eval(n, stack)
+		tainted := false
+		val := ResolveVars(raw, func(n string) (string, bool) {
+			s, cut := eval(n, stack)
+			tainted = tainted || cut
 			_, exists := work[n]
 
 			return s, exists && strings.TrimSpace(s) != ""
@@ -755,12 +781,19 @@ func ResolveCustomProps(declared, inherited map[string]string) map[string]string
 
 		delete(stack, name)
 
+		if tainted {
+			return "", true
+		}
+
 		memo[name] = val
 
-		return val
+		return val, false
 	}
+
 	for name := range work {
-		eval(name, map[string]bool{})
+		if _, tainted := eval(name, map[string]bool{}); tainted {
+			memo[name] = ""
+		}
 	}
 
 	return memo

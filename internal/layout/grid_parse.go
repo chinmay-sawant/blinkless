@@ -3,6 +3,8 @@ package layout
 import (
 	"strconv"
 	"strings"
+
+	"github.com/chinmay-sawant/blinkless/internal/css"
 )
 
 // --- Track parsing (minmax / fr / intrinsic) --------------------------------
@@ -36,7 +38,7 @@ type gridTrackDef struct {
 
 func flexibleTrack() gridTrackDef {
 	return gridTrackDef{
-		min: gridTrackSize{kind: trackAuto}, //nolint:exhaustruct // intentional zero fields
+		min: gridTrackSize{kind: trackAuto},
 		max: gridTrackSize{kind: trackFr, val: 1},
 	}
 }
@@ -128,8 +130,7 @@ func expandRepeatFunctions(raw string) string {
 // expandOneRepeat replaces the first repeat() call. ok is false when the
 // text has no further valid repeat, and the caller keeps raw as it stands.
 func expandOneRepeat(raw string) (string, bool) {
-	lower := strings.ToLower(raw)
-	idx := strings.Index(lower, "repeat(")
+	idx := css.IndexASCIIFold(raw, "repeat(")
 
 	if idx < 0 {
 		return raw, false
@@ -190,7 +191,7 @@ func findMatchingParen(s string, openIdx int) int {
 }
 
 func splitTopLevelComma(cssSheet string) []string {
-	return splitParenArgs(cssSheet, ',')
+	return splitParenArgs(cssSheet)
 }
 
 // isTrackWhitespace reports CSS whitespace between grid track tokens.
@@ -263,7 +264,7 @@ func parseOneTrackDef(tok string) gridTrackDef {
 	size := parseTrackSize(tok)
 	if size.kind == trackFr {
 		return gridTrackDef{
-			min: gridTrackSize{kind: trackAuto}, //nolint:exhaustruct // intentional zero fields
+			min: gridTrackSize{kind: trackAuto},
 			max: size,
 		}
 	}
@@ -280,13 +281,13 @@ func gridAutoTrackDef(raw string) gridTrackDef {
 	lower := strings.ToLower(raw)
 	if lower == "auto" {
 		return gridTrackDef{
-			min: gridTrackSize{kind: trackAuto}, //nolint:exhaustruct // auto min
-			max: gridTrackSize{kind: trackAuto}, //nolint:exhaustruct // auto max
+			min: gridTrackSize{kind: trackAuto},
+			max: gridTrackSize{kind: trackAuto},
 		}
 	}
 
 	if size, ok := parseFrSize(lower); ok {
-		return gridTrackDef{min: gridTrackSize{kind: trackAuto}, max: size} //nolint:exhaustruct // 1fr lite
+		return gridTrackDef{min: gridTrackSize{kind: trackAuto}, max: size}
 	}
 
 	def := parseOneTrackDef(raw)
@@ -301,7 +302,7 @@ func gridAutoTrackDef(raw string) gridTrackDef {
 func parseFrSize(tok string) (gridTrackSize, bool) {
 	lower := strings.ToLower(tok)
 	if !strings.HasSuffix(lower, "fr") {
-		return gridTrackSize{}, false //nolint:exhaustruct // intentional zero fields
+		return gridTrackSize{}, false
 	}
 
 	v, err := strconv.ParseFloat(strings.TrimSuffix(lower, "fr"), 64)
@@ -316,12 +317,12 @@ func parseFrSize(tok string) (gridTrackSize, bool) {
 // sentinel used by resolveTrackSide; ok=false when tok is not a valid %.
 func parseTrackPct(tok string) (gridTrackSize, bool) {
 	if !strings.HasSuffix(tok, "%") {
-		return gridTrackSize{}, false //nolint:exhaustruct // intentional zero fields
+		return gridTrackSize{}, false
 	}
 
 	pct, err := strconv.ParseFloat(strings.TrimSuffix(tok, "%"), 64)
 	if err != nil {
-		return gridTrackSize{}, false //nolint:exhaustruct // intentional zero fields
+		return gridTrackSize{}, false
 	}
 
 	return gridTrackSize{kind: trackFixed, val: -pct}, true
@@ -333,11 +334,11 @@ func parseTrackSize(tok string) gridTrackSize {
 	lower := strings.ToLower(tok)
 	switch lower {
 	case overflowAuto:
-		return gridTrackSize{kind: trackAuto} //nolint:exhaustruct // intentional zero fields
+		return gridTrackSize{kind: trackAuto}
 	case "min-content":
-		return gridTrackSize{kind: trackMinContent} //nolint:exhaustruct // intentional zero fields
+		return gridTrackSize{kind: trackMinContent}
 	case "max-content":
-		return gridTrackSize{kind: trackMaxContent} //nolint:exhaustruct // intentional zero fields
+		return gridTrackSize{kind: trackMaxContent}
 	}
 
 	if size, ok := parseFrSize(lower); ok {
@@ -354,7 +355,7 @@ func parseTrackSize(tok string) gridTrackSize {
 		return gridTrackSize{kind: trackFixed, val: val}
 	}
 
-	return gridTrackSize{kind: trackAuto} //nolint:exhaustruct // intentional zero fields
+	return gridTrackSize{kind: trackAuto}
 }
 
 // --- Areas + auto-flow placement (kept separate from track parsing) ---------
@@ -373,7 +374,7 @@ type gridTemplateAreasMap struct {
 // parseGridTemplateAreas parses quoted area rows into a name map.
 // Tokens "none", ".", and empty cells are holes (no name).
 func parseGridTemplateAreas(raw string) gridTemplateAreasMap {
-	out := gridTemplateAreasMap{names: map[string]gridAreaRect{}} //nolint:exhaustruct // intentional zero fields
+	out := gridTemplateAreasMap{names: map[string]gridAreaRect{}}
 	raw = strings.TrimSpace(raw)
 
 	if raw == "" || strings.EqualFold(raw, cssDisplayNone) {
@@ -530,7 +531,7 @@ func extendGridAreaBounds(cur *gridAreaBounds, runic, child int) {
 // resolveNamedGridArea looks up a custom-ident in the areas map.
 func resolveNamedGridArea(areas gridTemplateAreasMap, name string) (gridAreaRect, bool) {
 	if areas.names == nil {
-		return gridAreaRect{}, false //nolint:exhaustruct // intentional zero fields
+		return gridAreaRect{}, false
 	}
 
 	rect, ok := areas.names[name]

@@ -1,4 +1,3 @@
-//nolint:wsl,cyclop,mnd,nlreturn // compositing equations follow the CSS color formulas directly
 package layout
 
 import (
@@ -25,7 +24,7 @@ const (
 	blendLuminosity = "luminosity"
 )
 
-var supportedBlendModes = map[string]struct{}{ //nolint:gochecknoglobals // immutable CSS mode vocabulary
+var supportedBlendModes = map[string]struct{}{
 	blendNormal:     {},
 	blendMultiply:   {},
 	blendScreen:     {},

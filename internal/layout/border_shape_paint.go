@@ -125,7 +125,7 @@ func borderShapePaint(
 
 	if sty.BGColor[3] > 0 && eng.backgroundPaintEnabled(sty) {
 		usedBG := usedBGForPaintActive(sty, eng.forcedColorsForPaint())
-		fillOp := Op{ //nolint:exhaustruct // intentional zero fields
+		fillOp := Op{
 			Kind: OpPath, X: posX, Y: posY, W: width, H: height,
 			R: usedBG[0], G: usedBG[1], B: usedBG[2], Alpha: usedBG[3],
 		}
@@ -145,7 +145,7 @@ func borderShapePaint(
 		return fillOps, nil, fillHandled, false
 	}
 
-	borderOp := Op{ //nolint:exhaustruct // intentional zero fields
+	borderOp := Op{
 		Kind: OpPath, X: posX, Y: posY, W: width, H: height,
 		R: base.Color[0], G: base.Color[1], B: base.Color[2],
 		Width: eng.scalePt(borderPaint(base)),

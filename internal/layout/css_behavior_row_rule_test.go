@@ -227,7 +227,6 @@ func TestBehaviorRowRuleColorBlue(t *testing.T) {
 	}
 }
 
-//nolint:lll // the two visibility fixtures are one comparison
 func TestBehaviorRowRuleVisibilityAround(t *testing.T) {
 	t.Parallel()
 

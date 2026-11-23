@@ -46,8 +46,6 @@ func evictProbeParse(t *testing.T, src string) Selector {
 // TestSiblingEntryEvictionBounded inserts past the soft cap through the public
 // matching path and pins the memo size: without eviction it would hold one
 // entry per distinct parent, with it the map stays at or under the soft cap.
-//
-//nolint:paralleltest // shares the process-wide sibling memo and its counters
 func TestSiblingEntryEvictionBounded(t *testing.T) {
 	resetMatchMemoForTest()
 
@@ -74,8 +72,6 @@ func TestSiblingEntryEvictionBounded(t *testing.T) {
 // TestSiblingEntryEvictedParentRebuilds pins rebuild-on-demand: a parent whose
 // entry the cap evicted still matches correctly, the rematch re-populates the
 // memo (miss counter moves), and the map stays bounded afterwards.
-//
-//nolint:paralleltest // shares the process-wide sibling memo and its counters
 func TestSiblingEntryEvictedParentRebuilds(t *testing.T) {
 	resetMatchMemoForTest()
 
@@ -142,8 +138,6 @@ func TestSiblingEntryEvictedParentRebuilds(t *testing.T) {
 // not accumulate without bound: waves of distinct synthetic trees whose only
 // remaining reference is the memo itself still leave the map bounded, and a
 // witness from the live wave keeps matching.
-//
-//nolint:paralleltest // shares the process-wide sibling memo and its counters
 func TestSiblingEntryDroppedTreesBounded(t *testing.T) {
 	resetMatchMemoForTest()
 

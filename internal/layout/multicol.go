@@ -1,4 +1,3 @@
-//nolint:all
 package layout
 
 import (
@@ -12,13 +11,11 @@ import (
 
 const maxPooledMulticolScratch = 4096
 
-//nolint:gochecknoglobals // test-visible memo state, mirroring flex.go
 var (
 	multicolMemoHits   atomic.Int64
 	multicolMemoMisses atomic.Int64
-	multicolMemoBypass atomic.Bool
-	multicolIntPool    = sync.Pool{New: func() any { return make([]int, 0, 16) }}
-	multicolAssignPool = sync.Pool{New: func() any { return make([]multicolColAssign, 0, 64) }}
+	multicolIntPool    = sync.Pool{New: func() any { s := make([]int, 0, 16); return &s }}
+	multicolAssignPool = sync.Pool{New: func() any { s := make([]multicolColAssign, 0, 64); return &s }}
 )
 
 // multicolColAssign maps one op index to its fragment column (-1 clips).
@@ -31,8 +28,8 @@ type multicolColAssign struct {
 // getMulticolInts rents a zero-length int scratch for one multicol line.
 func getMulticolInts(n int) []int {
 	if n <= maxPooledMulticolScratch {
-		if v, ok := multicolIntPool.Get().([]int); ok && cap(v) >= n {
-			return v[:0]
+		if v, ok := multicolIntPool.Get().(*[]int); ok && cap(*v) >= n {
+			return (*v)[:0]
 		}
 	}
 
@@ -45,14 +42,15 @@ func putMulticolInts(s []int) {
 		return
 	}
 
-	multicolIntPool.Put(s[:0])
+	s = s[:0]
+	multicolIntPool.Put(&s)
 }
 
 // getMulticolAssigns rents an op-to-column scratch for anon text split.
 func getMulticolAssigns(n int) []multicolColAssign {
 	if n <= maxPooledMulticolScratch {
-		if v, ok := multicolAssignPool.Get().([]multicolColAssign); ok && cap(v) >= n {
-			return v[:0]
+		if v, ok := multicolAssignPool.Get().(*[]multicolColAssign); ok && cap(*v) >= n {
+			return (*v)[:0]
 		}
 	}
 
@@ -65,7 +63,8 @@ func putMulticolAssigns(s []multicolColAssign) {
 		return
 	}
 
-	multicolAssignPool.Put(s[:0])
+	s = s[:0]
+	multicolAssignPool.Put(&s)
 }
 
 const columnSpanAll = "all"
@@ -170,7 +169,7 @@ func (e *engine) collectMulticolSegs(n *html.Node) []multicolSeg {
 		}
 
 		if len(segs) == 0 || segs[len(segs)-1].spanner {
-			segs = append(segs, multicolSeg{nodes: []*html.Node{kid}}) //nolint:exhaustruct // intentional zero fields
+			segs = append(segs, multicolSeg{nodes: []*html.Node{kid}})
 		} else {
 			segs[len(segs)-1].nodes = append(segs[len(segs)-1].nodes, kid)
 		}
@@ -215,7 +214,7 @@ func multicolKids(n *html.Node, e *engine) []*html.Node {
 			}
 		}
 
-		anonymous := &html.Node{ //nolint:exhaustruct // synthetic anonymous multicol item
+		anonymous := &html.Node{
 			Type: html.ElementNode, Name: "span", Parent: n, Children: textNodes,
 			Attrs: map[string]string{"data-gowk-anon": "multicol"},
 		}
@@ -973,7 +972,7 @@ func (e *engine) measureMulticolChildHeight(n *html.Node, availW float64) float6
 		widthBits: math.Float64bits(availW) ^ multicolWidthXor, mainBits: multicolMainTag,
 	}
 
-	if !multicolMemoBypass.Load() {
+	if !e.testCfg.multicolMemoBypass() {
 		if height, ok := e.flexBaseH[key]; ok {
 			multicolMemoHits.Add(1)
 
@@ -1001,7 +1000,7 @@ func (e *engine) measureMulticolChildHeight(n *html.Node, availW float64) float6
 	e.resetBoxes(bmark)
 	e.resetStyles(smark)
 
-	if !multicolMemoBypass.Load() && e.err == nil {
+	if !e.testCfg.multicolMemoBypass() && e.err == nil {
 		m := e.ensureFlexBaseH()
 		m[key] = h
 		multicolMemoMisses.Add(1)

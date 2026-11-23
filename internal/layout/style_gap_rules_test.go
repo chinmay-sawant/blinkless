@@ -156,8 +156,6 @@ type rowRuleBadTokenCase struct {
 
 // TestRowRuleBadTokenKeepsEarlier is one entry per in-scope name. A bad token
 // does not replace the earlier valid value.
-//
-//nolint:lll // each name is one table row
 func TestRowRuleBadTokenKeepsEarlier(t *testing.T) {
 	t.Parallel()
 

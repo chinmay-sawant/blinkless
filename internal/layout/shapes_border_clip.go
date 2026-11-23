@@ -70,11 +70,11 @@ func shapesLengthPt(token string, edge, fontPt float64) float64 {
 
 	switch unit {
 	case "%":
-		return edge * number / 100 //nolint:mnd // percent
+		return edge * number / 100
 	case "em":
 		return number * fontPt
 	case remUnit:
-		return number * pxToPt(16) //nolint:mnd // default root size
+		return number * pxToPt(16)
 	}
 
 	return shapesAbsolutePt(number, unit)
@@ -89,15 +89,15 @@ func shapesAbsolutePt(number float64, unit string) float64 {
 	case "pt":
 		return number
 	case "pc":
-		return number * 12 //nolint:mnd // points per pica
+		return number * 12
 	case "in":
-		return number * 72 //nolint:mnd // points per inch
+		return number * 72
 	case "cm":
-		return number * 72 / 2.54 //nolint:mnd // points per cm
+		return number * 72 / 2.54
 	case "mm":
-		return number * 72 / 25.4 //nolint:mnd // points per mm
+		return number * 72 / 25.4
 	case "q":
-		return number * 72 / 101.6 //nolint:mnd // points per quarter mm
+		return number * 72 / 101.6
 	}
 
 	return 0
@@ -175,7 +175,7 @@ func borderLimitSpans(limit string, side int, edge, fontPt float64) []shapesSpan
 	horizontal := side == borderSideTop || side == borderSideBottom
 	length := edge
 
-	if len(fields) == 2 { //nolint:mnd // keyword plus length
+	if len(fields) == 2 {
 		length = shapesLengthPt(fields[1], edge, fontPt)
 		length = min(length, edge)
 	}
@@ -273,7 +273,7 @@ func (e *engine) clipBorderOps(ops []Op, start int, sty *ResolvedStyle, posX, po
 
 	spans, cut := borderEdgeSpans(sty, wid, height)
 
-	out := make([]Op, 0, len(ops)+4) //nolint:mnd // a few extra parts
+	out := make([]Op, 0, len(ops)+4)
 	out = append(out, ops[:start]...)
 
 	for index := start; index < len(ops); index++ {

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/chinmay-sawant/blinkless/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/style"
 )
 
 const (
@@ -99,7 +100,7 @@ func (e *engine) pseudoStyleContext() *styleContext {
 
 	ctx := e.pseudoCtx
 	if ctx == nil {
-		ctx = &styleContext{} //nolint:exhaustruct // refreshed below on every use
+		ctx = &styleContext{}
 		e.pseudoCtx = ctx
 	}
 
@@ -116,7 +117,7 @@ func (e *engine) pseudoStyleContext() *styleContext {
 // styleRuleIndex returns the selector index for this layout's sheets, reusing
 // the cross-layout bundle where available, and shared by the cascade and every
 // pseudo-content context. It is nil when the layout carries no sheets.
-func (e *engine) styleRuleIndex() *ruleIndex {
+func (e *engine) styleRuleIndex() *style.RuleIndex {
 	if e == nil || len(e.opts.Sheets) == 0 {
 		return nil
 	}
@@ -131,7 +132,7 @@ func (e *engine) styleRuleIndex() *ruleIndex {
 		return e.styleIndex
 	}
 
-	e.styleIndex = newRuleIndex(e.opts.Sheets)
+	e.styleIndex = style.NewRuleIndex(e.opts.Sheets)
 
 	return e.styleIndex
 }
@@ -142,7 +143,7 @@ func (e *engine) styleRuleIndex() *ruleIndex {
 func (e *engine) hasPseudoContent() bool {
 	index := e.styleRuleIndex()
 
-	return index != nil && index.content
+	return index.HasContent()
 }
 
 // mayHavePseudoContent reports whether node could generate content for one
@@ -155,11 +156,11 @@ func (e *engine) mayHavePseudoContent(node *html.Node, pseudoEl string) bool {
 	}
 
 	index := e.styleRuleIndex()
-	if index == nil || !index.contentPseudo[pseudoEl] {
+	if !index.HasContentPseudo(pseudoEl) {
 		return false
 	}
 
-	return index.mayMatchPseudo(node, pseudoEl)
+	return index.MayMatchPseudo(node, pseudoEl)
 }
 
 // pseudoStyle resolves the used style of generated content against the host
@@ -675,7 +676,7 @@ func decodeHexEscape(value string, start int) (rune, int) {
 		return 0, idx
 	}
 
-	return rune(code), idx
+	return rune(code), idx //nolint:gosec // at most six hex digits, so code <= 0xFFFFFF
 }
 
 func isHex(c byte) bool {

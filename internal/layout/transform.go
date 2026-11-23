@@ -54,14 +54,14 @@ func (m ProjectiveTransform) Apply(pointX, pointY float64) (float64, float64) {
 func (m ProjectiveTransform) Jacobian(pointX, pointY float64) Matrix2D {
 	denom := m.G*pointX + m.H*pointY + m.I
 	if denom == 0 {
-		return Matrix2D{} //nolint:exhaustruct // degenerate point: no finite local transform
+		return Matrix2D{}
 	}
 
 	numX := m.A*pointX + m.C*pointY + m.E
 	numY := m.B*pointX + m.D*pointY + m.F
 	denomSquared := denom * denom
 
-	return Matrix2D{ //nolint:exhaustruct // translation terms stay zero
+	return Matrix2D{
 		A: (m.A*denom - numX*m.G) / denomSquared,
 		B: (m.B*denom - numY*m.G) / denomSquared,
 		C: (m.C*denom - numX*m.H) / denomSquared,
@@ -71,7 +71,7 @@ func (m ProjectiveTransform) Jacobian(pointX, pointY float64) Matrix2D {
 
 // IdentityMatrix returns the identity transform.
 func IdentityMatrix() Matrix2D {
-	return Matrix2D{A: 1, D: 1} //nolint:exhaustruct // intentional zero fields
+	return Matrix2D{A: 1, D: 1}
 }
 
 // IsIdentity reports whether m is the identity (within a small epsilon).
@@ -97,12 +97,12 @@ func (m Matrix2D) Mul(node Matrix2D) Matrix2D {
 
 // Translate returns a pure translation matrix.
 func Translate(tx, ty float64) Matrix2D {
-	return Matrix2D{A: 1, D: 1, E: tx, F: ty} //nolint:exhaustruct // intentional zero fields
+	return Matrix2D{A: 1, D: 1, E: tx, F: ty}
 }
 
 // Scale returns a pure scale matrix about the origin.
 func Scale(sx, sy float64) Matrix2D {
-	return Matrix2D{A: sx, D: sy} //nolint:exhaustruct // intentional zero fields
+	return Matrix2D{A: sx, D: sy}
 }
 
 // RotateDeg returns a rotation by deg degrees about the origin (CSS y-down).
@@ -110,21 +110,21 @@ func RotateDeg(deg float64) Matrix2D {
 	rad := deg * math.Pi / degreesInHalfCircle
 	c, s := math.Cos(rad), math.Sin(rad)
 
-	return Matrix2D{A: c, B: s, C: -s, D: c} //nolint:exhaustruct // intentional zero fields
+	return Matrix2D{A: c, B: s, C: -s, D: c}
 }
 
 // SkewXDeg returns a skewX matrix (CSS degrees).
 func SkewXDeg(deg float64) Matrix2D {
 	t := math.Tan(deg * math.Pi / degreesInHalfCircle)
 
-	return Matrix2D{A: 1, D: 1, C: t} //nolint:exhaustruct // intentional zero fields
+	return Matrix2D{A: 1, D: 1, C: t}
 }
 
 // SkewYDeg returns a skewY matrix (CSS degrees).
 func SkewYDeg(deg float64) Matrix2D {
 	t := math.Tan(deg * math.Pi / degreesInHalfCircle)
 
-	return Matrix2D{A: 1, D: 1, B: t} //nolint:exhaustruct // intentional zero fields
+	return Matrix2D{A: 1, D: 1, B: t}
 }
 
 // BakeOrigin returns T(ox,oy) * m * T(-ox,-oy).
@@ -467,14 +467,14 @@ func parseOneTransformFunc(name, args string, fontSize float64) (Matrix2D, float
 			return IdentityMatrix(), math.NaN(), math.NaN(), m3, true, true
 		}
 
-		return Matrix2D{}, math.NaN(), math.NaN(), matrix3D{}, false, false //nolint:exhaustruct // intentional zero fields
+		return Matrix2D{}, math.NaN(), math.NaN(), matrix3D{}, false, false
 	}
 }
 
 // parseMatrixFunc parses matrix(a,b,c,d,e,f) coefficients.
 func parseMatrixFunc(parts []string) (Matrix2D, bool) {
 	if len(parts) != matrixFuncArgCount {
-		return Matrix2D{}, false //nolint:exhaustruct // intentional zero fields
+		return Matrix2D{}, false
 	}
 
 	vals := make([]float64, matrixFuncArgCount)
@@ -483,7 +483,7 @@ func parseMatrixFunc(parts []string) (Matrix2D, bool) {
 		// CSS matrix() takes six <number>s (user units ≈ px at 96dpi).
 		val, ok := parseUnitless(p)
 		if !ok {
-			return Matrix2D{}, false //nolint:exhaustruct // intentional zero fields
+			return Matrix2D{}, false
 		}
 
 		if idx >= matrixTranslateStart {
@@ -510,12 +510,12 @@ func parseTranslateFunc(name string, parts []string, fontSize float64) (Matrix2D
 // parseSingleAxisTranslate parses translatex(tx) / translatey(ty).
 func parseSingleAxisTranslate(name string, parts []string, fontSize float64) (Matrix2D, float64, float64, bool) {
 	if len(parts) != 1 {
-		return Matrix2D{}, math.NaN(), math.NaN(), false //nolint:exhaustruct // intentional zero fields
+		return Matrix2D{}, math.NaN(), math.NaN(), false
 	}
 
 	axisLen, pctVal, isPct, isOK := parseTransformLength(parts[0], fontSize)
 	if !isOK {
-		return Matrix2D{}, math.NaN(), math.NaN(), false //nolint:exhaustruct // intentional zero fields
+		return Matrix2D{}, math.NaN(), math.NaN(), false
 	}
 
 	xPct, yPct := math.NaN(), math.NaN()
@@ -540,12 +540,12 @@ func parseSingleAxisTranslate(name string, parts []string, fontSize float64) (Ma
 // parseTwoArgTranslate parses translate(tx[, ty]).
 func parseTwoArgTranslate(parts []string, fontSize float64) (Matrix2D, float64, float64, bool) {
 	if len(parts) < 1 || len(parts) > maxTwoValueArgs {
-		return Matrix2D{}, math.NaN(), math.NaN(), false //nolint:exhaustruct // intentional zero fields
+		return Matrix2D{}, math.NaN(), math.NaN(), false
 	}
 
 	xLen, xPctVal, xIsPct, isOK := parseTransformLength(parts[0], fontSize)
 	if !isOK {
-		return Matrix2D{}, math.NaN(), math.NaN(), false //nolint:exhaustruct // intentional zero fields
+		return Matrix2D{}, math.NaN(), math.NaN(), false
 	}
 
 	xPct, yPct := math.NaN(), math.NaN()
@@ -560,7 +560,7 @@ func parseTwoArgTranslate(parts []string, fontSize float64) (Matrix2D, float64, 
 	if len(parts) == maxTwoValueArgs {
 		yLenTmp, yPctVal, yIsPct, ok2 := parseTransformLength(parts[1], fontSize)
 		if !ok2 {
-			return Matrix2D{}, math.NaN(), math.NaN(), false //nolint:exhaustruct // intentional zero fields
+			return Matrix2D{}, math.NaN(), math.NaN(), false
 		}
 
 		if yIsPct {
@@ -587,12 +587,12 @@ func parseScaleFunc(name string, parts []string) (Matrix2D, bool) {
 // parseSingleAxisScale parses scalex(sx) / scaley(sy).
 func parseSingleAxisScale(name string, parts []string) (Matrix2D, bool) {
 	if len(parts) != 1 {
-		return Matrix2D{}, false //nolint:exhaustruct // intentional zero fields
+		return Matrix2D{}, false
 	}
 
 	axisScale, isOK := parseUnitless(parts[0])
 	if !isOK {
-		return Matrix2D{}, false //nolint:exhaustruct // intentional zero fields
+		return Matrix2D{}, false
 	}
 
 	if name == transformFuncScalex {
@@ -605,19 +605,19 @@ func parseSingleAxisScale(name string, parts []string) (Matrix2D, bool) {
 // parseTwoArgScale parses scale(sx[, sy]).
 func parseTwoArgScale(parts []string) (Matrix2D, bool) {
 	if len(parts) < 1 || len(parts) > maxTwoValueArgs {
-		return Matrix2D{}, false //nolint:exhaustruct // intentional zero fields
+		return Matrix2D{}, false
 	}
 
 	xScale, isOK := parseUnitless(parts[0])
 	if !isOK {
-		return Matrix2D{}, false //nolint:exhaustruct // intentional zero fields
+		return Matrix2D{}, false
 	}
 
 	yScale := xScale
 	if len(parts) == maxTwoValueArgs {
 		yScale, isOK = parseUnitless(parts[1])
 		if !isOK {
-			return Matrix2D{}, false //nolint:exhaustruct // intentional zero fields
+			return Matrix2D{}, false
 		}
 	}
 
@@ -627,12 +627,12 @@ func parseTwoArgScale(parts []string) (Matrix2D, bool) {
 // parseRotateFunc parses rotate(deg).
 func parseRotateFunc(parts []string) (Matrix2D, bool) {
 	if len(parts) != 1 {
-		return Matrix2D{}, false //nolint:exhaustruct // intentional zero fields
+		return Matrix2D{}, false
 	}
 
 	deg, ok := parseAngleDeg(parts[0])
 	if !ok {
-		return Matrix2D{}, false //nolint:exhaustruct // intentional zero fields
+		return Matrix2D{}, false
 	}
 
 	return RotateDeg(deg), true
@@ -650,12 +650,12 @@ func parseSkewFunc(name string, parts []string) (Matrix2D, bool) {
 // parseSingleAxisSkew parses skewx(deg) / skewy(deg).
 func parseSingleAxisSkew(name string, parts []string) (Matrix2D, bool) {
 	if len(parts) != 1 {
-		return Matrix2D{}, false //nolint:exhaustruct // intentional zero fields
+		return Matrix2D{}, false
 	}
 
 	deg, isOK := parseAngleDeg(parts[0])
 	if !isOK {
-		return Matrix2D{}, false //nolint:exhaustruct // intentional zero fields
+		return Matrix2D{}, false
 	}
 
 	if name == transformFuncSkewx {
@@ -668,19 +668,19 @@ func parseSingleAxisSkew(name string, parts []string) (Matrix2D, bool) {
 // parseTwoArgSkew parses skew(ax[, ay]).
 func parseTwoArgSkew(parts []string) (Matrix2D, bool) {
 	if len(parts) < 1 || len(parts) > maxTwoValueArgs {
-		return Matrix2D{}, false //nolint:exhaustruct // intentional zero fields
+		return Matrix2D{}, false
 	}
 
 	xDeg, isOK := parseAngleDeg(parts[0])
 	if !isOK {
-		return Matrix2D{}, false //nolint:exhaustruct // intentional zero fields
+		return Matrix2D{}, false
 	}
 
 	yDeg := 0.0
 	if len(parts) == maxTwoValueArgs {
 		yDeg, isOK = parseAngleDeg(parts[1])
 		if !isOK {
-			return Matrix2D{}, false //nolint:exhaustruct // intentional zero fields
+			return Matrix2D{}, false
 		}
 	}
 
@@ -799,7 +799,7 @@ func parseTransformLength(cssS string, fontSize float64) (float64, float64, bool
 	}
 
 	if unit == "rem" {
-		return pxToPt(16) * val, 0, false, true //nolint:mnd // cssPxRoot 16 inlined
+		return pxToPt(16) * val, 0, false, true
 	}
 
 	if pt, ok := lengthToPt(val, unit, fontSize); ok {
@@ -813,12 +813,12 @@ func parseTransformLength(cssS string, fontSize float64) (float64, float64, bool
 func parseTransformOrigin(value string, fontSize float64) (transformOriginSpec, bool) {
 	value = strings.TrimSpace(value)
 	if value == "" {
-		return transformOriginSpec{}, false //nolint:exhaustruct // intentional zero fields
+		return transformOriginSpec{}, false
 	}
 
 	parts := strings.Fields(value)
 	if len(parts) == 0 || len(parts) > maxThreeValueArgs {
-		return transformOriginSpec{}, false //nolint:exhaustruct // intentional zero fields
+		return transformOriginSpec{}, false
 	}
 
 	spec := defaultTransformOrigin()
@@ -827,7 +827,7 @@ func parseTransformOrigin(value string, fontSize float64) (transformOriginSpec, 
 	case 1:
 		val, pct, ok := parseTransformOriginToken(parts[0], fontSize)
 		if !ok {
-			return transformOriginSpec{}, false //nolint:exhaustruct // intentional zero fields
+			return transformOriginSpec{}, false
 		}
 
 		tok := strings.ToLower(parts[0])
@@ -841,7 +841,7 @@ func parseTransformOrigin(value string, fontSize float64) (transformOriginSpec, 
 	case maxTwoValueArgs, maxThreeValueArgs:
 		// Optional third value (z) ignored for 2D print.
 		if !applyTransformOriginPair(&spec, parts[0], parts[1], fontSize) {
-			return transformOriginSpec{}, false //nolint:exhaustruct // intentional zero fields
+			return transformOriginSpec{}, false
 		}
 	}
 
@@ -987,8 +987,6 @@ func ApplyRotate(style *ResolvedStyle, value string) bool {
 
 // parseRotateAxisProperty reads "y 60deg", "60deg y", or "0 1 0 60deg".
 // A zero three-number axis is rejected.
-//
-//nolint:cyclop // axis keyword and three-number forms stay in one parser
 func parseRotateAxisProperty(fields []string) (matrix3D, bool) {
 	angleAt := -1
 
@@ -1059,8 +1057,6 @@ func rotatePropertyAxis(axis []string, deg float64) (matrix3D, bool) {
 // unitless numbers (sx [sy]); a single number yields uniform scale.
 // Invalid input leaves style unchanged. Composition is post-multiply like
 // parseTransformList.
-//
-//nolint:cyclop // the third value is the only addition to the existing 2D parser
 func ApplyScale(style *ResolvedStyle, value string) bool {
 	if style == nil {
 		return false
@@ -1138,8 +1134,6 @@ func parseTranslateValues(parts []string, fsize float64) (float64, float64, floa
 // against the border box at layout time, bare numbers are treated as px. The
 // absolute part is post-multiplied into style.Transform and the percent part
 // is stored in TranslateX/YPercent for resolution in stampBoxTransforms.
-//
-//nolint:cyclop // the third value is the only addition to the existing 2D parser
 func ApplyTranslate(style *ResolvedStyle, value string, fsize float64) bool {
 	if style == nil {
 		return false
@@ -1215,7 +1209,7 @@ type stampState struct {
 func initialStampState(parentAccum Matrix2D) stampState {
 	return stampState{
 		parentAccum: parentAccum,
-		viewport:    svgViewport{}, //nolint:exhaustruct // unset viewport
+		viewport:    svgViewport{},
 		chain:       identity3D(),
 		chainActive: false,
 		chainBase:   IdentityMatrix(),
@@ -1801,7 +1795,7 @@ func projectiveStampForBox(
 	boxNode *box, parentAccum Matrix2D, viewport svgViewport,
 ) (ProjectiveTransform, bool) {
 	if boxNode == nil || boxNode.style == nil || !boxNode.style.effects().HasTransform3D || boxNode.preserveComposed {
-		return ProjectiveTransform{}, false //nolint:exhaustruct // no projection
+		return ProjectiveTransform{}, false
 	}
 
 	style := boxNode.style
@@ -1810,7 +1804,7 @@ func projectiveStampForBox(
 	dist, vanishX, vanishY := perspectiveFlattenArgs(boxNode, transform, originX, originY)
 
 	if dist <= 0 {
-		return ProjectiveTransform{}, false //nolint:exhaustruct // orthographic: no projective matrix
+		return ProjectiveTransform{}, false
 	}
 
 	projective := projectiveTransform3D(transform, originX, originY, vanishX, vanishY, dist)

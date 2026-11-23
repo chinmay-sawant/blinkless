@@ -37,15 +37,13 @@ func findSizeContainer(n *html.Node, name string, containers map[*html.Node]size
 		}
 	}
 
-	return sizeContainer{}, false //nolint:exhaustruct // intentional zero fields
+	return sizeContainer{}, false
 }
 
 // measureSizeContainers walks the tree top-down and records used content-box
 // inline sizes for elements with container-type: inline-size|size. Widths are
 // computed without children (size containment / as-if-empty for intrinsic
 // contribution), matching buildBlock's definite-width rules.
-//
-//nolint:cyclop,wsl // recursive container measurement keeps the cancellation gate local.
 func measureSizeContainersContext(
 	ctx context.Context, root *html.Node, styles map[*html.Node]*ResolvedStyle, viewportW float64,
 ) (map[*html.Node]sizeContainer, error) {

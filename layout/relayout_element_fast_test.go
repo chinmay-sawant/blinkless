@@ -16,7 +16,6 @@ import (
 	ilayout "github.com/chinmay-sawant/blinkless/internal/layout"
 )
 
-//nolint:paralleltest // exercises the shared fingerprint cache across garbage collection
 func TestFingerprintCacheDoesNotRetainReleasedDocument(t *testing.T) {
 	docProbe, resultProbe := func() (weak.Pointer[css.Document], weak.Pointer[ilayout.Result]) {
 		tree := fastTree(t, `<div id="box" style="width:120px;height:40px">Hello</div>`)
@@ -43,7 +42,6 @@ func TestFingerprintCacheDoesNotRetainReleasedDocument(t *testing.T) {
 	}
 }
 
-//nolint:paralleltest // checks measurement and patch caches across garbage collection
 func TestReleasedLayoutResultIsCollectible(t *testing.T) {
 	probe := func() weak.Pointer[ilayout.Result] {
 		tree := fastTree(t, `<div id="box" style="display:flex;width:120px;height:40px">Hello</div>`)
@@ -126,7 +124,7 @@ func fastChildSize(t *testing.T, ops []DisplayOp, want string) float64 {
 // TestFastNoopIdenticalReturnsPrev proves the identical-value fast path: a
 // second patch with no edit in between hands the same display back, the
 // engine counter stays flat, and the operations and boxes are untouched.
-func TestFastNoopIdenticalReturnsPrev(t *testing.T) { //nolint:paralleltest // reads process-wide engine counters
+func TestFastNoopIdenticalReturnsPrev(t *testing.T) {
 	tree := fastTree(t, `<div id="box" style="width:120px;height:40px">Hello</div>`)
 	styled := fastStyled(t, tree)
 	display := fastRetained(t, styled)
@@ -166,7 +164,7 @@ func TestFastNoopIdenticalReturnsPrev(t *testing.T) { //nolint:paralleltest // r
 // TestFastIgnoredAttributeNoop proves the ignored-attribute fast path: editing
 // title, which no selector names, keeps the fingerprint, so the patch hands
 // the same display back with no engine work.
-func TestFastIgnoredAttributeNoop(t *testing.T) { //nolint:paralleltest // reads process-wide engine counters
+func TestFastIgnoredAttributeNoop(t *testing.T) {
 	tree := fastTree(t, `<div id="box" style="width:120px;height:40px">Hello</div>`)
 	styled := fastStyled(t, tree)
 	display := fastRetained(t, styled)
@@ -204,7 +202,7 @@ func TestFastIgnoredAttributeNoop(t *testing.T) { //nolint:paralleltest // reads
 // TestFastFontSkipTextFree proves the text-free phase skip: a patch of an
 // element without text skips the default font load, keeps its bounds, and
 // still carries paint.
-func TestFastFontSkipTextFree(t *testing.T) { //nolint:paralleltest // reads process-wide engine counters
+func TestFastFontSkipTextFree(t *testing.T) {
 	tree := fastTree(t, `<div id="box" style="width:120px;height:40px;background-color:#ff0000"></div>`)
 	styled := fastStyled(t, tree)
 	display := fastRetained(t, styled)

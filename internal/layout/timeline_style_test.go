@@ -51,7 +51,7 @@ func TestTimelineDeclarationValueAccepted(t *testing.T) {
 		{prop: "view-timeline", value: "--card 10px x", want: true},
 		{prop: "view-timeline", value: "none 20% 200px", want: true},
 		// A second axis keyword is the invalid part.
-		{prop: "view-timeline", value: "--card block block", want: false}, //nolint:dupword // second block
+		{prop: "view-timeline", value: "--card block block", want: false},
 		{prop: "view-timeline", value: "--card 10px 20px 30px", want: false},
 		{prop: "view-timeline", value: "card block", want: false},
 		{prop: "view-timeline-name", value: "--card", want: true},

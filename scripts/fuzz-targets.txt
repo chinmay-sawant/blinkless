@@ -1,0 +1,10 @@
+FuzzParseHTML ./internal/html
+FuzzUnescapeEntities ./internal/html
+FuzzSplitTTC ./internal/fonts
+FuzzTableDirectory ./internal/fonts
+FuzzContentRange ./internal/load
+FuzzExpandRepeat ./internal/layout
+FuzzEvalMath ./internal/css
+FuzzParseCSS ./internal/css
+FuzzMatchSelector ./internal/css
+FuzzRasterizeSVG ./internal/svg

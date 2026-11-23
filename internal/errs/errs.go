@@ -22,6 +22,7 @@ var (
 	// ErrNilContext is returned when a cancellation-aware operation receives a nil context.
 	ErrNilContext = errors.New("blinkless: nil context")
 	// ErrNilCommand is a parked sentinel with no consumer in this tree.
+	//
 	// Deprecated: do not use in new code.
 	ErrNilCommand = errors.New("blinkless: nil command")
 )

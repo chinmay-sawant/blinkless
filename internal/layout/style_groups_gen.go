@@ -25,7 +25,7 @@ type styleGroupBuilder struct {
 	svg           styleSvg
 }
 
-var styleGroupBuilders = sync.Pool{New: func() any { return new(styleGroupBuilder) }} //nolint:gochecknoglobals // cascade scratch pool
+var styleGroupBuilders = sync.Pool{New: func() any { return new(styleGroupBuilder) }}
 
 func (s *ResolvedStyle) beginStyleGroups() {
 	s.groups = styleGroupBuilders.Get().(*styleGroupBuilder)

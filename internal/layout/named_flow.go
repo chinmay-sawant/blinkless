@@ -300,7 +300,7 @@ func (e *engine) scanNamedFlows(root *html.Node) {
 			return
 		}
 
-		e.namedFlows[style.fragmentation().FlowInto] = &namedFlow{ //nolint:exhaustruct // placed/pending start zero
+		e.namedFlows[style.fragmentation().FlowInto] = &namedFlow{
 			source:  node,
 			element: style.fragmentation().FlowIntoElement,
 		}
@@ -310,8 +310,6 @@ func (e *engine) scanNamedFlows(root *html.Node) {
 // namedFlowBegin is the flowChildren pre-hook. It withholds a source's
 // children, replaces a region's children with the named flow's content, and
 // captures the op/child cursors and the region cut for the post-hook.
-//
-//nolint:cyclop // one dispatch over the scan, source, and region paths
 func (e *engine) namedFlowBegin(
 	parent *box, children *[]*html.Node, sty *ResolvedStyle, contentX, posY, curY float64,
 ) *namedFlowFrame {
@@ -351,7 +349,7 @@ func (e *engine) namedFlowBegin(
 		return nil
 	}
 
-	frame := &namedFlowFrame{ //nolint:exhaustruct // intentional zero fields
+	frame := &namedFlowFrame{
 		flow:       flow,
 		childStart: -1,
 		contentX:   contentX,
@@ -548,7 +546,7 @@ func (e *engine) adoptNamedFlowOverflow(
 func (e *engine) cutNamedFlowOverflow(
 	frame *namedFlowFrame, parent *box, cutY float64,
 ) *namedFlowOverflow {
-	pending := &namedFlowOverflow{ //nolint:exhaustruct // intentional zero fields
+	pending := &namedFlowOverflow{
 		x:   frame.contentX,
 		top: math.MaxFloat64,
 	}

@@ -1,4 +1,8 @@
-package layout
+// Package style holds the CSS style-resolution pieces that depend only on the
+// css and html packages: today the selector rule index. The cascade proper still
+// lives in internal/layout because it shares ResolvedStyle and the keyword
+// tables with box layout (see plans/v0.1.6/go-review-hardening phase 04).
+package style
 
 import (
 	"cmp"
@@ -10,25 +14,25 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
-// ruleSel names one selector of one rule. The selector index places it in the
+// RuleSel names one selector of one rule. The selector index places it in the
 // bucket of its rightmost compound, so a node never sees the same selector
 // twice and never walks a rule that cannot match. sheet keeps the candidate
 // list sortable back into the source order the linear walk used, which keeps
 // equal-specificity, equal-order ties (orders restart per sheet) unchanged.
-type ruleSel struct {
-	sheet int
-	rule  *css.Rule
-	sel   int
+type RuleSel struct {
+	Sheet int
+	Rule  *css.Rule
+	Sel   int
 }
 
-// ruleIndex narrows the rules one style pass must test. host holds selectors
+// RuleIndex narrows the rules one style pass must test. host holds selectors
 // that end on the element itself; pseudo holds selectors that end on
 // ::before or ::after, keyed by that name. content records that a pseudo rule
 // declares content, which lets the generated-content walk skip pseudo
 // matching when no rule can generate content at all. contentPseudo records
 // the same per pseudo-element name so a ::before lookup skips when only
 // ::after rules declare content (and vice versa).
-type ruleIndex struct {
+type RuleIndex struct {
 	host          ruleBucket
 	pseudo        map[string]*ruleBucket
 	content       bool
@@ -40,10 +44,10 @@ type ruleIndex struct {
 // by one key is enough: every key a selector lists must be present for it to
 // match, so the bucket of any one of them finds it.
 type ruleBucket struct {
-	byID      map[string][]ruleSel
-	byClass   map[string][]ruleSel
-	byTag     map[string][]ruleSel
-	universal []ruleSel
+	byID      map[string][]RuleSel
+	byClass   map[string][]RuleSel
+	byTag     map[string][]RuleSel
+	universal []RuleSel
 }
 
 type keyCounts struct {
@@ -53,7 +57,7 @@ type keyCounts struct {
 	universal int
 }
 
-// ruleCounts holds the selector counts newRuleIndex sizes its buckets from.
+// ruleCounts holds the selector counts NewRuleIndex sizes its buckets from.
 type ruleCounts struct {
 	host          keyCounts
 	pseudo        map[string]*keyCounts
@@ -62,18 +66,18 @@ type ruleCounts struct {
 	content       bool
 }
 
-// newRuleIndex walks every sheet once and buckets each selector.
-func newRuleIndex(sheets []*css.Stylesheet) *ruleIndex {
+// NewRuleIndex walks every sheet once and buckets each selector.
+func NewRuleIndex(sheets []*css.Stylesheet) *RuleIndex {
 	counts := countRuleSelectors(sheets)
 	if counts.total == 0 {
-		return new(ruleIndex)
+		return new(RuleIndex)
 	}
 
-	index := new(ruleIndex)
+	index := new(RuleIndex)
 	index.content = counts.content
 	index.contentPseudo = counts.contentPseudo
 
-	allSels := make([]ruleSel, counts.total)
+	allSels := make([]RuleSel, counts.total)
 	offset := 0
 
 	initRuleBucket(&index.host, &counts.host, allSels, &offset)
@@ -103,8 +107,8 @@ func countRuleSelectors(sheets []*css.Stylesheet) *ruleCounts {
 			continue
 		}
 
-		for ruleIndex := range sheet.Rules {
-			rule := &sheet.Rules[ruleIndex]
+		for ruleNum := range sheet.Rules {
+			rule := &sheet.Rules[ruleNum]
 
 			for selectorIndex := range rule.Selectors {
 				sel := rule.Selectors[selectorIndex]
@@ -193,7 +197,7 @@ func (c *keyCounts) count(last css.SelectorPart) {
 
 // initRuleBucket reserves one contiguous slice per key in allSels and points
 // the bucket at them.
-func initRuleBucket(bucket *ruleBucket, counts *keyCounts, allSels []ruleSel, offset *int) {
+func initRuleBucket(bucket *ruleBucket, counts *keyCounts, allSels []RuleSel, offset *int) {
 	if counts == nil {
 		return
 	}
@@ -210,12 +214,12 @@ func initRuleBucket(bucket *ruleBucket, counts *keyCounts, allSels []ruleSel, of
 
 // reserveRuleSels hands each key a sub-slice with exactly its count reserved
 // in the shared backing array.
-func reserveRuleSels(counts map[string]int, allSels []ruleSel, offset *int) map[string][]ruleSel {
+func reserveRuleSels(counts map[string]int, allSels []RuleSel, offset *int) map[string][]RuleSel {
 	if len(counts) == 0 {
 		return nil
 	}
 
-	sels := make(map[string][]ruleSel, len(counts))
+	sels := make(map[string][]RuleSel, len(counts))
 
 	for key, count := range counts {
 		sels[key] = allSels[*offset : *offset : *offset+count]
@@ -226,14 +230,14 @@ func reserveRuleSels(counts map[string]int, allSels []ruleSel, offset *int) map[
 }
 
 // populateRuleBuckets fills the preallocated selector slices in source order.
-func populateRuleBuckets(index *ruleIndex, sheets []*css.Stylesheet) {
+func populateRuleBuckets(index *RuleIndex, sheets []*css.Stylesheet) {
 	for sheetIndex, sheet := range sheets {
 		if sheet == nil {
 			continue
 		}
 
-		for ruleIndex := range sheet.Rules {
-			rule := &sheet.Rules[ruleIndex]
+		for ruleNum := range sheet.Rules {
+			rule := &sheet.Rules[ruleNum]
 
 			for selectorIndex := range rule.Selectors {
 				sel := rule.Selectors[selectorIndex]
@@ -243,7 +247,7 @@ func populateRuleBuckets(index *ruleIndex, sheets []*css.Stylesheet) {
 
 				last := sel.Parts[len(sel.Parts)-1]
 				bucket := index.bucket(last.PseudoElement)
-				bucket.add(ruleSel{sheet: sheetIndex, rule: rule, sel: selectorIndex}, last)
+				bucket.add(RuleSel{Sheet: sheetIndex, Rule: rule, Sel: selectorIndex}, last)
 			}
 		}
 	}
@@ -251,7 +255,7 @@ func populateRuleBuckets(index *ruleIndex, sheets []*css.Stylesheet) {
 
 // bucket returns the selector bucket for one pseudo-element name, creating
 // the map on first use.
-func (idx *ruleIndex) bucket(pseudo string) *ruleBucket {
+func (idx *RuleIndex) bucket(pseudo string) *ruleBucket {
 	if pseudo == "" {
 		return &idx.host
 	}
@@ -270,24 +274,24 @@ func (idx *ruleIndex) bucket(pseudo string) *ruleBucket {
 }
 
 // add places one selector in the bucket its rightmost compound names.
-func (b *ruleBucket) add(entry ruleSel, part css.SelectorPart) {
+func (b *ruleBucket) add(entry RuleSel, part css.SelectorPart) {
 	switch {
 	case part.ID != "":
 		if b.byID == nil {
-			b.byID = map[string][]ruleSel{}
+			b.byID = map[string][]RuleSel{}
 		}
 
 		b.byID[part.ID] = append(b.byID[part.ID], entry)
 	case len(part.Classes) > 0:
 		if b.byClass == nil {
-			b.byClass = map[string][]ruleSel{}
+			b.byClass = map[string][]RuleSel{}
 		}
 
 		name := part.Classes[0]
 		b.byClass[name] = append(b.byClass[name], entry)
 	case part.Tag != "" && part.Tag != "*":
 		if b.byTag == nil {
-			b.byTag = map[string][]ruleSel{}
+			b.byTag = map[string][]RuleSel{}
 		}
 
 		name := strings.ToLower(part.Tag)
@@ -308,12 +312,12 @@ func declaresContent(rule *css.Rule) bool {
 	return false
 }
 
-// candidates appends the selectors that can match node with pseudo. The
+// Candidates appends the selectors that can match node with pseudo. The
 // result may hold selectors whose other parts do not match; the caller still
 // runs the full matcher. Order follows the id, class, tag, universal buckets,
 // not source order; cascade priority comes from specificity and rule order
 // fields, never from slice position.
-func (idx *ruleIndex) candidates(dst []ruleSel, node *html.Node, pseudo string) []ruleSel {
+func (idx *RuleIndex) Candidates(dst []RuleSel, node *html.Node, pseudo string) []RuleSel {
 	if idx == nil || node == nil {
 		return dst
 	}
@@ -341,13 +345,13 @@ func (idx *ruleIndex) candidates(dst []ruleSel, node *html.Node, pseudo string) 
 	return append(dst, bucket.universal...)
 }
 
-// mayMatchPseudo reports whether any indexed ::before/::after selector for
-// pseudo could match node. It mirrors the bucket lookups of candidates
+// MayMatchPseudo reports whether any indexed ::before/::after selector for
+// pseudo could match node. It mirrors the bucket lookups of Candidates
 // without building, sorting, or matching the candidate list, so callers can
 // skip the generated-content cascade when the walk would find no rule. A
 // true result still needs the full matcher (gates and combinators may
 // reject); a false result means matchedRules would return no hits.
-func (idx *ruleIndex) mayMatchPseudo(node *html.Node, pseudo string) bool {
+func (idx *RuleIndex) MayMatchPseudo(node *html.Node, pseudo string) bool {
 	if idx == nil || node == nil || pseudo == "" {
 		return false
 	}
@@ -373,7 +377,7 @@ func (idx *ruleIndex) mayMatchPseudo(node *html.Node, pseudo string) bool {
 }
 
 // pseudoBucketMatchesClass reports whether any class on node selects into
-// the pseudo bucket. Split from mayMatchPseudo so the bucket probe stays a
+// the pseudo bucket. Split from MayMatchPseudo so the bucket probe stays a
 // flat sequence of early returns.
 func pseudoBucketMatchesClass(bucket *ruleBucket, node *html.Node) bool {
 	matched := false
@@ -387,20 +391,20 @@ func pseudoBucketMatchesClass(bucket *ruleBucket, node *html.Node) bool {
 	return matched
 }
 
-// sortCandidates restores the sheet, rule, and selector order the linear walk
+// SortCandidates restores the sheet, rule, and selector order the linear walk
 // used. Rule orders restart in every sheet, so the sheet ordinal comes first;
 // without it a cross-sheet equal-order tie could flip.
-func sortCandidates(cands []ruleSel) {
-	slices.SortFunc(cands, func(left, right ruleSel) int {
-		if left.sheet != right.sheet {
-			return cmp.Compare(left.sheet, right.sheet)
+func SortCandidates(cands []RuleSel) {
+	slices.SortFunc(cands, func(left, right RuleSel) int {
+		if left.Sheet != right.Sheet {
+			return cmp.Compare(left.Sheet, right.Sheet)
 		}
 
-		if left.rule.Order != right.rule.Order {
-			return cmp.Compare(left.rule.Order, right.rule.Order)
+		if left.Rule.Order != right.Rule.Order {
+			return cmp.Compare(left.Rule.Order, right.Rule.Order)
 		}
 
-		return cmp.Compare(left.sel, right.sel)
+		return cmp.Compare(left.Sel, right.Sel)
 	})
 }
 
@@ -426,4 +430,15 @@ func forEachClass(value string, visit func(string)) {
 
 		value = value[end:]
 	}
+}
+
+// HasContent reports whether any pseudo-element rule declares content.
+func (idx *RuleIndex) HasContent() bool {
+	return idx != nil && idx.content
+}
+
+// HasContentPseudo reports whether a rule for the named pseudo-element
+// (::before or ::after) declares content.
+func (idx *RuleIndex) HasContentPseudo(name string) bool {
+	return idx != nil && idx.contentPseudo[name]
 }

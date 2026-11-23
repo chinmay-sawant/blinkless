@@ -11,8 +11,7 @@ The HTML document is the primary attack surface:
 - Document scripts are never evaluated. Production engine packages use no
   JavaScript engine or `os/exec`; a font test invokes a module-list probe.
   There is no CLI, and JavaScript-related wkhtmltopdf keys have no engine
-  consumer: `web.javascript` lands in the settings layer's ignored sink and
-  the rest are unknown (Policy A). `<script>` content is kept as raw text and
+  consumer: the settings layer has no JavaScript fields (Policy A). `<script>` content is kept as raw text and
   never executed. No code path evaluates a document's scripts.
 
 **Stance: HTML is semi-trusted.** It may cause network egress (matching
@@ -64,7 +63,7 @@ rasterization at `internal/svg/raster.go:102`.
 
 - Local file confidentiality: every file readable by the user running the
   conversion.
-- Operator-supplied credentials: basic auth, custom headers, cookies, proxy
+- Operator-supplied credentials: basic auth, custom headers, proxy
   credentials attached to outbound requests.
 - Availability: a hostile or dead server must not hang the conversion
   (timeouts), and bodies must not exhaust memory (size caps).
@@ -130,8 +129,8 @@ writer. Every platform rejects non-regular files before reading their bodies.
   (`http.NewRequestWithContext`); cancelling it aborts the request even
   mid-body-read.
 - **Redirects**: hard cap `Loader.MaxRedirects` (default 10); exceeding it
-  fails the load (`CheckRedirect`). `net/http` strips `Authorization` and
-  `Cookie` headers on cross-host redirects.
+  fails the load (`CheckRedirect`). `net/http` strips `Authorization` header on
+  cross-host redirects.
 - **Body size**: `Loader.MaxBodySize` (default 100 MiB) is enforced on both
   HTTP and file reads; oversized bodies are rejected with an error, never
   silently truncated. A declared `Content-Length` over the cap is rejected
@@ -139,8 +138,8 @@ writer. Every platform rejects non-regular files before reading their bodies.
   on the read side. `data:` URLs are bounded by the size of the document
   that embeds them.
 - **TLS**: certificate verification on by default. There is no
-  `InsecureSkipVerify` option. Proxy, client certificates, cookies and
-  POST bodies are operator-supplied configuration.
+  `InsecureSkipVerify` option. Proxy and client certificates are
+  operator-supplied configuration. Requests are GET-only.
 - **NetworkPolicy**: `CompatibleNetworkPolicy` is the default when no
   policy is set. `RestrictedNetworkPolicy` blocks private destinations and
   cross-host redirects. Restricted dials pin the resolved IP (no second DNS
@@ -173,9 +172,9 @@ writer. Every platform rejects non-regular files before reading their bodies.
   Remote `https://` `@font-face` **is fetched** via `FetchSub` (same ACL
   and `NetworkPolicy` as `img` / `link`). `.woff2`, `.eot`, and `data:`
   src are skipped. WOFF2 is rejected (Brotli not allowlisted).
-- Operator credentials (custom headers, basic auth, cookies) are attached
-  to the requests the operator configured them for. Cross-host auth and
-  cookie headers are stripped by `net/http` on redirects, but custom
+- Operator credentials (custom headers, basic auth) are attached
+  to the requests the operator configured them for. Cross-host auth
+  headers are stripped by `net/http` on redirects, but custom
   headers follow. Operators should not combine credential-bearing loads
   with untrusted HTML.
 
@@ -202,7 +201,7 @@ writer. Every platform rejects non-regular files before reading their bodies.
 
 - Convert untrusted documents in an isolated container: no access to
   sensitive filesystems or networks, no host credentials (basic auth,
-  custom headers, cookies, proxy) aimed at non-public hosts.
+  custom headers, proxy) aimed at non-public hosts.
 - Keep the defaults: local-file access off, no allow prefixes.
 - Keep the built-in HTTP timeouts (30 s connect / 60 s request default) and
   the 100 MiB body cap. Enforce conversion CPU, memory, and wall-clock limits
@@ -252,7 +251,7 @@ substitute for not letting strangers drive server-side fetches.
 | No JS / no exec | whole repo - no `os/exec`; JS-related keys have no engine consumer |
 | NetworkPolicy | `internal/load` - `NetworkPolicy`, `ApplyNetworkPolicy`; public entries use the compatible default |
 | Allowed-path opens | `internal/load/local_file.go` - `os.Root.OpenFile` contains descendant resolution; root and exact-file identities are checked |
-| Request metadata caps | `internal/load/load.go` - `checkRequestMetadataLimits` (128 headers / 128 cookies / 1024 POST items / 8 KiB total) |
+| Request metadata caps | `internal/load/load.go` - `checkRequestMetadataLimits` (128 headers / 8 KiB total) |
 | Content-Range consistency | `internal/load/load.go` - `checkRangeConsistency` in `readHTTPBody` |
 | HTML parse caps | `internal/html` - `maxElementDepth` 1024, attribute count/byte caps, node-aware `maxSelectedContentBytes`, saturated numeric-reference scan; optional internal limited parsers; public `html.Parse` remains uncapped |
 | CSS math guards | `internal/css/math_expr.go` - `maxMathDepth` 64, Inf/NaN degrade to no-value |

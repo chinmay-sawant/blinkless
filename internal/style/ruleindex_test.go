@@ -1,4 +1,4 @@
-package layout
+package style
 
 import (
 	"fmt"
@@ -32,11 +32,11 @@ func TestRuleIndexKeepsSheetOrderOnEqualRuleOrder(t *testing.T) {
 	second := sheet(t, `#x { color: blue }`)
 	node := indexNode(t, `<html><body><div id="x"></div></body></html>`, "div")
 
-	index := newRuleIndex([]*css.Stylesheet{first, second})
-	cands := index.candidates(nil, node, "")
-	sortCandidates(cands)
+	index := NewRuleIndex([]*css.Stylesheet{first, second})
+	cands := index.Candidates(nil, node, "")
+	SortCandidates(cands)
 
-	if len(cands) != 2 || cands[0].sheet != 0 || cands[1].sheet != 1 {
+	if len(cands) != 2 || cands[0].Sheet != 0 || cands[1].Sheet != 1 {
 		t.Fatalf("candidates = %+v, want sheet 0 before sheet 1", cands)
 	}
 }
@@ -44,10 +44,10 @@ func TestRuleIndexKeepsSheetOrderOnEqualRuleOrder(t *testing.T) {
 func TestRuleIndexFindsSelectorsByAnyClass(t *testing.T) {
 	t.Parallel()
 
-	index := newRuleIndex([]*css.Stylesheet{sheet(t, `.second { color: red }`)})
+	index := NewRuleIndex([]*css.Stylesheet{sheet(t, `.second { color: red }`)})
 	node := indexNode(t, `<html><body><div class="first second"></div></body></html>`, "div")
 
-	if cands := index.candidates(nil, node, ""); len(cands) != 1 {
+	if cands := index.Candidates(nil, node, ""); len(cands) != 1 {
 		t.Fatalf("class candidates = %d, want 1", len(cands))
 	}
 }
@@ -55,18 +55,18 @@ func TestRuleIndexFindsSelectorsByAnyClass(t *testing.T) {
 func TestRuleIndexSeparatesPseudoElements(t *testing.T) {
 	t.Parallel()
 
-	index := newRuleIndex([]*css.Stylesheet{sheet(t, `p::before { content: "x" }`)})
+	index := NewRuleIndex([]*css.Stylesheet{sheet(t, `p::before { content: "x" }`)})
 	node := indexNode(t, `<html><body><p></p></body></html>`, "p")
 
-	if cands := index.candidates(nil, node, "before"); len(cands) != 1 {
+	if cands := index.Candidates(nil, node, "before"); len(cands) != 1 {
 		t.Fatalf("before candidates = %d, want 1", len(cands))
 	}
 
-	if cands := index.candidates(nil, node, ""); len(cands) != 0 {
+	if cands := index.Candidates(nil, node, ""); len(cands) != 0 {
 		t.Fatalf("host candidates = %d, want 0", len(cands))
 	}
 
-	if !index.content {
+	if !index.HasContent() {
 		t.Fatal("content flag is false for a pseudo content rule")
 	}
 }
@@ -74,10 +74,10 @@ func TestRuleIndexSeparatesPseudoElements(t *testing.T) {
 func TestRuleIndexMarksGroupedSelectorOnce(t *testing.T) {
 	t.Parallel()
 
-	index := newRuleIndex([]*css.Stylesheet{sheet(t, `h1, .missing { color: red }`)})
+	index := NewRuleIndex([]*css.Stylesheet{sheet(t, `h1, .missing { color: red }`)})
 	node := indexNode(t, `<html><body><h1 class="title"></h1></body></html>`, "h1")
 
-	if cands := index.candidates(nil, node, ""); len(cands) != 1 {
+	if cands := index.Candidates(nil, node, ""); len(cands) != 1 {
 		t.Fatalf("grouped candidates = %d, want 1", len(cands))
 	}
 }
@@ -85,20 +85,31 @@ func TestRuleIndexMarksGroupedSelectorOnce(t *testing.T) {
 func TestRuleIndexContentFlagWithoutContentDecl(t *testing.T) {
 	t.Parallel()
 
-	index := newRuleIndex([]*css.Stylesheet{sheet(t, `p::after { color: red }`)})
-	if index.content {
+	index := NewRuleIndex([]*css.Stylesheet{sheet(t, `p::after { color: red }`)})
+	if index.HasContent() {
 		t.Fatal("content flag is true without a content declaration")
 	}
 }
 
 func BenchmarkNewRuleIndex(b *testing.B) {
-	_, sheet := styleStressFixture(b)
-	sheets := []*css.Stylesheet{sheet}
+	var source strings.Builder
+	for i := range 1024 {
+		fmt.Fprintf(&source, ".item[data-rule-%c] { color: #123456; } ", 'a'+i%26)
+	}
+
+	source.WriteString(".item { color: #abcdef; }")
+
+	stress, err := css.Parse(source.String())
+	if err != nil {
+		b.Fatalf("css.Parse: %v", err)
+	}
+
+	sheets := []*css.Stylesheet{stress}
 	b.ReportAllocs()
 	b.ResetTimer()
 
 	for range b.N {
-		idx := newRuleIndex(sheets)
+		idx := NewRuleIndex(sheets)
 		if idx == nil {
 			b.Fatal("nil index")
 		}
@@ -122,9 +133,34 @@ func BenchmarkNewRuleIndexVaried(b *testing.B) {
 	b.ResetTimer()
 
 	for range b.N {
-		idx := newRuleIndex(sheets)
+		idx := NewRuleIndex(sheets)
 		if idx == nil {
 			b.Fatal("nil index")
 		}
 	}
+}
+
+func findElementByName(root *html.Node, name string) *html.Node {
+	if root.Type == html.ElementNode && root.Name == name {
+		return root
+	}
+
+	for _, child := range root.Children {
+		if found := findElementByName(child, name); found != nil {
+			return found
+		}
+	}
+
+	return nil
+}
+
+func sheet(t *testing.T, src string) *css.Stylesheet {
+	t.Helper()
+
+	parsed, err := css.Parse(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return parsed
 }

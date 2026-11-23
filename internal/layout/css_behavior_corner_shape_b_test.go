@@ -29,7 +29,7 @@ const cornerShapeBItemID = "item"
 
 // cornerShapeBCornerNames names the four corners in style K order:
 // TL, TR, BR, BL.
-var cornerShapeBCornerNames = [4]string{ //nolint:gochecknoglobals // test table
+var cornerShapeBCornerNames = [4]string{
 	"top-left", "top-right", "bottom-right", "bottom-left",
 }
 

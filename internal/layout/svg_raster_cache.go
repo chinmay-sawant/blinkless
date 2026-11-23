@@ -88,7 +88,7 @@ func (cache *svgRasterCache) put(key string, png []byte, width, height int) {
 	for len(cache.entries) > svgRasterCacheMaxEntries ||
 		cache.pixels > svgRasterCacheMaxPixels {
 		cache.pixels -= cache.entries[0].w * cache.entries[0].h
-		cache.entries[0] = svgRasterEntry{} //nolint:exhaustruct // release the payload
+		cache.entries[0] = svgRasterEntry{}
 		cache.entries = cache.entries[1:]
 	}
 }
@@ -125,7 +125,7 @@ func svgInlineCacheKey(data []byte, maxSide int) string {
 // rasterize once per run instead of once per occurrence.
 func (e *engine) inlineSVGRasterCache() *svgRasterCache {
 	if e.svgInlineCache == nil {
-		e.svgInlineCache = &svgRasterCache{} //nolint:exhaustruct // empty cache
+		e.svgInlineCache = &svgRasterCache{}
 	}
 
 	return e.svgInlineCache
@@ -139,7 +139,7 @@ func (r *Result) svgRasterCache() *svgRasterCache {
 	}
 
 	if r.svgRasters == nil {
-		r.svgRasters = &svgRasterCache{} //nolint:exhaustruct // empty cache
+		r.svgRasters = &svgRasterCache{}
 	}
 
 	return r.svgRasters

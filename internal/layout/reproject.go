@@ -117,7 +117,7 @@ func RestampTransforms(
 	}
 
 	if !ready {
-		return &RestampPatch{}, nil //nolint:exhaustruct // nothing to do
+		return &RestampPatch{}, nil
 	}
 
 	plan, err := planRestamp(prev, overrides)
@@ -126,12 +126,12 @@ func RestampTransforms(
 	}
 
 	if !plan.changed {
-		return &RestampPatch{}, nil //nolint:exhaustruct // nothing changed
+		return &RestampPatch{}, nil
 	}
 
 	roots := plan.outermost(prev.boxTreeRoot())
 	if len(roots) == 0 {
-		return &RestampPatch{}, nil //nolint:exhaustruct // nothing changed
+		return &RestampPatch{}, nil
 	}
 
 	// The styles are swapped in before the seed walk: an ancestor of a
@@ -146,7 +146,7 @@ func RestampTransforms(
 	}
 
 	if len(states) == 0 {
-		return &RestampPatch{}, nil //nolint:exhaustruct // nothing painted
+		return &RestampPatch{}, nil
 	}
 
 	return applyRestamp(prev, states, opts.Media)
@@ -291,7 +291,7 @@ type restampPlan struct {
 // one effective style per element. Overrides for the same element apply in
 // order: the last one wins for a field it sets.
 func planRestamp(prev *Result, overrides []RestampOverride) (*restampPlan, error) {
-	plan := &restampPlan{ //nolint:exhaustruct // an empty plan
+	plan := &restampPlan{
 		targets: make([]restampTarget, 0, len(overrides)),
 	}
 	byBox := make(map[*box]int, len(overrides))
@@ -581,7 +581,7 @@ type ancestorStamp struct {
 // the ancestor stamps it applied after target's subtree.
 func stampStateAt(root, target *box) (stampState, []ancestorStamp, bool) {
 	if root == nil || target == nil {
-		return stampState{}, nil, false //nolint:exhaustruct // no state
+		return stampState{}, nil, false
 	}
 
 	var actions []ancestorStamp
@@ -614,7 +614,7 @@ func stampStateAt(root, target *box) (stampState, []ancestorStamp, bool) {
 	}
 
 	if !walk(root, initialStampState(IdentityMatrix())) {
-		return stampState{}, nil, false //nolint:exhaustruct // no state
+		return stampState{}, nil, false
 	}
 
 	slices.Reverse(actions)
@@ -703,14 +703,14 @@ func nearestPerspectiveAncestor(root, target *box) *box {
 // opWindowFor returns the operation range a box's subtree emitted.
 func opWindowFor(boxNode *box, opCount int) (OpWindow, bool) {
 	if boxNode == nil || !boxOwnsOps(boxNode) {
-		return OpWindow{}, false //nolint:exhaustruct // no range
+		return OpWindow{}, false
 	}
 
 	start := boxNode.opStart
 	end := min(boxNode.opEnd, opCount-1)
 
 	if start < 0 || start > end {
-		return OpWindow{}, false //nolint:exhaustruct // no range
+		return OpWindow{}, false
 	}
 
 	return OpWindow{Start: start, End: end}, true

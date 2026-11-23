@@ -25,7 +25,7 @@ func PageBreaks(res *Result, pageH float64) ([]float64, [][2]float64) {
 		return nil, nil
 	}
 
-	collector := &breakCollector{ops: res.Ops} //nolint:exhaustruct // collectors start empty by design
+	collector := &breakCollector{ops: res.Ops}
 
 	var walk func(boxNode *box, insideTable, outOfFlow bool)
 

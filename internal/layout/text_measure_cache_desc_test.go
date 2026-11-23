@@ -21,8 +21,6 @@ func testMeasureStyleID(t *testing.T, eng *engine, sty *ResolvedStyle) uint64 {
 
 // TestMeasureStyleIDSameStyleOneID pins that a repeated style gets one stable
 // ID, in one engine and across two engines with identical descriptors.
-//
-//nolint:paralleltest // the shared measure-style intern table is process-wide
 func TestMeasureStyleIDSameStyleOneID(t *testing.T) {
 	eng1, style1 := sharedTestEngine(t, 1)
 	style1.FontSize = 17.125
@@ -52,8 +50,6 @@ func TestMeasureStyleIDSameStyleOneID(t *testing.T) {
 
 // TestMeasureStyleIDDiffersForOpticalVariationEmoji pins that the descriptor
 // separates the fields that previously lived as strings on the width key.
-//
-//nolint:paralleltest // the shared measure-style intern table is process-wide
 func TestMeasureStyleIDDiffersForOpticalVariationEmoji(t *testing.T) {
 	eng, base := sharedTestEngine(t, 1)
 
@@ -95,8 +91,6 @@ func TestMeasureStyleIDDiffersForOpticalVariationEmoji(t *testing.T) {
 // TestSharedTextWidthSeparatesOpticalVariationEmoji proves two styles that
 // differ only in optical sizing, variation settings, or emoji presentation
 // never read each other's cached width.
-//
-//nolint:paralleltest // clears the process-wide shared measure caches and counters
 func TestSharedTextWidthSeparatesOpticalVariationEmoji(t *testing.T) {
 	clearSharedMeasureCaches()
 	resetSharedMeasureCounters()
@@ -119,7 +113,6 @@ func TestSharedTextWidthSeparatesOpticalVariationEmoji(t *testing.T) {
 		{name: "emoji", apply: func(style *ResolvedStyle) { style.editFont().FontVariantEmoji = "emoji" }},
 	}
 
-	//nolint:paralleltest // each subtest resets the process-wide measure counters
 	for _, variant := range variants {
 		t.Run(variant.name, func(t *testing.T) {
 			eng, style := sharedTestEngine(t, 1)

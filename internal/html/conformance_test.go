@@ -1,4 +1,3 @@
-//nolint:all // conformance harness: corpus format parsing and diff plumbing, not product code
 package html
 
 import (
@@ -93,7 +92,7 @@ const (
 	statusSkipped     = "skipped"
 	statusUnsupported = "unsupported"
 
-	formatTokenizerJSON = "html5lib-tokenizer-json"
+	formatTokenizerJSON = "html5lib-tokenizer-json" //nolint:gosec // format name, not a credential (G101 false positive)
 	formatTreeDAT       = "html5lib-tree-dat"
 
 	dataStateName = "Data state"

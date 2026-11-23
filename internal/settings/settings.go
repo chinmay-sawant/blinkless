@@ -160,6 +160,9 @@ const (
 	defaultImageWidth     = 1024
 	defaultImageQuality   = 94
 	sAbort                = "abort"
+	sIgnore               = "ignore"
+	sScreen               = "screen"
+	sPrint                = "print"
 )
 
 // Orientation mirrors wkhtmltopdf --orientation.
@@ -179,18 +182,6 @@ func (o Orientation) String() string {
 	}
 
 	return sUnknown
-}
-
-// ParseOrientation accepts "portrait" or "landscape" (case-insensitive).
-func ParseOrientation(value string) (Orientation, error) {
-	switch normalize(value) {
-	case "", "portrait":
-		return OrientationPortrait, nil
-	case "landscape":
-		return OrientationLandscape, nil
-	}
-
-	return OrientationPortrait, errInvalid("orientation", value, "portrait|landscape")
 }
 
 // LoadErrorHandling mirrors wkhtmltopdf --load-error-handling.
@@ -215,31 +206,14 @@ func (h LoadErrorHandling) String() string {
 	return sUnknown
 }
 
-// ParseLoadErrorHandling accepts abort|skip|ignore.
-func ParseLoadErrorHandling(value string) (LoadErrorHandling, error) {
-	switch normalize(value) {
-	case "", sAbort:
-		return LoadErrorAbort, nil
-	case "skip":
-		return LoadErrorSkip, nil
-	case "ignore":
-		return LoadErrorIgnore, nil
-	}
-
-	return LoadErrorAbort, errInvalid("load-error-handling", value, "abort|skip|ignore")
-}
-
 // MediaType mirrors wkhtmltopdf --print-media-type (screen|print) and the
 // --media-type override. The web and load key setters read and write it, and
 // css.Apply maps its Options.Media onto it.
 type MediaType int
 
 const (
-	// MediaUnset is the zero value: the field was never set, so media
-	// resolution falls through to the next source (see ResolveMedia). It is
-	// NOT an explicit ignore; wkhtmltopdf "ignore" input maps here for
-	// compatibility, and the comment on ResolveMedia states how unset
-	// differs from screen/print.
+	// MediaUnset is the zero value: the field was never set, so callers fall
+	// back to their own default media. It differs from screen and print.
 	MediaUnset MediaType = iota
 	MediaScreen
 	MediaPrint
@@ -260,124 +234,12 @@ func (m MediaType) String() string {
 	return sUnknown
 }
 
-// ResolveMedia computes the effective CSS media type: the print-media-type
-// override (either home) wins, then the object media-type, then the global
-// media-type, falling back to base (ResolvePDFMedia passes "print",
-// ResolveImageMedia passes "screen"). MediaUnset (the zero value) means
-// "not set" and lets resolution fall through to the next source; it is never
-// an explicit ignore. obj may be nil.
-func ResolveMedia(base string, global Web, obj *Web) string {
-	if global.PrintMediaType || obj != nil && obj.PrintMediaType {
-		return sPrint
-	}
-
-	media := global.MediaType
-
-	if obj != nil && obj.MediaType != MediaUnset {
-		media = obj.MediaType
-	}
-
-	switch media {
-	case MediaPrint:
-		return sPrint
-	case MediaScreen:
-		return sScreen
-	case MediaUnset:
-	}
-
-	return base
-}
-
-// ResolvePDFMedia resolves the effective CSS media string from PdfGlobal and
-// an optional PdfObject via ResolveMedia. The base default is "print".
-func ResolvePDFMedia(glob PdfGlobal, obj *PdfObject) string {
-	var objWeb *Web
-
-	if obj != nil {
-		objView := Web{ //nolint:exhaustruct // intentional zero-value fields
-			PrintMediaType: obj.Load.PrintMediaType || obj.Web.PrintMediaType,
-			MediaType:      obj.Load.MediaType,
-		}
-		if obj.Web.MediaType != MediaUnset {
-			objView.MediaType = obj.Web.MediaType
-		}
-
-		objWeb = &objView
-	}
-
-	return ResolveMedia(sPrint, glob.Web, objWeb)
-}
-
-// ResolveImageMedia resolves the effective CSS media string from ImageGlobal
-// plus the PdfGlobal and optional PdfObject layers via ResolveMedia. The base
-// default is "screen".
-func ResolveImageMedia(global PdfGlobal, image ImageGlobal, obj *PdfObject) string {
-	web := image.Web
-	if global.Web.PrintMediaType {
-		web.PrintMediaType = true
-	}
-
-	if web.MediaType == MediaUnset {
-		web.MediaType = global.Web.MediaType
-	}
-
-	var objWeb *Web
-
-	if obj != nil {
-		objView := Web{ //nolint:exhaustruct // intentional zero/partial fields
-			PrintMediaType: obj.Load.PrintMediaType || obj.Web.PrintMediaType,
-			MediaType:      obj.Load.MediaType,
-		}
-		if obj.Web.MediaType != MediaUnset {
-			objView.MediaType = obj.Web.MediaType
-		}
-
-		objWeb = &objView
-	}
-
-	return ResolveMedia(sScreen, web, objWeb)
-}
-
-// ResolveImages folds the web.images flag across the layers that register it:
-// the global web settings, an optional image-mode layer (nil outside image
-// mode), and an optional object layer (nil when the caller has no object).
-// Images stay enabled only when every supplied layer enables them, so an
-// explicit web.images=false on global, image, or object disables fetching.
-// Canonical constructors (DefaultPdfGlobal, DefaultImageGlobal,
-// DefaultPdfObject) all default the flag to true, so an untouched layer never
-// disables images on its own.
-func ResolveImages(global Web, image *ImageGlobal, obj *PdfObject) bool {
-	enabled := global.Images
-
-	if image != nil {
-		enabled = enabled && image.Web.Images
-	}
-
-	if obj != nil {
-		enabled = enabled && obj.Web.Images
-	}
-
-	return enabled
-}
-
 // Margin holds the four page margins in millimetres.
 type Margin struct {
 	Top    float64
 	Bottom float64
 	Left   float64
 	Right  float64
-}
-
-// ValidMargins reports whether m follows the settings model's margin
-// contract. Every value must be finite and left/right must be non-negative.
-// Top and bottom accept any finite negative value as the auto-margin
-// sentinel. The dotted-key margin setter calls this before storing a value.
-func ValidMargins(m Margin) bool {
-	if !finite(m.Top) || !finite(m.Right) || !finite(m.Bottom) || !finite(m.Left) {
-		return false
-	}
-
-	return m.Left >= 0 && m.Right >= 0
 }
 
 // DefaultMargins match pdfsettings.cc: 10 mm on all sides.
@@ -393,12 +255,11 @@ type Size struct {
 
 // Web holds web-behaviour settings that the engine actually consults.
 // Body paint background is PdfGlobal.Background only (not a Web field).
-// Inert wkhtml keys (javascript, plugins, user-style-sheet, …) are accepted
-// via Set into Ignored maps — not typed fields (Policy A).
+// Inert wkhtml keys (javascript, plugins, user-style-sheet, …) are not typed
+// fields (Policy A).
 type Web struct {
 	Images bool
-	// PrintMediaType / MediaType: CSS media selection inputs. ResolveMedia
-	// folds them across the global, object, and load-page layers.
+	// PrintMediaType / MediaType: CSS media selection inputs.
 	PrintMediaType bool
 	MediaType      MediaType
 	// SimplifyDOM opts into chrome-strip heuristics for URL/print mode
@@ -428,7 +289,7 @@ type LoadGlobal struct {
 }
 
 // LoadPage holds per-page load settings with engine consumers in load/convert.
-// JS/plugin/encoding stubs are not typed; Set routes them to Ignored.
+// JS/plugin/encoding stubs are not typed.
 type LoadPage struct {
 	ZoomFactor           float64
 	BlockLocalFileAccess bool
@@ -436,8 +297,6 @@ type LoadPage struct {
 	Username             string
 	Password             string
 	CustomHeaders        map[string]string
-	Cookies              map[string]string
-	Post                 []PostItem
 	MediaType            MediaType
 	PrintMediaType       bool
 	Timeout              int // seconds; 0 = default
@@ -446,12 +305,6 @@ type LoadPage struct {
 	// resolves relative subresources (load.Load).
 	InlineHTML []byte
 	InlineBase string
-}
-
-// PostItem is one urlencoded form field for POST loads.
-type PostItem struct {
-	Name  string
-	Value string
 }
 
 // HeaderFooter mirrors the text/HTML header & footer settings.
@@ -469,7 +322,7 @@ type HeaderFooter struct {
 
 // DefaultHeaderFooter matches pdfsettings.cc defaults (Arial 12, no spacing).
 func DefaultHeaderFooter() HeaderFooter {
-	return HeaderFooter{ //nolint:exhaustruct // intentional zero/partial fields
+	return HeaderFooter{
 		FontSize: defaultHeaderFontSize,
 		FontName: "Arial",
 		Spacing:  0,
@@ -489,7 +342,7 @@ type TableOfContent struct {
 
 // DefaultTableOfContent matches pdfsettings.cc defaults.
 func DefaultTableOfContent() TableOfContent {
-	return TableOfContent{ //nolint:exhaustruct // intentional zero/partial fields
+	return TableOfContent{
 		FontScale:   defaultTOCFontScale,
 		Indentation: "1em",
 		DottedLines: true,
@@ -501,7 +354,7 @@ func DefaultTableOfContent() TableOfContent {
 // PDF-mode model it mirrors.
 //
 // Policy A: only fields with a live engine consumer (convert, load, or css)
-// are typed. Inert wkhtml keys may land in Ignored.
+// are typed.
 type PdfGlobal struct {
 	// Page geometry: named size plus optional custom Size width/height (mm).
 	// Custom Size.Width/Height overrides the named size when both are > 0.
@@ -515,16 +368,14 @@ type PdfGlobal struct {
 	// "PDF/A-3a+PDF/UA-1", "a3a", "ua1"). Empty means no profile.
 	// ParsePDFProfile validates and normalizes it.
 	PdfProfile string
-	// Grayscale is the sole color bit; Set("colormode") / Set("grayscale")
-	// both write this field.
+	// Grayscale is the sole color bit.
 	Grayscale    bool
 	PageOffset   int
 	Copies       int
 	Collate      bool
 	Outline      bool
 	OutlineDepth int
-	// DumpOutline / DumpDefaultTOCXSL live on PdfGlobal; the dotted-key
-	// Set/Get surface reads and writes them.
+	// DumpOutline / DumpDefaultTOCXSL live on PdfGlobal.
 	DumpOutline        bool
 	DumpDefaultTOCXSL  bool
 	UseCompression     bool
@@ -544,15 +395,12 @@ type PdfGlobal struct {
 	FontPaths            []string // --font-path directories (opt-in TTF discovery)
 	UseSystemFonts       bool     // --use-system-fonts
 	ResolveRelativeLinks bool     // resolve relative <a href> against page URL
-	// Ignored holds accepted-but-inert wkhtml keys (dpi, javascript, …).
-	// ponytail: Policy A sink — do not re-add typed stubs without engine consumers.
-	Ignored map[string]string
 }
 
 // DefaultPdfGlobal returns the pdfsettings.cc-compatible defaults for fields
 // the engine actually uses.
 func DefaultPdfGlobal() PdfGlobal {
-	return PdfGlobal{ //nolint:exhaustruct // intentional zero/partial fields
+	return PdfGlobal{
 		PageSize:       "A4",
 		Orientation:    OrientationPortrait,
 		PdfVersion:     "",
@@ -568,7 +416,7 @@ func DefaultPdfGlobal() PdfGlobal {
 		Header:         DefaultHeaderFooter(),
 		TOC:            DefaultTableOfContent(),
 		Background:     true,
-		Web: Web{ //nolint:exhaustruct // intentional zero/partial fields
+		Web: Web{
 			Images: true,
 		},
 		ResolveRelativeLinks: true,
@@ -591,8 +439,6 @@ type PdfObject struct {
 	Load             LoadPage
 	Web              Web
 	UseOutline       bool
-	// Ignored holds accepted-but-inert object/load/web keys (Policy A).
-	Ignored map[string]string
 }
 
 // HeaderFor returns the effective header: object override or global.
@@ -613,35 +459,15 @@ func (o *PdfObject) FooterFor(g PdfGlobal) HeaderFooter {
 	return g.Footer
 }
 
-// ErrNoRenderableObjects reports a conversion job whose object list has no
-// renderable page source (all empty pages or only TOC objects).
-var ErrNoRenderableObjects = errors.New("settings: no renderable page objects")
-
-// ValidateRenderableObjects checks that objects contains at least one non-TOC
-// object with a non-empty page source or inline HTML.
-func ValidateRenderableObjects(objects []PdfObject) error {
-	for _, object := range objects {
-		if object.IsTableOfContent {
-			continue
-		}
-
-		if strings.TrimSpace(object.Page) != "" || len(object.Load.InlineHTML) > 0 {
-			return nil
-		}
-	}
-
-	return ErrNoRenderableObjects
-}
-
 // DefaultPdfObject matches pdfsettings.cc defaults for engine-consumed fields.
 func DefaultPdfObject() PdfObject {
-	return PdfObject{ //nolint:exhaustruct // intentional zero/partial fields
+	return PdfObject{
 		ExternalLinks:    true,
 		LocalLinks:       true,
 		IncludeInOutline: true,
 		UseOutline:       true,
 		Load:             DefaultLoadPage(),
-		Web: Web{ //nolint:exhaustruct // intentional zero/partial fields
+		Web: Web{
 			Images: true,
 		},
 	}
@@ -651,7 +477,7 @@ func DefaultPdfObject() PdfObject {
 // blockLocalFileAccess true, load error abort. JS-delay and similar stubs are
 // not typed (Policy A).
 func DefaultLoadPage() LoadPage {
-	return LoadPage{ //nolint:exhaustruct // intentional zero/partial fields
+	return LoadPage{
 		BlockLocalFileAccess: true,
 		LoadErrorHandling:    LoadErrorAbort,
 	}
@@ -670,8 +496,6 @@ type ImageGlobal struct {
 	Transparent bool
 	Web         Web
 	Load        LoadGlobal
-	// Ignored holds accepted-but-inert image keys (Policy A).
-	Ignored map[string]string
 }
 
 // CropSettings mirrors wkhtmltoimage crop settings.
@@ -684,13 +508,13 @@ type CropSettings struct {
 
 // DefaultImageGlobal matches imagesettings.cc defaults for engine fields.
 func DefaultImageGlobal() ImageGlobal {
-	return ImageGlobal{ //nolint:exhaustruct // intentional zero/partial fields
+	return ImageGlobal{
 		Width:      defaultImageWidth,
 		Height:     0,
 		Quality:    defaultImageQuality,
 		SmartWidth: true,
 		Crop:       CropSettings{Left: -1, Top: -1, Width: -1, Height: -1},
-		Web: Web{ //nolint:exhaustruct // intentional zero/partial fields
+		Web: Web{
 			Images: true,
 		},
 	}

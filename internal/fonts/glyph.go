@@ -214,8 +214,8 @@ func readComponentArgs(raw []byte, pos int, flags uint16) (float64, float64, int
 
 	axVal, ayVal := 0.0, 0.0
 	if flags&glyfArgsXYValues != 0 {
-		axVal = float64(int8(raw[pos]))
-		ayVal = float64(int8(raw[pos+1]))
+		axVal = float64(int8(raw[pos]))   //nolint:gosec // composite XY offsets are signed bytes; reinterpretation is intended
+		ayVal = float64(int8(raw[pos+1])) //nolint:gosec // composite XY offsets are signed bytes; reinterpretation is intended
 	}
 
 	return axVal, ayVal, pos + int16Bytes, true

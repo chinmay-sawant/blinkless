@@ -73,7 +73,7 @@ func (e *engine) borderBoundaryOps(child, parent *box) []Op {
 
 	radii, radiiY := usedBorderRadiiXY(parent.style, parent.w, parent.height)
 	width := e.scalePt(borderPaint(side))
-	inset := width / 2 //nolint:mnd // stroke is centered on its path
+	inset := width / 2
 
 	var ops []Op
 
@@ -84,7 +84,7 @@ func (e *engine) borderBoundaryOps(child, parent *box) []Op {
 		}
 
 		for _, run := range borderBoundaryRuns(corner, parent, radX, radY, inset, child) {
-			op := Op{ //nolint:exhaustruct // intentional zero fields
+			op := Op{
 				Kind: OpPath, X: child.x, Y: child.y, W: child.w, H: child.height,
 				R: side.Color[0], G: side.Color[1], B: side.Color[2], Width: width,
 			}
@@ -99,19 +99,17 @@ func (e *engine) borderBoundaryOps(child, parent *box) []Op {
 // borderBoundaryRuns traces one parent corner and returns the stretches of it
 // that lie inside the child's border box. corner is 0 top-left, 1 top-right,
 // 2 bottom-right, 3 bottom-left.
-//
-//nolint:cyclop // one corner switch, then one trace loop
 func borderBoundaryRuns(corner int, parent *box, radX, radY, inset float64, child *box) [][]DisplayPoint {
 	centerX, centerY, start := parent.x+inset+radX, parent.y+inset+radY, math.Pi
 	right, bottom := parent.x+parent.w-inset, parent.y+parent.height-inset
 
 	switch corner {
 	case 1:
-		centerX, centerY, start = right-radX, parent.y+inset+radY, 3*math.Pi/2 //nolint:mnd // quarter turns
-	case 2: //nolint:mnd // bottom-right
+		centerX, centerY, start = right-radX, parent.y+inset+radY, 3*math.Pi/2
+	case 2:
 		centerX, centerY, start = right-radX, bottom-radY, 0
-	case 3: //nolint:mnd // bottom-left
-		centerX, centerY, start = parent.x+inset+radX, bottom-radY, math.Pi/2 //nolint:mnd // quarter turns
+	case 3:
+		centerX, centerY, start = parent.x+inset+radX, bottom-radY, math.Pi/2
 	}
 
 	var (

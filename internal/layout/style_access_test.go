@@ -39,7 +39,7 @@ func TestStyleOverrideReachesFlexMeasurement(t *testing.T) {
 	}
 }
 
-var resolvedStyleAccessSink float64 //nolint:gochecknoglobals // benchmark sink
+var resolvedStyleAccessSink float64
 
 // BenchmarkResolvedStyleAccess measures the cost of copying the full resolved
 // style record at a stage boundary. The result controls whether a narrower

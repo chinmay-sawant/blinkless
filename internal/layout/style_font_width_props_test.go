@@ -1,4 +1,3 @@
-//nolint:all // targeted unit tests for font-width / font-stretch
 package layout
 
 import (

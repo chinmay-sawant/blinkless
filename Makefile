@@ -1,4 +1,4 @@
-.PHONY: test test-unit test-quick test-serial test-race lint lint-frontend size-check build wasm wasm-test fmt golden golden-update samples clean claim-scan catalog-check catalog-ownframe-check matrix-check final-evidence bench bench-engine bench-inprocess bench-cli-compare
+.PHONY: test test-unit test-quick test-serial test-race lint lint-frontend size-check build wasm wasm-test fmt golden golden-update samples clean claim-scan catalog-check catalog-ownframe-check matrix-check final-evidence bench bench-engine fuzz-smoke vuln mod-verify
 # Pure-Go runtime: the standard library plus the allowlisted direct modules
 # below. No cgo, browser, or native converter process is required.
 # Direct third-party requires must stay ⊆ {
@@ -7,10 +7,10 @@
 # }
 # (enforced by internal/fonts.TestDirectModuleAllowlist).
 
-# Pin golangci-lint for local + CI reproducibility. Override: make lint GOLANGCI_LINT_VERSION=vX.Y.Z
-# Build with the local toolchain (go1.26.4): golangci-lint refuses to run when the
-# binary's Go version is lower than the module's targeted Go version.
-GOLANGCI_LINT_VERSION ?= v1.64.8
+# Pin golangci-lint for local + CI reproducibility (matches ownframe).
+# Override: make lint GOLANGCI_LINT_VERSION=vX.Y.Z
+GOLANGCI_LINT_VERSION ?= v2.15.0
+GOLANGCI_LINT_PKG := github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 
 # Cap package concurrency (-p) and within-package test concurrency (-parallel).
 # Uncapped go test ./... on a many-core / ~8 GiB host runs convert/layout/pdf
@@ -25,20 +25,24 @@ GO_TEST_FLAGS ?=
 # Packages under test for make test / test-quick / test-serial.
 TEST_PKGS ?= ./...
 
-# Hot packages for the local-only race target. Not part of GitHub CI.
-RACE_PKGS ?= ./internal/layout ./internal/load ./internal/fonts
+# Packages for the race target. Every package, so ./css (hover cache race
+# test) and ./internal/pubstate (state_race_test.go) are covered. CI runs
+# this target in the race job of .github/workflows/ci.yml.
+RACE_PKGS ?= ./...
 
 test:
 	go test -p $(TEST_P) -parallel $(TEST_PARALLEL) $(GO_TEST_FLAGS) $(TEST_PKGS)
 
-# Skip long perf-budget tests (testing.Short). Same packages otherwise.
+# Skip slow and wall-clock perf-budget tests (they call testing.Short and
+# t.Skip under -short). Same packages otherwise.
 test-quick:
 	go test -short -p $(TEST_P) -parallel $(TEST_PARALLEL) $(GO_TEST_FLAGS) $(TEST_PKGS)
 
-# Every package except internal/convert.
-# Pair with `make golden` before a PR that touches layout or convert.
+# Every package except the exploratory scratch trees under temps/ (never part
+# of the supported build). Pair with `make golden` before a PR that touches
+# layout.
 test-unit:
-	@pkgs=$$(go list ./... | grep -v '/internal/convert$$'); \
+	@pkgs=$$(go list ./... | grep -v '/temps/'); \
 	go test -p $(TEST_P) -parallel $(TEST_PARALLEL) $(GO_TEST_FLAGS) $$pkgs
 
 # One package and one test at a time. Use when even -p 2 freezes the machine.
@@ -49,17 +53,20 @@ test-serial:
 test-race:
 	go test -race -count=1 -p $(TEST_P) -parallel $(TEST_PARALLEL) $(GO_TEST_FLAGS) $(RACE_PKGS)
 
-# Runs the curated linter set in .golangci.yml, then the file-size gate
-# (scripts/check-file-size.sh). Installs the pinned golangci-lint binary
-# into $(go env GOPATH)/bin when missing. Always builds with GOTOOLCHAIN=local
-# so the binary matches go.mod's go1.26 toolchain.
+# Runs the curated linter set in .golangci.yml, lints bindings/wasm under its
+# real build target (GOOS=js GOARCH=wasm), then runs the file-size gate
+# (scripts/check-file-size.sh). Installs the pinned golangci-lint into
+# $(go env GOPATH)/bin when it is missing or at another version (v1 reads a
+# different config schema). The install uses the Go version go.mod selects so
+# the binary is never older than the module's targeted Go version.
 lint:
-	@command -v golangci-lint >/dev/null 2>&1 || { \
-		echo "golangci-lint not found; installing $(GOLANGCI_LINT_VERSION) with local Go toolchain..."; \
-		GOTOOLCHAIN=local go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION); \
+	@golangci-lint version 2>/dev/null | grep -q "version $(GOLANGCI_LINT_VERSION:v%=%) " || { \
+		echo "golangci-lint $(GOLANGCI_LINT_VERSION) not found; installing with the module's Go toolchain..."; \
+		GOTOOLCHAIN=$$(go env GOVERSION) go install $(GOLANGCI_LINT_PKG)@$(GOLANGCI_LINT_VERSION); \
 	}
 	golangci-lint version
 	golangci-lint run ./...
+	GOOS=js GOARCH=wasm golangci-lint run ./bindings/wasm
 	$(MAKE) size-check
 
 # File-size soft-limit gate (AGENTS.md "Code structure"). Scans .go files and
@@ -68,8 +75,11 @@ lint:
 size-check:
 	bash scripts/check-file-size.sh
 
+# frontend/ is the marketing site (TypeScript/React); tsc --noEmit is its type
+# gate. Run `npm ci --prefix frontend` first to install the toolchain.
 lint-frontend:
-	@echo "frontend/ is not in this tree; lint-frontend is a no-op"
+	@test -d frontend/node_modules || { echo "lint-frontend: run 'npm ci --prefix frontend' first" >&2; exit 1; }
+	cd frontend && npm exec -- tsc --noEmit
 
 # Stamps the WASM binding (bindings/wasm) with the repo version. The binding
 # is package main, so X must target main.wasmVersion.
@@ -155,47 +165,39 @@ golden-update:
 # The drawing list is the sample. There is no page PNG to write.
 samples: golden
 
-# External process benchmarks against the actual binary. `make bench` builds
-# the CLI, runs the dedicated wkhtmltopdf comparison first, then feeds its
-# blinkless column to scripts/bench-external.sh as the shared gowk
-# baseline for the WeasyPrint and Puppeteer tables, so all three engine
-# tables report the same gowk CLI series. When wkhtmltopdf is not installed
-# the comparison is skipped and the external tables fall back to session-local
-# gowk timing with a warning. The numbers include process and disk overhead;
-# they are release/operator evidence, not a default `make test` gate. Missing
-# external engines are skipped, but the target fails when none are available.
-# Writes testdata/golden/benchmarks/{weasyprint,puppeteer,cli}-compare.md and
-# -results.csv. Default external page matrix is 2/10/50/100; override with
-# --sizes=2,5,10,20,50,100,200,250,500 or select one engine with
-# --engines=weasyprint. `bench-cli-compare` remains available standalone.
-bench: build
-	@if command -v wkhtmltopdf >/dev/null 2>&1; then \
-		$(MAKE) bench-cli-compare && \
-		./scripts/bench-external.sh --gowk-baseline=testdata/golden/benchmarks/cli-compare-results.csv; \
-	else \
-		echo "bench: wkhtmltopdf not on PATH; external tables use session-local gowk timing"; \
-		./scripts/bench-external.sh; \
-	fi
+# In-process display-list and relayout benchmarks. The PDF/PNG conversion
+# pipeline, the CLI, and the external wkhtmltopdf/WeasyPrint/Puppeteer
+# comparisons were removed; the snapshots under testdata/golden/benchmarks/
+# are archived history, not output of this target. One iteration per
+# benchmark keeps the default a smoke run; for measurements use
+# make bench BENCH_TIME=2s BENCH_COUNT=6.
+BENCH_TIME ?= 1x
+BENCH_COUNT ?= 1
 
-# Internal engine allocation matrix (generic + certified-islands, images).
-# Measures the internal conversion pipeline directly; it is independent of
-# the public library API and external process targets. See
-# testdata/golden/benchmarks/README.md.
+bench: bench-engine
+
 bench-engine:
-	go test ./internal/convert -run '^$$' \
-		-bench 'Benchmark(PDFPages|TemplatePages|WebFetchImage|ImageAssets)$$' \
-		-benchmem -benchtime=1x -count=1
+	go test ./layout ./internal/layout -run '^$$' \
+		-bench 'Benchmark(RelayoutMedium|FlexInvoiceHeight|InvoiceScale|RelayoutStages|HoverCycle|NewDisplayForPatch|RelayoutPatchRepeat|RelayoutPatchVarying|StyleResolutionContext|NewRuleIndex|GridMemoNested)$$' \
+		-benchmem -benchtime=$(BENCH_TIME) -count=$(BENCH_COUNT)
 
-# Compatibility alias for the former target name.
-bench-inprocess: bench-engine
+# Short fuzz smoke over every target in scripts/fuzz-targets.txt (also the CI
+# fuzz job). One target per go test call because -fuzz takes a single match.
+FUZZ_TIME ?= 10s
 
-# The only Makefile entry for the process-level comparison against installed
-# wkhtmltopdf. Requires `make build` and wkhtmltopdf on PATH. Writes
-# testdata/golden/benchmarks/cli-compare*; a missing wkhtmltopdf is documented
-# as a skipped Go test.
-bench-cli-compare: build
-	BLINKLESS_CLI_COMPARE=1 go test ./internal/convert \
-		-run '^TestCompareWithWkhtmltopdfBinary$$' -count=1 -timeout 20m -v
+fuzz-smoke:
+	@set -e; while read -r target pkg; do \
+		echo "fuzz-smoke: $$target $$pkg"; \
+		go test -run '^$$' -fuzz "^$$target$$" -fuzztime=$(FUZZ_TIME) $$pkg; \
+	done <scripts/fuzz-targets.txt
+
+# Known-vulnerability scan of the module graph and the Go standard library.
+vuln:
+	@command -v govulncheck >/dev/null 2>&1 || GOTOOLCHAIN=local go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+	govulncheck ./...
+
+mod-verify:
+	go mod verify
 
 clean:
 	rm -rf testdata/golden/out

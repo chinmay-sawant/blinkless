@@ -8,8 +8,6 @@ import (
 // TestLineHeightAlternatingStylesDoNotAllocate covers the regular/bold pattern
 // in list rows: both shared entries are warm, but every call changes the last
 // style and therefore needs the shared lookup.
-//
-//nolint:paralleltest // isolates shared caches and measures process-wide allocations
 func TestLineHeightAlternatingStylesDoNotAllocate(t *testing.T) {
 	faces, err := loadHotFaces(t)
 	if err != nil {
@@ -46,8 +44,6 @@ func TestLineHeightAlternatingStylesDoNotAllocate(t *testing.T) {
 
 // TestLineHeightSharedEntriesStayImmutable requires replacement and removal
 // from the bounded map to leave previously published entries readable.
-//
-//nolint:paralleltest // replaces entries in the shared line-height cache
 func TestLineHeightSharedEntriesStayImmutable(t *testing.T) {
 	faces, err := loadHotFaces(t)
 	if err != nil {
@@ -80,8 +76,6 @@ func TestLineHeightSharedEntriesStayImmutable(t *testing.T) {
 
 // TestLineHeightConcurrentStyleLookupsMatchWarmValues exercises shared entry
 // publication while every layout keeps its own mutable face caches.
-//
-//nolint:paralleltest // controls shared cache setup before concurrent readers
 func TestLineHeightConcurrentStyleLookupsMatchWarmValues(t *testing.T) {
 	faces, err := loadHotFaces(t)
 	if err != nil {

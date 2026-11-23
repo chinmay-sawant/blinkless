@@ -5,8 +5,6 @@ package css
 // the sRGB triples from the specification. The map is cached at package
 // level so color parsing does not allocate a new table on every call;
 // callers must treat it as read-only.
-//
-//nolint:gochecknoglobals // read-only spec table; avoids per-call allocation
 var namedColorTable = map[string][3]int{
 	"aliceblue":            {0xf0, 0xf8, 0xff},
 	"antiquewhite":         {0xfa, 0xeb, 0xd7},

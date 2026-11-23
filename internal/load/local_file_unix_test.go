@@ -41,7 +41,7 @@ func TestLocalFileFIFORejectedWithoutBlocking(t *testing.T) {
 
 		_ = file.Close()
 
-		<-done
+		t.Logf("released blocked call: %v", <-done)
 		t.Fatal("opening a FIFO blocked before the regular-file check")
 	}
 }

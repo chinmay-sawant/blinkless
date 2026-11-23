@@ -12,7 +12,6 @@ const (
 	maxPooledOpSliceCap  = 8192
 )
 
-//nolint:exhaustruct,gochecknoglobals // pools deliberately have no New so cold rents allocate exact size
 var (
 	opSlicePool    = sync.Pool{}
 	opSliceHdrPool = sync.Pool{}

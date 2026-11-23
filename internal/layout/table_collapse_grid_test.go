@@ -138,7 +138,6 @@ table { border-collapse: collapse; width: 200pt; }
 	}
 }
 
-//nolint:lll // test CSS strings and assertion messages
 func TestTableRowVisibilityCollapseReducesHeight(t *testing.T) {
 	t.Parallel()
 

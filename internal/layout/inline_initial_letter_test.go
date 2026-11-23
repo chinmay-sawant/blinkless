@@ -1,4 +1,3 @@
-//nolint:lll // regression fixtures intentionally contain long HTML text
 package layout
 
 import (

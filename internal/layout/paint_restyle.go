@@ -35,13 +35,11 @@ import (
 // the forced slow path and against a full layout.
 
 // Counters for the paint restyle. They are process-wide and only meant for
-// tests and diagnostics. paintRestyleDisabled turns the fast path off.
-//
-//nolint:gochecknoglobals // process-wide counters back PaintRestyleStatsSnapshot, like the reuse counters
+// tests and diagnostics. TestConfig.PaintRestyleDisabled turns the fast path
+// off per run.
 var (
-	paintRestyleHits     atomic.Uint64
-	paintRestyleMisses   atomic.Uint64
-	paintRestyleDisabled atomic.Bool
+	paintRestyleHits   atomic.Uint64
+	paintRestyleMisses atomic.Uint64
 )
 
 const (
@@ -70,7 +68,7 @@ func tryPaintRestyle(
 	ctx context.Context, prev *Result, target *relayoutTarget, node *html.Node,
 	opts Options, out *SubtreeBatchResult,
 ) (map[*html.Node]*ResolvedStyle, bool) {
-	if paintRestyleDisabled.Load() {
+	if testConfigFrom(ctx).paintRestyleDisabled() {
 		return nil, false
 	}
 
@@ -568,14 +566,4 @@ func PaintRestyleStatsSnapshot() PaintRestyleStats {
 func ResetPaintRestyleStats() {
 	paintRestyleHits.Store(0)
 	paintRestyleMisses.Store(0)
-}
-
-// DisablePaintRestyle turns the fast path off until the returned function
-// runs. Tests use it to produce the slow-path result for the same input; it
-// is process-wide, so a test that calls it must not run in parallel with one
-// that reads the counters.
-func DisablePaintRestyle() func() {
-	paintRestyleDisabled.Store(true)
-
-	return func() { paintRestyleDisabled.Store(false) }
 }

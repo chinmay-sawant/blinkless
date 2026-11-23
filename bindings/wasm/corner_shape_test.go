@@ -28,7 +28,7 @@ import (
 // Any extra key on a path-kind op is path payload (commands). Kept in sync
 // with the struct tags by hand; a new renderer field that is not path payload
 // would need an entry here.
-var cornerWasmKnownOpKeys = map[string]bool{ //nolint:gochecknoglobals // test key table
+var cornerWasmKnownOpKeys = map[string]bool{
 	"id": true, "kind": true, "kindValue": true,
 	"x": true, "y": true, "w": true, "h": true,
 	"r": true, "g": true, "b": true,

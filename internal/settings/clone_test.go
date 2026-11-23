@@ -11,9 +11,7 @@ func TestClonePdfGlobalIsolatesAllowNetworkAndHeaderReplace(t *testing.T) {
 	t.Parallel()
 
 	global := DefaultPdfGlobal()
-	if err := global.Set("allow", cloneAllowPath); err != nil {
-		t.Fatalf("Set(allow): %v", err)
-	}
+	global.Load.Allow = []string{cloneAllowPath}
 
 	global.Load.NetworkPolicySet = true
 	global.Load.NetworkAllowedHosts = []string{"reports.example.test"}
@@ -23,9 +21,7 @@ func TestClonePdfGlobalIsolatesAllowNetworkAndHeaderReplace(t *testing.T) {
 
 	got := ClonePdfGlobal(global)
 
-	if err := global.Set("allow", "/tmp/mutated"); err != nil {
-		t.Fatalf("mutate allow: %v", err)
-	}
+	global.Load.Allow[0] = "/tmp/mutated"
 
 	global.Load.NetworkAllowedHosts[0] = "mutated.example.test"
 	global.Header.Replace["name"] = "after"

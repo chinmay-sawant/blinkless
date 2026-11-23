@@ -118,7 +118,7 @@ func paintCheckboxGeometry(eng *engine, isRadio bool, leftX, topY, width, height
 
 // paintCheckedCheckbox paints the filled checkbox (or radio) for a checked input.
 func (e *engine) paintCheckedCheckbox(isRadio bool, color [3]float64, geo checkboxGeometry) {
-	e.add(Op{ //nolint:exhaustruct // intentional zero fields
+	e.add(Op{
 		Kind:   OpFillRect,
 		X:      geo.boxX,
 		Y:      geo.boxY,
@@ -143,7 +143,7 @@ func (e *engine) paintRadioDot(geo checkboxGeometry) {
 	dotInset := geo.size * chkDotInset
 	dotSize := geo.size - two*dotInset
 
-	e.add(Op{ //nolint:exhaustruct // intentional zero fields
+	e.add(Op{
 		Kind:   OpFillRect,
 		X:      geo.boxX + dotInset,
 		Y:      geo.boxY + dotInset,
@@ -166,7 +166,7 @@ func (e *engine) paintCheckTick(geo checkboxGeometry) {
 		tickW = 1
 	}
 
-	e.add(Op{ //nolint:exhaustruct // intentional zero fields
+	e.add(Op{
 		Kind:  OpLine,
 		X:     geo.boxX + chkTick1X*geo.size,
 		Y:     geo.boxY + chkTick1Y*geo.size,
@@ -178,7 +178,7 @@ func (e *engine) paintCheckTick(geo checkboxGeometry) {
 		Alpha: 1,
 		Width: tickW,
 	})
-	e.add(Op{ //nolint:exhaustruct // intentional zero fields
+	e.add(Op{
 		Kind:  OpLine,
 		X:     geo.boxX + chkTick2X*geo.size,
 		Y:     geo.boxY + chkTick2Y*geo.size,
@@ -194,7 +194,7 @@ func (e *engine) paintCheckTick(geo checkboxGeometry) {
 
 // paintUncheckedCheckbox paints the empty checkbox border for an unchecked input.
 func (e *engine) paintUncheckedCheckbox(geo checkboxGeometry) {
-	e.add(Op{ //nolint:exhaustruct // intentional zero fields
+	e.add(Op{
 		Kind:   OpFillRect,
 		X:      geo.boxX,
 		Y:      geo.boxY,
@@ -206,7 +206,7 @@ func (e *engine) paintUncheckedCheckbox(geo checkboxGeometry) {
 		Alpha:  1,
 		Radius: geo.radius,
 	})
-	e.add(Op{ //nolint:exhaustruct // intentional zero fields
+	e.add(Op{
 		Kind:   OpStrokeRect,
 		X:      geo.boxX,
 		Y:      geo.boxY,
@@ -295,7 +295,7 @@ func (e *engine) paintRangeWidget(style ResolvedStyle, leftX, topY, width, heigh
 
 	color := rangeThumbColor(style)
 
-	e.add(Op{ //nolint:exhaustruct // intentional zero fields
+	e.add(Op{
 		Kind:   OpFillRect,
 		X:      leftX + (width-diameter)/two,
 		Y:      topY + (height-diameter)/two,
@@ -334,7 +334,7 @@ func (e *engine) paintButtonWidget(node *html.Node, style ResolvedStyle, leftX, 
 	ascent := e.fontAscentFace(face, size)
 	descent := e.fontDescentFace(face, size)
 
-	e.add(Op{ //nolint:exhaustruct // intentional zero fields
+	e.add(Op{
 		Kind: OpText, X: leftX + (width-textW)/two,
 		Y: topY + (height+ascent-descent)/two, W: textW, H: ascent + descent,
 		Text: text, Font: face, Size: size, InkDescent: descent,
