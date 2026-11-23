@@ -3,7 +3,7 @@
 > **Parent:** [plans/v0.1.6/README.md](../README.md) (and [plans index](../../README.md))
 > **Branch:** `chore/v0.1.6-go-review-hardening`
 > **Baseline:** `master` at `b2fe5ba5` (tag `v0.1.5` + PR #47, 2026-11-23)
-> **Status:** Open (4 phases, 31 tasks + 12 closure gates)
+> **Status:** Open (code complete at `2426019`; `BLK-ARCH-01` parked with measurements; remaining gates need `make test`, `make lint`, CI, and benchmarks)
 
 ---
 
