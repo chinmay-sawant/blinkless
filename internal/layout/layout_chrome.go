@@ -1131,13 +1131,21 @@ type chromeSortKey struct {
 // oldToNewPool reuses the index-remap backing across finalizeChrome calls.
 // The slice carries no pointers and is fully rewritten on every merge, so
 // sharing it between Layout runs is safe.
-var oldToNewPool = sync.Pool{New: func() any { s := make([]int, 0, 512); return &s }}
+var (
+	oldToNewPool    = sync.Pool{}
+	oldToNewHdrPool = sync.Pool{}
+)
 
 // rentOldToNew returns a remap slice of length need, reusing pooled backing
 // when it fits.
 func rentOldToNew(need int) []int {
-	if v, ok := oldToNewPool.Get().(*[]int); ok && cap(*v) >= need {
-		return (*v)[:need]
+	if hdr, ok := oldToNewPool.Get().(*[]int); ok {
+		s := *hdr
+		*hdr = nil
+		oldToNewHdrPool.Put(hdr)
+		if cap(s) >= need {
+			return s[:need]
+		}
 	}
 
 	return make([]int, need)
@@ -1145,8 +1153,18 @@ func rentOldToNew(need int) []int {
 
 // releaseOldToNew hands a remap slice back to the pool.
 func releaseOldToNew(s []int) {
-	s = s[:0]
-	oldToNewPool.Put(&s)
+	const maxPooledOldToNew = 65536
+	if cap(s) == 0 || cap(s) > maxPooledOldToNew {
+		return
+	}
+
+	hdr, ok := oldToNewHdrPool.Get().(*[]int)
+	if !ok {
+		hdr = new([]int)
+	}
+
+	*hdr = s[:0]
+	oldToNewPool.Put(hdr)
 }
 
 // mergeDeferredChrome splices deferred background/border ops into oldOps in

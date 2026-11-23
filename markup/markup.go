@@ -139,7 +139,7 @@ func copyNode(node *html.Node) *Node {
 		Type:      kind,
 		Name:      node.Name,
 		Namespace: copyNamespace(node.Namespace),
-		Attrs:     copyAttrs(node.AttrMap()),
+		Attrs:     copyNodeAttrs(node),
 		AttrList:  copyAttrList(node.AttrList),
 		Text:      node.Text,
 		Doctype:   copyDoctype(node.Doctype),
@@ -235,16 +235,17 @@ func copyType(kind html.NodeType) (Type, bool) {
 	}
 }
 
-func copyAttrs(attrs map[string]string) map[string]string {
-	if len(attrs) == 0 {
+func copyNodeAttrs(node *html.Node) map[string]string {
+	count := node.AttrCount()
+	if count == 0 {
 		return nil
 	}
 
-	out := make(map[string]string, len(attrs))
+	out := make(map[string]string, count)
 
-	for key, value := range attrs {
+	node.ForEachAttr(func(key, value string) {
 		out[key] = value
-	}
+	})
 
 	return out
 }

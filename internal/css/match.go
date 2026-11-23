@@ -424,7 +424,7 @@ func matchPseudoWalk(state MatchState, sel Selector, node *html.Node) bool {
 		return false
 	}
 
-	return leftmostChain(state, sel.Parts, len(sel.Parts)-2, node, nil) != nil
+	return leftmostChain(state, sel.Parts, len(sel.Parts)-2, node, new(chainFail)) != nil
 }
 
 // leftmostMatch walks the selector combinator chain right-to-left (same walk
@@ -441,7 +441,7 @@ func leftmostMatch(state MatchState, sel Selector, node *html.Node) *html.Node {
 
 	// Combinator is stored on the right-hand part of each pair (how that
 	// part attaches to the previous), so the walk uses Parts[i+1].Combinator.
-	return leftmostChain(state, sel.Parts, len(sel.Parts)-2, node, nil)
+	return leftmostChain(state, sel.Parts, len(sel.Parts)-2, node, new(chainFail))
 }
 
 // chainFail memoizes (part index, node) pairs that already failed to match
@@ -459,7 +459,7 @@ type chainFailKey struct {
 // (nearest first) and backtrack when the rest of the chain fails; child and
 // adjacent combinators have exactly one candidate. It returns the element
 // matching parts[0], or cur when i < 0, or nil when no assignment exists.
-func leftmostChain(state MatchState, parts []SelectorPart, i int, cur *html.Node, fail chainFail) *html.Node {
+func leftmostChain(state MatchState, parts []SelectorPart, i int, cur *html.Node, fail *chainFail) *html.Node {
 	if i < 0 {
 		return cur
 	}
@@ -482,7 +482,7 @@ func leftmostChain(state MatchState, parts []SelectorPart, i int, cur *html.Node
 				continue
 			}
 
-			if got := leftmostTry(state, parts, i, anc, &fail); got != nil {
+			if got := leftmostTry(state, parts, i, anc, fail); got != nil {
 				return got
 			}
 		}
@@ -493,7 +493,7 @@ func leftmostChain(state MatchState, parts []SelectorPart, i int, cur *html.Node
 
 // leftmostSiblingChain tries each earlier element sibling of cur (nearest
 // first) that matches parts[i].
-func leftmostSiblingChain(state MatchState, parts []SelectorPart, i int, cur *html.Node, fail chainFail) *html.Node {
+func leftmostSiblingChain(state MatchState, parts []SelectorPart, i int, cur *html.Node, fail *chainFail) *html.Node {
 	if cur == nil || cur.Parent == nil {
 		return nil
 	}
@@ -514,7 +514,7 @@ func leftmostSiblingChain(state MatchState, parts []SelectorPart, i int, cur *ht
 			continue
 		}
 
-		if got := leftmostTry(state, parts, i, cand, &fail); got != nil {
+		if got := leftmostTry(state, parts, i, cand, fail); got != nil {
 			return got
 		}
 	}
@@ -531,7 +531,7 @@ func leftmostTry(state MatchState, parts []SelectorPart, i int, cand *html.Node,
 		return nil
 	}
 
-	if got := leftmostChain(state, parts, i-1, cand, *fail); got != nil {
+	if got := leftmostChain(state, parts, i-1, cand, fail); got != nil {
 		return got
 	}
 
@@ -544,19 +544,15 @@ func leftmostTry(state MatchState, parts []SelectorPart, i int, cand *html.Node,
 	return nil
 }
 
-// leftmostStep advances cur one step left through the combinator chain: it
-// returns the element that must match part, or nil when none exists.
+// leftmostStep advances cur one step left through a single-candidate
+// combinator (">" or "+"): it returns the element that must match part, or nil
+// when none exists.
 func leftmostStep(state MatchState, combinator string, part SelectorPart, cur *html.Node) *html.Node {
-	switch combinator {
-	case ">":
+	if combinator == ">" {
 		return matchLeftChild(state, part, cur)
-	case "+":
-		return matchLeftAdjacent(state, part, cur)
-	case "~":
-		return matchLeftSibling(state, part, cur)
-	default: // descendant
-		return matchLeftAncestor(state, part, cur)
 	}
+
+	return matchLeftAdjacent(state, part, cur)
 }
 
 // matchLeftChild returns cur's element parent when it matches part, else nil.
@@ -578,48 +574,6 @@ func matchLeftAdjacent(st MatchState, part SelectorPart, cur *html.Node) *html.N
 	}
 
 	return prev
-}
-
-// matchLeftSibling returns the nearest previous element sibling of cur that
-// matches part, else nil. The memoized parent entry supplies the element-only
-// list and cur's position, so the walk visits element siblings only and never
-// rescans the parent's full children per candidate.
-func matchLeftSibling(state MatchState, part SelectorPart, cur *html.Node) *html.Node {
-	if cur == nil || cur.Parent == nil {
-		return nil
-	}
-
-	entry := siblingEntryFor(cur.Parent)
-	if entry == nil {
-		return nil
-	}
-
-	info, ok := entry.infos[cur]
-	if !ok {
-		return nil
-	}
-
-	idx := info.index - 1
-
-	for i := idx - 1; i >= 0; i-- {
-		cand := entry.elems[i]
-		if matchPart(state, part, cand) {
-			return cand
-		}
-	}
-
-	return nil
-}
-
-// matchLeftAncestor returns the nearest element ancestor of cur that matches
-// part, else nil.
-func matchLeftAncestor(st MatchState, part SelectorPart, cur *html.Node) *html.Node {
-	cur = cur.Parent
-	for cur != nil && (cur.Type != html.ElementNode || !matchPart(st, part, cur)) {
-		cur = cur.Parent
-	}
-
-	return cur
 }
 
 // SelectorIsElementLocal reports whether matching sel against an element depends

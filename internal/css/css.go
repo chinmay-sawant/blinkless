@@ -784,6 +784,8 @@ func parseNestedMediaRule(
 	return rem, nested, nil
 }
 
+const maxCombinedMediaQueries = 64
+
 // combineMediaQueries returns the media query list matching exactly when both
 // outer and inner match. Comma lists are OR lists, so the result is the cross
 // product of their members joined with "and". ok is false when no member pair
@@ -808,6 +810,9 @@ func combineMediaQueries(outer, inner string) (string, bool) {
 		for _, right := range splitMediaList(inner) {
 			if joined, ok := joinMediaQuery(left, right); ok {
 				out = append(out, joined)
+				if len(out) >= maxCombinedMediaQueries {
+					return strings.Join(out, ", "), true
+				}
 			}
 		}
 	}
@@ -841,8 +846,9 @@ func joinMediaQuery(left, right string) (string, bool) {
 	}
 
 	// The matcher reads the first non-"and" token as the media type, so a
-	// typed query must lead the joined text.
-	if leftType == "" && rightType != "" {
+	// specific typed query must lead the joined text (ahead of an untyped
+	// feature or an "all" query).
+	if (leftType == "" && rightType != "") || (leftType == "all" && rightType != "" && rightType != "all") {
 		left, right = right, left
 	}
 

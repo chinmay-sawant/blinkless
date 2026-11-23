@@ -208,15 +208,20 @@ func parseSupportsInParens(src string, depth int) (SupportsCondition, string, bo
 	}, src[closeIdx+1:], true
 }
 
-// parseSupportsDeclaration parses `prop: value`. The property name is
-// lowercased; an empty value is not a declaration feature.
+// parseSupportsDeclaration parses `prop: value`. Standard property names are
+// lowercased; custom property names (--*) preserve exact case. An empty value
+// is not a declaration feature.
 func parseSupportsDeclaration(inner string) (SupportsCondition, bool) {
 	colon := supportsTopLevelColon(inner)
 	if colon <= 0 {
 		return SupportsCondition{}, false
 	}
 
-	prop := strings.ToLower(strings.TrimSpace(inner[:colon]))
+	prop := strings.TrimSpace(inner[:colon])
+	if !strings.HasPrefix(prop, "--") {
+		prop = strings.ToLower(prop)
+	}
+
 	value := strings.TrimSpace(inner[colon+1:])
 
 	if !validPropName(prop) || value == "" {

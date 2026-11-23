@@ -1159,6 +1159,46 @@ func TestResolveCustomPropsSelfReferenceWithFallback(t *testing.T) {
 	}
 }
 
+func TestResolveCustomPropsDoesNotPolluteWithAbsentVar(t *testing.T) {
+	t.Parallel()
+
+	declared := map[string]string{
+		"--a": "var(--missing, 10px)",
+		"--b": "var(--alsoMissing)",
+	}
+
+	got := ResolveCustomProps(declared, nil)
+	if got["--a"] != "10px" {
+		t.Errorf("--a = %q, want 10px", got["--a"])
+	}
+
+	if _, polluted := got["--missing"]; polluted {
+		t.Errorf("returned map polluted with undeclared key --missing: %v", got)
+	}
+
+	if _, polluted := got["--alsoMissing"]; polluted {
+		t.Errorf("returned map polluted with undeclared key --alsoMissing: %v", got)
+	}
+}
+
+func TestResolveCustomPropsEmbeddedVarInsideFallback(t *testing.T) {
+	t.Parallel()
+
+	declared := map[string]string{
+		"--a": "red",
+		"--b": "var(--missing, 1px solid var(--a))",
+	}
+
+	got := ResolveCustomProps(declared, nil)
+	if got["--b"] != "1px solid red" {
+		t.Errorf("--b = %q, want %q", got["--b"], "1px solid red")
+	}
+
+	if _, polluted := got["--missing"]; polluted {
+		t.Errorf("returned map polluted with undeclared key --missing: %v", got)
+	}
+}
+
 func TestParseSelectors(t *testing.T) {
 	t.Parallel()
 

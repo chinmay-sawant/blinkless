@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"maps"
 	"math"
 	"slices"
 	"strconv"
@@ -713,16 +712,28 @@ func writeRelayoutSubtree(builder *strings.Builder, node *ihtml.Node, useAttrs, 
 	builder.WriteString(node.Name)
 	builder.WriteByte(';')
 
-	nodeAttrs := node.AttrMap()
-	for _, name := range slices.Sorted(maps.Keys(nodeAttrs)) {
-		if !relayoutAttrRelevant(name, useAttrs, svg) {
-			continue
+	if node.HasAttrs() {
+		var stackNames [8]string
+
+		names := stackNames[:0]
+		if count := node.AttrCount(); count > len(stackNames) {
+			names = make([]string, 0, count)
 		}
 
-		builder.WriteString(name)
-		builder.WriteByte('=')
-		builder.WriteString(nodeAttrs[name])
-		builder.WriteByte(';')
+		node.ForEachAttr(func(name, _ string) {
+			if relayoutAttrRelevant(name, useAttrs, svg) {
+				names = append(names, name)
+			}
+		})
+
+		slices.Sort(names)
+
+		for _, name := range names {
+			builder.WriteString(name)
+			builder.WriteByte('=')
+			builder.WriteString(node.AttrExact(name))
+			builder.WriteByte(';')
+		}
 	}
 
 	for _, child := range node.Children {

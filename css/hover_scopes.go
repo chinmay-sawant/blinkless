@@ -191,7 +191,7 @@ func hoverMatchChangedCached(node *html.Node, entry *hoverListEntry, old, next i
 
 			if !sigReady {
 				tag = hoverTagName(node)
-				attrs = hoverAttrKey(node.AttrMap())
+				attrs = hoverNodeAttrKey(node)
 				sigReady = true
 			}
 
@@ -332,6 +332,56 @@ func hoverTagName(node *html.Node) string {
 	}
 
 	return "h\x00" + strings.ToLower(node.Name)
+}
+
+// hoverNodeAttrKey encodes a node's attributes with length-prefixed sorted
+// names without allocating a map when the node kept its attributes in AttrList.
+func hoverNodeAttrKey(node *html.Node) string {
+	count := node.AttrCount()
+	if count == 0 {
+		return ""
+	}
+
+	if node.Attrs != nil {
+		return hoverAttrKey(node.Attrs)
+	}
+
+	var stackNames [8]string
+
+	names := stackNames[:0]
+	if count > len(stackNames) {
+		names = make([]string, 0, count)
+	}
+
+	node.ForEachAttr(func(name, _ string) {
+		names = append(names, name)
+	})
+
+	slices.Sort(names)
+
+	total := 0
+	for _, name := range names {
+		val := node.AttrExact(name)
+		total += len(name) + len(val) + hoverAttrEntryOverhead
+	}
+
+	var out strings.Builder
+
+	out.Grow(total)
+
+	for _, name := range names {
+		value := node.AttrExact(name)
+		out.WriteString(strconv.Itoa(len(name)))
+		out.WriteByte(':')
+		out.WriteString(name)
+		out.WriteByte('=')
+		out.WriteString(strconv.Itoa(len(value)))
+		out.WriteByte(':')
+		out.WriteString(value)
+		out.WriteByte(';')
+	}
+
+	return out.String()
 }
 
 // hoverAttrKey encodes the full attribute map with length-prefixed sorted

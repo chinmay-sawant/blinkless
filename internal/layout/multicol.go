@@ -12,10 +12,12 @@ import (
 const maxPooledMulticolScratch = 4096
 
 var (
-	multicolMemoHits   atomic.Int64
-	multicolMemoMisses atomic.Int64
-	multicolIntPool    = sync.Pool{New: func() any { s := make([]int, 0, 16); return &s }}
-	multicolAssignPool = sync.Pool{New: func() any { s := make([]multicolColAssign, 0, 64); return &s }}
+	multicolMemoHits      atomic.Int64
+	multicolMemoMisses    atomic.Int64
+	multicolIntPool       = sync.Pool{}
+	multicolIntHdrPool    = sync.Pool{}
+	multicolAssignPool    = sync.Pool{}
+	multicolAssignHdrPool = sync.Pool{}
 )
 
 // multicolColAssign maps one op index to its fragment column (-1 clips).
@@ -28,8 +30,13 @@ type multicolColAssign struct {
 // getMulticolInts rents a zero-length int scratch for one multicol line.
 func getMulticolInts(n int) []int {
 	if n <= maxPooledMulticolScratch {
-		if v, ok := multicolIntPool.Get().(*[]int); ok && cap(*v) >= n {
-			return (*v)[:0]
+		if hdr, ok := multicolIntPool.Get().(*[]int); ok {
+			s := *hdr
+			*hdr = nil
+			multicolIntHdrPool.Put(hdr)
+			if cap(s) >= n {
+				return s[:0]
+			}
 		}
 	}
 
@@ -42,15 +49,25 @@ func putMulticolInts(s []int) {
 		return
 	}
 
-	s = s[:0]
-	multicolIntPool.Put(&s)
+	hdr, ok := multicolIntHdrPool.Get().(*[]int)
+	if !ok {
+		hdr = new([]int)
+	}
+
+	*hdr = s[:0]
+	multicolIntPool.Put(hdr)
 }
 
 // getMulticolAssigns rents an op-to-column scratch for anon text split.
 func getMulticolAssigns(n int) []multicolColAssign {
 	if n <= maxPooledMulticolScratch {
-		if v, ok := multicolAssignPool.Get().(*[]multicolColAssign); ok && cap(*v) >= n {
-			return (*v)[:0]
+		if hdr, ok := multicolAssignPool.Get().(*[]multicolColAssign); ok {
+			s := *hdr
+			*hdr = nil
+			multicolAssignHdrPool.Put(hdr)
+			if cap(s) >= n {
+				return s[:0]
+			}
 		}
 	}
 
@@ -63,8 +80,13 @@ func putMulticolAssigns(s []multicolColAssign) {
 		return
 	}
 
-	s = s[:0]
-	multicolAssignPool.Put(&s)
+	hdr, ok := multicolAssignHdrPool.Get().(*[]multicolColAssign)
+	if !ok {
+		hdr = new([]multicolColAssign)
+	}
+
+	*hdr = s[:0]
+	multicolAssignPool.Put(hdr)
 }
 
 const columnSpanAll = "all"
