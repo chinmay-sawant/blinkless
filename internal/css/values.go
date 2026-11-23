@@ -607,6 +607,10 @@ func ResolveVar(val2 string, lookup func(name string) (string, bool)) string {
 	val2 = strings.TrimSpace(val2)
 	for range 16 {
 		if !strings.HasPrefix(strings.ToLower(val2), "var(") {
+			if indexVarFunction(val2, 0) >= 0 {
+				return ResolveVars(val2, lookup)
+			}
+
 			return val2
 		}
 
@@ -753,7 +757,11 @@ func ResolveCustomProps(declared, inherited map[string]string) map[string]string
 		}
 
 		raw, ok := work[name]
-		if !ok || !strings.Contains(strings.ToLower(raw), "var(") {
+		if !ok {
+			return "", false
+		}
+
+		if !strings.Contains(strings.ToLower(raw), "var(") {
 			memo[name] = raw
 
 			return raw, false

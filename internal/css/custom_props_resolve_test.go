@@ -73,3 +73,26 @@ func TestCustomPropertyNamesCaseSensitive(t *testing.T) {
 		t.Fatalf("a=%q b=%q", got["--a"], got["--b"])
 	}
 }
+
+func TestSupportsPreservesCustomPropertyCase(t *testing.T) {
+	t.Parallel()
+
+	sheet, err := Parse(`@supports (--myColor: red) { p { color: green } }`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(sheet.Rules) != 1 || sheet.Rules[0].Supports == nil {
+		t.Fatalf("rules = %#v", sheet.Rules)
+	}
+
+	if sheet.Rules[0].Supports.Prop != "--myColor" {
+		t.Fatalf("Supports.Prop = %q, want %q", sheet.Rules[0].Supports.Prop, "--myColor")
+	}
+
+	if !SupportsMatches(sheet.Rules[0].Supports, func(prop, value string) bool {
+		return prop == "--myColor" && value == "red"
+	}) {
+		t.Fatal("SupportsMatches did not pass --myColor verbatim")
+	}
+}

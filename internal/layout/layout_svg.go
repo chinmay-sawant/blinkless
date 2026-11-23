@@ -302,26 +302,26 @@ func (e *engine) writeSVGNode(b *bytes.Buffer, node *html.Node, paint *svgPaintP
 		// cache keys on the serialized document, so a random order would let
 		// an unchanged element miss the cache on every pass. Keys sort in a
 		// stack array so the common small-attribute case allocates nothing.
-		nodeAttrs := node.AttrMap()
+		attrCount := node.AttrCount()
 		var keys [16]string
 		var sorted []string
-		if len(nodeAttrs) <= len(keys) {
+		if attrCount <= len(keys) {
 			n := 0
-			for k := range nodeAttrs {
+			node.ForEachAttr(func(k, _ string) {
 				keys[n] = k
 				n++
-			}
+			})
 			sorted = keys[:n]
 			sort.Strings(sorted)
 		} else {
-			sorted = make([]string, 0, len(nodeAttrs))
-			for k := range nodeAttrs {
+			sorted = make([]string, 0, attrCount)
+			node.ForEachAttr(func(k, _ string) {
 				sorted = append(sorted, k)
-			}
+			})
 			sort.Strings(sorted)
 		}
 		for _, k := range sorted {
-			v := nodeAttrs[k]
+			v := node.AttrExact(k)
 			if k == "style" {
 				continue
 			}

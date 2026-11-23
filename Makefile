@@ -177,7 +177,7 @@ BENCH_COUNT ?= 1
 bench: bench-engine
 
 bench-engine:
-	go test ./layout ./internal/layout -run '^$$' \
+	go test ./layout ./internal/layout ./internal/style -run '^$$' \
 		-bench 'Benchmark(RelayoutMedium|FlexInvoiceHeight|InvoiceScale|RelayoutStages|HoverCycle|NewDisplayForPatch|RelayoutPatchRepeat|RelayoutPatchVarying|StyleResolutionContext|NewRuleIndex|GridMemoNested)$$' \
 		-benchmem -benchtime=$(BENCH_TIME) -count=$(BENCH_COUNT)
 

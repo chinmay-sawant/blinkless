@@ -44,6 +44,7 @@ fi
 # repo root. Add to this list only for dirs that never hold hand-written Go.
 prune_dirs=(
 	./.git
+	./.worktrees
 	./verapdf
 	./compliance
 	./.pdf-validators

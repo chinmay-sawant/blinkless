@@ -111,6 +111,46 @@ func (n *Node) HasAttr(name string) bool {
 	return ok
 }
 
+// HasAttrs reports whether the node carries at least one attribute without
+// allocating a map.
+func (n *Node) HasAttrs() bool {
+	return n != nil && (len(n.Attrs) > 0 || len(n.AttrList) > 0)
+}
+
+// AttrCount returns the number of attributes on n without allocating a map.
+func (n *Node) AttrCount() int {
+	if n == nil {
+		return 0
+	}
+
+	if n.Attrs != nil {
+		return len(n.Attrs)
+	}
+
+	return len(n.AttrList)
+}
+
+// ForEachAttr calls fn for each (canonical key, value) attribute on n without
+// mutating n or allocating a map. When n.Attrs is nil it iterates n.AttrList.
+func (n *Node) ForEachAttr(fn func(key, value string)) {
+	if n == nil {
+		return
+	}
+
+	if n.Attrs != nil {
+		for k, v := range n.Attrs {
+			fn(k, v)
+		}
+
+		return
+	}
+
+	for i := range n.AttrList {
+		a := &n.AttrList[i]
+		fn(a.Key(), a.Value)
+	}
+}
+
 // AttrMap returns the node's attributes as a map without mutating n. When the
 // parser kept the list map-free it builds a fresh map each call, so it is safe
 // for concurrent read-only passes over a shared tree; callers must not write

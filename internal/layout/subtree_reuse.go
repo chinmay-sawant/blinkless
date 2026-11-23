@@ -288,7 +288,7 @@ func fingerprintContentDOM(root *html.Node) uint64 {
 		}
 
 		if node.Type == html.ElementNode {
-			writeContentElement(hash, node.Type, node.Name, node.AttrMap())
+			writeContentNode(hash, node)
 		}
 
 		for _, child := range node.Children {
@@ -319,7 +319,7 @@ func fingerprintKeptContent(kept *box, ops []Op, start, count int) uint64 {
 		}
 
 		if node.node != nil && node.node.Type == html.ElementNode {
-			writeContentElement(hash, node.node.Type, node.node.Name, node.node.AttrMap())
+			writeContentNode(hash, node.node)
 		}
 
 		for _, child := range node.children {
@@ -341,31 +341,39 @@ func fingerprintKeptContent(kept *box, ops []Op, start, count int) uint64 {
 	return hash.Sum64()
 }
 
-// writeContentElement writes one element's content identity: its type, its
-// name, and its non-class attributes in sorted order. Class is excluded
-// because the style hash owns it; a class-only edit must keep the content
-// hash stable.
-func writeContentElement(hash hash.Hash, nodeType html.NodeType, name string, attrs map[string]string) {
-	_, _ = hash.Write([]byte{byte(nodeType)})
-	_, _ = hash.Write([]byte(name))
+// writeContentNode writes one element's content identity: its type, its
+// name, and its non-class attributes in sorted order without allocating a map
+// for small-attribute nodes. Class is excluded because the style hash owns it;
+// a class-only edit must keep the content hash stable.
+func writeContentNode(hash hash.Hash, node *html.Node) {
+	_, _ = hash.Write([]byte{byte(node.Type)})
+	_, _ = hash.Write([]byte(node.Name))
 	_, _ = hash.Write([]byte{0})
 
-	keys := make([]string, 0, len(attrs))
-
-	for key := range attrs {
-		if key == "class" {
-			continue
-		}
-
-		keys = append(keys, key)
+	count := node.AttrCount()
+	if count == 0 {
+		return
 	}
+
+	var stackKeys [8]string
+
+	keys := stackKeys[:0]
+	if count > len(stackKeys) {
+		keys = make([]string, 0, count)
+	}
+
+	node.ForEachAttr(func(key, _ string) {
+		if key != "class" {
+			keys = append(keys, key)
+		}
+	})
 
 	sort.Strings(keys)
 
 	for _, key := range keys {
 		_, _ = hash.Write([]byte(key))
 		_, _ = hash.Write([]byte{0})
-		_, _ = hash.Write([]byte(attrs[key]))
+		_, _ = hash.Write([]byte(node.AttrExact(key)))
 		_, _ = hash.Write([]byte{0})
 	}
 }
