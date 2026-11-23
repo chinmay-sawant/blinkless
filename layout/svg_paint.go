@@ -95,8 +95,6 @@ type SVGPaintOverride struct {
 // elements whose paint changed. The raster of each serialized document is
 // cached on the retained layout, so repeating the same paint for the same
 // element reuses the previous raster instead of rasterizing again.
-//
-//nolint:cyclop,funlen // validates, groups, and batches one public request list
 func RestyleInlineSVG(
 	ctx context.Context,
 	doc *css.Document,
@@ -125,7 +123,7 @@ func RestyleInlineSVG(
 	}
 
 	if len(overrides) == 0 {
-		return &ElementPatch{Display: prev}, nil //nolint:exhaustruct // an empty patch carries only the display
+		return &ElementPatch{Display: prev}, nil
 	}
 
 	styled, ok := pubstate.StyledOf(doc)
@@ -149,7 +147,7 @@ func RestyleInlineSVG(
 	}
 
 	widthPt, heightPt := displayViewportPt(styled)
-	layoutOptions := ilayout.Options{ //nolint:exhaustruct // only the paint pass inputs
+	layoutOptions := ilayout.Options{
 		Width:      widthPt,
 		Height:     heightPt,
 		Images:     options.Images,
@@ -163,10 +161,10 @@ func RestyleInlineSVG(
 	}
 
 	if len(edits) == 0 {
-		return &ElementPatch{Display: prev}, nil //nolint:exhaustruct // an empty patch carries only the display
+		return &ElementPatch{Display: prev}, nil
 	}
 
-	patch := &ElementPatch{} //nolint:exhaustruct // filled from edits
+	patch := &ElementPatch{}
 	haveBounds := false
 
 	for index := range edits {

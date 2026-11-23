@@ -1,4 +1,3 @@
-//nolint:cyclop // CSS Text 4/5 spacing property parsers
 package layout
 
 import "strings"

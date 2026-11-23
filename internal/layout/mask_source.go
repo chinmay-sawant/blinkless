@@ -48,7 +48,7 @@ func maskImageSetChoice(value string) (string, bool) {
 		return "", false
 	}
 
-	parts := splitParenArgs(body, ',')
+	parts := splitParenArgs(body)
 	if len(parts) == 0 {
 		return "", false
 	}

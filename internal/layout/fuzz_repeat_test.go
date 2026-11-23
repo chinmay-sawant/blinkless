@@ -9,6 +9,7 @@ func FuzzExpandRepeat(f *testing.F) {
 	f.Add("repeat(4, 1px)")
 	f.Add(strings.Repeat("repeat(63, ", 2) + "1fr))")
 	f.Add("none")
+	f.Add("[İstanbul] repeat(2, 1fr)")
 
 	f.Fuzz(func(t *testing.T, raw string) {
 		if len(raw) > 1024 {

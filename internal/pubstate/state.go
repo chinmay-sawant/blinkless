@@ -28,8 +28,6 @@ type Styled struct {
 // leak the internal node type. The html and css packages install them while
 // their packages initialize, before any caller can parse, apply, or read, so
 // Root and StyledOf are safe to call from several goroutines without a lock.
-//
-//nolint:gochecknoglobals // registration point for the public engine packages
 var (
 	readRoot   func(any) *html.Node
 	readStyled func(any) (Styled, bool)
@@ -68,7 +66,7 @@ func RegisterStyled(fn func(any) (Styled, bool)) struct{} {
 // StyledOf returns the cascade result for a public CSS document.
 func StyledOf(doc any) (Styled, bool) {
 	if doc == nil || readStyled == nil {
-		return Styled{}, false //nolint:exhaustruct // no styled document is registered
+		return Styled{}, false
 	}
 
 	return readStyled(doc)

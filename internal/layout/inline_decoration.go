@@ -108,8 +108,6 @@ func emphasisSkipModes(style *ResolvedStyle) (bool, bool, bool, bool) {
 // the parsed skip modes. Control, format, and unassigned handling is a
 // subset: Cc and Cf are always skipped; Cn needs font tables the engine does
 // not carry.
-//
-//nolint:cyclop // one flat skip check per skip token stays readable
 func skipEmphasisRune(runic rune, spaces, punct, symbols, narrow bool) bool {
 	if unicode.Is(unicode.Cc, runic) || unicode.Is(unicode.Cf, runic) {
 		return true

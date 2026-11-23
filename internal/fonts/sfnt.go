@@ -42,9 +42,9 @@ func assembleWOFF2SFNT(flavor uint32, tables []woff2Table, data [][]byte) ([]byt
 
 	rangeShift := numTables*sfntSearchMul - searchRange*sfntSearchMul
 
-	binary.BigEndian.PutUint16(out[6:8], uint16(searchRange*sfntSearchMul)) //nolint:gosec // bounded by maxTables
-	binary.BigEndian.PutUint16(out[8:10], uint16(entrySelector))            //nolint:gosec // bounded by maxTables
-	binary.BigEndian.PutUint16(out[10:12], uint16(rangeShift))              //nolint:gosec // bounded by maxTables
+	binary.BigEndian.PutUint16(out[6:8], uint16(searchRange*sfntSearchMul))
+	binary.BigEndian.PutUint16(out[8:10], uint16(entrySelector))
+	binary.BigEndian.PutUint16(out[10:12], uint16(rangeShift)) //nolint:gosec // bounded by maxTables
 
 	offset := uint32(headerSize) //nolint:gosec // bounded by maxSFNTSize
 

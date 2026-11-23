@@ -13,8 +13,6 @@
 // This file emits no operations and adds no new op kind. It runs after the
 // element's box is built, when the group is popped, so the frame knows its
 // destination size.
-//
-//nolint:varnamelen // pixel loops use x/y coordinates by convention
 package layout
 
 import (
@@ -413,7 +411,7 @@ func (e *engine) composeMaskBorderOnGroup(group *BlendGroup, boxNode *box) {
 		return
 	}
 
-	group.Mask = &MaskDescriptor{ //nolint:exhaustruct // layers stay empty for a frame raster
+	group.Mask = &MaskDescriptor{
 		Raster: raster,
 	}
 }

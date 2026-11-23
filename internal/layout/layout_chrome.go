@@ -1,4 +1,3 @@
-//nolint:all
 package layout
 
 import (
@@ -53,7 +52,7 @@ func appendBorderLineSegments(
 
 // gridSegOp converts one grid segment into the OpLine it stands for.
 func gridSegOp(seg GridSeg) Op {
-	return Op{ //nolint:exhaustruct // intentional zero fields
+	return Op{
 		Kind: OpLine, X: seg.X, Y: seg.Y, W: seg.W, H: seg.H,
 		Width: seg.Width, R: seg.R, G: seg.G, B: seg.B, LineInset: seg.LineInset,
 	}
@@ -457,7 +456,7 @@ func (e *engine) thumbImageInsideFigure(node *html.Node) bool {
 
 		for _, child := range parent.Children {
 			if child != nil && child.Name == "figcaption" {
-				captionBox := &box{node: child, style: e.stylePtr(child)} //nolint:exhaustruct // style probe only
+				captionBox := &box{node: child, style: e.stylePtr(child)}
 				_, ok := e.collapsedThumbCaption(captionBox)
 
 				return ok
@@ -510,8 +509,6 @@ func hasPotentialChrome(sty *ResolvedStyle, boxNode *box) bool {
 // Common path defers the splice until finalizeChrome (one linear merge).
 // Sticky/fixed/transform keep an immediate splice so mid-build StickyID/Fixed
 // stamps and transform exclusive ranges stay correct without re-derivation.
-//
-//nolint:cyclop,wsl,funlen // paint ordering and border geometry stay together
 func (e *engine) prependChrome(insertAt int, boxNode *box, sty *ResolvedStyle, posX, posY, width, height float64) {
 	if e.noEmit {
 		return
@@ -559,11 +556,12 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty *ResolvedStyle, p
 	if sty.effects().BoxShadowSet || sty.effects().BoxShadowRaw != "" {
 		chrome = e.appendBoxShadow(chrome, sty, posX, posY, width, height, radii, radiiY, false)
 	}
-	if cornerFillHandled {
+	switch {
+	case cornerFillHandled:
 		chrome = append(chrome, cornerFillOps...)
-	} else if sty.BGColor[3] > 0 && e.backgroundPaintEnabled(sty) {
+	case sty.BGColor[3] > 0 && e.backgroundPaintEnabled(sty):
 		usedBG := usedBGForPaintActive(sty, e.forcedColorsForPaint())
-		bgOp := Op{ //nolint:exhaustruct // intentional zero fields
+		bgOp := Op{
 			Kind: OpFillRect, X: posX, Y: posY, W: width, H: height,
 			R: usedBG[0], G: usedBG[1], B: usedBG[2], Alpha: usedBG[3], Radius: radius,
 			RadiusTopLeft: radii[0], RadiusTopRight: radii[1], RadiusBottomRight: radii[2], RadiusBottomLeft: radii[3],
@@ -582,9 +580,9 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty *ResolvedStyle, p
 		} else {
 			chrome = append(chrome, bgOp)
 		}
-	} else if isColorSchemeCanvasRoot(boxNode) {
+	case isColorSchemeCanvasRoot(boxNode):
 		if fill, ok := canvasFillForRoot(sty); ok && width > 0 && height > 0 {
-			bgOp := Op{ //nolint:exhaustruct // intentional zero fields
+			bgOp := Op{
 				Kind: OpFillRect, X: posX, Y: posY, W: width, H: height,
 				R: fill[0], G: fill[1], B: fill[2], Alpha: fill[3], Radius: radius,
 				RadiusTopLeft: radii[0], RadiusTopRight: radii[1], RadiusBottomRight: radii[2], RadiusBottomLeft: radii[3],
@@ -600,12 +598,13 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty *ResolvedStyle, p
 		chrome = e.appendBoxShadow(chrome, sty, posX, posY, width, height, radii, radiiY, true)
 	}
 
-	if sty.borders().BorderImageSource != "" {
+	switch {
+	case sty.borders().BorderImageSource != "":
 		chrome = e.appendBorderImage(chrome, sty, posX, posY, width, height)
-	} else if cornerBorderHandled {
+	case cornerBorderHandled:
 		chrome = append(chrome, cornerBorderOps...)
-	} else if sty.borders().BorderTop.Width > 0 || sty.borders().BorderRight.Width > 0 ||
-		sty.borders().BorderBottom.Width > 0 || sty.borders().BorderLeft.Width > 0 {
+	case sty.borders().BorderTop.Width > 0 || sty.borders().BorderRight.Width > 0 ||
+		sty.borders().BorderBottom.Width > 0 || sty.borders().BorderLeft.Width > 0:
 		switch {
 		case hasRoundedRadii(radii) && roundedSolidBorder(sty):
 			chrome = e.appendRoundedBorderOps(chrome, sty, posX, posY, width, height, radii)
@@ -671,7 +670,7 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty *ResolvedStyle, p
 
 const chromeSlabCap = 64
 
-var chromeSlabPool = sync.Pool{ //nolint:gochecknoglobals // shared deferred chrome op slabs
+var chromeSlabPool = sync.Pool{
 	New: func() any {
 		s := make([]Op, 0, chromeSlabCap)
 
@@ -709,7 +708,7 @@ func (e *engine) packDeferredChrome(src []Op) []Op {
 		}
 	}
 	if slab == nil {
-		slab = chromeSlabPool.Get().(*[]Op) //nolint:forcetypeassert // pool stores *[]Op
+		slab = chromeSlabPool.Get().(*[]Op)
 		*slab = (*slab)[:0]
 		e.chromeSlabs = append(e.chromeSlabs, slab)
 	}
@@ -827,8 +826,6 @@ func (e *engine) appendCollapsedOrFullBorderOps(
 // isNeutralFrameSection recognizes a generic frame pattern rather than a
 // fixture ID or literal text: a section with a solid, neutral outer border
 // keeps its top edge consistent with its bottom edge across page fragments.
-//
-//nolint:wsl // generic frame checks remain adjacent to their border gates.
 func isNeutralFrameSection(node *html.Node, sty *ResolvedStyle) bool {
 	if node == nil || node.Name != htmlSection {
 		return false
@@ -918,7 +915,7 @@ func (e *engine) appendRoundedBorderOps(
 	// the sequential appends below from leaving growth garbage.
 	ops := growChromeOps(dst, 5)
 	if !base.Transparent {
-		ops = append(ops, Op{ //nolint:exhaustruct // intentional zero fields
+		ops = append(ops, Op{
 			Kind: OpStrokeRect, X: posX, Y: posY, W: width, H: height,
 			R: base.Color[0], G: base.Color[1], B: base.Color[2], Width: e.scalePt(borderPaint(base)),
 			Radius: uniformRadius(radii), RadiusTopLeft: radii[0], RadiusTopRight: radii[1],
@@ -942,7 +939,7 @@ func (e *engine) appendRoundedBorderOps(
 			sideRadii = squareSideBorderRadii(side.border, radii, side.mask == StrokeMaskLeft)
 		}
 
-		ops = append(ops, Op{ //nolint:exhaustruct // intentional zero fields
+		ops = append(ops, Op{
 			Kind: OpStrokeRect, X: posX, Y: posY, W: width, H: height,
 			R: side.border.Color[0], G: side.border.Color[1], B: side.border.Color[2],
 			Width: e.scalePt(borderPaint(side.border)), Radius: uniformRadius(sideRadii),
@@ -972,7 +969,7 @@ func (e *engine) appendRoundedAccentBorderOps(
 			return
 		}
 
-		ops = append(ops, Op{ //nolint:exhaustruct // intentional zero fields
+		ops = append(ops, Op{
 			Kind: OpStrokeRect, X: posX, Y: posY, W: width, H: height,
 			R: side.Color[0], G: side.Color[1], B: side.Color[2],
 			Width: e.scalePt(borderPaint(side)), Radius: uniformRadius(sideRadii),
@@ -1134,13 +1131,13 @@ type chromeSortKey struct {
 // oldToNewPool reuses the index-remap backing across finalizeChrome calls.
 // The slice carries no pointers and is fully rewritten on every merge, so
 // sharing it between Layout runs is safe.
-var oldToNewPool = sync.Pool{New: func() any { return make([]int, 0, 512) }} //nolint:gochecknoglobals // shared remap backing
+var oldToNewPool = sync.Pool{New: func() any { s := make([]int, 0, 512); return &s }}
 
 // rentOldToNew returns a remap slice of length need, reusing pooled backing
 // when it fits.
 func rentOldToNew(need int) []int {
-	if v, ok := oldToNewPool.Get().([]int); ok && cap(v) >= need {
-		return v[:need]
+	if v, ok := oldToNewPool.Get().(*[]int); ok && cap(*v) >= need {
+		return (*v)[:need]
 	}
 
 	return make([]int, need)
@@ -1148,7 +1145,8 @@ func rentOldToNew(need int) []int {
 
 // releaseOldToNew hands a remap slice back to the pool.
 func releaseOldToNew(s []int) {
-	oldToNewPool.Put(s[:0])
+	s = s[:0]
+	oldToNewPool.Put(&s)
 }
 
 // mergeDeferredChrome splices deferred background/border ops into oldOps in
@@ -1158,8 +1156,8 @@ func releaseOldToNew(s []int) {
 // backwards so spare capacity in oldOps is reused in place when it fits;
 // otherwise one exact-sized list is allocated.
 var (
-	chromeSortKeyPool = sync.Pool{} //nolint:exhaustruct,gochecknoglobals // shared sort-key scratch
-	chromeSortHdrPool = sync.Pool{} //nolint:exhaustruct,gochecknoglobals // shared slice headers
+	chromeSortKeyPool = sync.Pool{}
+	chromeSortHdrPool = sync.Pool{}
 )
 
 func rentChromeSortKeys(n int) []chromeSortKey {
@@ -1317,8 +1315,8 @@ func recordOwnerChrome(boxNode *box, start, endIdx int) {
 		return
 	}
 
-	s := int32(start)
-	e := int32(endIdx)
+	s := int32(start)  //nolint:gosec // op indexes stay far below MaxInt32
+	e := int32(endIdx) //nolint:gosec // op indexes stay far below MaxInt32
 	if boxNode.hasChromeSpan {
 		if s < boxNode.chromeStart {
 			boxNode.chromeStart = s

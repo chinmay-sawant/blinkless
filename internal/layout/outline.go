@@ -153,7 +153,7 @@ func (e *engine) roundedOutlineOp(
 	outH := height + outlineBothSidesFactor*inflate
 
 	if outW <= 0 || outH <= 0 {
-		return Op{}, false //nolint:exhaustruct
+		return Op{}, false
 	}
 
 	radTL := inflateRadius(e.scalePt(sty.borders().BorderRadiusTopLeft), inflate)
@@ -161,7 +161,7 @@ func (e *engine) roundedOutlineOp(
 	radBR := inflateRadius(e.scalePt(sty.borders().BorderRadiusBottomRight), inflate)
 	radBL := inflateRadius(e.scalePt(sty.borders().BorderRadiusBottomLeft), inflate)
 
-	outlineOp := Op{ //nolint:exhaustruct // outline rounded stroke op
+	outlineOp := Op{
 		Kind:              OpStrokeRect,
 		X:                 outX,
 		Y:                 outY,

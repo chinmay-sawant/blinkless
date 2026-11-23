@@ -59,21 +59,3 @@ func assertClonedTypedFields(t *testing.T, got settings.PdfGlobal, pageSize stri
 		}
 	}
 }
-
-func TestPdfGlobalSetCoversCompatibilityKeys(t *testing.T) {
-	t.Parallel()
-
-	global := settings.DefaultPdfGlobal()
-
-	if err := global.Set("size.width", "210mm"); err != nil {
-		t.Fatalf("Set(size.width): %v", err)
-	}
-
-	if global.Size.Width != 210 {
-		t.Fatalf("size.width = %v, want 210mm", global.Size.Width)
-	}
-
-	if err := global.Set("not-a-setting", "value"); err == nil {
-		t.Fatal("unknown Set key unexpectedly succeeded")
-	}
-}

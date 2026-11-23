@@ -85,7 +85,7 @@ func TestReadFontFileSkipsNonRegular(t *testing.T) {
 
 		_ = file.Close()
 
-		<-done
+		t.Logf("released blocked call: %v", <-done)
 		t.Fatal("readFontFile opened a FIFO after Info said it was not regular")
 	}
 }

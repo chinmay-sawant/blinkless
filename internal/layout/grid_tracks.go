@@ -7,7 +7,6 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
-//nolint:gochecknoglobals // pooled scratch and memo state, mirroring box_alloc.go
 var (
 	gridTrackDefPool holderPool[gridTrackDef]
 	gridIntPool      holderPool[int]
@@ -79,8 +78,6 @@ func putGridInts(values []int) {
 
 // resolveGridRows sizes the row tracks, returning the final row count and
 // whether preferred-height growth should be locked (fixed template / auto-rows).
-//
-//nolint:cyclop,gocognit,funlen // row sizing has separate definite, auto, and padding branches
 func resolveGridRows(
 	eng *engine,
 	sty ResolvedStyle,

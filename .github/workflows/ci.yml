@@ -1,4 +1,7 @@
-# CI runs tests, race checks, lint, and catalog/matrix/claim checks.
+# CI runs unit tests, the race detector over every package, golangci-lint,
+# the catalog/matrix/claim gates, the Wasm contract, a fuzz smoke pass over
+# every fuzz target, and module/vulnerability checks. Every action is pinned
+# to a commit SHA.
 name: ci
 
 on:
@@ -9,9 +12,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
-    name: test + lint + checks
+    name: test + build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -21,19 +28,104 @@ jobs:
         with:
           go-version: '1.26'
           cache: true
+      - name: Build (CGO disabled)
+        run: CGO_ENABLED=0 go build ./...
       - name: Test
         run: make test
-      - name: Test race
+      - name: Golden display-list tests
+        run: make golden
+
+  race:
+    name: race
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.26'
+          cache: true
+      - name: Test race (every package)
         run: make test-race
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.26'
+          cache: true
+      - name: Put GOPATH/bin on PATH
+        run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Lint
+        # The Makefile installs the pinned golangci-lint with the job's Go
+        # (GOTOOLCHAIN=local): the linter refuses to run when it was built
+        # with an older Go than go.mod targets.
+        run: make lint
+
+  checks:
+    name: claim, catalog, and matrix gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Install ripgrep
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
       - name: Claim scan
         run: make claim-scan
       - name: Catalog check
         run: make catalog-check
       - name: Matrix check
         run: make matrix-check
-      - name: Install golangci-lint
-        # Build with the job's Go (1.26+): v1.64 refuses to lint when the binary
-        # was compiled with an older Go than go.mod targets.
-        run: GOTOOLCHAIN=local go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
-      - name: Lint
-        run: make lint
+
+  wasm:
+    name: wasm contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.26'
+          cache: true
+      - name: Wasm contract tests and build
+        run: make wasm-test
+
+  fuzz:
+    name: fuzz smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.26'
+          cache: true
+      - name: Fuzz every target for 15s
+        run: make fuzz-smoke FUZZ_TIME=15s
+
+  security:
+    name: modules + govulncheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.26'
+          cache: true
+      - name: Put GOPATH/bin on PATH
+        run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Verify module checksums
+        run: make mod-verify
+      - name: govulncheck
+        run: make vuln

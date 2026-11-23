@@ -475,8 +475,6 @@ func ParseColorWide(val string) ([3]float64, float64, bool) {
 // parseColorWideDepth is ParseColorWide with a var() fallback depth.
 // depth counts fallbacks already entered. At maxColorVarDepth another var()
 // is rejected, matching parseColorDepth.
-//
-//nolint:cyclop // linear dispatch across color forms; extraction would obscure it
 func parseColorWideDepth(val string, depth int) ([3]float64, float64, bool) {
 	val = strings.TrimSpace(val)
 	if val == "" {
@@ -621,8 +619,6 @@ const (
 // D65; ProPhoto RGB is D50. The Bradford pair is constructed from the D50
 // white consts below and the IEC D65 column sums, so achromatic CIE Lab
 // maps back onto exact sRGB white instead of drifting on truncated tables.
-//
-//nolint:gochecknoglobals // static read-only colorimetry tables
 var (
 	srgbToXYZWide = [9]float64{
 		0.4123907993, 0.3575843394, 0.1804807884,
@@ -811,7 +807,6 @@ type wideRGBSpace struct {
 	adaptFromD65 [9]float64
 }
 
-//nolint:gochecknoglobals // static read-only gamut vocabulary, never mutated
 var wideRGBSpaceTable = map[string]wideRGBSpace{
 	"srgb": {
 		decode: srgbDecodeWide, encode: srgbEncodeWide,

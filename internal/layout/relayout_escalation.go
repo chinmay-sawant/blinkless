@@ -37,8 +37,6 @@ func relayoutBuildEscalating(
 // attempt's subtree styles already resolved. A caller that resolved them to
 // try the paint restyle passes them here, so a declined attempt does not
 // resolve the same subtree twice. Wider targets resolve their own.
-//
-//nolint:cyclop // the retry loop repeats the same guarded build for a wider target
 func relayoutBuildEscalatingWith(
 	ctx context.Context, prev *Result, target *relayoutTarget, opts Options,
 	first map[*html.Node]*ResolvedStyle,

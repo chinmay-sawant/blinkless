@@ -66,15 +66,12 @@ const maxPooledFlexScratch = 4096
 // entries. It only avoids a first grow.
 const flexMemoInitCap = 32
 
-//nolint:gochecknoglobals // test-visible memo state mirrors flexKidPool in flex_children.go
 var (
-	flexRowBaseHits        atomic.Int64
-	flexRowBaseMisses      atomic.Int64
-	flexRowMinHits         atomic.Int64
-	flexRowMinMisses       atomic.Int64
-	flexRowMemoBypass      atomic.Bool
-	simpleFlexHeightBypass atomic.Bool
-	simpleFlexHeightHits   atomic.Int64
+	flexRowBaseHits      atomic.Int64
+	flexRowBaseMisses    atomic.Int64
+	flexRowMinHits       atomic.Int64
+	flexRowMinMisses     atomic.Int64
+	simpleFlexHeightHits atomic.Int64
 	// simpleFlexCrossBypass and simpleFlexMinBypass are test-only switches
 	// that force the full measure for the line-cross and min-content fast
 	// paths so differential tests can compare both layouts.
@@ -103,7 +100,7 @@ type flexScratchPool[T any] struct {
 // of allocating a header on every cold rent. The header is created once on the
 // first return instead.
 func newFlexScratchPool[T any]() flexScratchPool[T] {
-	return flexScratchPool[T]{} //nolint:exhaustruct // see the comment above
+	return flexScratchPool[T]{}
 }
 
 // rentFlexScratch returns a zero-length scratch with room for size entries,
@@ -239,7 +236,7 @@ func putFlexBools(scratch []bool) {
 
 // buildFlex lays out a flex container with justify, align, gap, grow, and wrap.
 //
-//nolint:cyclop,funlen,gocritic,wsl // dispatch also installs the containing-block scope
+//nolint:gocritic // dispatch also installs the containing-block scope
 func (e *engine) buildFlex(node *html.Node, sty *ResolvedStyle, availW, x, posY float64) *box {
 	ml := e.scalePt(sty.MarginLeft)
 	boxNode := e.allocBox(node, e.stylePtr(node), boxKindBlock, x+ml, posY)
@@ -404,7 +401,6 @@ func (e *engine) flushFlexDeferredOutOfFlow(
 	e.flushDeferredFlowChildren(boxNode, deferred, cbHeight, absCBW, absCBX, absOriginY)
 }
 
-//nolint:cyclop,funlen // row flow combines line formation, sizing, and placement
 func (e *engine) flowFlexRow(
 	parent *box, kids []*html.Node, style *ResolvedStyle,
 	contentW, contentX, topY, curY, colGap, rowGap float64,
@@ -488,7 +484,6 @@ func (e *engine) flowFlexRow(
 	return curY
 }
 
-//nolint:cyclop,goconst,wsl // recursive aspect-ratio contribution walks the small flex tree
 func (e *engine) flexAspectContentWidth(node *html.Node, style *ResolvedStyle, crossSize float64) float64 {
 	if node != nil {
 		switch node.Name {
@@ -761,7 +756,7 @@ func (e *engine) flexItemBaseWidth(node *html.Node, style *ResolvedStyle, mainSi
 	// every wrap trial and again on the emit pass; the base width is a pure
 	// function of node, style, and containing width for the run, so it is
 	// stored in the shared per-run map under the row domain.
-	if !flexRowMemoBypass.Load() {
+	if !e.testCfg.flexRowMemoBypass() {
 		if baseW, ok := e.flexBaseH[flexRowBaseKey(node, style, mainSize)]; ok {
 			flexRowBaseHits.Add(1)
 
@@ -810,7 +805,7 @@ func (e *engine) flexItemContentBaseWidth(
 		intr = capW
 	}
 
-	if !flexRowMemoBypass.Load() && e.err == nil {
+	if !e.testCfg.flexRowMemoBypass() && e.err == nil {
 		m := e.ensureFlexBaseH()
 		m[flexRowBaseKey(node, style, mainSize)] = intr
 
@@ -855,7 +850,7 @@ func (e *engine) flexMinMainSize(item flexMeas, mainSize float64) float64 {
 		return floor
 	}
 
-	if e.flexMinBypass || flexRowMemoBypass.Load() {
+	if e.flexMinBypass || e.testCfg.flexRowMemoBypass() {
 		return e.flexMinMainSizeUncached(item, mainSize)
 	}
 
@@ -885,8 +880,6 @@ func (e *engine) flexMinMainSize(item flexMeas, mainSize float64) float64 {
 // flexMinMainSizeUncached computes the row-axis content-based minimum
 // main size (Flexbox §4.5 lite / css-sizing-3): max(specified min-width,
 // min(min-content suggestion, specified size suggestion when definite)).
-//
-//nolint:cyclop // CSS min-size decision tree
 func (e *engine) flexMinMainSizeUncached(item flexMeas, mainSize float64) float64 {
 	cstate := e.stylePtr(item.n)
 	floor := 0.0
@@ -1025,7 +1018,6 @@ func (e *engine) redistributeClampedWidths(
 	e.reshrinkFlexWidths(items, widths, available, mainSize, sum)
 }
 
-//nolint:wsl // the sum is a small companion to the shrink redistribution
 func flexShrinkFactorSum(items []flexMeas) float64 {
 	sum := 0.0
 	for _, item := range items {
@@ -1078,7 +1070,6 @@ func (e *engine) regrowFlexWidths(items []flexMeas, widths []float64, contentW f
 	}
 }
 
-//nolint:wsl // grow-factor summation keeps the frozen-item filter beside the add
 func flexGrowSum(items []flexMeas, maxFrozen []bool) float64 {
 	sum := 0.0
 	for idx, item := range items {
@@ -1096,7 +1087,6 @@ func flexGrowSum(items []flexMeas, maxFrozen []bool) float64 {
 	return sum
 }
 
-//nolint:wsl // redistribution keeps candidate clamping beside width updates
 func (e *engine) applyFlexRegrow(
 	items []flexMeas,
 	widths []float64,
@@ -1196,7 +1186,6 @@ func (e *engine) cutFlexWidths(items []flexMeas, widths []float64, mainSize, ste
 	}
 }
 
-//nolint:cyclop,funlen,wsl // flex placement keeps its measured state updates together
 func (e *engine) placeFlexLineMeasured(
 	parent *box, style *ResolvedStyle, items []flexMeas,
 	contentW, contentX, topY, curY, gap, lineCross float64,
@@ -1346,7 +1335,6 @@ func (e *engine) flexDistributeWidths(items []flexMeas, widths []float64, conten
 	}
 }
 
-//nolint:wsl // factor normalization belongs beside the shrink distribution
 func (e *engine) flexShrinkWidths(items []flexMeas, widths []float64, deficit, shrinkSum, contentW float64) {
 	factorSum := 0.0
 	for _, item := range items {
@@ -1455,8 +1443,6 @@ func justifyDistributed(justify string, contentX, contentW, sumW, gaps, gap floa
 
 // measureFlexCrossMax measures the tallest item to get the cross size for a
 // line when the container cross size is indefinite (noEmit measure pass).
-//
-//nolint:wsl // measurement keeps item build and cross-margin accounting together
 func (e *engine) measureFlexCrossMax(
 	items []flexMeas, widths []float64, startX, topY, curY, justifyGap float64,
 ) float64 {
@@ -1572,7 +1558,6 @@ func (e *engine) buildFlexRowItem(
 	return e.buildWithStyle(node, override, availW, posX, posY)
 }
 
-//nolint:cyclop,funlen,gocognit,wsl // row placement keeps main- and cross-axis phases together
 func (e *engine) buildRowItems(
 	parent *box, style *ResolvedStyle, items []flexMeas, widths []float64,
 	contentW, topY, curY, startX, justifyGap, targetCross float64,
@@ -1634,7 +1619,7 @@ func (e *engine) buildRowItems(
 		cblock := e.buildFlexRowItem(item.n, cstate, forceStretch, stretchCross, widths[idx], leftX, itemY)
 
 		if cblock == nil {
-			built = append(built, flexPlacedItem{n: item.n}) //nolint:exhaustruct // intentional zero fields
+			built = append(built, flexPlacedItem{n: item.n})
 
 			leftX += widths[idx]
 			if cstate.geometry().MarginRightAuto {
@@ -1794,7 +1779,6 @@ func (e *engine) itemAlignsBaseline(style *ResolvedStyle, page flexPlacedItem) b
 	return align == baselineName
 }
 
-//nolint:wsl // main-axis margin counting keeps both auto sides in one pass
 func flexRowAutoMarginCount(items []flexMeas, e *engine) int {
 	count := 0
 	for _, item := range items {
@@ -1810,7 +1794,6 @@ func flexRowAutoMarginCount(items []flexMeas, e *engine) int {
 	return count
 }
 
-//nolint:wsl // cross-axis auto-margin calculation follows the CSS decision order
 func flexRowCrossAutoMarginUnit(eng *engine, style *ResolvedStyle, targetCross float64) float64 {
 	if targetCross < 0 {
 		return 0
@@ -1911,8 +1894,6 @@ type flexBaseKey struct {
 // Layout run. Grow, shrink, and min/max clamping still run on the cached base
 // heights, so distribution is unchanged; only the repeated subtree builds
 // disappear.
-//
-//nolint:wsl // no-emit measurement must restore the engine flag before branching
 func (e *engine) flexItemBaseHeight(node *html.Node, style *ResolvedStyle, contentW, mainSize float64) float64 {
 	padV := e.scalePt(style.PaddingTop) + e.scalePt(style.PaddingBottom) +
 		e.scalePt(style.borders().BorderTop.Width) + e.scalePt(style.borders().BorderBottom.Width)
@@ -2031,8 +2012,6 @@ type flexMinKey struct {
 // flexMinCrossMainSizeUncached computes the column-axis content-based
 // min-height floor (Flexbox §4.5 lite). mainSize is the definite flex
 // container content height.
-//
-//nolint:cyclop // CSS min-height suggestion decision tree
 func (e *engine) flexMinCrossMainSizeUncached(node *html.Node, baseH, mainSize float64) float64 {
 	cstate := e.stylePtr(node)
 	floor := 0.0
@@ -2112,7 +2091,6 @@ func (e *engine) flexSpecifiedHeightSuggestion(style *ResolvedStyle, baseH, main
 	return -1
 }
 
-//nolint:cyclop,wsl // column flow combines wrapping, sizing, and placement
 func (e *engine) flowFlexColumn(
 	parent *box, kids []*html.Node, style *ResolvedStyle,
 	contentW, contentX, topY, curY, gap, crossGap float64,

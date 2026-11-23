@@ -17,7 +17,8 @@
 #   public-pdf     public Document.WritePDF via BenchmarkLibraryPDF
 #   public-image   public ImageDocument.WriteImage via BenchmarkLibraryImage
 #   cli-rss        generic CLI process time and peak RSS via /usr/bin/time
-#   external       scripts/bench-external.sh, then make bench-cli-compare
+#   external       scripts/bench-external.sh (retired: the CLI and the
+#                  bench-cli-compare Makefile target were removed)
 #
 # Options:
 #   --mode=MODE       required; one of the modes above
@@ -284,7 +285,7 @@ run_cli_rss() {
 
 run_external() {
   if command -v wkhtmltopdf >/dev/null 2>&1; then
-    execute make bench-cli-compare
+    echo "bench-performance-recovery: make bench-cli-compare was removed; using the checked-in baseline CSV" >&2
     execute ./scripts/bench-external.sh "--sizes=$SIZES" "--runs=$RUNS" \
       "--gowk-baseline=$ROOT/testdata/golden/benchmarks/cli-compare-results.csv"
   else

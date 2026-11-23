@@ -1,4 +1,3 @@
-//nolint:varnamelen // border-image parsing and painting
 package layout
 
 import (
@@ -358,7 +357,7 @@ func isTiledBorderImageRepeat(repeat string) bool {
 }
 
 func newBorderImageOp(x, y, w, h float64, data []byte, imgW, imgH int, isJPEG bool) Op {
-	return (Op{ //nolint:exhaustruct // intentional zero fields
+	return (Op{
 		Kind:         OpImage,
 		X:            x,
 		Y:            y,
@@ -519,8 +518,6 @@ func borderImageEdgeSource(
 // border thickness across the edge and keeps the slice aspect ratio along it,
 // and a trailing partial tile is clipped to the edge end, matching the repeat
 // tiling Chrome 143.0.7499.40 shows. Round and space share this core.
-//
-//nolint:cyclop // horizontal and vertical tiles share the step cap
 func appendBorderImageTiledEdge(
 	dst []Op,
 	ref *imageRef,

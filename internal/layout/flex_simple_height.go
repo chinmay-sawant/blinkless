@@ -14,7 +14,7 @@ import (
 func (e *engine) simpleFlexBaseHeight(
 	key flexBaseKey, node *html.Node, style *ResolvedStyle, contentW float64,
 ) (float64, bool) {
-	if simpleFlexHeightBypass.Load() {
+	if e.testCfg.simpleFlexHeightBypass() {
 		return 0, false
 	}
 
@@ -85,8 +85,6 @@ func (e *engine) simpleFlexRowHeight(
 // simple row shape, which is the row's content cross size. rowContentW is the
 // row's already-resolved content-box width, so the caller that knows the used
 // width can skip re-resolving it from an available width.
-//
-//nolint:cyclop // one flat guard walk over the row and every child shape
 func (e *engine) simpleFlexRowContentHeight(
 	node *html.Node, style *ResolvedStyle, rowContentW float64,
 ) (float64, bool) {
@@ -142,8 +140,6 @@ func (e *engine) simpleFlexRowContentHeight(
 // it per node, style, and content width in the shared per-run flex map, so the
 // emit pass and any repeated measure pass are one lookup after the first walk.
 // Any other row returns false and keeps the per-item measure.
-//
-//nolint:cyclop // guard list plus the memo read and write stay in one place
 func (e *engine) simpleFlexRowContentCross(
 	parent *box, style *ResolvedStyle, contentW float64,
 ) (float64, bool) {
@@ -358,8 +354,6 @@ func (e *engine) simpleFlexRowMarginsZero(style *ResolvedStyle) bool {
 // simpleFlexRowStyleOK lists the container conditions the simple row height
 // depends on. A definite height or a height constraint is refused because the
 // full path would override the one-line content height.
-//
-//nolint:cyclop // one flat list of independent fallback predicates
 func (e *engine) simpleFlexRowStyleOK(style *ResolvedStyle, contentW float64) bool {
 	if style.Display != displayFlex {
 		return false
@@ -426,8 +420,6 @@ func (e *engine) simpleFlexRowStyleOK(style *ResolvedStyle, contentW float64) bo
 // the simple row. The child must be a plain block or inline box with one text
 // child, a definite width, an auto height, and no property that can change the
 // line or the used width.
-//
-//nolint:cyclop,funlen,gocognit,gocyclo // one flat list of independent fallback predicates
 func (e *engine) simpleFlexCellMetrics(child *html.Node) (float64, float64, bool) {
 	childStyle := e.stylePtr(child)
 	if childStyle == nil || childStyle.Display == cssDisplayNone {
@@ -601,8 +593,6 @@ func (e *engine) simpleFlexLineHeight(
 // horizontal chrome for this shape. Every property that can change the word
 // break, the measured text, or the contribution returns false and keeps the
 // full cell measure.
-//
-//nolint:cyclop // one flat guard list over the accepted single-run shape
 func (e *engine) simpleFlexMinContentWidth(node *html.Node, style *ResolvedStyle) (float64, bool) {
 	if simpleFlexMinBypass.Load() || e == nil || e.err != nil || node == nil ||
 		node.Type != html.ElementNode || style == nil {
@@ -698,13 +688,6 @@ func isSimpleFlexReplacedElement(node *html.Node) bool {
 	default:
 		return false
 	}
-}
-
-// SetSimpleFlexHeightBypassForTest turns the simple flex row height fast path
-// off or on. The public layout benchmark uses it to measure one fixture with
-// and without the fast path. Production code never calls it.
-func SetSimpleFlexHeightBypassForTest(bypass bool) {
-	simpleFlexHeightBypass.Store(bypass)
 }
 
 // SetSimpleFlexCrossBypassForTest turns the simple row content-cross fast path

@@ -51,7 +51,7 @@ func (e *engine) emitInlineImage(
 	e.attributeInlineSVGBox(item, boxNode, start, leftX, top)
 
 	if item.href != "" {
-		e.add((Op{ //nolint:exhaustruct // intentional zero fields
+		e.add((Op{
 			Kind: OpLinkURI, X: leftX, Y: top, W: item.w, H: item.h,
 		}).withURI(item.href))
 	}
@@ -71,7 +71,7 @@ func (e *engine) paintInlineImageItem(item *inlineItem, leftX, top, imgX, imgY, 
 		return
 	}
 
-	sty := ResolvedStyle{} //nolint:exhaustruct // image paint defaults are filled conditionally
+	sty := ResolvedStyle{}
 
 	if item.style != nil {
 		sty = *item.style
@@ -85,7 +85,7 @@ func (e *engine) paintInlineImageItem(item *inlineItem, leftX, top, imgX, imgY, 
 		return
 	}
 
-	e.add((Op{ //nolint:exhaustruct // intentional zero fields
+	e.add((Op{
 		Kind: OpImage, X: fitX, Y: fitY, W: fitW, H: fitH, IsJPEG: isJPEG,
 	}).withImage(imgData, pixW, pixH, item.alt).withImageRendering(sty.images().ImageRendering))
 }

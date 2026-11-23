@@ -127,7 +127,7 @@ func (e *engine) attachMaskDescriptors(group *BlendGroup, style *ResolvedStyle) 
 func (e *engine) maskBorderDescriptor(style *ResolvedStyle) *MaskBorder {
 	source := maskBorderUsedSource(style.effects().MaskBorderSource)
 	mode := maskBorderUsedMode(style.effects().MaskBorderMode)
-	layer := e.resolveMaskLayer(MaskLayer{ //nolint:exhaustruct // only the source and mode are read
+	layer := e.resolveMaskLayer(MaskLayer{
 		Source: source,
 		Mode:   mode,
 	}, "")
@@ -136,7 +136,7 @@ func (e *engine) maskBorderDescriptor(style *ResolvedStyle) *MaskBorder {
 		borderWidthsOf(style),
 	)
 
-	descriptor := &MaskBorder{ //nolint:exhaustruct // slice and outset are set below
+	descriptor := &MaskBorder{
 		Source:      source,
 		ImageBytes:  layer.ImageBytes,
 		PixelWidth:  layer.PixelWidth,

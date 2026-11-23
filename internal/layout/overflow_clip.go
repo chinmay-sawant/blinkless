@@ -1,4 +1,3 @@
-//nolint:varnamelen // clip math uses compact x/y/w/h/op geometry names
 package layout
 
 import (
@@ -33,7 +32,7 @@ func intersectClip(a, b clipRect) clipRect {
 	y2 := math.Min(a.y+a.h, b.y+b.h)
 
 	if x2 <= x1 || y2 <= y1 {
-		return clipRect{} //nolint:exhaustruct // empty intersection
+		return clipRect{}
 	}
 
 	return clipRect{x: x1, y: y1, w: x2 - x1, h: y2 - y1}
@@ -80,7 +79,7 @@ func (e *engine) paddingBoxRect(posX, posY, width, height float64, sty *Resolved
 
 func (e *engine) paddingBoxOf(boxNode *box) clipRect {
 	if boxNode == nil || boxNode.style == nil {
-		return clipRect{} //nolint:exhaustruct // missing box
+		return clipRect{}
 	}
 
 	return e.paddingBoxRect(boxNode.x, boxNode.y, boxNode.w, boxNode.height, boxNode.style)
@@ -230,7 +229,7 @@ func childCoverIntervals(boxNode *box, start, end int) []opInterval {
 // false when the child owns no op inside the window.
 func childCoverInterval(child *box, start, end int) (opInterval, bool) {
 	if child == nil || child.opEnd < child.opStart {
-		return opInterval{}, false //nolint:exhaustruct // zero interval means no range
+		return opInterval{}, false
 	}
 
 	lo, hi := child.opStart, child.opEnd
@@ -243,7 +242,7 @@ func childCoverInterval(child *box, start, end int) (opInterval, bool) {
 	}
 
 	if lo > hi {
-		return opInterval{}, false //nolint:exhaustruct // zero interval means no range
+		return opInterval{}, false
 	}
 
 	return opInterval{start: lo, end: hi}, true
@@ -327,7 +326,7 @@ func exclusiveClip(active, combined *clipRect) (clipRect, bool, bool) {
 	case combined != nil:
 		return *combined, false, true
 	default:
-		return clipRect{}, false, false //nolint:exhaustruct // zero clip means no clip
+		return clipRect{}, false, false
 	}
 }
 
@@ -699,7 +698,7 @@ func (e *engine) deprecatedClipBounds(boxNode *box, edges clipRectEdges) (clipRe
 
 	rect := clipRect{x: left, y: top, w: right - left, h: bottom - top}
 	if rect.w <= 0 || rect.h <= 0 {
-		return clipRect{}, false //nolint:exhaustruct // empty rect hides the box
+		return clipRect{}, false
 	}
 
 	return rect, true

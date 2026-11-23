@@ -2617,24 +2617,12 @@
       ],
       "tests": [
         {
-          "file": "internal/settings/settings_test.go",
-          "name": "TestApplyImageKeyBackgroundAlias"
-        },
-        {
           "file": "internal/layout/control_text_test.go",
           "name": "TestAuthorBackgroundShorthandOverridesButtonUA"
         },
         {
           "file": "internal/layout/css_paint_apply_test.go",
           "name": "TestBackgroundImageParse"
-        },
-        {
-          "file": "internal/settings/settings_test.go",
-          "name": "TestBackgroundSingleFieldNoWebMirror"
-        },
-        {
-          "file": "internal/settings/settings_test.go",
-          "name": "TestGlobalGetSetRoundTripAndIgnored"
         }
       ],
       "status": "implemented",
@@ -6528,10 +6516,6 @@
         {
           "file": "internal/layout/style_color_adjust_props_test.go",
           "name": "TestColorAdjustPropsForeignProperty"
-        },
-        {
-          "file": "internal/settings/settings_test.go",
-          "name": "TestColorModeSetGrayscale"
         },
         {
           "file": "internal/layout/css_paint_apply_test.go",
@@ -21678,10 +21662,6 @@
           "name": "TestCaptionSideParse"
         },
         {
-          "file": "internal/settings/settings_test.go",
-          "name": "TestMarginEdgeUnknown"
-        },
-        {
           "file": "internal/layout/css_behavior_position_tables_test.go",
           "name": "TestBehaviorTopShiftsRelativeBox"
         }
@@ -22967,20 +22947,12 @@
       ],
       "tests": [
         {
-          "file": "internal/settings/settings_test.go",
-          "name": "TestApplyImageKeyBackgroundAlias"
-        },
-        {
           "file": "internal/layout/invoice_css_test.go",
           "name": "TestBoxSizingBorderBox"
         },
         {
           "file": "internal/layout/style_cascade_test.go",
           "name": "TestCascadeEngineSupportsPropertyValues"
-        },
-        {
-          "file": "internal/settings/settings_test.go",
-          "name": "TestImageSet"
         },
         {
           "file": "internal/layout/css_paint_apply_test.go",

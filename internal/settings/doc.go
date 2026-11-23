@@ -1,5 +1,5 @@
-// Package settings implements the wkhtmltopdf-compatible settings model and
-// its dotted-name Set/Get surface.
+// Package settings implements the wkhtmltopdf-compatible typed settings
+// model.
 //
 // Engine callers use the typed structs directly: css.Apply builds a
 // DefaultPdfGlobal for sheet collection and maps its media option onto
@@ -11,13 +11,10 @@
 // # Policy A (settings honesty)
 //
 // Only options with a live engine consumer (convert, load, or css) get typed
-// fields and dedicated setters. Inert wkhtml keys (dpi, javascript, plugins,
-// log-level, js-delay, user-style-sheet, produce-forms, …) may be accepted
-// into Ignored map[string]string for script compatibility, but must not
-// reappear as typed stubs without a live consumer.
+// fields. Inert wkhtml keys (dpi, javascript, plugins, log-level, js-delay,
+// user-style-sheet, produce-forms, …) must not reappear as typed stubs
+// without a live consumer.
 //
-// Dual storage is collapsed where possible: Grayscale is the sole color bit
-// (Set("colormode") and Set("grayscale") both write it); page geometry is
-// PageSize name + Size width/height (mm); DumpOutline / DumpDefaultTOCXSL
-// live on PdfGlobal.
+// Grayscale is the sole color bit; page geometry is PageSize name + Size
+// width/height (mm); DumpOutline / DumpDefaultTOCXSL live on PdfGlobal.
 package settings

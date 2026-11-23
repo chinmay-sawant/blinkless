@@ -39,6 +39,10 @@ func buildPatchDoc(t *testing.T, count int) *Document {
 }
 
 func TestPatchIDLookupStaysCheap(t *testing.T) {
+	if testing.Short() {
+		t.Skip("wall-clock perf budget; skipped by make test-quick")
+	}
+
 	t.Parallel()
 
 	doc := buildPatchDoc(t, 1000)

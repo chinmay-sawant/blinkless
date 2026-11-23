@@ -71,7 +71,7 @@ func parseMaskShorthandVariant(
 		return nil, false
 	}
 
-	parts := splitParenArgs(trimmed, ',')
+	parts := splitParenArgs(trimmed)
 	if len(parts) == 0 {
 		return nil, false
 	}
@@ -425,7 +425,6 @@ func (state *maskShorthandState) addPosition(token string, allowPosition bool) b
 	return maskShorthandPositionTokensViable(state.positionTokens)
 }
 
-//nolint:cyclop,funlen // One scanner must track nested functions, quotes, escapes, and a single top-level slash.
 func splitMaskLayerSlash(value string) (string, string, bool, bool) {
 	depth := 0
 	quote := byte(0)
@@ -531,7 +530,7 @@ func splitMaskLayerList(value string) ([]string, bool) {
 		return nil, false
 	}
 
-	layers := splitParenArgs(trimmed, ',')
+	layers := splitParenArgs(trimmed)
 	if len(layers) == 0 {
 		return nil, false
 	}
@@ -583,7 +582,6 @@ func maskImageLayerValueAccepted(value string) bool {
 	return ok
 }
 
-//nolint:cyclop // URL validation tracks nested parentheses, quoted text, and escapes.
 func cssURLFunctionValue(value string) bool {
 	if len(value) < len("url()") || !strings.EqualFold(value[:4], "url(") {
 		return false

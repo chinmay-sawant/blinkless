@@ -29,7 +29,7 @@ func timelineListItems(value string) ([]string, bool) {
 		return nil, false
 	}
 
-	items := splitParenArgs(trimmed, ',')
+	items := splitParenArgs(trimmed)
 	if len(items) == 0 {
 		return nil, false
 	}
@@ -51,7 +51,7 @@ func timelineListItems(value string) ([]string, bool) {
 // timelineListText splits a stored list into its items. The empty string is
 // the initial value and has no items.
 func timelineListText(list string) []string {
-	items := splitParenArgs(list, ',')
+	items := splitParenArgs(list)
 	for idx := range items {
 		items[idx] = strings.TrimSpace(items[idx])
 	}

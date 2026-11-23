@@ -289,7 +289,7 @@ type catalogEntry struct {
 	Status              string `json:"status"`
 	Values              string `json:"values,omitempty"`
 	Note                string `json:"note,omitempty"`
-	ImplementationScope string `json:"implementation_scope,omitempty"` //nolint:tagliatelle // catalog schema is snake_case
+	ImplementationScope string `json:"implementation_scope,omitempty"`
 }
 
 type rawCatalog struct {
@@ -299,7 +299,7 @@ type rawCatalog struct {
 		Status              string   `json:"status"`
 		Values              []string `json:"values"`
 		Limitations         []string `json:"limitations"`
-		ImplementationScope string   `json:"implementation_scope"` //nolint:tagliatelle // catalog schema is snake_case
+		ImplementationScope string   `json:"implementation_scope"`
 	} `json:"properties"`
 }
 

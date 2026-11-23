@@ -93,13 +93,13 @@ func parseSupportsPrelude(prelude string) (*SupportsCondition, bool) {
 func parseSupportsCond(src string, depth int) (SupportsCondition, string, bool) {
 	src = strings.TrimSpace(src)
 	if src == "" || depth > maxParseDepth {
-		return SupportsCondition{}, "", false //nolint:exhaustruct // parse failure sentinel
+		return SupportsCondition{}, "", false
 	}
 
 	if hasFoldPrefix(src, "not") && supportsBoundary(src, len("not")) {
 		inner, rest, parsed := parseSupportsInParens(strings.TrimSpace(src[len("not"):]), depth+1)
 		if !parsed {
-			return SupportsCondition{}, "", false //nolint:exhaustruct // parse failure sentinel
+			return SupportsCondition{}, "", false
 		}
 
 		return SupportsCondition{
@@ -113,7 +113,7 @@ func parseSupportsCond(src string, depth int) (SupportsCondition, string, bool) 
 
 	first, rest, matched := parseSupportsInParens(src, depth+1)
 	if !matched {
-		return SupportsCondition{}, "", false //nolint:exhaustruct // parse failure sentinel
+		return SupportsCondition{}, "", false
 	}
 
 	return parseSupportsChain(first, rest, depth)
@@ -132,14 +132,14 @@ func parseSupportsChain(first SupportsCondition, rest string, depth int) (Suppor
 		}
 
 		if operator != "" && word != operator {
-			return SupportsCondition{}, "", false //nolint:exhaustruct // and/or cannot mix
+			return SupportsCondition{}, "", false
 		}
 
 		operator = word
 
 		next, tail, matched := parseSupportsInParens(strings.TrimSpace(after), depth+1)
 		if !matched {
-			return SupportsCondition{}, "", false //nolint:exhaustruct // parse failure sentinel
+			return SupportsCondition{}, "", false
 		}
 
 		children = append(children, next)
@@ -165,13 +165,13 @@ func parseSupportsChain(first SupportsCondition, rest string, depth int) (Suppor
 func parseSupportsInParens(src string, depth int) (SupportsCondition, string, bool) {
 	src = strings.TrimSpace(src)
 	if src == "" {
-		return SupportsCondition{}, "", false //nolint:exhaustruct // parse failure sentinel
+		return SupportsCondition{}, "", false
 	}
 
 	if src[0] == '(' {
 		closeIdx := matchingSupportsParen(src)
 		if closeIdx < 0 {
-			return SupportsCondition{}, "", false //nolint:exhaustruct // parse failure sentinel
+			return SupportsCondition{}, "", false
 		}
 
 		inner := strings.TrimSpace(src[1:closeIdx])
@@ -196,7 +196,7 @@ func parseSupportsInParens(src string, depth int) (SupportsCondition, string, bo
 
 	closeIdx := matchingFunctionParen(src)
 	if closeIdx < 0 {
-		return SupportsCondition{}, "", false //nolint:exhaustruct // parse failure sentinel
+		return SupportsCondition{}, "", false
 	}
 
 	return SupportsCondition{
@@ -213,14 +213,14 @@ func parseSupportsInParens(src string, depth int) (SupportsCondition, string, bo
 func parseSupportsDeclaration(inner string) (SupportsCondition, bool) {
 	colon := supportsTopLevelColon(inner)
 	if colon <= 0 {
-		return SupportsCondition{}, false //nolint:exhaustruct // not a declaration
+		return SupportsCondition{}, false
 	}
 
 	prop := strings.ToLower(strings.TrimSpace(inner[:colon]))
 	value := strings.TrimSpace(inner[colon+1:])
 
 	if !validPropName(prop) || value == "" {
-		return SupportsCondition{}, false //nolint:exhaustruct // not a declaration
+		return SupportsCondition{}, false
 	}
 
 	return SupportsCondition{

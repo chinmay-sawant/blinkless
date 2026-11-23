@@ -65,7 +65,6 @@ func wantsEmojiPresentation(candidate rune, variant string) bool {
 	}
 }
 
-//nolint:cyclop // Unicode emoji ranges are independent, spec-defined cases
 func isEmojiCandidate(candidate rune) bool {
 	switch {
 	case candidate >= 0x1F000 && candidate <= 0x1FAFF:

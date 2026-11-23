@@ -33,8 +33,6 @@ func textBoxTrimFlags(block *ResolvedStyle, firstLine, lastLine bool) (bool, boo
 // adjustTextBoxMetrics applies text-box-edge + trim to one item's ascent/
 // descent/half-leading contribution. trimStart/trimEnd drop the matching
 // half-leading; when trimming, cap/ex/alphabetic retarget the content edges.
-//
-//nolint:cyclop // text-box edge and trim rules combine independent CSS axes
 func (e *engine) adjustTextBoxMetrics(
 	style *ResolvedStyle, face *pdf.Font, size, ascent, descent, extra float64,
 	trimStart, trimEnd bool,

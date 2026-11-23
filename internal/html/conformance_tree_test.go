@@ -1,4 +1,3 @@
-//nolint:all // conformance harness: corpus format parsing and diff plumbing, not product code
 package html
 
 import (
@@ -487,6 +486,10 @@ func attachDumpAttr(t *testing.T, id string, stack []*cfNode, node dumpNode) {
 	}
 
 	eq := strings.Index(node.content, "=")
+	if eq < 0 {
+		t.Fatalf("conformance harness: %s: attribute without '=': %q", id, node.content)
+	}
+
 	name := node.content[:eq]
 	value := node.content[eq+1:]
 

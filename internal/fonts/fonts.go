@@ -120,12 +120,17 @@ type Font struct {
 	// labels pay one cmap lookup per distinct rune, not per occurrence.
 	advMu    sync.RWMutex
 	advUnits map[rune]float64
+
+	// scaledMu guards scaledFaces, the per-size ScaledFace cache keyed by the
+	// size's float bits. It lives on the Font so it is collected with it.
+	scaledMu    sync.RWMutex
+	scaledFaces map[uint64]*ScaledFace
 }
 
 // ParseTTF parses a TrueType (or OpenType with TrueType outlines) font file.
 // CFF-based fonts return an error - this writer targets TrueType outlines.
 func ParseTTF(data []byte) (*Font, error) {
-	font := &Font{data: data} //nolint:exhaustruct // intentional zero-value fields
+	font := &Font{data: data}
 
 	if err := font.initFromData(); err != nil {
 		return nil, err
@@ -138,7 +143,7 @@ func ParseTTF(data []byte) (*Font, error) {
 // parsed on first use. Bundled default faces use it so a document only pays
 // for the faces it touches.
 func newLazyFont(load func() []byte) *Font {
-	return &Font{ //nolint:exhaustruct // intentional zero-value fields
+	return &Font{
 		lazyParse: true,
 		loadData:  load,
 	}
@@ -251,7 +256,7 @@ func parseTableDirectory(data []byte) (map[string][]byte, error) {
 		length64 := uint64(binary.BigEndian.Uint32(rec[12:16]))
 
 		if offset > uint64(len(data)) || length64 > uint64(len(data))-offset {
-			return nil, fmt.Errorf("font: table %q out of range", tag) //nolint:err113 // dynamic tag in message
+			return nil, fmt.Errorf("font: table %q out of range", tag)
 		}
 
 		off, length := int(offset), int(length64) //nolint:gosec // both fit within len(data), checked above
@@ -261,7 +266,7 @@ func parseTableDirectory(data []byte) (map[string][]byte, error) {
 		// memory through two tags.
 		for _, span := range spans {
 			if off < span.end && span.off < off+length {
-				return nil, fmt.Errorf("font: table %q overlaps another table", tag) //nolint:err113 // dynamic tag in message
+				return nil, fmt.Errorf("font: table %q overlaps another table", tag)
 			}
 		}
 
@@ -510,7 +515,7 @@ func (f *Font) parseCmap6(state []byte) {
 			continue
 		}
 
-		cp := uint32(first) + uint32(index) //nolint:gosec // first+count cannot exceed uint32
+		cp := uint32(first) + uint32(index)
 		if _, ok := f.cmap[cp]; !ok {
 			f.cmap[cp] = glyph
 		}
@@ -528,7 +533,7 @@ func (f *Font) parseCmap0(state []byte) {
 
 	for j := range 256 {
 		if g := state[6+j]; g != 0 {
-			cp := uint32(j) //nolint:gosec // j is bounded by 256
+			cp := uint32(j)
 			if _, ok := f.cmap[cp]; !ok {
 				f.cmap[cp] = uint16(g)
 			}
@@ -755,7 +760,7 @@ func (f *Font) Italic() bool {
 func (f *Font) GlyphID(r rune) uint16 {
 	f.ensureParsed()
 
-	if g, ok := f.cmap[uint32(r)]; ok {
+	if g, ok := f.cmap[uint32(r)]; ok { //nolint:gosec // a negative rune wraps to a key no cmap holds, so the lookup misses
 		return g
 	}
 
@@ -992,7 +997,7 @@ func (f *Font) Runes() []rune {
 
 	out := make([]rune, 0, len(f.cmap))
 	for cp := range f.cmap {
-		out = append(out, rune(cp))
+		out = append(out, rune(cp)) //nolint:gosec // cmap keys are Unicode code points, at most 0x10FFFF
 	}
 
 	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })

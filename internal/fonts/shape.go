@@ -105,7 +105,7 @@ func reverseRTLRuns(s string) string {
 // rtlRanges are the Unicode blocks treated as right-to-left by the fallback
 // pipeline (Hebrew, Arabic, Syriac, Arabic Supplement/Extended-A and the
 // Arabic presentation forms).
-var rtlRanges = [][2]rune{ //nolint:gochecknoglobals // immutable lookup table
+var rtlRanges = [][2]rune{
 	{0x0590, 0x05FF}, // Hebrew
 	{0x0600, 0x06FF}, // Arabic
 	{0x0700, 0x074F}, // Syriac
@@ -155,8 +155,6 @@ const (
 // arabicForms: base → [isolated, final, initial, medial]; 0 = use isolated.
 // Covers U+0621..U+064A presentation forms only — enough for common Arabic
 // without OT; expand only if a no-GSUB face is a product requirement.
-//
-//nolint:gochecknoglobals // immutable Arabic presentation-form lookup tables
 var arabicForms = map[rune][4]rune{
 	0x0621: {0xFE80, 0, 0, 0},
 	0x0622: {0xFE81, 0xFE82, 0, 0},
@@ -197,7 +195,7 @@ var arabicForms = map[rune][4]rune{
 }
 
 // Lam-Alef ligatures: lam + alef variants → presentation ligature.
-var lamAlef = map[rune][2]rune{ //nolint:gochecknoglobals // immutable lookup table; [isolated, final]
+var lamAlef = map[rune][2]rune{
 	0x0622: {0xFEF5, 0xFEF6},
 	0x0623: {0xFEF7, 0xFEF8},
 	0x0625: {0xFEF9, 0xFEFA},

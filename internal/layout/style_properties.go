@@ -57,8 +57,6 @@ func applyDisplayGroup(
 
 // applyDisplayFlowProps owns the display/position/float/clear/box-sizing/
 // writing-mode/overflow keyword properties.
-//
-//nolint:cyclop // display/flow keyword properties
 func applyDisplayFlowProps(style *ResolvedStyle, prop, value string) bool {
 	switch prop {
 	case "display":
@@ -590,7 +588,6 @@ func applyBoxMainSizeProps(style *ResolvedStyle, prop, value string, fsize float
 	}
 }
 
-//nolint:nestif // width parsing preserves intrinsic and deferred flex values in order
 func setWidthValue(style *ResolvedStyle, value string, fsize float64, ctx *styleContext) bool {
 	value = strings.TrimSpace(value)
 	if value == "max-content" {
@@ -626,7 +623,6 @@ func setWidthValue(style *ResolvedStyle, value string, fsize float64, ctx *style
 	return true
 }
 
-//nolint:cyclop,nlreturn,wsl // the supported deferred calc grammar is intentionally small
 func calcFlexWidth(value string, fsize float64) (float64, float64, bool) {
 	if len(value) < len("calc()") || !strings.EqualFold(value[:5], "calc(") || value[len(value)-1] != ')' {
 		return -1, 0, false
@@ -980,8 +976,6 @@ func logicalPair(value string) (string, string, bool) {
 }
 
 // applyBorderGroup handles the border shorthand and per-side props.
-//
-//nolint:cyclop // border shorthand and per-side props
 func applyBorderGroup(
 	style *ResolvedStyle, prop, value string, fsize float64, _ *styleContext, _ *ResolvedStyle, _ bool,
 ) bool {
@@ -1112,7 +1106,6 @@ func applyBorderWidthProps(style *ResolvedStyle, prop, value string, fsize float
 	return true
 }
 
-//nolint:mnd // generic trbl tuple expansion; 1, 2, 3 tokens
 func expandTRBL[T any](vals []T) [4]T {
 	switch len(vals) {
 	case 1:
@@ -1212,7 +1205,6 @@ func setFourBorderColor(style *ResolvedStyle, value string) {
 	style.editBorders().BorderLeft.Transparent = tr[3]
 }
 
-//nolint:cyclop // border shorthand/property dispatch
 func applyBorderStyleColorProps(style *ResolvedStyle, prop, value string) bool {
 	switch prop {
 	case borderStyleKeyword:
@@ -1269,7 +1261,6 @@ func applyColorGroup(
 	return applyColorBackgroundProps(style, prop, value)
 }
 
-//nolint:cyclop // foreground props are a flat mapping over color candidates
 func applyColorForegroundProps(style *ResolvedStyle, prop, value string, parent *ResolvedStyle, hasParent bool) bool {
 	switch prop {
 	case "color":
@@ -1301,7 +1292,6 @@ func applyColorForegroundProps(style *ResolvedStyle, prop, value string, parent 
 	return true
 }
 
-//nolint:cyclop,mnd // color background properties
 func applyColorBackgroundProps(style *ResolvedStyle, prop, value string) bool {
 	switch prop {
 	case "background-color":

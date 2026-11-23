@@ -12,7 +12,7 @@
 #                             [--gowk-baseline=cli-compare-results.csv]
 #
 # --gowk-baseline makes every engine table report the same blinkless CLI
-# series (the dedicated `make bench-cli-compare` capture) instead of timing
+# series (the archived cli-compare capture; its Makefile target was removed) instead of timing
 # gowk again per engine session, so the CLI-vs-engine tables never disagree
 # about the gowk column. Without it, gowk is measured once per size and reused
 # by every engine section in this run.
@@ -22,7 +22,7 @@
 # (npm ci --prefix scripts/puppeteer); WeasyPrint requires the weasyprint CLI.
 # Engines that are not installed are skipped.
 #
-# Methodology (same as bench-cli-compare): for each requested page size the
+# Methodology (same as the retired bench-cli-compare): for each requested page size the
 # report fixture (testdata/golden/benchmarks/templates/report.html.tmpl, 20
 # invoice rows per page) is generated, then each engine runs one warmup
 # followed by --runs timed runs. Wall time is measured around /usr/bin/time;
@@ -149,7 +149,7 @@ TIMEOUT_CMD=$(command -v timeout || true)
 }
 
 # Shared gowk baseline. With --gowk-baseline, every engine table reports the
-# same blinkless CLI series (the dedicated make bench-cli-compare capture)
+# same blinkless CLI series (the archived cli-compare capture; its Makefile target was removed)
 # instead of re-timing gowk per engine session. Without it, gowk is measured
 # once per size and reused by every engine section in this run.
 declare -A BASELINE_ELAPSED BASELINE_RSS BASELINE_BYTES
@@ -176,7 +176,7 @@ load_gowk_baseline() { # file -> 0/1, fills BASELINE_* keyed by pages
 
 if [ -n "$gowk_baseline" ]; then
   if [ -r "$gowk_baseline" ] && load_gowk_baseline "$gowk_baseline"; then
-    gowk_source="baseline rows from $gowk_baseline (the same session's make bench-cli-compare run); engine rows are measured in this session"
+    gowk_source="baseline rows from $gowk_baseline (the archived cli-compare capture); engine rows are measured in this session"
     echo "bench-external: gowk baseline loaded from $gowk_baseline"
   else
     echo "bench-external: WARNING: gowk baseline not readable or empty: $gowk_baseline" >&2

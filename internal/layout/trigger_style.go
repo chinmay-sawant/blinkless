@@ -221,7 +221,6 @@ func applyTriggerProps(
 	return true
 }
 
-//nolint:gochecknoglobals // shared read-only zero value for nil Triggers pointers
 var emptyTriggerStyle triggerStyle
 
 func (style *ResolvedStyle) triggers() *triggerStyle {
@@ -234,7 +233,7 @@ func (style *ResolvedStyle) triggers() *triggerStyle {
 
 func (style *ResolvedStyle) ensureTriggers() *triggerStyle {
 	if style.Triggers == nil {
-		style.Triggers = &triggerStyle{} //nolint:exhaustruct // lazy zero-initialized store
+		style.Triggers = &triggerStyle{}
 	}
 
 	return style.Triggers
@@ -449,7 +448,7 @@ func splitStrictList(value string) ([]string, bool) {
 		return nil, false
 	}
 
-	parts := splitParenArgs(trimmed, ',')
+	parts := splitParenArgs(trimmed)
 	if len(parts) == 0 {
 		return nil, false
 	}
@@ -755,7 +754,7 @@ func parseTimelineTriggerShorthand(value string, fsize float64) ([]string, bool)
 		return nil, false
 	}
 
-	columns := make([][]string, 6) //nolint:mnd // name, source, four range edges
+	columns := make([][]string, 6)
 
 	for _, part := range parts {
 		item, valid := parseTimelineTriggerItem(part, fsize)

@@ -1,6 +1,4 @@
 // recovery conventions as html.go
-//
-//nolint:all // insertion-mode tree builder; same custom Node model and
 package html
 
 import (
@@ -133,7 +131,7 @@ func (b *treeBuilder) allocAttrSlice(n int) []Attr {
 }
 
 func newTreeBuilder() *treeBuilder {
-	root := &Node{Type: ElementNode, Name: "#document"} //nolint:exhaustruct
+	root := &Node{Type: ElementNode, Name: "#document"}
 	stack := make([]*Node, 1, 32)
 	stack[0] = root
 
@@ -435,7 +433,7 @@ func (b *treeBuilder) processInitial(tokItem *token) bool {
 			b.docMode = classifyDocumentMode(tokItem.doctype)
 			b.docModeSet = true
 			d := tokItem.doctype
-			b.root.Children = append(b.root.Children, b.allocNode(Node{Type: DoctypeNode, Text: tokItem.data, Doctype: &d})) //nolint:exhaustruct
+			b.root.Children = append(b.root.Children, b.allocNode(Node{Type: DoctypeNode, Text: tokItem.data, Doctype: &d}))
 		}
 
 		b.mode = modeBeforeHTML
@@ -1422,7 +1420,7 @@ func (b *treeBuilder) insertNode(name string, ns Namespace, attrs []string, self
 
 	point := b.appropriatePlace()
 
-	node := b.allocNode(Node{Type: ElementNode, Name: name, Namespace: ns}) //nolint:exhaustruct
+	node := b.allocNode(Node{Type: ElementNode, Name: name, Namespace: ns})
 	b.applyAttributes(node, attrs)
 
 	insertChildAt(point, node)
@@ -1472,7 +1470,7 @@ func (b *treeBuilder) insertForeignElement(name string, ns Namespace, tokItem *t
 // appendCommentTo attaches a comment node to parent. A comment targeting a
 // template element goes into its Contents, like any other insertion.
 func (b *treeBuilder) appendCommentTo(parent *Node, data string) {
-	node := b.allocNode(Node{Type: CommentNode, Text: data}) //nolint:exhaustruct
+	node := b.allocNode(Node{Type: CommentNode, Text: data})
 
 	if isTemplateElement(parent) {
 		parent.Contents = append(parent.Contents, node)
@@ -1521,7 +1519,7 @@ func (b *treeBuilder) appendTextToken(data string) {
 
 			b.flushTextAccum()
 
-			node := b.allocNode(Node{Type: TextNode, Text: data, Parent: point.parent}) //nolint:exhaustruct
+			node := b.allocNode(Node{Type: TextNode, Text: data, Parent: point.parent})
 			insertChildAt(point, node)
 
 			return
@@ -1541,7 +1539,7 @@ func (b *treeBuilder) appendTextToken(data string) {
 
 	b.flushTextAccum()
 
-	node := b.allocNode(Node{Type: TextNode, Text: data, Parent: top}) //nolint:exhaustruct
+	node := b.allocNode(Node{Type: TextNode, Text: data, Parent: top})
 	*children = append(*children, node)
 }
 
@@ -1594,7 +1592,8 @@ func (b *treeBuilder) applyAttributes(node *Node, attrs []string) {
 			key, attr := adjustAttributeName(node.Namespace, attrs[0], attrs[1])
 			if len(key)+len(attr.Value) <= maxAttributeBytesPerElement {
 				list := b.allocAttrSlice(1)
-				node.AttrList = append(list, attr)
+				list = append(list, attr)
+				node.AttrList = list
 			}
 
 			return

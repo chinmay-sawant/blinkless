@@ -34,7 +34,6 @@ type FaceSet struct {
 	UnicodeFallbackBold *Font
 }
 
-//nolint:gochecknoglobals // lazy init of the embedded-family cache
 var (
 	defaultFacesOnce sync.Once
 	defaultFaces     *FaceSet
@@ -106,7 +105,6 @@ func (fs *FaceSet) ResolveFamily(families []string, weight int, italic bool) *Fo
 	return nil
 }
 
-//nolint:cyclop // fallback precedence is intentionally explicit
 func resolveFamilyFaces(regular, boldFace, italicFace, boldItalic *Font, weight int, italic bool) *Font {
 	if regular == nil && boldFace == nil && italicFace == nil && boldItalic == nil {
 		return nil

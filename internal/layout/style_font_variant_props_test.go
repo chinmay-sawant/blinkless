@@ -1,4 +1,3 @@
-//nolint:all // targeted unit tests for the support-props font variant group
 package layout
 
 import (

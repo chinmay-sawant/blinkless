@@ -43,7 +43,7 @@ func imageResolver(t *testing.T) func(string) ([]byte, error) {
 
 	return func(src string) ([]byte, error) {
 		if src != "bg" {
-			return nil, errors.New("unexpected src") //nolint:err113 // test-local sentinel
+			return nil, errors.New("unexpected src")
 		}
 
 		return data, nil

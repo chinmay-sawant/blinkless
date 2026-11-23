@@ -39,7 +39,7 @@ func parseTextFit(value string) (textFitSpec, bool) {
 	last := fields[len(fields)-1]
 	if strings.HasSuffix(last, "%") {
 		if number, err := strconv.ParseFloat(strings.TrimSuffix(last, "%"), 64); err == nil && number > 0 {
-			spec.limit = number / 100 //nolint:mnd // percent
+			spec.limit = number / 100
 		}
 	}
 
@@ -48,8 +48,6 @@ func parseTextFit(value string) (textFitSpec, bool) {
 
 // textFitSize searches for the font size at which line fills contentW. It
 // returns base when the declaration asks for no change.
-//
-//nolint:cyclop // the search stops on four separate conditions
 func (e *engine) textFitSize(spec textFitSpec, line string, first *ResolvedStyle, contentW float64) float64 {
 	base := first.FontSize
 	size := base
@@ -112,8 +110,6 @@ func textFitLine(nodes []*html.Node) (string, bool) {
 // font, grow at that multiple. The text nodes keep the new size for the
 // duration of the layout call and the returned func puts the old size back.
 // A block holding elements, images or line breaks keeps its declared font size.
-//
-//nolint:cyclop // one guard per reason a block keeps its declared size
 func (e *engine) applyTextFit(boxNode *box, nodes []*html.Node, contentW float64) func() {
 	if boxNode == nil || boxNode.style == nil || contentW <= 0 || len(nodes) == 0 {
 		return nil

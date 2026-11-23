@@ -241,8 +241,6 @@ func (e *engine) registryFamilyWithGlyph(style *ResolvedStyle, runeValue rune) *
 
 // facesWithGlyph resolves the default faces and returns the first that has a
 // glyph for runeValue.
-//
-//nolint:cyclop,lll // ordered fallback search is intentionally explicit
 func (e *engine) facesWithGlyph(style *ResolvedStyle, runeValue rune) *pdf.Font {
 	if e.faces == nil || style == nil {
 		return nil

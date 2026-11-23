@@ -119,7 +119,6 @@ func animationRecordsFromStyle(style animationStyle) []AnimationRecord {
 
 const maxTransitionRecordCache = 512
 
-//nolint:gochecknoglobals // bounded immutable transition-record parse cache
 var (
 	transitionRecordCacheMu sync.RWMutex
 	transitionRecordCache   = make(map[transitionStyle][]TransitionRecord)

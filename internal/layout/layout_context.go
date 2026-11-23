@@ -23,7 +23,7 @@ func newEngine(
 	ctx context.Context, opts Options, faces *pdf.FaceSet, font *pdf.Font,
 	styles map[*html.Node]*ResolvedStyle, containers map[*html.Node]sizeContainer, ops []Op,
 ) *engine {
-	return &engine{ //nolint:exhaustruct // intentional zero fields
+	return &engine{
 		opts:               opts,
 		ctx:                ctx,
 		font:               font,
@@ -37,6 +37,7 @@ func newEngine(
 		flexMinBypass:      opts.flexMinBypass,
 		blockIntrinsicMemo: newBlockIntrinsicMemo(),
 		blockMemoBypass:    opts.blockMemoBypass,
+		testCfg:            resolveTestConfig(ctx, opts),
 	}
 }
 
@@ -44,8 +45,6 @@ const minBoxesCap = 16
 
 // finalizeResult builds the display list and Result from the constructed
 // engine (extracted from LayoutContext for clarity).
-//
-//nolint:funlen // constructs and finalizes engine result
 func finalizeResult(eng *engine, root *html.Node, opts Options) (*Result, error) {
 	eng.seedInitialContainingBlock()
 	boxNode := eng.build(root, opts.Width, 0, 0)
@@ -97,7 +96,7 @@ func finalizeResult(eng *engine, root *html.Node, opts Options) (*Result, error)
 
 	eng.spareBoxChunks = nil
 
-	res := &Result{ //nolint:exhaustruct // intentional zero fields
+	res := &Result{
 		Ops:            eng.ops,
 		Width:          opts.Width,
 		Height:         opts.Height,

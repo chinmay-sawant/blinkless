@@ -108,7 +108,7 @@ func cloneSubtreeDepth(node *Node, depth int) *Node {
 		return nil
 	}
 
-	clone := &Node{ //nolint:exhaustruct
+	clone := &Node{
 		Type:      node.Type,
 		Name:      node.Name,
 		Namespace: node.Namespace,

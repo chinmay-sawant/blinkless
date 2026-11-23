@@ -16,9 +16,9 @@ The module path is `github.com/chinmay-sawant/blinkless`. Notes with more detail
 | `internal/html` | Tokenizer and tree. No JavaScript |
 | `internal/css` | Selector match and cascade |
 | `internal/layout` | Boxes and the drawing list (`Op`) |
+| `internal/style` | Selector rule index (`ruleindex.go`) used by the layout cascade |
 | `internal/fonts` | Face parse, registry, glyph positions, bundled font files |
 | `internal/convert/prepare` | Load, parse, collect style sheets, merge `@font-face` |
-| `internal/convert/render` | Stage order: render, assemble, finalize |
 | `internal/svg` | SVG used as an `<img>`, rasterized onto one image operation |
 
 There is no `internal/pdf` package and no PDF command.

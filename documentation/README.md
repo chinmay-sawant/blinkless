@@ -37,7 +37,7 @@ Start with [getting-started.md](getting-started.md) and [overview.md](overview.m
 | [architecture/05-html-parser.md](architecture/05-html-parser.md) | HTML tree |
 | [architecture/06-css.md](architecture/06-css.md) | Stylesheets and cascade |
 | [architecture/07-layout.md](architecture/07-layout.md) | Boxes and the drawing list |
-| [architecture/08-convert-pipeline.md](architecture/08-convert-pipeline.md) | Prepare and the render lifecycle |
+| [architecture/08-convert-pipeline.md](architecture/08-convert-pipeline.md) | Prepare phase |
 | [architecture/10-imageout-svg.md](architecture/10-imageout-svg.md) | SVG images and the image-op fallback |
 
 ## Security

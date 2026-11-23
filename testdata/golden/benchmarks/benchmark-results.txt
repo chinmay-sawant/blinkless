@@ -1,3 +1,8 @@
+# ARCHIVED (2026-11-23): every snapshot in this file measures the removed
+# internal/convert PDF and image pipeline (Document.WritePDF,
+# ImageDocument.WriteImage). The commands below no longer run in this tree.
+# The current baseline is `make bench` (display-list and relayout benchmarks in
+# ./layout and ./internal/layout); record new numbers from that target.
 # Checked-in benchmark evidence. Each dated snapshot retains its original units
 # and command; only its own heading defines whether it is historical or current.
 # Snapshot A: perf-wave workload matrix, one iteration per workload (-count=1).

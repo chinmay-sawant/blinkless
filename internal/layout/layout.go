@@ -26,6 +26,7 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/css"
 	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
 	"github.com/chinmay-sawant/blinkless/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/style"
 )
 
 const (
@@ -144,6 +145,10 @@ type Options struct {
 	// default, while in-package tests prove cached and uncached measurements
 	// agree.
 	blockMemoBypass bool
+	// testCfg carries the test-only switches in test_config.go. Unexported so
+	// external callers keep the defaults; public tests pass a config through
+	// WithTestConfig instead.
+	testCfg *TestConfig
 }
 
 // validate rejects option values that would otherwise be silently clamped
@@ -317,7 +322,6 @@ const (
 	maxPooledCloneBoxMapEntries = 16384
 )
 
-//nolint:gochecknoglobals // pool of reusable pointer maps for CloneResult
 var cloneBoxMapPool = sync.Pool{
 	New: func() any {
 		return make(map[*box]*box, cloneBoxMapInitCap)
@@ -359,7 +363,7 @@ func (a *boxArena) alloc() *box {
 	}
 
 	chunk := a.chunks[len(a.chunks)-1]
-	*chunk = append(*chunk, box{}) //nolint:exhaustruct // arena slots start zeroed and the clone walk fills them
+	*chunk = append(*chunk, box{})
 
 	return &(*chunk)[len(*chunk)-1]
 }
@@ -455,7 +459,7 @@ func (w *Workspace) Release(res *Result) {
 
 	ops := res.Ops
 	for i := range ops {
-		ops[i] = Op{} //nolint:exhaustruct // drop extra pointers so Release can GC rare payloads
+		ops[i] = Op{}
 	}
 
 	// Drop a backing that dwarfs what it holds so one huge page does not pin
@@ -554,8 +558,6 @@ const (
 // live on the embedded *opExtra so the hot record is 256 bytes. Promoted
 // field names stay so readers (paint, tests, bindings) keep op.URI and
 // op.Image. Writers must detachExtra before mutating those fields.
-//
-//nolint:recvcheck // paint readers take Op by value; extra writers need *Op
 type Op struct {
 	// ID is the stable logical identity of the operation. Pagination may split
 	// one operation into several fragments; fragments retain this ID so
@@ -685,7 +687,7 @@ type blockCounterDelta struct {
 
 type engine struct {
 	opts     Options
-	ctx      context.Context //nolint:containedctx // ctx is checked at recursion boundaries (checkContext)
+	ctx      context.Context
 	err      error
 	font     *pdf.Font // default/regular face (metrics fallback)
 	faces    *pdf.FaceSet
@@ -704,7 +706,7 @@ type engine struct {
 	storeChunks     [][]ResolvedStyle
 	// styleIndex narrows selector matching for this layout's sheets. It is
 	// built once and shared by the cascade and every pseudo-content lookup.
-	styleIndex *ruleIndex
+	styleIndex *style.RuleIndex
 	// pseudoCtx is the shared generated-content cascade context, refreshed
 	// per use by pseudoStyleContext so sequential ::before/::after probes
 	// reuse its match buffers instead of allocating.
@@ -824,6 +826,9 @@ type engine struct {
 	// an unexported copy of Options.blockMemoBypass that proves cached and
 	// uncached measurements agree.
 	blockMemoBypass bool
+	// testCfg is the resolved test configuration, nil in production (see
+	// test_config.go).
+	testCfg *TestConfig
 	// svgInlineCache memoizes inline-<svg> rasters within one Layout run,
 	// keyed by serialized document plus raster resolution. Repeated identical
 	// icons rasterize once per run instead of once per occurrence. The cache
@@ -988,7 +993,7 @@ func (e *engine) releaseTransientState() {
 	e.namedFlows = nil
 	e.namedFlowScanDone = false
 	e.anonFlexStyles = nil
-	e.decorBreak = decorBreakState{} //nolint:exhaustruct // reset transient state
+	e.decorBreak = decorBreakState{}
 	e.chromeScratch = nil
 	e.releaseChromeSlabs()
 }
@@ -1203,7 +1208,7 @@ func (e *engine) enterBlendIsolation(style *ResolvedStyle, owner *ResolvedStyle)
 
 	e.nextGroupID++
 
-	e.blendGroup = &BlendGroup{ //nolint:exhaustruct // mask frames are attached below
+	e.blendGroup = &BlendGroup{
 		ID:             e.nextGroupID,
 		Mode:           mode,
 		BackdropFilter: style.effects().BackdropFilter,
@@ -1229,7 +1234,7 @@ func (e *engine) addGroupMark(group *BlendGroup, mark uint8) int {
 
 	e.nextOpID++
 
-	markOp := Op{ //nolint:exhaustruct // marker ops carry only identity and scope
+	markOp := Op{
 		ID:         e.nextOpID,
 		Kind:       OpUnknown,
 		ZIndex:     e.zIndex,
@@ -1340,7 +1345,6 @@ func censusOps(ops []Op, width float64) (float64, bool) {
 	return maxX, hasFrag
 }
 
-//nolint:wsl // container remount gates are intentionally kept in lifecycle order.
 func resolveStylesForLayoutContextChunks(
 	ctx context.Context, root *html.Node, opts Options,
 ) (map[*html.Node]*ResolvedStyle, map[*html.Node]sizeContainer, [][]ResolvedStyle, error) {
@@ -2114,7 +2118,7 @@ func (e *engine) finishBlockWritingAndMarker(
 // paintPositionedPseudo paints generated content whose used position takes it
 // out of the host's normal inline flow. This covers block and flex-item hosts
 // such as diagram cards; inline hosts continue through collectInlineSpan.
-func (e *engine) paintPositionedPseudo( //nolint:cyclop
+func (e *engine) paintPositionedPseudo(
 	node *html.Node, host *ResolvedStyle, boxNode *box, pseudoElem string,
 ) {
 	// No content rule anywhere means the probe below answers empty.
@@ -2172,7 +2176,7 @@ func (e *engine) paintPositionedPseudo( //nolint:cyclop
 	}
 
 	scope := e.pushZ(style, style)
-	e.add(Op{ //nolint:exhaustruct // generated pseudo text has no DOM box
+	e.add(Op{
 		Kind: OpText, X: pseudoX, Y: baseline, W: e.measureTextFace(text, style),
 		H: style.LineHeight * e.scale, Text: text, Font: face, Size: size,
 		InkDescent: e.fontDescentFace(face, size),
@@ -2226,7 +2230,7 @@ func (e *engine) paintValueWidget(node *html.Node, style ResolvedStyle, leftX, t
 
 	indicatorY := contentY + (contentH-indicatorH)/two
 
-	e.add(Op{ //nolint:exhaustruct // intentional zero fields
+	e.add(Op{
 		Kind: OpFillRect, X: contentX, Y: indicatorY, W: contentW * ratio, H: indicatorH,
 		R: color[0], G: color[1], B: color[2], Alpha: 1,
 		Radius: usedBorderRadius(style, contentW*ratio, indicatorH),
@@ -2542,8 +2546,6 @@ func (e *engine) absoluteBuildWidth(node *html.Node, sty *ResolvedStyle, cbW flo
 // resolveAbsY places the out-of-flow box vertically: top wins, then bottom
 // (fixed resolves against the viewport bottom; absolute uses the containing
 // block's bottom when its deferred height is known).
-//
-//nolint:wsl // ordered absolute-positioning cases mirror CSS precedence
 func (e *engine) resolveAbsY(sty *ResolvedStyle, boxNode *box, cbY float64, viewportFixed bool, cbH float64) float64 {
 	if !sty.positioning().TopAuto {
 		return cbY + e.scalePt(sty.positioning().Top)

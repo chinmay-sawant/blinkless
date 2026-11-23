@@ -1,4 +1,3 @@
-//nolint:cyclop,funlen,gocyclo // CSS Fonts feature/variant parsers
 package layout
 
 import (

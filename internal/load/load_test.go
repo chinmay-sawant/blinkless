@@ -263,42 +263,6 @@ func TestLoadHTTPCustomHeadersAndAuth(t *testing.T) {
 	}
 }
 
-func TestLoadHTTPPost(t *testing.T) {
-	t.Parallel()
-
-	srv := httptest.NewServer(http.HandlerFunc(func(respWriter http.ResponseWriter, req *http.Request) {
-		if req.Method != http.MethodPost {
-			t.Errorf("method = %s", req.Method)
-		}
-
-		if ct := req.Header.Get("Content-Type"); ct != "application/x-www-form-urlencoded" {
-			t.Errorf("content-type = %q", ct)
-		}
-
-		_ = req.ParseForm()
-
-		if req.Form.Get("q") != "hello world" || req.Form.Get("x") != "1" {
-			t.Errorf("form = %v", req.Form)
-		}
-
-		_, _ = respWriter.Write([]byte("posted"))
-	}))
-	defer srv.Close()
-
-	pageLoad := defaultLP()
-	pageLoad.Post = []settings.PostItem{{Name: "q", Value: "hello world"}, {Name: "x", Value: "1"}}
-	loader := mustLoader(t)
-
-	res, err := loader.Load(t.Context(), srv.URL, pageLoad)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if string(res.Body) != "posted" {
-		t.Errorf("body = %q", res.Body)
-	}
-}
-
 func TestLoadHTTPErrorCodes(t *testing.T) {
 	t.Parallel()
 
@@ -363,38 +327,6 @@ func checkAbortError(t *testing.T, err error, path string, code int) {
 	var he *settings.HttpStatusError
 	if !errors.As(err, &he) || he.HttpErrorCode() != code {
 		t.Errorf("%s error = %v, want HttpStatusError code %d", path, err, code)
-	}
-}
-
-func TestLoadCookies(t *testing.T) {
-	t.Parallel()
-
-	var muLock sync.Mutex
-
-	var gotCookie string
-
-	srv := httptest.NewServer(http.HandlerFunc(func(respWriter http.ResponseWriter, req *http.Request) {
-		muLock.Lock()
-		gotCookie = req.Header.Get("Cookie")
-		muLock.Unlock()
-
-		_, _ = respWriter.Write([]byte("ok"))
-	}))
-	defer srv.Close()
-
-	pageLoad := defaultLP()
-	pageLoad.Cookies = map[string]string{"session": "abc123"}
-	loader := mustLoader(t)
-
-	if _, err := loader.Load(t.Context(), srv.URL, pageLoad); err != nil {
-		t.Fatal(err)
-	}
-
-	muLock.Lock()
-	defer muLock.Unlock()
-
-	if !strings.Contains(gotCookie, "session=abc123") {
-		t.Errorf("cookie = %q", gotCookie)
 	}
 }
 
@@ -870,6 +802,10 @@ func TestMaxBodySizeFile(t *testing.T) {
 }
 
 func TestSlowServerTimeout(t *testing.T) {
+	if testing.Short() {
+		t.Skip("sleeps 3s against a 1s timeout; skipped by make test-quick")
+	}
+
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(respWriter http.ResponseWriter, _ *http.Request) {
@@ -1012,7 +948,7 @@ func TestRestrictedNetworkPolicyBlocksPrivateAddress(t *testing.T) {
 	}
 }
 
-func TestRestrictedNetworkPolicyAllowsExplicitHostException(t *testing.T) { //nolint:dupl // explicit-host counterpart
+func TestRestrictedNetworkPolicyAllowsExplicitHostException(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(respWriter http.ResponseWriter, _ *http.Request) {
@@ -1476,7 +1412,7 @@ func TestRestrictedPinnedDialNeverRedialsHostname(t *testing.T) {
 	loader.SetTestDial(func(_ context.Context, _, address string) (net.Conn, error) {
 		dialed = append(dialed, address)
 
-		return nil, errors.New("dial blocked in test") //nolint:err113 // test-local sentinel with dynamic context
+		return nil, errors.New("dial blocked in test")
 	})
 
 	_, err := loader.Load(t.Context(), "http://"+publicHost+"/", defaultLP())
@@ -1596,7 +1532,7 @@ func TestRestrictedWildcardAllowlistStillBlocksPrivateIP(t *testing.T) {
 	}
 }
 
-func TestRestrictedExactAllowlistPermitsPrivateLiteral(t *testing.T) { //nolint:dupl // mirrors explicit-host test
+func TestRestrictedExactAllowlistPermitsPrivateLiteral(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(respWriter http.ResponseWriter, _ *http.Request) {

@@ -1,4 +1,3 @@
-//nolint:err113,usetesting // image chrome probes
 package layout
 
 import (

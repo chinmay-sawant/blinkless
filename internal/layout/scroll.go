@@ -10,8 +10,8 @@ import "strings"
 // scroll container's snapport. This engine has no JavaScript, no user scroll,
 // and static print-style output (see documentation/deferred.md), so production
 // carries the zero scroll offset and static paint clips to the padding box
-// exactly as before. Tests carry nonzero offsets through setTestScrollOffset
-// in scroll_runtime.go. The model below is the smallest honest step: the
+// exactly as before. Tests carry nonzero offsets through
+// TestConfig.setScrollOffset in test_config.go. The model below is the smallest honest step: the
 // cascade stores real used values (points) for the shorthand and its four
 // longhands, each scrollable region exposes one offset-aware viewport rect,
 // and scroll-margin insets the snap/visibility rect through pure functions the
@@ -181,14 +181,14 @@ type ScrollViewport struct {
 // box: its padding box paired with the offset the region carries. Production
 // carries zero (no test set one), so the port matches paddingBoxOf exactly
 // and static paint is unchanged; tests carry nonzero offsets through
-// setTestScrollOffset in scroll_runtime.go, and snap and visibility consumers
+// TestConfig.setScrollOffset in test_config.go, and snap and visibility consumers
 // read the translated rect with no further changes.
 func (e *engine) scrollRegionViewport(boxNode *box) ScrollViewport {
 	var view ScrollViewport
 
 	if e != nil && boxNode != nil {
 		view.Port = e.paddingBoxOf(boxNode)
-		view.At = testScrollOffsetOf(boxNode)
+		view.At = e.testCfg.scrollOffsetOf(boxNode)
 	}
 
 	return view

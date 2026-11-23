@@ -160,8 +160,6 @@ func isFullwidthOpenPunct(r rune) bool {
 
 // resolveTextGroupAlign maps text-group-align onto the shared line-origin
 // align keywords when text-align left the line at start.
-//
-//nolint:cyclop // group alignment maps several CSS aliases to line origins
 func resolveTextGroupAlign(block *ResolvedStyle, textAlign string) string {
 	if block == nil {
 		return textAlign

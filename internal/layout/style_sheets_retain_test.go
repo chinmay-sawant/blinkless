@@ -21,7 +21,7 @@ func resetSharedCompiledForTest() {
 // without retention a freed sheet address recycled by a different sheet would
 // hit a stale bundle and resolve silently wrong styles. Retention plus capped
 // eviction closes that window: an entry cannot outlive its addresses.
-func TestSharedBundleRetainsSheets(t *testing.T) { //nolint:paralleltest // global bundle map, capped eviction
+func TestSharedBundleRetainsSheets(t *testing.T) {
 	// Sequential on purpose: the shared bundle map is process-global with a
 	// bounded size, so parallel tests compiling other sheet sets could evict
 	// the entry between two calls and make a pointer comparison flaky.
@@ -45,7 +45,7 @@ func TestSharedBundleRetainsSheets(t *testing.T) { //nolint:paralleltest // glob
 // with allocation churn and garbage collections between them, then asserts
 // both still resolve their own rules. Before retention this pattern
 // intermittently resolved the second layout with the first bundle.
-func TestSharedBundleStaysCorrectAcrossGCChurn(t *testing.T) { //nolint:paralleltest // global bundle map
+func TestSharedBundleStaysCorrectAcrossGCChurn(t *testing.T) {
 	// Sequential on purpose: see above. The churn plus forced GC makes a
 	// use-after-free style collision likely without retention; with the
 	// bundle pinning its sheets the lookups below are deterministic.

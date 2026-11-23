@@ -104,7 +104,6 @@ func (e *engine) sizeInitialLetterRun(letter []inlineItem, blockStyle, letterSty
 	}
 }
 
-//nolint:mnd // CSS initial-letter fallback uses the engine's default line size
 func (e *engine) surroundingLineHeight(blockStyle, letterStyle *ResolvedStyle) float64 {
 	if blockStyle != nil {
 		return e.lineHeightOf(blockStyle)
@@ -117,7 +116,6 @@ func (e *engine) surroundingLineHeight(blockStyle, letterStyle *ResolvedStyle) f
 	return 12 * defaultLineHeightRatio
 }
 
-//nolint:mnd // CSS initial-letter sink rounding uses the authored half-unit
 func initialLetterSinkLines(sty *ResolvedStyle) int {
 	if sty == nil {
 		return 0
@@ -137,8 +135,6 @@ func initialLetterSinkLines(sty *ResolvedStyle) int {
 // initialLetterAlignOffset is the extra block-axis shift (positive = lower)
 // so alphabetic / hanging / leading / ideographic land on distinct metrics.
 // Requires initial-letter: N (the caller already sized the letter).
-//
-//nolint:mnd // CSS initial-letter alignment ratios are specification metrics
 func initialLetterAlignOffset(align string, letterH, parentLH float64) float64 {
 	if parentLH <= 0 {
 		parentLH = 12 * defaultLineHeightRatio
@@ -233,7 +229,7 @@ func (e *engine) placeInitialLetter(
 
 	bandH := initialLetterExclusionHeight(sty, parentLH)
 	if floats != nil && bandH > 0 && letterW > 0 {
-		fbox := &box{ //nolint:exhaustruct // float exclusion geometry only
+		fbox := &box{
 			x: contentX, y: lineY, w: letterW, height: bandH,
 		}
 		floats.place(floatLeft, fbox, 0, 0, nil)

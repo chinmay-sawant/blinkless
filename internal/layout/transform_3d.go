@@ -158,7 +158,7 @@ func projectiveTransform3D(
 	mat matrix3D, originX, originY, vanishX, vanishY, dist float64,
 ) ProjectiveTransform {
 	if dist <= 0 {
-		return ProjectiveTransform{} //nolint:exhaustruct // orthographic path: no projective matrix
+		return ProjectiveTransform{}
 	}
 
 	// The denominator is dist-z after the 3D transform. The projected
@@ -306,17 +306,17 @@ func parseRotate3DAxisFunc(parts []string) (matrix3D, bool) {
 // 2D translate path, including percentages. A percentage tz is rejected.
 func parseTranslate3DFunc(parts []string, fontSize float64) (Matrix2D, float64, float64, matrix3D, bool) {
 	if len(parts) != maxThreeValueArgs {
-		return Matrix2D{}, math.NaN(), math.NaN(), matrix3D{}, false //nolint:exhaustruct // zero matrix is unused on failure
+		return Matrix2D{}, math.NaN(), math.NaN(), matrix3D{}, false
 	}
 
 	plane, xPct, yPct, ok := parseTranslateFunc("translate", parts[:2], fontSize)
 	if !ok {
-		return Matrix2D{}, math.NaN(), math.NaN(), matrix3D{}, false //nolint:exhaustruct // zero matrix is unused on failure
+		return Matrix2D{}, math.NaN(), math.NaN(), matrix3D{}, false
 	}
 
 	depth, _, isPercent, depthOK := parseTransformLength(parts[2], fontSize)
 	if !depthOK || isPercent {
-		return Matrix2D{}, math.NaN(), math.NaN(), matrix3D{}, false //nolint:exhaustruct // zero matrix is unused on failure
+		return Matrix2D{}, math.NaN(), math.NaN(), matrix3D{}, false
 	}
 
 	return plane, xPct, yPct, translateZ3D(depth), true
@@ -325,17 +325,17 @@ func parseTranslate3DFunc(parts []string, fontSize float64) (Matrix2D, float64, 
 // parseScale3DFunc parses scale3d(sx, sy, sz). One number does not apply.
 func parseScale3DFunc(parts []string) (Matrix2D, matrix3D, bool) {
 	if len(parts) != maxThreeValueArgs {
-		return Matrix2D{}, matrix3D{}, false //nolint:exhaustruct // zero matrix is unused on failure
+		return Matrix2D{}, matrix3D{}, false
 	}
 
 	plane, ok := parseScaleFunc("scale", parts[:2])
 	if !ok {
-		return Matrix2D{}, matrix3D{}, false //nolint:exhaustruct // zero matrix is unused on failure
+		return Matrix2D{}, matrix3D{}, false
 	}
 
 	depth, depthOK := parseUnitless(parts[2])
 	if !depthOK {
-		return Matrix2D{}, matrix3D{}, false //nolint:exhaustruct // zero matrix is unused on failure
+		return Matrix2D{}, matrix3D{}, false
 	}
 
 	return plane, scaleZ3D(depth), true

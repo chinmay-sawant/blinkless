@@ -468,9 +468,9 @@ func styleInternEqualPtrTriggerStyle(a, b *triggerStyle) bool {
 	return *a == *b
 }
 
-var zeroStyleBackground styleBackground                                              //nolint:gochecknoglobals // shared zero group
-var zeroStyleBackgroundHash = computeStyleHashBackground(&zeroStyleBackground)       //nolint:gochecknoglobals // immutable fingerprint
-var initialStyleBackgroundHash = computeStyleHashBackground(&initialStyleBackground) //nolint:gochecknoglobals // immutable fingerprint
+var zeroStyleBackground styleBackground
+var zeroStyleBackgroundHash = computeStyleHashBackground(&zeroStyleBackground)
+var initialStyleBackgroundHash = computeStyleHashBackground(&initialStyleBackground)
 
 func styleInternEqualBackground(a, b *styleBackground) bool {
 	if a == b && (a == nil || a == &initialStyleBackground) {
@@ -528,9 +528,9 @@ func computeStyleHashBackground(s *styleBackground) uint64 {
 	return h
 }
 
-var zeroStyleBorders styleBorders                                           //nolint:gochecknoglobals // shared zero group
-var zeroStyleBordersHash = computeStyleHashBorders(&zeroStyleBorders)       //nolint:gochecknoglobals // immutable fingerprint
-var initialStyleBordersHash = computeStyleHashBorders(&initialStyleBorders) //nolint:gochecknoglobals // immutable fingerprint
+var zeroStyleBorders styleBorders
+var zeroStyleBordersHash = computeStyleHashBorders(&zeroStyleBorders)
+var initialStyleBordersHash = computeStyleHashBorders(&initialStyleBorders)
 
 func styleInternEqualBorders(a, b *styleBorders) bool {
 	if a == b && (a == nil || a == &initialStyleBorders) {
@@ -630,9 +630,9 @@ func computeStyleHashBorders(s *styleBorders) uint64 {
 	return h
 }
 
-var zeroStyleColumns styleColumns                                           //nolint:gochecknoglobals // shared zero group
-var zeroStyleColumnsHash = computeStyleHashColumns(&zeroStyleColumns)       //nolint:gochecknoglobals // immutable fingerprint
-var initialStyleColumnsHash = computeStyleHashColumns(&initialStyleColumns) //nolint:gochecknoglobals // immutable fingerprint
+var zeroStyleColumns styleColumns
+var zeroStyleColumnsHash = computeStyleHashColumns(&zeroStyleColumns)
+var initialStyleColumnsHash = computeStyleHashColumns(&initialStyleColumns)
 
 func styleInternEqualColumns(a, b *styleColumns) bool {
 	if a == b && (a == nil || a == &initialStyleColumns) {
@@ -726,9 +726,9 @@ func computeStyleHashColumns(s *styleColumns) uint64 {
 	return h
 }
 
-var zeroStyleContainment styleContainment                                               //nolint:gochecknoglobals // shared zero group
-var zeroStyleContainmentHash = computeStyleHashContainment(&zeroStyleContainment)       //nolint:gochecknoglobals // immutable fingerprint
-var initialStyleContainmentHash = computeStyleHashContainment(&initialStyleContainment) //nolint:gochecknoglobals // immutable fingerprint
+var zeroStyleContainment styleContainment
+var zeroStyleContainmentHash = computeStyleHashContainment(&zeroStyleContainment)
+var initialStyleContainmentHash = computeStyleHashContainment(&initialStyleContainment)
 
 func styleInternEqualContainment(a, b *styleContainment) bool {
 	if a == b && (a == nil || a == &initialStyleContainment) {
@@ -800,9 +800,9 @@ func computeStyleHashContainment(s *styleContainment) uint64 {
 	return h
 }
 
-var zeroStyleContent styleContent                                           //nolint:gochecknoglobals // shared zero group
-var zeroStyleContentHash = computeStyleHashContent(&zeroStyleContent)       //nolint:gochecknoglobals // immutable fingerprint
-var initialStyleContentHash = computeStyleHashContent(&initialStyleContent) //nolint:gochecknoglobals // immutable fingerprint
+var zeroStyleContent styleContent
+var zeroStyleContentHash = computeStyleHashContent(&zeroStyleContent)
+var initialStyleContentHash = computeStyleHashContent(&initialStyleContent)
 
 func styleInternEqualContent(a, b *styleContent) bool {
 	if a == b && (a == nil || a == &initialStyleContent) {
@@ -862,9 +862,9 @@ func computeStyleHashContent(s *styleContent) uint64 {
 	return h
 }
 
-var zeroStyleEffects styleEffects                                           //nolint:gochecknoglobals // shared zero group
-var zeroStyleEffectsHash = computeStyleHashEffects(&zeroStyleEffects)       //nolint:gochecknoglobals // immutable fingerprint
-var initialStyleEffectsHash = computeStyleHashEffects(&initialStyleEffects) //nolint:gochecknoglobals // immutable fingerprint
+var zeroStyleEffects styleEffects
+var zeroStyleEffectsHash = computeStyleHashEffects(&zeroStyleEffects)
+var initialStyleEffectsHash = computeStyleHashEffects(&initialStyleEffects)
 
 func styleInternEqualEffects(a, b *styleEffects) bool {
 	if a == b && (a == nil || a == &initialStyleEffects) {
@@ -996,9 +996,9 @@ func computeStyleHashEffects(s *styleEffects) uint64 {
 	return h
 }
 
-var zeroStyleFlex styleFlex                                        //nolint:gochecknoglobals // shared zero group
-var zeroStyleFlexHash = computeStyleHashFlex(&zeroStyleFlex)       //nolint:gochecknoglobals // immutable fingerprint
-var initialStyleFlexHash = computeStyleHashFlex(&initialStyleFlex) //nolint:gochecknoglobals // immutable fingerprint
+var zeroStyleFlex styleFlex
+var zeroStyleFlexHash = computeStyleHashFlex(&zeroStyleFlex)
+var initialStyleFlexHash = computeStyleHashFlex(&initialStyleFlex)
 
 func styleInternEqualFlex(a, b *styleFlex) bool {
 	if a == b && (a == nil || a == &initialStyleFlex) {
@@ -1066,9 +1066,9 @@ func computeStyleHashFlex(s *styleFlex) uint64 {
 	return h
 }
 
-var zeroStyleFont styleFont                                        //nolint:gochecknoglobals // shared zero group
-var zeroStyleFontHash = computeStyleHashFont(&zeroStyleFont)       //nolint:gochecknoglobals // immutable fingerprint
-var initialStyleFontHash = computeStyleHashFont(&initialStyleFont) //nolint:gochecknoglobals // immutable fingerprint
+var zeroStyleFont styleFont
+var zeroStyleFontHash = computeStyleHashFont(&zeroStyleFont)
+var initialStyleFontHash = computeStyleHashFont(&initialStyleFont)
 
 func styleInternEqualFont(a, b *styleFont) bool {
 	if a == b && (a == nil || a == &initialStyleFont) {
@@ -1140,9 +1140,9 @@ func computeStyleHashFont(s *styleFont) uint64 {
 	return h
 }
 
-var zeroStyleFragmentation styleFragmentation                                                 //nolint:gochecknoglobals // shared zero group
-var zeroStyleFragmentationHash = computeStyleHashFragmentation(&zeroStyleFragmentation)       //nolint:gochecknoglobals // immutable fingerprint
-var initialStyleFragmentationHash = computeStyleHashFragmentation(&initialStyleFragmentation) //nolint:gochecknoglobals // immutable fingerprint
+var zeroStyleFragmentation styleFragmentation
+var zeroStyleFragmentationHash = computeStyleHashFragmentation(&zeroStyleFragmentation)
+var initialStyleFragmentationHash = computeStyleHashFragmentation(&initialStyleFragmentation)
 
 func styleInternEqualFragmentation(a, b *styleFragmentation) bool {
 	if a == b && (a == nil || a == &initialStyleFragmentation) {
@@ -1208,9 +1208,9 @@ func computeStyleHashFragmentation(s *styleFragmentation) uint64 {
 	return h
 }
 
-var zeroStyleGeometry styleGeometry                                            //nolint:gochecknoglobals // shared zero group
-var zeroStyleGeometryHash = computeStyleHashGeometry(&zeroStyleGeometry)       //nolint:gochecknoglobals // immutable fingerprint
-var initialStyleGeometryHash = computeStyleHashGeometry(&initialStyleGeometry) //nolint:gochecknoglobals // immutable fingerprint
+var zeroStyleGeometry styleGeometry
+var zeroStyleGeometryHash = computeStyleHashGeometry(&zeroStyleGeometry)
+var initialStyleGeometryHash = computeStyleHashGeometry(&initialStyleGeometry)
 
 func styleInternEqualGeometry(a, b *styleGeometry) bool {
 	if a == b && (a == nil || a == &initialStyleGeometry) {
@@ -1282,9 +1282,9 @@ func computeStyleHashGeometry(s *styleGeometry) uint64 {
 	return h
 }
 
-var zeroStyleGrid styleGrid                                        //nolint:gochecknoglobals // shared zero group
-var zeroStyleGridHash = computeStyleHashGrid(&zeroStyleGrid)       //nolint:gochecknoglobals // immutable fingerprint
-var initialStyleGridHash = computeStyleHashGrid(&initialStyleGrid) //nolint:gochecknoglobals // immutable fingerprint
+var zeroStyleGrid styleGrid
+var zeroStyleGridHash = computeStyleHashGrid(&zeroStyleGrid)
+var initialStyleGridHash = computeStyleHashGrid(&initialStyleGrid)
 
 func styleInternEqualGrid(a, b *styleGrid) bool {
 	if a == b && (a == nil || a == &initialStyleGrid) {
@@ -1346,9 +1346,9 @@ func computeStyleHashGrid(s *styleGrid) uint64 {
 	return h
 }
 
-var zeroStyleImages styleImages                                          //nolint:gochecknoglobals // shared zero group
-var zeroStyleImagesHash = computeStyleHashImages(&zeroStyleImages)       //nolint:gochecknoglobals // immutable fingerprint
-var initialStyleImagesHash = computeStyleHashImages(&initialStyleImages) //nolint:gochecknoglobals // immutable fingerprint
+var zeroStyleImages styleImages
+var zeroStyleImagesHash = computeStyleHashImages(&zeroStyleImages)
+var initialStyleImagesHash = computeStyleHashImages(&initialStyleImages)
 
 func styleInternEqualImages(a, b *styleImages) bool {
 	if a == b && (a == nil || a == &initialStyleImages) {
@@ -1398,9 +1398,9 @@ func computeStyleHashImages(s *styleImages) uint64 {
 	return h
 }
 
-var zeroStyleInlineText styleInlineText                                              //nolint:gochecknoglobals // shared zero group
-var zeroStyleInlineTextHash = computeStyleHashInlineText(&zeroStyleInlineText)       //nolint:gochecknoglobals // immutable fingerprint
-var initialStyleInlineTextHash = computeStyleHashInlineText(&initialStyleInlineText) //nolint:gochecknoglobals // immutable fingerprint
+var zeroStyleInlineText styleInlineText
+var zeroStyleInlineTextHash = computeStyleHashInlineText(&zeroStyleInlineText)
+var initialStyleInlineTextHash = computeStyleHashInlineText(&initialStyleInlineText)
 
 func styleInternEqualInlineText(a, b *styleInlineText) bool {
 	if a == b && (a == nil || a == &initialStyleInlineText) {
@@ -1596,9 +1596,9 @@ func computeStyleHashInlineText(s *styleInlineText) uint64 {
 	return h
 }
 
-var zeroStyleMotion styleMotion                                          //nolint:gochecknoglobals // shared zero group
-var zeroStyleMotionHash = computeStyleHashMotion(&zeroStyleMotion)       //nolint:gochecknoglobals // immutable fingerprint
-var initialStyleMotionHash = computeStyleHashMotion(&initialStyleMotion) //nolint:gochecknoglobals // immutable fingerprint
+var zeroStyleMotion styleMotion
+var zeroStyleMotionHash = computeStyleHashMotion(&zeroStyleMotion)
+var initialStyleMotionHash = computeStyleHashMotion(&initialStyleMotion)
 
 func styleInternEqualMotion(a, b *styleMotion) bool {
 	if a == b && (a == nil || a == &initialStyleMotion) {
@@ -1652,9 +1652,9 @@ func computeStyleHashMotion(s *styleMotion) uint64 {
 	return h
 }
 
-var zeroStylePositioning stylePositioning                                               //nolint:gochecknoglobals // shared zero group
-var zeroStylePositioningHash = computeStyleHashPositioning(&zeroStylePositioning)       //nolint:gochecknoglobals // immutable fingerprint
-var initialStylePositioningHash = computeStyleHashPositioning(&initialStylePositioning) //nolint:gochecknoglobals // immutable fingerprint
+var zeroStylePositioning stylePositioning
+var zeroStylePositioningHash = computeStyleHashPositioning(&zeroStylePositioning)
+var initialStylePositioningHash = computeStyleHashPositioning(&initialStylePositioning)
 
 func styleInternEqualPositioning(a, b *stylePositioning) bool {
 	if a == b && (a == nil || a == &initialStylePositioning) {
@@ -1752,9 +1752,9 @@ func computeStyleHashPositioning(s *stylePositioning) uint64 {
 	return h
 }
 
-var zeroStyleSvg styleSvg                                       //nolint:gochecknoglobals // shared zero group
-var zeroStyleSvgHash = computeStyleHashSvg(&zeroStyleSvg)       //nolint:gochecknoglobals // immutable fingerprint
-var initialStyleSvgHash = computeStyleHashSvg(&initialStyleSvg) //nolint:gochecknoglobals // immutable fingerprint
+var zeroStyleSvg styleSvg
+var zeroStyleSvgHash = computeStyleHashSvg(&zeroStyleSvg)
+var initialStyleSvgHash = computeStyleHashSvg(&initialStyleSvg)
 
 func styleInternEqualSvg(a, b *styleSvg) bool {
 	if a == b && (a == nil || a == &initialStyleSvg) {

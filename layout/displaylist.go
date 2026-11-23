@@ -53,7 +53,13 @@ const printFitMinOverflowPt = 0.1
 // B, Alpha, Width, Size, LetterSpacing, Text, Font, Grid, the radii,
 // StrokeMask, LineInset, RotateDeg, Bold, FakeOblique, IsJPEG, IsBackground,
 // Fixed, Pinned, Positioned, StickyID, ZIndex, ZIndexSet, XformSet, ID) are
-// always safe to read; do not write through them.
+// always safe to read. A host that owns a Display exclusively (no other
+// goroutine reads it, and it is not a retained base for RelayoutElement) may
+// write the plain geometry and paint fields of its own ops (X, Y, W, H, Alpha,
+// R, G, B, RotateDeg, XformSet) to animate them in place; that is the
+// supported patch contract, so no extra setter is needed. Payload and
+// derived state, and any op of a shared or retained Display, must change only
+// through the Set* methods or a new layout.
 //
 // An element group is read through the existing Group, GroupBoundary,
 // IsGroupBegin, and IsGroupEnd methods, which are also nil-safe.
@@ -172,6 +178,12 @@ type Display struct {
 
 	// Boxes are the element border boxes from the same placement, in document
 	// order, in CSS pixels. A caller uses them for hit testing.
+	//
+	// The slice may come from an engine pool. Release clears it and hands the
+	// backing array back, so a caller that keeps Boxes, or a sub-slice of it,
+	// past Release must copy it first (slices.Clone). Release also sets
+	// Boxes to nil, so reads through the Display itself fail visibly rather
+	// than seeing zeroed or reused boxes.
 	Boxes []Box
 
 	// Keyframes are parsed @keyframes rules in stylesheet source order. When
@@ -229,6 +241,16 @@ type Display struct {
 
 // Release returns retained resources (boxes, style chunks, store chunks)
 // back to their respective engine pools. It is safe to call multiple times.
+//
+// Ownership: Release is the end of the Display's life. Afterwards the Display
+// can no longer seed RelayoutElement, Boxes is nil, and any Box slice a caller
+// kept from the Display may be zeroed or reused by a later layout. Ops,
+// OpOwners and Order are ordinary heap slices Release leaves alone, but they
+// can reference engine state that was recycled, so treat the whole Display as
+// dead. A successor Display produced by RelayoutElement that shares the Boxes
+// slice owns it; releasing the predecessor never frees what the successor
+// still uses. Skipping Release is always safe: the engine then simply
+// allocates fresh storage and the garbage collector reclaims the old.
 func (d *Display) Release() {
 	if d == nil {
 		return
@@ -341,8 +363,8 @@ const maxPooledIntSliceCap = 65536
 // intSlicePool stores typed slice headers; intSliceHdrPool recycles empty
 // *[]int headers so rent and release never box headers or discard backings.
 var (
-	intSlicePool    = sync.Pool{} //nolint:exhaustruct,gochecknoglobals // see the comment above
-	intSliceHdrPool = sync.Pool{} //nolint:exhaustruct,gochecknoglobals // see the comment above
+	intSlicePool    = sync.Pool{}
+	intSliceHdrPool = sync.Pool{}
 )
 
 func rentIntSlice(need int) []int {
@@ -387,8 +409,6 @@ const maxPooledBoxSliceCap = 4096
 
 // boxSlicePool stores cleared Box backing slices released from Display.Release.
 // boxSliceHdrPool recycles the *[]Box headers so Put never boxes a slice header.
-//
-//nolint:exhaustruct,gochecknoglobals // pools deliberately have no New so cold rents allocate exact size
 var (
 	boxSlicePool    = sync.Pool{}
 	boxSliceHdrPool = sync.Pool{}
@@ -455,7 +475,7 @@ func collectPlacedBoxes(res *ilayout.Result, zoom float64) ([]Box, []int) {
 
 	ilayout.WalkPlacedWithOptions(res, options, func(item *ilayout.PlacedElement) {
 		idx := len(boxes)
-		boxes = append(boxes, Box{}) //nolint:exhaustruct // filled immediately below
+		boxes = append(boxes, Box{})
 		fillBoxFrom(&boxes[idx], item)
 
 		parents = append(parents, item.ParentIndex)
@@ -630,7 +650,7 @@ func collectPatchBoxes(res *ilayout.Result, deriveOwners bool, boxes []Box, zoom
 
 		ilayout.WalkPlacedWithOptions(res, options, func(item *ilayout.PlacedElement) {
 			idx := len(boxes)
-			boxes = append(boxes, Box{}) //nolint:exhaustruct // filled immediately below
+			boxes = append(boxes, Box{})
 			fillBoxFrom(&boxes[idx], item)
 
 			if deriveOwners {
@@ -755,7 +775,7 @@ func displayLayoutOptions(
 	images func(string) ([]byte, error),
 	widthPt, heightPt float64,
 ) ilayout.Options {
-	return ilayout.Options{ //nolint:exhaustruct // fixed viewport, backgrounds on
+	return ilayout.Options{
 		Width:      widthPt,
 		Height:     heightPt,
 		Font:       font,

@@ -1,6 +1,12 @@
 package layout
 
-import "testing"
+import (
+	"runtime"
+	"testing"
+	"weak"
+
+	"github.com/chinmay-sawant/blinkless/internal/html"
+)
 
 // TestStyleStoreChunksGrowAndKeepPointers checks that the style store keeps
 // its chunks small at first and that the pointers it handed out stay valid
@@ -63,8 +69,6 @@ func TestStyleStoreSharesDuplicateStyles(t *testing.T) {
 // TestStyleStoreChunkFreeListChannelsBoundedAndRecycled tests that putStyleStoreChunk
 // zeroes lingering records and routes chunks to the segregated free channels, and
 // that drainStyleStoreChunkPools drains them cleanly.
-//
-//nolint:paralleltest // drains the process-wide chunk free lists
 func TestStyleStoreChunkFreeListChannelsBoundedAndRecycled(t *testing.T) {
 	drainStyleStoreChunkPools()
 	defer drainStyleStoreChunkPools()
@@ -117,8 +121,6 @@ func TestStyleStoreChunkFreeListChannelsBoundedAndRecycled(t *testing.T) {
 
 // TestResultReleaseRecyclesStoreChunks verifies that Result.Release returns
 // storeChunks to the free lists.
-//
-//nolint:paralleltest // drains the process-wide chunk free lists
 func TestResultReleaseRecyclesStoreChunks(t *testing.T) {
 	drainStyleStoreChunkPools()
 	defer drainStyleStoreChunkPools()
@@ -143,8 +145,6 @@ func TestResultReleaseRecyclesStoreChunks(t *testing.T) {
 // TestSubtreeStyleStoreRejectedChunksTransferredToResult verifies that when a
 // store is rejected from the subtree store pool, its chunks are transferred to
 // prev.storeChunks rather than leaked.
-//
-//nolint:paralleltest // uses the process-wide subtree store pool
 func TestSubtreeStyleStoreRejectedChunksTransferredToResult(t *testing.T) {
 	prev := &Result{}
 	store := &styleStore{}
@@ -154,7 +154,9 @@ func TestSubtreeStyleStoreRejectedChunksTransferredToResult(t *testing.T) {
 		store.chunks = append(store.chunks, make([]ResolvedStyle, 0, styleStoreChunkSize))
 	}
 
-	tag := subtreeStyleDocTag{root: 1, sheet: 2, sheets: 1}
+	root := &html.Node{}
+	tag := subtreeStyleDocTag{root: weak.Make(root), sheets: make([]subtreeSheetTag, 1)}
+	defer runtime.KeepAlive(root)
 	putSubtreeStyleStore(prev, tag, store)
 
 	if len(prev.storeChunks) != maxSubtreeStyleStoreChunks+1 {

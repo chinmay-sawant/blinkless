@@ -1,4 +1,3 @@
-//nolint:varnamelen,mnd,cyclop,goconst // clip-path parsing and raster mask
 package layout
 
 import (
@@ -95,12 +94,12 @@ func applyClipPathProps(
 func parseClipPathShape(raw string, fsize float64) (clipPathShape, bool) {
 	value := normalizeCSSValue(raw)
 	if value == "" || value == clipPathNone {
-		return clipPathShape{}, false //nolint:exhaustruct // no shape
+		return clipPathShape{}, false
 	}
 
 	name, args, ok := splitShapeFunction(value)
 	if !ok {
-		return clipPathShape{}, false //nolint:exhaustruct // malformed function
+		return clipPathShape{}, false
 	}
 
 	switch name {
@@ -113,7 +112,7 @@ func parseClipPathShape(raw string, fsize float64) (clipPathShape, bool) {
 	case "polygon":
 		return parseClipPathPolygon(args, fsize)
 	default:
-		return clipPathShape{}, false //nolint:exhaustruct // unsupported shape
+		return clipPathShape{}, false
 	}
 }
 
@@ -122,7 +121,7 @@ func parseClipPathInset(args string, fsize float64) (clipPathShape, bool) {
 
 	fields := strings.Fields(main)
 	if len(fields) < 1 || len(fields) > 4 {
-		return clipPathShape{}, false //nolint:exhaustruct // invalid inset
+		return clipPathShape{}, false
 	}
 
 	lengths := make([]clipPathLength, 4)
@@ -130,13 +129,13 @@ func parseClipPathInset(args string, fsize float64) (clipPathShape, bool) {
 	for i, field := range fields {
 		length, ok := parseClipPathLength(field, fsize)
 		if !ok {
-			return clipPathShape{}, false //nolint:exhaustruct // invalid inset length
+			return clipPathShape{}, false
 		}
 
 		lengths[i] = length
 	}
 
-	shape := clipPathShape{ //nolint:exhaustruct // remaining fields unused
+	shape := clipPathShape{
 		kind: clipPathInset,
 	}
 
@@ -166,7 +165,7 @@ func parseClipPathCircle(args string, fsize float64) (clipPathShape, bool) {
 		} else {
 			parsed, ok := parseClipPathLength(radiusPart, fsize)
 			if !ok {
-				return clipPathShape{}, false //nolint:exhaustruct // invalid radius
+				return clipPathShape{}, false
 			}
 
 			radius = parsed
@@ -175,10 +174,10 @@ func parseClipPathCircle(args string, fsize float64) (clipPathShape, bool) {
 
 	centerX, centerY, ok := parseClipPathPosition(position, fsize)
 	if !ok {
-		return clipPathShape{}, false //nolint:exhaustruct // invalid position
+		return clipPathShape{}, false
 	}
 
-	return clipPathShape{ //nolint:exhaustruct // remaining fields unused
+	return clipPathShape{
 		kind: clipPathCircle, radius: radius, centerX: centerX, centerY: centerY,
 	}, true
 }
@@ -191,14 +190,14 @@ func parseClipPathEllipse(args string, fsize float64) (clipPathShape, bool) {
 	if radiiPart != "" {
 		fields := strings.Fields(radiiPart)
 		if len(fields) != 2 {
-			return clipPathShape{}, false //nolint:exhaustruct // invalid radii count
+			return clipPathShape{}, false
 		}
 
 		parsedX, okX := parseClipPathRadius(fields[0], fsize)
 		parsedY, okY := parseClipPathRadius(fields[1], fsize)
 
 		if !okX || !okY {
-			return clipPathShape{}, false //nolint:exhaustruct // invalid radius
+			return clipPathShape{}, false
 		}
 
 		radiusX, radiusY = parsedX, parsedY
@@ -206,10 +205,10 @@ func parseClipPathEllipse(args string, fsize float64) (clipPathShape, bool) {
 
 	centerX, centerY, ok := parseClipPathPosition(position, fsize)
 	if !ok {
-		return clipPathShape{}, false //nolint:exhaustruct // invalid position
+		return clipPathShape{}, false
 	}
 
-	return clipPathShape{ //nolint:exhaustruct // remaining fields unused
+	return clipPathShape{
 		kind: clipPathEllipse, radiusX: radiusX, radiusY: radiusY, centerX: centerX, centerY: centerY,
 	}, true
 }
@@ -231,24 +230,24 @@ func parseClipPathPolygon(args string, fsize float64) (clipPathShape, bool) {
 	for _, part := range layers {
 		fields := strings.Fields(part)
 		if len(fields) != 2 {
-			return clipPathShape{}, false //nolint:exhaustruct // invalid vertex
+			return clipPathShape{}, false
 		}
 
 		x, okX := parseClipPathCoord(fields[0], true, fsize)
 		y, okY := parseClipPathCoord(fields[1], false, fsize)
 
 		if !okX || !okY {
-			return clipPathShape{}, false //nolint:exhaustruct // invalid vertex
+			return clipPathShape{}, false
 		}
 
 		points = append(points, clipPathPoint{x: x, y: y})
 	}
 
 	if len(points) < 3 {
-		return clipPathShape{}, false //nolint:exhaustruct // not a polygon
+		return clipPathShape{}, false
 	}
 
-	return clipPathShape{ //nolint:exhaustruct // remaining fields unused
+	return clipPathShape{
 		kind: clipPathPolygon, points: points, fillRule: fillRule,
 	}, true
 }
@@ -283,7 +282,7 @@ func parseClipPathPosition(position string, fsize float64) (clipPathLength, clip
 	fields := strings.Fields(position)
 
 	if len(fields) > 2 {
-		return clipPathLength{}, clipPathLength{}, false //nolint:exhaustruct // unsupported offsets
+		return clipPathLength{}, clipPathLength{}, false
 	}
 
 	haveX := false
@@ -303,7 +302,7 @@ func parseClipPathPosition(position string, fsize float64) (clipPathLength, clip
 		default:
 			length, ok := parseClipPathLength(field, fsize)
 			if !ok {
-				return clipPathLength{}, clipPathLength{}, false //nolint:exhaustruct // invalid position
+				return clipPathLength{}, clipPathLength{}, false
 			}
 
 			if i == 0 {
@@ -349,13 +348,13 @@ func parseClipPathCoord(token string, horizontal bool, fsize float64) (clipPathL
 func parseClipPathLength(token string, fsize float64) (clipPathLength, bool) {
 	token = strings.TrimSpace(token)
 	if token == "" {
-		return clipPathLength{}, false //nolint:exhaustruct // empty token
+		return clipPathLength{}, false
 	}
 
 	if strings.HasSuffix(token, "%") {
 		value, err := strconv.ParseFloat(strings.TrimSuffix(token, "%"), 64)
 		if err != nil || value < 0 {
-			return clipPathLength{}, false //nolint:exhaustruct // invalid percentage
+			return clipPathLength{}, false
 		}
 
 		return clipPathLength{value: value / 100.0, percent: true, keyword: ""}, true
@@ -363,12 +362,12 @@ func parseClipPathLength(token string, fsize float64) (clipPathLength, bool) {
 
 	value, unit, ok := css.ParseLength(token)
 	if !ok || value < 0 {
-		return clipPathLength{}, false //nolint:exhaustruct // invalid length
+		return clipPathLength{}, false
 	}
 
 	pt, converted := lengthToPt(value, unit, fsize)
 	if !converted {
-		return clipPathLength{}, false //nolint:exhaustruct // unsupported unit
+		return clipPathLength{}, false
 	}
 
 	return clipPathLength{value: pt, percent: false, keyword: ""}, true

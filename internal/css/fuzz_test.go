@@ -16,6 +16,7 @@ func FuzzParseCSS(f *testing.F) {
 		"p::before { content: 'Note: '; font-weight: bold; }",
 		"table, th, td { border-collapse: collapse; padding: 4px; }",
 		":root { --main-color: blue; } div { color: var(--main-color); }",
+		`@font-face { font-family: x; src: local("İstanbul"), url(Font.woff2); }`,
 	}
 	for _, seed := range seeds {
 		f.Add(seed)

@@ -1,4 +1,3 @@
-//nolint:varnamelen,cyclop,wsl,funlen,mnd,goconst // anchor grammar
 package layout
 
 import (
@@ -47,7 +46,7 @@ const (
 )
 
 // Try tactics from css-anchor-position-1 section 6.1.
-var anchorTryTactics = map[string]struct{}{ //nolint:gochecknoglobals // static keyword set
+var anchorTryTactics = map[string]struct{}{
 	"flip-block":  {},
 	"flip-inline": {},
 	"flip-start":  {},
@@ -56,7 +55,7 @@ var anchorTryTactics = map[string]struct{}{ //nolint:gochecknoglobals // static 
 }
 
 // Try sizes from css-anchor-position-1 section 6.2.
-var anchorTrySizes = map[string]struct{}{ //nolint:gochecknoglobals // static keyword set
+var anchorTrySizes = map[string]struct{}{
 	"most-width":       {},
 	"most-height":      {},
 	"most-block-size":  {},
@@ -67,7 +66,7 @@ var anchorTrySizes = map[string]struct{}{ //nolint:gochecknoglobals // static ke
 // accepts one or two tokens from this set. Placement moves the common
 // single-token areas and two-token combinations built from them; other valid
 // areas are stored but keep absolute offsets.
-var anchorPositionAreaTokens = map[string]struct{}{ //nolint:gochecknoglobals // static keyword set
+var anchorPositionAreaTokens = map[string]struct{}{
 	"left": {}, "center": {}, "right": {}, "span-left": {}, "span-right": {},
 	"x-start": {}, "x-end": {}, "span-x-start": {}, "span-x-end": {},
 	"self-x-start": {}, "self-x-end": {}, "span-self-x-start": {}, "span-self-x-end": {},

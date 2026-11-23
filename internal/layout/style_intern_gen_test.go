@@ -231,7 +231,7 @@ func fillStyleInternStruct(rng *rand.Rand, value reflect.Value) {
 // kind. The default branch panics so a new ResolvedStyle field kind fails
 // loudly instead of being silently skipped.
 func fillStyleInternValue(rng *rand.Rand, value reflect.Value) {
-	switch value.Kind() { //nolint:exhaustive // default panics; a new kind must fail the test loudly.
+	switch value.Kind() {
 	case reflect.String, reflect.Bool, reflect.Int, reflect.Uint64, reflect.Float64:
 		fillStyleInternScalar(rng, value)
 	case reflect.Array, reflect.Slice:
@@ -252,7 +252,7 @@ func fillStyleInternValue(rng *rand.Rand, value reflect.Value) {
 }
 
 func fillStyleInternScalar(rng *rand.Rand, value reflect.Value) {
-	switch value.Kind() { //nolint:exhaustive // caller filters kinds; default signals a bug.
+	switch value.Kind() {
 	case reflect.String:
 		value.SetString(styleInternRandomString(rng))
 	case reflect.Bool:

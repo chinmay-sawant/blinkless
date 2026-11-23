@@ -15,7 +15,7 @@ func isASCIIText(text string) bool {
 func (e *engine) splitTextToWidthASCII(
 	text string, style *ResolvedStyle, firstMax, restMax float64, mode softBreakMode,
 ) []string {
-	chunks := make([]string, 0, 4) //nolint:mnd // typical wrapped token splits into 2-4 pieces
+	chunks := make([]string, 0, 4)
 
 	for len(text) > 0 {
 		limit := restMax

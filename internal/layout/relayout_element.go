@@ -250,7 +250,7 @@ func overridePatchTarget(element *relayoutTarget) (*relayoutTarget, error) {
 // that follows refuses it.
 func relayoutTargetAt(ancestors []*box, index int) *relayoutTarget {
 	if index <= 0 {
-		return &relayoutTarget{ //nolint:exhaustruct // a root target has no ancestors
+		return &relayoutTarget{
 			box:    ancestors[0],
 			parent: nil,
 		}
@@ -321,7 +321,7 @@ func overrideSubtreeStyles(
 // pass. It mirrors the context relayoutSubtreeStyles builds; the override
 // pass needs the same inputs because it resolves the same branch.
 func relayoutOverrideStyleContext(ctx context.Context, prev *Result, opts Options) *styleContext {
-	styleCtx := &styleContext{ //nolint:exhaustruct // the pass fills only the inputs the subtree cascade reads
+	styleCtx := &styleContext{
 		ctx:                ctx,
 		sheets:             opts.Sheets,
 		properties:         registeredProperties(opts.Sheets),
@@ -348,7 +348,7 @@ func resolveOverrideStyles(
 	root *html.Node,
 	parent *ResolvedStyle,
 ) (map[*html.Node]*ResolvedStyle, error) {
-	store := styleStore{} //nolint:exhaustruct // the store grows as the walk interns styles
+	store := styleStore{}
 	styles := make(map[*html.Node]*ResolvedStyle)
 
 	var walk func(node *html.Node, inherited *ResolvedStyle) error
@@ -384,7 +384,7 @@ func inheritOverriddenStyle(
 	styles map[*html.Node]*ResolvedStyle,
 	restore map[*html.Node]*ResolvedStyle,
 ) error {
-	store := styleStore{} //nolint:exhaustruct // the store grows as the walk interns styles
+	store := styleStore{}
 
 	var walk func(parent *html.Node, inherited *ResolvedStyle) error
 
@@ -657,8 +657,6 @@ func validateOverrideValue(prop, value string) error {
 // value, a display or flow property, and a property whose value the cascade
 // expands into other declarations are refused because the used style alone
 // does not carry the result.
-//
-//nolint:goconst // the allow list is written as CSS property names
 func overridePropertyAllowed(prop string) bool {
 	switch prop {
 	case propWidth, propHeight, propMinWidth, propMinHeight, propMaxWidth, propMaxHeight,

@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
 )
@@ -91,50 +92,49 @@ const (
 // once to compute, so each unique declaration pays one validation parse.
 const maxAcceptVerdictEntries = 4096
 
-//nolint:gochecknoglobals // pass-shared verdict cache with test counters
 var (
 	acceptVerdictMu    sync.RWMutex
-	acceptVerdicts     = make(map[string]bool)
+	acceptVerdicts     = make(map[declKey]bool)
 	acceptVerdictEvals uint64
-	acceptVerdictHits  uint64
+	acceptVerdictHits  atomic.Uint64
 )
 
-// acceptVerdictKey joins prop and value with a NUL separator. Property names
-// never contain NUL (validPropName rejects it), so the key is unambiguous.
-func acceptVerdictKey(prop, value string) string {
-	return prop + "\x00" + value
+// declKey identifies one declaration by property and value. A struct key
+// avoids building a joined string per lookup and cannot collide.
+type declKey struct {
+	prop  string
+	value string
 }
 
 // lookupAcceptVerdict returns the cached verdict for prop and value.
 func lookupAcceptVerdict(prop, value string) (bool, bool) {
 	acceptVerdictMu.RLock()
-	verdict, found := acceptVerdicts[acceptVerdictKey(prop, value)]
+	verdict, found := acceptVerdicts[declKey{prop: prop, value: value}]
 	acceptVerdictMu.RUnlock()
 
 	if found {
-		acceptVerdictMu.Lock()
-		acceptVerdictHits++
-		acceptVerdictMu.Unlock()
+		acceptVerdictHits.Add(1)
 	}
 
 	return verdict, found
 }
 
 // storeAcceptVerdict records verdict under a bounded map. When the map is
-// full the verdict is dropped: the caller already computed it, so only a
-// repeat parse is lost, never correctness.
+// full it is cleared and refilled, so new declarations keep being cached
+// instead of the cache freezing on its first entries; the verdicts are pure,
+// so eviction only costs a repeat parse, never correctness.
 func storeAcceptVerdict(prop, value string, verdict bool) {
 	acceptVerdictMu.Lock()
 	defer acceptVerdictMu.Unlock()
 
-	key := acceptVerdictKey(prop, value)
+	key := declKey{prop: prop, value: value}
 
 	if _, ok := acceptVerdicts[key]; ok {
 		return
 	}
 
 	if len(acceptVerdicts) >= maxAcceptVerdictEntries {
-		return
+		clear(acceptVerdicts)
 	}
 
 	acceptVerdicts[key] = verdict
@@ -148,9 +148,9 @@ func resetAcceptVerdictForTest() {
 	acceptVerdictMu.Lock()
 	defer acceptVerdictMu.Unlock()
 
-	acceptVerdicts = make(map[string]bool)
+	acceptVerdicts = make(map[declKey]bool)
 	acceptVerdictEvals = 0
-	acceptVerdictHits = 0
+	acceptVerdictHits.Store(0)
 }
 
 // acceptVerdictStatsForTest reports full evaluations (cache misses) and hits.
@@ -158,7 +158,7 @@ func acceptVerdictStatsForTest() (uint64, uint64) {
 	acceptVerdictMu.RLock()
 	defer acceptVerdictMu.RUnlock()
 
-	return acceptVerdictEvals, acceptVerdictHits
+	return acceptVerdictEvals, acceptVerdictHits.Load()
 }
 
 // supportedDeclaration reports whether the engine accepts one declaration as
@@ -585,8 +585,8 @@ func boxShorthandValueAccepted(value string, tokenAccepted func(string) bool) bo
 		return false
 	}
 
-	for idx := range count {
-		if !tokenAccepted(tokens[idx]) {
+	for _, token := range tokens[:count] {
+		if !tokenAccepted(token) {
 			return false
 		}
 	}
@@ -608,8 +608,8 @@ func textWrapShorthandValueAccepted(value string) bool {
 
 	modeSeen, styleSeen := false, false
 
-	for idx := range count {
-		switch tokens[idx] {
+	for _, token := range tokens[:count] {
+		switch token {
 		case fxWrap, cssWhiteSpaceNowrap:
 			if modeSeen {
 				return false
@@ -690,8 +690,6 @@ func keywordIn(value string, accepted ...string) bool {
 // background, border, outline, font-size, and transform handlers. It continues
 // the table above: a property with no entry in either switch keeps the
 // default-accept rule described on declarationValueAccepted.
-//
-//nolint:cyclop // flat per-property acceptance table reads clearer than a split dispatch
 func extendedDeclarationValueAccepted(prop, value string) bool {
 	if accepted, handled := cornerDeclarationValueAccepted(prop, value); handled {
 		return accepted
@@ -806,8 +804,6 @@ func breakInsideValueAccepted(value string) bool {
 // logical box and inset families, and the remaining text/table handlers whose
 // setters drop invalid values. It continues extendedDeclarationValueAccepted;
 // an unlisted property stays default-accept.
-//
-//nolint:cyclop,funlen,gocyclo,maintidx // flat per-property acceptance table reads clearer than a split dispatch
 func layoutDeclarationValueAccepted(prop, value string) bool {
 	if prop == "break-inside" || prop == "page-break-inside" {
 		return breakInsideValueAccepted(value)
@@ -1312,7 +1308,7 @@ func transformValueAccepted(value string) bool {
 		return true
 	}
 
-	_, _, _, _, ok := parseTransformList(value, 0) //nolint:dogsled // the acceptance gate needs only the parse verdict
+	_, _, _, _, ok := parseTransformList(value, 0)
 
 	return ok
 }
@@ -1938,8 +1934,8 @@ func logicalPairValueAccepted(value string, tokenAccepted func(string) bool) boo
 		return false
 	}
 
-	for idx := range count {
-		if !tokenAccepted(tokens[idx]) {
+	for _, token := range tokens[:count] {
+		if !tokenAccepted(token) {
 			return false
 		}
 	}

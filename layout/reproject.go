@@ -129,7 +129,7 @@ func RestampTransforms(
 	if !restamped.Changed || len(restamped.Windows) == 0 {
 		// Nothing moved. Hand the page back unchanged so a host that adopts
 		// the patch keeps the display it already draws.
-		return &ElementPatch{Display: prev}, nil //nolint:exhaustruct // no damage, no work
+		return &ElementPatch{Display: prev}, nil
 	}
 
 	return restampElementPatch(prev, overrides, restamped), nil
@@ -258,7 +258,7 @@ func restampError(err error) error {
 // The pass re-places nothing and reads no image bytes, so only the media the
 // stamp walk keys on travels.
 func engineOptions(media string) ilayout.Options {
-	return ilayout.Options{Media: media} //nolint:exhaustruct // restamp reads media only
+	return ilayout.Options{Media: media}
 }
 
 // restampedBoxes returns the element boxes of the patched subtrees in document
@@ -351,7 +351,7 @@ func boxBelow(boxes []Box, index, root int) bool {
 // bounds are expanded outward so a damage region never clips a painted edge.
 func pointBoundsToRect(left, top, width, height float64) image.Rectangle {
 	if width <= 0 || height <= 0 {
-		return image.Rectangle{} //nolint:exhaustruct // no painted area
+		return image.Rectangle{}
 	}
 
 	x := int(math.Floor(left * ptToPx))

@@ -1,4 +1,3 @@
-//nolint:cyclop,wsl,mnd // fallback rule parser
 package css
 
 import "strings"
@@ -71,7 +70,7 @@ func parsePositionTryRule(src string, str *Stylesheet) (string, error) {
 		return "", err
 	}
 
-	rule := PositionTryRule{Name: name} //nolint:exhaustruct // absent descriptors stay empty
+	rule := PositionTryRule{Name: name}
 
 	for _, decl := range parseDeclarations(block) {
 		switch decl.Prop {

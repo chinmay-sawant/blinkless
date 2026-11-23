@@ -9,7 +9,7 @@ type colorAdjustField struct {
 	get  func(*ResolvedStyle) string
 }
 
-var colorAdjustFields = []colorAdjustField{ //nolint:gochecknoglobals // static test table
+var colorAdjustFields = []colorAdjustField{
 	{name: "color-adjust", get: func(s *ResolvedStyle) string { return s.containment().ColorAdjust }},
 	{name: "print-color-adjust", get: func(s *ResolvedStyle) string { return s.containment().ColorAdjust }},
 	{name: "forced-color-adjust", get: func(s *ResolvedStyle) string { return s.containment().ForcedColorAdjust }},

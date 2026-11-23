@@ -1,7 +1,7 @@
 package layout
 
 import (
-	"fmt"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -9,9 +9,14 @@ import (
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
 	"github.com/chinmay-sawant/blinkless/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/style"
 )
 
 const maxSingleAttrCacheSize = 1024
+
+// maxBundleTags bounds the interned tag map of one bundle; a tag past the
+// bound is still returned, only not shared.
+const maxBundleTags = 1024
 
 // classAttrName is the HTML class attribute name, lower-case in the parser's
 // attribute map.
@@ -23,7 +28,6 @@ const classAttrName = "class"
 // a running layout.
 const maxSharedCompiledEntries = 64
 
-//nolint:gochecknoglobals // class attribute key memoization cache plus cross-layout bundles
 var (
 	singleAttrCacheMu sync.RWMutex
 	singleAttrCache   = make(map[string]string)
@@ -47,9 +51,11 @@ var (
 // grows only under the bundle lock, so concurrent layouts share safely.
 type sharedCompiled struct {
 	mu sync.RWMutex
+	// once guards the one-time index build outside the map lock.
+	once sync.Once
 	// index narrows selector matching to rules that can match a node.
 	// Read-only after the bundle is published.
-	index *ruleIndex
+	index *style.RuleIndex
 	// tags interns namespaced tag strings by lowercased HTML tag name.
 	tags map[string]string
 	// sheets retains the exact sheet set this bundle was built from. The
@@ -71,27 +77,36 @@ type sharedCompiled struct {
 // rule pointers, so in-place edits need a fresh parse, the same contract the
 // per-pass index already assumed.
 func sheetsCacheKey(sheets []*css.Stylesheet) string {
-	var out strings.Builder
-
-	out.WriteString(strconv.Itoa(len(sheets)))
-	out.WriteByte(';')
+	// One preallocated byte buffer and strconv appends: no fmt, so a layout
+	// pays a single allocation for the key instead of one per sheet.
+	buf := make([]byte, 0, 8+len(sheets)*(2*maxSheetKeyDigits))
+	buf = strconv.AppendInt(buf, int64(len(sheets)), 10)
+	buf = append(buf, ';')
 
 	for _, sheet := range sheets {
 		if sheet == nil {
-			out.WriteString("nil;")
+			buf = append(buf, "nil;"...)
 
 			continue
 		}
 
-		out.WriteString(fmt.Sprintf("%p:%d;", sheet, len(sheet.Rules)))
+		buf = strconv.AppendUint(buf, uint64(reflect.ValueOf(sheet).Pointer()), 16)
+		buf = append(buf, ':')
+		buf = strconv.AppendInt(buf, int64(len(sheet.Rules)), 10)
+		buf = append(buf, ';')
 	}
 
-	return out.String()
+	return string(buf)
 }
 
+// maxSheetKeyDigits sizes the per-sheet share of the key buffer.
+const maxSheetKeyDigits = 12
+
 // sharedCompiledFor returns the bundle for sheets, building it once on first
-// use. The build runs under the bundle-map lock so concurrent first layouts
-// of one sheet set still produce exactly one index. A nil sheet set carries
+// use. The bundle is published under the map lock, but the index build runs
+// outside it behind the bundle's own sync.Once, so concurrent first layouts
+// of one sheet set still produce exactly one index while layouts of other
+// sheet sets are never blocked behind a slow build. A nil sheet set carries
 // nothing worth compiling and bypasses sharing.
 func sharedCompiledFor(sheets []*css.Stylesheet) *sharedCompiled {
 	if len(sheets) == 0 {
@@ -101,27 +116,28 @@ func sharedCompiledFor(sheets []*css.Stylesheet) *sharedCompiled {
 	key := sheetsCacheKey(sheets)
 
 	sharedCompiledMu.Lock()
-	defer sharedCompiledMu.Unlock()
 
-	if bundle, ok := sharedCompiledBy[key]; ok {
-		return bundle
-	}
-
-	bundle := &sharedCompiled{ //nolint:exhaustruct // tags map filled below
-		tags:   make(map[string]string),
-		sheets: sheets,
-	}
-	bundle.index = newRuleIndex(sheets)
-
-	if len(sharedCompiledBy) >= maxSharedCompiledEntries {
-		for k := range sharedCompiledBy {
-			delete(sharedCompiledBy, k)
-
-			break
+	bundle, ok := sharedCompiledBy[key]
+	if !ok {
+		bundle = &sharedCompiled{
+			tags:   make(map[string]string),
+			sheets: sheets,
 		}
+
+		if len(sharedCompiledBy) >= maxSharedCompiledEntries {
+			for k := range sharedCompiledBy {
+				delete(sharedCompiledBy, k)
+
+				break
+			}
+		}
+
+		sharedCompiledBy[key] = bundle
 	}
 
-	sharedCompiledBy[key] = bundle
+	sharedCompiledMu.Unlock()
+
+	bundle.once.Do(func() { bundle.index = style.NewRuleIndex(bundle.sheets) })
 
 	return bundle
 }
@@ -130,7 +146,7 @@ func sharedCompiledFor(sheets []*css.Stylesheet) *sharedCompiled {
 // bundle for this context's sheets. The bundle index is installed on the
 // context so later lookups take the same fast path a per-pass build would
 // have left behind.
-func (ctx *styleContext) sharedRuleIndex() *ruleIndex {
+func (ctx *styleContext) sharedRuleIndex() *style.RuleIndex {
 	if ctx == nil || len(ctx.sheets) == 0 {
 		return nil
 	}
@@ -178,9 +194,9 @@ type matchCacheKey struct {
 // hits, and evaluates the rest fresh, so the merged sequence keeps the order
 // a fresh walk produced.
 type matchCacheEntry struct {
-	cands    []ruleSel
+	cands    []style.RuleSel
 	reusable []bool
-	hits     []ruleSel
+	hits     []style.RuleSel
 }
 
 // matchSignature builds the cache key for node in the pseudoElem pass. The
@@ -262,9 +278,11 @@ func canonicalSingleAttrKey(name, value string) string {
 
 	if name == classAttrName {
 		singleAttrCacheMu.Lock()
-		if len(singleAttrCache) < maxSingleAttrCacheSize {
-			singleAttrCache[value] = res
+		if len(singleAttrCache) >= maxSingleAttrCacheSize {
+			clear(singleAttrCache)
 		}
+
+		singleAttrCache[value] = res
 		singleAttrCacheMu.Unlock()
 	}
 
@@ -396,7 +414,7 @@ func (ctx *styleContext) internBundleTag(bundle *sharedCompiled, lowered string)
 	bundle.mu.Lock()
 	if existing, ok := bundle.tags[lowered]; ok {
 		tag = existing
-	} else {
+	} else if len(bundle.tags) < maxBundleTags {
 		bundle.tags[lowered] = tag
 	}
 	bundle.mu.Unlock()
@@ -419,8 +437,6 @@ func (ctx *styleContext) storeMatchTag(lowered, tag string) string {
 // sorted names so the key is exact and map-iteration order never leaks in.
 // Single-attribute elements skip the name slice and the sort; the builder is
 // pre-sized so the common shapes allocate exactly the result string.
-//
-//nolint:funlen // encodes attribute map with fast paths for small maps
 func canonicalAttrKey(attrs map[string]string) string {
 	switch len(attrs) {
 	case 0:
@@ -452,9 +468,11 @@ func canonicalAttrKey(attrs map[string]string) string {
 
 			if name == classAttrName {
 				singleAttrCacheMu.Lock()
-				if len(singleAttrCache) < maxSingleAttrCacheSize {
-					singleAttrCache[value] = res
+				if len(singleAttrCache) >= maxSingleAttrCacheSize {
+					clear(singleAttrCache)
 				}
+
+				singleAttrCache[value] = res
 				singleAttrCacheMu.Unlock()
 			}
 
@@ -526,10 +544,9 @@ func (ctx *styleContext) matchedRules(node *html.Node, pseudoElem string) []rule
 	}
 
 	if node == nil {
-		ctx.ruleCands = index.candidates(ctx.ruleCands[:0], node, pseudoElem)
-		sortCandidates(ctx.ruleCands)
+		ctx.ruleCands = index.Candidates(ctx.ruleCands[:0], node, pseudoElem)
+		style.SortCandidates(ctx.ruleCands)
 
-		//nolint:exhaustruct // zero key: nil nodes never cache
 		empty := matchCacheKey{}
 
 		return ctx.scanMatches(node, pseudoElem, empty, false)
@@ -540,8 +557,8 @@ func (ctx *styleContext) matchedRules(node *html.Node, pseudoElem string) []rule
 		return ctx.replayMatches(entry, node, pseudoElem)
 	}
 
-	ctx.ruleCands = index.candidates(ctx.ruleCands[:0], node, pseudoElem)
-	sortCandidates(ctx.ruleCands)
+	ctx.ruleCands = index.Candidates(ctx.ruleCands[:0], node, pseudoElem)
+	style.SortCandidates(ctx.ruleCands)
 
 	return ctx.scanMatches(node, pseudoElem, key, true)
 }
@@ -559,7 +576,7 @@ func (ctx *styleContext) scanMatches(
 	var entry *matchCacheEntry
 
 	if cache {
-		entry = &matchCacheEntry{ //nolint:exhaustruct // reusable/hits grow during the scan
+		entry = &matchCacheEntry{
 			cands: slices.Clone(ctx.ruleCands),
 		}
 		if len(entry.cands) > 0 {
@@ -572,12 +589,12 @@ func (ctx *styleContext) scanMatches(
 			return nil
 		}
 
-		rule := cand.rule
+		rule := cand.Rule
 		if !ctx.ruleGatesMatch(rule, node) {
 			continue
 		}
 
-		sel := rule.Selectors[cand.sel]
+		sel := rule.Selectors[cand.Sel]
 		if !ctx.selectorMatches(sel, node, pseudoElem) {
 			continue
 		}
@@ -605,7 +622,6 @@ const (
 	maxPooledMatchCacheEntries = 4096
 )
 
-//nolint:gochecknoglobals // per-pass selector match cache pool
 var matchCachePool = sync.Pool{
 	New: func() any {
 		return make(map[matchCacheKey]*matchCacheEntry, matchCacheInitCap)
@@ -616,7 +632,7 @@ var matchCachePool = sync.Pool{
 // cache on first use. Split from scanMatches so the hot scan stays flat.
 func (ctx *styleContext) storeMatchEntry(key matchCacheKey, entry *matchCacheEntry) {
 	if ctx.matchCache == nil {
-		ctx.matchCache = matchCachePool.Get().(map[matchCacheKey]*matchCacheEntry) //nolint:forcetypeassert // pool stores map
+		ctx.matchCache = matchCachePool.Get().(map[matchCacheKey]*matchCacheEntry)
 	}
 
 	ctx.matchCache[key] = entry
@@ -652,26 +668,26 @@ func (ctx *styleContext) replayMatches(
 
 		if entry.reusable[i] {
 			if next < len(entry.hits) && entry.hits[next] == cand {
-				sel := cand.rule.Selectors[cand.sel]
+				sel := cand.Rule.Selectors[cand.Sel]
 				a, b, c := css.Specificity(sel)
-				hits = append(hits, ruleHit{rule: cand.rule, a: a, b: b, c: c})
+				hits = append(hits, ruleHit{rule: cand.Rule, a: a, b: b, c: c})
 				next++
 			}
 
 			continue
 		}
 
-		if !ctx.ruleGatesMatch(cand.rule, node) {
+		if !ctx.ruleGatesMatch(cand.Rule, node) {
 			continue
 		}
 
-		sel := cand.rule.Selectors[cand.sel]
+		sel := cand.Rule.Selectors[cand.Sel]
 		if !ctx.selectorMatches(sel, node, pseudoElem) {
 			continue
 		}
 
 		a, b, c := css.Specificity(sel)
-		hits = append(hits, ruleHit{rule: cand.rule, a: a, b: b, c: c})
+		hits = append(hits, ruleHit{rule: cand.Rule, a: a, b: b, c: c})
 	}
 
 	ctx.ruleHits = hits

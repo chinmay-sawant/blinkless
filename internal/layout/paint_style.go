@@ -17,10 +17,10 @@ type PaintStyle struct {
 // source RGB and alpha. Consumers composite that color with source-over alpha.
 func StyleOf(paintOp *Op) PaintStyle {
 	if paintOp == nil {
-		return PaintStyle{FillAlpha: 1, StrokeWidth: 1} //nolint:exhaustruct // intentional zero fields
+		return PaintStyle{FillAlpha: 1, StrokeWidth: 1}
 	}
 
-	pstyle := PaintStyle{ //nolint:exhaustruct // intentional zero fields
+	pstyle := PaintStyle{
 		FillR: paintOp.R, FillG: paintOp.G, FillB: paintOp.B, FillAlpha: 1,
 		StrokeWidth: paintOp.Width,
 	}

@@ -27,16 +27,12 @@ const (
 
 // build turns the shape into a path for a box of width by height points. A
 // ray with no "at" starts at the box's top-left corner.
-//
-//nolint:ireturn // a shape builds either a flattened polyline or a ray
 func (s motionShape) build(width, height, fsize float64) (motionPath, bool) {
 	return s.buildAt(width, height, fsize, 0, 0)
 }
 
 // asPath turns a concrete path builder result into a motionPath. It keeps a
 // failed build a true nil interface instead of a typed nil pointer.
-//
-//nolint:ireturn // the caller wants one interface over polylines and rays
 func asPath[T motionPath](path T, ok bool) (motionPath, bool) {
 	if !ok {
 		return nil, false
@@ -46,8 +42,6 @@ func asPath[T motionPath](path T, ok bool) (motionPath, bool) {
 }
 
 // buildAt is build with the start of a ray that names no position.
-//
-//nolint:ireturn // a shape builds either a flattened polyline or a ray
 func (s motionShape) buildAt(width, height, fsize, startX, startY float64) (motionPath, bool) {
 	switch s.kind {
 	case shapeKindPath:

@@ -1,6 +1,17 @@
 package css
 
-import icss "github.com/chinmay-sawant/blinkless/internal/css"
+import (
+	"sync"
+
+	icss "github.com/chinmay-sawant/blinkless/internal/css"
+)
+
+// statePseudoMemo caches the one rule scan UsesStatePseudo needs for a sheet
+// set, so repeated redraw checks do not rescan every rule.
+type statePseudoMemo struct {
+	once   sync.Once
+	states icss.StatePseudos
+}
 
 // StatePseudos reports which interactive pseudo-classes any rule can match.
 type StatePseudos = icss.StatePseudos
@@ -15,7 +26,14 @@ func (d *Document) UsesStatePseudo(name string) bool {
 		return true
 	}
 
-	states := icss.UsesStatePseudos(d.sheets)
+	memo := d.states
+	if memo == nil {
+		// A zero-built Document (not from Apply) scans without memoizing.
+		memo = new(statePseudoMemo)
+	}
+
+	memo.once.Do(func() { memo.states = icss.UsesStatePseudos(d.sheets) })
+	states := memo.states
 
 	switch name {
 	case "hover":

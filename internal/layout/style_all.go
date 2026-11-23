@@ -124,9 +124,9 @@ func dropAllInitialSentinels(raw map[string]string) {
 
 // The three values below are a lazy cache built once by allResetOnce.
 var (
-	allResetOnce  sync.Once           //nolint:gochecknoglobals // guards the lazy cache below
-	allResetNames []string            //nolint:gochecknoglobals // lazy cache filled once by allResetOnce
-	allInherited  map[string]struct{} //nolint:gochecknoglobals // lazy cache filled once by allResetOnce
+	allResetOnce  sync.Once
+	allResetNames []string
+	allInherited  map[string]struct{}
 )
 
 func allResetPropertyNames() []string {

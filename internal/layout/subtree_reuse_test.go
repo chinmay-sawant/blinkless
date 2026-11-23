@@ -10,8 +10,6 @@ import (
 // TestReuseClassOnlyEditReusesOps proves the paint-only fast path: a class
 // change that only repaints keeps the operation identities and matches a
 // full relayout. The counter (not timing) proves the fast path ran.
-//
-//nolint:paralleltest // asserts deltas on process-wide reuse counters
 func TestReuseClassOnlyEditReusesOps(t *testing.T) {
 	root := mustParse(t, relayoutFixtureHTML)
 	opts := relayoutOptions(t)
@@ -70,8 +68,6 @@ func TestReuseClassOnlyEditReusesOps(t *testing.T) {
 // TestReuseTextEditChangingSizeFallsBack proves a content edit that changes
 // the box size leaves the fast path and reports the documented full-layout
 // signal instead of reusing stale operations.
-//
-//nolint:paralleltest // asserts deltas on process-wide reuse counters
 func TestReuseTextEditChangingSizeFallsBack(t *testing.T) {
 	const cssText = `.grow { width: 200px; background-color: #eeeeee; }`
 	root := mustParse(t, `<html><body>`+
@@ -109,8 +105,6 @@ func TestReuseTextEditChangingSizeFallsBack(t *testing.T) {
 // clean sibling without rebuilding it, matches a full layout of the shifted
 // page, and round-trips. It also proves the batch entry (overrides) falls
 // back to the normal build instead of reusing.
-//
-//nolint:paralleltest // asserts deltas on process-wide reuse counters
 func TestReuseMovedSiblingTranslates(t *testing.T) {
 	root := mustParse(t, relayoutFixtureHTML)
 	opts := relayoutOptions(t)
@@ -210,8 +204,6 @@ func TestReuseMovedSiblingTranslates(t *testing.T) {
 // TestReuseBatchOverrideFallsBack proves the batch entry (a width override)
 // does not reuse: overrides name layout properties, so the attempt records a
 // miss and the normal override build runs.
-//
-//nolint:paralleltest // asserts deltas on process-wide reuse counters
 func TestReuseBatchOverrideFallsBack(t *testing.T) {
 	root := mustParse(t, overrideFlexHTML)
 	opts := overrideOptions(t)
@@ -244,8 +236,6 @@ func TestReuseBatchOverrideFallsBack(t *testing.T) {
 // TestReuseGoldenParityFewHundredRows proves the patched page equals a full
 // layout on a few-hundred-row document: same operations (up to identity),
 // after a paint-only edit to one row.
-//
-//nolint:paralleltest // asserts deltas on process-wide reuse counters
 func TestReuseGoldenParityFewHundredRows(t *testing.T) {
 	const rows = 300
 	const cssText = `

@@ -54,7 +54,7 @@ type byteLRUCache[K comparable] struct {
 }
 
 func newByteLRUCache[K comparable](maxEntries, maxEntryBytes, maxTotalBytes int) *byteLRUCache[K] {
-	return &byteLRUCache[K]{ //nolint:exhaustruct // order starts empty
+	return &byteLRUCache[K]{
 		maxEntries:    maxEntries,
 		maxEntryBytes: maxEntryBytes,
 		maxTotalBytes: maxTotalBytes,
@@ -73,7 +73,6 @@ func (c *byteLRUCache[K]) get(key K) ([]byte, bool) {
 
 	c.order.MoveToFront(elem)
 
-	//nolint:forcetypeassert // list only stores *byteLRUCacheEntry[K]
 	return elem.Value.(*byteLRUCacheEntry[K]).val, true
 }
 
@@ -94,7 +93,6 @@ func (c *byteLRUCache[K]) put(key K, out []byte) []byte {
 	defer c.mu.Unlock()
 
 	if elem, ok := c.items[key]; ok {
-		//nolint:forcetypeassert // list only stores *byteLRUCacheEntry[K]
 		entry := elem.Value.(*byteLRUCacheEntry[K])
 		c.totalBytes += len(trimmed) - len(entry.val)
 		entry.val = trimmed
@@ -119,7 +117,6 @@ func (c *byteLRUCache[K]) evictLocked() {
 			break
 		}
 
-		//nolint:forcetypeassert // list only stores *byteLRUCacheEntry[K]
 		entry := back.Value.(*byteLRUCacheEntry[K])
 		c.order.Remove(back)
 		delete(c.items, entry.key)
@@ -127,7 +124,6 @@ func (c *byteLRUCache[K]) evictLocked() {
 	}
 }
 
-//nolint:gochecknoglobals // bounded process-wide raster effect caches matching gradCache
 var (
 	imageFilterCache  = newByteLRUCache[imageFilterCacheKey](imageEffectCacheMaxEntries, imageEffectCacheMaxBytes, imageEffectCacheTotalBytes)
 	clipPathMaskCache = newByteLRUCache[clipPathMaskCacheKey](imageEffectCacheMaxEntries, imageEffectCacheMaxBytes, imageEffectCacheTotalBytes)

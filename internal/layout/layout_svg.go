@@ -1,4 +1,3 @@
-//nolint:all // inline SVG serialize+raster path
 package layout
 
 import (
@@ -28,7 +27,7 @@ func (e *engine) buildInlineSVG(node *html.Node, sty ResolvedStyle, posX, posY f
 	boxNode := e.allocBox(node, e.stylePtr(node), boxKindReplaced, posX, posY)
 
 	data := e.serializeInlineSVG(node)
-	ref := &imageRef{src: "#inline-svg"} //nolint:exhaustruct // synthetic raster
+	ref := &imageRef{src: "#inline-svg"}
 	cache := e.inlineSVGRasterCache()
 	key := svgInlineCacheKey(data, svgRasterMaxDim)
 	if png, pw, ph, ok := cache.get(key); ok {
@@ -55,7 +54,7 @@ func (e *engine) buildInlineSVG(node *html.Node, sty ResolvedStyle, posX, posY f
 		imgX := posX + borderL + padL
 		imgY := posY + borderT + padT
 		opStart := len(e.ops)
-		e.add((Op{ //nolint:exhaustruct // intentional zero fields
+		e.add((Op{
 			Kind: OpImage, X: imgX, Y: imgY, W: size.w, H: size.h,
 		}).withImage(ref.data, ref.w, ref.h, "").withImageRendering(sty.images().ImageRendering))
 		e.prependChrome(opStart, boxNode, &sty, posX, posY, boxNode.w, boxNode.height)
@@ -163,8 +162,6 @@ const maxPooledSerializeBytes = 64 << 10
 // svgSerializePool reuses serialize buffers across inline SVGs. Layout is
 // single-threaded per engine but engines run concurrently, so a pool (not an
 // engine field) owns the shared buffers.
-//
-//nolint:gochecknoglobals // shared buffer pool, reset on every Get
 var svgSerializePool = sync.Pool{New: func() any { return new(bytes.Buffer) }}
 
 // svgWrittenSet tracks serialized attribute names without a per-element map
@@ -305,7 +302,7 @@ func (e *engine) writeSVGNode(b *bytes.Buffer, node *html.Node, paint *svgPaintP
 		// cache keys on the serialized document, so a random order would let
 		// an unchanged element miss the cache on every pass. Keys sort in a
 		// stack array so the common small-attribute case allocates nothing.
-		nodeAttrs := node.EnsureAttrs()
+		nodeAttrs := node.AttrMap()
 		var keys [16]string
 		var sorted []string
 		if len(nodeAttrs) <= len(keys) {
@@ -797,8 +794,6 @@ func appendHexByte(dst []byte, b byte) []byte {
 
 // xmlEscaper escapes the five predefined XML entities. It is package level
 // because escapeXML runs once per serialized SVG node.
-//
-//nolint:gochecknoglobals // immutable escaper, safe to share
 var xmlEscaper = strings.NewReplacer(
 	`&`, "&amp;",
 	`<`, "&lt;",
@@ -817,7 +812,7 @@ func escapeXML(s string) string {
 // the element keeps a retained box.
 func (e *engine) collectInlineSVGItem(node *html.Node, sty ResolvedStyle, out *[]inlineItem) {
 	svgBox := e.buildInlineSVG(node, sty, 0, 0, false)
-	*out = append(*out, inlineItem{ //nolint:exhaustruct // intentional zero fields
+	*out = append(*out, inlineItem{
 		img: true, w: svgBox.w, h: svgBox.height, style: e.stylePtr(node),
 		imgRef:  svgBox.img,
 		svgBox:  svgBox,
@@ -1069,7 +1064,7 @@ func prepareSVGPaint(
 	if !cached {
 		var err error
 
-		png, width, height, err = svg.RasterizeContext(eng.rasterContext(), data, svgRasterMaxDim)
+		png, width, height, err = svg.RasterizeContext(ctx, data, svgRasterMaxDim)
 		if err != nil {
 			return nil, fmt.Errorf("layout: rasterize inline svg %q: %w", elementID, err)
 		}
@@ -1141,7 +1136,7 @@ func svgPaintElementResult(prev *Result, boxNode *box) *Result {
 	boxes := make([]*box, 0, 1)
 	flattenBoxes(subRoot, &boxes)
 
-	return &Result{ //nolint:exhaustruct // a subtree result keeps the zero fields
+	return &Result{
 		Ops:     prev.Ops[start : end+1],
 		Width:   prev.Width,
 		Height:  prev.Height,

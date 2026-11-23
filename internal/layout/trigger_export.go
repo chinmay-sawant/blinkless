@@ -87,7 +87,7 @@ func timelineScopeFromStyle(style *ResolvedStyle) TimelineScopeDef {
 	return TimelineScopeDef{
 		None:  false,
 		All:   false,
-		Names: splitParenArgs(style.Triggers.TimelineScope, ','),
+		Names: splitParenArgs(style.Triggers.TimelineScope),
 	}
 }
 
@@ -100,7 +100,7 @@ func timelineTriggersFromStyle(style *ResolvedStyle) []TimelineTriggerDef {
 	}
 
 	store := style.Triggers
-	names := splitParenArgs(store.TriggerName, ',')
+	names := splitParenArgs(store.TriggerName)
 	sources := triggerListOr(store.TriggerSource, triggerTimelineSourceDefault)
 	actStart := triggerListOr(store.ActivationStart, triggerKeywordNormal)
 	actEnd := triggerListOr(store.ActivationEnd, triggerKeywordNormal)
@@ -133,7 +133,7 @@ func triggerListOr(stored, initial string) []string {
 		return []string{initial}
 	}
 
-	return splitParenArgs(stored, ',')
+	return splitParenArgs(stored)
 }
 
 // decodeRangeEdge reads the stored encoding written by parseRangeEdge.
@@ -176,7 +176,7 @@ func eventTriggersFromStyle(style *ResolvedStyle) []EventTriggerDef {
 		return nil
 	}
 
-	names := splitParenArgs(style.Triggers.EventName, ',')
+	names := splitParenArgs(style.Triggers.EventName)
 	sources := triggerListOr(style.Triggers.EventSource, timelineNoneKeyword)
 
 	out := make([]EventTriggerDef, len(names))

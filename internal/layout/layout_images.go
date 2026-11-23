@@ -68,8 +68,6 @@ func (e *engine) imageContainingWidth() float64 {
 // finally max constraints while preserving the intrinsic aspect ratio for a
 // one-dimensional constraint. The same helper is used by block, inline,
 // float, and table intrinsic measurement paths.
-//
-//nolint:cyclop // image sizing applies ordered intrinsic, attribute, CSS, and max rules
 func (e *engine) usedImageSize(
 	node *html.Node, style ResolvedStyle, ref *imageRef,
 ) imageUsedSize {
@@ -378,7 +376,7 @@ func adjustedPaintImage(ref *imageRef, style ResolvedStyle) *imageRef {
 			return ref
 		}
 
-		return &imageRef{ //nolint:exhaustruct // paint-only copy, no crop cache
+		return &imageRef{
 			src: ref.src, data: data, w: cropRect.Dx(), h: cropRect.Dy(),
 		}
 	}
@@ -417,7 +415,7 @@ func orientedPaintImage(ref *imageRef, deg float64, mirror bool, cropRect image.
 
 	bounds := img.Bounds()
 
-	return &imageRef{ //nolint:exhaustruct // paint-only copy, no crop cache
+	return &imageRef{
 		src: ref.src, data: data, w: bounds.Dx(), h: bounds.Dy(),
 	}
 }
@@ -459,7 +457,6 @@ func (e *engine) buildImage(node *html.Node, sty ResolvedStyle, posX, posY float
 	return boxNode
 }
 
-//nolint:cyclop // replaced image layout with border, padding and thumbnail handling
 func (e *engine) paintReplacedImage(
 	boxNode *box, sty ResolvedStyle, posX, posY float64,
 	size imageUsedSize, thumbImg bool,
@@ -494,7 +491,7 @@ func (e *engine) paintReplacedImage(
 		return
 	}
 
-	e.add((Op{ //nolint:exhaustruct // intentional zero fields
+	e.add((Op{
 		Kind:   OpImage,
 		X:      fitX,
 		Y:      fitY,
@@ -600,7 +597,7 @@ func (e *engine) buildHR(n *html.Node, sty ResolvedStyle, availW, posX, posY flo
 	}
 
 	if boxNode.height > 0 {
-		e.add(Op{ //nolint:exhaustruct // intentional zero fields
+		e.add(Op{
 			Kind: OpFillRect, X: posX, Y: posY, W: boxNode.w, H: boxNode.height,
 			R: child[0], G: child[1], B: child[2],
 		})

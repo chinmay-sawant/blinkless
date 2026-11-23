@@ -19,10 +19,10 @@ import (
 //
 // ponytail: go-text OT shaping when GSUB available; manual Arabic/RTL fallback otherwise.
 var (
-	shaperPool = sync.Pool{ //nolint:gochecknoglobals // pooled shapers are immutable after init
+	shaperPool = sync.Pool{
 		New: func() any { return &shaping.HarfbuzzShaper{} },
 	}
-	segmenterPool = sync.Pool{ //nolint:gochecknoglobals // pooled segmenters are immutable after init
+	segmenterPool = sync.Pool{
 		New: func() any { return &shaping.Segmenter{} },
 	}
 )
@@ -133,7 +133,7 @@ func ShapeTextFontWithFeaturesLanguage(text string, fnt *Font, features []shapin
 // is Siyin Chin, and "plk", "sky", "srb" are other languages. Mapping first
 // selects the intended language system; other tags still flow through
 // language.NewLanguage, which lowercases and strips invalid bytes.
-var otLanguageTags = map[string]string{ //nolint:gochecknoglobals // immutable tag table
+var otLanguageTags = map[string]string{
 	"TRK": "tr", // Turkish
 	"SRB": "sr", // Serbian
 	"AZE": "az", // Azerbaijani
@@ -167,23 +167,23 @@ func shapingLanguageOverride(tag string) language.Language {
 
 func tryShapeOpenType(str string, fnt *Font, features []shaping.FontFeature, lang language.Language) (shapedRun, bool) {
 	if fnt == nil {
-		return shapedRun{}, false //nolint:exhaustruct // intentional zero-value fields
+		return shapedRun{}, false
 	}
 
 	// Bound one shaping run: layout shapes line-scoped text, so a run past
 	// this size is hostile input, and shaping work grows with run length.
 	if len(str) > maxShapeRunBytes {
-		return shapedRun{}, false //nolint:exhaustruct // intentional zero-value fields
+		return shapedRun{}, false
 	}
 	// GSUB covers Arabic ligation; halt/palt live in GPOS and are requested via
 	// FontFeatures, so allow the OT path when either applies.
 	if !fnt.hasGSUB() && len(features) == 0 {
-		return shapedRun{}, false //nolint:exhaustruct // intentional zero-value fields
+		return shapedRun{}, false
 	}
 
 	face, faceOK := fnt.gotextFace()
 	if !faceOK {
-		return shapedRun{}, false //nolint:exhaustruct // intentional zero-value fields
+		return shapedRun{}, false
 	}
 
 	rev := fnt.reverseCmap()
@@ -191,14 +191,14 @@ func tryShapeOpenType(str string, fnt *Font, features []shaping.FontFeature, lan
 
 	seg, segOK := segmenterPool.Get().(*shaping.Segmenter)
 	if !segOK {
-		return shapedRun{}, false //nolint:exhaustruct // intentional zero-value fields
+		return shapedRun{}, false
 	}
 
 	defer segmenterPool.Put(seg)
 
 	shaper, shaperOK := shaperPool.Get().(*shaping.HarfbuzzShaper)
 	if !shaperOK {
-		return shapedRun{}, false //nolint:exhaustruct // intentional zero-value fields
+		return shapedRun{}, false
 	}
 
 	defer shaperPool.Put(shaper)
@@ -210,7 +210,7 @@ func tryShapeOpenType(str string, fnt *Font, features []shaping.FontFeature, lan
 
 	outRunes, ok := collectShapedRunes(shaper, inputs, face, features, rev)
 	if !ok {
-		return shapedRun{}, false //nolint:exhaustruct // intentional zero-value fields
+		return shapedRun{}, false
 	}
 
 	return shapedRun{text: string(outRunes)}, true
@@ -222,7 +222,7 @@ func tryShapeOpenType(str string, fnt *Font, features []shaping.FontFeature, lan
 func shapingInput(
 	text []rune, face *gtfont.Face, features []shaping.FontFeature, lang language.Language,
 ) shaping.Input {
-	input := shaping.Input{ //nolint:exhaustruct // intentional zero-value fields
+	input := shaping.Input{
 		Text:         text,
 		RunStart:     0,
 		RunEnd:       len(text),
@@ -318,7 +318,7 @@ const cjkPunctThreshold = 0x3000
 
 // cjkPunctFeatures is the shared halt/palt feature list returned by
 // cjkPunctFontFeatures; consumers only read it.
-var cjkPunctFeatures = []shaping.FontFeature{ //nolint:gochecknoglobals // immutable feature list, never mutated
+var cjkPunctFeatures = []shaping.FontFeature{
 	{Tag: ot.MustNewTag("halt"), Value: 1},
 	{Tag: ot.MustNewTag("palt"), Value: 1},
 }
@@ -447,7 +447,7 @@ func parseFeatureCount(rest string) (uint32, bool) {
 		}
 	}
 
-	return uint32(count), true //nolint:gosec // count bounded by maxUint16Val above
+	return uint32(count), true
 }
 
 func parseOneFontFeature(part string) (ot.Tag, uint32, bool) {
@@ -536,7 +536,7 @@ func (f *Font) reverseCmap() map[uint16]rune {
 				continue
 			}
 
-			rVal := rune(cp)
+			rVal := rune(cp) //nolint:gosec // cmap keys are Unicode code points, at most 0x10FFFF
 			if prev, ok := out[gid]; ok {
 				rValScore, prevScore := cmapRuneScore(rVal), cmapRuneScore(prev)
 				if rValScore < prevScore || (rValScore == prevScore && rVal >= prev) {

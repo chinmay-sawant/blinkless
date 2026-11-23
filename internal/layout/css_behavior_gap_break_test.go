@@ -60,9 +60,10 @@ func checkRowRuleSegments(t *testing.T, res *Result, want ...[2]float64) {
 	}
 
 	for index, paintOp := range lines {
+		wantSeg := want[index] //nolint:gosec // len(lines) == len(want) is asserted above (G602 false positive)
 		got := [2]float64{paintOp.X / ptPerCSSPx, paintOp.W / ptPerCSSPx}
-		if !near(got[0], want[index][0]) || !near(got[1], want[index][1]) {
-			t.Fatalf("row rule segment %d = %v, want %v", index, got, want[index])
+		if !near(got[0], wantSeg[0]) || !near(got[1], wantSeg[1]) {
+			t.Fatalf("row rule segment %d = %v, want %v", index, got, wantSeg)
 		}
 	}
 }

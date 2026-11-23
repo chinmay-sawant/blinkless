@@ -57,9 +57,14 @@ var (
 	errCanvasZeroPixel = errors.New("svg canvas: zero pixel size")
 	errSVGTooLarge     = errors.New("svg: input exceeds byte limit")
 
-	// canvasMu serializes calls to tdewolff/canvas, which uses mutable package-level
+	// ErrNilContext is returned by RasterizeContext for a nil context.
+	ErrNilContext = errors.New("svg: nil context")
+
+	// canvasSem serializes calls to tdewolff/canvas, which uses mutable package-level
 	// globals in its path intersection algorithms (bentleyOttmann in path_intersection.go).
-	canvasMu sync.Mutex //nolint:gochecknoglobals // guards non-thread-safe tdewolff/canvas package globals
+	// It is a one-slot semaphore instead of a mutex so a waiter can give up on
+	// its context without polling.
+	canvasSem = make(chan struct{}, 1)
 )
 
 // Rasterize decodes SVG XML into a PNG image via tdewolff/canvas only. The
@@ -84,7 +89,7 @@ func Rasterize(data []byte, maxSide int) ([]byte, int, int, error) {
 // it has no cancel point. The mutex is released when Draw returns.
 func RasterizeContext(ctx context.Context, data []byte, maxSide int) ([]byte, int, int, error) {
 	if ctx == nil {
-		return nil, 0, 0, errNotSVG
+		return nil, 0, 0, ErrNilContext
 	}
 
 	if err := ctx.Err(); err != nil {
@@ -102,10 +107,18 @@ func RasterizeContext(ctx context.Context, data []byte, maxSide int) ([]byte, in
 	return rasterizeCanvas(ctx, data, maxSide)
 }
 
-// lockCanvas waits until the shared canvas mutex is free, the context ends,
-// or maxRasterLockWait elapses. TryLock avoids leaving a goroutine holding
-// the mutex after the caller has given up.
+// lockCanvas takes the canvas semaphore, or gives up when the context ends or
+// maxRasterLockWait elapses. A blocked select wakes exactly on release or
+// cancellation: no ticker, no 1 ms poll jitter, and no goroutine is left
+// holding the slot after the caller has given up.
 func lockCanvas(ctx context.Context) error {
+	// A free slot wins over an already-expired deadline race below.
+	select {
+	case canvasSem <- struct{}{}:
+		return nil
+	default:
+	}
+
 	wait := maxRasterLockWait
 	if deadline, ok := ctx.Deadline(); ok {
 		if remaining := time.Until(deadline); remaining < wait {
@@ -124,23 +137,18 @@ func lockCanvas(ctx context.Context) error {
 	timer := time.NewTimer(wait)
 	defer timer.Stop()
 
-	ticker := time.NewTicker(time.Millisecond)
-	defer ticker.Stop()
-
-	for {
-		if canvasMu.TryLock() {
-			return nil
-		}
-
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("svg raster: %w", ctx.Err())
-		case <-timer.C:
-			return errRasterBusy
-		case <-ticker.C:
-		}
+	select {
+	case canvasSem <- struct{}{}:
+		return nil
+	case <-ctx.Done():
+		return fmt.Errorf("svg raster: %w", ctx.Err())
+	case <-timer.C:
+		return errRasterBusy
 	}
 }
+
+// unlockCanvas releases the canvas semaphore taken by lockCanvas.
+func unlockCanvas() { <-canvasSem }
 
 // rasterizeCanvas uses tdewolff/canvas to parse SVG and rasterize to PNG.
 // Canvas stores sizes in millimeters (unitless root width/height may be
@@ -225,7 +233,6 @@ func (pool *svgPNGPool) Put(b *png.EncoderBuffer) {
 	pool.p.Put(b)
 }
 
-//nolint:gochecknoglobals // reusable PNG encoder buffer pools avoid per-SVG flate allocations
 var (
 	svgBestSpeedPNGEncoder = png.Encoder{
 		CompressionLevel: png.BestSpeed,
@@ -304,11 +311,10 @@ type rasterMemo struct {
 	bytes   int
 }
 
-//nolint:gochecknoglobals // cross-call raster memo, bounded by rasterMemoMaxEntries/Bytes
 var sharedRasterMemo = newRasterMemo()
 
 func newRasterMemo() *rasterMemo {
-	return &rasterMemo{ //nolint:exhaustruct // zero-value mutex, map, order, and counter are intentional
+	return &rasterMemo{
 		entries: make(map[rasterMemoKey]rasterMemoEntry),
 		order:   make([]rasterMemoKey, 0, rasterMemoMaxEntries),
 	}
@@ -381,18 +387,17 @@ func (memo *rasterMemo) put(key rasterMemoKey, encoded []byte, width, height int
 	memo.bytes += size
 }
 
-//nolint:nonamedreturns,cyclop // defer-recover must override the result values; SVG raster has inherent branches
 func rasterizeCanvas(ctx context.Context, data []byte, maxSide int) (pngBytes []byte, w, h int, err error) {
 	if err = lockCanvas(ctx); err != nil {
 		return nil, 0, 0, err
 	}
-	defer canvasMu.Unlock()
+	defer unlockCanvas()
 
 	if err = ctx.Err(); err != nil {
 		return nil, 0, 0, fmt.Errorf("svg raster: %w", err)
 	}
 
-	// Identical inputs skip draw and encode. The lookup stays under canvasMu
+	// Identical inputs skip draw and encode. The lookup stays under the canvas semaphore
 	// so lock-wait and deadline semantics never change: a caller that cannot
 	// take the lock still fails instead of being served a hit.
 	if memoPNG, memoW, memoH, ok := memoizedRaster(data, maxSide); ok {
@@ -413,7 +418,7 @@ func rasterizeCanvas(ctx context.Context, data []byte, maxSide int) (pngBytes []
 	data = emulateDroppedPresentation(emulatePresentation(data))
 	// Draw plain text as outlines from the bundled faces, then drop whatever
 	// is left before ParseSVG. canvas getFontFace calls LoadSystemFont while
-	// canvasMu is held, and a missing family panics.
+	// the canvas semaphore is held, and a missing family panics.
 	data = stripSVGTextElements(outlineSVGText(data))
 
 	svgCanvas, err := canvas.ParseSVG(bytes.NewReader(data))
@@ -480,8 +485,6 @@ func canvasDPMM(canvasW, canvasH float64, targetW, targetH int) float64 {
 // svgCSSPixelSize returns the target raster size in CSS pixels (capped by
 // maxSide), derived from the root SVG viewBox or width/height attributes.
 // Only the root element is scanned; no shape parsing.
-//
-//nolint:cyclop // pixel size scaling with bounds check
 func svgCSSPixelSize(data []byte, maxSide int) (int, int) {
 	viewW, viewH := rootSVGSize(data)
 	if math.IsNaN(viewW) || math.IsInf(viewW, 0) || viewW <= 0 {
@@ -824,14 +827,14 @@ func (s *emulateAttrScanner) next() (emulateAttr, bool) {
 	s.skipAttrSpace()
 
 	if s.pos >= s.end {
-		return emulateAttr{}, false //nolint:exhaustruct // zero value is the absent attribute
+		return emulateAttr{}, false
 	}
 
 	name, nameOK := s.scanAttrName()
 	if !nameOK {
 		s.pos++
 
-		return emulateAttr{}, false //nolint:exhaustruct // zero value is the absent attribute
+		return emulateAttr{}, false
 	}
 
 	s.skipAttrSpace()
@@ -839,14 +842,14 @@ func (s *emulateAttrScanner) next() (emulateAttr, bool) {
 	if !s.consumeByte('=') {
 		s.pos++
 
-		return emulateAttr{}, false //nolint:exhaustruct // zero value is the absent attribute
+		return emulateAttr{}, false
 	}
 
 	s.skipAttrSpace()
 
 	value, valueOK := s.scanAttrValue()
 	if !valueOK {
-		return emulateAttr{}, false //nolint:exhaustruct // zero value is the absent attribute
+		return emulateAttr{}, false
 	}
 
 	return emulateAttr{name: name, value: value}, true
@@ -1168,7 +1171,7 @@ func emulateParseStraightSubs(d string) ([][]emulatePathPoint, bool) {
 		return nil, false
 	}
 
-	parser := emulateSubParser{curSub: -1} //nolint:exhaustruct // zero subpaths accumulate below
+	parser := emulateSubParser{curSub: -1}
 
 	for idx, cmd := range cmds {
 		if !parser.apply(cmd, args[idx]) {
@@ -1283,7 +1286,7 @@ type emulatePathTokenizer struct {
 
 // emulateTokenizePath splits d into commands with their numeric arguments.
 func emulateTokenizePath(pathData string) ([]byte, [][]float64, bool) {
-	tokenizer := emulatePathTokenizer{d: pathData} //nolint:exhaustruct // position and buffers start empty
+	tokenizer := emulatePathTokenizer{d: pathData}
 
 	for tokenizer.pos < len(tokenizer.d) {
 		if !tokenizer.step() {

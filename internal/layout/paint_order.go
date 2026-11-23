@@ -291,7 +291,6 @@ func appendSortedPaintItems(ops []Op, items []paintOrderItem, out *[]int) {
 	}
 }
 
-//nolint:cyclop // compares z-index, position, and chrome layers
 func comparePaintOrder(ops []Op, left, right int) int {
 	leftOp, rightOp := &ops[left], &ops[right]
 

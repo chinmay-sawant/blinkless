@@ -44,13 +44,11 @@ func flexInvoiceScalePage(count int) string {
 }
 
 // flexInvoiceDisplay lays out the fixture once with the fast path on or
-// bypassed. The caller must not run these concurrently: the bypass is package
-// state.
+// bypassed. The bypass rides the context, so parallel runs never share it.
 func flexInvoiceDisplay(t *testing.T, rows int, bypass bool) *layout.Display {
 	t.Helper()
 
-	ilayout.SetSimpleFlexHeightBypassForTest(bypass)
-	t.Cleanup(func() { ilayout.SetSimpleFlexHeightBypassForTest(false) })
+	ctx := ilayout.WithTestConfig(t.Context(), ilayout.TestConfig{SimpleFlexHeightBypass: bypass})
 
 	tree, err := html.Parse([]byte(flexInvoiceScalePage(rows)))
 	if err != nil {
@@ -66,7 +64,7 @@ func flexInvoiceDisplay(t *testing.T, rows int, bypass bool) *layout.Display {
 		t.Fatalf("css: %v", err)
 	}
 
-	display, err := layout.DisplayList(t.Context(), styled)
+	display, err := layout.DisplayList(ctx, styled)
 	if err != nil {
 		t.Fatalf("display: %v", err)
 	}
@@ -77,8 +75,6 @@ func flexInvoiceDisplay(t *testing.T, rows int, bypass bool) *layout.Display {
 // TestFlexInvoiceHeightDifferential pins the public differential for the
 // benchmark fixture: the fast row height and the full noEmit measure produce
 // identical operations, boxes, and page height.
-//
-//nolint:paralleltest // flips the package bypass, so the test must run serially
 func TestFlexInvoiceHeightDifferential(t *testing.T) {
 	fast := flexInvoiceDisplay(t, 40, false)
 	plain := flexInvoiceDisplay(t, 40, true)
@@ -120,14 +116,13 @@ func BenchmarkFlexInvoiceHeight(b *testing.B) {
 	}
 
 	b.Run("fast", func(b *testing.B) {
-		ilayout.SetSimpleFlexHeightBypassForTest(false)
-		defer ilayout.SetSimpleFlexHeightBypassForTest(false)
+		ctx := ilayout.WithTestConfig(b.Context(), ilayout.TestConfig{SimpleFlexHeightBypass: false})
 
 		b.ReportAllocs()
 		b.ResetTimer()
 
 		for b.Loop() {
-			display, err := layout.DisplayList(b.Context(), styled)
+			display, err := layout.DisplayList(ctx, styled)
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -139,14 +134,13 @@ func BenchmarkFlexInvoiceHeight(b *testing.B) {
 	})
 
 	b.Run("bypass", func(b *testing.B) {
-		ilayout.SetSimpleFlexHeightBypassForTest(true)
-		defer ilayout.SetSimpleFlexHeightBypassForTest(false)
+		ctx := ilayout.WithTestConfig(b.Context(), ilayout.TestConfig{SimpleFlexHeightBypass: true})
 
 		b.ReportAllocs()
 		b.ResetTimer()
 
 		for b.Loop() {
-			display, err := layout.DisplayList(b.Context(), styled)
+			display, err := layout.DisplayList(ctx, styled)
 			if err != nil {
 				b.Fatal(err)
 			}

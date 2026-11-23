@@ -204,7 +204,6 @@ const (
 // declaredPropCount is the number of stored properties.
 const declaredPropCount = 61
 
-//nolint:gochecknoglobals // immutable cached property name list
 var cachedDeclaredPropNames = buildDeclaredPropNames()
 
 // declaredPropNames lists every stored property.
@@ -321,7 +320,6 @@ func declaredFragNames() []string {
 	}
 }
 
-//nolint:gochecknoglobals // immutable cached inherited property name list
 var cachedDeclaredInheritedNames = []string{
 	declPropCaretAnimation,
 	declPropCaretShape,

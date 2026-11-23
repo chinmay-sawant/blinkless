@@ -11,8 +11,6 @@ import (
 // block formatting contexts, which is correct for table-cell line collection
 // but makes a wrapper such as a section header measure only its eyebrow and
 // collapse the heading into a narrow column.
-//
-//nolint:cyclop,wsl // intrinsic flex measurement keeps the CSS cases together
 func (e *engine) measureFlexItemMaxContent(node *html.Node, style *ResolvedStyle) float64 {
 	if style.Display == displayFlex || style.Display == displayInlineFlex {
 		return e.flexIntrinsicWidth(node, style, false)
@@ -72,8 +70,6 @@ func (e *engine) measureFlexItemMaxContent(node *html.Node, style *ResolvedStyle
 // flexIntrinsicWidth returns the border-box width contribution of a flex
 // container. Row containers sum their item contributions; column containers
 // use the largest contribution because their items share the cross axis.
-//
-//nolint:cyclop,wsl // intrinsic flex contributions keep the row and column rules together
 func (e *engine) flexIntrinsicWidth(node *html.Node, style *ResolvedStyle, _ bool) float64 {
 	rowFlex := style.flex().FlexDirection != fxCol && style.flex().FlexDirection != fxColRev
 	chrome := e.scalePt(style.PaddingLeft) + e.scalePt(style.PaddingRight) +
@@ -115,7 +111,6 @@ func (e *engine) flexIntrinsicWidth(node *html.Node, style *ResolvedStyle, _ boo
 				continue
 			}
 			if run == nil {
-				//nolint:exhaustruct // zero fields are the flushed-line state
 				run = &cellMeasure{engine: e, em: style.FontSize, root: node}
 			}
 

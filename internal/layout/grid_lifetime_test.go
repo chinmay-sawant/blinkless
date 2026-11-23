@@ -8,7 +8,6 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
-//nolint:paralleltest // checks layout cache lifetime across garbage collection
 func TestGridIntrinsicsDoNotKeepReleasedTreesAlive(t *testing.T) {
 	probe := func() weak.Pointer[html.Node] {
 		root := mustParse(t, gridMemoNestedDoc)

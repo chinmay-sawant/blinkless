@@ -9,6 +9,7 @@ import (
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
 	"github.com/chinmay-sawant/blinkless/internal/html"
+	"github.com/chinmay-sawant/blinkless/internal/style"
 )
 
 // CSS keyword constants shared by the cascade (goconst).
@@ -231,11 +232,11 @@ func initialStyle() ResolvedStyle {
 // defaultTextStyle covers a text node without an element parent. Ordinary
 // text nodes reuse their parent's style because text has no declarations of
 // its own and the inline layout path only consumes inherited text properties.
-var defaultTextStyle = initialStyle() //nolint:gochecknoglobals // immutable text default
+var defaultTextStyle = initialStyle()
 
 // styleContext carries per-element resolution inputs.
 type styleContext struct {
-	ctx       context.Context //nolint:containedctx // resolver owns one bounded cancellation source.
+	ctx       context.Context
 	err       error
 	work      uint32
 	sheets    []*css.Stylesheet
@@ -261,10 +262,10 @@ type styleContext struct {
 	ruleHits []ruleHit
 	// ruleCands is the candidate selector buffer that feeds ruleHits. It is
 	// reused between sequential lookups like ruleHits.
-	ruleCands []ruleSel
+	ruleCands []style.RuleSel
 	// index narrows selector matching to rules that can match the node. It is
 	// built once per pass from sheets; a pass with no sheets leaves it nil.
-	index *ruleIndex
+	index *style.RuleIndex
 	// Cascade maps are reused between sequential element lookups. Their values
 	// are consumed before the next element is resolved.
 	cascadeWins  map[string]cascadeWin
@@ -361,7 +362,7 @@ func resolveStylesWithContext(
 func resolveStylesWithContextChunks(
 	ctx context.Context, root *html.Node, opts Options, containers map[*html.Node]sizeContainer,
 ) (map[*html.Node]*ResolvedStyle, [][]ResolvedStyle, error) {
-	sc := &styleContext{ //nolint:exhaustruct // intentional zero fields
+	sc := &styleContext{
 		ctx:                ctx,
 		sheets:             opts.Sheets,
 		properties:         registeredProperties(opts.Sheets),
@@ -387,7 +388,7 @@ func resolveStylesWithContextChunks(
 func resolveStyles(
 	root *html.Node, sheets []*css.Stylesheet, media string, viewportW, viewportH float64,
 ) map[*html.Node]*ResolvedStyle {
-	return resolveStylesWith(root, Options{ //nolint:exhaustruct // intentional zero fields
+	return resolveStylesWith(root, Options{
 		Sheets: sheets, Media: media, Width: viewportW, Height: viewportH,
 	}, nil)
 }
@@ -402,7 +403,7 @@ func resolveStylesWithContainers(
 	viewportW, viewportH float64, //nolint:unparam // test helper: viewport fixed per call site
 	containers map[*html.Node]sizeContainer,
 ) map[*html.Node]*ResolvedStyle {
-	return resolveStylesWith(root, Options{ //nolint:exhaustruct // intentional zero fields
+	return resolveStylesWith(root, Options{
 		Sheets: sheets, Media: media, Width: viewportW, Height: viewportH,
 	}, containers)
 }
@@ -414,7 +415,7 @@ func resolveStylesCtx(root *html.Node, ctx *styleContext) (map[*html.Node]*Resol
 	}
 
 	out := make(map[*html.Node]*ResolvedStyle, nodeCount)
-	store := styleStore{} //nolint:exhaustruct // intentional zero-value store
+	store := styleStore{}
 
 	var walk func(n *html.Node, parent *ResolvedStyle)
 	walk = func(node *html.Node, parent *ResolvedStyle) {
@@ -468,8 +469,6 @@ func resolveStylesCtx(root *html.Node, ctx *styleContext) (map[*html.Node]*Resol
 // countStyleNodes counts the nodes needed for the result map. ResolvedStyle
 // values are allocated lazily by styleStore, so an element count is no longer
 // needed to reserve one full style record per element.
-//
-//nolint:wsl // nil-root and recursive walk checks are explicit traversal gates.
 func countStyleNodesContext(ctx context.Context, root *html.Node) (int, error) {
 	nodeCount := 0
 	visited := 0
@@ -532,7 +531,6 @@ const (
 	maxStyleStoreChunksFree64 = 2
 )
 
-//nolint:gochecknoglobals // per-size free lists for styleStore backings
 var (
 	styleStoreChunkFree8  = make(chan *[]ResolvedStyle, maxStyleStoreChunksFree8)
 	styleStoreChunkFree32 = make(chan *[]ResolvedStyle, maxStyleStoreChunksFree32)
@@ -724,7 +722,7 @@ func (s *styleStore) newChunk() []ResolvedStyle {
 }
 
 // zeroResolvedStyle is the empty style for comment/doctype nodes (shared).
-var zeroResolvedStyle ResolvedStyle //nolint:gochecknoglobals // immutable zero sentinel
+var zeroResolvedStyle ResolvedStyle
 
 // applyRawToUsed turns a cascade raw map into a used ResolvedStyle. Element
 // and pseudo-element resolution share this sequence so neither path can skip
@@ -733,8 +731,6 @@ var zeroResolvedStyle ResolvedStyle //nolint:gochecknoglobals // immutable zero 
 // properties, resolveRawVars substitutes var() references, then the font,
 // remaining, and unitless line-height passes run. node is nil for generated
 // content (no html rem-base update).
-//
-//nolint:wsl // the raw-to-used sequence mirrors CSS inheritance order.
 func applyRawToUsed(
 	node *html.Node, ctx *styleContext, parent *ResolvedStyle, sty *ResolvedStyle, raw map[string]string,
 ) {

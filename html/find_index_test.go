@@ -7,6 +7,8 @@ import (
 	"sync"
 	"testing"
 	"weak"
+
+	ihtml "github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 func TestFindIndexParity(t *testing.T) {
@@ -200,4 +202,28 @@ func TestDocumentCollectibleAfterIndexAndDirtyUse(t *testing.T) {
 	}
 
 	t.Fatal("Document was not garbage-collected after Find, SetAttribute, SetText, and DirtyIDs")
+}
+
+// TestSetTextBumpsChildVersion pins the signal the sibling memo relies on.
+func TestSetTextBumpsChildVersion(t *testing.T) {
+	t.Parallel()
+
+	doc, err := Parse([]byte(`<div id="p"><span></span></div>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	box := doc.root.FindFirst(func(n *ihtml.Node) bool { return n.Name == "div" })
+	if box == nil {
+		t.Fatal("no div")
+	}
+
+	before := box.ChildVersion
+	if !doc.SetText("p", "x") {
+		t.Fatal("SetText failed")
+	}
+
+	if box.ChildVersion == before {
+		t.Fatal("SetText replaced the children without bumping ChildVersion")
+	}
 }

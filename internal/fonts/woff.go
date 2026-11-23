@@ -136,7 +136,6 @@ func decompressWOFFTables(data []byte, entries []woffEntry) ([][]byte, error) {
 			}
 
 			if int64(len(plain)) != int64(entry.orig) {
-				//nolint:err113 // dynamic values in message
 				return nil, fmt.Errorf("woff: table %q decompressed length %d != %d", entry.tag, len(plain), entry.orig)
 			}
 		} else {
@@ -165,7 +164,7 @@ func assembleSFNT(flavor uint32, entries []woffEntry, tables [][]byte) ([]byte, 
 		dataSize += uint64((len(t) + padMask3) &^ padMask3) //nolint:gosec // table sizes bounded by woffMaxTableLen
 	}
 
-	total := uint64(headerSize) + dataSize //nolint:gosec // headerSize is small
+	total := uint64(headerSize) + dataSize
 	if total > woffMaxSFNTSize || total > math.MaxInt32 {
 		return nil, errWOFFSFNTTooLarge
 	}

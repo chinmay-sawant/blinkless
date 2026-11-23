@@ -60,7 +60,6 @@ var (
 // document alive; clearing on overflow also bounds dead keys and fingerprints.
 const relayoutFingerprintCap = 1024
 
-//nolint:gochecknoglobals // fast-path fingerprint cache and test counters, mutex guarded and bounded
 var (
 	relayoutEngineCalls int64
 	relayoutFastHits    int64
@@ -165,7 +164,7 @@ func RelayoutElement(
 		if relayoutFingerprintHit(prev, doc, elementID, fingerprint) {
 			atomic.AddInt64(&relayoutFastHits, 1)
 
-			return &ElementPatch{Display: prev}, nil //nolint:exhaustruct // a no-op patch carries only the display
+			return &ElementPatch{Display: prev}, nil
 		}
 
 		cacheable = true
@@ -465,7 +464,7 @@ func spliceDisplayBoxes(boxes []Box, baseIdx, oldElem, newElem int) []Box {
 	boxes[baseIdx].Text = oldText
 
 	for idx := baseIdx + 1; idx < baseIdx+newElem; idx++ {
-		boxes[idx] = Box{ParentIndex: -1} //nolint:exhaustruct // filled by ApplySubtreeBoxPatches below
+		boxes[idx] = Box{ParentIndex: -1}
 	}
 
 	for idx := baseIdx + newElem; idx < len(boxes); idx++ {
@@ -625,7 +624,7 @@ func patchNewBounds(boxes []Box, elementID string) image.Rectangle {
 		return boxBounds(boxes[0])
 	}
 
-	return image.Rectangle{} //nolint:exhaustruct // the zero rectangle marks a missing element
+	return image.Rectangle{}
 }
 
 // patchOldBounds returns the border box of the element with the given id
@@ -649,7 +648,7 @@ func elementBox(boxes []Box, elementID string) (Box, bool) {
 		}
 	}
 
-	return Box{}, false //nolint:exhaustruct // the zero box marks a missing element
+	return Box{}, false
 }
 
 // boxBounds converts one element box to a rectangle in CSS pixels.
@@ -714,7 +713,7 @@ func writeRelayoutSubtree(builder *strings.Builder, node *ihtml.Node, useAttrs, 
 	builder.WriteString(node.Name)
 	builder.WriteByte(';')
 
-	nodeAttrs := node.EnsureAttrs()
+	nodeAttrs := node.AttrMap()
 	for _, name := range slices.Sorted(maps.Keys(nodeAttrs)) {
 		if !relayoutAttrRelevant(name, useAttrs, svg) {
 			continue
@@ -956,7 +955,7 @@ func relayoutInertOverridePatch(
 
 	atomic.AddInt64(&relayoutFastHits, 1)
 
-	return &ElementPatch{Display: prev}, true //nolint:exhaustruct // an inert patch carries only the display
+	return &ElementPatch{Display: prev}, true
 }
 
 // overrideInertForElement reports whether one override cannot change the

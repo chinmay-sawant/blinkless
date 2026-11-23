@@ -1,3 +1,8 @@
+> **ARCHIVED (2026-11-23).** This review rates the removed wkhtmltopdf-compatible
+> PDF/PNG renderer (`internal/convert`, `pdf`, `imageout`). Its scores, LOC
+> counts, and package list describe the August 2026 tree and are not current.
+> The active review is `plans/v0.1.6/go-review-hardening/`.
+
 # Critical Golang Architecture Review — blinkless
 
 **Current score: 8.6 / 10** · Pure-Go, zero-CGO wkhtmltopdf-compatible HTML→PDF/PNG renderer · Go 1.26 (toolchain 1.26.4)

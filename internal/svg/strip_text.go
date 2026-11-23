@@ -187,7 +187,6 @@ func svgTagKind(inner []byte) (int, []byte) {
 	}
 }
 
-//nolint:cyclop // close slash and self-close share one name scan
 func svgTagLocalName(data []byte, start, end int) (string, int) {
 	inner := data[start+1 : end]
 	if len(inner) == 0 {

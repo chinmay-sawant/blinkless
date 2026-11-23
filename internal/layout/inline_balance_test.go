@@ -78,13 +78,14 @@ func checkBalanceLines(t *testing.T, res *Result, want []inlineLine) {
 		t.Fatalf("got %d lines, want %d: %+v", len(got), len(want), got)
 	}
 
-	for idx := range got {
-		if got[idx].text != want[idx].text {
-			t.Errorf("line %d text = %q, want %q", idx, got[idx].text, want[idx].text)
+	for idx, gotLine := range got {
+		wantLine := want[idx] //nolint:gosec // len(got) == len(want) is asserted above (G602 false positive)
+		if gotLine.text != wantLine.text {
+			t.Errorf("line %d text = %q, want %q", idx, gotLine.text, wantLine.text)
 		}
 
-		if math.Abs(got[idx].w-want[idx].w) > 0.6 {
-			t.Errorf("line %d width = %.2fpt, want %.2fpt", idx, got[idx].w, want[idx].w)
+		if math.Abs(gotLine.w-wantLine.w) > 0.6 {
+			t.Errorf("line %d width = %.2fpt, want %.2fpt", idx, gotLine.w, wantLine.w)
 		}
 	}
 }

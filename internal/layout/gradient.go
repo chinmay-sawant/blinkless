@@ -1,4 +1,4 @@
-//nolint:varnamelen,funlen,cyclop,mnd,wsl,intrange,nlreturn,nestif,gocognit,gocritic,nonamedreturns // grad
+//nolint:gocritic // grad
 package layout
 
 import (
@@ -379,7 +379,7 @@ func parseGradientPosComponent(tok string) float64 {
 }
 
 func splitFunctionArgs(args string) []string {
-	return splitParenArgs(args, ',')
+	return splitParenArgs(args)
 }
 
 func sampleStops(stops []gradientStop, t float64) (r, g, b, a float64) {
@@ -505,7 +505,6 @@ func (pool *gradPNGPool) Put(b *png.EncoderBuffer) {
 	pool.p.Put(b)
 }
 
-//nolint:gochecknoglobals // global encoder buffer pools for rasterizing CSS gradients and layout bitmaps
 var (
 	fastPNGEncoder = png.Encoder{
 		CompressionLevel: png.BestSpeed,
@@ -530,11 +529,37 @@ type gradCacheVal struct {
 	ok   bool
 }
 
-//nolint:gochecknoglobals // global memoization cache for rasterized gradient textures
 var (
-	gradCacheMu sync.RWMutex
-	gradCache   = make(map[gradCacheKey]gradCacheVal, 256)
+	gradCacheMu    sync.RWMutex
+	gradCache      = make(map[gradCacheKey]gradCacheVal, 256)
+	gradCacheBytes int
 )
+
+const (
+	// maxGradCacheEntries and maxGradCacheBytes bound the rasterized gradient
+	// cache: 1024 entries of up to 512x512 PNGs would otherwise retain far
+	// more memory than the entry count suggests.
+	maxGradCacheEntries = 1024
+	// maxGradPooledBuf is the largest encode buffer returned to gradBufPool.
+	maxGradPooledBuf = 1 << 20
+)
+
+// gradCacheByteCap is the byte budget for retained gradient PNGs. It is a
+// variable only so tests can lower it.
+var gradCacheByteCap = 32 << 20
+
+// finiteFloats reports that every value is neither NaN nor infinite. NaN
+// compares false against everything, so it slips through range checks and
+// poisons map keys (NaN != NaN inserts an unreachable duplicate each call).
+func finiteFloats(values ...float64) bool {
+	for _, v := range values {
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return false
+		}
+	}
+
+	return true
+}
 
 func renderGradientPNG(raw string, width, height float64, current [3]float64) ([]byte, int, int, bool) {
 	return renderGradientPNGWithInterp(raw, width, height, current, "srgb")
@@ -547,7 +572,7 @@ func renderGradientPNG(raw string, width, height float64, current [3]float64) ([
 func renderGradientPNGWithInterp(
 	raw string, width, height float64, current [3]float64, interp string,
 ) ([]byte, int, int, bool) {
-	if width <= 0 || height <= 0 {
+	if !finiteFloats(width, height, current[0], current[1], current[2]) || width <= 0 || height <= 0 {
 		return nil, 0, 0, false
 	}
 
@@ -601,10 +626,18 @@ func renderGradientPNGWithInterp(
 
 	if ok && data != nil {
 		gradCacheMu.Lock()
-		if len(gradCache) > 1024 {
-			clear(gradCache)
+		if len(data) <= gradCacheByteCap/4 {
+			if _, dup := gradCache[key]; !dup {
+				if len(gradCache) >= maxGradCacheEntries || gradCacheBytes+len(data) > gradCacheByteCap {
+					clear(gradCache)
+
+					gradCacheBytes = 0
+				}
+
+				gradCache[key] = gradCacheVal{data: data, w: imgW, h: imgH, ok: ok}
+				gradCacheBytes += len(data)
+			}
 		}
-		gradCache[key] = gradCacheVal{data: data, w: imgW, h: imgH, ok: ok}
 		gradCacheMu.Unlock()
 	}
 
@@ -617,7 +650,6 @@ const (
 	maxRGBFloat    = 255.0
 )
 
-//nolint:gochecknoglobals // global buffer pool for PNG encoded bytes
 var gradBufPool = sync.Pool{
 	New: func() any {
 		return new(bytes.Buffer)
@@ -631,7 +663,13 @@ func encodeGradPNG(img image.Image) []byte {
 	}
 
 	buf.Reset()
-	defer gradBufPool.Put(buf)
+
+	defer func() {
+		// An outsized buffer would pin its capacity in the pool forever.
+		if buf.Cap() <= maxGradPooledBuf {
+			gradBufPool.Put(buf)
+		}
+	}()
 
 	if err := fastPNGEncoder.Encode(buf, img); err != nil {
 		return nil

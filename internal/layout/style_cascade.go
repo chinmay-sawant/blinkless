@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
 	"github.com/chinmay-sawant/blinkless/internal/html"
@@ -257,8 +258,6 @@ func registeredProperties(sheets []*css.Stylesheet) map[string]css.PropertyRule 
 // raw is cascade scratch owned by this pass (cascadeRaw/cascadePseudoRaw
 // output or a caller-local map): values carrying var() expand in place
 // instead of cloning the whole map when one value references a variable.
-//
-//nolint:cyclop // hot path; flat scan then expand of var() refs stays readable
 func resolveRawVars(raw map[string]string, customProps map[string]string) map[string]string {
 	if len(raw) == 0 {
 		return raw
@@ -378,20 +377,27 @@ type cascadeWin struct {
 // pure functions of the attribute text, so eviction only costs a re-parse.
 const maxInlineDeclEntries = 1024
 
+// maxInlineDeclKeyBytes skips caching one oversized style attribute and
+// maxInlineDeclBytes bounds the key bytes the whole cache retains.
+const (
+	maxInlineDeclKeyBytes = 16 << 10
+	maxInlineDeclBytes    = 1 << 20
+)
+
 // maxSupportsMemoEntries bounds the @supports verdict cache. Verdicts are
 // pure functions of (prop, value), so eviction only costs a re-probe.
 const maxSupportsMemoEntries = 4096
 
-//nolint:gochecknoglobals // pass-shared caches with test counters
 var (
 	inlineDeclsMu    sync.RWMutex
 	inlineDecls      = make(map[string][]css.Declaration)
 	inlineDeclParses uint64
+	inlineDeclBytes  int
 
 	supportsMemoMu     sync.RWMutex
-	supportsMemos      = make(map[string]bool)
+	supportsMemos      = make(map[declKey]bool)
 	supportsProbeEvals uint64
-	supportsProbeHits  uint64
+	supportsProbeHits  atomic.Uint64
 )
 
 // cachedInlineDecls returns the parsed declarations for one inline style
@@ -412,8 +418,18 @@ func cachedInlineDecls(style string) []css.Declaration {
 	if _, ok := inlineDecls[style]; !ok {
 		inlineDeclParses++
 
-		if len(inlineDecls) < maxInlineDeclEntries {
+		// A huge style attribute is parsed but never retained, and the
+		// retained key bytes are budgeted so 1024 big styles cannot pin
+		// megabytes forever.
+		if len(style) <= maxInlineDeclKeyBytes {
+			if len(inlineDecls) >= maxInlineDeclEntries || inlineDeclBytes+len(style) > maxInlineDeclBytes {
+				clear(inlineDecls)
+
+				inlineDeclBytes = 0
+			}
+
 			inlineDecls[style] = parsed
+			inlineDeclBytes += len(style)
 		}
 	}
 	inlineDeclsMu.Unlock()
@@ -428,12 +444,13 @@ func resetCascadeCachesForTest() {
 	inlineDeclsMu.Lock()
 	inlineDecls = make(map[string][]css.Declaration)
 	inlineDeclParses = 0
+	inlineDeclBytes = 0
 	inlineDeclsMu.Unlock()
 
 	supportsMemoMu.Lock()
-	supportsMemos = make(map[string]bool)
+	supportsMemos = make(map[declKey]bool)
 	supportsProbeEvals = 0
-	supportsProbeHits = 0
+	supportsProbeHits.Store(0)
 	supportsMemoMu.Unlock()
 }
 
@@ -451,7 +468,7 @@ func supportsProbeStatsForTest() (uint64, uint64) {
 	supportsMemoMu.RLock()
 	defer supportsMemoMu.RUnlock()
 
-	return supportsProbeEvals, supportsProbeHits
+	return supportsProbeEvals, supportsProbeHits.Load()
 }
 
 // cascadeRaw returns the winning declaration per property for the element
@@ -459,9 +476,7 @@ func supportsProbeStatsForTest() (uint64, uint64) {
 // attribute. Uses one winner map (value+spec+order+important) instead of six
 // maps. hits is the matched-rule list, passed in so the caller can reuse it as
 // the style memo key.
-//
-//nolint:cyclop // hot path; three fixed cascade tiers read clearer than one loop
-func cascadeRaw( //nolint:funlen // cascade tiers are deliberately visible in one hot-path function
+func cascadeRaw(
 	ctx *styleContext, node *html.Node, hits []ruleHit,
 ) map[string]string {
 	var wins map[string]cascadeWin
@@ -861,10 +876,10 @@ func fontPrefixDecl(lower string) (logicalPropDecl, bool) {
 		return logicalPropDecl{prop: "font-weight", val: lower}, true
 	case contentNormal, fontVariantCapsSmall, "condensed", "expanded",
 		"semi-condensed", "semi-expanded", "ultra-condensed", "ultra-expanded":
-		return logicalPropDecl{}, true //nolint:exhaustruct // intentional empty keyword position
+		return logicalPropDecl{}, true
 	}
 
-	return logicalPropDecl{}, false //nolint:exhaustruct // intentional empty keyword position
+	return logicalPropDecl{}, false
 }
 
 // isFontWeightNumber reports whether tok is a numeric font weight 100..900.
@@ -897,7 +912,6 @@ func expandLogicalBoxDeclaration(prop, value string) ([]logicalPropDecl, bool) {
 	return expandLogicalBorder(prop, value)
 }
 
-//nolint:cyclop,funlen // logical margin/padding mapping table
 func expandLogicalMarginPadding(prop, value string) ([]logicalPropDecl, bool) {
 	if prop == cssPropMarginInline || prop == cssPropMarginBlock ||
 		prop == "margin-inline-start" || prop == "margin-inline-end" ||
@@ -990,7 +1004,6 @@ func expandLogicalInset(prop, value string) ([]logicalPropDecl, bool) {
 	}
 }
 
-//nolint:cyclop,funlen // logical border mapping table
 func expandLogicalBorder(prop, value string) ([]logicalPropDecl, bool) {
 	switch prop {
 	case cssPropBorderBlock:
@@ -1276,7 +1289,7 @@ func resolveFontWeight(current int, val string) int {
 // restShorthandProps are applied before other cascaded properties so a winning
 // longhand (e.g. margin-bottom) always overrides its shorthand (margin).
 // Package-level to avoid per-node slice/array rebuilds.
-var restShorthandProps = [...]string{ //nolint:gochecknoglobals // static apply order
+var restShorthandProps = [...]string{
 	"display", "writing-mode", "direction", marginProperty, paddingProperty, borderProperty, borderTopProperty,
 	borderRightProperty, borderBottomProperty, borderLeftProperty,
 	borderWidthKeyword, borderStyleKeyword,
@@ -1292,7 +1305,7 @@ var restShorthandProps = [...]string{ //nolint:gochecknoglobals // static apply 
 // restShorthandSet is derived from restShorthandProps so the longhand pass
 // exclusion cannot drift from the ordered shorthand pass (display used to be
 // missing from the hand-written switch and was applied twice).
-var restShorthandSet = func() map[string]struct{} { //nolint:gochecknoglobals // derived from the apply table
+var restShorthandSet = func() map[string]struct{} {
 	set := make(map[string]struct{}, len(restShorthandProps))
 
 	for _, prop := range restShorthandProps {
@@ -1382,7 +1395,7 @@ type styleGroupFn func(
 
 // styleGroups is the dispatch order for applyStyleProp. It is package-level
 // so applyStyleProp does not rebuild the table for every cascaded property.
-var styleGroups = [...]styleGroupFn{ //nolint:gochecknoglobals // static dispatch table
+var styleGroups = [...]styleGroupFn{
 	applyDisplayGroup,
 	applyPositionGroup,
 	applyAnchorProps,
@@ -1667,8 +1680,6 @@ func normalizeWebkitMaskSharedProperty(prop string) (string, bool) {
 }
 
 // applyStyleProp routes one cascaded property to the group that owns it.
-//
-//nolint:wsl // branching on effectiveProp
 func applyStyleProp(
 	style *ResolvedStyle, prop, value string, fsize float64, ctx *styleContext,
 	parent *ResolvedStyle, hasParent bool,
@@ -1704,16 +1715,14 @@ func engineSupportsProperty(prop, value string) bool {
 		return true
 	}
 
-	key := prop + "\x00" + value
+	key := declKey{prop: prop, value: value}
 
 	supportsMemoMu.RLock()
 	verdict, ok := supportsMemos[key]
 	supportsMemoMu.RUnlock()
 
 	if ok {
-		supportsMemoMu.Lock()
-		supportsProbeHits++
-		supportsMemoMu.Unlock()
+		supportsProbeHits.Add(1)
 
 		return verdict
 	}
@@ -1722,9 +1731,11 @@ func engineSupportsProperty(prop, value string) bool {
 
 	supportsMemoMu.Lock()
 	if _, ok := supportsMemos[key]; !ok {
-		if len(supportsMemos) < maxSupportsMemoEntries {
-			supportsMemos[key] = verdict
+		if len(supportsMemos) >= maxSupportsMemoEntries {
+			clear(supportsMemos)
 		}
+
+		supportsMemos[key] = verdict
 
 		supportsProbeEvals++
 	}
@@ -1749,7 +1760,7 @@ func engineSupportsPropertyUncached(prop, value string) bool {
 
 	var scratch ResolvedStyle
 
-	scratchCtx := styleContext{} //nolint:exhaustruct // zero values model the @supports probe context
+	scratchCtx := styleContext{}
 
 	for _, group := range styleGroups {
 		if group(&scratch, effectiveProp, effectiveValue, 0, &scratchCtx, nil, false) {
@@ -1760,7 +1771,6 @@ func engineSupportsPropertyUncached(prop, value string) bool {
 	return false
 }
 
-//nolint:cyclop,wsl,nlreturn,funlen // 2009 box value remaps
 func remapWebkitValue(prop, value string) string {
 	trimmed := strings.TrimSpace(value)
 	low := strings.ToLower(trimmed)

@@ -11,7 +11,7 @@ These notes describe the engine as it is now. There is no PDF writer and no page
 | [05-html-parser.md](05-html-parser.md) | HTML tree |
 | [06-css.md](06-css.md) | Stylesheets |
 | [07-layout.md](07-layout.md) | Boxes and drawing operations |
-| [08-convert-pipeline.md](08-convert-pipeline.md) | Prepare and the render lifecycle |
+| [08-convert-pipeline.md](08-convert-pipeline.md) | Prepare phase |
 | [10-imageout-svg.md](10-imageout-svg.md) | SVG images and the image-op fallback |
 
 The one-page map is [../architecture.md](../architecture.md).

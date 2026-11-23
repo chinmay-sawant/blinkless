@@ -39,18 +39,6 @@ func TestRequestMetadataCaps(t *testing.T) {
 	if _, err := loader.Load(t.Context(), srv.URL, pageLoad); err == nil {
 		t.Fatal("over-limit custom headers must be rejected")
 	}
-
-	cookies := map[string]string{}
-	for i := range load.MaxCookies + 1 {
-		cookies["c"+strconv.Itoa(i)] = "v"
-	}
-
-	pageLoad = defaultLP()
-	pageLoad.Cookies = cookies
-
-	if _, err := loader.Load(t.Context(), srv.URL, pageLoad); err == nil {
-		t.Fatal("over-limit cookies must be rejected")
-	}
 }
 
 // TestRangeMismatch proves a 206 response whose Content-Length disagrees

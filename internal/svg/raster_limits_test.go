@@ -10,10 +10,9 @@ import (
 	"time"
 )
 
-//nolint:paralleltest // this test holds the package canvas mutex
 func TestRasterizeContextStopsWaitingForMutex(t *testing.T) {
-	canvasMu.Lock()
-	t.Cleanup(canvasMu.Unlock)
+	canvasSem <- struct{}{}
+	t.Cleanup(unlockCanvas)
 
 	ctx, cancel := context.WithTimeout(t.Context(), 40*time.Millisecond)
 	t.Cleanup(cancel)
@@ -28,6 +27,41 @@ func TestRasterizeContextStopsWaitingForMutex(t *testing.T) {
 
 	if time.Since(started) > time.Second {
 		t.Fatal("mutex wait ignored the caller deadline")
+	}
+}
+
+func TestRasterizeContextNilContext(t *testing.T) {
+	t.Parallel()
+
+	//nolint:staticcheck // a nil context is exactly what this test passes
+	_, _, _, err := RasterizeContext(nil, []byte(`<svg xmlns="http://www.w3.org/2000/svg"/>`), 16)
+	if !errors.Is(err, ErrNilContext) {
+		t.Fatalf("error = %v, want ErrNilContext", err)
+	}
+}
+
+func TestLockCanvasCancelWakesImmediately(t *testing.T) {
+	canvasSem <- struct{}{}
+	t.Cleanup(unlockCanvas)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	errc := make(chan error, 1)
+
+	go func() { errc <- lockCanvas(ctx) }()
+
+	time.Sleep(20 * time.Millisecond)
+
+	started := time.Now()
+
+	cancel()
+
+	err := <-errc
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("error = %v, want context.Canceled", err)
+	}
+
+	if time.Since(started) > 500*time.Millisecond {
+		t.Fatal("cancellation woke the waiter slowly")
 	}
 }
 

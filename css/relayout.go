@@ -47,6 +47,26 @@ func Relayout(
 		return nil, err
 	}
 
+	// State-only change (focus, hover, active) at the same viewport over an
+	// untouched tree: sheet collection depends on width, height, media and the
+	// tree alone, so the collected sheets and font registry stay valid. This
+	// skips the loader, the DOM walk, and the media re-gating.
+	if doc.widthPx == width && doc.heightPx == height && doc.version == doc.root.MutationVersion {
+		return &Document{
+			root:     doc.root,
+			sheets:   doc.sheets,
+			registry: doc.registry,
+			media:    kind,
+			widthPx:  width,
+			heightPx: height,
+			state:    icss.MatchState{Focus: focus, Hover: hover, Active: active},
+			extra:    doc.extra,
+			cache:    doc.cache,
+			version:  doc.version,
+			states:   doc.states,
+		}, nil
+	}
+
 	opts := Options{
 		WidthPx:  width,
 		HeightPx: height,
@@ -72,5 +92,17 @@ func Relayout(
 		state:    icss.MatchState{Focus: focus, Hover: hover, Active: active},
 		extra:    doc.extra,
 		cache:    doc.cache,
+		version:  doc.root.MutationVersion,
+		states:   statesFor(sheets, doc),
 	}, nil
+}
+
+// statesFor reuses prev's state-pseudo memo when the collected sheets are the
+// same objects, so a viewport relayout that changed nothing keeps the scan.
+func statesFor(sheets []*icss.Stylesheet, prev *Document) *statePseudoMemo {
+	if prev.states != nil && sameSheets(sheets, prev.sheets) {
+		return prev.states
+	}
+
+	return new(statePseudoMemo)
 }

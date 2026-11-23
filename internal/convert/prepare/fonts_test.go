@@ -189,7 +189,7 @@ func TestFetchFontFaceTransformedWOFF2Rejected(t *testing.T) {
 
 // knownTagIndex covers a few WOFF2 known-tag indices so the builder exercises
 // both directory encodings. The remaining tables use the escape tag.
-var knownTagIndex = map[string]byte{ //nolint:gochecknoglobals // test vocabulary
+var knownTagIndex = map[string]byte{
 	"head": 1, "hhea": 2, "hmtx": 3, "glyf": 10, "loca": 11,
 }
 
@@ -295,8 +295,8 @@ func woff2Header(t *testing.T, flavor uint32, numTables uint16, sfntLen, dirLen,
 	binary.BigEndian.PutUint32(header[4:8], flavor)
 	binary.BigEndian.PutUint32(header[8:12], uint32(total)) //nolint:gosec // bounded by the math.MaxUint32 check above
 	binary.BigEndian.PutUint16(header[12:14], numTables)
-	binary.BigEndian.PutUint32(header[16:20], uint32(sfntLen)) //nolint:gosec // bounded by the math.MaxUint32 check above
-	binary.BigEndian.PutUint32(header[20:24], uint32(compressedLen))
+	binary.BigEndian.PutUint32(header[16:20], uint32(sfntLen))       //nolint:gosec // bounded by the math.MaxUint32 check above
+	binary.BigEndian.PutUint32(header[20:24], uint32(compressedLen)) //nolint:gosec // synthetic test font; the compressed length is far below MaxUint32
 	binary.BigEndian.PutUint16(header[24:26], 1)
 
 	return header

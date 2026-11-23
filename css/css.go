@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/chinmay-sawant/blinkless/html"
@@ -26,7 +27,7 @@ const cssPxToPt = 0.75
 var _ = pubstate.RegisterStyled(func(doc any) (pubstate.Styled, bool) {
 	styled, ok := doc.(*Document)
 	if !ok || styled == nil || styled.root == nil {
-		return pubstate.Styled{}, false //nolint:exhaustruct // the document is not styled
+		return pubstate.Styled{}, false
 	}
 
 	return pubstate.Styled{
@@ -61,6 +62,12 @@ type Document struct {
 	// cache keeps the parsed <style>, <link>, and @import sheets so Relayout
 	// can skip parsing and fetching.
 	cache *prepare.SheetCache
+	// version is the tree's MutationVersion when sheets were collected. A
+	// state-only Relayout reuses sheets and registry while it still matches.
+	version uint64
+	// states memoizes UsesStatePseudo for sheets; documents that share the
+	// same sheets share it.
+	states *statePseudoMemo
 }
 
 // Options selects the viewport and any stylesheets beyond the document.
@@ -123,6 +130,11 @@ func Apply(ctx context.Context, doc *html.Document, opts Options) (*Document, er
 		return nil, errUnreadable
 	}
 
+	// The Document outlives the call and Relayout re-appends Extra, so it must
+	// not alias the caller's slice: a later append or element edit by the
+	// caller would change every future relayout.
+	opts.Extra = slices.Clone(opts.Extra)
+
 	cache := prepare.NewSheetCache()
 
 	sheets, registry, err := collect(ctx, root, opts, kind, media, cache, nil)
@@ -140,6 +152,8 @@ func Apply(ctx context.Context, doc *html.Document, opts Options) (*Document, er
 		state:    icss.MatchState{Focus: opts.Focus, Hover: opts.Hover, Active: opts.Active},
 		extra:    opts.Extra,
 		cache:    cache,
+		version:  root.MutationVersion,
+		states:   new(statePseudoMemo),
 	}, nil
 }
 
@@ -163,15 +177,14 @@ func collect(
 	cache *prepare.SheetCache,
 	prev *Document,
 ) ([]*icss.Stylesheet, *pdf.Registry, error) {
-	global := settings.DefaultPdfGlobal()
-	global.Web.MediaType = media
-
-	loader, err := load.NewLoaderWithError(global.Load)
+	// Style sheets, fonts, and images load with the loader's default limits:
+	// no cookies, POST data, proxy, or custom headers. Only the media type
+	// below reaches the load page.
+	loader, err := load.NewLoaderWithError(settings.LoadGlobal{})
 	if err != nil {
 		return nil, nil, fmt.Errorf("css: loader: %w", err)
 	}
 
-	//nolint:exhaustruct // media is the only load input sheet collection uses
 	page := settings.LoadPage{MediaType: media}
 	resources := prepare.NewResourceContext(loader, "inline", page)
 	sheetOpts := prepare.SheetOptions{

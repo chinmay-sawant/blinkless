@@ -1,4 +1,3 @@
-//nolint:cyclop,mnd,varnamelen,wsl // EXIF and image metadata byte parsers
 package layout
 
 import (

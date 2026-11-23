@@ -61,12 +61,12 @@ func gridMeasureBits(value float64) (uint64, bool) {
 // width, height basis, or image clamp, and that measurement runs uncached.
 func gridPrefHKey(eng *engine, node *html.Node, width float64) (gridMeasureKey, bool) {
 	if eng == nil || node == nil {
-		return gridMeasureKey{}, false //nolint:exhaustruct // zero key means uncacheable
+		return gridMeasureKey{}, false
 	}
 
 	widthBits, valid := gridMeasureBits(width)
 	if !valid {
-		return gridMeasureKey{}, false //nolint:exhaustruct // zero key means uncacheable
+		return gridMeasureKey{}, false
 	}
 
 	var cbBits uint64
@@ -77,13 +77,13 @@ func gridPrefHKey(eng *engine, node *html.Node, width float64) (gridMeasureKey, 
 		var cbValid bool
 
 		if cbBits, cbValid = gridMeasureBits(*eng.flowCBHeight); !cbValid {
-			return gridMeasureKey{}, false //nolint:exhaustruct // zero key means uncacheable
+			return gridMeasureKey{}, false
 		}
 	}
 
 	imgMaxBits, valid := gridMeasureBits(eng.imgMaxW)
 	if !valid {
-		return gridMeasureKey{}, false //nolint:exhaustruct // zero key means uncacheable
+		return gridMeasureKey{}, false
 	}
 
 	key := gridMeasureKey{

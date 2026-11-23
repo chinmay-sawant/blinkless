@@ -1,4 +1,3 @@
-//nolint:all // targeted unit tests for font prop cascade wiring
 package layout
 
 import (

@@ -43,12 +43,12 @@ type emulateLighting struct {
 // feDiffuseLighting and one feDistantLight.
 func emulateLightingFilter(prims []string, filterAttrs, diffuse, distant map[string]string) (emulateLighting, bool) {
 	if len(prims) != 2 || prims[0] != "fediffuselighting" || prims[1] != "fedistantlight" {
-		return emulateLighting{}, false //nolint:exhaustruct // zero value on reject
+		return emulateLighting{}, false
 	}
 
 	color, ok := parseLightColor(lightingColorOf(diffuse))
 	if !ok {
-		return emulateLighting{}, false //nolint:exhaustruct // zero value on reject
+		return emulateLighting{}, false
 	}
 
 	light := emulateLighting{
@@ -61,7 +61,7 @@ func emulateLightingFilter(prims []string, filterAttrs, diffuse, distant map[str
 	}
 
 	if light.diffuse < 0 || light.surfaceScale < 0 {
-		return emulateLighting{}, false //nolint:exhaustruct // zero value on reject
+		return emulateLighting{}, false
 	}
 
 	return light, true
@@ -103,7 +103,7 @@ func lightNumber(raw string, fallback float64) float64 {
 // shade returns the color of a point whose alpha gradient is (gradX, gradY)
 // pixels. (0, 0) is the flat interior.
 func (l emulateLighting) shade(gradX, gradY float64) string {
-	azimuth, elevation := l.azimuth*math.Pi/180, l.elevation*math.Pi/180 //nolint:mnd // degrees
+	azimuth, elevation := l.azimuth*math.Pi/180, l.elevation*math.Pi/180
 	flat := math.Cos(elevation)
 	lightX, lightY, lightZ := math.Cos(azimuth)*flat, math.Sin(azimuth)*flat, math.Sin(elevation)
 
@@ -123,18 +123,18 @@ func (l emulateLighting) shade(gradX, gradY float64) string {
 			value = linearToSRGB(value)
 		}
 
-		rgb[channel] = int(math.Round(value * 255)) //nolint:mnd // byte range
+		rgb[channel] = int(math.Round(value * 255))
 	}
 
 	return "rgb(" + strconv.Itoa(rgb[0]) + "," + strconv.Itoa(rgb[1]) + "," + strconv.Itoa(rgb[2]) + ")"
 }
 
 func linearToSRGB(value float64) float64 {
-	if value <= 0.0031308 { //nolint:mnd // sRGB transfer constant
-		return value * 12.92 //nolint:mnd // sRGB transfer constant
+	if value <= 0.0031308 {
+		return value * 12.92
 	}
 
-	return 1.055*math.Pow(value, 1/2.4) - 0.055 //nolint:mnd // sRGB transfer constants
+	return 1.055*math.Pow(value, 1/2.4) - 0.055
 }
 
 // emulateLitShape draws the lit region of one shape: a rect over the filter
@@ -190,7 +190,7 @@ func parseLightColor(raw string) ([3]float64, bool) {
 
 	if body, ok := strings.CutPrefix(raw, "rgb("); ok && strings.HasSuffix(body, ")") {
 		parts := strings.Split(strings.TrimSuffix(body, ")"), ",")
-		if len(parts) != 3 { //nolint:mnd // r, g, b
+		if len(parts) != 3 {
 			return [3]float64{}, false
 		}
 
@@ -202,7 +202,7 @@ func parseLightColor(raw string) ([3]float64, bool) {
 				return [3]float64{}, false
 			}
 
-			out[index] = math.Min(math.Max(value, 0), 255) / 255 //nolint:mnd // byte range
+			out[index] = math.Min(math.Max(value, 0), 255) / 255
 		}
 
 		return out, true
@@ -219,11 +219,11 @@ func parseLightColor(raw string) ([3]float64, bool) {
 }
 
 func parseHexColor(hexColor string) ([3]float64, bool) {
-	if len(hexColor) == 3 { //nolint:mnd // #rgb
+	if len(hexColor) == 3 {
 		hexColor = string([]byte{hexColor[0], hexColor[0], hexColor[1], hexColor[1], hexColor[2], hexColor[2]})
 	}
 
-	if len(hexColor) != 6 { //nolint:mnd // #rrggbb
+	if len(hexColor) != 6 {
 		return [3]float64{}, false
 	}
 
@@ -235,7 +235,7 @@ func parseHexColor(hexColor string) ([3]float64, bool) {
 			return [3]float64{}, false
 		}
 
-		out[index] = float64(value) / 255 //nolint:mnd // byte range
+		out[index] = float64(value) / 255
 	}
 
 	return out, true

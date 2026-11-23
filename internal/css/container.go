@@ -202,7 +202,7 @@ func ParseContainerShorthand(value string) (string, string) {
 	if hasSlash {
 		t := strings.ToLower(strings.TrimSpace(typePart))
 		switch t {
-		case "normal", "size", featInlineSize: //nolint:goconst // CSS keyword is documented here
+		case "normal", "size", featInlineSize:
 			ctype = t
 		}
 	}
@@ -214,14 +214,14 @@ func ParseContainerShorthand(value string) (string, string) {
 func parseContainerPrelude(prelude string) (ContainerQuery, bool) {
 	prelude = strings.TrimSpace(prelude)
 	if prelude == "" {
-		return ContainerQuery{}, false //nolint:exhaustruct // intentional zero-value fields
+		return ContainerQuery{}, false
 	}
 
 	name, rest := parseContainerPreludeName(prelude)
 
 	cond, ok := parseContainerCond(rest)
 	if !ok {
-		return ContainerQuery{}, false //nolint:exhaustruct // intentional zero-value fields
+		return ContainerQuery{}, false
 	}
 
 	return ContainerQuery{Name: name, Cond: cond}, true
@@ -305,16 +305,16 @@ func parseContainerCond(str string) (ContainerCond, bool) {
 // enforces).
 func parseContainerCondDepth(str string, depth int) (ContainerCond, bool) {
 	if depth > maxParseDepth {
-		return ContainerCond{}, false //nolint:exhaustruct // intentional zero-value fields
+		return ContainerCond{}, false
 	}
 
 	str = strings.TrimSpace(str)
 	if str == "" {
-		return ContainerCond{}, false //nolint:exhaustruct // intentional zero-value fields
+		return ContainerCond{}, false
 	}
 
 	if containsTopLevelKeyword(str, condKindAnd) && containsTopLevelKeyword(str, condKindOr) {
-		return ContainerCond{}, false //nolint:exhaustruct // and/or cannot mix at one level
+		return ContainerCond{}, false
 	}
 
 	return parseOrCond(str, depth)
@@ -323,7 +323,7 @@ func parseContainerCondDepth(str string, depth int) (ContainerCond, bool) {
 func parseOrCond(s string, depth int) (ContainerCond, bool) {
 	parts, ok := splitCondKeyword(s, "or")
 	if !ok {
-		return ContainerCond{}, false //nolint:exhaustruct // intentional zero-value fields
+		return ContainerCond{}, false
 	}
 
 	if len(parts) == 1 {
@@ -335,19 +335,19 @@ func parseOrCond(s string, depth int) (ContainerCond, bool) {
 	for _, p := range parts {
 		c, ok := parseAndCond(p, depth)
 		if !ok {
-			return ContainerCond{}, false //nolint:exhaustruct // intentional zero-value fields
+			return ContainerCond{}, false
 		}
 
 		kids = append(kids, c)
 	}
 
-	return ContainerCond{Kind: "or", Kids: kids}, true //nolint:exhaustruct // intentional zero-value fields
+	return ContainerCond{Kind: "or", Kids: kids}, true
 }
 
 func parseAndCond(s string, depth int) (ContainerCond, bool) {
 	parts, ok := splitCondKeyword(s, condKindAnd)
 	if !ok {
-		return ContainerCond{}, false //nolint:exhaustruct // intentional zero-value fields
+		return ContainerCond{}, false
 	}
 
 	if len(parts) == 1 {
@@ -359,18 +359,18 @@ func parseAndCond(s string, depth int) (ContainerCond, bool) {
 	for _, p := range parts {
 		c, ok := parseNotCond(p, depth)
 		if !ok {
-			return ContainerCond{}, false //nolint:exhaustruct // intentional zero-value fields
+			return ContainerCond{}, false
 		}
 
 		kids = append(kids, c)
 	}
 
-	return ContainerCond{Kind: condKindAnd, Kids: kids}, true //nolint:exhaustruct // intentional zero-value fields
+	return ContainerCond{Kind: condKindAnd, Kids: kids}, true
 }
 
 func parseNotCond(str string, depth int) (ContainerCond, bool) {
 	if depth > maxParseDepth {
-		return ContainerCond{}, false //nolint:exhaustruct // intentional zero-value fields
+		return ContainerCond{}, false
 	}
 
 	str = strings.TrimSpace(str)
@@ -379,16 +379,16 @@ func parseNotCond(str string, depth int) (ContainerCond, bool) {
 	if strings.HasPrefix(low, condKindNot) && condKeywordBoundary(low, len(condKindNot)) {
 		rest := strings.TrimSpace(str[3:])
 		if rest == "" {
-			return ContainerCond{}, false //nolint:exhaustruct // intentional zero-value fields
+			return ContainerCond{}, false
 		}
 		// "not (...)" or "not <cond>"
 		inner, ok := parseNotCond(rest, depth+1)
 		if !ok {
-			return ContainerCond{}, false //nolint:exhaustruct // intentional zero-value fields
+			return ContainerCond{}, false
 		}
 
 		kids := []ContainerCond{inner}
-		cond := ContainerCond{Kind: condKindNot, Kids: kids} //nolint:exhaustruct // intentional zero-value fields
+		cond := ContainerCond{Kind: condKindNot, Kids: kids}
 
 		return cond, true
 	}
@@ -399,12 +399,12 @@ func parseNotCond(str string, depth int) (ContainerCond, bool) {
 func parseParenOrFeat(str string, depth int) (ContainerCond, bool) {
 	str = strings.TrimSpace(str)
 	if !strings.HasPrefix(str, "(") {
-		return ContainerCond{}, false //nolint:exhaustruct // intentional zero-value fields
+		return ContainerCond{}, false
 	}
 
 	found, rest, okVal := takeParen(str)
 	if !okVal || strings.TrimSpace(rest) != "" {
-		return ContainerCond{}, false //nolint:exhaustruct // intentional zero-value fields
+		return ContainerCond{}, false
 	}
 
 	found = strings.TrimSpace(found)
@@ -419,10 +419,10 @@ func parseParenOrFeat(str string, depth int) (ContainerCond, bool) {
 	// Reject unsupported container axes before building boolean conditions:
 	// negating a height feature must not turn an unsupported query into true.
 	if !okVal || !isContainerSizeFeature(feat.Name) {
-		return ContainerCond{}, false //nolint:exhaustruct // intentional zero-value fields
+		return ContainerCond{}, false
 	}
 
-	return ContainerCond{Kind: condKindFeat, Feat: &feat}, true //nolint:exhaustruct // intentional zero-value fields
+	return ContainerCond{Kind: condKindFeat, Feat: &feat}, true
 }
 
 func isContainerSizeFeature(name string) bool {
@@ -556,7 +556,7 @@ func containsTopLevelKeyword(s, kw string) bool {
 func parseSizeFeature(inner string) (SizeFeature, bool) {
 	inner = strings.TrimSpace(inner)
 	if inner == "" {
-		return SizeFeature{}, false //nolint:exhaustruct // intentional zero-value fields
+		return SizeFeature{}, false
 	}
 	// min-width: 400px / max-inline-size: 20em
 	if colon := strings.IndexByte(inner, ':'); colon >= 0 {
@@ -565,7 +565,7 @@ func parseSizeFeature(inner string) (SizeFeature, bool) {
 
 		val, unit, ok := ParseLength(valStr)
 		if !ok {
-			return SizeFeature{}, false //nolint:exhaustruct // intentional zero-value fields
+			return SizeFeature{}, false
 		}
 
 		switch name {
@@ -576,7 +576,7 @@ func parseSizeFeature(inner string) (SizeFeature, bool) {
 		case featWidth, featInlineSize, featHeight, featBlockSize:
 			return SizeFeature{Name: name, Op: "=", Value: val, Unit: unit}, true
 		default:
-			return SizeFeature{}, false //nolint:exhaustruct // intentional zero-value fields
+			return SizeFeature{}, false
 		}
 	}
 	// Range: inline-size > 20em  |  20em < inline-size < 40em (single compare only)
@@ -594,11 +594,11 @@ type rangeTok struct {
 func parseRangeFeature(inner string) (SizeFeature, bool) {
 	toks, ok := tokenizeRangeFeature(inner)
 	if !ok {
-		return SizeFeature{}, false //nolint:exhaustruct // intentional zero-value fields
+		return SizeFeature{}, false
 	}
 
 	if len(toks) != 3 || toks[1].kind != "op" {
-		return SizeFeature{}, false //nolint:exhaustruct // intentional zero-value fields
+		return SizeFeature{}, false
 	}
 
 	return rangeFeatureFromTokens(toks)
@@ -616,7 +616,7 @@ func tokenizeRangeFeature(inner string) ([]rangeTok, bool) {
 		}
 
 		if op, ok := rangeOpPrefix(str); ok {
-			toks = append(toks, rangeTok{kind: "op", val: op}) //nolint:exhaustruct // intentional zero-value fields
+			toks = append(toks, rangeTok{kind: "op", val: op})
 			str = str[len(op):]
 
 			continue
@@ -639,7 +639,7 @@ func tokenizeRangeFeature(inner string) ([]rangeTok, bool) {
 			return nil, false
 		}
 
-		tok := rangeTok{kind: "ident", val: strings.ToLower(ident)} //nolint:exhaustruct // intentional zero-value fields
+		tok := rangeTok{kind: "ident", val: strings.ToLower(ident)}
 
 		toks = append(toks, tok)
 		str = rem
@@ -679,7 +679,7 @@ func scanRangeLength(str string) (rangeTok, string, bool) {
 			return rangeTok{kind: "num", num: n, unit: "px", val: str[:idx]}, str[idx:], true
 		}
 
-		return rangeTok{}, str, false //nolint:exhaustruct // intentional zero-value fields
+		return rangeTok{}, str, false
 	}
 
 	return rangeTok{kind: "num", num: val, unit: unit, val: str[:jdx]}, str[jdx:], true
@@ -734,7 +734,7 @@ func rangeFeatureFromTokens(toks []rangeTok) (SizeFeature, bool) {
 		}
 	}
 
-	return SizeFeature{}, false //nolint:exhaustruct // intentional zero-value fields
+	return SizeFeature{}, false
 }
 
 func isSizeFeatureName(name string) bool {

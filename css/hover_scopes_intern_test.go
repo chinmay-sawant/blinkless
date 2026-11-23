@@ -108,7 +108,6 @@ func entrySigPoolSize(entry *hoverListEntry) int {
 	return len(sigs)
 }
 
-//nolint:paralleltest // resets the process-wide hover cache
 func TestHoverMemoSignatureSharedAcrossHoverIDs(t *testing.T) {
 	resetHoverCache()
 
@@ -196,7 +195,6 @@ func TestHoverAttrKeyNeverAliasesDistinctMaps(t *testing.T) {
 	}
 }
 
-//nolint:paralleltest // resets the process-wide hover cache
 func TestHoverMemoDistinctAttrsStayDistinct(t *testing.T) {
 	resetHoverCache()
 
@@ -221,7 +219,6 @@ func TestHoverMemoDistinctAttrsStayDistinct(t *testing.T) {
 	}
 }
 
-//nolint:paralleltest // resets the process-wide hover cache
 func TestHoverMemoCapClearStaysBoundedAndCorrect(t *testing.T) {
 	resetHoverCache()
 

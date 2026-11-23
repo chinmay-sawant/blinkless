@@ -1,8 +1,6 @@
 package layout
 
 import (
-	"sync"
-
 	ilayout "github.com/chinmay-sawant/blinkless/internal/layout"
 )
 
@@ -80,7 +78,7 @@ type Box struct {
 // stylesheet declares a static transform; Own is the identity when it does not.
 //
 // OriginX and OriginY are in layout points, the same unit as Matrix2D's E and F,
-// not CSS pixels. Multiply by Display.PointsPerPixel when CSS pixels are needed.
+// not CSS pixels. Multiply by Display.PixelPerPoint when CSS pixels are needed.
 type TransformInfo struct {
 	// OriginX and OriginY are the resolved transform-origin in layout points.
 	OriginX float64
@@ -397,32 +395,13 @@ func unquoteAnimationName(name string) string {
 	return name
 }
 
-type transitionSliceKey struct {
-	ptr *ilayout.TransitionRecord
-	n   int
-}
-
-const maxTransitionSliceCache = 512
-
-//nolint:gochecknoglobals // bounded cache mapping immutable engine transition slices to public slices
-var (
-	transitionSliceCacheMu sync.RWMutex
-	transitionSliceCache   = make(map[transitionSliceKey][]Transition)
-)
-
+// transitionsFrom converts engine transition records into a fresh public
+// slice. It is deliberately uncached: the slice lands in exported
+// Box.Transitions, so sharing it across displays would let one caller's
+// mutation corrupt every other document.
 func transitionsFrom(records []ilayout.TransitionRecord) []Transition {
 	if len(records) == 0 {
 		return nil
-	}
-
-	key := transitionSliceKey{ptr: &records[0], n: len(records)}
-
-	transitionSliceCacheMu.RLock()
-	cached, ok := transitionSliceCache[key]
-	transitionSliceCacheMu.RUnlock()
-
-	if ok {
-		return cached
 	}
 
 	items := make([]Transition, len(records))
@@ -435,14 +414,6 @@ func transitionsFrom(records []ilayout.TransitionRecord) []Transition {
 			Behavior:       record.Behavior,
 		}
 	}
-
-	transitionSliceCacheMu.Lock()
-	if len(transitionSliceCache) >= maxTransitionSliceCache {
-		clear(transitionSliceCache)
-	}
-
-	transitionSliceCache[key] = items
-	transitionSliceCacheMu.Unlock()
 
 	return items
 }

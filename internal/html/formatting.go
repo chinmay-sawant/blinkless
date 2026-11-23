@@ -168,7 +168,7 @@ func sameFormattingElement(a, b *Node) bool {
 // cloneFormattingElement copies an element's identity and attributes without
 // its children, for reconstruction and the adoption agency.
 func cloneFormattingElement(node *Node) *Node {
-	clone := &Node{Type: ElementNode, Name: node.Name, Namespace: node.Namespace} //nolint:exhaustruct
+	clone := &Node{Type: ElementNode, Name: node.Name, Namespace: node.Namespace}
 
 	if len(node.Attrs) > 0 {
 		clone.Attrs = make(map[string]string, len(node.Attrs))

@@ -365,7 +365,7 @@ func parseUnicodeEscape(hex string) (rune, bool) {
 		return 0, false
 	}
 
-	return rune(value), true
+	return rune(value), true //nolint:gosec // value is the four hex digits of a \uXXXX escape, at most 0xFFFF
 }
 
 func isHighSurrogate(r rune) bool {

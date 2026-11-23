@@ -1,6 +1,8 @@
 package prepare
 
 import (
+	"sync"
+
 	"github.com/chinmay-sawant/blinkless/internal/css"
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
@@ -10,7 +12,9 @@ import (
 // cache belongs to exactly one tree; a later collection over that tree can
 // skip every parse and fetch while still re-evaluating viewport gating. A nil
 // cache parses and fetches everything again.
+// The cache is safe for concurrent use: css.Relayout results share one cache.
 type SheetCache struct {
+	mu      sync.RWMutex
 	inline  map[*html.Node]*css.Stylesheet
 	links   map[*html.Node]cachedSheet
 	imports map[importKey]cachedSheet

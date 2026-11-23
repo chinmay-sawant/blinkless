@@ -102,7 +102,7 @@ func TestCloneResultIsolatesStylesAndChunkOwnership(t *testing.T) {
 
 // TestCloneResultArenaAllocationBudget pins the reason for the arena: a large
 // clone pays for chunks and slices, not one heap object per box.
-func TestCloneResultArenaAllocationBudget(t *testing.T) { //nolint:paralleltest // reads process-wide allocation stats
+func TestCloneResultArenaAllocationBudget(t *testing.T) {
 	res := cloneArenaFixture(1000)
 
 	allocs := testing.AllocsPerRun(5, func() {

@@ -12,7 +12,7 @@ func padOutlines(outlines [][]byte, loca []uint32) [][]byte {
 	padded := make([][]byte, len(outlines))
 
 	for idx, o := range outlines {
-		loca[idx] = uint32(cur) //nolint:gosec // cumulative glyf size stays far below uint32
+		loca[idx] = uint32(cur)
 
 		page := bytes.Clone(o)
 		for len(page)%4 != 0 {
@@ -23,7 +23,7 @@ func padOutlines(outlines [][]byte, loca []uint32) [][]byte {
 		cur += len(page)
 	}
 
-	loca[len(outlines)] = uint32(cur) //nolint:gosec // cumulative glyf size stays far below uint32
+	loca[len(outlines)] = uint32(cur)
 
 	return padded
 }
@@ -188,12 +188,12 @@ func writeSFNTHeader(buf *bytes.Buffer, num int) {
 
 	var sr [2]byte
 
-	binary.BigEndian.PutUint16(sr[:], uint16(maxPow*sfntSearchRangeMul)) //nolint:gosec // table count is small
+	binary.BigEndian.PutUint16(sr[:], uint16(maxPow*sfntSearchRangeMul))
 	buf.Write(sr[:])
 
 	var es [2]byte
 
-	binary.BigEndian.PutUint16(es[:], uint16(sel)) //nolint:gosec // table count is small
+	binary.BigEndian.PutUint16(es[:], uint16(sel))
 	buf.Write(es[:])
 
 	var rs [2]byte

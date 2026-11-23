@@ -194,14 +194,14 @@ The two complementary roles are worth distinguishing early:
 
 The css package reports *matches and specificity*; layout performs the cascade:
 
-1. `matchedRules(node, pseudoElem)` (style_cascade.go:542) asks the pass's
-   `ruleIndex` (style_cascade.go:600) for candidates. The index is built once
-   per pass by `newRuleIndex` (style_rule_index.go:47), which buckets every
-   selector under its rightmost compound: an id, else the first class, else
-   the tag, else the universal bucket (`ruleBucket`, style_rule_index.go:35).
-   `candidates` (style_rule_index.go:142) returns the selectors whose
-   rightmost compound can match the node, and `sortCandidates`
-   (style_rule_index.go:173) restores sheet, rule, and selector order before
+1. `matchedRules(node, pseudoElem)` (style_match_cache.go:532) asks the pass's
+   `style.RuleIndex` (`sharedRuleIndex`, style_match_cache.go:149) for
+   candidates. The index is built once per pass by `style.NewRuleIndex`
+   (internal/style/ruleindex.go:70), which buckets every selector under its
+   rightmost compound: an id, else the first class, else the tag, else the
+   universal bucket (`ruleBucket`, ruleindex.go:46). `Candidates`
+   (ruleindex.go:320) returns the selectors whose rightmost compound can
+   match the node, and `SortCandidates` (ruleindex.go:397) restores sheet, rule, and selector order before
    the cascade compares them.
 2. `ruleGatesMatch` (style_cascade.go:586) applies the `css.MediaMatches`
    viewport gate, `containerGateMatches` (style_cascade.go:624, using
@@ -566,7 +566,7 @@ attack path for hostile HTML, so its posture matters:
   regression test (css_test.go:352). There is no regex engine, no eval, no
   network access anywhere in the package.
 - **Resource amplification is capped outside css**: linked-stylesheet and
-  `@font-face` fetches are governed by `internal/load`'s ACL (load.go:47) and
+  `@font-face` fetches are governed by `internal/load`'s ACL (load.go:59) and
   by `ResourceContext.CollectSheets`'s rule limits (soft warn 25k at
   styles.go:72, hard cap 1M at styles.go:19/426-427); see
   `documentation/THREAT-MODEL.md`.
@@ -667,12 +667,12 @@ and documentation/deferred.md. Confirmed gaps in css itself:
    specificity (`layerBeats`, style_cascade.go:1374), so layer names that
    appear in multiple sheets rank independently.
 8. **Performance ceilings**: the cascade no longer tests every rule against
-   every element. `internal/layout/style_rule_index.go` buckets each selector
+   every element. `internal/style/ruleindex.go` buckets each selector
    under its rightmost compound (an id, else the first class, else the tag,
    else the universal bucket) for the element cascade and for `::before` and
-   `::after` (`ruleBucket`, style_rule_index.go:35; `newRuleIndex`, :47).
-   `candidates` (:142) returns the selectors whose rightmost compound can
-   match, and `sortCandidates` (:173) restores the sheet, rule, and selector
+   `::after` (`ruleBucket`, ruleindex.go:46; `NewRuleIndex`, :70).
+   `Candidates` (:320) returns the selectors whose rightmost compound can
+   match, and `SortCandidates` (:397) restores the sheet, rule, and selector
    order so
    equal-specificity ties keep the linear walk's result. The matcher still
    walks every part of a candidate, and a universal rightmost compound still

@@ -22,8 +22,6 @@ type ruleInset struct {
 //
 // ctx, parent, and hasParent match styleGroupFn. This group does not read
 // them.
-//
-//nolint:cyclop,goconst // one switch owns the row-rule longhands
 func applyRowRuleGroup(
 	style *ResolvedStyle, prop, value string, fsize float64, ctx *styleContext,
 	parent *ResolvedStyle, hasParent bool,
@@ -119,8 +117,6 @@ func expandRowAndGapRules(prop, value string) ([]logicalPropDecl, bool) {
 // expandGapRuleDeclaration expands the row-rule inset shorthands and the
 // rule* names that set both axes or only the row half. A value that does
 // not parse returns false so the cascade keeps the earlier declaration.
-//
-//nolint:cyclop // each shorthand is one case
 func expandGapRuleDeclaration(prop, value string) ([]logicalPropDecl, bool) {
 	if expanded, ok := expandInsetSideShorthand(prop, value); ok {
 		return expanded, true

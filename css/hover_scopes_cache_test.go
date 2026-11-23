@@ -82,7 +82,7 @@ func hoverCacheReference(t *testing.T, styled *Document, previous string) ([]str
 	return outerHoverScopes(styled.root, scopes), true
 }
 
-func TestHoverCacheParityMultiHundred(t *testing.T) { //nolint:paralleltest // reads process-wide hover memo counters
+func TestHoverCacheParityMultiHundred(t *testing.T) {
 	resetHoverCache()
 
 	rules := `.inv-row:hover{color:red}.inv-alt:hover{color:blue}.inv-sel:hover{color:green}` +
@@ -106,7 +106,7 @@ func TestHoverCacheParityMultiHundred(t *testing.T) { //nolint:paralleltest // r
 	}
 }
 
-func TestHoverCacheSecondCallHitsMemo(t *testing.T) { //nolint:paralleltest // reads process-wide hover memo counters
+func TestHoverCacheSecondCallHitsMemo(t *testing.T) {
 	resetHoverCache()
 
 	rules := `.inv-row:hover{color:red}.inv-alt:hover{color:blue}.inv-sel:hover{color:green}`
@@ -159,7 +159,7 @@ func TestHoverCacheSecondCallHitsMemo(t *testing.T) { //nolint:paralleltest // r
 	}
 }
 
-func TestHoverCacheConcurrentRace(t *testing.T) { //nolint:paralleltest // resets a global cache
+func TestHoverCacheConcurrentRace(t *testing.T) {
 	resetHoverCache()
 
 	rules := `.inv-row:hover{color:red}.inv-alt:hover{color:blue}.inv-sel:hover{color:green}` +

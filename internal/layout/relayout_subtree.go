@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"slices"
 	"strings"
 	"sync"
+	"weak"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
 	"github.com/chinmay-sawant/blinkless/internal/errs"
@@ -520,12 +520,29 @@ const (
 // address can only waste sharing, never share wrongly, because
 // styleStore.append verifies every record with styleInternEqual before it
 // shares one.
+//
+// The root and every sheet are identified by weak pointers plus the sheet's
+// rule count, never by raw addresses: a freed object's address can be reused
+// by a different document (ABA), while a weak pointer to a collected object
+// never compares equal to a pointer to a new one. Because the tag holds a
+// slice it is compared with equal, not ==.
 type subtreeStyleDocTag struct {
-	root          uintptr
-	sheet         uintptr
-	sheets        int
+	root          weak.Pointer[html.Node]
+	sheets        []subtreeSheetTag
 	width, height float64
 	media         string
+}
+
+// subtreeSheetTag identifies one stylesheet of the tagged document.
+type subtreeSheetTag struct {
+	sheet weak.Pointer[css.Stylesheet]
+	rules int
+}
+
+// equal reports whether two tags name the same document and viewport.
+func (tag subtreeStyleDocTag) equal(other subtreeStyleDocTag) bool {
+	return tag.root == other.root && tag.width == other.width && tag.height == other.height &&
+		tag.media == other.media && slices.Equal(tag.sheets, other.sheets)
 }
 
 // pooledSubtreeStyleStore is one retained resolution store with the document
@@ -543,26 +560,27 @@ type subtreeStyleStorePool struct {
 	entries []pooledSubtreeStyleStore
 }
 
-//nolint:gochecknoglobals,exhaustruct // process-wide bounded style-store free list, guarded by mu
 var subtreeStyleStores = &subtreeStyleStorePool{}
 
 // subtreeStyleDocTagOf tags the document a patch resolves. Hover state is
 // deliberately not part of the tag: a state change only appends records for
 // styles that differ, while identical styles keep sharing the pooled ones.
 func subtreeStyleDocTagOf(prev *Result, opts Options) subtreeStyleDocTag {
-	tag := subtreeStyleDocTag{} //nolint:exhaustruct // unknown document until proven
+	tag := subtreeStyleDocTag{}
 
 	if prev != nil {
 		if root := prev.documentRootNode(); root != nil {
-			tag.root = reflect.ValueOf(root).Pointer()
+			tag.root = weak.Make(root)
 		}
 	}
 
-	if len(opts.Sheets) > 0 && opts.Sheets[0] != nil {
-		tag.sheet = reflect.ValueOf(opts.Sheets[0]).Pointer()
+	tag.sheets = make([]subtreeSheetTag, len(opts.Sheets))
+	for i, sheet := range opts.Sheets {
+		if sheet != nil {
+			tag.sheets[i] = subtreeSheetTag{sheet: weak.Make(sheet), rules: len(sheet.Rules)}
+		}
 	}
 
-	tag.sheets = len(opts.Sheets)
 	tag.width = opts.Width
 	tag.height = opts.Height
 	tag.media = opts.Media
@@ -580,7 +598,7 @@ func rentSubtreeStyleStore(tag subtreeStyleDocTag) *styleStore {
 	defer subtreeStyleStores.mu.Unlock()
 
 	for index := range subtreeStyleStores.entries {
-		if subtreeStyleStores.entries[index].tag != tag {
+		if !subtreeStyleStores.entries[index].tag.equal(tag) {
 			continue
 		}
 
@@ -594,7 +612,7 @@ func rentSubtreeStyleStore(tag subtreeStyleDocTag) *styleStore {
 		return store
 	}
 
-	return &styleStore{} //nolint:exhaustruct // intentional zero-value store
+	return &styleStore{}
 }
 
 // putSubtreeStyleStore returns a store to the pool after a patch resolved
@@ -602,7 +620,7 @@ func rentSubtreeStyleStore(tag subtreeStyleDocTag) *styleStore {
 // the chunks and the intern map stay, because the live result still points
 // into them and the next patch for the same document shares them by
 // appending only, never by overwriting. A store past the chunk or intern
-// bound, a store whose tag carries no document address to match cheaply, or
+// bound, a store whose tag carries no document root to match cheaply, or
 // a pool that is full, drops the store instead of retaining it. When dropped,
 // its chunks transfer to prev so they are recycled when the result finishes
 // rather than cleared immediately while live styles still reference them.
@@ -614,13 +632,13 @@ func putSubtreeStyleStore(prev *Result, tag subtreeStyleDocTag, store *styleStor
 	// Without a document address the tag equality cannot identify the
 	// document cheaply, so the store is not pooled. Rent keeps the existing
 	// tag equality and never consults another document's intern map.
-	if tag.root == 0 {
+	if tag.root == (weak.Pointer[html.Node]{}) {
 		dropSubtreeStyleStore(prev, store)
 
 		return
 	}
 
-	store.candidate = ResolvedStyle{} //nolint:exhaustruct // scratch must not leak into the next rent
+	store.candidate = ResolvedStyle{}
 
 	if subtreeStoreRejected(store) {
 		dropSubtreeStyleStore(prev, store)
@@ -632,7 +650,7 @@ func putSubtreeStyleStore(prev *Result, tag subtreeStyleDocTag, store *styleStor
 	defer subtreeStyleStores.mu.Unlock()
 
 	for index := range subtreeStyleStores.entries {
-		if subtreeStyleStores.entries[index].tag == tag {
+		if subtreeStyleStores.entries[index].tag.equal(tag) {
 			subtreeStyleStores.entries[index].store = store
 
 			return
@@ -686,8 +704,6 @@ func dropSubtreeStyleStore(prev *Result, store *styleStore) {
 // store must come from the pool on this file's patch path. Keep the two walks
 // in sync: every element goes through subtreeNodeStyle, text nodes are
 // skipped, and cancellation is polled every 64 visits.
-//
-//nolint:cyclop // mirrors resolveStylesForSubtree with inline map output
 func resolveSubtreeStylesPooled(
 	ctx context.Context,
 	styleCtx *styleContext,
@@ -744,7 +760,7 @@ func resolveSubtreeStylesPooled(
 func relayoutSubtreeStyles(
 	ctx context.Context, prev *Result, target *relayoutTarget, node *html.Node, opts Options,
 ) (map[*html.Node]*ResolvedStyle, error) {
-	styleCtx := &styleContext{ //nolint:exhaustruct // intentional zero fields
+	styleCtx := &styleContext{
 		ctx:                ctx,
 		sheets:             opts.Sheets,
 		properties:         registeredProperties(opts.Sheets),
@@ -1810,7 +1826,7 @@ func relayoutSubtreeResult(
 	boxes := make([]*box, 0)
 	flattenBoxes(subRoot, &boxes)
 
-	return &Result{ //nolint:exhaustruct // a subtree result keeps the zero fields
+	return &Result{
 		Ops:     prev.Ops[start : start+count],
 		Width:   prev.Width,
 		Height:  prev.Height,
@@ -2277,7 +2293,6 @@ const (
 	maxPooledBoxThreadEntries = 16384
 )
 
-//nolint:gochecknoglobals // pool of reusable boxThread lookup maps across batch relayouts
 var boxThreadPool = sync.Pool{
 	New: func() any {
 		return &boxThread{
@@ -2544,7 +2559,6 @@ func RelayoutSubtrees(
 	baseOpts Options, owners, order []int,
 ) (*SubtreeBatchResult, error) {
 	if len(elementIDs) == 0 {
-		//nolint:exhaustruct // an empty batch carries no windows
 		return &SubtreeBatchResult{Owners: owners, Order: order}, nil
 	}
 
@@ -2741,7 +2755,7 @@ func commitBatchSubtree(
 	out.Order = splicePaintOrder(prev.Ops, out.Order, start, oldCount, len(built.eng.ops), neutral)
 
 	newDamage, hasNew := spliceDamage(prev.Ops, start, len(built.eng.ops))
-	out.Windows = append(out.Windows, SpliceWindow{ //nolint:exhaustruct // damage flags default false
+	out.Windows = append(out.Windows, SpliceWindow{
 		Start:        start,
 		OldCount:     oldCount,
 		NewCount:     len(built.eng.ops),

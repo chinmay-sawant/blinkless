@@ -1,4 +1,3 @@
-//nolint:varnamelen,wsl,mnd,nlreturn // multi-layer and inset box-shadow parser and renderer
 package layout
 
 import (
@@ -45,12 +44,12 @@ func parseBoxShadowLayer(value string, current [3]float64, fsize float64) (parse
 
 	tokenCount := splitSpaceTokens(value, tokens[:])
 	if tokenCount < 2 || tokenCount > len(tokens) {
-		return parsedBoxShadow{}, false //nolint:exhaustruct // invalid layer
+		return parsedBoxShadow{}, false
 	}
 
 	lengths, lengthCount, color, alpha, inset, ok := collectBoxShadowTokens(tokens[:tokenCount], current, fsize)
 	if !ok {
-		return parsedBoxShadow{}, false //nolint:exhaustruct // invalid layer
+		return parsedBoxShadow{}, false
 	}
 
 	return boxShadowFromLengths(lengths, lengthCount, color, alpha, inset)
@@ -82,7 +81,7 @@ func collectBoxShadowTokens(
 		}
 
 		if r, g, b, a, parsedOK := css.ParseColor(tok); parsedOK {
-			color = [3]float64{float64(r) / 255.0, float64(g) / 255.0, float64(b) / 255.0} //nolint:mnd // scale 0-255 to 0-1
+			color = [3]float64{float64(r) / 255.0, float64(g) / 255.0, float64(b) / 255.0}
 			alpha = a
 
 			continue
@@ -104,7 +103,7 @@ func boxShadowFromLengths(
 	lengths [boxShadowMaxLengths]float64, lengthCount int, color [3]float64, alpha float64, inset bool,
 ) (parsedBoxShadow, bool) {
 	if lengthCount < 2 {
-		return parsedBoxShadow{}, false //nolint:exhaustruct // invalid layer
+		return parsedBoxShadow{}, false
 	}
 
 	blur := 0.0
@@ -112,7 +111,7 @@ func boxShadowFromLengths(
 
 	if lengthCount >= 3 {
 		if lengths[2] < 0 {
-			return parsedBoxShadow{}, false //nolint:exhaustruct // invalid layer
+			return parsedBoxShadow{}, false
 		}
 
 		blur = lengths[2]
@@ -542,7 +541,7 @@ func appendInsetShadowLeftRight(
 func shadowFillOp(
 	x, y, width, height float64, color [3]float64, radiusX, radiusY [4]float64,
 ) Op {
-	return Op{ //nolint:exhaustruct // intentional zero fields
+	return Op{
 		Kind: OpFillRect, X: x, Y: y, W: width, H: height,
 		R: color[0], G: color[1], B: color[2],
 		Radius: uniformRadius(radiusX), RadiusY: uniformRadius(radiusY),

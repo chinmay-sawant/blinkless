@@ -52,8 +52,6 @@ type flexStyleOverrideKey struct {
 // flexOverrideBypass disables the override cache. Tests only: in-package
 // tests flip it to prove a cached and an uncached run produce identical
 // output. The hit and miss counters record cache traffic for the same tests.
-//
-//nolint:gochecknoglobals // test-visible memo state mirrors flexRowMemoBypass in flex.go
 var (
 	flexOverrideBypass atomic.Bool
 	flexOverrideHits   atomic.Int64
@@ -68,7 +66,7 @@ func flexRowOverrideKey(
 	base *ResolvedStyle, scale float64, forceStretch bool, targetCross, availW float64,
 ) (flexStyleOverrideKey, bool) {
 	if base == nil {
-		return flexStyleOverrideKey{}, false //nolint:exhaustruct // zero key means uncacheable
+		return flexStyleOverrideKey{}, false
 	}
 
 	flags := flexOverrideClearBasis
@@ -95,7 +93,7 @@ func flexColumnOverrideKey(
 	base *ResolvedStyle, scale float64, height, crossW float64, forceCrossWidth bool,
 ) (flexStyleOverrideKey, bool) {
 	if base == nil {
-		return flexStyleOverrideKey{}, false //nolint:exhaustruct // zero key means uncacheable
+		return flexStyleOverrideKey{}, false
 	}
 
 	flags := flexOverrideColumn
@@ -123,7 +121,6 @@ func (e *engine) flexBaseStyleStable(node *html.Node, style *ResolvedStyle) bool
 	return e.styles[node] == style || (e.syntheticStyles != nil && e.syntheticStyles[node] == style)
 }
 
-//nolint:gochecknoglobals // global pool for reusable flex style override maps
 var flexOverrideMapPool = sync.Pool{
 	New: func() any {
 		return make(map[flexStyleOverrideKey]*ResolvedStyle, flexOverrideMapInitCap)

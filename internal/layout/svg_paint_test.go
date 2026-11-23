@@ -370,7 +370,7 @@ func TestRestyleSVGPaintFillNoneKeepsOwnChildPaint(t *testing.T) {
 
 	data, width, height := svgPaintRaster(t, edits[0].NewImage)
 
-	_, _, _, alpha := svgPaintPixel(t, data, width, height, 20, 15) //nolint:dogsled // only alpha matters
+	_, _, _, alpha := svgPaintPixel(t, data, width, height, 20, 15)
 	if alpha != 0 {
 		t.Fatalf("inherited none fill alpha = %d, want 0", alpha)
 	}

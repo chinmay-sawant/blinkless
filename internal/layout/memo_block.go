@@ -154,7 +154,7 @@ func blockIntrinsicWidthBits(width float64) (uint64, bool) {
 func makeBlockIntrinsicKey(styleFP, contentFP uint64, width float64) (blockIntrinsicKey, bool) {
 	bits, valid := blockIntrinsicWidthBits(width)
 	if !valid {
-		return blockIntrinsicKey{}, false //nolint:exhaustruct // zero key means uncacheable
+		return blockIntrinsicKey{}, false
 	}
 
 	return blockIntrinsicKey{styleFP: styleFP, contentFP: contentFP, widthBits: bits}, true

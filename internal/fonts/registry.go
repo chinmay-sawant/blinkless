@@ -23,7 +23,7 @@ type Registry struct {
 
 // NewRegistry returns an empty font registry.
 func NewRegistry() *Registry {
-	return &Registry{ //nolint:exhaustruct // intentional zero-value mu field
+	return &Registry{
 		byFamily: map[string][]*Font{},
 	}
 }
@@ -58,8 +58,6 @@ func (r *Registry) registerFaceLocked(fnt *Font) {
 }
 
 // AddFont registers a parsed face under its family name (and PostScript name).
-//
-//nolint:wsl // lock initialization and registration must remain one critical section.
 func (r *Registry) AddFont(fnt *Font) {
 	if r == nil || fnt == nil {
 		return
@@ -96,8 +94,6 @@ func normalizeFamilyKey(family string) string {
 }
 
 // AddFamilyAlias registers f under an explicit CSS family name.
-//
-//nolint:wsl // lock initialization and registration must remain one critical section.
 func (r *Registry) AddFamilyAlias(family string, font *Font) {
 	if r == nil || font == nil {
 		return
@@ -125,8 +121,6 @@ func (r *Registry) AddFamilyAlias(family string, font *Font) {
 // while the sans-serif expansion (which lists "dejavu sans" as a fallback
 // candidate) must keep preferring Liberation. The face is not added to the
 // fallback scan order because the FaceSet already covers it.
-//
-//nolint:wsl // lock initialization and registration must remain one critical section.
 func (r *Registry) AddExactFamilyAlias(family string, font *Font) {
 	if r == nil || font == nil {
 		return
@@ -237,8 +231,6 @@ func (r *Registry) FindWithGlyph(codePoint rune, weight int, italic bool) *Font 
 // or alias registration order. The parsed fingerprint distinguishes different
 // files that happen to share a PostScript name; the name is a readable
 // fallback for synthetic/test faces without a fingerprint.
-//
-//nolint:wsl // tie-break fields are intentionally checked in priority order.
 func fontIdentityLess(left, right *Font) bool {
 	if left == nil {
 		return false
@@ -256,8 +248,6 @@ func fontIdentityLess(left, right *Font) bool {
 // glyphFaceScore scores a face for ch: -1 when it lacks the glyph, plus
 // weight/italic match bonuses and a premium for known Unicode-capable
 // families (DejaVu/Noto/FreeSans).
-//
-//nolint:cyclop // glyph scoring logic
 func glyphFaceScore(fnt *Font, codePoint rune, bold, italic bool) int {
 	if fnt == nil || fnt.GlyphID(codePoint) == 0 {
 		return -1

@@ -47,7 +47,7 @@ const relayoutEmptyHTML = `<html><body>` +
 	`</body></html>`
 
 // selectedBlue is the background the selected class paints.
-var selectedBlue = [3]float64{51.0 / 255, 102.0 / 255, 204.0 / 255} //nolint:gochecknoglobals // a test constant
+var selectedBlue = [3]float64{51.0 / 255, 102.0 / 255, 204.0 / 255}
 
 func TestRelayoutSubtreeInheritsPaintContext(t *testing.T) {
 	t.Parallel()

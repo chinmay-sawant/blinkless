@@ -46,7 +46,7 @@ const (
 	hoverCycleVariantCount = 64
 )
 
-var hoverCycleSink int //nolint:gochecknoglobals // benchmark sink
+var hoverCycleSink int
 
 // hoverCycleHoverSelectors collects the hover-dependent selectors once, the
 // way the shared hover list caches them outside the per-frame walk.

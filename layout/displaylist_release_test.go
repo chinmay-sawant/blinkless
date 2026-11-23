@@ -79,3 +79,46 @@ func TestDisplayReleasePatchedLifecycle(t *testing.T) {
 	d2.Release()
 	d2.Release()
 }
+
+// TestDisplayReleaseOwnershipContract pins the documented Release contract:
+// Boxes is cleared (so a stale read fails visibly), a clone taken before
+// Release stays intact, and the display's own op slices are left alone.
+func TestDisplayReleaseOwnershipContract(t *testing.T) {
+	t.Parallel()
+
+	tree, err := html.Parse([]byte(`<div id="a" style="width:100px;height:50px">x</div><div id="b" style="width:80px;height:20px">y</div>`))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	styled, err := css.Apply(t.Context(), tree, css.Options{WidthPx: 400, HeightPx: 300, Media: "screen"})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+
+	display, err := layout.DisplayListOptions(t.Context(), styled, layout.Options{RetainState: true})
+	if err != nil {
+		t.Fatalf("display: %v", err)
+	}
+
+	if len(display.Boxes) == 0 {
+		t.Fatal("no boxes to check")
+	}
+
+	kept := append([]layout.Box(nil), display.Boxes...)
+	ops := len(display.Ops)
+
+	display.Release()
+
+	if display.Boxes != nil {
+		t.Fatal("Release left Boxes pointing at a recycled slice")
+	}
+
+	if len(display.Ops) != ops {
+		t.Fatalf("Release changed Ops: %d -> %d", ops, len(display.Ops))
+	}
+
+	if kept[0].W == 0 && kept[0].H == 0 && kept[0].Tag == "" {
+		t.Fatal("a copy taken before Release was zeroed")
+	}
+}

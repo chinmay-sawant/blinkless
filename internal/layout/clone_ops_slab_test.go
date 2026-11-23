@@ -62,7 +62,7 @@ func TestCloneOpsOwnsEveryPayload(t *testing.T) {
 // TestCloneOpsAllocatesPayloadsOnce pins the point of the slab: cloning a
 // page of operations that all carry a payload costs a fixed number of
 // allocations, not one per operation.
-func TestCloneOpsAllocatesPayloadsOnce(t *testing.T) { //nolint:paralleltest // AllocsPerRun is not parallel-safe
+func TestCloneOpsAllocatesPayloadsOnce(t *testing.T) {
 	src := make([]Op, 512)
 	for i := range src {
 		src[i].SetXform(Matrix2D{A: 1, D: 1, E: float64(i)})

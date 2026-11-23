@@ -150,7 +150,17 @@ func restyleCases() []restyleCase {
 func patchChain(t *testing.T, styled *css.Document, display *layout.Display, id string) *layout.Display {
 	t.Helper()
 
-	next, err := layout.RelayoutElements(t.Context(), styled, display, []string{id}, layout.Options{RetainState: true})
+	return patchChainCtx(t.Context(), t, styled, display, id)
+}
+
+// patchChainCtx is patchChain under a caller context, which can carry a test
+// config.
+func patchChainCtx(
+	ctx context.Context, t *testing.T, styled *css.Document, display *layout.Display, id string,
+) *layout.Display {
+	t.Helper()
+
+	next, err := layout.RelayoutElements(ctx, styled, display, []string{id}, layout.Options{RetainState: true})
 	if err != nil {
 		t.Fatalf("RelayoutElements(%s): %v", id, err)
 	}
@@ -158,14 +168,12 @@ func patchChain(t *testing.T, styled *css.Document, display *layout.Display, id 
 	return next
 }
 
-// slowPatch is patchChain with the fast path switched off, restored even when
-// the patch fails.
+// slowPatch is patchChain with the fast path switched off for this call only.
 func slowPatch(styled *css.Document, display *layout.Display, id string) (*layout.Display, error) {
-	restore := ilayout.DisablePaintRestyle()
-	defer restore()
+	ctx := ilayout.WithTestConfig(context.Background(), ilayout.TestConfig{PaintRestyleDisabled: true})
 
 	next, err := layout.RelayoutElements(
-		context.Background(), styled, display, []string{id}, layout.Options{RetainState: true})
+		ctx, styled, display, []string{id}, layout.Options{RetainState: true})
 	if err != nil {
 		return nil, fmt.Errorf("slow relayout of %s: %w", id, err)
 	}
@@ -192,8 +200,6 @@ func compareOpLists(t *testing.T, got, want *layout.Display) {
 // layout) and the forced slow path (operations). It also pins which edits skip
 // the build. A patch the engine refuses (a resize) is the host's cue to lay
 // the page out again, so a refused edit only has to stay off the fast path.
-//
-//nolint:paralleltest // the paint restyle counters and the disable switch are process-wide
 func TestPaintRestyleMatchesSlowAndFull(t *testing.T) {
 	for _, tc := range restyleCases() {
 		t.Run(tc.name, func(t *testing.T) {
@@ -268,8 +274,6 @@ func TestPaintRestyleMatchesSlowAndFull(t *testing.T) {
 // TestPaintRestyleHoverMatchesFull drives the glass hover the way a host does:
 // the hover state changes through css.Relayout, and every enter and leave
 // patches the previous result. Each step must equal a full layout.
-//
-//nolint:paralleltest // the paint restyle counters are process-wide
 func TestPaintRestyleHoverMatchesFull(t *testing.T) {
 	source := restyleHoverSource(12, "h3")
 	base := applyAt(t, source, 400, 300, "", "", "")
@@ -319,8 +323,6 @@ func restyleHoverSource(count int, hovered string) string {
 // classes, patching the previous result each time, and checks every step
 // against a full layout. Every edit that moves the color must take the fast
 // path.
-//
-//nolint:paralleltest // the paint restyle counters are process-wide
 func TestPaintRestyleRandomChain(t *testing.T) {
 	const cards, classes, steps = 10, 6, 60
 
@@ -378,8 +380,6 @@ func TestPaintRestyleRandomChain(t *testing.T) {
 
 // TestPaintRestyleBatchMixesFastAndSlowIDs patches one color-only element and
 // one resizing element in one call. The batch must still equal a full layout.
-//
-//nolint:paralleltest // the paint restyle counters are process-wide
 func TestPaintRestyleBatchMixesFastAndSlowIDs(t *testing.T) {
 	source := `<style>.box{width:120px;height:40px;background:#eee}.box.on{background:#369}
 .wide{width:100px;height:30px;background:#ddd}.wide.on{width:180px}</style>
@@ -415,8 +415,6 @@ func TestPaintRestyleBatchMixesFastAndSlowIDs(t *testing.T) {
 
 // TestPaintRestyleTextEditKeepsFullBuild changes the text and the color
 // together. The fast path must not claim an edit it cannot see.
-//
-//nolint:paralleltest // the paint restyle counters are process-wide
 func TestPaintRestyleTextEditKeepsFullBuild(t *testing.T) {
 	source := `<style>.box{width:200px;height:40px;background:#eee}.box.on{background:#369}</style>
 <div id="t" class="box"><span id="s">Alpha</span></div>`
@@ -446,8 +444,6 @@ func TestPaintRestyleTextEditKeepsFullBuild(t *testing.T) {
 // TestPaintRestyleAllocations pins the point of the fast path on the glass
 // grid: a chained hover enter and leave allocates a small fraction of what
 // the build and commit allocate (10x fewer objects, at least 2x fewer bytes).
-//
-//nolint:paralleltest // AllocsPerRun is not parallel-safe
 func TestPaintRestyleAllocations(t *testing.T) {
 	source := restyleHoverSource(64, "h0")
 	base := applyAt(t, source, 760, 520, "", "", "")
@@ -456,8 +452,12 @@ func TestPaintRestyleAllocations(t *testing.T) {
 		t.Fatalf("relayout: %v", err)
 	}
 
-	measure := func() (float64, uint64) {
-		current := layRetained(t, base)
+	measure := func(ctx context.Context) (float64, uint64) {
+		current, err := layout.DisplayListOptions(ctx, base, layout.Options{RetainState: true})
+		if err != nil {
+			t.Fatalf("display: %v", err)
+		}
+
 		flip := false
 		step := func() {
 			doc := hovered
@@ -466,7 +466,7 @@ func TestPaintRestyleAllocations(t *testing.T) {
 			}
 
 			flip = !flip
-			current = patchChain(t, doc, current, "h0")
+			current = patchChainCtx(ctx, t, doc, current, "h0")
 		}
 
 		allocs := testing.AllocsPerRun(40, step)
@@ -486,11 +486,10 @@ func TestPaintRestyleAllocations(t *testing.T) {
 		return allocs, (m1.TotalAlloc - m0.TotalAlloc) / rounds
 	}
 
-	fastAllocs, fastBytes := measure()
+	fastAllocs, fastBytes := measure(t.Context())
 
-	restore := ilayout.DisablePaintRestyle()
-	slowAllocs, slowBytes := measure()
-	restore()
+	slowCtx := ilayout.WithTestConfig(t.Context(), ilayout.TestConfig{PaintRestyleDisabled: true})
+	slowAllocs, slowBytes := measure(slowCtx)
 
 	t.Logf("glass grid, 64 cards: fast path %.0f allocs %d B per patch; slow path %.0f allocs %d B per patch",
 		fastAllocs, fastBytes, slowAllocs, slowBytes)

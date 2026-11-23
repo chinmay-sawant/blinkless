@@ -183,7 +183,7 @@ func parseRelativeSelectorList(s string) ([]RelativeSelector, bool) {
 func parseRelativeSelector(str string) (RelativeSelector, bool) {
 	str = strings.TrimSpace(str)
 	if str == "" {
-		return RelativeSelector{}, false //nolint:exhaustruct // intentional zero-value fields
+		return RelativeSelector{}, false
 	}
 
 	lead := " "
@@ -201,12 +201,12 @@ func parseRelativeSelector(str string) (RelativeSelector, bool) {
 	}
 
 	if str == "" {
-		return RelativeSelector{}, false //nolint:exhaustruct // intentional zero-value fields
+		return RelativeSelector{}, false
 	}
 
 	sel, ok := parseSelectorCtx(str, true)
 	if !ok {
-		return RelativeSelector{}, false //nolint:exhaustruct // intentional zero-value fields
+		return RelativeSelector{}, false
 	}
 
 	return RelativeSelector{Leading: lead, Parts: sel.Parts}, true

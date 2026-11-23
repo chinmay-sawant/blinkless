@@ -1,4 +1,3 @@
-//nolint:varnamelen // shape-inside / shape-padding lite parsers
 package layout
 
 import "github.com/chinmay-sawant/blinkless/internal/css"

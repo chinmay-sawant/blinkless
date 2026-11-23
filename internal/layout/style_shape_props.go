@@ -1,4 +1,3 @@
-//nolint:cyclop,mnd,varnamelen // shape-outside / shape-margin parsers
 package layout
 
 import (

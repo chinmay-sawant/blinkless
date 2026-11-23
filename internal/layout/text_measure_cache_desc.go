@@ -51,7 +51,6 @@ type measureStyleTable struct {
 	next uint64
 }
 
-//nolint:gochecknoglobals,exhaustruct // process-wide style IDs, guarded by mu.
 var measureStyles = &measureStyleTable{
 	ids:  make(map[textMeasureDesc]uint64, initialWidthCacheEntries),
 	next: 1,
@@ -64,7 +63,6 @@ type measureStyleRef struct {
 	sizeBits uint64
 }
 
-//nolint:exhaustruct,gochecknoglobals // per-layout measureStyleIDs map pool avoids reallocation on every layout
 var measureStyleIDPool = sync.Pool{}
 
 // measureStyleID returns the interned ID for sty at sizeBits, interning the

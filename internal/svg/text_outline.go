@@ -60,8 +60,6 @@ type textRun struct {
 
 // outlineSVGText rewrites <text> elements into outline paths. It returns the
 // input unchanged when there is nothing to rewrite.
-//
-//nolint:cyclop // one scan loop over the tags of the document
 func outlineSVGText(data []byte) []byte {
 	if !bytesContainsFold(data, []byte("<text")) {
 		return data
@@ -126,8 +124,6 @@ func outlineSVGText(data []byte) []byte {
 
 // textPropsFrom applies one element's font attributes and inline style on top
 // of what its parent passes down.
-//
-//nolint:cyclop // one branch per font property
 func textPropsFrom(parent textProps, attrs map[string]string) textProps {
 	props := parent
 	merged := map[string]string{}
@@ -214,7 +210,7 @@ func parseFontSize(value string, parent float64) (float64, bool) {
 	case "", "px":
 		return number, true
 	case "pt":
-		return number * 4 / 3, true //nolint:mnd // 96/72
+		return number * 4 / 3, true
 	case "em":
 		return number * parent, true
 	case "%":
@@ -341,8 +337,6 @@ func sortedKeys(attrs map[string]string) []string {
 // collectTextRuns reads the content of a <text> element up to its closing tag.
 // Plain text and <tspan> children become runs. Any other child element makes
 // the whole text element stay for the strip pass.
-//
-//nolint:cyclop,gocognit,funlen // one loop over the children of a text element
 func collectTextRuns(data []byte, pos int, base textProps, textAttrs map[string]string) ([]textRun, int, bool) {
 	type frame struct {
 		props textProps
@@ -355,7 +349,7 @@ func collectTextRuns(data []byte, pos int, base textProps, textAttrs map[string]
 	var runs []textRun
 
 	first := true
-	pending := textRun{} //nolint:exhaustruct // positions of the next run
+	pending := textRun{}
 
 	if value, ok := textAttrs["x"]; ok {
 		pending.x, pending.hasX = firstNumber(value)
@@ -395,7 +389,7 @@ func collectTextRuns(data []byte, pos int, base textProps, textAttrs map[string]
 				runs = append(runs, run)
 			}
 
-			pending, first = textRun{}, false //nolint:exhaustruct // next run starts fresh
+			pending, first = textRun{}, false
 		}
 
 		if rel < 0 {
@@ -490,8 +484,6 @@ func firstNumber(value string) (float64, bool) {
 // the run, in user units, positive up. sub and super move by half of the
 // parent font's ascent plus descent. A length is used as is and a percentage is
 // taken of the parent font size.
-//
-//nolint:cyclop // keywords, then one branch per unit
 func baselineShift(attrs map[string]string, parent textProps) (float64, bool) {
 	value := strings.ToLower(strings.TrimSpace(styleDeclarations(attrs["style"])["baseline-shift"]))
 	if value == "" {
@@ -508,7 +500,7 @@ func baselineShift(attrs map[string]string, parent textProps) (float64, bool) {
 		}
 
 		height := (float64(face.Ascent()) + math.Abs(float64(face.Descent()))) /
-			float64(face.UnitsPerEm()) * parent.size / 2 //nolint:mnd // half
+			float64(face.UnitsPerEm()) * parent.size / 2
 
 		if value == "sub" {
 			return -height, true
@@ -526,7 +518,7 @@ func baselineShift(attrs map[string]string, parent textProps) (float64, bool) {
 	case "", "px":
 		return number, true
 	case "pt":
-		return number * 4 / 3, true //nolint:mnd // 96/72
+		return number * 4 / 3, true
 	case "em":
 		return number * parent.size, true
 	case "%":
@@ -559,8 +551,6 @@ type placedGlyph struct {
 // layoutTextRuns lays the runs out left to right, applies text-anchor to each
 // chunk, and writes one <path> per run. It returns false when the budget or a
 // font is missing, so the caller leaves the element for the strip pass.
-//
-//nolint:cyclop,funlen // one pass over runs, chunks and glyphs
 func layoutTextRuns(out *strings.Builder, runs []textRun, budget *int) bool {
 	if len(runs) == 0 {
 		return true
@@ -645,7 +635,7 @@ func layoutTextRuns(out *strings.Builder, runs []textRun, budget *int) bool {
 func anchorShift(anchor string, width float64) float64 {
 	switch anchor {
 	case "middle":
-		return -width / 2 //nolint:mnd // half
+		return -width / 2
 	case "end":
 		return -width
 	}
@@ -668,7 +658,7 @@ func writeGlyphPath(out *strings.Builder, contours [][]fonts.GlyphPoint, originX
 // writeContour writes one TrueType contour: on-curve points are corners, and
 // two off-curve points in a row imply an on-curve point at their midpoint.
 func writeContour(out *strings.Builder, contour []fonts.GlyphPoint, point func(fonts.GlyphPoint) (float64, float64)) {
-	if len(contour) < 2 { //nolint:mnd // a contour needs two points
+	if len(contour) < 2 {
 		return
 	}
 
@@ -700,7 +690,7 @@ func writeContour(out *strings.Builder, contour []fonts.GlyphPoint, point func(f
 		}
 
 		nextX, nextY := point(next)
-		midX, midY := (ctrlX+nextX)/2, (ctrlY+nextY)/2 //nolint:mnd // midpoint
+		midX, midY := (ctrlX+nextX)/2, (ctrlY+nextY)/2
 		out.WriteString("Q" + fmtNum(ctrlX) + " " + fmtNum(ctrlY) + " " + fmtNum(midX) + " " + fmtNum(midY))
 	}
 
@@ -720,7 +710,7 @@ func rotateToOnCurve(contour []fonts.GlyphPoint) []fonts.GlyphPoint {
 	}
 
 	first, last := contour[0], contour[len(contour)-1]
-	mid := fonts.GlyphPoint{X: (first.X + last.X) / 2, Y: (first.Y + last.Y) / 2, On: true} //nolint:mnd // midpoint
+	mid := fonts.GlyphPoint{X: (first.X + last.X) / 2, Y: (first.Y + last.Y) / 2, On: true}
 
 	return append([]fonts.GlyphPoint{mid}, contour...)
 }

@@ -48,17 +48,17 @@ func (e *engine) layoutSingleTextRun(
 func (e *engine) singleTextRunItem(boxNode *box, nodes []*html.Node) (inlineItem, bool) {
 	textNode, element, textStyle, ok := e.singleTextRunCandidate(boxNode, nodes)
 	if !ok {
-		return inlineItem{}, false //nolint:exhaustruct // rejected candidate
+		return inlineItem{}, false
 	}
 
 	text := singleTextRunText(textNode.Text, textStyle)
 	if text == "" {
-		return inlineItem{}, false //nolint:exhaustruct // rejected candidate
+		return inlineItem{}, false
 	}
 
 	ctx := e.resolveInlineTextCtx(textNode)
 	if ctx.vertical || ctx.atomic {
-		return inlineItem{}, false //nolint:exhaustruct // rejected candidate
+		return inlineItem{}, false
 	}
 
 	item := e.textItem(text, textStyle)

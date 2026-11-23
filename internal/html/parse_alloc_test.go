@@ -249,7 +249,6 @@ func allocBenchDoc() string {
 	return sb.String()
 }
 
-//nolint:paralleltest // AllocsPerRun reads process-wide allocation counters; must stay serial
 func TestParseAllocReduction(t *testing.T) {
 	// Sequential on purpose: AllocsPerRun reads process-wide allocation
 	// counters, so a parallel test beside the suite would pollute it.

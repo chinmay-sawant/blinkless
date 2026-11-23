@@ -73,8 +73,6 @@ func shapeMaskScan(img image.Image, srcY int, threshold float64) (int, int) {
 // float's margin box, and each scanline keeps the leftmost and rightmost
 // inside pixel. shape-margin widens each scanline sideways. It does not grow
 // the shape up or down. nil keeps the rectangular exclusion.
-//
-//nolint:cyclop // one guard per way the image can be unusable, then the scan
 func (e *engine) buildShapeImageMask(sty ResolvedStyle, fbox *box, margL, margR float64, raw string) *shapeExclusion {
 	src := shapeURLSource(raw)
 	if src == "" || !e.hasImageResolver() {
@@ -118,7 +116,7 @@ func (e *engine) buildShapeImageMask(sty ResolvedStyle, fbox *box, margL, margR 
 		}
 	}
 
-	return &shapeExclusion{ //nolint:exhaustruct // the mask kind uses only rows and the vertical span
+	return &shapeExclusion{
 		kind: shapeKindMask, y0: fbox.y, y1: fbox.y + refH, rows: rows,
 	}
 }

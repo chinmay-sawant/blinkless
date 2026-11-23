@@ -61,17 +61,15 @@ type ResourceContext struct {
 // This matches the legacy warn-and-continue callers. Document rejects nil
 // loaders before construction, so new code should go through Document and
 // treat a degraded context as a construction mistake, not a feature.
-//
-//nolint:wsl // extracted preparation flow
 func NewResourceContext(loader *load.Loader, base string, loadPage settings.LoadPage) ResourceContext {
-	resources := ResourceContext{ //nolint:exhaustruct // compatibility snapshots are populated below
+	resources := ResourceContext{
 		Loader: loader,
 		Base:   base,
 		Load:   loadPage,
 		ready:  loader != nil,
 	}
 	if loader != nil {
-		resource := &load.Resource{Base: base} //nolint:exhaustruct // base-only resource reference
+		resource := &load.Resource{Base: base}
 
 		// ForResource clones loadPage. Keep this private value as the sole authority
 		// for all subsequent subresource resolution and policy checks.
@@ -87,8 +85,6 @@ func (r ResourceContext) Bound() load.ResourceContext {
 }
 
 // Fetch resolves and loads a document-relative subresource.
-//
-//nolint:wsl // resource validation flow
 func (r ResourceContext) Fetch(ctx context.Context, ref string) (*load.Resource, error) {
 	if !r.ready {
 		return nil, errNoResourceLoader
@@ -106,8 +102,6 @@ func (r ResourceContext) Fetch(ctx context.Context, ref string) (*load.Resource,
 }
 
 // CollectSheets gathers stylesheets through this document's resource policy.
-//
-//nolint:wsl,lll // resource validation flow
 func (r ResourceContext) CollectSheets(ctx context.Context, root *html.Node, opts SheetOptions, log io.Writer) []*css.Stylesheet {
 	if !r.ready {
 		return nil
@@ -141,8 +135,6 @@ func CollectTreeSheets(
 }
 
 // MergeFontFaces loads @font-face resources through this document's policy.
-//
-//nolint:wsl,lll // resource validation flow
 func (r ResourceContext) MergeFontFaces(ctx context.Context, registry *pdf.Registry, sheets []*css.Stylesheet, idx int, log io.Writer) *pdf.Registry {
 	if !r.ready {
 		return registry
@@ -205,8 +197,6 @@ type Prepared struct {
 
 // Document loads and parses one document, gathers stylesheets, and
 // merges its @font-face resources. A skipped resource returns a nil Root.
-//
-//nolint:wsl,lll // document preparation flow
 func Document(ctx context.Context, loader *load.Loader, page string, loadPage settings.LoadPage, registry *pdf.Registry, opts Options, log io.Writer) (*Prepared, error) {
 	if loader == nil {
 		return nil, errNilLoader
@@ -224,7 +214,7 @@ func Document(ctx context.Context, loader *load.Loader, page string, loadPage se
 		return nil, fmt.Errorf("load %q: %w", page, err)
 	}
 
-	prep := &Prepared{ //nolint:exhaustruct // Root and Sheets are populated below
+	prep := &Prepared{
 		Resource:  res,
 		Resources: NewResourceContext(loader, res.Base, loadPage),
 		Registry:  registry,
@@ -254,7 +244,6 @@ func Document(ctx context.Context, loader *load.Loader, page string, loadPage se
 	return prep, nil
 }
 
-//nolint:wsl,lll // resource validation flow
 func (r ResourceContext) collectSheets(ctx context.Context, root *html.Node, opts SheetOptions, log io.Writer) ([]*css.Stylesheet, error) {
 	if !r.ready {
 		return nil, errNoResourceLoader
@@ -266,7 +255,6 @@ func (r ResourceContext) collectSheets(ctx context.Context, root *html.Node, opt
 	return collectSheets(ctx, r.resource, root, opts, log)
 }
 
-//nolint:wsl,lll // resource validation flow
 func (r ResourceContext) mergeFontFaces(ctx context.Context, registry *pdf.Registry, sheets []*css.Stylesheet, idx int, log io.Writer) *pdf.Registry {
 	if !r.ready {
 		return registry

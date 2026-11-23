@@ -1,17 +1,22 @@
-# golangci-lint configuration for blinkless.
-# Uses a curated correctness, security, and maintainability linter set
-# compatible with golangci-lint v1.64.8.
-# Docs: https://golangci-lint.run/usage/configuration/
+# golangci-lint configuration for blinkless (golangci-lint v2 schema).
+# Pinned runner: v2.15.0 via `make lint` (GOLANGCI_LINT_VERSION in the
+# Makefile). Curated correctness, security, and maintainability set; not
+# enable-all. Docs: https://golangci-lint.run/usage/configuration/
 #
-# Toolchain note: this module is go 1.26 / toolchain go1.26.4.
-# golangci-lint must be built with Go >= the module version (see Makefile).
+# Toolchain note: this module is go 1.26 / toolchain go1.26.4. golangci-lint
+# must be built with Go >= the module version (see the Makefile).
+#
+# Every //nolint needs a named linter and an explanation, and an unused
+# directive fails the gate (nolintlint below). A directive naming a linter
+# that is not enabled here is therefore also an error.
+version: "2"
 
 run:
   timeout: 10m
   tests: true
 
 linters:
-  disable-all: true
+  default: none
   enable:
     - bodyclose
     - contextcheck
@@ -22,7 +27,6 @@ linters:
     - errorlint
     - fatcontext
     - gocritic
-    - gofmt
     - gosec
     - govet
     - ineffassign
@@ -38,18 +42,49 @@ linters:
     - unused
     - usetesting
     - wastedassign
+  settings:
+    staticcheck:
+      # QF* are editor quickfix rewrites (De Morgan, tagged switch, embedded
+      # field selectors), not defects. The ST* exclusions are staticcheck's
+      # own defaults (package comments, naming, receiver and error-string
+      # style); SA* and S1* correctness and simplification checks stay on.
+      checks:
+        - all
+        - -QF*
+        - -ST1000
+        - -ST1003
+        - -ST1016
+        - -ST1020
+        - -ST1021
+        - -ST1022
+    nolintlint:
+      allow-unused: false
+      require-explanation: true
+      require-specific: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - node_modules
+      - frontend/dist
+      # Scratch programs under temps are exploratory artifacts, not product
+      # packages. They have never been part of the supported build or test path.
+      - temps
 
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
-  exclude-dirs:
-    - node_modules
-    - frontend/dist
-    # bindings/wasm is a js/wasm entry point validated by make wasm-test.
-    - bindings/wasm
-    # Scratch programs under temps are exploratory artifacts, not product
-    # packages. They have never been part of the supported build or test path.
-    - temps
 
-output:
-  sort-results: true
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: lax
+    paths:
+      - node_modules
+      - frontend/dist
+      - temps

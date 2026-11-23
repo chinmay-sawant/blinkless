@@ -1,4 +1,3 @@
-//nolint:lll // scope proofs
 package layout
 
 import (

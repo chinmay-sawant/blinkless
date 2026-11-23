@@ -19,8 +19,6 @@ type flexColumnLine struct {
 // has no line packing to perform.
 //
 // Wrapped columns keep line formation and physical placement together.
-//
-//nolint:cyclop,funlen,gocognit,nlreturn,wsl
 func (e *engine) flowFlexColumnWrapped(
 	parent *box,
 	style *ResolvedStyle,
@@ -159,7 +157,6 @@ func (e *engine) flexColumnLines(items []flexColMeas, contentH, gap float64) []f
 	return lines
 }
 
-//nolint:wsl // width selection mirrors CSS fallback order
 func (e *engine) flexColumnLineCrossWidth(items []flexColMeas) float64 {
 	width := 0.0
 	for _, item := range items {
@@ -214,7 +211,6 @@ func stretchFlexColumnLineWidths(align string, widths []float64, contentW, gap f
 	return widths
 }
 
-//nolint:wsl // offset distribution keeps keyword cases in one switch
 func flexColumnLineOffsets(align string, widths []float64, contentW, gap float64) []float64 {
 	free := contentW - flexWidthSum(widths) - gap*float64(len(widths)-1)
 	if free < 0 {
@@ -248,7 +244,6 @@ func flexColumnLineOffsets(align string, widths []float64, contentW, gap float64
 	return offsets
 }
 
-//nolint:wsl // min-height normalization is a short, ordered fallback
 func resolveFlexColumnContentHeight(style *ResolvedStyle, eng *engine) float64 {
 	contentH := resolveContentHeight(style, eng)
 	if contentH < 0 && style.geometry().MaxHeight >= 0 {
@@ -319,7 +314,6 @@ func (e *engine) flexGrowHeights(items []flexColMeas, heights []float64, free, g
 	}
 }
 
-//nolint:wsl // shrink normalization belongs beside the shrink distribution
 func (e *engine) flexShrinkHeights(items []flexColMeas, heights []float64, deficit, shrinkSum, contentH float64) {
 	factorSum := 0.0
 	for _, item := range items {
@@ -597,7 +591,6 @@ func (e *engine) columnItemsEndY(
 	return endY
 }
 
-//nolint:cyclop,funlen,gocognit,wsl // column placement keeps CSS auto-margin and alignment phases together
 func (e *engine) buildColumnItems(
 	parent *box, style *ResolvedStyle, items []flexColMeas, heights []float64,
 	contentW, contentX, topY, curY, startY, justifyGap, contentH float64,
@@ -715,8 +708,6 @@ func (e *engine) flexColumnItemOverride(
 // alignColumnItem places a column item on the cross axis. Auto cross-axis
 // margins take the line's positive free space before alignment (CSS Flexbox
 // L1 8.1), and when they do, the alignment keywords no longer move the item.
-//
-//nolint:wsl // column alignment keeps auto-margin and keyword branches together
 func (e *engine) alignColumnItem(
 	cblock *box, containerStyle, itemStyle *ResolvedStyle, contentX, contentW float64,
 ) {
@@ -770,8 +761,6 @@ func columnCrossAutoMarginOffset(itemStyle *ResolvedStyle, free float64) (float6
 }
 
 // columnAlignOffset is the cross-axis shift for the alignment keyword.
-//
-//nolint:wsl // alignment keyword mapping is easiest to audit as one switch
 func columnAlignOffset(
 	align string, cblock *box, itemStyle *ResolvedStyle, contentX, contentW float64,
 	reverse bool, e *engine,

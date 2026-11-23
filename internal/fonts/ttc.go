@@ -108,8 +108,8 @@ func extractTTCMember(data []byte, offset int) ([]byte, error) {
 		rec := data[offset+sfntHeaderSize+sfntRecordSize*t:]
 		dst := out[sfntHeaderSize+sfntRecordSize*t:]
 
-		copy(dst[:8], rec[:8])                                    // tag and checksum
-		binary.BigEndian.PutUint32(dst[8:12], uint32(next))       //nolint:gosec // next is bounded by maxSFNTSize
+		copy(dst[:8], rec[:8]) // tag and checksum
+		binary.BigEndian.PutUint32(dst[8:12], uint32(next))
 		binary.BigEndian.PutUint32(dst[12:16], uint32(sp.length)) //nolint:gosec // length is bounded by len(data)
 
 		copy(out[next:], data[sp.start:sp.start+sp.length])

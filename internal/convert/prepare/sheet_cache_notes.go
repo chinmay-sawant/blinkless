@@ -11,6 +11,9 @@ func (c *SheetCache) inlineSheet(node *html.Node) *css.Stylesheet {
 		return nil
 	}
 
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	return c.inline[node]
 }
 
@@ -20,14 +23,20 @@ func (c *SheetCache) noteInline(node *html.Node, sheet *css.Stylesheet) {
 		return
 	}
 
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	c.inline[node] = sheet
 }
 
 // linkSheet returns the sheet fetched for one <link> node, or the zero value.
 func (c *SheetCache) linkSheet(node *html.Node) cachedSheet {
 	if c == nil {
-		return cachedSheet{} //nolint:exhaustruct // no cached sheet
+		return cachedSheet{}
 	}
+
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 
 	return c.links[node]
 }
@@ -38,14 +47,20 @@ func (c *SheetCache) noteLink(node *html.Node, sheet cachedSheet) {
 		return
 	}
 
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	c.links[node] = sheet
 }
 
 // importSheet returns the sheet fetched for one @import rule, or the zero value.
 func (c *SheetCache) importSheet(key importKey) cachedSheet {
 	if c == nil {
-		return cachedSheet{} //nolint:exhaustruct // no cached sheet
+		return cachedSheet{}
 	}
+
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 
 	return c.imports[key]
 }
@@ -55,6 +70,9 @@ func (c *SheetCache) noteImport(key importKey, sheet cachedSheet) {
 	if c == nil {
 		return
 	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	c.imports[key] = sheet
 }

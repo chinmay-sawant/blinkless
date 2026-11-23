@@ -140,7 +140,6 @@ func quotedPageBoxContent(block string) (string, bool) {
 	return text, found && text != ""
 }
 
-//nolint:cyclop // quoted content validation follows the small CSS token grammar
 func quotedContentList(value string) (string, bool) {
 	value = strings.TrimSpace(value)
 	if value == "" {

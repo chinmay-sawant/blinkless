@@ -235,7 +235,7 @@ func layoutFlexOverrideDoc(t *testing.T, doc string, bypass bool) *Result {
 // TestFlexStyleOverrideCacheIdenticalOutput pins the cache's transparency: a
 // document covering every replaced copy site lays out byte-identical display
 // lists with and without the override cache.
-func TestFlexStyleOverrideCacheIdenticalOutput(t *testing.T) { //nolint:paralleltest // toggles a global flag
+func TestFlexStyleOverrideCacheIdenticalOutput(t *testing.T) {
 	doc := flexOverrideDoc(120)
 
 	cached := layoutFlexOverrideDoc(t, doc, false)
@@ -262,7 +262,7 @@ func TestFlexStyleOverrideCacheIdenticalOutput(t *testing.T) { //nolint:parallel
 // TestFlexStyleOverrideCacheHitsRepeatedRows pins the win the cache exists
 // for: identical invoice-style rows share one override record, so repeated
 // items hit the cache far more often than they allocate.
-func TestFlexStyleOverrideCacheHitsRepeatedRows(t *testing.T) { //nolint:paralleltest // resets global counters
+func TestFlexStyleOverrideCacheHitsRepeatedRows(t *testing.T) {
 	flexOverrideHits.Store(0)
 	flexOverrideMisses.Store(0)
 
@@ -301,14 +301,11 @@ func TestFlexAspectRatioHeightFromWidth(t *testing.T) {
 // TestFlexStyleOverrideCacheInheritedAcrossRelayouts verifies that committed
 // subtree flex overrides populate Result.flexOverrides, carry across
 // CloneResult, and hit the cache on subsequent subtree relayouts.
-//
-//nolint:paralleltest // inspects global hit counter
 func TestFlexStyleOverrideCacheInheritedAcrossRelayouts(t *testing.T) {
 	// The class edit below only moves a background color, which the paint
 	// restyle patches without the engine. This test is about the engine's
 	// override cache, so it keeps the engine path.
-	defer DisablePaintRestyle()()
-
+	ctx := WithTestConfig(t.Context(), TestConfig{PaintRestyleDisabled: true})
 	cssText := `body{margin:0}` +
 		`.row{display:flex;width:200px;height:40px;align-items:stretch;background:#eee}` +
 		`.row.hot{background:#ddd}` +
@@ -328,7 +325,7 @@ func TestFlexStyleOverrideCacheInheritedAcrossRelayouts(t *testing.T) {
 	node.Attrs["class"] = "row hot"
 
 	clone1 := CloneResult(res)
-	if _, err := RelayoutSubtrees(t.Context(), clone1, []string{"r1"}, opts,
+	if _, err := RelayoutSubtrees(ctx, clone1, []string{"r1"}, opts,
 		OperationOwners(res), PaintOrder(res.Ops)); err != nil {
 		t.Fatalf("first RelayoutSubtrees: %v", err)
 	}
@@ -341,7 +338,7 @@ func TestFlexStyleOverrideCacheInheritedAcrossRelayouts(t *testing.T) {
 	clone2 := CloneResult(clone1)
 	hitsBefore := flexOverrideHits.Load()
 
-	if _, err := RelayoutSubtrees(t.Context(), clone2, []string{"r1"}, opts,
+	if _, err := RelayoutSubtrees(ctx, clone2, []string{"r1"}, opts,
 		OperationOwners(clone1), PaintOrder(clone1.Ops)); err != nil {
 		t.Fatalf("second RelayoutSubtrees: %v", err)
 	}

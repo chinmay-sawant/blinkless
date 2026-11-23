@@ -174,7 +174,7 @@ func emitReport(rep *report, outPath, fixture string, elemCount, boxCount int) e
 		return fmt.Errorf("mkdir: %w", err)
 	}
 
-	if err := os.WriteFile(outPath, payload, outputFilePerm); err != nil {
+	if err := os.WriteFile(outPath, payload, outputFilePerm); err != nil { //nolint:gosec // developer-run harness writes to its own -out flag path
 		return fmt.Errorf("write: %w", err)
 	}
 

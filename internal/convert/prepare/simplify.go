@@ -38,7 +38,7 @@ func normalizeSimplifyProfile(raw string) string {
 // (typically global, optional image web, then object). SimplifyDOM is true
 // when any layer enables it.
 func BuildOptions(viewportW, viewportH float64, media string, objectIndex int, webs ...settings.Web) Options {
-	opts := Options{ //nolint:exhaustruct // Simplify fields filled below
+	opts := Options{
 		ViewportW:   viewportW,
 		ViewportH:   viewportH,
 		MediaType:   strings.ToLower(strings.TrimSpace(media)),
@@ -62,7 +62,6 @@ func BuildOptions(viewportW, viewportH float64, media string, objectIndex int, w
 	return opts
 }
 
-//nolint:wsl,nlreturn // stylesheet append flow
 func AppendSimplifySheet(sheets []*css.Stylesheet, enabled bool, profile string) []*css.Stylesheet {
 	if !enabled {
 		return sheets

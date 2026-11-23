@@ -10,8 +10,6 @@ import (
 
 // navKeywordSets lists the keyword grammar of every nav property that takes
 // one keyword from a fixed set. It is built once on first use.
-//
-//nolint:gochecknoglobals // memoized read-only table, built once
 var navKeywordSets = sync.OnceValue(buildNavKeywordSets)
 
 // buildNavKeywordSets builds the keyword table behind navKeywordSets.
