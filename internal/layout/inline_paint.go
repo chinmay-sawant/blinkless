@@ -174,7 +174,7 @@ func (e *engine) emitInlineText(
 
 	leftX += chromeLeft
 
-	if item.style.inlineText().TextOverflow == textOverflowEllipsis {
+	if _, ok := textOverflowMarker(item.style.inlineText().TextOverflow); ok {
 		e.applyEllipsis(item)
 	}
 
@@ -409,15 +409,25 @@ func (e *engine) emitInlineTextRun(
 		e.emitTextShadowRuns(item, run, textX, paintBaseline, textWidth, paintSize, descent)
 	}
 
-	e.add(decorateTextOp(Op{
+	letterSpacing := item.style.inlineText().LetterSpacing * e.scale
+	rotateDeg := e.noteRotatedRun(item, run, textWidth)
+	if widthScale != 1 && rotateDeg != 0 {
+		letterSpacing *= widthScale
+	}
+
+	textOp := decorateTextOp(Op{
 		Kind: OpText, X: textX, Y: paintBaseline, W: textWidth, H: item.h,
 		Text: raw, Font: run.face, Size: paintSize,
 		InkDescent:    descent,
-		LetterSpacing: item.style.inlineText().LetterSpacing * e.scale * widthScale,
+		LetterSpacing: letterSpacing,
 		Bold:          item.style.FontWeight >= fontWeightBoldValue,
 		R:             child[0], G: child[1], B: child[2],
-		RotateDeg: e.noteRotatedRun(item, run, textWidth),
-	}, item.style))
+		RotateDeg: rotateDeg,
+	}, item.style)
+	if widthScale != 1 && textOp.RotateDeg == 0 && !textOp.XformSet {
+		textOp.setXform(Matrix2D{A: widthScale, D: 1})
+	}
+	e.add(textOp)
 
 	if item.href != "" {
 		e.add((Op{
@@ -1323,6 +1333,7 @@ func (e *engine) emitDoubleLine(startX, lineY, lineW, width float64, col [3]floa
 type emphasisMark struct {
 	dotD, dotY                   float64
 	isCircle, isTriangle, isOpen bool
+	customText                   string
 	red, green, blue             float64
 }
 
@@ -1348,9 +1359,33 @@ func (e *engine) paintEmphasis(item *inlineItem, runStart, runSpan, baseline, as
 			adv = size * fallbackAdvanceRatio
 		}
 
-		cx := curX + adv/two - mark.dotD/two
-		e.emitEmphasisDot(cx, mark.dotY, mark.dotD, mark.isCircle, mark.isTriangle, mark.isOpen,
-			mark.red, mark.green, mark.blue)
+		if mark.customText != "" {
+			markSize := size * 0.5
+			if markSize < 5 {
+				markSize = 5
+			}
+			markRun, _ := e.primaryFaceRun(mark.customText, item.style)
+			markW := e.measureTextFace(mark.customText, item.style) * (markSize / max(size, 1))
+			tx := curX + (adv-markW)/two
+			ty := mark.dotY + markSize*0.85
+			e.add(Op{
+				Kind: OpText,
+				X:    tx,
+				Y:    ty,
+				W:    markW,
+				H:    markSize,
+				Text: mark.customText,
+				Size: markSize,
+				Font: markRun.face,
+				R:    mark.red,
+				G:    mark.green,
+				B:    mark.blue,
+			})
+		} else {
+			cx := curX + adv/two - mark.dotD/two
+			e.emitEmphasisDot(cx, mark.dotY, mark.dotD, mark.isCircle, mark.isTriangle, mark.isOpen,
+				mark.red, mark.green, mark.blue)
+		}
 
 		curX += adv
 
@@ -1400,6 +1435,9 @@ func resolveEmphasisMark(item *inlineItem, baseline, ascent, descent, size float
 	}
 
 	lowStyle := strings.ToLower(styleVal)
+	if unquoted, isStr := unquoteCSSMarkerString(styleVal); isStr && unquoted != "" {
+		mark.customText = unquoted
+	}
 	mark.isCircle = strings.Contains(lowStyle, "circle") || strings.Contains(lowStyle, "dot")
 	mark.isTriangle = strings.Contains(lowStyle, "triangle")
 	mark.isOpen = strings.Contains(lowStyle, "open")
@@ -1502,7 +1540,11 @@ func (e *engine) applyEllipsis(item *inlineItem) {
 		return
 	}
 
-	ellipsis := "..."
+	ellipsis, hasMarker := textOverflowMarker(item.style.inlineText().TextOverflow)
+	if !hasMarker {
+		return
+	}
+
 	ellipsisW := e.measureTextFace(ellipsis, item.style)
 	budget := avail - ellipsisW - 1
 

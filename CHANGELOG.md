@@ -9,6 +9,23 @@ and are not listed here.
 
 ## Unreleased
 
+## 0.1.8 (2026-11-25)
+
+Work after tag `v0.1.7` (`6bd675b`). Full release note in `plans/v0.1.8/release/v0.1.8.md`.
+
+### Added
+- **Minimal MIT-licensed OpenType, variable, and color-palette demo fonts.** Bundled `BlinklessOT-Regular.ttf` (4.4 KB, regular-only with `GSUB tnum` and `ruby` tables), `BlinklessVar-VF.ttf` (1.3 KB, `wght` and `opsz` variable axes), and lazy in-memory `Blinkless Palette` (`COLR`+`CPAL` via `PaletteDemoTTF`) under `internal/fonts`.
+- **SVG `fill-rule: evenodd` and `<clipPath>` / `clip-rule: evenodd` emulation** in `internal/svg/clip_emulate.go` for self-crossing paths and polygons.
+
+### Fixed
+- **Retained table paint ranges on incremental updates.** Shifted retained table op ranges once instead of double-shifting when incremental patches move or replace rows.
+- **CSS layout, border-image, grid, and anchor positioning gaps.** Fixed CSS gradient extraction and rasterization priority in `border-image` / `border-image-source`, skipped box chrome on `visibility: hidden`/`collapse`, added 2-value `gap` shorthand and percentage `scale()`, handled `inherit` for `border-*-color` and `outline-color`, expanded implicit columns for `grid-auto-flow: column` sized by `grid-auto-columns`, fixed sparse grid auto-placement for row-pinned items, and completed CSS Anchor Positioning (`anchor-center`, `span-*`, `position-try-order`, `flip-start`).
+- **SVG presentation cascade and rasterization.** Last-declaration-wins lookup in `svgStyleDecls.prop()`, inline `style` overriding XML presentation attributes (`cx`, `cy`, `r`, `x`, `y`, `stop-color`, `stop-opacity`, `marker-*`), `marker` shorthand/longhand resolution in declaration order, `paint-order` inheritance, unitless `objectBoundingBox` gradient coordinates, deferred `stroke-linejoin` after `stroke-miterlimit`, `color-interpolation: linearRGB` gradient subdivision, `color-interpolation-filters` style fallback, and baked `clip-path: url(#...)`.
+- **Filter blur, mask box geometry, mask-border, text, and dark controls.** Added `BlendGroup.Filter` for `filter: blur(...)`, `MaskDescriptor` border/padding insets for `mask-origin`/`mask-clip`, `mask-border` layer composition, outset expansion, and vertical edge tiling (`round`/`space`), custom quoted strings in `text-overflow` and `text-emphasis-style`, `font-width` horizontal glyph scaling, and `color-scheme: dark` form-control defaults.
+
+### Performance
+- **Subtree relayout and incremental text overhead.** Cut subtree relayout cloning, anchor scan overhead, and ancestor text splicing cost.
+
 ## 0.1.6 (2026-11-23)
 
 Work after tag `v0.1.5` (`d486e95`), merged in PRs #45 to #49. The full account is in `plans/v0.1.6/release/v0.1.6.md`.

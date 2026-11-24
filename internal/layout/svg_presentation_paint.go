@@ -2,6 +2,7 @@ package layout
 
 import (
 	"bytes"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -200,7 +201,15 @@ func (e *engine) prepareSVGStylesheetPaint(node *html.Node, decls *svgStyleDecls
 		skip.note(decls, marker.prop, marker.value)
 	}
 
-	skip.note(decls, svgPropPaintOrder, style.svg().SVGPaintOrder)
+	if po := style.svg().SVGPaintOrder; po != "" {
+		inherited := decls.prop(svgPropPaintOrder) == "" &&
+			node.Attribute(svgPropPaintOrder) != "" &&
+			node.Parent != nil && e.hasStyle(node.Parent) &&
+			e.stylePtr(node.Parent).svg().SVGPaintOrder == po
+		if !inherited {
+			skip.note(decls, svgPropPaintOrder, po)
+		}
+	}
 	skip.note(decls, svgPropVectorEffect, style.svg().SVGVectorEffect)
 
 	if node.Name == "feFlood" {
@@ -312,4 +321,294 @@ func storeSVGColorHex(dest *string, current [3]float64, value string) bool {
 	*dest = cssColorHex(color)
 
 	return true
+}
+
+// prepareSVGInheritedPresentation records presentation attributes that must be
+// suppressed during sorted XML attribute emission because CSS overrides them
+// on this element, or because stroke-linejoin must be emitted after
+// stroke-miterlimit for the pinned canvas parser.
+func (e *engine) prepareSVGInheritedPresentation(node *html.Node, decls *svgStyleDecls, skip *svgGeomSkip) {
+	if node == nil || decls == nil || !e.hasStyle(node) {
+		return
+	}
+
+	st := e.stylePtr(node)
+
+	var parent *ResolvedStyle
+	if node.Parent != nil && e.hasStyle(node.Parent) {
+		parent = e.stylePtr(node.Parent)
+	}
+
+	cssMiter := decls.prop("stroke-miterlimit") != "" ||
+		(st.svg().StrokeMiterLimit >= 1 && (parent == nil || parent.svg().StrokeMiterLimit != st.svg().StrokeMiterLimit))
+	if cssMiter {
+		skip.add("stroke-miterlimit")
+	}
+
+	cssJoin := decls.prop("stroke-linejoin") != "" ||
+		(st.svg().StrokeLineJoin != "" && (parent == nil || parent.svg().StrokeLineJoin != st.svg().StrokeLineJoin))
+	if cssJoin {
+		skip.add("stroke-linejoin")
+		skip.add("stroke-linejoin-css")
+	} else if st.svg().StrokeMiterLimit >= 1 || node.Attribute("stroke-miterlimit") != "" {
+		// Defer authored stroke-linejoin so stroke-miterlimit is emitted first.
+		skip.add("stroke-linejoin")
+	}
+
+	cssFillRule := decls.prop("fill-rule") != "" ||
+		(st.svg().FillRule != "" && parent != nil && parent.svg().FillRule != st.svg().FillRule)
+	if cssFillRule {
+		skip.add("fill-rule")
+	}
+
+	cssInterp := decls.prop("color-interpolation") != "" ||
+		(st.svg().ColorInterpolation != "" && parent != nil && parent.svg().ColorInterpolation != st.svg().ColorInterpolation)
+	if cssInterp {
+		skip.add("color-interpolation")
+	}
+
+	cssInterpFilters := decls.prop("color-interpolation-filters") != "" ||
+		(st.svg().ColorInterpolationFilters != "" && parent != nil && parent.svg().ColorInterpolationFilters != st.svg().ColorInterpolationFilters)
+	if cssInterpFilters {
+		skip.add("color-interpolation-filters")
+	}
+}
+
+// effectiveSVGStrokeLineJoin returns the stroke-linejoin attribute value to
+// emit after stroke-miterlimit.
+func effectiveSVGStrokeLineJoin(
+	node *html.Node, st *ResolvedStyle, decls *svgStyleDecls, geomSkip *svgGeomSkip, miterWritten bool,
+) string {
+	if v := strings.ToLower(strings.TrimSpace(decls.prop("stroke-linejoin"))); v != "" {
+		return v
+	}
+
+	attr := strings.ToLower(strings.TrimSpace(node.Attribute("stroke-linejoin")))
+	if attr != "" && !geomSkip.skips("stroke-linejoin-css") {
+		return attr
+	}
+
+	if st.svg().StrokeLineJoin != "" {
+		return st.svg().StrokeLineJoin
+	}
+
+	if attr != "" {
+		return attr
+	}
+
+	if miterWritten {
+		return "miter"
+	}
+
+	return ""
+}
+
+// svgGradientUsesObjectBoundingBox reports whether node is an SVG gradient
+// whose coordinates are in objectBoundingBox units (the SVG default).
+func svgGradientUsesObjectBoundingBox(node *html.Node) bool {
+	if node == nil || (node.Name != "linearGradient" && node.Name != "radialGradient") {
+		return false
+	}
+
+	return !strings.EqualFold(strings.TrimSpace(node.Attribute("gradientUnits")), "userspaceonuse")
+}
+
+// normalizeSVGGradientCoord converts unitless objectBoundingBox gradient
+// coordinates (e.g. x1="0" x2="1") into percentages ("0%", "100%") because the
+// pinned canvas parser only scales coordinates by the target bounding box when
+// they carry a "%" suffix.
+func normalizeSVGGradientCoord(tag, attr, value string) string {
+	switch tag {
+	case "linearGradient":
+		if attr != "x1" && attr != "y1" && attr != "x2" && attr != "y2" {
+			return value
+		}
+	case "radialGradient":
+		if attr != "cx" && attr != "cy" && attr != "r" && attr != "fx" && attr != "fy" && attr != "fr" {
+			return value
+		}
+	default:
+		return value
+	}
+
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" || strings.HasSuffix(trimmed, "%") {
+		return value
+	}
+
+	f, err := strconv.ParseFloat(trimmed, 64)
+	if err != nil {
+		return value
+	}
+
+	return strconv.FormatFloat(f*100, 'g', -1, 64) + "%"
+}
+
+// svgUsesLinearInterpolation reports whether node resolves to
+// color-interpolation: linearRGB via CSS or its presentation attribute.
+func (e *engine) svgUsesLinearInterpolation(node *html.Node, decls *svgStyleDecls) bool {
+	if v := decls.prop("color-interpolation"); v != "" {
+		return gradientUsesLinearLight(v)
+	}
+
+	if e.hasStyle(node) && e.stylePtr(node).svg().ColorInterpolation == "linearrgb" {
+		return true
+	}
+
+	if v := node.Attribute("color-interpolation"); v != "" {
+		return gradientUsesLinearLight(v)
+	}
+
+	return false
+}
+
+type svgResolvedStop struct {
+	offset  float64
+	color   [3]float64
+	opacity float64
+}
+
+// svgLinearRGBSubdivisions is the number of sub-intervals emitted per stop pair
+// when approximating linearRGB gradient interpolation in sRGB for the canvas
+// rasterizer.
+const svgLinearRGBSubdivisions = 8
+
+// writeSVGLinearRGBStops expands a gradient's <stop> children by interpolating
+// intermediate stops in linear light and encoding them back to sRGB. It returns
+// false when the gradient has fewer than two parsable stops or non-stop element
+// children so the caller falls back to normal child serialization.
+func (e *engine) writeSVGLinearRGBStops(b *bytes.Buffer, grad *html.Node) bool {
+	var stops []svgResolvedStop
+
+	for _, child := range grad.Children {
+		if child.Type != html.ElementNode {
+			continue
+		}
+
+		if child.Name != "stop" {
+			return false
+		}
+
+		stop, ok := e.resolveSVGGradientStop(child)
+		if !ok {
+			return false
+		}
+
+		stops = append(stops, stop)
+	}
+
+	if len(stops) < 2 {
+		return false
+	}
+
+	writeStop := func(off float64, c [3]float64, op float64) {
+		fmt.Fprintf(b, `<stop offset="%g" stop-color="%s"`, off, cssColorHex(c))
+		if op < 1 {
+			fmt.Fprintf(b, ` stop-opacity="%g"`, op)
+		}
+		b.WriteString(`/>`)
+	}
+
+	for i := 0; i < len(stops)-1; i++ {
+		s0, s1 := stops[i], stops[i+1]
+		writeStop(s0.offset, s0.color, s0.opacity)
+
+		if s1.offset <= s0.offset || (s0.color == s1.color && s0.opacity == s1.opacity) {
+			continue
+		}
+
+		r0, g0, b0 := srgbChannelToLinear(s0.color[0]), srgbChannelToLinear(s0.color[1]), srgbChannelToLinear(s0.color[2])
+		r1, g1, b1 := srgbChannelToLinear(s1.color[0]), srgbChannelToLinear(s1.color[1]), srgbChannelToLinear(s1.color[2])
+
+		for step := 1; step < svgLinearRGBSubdivisions; step++ {
+			t := float64(step) / svgLinearRGBSubdivisions
+			off := s0.offset + t*(s1.offset-s0.offset)
+			c := [3]float64{
+				linearChannelToSRGB(r0 + t*(r1-r0)),
+				linearChannelToSRGB(g0 + t*(g1-g0)),
+				linearChannelToSRGB(b0 + t*(b1-b0)),
+			}
+			op := s0.opacity + t*(s1.opacity-s0.opacity)
+			writeStop(off, c, op)
+		}
+	}
+
+	last := stops[len(stops)-1]
+	writeStop(last.offset, last.color, last.opacity)
+
+	return true
+}
+
+func (e *engine) resolveSVGGradientStop(node *html.Node) (svgResolvedStop, bool) {
+	offset, ok := parseSVGStopFraction(node.Attribute("offset"), 0)
+	if !ok {
+		return svgResolvedStop{}, false
+	}
+
+	decls := parseSVGStyleDecls(node.Attribute("style"))
+
+	var current [3]float64
+	var st *ResolvedStyle
+	if e.hasStyle(node) {
+		st = e.stylePtr(node)
+		current = st.Color
+	}
+
+	var rawColor string
+	if st != nil && st.svg().SVGStopColor != "" {
+		rawColor = st.svg().SVGStopColor
+	} else if v := strings.TrimSpace(decls.prop("stop-color")); v != "" {
+		rawColor = v
+	} else {
+		rawColor = strings.TrimSpace(node.Attribute("stop-color"))
+	}
+
+	color := [3]float64{0, 0, 0}
+	if rawColor != "" {
+		parsed, parsedOK := parseUsedColor(rawColor, current)
+		if !parsedOK {
+			return svgResolvedStop{}, false
+		}
+
+		color = parsed
+	}
+
+	var rawOpacity string
+	if st != nil && st.svg().SVGStopOpacity != "" {
+		rawOpacity = st.svg().SVGStopOpacity
+	} else if v := strings.TrimSpace(decls.prop("stop-opacity")); v != "" {
+		rawOpacity = v
+	} else {
+		rawOpacity = strings.TrimSpace(node.Attribute("stop-opacity"))
+	}
+
+	opacity, ok := parseSVGStopFraction(rawOpacity, 1)
+	if !ok {
+		return svgResolvedStop{}, false
+	}
+
+	return svgResolvedStop{offset: offset, color: color, opacity: opacity}, true
+}
+
+func parseSVGStopFraction(raw string, fallback float64) (float64, bool) {
+	v := strings.TrimSpace(raw)
+	if v == "" {
+		return fallback, true
+	}
+
+	if strings.HasSuffix(v, "%") {
+		f, err := strconv.ParseFloat(strings.TrimSpace(v[:len(v)-1]), 64)
+		if err != nil {
+			return 0, false
+		}
+
+		return clamp01(f / 100), true
+	}
+
+	f, err := strconv.ParseFloat(v, 64)
+	if err != nil {
+		return 0, false
+	}
+
+	return clamp01(f), true
 }

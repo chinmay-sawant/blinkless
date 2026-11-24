@@ -38,7 +38,22 @@ func (e *engine) maskDescriptor(style ResolvedStyle) *MaskDescriptor {
 		return nil
 	}
 
-	descriptor := &MaskDescriptor{Layers: make([]MaskLayer, 0, len(images))}
+	borders := style.borders()
+	descriptor := &MaskDescriptor{
+		Layers: make([]MaskLayer, 0, len(images)),
+		BorderInsets: [4]float64{
+			e.scalePt(borders.BorderTop.Width),
+			e.scalePt(borders.BorderRight.Width),
+			e.scalePt(borders.BorderBottom.Width),
+			e.scalePt(borders.BorderLeft.Width),
+		},
+		PaddingInsets: [4]float64{
+			e.scalePt(style.PaddingTop),
+			e.scalePt(style.PaddingRight),
+			e.scalePt(style.PaddingBottom),
+			e.scalePt(style.PaddingLeft),
+		},
+	}
 
 	for index, source := range images {
 		layer := MaskLayer{
@@ -100,7 +115,7 @@ const maskGradientAxisCount = 2
 // fillMaskGradient stores one gradient mask as PNG bytes. The display list
 // carries the resolved raster on its group; it is not a standalone image op.
 func (e *engine) fillMaskGradient(layer *MaskLayer, style ResolvedStyle) {
-	width, height := e.maskGradientPaintSize(style, layer.Size)
+	width, height := e.maskGradientPaintSize(style, layer.Size, layer.Origin)
 	pngBytes, pixelW, pixelH, rendered := maskGradientPNG(
 		layer.Source,
 		width,
@@ -118,13 +133,31 @@ func (e *engine) fillMaskGradient(layer *MaskLayer, style ResolvedStyle) {
 }
 
 // maskGradientPaintSize is the raster size in paint points. auto, cover, and
-// contain use the element border box. One length sets the width and keeps
-// the border-box height. Two lengths set width, then height.
-func (e *engine) maskGradientPaintSize(style ResolvedStyle, size string) (float64, float64) {
-	boxW, boxH := maskGradientBorderBox(style)
+// contain use the element's mask-origin box. One length sets the width and
+// keeps the origin-box height. Two lengths set width, then height.
+func (e *engine) maskGradientPaintSize(style ResolvedStyle, size, origin string) (float64, float64) {
+	boxW, boxH := maskGradientOriginBox(style, origin)
 	width, height := maskGradientLayerSize(size, boxW, boxH, style.FontSize)
 
 	return e.scalePt(width), e.scalePt(height)
+}
+
+func maskGradientOriginBox(style ResolvedStyle, origin string) (float64, float64) {
+	boxW, boxH := maskGradientBorderBox(style)
+	borders := style.borders()
+	borderH := borders.BorderLeft.Width + borders.BorderRight.Width
+	borderV := borders.BorderTop.Width + borders.BorderBottom.Width
+
+	switch strings.ToLower(strings.TrimSpace(origin)) {
+	case "padding-box":
+		boxW = max(maskGradientMinPt, boxW-borderH)
+		boxH = max(maskGradientMinPt, boxH-borderV)
+	case "content-box":
+		boxW = max(maskGradientMinPt, boxW-borderH-style.PaddingLeft-style.PaddingRight)
+		boxH = max(maskGradientMinPt, boxH-borderV-style.PaddingTop-style.PaddingBottom)
+	}
+
+	return boxW, boxH
 }
 
 func maskGradientBorderBox(style ResolvedStyle) (float64, float64) {

@@ -30,6 +30,9 @@ type BlendGroup struct {
 	// the pixels behind this element before replaying the group's own paint.
 	// Empty and "none" mean no backdrop effect.
 	BackdropFilter string
+	// Filter is the computed CSS filter list that a host applies to this
+	// element's painted group output. Empty and "none" mean no filter effect.
+	Filter string
 	// Isolate marks a group whose initial backdrop is transparent. HTML
 	// stacking contexts are always isolated groups (CSS Compositing 3.2), so
 	// engine-created groups set this true.
@@ -50,6 +53,12 @@ type BlendGroup struct {
 type MaskDescriptor struct {
 	Layers []MaskLayer
 	Raster *MaskRaster
+	// BorderInsets holds the top, right, bottom, left border widths in display
+	// points, allowing hosts to derive the padding-box from the border-box.
+	BorderInsets [4]float64
+	// PaddingInsets holds the top, right, bottom, left padding widths in
+	// display points, allowing hosts to derive the content-box.
+	PaddingInsets [4]float64
 }
 
 // MaskRaster is the resolved mask image selected by Blinkless for this group.
@@ -86,7 +95,8 @@ type MaskLayer struct {
 
 func initiatesBlendGroup(style *ResolvedStyle) bool {
 	return style != nil && (nonNormalBlendMode(style.effects().MixBlendMode) != "" ||
-		style.effects().Isolation == "isolate" || maskGroupRequested(style) || hasBackdropFilter(style.effects().BackdropFilter))
+		style.effects().Isolation == "isolate" || maskGroupRequested(style) ||
+		hasBackdropFilter(style.effects().BackdropFilter) || hasFilter(style.effects().Filter))
 }
 
 // IsGroupBegin reports whether the operation opens a blend group.
@@ -152,6 +162,15 @@ func (op *Op) setGroupMark(group *BlendGroup, mark uint8) {
 // Empty and "none" paint directly; any other filter list needs a group so the
 // host can blur or saturate the backdrop at one boundary.
 func hasBackdropFilter(value string) bool {
+	value = strings.TrimSpace(value)
+
+	return value != "" && !strings.EqualFold(value, "none")
+}
+
+// hasFilter reports whether a CSS filter value creates a group. Empty and
+// "none" paint directly; any other filter list needs a group so the host can
+// filter the element's painted output at one boundary.
+func hasFilter(value string) bool {
 	value = strings.TrimSpace(value)
 
 	return value != "" && !strings.EqualFold(value, "none")

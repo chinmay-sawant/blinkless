@@ -742,14 +742,15 @@ func anchorVisibilityValueAccepted(value string) bool {
 // area produces for the target box. cbW and cbH are the containing sizes the
 // try-size order keys on.
 type anchorCandidate struct {
-	area string
-	x, y float64
-	cbW  float64
-	cbH  float64
-	rx0  float64
-	ry0  float64
-	rx1  float64
-	ry1  float64
+	area   string
+	isBase bool
+	x, y   float64
+	cbW    float64
+	cbH    float64
+	rx0    float64
+	ry0    float64
+	rx1    float64
+	ry1    float64
 }
 
 // clampRectStart shifts one axis of a box so the box stays inside the
@@ -1074,13 +1075,12 @@ func resolveAnchorFallbackItem(item, base string, sheets []*css.Stylesheet) (str
 // position-area region rect its box must land inside to be accepted, and its
 // point is first shifted to stay inside the containing block when it can.
 func collectAnchorCandidates(
-	sty *ResolvedStyle, anchor, target *box, cbX, cbY, cbW, cbH, viewportW, viewportH float64,
+	sty *ResolvedStyle, anchor, target *box, cbX, cbY, cbW, cbH float64,
 	sheets []*css.Stylesheet,
 ) []anchorCandidate {
-	base := make([]anchorCandidate, 0, 1)
-	fallbacks := make([]anchorCandidate, 0, len(sty.positioning().PositionTryFallbacks))
+	cands := make([]anchorCandidate, 0, 1+len(sty.positioning().PositionTryFallbacks))
 
-	add := func(area string, flipV, flipH bool, into *[]anchorCandidate) {
+	add := func(area string, isBase, flipV, flipH bool) {
 		if anchor == nil || target == nil {
 			return
 		}
@@ -1090,21 +1090,23 @@ func collectAnchorCandidates(
 		}
 
 		leftAuto := sty.positioning().LeftAuto
+		rightAuto := sty.positioning().RightAuto
 		topAuto := sty.positioning().TopAuto
+		bottomAuto := sty.positioning().BottomAuto
 		fallbackX := target.x
 		fallbackY := target.y
 
 		if flipV {
-			topAuto = sty.positioning().BottomAuto
+			topAuto, bottomAuto = bottomAuto, topAuto
 		}
 
 		if flipH {
-			leftAuto = sty.positioning().RightAuto
+			leftAuto, rightAuto = rightAuto, leftAuto
 		}
 
-		x, y, trackW, trackH, ok := anchorAreaGeometry(
-			area, anchor, target.w, target.height, viewportW, viewportH,
-			fallbackX, fallbackY, leftAuto, topAuto,
+		x, y, ok := anchorAreaGeometry(
+			area, anchor, target.w, target.height,
+			fallbackX, fallbackY, leftAuto, rightAuto, topAuto, bottomAuto,
 		)
 		if !ok {
 			return
@@ -1115,14 +1117,16 @@ func collectAnchorCandidates(
 
 		rx0, ry0, rx1, ry1 := anchorRegionRect(area, anchor, cbX, cbY, cbW, cbH)
 
-		*into = append(*into, anchorCandidate{
-			area: normalizeCSSValue(area),
-			x:    x, y: y, cbW: trackW, cbH: trackH,
+		cands = append(cands, anchorCandidate{
+			area:   normalizeCSSValue(area),
+			isBase: isBase,
+			x:      x, y: y,
+			cbW: max(0, rx1-rx0), cbH: max(0, ry1-ry0),
 			rx0: rx0, ry0: ry0, rx1: rx1, ry1: ry1,
 		})
 	}
 
-	add(sty.positioning().PositionArea, false, false, &base)
+	add(sty.positioning().PositionArea, true, false, false)
 
 	for _, entry := range sty.positioning().PositionTryFallbacks {
 		area, ok, flipV, flipH := resolveAnchorFallbackItem(entry, sty.positioning().PositionArea, sheets)
@@ -1130,12 +1134,10 @@ func collectAnchorCandidates(
 			continue
 		}
 
-		add(area, flipV, flipH, &fallbacks)
+		add(area, false, flipV, flipH)
 	}
 
-	fallbacks = orderAnchorCandidates(fallbacks, sty.positioning().PositionTryOrder)
-
-	return append(base, fallbacks...)
+	return orderAnchorCandidates(cands, sty.positioning().PositionTryOrder)
 }
 
 // orderAnchorCandidates stably sorts a copy of the candidates by the
@@ -1267,18 +1269,8 @@ func pickAnchorCandidate(
 	}
 
 	for i := range cands {
-		if i == 0 {
-			if fits(cands[0]) {
-				return &cands[0], false
-			}
-
-			continue
-		}
-
-		base := &cands[i]
-
-		if fits(*base) {
-			out := *base
+		if fits(cands[i]) {
+			out := cands[i]
 
 			return &out, false
 		}
@@ -1286,6 +1278,14 @@ func pickAnchorCandidate(
 
 	if strings.Contains(normalizeCSSValue(sty.positioning().PositionVisibility), "no-overflow") {
 		return nil, true
+	}
+
+	for i := range cands {
+		if cands[i].isBase {
+			out := cands[i]
+
+			return &out, false
+		}
 	}
 
 	out := cands[0]
@@ -1375,7 +1375,7 @@ func (e *engine) placeAnchorTarget(target *box, anchorMap map[string][]*box, cb 
 
 	cbX, cbY, cbW, cbH := anchorCBRect(target, cb, viewportW, viewportH)
 
-	cands := collectAnchorCandidates(sty, anchor, target, cbX, cbY, cbW, cbH, viewportW, viewportH, e.opts.Sheets)
+	cands := collectAnchorCandidates(sty, anchor, target, cbX, cbY, cbW, cbH, e.opts.Sheets)
 	if len(cands) == 0 {
 		return false
 	}
@@ -1428,38 +1428,47 @@ func hideAnchorBox(e *engine, target *box) {
 	}
 }
 
-// anchorAreaGeometry returns the target top-left and the containing-block
-// size for an area. Single vertical areas align X to the anchor start edge
-// and single horizontal areas align Y the same way; center centers that
-// axis. It returns false for none or invalid areas, which keep absolute
-// offsets.
+// anchorAreaGeometry returns the target top-left for an area. Single vertical
+// areas use span-all on the horizontal axis (defaulting to anchor-center when
+// horizontal insets are auto); single horizontal areas mirror that vertically.
+// It returns false for none or invalid areas, which keep absolute offsets.
 func anchorAreaGeometry(
-	area string, anchor *box, targetW, targetH, viewportW, viewportH float64,
-	fallbackX, fallbackY float64, leftAuto, topAuto bool,
-) (float64, float64, float64, float64, bool) {
+	area string, anchor *box, targetW, targetH float64,
+	fallbackX, fallbackY float64, leftAuto, rightAuto, topAuto, bottomAuto bool,
+) (float64, float64, bool) {
 	vert, horiz, single, ok := splitPositionArea(area)
 	if !ok {
-		return 0, 0, 0, 0, false
+		return 0, 0, false
 	}
 
 	var x, y float64
 
 	switch single {
 	case "vertical":
-		x = fallbackX
+		if leftAuto && rightAuto {
+			x = horizontalAreaX("span-all", anchor.x, anchor.w, targetW)
+		} else {
+			x = fallbackX
+		}
+
 		switch {
 		case anchorTrackSide(vert) > 0:
-			y = anchor.y + anchor.height
+			y = verticalAreaY(vert, anchor.y, anchor.height, targetH)
 		case topAuto:
 			y = verticalAreaY(vert, anchor.y, anchor.height, targetH)
 		default:
 			y = fallbackY
 		}
 	case "horizontal":
-		y = fallbackY
+		if topAuto && bottomAuto {
+			y = verticalAreaY("span-all", anchor.y, anchor.height, targetH)
+		} else {
+			y = fallbackY
+		}
+
 		switch {
 		case anchorTrackSide(horiz) > 0:
-			x = anchor.x + anchor.w
+			x = horizontalAreaX(horiz, anchor.x, anchor.w, targetW)
 		case leftAuto:
 			x = horizontalAreaX(horiz, anchor.x, anchor.w, targetW)
 		default:
@@ -1469,12 +1478,21 @@ func anchorAreaGeometry(
 		x = anchor.x + (anchor.w-targetW)/2
 		y = anchor.y + (anchor.height-targetH)/2
 	case "single-span-all":
-		x = anchor.x
-		y = anchor.y
+		if leftAuto && rightAuto {
+			x = horizontalAreaX("span-all", anchor.x, anchor.w, targetW)
+		} else {
+			x = fallbackX
+		}
+
+		if topAuto && bottomAuto {
+			y = verticalAreaY("span-all", anchor.y, anchor.height, targetH)
+		} else {
+			y = fallbackY
+		}
 	case "double":
 		switch anchorTrackSide(vert) {
 		case 1:
-			y = anchor.y + anchor.height
+			y = verticalAreaY(vert, anchor.y, anchor.height, targetH)
 		case -1:
 			if topAuto {
 				y = verticalAreaY(vert, anchor.y, anchor.height, targetH)
@@ -1482,11 +1500,16 @@ func anchorAreaGeometry(
 				y = fallbackY
 			}
 		default:
-			y = verticalAreaY(vert, anchor.y, anchor.height, targetH)
+			if vert == "span-all" && (!topAuto || !bottomAuto) {
+				y = fallbackY
+			} else {
+				y = verticalAreaY(vert, anchor.y, anchor.height, targetH)
+			}
 		}
+
 		switch anchorTrackSide(horiz) {
 		case 1:
-			x = anchor.x + anchor.w
+			x = horizontalAreaX(horiz, anchor.x, anchor.w, targetW)
 		case -1:
 			if leftAuto {
 				x = horizontalAreaX(horiz, anchor.x, anchor.w, targetW)
@@ -1494,29 +1517,17 @@ func anchorAreaGeometry(
 				x = fallbackX
 			}
 		default:
-			x = horizontalAreaX(horiz, anchor.x, anchor.w, targetW)
+			if horiz == "span-all" && (!leftAuto || !rightAuto) {
+				x = fallbackX
+			} else {
+				x = horizontalAreaX(horiz, anchor.x, anchor.w, targetW)
+			}
 		}
 	default:
-		return 0, 0, 0, 0, false
+		return 0, 0, false
 	}
 
-	cbW := anchor.w
-	switch anchorTrackSide(horiz) {
-	case -1:
-		cbW = anchor.x
-	case 1:
-		cbW = viewportW - (anchor.x + anchor.w)
-	}
-
-	cbH := anchor.height
-	switch anchorTrackSide(vert) {
-	case -1:
-		cbH = anchor.y
-	case 1:
-		cbH = viewportH - (anchor.y + anchor.height)
-	}
-
-	return x, y, cbW, cbH, true
+	return x, y, true
 }
 
 // anchorTrackSide classifies one area track: -1 sits before the anchor,
@@ -1602,15 +1613,18 @@ func splitPositionArea(area string) (string, string, string, bool) {
 func verticalAreaY(vert string, anchorY, anchorH, targetH float64) float64 {
 	switch vert {
 	case "bottom", "y-end", "self-y-end", "block-end", "self-block-end",
-		"end", "self-end", "span-bottom", "span-y-end", "span-self-y-end",
-		"span-block-end", "span-self-block-end", "span-end", "span-self-end":
+		"end", "self-end":
 		return anchorY + anchorH
-	case "center":
-		return anchorY + (anchorH-targetH)/2
-	case "span-all":
+	case "span-bottom", "span-y-end", "span-self-y-end",
+		"span-block-end", "span-self-block-end", "span-end", "span-self-end":
 		return anchorY
+	case "span-top", "span-y-start", "span-self-y-start",
+		"span-block-start", "span-self-block-start", "span-start", "span-self-start":
+		return anchorY + anchorH - targetH
+	case "center", "span-all":
+		return anchorY + (anchorH-targetH)/2
 	default:
-		// top, y-start, block-start, start, self variants, and their spans.
+		// top, y-start, block-start, start, and self variants.
 		return anchorY - targetH
 	}
 }
@@ -1619,24 +1633,27 @@ func verticalAreaY(vert string, anchorY, anchorH, targetH float64) float64 {
 func horizontalAreaX(horiz string, anchorX, anchorW, targetW float64) float64 {
 	switch horiz {
 	case "right", "x-end", "self-x-end", "inline-end", "self-inline-end",
-		"end", "self-end", "span-right", "span-x-end", "span-self-x-end",
-		"span-inline-end", "span-self-inline-end", "span-end", "span-self-end":
+		"end", "self-end":
 		return anchorX + anchorW
-	case "center":
-		return anchorX + (anchorW-targetW)/2
-	case "span-all":
+	case "span-right", "span-x-end", "span-self-x-end",
+		"span-inline-end", "span-self-inline-end", "span-end", "span-self-end":
 		return anchorX
+	case "span-left", "span-x-start", "span-self-x-start",
+		"span-inline-start", "span-self-inline-start", "span-start", "span-self-start":
+		return anchorX + anchorW - targetW
+	case "center", "span-all":
+		return anchorX + (anchorW-targetW)/2
 	default:
-		// left, x-start, inline-start, start, self variants, and their spans.
+		// left, x-start, inline-start, start, and self variants.
 		return anchorX - targetW
 	}
 }
 
 // flipPositionArea flips one area across the axis the pinned tactic names.
 // flip-block and flip-y mirror the vertical track, flip-inline and flip-x
-// mirror the horizontal track, and flip-start mirrors both so the flipped Y
-// lands opposite the unflipped Y. The flip runs after the area is known and
-// before the final shift.
+// mirror the horizontal track, and flip-start mirrors across the start-to-end
+// diagonal by swapping block and inline tracks. The flip runs after the area
+// is known and before the final shift.
 func flipPositionArea(area, tactic string) string {
 	vert, horiz, single, ok := splitPositionArea(area)
 	if !ok {
@@ -1649,8 +1666,13 @@ func flipPositionArea(area, tactic string) string {
 	case "flip-inline", "flip-x":
 		horiz = flipHorizontalToken(horiz)
 	case "flip-start":
-		vert = flipVerticalToken(vert)
-		horiz = flipHorizontalToken(horiz)
+		vert, horiz = flipStartToken(horiz), flipStartToken(vert)
+		switch single {
+		case "vertical":
+			single = "horizontal"
+		case "horizontal":
+			single = "vertical"
+		}
 	default:
 		return area
 	}
@@ -1673,6 +1695,94 @@ func flipPositionArea(area, tactic string) string {
 		return vert + " " + horiz
 	default:
 		return vert + " " + horiz
+	}
+}
+
+// flipStartToken swaps a vertical area keyword with its horizontal counterpart.
+func flipStartToken(tok string) string {
+	switch tok {
+	case "top":
+		return "left"
+	case "left":
+		return "top"
+	case "bottom":
+		return "right"
+	case "right":
+		return "bottom"
+	case "y-start":
+		return "x-start"
+	case "x-start":
+		return "y-start"
+	case "y-end":
+		return "x-end"
+	case "x-end":
+		return "y-end"
+	case "self-y-start":
+		return "self-x-start"
+	case "self-x-start":
+		return "self-y-start"
+	case "self-y-end":
+		return "self-x-end"
+	case "self-x-end":
+		return "self-y-end"
+	case "block-start":
+		return "inline-start"
+	case "inline-start":
+		return "block-start"
+	case "block-end":
+		return "inline-end"
+	case "inline-end":
+		return "block-end"
+	case "self-block-start":
+		return "self-inline-start"
+	case "self-inline-start":
+		return "self-block-start"
+	case "self-block-end":
+		return "self-inline-end"
+	case "self-inline-end":
+		return "self-block-end"
+	case "span-top":
+		return "span-left"
+	case "span-left":
+		return "span-top"
+	case "span-bottom":
+		return "span-right"
+	case "span-right":
+		return "span-bottom"
+	case "span-y-start":
+		return "span-x-start"
+	case "span-x-start":
+		return "span-y-start"
+	case "span-y-end":
+		return "span-x-end"
+	case "span-x-end":
+		return "span-y-end"
+	case "span-self-y-start":
+		return "span-self-x-start"
+	case "span-self-x-start":
+		return "span-self-y-start"
+	case "span-self-y-end":
+		return "span-self-x-end"
+	case "span-self-x-end":
+		return "span-self-y-end"
+	case "span-block-start":
+		return "span-inline-start"
+	case "span-inline-start":
+		return "span-block-start"
+	case "span-block-end":
+		return "span-inline-end"
+	case "span-inline-end":
+		return "span-block-end"
+	case "span-self-block-start":
+		return "span-self-inline-start"
+	case "span-self-inline-start":
+		return "span-self-block-start"
+	case "span-self-block-end":
+		return "span-self-inline-end"
+	case "span-self-inline-end":
+		return "span-self-block-end"
+	default:
+		return tok
 	}
 }
 

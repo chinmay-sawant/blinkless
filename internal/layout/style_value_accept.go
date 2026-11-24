@@ -829,7 +829,7 @@ func layoutDeclarationValueAccepted(prop, value string) bool {
 
 		return err == nil
 	case gapKeyword:
-		return gapValueAccepted(value, true)
+		return logicalPairValueAccepted(value, func(tok string) bool { return gapValueAccepted(tok, true) })
 	case propRowGap:
 		return gapValueAccepted(value, false)
 	case propColumnGap:

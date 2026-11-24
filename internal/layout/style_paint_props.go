@@ -69,7 +69,9 @@ func parseUsedColor(value string, current [3]float64) ([3]float64, bool) {
 	return color, ok
 }
 
-func applyOutlineProps(style *ResolvedStyle, prop, value string, fsize float64) bool {
+func applyOutlineProps(
+	style *ResolvedStyle, prop, value string, fsize float64, parent *ResolvedStyle, hasParent bool,
+) bool {
 	if applyBoxShadowProp(style, prop, value, fsize) {
 		return true
 	}
@@ -84,7 +86,7 @@ func applyOutlineProps(style *ResolvedStyle, prop, value string, fsize float64) 
 		return true
 	}
 
-	return applyOutlineLonghands(style, prop, value, fsize)
+	return applyOutlineLonghands(style, prop, value, fsize, parent, hasParent)
 }
 
 func applySVGPresentationProps(style *ResolvedStyle, prop, value string, fsize float64) bool {
@@ -135,7 +137,9 @@ func applySVGPresentationProps(style *ResolvedStyle, prop, value string, fsize f
 	return true
 }
 
-func applyOutlineLonghands(style *ResolvedStyle, prop, value string, fsize float64) bool {
+func applyOutlineLonghands(
+	style *ResolvedStyle, prop, value string, fsize float64, parent *ResolvedStyle, hasParent bool,
+) bool {
 	switch prop {
 	case "outline-width":
 		if width, parsed := parseOutlineWidth(value, fsize); parsed {
@@ -146,6 +150,20 @@ func applyOutlineLonghands(style *ResolvedStyle, prop, value string, fsize float
 			style.editBorders().OutlineStyle = outlineStyle
 		}
 	case "outline-color":
+		if strings.EqualFold(strings.TrimSpace(value), inheritKeyword) {
+			if hasParent && parent != nil {
+				if parent.borders().OutlineColorSet {
+					style.editBorders().OutlineColor = parent.borders().OutlineColor
+				} else {
+					style.editBorders().OutlineColor = parent.Color
+				}
+
+				style.editBorders().OutlineColorSet = true
+			}
+
+			return true
+		}
+
 		if color, parsed := parseUsedColor(value, style.Color); parsed {
 			style.editBorders().OutlineColor = color
 			style.editBorders().OutlineColorSet = true

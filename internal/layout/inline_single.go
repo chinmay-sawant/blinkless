@@ -242,7 +242,7 @@ func singleTextRunPaintOK(textStyle *ResolvedStyle) bool {
 		return false
 	}
 
-	if textStyle.inlineText().TextOverflow == textOverflowEllipsis || textStyle.inlineText().TextShadowSet {
+	if _, hasOverflowMarker := textOverflowMarker(textStyle.inlineText().TextOverflow); hasOverflowMarker || textStyle.inlineText().TextShadowSet {
 		return false
 	}
 

@@ -813,6 +813,7 @@ func resolveElementStyleWithHits(
 ) {
 	raw := cascadeRaw(ctx, node, hits)
 	applyRawToUsed(node, ctx, parent, sty, raw)
+	applyDarkFormControlDefaults(node, sty, raw)
 
 	// Opt-in operator policy (--print-link-underline): underline
 	// anchors with href after the cascade. Default off so author CSS

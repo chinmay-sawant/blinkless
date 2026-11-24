@@ -236,6 +236,9 @@ type Result struct {
 	storeChunks    [][]ResolvedStyle
 	refs           int32
 	ownsOps        bool
+	stylesShared   bool
+	anchorsKnown   bool
+	hasAnchors     bool
 
 	// Pages maps page index → indices into Ops of the ops painted on that
 	// page. Filled by Paint using its pagination semantics (an op goes to
@@ -289,6 +292,17 @@ func (r *Result) BoxCount() int {
 // on a retained placement, and the patch pipeline reads only the operations
 // and the box graph, so copying them would only add work.
 func CloneResult(res *Result) *Result {
+	return cloneResult(res, false)
+}
+
+// CloneResultForBatch returns an independent placement for a batch patch pass
+// whose styles map is copy-on-write shared with res until a patched subtree
+// actually writes a changed style entry.
+func CloneResultForBatch(res *Result) *Result {
+	return cloneResult(res, true)
+}
+
+func cloneResult(res *Result, shareStyles bool) *Result {
 	if res == nil {
 		return nil
 	}
@@ -297,14 +311,20 @@ func CloneResult(res *Result) *Result {
 	clone.refs = 0
 	clone.Ops = cloneOps(res.Ops)
 	clone.ownsOps = clone.Ops != nil
-	clone.styles = maps.Clone(res.styles)
+	if shareStyles && res.styles != nil {
+		clone.styles = res.styles
+		clone.stylesShared = true
+	} else {
+		clone.styles = maps.Clone(res.styles)
+		clone.stylesShared = false
+	}
 	clone.styleChunks, clone.storeChunks = nil, nil
 	clone.svgRasters, clone.overrideBase = nil, nil
 
 	boxes := getCloneBoxMap(len(res.boxes))
 	defer putCloneBoxMap(boxes)
 
-	arena := boxArena{chunks: nil}
+	arena := boxArena{chunks: nil, childSlab: make([]*box, 0, len(res.boxes))}
 	clone.root = cloneBoxGraph(res.root, boxes, &arena)
 	clone.rootBox = clone.root
 	clone.boxChunks = arena.chunks
@@ -354,7 +374,23 @@ func putCloneBoxMap(seen map[*box]*box) {
 // boxArena hands out box copies from pooled box chunks so cloned placements
 // recycle their box backing when Release runs.
 type boxArena struct {
-	chunks []*[]box
+	chunks    []*[]box
+	childSlab []*box
+}
+
+func (a *boxArena) allocChildren(n int) []*box {
+	if cap(a.childSlab)-len(a.childSlab) < n {
+		size := max(n, cap(a.childSlab)/2)
+		if size < 256 {
+			size = max(n, 256)
+		}
+		a.childSlab = make([]*box, 0, size)
+	}
+
+	start := len(a.childSlab)
+	a.childSlab = a.childSlab[:start+n]
+
+	return a.childSlab[start : start+n : start+n]
 }
 
 func (a *boxArena) alloc() *box {
@@ -390,7 +426,7 @@ func cloneBoxGraph(src *box, seen map[*box]*box, arena *boxArena) *box {
 	clone.motionParent = cloneBoxGraph(src.motionParent, seen, arena)
 
 	if len(src.children) > 0 {
-		clone.children = make([]*box, len(src.children))
+		clone.children = arena.allocChildren(len(src.children))
 		for i, child := range src.children {
 			clone.children[i] = cloneBoxGraph(child, seen, arena)
 		}
@@ -1217,6 +1253,7 @@ func (e *engine) enterBlendIsolation(style *ResolvedStyle, owner *ResolvedStyle)
 		ID:             e.nextGroupID,
 		Mode:           mode,
 		BackdropFilter: style.effects().BackdropFilter,
+		Filter:         style.effects().Filter,
 		Isolate:        true,
 		Parent:         e.blendGroup,
 		Mask:           nil,

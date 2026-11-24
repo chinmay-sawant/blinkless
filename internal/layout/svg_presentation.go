@@ -201,7 +201,13 @@ func (e *engine) prepareSVGStylesheetGeometry(node *html.Node, decls *svgStyleDe
 }
 
 func (skip *svgGeomSkip) note(decls *svgStyleDecls, prop, value string) {
-	if value == "" || decls.prop(prop) != "" {
+	if value == "" {
+		return
+	}
+
+	if decls.prop(prop) != "" {
+		skip.add(prop)
+
 		return
 	}
 

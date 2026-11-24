@@ -1505,6 +1505,7 @@ func (e *engine) pushInlineBlend(style *ResolvedStyle) inlineBlendScope {
 		ID:             e.nextGroupID,
 		Mode:           mode,
 		BackdropFilter: style.effects().BackdropFilter,
+		Filter:         style.effects().Filter,
 		Isolate:        true,
 		Parent:         e.blendGroup,
 		Mask:           nil,
@@ -1546,7 +1547,8 @@ func (e *engine) inlineBlendOpensGroup(style *ResolvedStyle) bool {
 	}
 
 	return style.effects().Isolation == unicodeBidiIsolate ||
-		maskGroupRequested(style) || hasBackdropFilter(style.effects().BackdropFilter)
+		maskGroupRequested(style) || hasBackdropFilter(style.effects().BackdropFilter) ||
+		hasFilter(style.effects().Filter)
 }
 
 // inlineBlendWork reports whether an item's style can request an inline
@@ -1568,7 +1570,7 @@ func inlineBlendWork(style *ResolvedStyle) bool {
 		return true
 	}
 
-	return hasBackdropFilter(style.effects().BackdropFilter)
+	return hasBackdropFilter(style.effects().BackdropFilter) || hasFilter(style.effects().Filter)
 }
 
 func nonNormalBlendMode(mode string) string {

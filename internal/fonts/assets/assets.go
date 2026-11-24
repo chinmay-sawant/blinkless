@@ -88,8 +88,22 @@ func LiberationSansBoldItalic() []byte {
 	return bytes.Clone(liberationSansBoldItalicTTF)
 }
 
+//go:embed BlinklessOT-Regular.ttf
+var blinklessOTRegularTTF []byte
+
+//go:embed BlinklessVar-VF.ttf
+var blinklessVarVFTTF []byte
+
 // UnicodeFallbackRegular returns the embedded Unicode fallback face.
 func UnicodeFallbackRegular() []byte { return bytes.Clone(unicodeFallbackRegularTTF) }
 
 // UnicodeFallbackBold returns the embedded bold Unicode fallback face.
 func UnicodeFallbackBold() []byte { return bytes.Clone(unicodeFallbackBoldTTF) }
+
+// BlinklessOTRegular returns the embedded MIT-licensed regular-only OpenType
+// face carrying tnum and ruby GSUB tables.
+func BlinklessOTRegular() []byte { return bytes.Clone(blinklessOTRegularTTF) }
+
+// BlinklessVarVF returns the embedded MIT-licensed minimal variable font
+// carrying wght and opsz axes.
+func BlinklessVarVF() []byte { return bytes.Clone(blinklessVarVFTTF) }

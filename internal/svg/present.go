@@ -50,7 +50,8 @@ const (
 func emulateMayRewrite(data []byte) bool {
 	return bytesContainsFold(data, []byte("paint-order")) || bytesContainsFold(data, []byte("pathlength")) ||
 		bytesContainsFold(data, []byte("vector-effect")) || bytesContainsFold(data, []byte("feflood")) ||
-		bytesContainsFold(data, []byte("fediffuselighting"))
+		bytesContainsFold(data, []byte("fediffuselighting")) || bytesContainsFold(data, []byte("clippath")) ||
+		bytesContainsFold(data, []byte("polygon"))
 }
 
 // emulatePresentation applies both emulations. It returns the input slice
@@ -66,6 +67,7 @@ func emulatePresentation(data []byte) []byte {
 	changed := false
 	rootScale := 0.0
 	floods := emulateCollectFloods(data)
+	clips := emulateCollectClips(data)
 
 	for pos < len(data) {
 		tags++
@@ -91,7 +93,7 @@ func emulatePresentation(data []byte) []byte {
 			rootScale = emulateRootScale(emulateAttrMap(attrs))
 		}
 
-		replaced, modified := emulateShapeTag(name, attrs, selfClose, rootScale, floods)
+		replaced, modified := emulateShapeTag(name, attrs, selfClose, rootScale, floods, clips)
 		if !modified {
 			pos = start + 1
 
@@ -138,13 +140,22 @@ func emulateAttrMap(attrs []emulateAttr) map[string]string {
 
 // emulateShapeTag rewrites one leaf shape tag, or reports no change.
 func emulateShapeTag(
-	name string, attrs []emulateAttr, selfClose bool, rootScale float64, floods map[string]emulateFlood,
+	name string, attrs []emulateAttr, selfClose bool, rootScale float64,
+	floods map[string]emulateFlood, clips map[string]*canvas.Path,
 ) (string, bool) {
 	if !selfClose || !emulateIsShape(name) {
 		return "", false
 	}
 
 	index := emulateAttrMap(attrs)
+
+	if clipped, ok := emulateClippedShape(name, attrs, index, clips); ok {
+		return clipped, true
+	}
+
+	if poly, ok := emulateEvenOddPolygon(name, attrs, index); ok {
+		return poly, true
+	}
 
 	if flat, ok := emulateFloodShape(name, index, floods, rootScale); ok {
 		return flat, true
@@ -714,6 +725,9 @@ func emulateFloodShape(
 	name string, index map[string]string, floods map[string]emulateFlood, rootScale float64,
 ) (string, bool) {
 	ref := strings.TrimSpace(index["filter"])
+	if ref == "" {
+		ref = strings.TrimSpace(styleDeclarations(index["style"])["filter"])
+	}
 	if len(floods) == 0 || !strings.HasPrefix(ref, "url(#") || !strings.HasSuffix(ref, ")") {
 		return "", false
 	}

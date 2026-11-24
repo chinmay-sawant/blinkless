@@ -102,8 +102,8 @@ func parseBorderImageShorthand(style *ResolvedStyle, value string) {
 	}
 }
 
-// borderImageSourceAndRemainder extracts the border-image-source URL and the
-// remaining shorthand text without the url(...) token.
+// borderImageSourceAndRemainder extracts the border-image-source URL or CSS
+// gradient function and the remaining shorthand text without that token.
 func borderImageSourceAndRemainder(trimmed string) (string, string) {
 	source := ""
 
@@ -114,17 +114,71 @@ func borderImageSourceAndRemainder(trimmed string) (string, string) {
 	}
 
 	nonURL := trimmed
-	start := strings.Index(strings.ToLower(trimmed), "url(")
-
-	if start >= 0 {
+	lower := strings.ToLower(trimmed)
+	if start := strings.Index(lower, "url("); start >= 0 {
 		end := strings.Index(trimmed[start:], ")")
 
 		if end >= 0 {
 			nonURL = trimmed[:start] + " " + trimmed[start+end+1:]
 		}
+
+		return source, nonURL
+	}
+
+	if grad, rest, ok := extractBorderImageGradient(trimmed, lower); ok {
+		return grad, rest
 	}
 
 	return source, nonURL
+}
+
+func extractBorderImageGradient(trimmed, lower string) (string, string, bool) {
+	prefixes := []string{
+		"repeating-linear-gradient(",
+		"linear-gradient(",
+		"repeating-radial-gradient(",
+		"radial-gradient(",
+		"repeating-conic-gradient(",
+		"conic-gradient(",
+	}
+
+	start := -1
+	for _, p := range prefixes {
+		if idx := strings.Index(lower, p); idx >= 0 && (start < 0 || idx < start) {
+			start = idx
+		}
+	}
+
+	if start < 0 {
+		return "", trimmed, false
+	}
+
+	depth := 0
+	end := -1
+	for i := start; i < len(trimmed); i++ {
+		switch trimmed[i] {
+		case '(':
+			depth++
+		case ')':
+			depth--
+			if depth == 0 {
+				end = i
+			}
+		}
+
+		if end >= 0 {
+			break
+		}
+	}
+
+	if end < 0 {
+		return "", trimmed, false
+	}
+
+	grad := strings.TrimSpace(trimmed[start : end+1])
+	rest := trimmed[:start] + " " + trimmed[end+1:]
+
+	return grad, rest, true
 }
 
 // splitBorderImageSections splits slash-separated slice/width/outset sections
@@ -209,15 +263,8 @@ func (e *engine) appendBorderImage(
 		src = sty.borders().BorderImageSource
 	}
 
-	ref := e.resolveImage(src)
-
-	if ref == nil || ref.data == nil {
-		return dst
-	}
-
 	outsetSpec := parseBorderImageDimensionFour(sty.borders().BorderImageOutset, sty.FontSize)
 	widthSpec := parseBorderImageDimensionFour(sty.borders().BorderImageWidth, sty.FontSize)
-	sliceFracs, hasSlice, hasFill := parseBorderImageSliceFracs(sty.borders().BorderImageSlice, ref.w, ref.h)
 	repeat := strings.ToLower(strings.TrimSpace(sty.borders().BorderImageRepeat))
 
 	thick := borderImageThickness(widthSpec, borderWidthsOf(sty))
@@ -228,6 +275,17 @@ func (e *engine) appendBorderImage(
 		return dst
 	}
 
+	var ref *imageRef
+	if data, gw, gh, ok := renderGradientPNG(src, ow, oh, sty.Color); ok && len(data) > 0 {
+		ref = &imageRef{data: data, w: gw, h: gh}
+	} else {
+		ref = e.resolveImage(src)
+	}
+	if ref == nil || ref.data == nil {
+		return dst
+	}
+
+	sliceFracs, hasSlice, hasFill := parseBorderImageSliceFracs(sty.borders().BorderImageSlice, ref.w, ref.h)
 	scaled := scaleBorderImageThickness(e, thick, ow, oh)
 
 	if !hasSlice {

@@ -1,6 +1,10 @@
 package layout
 
-import "github.com/chinmay-sawant/blinkless/internal/html"
+import (
+	"strings"
+
+	"github.com/chinmay-sawant/blinkless/internal/html"
+)
 
 // PlacedElement is one element border box in canvas points. Y grows downward
 // from the top of the layout canvas. Layout fills these boxes before pagination.
@@ -470,7 +474,7 @@ func ApplySubtreeBoxPatches(
 	res *Result, batch *SubtreeBatchResult, opts WalkPlacedOptions,
 	boxCount int,
 	parentOf func(boxIdx int) int,
-	textChanged func(boxIdx int, newText string) bool,
+	textOf func(boxIdx int) string,
 	fn func(boxIdx int, elem *PlacedElement),
 	ancFn func(boxIdx int, opIDs []uint64, text string, updateText bool),
 ) bool {
@@ -491,14 +495,22 @@ func ApplySubtreeBoxPatches(
 	ancNeedText := make(map[int]*html.Node, patchAncScratchCap)
 	ancOrder := make([]int, 0, patchAncScratchCap)
 
+	var singleOldText, singleNewText string
+	singleTextSplice := len(batch.boxPatches) == 1
+
 	for idx := range batch.boxPatches {
 		patch := &batch.boxPatches[idx]
-		rootTextChanged, ok := walkPatchedSubtreeBoxes(
-			res, patch, opts, &allIDs, &item, parentOf, textChanged, fn,
+		oldText, newText, rootTextChanged, ok := walkPatchedSubtreeBoxes(
+			res, patch, opts, &allIDs, &item, parentOf, textOf, fn,
 		)
 
 		if !ok {
 			return false
+		}
+
+		if singleTextSplice && rootTextChanged {
+			singleOldText = oldText
+			singleNewText = newText
 		}
 
 		if !collectPatchedAncestors(
@@ -509,25 +521,66 @@ func ApplySubtreeBoxPatches(
 		}
 	}
 
-	emitPatchedAncestors(res.Ops, ancOrder, ancBoxes, ancNeedText, &allIDs, ancFn)
+	emitPatchedAncestors(res.Ops, ancOrder, ancBoxes, ancNeedText, &allIDs, singleOldText, singleNewText, textOf, ancFn)
 
 	return true
 }
 
 func emitPatchedAncestors(
 	ops []Op, ancOrder []int, ancBoxes map[int]*box, ancNeedText map[int]*html.Node,
-	allIDs *[]uint64, ancFn func(boxIdx int, opIDs []uint64, text string, updateText bool),
+	allIDs *[]uint64, oldSubtreeText, newSubtreeText string,
+	textOf func(boxIdx int) string,
+	ancFn func(boxIdx int, opIDs []uint64, text string, updateText bool),
 ) {
 	for _, ancIdx := range ancOrder {
 		anc := ancBoxes[ancIdx]
 		opIDs := appendOperationIDs(ops, anc.opStart, anc.opEnd, allIDs)
 
 		if node, need := ancNeedText[ancIdx]; need {
-			ancFn(ancIdx, opIDs, node.TextContent(), true)
+			var text string
+			if spliced, ok := spliceUniqueText(textOf(ancIdx), oldSubtreeText, newSubtreeText); ok {
+				text = spliced
+			} else {
+				text = node.TextContent()
+			}
+			ancFn(ancIdx, opIDs, text, true)
 		} else {
 			ancFn(ancIdx, opIDs, "", false)
 		}
 	}
+}
+
+// SpliceOrNodeText updates an ancestor's cached text by splicing a unique
+// child-text replacement when possible, falling back to node.TextContent().
+func SpliceOrNodeText(ancOld, oldSub, newSub string, node *html.Node) string {
+	if spliced, ok := spliceUniqueText(ancOld, oldSub, newSub); ok {
+		return spliced
+	}
+	if node == nil {
+		return ""
+	}
+
+	return node.TextContent()
+}
+
+func spliceUniqueText(ancOld, oldSub, newSub string) (string, bool) {
+	if oldSub == "" || len(ancOld) < len(oldSub) {
+		return "", false
+	}
+	idx := strings.Index(ancOld, oldSub)
+	if idx < 0 {
+		return "", false
+	}
+	if strings.Contains(ancOld[idx+1:], oldSub) {
+		return "", false
+	}
+	var b strings.Builder
+	b.Grow(len(ancOld) - len(oldSub) + len(newSub))
+	b.WriteString(ancOld[:idx])
+	b.WriteString(newSub)
+	b.WriteString(ancOld[idx+len(oldSub):])
+
+	return b.String(), true
 }
 
 func estimateSubtreePatchOpIDs(res *Result, patches []subtreeBoxPatch, boxCount int) (int, bool) {
@@ -587,19 +640,22 @@ func walkPatchedSubtreeBoxes(
 	res *Result, patch *subtreeBoxPatch, opts WalkPlacedOptions,
 	allIDs *[]uint64, item *PlacedElement,
 	parentOf func(boxIdx int) int,
-	textChanged func(boxIdx int, newText string) bool,
+	textOf func(boxIdx int) string,
 	fn func(boxIdx int, elem *PlacedElement),
-) (bool, bool) {
+) (string, string, bool, bool) {
 	parentAccum, viewport, scroll, scroller := ancestorPlacedContext(patch.ancestors, opts.LayoutScale)
 	parentIdx := parentOf(patch.baseIdx)
 	curIdx := patch.baseIdx
+	var oldText, newText string
 	rootTextChanged := false
 
 	endIdx := walkPlacedFunc(
 		patch.box, res.Ops, parentIdx, parentAccum, viewport,
 		func(elem *PlacedElement) {
 			if curIdx == patch.baseIdx && opts.IncludeText {
-				rootTextChanged = textChanged(curIdx, elem.Text)
+				oldText = textOf(curIdx)
+				newText = elem.Text
+				rootTextChanged = oldText != newText
 			}
 
 			fn(curIdx, elem)
@@ -609,7 +665,7 @@ func walkPatchedSubtreeBoxes(
 		allIDs, patch.baseIdx, item, opts, scroll, scroller,
 	)
 
-	return rootTextChanged, endIdx == patch.baseIdx+patch.newElem
+	return oldText, newText, rootTextChanged, endIdx == patch.baseIdx+patch.newElem
 }
 
 func collectPatchedAncestors(
