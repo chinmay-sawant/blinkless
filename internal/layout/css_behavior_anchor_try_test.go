@@ -30,9 +30,10 @@ func TestBehaviorPositionTryTactic(t *testing.T) {
 	plain := boxByID(t, res, "plain")
 	flipped := boxByID(t, res, "flipped")
 
-	if !near(plain.x, 0) || !near(plain.y, 0) {
-		t.Errorf("plain = (%.4fpt, %.4fpt), want laid-out (0, 0) after the base top spilled",
-			plain.x, plain.y)
+	wantX := anchor.x + (anchor.w-plain.w)/2
+	if !near(plain.x, wantX) || !near(plain.y, 0) {
+		t.Errorf("plain = (%.4fpt, %.4fpt), want safe-shifted (%.4fpt, 0) after the base top spilled",
+			plain.x, plain.y, wantX)
 	}
 
 	wantY := anchor.y + anchor.height

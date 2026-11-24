@@ -88,6 +88,10 @@ func interpolationOf(primitive, filter map[string]string) string {
 		return value
 	}
 
+	if value := styleDeclarations(filter["style"])["color-interpolation-filters"]; value != "" {
+		return value
+	}
+
 	return filter["color-interpolation-filters"]
 }
 

@@ -39,10 +39,14 @@ func TestBehaviorMaskBorderDescriptorNotPaint(t *testing.T) {
 		t.Fatal("mask-border frame produced no ready-to-paint raster")
 	}
 
-	// The frame raster rides the group mask slot, but it is not a first-wave
-	// mask layer composition: the descriptor keeps no layers.
-	if len(group.Mask.Layers) != 0 {
-		t.Fatalf("frame raster carries %d first-wave mask layers, want 0", len(group.Mask.Layers))
+	// The composed frame raster is wired as a MaskLayer on group.Mask so hosts
+	// can validate and natively replay it with its mode.
+	if len(group.Mask.Layers) != 1 {
+		t.Fatalf("frame raster carries %d mask layers, want 1", len(group.Mask.Layers))
+	}
+
+	if group.Mask.Layers[0].Mode != maskModeLuminance || len(group.Mask.Layers[0].ImageBytes) == 0 {
+		t.Fatalf("frame layer = %+v, want luminance mode with raster bytes", group.Mask.Layers[0])
 	}
 
 	assertMaskBorderSourcePayload(t, group.MaskBorder, borderPNG)

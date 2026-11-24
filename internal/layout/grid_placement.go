@@ -163,7 +163,13 @@ func placeGridItems(
 
 		cell := gridCell{n: kid, col: col, colSpan: colSpan, row: row, rowSpan: rowSpan}
 		placed = append(placed, cell)
-		cursorRow, cursorCol = nextGridCursor(cell, columnMajor, implicitRows, nCols)
+
+		// Per CSS Grid §8.5 Step 2, items locked to a definite row with an auto
+		// column do not advance the sparse auto-placement cursor, so subsequent
+		// auto-placed items still fill earlier rows.
+		if !(rowStart >= 0 && colStart < 0) {
+			cursorRow, cursorCol = nextGridCursor(cell, columnMajor, implicitRows, nCols)
+		}
 	}
 
 	return placed

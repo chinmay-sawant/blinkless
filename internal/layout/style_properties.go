@@ -977,9 +977,9 @@ func logicalPair(value string) (string, string, bool) {
 
 // applyBorderGroup handles the border shorthand and per-side props.
 func applyBorderGroup(
-	style *ResolvedStyle, prop, value string, fsize float64, _ *styleContext, _ *ResolvedStyle, _ bool,
+	style *ResolvedStyle, prop, value string, fsize float64, _ *styleContext, parent *ResolvedStyle, hasParent bool,
 ) bool {
-	if applyOutlineProps(style, prop, value, fsize) {
+	if applyOutlineProps(style, prop, value, fsize, parent, hasParent) {
 		return true
 	}
 
@@ -1017,7 +1017,7 @@ func applyBorderGroup(
 	case borderStyleKeyword, borderColorKeyword,
 		propBorderTopColor, propBorderRightColor, propBorderBottomColor, propBorderLeftColor,
 		propBorderTopStyle, propBorderRightStyle, propBorderBottomStyle, propBorderLeftStyle:
-		return applyBorderStyleColorProps(style, prop, value)
+		return applyBorderStyleColorProps(style, prop, value, parent, hasParent)
 	case "border-block", "border-block-start", "border-block-end",
 		"border-block-width", "border-block-start-width", "border-block-end-width",
 		"border-block-style", "border-block-start-style", "border-block-end-style",
@@ -1205,20 +1205,20 @@ func setFourBorderColor(style *ResolvedStyle, value string) {
 	style.editBorders().BorderLeft.Transparent = tr[3]
 }
 
-func applyBorderStyleColorProps(style *ResolvedStyle, prop, value string) bool {
+func applyBorderStyleColorProps(style *ResolvedStyle, prop, value string, parent *ResolvedStyle, hasParent bool) bool {
 	switch prop {
 	case borderStyleKeyword:
 		setFourBorderStyle(style, value)
 	case borderColorKeyword:
 		setFourBorderColor(style, value)
 	case propBorderTopColor:
-		setBorderColor(&style.editBorders().BorderTop, value, style.Color)
+		setBorderColorSide(&style.editBorders().BorderTop, value, style.Color, parent, hasParent, func(p *ResolvedStyle) border { return p.borders().BorderTop })
 	case propBorderRightColor:
-		setBorderColor(&style.editBorders().BorderRight, value, style.Color)
+		setBorderColorSide(&style.editBorders().BorderRight, value, style.Color, parent, hasParent, func(p *ResolvedStyle) border { return p.borders().BorderRight })
 	case propBorderBottomColor:
-		setBorderColor(&style.editBorders().BorderBottom, value, style.Color)
+		setBorderColorSide(&style.editBorders().BorderBottom, value, style.Color, parent, hasParent, func(p *ResolvedStyle) border { return p.borders().BorderBottom })
 	case propBorderLeftColor:
-		setBorderColor(&style.editBorders().BorderLeft, value, style.Color)
+		setBorderColorSide(&style.editBorders().BorderLeft, value, style.Color, parent, hasParent, func(p *ResolvedStyle) border { return p.borders().BorderLeft })
 	case propBorderTopStyle:
 		setBorderStyleSide(&style.editBorders().BorderTop, value)
 	case propBorderRightStyle:
@@ -1241,6 +1241,23 @@ func setBorderStyleSide(side *border, value string) {
 	}
 
 	side.Style = s
+}
+
+func setBorderColorSide(
+	side *border, value string, current [3]float64,
+	parent *ResolvedStyle, hasParent bool, fromParent func(*ResolvedStyle) border,
+) {
+	if strings.EqualFold(strings.TrimSpace(value), inheritKeyword) {
+		if hasParent && parent != nil {
+			pb := fromParent(parent)
+			side.Color = pb.Color
+			side.Transparent = pb.Transparent
+		}
+
+		return
+	}
+
+	setBorderColor(side, value, current)
 }
 
 func setBorderColor(side *border, value string, current [3]float64) {

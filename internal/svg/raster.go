@@ -1115,12 +1115,21 @@ const (
 	emulateAreaHalver = 2
 )
 
-// emulateEvenOddPathD rewrites a holed straight-line path so the parser's
-// fixed nonzero winding paints the evenodd hole: with exactly two nested
-// subpaths of the same winding, the inner subpath is re-emitted reversed.
-// It reports false for anything else (curves, relative commands, disjoint
-// or already-opposite subpaths), which rasterize correctly either way.
+// emulateEvenOddPathD rewrites a path with fill-rule="evenodd" so the parser's
+// fixed nonzero winding paints the evenodd result (including holes in nested
+// subpaths and self-crossing paths such as a 5-point star). Simple two-subpath
+// straight-line holes reverse the inner subpath directly; all other paths
+// (self-crossing, multi-subpath, relative, or curved) settle via
+// canvas.Path.Settle(canvas.EvenOdd).
 func emulateEvenOddPathD(d string) (string, bool) {
+	if fixed, ok := emulateEvenOddNestedStraight(d); ok {
+		return fixed, true
+	}
+
+	return emulateEvenOddSettle(d)
+}
+
+func emulateEvenOddNestedStraight(d string) (string, bool) {
 	subs, ok := emulateParseStraightSubs(d)
 	if !ok || len(subs) != 2 {
 		return "", false
@@ -1152,6 +1161,34 @@ func emulateEvenOddPathD(d string) (string, bool) {
 	}
 
 	return out.String(), true
+}
+
+// emulateEvenOddSettle flattens and resolves self-intersections under even-odd
+// winding so every filled outer ring is CCW and every hole is CW for nonzero
+// rasterization.
+func emulateEvenOddSettle(d string) (fixed string, ok bool) {
+	defer func() {
+		if recover() != nil {
+			fixed, ok = "", false
+		}
+	}()
+
+	path, err := canvas.ParseSVGPath(d)
+	if err != nil || path == nil || path.Empty() {
+		return "", false
+	}
+
+	settled := path.Settle(canvas.EvenOdd)
+	if settled == nil || settled.Empty() {
+		return "", false
+	}
+
+	out := settled.ToSVG()
+	if out == "" || out == d {
+		return "", false
+	}
+
+	return out, true
 }
 
 // emulateSubParser accumulates absolute vertices per straight-line subpath.

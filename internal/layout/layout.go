@@ -1253,6 +1253,7 @@ func (e *engine) enterBlendIsolation(style *ResolvedStyle, owner *ResolvedStyle)
 		ID:             e.nextGroupID,
 		Mode:           mode,
 		BackdropFilter: style.effects().BackdropFilter,
+		Filter:         style.effects().Filter,
 		Isolate:        true,
 		Parent:         e.blendGroup,
 		Mask:           nil,

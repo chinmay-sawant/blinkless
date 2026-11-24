@@ -32,4 +32,9 @@ func inheritGapBPropsWide(dst *ResolvedStyle, parent *ResolvedStyle, raw map[str
 	if _, ok := raw["word-space-transform"]; !ok {
 		dst.editInlineText().WordSpaceTransform = parent.inlineText().WordSpaceTransform
 	}
+
+	// paint-order inherits per SVG 2 §13.6; the uint64 inherit mask is full.
+	if _, ok := raw["paint-order"]; !ok {
+		dst.editSvg().SVGPaintOrder = parent.svg().SVGPaintOrder
+	}
 }

@@ -251,15 +251,15 @@ func parseSVGStyleDecls(styleAttr string) svgStyleDecls {
 // (case-insensitive), or "" when absent — the parse-once form of
 // svgInlineStyleProp.
 func (d *svgStyleDecls) prop(prop string) string {
-	for i := 0; i < d.n; i++ {
-		if strings.EqualFold(d.names[i], prop) {
-			return d.values[i]
+	for i := len(d.spillN) - 1; i >= 0; i-- {
+		if strings.EqualFold(d.spillN[i], prop) {
+			return d.spillV[i]
 		}
 	}
 
-	for i := range d.spillN {
-		if strings.EqualFold(d.spillN[i], prop) {
-			return d.spillV[i]
+	for i := d.n - 1; i >= 0; i-- {
+		if strings.EqualFold(d.names[i], prop) {
+			return d.values[i]
 		}
 	}
 
@@ -293,6 +293,7 @@ func (e *engine) writeSVGNode(b *bytes.Buffer, node *html.Node, paint *svgPaintP
 		decls := parseSVGStyleDecls(styleAttr)
 		geomSkip := e.prepareSVGStylesheetGeometry(node, &decls)
 		e.prepareSVGStylesheetPaint(node, &decls, &geomSkip)
+		e.prepareSVGInheritedPresentation(node, &decls, &geomSkip)
 		suppressDAttr := false
 		if node.Name == "path" {
 			_, suppressDAttr = svgCSSPathData(&decls)
@@ -320,6 +321,7 @@ func (e *engine) writeSVGNode(b *bytes.Buffer, node *html.Node, paint *svgPaintP
 			})
 			sort.Strings(sorted)
 		}
+		normGradCoords := svgGradientUsesObjectBoundingBox(node)
 		for _, k := range sorted {
 			v := node.AttrExact(k)
 			if k == "style" {
@@ -334,6 +336,9 @@ func (e *engine) writeSVGNode(b *bytes.Buffer, node *html.Node, paint *svgPaintP
 			if paint.suppresses(node, k) {
 				continue
 			}
+			if normGradCoords {
+				v = normalizeSVGGradientCoord(node.Name, k, v)
+			}
 			b.WriteByte(' ')
 			b.WriteString(k)
 			b.WriteString(`="`)
@@ -344,7 +349,7 @@ func (e *engine) writeSVGNode(b *bytes.Buffer, node *html.Node, paint *svgPaintP
 		if node.Name == cssTagSVG && !written.has("xmlns") {
 			b.WriteString(` xmlns="http://www.w3.org/2000/svg"`)
 		}
-		e.writeSVGPresentationAttrs(b, node, &written, &decls, paint)
+		e.writeSVGPresentationAttrs(b, node, &written, &decls, &geomSkip, paint)
 		e.writeSVGLeftoverAttrs(b, node, &written, &decls)
 		writeSVGExtraPresentationAttrs(b, node, &written, &decls)
 		if len(node.Children) == 0 {
@@ -355,6 +360,14 @@ func (e *engine) writeSVGNode(b *bytes.Buffer, node *html.Node, paint *svgPaintP
 			return
 		}
 		b.WriteByte('>')
+		if (node.Name == "linearGradient" || node.Name == "radialGradient") &&
+			e.svgUsesLinearInterpolation(node, &decls) &&
+			e.writeSVGLinearRGBStops(b, node) {
+			b.WriteString("</")
+			b.WriteString(node.Name)
+			b.WriteByte('>')
+			return
+		}
 		for _, c := range node.Children {
 			e.writeSVGNode(b, c, paint)
 		}
@@ -365,7 +378,7 @@ func (e *engine) writeSVGNode(b *bytes.Buffer, node *html.Node, paint *svgPaintP
 }
 
 func (e *engine) writeSVGPresentationAttrs(
-	b *bytes.Buffer, node *html.Node, written *svgWrittenSet, decls *svgStyleDecls, paint *svgPaintPass,
+	b *bytes.Buffer, node *html.Node, written *svgWrittenSet, decls *svgStyleDecls, geomSkip *svgGeomSkip, paint *svgPaintPass,
 ) {
 	if !e.hasStyle(node) {
 		return
@@ -414,28 +427,62 @@ func (e *engine) writeSVGPresentationAttrs(
 		}
 	}
 	// stroke-miterlimit is baked before stroke-linejoin on purpose: the
-	// pinned canvas parser keeps the limit in its state and only reads it
-	// when a later linejoin value builds the miter joiner, so the reverse
-	// order would leave a bare miterlimit with no observable effect.
+	// pinned canvas parser mutates a value copy of MiterJoiner on
+	// stroke-miterlimit and only applies the limit when a later
+	// stroke-linejoin builds the joiner. When stroke-miterlimit is present
+	// and no explicit non-miter join is set, emit stroke-linejoin="miter"
+	// after it so the limit takes effect.
+	miterWritten := false
 	if st.svg().StrokeMiterLimit >= 1 && !written.has("stroke-miterlimit") {
 		fmt.Fprintf(b, ` stroke-miterlimit="%g"`, st.svg().StrokeMiterLimit)
+		miterWritten = true
+	} else if written.has("stroke-miterlimit") {
+		miterWritten = true
 	}
-	if st.svg().StrokeLineJoin != "" && !written.has("stroke-linejoin") {
-		switch st.svg().StrokeLineJoin {
+	if !written.has("stroke-linejoin") {
+		join := effectiveSVGStrokeLineJoin(node, st, decls, geomSkip, miterWritten)
+		switch join {
 		case "miter", "miter-clip", "round", "bevel", "arcs":
-			fmt.Fprintf(b, ` stroke-linejoin="%s"`, st.svg().StrokeLineJoin)
+			fmt.Fprintf(b, ` stroke-linejoin="%s"`, join)
 		}
 	}
-	// fill-rule and shape-rendering have no ResolvedStyle field, so they are
-	// recovered from the element's inline style attribute here. A matching
-	// presentation attribute already passed through above (written map) and
-	// wins by the no-duplicate guard. Stylesheet rules for these two need a
-	// stored field owned elsewhere and stay unbaked.
 	if !written.has("fill-rule") {
-		if rule := decls.prop("fill-rule"); rule != "" {
-			switch strings.ToLower(rule) {
-			case "nonzero", "evenodd":
-				fmt.Fprintf(b, ` fill-rule="%s"`, strings.ToLower(rule))
+		rule := strings.ToLower(strings.TrimSpace(decls.prop("fill-rule")))
+		if rule == "" && (st.svg().FillRule == "evenodd" || (geomSkip.skips("fill-rule") && st.svg().FillRule != "")) {
+			rule = st.svg().FillRule
+		}
+		switch rule {
+		case "nonzero", "evenodd":
+			fmt.Fprintf(b, ` fill-rule="%s"`, rule)
+		}
+	}
+	if node.Parent != nil && strings.EqualFold(node.Parent.Name, "clipPath") && !written.has("clip-rule") {
+		rule := strings.ToLower(strings.TrimSpace(decls.prop("clip-rule")))
+		if rule == "" && st.svg().ClipRule == "evenodd" {
+			rule = "evenodd"
+		}
+		if rule == "nonzero" || rule == "evenodd" {
+			fmt.Fprintf(b, ` clip-rule="%s"`, rule)
+		}
+	}
+	if !written.has("clip-path") {
+		if clipPath := strings.TrimSpace(decls.prop("clip-path")); strings.HasPrefix(clipPath, "url(#") && strings.HasSuffix(clipPath, ")") {
+			fmt.Fprintf(b, ` clip-path="%s"`, escapeXML(clipPath))
+		}
+	}
+	if (node.Name == "mask" || node.Name == "linearGradient" || node.Name == "radialGradient") && !written.has("color-interpolation") {
+		if st.svg().ColorInterpolation == "linearrgb" {
+			b.WriteString(` color-interpolation="linearRGB"`)
+		} else if geomSkip.skips("color-interpolation") && st.svg().ColorInterpolation == "srgb" {
+			b.WriteString(` color-interpolation="sRGB"`)
+		}
+	}
+	if (node.Name == "filter" || strings.HasPrefix(node.Name, "fe")) && !written.has("color-interpolation-filters") {
+		if st.svg().ColorInterpolationFilters == "linearrgb" {
+			b.WriteString(` color-interpolation-filters="linearRGB"`)
+		} else if decls.prop("color-interpolation-filters") != "" || geomSkip.skips("color-interpolation-filters") {
+			if st.svg().ColorInterpolationFilters == "srgb" {
+				b.WriteString(` color-interpolation-filters="sRGB"`)
 			}
 		}
 	}
@@ -503,12 +550,16 @@ func (e *engine) writeSVGPresentationAttrs(
 	// any other element would be noise that the rasterizer ignores.
 	if node.Name == "stop" {
 		if !written.has("stop-color") {
-			if v := strings.TrimSpace(decls.prop("stop-color")); svgBakeStopColorValid(v) {
+			if v := st.svg().SVGStopColor; v != "" {
+				fmt.Fprintf(b, ` stop-color="%s"`, escapeXML(v))
+			} else if v := strings.TrimSpace(decls.prop("stop-color")); svgBakeStopColorValid(v) {
 				fmt.Fprintf(b, ` stop-color="%s"`, escapeXML(v))
 			}
 		}
 		if !written.has("stop-opacity") {
-			if v, ok := svgBakeOpacityValue(decls.prop("stop-opacity")); ok {
+			if v := st.svg().SVGStopOpacity; v != "" {
+				fmt.Fprintf(b, ` stop-opacity="%s"`, escapeXML(v))
+			} else if v, ok := svgBakeOpacityValue(decls.prop("stop-opacity")); ok {
 				fmt.Fprintf(b, ` stop-opacity="%s"`, escapeXML(v))
 			}
 		}
@@ -1841,18 +1892,34 @@ func svgBakeTextAnchor(raw string) (string, bool) {
 // A lone "none" stays unbaked: it matches the no-marker initial and there is
 // nothing to emit.
 func writeSVGMarkerAttrs(b *bytes.Buffer, decls *svgStyleDecls, written *svgWrittenSet) {
-	shorthand := decls.prop("marker")
+	var vals [3]string
+	applyDecl := func(name, val string) {
+		switch strings.ToLower(name) {
+		case "marker":
+			vals[0], vals[1], vals[2] = val, val, val
+		case "marker-start":
+			vals[0] = val
+		case "marker-mid":
+			vals[1] = val
+		case "marker-end":
+			vals[2] = val
+		}
+	}
 
-	for _, prop := range [3]string{"marker-start", "marker-mid", "marker-end"} {
+	for i := 0; i < decls.n; i++ {
+		applyDecl(decls.names[i], decls.values[i])
+	}
+	for i := range decls.spillN {
+		applyDecl(decls.spillN[i], decls.spillV[i])
+	}
+
+	props := [3]string{"marker-start", "marker-mid", "marker-end"}
+	for idx, prop := range props {
 		if written.has(prop) {
 			continue
 		}
 
-		val := decls.prop(prop)
-		if val == "" {
-			val = shorthand
-		}
-
+		val := vals[idx]
 		if !isSVGMarkerRef(val) {
 			continue
 		}

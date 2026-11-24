@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
+	"github.com/chinmay-sawant/blinkless/internal/html"
 )
 
 // Print color adjustment keywords. The apply arm stores only these normalized
@@ -427,4 +428,87 @@ func usedWideTextForPaint(value, limit string) ([3]float64, bool) {
 	}
 
 	return clampDynamicRangeColor(rgb, limit), true
+}
+
+// Chrome dark-scheme UA form-control palette bytes (#3b3b3b button face,
+// #2b2b2b text field face, #858585 control border).
+const (
+	darkControlButtonBGByte = 0x3b
+	darkControlInputBGByte  = 0x2b
+	darkControlBorderByte   = 0x85
+)
+
+// applyDarkFormControlDefaults swaps UA light form-control colors for dark
+// defaults when the element's resolved color-scheme allows dark. Author
+// overrides on background, border, or color always win.
+func applyDarkFormControlDefaults(node *html.Node, sty *ResolvedStyle, raw map[string]string) {
+	if node == nil || sty == nil || !colorSchemeHasDark(sty.containment().ColorScheme) {
+		return
+	}
+
+	buttonBG := float64(darkControlButtonBGByte) / srgbChannelMax
+	inputBG := float64(darkControlInputBGByte) / srgbChannelMax
+	borderC := float64(darkControlBorderByte) / srgbChannelMax
+
+	switch node.Name {
+	case "button", "select":
+		if raw["background"] == "" && raw["background-color"] == "#efefef" {
+			sty.BGColor = [4]float64{buttonBG, buttonBG, buttonBG, 1}
+		}
+
+		applyDarkUABorder(sty, raw, borderC)
+
+		if _, hasColor := raw["color"]; !hasColor {
+			sty.Color = defaultTextForScheme(sty.containment().ColorScheme)
+		}
+	case "textarea":
+		if raw["background"] == "" && raw["background-color"] == "#ffffff" {
+			sty.BGColor = [4]float64{inputBG, inputBG, inputBG, 1}
+		}
+
+		applyDarkUABorder(sty, raw, borderC)
+
+		if _, hasColor := raw["color"]; !hasColor {
+			sty.Color = defaultTextForScheme(sty.containment().ColorScheme)
+		}
+	case htmlInput:
+		if !isTextInput(node) && !isInputButton(node) {
+			return
+		}
+
+		if raw["background"] == "" && raw["background-color"] == "" && sty.BGColor[3] == 0 {
+			bg := inputBG
+			if isInputButton(node) {
+				bg = buttonBG
+			}
+
+			sty.BGColor = [4]float64{bg, bg, bg, 1}
+		}
+
+		if _, hasColor := raw["color"]; !hasColor {
+			sty.Color = defaultTextForScheme(sty.containment().ColorScheme)
+		}
+	}
+}
+
+func applyDarkUABorder(sty *ResolvedStyle, raw map[string]string, gray float64) {
+	if raw["border"] != "1px solid #767676" {
+		return
+	}
+
+	for _, prop := range [...]string{
+		"border-color", "border-top", "border-right", "border-bottom", "border-left",
+		"border-top-color", "border-right-color", "border-bottom-color", "border-left-color",
+	} {
+		if _, ok := raw[prop]; ok {
+			return
+		}
+	}
+
+	borders := sty.editBorders()
+	col := [3]float64{gray, gray, gray}
+	borders.BorderTop.Color = col
+	borders.BorderRight.Color = col
+	borders.BorderBottom.Color = col
+	borders.BorderLeft.Color = col
 }

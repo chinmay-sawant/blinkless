@@ -8,9 +8,10 @@ import (
 )
 
 // TestBehaviorPositionAreaPlacesAboveAnchor proves core placement: an
-// absolute target with position-area:top sits above its in-scope anchor
-// with X keeping the laid-out offset. The anchor does not move and
-// the target paint ops move with the box.
+// absolute target with position-area:top sits centered above its in-scope
+// anchor (implicit span-all horizontal track uses anchor-center when horizontal
+// insets are auto). The anchor does not move and the target paint ops move
+// with the box.
 func TestBehaviorPositionAreaPlacesAboveAnchor(t *testing.T) {
 	t.Parallel()
 
@@ -27,8 +28,9 @@ func TestBehaviorPositionAreaPlacesAboveAnchor(t *testing.T) {
 		t.Fatalf("target y=%v want < anchor y=%v (above anchor)", target.y, anchor.y)
 	}
 
-	if !near(target.x, 0) {
-		t.Fatalf("target x=%v want laid-out 0 (missing track keeps offset)", target.x)
+	wantX := anchor.x + (anchor.w-target.w)/2
+	if !near(target.x, wantX) {
+		t.Fatalf("target x=%v want anchor-centered %v", target.x, wantX)
 	}
 
 	// Anchor keeps its flow position: 50px left, 200px top at 0.75pt per px.
@@ -105,9 +107,10 @@ func TestBehaviorPositionAreaNone(t *testing.T) {
 		t.Errorf("top y=%.4fpt should be above anchor y=%.4fpt",
 			topBox.y, anchorBox.y)
 	}
-	if !near(topBox.x, anchorBox.x) {
-		t.Errorf("top x=%.4fpt should align to anchor x=%.4fpt",
-			topBox.x, anchorBox.x)
+	wantTopX := anchorBox.x + (anchorBox.w-topBox.w)/2
+	if !near(topBox.x, wantTopX) {
+		t.Errorf("top x=%.4fpt should center over anchor %.4fpt",
+			topBox.x, wantTopX)
 	}
 }
 
@@ -210,8 +213,9 @@ func TestBehaviorPositionTryAlwaysKeepsBase(t *testing.T) {
 			tip.y, tip.y/ptPerCSSPx, wantY)
 	}
 
-	if !near(tip.x, 0) {
-		t.Errorf("tip.x = %.4fpt, want laid-out 0 (missing track keeps offset)", tip.x)
+	wantX := anchor.x + (anchor.w-tip.w)/2
+	if !near(tip.x, wantX) {
+		t.Errorf("tip.x = %.4fpt, want anchor-centered %.4fpt", tip.x, wantX)
 	}
 }
 
@@ -659,7 +663,7 @@ func TestBehaviorPositionVisibilityNoOverflow(t *testing.T) {
 		// (anchor.y - tip.height < 0) so no-overflow rejects it. The
 		// fallback "right" sits beside the anchor inside the viewport and wins.
 		wantX := anchor.x + anchor.w
-		wantY := anchor.y
+		wantY := anchor.y + (anchor.height-tip.height)/2
 
 		if !near(tip.x, wantX) || !near(tip.y, wantY) {
 			t.Errorf("tip = (%.4fpt, %.4fpt) = (%.2fpx, %.2fpx), want beside anchor (%.2fpx, %.2fpx)",
@@ -807,5 +811,110 @@ func TestBehaviorPositionVisibilityNoOverflowHidesWhenAllReject(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("anchor fill missing from Ops, want only the tip hidden")
+	}
+}
+
+func TestBehaviorPositionAreaAnchorDemoCenteredAbove(t *testing.T) {
+	t.Parallel()
+
+	// Exact anchorDemo geometry from examples/blinkless-all/spec_layout.go:
+	// 280x80 relative container, 80x24 anchor at (100, 44), 60x20 label with
+	// position-area:top must sit centered directly above the anchor at (110, 24).
+	res := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
+		`<div id="stage" style="position:relative;width:280px;height:80px;background:#e8e4d8;">`+
+		`<div id="anchor" style="position:absolute;left:100px;top:44px;width:80px;height:24px;background:#c96;anchor-name:--demo;">anchor</div>`+
+		`<div id="label" style="position:absolute;width:60px;height:20px;background:#69c;position-anchor:--demo;position-area:top;">label</div>`+
+		`</div></body></html>`)
+
+	anchor := boxByID(t, res, "anchor")
+	label := boxByID(t, res, "label")
+
+	wantX := anchor.x + (anchor.w-label.w)/2
+	wantY := anchor.y - label.height
+	if !near(label.x, wantX) || !near(label.y, wantY) {
+		t.Fatalf("label = (%.2fpx, %.2fpx), want centered above anchor (%.2fpx, %.2fpx)",
+			label.x/ptPerCSSPx, label.y/ptPerCSSPx, wantX/ptPerCSSPx, wantY/ptPerCSSPx)
+	}
+}
+
+func TestBehaviorPositionAreaSpanTracksAndHorizontal(t *testing.T) {
+	t.Parallel()
+
+	res := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
+		`<div style="position:relative;width:280px;height:120px;">`+
+		`<div id="anchor" style="position:absolute;left:100px;top:40px;width:80px;height:40px;anchor-name:--a;"></div>`+
+		`<div id="left" style="position:absolute;width:40px;height:20px;position-anchor:--a;position-area:left;"></div>`+
+		`<div id="spanTopRight" style="position:absolute;width:50px;height:20px;position-anchor:--a;position-area:span-top span-right;"></div>`+
+		`<div id="spanBottomLeft" style="position:absolute;width:50px;height:20px;position-anchor:--a;position-area:span-bottom span-left;"></div>`+
+		`</div></body></html>`)
+
+	anchor := boxByID(t, res, "anchor")
+
+	leftBox := boxByID(t, res, "left")
+	if !near(leftBox.x, anchor.x-leftBox.w) || !near(leftBox.y, anchor.y+(anchor.height-leftBox.height)/2) {
+		t.Errorf("left = (%.2fpx, %.2fpx), want (%.2fpx, %.2fpx)",
+			leftBox.x/ptPerCSSPx, leftBox.y/ptPerCSSPx,
+			(anchor.x-leftBox.w)/ptPerCSSPx, (anchor.y+(anchor.height-leftBox.height)/2)/ptPerCSSPx)
+	}
+
+	spanTR := boxByID(t, res, "spanTopRight")
+	if !near(spanTR.x, anchor.x) || !near(spanTR.y, anchor.y+anchor.height-spanTR.height) {
+		t.Errorf("span-top span-right = (%.2fpx, %.2fpx), want (%.2fpx, %.2fpx)",
+			spanTR.x/ptPerCSSPx, spanTR.y/ptPerCSSPx,
+			anchor.x/ptPerCSSPx, (anchor.y+anchor.height-spanTR.height)/ptPerCSSPx)
+	}
+
+	spanBL := boxByID(t, res, "spanBottomLeft")
+	if !near(spanBL.x, anchor.x+anchor.w-spanBL.w) || !near(spanBL.y, anchor.y) {
+		t.Errorf("span-bottom span-left = (%.2fpx, %.2fpx), want (%.2fpx, %.2fpx)",
+			spanBL.x/ptPerCSSPx, spanBL.y/ptPerCSSPx,
+			(anchor.x+anchor.w-spanBL.w)/ptPerCSSPx, anchor.y/ptPerCSSPx)
+	}
+}
+
+func TestBehaviorPositionTryOrderIncludesBaseOption(t *testing.T) {
+	t.Parallel()
+
+	// Both left (width 60px) and right (width 180px) fit a 40px-wide tip inside
+	// a 280px containing block. Under position-try-order: most-width, the wider
+	// right fallback sorts ahead of the base left option and wins.
+	res := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
+		`<div style="position:relative;width:280px;height:80px;">`+
+		`<div id="anchor" style="position:absolute;left:60px;top:30px;width:40px;height:20px;anchor-name:--a;"></div>`+
+		`<div id="tip" style="position:absolute;width:40px;height:20px;position-anchor:--a;position-area:left;`+
+		`position-try-fallbacks:right;position-try-order:most-width;"></div>`+
+		`</div></body></html>`)
+
+	anchor := boxByID(t, res, "anchor")
+	tip := boxByID(t, res, "tip")
+
+	wantX := anchor.x + anchor.w
+	if !near(tip.x, wantX) {
+		t.Errorf("tip.x = %.2fpx, want wider right fallback %.2fpx over narrower base left",
+			tip.x/ptPerCSSPx, wantX/ptPerCSSPx)
+	}
+}
+
+func TestBehaviorPositionTryFlipStartSwapsAxes(t *testing.T) {
+	t.Parallel()
+
+	// Anchor is near the top edge (top: 4px) so position-area:top overflows.
+	// flip-start swaps block/inline axes, turning top into left (100px wide),
+	// which fits to the left of the anchor.
+	res := layoutHTML(t, `<html style="margin:0"><body style="margin:0">`+
+		`<div style="position:relative;width:280px;height:80px;">`+
+		`<div id="anchor" style="position:absolute;left:100px;top:4px;width:60px;height:24px;anchor-name:--a;"></div>`+
+		`<div id="tip" style="position:absolute;width:40px;height:20px;position-anchor:--a;position-area:top;`+
+		`position-try:flip-start;"></div>`+
+		`</div></body></html>`)
+
+	anchor := boxByID(t, res, "anchor")
+	tip := boxByID(t, res, "tip")
+
+	wantX := anchor.x - tip.w
+	wantY := anchor.y + (anchor.height-tip.height)/2
+	if !near(tip.x, wantX) || !near(tip.y, wantY) {
+		t.Errorf("flip-start tip = (%.2fpx, %.2fpx), want left of anchor (%.2fpx, %.2fpx)",
+			tip.x/ptPerCSSPx, tip.y/ptPerCSSPx, wantX/ptPerCSSPx, wantY/ptPerCSSPx)
 	}
 }

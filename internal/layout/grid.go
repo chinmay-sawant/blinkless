@@ -62,6 +62,7 @@ func (e *engine) buildGrid(node *html.Node, sty *ResolvedStyle, availW, posX, po
 
 	kids := collectGridKids(e, node)
 	colDefs = expandGridColumnDefsForExplicitPlacement(colDefs, kids, areas, e, sty.grid().GridAutoColumns)
+	colDefs = expandGridColumnDefsForColumnFlow(colDefs, sty, areas, len(kids))
 
 	// Handle repeat(auto-fit/auto-fill, minmax(..., 1fr)) which parseGridTrackDefs collapses to auto.
 	// Expand at layout time when contentW is known: n = floor((contentW+gap)/(min+gap)), min from minmax.
@@ -279,6 +280,52 @@ func expandGridColumnDefsForExplicitPlacement(
 	copy(padded, colDefs)
 
 	autoDef := gridAutoTrackDef(autoCols)
+	for i := len(colDefs); i < need; i++ {
+		padded[i] = autoDef
+	}
+
+	return padded
+}
+
+// expandGridColumnDefsForColumnFlow creates implicit columns for column-major
+// grid-auto-flow when items overflow the explicit column template, sizing each
+// implicit column with grid-auto-columns.
+func expandGridColumnDefsForColumnFlow(
+	colDefs []gridTrackDef, sty *ResolvedStyle, areas gridTemplateAreasMap, kidCount int,
+) []gridTrackDef {
+	columnMajor, _ := gridAutoFlowMode(sty.grid().GridAutoFlow)
+	if !columnMajor || kidCount == 0 {
+		return colDefs
+	}
+
+	explicitRows := len(parseGridTrackDefs(sty.grid().GridTemplateRows))
+	rowBand := max(areas.rows, explicitRows)
+	if rowBand < 1 {
+		rowBand = 1
+	}
+
+	need := (kidCount + rowBand - 1) / rowBand
+	if need > maxImplicitGridTracks {
+		need = maxImplicitGridTracks
+	}
+
+	autoDef := gridAutoTrackDef(sty.grid().GridAutoColumns)
+	noExplicitCols := strings.TrimSpace(sty.grid().GridTemplateColumns) == "" && areas.cols == 0
+	if noExplicitCols {
+		all := make([]gridTrackDef, need)
+		for i := range all {
+			all[i] = autoDef
+		}
+
+		return all
+	}
+
+	if need <= len(colDefs) {
+		return colDefs
+	}
+
+	padded := make([]gridTrackDef, need)
+	copy(padded, colDefs)
 	for i := len(colDefs); i < need; i++ {
 		padded[i] = autoDef
 	}

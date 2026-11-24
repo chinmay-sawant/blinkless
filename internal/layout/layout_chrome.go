@@ -523,6 +523,10 @@ func (e *engine) prependChrome(insertAt int, boxNode *box, sty *ResolvedStyle, p
 		clipOpsSlice(e.ops[insertAt:], e.paddingBoxRect(posX, posY, width, height, sty))
 	}
 
+	if sty.Visibility == overflowHidden || sty.Visibility == borderCollapseValue {
+		return
+	}
+
 	if !hasPotentialChrome(sty, boxNode) {
 		return
 	}

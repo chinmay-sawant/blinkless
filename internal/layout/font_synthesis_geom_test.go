@@ -79,6 +79,18 @@ func TestFontWidthCondensesAdvance(t *testing.T) {
 	if wN >= wW*0.9 {
 		t.Fatalf("condensed width=%.1f should be < normal=%.1f", wN, wW)
 	}
+	var gotScale float64
+	for _, op := range resN.Ops {
+		if op.Kind == OpText && op.Text == "MMMM" {
+			gotScale = op.XformValue().A
+			if op.XformSet {
+				t.Fatalf("condensed text op should not set XformSet")
+			}
+		}
+	}
+	if gotScale != 0.75 {
+		t.Fatalf("condensed text op XformValue().A = %v, want 0.75", gotScale)
+	}
 }
 
 func TestFontStretchCondensesAdvance(t *testing.T) {

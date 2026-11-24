@@ -214,11 +214,9 @@ func TestBehaviorSvgGeoStopOpacityFadesGradient(t *testing.T) {
 	}
 }
 
-// TestBehaviorSvgGeoAttrWinsNoDuplicate pins the no-duplicate guard: a
-// cx="10" presentation attribute plus style="cx:40px" serializes one cx and
-// keeps the attribute, so the bake never emits a second cx. Reference:
-// Chrome 143.0.7499.40 would let the CSS win; the guard keeps the attribute
-// on purpose, matching the fill/stroke bake-arm convention.
+// TestBehaviorSvgGeoAttrWinsNoDuplicate pins that an inline style="cx:40px"
+// overrides the cx="10" presentation attribute (matching Chrome 143.0.7499.40
+// and SVG 2) while emitting only one cx attribute (no duplicate bake).
 func TestBehaviorSvgGeoAttrWinsNoDuplicate(t *testing.T) {
 	t.Parallel()
 
@@ -227,12 +225,12 @@ func TestBehaviorSvgGeoAttrWinsNoDuplicate(t *testing.T) {
 		t.Errorf("cx occurrences = %d, want 1 (no duplicate bake)", got)
 	}
 
-	if !strings.Contains(serialized, `cx="10"`) {
-		t.Errorf("serialized SVG lacks cx=10 attribute, got %s", serialized)
+	if !strings.Contains(serialized, `cx="40px"`) {
+		t.Errorf("serialized SVG lacks inline style cx=40px, got %s", serialized)
 	}
 
-	if strings.Contains(serialized, "40px") {
-		t.Errorf("serialized SVG baked over the attribute, got %s", serialized)
+	if strings.Contains(serialized, `cx="10"`) {
+		t.Errorf("serialized SVG kept overridden cx=10 attribute, got %s", serialized)
 	}
 }
 

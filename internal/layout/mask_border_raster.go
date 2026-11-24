@@ -32,20 +32,45 @@ func composeMaskBorderRaster(frame *MaskBorder, boxW, boxH float64) *MaskRaster 
 		return nil
 	}
 
-	canvas := image.NewRGBA(image.Rect(0, 0, dstW, dstH))
+	outTop, outRight, outBottom, outLeft := maskBorderOutsetPixels(frame, dstW, dstH)
+	frameW := dstW + outLeft + outRight
+	frameH := dstH + outTop + outBottom
+
+	canvas := image.NewRGBA(image.Rect(0, 0, frameW, frameH))
 
 	for row := range 3 {
 		for col := range 3 {
-			paintMaskBorderCell(canvas, src, frame, dstW, dstH, row, col)
+			paintMaskBorderCell(canvas, src, frame, frameW, frameH, row, col)
 		}
 	}
 
+	var result image.Image = canvas
+	if outLeft > 0 || outTop > 0 || outRight > 0 || outBottom > 0 {
+		result = canvas.SubImage(image.Rect(outLeft, outTop, outLeft+dstW, outTop+dstH))
+	}
+
 	var out bytes.Buffer
-	if err := pooledPNGEncoder.Encode(&out, canvas); err != nil {
+	if err := pooledPNGEncoder.Encode(&out, result); err != nil {
 		return nil
 	}
 
 	return &MaskRaster{ImageBytes: out.Bytes(), PixelWidth: dstW, PixelHeight: dstH}
+}
+
+// maskBorderOutsetPixels resolves the four outward offsets to non-negative
+// device pixels, clamping back to zero if the expanded frame would exceed the
+// image size budget.
+func maskBorderOutsetPixels(frame *MaskBorder, dstW, dstH int) (int, int, int, int) {
+	outTop := max(0, int(math.Round(frame.Outset[0])))
+	outRight := max(0, int(math.Round(frame.Outset[1])))
+	outBottom := max(0, int(math.Round(frame.Outset[2])))
+	outLeft := max(0, int(math.Round(frame.Outset[3])))
+
+	if !validImageSize(dstW+outLeft+outRight, dstH+outTop+outBottom) {
+		return 0, 0, 0, 0
+	}
+
+	return outTop, outRight, outBottom, outLeft
 }
 
 // decodeMaskBorderFrame decodes the frame source and resolves the destination
@@ -194,13 +219,15 @@ func tileMaskBorderCell(
 		mode = fxStretch
 	}
 
+	verticalEdge := row == 1
+
 	switch mode {
 	case borderRepeatRepeat:
 		tileRepeated(dst, src, srcRect, dstRect)
 	case borderRepeatRound:
-		tileRounded(dst, src, srcRect, dstRect)
+		tileRounded(dst, src, srcRect, dstRect, verticalEdge)
 	case borderRepeatSpace:
-		tileSpaced(dst, src, srcRect, dstRect)
+		tileSpaced(dst, src, srcRect, dstRect, verticalEdge)
 	default:
 		tileStretched(dst, src, srcRect, dstRect)
 	}
@@ -258,9 +285,28 @@ func tileRepeated(dst draw.Image, src image.Image, srcRect, dstRect image.Rectan
 
 // tileRounded tiles the source slice with the tile count rounded to fill the
 // destination exactly, scaling each tile by the remainder. One tile stretches
-// to cover the whole destination.
-func tileRounded(dst draw.Image, src image.Image, srcRect, dstRect image.Rectangle) {
+// to cover the whole destination. Vertical edges tile along Y; horizontal
+// edges tile along X.
+func tileRounded(dst draw.Image, src image.Image, srcRect, dstRect image.Rectangle, vertical bool) {
 	if srcRect.Empty() || dstRect.Empty() {
+		return
+	}
+
+	if vertical {
+		count := int(math.Round(float64(dstRect.Dy()) / float64(srcRect.Dy())))
+		if count <= 0 {
+			count = 1
+		}
+
+		tileH := float64(dstRect.Dy()) / float64(count)
+
+		for idx := range count {
+			y0 := dstRect.Min.Y + int(math.Round(float64(idx)*tileH))
+			y1 := dstRect.Min.Y + int(math.Round(float64(idx+1)*tileH))
+			tile := image.Rect(dstRect.Min.X, y0, dstRect.Max.X, y1).Intersect(dstRect)
+			copyScaled(dst, src, srcRect, tile)
+		}
+
 		return
 	}
 
@@ -281,8 +327,37 @@ func tileRounded(dst draw.Image, src image.Image, srcRect, dstRect image.Rectang
 
 // tileSpaced tiles the source slice with equal gaps between tiles, so the
 // first and last tiles sit at the destination edges. One tile centers itself.
-func tileSpaced(dst draw.Image, src image.Image, srcRect, dstRect image.Rectangle) {
+// Vertical edges tile along Y; horizontal edges tile along X.
+func tileSpaced(dst draw.Image, src image.Image, srcRect, dstRect image.Rectangle, vertical bool) {
 	if srcRect.Empty() || dstRect.Empty() {
+		return
+	}
+
+	if vertical {
+		room := dstRect.Dy() - srcRect.Dy()
+		if room < 0 {
+			tileStretched(dst, src, srcRect, dstRect)
+
+			return
+		}
+
+		count := room/srcRect.Dy() + 1
+		if count <= 1 {
+			offset := dstRect.Min.Y + room/maskBorderSpacedCentering
+			tile := image.Rect(dstRect.Min.X, offset, dstRect.Max.X, offset+srcRect.Dy()).Intersect(dstRect)
+			copyTile(dst, src, srcRect, tile)
+
+			return
+		}
+
+		gap := float64(room) / float64(count-1)
+
+		for idx := range count {
+			y0 := dstRect.Min.Y + int(math.Round(float64(idx)*gap))
+			tile := image.Rect(dstRect.Min.X, y0, dstRect.Max.X, y0+srcRect.Dy()).Intersect(dstRect)
+			copyTile(dst, src, srcRect, tile)
+		}
+
 		return
 	}
 
@@ -392,17 +467,11 @@ func clampInt(value, low, high int) int {
 }
 
 // composeMaskBorderOnGroup composes the frame raster for one popped group and
-// stores it as the group's ready-to-paint mask when no mask-image raster
-// exists. It runs after the element's box is built, so the tiling modes know
-// the destination size. A nil or empty frame leaves the group untouched.
+// attaches it as a MaskLayer on group.Mask alongside updating group.Mask.Raster.
+// It runs after the element's box is built, so the tiling modes know the
+// destination size. A nil or empty frame leaves the group untouched.
 func (e *engine) composeMaskBorderOnGroup(group *BlendGroup, boxNode *box) {
 	if group == nil || group.MaskBorder == nil || boxNode == nil {
-		return
-	}
-
-	if group.Mask != nil && len(group.Mask.RasterBytes()) > 0 {
-		// The first-wave mask already carries a raster; the frame joins it
-		// once layer composition lands. The frame descriptor stays recorded.
 		return
 	}
 
@@ -411,9 +480,30 @@ func (e *engine) composeMaskBorderOnGroup(group *BlendGroup, boxNode *box) {
 		return
 	}
 
-	group.Mask = &MaskDescriptor{
-		Raster: raster,
+	layer := MaskLayer{
+		Source:      group.MaskBorder.Source,
+		Mode:        group.MaskBorder.Mode,
+		Repeat:      "no-repeat",
+		Size:        "100% 100%",
+		Position:    "0% 0%",
+		Origin:      "border-box",
+		Clip:        "border-box",
+		ImageBytes:  raster.ImageBytes,
+		PixelWidth:  raster.PixelWidth,
+		PixelHeight: raster.PixelHeight,
 	}
+
+	if group.Mask == nil {
+		group.Mask = &MaskDescriptor{
+			Layers: []MaskLayer{layer},
+			Raster: raster,
+		}
+
+		return
+	}
+
+	group.Mask.Layers = append(group.Mask.Layers, layer)
+	group.Mask.Raster = raster
 }
 
 // RasterBytes returns the raster payload of the descriptor, or nil.

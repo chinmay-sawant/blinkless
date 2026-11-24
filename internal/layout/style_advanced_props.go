@@ -7,6 +7,40 @@ import (
 	"github.com/chinmay-sawant/blinkless/internal/css"
 )
 
+func isQuotedCSSString(s string) bool {
+	if len(s) < 2 {
+		return false
+	}
+
+	return (s[0] == '"' && s[len(s)-1] == '"') || (s[0] == '\'' && s[len(s)-1] == '\'')
+}
+
+func unquoteCSSMarkerString(s string) (string, bool) {
+	trimmed := strings.TrimSpace(s)
+	if !isQuotedCSSString(trimmed) {
+		return "", false
+	}
+
+	return trimmed[1 : len(trimmed)-1], true
+}
+
+func textOverflowMarker(val string) (string, bool) {
+	trimmed := strings.TrimSpace(val)
+	if trimmed == "" || strings.EqualFold(trimmed, "clip") {
+		return "", false
+	}
+
+	if strings.EqualFold(trimmed, textOverflowEllipsis) {
+		return "...", true
+	}
+
+	if unquoted, ok := unquoteCSSMarkerString(trimmed); ok {
+		return unquoted, true
+	}
+
+	return "", false
+}
+
 // applyAdvancedProps handles GCPM bookmarks/paged media, line clamping, text truncation,
 // fragmentation, blend modes, and font variation properties.
 func applyAdvancedProps(style *ResolvedStyle, prop, value string, fsize float64) bool {
@@ -20,6 +54,11 @@ func applyAdvancedProps(style *ResolvedStyle, prop, value string, fsize float64)
 	case "text-overflow":
 		if val == "clip" || val == "ellipsis" {
 			style.editInlineText().TextOverflow = val
+			return true
+		}
+
+		if raw := strings.TrimSpace(value); isQuotedCSSString(raw) {
+			style.editInlineText().TextOverflow = raw
 			return true
 		}
 	case "line-clamp", "-webkit-line-clamp":

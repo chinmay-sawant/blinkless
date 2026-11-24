@@ -1076,7 +1076,7 @@ func ApplyScale(style *ResolvedStyle, value string) bool {
 		return false
 	}
 
-	scaleX, scaleOK := parseUnitless(parts[0])
+	scaleX, scaleOK := parseScaleFactor(parts[0])
 	if !scaleOK {
 		return false
 	}
@@ -1084,7 +1084,7 @@ func ApplyScale(style *ResolvedStyle, value string) bool {
 	scaleY := scaleX
 
 	if len(parts) >= maxTwoValueArgs {
-		second, secondOK := parseUnitless(parts[1])
+		second, secondOK := parseScaleFactor(parts[1])
 
 		if !secondOK {
 			return false
@@ -1094,7 +1094,7 @@ func ApplyScale(style *ResolvedStyle, value string) bool {
 	}
 
 	if len(parts) == maxThreeValueArgs {
-		scaleZ, scaleZOK := parseUnitless(parts[2])
+		scaleZ, scaleZOK := parseScaleFactor(parts[2])
 		if !scaleZOK {
 			return false
 		}
@@ -1107,6 +1107,20 @@ func ApplyScale(style *ResolvedStyle, value string) bool {
 	style.editEffects().HasTransform = true
 
 	return true
+}
+
+// parseScaleFactor parses a CSS Transforms 2 scale component (<number> | <percentage>).
+func parseScaleFactor(tok string) (float64, bool) {
+	if strings.HasSuffix(tok, "%") {
+		v, ok := parseUnitless(strings.TrimSuffix(tok, "%"))
+		if !ok {
+			return 0, false
+		}
+
+		return v / percentDivisor, true
+	}
+
+	return parseUnitless(tok)
 }
 
 // parseTranslateValues parses one or two translate lengths from already-split
