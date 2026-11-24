@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -211,7 +212,7 @@ func checkRelayoutTarget(prev *Result, target *relayoutTarget) error {
 		return err
 	}
 
-	return checkRelayoutAnchors(prev.boxTreeRoot(), target.box)
+	return checkRelayoutAnchors(prev, target.box)
 }
 
 // checkRelayoutBox rejects the element itself: the document root carries the
@@ -465,37 +466,64 @@ func relayoutSubtreeReason(style *ResolvedStyle) string {
 
 // checkRelayoutAnchors rejects a document that anchors a box outside the
 // patched subtree: that box sits where its anchor sits, so a patch that
-// moved the anchor would leave it stale.
-func checkRelayoutAnchors(root *box, patched *box) error {
-	var walk func(boxNode *box) error
+// moved the anchor would leave it stale. When the placement has already been
+// checked and contains no anchored boxes, the walk is skipped in O(1).
+func checkRelayoutAnchors(prev *Result, patched *box) error {
+	if prev.anchorsKnown && !prev.hasAnchors {
+		return nil
+	}
 
-	walk = func(boxNode *box) error {
-		if boxNode == patched {
-			return nil
+	root := prev.boxTreeRoot()
+	foundAny := false
+	foundOutside := false
+
+	var walk func(boxNode *box, insidePatched bool)
+
+	walk = func(boxNode *box, insidePatched bool) {
+		if boxNode == nil || foundOutside {
+			return
 		}
 
+		inSubtree := insidePatched || boxNode == patched
 		if boxNode.style != nil && boxNode.style.positioning().PositionAnchor != "" {
-			return fmt.Errorf("%w: an anchored box sits outside the subtree", errSubtreeNotSplicable)
+			foundAny = true
+			if !inSubtree {
+				foundOutside = true
+
+				return
+			}
 		}
 
 		for _, child := range boxNode.children {
-			if err := walk(child); err != nil {
-				return err
+			walk(child, inSubtree)
+			if foundOutside {
+				return
 			}
 		}
 
 		for _, row := range boxNode.rows {
 			for _, cell := range row {
-				if err := walk(cell); err != nil {
-					return err
+				walk(cell, inSubtree)
+				if foundOutside {
+					return
 				}
 			}
 		}
+	}
+
+	walk(root, false)
+
+	if !foundOutside {
+		prev.anchorsKnown = true
+		prev.hasAnchors = foundAny
 
 		return nil
 	}
 
-	return walk(root)
+	prev.anchorsKnown = true
+	prev.hasAnchors = true
+
+	return fmt.Errorf("%w: an anchored box sits outside the subtree", errSubtreeNotSplicable)
 }
 
 // maxSubtreeStyleStores bounds the pooled subtree style stores: up to two
@@ -1809,9 +1837,21 @@ func countBoxNodes(node *box) int {
 func relayoutKeepStyles(prev *Result, styles map[*html.Node]*ResolvedStyle) {
 	if prev.styles == nil {
 		prev.styles = make(map[*html.Node]*ResolvedStyle, len(styles))
+		prev.stylesShared = false
 	}
 
 	for node, style := range styles {
+		if style != nil && style.positioning().PositionAnchor != "" {
+			prev.anchorsKnown = true
+			prev.hasAnchors = true
+		}
+		if prev.stylesShared {
+			if cur, ok := prev.styles[node]; ok && (cur == style || styleInternEqual(cur, style)) {
+				continue
+			}
+			prev.styles = maps.Clone(prev.styles)
+			prev.stylesShared = false
+		}
 		prev.styles[node] = style
 	}
 }
@@ -2283,6 +2323,8 @@ func unionOpBounds(bounds *[4]float64, paintOp *Op) {
 // so a batch resolves every id in place instead of rewalking the tree per
 // id. Refreshing the committed subtree keeps every other pointer valid.
 type boxThread struct {
+	root   *box
+	lazy   bool
 	byID   map[string]*box
 	parent map[*box]*box
 }
@@ -2291,6 +2333,7 @@ const (
 	boxThreadIDInitCap        = 64
 	boxThreadParentInitCap    = 256
 	maxPooledBoxThreadEntries = 16384
+	boxThreadLazyMaxIDs       = 16
 )
 
 var boxThreadPool = sync.Pool{
@@ -2302,7 +2345,11 @@ var boxThreadPool = sync.Pool{
 	},
 }
 
-func getBoxThread(root *box) *boxThread {
+func getBoxThread(root *box, idCount int) *boxThread {
+	if idCount <= boxThreadLazyMaxIDs {
+		return &boxThread{root: root, lazy: true}
+	}
+
 	thread, ok := boxThreadPool.Get().(*boxThread)
 	if !ok || thread == nil {
 		thread = &boxThread{
@@ -2311,6 +2358,8 @@ func getBoxThread(root *box) *boxThread {
 		}
 	}
 
+	thread.root = root
+	thread.lazy = false
 	clear(thread.byID)
 	clear(thread.parent)
 	thread.index(root, nil)
@@ -2319,10 +2368,11 @@ func getBoxThread(root *box) *boxThread {
 }
 
 func putBoxThread(thread *boxThread) {
-	if thread == nil || len(thread.parent) > maxPooledBoxThreadEntries || len(thread.byID) > maxPooledBoxThreadEntries {
+	if thread == nil || thread.lazy || len(thread.parent) > maxPooledBoxThreadEntries || len(thread.byID) > maxPooledBoxThreadEntries {
 		return
 	}
 
+	thread.root = nil
 	clear(thread.byID)
 	clear(thread.parent)
 	boxThreadPool.Put(thread)
@@ -2390,6 +2440,9 @@ func (thread *boxThread) unindex(node *box) {
 // replace swaps the indexed subtree: the old box leaves the thread and the
 // new box takes its place under the same holder.
 func (thread *boxThread) replace(oldBox, newBox, holder *box) {
+	if thread.lazy {
+		return
+	}
 	thread.unindex(oldBox)
 	thread.index(newBox, holder)
 }
@@ -2398,6 +2451,10 @@ func (thread *boxThread) replace(oldBox, newBox, holder *box) {
 // the boxes above it from the root down. It reports false when the id owns
 // no box.
 func (thread *boxThread) lookup(elementID string) (*relayoutTarget, bool) {
+	if thread.lazy {
+		return findLazyBoxTarget(thread.root, elementID)
+	}
+
 	boxNode, ok := thread.byID[elementID]
 	if !ok || boxNode == nil {
 		return nil, false
@@ -2420,6 +2477,51 @@ func (thread *boxThread) lookup(elementID string) (*relayoutTarget, bool) {
 	}
 
 	return &relayoutTarget{box: boxNode, parent: holder, ancestors: ancestors}, true
+}
+
+func findLazyBoxTarget(root *box, elementID string) (*relayoutTarget, bool) {
+	var stack []*box
+	var found *box
+
+	var walk func(node *box) bool
+	walk = func(node *box) bool {
+		if node == nil {
+			return false
+		}
+		if node.node != nil && node.node.Type == html.ElementNode && node.node.AttrExact("id") == elementID {
+			found = node
+
+			return true
+		}
+
+		stack = append(stack, node)
+		for _, child := range node.children {
+			if walk(child) {
+				return true
+			}
+		}
+		for _, row := range node.rows {
+			for _, cell := range row {
+				if walk(cell) {
+					return true
+				}
+			}
+		}
+		stack = stack[:len(stack)-1]
+
+		return false
+	}
+
+	if !walk(root) {
+		return nil, false
+	}
+
+	var holder *box
+	if len(stack) > 0 {
+		holder = stack[len(stack)-1]
+	}
+
+	return &relayoutTarget{box: found, parent: holder, ancestors: stack}, true
 }
 
 // batchNodeForID resolves one batch id to its element node: the threaded box
@@ -2494,8 +2596,9 @@ type SpliceWindow struct {
 // so a text edit reaches the boxes of the element and of its ancestors
 // without rebuilding the whole box list.
 type PaintOnlyText struct {
-	ID    string
-	Texts []string
+	ID            string
+	Texts         []string
+	AncestorNodes []*html.Node
 }
 
 type subtreeBoxPatch struct {
@@ -2566,7 +2669,7 @@ func RelayoutSubtrees(
 		return nil, errNoPreviousLayout
 	}
 
-	thread := getBoxThread(prev.boxTreeRoot())
+	thread := getBoxThread(prev.boxTreeRoot(), len(elementIDs))
 	defer putBoxThread(thread)
 
 	relevant, grouped := countOrderingRelevant(prev.Ops)
@@ -2893,6 +2996,24 @@ func paintOnlyTexts(thread *boxThread, prev *Result, elementIDs []string) []Pain
 		}
 
 		if target.box == nil || target.box.node == nil {
+			continue
+		}
+
+		if len(elementIDs) == 1 && len(prev.boxes) > 64 {
+			ancNodes := make([]*html.Node, 0, len(target.ancestors))
+			for index := len(target.ancestors) - 1; index >= 0; index-- {
+				ancestor := target.ancestors[index]
+				if ancestor == nil || ancestor.node == nil || ancestor.node.Type != html.ElementNode {
+					continue
+				}
+				ancNodes = append(ancNodes, ancestor.node)
+			}
+			texts = append(texts, PaintOnlyText{
+				ID:            elementID,
+				Texts:         []string{target.box.node.TextContent()},
+				AncestorNodes: ancNodes,
+			})
+
 			continue
 		}
 

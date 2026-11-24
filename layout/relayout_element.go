@@ -428,7 +428,7 @@ func applySameBoxesPatches(
 	return ilayout.ApplySubtreeBoxPatches(
 		res, batch, opts, finalCount,
 		func(boxIdx int) int { return boxes[boxIdx].ParentIndex },
-		func(boxIdx int, newText string) bool { return boxes[boxIdx].Text != newText },
+		func(boxIdx int) string { return boxes[boxIdx].Text },
 		func(boxIdx int, item *ilayout.PlacedElement) { fillBoxFrom(&boxes[boxIdx], item) },
 		func(boxIdx int, opIDs []uint64, text string, updateText bool) {
 			boxes[boxIdx].OperationIDs = opIDs

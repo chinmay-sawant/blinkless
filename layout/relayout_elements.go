@@ -61,7 +61,7 @@ func RelayoutElements(
 		return nil, err
 	}
 
-	clone := ilayout.CloneResult(prev.result)
+	clone := ilayout.CloneResultForBatch(prev.result)
 	if clone == nil {
 		return nil, ErrNoRetainedState
 	}
@@ -151,7 +151,27 @@ func applyPaintOnlyBoxTexts(boxes []Box, texts []ilayout.PaintOnlyText) {
 		}
 
 		chain := texts[index].Texts
-		boxes[boxIndex].Text = chain[0]
+		oldSub := boxes[boxIndex].Text
+		newSub := chain[0]
+		boxes[boxIndex].Text = newSub
+
+		if len(texts[index].AncestorNodes) > 0 {
+			if oldSub == newSub {
+				continue
+			}
+
+			parent := boxes[boxIndex].ParentIndex
+			for _, ancNode := range texts[index].AncestorNodes {
+				if parent < 0 || parent >= len(boxes) {
+					break
+				}
+
+				boxes[parent].Text = ilayout.SpliceOrNodeText(boxes[parent].Text, oldSub, newSub, ancNode)
+				parent = boxes[parent].ParentIndex
+			}
+
+			continue
+		}
 
 		parent := boxes[boxIndex].ParentIndex
 		for step := 1; step < len(chain); step++ {

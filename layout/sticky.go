@@ -42,8 +42,8 @@ func HasViewportSticky(display *Display) bool {
 		return false
 	}
 
-	for _, box := range display.Boxes {
-		if constraint := box.Sticky; constraint != nil && constraint.Viewport {
+	for i := range display.Boxes {
+		if constraint := display.Boxes[i].Sticky; constraint != nil && constraint.Viewport {
 			for _, set := range constraint.Set {
 				if set {
 					return true
