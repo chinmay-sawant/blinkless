@@ -33,6 +33,8 @@ type FaceSet struct {
 	UnicodeFallback     *Font
 	UnicodeFallbackBold *Font
 	OpenTypeDemo        *Font
+	VarDemo             *Font
+	PaletteDemo         *Font
 }
 
 var (
@@ -61,6 +63,15 @@ func LoadDefaultFaces() (*FaceSet, error) {
 			UnicodeFallback:     parseNamed("DejaVuSans-UnicodeFallback", assets.UnicodeFallbackRegular),
 			UnicodeFallbackBold: parseNamed("DejaVuSans-UnicodeFallback-Bold", assets.UnicodeFallbackBold),
 			OpenTypeDemo:        parseNamed("BlinklessOT-Regular", assets.BlinklessOTRegular),
+			VarDemo:             parseNamed("BlinklessVar-VF", assets.BlinklessVarVF),
+			PaletteDemo: parseNamed("BlinklessPalette-Regular", func() []byte {
+				raw, err := PaletteDemoTTF(assets.BlinklessOTRegular())
+				if err != nil {
+					return assets.BlinklessOTRegular()
+				}
+
+				return raw
+			}),
 		}
 	})
 
@@ -103,6 +114,10 @@ func (fs *FaceSet) ResolveFamily(families []string, weight int, italic bool) *Fo
 			return resolveFamilyFaces(fs.UnicodeFallback, fs.UnicodeFallbackBold, nil, fs.UnicodeFallbackBold, weight, italic)
 		case "blinkless ot":
 			return resolveFamilyFaces(fs.OpenTypeDemo, nil, nil, nil, weight, italic)
+		case "blinkless var":
+			return resolveFamilyFaces(fs.VarDemo, nil, nil, nil, weight, italic)
+		case "blinkless palette":
+			return resolveFamilyFaces(fs.PaletteDemo, nil, nil, nil, weight, italic)
 		}
 	}
 
