@@ -571,7 +571,7 @@ func spliceUniqueText(ancOld, oldSub, newSub string) (string, bool) {
 	if idx < 0 {
 		return "", false
 	}
-	if strings.Index(ancOld[idx+1:], oldSub) >= 0 {
+	if strings.Contains(ancOld[idx+1:], oldSub) {
 		return "", false
 	}
 	var b strings.Builder

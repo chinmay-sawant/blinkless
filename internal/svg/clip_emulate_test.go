@@ -20,13 +20,14 @@ func decodePNG(t *testing.T, data []byte) image.Image {
 	return img
 }
 
-func pixelAlpha(img image.Image, logicalX, logicalY, logicalW, logicalH int) uint8 {
+func pixelAlpha(img image.Image, logicalX, logicalY int) uint8 {
+	const logicalW, logicalH = 120, 80
 	b := img.Bounds()
 	px := b.Min.X + logicalX*b.Dx()/logicalW
 	py := b.Min.Y + logicalY*b.Dy()/logicalH
 	_, _, _, a := img.At(px, py).RGBA()
 
-	return uint8(a >> 8)
+	return uint8((a >> 8) & 0xff)
 }
 
 func TestFillRuleEvenOddSelfCrossingStar(t *testing.T) {
@@ -52,16 +53,16 @@ func TestFillRuleEvenOddSelfCrossingStar(t *testing.T) {
 	eoImg := decodePNG(t, eoPNG)
 
 	// Center pentagon (60, 45) is filled under nonzero and hollow under evenodd.
-	if a := pixelAlpha(nzImg, 60, 45, 120, 80); a < 200 {
+	if a := pixelAlpha(nzImg, 60, 45); a < 200 {
 		t.Fatalf("nonzero star center alpha = %d, want filled", a)
 	}
 
-	if a := pixelAlpha(eoImg, 60, 45, 120, 80); a > 20 {
+	if a := pixelAlpha(eoImg, 60, 45); a > 20 {
 		t.Fatalf("evenodd star center alpha = %d, want hollow", a)
 	}
 
 	// Top arm of the star (60, 18) must stay filled under evenodd.
-	if a := pixelAlpha(eoImg, 60, 18, 120, 80); a < 200 {
+	if a := pixelAlpha(eoImg, 60, 18); a < 200 {
 		t.Fatalf("evenodd star arm alpha = %d, want filled", a)
 	}
 }
@@ -79,11 +80,11 @@ func TestFillRuleEvenOddPolygonStar(t *testing.T) {
 
 	eoImg := decodePNG(t, eoPNG)
 
-	if a := pixelAlpha(eoImg, 60, 45, 120, 80); a > 20 {
+	if a := pixelAlpha(eoImg, 60, 45); a > 20 {
 		t.Fatalf("evenodd polygon star center alpha = %d, want hollow", a)
 	}
 
-	if a := pixelAlpha(eoImg, 60, 18, 120, 80); a < 200 {
+	if a := pixelAlpha(eoImg, 60, 18); a < 200 {
 		t.Fatalf("evenodd polygon star arm alpha = %d, want filled", a)
 	}
 }
@@ -112,21 +113,21 @@ func TestClipPathEvenOddStar(t *testing.T) {
 	eoImg := decodePNG(t, eoPNG)
 
 	// Corner (5, 5) outside star must be clipped away.
-	if a := pixelAlpha(eoImg, 5, 5, 120, 80); a > 20 {
+	if a := pixelAlpha(eoImg, 5, 5); a > 20 {
 		t.Fatalf("evenodd clip corner alpha = %d, want clipped (0)", a)
 	}
 
 	// Top arm (60, 18) inside star must be painted.
-	if a := pixelAlpha(eoImg, 60, 18, 120, 80); a < 200 {
+	if a := pixelAlpha(eoImg, 60, 18); a < 200 {
 		t.Fatalf("evenodd clip arm alpha = %d, want filled", a)
 	}
 
 	// Center pentagon (60, 45) is filled under nonzero and hollow under evenodd.
-	if a := pixelAlpha(nzImg, 60, 45, 120, 80); a < 200 {
+	if a := pixelAlpha(nzImg, 60, 45); a < 200 {
 		t.Fatalf("nonzero clip center alpha = %d, want filled", a)
 	}
 
-	if a := pixelAlpha(eoImg, 60, 45, 120, 80); a > 20 {
+	if a := pixelAlpha(eoImg, 60, 45); a > 20 {
 		t.Fatalf("evenodd clip center alpha = %d, want hollow", a)
 	}
 }

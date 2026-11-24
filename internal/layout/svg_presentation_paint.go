@@ -554,7 +554,7 @@ func (e *engine) resolveSVGGradientStop(node *html.Node) (svgResolvedStop, bool)
 		current = st.Color
 	}
 
-	rawColor := ""
+	var rawColor string
 	if st != nil && st.svg().SVGStopColor != "" {
 		rawColor = st.svg().SVGStopColor
 	} else if v := strings.TrimSpace(decls.prop("stop-color")); v != "" {
@@ -573,7 +573,7 @@ func (e *engine) resolveSVGGradientStop(node *html.Node) (svgResolvedStop, bool)
 		color = parsed
 	}
 
-	rawOpacity := ""
+	var rawOpacity string
 	if st != nil && st.svg().SVGStopOpacity != "" {
 		rawOpacity = st.svg().SVGStopOpacity
 	} else if v := strings.TrimSpace(decls.prop("stop-opacity")); v != "" {
