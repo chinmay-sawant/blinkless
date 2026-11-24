@@ -2,6 +2,7 @@ package layout_test
 
 import (
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -283,4 +284,103 @@ func itoa(value int) string {
 	}
 
 	return string(digits)
+}
+
+func TestRelayoutElementsScrollViewportWithTable(t *testing.T) {
+	t.Parallel()
+
+	const source = `
+<style>
+  #viewport { position: relative; width: 240px; height: 120px; }
+  #content { position: relative; top: 0; }
+  #thumb { position: absolute; right: 0; top: 0; width: 8px; height: 35px; background: #333; }
+</style>
+<header>Gallery</header>
+<nav>Components</nav>
+<p>Before viewport</p>
+<div id="viewport">
+  <p id="content">Gallery label</p>
+  <table><tr><td id="cell">Table label</td></tr></table>
+  <div id="thumb"></div>
+</div>
+<p>After viewport</p>
+`
+	tree, err := html.Parse([]byte(source))
+	if err != nil {
+		t.Fatal(err)
+	}
+	styled := mustApply(t, tree, 400, 300, "", "", "")
+	current := layRetained(t, styled)
+	ids := []string{"viewport", "thumb"}
+
+	for _, step := range []struct{ top, thumb string }{
+		{"top: -12px", "height: 40px"},
+		{"top: -24px", "height: 45px"},
+		{"top: 0", "height: 35px"},
+	} {
+		if !tree.SetAttribute("content", "style", step.top) || !tree.SetAttribute("thumb", "style", step.thumb) {
+			t.Fatal("scroll fixture is missing its content or thumb")
+		}
+
+		next, err := layout.RelayoutElements(t.Context(), styled, current, ids, layout.Options{})
+		if err != nil {
+			t.Fatalf("scroll %q: %v", step.top, err)
+		}
+		current.Release()
+		current = next
+		full := layOf(t, styled)
+		t.Run(step.top, func(t *testing.T) {
+			if len(current.Ops) != len(full.Ops) {
+				t.Fatalf("operations = %d, want %d", len(current.Ops), len(full.Ops))
+			}
+			compareDisplaysIgnoringOpIDs(t, current, full)
+		})
+	}
+	current.Release()
+}
+
+// Adding paint before a retained table must shift its existing cells once.
+func TestRelayoutElementShiftsFollowingTableOnce(t *testing.T) {
+	t.Parallel()
+
+	const source = `
+<div id="banner" style="height:60px;white-space:pre-line">Banner</div>
+<table><tr><td id="first">First cell</td><td id="second">Second cell</td></tr></table>
+<p>After table</p>
+`
+	tree, err := html.Parse([]byte(source))
+	if err != nil {
+		t.Fatal(err)
+	}
+	styled := mustApply(t, tree, 400, 300, "", "", "")
+	prev := layRetained(t, styled)
+	defer prev.Release()
+
+	if !tree.SetText("banner", "Banner\nNew line") {
+		t.Fatal("missing banner")
+	}
+	beforeCount := len(prev.Ops)
+	patch, err := layout.RelayoutElement(t.Context(), styled, prev, "banner", layout.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := patch.Display
+	defer got.Release()
+	if len(got.Ops) <= beforeCount {
+		t.Fatal("banner did not add a paint operation")
+	}
+	compareDisplaysIgnoringOpIDs(t, got, layOf(t, styled))
+	for _, id := range []string{"first", "second"} {
+		cell := boxOf(t, got, id)
+		ownsLabel := false
+		for _, op := range got.Ops {
+			if op.Text == cell.Text && slices.Contains(cell.OperationIDs, op.ID) {
+				ownsLabel = true
+				break
+			}
+		}
+		if !ownsLabel {
+			t.Errorf("cell %q lost its text operation after the earlier splice", id)
+		}
+	}
 }

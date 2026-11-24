@@ -1690,6 +1690,7 @@ func spliceOpsInPlace(ops []Op, start, oldCount int, newOps []Op) ([]Op, bool) {
 
 // relayoutRebaseTree moves the operation ranges of a new box tree from the
 // window the fresh engine used to the window the patched result uses.
+// Table rows index the same cell boxes already visited through children.
 func relayoutRebaseTree(boxNode *box, shift int) {
 	if boxNode == nil {
 		return
@@ -1700,12 +1701,6 @@ func relayoutRebaseTree(boxNode *box, shift int) {
 
 	for _, child := range boxNode.children {
 		relayoutRebaseTree(child, shift)
-	}
-
-	for _, row := range boxNode.rows {
-		for _, cell := range row {
-			relayoutRebaseTree(cell, shift)
-		}
 	}
 }
 
@@ -1739,12 +1734,6 @@ func relayoutShiftRanges(root *box, patched *box, start, end, delta int) {
 
 		for _, child := range boxNode.children {
 			walk(child)
-		}
-
-		for _, row := range boxNode.rows {
-			for _, cell := range row {
-				walk(cell)
-			}
 		}
 	}
 
@@ -2034,9 +2023,7 @@ func noteSplicePosition(pos *splicePosition, node *box) {
 // over the window, rebuilds the flattened box list, and records the placed
 // position of the splice for the incremental owners update. boxCapacity is the
 // length the rebuilt list will have, so the walk does not grow it from zero.
-// The rows track only shifts: table cells keep their ranges but never join the
-// owner, placed, or flattened walks, the rule the three passes it replaces
-// followed.
+// Table cells are visited through children, just like the owner and placed walks.
 func relayoutFuseSplice(
 	prev *Result, patched *box, start, end, delta, boxCapacity int, privateOps bool, pos *splicePosition,
 ) {
@@ -2074,12 +2061,6 @@ func relayoutFuseSplice(
 			fuse(child)
 			unionChildRange(node, child)
 		}
-
-		for _, row := range node.rows {
-			for _, cell := range row {
-				shiftRowRanges(cell, patched, start, end, delta)
-			}
-		}
 	}
 
 	fuse(prev.boxTreeRoot())
@@ -2107,26 +2088,6 @@ func noteSpliceOverlap(pos *splicePosition, node *box, start, end int) {
 	}
 
 	pos.externalOverlap = true
-}
-
-// shiftRowRanges shifts every row cell range under node, skipping the patched
-// subtree: a cell keeps its range but its children shift with the splice.
-func shiftRowRanges(node, patched *box, start, end, delta int) {
-	if node == nil || node == patched {
-		return
-	}
-
-	shiftBoxRange(node, start, end, delta)
-
-	for _, child := range node.children {
-		shiftRowRanges(child, patched, start, end, delta)
-	}
-
-	for _, row := range node.rows {
-		for _, cell := range row {
-			shiftRowRanges(cell, patched, start, end, delta)
-		}
-	}
 }
 
 // unionPatchedSubtree re-widens the committed subtree over its own children,
