@@ -989,7 +989,7 @@ func relayoutBuild(
 		stampBoxTransforms(newBox, IdentityMatrix(), eng.ops, opts.Media)
 	}
 
-	if !relayoutSameTable(newBox, target.box) {
+	if !relayoutSameTable(newBox, target.box) && !relayoutOutOfFlowSpliceOK(target, newBox) {
 		return nil, fmt.Errorf(
 			"%w: the element is %gx%g at (%g, %g), the patch makes it %gx%g at (%g, %g)",
 			errSubtreeResized,
@@ -999,6 +999,39 @@ func relayoutBuild(
 	}
 
 	return newBox, nil
+}
+
+// relayoutOutOfFlowSpliceOK reports whether a moved or resized out-of-flow
+// position:absolute block box can splice in place without escalating to its
+// parent. Because an absolutely positioned box does not participate in normal,
+// flex, or grid flow, changing its offset or size cannot move any sibling or
+// change its parent's intrinsic size as long as the parent is not a scroll
+// container whose scroll extent depends on it.
+func relayoutOutOfFlowSpliceOK(target *relayoutTarget, newBox *box) bool {
+	if target == nil || target.box == nil || newBox == nil {
+		return false
+	}
+
+	if target.box.kind != boxKindBlock || newBox.kind != boxKindBlock {
+		return false
+	}
+
+	if target.box.style == nil || newBox.style == nil {
+		return false
+	}
+
+	if target.box.style.Position != positionAbsolute || newBox.style.Position != positionAbsolute {
+		return false
+	}
+
+	if target.parent != nil && target.parent.style != nil {
+		ov := target.parent.style.Overflow
+		if ov == "auto" || ov == "scroll" {
+			return false
+		}
+	}
+
+	return true
 }
 
 // The standalone build skips the ancestors' pushZ calls. Seed their stacking
@@ -2694,7 +2727,7 @@ func RelayoutSubtrees(
 	spliced := make(map[*html.Node]struct{}, len(elementIDs))
 
 	for _, elementID := range elementIDs {
-		if err := relayoutSpliceOne(ctx, prev, thread, elementID, baseOpts, out, &relevant, &grouped, spliced); err != nil {
+		if err := relayoutSpliceOne(ctx, prev, thread, elementID, elementIDs, baseOpts, out, &relevant, &grouped, spliced); err != nil {
 			return nil, err
 		}
 	}
@@ -2771,7 +2804,7 @@ func relayoutAlreadySpliced(node *html.Node, spliced map[*html.Node]struct{}) bo
 }
 
 func relayoutSpliceOne(
-	ctx context.Context, prev *Result, thread *boxThread, elementID string,
+	ctx context.Context, prev *Result, thread *boxThread, elementID string, elementIDs []string,
 	baseOpts Options, out *SubtreeBatchResult, relevant, grouped *int,
 	spliced map[*html.Node]struct{},
 ) error {
@@ -2800,6 +2833,15 @@ func relayoutSpliceOne(
 	target, err := spliceBatchTarget(prev, thread, elementID, node)
 	if err != nil {
 		return err
+	}
+
+	// A pure left/top translation of an out-of-flow position:absolute box
+	// shifts its retained ops and box geometry in place without resolving
+	// descendant styles or re-running layout.
+	if tryAbsTranslate(ctx, prev, thread, target, node, opts, out, elementIDs, elementID) {
+		out.Restyled++
+
+		return nil
 	}
 
 	// A size-changing id widens to the nearest ancestor that keeps its size,
