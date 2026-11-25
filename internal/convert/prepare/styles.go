@@ -185,6 +185,12 @@ func (collector *sheetCollector) collectLink(ctx context.Context, node *html.Nod
 		return
 	}
 
+	if node.Name == "link" && node.Attribute("href") != "" &&
+		strings.Contains(strings.ToLower(node.Attribute("rel")), "stylesheet") &&
+		node.Attribute("media") != "" {
+		collector.opts.Cache.noteViewportGating()
+	}
+
 	if !linkStylesheet(node, collector.opts.ViewportW, collector.opts.ViewportH, collector.opts.MediaType) {
 		return
 	}
@@ -295,13 +301,16 @@ func (collector *sheetCollector) prepareImportRef(rule css.ImportRule, base stri
 		return ""
 	}
 
-	if rule.Media != "" && !css.MediaMatches(
-		rule.Media,
-		collector.opts.MediaType,
-		collector.opts.ViewportW,
-		collector.opts.ViewportH,
-	) {
-		return ""
+	if rule.Media != "" {
+		collector.opts.Cache.noteViewportGating()
+		if !css.MediaMatches(
+			rule.Media,
+			collector.opts.MediaType,
+			collector.opts.ViewportW,
+			collector.opts.ViewportH,
+		) {
+			return ""
+		}
 	}
 
 	resolved := resolvedRef(base, ref)

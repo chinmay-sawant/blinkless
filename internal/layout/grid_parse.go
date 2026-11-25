@@ -201,42 +201,43 @@ func isTrackWhitespace(c byte) bool {
 
 // tokenizeGridTracks splits on whitespace but keeps function calls intact.
 func tokenizeGridTracks(raw string) []string {
-	var toks []string
-
-	var boxNode strings.Builder
-
+	toks := make([]string, 0, 4)
 	depth := 0
-	flush := func() {
-		if boxNode.Len() == 0 {
-			return
-		}
-
-		toks = append(toks, boxNode.String())
-		boxNode.Reset()
-	}
+	start := -1
 
 	for i := range len(raw) {
-		child := raw[i]
+		ch := raw[i]
 
 		switch {
-		case child == '(':
-			depth++
+		case ch == '(':
+			if start < 0 {
+				start = i
+			}
 
-			boxNode.WriteByte(child)
-		case child == ')':
+			depth++
+		case ch == ')':
+			if start < 0 {
+				start = i
+			}
+
 			if depth > 0 {
 				depth--
 			}
-
-			boxNode.WriteByte(child)
-		case isTrackWhitespace(child) && depth == 0:
-			flush()
+		case isTrackWhitespace(ch) && depth == 0:
+			if start >= 0 {
+				toks = append(toks, raw[start:i])
+				start = -1
+			}
 		default:
-			boxNode.WriteByte(child)
+			if start < 0 {
+				start = i
+			}
 		}
 	}
 
-	flush()
+	if start >= 0 {
+		toks = append(toks, raw[start:])
+	}
 
 	return toks
 }
@@ -374,19 +375,19 @@ type gridTemplateAreasMap struct {
 // parseGridTemplateAreas parses quoted area rows into a name map.
 // Tokens "none", ".", and empty cells are holes (no name).
 func parseGridTemplateAreas(raw string) gridTemplateAreasMap {
-	out := gridTemplateAreasMap{names: map[string]gridAreaRect{}}
 	raw = strings.TrimSpace(raw)
 
 	if raw == "" || strings.EqualFold(raw, cssDisplayNone) {
-		return out
+		return gridTemplateAreasMap{}
 	}
 
 	// Collect quoted strings: "a b" "c d" or 'a b'
 	rows := collectGridAreaRows(raw)
 	if len(rows) == 0 {
-		return out
+		return gridTemplateAreasMap{}
 	}
 
+	var out gridTemplateAreasMap
 	out.rows = len(rows)
 	for _, r := range rows {
 		if len(r) > out.cols {

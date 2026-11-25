@@ -354,14 +354,14 @@ func resolveStylesWith(
 func resolveStylesWithContext(
 	ctx context.Context, root *html.Node, opts Options, containers map[*html.Node]sizeContainer,
 ) (map[*html.Node]*ResolvedStyle, error) {
-	styles, _, err := resolveStylesWithContextChunks(ctx, root, opts, containers)
+	styles, _, _, err := resolveStylesWithContextChunks(ctx, root, opts, containers)
 
 	return styles, err
 }
 
 func resolveStylesWithContextChunks(
 	ctx context.Context, root *html.Node, opts Options, containers map[*html.Node]sizeContainer,
-) (map[*html.Node]*ResolvedStyle, [][]ResolvedStyle, error) {
+) (map[*html.Node]*ResolvedStyle, [][]ResolvedStyle, int, error) {
 	sc := &styleContext{
 		ctx:                ctx,
 		sheets:             opts.Sheets,
@@ -374,13 +374,13 @@ func resolveStylesWithContextChunks(
 		state:              opts.State,
 	}
 
-	styles, err := resolveStylesCtx(root, sc)
+	styles, elemCount, err := resolveStylesCtxCount(root, sc)
 	sc.releaseMatchCache()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, err
 	}
 
-	return styles, sc.storeChunks, nil
+	return styles, sc.storeChunks, elemCount, nil
 }
 
 // resolveStyles walks the tree top-down (test helper; no operator policies).
@@ -409,9 +409,15 @@ func resolveStylesWithContainers(
 }
 
 func resolveStylesCtx(root *html.Node, ctx *styleContext) (map[*html.Node]*ResolvedStyle, error) {
-	nodeCount, err := countStyleNodesContext(ctx.ctx, root)
+	out, _, err := resolveStylesCtxCount(root, ctx)
+
+	return out, err
+}
+
+func resolveStylesCtxCount(root *html.Node, ctx *styleContext) (map[*html.Node]*ResolvedStyle, int, error) {
+	nodeCount, elemCount, err := countStyleNodesContext(ctx.ctx, root)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	out := make(map[*html.Node]*ResolvedStyle, nodeCount)
@@ -456,21 +462,22 @@ func resolveStylesCtx(root *html.Node, ctx *styleContext) (map[*html.Node]*Resol
 	walk(root, nil)
 
 	if ctx.err != nil {
-		return nil, ctx.err
+		return nil, 0, ctx.err
 	}
 
 	if ctx != nil {
 		ctx.storeChunks = append(ctx.storeChunks, store.chunks...)
 	}
 
-	return out, nil
+	return out, elemCount, nil
 }
 
 // countStyleNodes counts the nodes needed for the result map. ResolvedStyle
 // values are allocated lazily by styleStore, so an element count is no longer
 // needed to reserve one full style record per element.
-func countStyleNodesContext(ctx context.Context, root *html.Node) (int, error) {
+func countStyleNodesContext(ctx context.Context, root *html.Node) (int, int, error) {
 	nodeCount := 0
+	elemCount := 0
 	visited := 0
 
 	var walk func(*html.Node) error
@@ -483,6 +490,9 @@ func countStyleNodesContext(ctx context.Context, root *html.Node) (int, error) {
 		}
 
 		nodeCount++
+		if node.Type == html.ElementNode {
+			elemCount++
+		}
 
 		for _, child := range node.Children {
 			if child.Type == html.TextNode {
@@ -500,13 +510,13 @@ func countStyleNodesContext(ctx context.Context, root *html.Node) (int, error) {
 	}
 
 	if root == nil {
-		return 0, nil
+		return 0, 0, nil
 	}
 	if err := walk(root); err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
-	return nodeCount, nil
+	return nodeCount, elemCount, nil
 }
 
 // styleStoreChunkSize keeps resolved styles in small stable backing arrays. A

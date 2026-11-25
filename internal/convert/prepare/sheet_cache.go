@@ -2,6 +2,7 @@ package prepare
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
 	"github.com/chinmay-sawant/blinkless/internal/html"
@@ -14,10 +15,11 @@ import (
 // cache parses and fetches everything again.
 // The cache is safe for concurrent use: css.Relayout results share one cache.
 type SheetCache struct {
-	mu      sync.RWMutex
-	inline  map[*html.Node]*css.Stylesheet
-	links   map[*html.Node]cachedSheet
-	imports map[importKey]cachedSheet
+	mu             sync.RWMutex
+	inline         map[*html.Node]*css.Stylesheet
+	links          map[*html.Node]cachedSheet
+	imports        map[importKey]cachedSheet
+	viewportGating atomic.Bool
 }
 
 // cachedSheet is one fetched stylesheet plus the base and resolved URL that

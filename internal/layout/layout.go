@@ -233,6 +233,7 @@ type Result struct {
 	pageSnapHeight float64
 	styleChunks    []*[]ResolvedStyle
 	boxChunks      []*[]box
+	childSlabs     []*[]*box
 	storeChunks    [][]ResolvedStyle
 	refs           int32
 	ownsOps        bool
@@ -318,7 +319,7 @@ func cloneResult(res *Result, shareStyles bool) *Result {
 		clone.styles = maps.Clone(res.styles)
 		clone.stylesShared = false
 	}
-	clone.styleChunks, clone.storeChunks = nil, nil
+	clone.styleChunks, clone.storeChunks, clone.childSlabs = nil, nil, nil
 	clone.svgRasters, clone.overrideBase = nil, nil
 
 	boxes := getCloneBoxMap(len(res.boxes))
@@ -744,6 +745,7 @@ type engine struct {
 	spareChunks     []*[]ResolvedStyle
 	boxChunks       []*[]box
 	spareBoxChunks  []*[]box
+	childSlabs      []*[]*box
 	storeChunks     [][]ResolvedStyle
 	// styleIndex narrows selector matching for this layout's sheets. It is
 	// built once and shared by the cascade and every pseudo-content lookup.
@@ -1389,29 +1391,31 @@ func censusOps(ops []Op, width float64) (float64, bool) {
 
 func resolveStylesForLayoutContextChunks(
 	ctx context.Context, root *html.Node, opts Options,
-) (map[*html.Node]*ResolvedStyle, map[*html.Node]sizeContainer, [][]ResolvedStyle, error) {
+) (map[*html.Node]*ResolvedStyle, map[*html.Node]sizeContainer, [][]ResolvedStyle, int, error) {
 	// Pass 1: cascade without @container (used sizes unknown).
-	styles, chunks, err := resolveStylesWithContextChunks(ctx, root, opts, nil)
+	styles, chunks, elemCount, err := resolveStylesWithContextChunks(ctx, root, opts, nil)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, 0, err
 	}
 
 	if !css.HasContainerRules(opts.Sheets) {
-		return styles, nil, chunks, nil
+		return styles, nil, chunks, elemCount, nil
 	}
 	// After definite inline sizes of size containers are known, re-cascade so
 	// matching @container rules apply, then lay out once with final styles.
 	cinfo, err := measureSizeContainersContext(ctx, root, styles, opts.Width)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, 0, err
 	}
 	if len(cinfo) == 0 {
-		return styles, nil, chunks, nil
+		return styles, nil, chunks, elemCount, nil
 	}
 
 	releaseStyleChunks(chunks)
 
-	return remountContainerStyles(ctx, root, opts, cinfo)
+	remountStyles, remountContainers, remountChunks, err := remountContainerStyles(ctx, root, opts, cinfo)
+
+	return remountStyles, remountContainers, remountChunks, elemCount, err
 }
 
 // releaseStyleChunks returns a rejected cascade's style chunks to the pool.
@@ -1427,7 +1431,7 @@ func releaseStyleChunks(chunks [][]ResolvedStyle) {
 func remountContainerStyles(
 	ctx context.Context, root *html.Node, opts Options, cinfo map[*html.Node]sizeContainer,
 ) (map[*html.Node]*ResolvedStyle, map[*html.Node]sizeContainer, [][]ResolvedStyle, error) {
-	styles, chunks, err := resolveStylesWithContextChunks(ctx, root, opts, cinfo)
+	styles, chunks, _, err := resolveStylesWithContextChunks(ctx, root, opts, cinfo)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -1441,7 +1445,7 @@ func remountContainerStyles(
 	if len(cinfo2) != len(cinfo) || !sameSizeContainers(cinfo, cinfo2) {
 		releaseStyleChunks(chunks)
 
-		styles, chunks, err = resolveStylesWithContextChunks(ctx, root, opts, cinfo2)
+		styles, chunks, _, err = resolveStylesWithContextChunks(ctx, root, opts, cinfo2)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -1455,7 +1459,7 @@ func remountContainerStyles(
 func resolveStylesForLayoutContext(
 	ctx context.Context, root *html.Node, opts Options,
 ) (map[*html.Node]*ResolvedStyle, map[*html.Node]sizeContainer, error) {
-	styles, containers, _, err := resolveStylesForLayoutContextChunks(ctx, root, opts)
+	styles, containers, _, _, err := resolveStylesForLayoutContextChunks(ctx, root, opts)
 
 	return styles, containers, err
 }
@@ -1773,6 +1777,10 @@ func estimateOpCapacity(root *html.Node) int {
 		}
 	})
 
+	return estimateOpCapacityFromCount(nodes)
+}
+
+func estimateOpCapacityFromCount(nodes int) int {
 	const initialOpPadding = 16
 
 	capacity := nodes + nodes/4 + initialOpPadding

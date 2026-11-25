@@ -52,6 +52,7 @@ func adoptRelayoutEngine(prev *Result, eng *engine) {
 	}
 
 	eng.boxChunks = nil
+	eng.childSlabs = nil
 	eng.styleChunks = nil
 
 	for _, chunk := range eng.spareBoxChunks {
@@ -70,6 +71,7 @@ func adoptRelayoutEngine(prev *Result, eng *engine) {
 
 func adoptEngineOwnedChunks(prev *Result, eng *engine) {
 	prev.boxChunks = append(prev.boxChunks, eng.boxChunks...)
+	prev.childSlabs = append(prev.childSlabs, eng.childSlabs...)
 
 	if !eng.isSubtree {
 		prev.styleChunks = append(prev.styleChunks, eng.styleChunks...)
@@ -105,6 +107,10 @@ func adoptSubtreeFlexOverrides(prev *Result, eng *engine) {
 func releaseEngineOwnedChunks(eng *engine) {
 	for _, chunk := range eng.boxChunks {
 		putBoxChunk(chunk)
+	}
+
+	for _, slab := range eng.childSlabs {
+		putChildSlab(slab)
 	}
 
 	for _, chunk := range eng.styleChunks {
@@ -154,6 +160,12 @@ func (r *Result) Release() {
 
 	r.boxChunks = nil
 
+	for _, slab := range r.childSlabs {
+		putChildSlab(slab)
+	}
+
+	r.childSlabs = nil
+
 	for i := range r.storeChunks {
 		putStyleStoreChunk(&r.storeChunks[i])
 	}
@@ -162,7 +174,8 @@ func (r *Result) Release() {
 }
 
 const (
-	defaultBoxChunkSize = 64
+	defaultBoxChunkSize  = 64
+	defaultChildSlabSize = 256
 	// defaultStyleChunkSize is smaller than defaultBoxChunkSize because one
 	// ResolvedStyle is about 5.8 KB: a 64-entry style chunk is about 375 KB.
 	// allocStyle uses a chunk for flex and grid override styles, including the
@@ -198,6 +211,55 @@ func putBoxChunk(chunk *[]box) {
 	clear(*chunk)
 	*chunk = (*chunk)[:0]
 	boxChunkPool.Put(chunk)
+}
+
+var childSlabPool = sync.Pool{
+	New: func() any {
+		s := make([]*box, 0, defaultChildSlabSize)
+
+		return &s
+	},
+}
+
+func getChildSlab() *[]*box {
+	slab := childSlabPool.Get().(*[]*box)
+	*slab = (*slab)[:0]
+
+	return slab
+}
+
+func putChildSlab(slab *[]*box) {
+	if slab == nil || cap(*slab) != defaultChildSlabSize {
+		return
+	}
+
+	clear((*slab)[:cap(*slab)])
+	*slab = (*slab)[:0]
+	childSlabPool.Put(slab)
+}
+
+// allocChildSlice carves a zero-length, exact-capacity child pointer slice
+// from the engine's pooled child slabs. Using a three-index slice bounds cap
+// to n so any unexpected growth past n allocates independently without
+// aliasing neighboring boxes in the slab.
+func (e *engine) allocChildSlice(n int) []*box {
+	if n <= 0 {
+		return nil
+	}
+
+	if n > defaultChildSlabSize {
+		return make([]*box, 0, n)
+	}
+
+	if len(e.childSlabs) == 0 || cap(*e.childSlabs[len(e.childSlabs)-1])-len(*e.childSlabs[len(e.childSlabs)-1]) < n {
+		e.childSlabs = append(e.childSlabs, getChildSlab())
+	}
+
+	slab := e.childSlabs[len(e.childSlabs)-1]
+	start := len(*slab)
+	*slab = (*slab)[:start+n]
+
+	return (*slab)[start : start : start+n]
 }
 
 type boxMark struct {

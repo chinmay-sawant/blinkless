@@ -16,6 +16,30 @@ func canBuildSingleColumnGrid(eng *engine, sty ResolvedStyle, placed []gridCell,
 		return false
 	}
 
+	maxRow := -1
+	for _, page := range placed {
+		if page.row < 0 {
+			return false
+		}
+
+		if page.row > maxRow {
+			maxRow = page.row
+		}
+	}
+
+	if maxRow < len(placed)*2 {
+		seen := getFlexBools(maxRow + 1)
+		defer putFlexBools(seen)
+
+		for _, page := range placed {
+			if !singleColumnCellEligibleSlice(eng, page, sty.flex().JustifyItems, seen) {
+				return false
+			}
+		}
+
+		return true
+	}
+
 	seen := make(map[int]bool, len(placed))
 
 	for _, page := range placed {
@@ -23,6 +47,29 @@ func canBuildSingleColumnGrid(eng *engine, sty ResolvedStyle, placed []gridCell,
 			return false
 		}
 	}
+
+	return true
+}
+
+// singleColumnCellEligibleSlice is the slice-backed eligibility check used
+// when row indices are compact, avoiding a per-grid map allocation.
+func singleColumnCellEligibleSlice(
+	eng *engine, page gridCell, containerJustify string, seen []bool,
+) bool {
+	if page.col != 0 || page.colSpan > 1 || page.rowSpan > 1 || seen[page.row] {
+		return false
+	}
+
+	child := eng.stylePtr(page.n)
+	if child == nil || autoRowExplicitPlacement(child) || autoRowHeightHazard(child) {
+		return false
+	}
+
+	if !gridJustifyEligible(child, containerJustify) {
+		return false
+	}
+
+	seen[page.row] = true
 
 	return true
 }
@@ -69,8 +116,14 @@ func (e *engine) layoutSingleColumnGrid(
 	}
 
 	rowGap, _ := e.styleGaps(&sty)
-	rows := make([]float64, numRows)
+	rows := rentFloats(numRows)
+	defer returnFloats(rows)
+
 	children := make([]*box, numRows)
+	if len(boxNode.children) == 0 && len(placed) > 0 {
+		boxNode.children = make([]*box, 0, len(placed))
+	}
+
 	rowTop := curY
 
 	for row := range numRows {
@@ -94,7 +147,9 @@ func (e *engine) layoutSingleColumnGrid(
 		rowTop += cblock.height + rowGap
 	}
 
-	rowYs := gridRowTops(curY, rows, rowGap, contentH, sty.flex().AlignContent)
+	rowYs := rentFloats(numRows)
+	defer returnFloats(rowYs)
+	gridRowTopsInto(rowYs, curY, rows, rowGap, contentH, sty.flex().AlignContent)
 
 	e.shiftSingleColumnRows(children, numRows, rowYs, posY)
 	e.paintGridGapRules(sty, placed, contentX, contentW, cols, columnGap, rowYs, rows, posY)
@@ -147,8 +202,8 @@ func (e *engine) buildSingleColumnItem(
 	page *gridCell, containerJustify string, cellX, cellW, posY, rowTop float64,
 ) *box {
 	child := e.stylePtr(page.n)
-	justify := gridItemJustify(*child, containerJustify)
-	buildW := gridItemBuildWidth(e, page.n, *child, justify, cellW)
+	justify := gridItemJustifyPtr(child, containerJustify)
+	buildW := gridItemBuildWidthPtr(e, page.n, child, justify, cellW)
 
 	oldMax := e.imgMaxW
 

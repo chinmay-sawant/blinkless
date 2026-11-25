@@ -103,11 +103,19 @@ func resolveGridRows(
 				padded = append(padded, gridAutoTrackDef(sty.grid().GridAutoRows))
 			}
 
-			rowIntrinsics := measureTrackIntrinsics(eng, kids, len(padded), false)
+			var rowIntrinsics []trackIntrinsic
+			if gridDefsNeedIntrinsics(padded) {
+				rowIntrinsics = measureTrackIntrinsics(eng, kids, len(padded), false)
+			}
+
 			rows = resolveGridTrackSizes(padded, contentH, rowGap, eng, rowIntrinsics)
 			putGridTrackDefs(padded)
 		} else {
-			rowIntrinsics := measureTrackIntrinsics(eng, kids, len(rowDefs), false)
+			var rowIntrinsics []trackIntrinsic
+			if gridDefsNeedIntrinsics(rowDefs) {
+				rowIntrinsics = measureTrackIntrinsics(eng, kids, len(rowDefs), false)
+			}
+
 			rows = resolveGridTrackSizes(rowDefs, contentH, rowGap, eng, rowIntrinsics)
 		}
 
@@ -205,6 +213,19 @@ type trackIntrinsic struct {
 	maxContent float64
 }
 
+// gridDefsNeedIntrinsics reports whether any track definition consults
+// intrinsic content measurements during track resolution.
+func gridDefsNeedIntrinsics(defs []gridTrackDef) bool {
+	for _, def := range defs {
+		if def.min.kind == trackAuto || def.min.kind == trackMinContent || def.min.kind == trackMaxContent ||
+			def.max.kind == trackMinContent || def.max.kind == trackMaxContent {
+			return true
+		}
+	}
+
+	return false
+}
+
 // measureTrackIntrinsics estimates min/max-content contributions per track
 // using text measure APIs. Spanning items contribute to the first track only
 // (lite). axisColumns=true measures widths; false measures preferred heights.
@@ -216,6 +237,10 @@ func measureTrackIntrinsics(eng *engine, kids []*html.Node, nTracks int, axisCol
 	out := make([]trackIntrinsic, nTracks)
 	if eng == nil || len(kids) == 0 {
 		return out
+	}
+
+	if !trackIntrBypass.Load() && eng.trackKidMemo == nil {
+		eng.trackKidMemo = make(map[trackKidKey]trackKidVal, min(len(kids), maxTrackKidMemoEntries))
 	}
 
 	// Percentage widths on items are cyclic during intrinsic track sizing

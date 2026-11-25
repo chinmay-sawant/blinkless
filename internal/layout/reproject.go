@@ -178,9 +178,11 @@ func restampReady(ctx context.Context, prev *Result, overrides []RestampOverride
 // outermost subtree, and the operation window each one owns.
 func restampStates(prev *Result, roots []*restampTarget) ([]subtreeStamp, error) {
 	states := make([]subtreeStamp, 0, len(roots))
+	scratch := make([]*box, 0, 16)
+	root := prev.boxTreeRoot()
 
 	for _, target := range roots {
-		state, actions, hasState := stampStateAt(prev.boxTreeRoot(), target.box)
+		state, actions, perspAncestor, hasState := stampStateAtWithScratch(root, target.box, &scratch)
 		if !hasState {
 			return nil, fmt.Errorf("%w: %s", ErrNotStampable, target.id)
 		}
@@ -191,10 +193,11 @@ func restampStates(prev *Result, roots []*restampTarget) ([]subtreeStamp, error)
 		}
 
 		states = append(states, subtreeStamp{
-			box:     target.box,
-			window:  window,
-			state:   state,
-			actions: actions,
+			box:           target.box,
+			window:        window,
+			state:         state,
+			actions:       actions,
+			perspAncestor: perspAncestor,
 		})
 	}
 
@@ -256,7 +259,7 @@ func applyRestamp(prev *Result, states []subtreeStamp, media string) (*RestampPa
 // restampSubtree resets and re-stamps one subtree window.
 func restampSubtree(prev *Result, item *subtreeStamp, media string) error {
 	resetStampFields(item.box)
-	propagatePerspectiveFrom(item.box, nearestPerspectiveAncestor(prev.boxTreeRoot(), item.box))
+	propagatePerspectiveFrom(item.box, item.perspAncestor)
 	resetWindowTransforms(prev.Ops, item.window)
 
 	restampBoxTransforms(item.box, item.state, prev.Ops, media)
@@ -294,7 +297,11 @@ func planRestamp(prev *Result, overrides []RestampOverride) (*restampPlan, error
 	plan := &restampPlan{
 		targets: make([]restampTarget, 0, len(overrides)),
 	}
-	byBox := make(map[*box]int, len(overrides))
+
+	var byBox map[*box]int
+	if len(overrides) > 8 {
+		byBox = make(map[*box]int, len(overrides))
+	}
 
 	for idx := range overrides {
 		override := &overrides[idx]
@@ -340,12 +347,22 @@ func planRestamp(prev *Result, overrides []RestampOverride) (*restampPlan, error
 // targetFor returns the plan entry for one box, cloning its cached style on
 // first use.
 func (p *restampPlan) targetFor(boxNode *box, elementID string, byBox map[*box]int) *restampTarget {
-	if index, ok := byBox[boxNode]; ok {
-		return &p.targets[index]
+	if byBox != nil {
+		if index, ok := byBox[boxNode]; ok {
+			return &p.targets[index]
+		}
+	} else {
+		for idx := range p.targets {
+			if p.targets[idx].box == boxNode {
+				return &p.targets[idx]
+			}
+		}
 	}
 
 	clone := *boxNode.style
-	byBox[boxNode] = len(p.targets)
+	if byBox != nil {
+		byBox[boxNode] = len(p.targets)
+	}
 
 	p.targets = append(p.targets, restampTarget{
 		id:       elementID,
@@ -374,12 +391,16 @@ func (p *restampPlan) restore() {
 // outermost returns the targets that no other target contains, in document
 // order. A nested target is stamped inside its outer target's subtree walk.
 func (p *restampPlan) outermost(root *box) []*restampTarget {
+	if len(p.targets) == 1 {
+		return []*restampTarget{&p.targets[0]}
+	}
+
 	targets := make(map[*box]int, len(p.targets))
 	for idx := range p.targets {
 		targets[p.targets[idx].box] = idx
 	}
 
-	seen := make(map[*box]bool, len(p.targets))
+	seen := make([]bool, len(p.targets))
 	out := make([]*restampTarget, 0, len(p.targets))
 
 	var walk func(boxNode *box, inside bool)
@@ -387,7 +408,7 @@ func (p *restampPlan) outermost(root *box) []*restampTarget {
 		index, isTarget := targets[boxNode]
 
 		if isTarget {
-			seen[boxNode] = true
+			seen[index] = true
 
 			if !inside {
 				out = append(out, &p.targets[index])
@@ -407,7 +428,7 @@ func (p *restampPlan) outermost(root *box) []*restampTarget {
 	// list) is handed back too, so the caller reports it as not stampable
 	// instead of silently ignoring the override.
 	for idx := range p.targets {
-		if !seen[p.targets[idx].box] {
+		if !seen[idx] {
 			out = append(out, &p.targets[idx])
 		}
 	}
@@ -563,10 +584,11 @@ func sameTransformState(effective, cached *ResolvedStyle) bool {
 
 // subtreeStamp is the work of one outermost override subtree.
 type subtreeStamp struct {
-	box     *box
-	window  OpWindow
-	state   stampState
-	actions []ancestorStamp
+	box           *box
+	window        OpWindow
+	state         stampState
+	actions       []ancestorStamp
+	perspAncestor *box
 }
 
 // ancestorStamp is one ancestor stamp the original walk applied after the
@@ -577,49 +599,70 @@ type ancestorStamp struct {
 	step stampBoxStep
 }
 
+// findBoxAncestors appends the ancestor chain from cur down to (but not
+// including) target into path and reports whether target was found.
+func findBoxAncestors(cur, target *box, path *[]*box) bool {
+	if cur == target {
+		return true
+	}
+
+	*path = append(*path, cur)
+
+	for _, child := range cur.children {
+		if findBoxAncestors(child, target, path) {
+			return true
+		}
+	}
+
+	*path = (*path)[:len(*path)-1]
+
+	return false
+}
+
 // stampStateAt returns the state the full walk had when it reached target, and
 // the ancestor stamps it applied after target's subtree.
 func stampStateAt(root, target *box) (stampState, []ancestorStamp, bool) {
+	scratch := make([]*box, 0, 16)
+	state, actions, _, found := stampStateAtWithScratch(root, target, &scratch)
+
+	return state, actions, found
+}
+
+// stampStateAtWithScratch resolves target's seed stamp state, reversed ancestor
+// stamps, and nearest perspective ancestor in two passes: a lightweight DFS
+// finds the ancestor chain without advancing stamp state on unrelated subtrees,
+// then advanceStamp runs only along that chain.
+func stampStateAtWithScratch(root, target *box, scratch *[]*box) (stampState, []ancestorStamp, *box, bool) {
 	if root == nil || target == nil {
-		return stampState{}, nil, false
+		return stampState{}, nil, nil, false
 	}
 
+	*scratch = (*scratch)[:0]
+	if !findBoxAncestors(root, target, scratch) {
+		return stampState{}, nil, nil, false
+	}
+
+	ancestors := *scratch
+	current := initialStampState(IdentityMatrix())
+
 	var actions []ancestorStamp
+	if len(ancestors) > 0 {
+		actions = make([]ancestorStamp, len(ancestors))
+	}
 
-	var state stampState
+	var perspAncestor *box
 
-	found := false
-
-	var walk func(boxNode *box, current stampState) bool
-	walk = func(boxNode *box, current stampState) bool {
-		if boxNode == target {
-			state = current
-			found = true
-
-			return true
+	for idx, boxNode := range ancestors {
+		if boxNode.style != nil && boxNode.style.effects().HasPerspective {
+			perspAncestor = boxNode
 		}
 
 		step := advanceStamp(boxNode, current)
-		actions = append(actions, ancestorStamp{box: boxNode, step: step})
-
-		for _, child := range boxNode.children {
-			if walk(child, step.child) {
-				return true
-			}
-		}
-
-		actions = actions[:len(actions)-1]
-
-		return false
+		actions[len(ancestors)-1-idx] = ancestorStamp{box: boxNode, step: step}
+		current = step.child
 	}
 
-	if !walk(root, initialStampState(IdentityMatrix())) {
-		return stampState{}, nil, false
-	}
-
-	slices.Reverse(actions)
-
-	return state, actions, found
+	return current, actions, perspAncestor, true
 }
 
 // applyAncestorStamp replays one ancestor stamp over a restamped window.
@@ -665,41 +708,6 @@ func resetStampFields(root *box) {
 	}
 }
 
-// nearestPerspectiveAncestor returns the nearest box above target that carries
-// a perspective, or nil. The subtree pre-pass seeds from it, so an override to
-// none falls back to the outer camera instead of inventing an orthographic one.
-func nearestPerspectiveAncestor(root, target *box) *box {
-	var found *box
-
-	var walk func(boxNode *box, nearest *box) bool
-	walk = func(boxNode *box, nearest *box) bool {
-		if boxNode == target {
-			found = nearest
-
-			return true
-		}
-
-		next := nearest
-		if boxNode.style != nil && boxNode.style.effects().HasPerspective {
-			next = boxNode
-		}
-
-		for _, child := range boxNode.children {
-			if walk(child, next) {
-				return true
-			}
-		}
-
-		return false
-	}
-
-	if root == nil || !walk(root, nil) {
-		return nil
-	}
-
-	return found
-}
-
 // opWindowFor returns the operation range a box's subtree emitted.
 func opWindowFor(boxNode *box, opCount int) (OpWindow, bool) {
 	if boxNode == nil || !boxOwnsOps(boxNode) {
@@ -732,7 +740,7 @@ func resetWindowTransforms(ops []Op, window OpWindow) {
 		// Xform would race with any other display reading Transform(), and
 		// detaching would allocate for every op the restamp never touched.
 		if extra := ops[idx].opExtra; extra != nil && extra != emptyExtra {
-			extra.Xform = IdentityMatrix()
+			extra.Xform = Matrix2D{}
 		}
 	}
 }

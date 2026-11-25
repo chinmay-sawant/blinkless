@@ -618,3 +618,75 @@ func TestRestampRejectsMalformedTransform(t *testing.T) {
 		restampCompareOp(t, idx, &restamped.Ops[idx], &before[idx])
 	}
 }
+
+// TestRestampNestedPreserve3DWithSiblings verifies that the two-pass
+// stampStateAt walk produces identical transforms, preserve-3d composition,
+// and perspective projection on deeply nested subtrees surrounded by unrelated
+// transformed/perspective siblings.
+func TestRestampNestedPreserve3DWithSiblings(t *testing.T) {
+	t.Parallel()
+
+	buildHTML := func(targetDecl string) string {
+		return `<html><body style="margin:0">` +
+			`<div id="decoy1" style="perspective:300px;transform:rotateX(15deg);width:120px;height:40px">` +
+			`<div style="transform-style:preserve-3d;transform:rotateY(25deg);width:80px;height:30px;background-color:#112233">decoy1</div>` +
+			`</div>` +
+			`<div id="scene" style="perspective:700px;width:300px;height:200px">` +
+			`<div id="decoy2" style="transform:translateX(20px) rotateZ(10deg);width:100px;height:20px;background-color:#223344">decoy2</div>` +
+			`<div id="rig" style="transform-style:preserve-3d;transform:rotateX(12deg);width:200px;height:120px">` +
+			`<div id="target" style="width:100px;height:60px;background-color:#ff0000;` + targetDecl + `">target card</div>` +
+			`</div>` +
+			`</div>` +
+			`<div id="decoy3" style="transform:scale(1.2);width:100px;height:20px;background-color:#334455">decoy3</div>` +
+			`</body></html>`
+	}
+
+	restamped := layoutHTML(t, buildHTML(""))
+
+	// Verify stampStateAt edge cases: root == target and missing target.
+	root := restamped.boxTreeRoot()
+	if _, actions, found := stampStateAt(root, root); !found || len(actions) != 0 {
+		t.Fatalf("stampStateAt(root, root) = found:%v actions:%d, want found:true actions:0", found, len(actions))
+	}
+
+	if _, _, found := stampStateAt(root, &box{}); found {
+		t.Fatal("stampStateAt(root, detached) = found:true, want false")
+	}
+
+	targetBox := restamped.boxForID("target")
+	if targetBox == nil {
+		t.Fatal("missing target box")
+	}
+
+	scratch := make([]*box, 0, 4)
+	_, actions, persp, found := stampStateAtWithScratch(root, targetBox, &scratch)
+	if !found {
+		t.Fatal("stampStateAtWithScratch did not find target")
+	}
+
+	if len(actions) == 0 {
+		t.Fatal("expected non-empty ancestor actions for nested target")
+	}
+
+	if persp != restamped.boxForID("scene") {
+		t.Fatalf("perspAncestor = %v, want #scene (%v)", persp, restamped.boxForID("scene"))
+	}
+
+	patch, err := RestampTransforms(t.Context(), restamped, []RestampOverride{{
+		ElementID:    "target",
+		Transform:    "rotateY(40deg) translateZ(25px)",
+		HasTransform: true,
+	}}, Options{Width: testViewport, Height: 800, Background: true})
+	if err != nil {
+		t.Fatalf("RestampTransforms: %v", err)
+	}
+
+	if !patch.Changed {
+		t.Fatal("patch reports no change, want override applied")
+	}
+
+	fresh := restampFinalized(t, layoutHTML(t, buildHTML("transform:rotateY(40deg) translateZ(25px)")))
+	restampFinalized(t, restamped)
+
+	restampCompare(t, restamped, fresh)
+}

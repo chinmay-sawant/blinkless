@@ -167,8 +167,18 @@ func restampElementPatch(
 ) *ElementPatch {
 	display := restampedDisplay(prev)
 
-	ops := make([]DisplayOp, 0)
-	owners := make([]int, 0)
+	totalOps := 0
+	for _, window := range restamped.Windows {
+		end := min(window.End, len(display.Ops)-1)
+		if window.Start < 0 || window.Start > end {
+			continue
+		}
+
+		totalOps += end - window.Start + 1
+	}
+
+	ops := make([]DisplayOp, 0, totalOps)
+	owners := make([]int, 0, totalOps)
 
 	for _, window := range restamped.Windows {
 		end := min(window.End, len(display.Ops)-1)
@@ -264,7 +274,30 @@ func engineOptions(media string) ilayout.Options {
 // restampedBoxes returns the element boxes of the patched subtrees in document
 // order, the way ElementPatch.Boxes reports them for RelayoutElement.
 func restampedBoxes(boxes []Box, overrides []TransformOverride) []Box {
-	ranges := make([]indexRange, 0, len(overrides))
+	if len(overrides) == 0 {
+		return nil
+	}
+
+	if len(overrides) == 1 {
+		boxIndex := boxIndexByID(boxes, overrides[0].ElementID)
+		if boxIndex < 0 {
+			return nil
+		}
+
+		end := boxSubtreeEnd(boxes, boxIndex)
+		out := make([]Box, end-boxIndex+1)
+		copy(out, boxes[boxIndex:end+1])
+
+		return out
+	}
+
+	var stackRanges [8]indexRange
+	var ranges []indexRange
+	if len(overrides) <= len(stackRanges) {
+		ranges = stackRanges[:0]
+	} else {
+		ranges = make([]indexRange, 0, len(overrides))
+	}
 
 	for idx := range overrides {
 		boxIndex := boxIndexByID(boxes, overrides[idx].ElementID)
@@ -282,8 +315,20 @@ func restampedBoxes(boxes []Box, overrides []TransformOverride) []Box {
 
 	slices.SortFunc(ranges, func(left, right indexRange) int { return left.start - right.start })
 
-	out := make([]Box, 0)
+	total := 0
 	next := -1
+	for _, item := range ranges {
+		start := max(item.start, next)
+		if start > item.end {
+			continue
+		}
+
+		total += item.end - start + 1
+		next = item.end + 1
+	}
+
+	out := make([]Box, 0, total)
+	next = -1
 
 	for _, item := range ranges {
 		start := max(item.start, next)

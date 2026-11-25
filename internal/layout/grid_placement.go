@@ -16,10 +16,13 @@ type gridCell struct {
 // gridOccupation tracks placed grid cells so auto-flow items skip overlaps.
 type gridOccupation struct {
 	nCols int
-	// byRow maps row index to that row's occupancy bitset (nCols bits). One
-	// map entry per row replaces the old per-cell maps; the field name stays
-	// because security_caps_test.go reads its length to prove the work
-	// budget bounds allocation.
+	// denseRows holds 1 uint64 bitset per row for nCols <= 64 and
+	// 0 <= row < maxDenseGridRows, avoiding map and per-row slice allocations.
+	denseRows []uint64
+	// byRow maps row index to that row's occupancy bitset (nCols bits) for
+	// wide (>64 col) or high-index rows. One map entry per row replaces the
+	// old per-cell maps; the field name stays because security_caps_test.go
+	// reads its length to prove the work budget bounds allocation.
 	byRow    map[int][]uint64
 	workLeft int
 	err      error
@@ -30,6 +33,10 @@ type gridOccupation struct {
 // without end.
 const maxGridPlacementAttempts = 1 << 16
 
+// maxDenseGridRows bounds the compact slice-backed occupancy table for grids
+// with at most 64 columns; rows beyond this fall back to byRow.
+const maxDenseGridRows = 4096
+
 // gridBitsetWord is one occupancy bitset word; a column bit inside it is
 // addressed with gridBitsetShift and masked with gridBitsetMask.
 const (
@@ -39,7 +46,7 @@ const (
 )
 
 func newGridOccupation(nCols int) *gridOccupation {
-	return &gridOccupation{nCols: nCols, byRow: map[int][]uint64{}, workLeft: maxGridChecks, err: nil}
+	return &gridOccupation{nCols: nCols, workLeft: maxGridChecks}
 }
 
 // occWords returns the bitset words per row, at least one so mark on an
@@ -53,7 +60,40 @@ func (o *gridOccupation) occWords() int {
 	return words
 }
 
+func (o *gridOccupation) ensureDense(row int) {
+	if row < len(o.denseRows) {
+		return
+	}
+
+	need := row + 1
+	if need <= cap(o.denseRows) {
+		oldLen := len(o.denseRows)
+		o.denseRows = o.denseRows[:need]
+		clear(o.denseRows[oldLen:])
+
+		return
+	}
+
+	nextCap := max(need, len(o.denseRows)*2, 16)
+	if nextCap > maxDenseGridRows {
+		nextCap = maxDenseGridRows
+	}
+
+	grown := rentUint64s(nextCap)
+	copy(grown, o.denseRows)
+
+	if o.denseRows != nil {
+		returnUint64s(o.denseRows)
+	}
+
+	o.denseRows = grown[:need]
+}
+
 func (o *gridOccupation) ensure(row int) {
+	if o.byRow == nil {
+		o.byRow = make(map[int][]uint64)
+	}
+
 	if o.byRow[row] != nil {
 		return
 	}
@@ -64,6 +104,11 @@ func (o *gridOccupation) ensure(row int) {
 // release returns every rented row bitset to the pool. placeGridItems calls
 // it on every exit; placed cells carry their own coordinates.
 func (o *gridOccupation) release() {
+	if o.denseRows != nil {
+		returnUint64s(o.denseRows)
+		o.denseRows = nil
+	}
+
 	for row, bits := range o.byRow {
 		returnUint64s(bits)
 		delete(o.byRow, row)
@@ -71,10 +116,22 @@ func (o *gridOccupation) release() {
 }
 
 func (o *gridOccupation) freeAt(row, col, rowSpan, colSpan int) bool {
-	for rowOffset := range rowSpan {
-		o.ensure(row + rowOffset)
+	useDense := o.nCols <= gridBitsetWord
 
-		bits := o.byRow[row+rowOffset]
+	for rowOffset := range rowSpan {
+		targetRow := row + rowOffset
+
+		var denseBits uint64
+
+		var wideBits []uint64
+
+		if useDense && targetRow >= 0 && targetRow < maxDenseGridRows {
+			if targetRow < len(o.denseRows) {
+				denseBits = o.denseRows[targetRow]
+			}
+		} else if o.byRow != nil {
+			wideBits = o.byRow[targetRow]
+		}
 
 		for colOffset := range colSpan {
 			if o.workLeft == 0 {
@@ -87,7 +144,15 @@ func (o *gridOccupation) freeAt(row, col, rowSpan, colSpan int) bool {
 			o.workLeft--
 
 			column := col + colOffset
-			if column >= o.nCols || column < 0 || bits[column>>gridBitsetShift]>>(column&gridBitsetMask)&1 != 0 {
+			if column >= o.nCols || column < 0 {
+				return false
+			}
+
+			if useDense && targetRow >= 0 && targetRow < maxDenseGridRows {
+				if (denseBits>>column)&1 != 0 {
+					return false
+				}
+			} else if wideBits != nil && (wideBits[column>>gridBitsetShift]>>(column&gridBitsetMask))&1 != 0 {
 				return false
 			}
 		}
@@ -97,10 +162,29 @@ func (o *gridOccupation) freeAt(row, col, rowSpan, colSpan int) bool {
 }
 
 func (o *gridOccupation) mark(row, col, rowSpan, colSpan int) {
-	for r := range rowSpan {
-		o.ensure(row + r)
+	useDense := o.nCols <= gridBitsetWord
 
-		bits := o.byRow[row+r]
+	for r := range rowSpan {
+		targetRow := row + r
+		if useDense && targetRow >= 0 && targetRow < maxDenseGridRows {
+			o.ensureDense(targetRow)
+
+			var mask uint64
+			for i := range colSpan {
+				column := col + i
+				if column >= 0 && column < o.nCols {
+					mask |= uint64(1) << column
+				}
+			}
+
+			o.denseRows[targetRow] |= mask
+
+			continue
+		}
+
+		o.ensure(targetRow)
+
+		bits := o.byRow[targetRow]
 
 		for i := range colSpan {
 			column := col + i
@@ -132,8 +216,8 @@ func placeGridItems(
 	remainingCells := maxGridCells
 
 	for _, kid := range kids {
-		style := *eng.stylePtr(kid)
-		rowStart, colStart, rowSpan, colSpan, _ := gridItemSpans(style, areas, nCols)
+		style := eng.stylePtr(kid)
+		rowStart, colStart, rowSpan, colSpan, definite := gridItemSpansPtr(style, areas, nCols)
 
 		if !gridExtentWithinBudget(rowStart, colStart, rowSpan, colSpan, remainingCells) {
 			eng.err = errGridExtentExceeded
@@ -141,8 +225,8 @@ func placeGridItems(
 			return nil
 		}
 
-		row, col, rowSpan, colSpan := planGridItemPlacement(
-			style, areas, occ, nCols, cursorRow, cursorCol,
+		row, col, rowSpan, colSpan := planGridItemPlacementResolved(
+			style, rowStart, colStart, rowSpan, colSpan, definite, occ, nCols, cursorRow, cursorCol,
 			columnMajor, densePack, minRows,
 		)
 
@@ -205,31 +289,39 @@ func gridImplicitRowCount(itemCount, nCols, areaRows, explicitRows int) int {
 // one item. definite is true when both axes have an explicit or area-derived
 // position.
 func gridItemSpans(sty ResolvedStyle, areas gridTemplateAreasMap, nCols int) (int, int, int, int, bool) {
-	colSpan := sty.grid().GridColumnSpan
+	return gridItemSpansPtr(&sty, areas, nCols)
+}
+
+// gridItemSpansPtr is the pointer-based span resolver used during placement so
+// each item avoids copying ResolvedStyle.
+func gridItemSpansPtr(sty *ResolvedStyle, areas gridTemplateAreasMap, nCols int) (int, int, int, int, bool) {
+	grid := sty.grid()
+
+	colSpan := grid.GridColumnSpan
 	if colSpan < 1 {
 		colSpan = 1
 	}
 
-	rowSpan := sty.grid().GridRowSpan
+	rowSpan := grid.GridRowSpan
 	if rowSpan < 1 {
 		rowSpan = 1
 	}
 
-	colStart := sty.grid().GridColumnStart - 1 // 0-based; -1 = auto
-	rowStart := sty.grid().GridRowStart - 1
+	colStart := grid.GridColumnStart - 1 // 0-based; -1 = auto
+	rowStart := grid.GridRowStart - 1
 
-	colStart, colSpan = resolveGridAxisSpan(colStart, sty.grid().GridColumnEnd, colSpan)
-	rowStart, rowSpan = resolveGridAxisSpan(rowStart, sty.grid().GridRowEnd, rowSpan)
+	colStart, colSpan = resolveGridAxisSpan(colStart, grid.GridColumnEnd, colSpan)
+	rowStart, rowSpan = resolveGridAxisSpan(rowStart, grid.GridRowEnd, rowSpan)
 
-	colStart, colSpan = expandGridColumnEndSpan(colStart, colSpan, nCols, sty)
+	colStart, colSpan = expandGridColumnEndSpan(colStart, colSpan, nCols, grid.GridColumnEnd)
 
-	if sty.grid().GridRowEnd == -1 && rowStart >= 0 {
+	if grid.GridRowEnd == -1 && rowStart >= 0 {
 		// row -1 is best-effort: extend span if definite rows known elsewhere; handled via gridRowCount.
 		_ = rowStart
 	}
 
 	rowStart, colStart, rowSpan, colSpan, definite := applyGridAreaSpan(
-		rowStart, colStart, rowSpan, colSpan, sty, areas,
+		rowStart, colStart, rowSpan, colSpan, grid.GridArea, areas,
 	)
 
 	if colSpan > nCols {
@@ -245,9 +337,9 @@ func gridItemSpans(sty ResolvedStyle, areas gridTemplateAreasMap, nCols int) (in
 
 // expandGridColumnEndSpan expands a -1 column end (last grid line, nCols+1
 // for columns) into the column count it implies.
-func expandGridColumnEndSpan(colStart, colSpan, nCols int, sty ResolvedStyle) (int, int) {
+func expandGridColumnEndSpan(colStart, colSpan, nCols, gridColumnEnd int) (int, int) {
 	// -1 means last grid line (nCols+1 for columns). Expand span to end.
-	if sty.grid().GridColumnEnd != -1 {
+	if gridColumnEnd != -1 {
 		return colStart, colSpan
 	}
 
@@ -266,9 +358,13 @@ func expandGridColumnEndSpan(colStart, colSpan, nCols int, sty ResolvedStyle) (i
 // applyGridAreaSpan overlays the named grid-area rect when the item names one
 // present in areas. It returns the possibly updated spans plus definite.
 func applyGridAreaSpan(
-	rowStart, colStart, rowSpan, colSpan int, sty ResolvedStyle, areas gridTemplateAreasMap,
+	rowStart, colStart, rowSpan, colSpan int, gridArea string, areas gridTemplateAreasMap,
 ) (int, int, int, int, bool) {
-	name := strings.TrimSpace(sty.grid().GridArea)
+	if areas.names == nil || gridArea == "" {
+		return rowStart, colStart, rowSpan, colSpan, false
+	}
+
+	name := strings.TrimSpace(gridArea)
 	if name == "" {
 		return rowStart, colStart, rowSpan, colSpan, false
 	}
@@ -302,17 +398,17 @@ func resolveGridAxisSpan(start, end, span int) (int, int) {
 	return start, span
 }
 
-// planGridItemPlacement plans the row/col and span for one grid item.
-func planGridItemPlacement(
-	sty ResolvedStyle,
-	areas gridTemplateAreasMap,
+// planGridItemPlacementResolved plans the row/col and span for one grid item
+// using already-resolved spans so gridItemSpansPtr is not computed twice.
+func planGridItemPlacementResolved(
+	sty *ResolvedStyle,
+	rowStart, colStart, rowSpan, colSpan int,
+	definite bool,
 	occ *gridOccupation,
 	nCols, cursorRow, cursorCol int,
 	columnMajor, densePack bool,
 	minRows int,
 ) (int, int, int, int) {
-	rowStart, colStart, rowSpan, colSpan, definite := gridItemSpans(sty, areas, nCols)
-
 	if sty.grid().GridRowEnd == -1 {
 		rowStart, rowSpan = resolveGridRowEndSpan(rowStart, minRows)
 	}
@@ -453,10 +549,10 @@ func placeGridItemAutoFlow(
 	}
 
 	if columnMajor {
-		return findGridSlotColumnMajor(occ.freeAt, nCols, startRow, startCol, rowSpan, colSpan, minRows)
+		return findGridSlotColumnMajor(occ, nCols, startRow, startCol, rowSpan, colSpan, minRows)
 	}
 
-	return findGridSlotRowMajor(occ.freeAt, nCols, startRow, startCol, rowSpan, colSpan)
+	return findGridSlotRowMajor(occ, nCols, startRow, startCol, rowSpan, colSpan)
 }
 
 // gridRowCount derives the implicit row count from placed items and areas.
@@ -496,10 +592,8 @@ func gridAutoFlowMode(flow string) (bool, bool) {
 	}
 }
 
-type gridFreeFn func(row, col, rowSpan, colSpan int) bool
-
 // findGridSlotRowMajor searches row-major from (startRow, startCol).
-func findGridSlotRowMajor(free gridFreeFn, nCols, startRow, startCol, rowSpan, colSpan int) (int, int) {
+func findGridSlotRowMajor(occ *gridOccupation, nCols, startRow, startCol, rowSpan, colSpan int) (int, int) {
 	row, col := startRow, startCol
 
 	attempts := 0
@@ -518,7 +612,7 @@ func findGridSlotRowMajor(free gridFreeFn, nCols, startRow, startCol, rowSpan, c
 			continue
 		}
 
-		if free(row, col, rowSpan, colSpan) {
+		if occ.freeAt(row, col, rowSpan, colSpan) {
 			return row, col
 		}
 
@@ -529,7 +623,7 @@ func findGridSlotRowMajor(free gridFreeFn, nCols, startRow, startCol, rowSpan, c
 // findGridSlotColumnMajor searches column-major with an expanding implicit
 // row limit (needed when grid-template-rows is empty). Sparse callers pass a
 // cursor; dense callers pass (0,0). minRows is the initial row band.
-func findGridSlotColumnMajor(free gridFreeFn, nCols, startRow, startCol, rowSpan, colSpan, minRows int) (int, int) {
+func findGridSlotColumnMajor(occ *gridOccupation, nCols, startRow, startCol, rowSpan, colSpan, minRows int) (int, int) {
 	if colSpan > nCols {
 		colSpan = nCols
 	}
@@ -545,12 +639,12 @@ func findGridSlotColumnMajor(free gridFreeFn, nCols, startRow, startCol, rowSpan
 					continue
 				}
 
-				if free(row, col, rowSpan, colSpan) {
+				if occ.freeAt(row, col, rowSpan, colSpan) {
 					return row, col
 				}
 			}
 		}
 	}
 
-	return findGridSlotRowMajor(free, nCols, startRow, startCol, rowSpan, colSpan)
+	return findGridSlotRowMajor(occ, nCols, startRow, startCol, rowSpan, colSpan)
 }

@@ -415,7 +415,22 @@ func (e *engine) flowFlexRow(
 
 	items := e.flexRowItems(kids, contentW, contentH)
 	defer putFlexMeas(items)
-	lines := e.flexWrapLines(items, wrap, reverse, style.flex().FlexWrap == fxWrapRev, colGap, contentW)
+
+	var (
+		singleLine [1][]flexMeas
+		lines      [][]flexMeas
+	)
+
+	if !wrap {
+		if reverse {
+			reverseFlexMeas(items)
+		}
+
+		singleLine[0] = items
+		lines = singleLine[:]
+	} else {
+		lines = e.flexWrapLines(items, true, reverse, style.flex().FlexWrap == fxWrapRev, colGap, contentW)
+	}
 
 	lineCross := -1.0
 	if !wrap {
@@ -1565,6 +1580,9 @@ func (e *engine) buildRowItems(
 	// Built-item scratch is rented here; ownership transfers to the caller,
 	// which returns it after cross-axis alignment.
 	built := getFlexPlacedItems(len(items))
+	if parent != nil && parent.children == nil && len(items) > 0 {
+		parent.children = e.allocChildSlice(len(items))
+	}
 	rowH := 0.0
 	leftX := startX
 	autoMainMargins := flexRowAutoMarginCount(items, e)

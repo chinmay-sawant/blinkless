@@ -107,6 +107,7 @@ func finalizeResult(eng *engine, root *html.Node, opts Options) (*Result, error)
 		styles:         eng.styles,
 		styleChunks:    eng.styleChunks,
 		boxChunks:      eng.boxChunks,
+		childSlabs:     eng.childSlabs,
 		storeChunks:    eng.storeChunks,
 	}
 	if boxNode != nil {

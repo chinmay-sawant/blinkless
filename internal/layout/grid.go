@@ -26,26 +26,30 @@ const (
 // keeps intrinsic heights (no shared row stretch).
 func prepareGridTemplateStyles(sty *ResolvedStyle) bool {
 	masonryRows := isMasonryTrackList(sty.grid().GridTemplateRows)
-	sty.editGrid().GridTemplateColumns = stripMasonryKeyword(sty.grid().GridTemplateColumns)
+	masonryCols := isMasonryTrackList(sty.grid().GridTemplateColumns)
+
+	if masonryCols {
+		sty.editGrid().GridTemplateColumns = ""
+	}
 
 	if masonryRows {
 		sty.editGrid().GridTemplateRows = ""
-	} else {
-		sty.editGrid().GridTemplateRows = stripMasonryKeyword(sty.grid().GridTemplateRows)
 	}
 
 	return masonryRows
 }
 
 func (e *engine) buildGrid(node *html.Node, sty *ResolvedStyle, availW, posX, posY float64) *box {
-	// Grid template preparation mutates the style (masonry strip, subgrid
-	// copy-inherit). Copy once here so the shared cascade record is never
-	// written through the pointer chain below.
-	local := *sty
-	sty = &local
-	inheritSubgridFromParent(e, node, sty)
-
-	masonryRows := prepareGridTemplateStyles(sty)
+	// Grid template preparation only mutates the style for subgrid copy-inherit
+	// or masonry keyword stripping. Copy only when needed so the shared cascade
+	// record is never written and normal grids avoid cloning ResolvedStyle.
+	masonryRows := isMasonryTrackList(sty.grid().GridTemplateRows)
+	if sty.Display == displaySubgrid || masonryRows || isMasonryTrackList(sty.grid().GridTemplateColumns) {
+		local := *sty
+		sty = &local
+		inheritSubgridFromParent(e, node, sty)
+		masonryRows = prepareGridTemplateStyles(sty)
+	}
 
 	ml := e.scalePt(sty.MarginLeft)
 	boxNode := e.allocBox(node, e.stylePtr(node), boxKindBlock, posX+ml, posY)
@@ -73,7 +77,10 @@ func (e *engine) buildGrid(node *html.Node, sty *ResolvedStyle, availW, posX, po
 	}
 
 	// Intrinsic measure lite for min-content / max-content column mins.
-	colIntrinsics := measureTrackIntrinsics(e, kids, len(colDefs), true)
+	var colIntrinsics []trackIntrinsic
+	if gridDefsNeedIntrinsics(colDefs) {
+		colIntrinsics = measureTrackIntrinsics(e, kids, len(colDefs), true)
+	}
 
 	cols := resolveGridTrackSizes(colDefs, contentW, columnGap, e, colIntrinsics)
 	if len(cols) == 0 {
@@ -672,6 +679,10 @@ func emitGridBoxes(
 		containerAlign = fxStretch
 	}
 
+	if len(boxNode.children) == 0 && len(pboxes) > 0 {
+		boxNode.children = make([]*box, 0, len(pboxes))
+	}
+
 	poll := newCtxPoll(eng.ctx)
 	for idx := range pboxes {
 		if poll.poll() {
@@ -732,8 +743,16 @@ func applyGridAlignContentOffsets(rowYs, rows []float64, rowGap, contentH float6
 // free-space offsets when the container height is definite.
 func gridRowTops(curY float64, rows []float64, rowGap, contentH float64, alignContent string) []float64 {
 	rowYs := make([]float64, len(rows))
+	gridRowTopsInto(rowYs, curY, rows, rowGap, contentH, alignContent)
+
+	return rowYs
+}
+
+// gridRowTopsInto fills rowYs (len == len(rows)) with each row's block-axis
+// position, applying align-content free-space offsets when contentH is definite.
+func gridRowTopsInto(rowYs []float64, curY float64, rows []float64, rowGap, contentH float64, alignContent string) {
 	if len(rowYs) == 0 {
-		return rowYs
+		return
 	}
 
 	rowYs[0] = curY
@@ -745,8 +764,6 @@ func gridRowTops(curY float64, rows []float64, rowGap, contentH float64, alignCo
 	if contentH >= 0 {
 		applyGridAlignContentOffsets(rowYs, rows, rowGap, contentH, alignContent)
 	}
-
-	return rowYs
 }
 
 // emitGridItem builds one item's box and shifts it into its cell.
