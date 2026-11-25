@@ -408,12 +408,6 @@ func resolveStylesWithContainers(
 	}, containers)
 }
 
-func resolveStylesCtx(root *html.Node, ctx *styleContext) (map[*html.Node]*ResolvedStyle, error) {
-	out, _, err := resolveStylesCtxCount(root, ctx)
-
-	return out, err
-}
-
 func resolveStylesCtxCount(root *html.Node, ctx *styleContext) (map[*html.Node]*ResolvedStyle, int, error) {
 	nodeCount, elemCount, err := countStyleNodesContext(ctx.ctx, root)
 	if err != nil {

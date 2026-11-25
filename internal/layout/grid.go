@@ -825,15 +825,6 @@ func emitGridItem(
 	boxNode.children = append(boxNode.children, pbox.b)
 }
 
-// gridItemBuildWidth is the available width used to build a grid item. Stretch
-// (and auto) fill the grid area; start/end/center use fit-content so
-// place-items / place-self can offset a content-sized box.
-func gridItemBuildWidth(
-	eng *engine, node *html.Node, style ResolvedStyle, justify string, cellW float64,
-) float64 {
-	return gridItemBuildWidthPtr(eng, node, &style, justify, cellW)
-}
-
 // gridItemBuildWidthPtr is the pointer-based item width used by internal grid
 // emission so fit-content checks pay no copy.
 func gridItemBuildWidthPtr(
@@ -869,11 +860,6 @@ func gridItemCellHeight(pbox gridPlacedBox, rows []float64, rowGap float64) floa
 	return cellH
 }
 
-// gridItemJustify resolves the effective justify-self for one item.
-func gridItemJustify(cstate ResolvedStyle, container string) string {
-	return gridItemJustifyPtr(&cstate, container)
-}
-
 // gridItemJustifyPtr is the pointer-based justify resolver used by internal
 // grid emission.
 func gridItemJustifyPtr(cstate *ResolvedStyle, container string) string {
@@ -885,11 +871,6 @@ func gridItemJustifyPtr(cstate *ResolvedStyle, container string) string {
 	return justify
 }
 
-// gridItemAlign resolves the effective align-self for one item.
-func gridItemAlign(cstate ResolvedStyle, container string) string {
-	return gridItemAlignPtr(&cstate, container)
-}
-
 // gridItemAlignPtr is the pointer-based align resolver used by internal grid
 // emission.
 func gridItemAlignPtr(cstate *ResolvedStyle, container string) string {
@@ -899,12 +880,6 @@ func gridItemAlignPtr(cstate *ResolvedStyle, container string) string {
 	}
 
 	return align
-}
-
-// gridStretchBuildHeight returns the box height used to stretch a grid item
-// into its cell, or -1 when the item is not stretched.
-func gridStretchBuildHeight(align string, cellH float64, cstate ResolvedStyle) float64 {
-	return gridStretchBuildHeightPtr(align, cellH, &cstate)
 }
 
 // gridStretchBuildHeightPtr is the pointer-based stretch test used by internal

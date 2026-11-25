@@ -57,18 +57,9 @@ func (e *engine) emitUprightColumn(
 	return item.w
 }
 
-// emitTextRuns chooses the vertical upright/combined emitter or the shared
-// face-run path and returns the updated x cursor and the painted span.
-func (e *engine) emitTextRuns(
-	item *inlineItem, leftX, textBaseline, uprightBaseline, size, ascent, descent float64,
-) (float64, float64) {
-	if span, ok := e.emitVerticalUprightRun(item, leftX, uprightBaseline, size, ascent, descent); ok {
-		return leftX + item.w, span
-	}
-
-	return e.emitInlineFaceRuns(item, leftX, textBaseline, size, ascent, descent)
-}
-
+// emitTextRunsKnown chooses the vertical upright/combined emitter or the shared
+// face-run path with pre-resolved primary face/coverage and returns the updated
+// x cursor and the painted span.
 func (e *engine) emitTextRunsKnown(
 	item *inlineItem, primary *pdf.Font, allPrimary bool, leftX, textBaseline, uprightBaseline, size, ascent, descent float64,
 ) (float64, float64) {

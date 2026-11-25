@@ -11,16 +11,6 @@ func isMasonryTrackList(raw string) bool {
 	return strings.EqualFold(strings.TrimSpace(raw), "masonry")
 }
 
-// stripMasonryKeyword clears a lone "masonry" column list so layout falls
-// through to auto tracks. Row masonry is handled in emitMasonryItems.
-func stripMasonryKeyword(raw string) string {
-	if isMasonryTrackList(raw) {
-		return ""
-	}
-
-	return raw
-}
-
 func shiftMasonryBox(e *engine, cblock *box, targetX, targetY float64) {
 	dx := targetX - cblock.x
 	dy := targetY - cblock.y
