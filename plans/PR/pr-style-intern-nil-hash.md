@@ -1,6 +1,6 @@
 ## Summary
 
-Master lint failed because `styleInternHashStringMapCached` mixed a nil custom-property map with `h ^ 0`. staticcheck SA4016 rejects that xor. The nil map now multiplies the running hash by `styleInternPrime`, which is the same value.
+Master lint failed for two reasons. `styleInternHashStringMapCached` mixed a nil custom-property map with `h ^ 0`, which staticcheck SA4016 rejects. The nil map now multiplies the running hash by `styleInternPrime`, the same value. `relayout_subtree.go` is 3195 lines after `ba53b7f`, and the size allowlist still said 3050. The recorded count now matches the file.
 
 ---
 
@@ -16,6 +16,7 @@ Master lint failed because `styleInternHashStringMapCached` mixed a nil custom-p
 ### Style intern hash
 
 - `internal/layout/style.go`: nil custom-property maps no longer xor the hash with zero.
+- `scripts/file-size-allowlist.txt`: `internal/layout/relayout_subtree.go` is recorded at 3195 lines. `ba53b7f` grew it from 3050. This PR does not split that file.
 
 ---
 
@@ -102,7 +103,8 @@ no visual surface changed
 | Extension | Files | Insertions | Deletions |
 |-----------|-------|------------|-----------|
 | `.go` | 1 | 1 | 1 |
-| `.md` | 1 | 108 | 0 |
-| **Total** | **2** | **109** | **1** |
+| `.md` | 1 | 110 | 0 |
+| `.txt` | 1 | 1 | 1 |
+| **Total** | **3** | **112** | **2** |
 
 ---
