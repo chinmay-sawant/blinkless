@@ -582,3 +582,65 @@ func TestRelayoutContainingBlockInsideStartsAtParent(t *testing.T) {
 		t.Fatal("a transformed body above the subtree accepted a fixed box")
 	}
 }
+
+func TestRelayoutSubtreesAbsOverlayAndInlineLeaf(t *testing.T) {
+	t.Parallel()
+
+	const fixture = `<!DOCTYPE html><html><head><style>
+html,body{margin:0;padding:0}
+#stage{position:relative;width:400px;height:300px}
+#cells{position:absolute;left:40px;top:24px;right:0;bottom:0;overflow:hidden}
+#overlay{position:absolute;left:40px;top:24px;right:0;bottom:0;overflow:hidden}
+.cell{position:absolute;width:80px;height:24px;box-sizing:border-box}
+#act{position:absolute;width:80px;height:24px;border:2px solid #107c41;box-sizing:border-box}
+#hdl{position:absolute;width:6px;height:6px;background:#107c41}
+</style></head><body><div id="stage">
+<div id="cells">
+<div id="c0" class="cell" style="left:0px;top:0px"><span id="t0">10</span></div>
+<div id="c1" class="cell" style="left:80px;top:0px"><span id="t1">20</span></div>
+</div>
+<div id="overlay">
+<div id="act" style="left:0px;top:0px"></div>
+<div id="hdl" style="left:76px;top:20px"></div>
+</div>
+</div></body></html>`
+
+	root := mustParse(t, fixture)
+	opts := relayoutOptions(t)
+
+	prev, err := Layout(root, opts)
+	if err != nil {
+		t.Fatalf("Layout: %v", err)
+	}
+
+	// Move both overlays and edit an inline leaf <span> inside an abspos cell.
+	relayoutNodeByID(t, root, "act").Attrs["style"] = "left:80px;top:24px"
+	relayoutNodeByID(t, root, "hdl").Attrs["style"] = "left:156px;top:44px"
+	relayoutNodeByID(t, root, "t0").Children[0].Text = "99"
+
+	clone := CloneResultForBatch(prev)
+	owners := OperationOwners(clone)
+	order := PaintOrder(clone.Ops)
+
+	out, err := RelayoutSubtrees(t.Context(), clone, []string{"act", "hdl", "t0"}, opts, owners, order)
+	if err != nil {
+		t.Fatalf("RelayoutSubtrees: %v", err)
+	}
+
+	if len(out.Windows) == 0 {
+		t.Fatal("expected at least one splice window")
+	}
+
+	full, err := Layout(root, opts)
+	if err != nil {
+		t.Fatalf("Layout (full): %v", err)
+	}
+
+	for _, id := range []string{"act", "hdl", "c0", "overlay"} {
+		got := relayoutBoxByID(t, clone, id)
+		want := relayoutBoxByID(t, full, id)
+		if !relayoutSameGeometry(got, want) {
+			t.Fatalf("box %q = %+v, want %+v", id, *got, *want)
+		}
+	}
+}

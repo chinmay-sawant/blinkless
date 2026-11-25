@@ -1209,6 +1209,12 @@ func relayoutFlexDirection(style *ResolvedStyle) string {
 // therefore the kept origin minus the left margin, and the width is the
 // kept width plus both margins.
 func relayoutOrigin(eng *engine, target *relayoutTarget, opts Options) (float64, float64, float64) {
+	if target != nil && target.box != nil && target.box.node != nil {
+		if fresh := eng.styles[target.box.node]; fresh != nil && fresh.Position == positionAbsolute {
+			return relayoutAbsOrigin(eng, target, target.box.node, opts)
+		}
+	}
+
 	posY := target.box.y
 
 	kept := target.box
@@ -1220,6 +1226,44 @@ func relayoutOrigin(eng *engine, target *relayoutTarget, opts Options) (float64,
 	marginR := eng.scalePt(kept.style.MarginRight)
 
 	return relayoutAvailableWidth(eng, kept, marginL, marginR), kept.x - marginL, posY
+}
+
+// relayoutAbsOrigin returns the containing block padding box (availW, cbX, cbY)
+// for a standalone position:absolute subtree relayout and seeds absCBHeights so
+// buildOutOfFlow resolves left/top/right/bottom identically to a full layout.
+func relayoutAbsOrigin(
+	eng *engine, target *relayoutTarget, node *html.Node, opts Options,
+) (float64, float64, float64) {
+	for i := len(target.ancestors) - 1; i >= 0; i-- {
+		cb := target.ancestors[i]
+		if cb == nil || cb.style == nil || !establishesAbsCBPtr(cb.style) {
+			continue
+		}
+
+		b := cb.style.borders()
+		bl := eng.scalePt(borderLayoutWidth(cb.style, b.BorderLeft))
+		br := eng.scalePt(borderLayoutWidth(cb.style, b.BorderRight))
+		bt := eng.scalePt(borderLayoutWidth(cb.style, b.BorderTop))
+		bb := eng.scalePt(borderLayoutWidth(cb.style, b.BorderBottom))
+		cbW := max(cb.w-bl-br, 0)
+		cbH := max(cb.height-bt-bb, 0)
+
+		if eng.absCBHeights == nil {
+			eng.absCBHeights = make(map[*html.Node]float64, 1)
+		}
+
+		eng.absCBHeights[node] = cbH
+
+		return cbW, cb.x + bl, cb.y + bt
+	}
+
+	if eng.absCBHeights == nil {
+		eng.absCBHeights = make(map[*html.Node]float64, 1)
+	}
+
+	eng.absCBHeights[node] = opts.Height
+
+	return opts.Width, 0, 0
 }
 
 // relayoutMarginsChanged reports whether the element's margins differ from the
@@ -2647,8 +2691,10 @@ func RelayoutSubtrees(
 		boxPatches: make([]subtreeBoxPatch, 0, len(elementIDs)),
 	}
 
+	spliced := make(map[*html.Node]struct{}, len(elementIDs))
+
 	for _, elementID := range elementIDs {
-		if err := relayoutSpliceOne(ctx, prev, thread, elementID, baseOpts, out, &relevant, &grouped); err != nil {
+		if err := relayoutSpliceOne(ctx, prev, thread, elementID, baseOpts, out, &relevant, &grouped, spliced); err != nil {
 			return nil, err
 		}
 	}
@@ -2710,9 +2756,24 @@ func commitPaintOnlyWindow(
 // it replaced. Errors match the single-splice call: an unknown id is
 // ErrBatchUnknownID, and every other failure is wrapped the way the public
 // element patch wraps the engine error.
+func relayoutAlreadySpliced(node *html.Node, spliced map[*html.Node]struct{}) bool {
+	if len(spliced) == 0 {
+		return false
+	}
+
+	for cur := node; cur != nil; cur = cur.Parent {
+		if _, ok := spliced[cur]; ok {
+			return true
+		}
+	}
+
+	return false
+}
+
 func relayoutSpliceOne(
 	ctx context.Context, prev *Result, thread *boxThread, elementID string,
 	baseOpts Options, out *SubtreeBatchResult, relevant, grouped *int,
+	spliced map[*html.Node]struct{},
 ) error {
 	if elementID == "" {
 		return ErrBatchUnknownID
@@ -2721,6 +2782,10 @@ func relayoutSpliceOne(
 	node := batchNodeForID(thread, prev, elementID)
 	if node == nil {
 		return ErrBatchUnknownID
+	}
+
+	if relayoutAlreadySpliced(node, spliced) {
+		return nil
 	}
 
 	opts, err := spliceBatchOptions(node, baseOpts, out)
@@ -2770,12 +2835,18 @@ func relayoutSpliceOne(
 	// stay put, so the host can build the display by reusing the previous one.
 	if relayoutPaintOnlyWindow(prev, target, newBox, start, oldCount, eng.ops) {
 		commitPaintOnlyWindow(prev, thread, target, newBox, styles, start, oldCount, eng.ops, oldDamage, hasOld, out)
+		if target.box != nil && target.box.node != nil && len(target.box.children) > 8 {
+			spliced[target.box.node] = struct{}{}
+		}
 		adoptRelayoutEngine(prev, eng)
 
 		return nil
 	}
 
 	commitBatchSubtree(prev, thread, target, built, start, oldCount, oldDamage, hasOld, out, relevant, grouped)
+	if target.box != nil && target.box.node != nil && len(target.box.children) > 8 {
+		spliced[target.box.node] = struct{}{}
+	}
 	adoptRelayoutEngine(prev, eng)
 
 	return nil
@@ -2886,6 +2957,35 @@ func spliceBatchOptions(node *html.Node, baseOpts Options, out *SubtreeBatchResu
 	return baseOpts, nil
 }
 
+// inlineAncestorBlockTarget returns the nearest placed block box holding an
+// inline element (such as a leaf <span>) that has no block box of its own.
+func inlineAncestorBlockTarget(prev *Result, node *html.Node) (*relayoutTarget, bool) {
+	if prev == nil || node == nil {
+		return nil, false
+	}
+
+	st := prev.styles[node]
+	if st == nil || st.Display == cssDisplayNone {
+		return nil, false
+	}
+
+	root := prev.boxTreeRoot()
+	for cur := node.Parent; cur != nil; cur = cur.Parent {
+		target := findRelayoutTarget(root, cur)
+		if target == nil || target.box == nil {
+			continue
+		}
+
+		if target.box.kind == boxKindBlock {
+			return target, true
+		}
+
+		return nil, false
+	}
+
+	return nil, false
+}
+
 // spliceBatchTarget resolves one batch id to its patch target, falling back to
 // the owning table for a box-less element or a table cell.
 func spliceBatchTarget(
@@ -2895,12 +2995,15 @@ func spliceBatchTarget(
 
 	switch {
 	case !ok:
-		table, found := tableAncestorTarget(prev.boxTreeRoot(), node)
-		if !found {
-			return nil, relayoutSpliceError(errElementNotPlaced)
+		if table, found := tableAncestorTarget(prev.boxTreeRoot(), node); found {
+			return table, nil
 		}
 
-		return table, nil
+		if block, found := inlineAncestorBlockTarget(prev, node); found {
+			return block, nil
+		}
+
+		return nil, relayoutSpliceError(errElementNotPlaced)
 	case target.box == nil || target.box.node != node:
 		return nil, relayoutSpliceError(errElementNotPlaced)
 	case target.box.kind == boxKindCell:
