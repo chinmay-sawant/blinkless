@@ -245,13 +245,34 @@ func (ctx *styleContext) idAffectsMatch(id string) bool {
 	return index.UsesID(id)
 }
 
+func (ctx *styleContext) attrAffectsMatch(name, value string) bool {
+	switch name {
+	case classAttrName:
+		return true
+	case "id":
+		return ctx.idAffectsMatch(value)
+	case "href", "disabled", "checked", "selected", "readonly", "required",
+		"placeholder", "type", "dir", "lang", "open", "value", "multiple",
+		"indeterminate", "hidden", "min", "max", "step", "pattern",
+		"minlength", "maxlength", "novalidate":
+		return true
+	}
+
+	index := ctx.sharedRuleIndex()
+	if index == nil {
+		return true
+	}
+
+	return index.UsesAttr(name)
+}
+
 func (ctx *styleContext) canonicalSingleHTMLAttrKey(attr *html.Attr) string {
 	if attr.Namespace == "" {
 		if attr.Name == classAttrName {
 			return ctx.canonicalClassAttrKey(attr.Value)
 		}
 
-		if attr.Name == "id" && !ctx.idAffectsMatch(attr.Value) {
+		if !ctx.attrAffectsMatch(attr.Name, attr.Value) {
 			return ""
 		}
 	}
@@ -273,40 +294,44 @@ func (ctx *styleContext) canonicalNodeAttrKey(node *html.Node) string {
 		return ""
 	case 1:
 		return ctx.canonicalSingleHTMLAttrKey(&node.AttrList[0])
-	case 2:
-		a0, a1 := &node.AttrList[0], &node.AttrList[1]
-		if a0.Namespace == "" && a0.Name == "id" && !ctx.idAffectsMatch(a0.Value) {
-			return ctx.canonicalSingleHTMLAttrKey(a1)
-		}
-		if a1.Namespace == "" && a1.Name == "id" && !ctx.idAffectsMatch(a1.Value) {
-			return ctx.canonicalSingleHTMLAttrKey(a0)
-		}
-
-		return canonicalAttrListKey(node.AttrList)
 	default:
 		return ctx.canonicalAttrListKeyFiltered(node.AttrList)
 	}
 }
 
 func (ctx *styleContext) canonicalAttrListKeyFiltered(list []html.Attr) string {
-	for i := range list {
-		if list[i].Namespace == "" && list[i].Name == "id" && !ctx.idAffectsMatch(list[i].Value) {
-			var stack [8]html.Attr
-			filtered := stack[:0]
-			if len(list)-1 > len(stack) {
-				filtered = make([]html.Attr, 0, len(list)-1)
-			}
-			for j := range list {
-				if j != i {
-					filtered = append(filtered, list[j])
-				}
-			}
+	var stack [8]html.Attr
+	filtered := stack[:0]
+	dropped := false
 
-			return canonicalAttrListKey(filtered)
+	for i := range list {
+		if list[i].Namespace == "" && !ctx.attrAffectsMatch(list[i].Name, list[i].Value) {
+			if !dropped {
+				dropped = true
+				if len(list)-1 > len(stack) {
+					filtered = make([]html.Attr, 0, len(list)-1)
+				}
+				filtered = append(filtered, list[:i]...)
+			}
+			continue
+		}
+		if dropped {
+			filtered = append(filtered, list[i])
 		}
 	}
 
-	return canonicalAttrListKey(list)
+	if !dropped {
+		return canonicalAttrListKey(list)
+	}
+
+	switch len(filtered) {
+	case 0:
+		return ""
+	case 1:
+		return ctx.canonicalSingleHTMLAttrKey(&filtered[0])
+	default:
+		return canonicalAttrListKey(filtered)
+	}
 }
 
 func canonicalSingleAttrKey(name, value string) string {

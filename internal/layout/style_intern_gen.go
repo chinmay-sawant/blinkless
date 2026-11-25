@@ -3,7 +3,6 @@
 package layout
 
 import (
-	"maps"
 	"math"
 	"slices"
 	"strings"
@@ -126,7 +125,7 @@ func styleInternEqualExceptBG(a, b *ResolvedStyle) bool {
 		a.WhiteSpace == b.WhiteSpace &&
 		a.IsReplaced == b.IsReplaced &&
 		a.Opacity == b.Opacity &&
-		maps.Equal(a.CustomProps, b.CustomProps) &&
+		styleInternEqualStringMap(a.CustomProps, b.CustomProps) &&
 		styleInternEqualPtrTriggerStyle(a.Triggers, b.Triggers) &&
 		styleInternEqualPtrDeclaredStyle(a.Declared, b.Declared) &&
 		styleInternEqualBackground(a.backgroundGroup, b.backgroundGroup) &&
@@ -160,6 +159,12 @@ func styleInternEqual(a, b *ResolvedStyle) bool {
 // styleInternFingerprint hashes every ResolvedStyle field. Equal styles
 // share a fingerprint; collisions are resolved by styleInternEqual.
 func styleInternFingerprint(s *ResolvedStyle) uint64 {
+	return styleInternFingerprintCached(s, nil)
+}
+
+// styleInternFingerprintCached hashes every ResolvedStyle field, reusing
+// the cached string-map accumulator in mapCache when non-nil.
+func styleInternFingerprintCached(s *ResolvedStyle, mapCache *styleMapHashCache) uint64 {
 	h := styleInternSeed
 	h = styleInternHashString(h, s.Display)
 	h = styleInternHashString(h, s.Position)
@@ -195,7 +200,7 @@ func styleInternFingerprint(s *ResolvedStyle) uint64 {
 	h = styleInternHashString(h, s.WhiteSpace)
 	h = styleInternHashBool(h, s.IsReplaced)
 	h = styleInternHashFloat64(h, s.Opacity)
-	h = styleInternHashStringMap(h, s.CustomProps)
+	h = styleInternHashStringMapCached(h, s.CustomProps, mapCache)
 	if s.Triggers != nil && *s.Triggers != (triggerStyle{}) {
 		h = styleInternHashTriggerStyle(h, *s.Triggers)
 	}

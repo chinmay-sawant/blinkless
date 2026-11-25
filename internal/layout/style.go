@@ -4,7 +4,9 @@ package layout
 import (
 	"context"
 	"fmt"
+	"maps"
 	"math"
+	"reflect"
 	"strings"
 
 	"github.com/chinmay-sawant/blinkless/internal/css"
@@ -664,10 +666,61 @@ type styleStore struct {
 	// *ResolvedStyle across pooled subtree resolution passes for the same
 	// document tag.
 	memo styleResolutionMemo
+	// customMapCache avoids re-hashing an inherited CustomProps map on every
+	// element when children share :root's copy-on-write custom-property map.
+	customMapCache styleMapHashCache
+}
+
+type styleMapHashCache struct {
+	ptr    uintptr
+	length int
+	acc    uint64
+}
+
+func styleInternEqualStringMap(a, b map[string]string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	if len(a) == 0 {
+		return true
+	}
+
+	if reflect.ValueOf(a).Pointer() == reflect.ValueOf(b).Pointer() {
+		return true
+	}
+
+	return maps.Equal(a, b)
+}
+
+func styleInternHashStringMapCached(h uint64, m map[string]string, cache *styleMapHashCache) uint64 {
+	if m == nil {
+		return (h ^ 0) * styleInternPrime
+	}
+
+	if cache != nil && len(m) > 0 {
+		ptr := reflect.ValueOf(m).Pointer()
+		if ptr == cache.ptr && len(m) == cache.length {
+			return (h^uint64(len(m)))*styleInternPrime ^ cache.acc
+		}
+
+		var acc uint64
+		for k, v := range m {
+			acc ^= styleInternHashString(styleInternHashString(styleInternSeed, k), v)
+		}
+
+		cache.ptr = ptr
+		cache.length = len(m)
+		cache.acc = acc
+
+		return (h^uint64(len(m)))*styleInternPrime ^ acc
+	}
+
+	return styleInternHashStringMap(h, m)
 }
 
 func (s *styleStore) append(style ResolvedStyle) *ResolvedStyle {
-	fingerprint := styleInternFingerprint(&style)
+	fingerprint := styleInternFingerprintCached(&style, &s.customMapCache)
 
 	for _, stored := range s.intern[fingerprint] {
 		if styleInternEqual(stored, &style) {
@@ -815,7 +868,13 @@ func matchedElementHits(ctx *styleContext, node *html.Node) []ruleHit {
 func resolveElementStyleWithHits(
 	node *html.Node, ctx *styleContext, parent, sty *ResolvedStyle, hits []ruleHit,
 ) {
-	raw := cascadeRaw(ctx, node, hits)
+	resolveElementStyleWithHitsInline(node, ctx, parent, sty, hits, node.Attribute("style"))
+}
+
+func resolveElementStyleWithHitsInline(
+	node *html.Node, ctx *styleContext, parent, sty *ResolvedStyle, hits []ruleHit, inlineStyle string,
+) {
+	raw := cascadeRawWithInline(ctx, node, hits, inlineStyle)
 	applyRawToUsed(node, ctx, parent, sty, raw)
 	applyDarkFormControlDefaults(node, sty, raw)
 

@@ -479,6 +479,12 @@ func supportsProbeStatsForTest() (uint64, uint64) {
 func cascadeRaw(
 	ctx *styleContext, node *html.Node, hits []ruleHit,
 ) map[string]string {
+	return cascadeRawWithInline(ctx, node, hits, node.Attribute("style"))
+}
+
+func cascadeRawWithInline(
+	ctx *styleContext, node *html.Node, hits []ruleHit, inlineStyle string,
+) map[string]string {
 	var wins map[string]cascadeWin
 	if ctx == nil {
 		wins = make(map[string]cascadeWin, cascadeWinHint)
@@ -512,7 +518,7 @@ func cascadeRaw(
 	// important declarations (spec 1<<maxIntShift). Elements without a style
 	// attribute skip the inline parse entirely; repeated identical attributes
 	// share one interned parse (see cachedInlineDecls).
-	if styleAttr := strings.TrimSpace(node.Attribute("style")); styleAttr != "" {
+	if styleAttr := strings.TrimSpace(inlineStyle); styleAttr != "" {
 		for _, d := range cachedInlineDecls(styleAttr) {
 			if !supportedDeclaration(d.Prop, d.Value) {
 				continue

@@ -38,6 +38,7 @@ type RuleIndex struct {
 	content           bool
 	contentPseudo     map[string]bool
 	usedIDs           map[string]struct{}
+	usedAttrs         map[string]struct{}
 	hasIDAttrSelector bool
 }
 
@@ -110,8 +111,15 @@ func (idx *RuleIndex) recordSelectorIDUsage(parts []css.SelectorPart) {
 		}
 
 		for j := range part.Attrs {
-			if strings.EqualFold(part.Attrs[j].Name, "id") {
+			attrName := strings.ToLower(part.Attrs[j].Name)
+			if attrName == "id" {
 				idx.hasIDAttrSelector = true
+			}
+			if attrName != "" {
+				if idx.usedAttrs == nil {
+					idx.usedAttrs = make(map[string]struct{})
+				}
+				idx.usedAttrs[attrName] = struct{}{}
 			}
 		}
 
@@ -146,6 +154,18 @@ func (idx *RuleIndex) UsesID(id string) bool {
 // the "id" attribute via an attribute selector (e.g. [id], [id^="row-"]).
 func (idx *RuleIndex) HasIDAttrSelector() bool {
 	return idx != nil && idx.hasIDAttrSelector
+}
+
+// UsesAttr reports whether any selector in the indexed sheets tests the named
+// attribute (lowercased) via an attribute selector.
+func (idx *RuleIndex) UsesAttr(name string) bool {
+	if idx == nil || name == "" || len(idx.usedAttrs) == 0 {
+		return false
+	}
+
+	_, ok := idx.usedAttrs[name]
+
+	return ok
 }
 
 // countRuleSelectors counts selectors per bucket and key, and records which

@@ -275,7 +275,11 @@ func renderEqual(buf *bytes.Buffer, eqTerms, fieldNames []string) {
 func renderFingerprint(buf *bytes.Buffer, hashLines []string) {
 	buf.WriteString("// styleInternFingerprint hashes every ResolvedStyle field. Equal styles\n")
 	buf.WriteString("// share a fingerprint; collisions are resolved by styleInternEqual.\n")
-	buf.WriteString("func styleInternFingerprint(s *ResolvedStyle) uint64 {\n\th := styleInternSeed\n")
+	buf.WriteString("func styleInternFingerprint(s *ResolvedStyle) uint64 {\n")
+	buf.WriteString("\treturn styleInternFingerprintCached(s, nil)\n}\n\n")
+	buf.WriteString("// styleInternFingerprintCached hashes every ResolvedStyle field, reusing\n")
+	buf.WriteString("// the cached string-map accumulator in mapCache when non-nil.\n")
+	buf.WriteString("func styleInternFingerprintCached(s *ResolvedStyle, mapCache *styleMapHashCache) uint64 {\n\th := styleInternSeed\n")
 
 	for _, line := range hashLines {
 		buf.WriteString("\t" + line + "\n")
@@ -414,10 +418,8 @@ func (g *generator) classifyMap(eqA, eqB, hashVar string, expr *ast.MapType) (st
 		return "", nil, fmt.Errorf("%w: map value %v", errUnsupported, expr.Value)
 	}
 
-	g.usesMaps = true
-
-	return "maps.Equal(" + eqA + ", " + eqB + ")", []string{
-		"h = styleInternHashStringMap(h, " + hashVar + ")",
+	return "styleInternEqualStringMap(" + eqA + ", " + eqB + ")", []string{
+		"h = styleInternHashStringMapCached(h, " + hashVar + ", mapCache)",
 	}, nil
 }
 

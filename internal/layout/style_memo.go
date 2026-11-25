@@ -135,12 +135,250 @@ func resolveElementStyleMemo(
 		return cached
 	}
 
+	if key.inline != "" {
+		if style := tryInlinePxBoxStyle(node, ctx, parent, store, key, hits); style != nil {
+			return style
+		}
+	}
+
 	resolveElementStyleWithHits(node, ctx, parent, &store.candidate, hits)
 	style := store.append(store.candidate)
 
 	ctx.memo.insert(key, hits, style)
 
 	return style
+}
+
+type inlinePxBox struct {
+	left, top, right, bottom, width, height                   float64
+	hasLeft, hasTop, hasRight, hasBottom, hasWidth, hasHeight bool
+}
+
+// tryInlinePxBoxStyle resolves elements whose inline style only sets plain px
+// box geometry (left/top/right/bottom/width/height) by memoizing the base
+// stylesheet cascade once and cloning it with the parsed px offsets.
+func tryInlinePxBoxStyle(
+	node *html.Node, ctx *styleContext, parent *ResolvedStyle, store *styleStore,
+	key styleMemoKey, hits []ruleHit,
+) *ResolvedStyle {
+	if hitsHaveImportantBoxProp(hits) {
+		return nil
+	}
+
+	box, ok := parseInlinePxBox(key.inline)
+	if !ok {
+		return nil
+	}
+
+	baseKey := key
+	baseKey.inline = ""
+
+	base := ctx.memo.lookup(baseKey, hits)
+	if base == nil {
+		resolveElementStyleWithHitsInline(node, ctx, parent, &store.candidate, hits, "")
+		base = store.append(store.candidate)
+		ctx.memo.insert(baseKey, hits, base)
+	}
+
+	if base.Triggers != nil || base.Declared != nil {
+		return nil
+	}
+
+	store.candidate = *base
+	if box.hasWidth {
+		store.candidate.Width = box.width
+		store.candidate.WidthPercent = -1
+	}
+
+	if box.hasHeight {
+		store.candidate.Height = box.height
+		store.candidate.HeightPercent = -1
+	}
+
+	if box.hasLeft || box.hasTop || box.hasRight || box.hasBottom {
+		pos := *base.positioning()
+		if box.hasLeft {
+			pos.Left = box.left
+			pos.LeftAuto = false
+		}
+		if box.hasTop {
+			pos.Top = box.top
+			pos.TopAuto = false
+		}
+		if box.hasRight {
+			pos.Right = box.right
+			pos.RightAuto = false
+		}
+		if box.hasBottom {
+			pos.Bottom = box.bottom
+			pos.BottomAuto = false
+		}
+		store.candidate.positioningGroup = &pos
+	}
+
+	style := store.append(store.candidate)
+	ctx.memo.insert(key, hits, style)
+
+	return style
+}
+
+func hitsHaveImportantBoxProp(hits []ruleHit) bool {
+	for i := range hits {
+		for j := range hits[i].rule.Decls {
+			d := &hits[i].rule.Decls[j]
+			if !d.Important {
+				continue
+			}
+			switch d.Prop {
+			case "left", "top", "right", "bottom", "width", "height", "inset",
+				"inset-inline", "inset-inline-start", "inset-inline-end",
+				"inset-block", "inset-block-start", "inset-block-end",
+				"inline-size", "block-size":
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func parseInlinePxBox(s string) (inlinePxBox, bool) {
+	const pxToPt = 0.75
+
+	var out inlinePxBox
+
+	seen := false
+	i := 0
+	n := len(s)
+
+	for i < n {
+		for i < n && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r' || s[i] == ';') {
+			i++
+		}
+		if i >= n {
+			break
+		}
+
+		pStart := i
+		for i < n && s[i] != ':' && s[i] != ';' {
+			i++
+		}
+		if i >= n || s[i] != ':' {
+			return inlinePxBox{}, false
+		}
+		prop := trimASCII(s[pStart:i])
+		i++ // skip ':'
+
+		vStart := i
+		for i < n && s[i] != ';' {
+			i++
+		}
+		val := trimASCII(s[vStart:i])
+		if i < n {
+			i++ // skip ';'
+		}
+
+		px, ok := parseSimplePx(val)
+		if !ok {
+			return inlinePxBox{}, false
+		}
+
+		pt := px * pxToPt
+		switch prop {
+		case "left":
+			out.left, out.hasLeft = pt, true
+		case "top":
+			out.top, out.hasTop = pt, true
+		case "right":
+			out.right, out.hasRight = pt, true
+		case "bottom":
+			out.bottom, out.hasBottom = pt, true
+		case "width":
+			if pt < 0 {
+				return inlinePxBox{}, false
+			}
+			out.width, out.hasWidth = pt, true
+		case "height":
+			if pt < 0 {
+				return inlinePxBox{}, false
+			}
+			out.height, out.hasHeight = pt, true
+		default:
+			return inlinePxBox{}, false
+		}
+		seen = true
+	}
+
+	return out, seen
+}
+
+func trimASCII(s string) string {
+	start := 0
+	for start < len(s) && (s[start] == ' ' || s[start] == '\t' || s[start] == '\n' || s[start] == '\r') {
+		start++
+	}
+	end := len(s)
+	for end > start && (s[end-1] == ' ' || s[end-1] == '\t' || s[end-1] == '\n' || s[end-1] == '\r') {
+		end--
+	}
+	return s[start:end]
+}
+
+func parseSimplePx(s string) (float64, bool) {
+	if s == "0" {
+		return 0, true
+	}
+	if len(s) < 3 || s[len(s)-2] != 'p' || s[len(s)-1] != 'x' {
+		return 0, false
+	}
+	num := s[:len(s)-2]
+	neg := false
+	idx := 0
+	if num[0] == '-' {
+		neg = true
+		idx = 1
+	} else if num[0] == '+' {
+		idx = 1
+	}
+	if idx >= len(num) {
+		return 0, false
+	}
+
+	var intPart float64
+	var fracPart float64
+	fracScale := 1.0
+	inFrac := false
+	digits := 0
+
+	for ; idx < len(num); idx++ {
+		c := num[idx]
+		if c >= '0' && c <= '9' {
+			digits++
+			d := float64(c - '0')
+			if inFrac {
+				fracScale *= 10
+				fracPart += d / fracScale
+			} else {
+				intPart = intPart*10 + d
+			}
+			continue
+		}
+		if c == '.' && !inFrac {
+			inFrac = true
+			continue
+		}
+		return 0, false
+	}
+
+	if digits == 0 {
+		return 0, false
+	}
+
+	val := intPart + fracPart
+	if neg {
+		val = -val
+	}
+	return val, true
 }
 
 // linkUnderlinePolicy reports whether resolveElementStyle overrides
