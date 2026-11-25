@@ -7,6 +7,7 @@ import (
 	"math"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/chinmay-sawant/blinkless/internal/errs"
 )
@@ -120,7 +121,10 @@ func RestampTransforms(
 		return &RestampPatch{}, nil
 	}
 
-	plan, err := planRestamp(prev, overrides)
+	scratch := getRestampScratch()
+	defer putRestampScratch(scratch)
+
+	plan, err := planRestamp(prev, overrides, scratch)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +133,7 @@ func RestampTransforms(
 		return &RestampPatch{}, nil
 	}
 
-	roots := plan.outermost(prev.boxTreeRoot())
+	roots := plan.outermost(prev.boxTreeRoot(), scratch)
 	if len(roots) == 0 {
 		return &RestampPatch{}, nil
 	}
@@ -140,7 +144,7 @@ func RestampTransforms(
 
 	defer plan.restore()
 
-	states, err := restampStates(prev, roots)
+	states, err := restampStates(prev, roots, scratch)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +153,85 @@ func RestampTransforms(
 		return &RestampPatch{}, nil
 	}
 
-	return applyRestamp(prev, states, opts.Media)
+	return applyRestamp(prev, states, opts.Media, scratch)
+}
+
+// restampScratch holds reusable per-pass slices and maps so steady-state
+// animation frames avoid per-frame heap allocations.
+type restampScratch struct {
+	targets        []restampTarget
+	targetStyles   []ResolvedStyle
+	targetEffects  []styleEffects
+	byBox          map[*box]int
+	targetMap      map[*box]int
+	seen           []bool
+	roots          []*restampTarget
+	states         []subtreeStamp
+	ancestors      []*box
+	actions        []ancestorStamp
+	backupOps      []Op
+	backupExtras   []opExtra
+	backupExtraIdx []int
+	backupGridSegs []GridSeg
+	backupGrids    []gridBackup
+	backupRanges   []opBackupRange
+}
+
+type gridBackup struct {
+	opIdx    int
+	segStart int
+	segLen   int
+}
+
+type opBackupRange struct {
+	windowStart int
+	opsStart    int
+	opsLen      int
+}
+
+var restampScratchPool = sync.Pool{
+	New: func() any {
+		return &restampScratch{
+			ancestors: make([]*box, 0, 16),
+		}
+	},
+}
+
+func getRestampScratch() *restampScratch {
+	return restampScratchPool.Get().(*restampScratch)
+}
+
+func putRestampScratch(s *restampScratch) {
+	clear(s.targets)
+	s.targets = s.targets[:0]
+	clear(s.targetStyles)
+	s.targetStyles = s.targetStyles[:0]
+	clear(s.targetEffects)
+	s.targetEffects = s.targetEffects[:0]
+	if len(s.byBox) > 0 {
+		clear(s.byBox)
+	}
+	if len(s.targetMap) > 0 {
+		clear(s.targetMap)
+	}
+	s.seen = s.seen[:0]
+	clear(s.roots)
+	s.roots = s.roots[:0]
+	clear(s.states)
+	s.states = s.states[:0]
+	clear(s.ancestors)
+	s.ancestors = s.ancestors[:0]
+	clear(s.actions)
+	s.actions = s.actions[:0]
+	clear(s.backupOps)
+	s.backupOps = s.backupOps[:0]
+	clear(s.backupExtras)
+	s.backupExtras = s.backupExtras[:0]
+	s.backupExtraIdx = s.backupExtraIdx[:0]
+	s.backupGridSegs = s.backupGridSegs[:0]
+	s.backupGrids = s.backupGrids[:0]
+	s.backupRanges = s.backupRanges[:0]
+	restampScratchPool.Put(s)
 }
 
 // restampReady rejects the inputs the pass cannot run on. A false answer
@@ -176,19 +258,24 @@ func restampReady(ctx context.Context, prev *Result, overrides []RestampOverride
 
 // restampStates resolves the seed state and the ancestor stamps of every
 // outermost subtree, and the operation window each one owns.
-func restampStates(prev *Result, roots []*restampTarget) ([]subtreeStamp, error) {
-	states := make([]subtreeStamp, 0, len(roots))
-	scratch := make([]*box, 0, 16)
+func restampStates(prev *Result, roots []*restampTarget, scratch *restampScratch) ([]subtreeStamp, error) {
+	states := scratch.states[:0]
+	scratch.actions = scratch.actions[:0]
 	root := prev.boxTreeRoot()
 
 	for _, target := range roots {
-		state, actions, perspAncestor, hasState := stampStateAtWithScratch(root, target.box, &scratch)
+		actionStart := len(scratch.actions)
+		state, perspAncestor, hasState := stampStateAtInto(root, target.box, &scratch.ancestors, &scratch.actions)
 		if !hasState {
 			return nil, fmt.Errorf("%w: %s", ErrNotStampable, target.id)
 		}
 
+		actionEnd := len(scratch.actions)
+
 		window, hasWindow := opWindowFor(target.box, len(prev.Ops))
 		if !hasWindow {
+			scratch.actions = scratch.actions[:actionStart]
+
 			continue
 		}
 
@@ -196,10 +283,13 @@ func restampStates(prev *Result, roots []*restampTarget) ([]subtreeStamp, error)
 			box:           target.box,
 			window:        window,
 			state:         state,
-			actions:       actions,
+			actionStart:   actionStart,
+			actionEnd:     actionEnd,
 			perspAncestor: perspAncestor,
 		})
 	}
+
+	scratch.states = states
 
 	return states, nil
 }
@@ -207,7 +297,7 @@ func restampStates(prev *Result, roots []*restampTarget) ([]subtreeStamp, error)
 // applyRestamp rewrites every subtree window and finalizes the projected
 // geometry it produced. A failure rolls every window back, because a display
 // list that is half projected paints wrong pixels.
-func applyRestamp(prev *Result, states []subtreeStamp, media string) (*RestampPatch, error) {
+func applyRestamp(prev *Result, states []subtreeStamp, media string, scratch *restampScratch) (*RestampPatch, error) {
 	windows := make([]OpWindow, 0, len(states))
 	for idx := range states {
 		windows = append(windows, states[idx].window)
@@ -215,7 +305,12 @@ func applyRestamp(prev *Result, states []subtreeStamp, media string) (*RestampPa
 
 	oldBounds := unionWindowBounds(prev.Ops, windows)
 
-	backups := make([]opBackup, 0, len(windows))
+	scratch.backupOps = scratch.backupOps[:0]
+	scratch.backupExtras = scratch.backupExtras[:0]
+	scratch.backupExtraIdx = scratch.backupExtraIdx[:0]
+	scratch.backupGridSegs = scratch.backupGridSegs[:0]
+	scratch.backupGrids = scratch.backupGrids[:0]
+	scratch.backupRanges = scratch.backupRanges[:0]
 	committed := false
 
 	defer func() {
@@ -223,17 +318,15 @@ func applyRestamp(prev *Result, states []subtreeStamp, media string) (*RestampPa
 			return
 		}
 
-		for idx := range backups {
-			copy(prev.Ops[backups[idx].start:], backups[idx].ops)
-		}
+		restoreBackups(prev.Ops, scratch)
 	}()
 
 	for idx := range windows {
-		backups = append(backups, backupWindow(prev.Ops, windows[idx]))
+		backupWindowInto(prev.Ops, windows[idx], scratch)
 	}
 
 	for idx := range states {
-		if err := restampSubtree(prev, &states[idx], media); err != nil {
+		if err := restampSubtree(prev, &states[idx], scratch.actions, media); err != nil {
 			return nil, err
 		}
 	}
@@ -257,15 +350,15 @@ func applyRestamp(prev *Result, states []subtreeStamp, media string) (*RestampPa
 }
 
 // restampSubtree resets and re-stamps one subtree window.
-func restampSubtree(prev *Result, item *subtreeStamp, media string) error {
+func restampSubtree(prev *Result, item *subtreeStamp, allActions []ancestorStamp, media string) error {
 	resetStampFields(item.box)
 	propagatePerspectiveFrom(item.box, item.perspAncestor)
 	resetWindowTransforms(prev.Ops, item.window)
 
 	restampBoxTransforms(item.box, item.state, prev.Ops, media)
 
-	for actionIdx := range item.actions {
-		applyAncestorStamp(item.actions[actionIdx], prev.Ops, item.window)
+	for actionIdx := item.actionStart; actionIdx < item.actionEnd; actionIdx++ {
+		applyAncestorStamp(allActions[actionIdx], prev.Ops, item.window)
 	}
 
 	if err := FinalizeDisplayOps(prev.Ops[item.window.Start : item.window.End+1]); err != nil {
@@ -293,30 +386,48 @@ type restampPlan struct {
 // planRestamp resolves every override against the retained box tree and builds
 // one effective style per element. Overrides for the same element apply in
 // order: the last one wins for a field it sets.
-func planRestamp(prev *Result, overrides []RestampOverride) (*restampPlan, error) {
-	plan := &restampPlan{
-		targets: make([]restampTarget, 0, len(overrides)),
+func planRestamp(prev *Result, overrides []RestampOverride, scratch *restampScratch) (restampPlan, error) {
+	if cap(scratch.targetStyles) < len(overrides) {
+		scratch.targetStyles = make([]ResolvedStyle, len(overrides))
+	} else {
+		scratch.targetStyles = scratch.targetStyles[:len(overrides)]
+	}
+
+	if cap(scratch.targetEffects) < len(overrides) {
+		scratch.targetEffects = make([]styleEffects, len(overrides))
+	} else {
+		scratch.targetEffects = scratch.targetEffects[:len(overrides)]
+	}
+
+	plan := restampPlan{
+		targets: scratch.targets[:0],
 	}
 
 	var byBox map[*box]int
 	if len(overrides) > 8 {
-		byBox = make(map[*box]int, len(overrides))
+		if scratch.byBox == nil {
+			scratch.byBox = make(map[*box]int, len(overrides))
+		} else {
+			clear(scratch.byBox)
+		}
+
+		byBox = scratch.byBox
 	}
 
 	for idx := range overrides {
 		override := &overrides[idx]
 
 		if override.ElementID == "" {
-			return nil, fmt.Errorf("%w: empty element id", ErrNoElement)
+			return restampPlan{}, fmt.Errorf("%w: empty element id", ErrNoElement)
 		}
 
 		boxNode := prev.boxForID(override.ElementID)
 		if boxNode == nil {
-			return nil, fmt.Errorf("%w: %s", ErrNoElement, override.ElementID)
+			return restampPlan{}, fmt.Errorf("%w: %s", ErrNoElement, override.ElementID)
 		}
 
 		if boxNode.style == nil {
-			return nil, fmt.Errorf("%w: %s has no resolved style", ErrNotStampable, override.ElementID)
+			return restampPlan{}, fmt.Errorf("%w: %s has no resolved style", ErrNotStampable, override.ElementID)
 		}
 
 		// A table cell is placed by the table layout, and the static path
@@ -324,14 +435,16 @@ func planRestamp(prev *Result, overrides []RestampOverride) (*restampPlan, error
 		// alone. Restamping it would paint a projection the authored page
 		// never shows, so the pass refuses it.
 		if boxNode.kind == boxKindCell {
-			return nil, fmt.Errorf("%w: %s is a table cell", ErrNotStampable, override.ElementID)
+			return restampPlan{}, fmt.Errorf("%w: %s is a table cell", ErrNotStampable, override.ElementID)
 		}
 
-		target := plan.targetFor(boxNode, override.ElementID, byBox)
+		target := plan.targetFor(boxNode, override.ElementID, byBox, scratch)
 		if err := applyRestampOverride(target.style, target.box, override); err != nil {
-			return nil, err
+			return restampPlan{}, err
 		}
 	}
+
+	scratch.targets = plan.targets
 
 	for idx := range plan.targets {
 		if !sameTransformState(plan.targets[idx].style, plan.targets[idx].original) {
@@ -344,9 +457,11 @@ func planRestamp(prev *Result, overrides []RestampOverride) (*restampPlan, error
 	return plan, nil
 }
 
-// targetFor returns the plan entry for one box, cloning its cached style on
-// first use.
-func (p *restampPlan) targetFor(boxNode *box, elementID string, byBox map[*box]int) *restampTarget {
+// targetFor returns the plan entry for one box, cloning its cached style into
+// scratch on first use without heap-allocating per frame.
+func (p *restampPlan) targetFor(
+	boxNode *box, elementID string, byBox map[*box]int, scratch *restampScratch,
+) *restampTarget {
 	if byBox != nil {
 		if index, ok := byBox[boxNode]; ok {
 			return &p.targets[index]
@@ -359,19 +474,26 @@ func (p *restampPlan) targetFor(boxNode *box, elementID string, byBox map[*box]i
 		}
 	}
 
-	clone := *boxNode.style
+	slot := len(p.targets)
+	style := &scratch.targetStyles[slot]
+	*style = *boxNode.style
+	style.groups = nil
+	effects := &scratch.targetEffects[slot]
+	*effects = *boxNode.style.effects()
+	style.effectsGroup = effects
+
 	if byBox != nil {
-		byBox[boxNode] = len(p.targets)
+		byBox[boxNode] = slot
 	}
 
 	p.targets = append(p.targets, restampTarget{
 		id:       elementID,
 		box:      boxNode,
 		original: boxNode.style,
-		style:    &clone,
+		style:    style,
 	})
 
-	return &p.targets[len(p.targets)-1]
+	return &p.targets[slot]
 }
 
 // install points every target box at its effective style for the pass.
@@ -390,18 +512,33 @@ func (p *restampPlan) restore() {
 
 // outermost returns the targets that no other target contains, in document
 // order. A nested target is stamped inside its outer target's subtree walk.
-func (p *restampPlan) outermost(root *box) []*restampTarget {
+func (p *restampPlan) outermost(root *box, scratch *restampScratch) []*restampTarget {
 	if len(p.targets) == 1 {
-		return []*restampTarget{&p.targets[0]}
+		scratch.roots = append(scratch.roots[:0], &p.targets[0])
+
+		return scratch.roots
 	}
 
-	targets := make(map[*box]int, len(p.targets))
+	if scratch.targetMap == nil {
+		scratch.targetMap = make(map[*box]int, len(p.targets))
+	} else {
+		clear(scratch.targetMap)
+	}
+
+	targets := scratch.targetMap
 	for idx := range p.targets {
 		targets[p.targets[idx].box] = idx
 	}
 
-	seen := make([]bool, len(p.targets))
-	out := make([]*restampTarget, 0, len(p.targets))
+	if cap(scratch.seen) < len(p.targets) {
+		scratch.seen = make([]bool, len(p.targets))
+	} else {
+		scratch.seen = scratch.seen[:len(p.targets)]
+		clear(scratch.seen)
+	}
+
+	seen := scratch.seen
+	out := scratch.roots[:0]
 
 	var walk func(boxNode *box, inside bool)
 	walk = func(boxNode *box, inside bool) {
@@ -433,6 +570,8 @@ func (p *restampPlan) outermost(root *box) []*restampTarget {
 		}
 	}
 
+	scratch.roots = out
+
 	return out
 }
 
@@ -461,6 +600,17 @@ func applyRestampOverride(style *ResolvedStyle, boxNode *box, override *RestampO
 	return nil
 }
 
+// restampEffects returns a mutable styleEffects for a cloned restamp style.
+// targetFor pre-binds style.effectsGroup to a scratch slot so steady-state
+// restamps never call editEffects (which heap-allocates when groups is nil).
+func (style *ResolvedStyle) restampEffects() *styleEffects {
+	if style.effectsGroup != nil {
+		return style.effectsGroup
+	}
+
+	return style.editEffects()
+}
+
 // applyTransformOverride replaces the element's used transform with one parsed
 // CSS list. The cascade parser is reused, so a 2D and a 3D function take the
 // same path they take in a stylesheet.
@@ -476,7 +626,7 @@ func applyTransformOverride(style *ResolvedStyle, value string) error {
 		matrix, has = IdentityMatrix(), false
 	}
 
-	effects := style.editEffects()
+	effects := style.restampEffects()
 	effects.Transform = matrix
 	effects.HasTransform = has
 	effects.Transform3D = accum3D
@@ -499,13 +649,14 @@ func applyTransformOverride(style *ResolvedStyle, value string) error {
 // the caller hands back. The offset from the border box lands on that point, so
 // the override bypasses the transform-box reference box.
 func (style *ResolvedStyle) applyOriginOverride(boxNode *box, originX, originY float64) {
-	style.editEffects().TransformOrigin = transformOriginSpec{
+	effects := style.restampEffects()
+	effects.TransformOrigin = transformOriginSpec{
 		X:        originX - boxNode.x,
 		Y:        originY - boxNode.y,
 		XPercent: false,
 		YPercent: false,
 	}
-	style.editEffects().TransformBox = "border-box"
+	effects.TransformBox = "border-box"
 }
 
 // applyPerspectiveOverride replaces the perspective distance in layout points.
@@ -515,8 +666,9 @@ func (style *ResolvedStyle) applyPerspectiveOverride(distance float64) error {
 		return fmt.Errorf("%w: %g", errInvalidPerspective, distance)
 	}
 
-	style.editEffects().PerspectiveDist = distance
-	style.editEffects().HasPerspective = distance > 0
+	effects := style.restampEffects()
+	effects.PerspectiveDist = distance
+	effects.HasPerspective = distance > 0
 
 	return nil
 }
@@ -524,11 +676,12 @@ func (style *ResolvedStyle) applyPerspectiveOverride(distance float64) error {
 // applyPerspectiveOriginOverride replaces perspective-origin with the resolved
 // page point the caller hands back.
 func (style *ResolvedStyle) applyPerspectiveOriginOverride(boxNode *box, originX, originY float64) {
-	style.editEffects().PerspectiveOriginX = originX - boxNode.x
-	style.editEffects().PerspectiveOriginXPct = false
-	style.editEffects().PerspectiveOriginY = originY - boxNode.y
-	style.editEffects().PerspectiveOriginYPct = false
-	style.editEffects().PerspectiveOriginSet = true
+	effects := style.restampEffects()
+	effects.PerspectiveOriginX = originX - boxNode.x
+	effects.PerspectiveOriginXPct = false
+	effects.PerspectiveOriginY = originY - boxNode.y
+	effects.PerspectiveOriginYPct = false
+	effects.PerspectiveOriginSet = true
 }
 
 // restampStyleValues is the transform slice of a ResolvedStyle. It is a
@@ -587,7 +740,8 @@ type subtreeStamp struct {
 	box           *box
 	window        OpWindow
 	state         stampState
-	actions       []ancestorStamp
+	actionStart   int
+	actionEnd     int
 	perspAncestor *box
 }
 
@@ -633,21 +787,36 @@ func stampStateAt(root, target *box) (stampState, []ancestorStamp, bool) {
 // finds the ancestor chain without advancing stamp state on unrelated subtrees,
 // then advanceStamp runs only along that chain.
 func stampStateAtWithScratch(root, target *box, scratch *[]*box) (stampState, []ancestorStamp, *box, bool) {
-	if root == nil || target == nil {
+	var actions []ancestorStamp
+	current, perspAncestor, found := stampStateAtInto(root, target, scratch, &actions)
+	if !found {
 		return stampState{}, nil, nil, false
+	}
+
+	return current, actions, perspAncestor, true
+}
+
+// stampStateAtInto appends reversed ancestor stamps into *actions instead of
+// allocating a fresh slice per target.
+func stampStateAtInto(
+	root, target *box, scratch *[]*box, actions *[]ancestorStamp,
+) (stampState, *box, bool) {
+	if root == nil || target == nil {
+		return stampState{}, nil, false
 	}
 
 	*scratch = (*scratch)[:0]
 	if !findBoxAncestors(root, target, scratch) {
-		return stampState{}, nil, nil, false
+		return stampState{}, nil, false
 	}
 
 	ancestors := *scratch
 	current := initialStampState(IdentityMatrix())
 
-	var actions []ancestorStamp
+	start := len(*actions)
 	if len(ancestors) > 0 {
-		actions = make([]ancestorStamp, len(ancestors))
+		*actions = slices.Grow(*actions, len(ancestors))
+		*actions = (*actions)[:start+len(ancestors)]
 	}
 
 	var perspAncestor *box
@@ -658,11 +827,11 @@ func stampStateAtWithScratch(root, target *box, scratch *[]*box) (stampState, []
 		}
 
 		step := advanceStamp(boxNode, current)
-		actions[len(ancestors)-1-idx] = ancestorStamp{box: boxNode, step: step}
+		(*actions)[start+len(ancestors)-1-idx] = ancestorStamp{box: boxNode, step: step}
 		current = step.child
 	}
 
-	return current, actions, perspAncestor, true
+	return current, perspAncestor, true
 }
 
 // applyAncestorStamp replays one ancestor stamp over a restamped window.
@@ -748,9 +917,14 @@ func resetWindowTransforms(ops []Op, window OpWindow) {
 // savePristineGeometry records the operation before FinalizeDisplayOps rewrites
 // it into final geometry, so a restamp can project it again from its flat form.
 // The copy detaches the rare payload and clones the grid segments, which the
-// finalize pass rewrites in place.
+// finalize pass rewrites in place. When the operation already carries a saved
+// pristine snapshot from an earlier pass, it is reused without reallocating.
 func (op *Op) savePristineGeometry() {
 	if op == nil {
+		return
+	}
+
+	if op.opExtra != nil && op.opExtra != emptyExtra && op.opExtra.Pristine != nil {
 		return
 	}
 
@@ -765,14 +939,37 @@ func (op *Op) savePristineGeometry() {
 	extra.Pristine = &saved
 }
 
-// restorePristineGeometry puts the pre-finalize form of one operation back.
-// It reports whether a saved form existed.
+// restorePristineGeometry puts the pre-finalize form of one operation back
+// while keeping the op's own opExtra and its Pristine pointer intact, so the
+// next FinalizeDisplayOps reuses the saved snapshot with zero allocations.
 func restorePristineGeometry(op *Op) bool {
 	if op == nil || op.opExtra == nil || op.opExtra.Pristine == nil {
 		return false
 	}
 
-	*op = *op.opExtra.Pristine
+	extra := op.opExtra
+	pristine := extra.Pristine
+	grid := op.Grid
+
+	*op = *pristine
+	if pristine.opExtra != nil {
+		*extra = *pristine.opExtra
+	} else {
+		*extra = opExtra{}
+	}
+
+	extra.Pristine = pristine
+	op.opExtra = extra
+
+	if pristine.Grid != nil {
+		if grid != nil && grid != pristine.Grid && cap(grid.Segs) >= len(pristine.Grid.Segs) {
+			grid.Segs = grid.Segs[:len(pristine.Grid.Segs)]
+			copy(grid.Segs, pristine.Grid.Segs)
+			op.Grid = grid
+		} else {
+			op.Grid = cloneGridRun(pristine.Grid)
+		}
+	}
 
 	return true
 }
@@ -787,23 +984,75 @@ func cloneGridRun(run *GridRun) *GridRun {
 	return &GridRun{Segs: slices.Clone(run.Segs)}
 }
 
-// opBackup is one window's operations before the pass, for rollback.
-type opBackup struct {
-	start int
-	ops   []Op
-}
+// backupWindowInto records a window's operations into scratch so a failed pass
+// can roll them back without heap-allocating per op on the happy path.
+// FinalizeDisplayOps only mutates opExtra fields and Grid.Segs in place
+// (Path.Points, CornerPath, and Image slices are never mutated in place), so
+// saving value copies of Op, *opExtra, and Grid.Segs is sufficient for exact
+// rollback.
+func backupWindowInto(ops []Op, window OpWindow, scratch *restampScratch) {
+	count := window.End - window.Start + 1
+	opsStart := len(scratch.backupOps)
 
-// backupWindow copies a window's operations so a failed pass can put them
-// back. The clone detaches each rare payload, so restoring cannot alias state
-// the failed pass already mutated.
-func backupWindow(ops []Op, window OpWindow) opBackup {
-	backup := opBackup{start: window.Start, ops: make([]Op, window.End-window.Start+1)}
+	scratch.backupOps = slices.Grow(scratch.backupOps, count)
+	scratch.backupExtraIdx = slices.Grow(scratch.backupExtraIdx, count)
 
-	for idx := range backup.ops {
-		backup.ops[idx] = ops[window.Start+idx].Clone()
+	for idx := window.Start; idx <= window.End; idx++ {
+		op := ops[idx]
+		scratch.backupOps = append(scratch.backupOps, op)
+
+		if op.opExtra != nil && op.opExtra != emptyExtra {
+			extraIdx := len(scratch.backupExtras)
+			scratch.backupExtras = append(scratch.backupExtras, *op.opExtra)
+			scratch.backupExtraIdx = append(scratch.backupExtraIdx, extraIdx)
+		} else {
+			scratch.backupExtraIdx = append(scratch.backupExtraIdx, -1)
+		}
+
+		if op.Grid != nil {
+			segStart := len(scratch.backupGridSegs)
+			scratch.backupGridSegs = append(scratch.backupGridSegs, op.Grid.Segs...)
+			scratch.backupGrids = append(scratch.backupGrids, gridBackup{
+				opIdx:    idx,
+				segStart: segStart,
+				segLen:   len(op.Grid.Segs),
+			})
+		}
 	}
 
-	return backup
+	scratch.backupRanges = append(scratch.backupRanges, opBackupRange{
+		windowStart: window.Start,
+		opsStart:    opsStart,
+		opsLen:      count,
+	})
+}
+
+// restoreBackups rolls back every backed-up window in reverse order.
+func restoreBackups(ops []Op, scratch *restampScratch) {
+	for idx := len(scratch.backupRanges) - 1; idx >= 0; idx-- {
+		rng := scratch.backupRanges[idx]
+		for offset := range rng.opsLen {
+			k := rng.opsStart + offset
+			opIdx := rng.windowStart + offset
+			ops[opIdx] = scratch.backupOps[k]
+			if extraIdx := scratch.backupExtraIdx[k]; extraIdx >= 0 && ops[opIdx].opExtra != nil {
+				*ops[opIdx].opExtra = scratch.backupExtras[extraIdx]
+			}
+		}
+	}
+
+	for idx := len(scratch.backupGrids) - 1; idx >= 0; idx-- {
+		gb := scratch.backupGrids[idx]
+		if grid := ops[gb.opIdx].Grid; grid != nil {
+			if cap(grid.Segs) >= gb.segLen {
+				grid.Segs = grid.Segs[:gb.segLen]
+			} else {
+				grid.Segs = make([]GridSeg, gb.segLen)
+			}
+
+			copy(grid.Segs, scratch.backupGridSegs[gb.segStart:gb.segStart+gb.segLen])
+		}
+	}
 }
 
 // bounds is an axis-aligned box in layout points.

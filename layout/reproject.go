@@ -121,7 +121,10 @@ func RestampTransforms(
 		return nil, ErrNoRetainedState
 	}
 
-	restamped, err := ilayout.RestampTransforms(ctx, prev.result, engineOverrides(overrides), engineOptions(styled.Media))
+	var stackOverrides [8]ilayout.RestampOverride
+	engOverrides := engineOverrides(stackOverrides[:0], overrides)
+
+	restamped, err := ilayout.RestampTransforms(ctx, prev.result, engOverrides, engineOptions(styled.Media))
 	if err != nil {
 		return nil, restampError(err)
 	}
@@ -135,13 +138,18 @@ func RestampTransforms(
 	return restampElementPatch(prev, overrides, restamped), nil
 }
 
-// engineOverrides converts the public override list for the engine.
-func engineOverrides(overrides []TransformOverride) []ilayout.RestampOverride {
-	converted := make([]ilayout.RestampOverride, len(overrides))
+// engineOverrides converts the public override list for the engine, appending
+// into dst so small override lists stay on the caller's stack.
+func engineOverrides(dst []ilayout.RestampOverride, overrides []TransformOverride) []ilayout.RestampOverride {
+	if cap(dst) < len(overrides) {
+		dst = make([]ilayout.RestampOverride, len(overrides))
+	} else {
+		dst = dst[:len(overrides)]
+	}
 
 	for idx := range overrides {
 		override := &overrides[idx]
-		converted[idx] = ilayout.RestampOverride{
+		dst[idx] = ilayout.RestampOverride{
 			ElementID:            override.ElementID,
 			Transform:            override.Transform,
 			HasTransform:         override.HasTransform,
@@ -156,7 +164,7 @@ func engineOverrides(overrides []TransformOverride) []ilayout.RestampOverride {
 		}
 	}
 
-	return converted
+	return dst
 }
 
 // restampElementPatch builds the patch the host adopts: the patched display,
@@ -168,6 +176,8 @@ func restampElementPatch(
 	display := restampedDisplay(prev)
 
 	totalOps := 0
+	validCount := 0
+	onlyStart, onlyEnd := 0, 0
 	for _, window := range restamped.Windows {
 		end := min(window.End, len(display.Ops)-1)
 		if window.Start < 0 || window.Start > end {
@@ -175,19 +185,29 @@ func restampElementPatch(
 		}
 
 		totalOps += end - window.Start + 1
+		validCount++
+		onlyStart, onlyEnd = window.Start, end
 	}
 
-	ops := make([]DisplayOp, 0, totalOps)
-	owners := make([]int, 0, totalOps)
+	var ops []DisplayOp
+	var owners []int
 
-	for _, window := range restamped.Windows {
-		end := min(window.End, len(display.Ops)-1)
-		if window.Start < 0 || window.Start > end {
-			continue
+	if validCount == 1 {
+		ops = display.Ops[onlyStart : onlyEnd+1 : onlyEnd+1]
+		owners = display.OpOwners[onlyStart : onlyEnd+1 : onlyEnd+1]
+	} else if totalOps > 0 {
+		ops = make([]DisplayOp, 0, totalOps)
+		owners = make([]int, 0, totalOps)
+
+		for _, window := range restamped.Windows {
+			end := min(window.End, len(display.Ops)-1)
+			if window.Start < 0 || window.Start > end {
+				continue
+			}
+
+			ops = append(ops, display.Ops[window.Start:end+1]...)
+			owners = append(owners, display.OpOwners[window.Start:end+1]...)
 		}
-
-		ops = append(ops, display.Ops[window.Start:end+1]...)
-		owners = append(owners, display.OpOwners[window.Start:end+1]...)
 	}
 
 	return &ElementPatch{
@@ -285,10 +305,8 @@ func restampedBoxes(boxes []Box, overrides []TransformOverride) []Box {
 		}
 
 		end := boxSubtreeEnd(boxes, boxIndex)
-		out := make([]Box, end-boxIndex+1)
-		copy(out, boxes[boxIndex:end+1])
 
-		return out
+		return boxes[boxIndex : end+1 : end+1]
 	}
 
 	var stackRanges [8]indexRange
@@ -315,29 +333,34 @@ func restampedBoxes(boxes []Box, overrides []TransformOverride) []Box {
 
 	slices.SortFunc(ranges, func(left, right indexRange) int { return left.start - right.start })
 
-	total := 0
-	next := -1
-	for _, item := range ranges {
-		start := max(item.start, next)
-		if start > item.end {
+	// Merge overlapping or adjacent ranges in place so nested or contiguous
+	// overrides avoid allocating a copy when they cover a single run.
+	merged := ranges[:1]
+	for _, item := range ranges[1:] {
+		last := &merged[len(merged)-1]
+		if item.start <= last.end+1 {
+			if item.end > last.end {
+				last.end = item.end
+			}
+
 			continue
 		}
 
-		total += item.end - start + 1
-		next = item.end + 1
+		merged = append(merged, item)
+	}
+
+	if len(merged) == 1 {
+		return boxes[merged[0].start : merged[0].end+1 : merged[0].end+1]
+	}
+
+	total := 0
+	for _, item := range merged {
+		total += item.end - item.start + 1
 	}
 
 	out := make([]Box, 0, total)
-	next = -1
-
-	for _, item := range ranges {
-		start := max(item.start, next)
-		if start > item.end {
-			continue
-		}
-
-		out = append(out, boxes[start:item.end+1]...)
-		next = item.end + 1
+	for _, item := range merged {
+		out = append(out, boxes[item.start:item.end+1]...)
 	}
 
 	return out

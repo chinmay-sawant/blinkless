@@ -88,7 +88,97 @@ func WalkPlacedWithOptions(res *Result, opts WalkPlacedOptions, fn func(elem *Pl
 	scroll := placedScrollContext{parent: nil, blocked: false, scale: opts.LayoutScale}
 	page := placedScroller{set: false, id: ""}
 
-	walkPlacedFunc(res.root, res.Ops, -1, IdentityMatrix(), viewport, fn, &allIDs, 0, &item, opts, scroll, page)
+	var textIdx *placedTextIndex
+	if opts.IncludeText && res.root.node != nil {
+		textIdx = buildPlacedTextIndex(res.root.node)
+	}
+
+	walkPlacedFunc(res.root, res.Ops, -1, IdentityMatrix(), viewport, fn, &allIDs, 0, &item, opts, scroll, page, textIdx)
+}
+
+const maxPlacedTextIndexDepth = 256
+
+// placedTextIndex precomputes a single flat document-text buffer and per-node
+// byte spans in one O(N) walk so WalkPlacedWithOptions with IncludeText does
+// not repeatedly walk the entire descendant subtree for every ancestor box.
+type placedTextIndex struct {
+	full  string
+	spans map[*html.Node][2]int
+}
+
+func buildPlacedTextIndex(root *html.Node) *placedTextIndex {
+	if root == nil {
+		return nil
+	}
+
+	var b strings.Builder
+
+	spans := make(map[*html.Node][2]int)
+
+	var walk func(n *html.Node, depth int) bool
+	walk = func(n *html.Node, depth int) bool {
+		if depth > maxPlacedTextIndexDepth {
+			return false
+		}
+
+		switch n.Type {
+		case html.TextNode:
+			b.WriteString(n.Text)
+		case html.ElementNode:
+			start := b.Len()
+			for _, c := range n.Children {
+				if !walk(c, depth+1) {
+					return false
+				}
+			}
+
+			end := b.Len()
+			if len(n.Children) > 1 || (len(n.Children) == 1 && n.Children[0].Type != html.TextNode) {
+				if n.Name != "template" {
+					spans[n] = [2]int{start, end}
+				}
+			}
+		case html.CommentNode, html.DoctypeNode, html.NodeUnknown:
+			return true
+		}
+
+		return true
+	}
+
+	if !walk(root, 0) {
+		return nil
+	}
+
+	return &placedTextIndex{
+		full:  b.String(),
+		spans: spans,
+	}
+}
+
+func (idx *placedTextIndex) textOf(n *html.Node) string {
+	if n == nil {
+		return ""
+	}
+
+	if len(n.Children) == 0 {
+		if n.Type == html.TextNode {
+			return n.Text
+		}
+
+		return ""
+	}
+
+	if len(n.Children) == 1 && n.Children[0].Type == html.TextNode {
+		return n.Children[0].Text
+	}
+
+	if idx != nil {
+		if span, ok := idx.spans[n]; ok {
+			return idx.full[span[0]:span[1]]
+		}
+	}
+
+	return n.TextContent()
 }
 
 func estimatePlacedOpIDs(res *Result) int {
@@ -154,6 +244,7 @@ func walkPlacedFunc(
 	boxNode *box, ops []Op, parentIndex int, parentAccum Matrix2D, viewport svgViewport,
 	fn func(elem *PlacedElement), allIDs *[]uint64, index int, item *PlacedElement,
 	opts WalkPlacedOptions, scroll placedScrollContext, scroller placedScroller,
+	textIdx *placedTextIndex,
 ) int {
 	if boxNode == nil {
 		return index
@@ -168,7 +259,7 @@ func walkPlacedFunc(
 	}
 
 	if boxNode.node != nil && boxNode.node.Type == html.ElementNode {
-		fillPlacedElement(item, boxNode, info, parentIndex, ops, allIDs, opts, scroll, scroller)
+		fillPlacedElement(item, boxNode, info, parentIndex, ops, allIDs, opts, scroll, scroller, textIdx)
 
 		childParent = index
 		index++
@@ -185,7 +276,7 @@ func walkPlacedFunc(
 	for _, child := range boxNode.children {
 		index = walkPlacedFunc(
 			child, ops, childParent, childAccum, childViewport, fn, allIDs, index, item, opts,
-			childScroll, scrollerBelow(boxNode, scroller),
+			childScroll, scrollerBelow(boxNode, scroller), textIdx,
 		)
 	}
 
@@ -232,6 +323,7 @@ func fillPlacedMeta(
 func fillPlacedElement(
 	item *PlacedElement, boxNode *box, info TransformInfo, parentIndex int, ops []Op,
 	allIDs *[]uint64, opts WalkPlacedOptions, scroll placedScrollContext, scroller placedScroller,
+	textIdx *placedTextIndex,
 ) {
 	sty := boxNode.style
 	elementID := boxNode.node.AttrExact("id")
@@ -271,7 +363,7 @@ func fillPlacedElement(
 	}
 
 	if opts.IncludeText {
-		item.Text = boxNode.node.TextContent()
+		item.Text = textIdx.textOf(boxNode.node)
 	}
 }
 
@@ -662,7 +754,7 @@ func walkPatchedSubtreeBoxes(
 
 			curIdx++
 		},
-		allIDs, patch.baseIdx, item, opts, scroll, scroller,
+		allIDs, patch.baseIdx, item, opts, scroll, scroller, nil,
 	)
 
 	return oldText, newText, rootTextChanged, endIdx == patch.baseIdx+patch.newElem
