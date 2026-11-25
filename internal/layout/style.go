@@ -695,7 +695,7 @@ func styleInternEqualStringMap(a, b map[string]string) bool {
 
 func styleInternHashStringMapCached(h uint64, m map[string]string, cache *styleMapHashCache) uint64 {
 	if m == nil {
-		return (h ^ 0) * styleInternPrime
+		return h * styleInternPrime
 	}
 
 	if cache != nil && len(m) > 0 {

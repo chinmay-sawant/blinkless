@@ -11,6 +11,6 @@ internal/html/tree.go	2168
 internal/layout/flex.go	2203
 internal/layout/inline_paint.go	2239
 internal/layout/layout.go	2653
-internal/layout/relayout_subtree.go	3050
+internal/layout/relayout_subtree.go	3195
 internal/layout/style_value_accept.go	2049
 internal/layout/transform.go	2040
