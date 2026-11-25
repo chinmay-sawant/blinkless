@@ -2,6 +2,7 @@ package layout
 
 import (
 	"context"
+	"maps"
 
 	"github.com/chinmay-sawant/blinkless/internal/html"
 )
@@ -30,6 +31,10 @@ func tryAbsTranslate(
 	}
 
 	if absSubtreeHasTables(target.box) {
+		return false
+	}
+
+	if absOpsNeedFullRelayout(prev.Ops, start, count) {
 		return false
 	}
 
@@ -165,6 +170,24 @@ func absSubtreeHasTables(b *box) bool {
 
 	for _, c := range b.children {
 		if absSubtreeHasTables(c) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// absOpsNeedFullRelayout reports whether any op in the window carries geometry
+// that shiftOpX/shiftOpY does not translate (vector paths, corner paths, baked
+// transforms, or projective transforms).
+func absOpsNeedFullRelayout(ops []Op, start, count int) bool {
+	end := min(start+count, len(ops))
+	for k := start; k < end; k++ {
+		op := &ops[k]
+		if op.XformSet {
+			return true
+		}
+		if op.opExtra != nil && (op.opExtra.HasPath || op.opExtra.CornerPath != nil || op.opExtra.HasProjective) {
 			return true
 		}
 	}
@@ -309,6 +332,11 @@ func commitAbsTranslate(
 
 	if dx != 0 || dy != 0 {
 		for k := start; k < start+count && k < len(prev.Ops); k++ {
+			if prev.Ops[k].Grid != nil {
+				g := *prev.Ops[k].Grid
+				g.Segs = append([]GridSeg(nil), g.Segs...)
+				prev.Ops[k].Grid = &g
+			}
 			shiftOpX(&prev.Ops[k], dx)
 			shiftOpY(&prev.Ops[k], dy)
 		}
@@ -316,6 +344,10 @@ func commitAbsTranslate(
 
 	newBox := cloneBoxSubtreeShifted(target.box, dx, dy)
 	newBox.style = restyledBoxStyle(newBox.style, prev.styles[node], fresh)
+	if prev.stylesShared {
+		prev.styles = maps.Clone(prev.styles)
+		prev.stylesShared = false
+	}
 	prev.styles[node] = fresh
 
 	for _, child := range node.Children {

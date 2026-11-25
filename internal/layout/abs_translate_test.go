@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -11,7 +12,7 @@ func TestRelayoutSubtreesAbsTranslate(t *testing.T) {
 html,body{margin:0;padding:0}
 #shell{position:relative;width:800px;height:600px;overflow:hidden}
 #layer{position:fixed;left:40px;top:100px;width:0;height:0;z-index:25}
-.card{display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;background:#ffffff;border:1px solid #d4d4d4}
+.card{display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;background:#ffffff;border:1px solid #d4d4d4;border-radius:4px;box-shadow:0 4px 12px #0000002e}
 .head{display:flex;height:24px;padding:0 8px;background:#f3f2f1}
 .body{flex:1;padding:8px}
 `
@@ -64,5 +65,9 @@ html,body{margin:0;padding:0}
 		if !relayoutSameGeometry(got, want) {
 			t.Fatalf("box %q = %+v, want %+v", id, *got, *want)
 		}
+	}
+
+	if !reflect.DeepEqual(relayoutStripIDs(clone.Ops), relayoutStripIDs(full.Ops)) {
+		t.Fatalf("translated ops differ from full layout:\ngot:  %d ops\nwant: %d ops", len(clone.Ops), len(full.Ops))
 	}
 }
