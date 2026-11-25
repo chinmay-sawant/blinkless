@@ -76,3 +76,25 @@ func (c *SheetCache) noteImport(key importKey, sheet cachedSheet) {
 
 	c.imports[key] = sheet
 }
+
+// noteViewportGating records that stylesheet collection encountered a <link
+// media> or @import media query whose inclusion can vary with viewport size.
+func (c *SheetCache) noteViewportGating() {
+	if c == nil {
+		return
+	}
+
+	c.viewportGating.Store(true)
+}
+
+// HasViewportGating reports whether any collected <link> or @import rule in
+// this tree carried a media query. When false, a viewport-only relayout over
+// an untouched tree produces the same sheet list and font registry without
+// walking the DOM again.
+func (c *SheetCache) HasViewportGating() bool {
+	if c == nil {
+		return true
+	}
+
+	return c.viewportGating.Load()
+}

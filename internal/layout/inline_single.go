@@ -36,9 +36,10 @@ func (e *engine) layoutSingleTextRun(
 		return 0, false
 	}
 
-	line := []inlineItem{item}
+	var line [1]inlineItem
+	line[0] = item
 
-	return e.emitLine(boxNode, line, 0, 1, contentW, contentX, lineY, true, true), true
+	return e.emitLine(boxNode, line[:], 0, 1, contentW, contentX, lineY, true, true), true
 }
 
 // singleTextRunItem resolves the one text run a block's inline content must
@@ -51,13 +52,13 @@ func (e *engine) singleTextRunItem(boxNode *box, nodes []*html.Node) (inlineItem
 		return inlineItem{}, false
 	}
 
-	text := singleTextRunText(textNode.Text, textStyle)
-	if text == "" {
+	ctx := e.resolveInlineTextCtx(textNode)
+	if ctx.vertical || ctx.atomic {
 		return inlineItem{}, false
 	}
 
-	ctx := e.resolveInlineTextCtx(textNode)
-	if ctx.vertical || ctx.atomic {
+	text := singleTextRunText(textNode.Text, boxNode.style, textStyle, ctx.chromeApplies)
+	if text == "" {
 		return inlineItem{}, false
 	}
 
@@ -260,19 +261,45 @@ func singleTextRunAlignmentOK(textStyle *ResolvedStyle) bool {
 		(textStyle.inlineText().VerticalAlign == "" || textStyle.inlineText().VerticalAlign == baselineName)
 }
 
-// singleTextRunText returns the one word the collector would emit for raw, or
-// "" when the node does not collect to exactly one item. Normal white-space
-// collapses the text and splits on ASCII spaces, so any internal separator
-// means several word items. A soft hyphen is a break opportunity that can
-// change the emitted text even when the item fits.
-func singleTextRunText(raw string, style *ResolvedStyle) string {
+// singleTextRunText returns the one collapsed run the collector would emit for
+// raw when the whole phrase can paint as a single line without word splitting,
+// or "" when the generic path must handle it. Single-word runs keep the full
+// Unicode fast path; multi-word ASCII phrases also take the fast path when
+// coalescing would merge them back into one item anyway (no justification,
+// -webkit-box, inline chrome, kerning, or word-space-transform) and the caller
+// verifies the whole phrase fits on one line.
+func singleTextRunText(raw string, blockStyle, style *ResolvedStyle, chromeApplies bool) string {
 	if raw == "" || style == nil {
 		return ""
 	}
 
 	text := strings.TrimLeft(collapseWS(raw), " ")
-	if text == "" || strings.IndexByte(text, ' ') >= 0 || strings.ContainsRune(text, softHyphenRune) {
+	if text == "" {
 		return ""
+	}
+
+	if strings.IndexByte(text, ' ') < 0 {
+		if strings.ContainsRune(text, softHyphenRune) {
+			return ""
+		}
+
+		return text
+	}
+
+	if chromeApplies || kernTextWidth(style) || wordSpaceReplacement(style) != 0 || isHTMLSpace(raw[len(raw)-1]) {
+		return ""
+	}
+
+	if blockStyle != nil && (blockStyle.TextAlign == cssTextAlignJustify ||
+		blockStyle.inlineText().TextAlignLast == cssTextAlignJustify ||
+		blockStyle.flex().IsWebkitBox) {
+		return ""
+	}
+
+	for i := range len(text) {
+		if text[i] >= nonASCIIStart {
+			return ""
+		}
 	}
 
 	return text

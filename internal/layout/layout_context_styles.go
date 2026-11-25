@@ -69,16 +69,22 @@ func layoutContextWithStyles(
 	var (
 		containers  map[*html.Node]sizeContainer
 		storeChunks [][]ResolvedStyle
+		opCap       int
 	)
 
 	if styles == nil || css.HasContainerRules(opts.Sheets) {
-		styles, containers, storeChunks, err = resolveStylesForLayoutContextChunks(ctx, root, opts)
+		var elemCount int
+		styles, containers, storeChunks, elemCount, err = resolveStylesForLayoutContextChunks(ctx, root, opts)
 		if err != nil {
 			return nil, fmt.Errorf("layout: style resolution: %w", err)
 		}
+
+		opCap = estimateOpCapacityFromCount(elemCount)
+	} else {
+		opCap = estimateOpCapacity(root)
 	}
 
-	ops := workspaceOps(workspace, estimateOpCapacity(root))
+	ops := workspaceOps(workspace, opCap)
 
 	eng := newEngine(ctx, opts, faces, font, styles, containers, ops)
 	eng.storeChunks = storeChunks

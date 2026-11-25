@@ -148,8 +148,13 @@ func (e *engine) emitInlineText(
 	gapAfter bool, und *undRun,
 ) float64 {
 	child := item.style.Color
-	size := usedFontSize(item.style, e.faceFor(item.style)) * e.scale
-	ascent, descent := e.inlineFontMetrics(item.text, item.style)
+	primary := e.faceFor(item.style)
+	if primary == nil {
+		primary = e.font
+	}
+
+	size := usedFontSize(item.style, primary) * e.scale
+	ascent, descent, allPrimary := e.inlineFontMetricsWithPrimary(item.text, item.style, primary)
 
 	if ascent+descent < size*0.5 {
 		// Fallback when font metrics are missing — keep hit targets usable.
@@ -175,7 +180,11 @@ func (e *engine) emitInlineText(
 	leftX += chromeLeft
 
 	if _, ok := textOverflowMarker(item.style.inlineText().TextOverflow); ok {
+		prevText := item.text
 		e.applyEllipsis(item)
+		if item.text != prevText {
+			allPrimary = primary != nil && faceRunAllPrimary(item.text, primary)
+		}
 	}
 
 	runStart := leftX
@@ -197,7 +206,7 @@ func (e *engine) emitInlineText(
 
 	var runSpan float64
 
-	leftX, runSpan = e.emitTextRuns(item, leftX, textBaseline, shiftedBaseline, size, ascent, descent)
+	leftX, runSpan = e.emitTextRunsKnown(item, primary, allPrimary, leftX, textBaseline, shiftedBaseline, size, ascent, descent)
 
 	// Decorations: one stroke per logical link run on this line (not per
 	// face-run / nested style chunk). Thin stroke ~5% em, clamped for
@@ -237,6 +246,22 @@ func (e *engine) emitInlineFaceRuns(
 	}
 
 	return leftX, runSpan
+}
+
+// emitInlineFaceRunsKnown is emitInlineFaceRuns when the caller already
+// resolved primary and verified faceRunAllPrimary during inlineFontMetrics,
+// avoiding a duplicate faceFor and sharedTextCoverage lock per text op.
+func (e *engine) emitInlineFaceRunsKnown(
+	item *inlineItem, primary *pdf.Font, allPrimary bool, leftX, textBaseline, size, ascent, descent float64,
+) (float64, float64) {
+	if allPrimary && item.text != "" && item.style != nil {
+		run := e.buildPrimaryFaceRun(item.text, item.style, primary)
+		e.emitInlineTextRun(item, run, leftX, textBaseline, size, ascent, descent)
+
+		return leftX + run.w, run.w
+	}
+
+	return e.emitInlineFaceRuns(item, leftX, textBaseline, size, ascent, descent)
 }
 
 func (e *engine) paintInlineChrome(item *inlineItem, leftX, baseline, ascent, descent, contentWidth float64) {
@@ -1651,17 +1676,25 @@ func (e *engine) measureTextFaceUncached(cssSheet string, sty *ResolvedStyle, pr
 func (e *engine) accumulateTextFaceWidth(
 	cssSheet string, sty *ResolvedStyle, primary *pdf.Font, size float64,
 ) (float64, int, int) {
+	// Hoist the per-run decisions and primary scaled face out of the per-rune
+	// loop: one autospace read, one emoji check, and one SharedScaledFace lock
+	// serve the whole run.
+	auto := autospaceForRun(sty)
+	emRun := emojiRunFor(sty, size)
+	primaryScaled := pdf.SharedScaledFace(primary, size)
+
+	if !auto.enabled && !emRun.active {
+		if total, spaceCount, ok := primaryScaled.MeasureSimpleASCII(cssSheet); ok {
+			return total, len(cssSheet), spaceCount
+		}
+	}
+
 	var total float64
 
 	runeCount := 0
 	spaceCount := 0
 
 	var prev rune
-
-	// Hoist the per-run decisions out of the per-rune loop: one autospace
-	// read and one emoji check serve the whole run.
-	auto := autospaceForRun(sty)
-	emRun := emojiRunFor(sty, size)
 
 	for _, runic := range cssSheet {
 		if runic == softHyphenRune || isVariationSelector(runic) {
@@ -1678,15 +1711,22 @@ func (e *engine) accumulateTextFaceWidth(
 			continue
 		}
 
-		face := primary
-		if !isRuneWhitespace(runic) && primary.GlyphID(runic) == 0 {
-			face = e.faceForRuneFallback(sty, runic, primary)
+		var adv float64
+		if isRuneWhitespace(runic) || primary.GlyphID(runic) != 0 {
+			adv = primaryScaled.Advance(runic)
+		} else {
+			face := e.faceForRuneFallback(sty, runic, primary)
 			if face == nil {
 				face = e.font
 			}
+
+			if face == primary {
+				adv = primaryScaled.Advance(runic)
+			} else {
+				adv = scaledAdvance(face, size, runic)
+			}
 		}
 
-		adv := scaledAdvance(face, size, runic)
 		if em := emRun.advance(runic); em > adv {
 			adv = em
 		}
@@ -1856,6 +1896,10 @@ func (e *engine) primaryFaceRun(cssSheet string, sty *ResolvedStyle) (faceRun, b
 		return faceRun{}, false
 	}
 
+	return e.buildPrimaryFaceRun(cssSheet, sty, primary), true
+}
+
+func (e *engine) buildPrimaryFaceRun(cssSheet string, sty *ResolvedStyle, primary *pdf.Font) faceRun {
 	size := sty.FontSize * e.scale
 	paintText := paintTextOf(cssSheet, sty.inlineText().TextTransform)
 	painted := primaryPaintedText(cssSheet, paintText, sty)
@@ -1864,7 +1908,7 @@ func (e *engine) primaryFaceRun(cssSheet string, sty *ResolvedStyle) (faceRun, b
 	// transformed string through the same cache, so a hit skips the
 	// per-rune loop below. The loop stays as the miss fallback.
 	if width, ok := e.cachedPaintRunWidth(sty, primary, size, paintText); ok {
-		return primaryFaceRunValue(cssSheet, primary, width, painted), true
+		return primaryFaceRunValue(cssSheet, primary, width, painted)
 	}
 
 	width := e.primaryRunWidth(primary, paintText, sty, size)
@@ -1878,7 +1922,7 @@ func (e *engine) primaryFaceRun(cssSheet string, sty *ResolvedStyle) (faceRun, b
 		storeSharedTextWidthFor(key, e.scale, width, e.testCfg.sharedTextBound())
 	}
 
-	return primaryFaceRunValue(cssSheet, primary, width, painted), true
+	return primaryFaceRunValue(cssSheet, primary, width, painted)
 }
 
 // primaryPaintedText returns the stored paint string. It follows the original
@@ -1906,8 +1950,17 @@ func primaryFaceRunValue(cssSheet string, primary *pdf.Font, width float64, pain
 // primaryRunWidth sums the advances, autospace gaps, and letter/word spacing
 // of one primary-face run.
 func (e *engine) primaryRunWidth(primary *pdf.Font, paintText string, sty *ResolvedStyle, size float64) float64 {
-	// One autospace read serves every boundary in this run.
+	// One autospace read and one scaled-face lookup serve every boundary in this run.
 	auto := autospaceForRun(sty)
+	primaryScaled := pdf.SharedScaledFace(primary, size)
+
+	if !auto.enabled {
+		if width, spaceCount, ok := primaryScaled.MeasureSimpleASCII(paintText); ok {
+			return width + sty.inlineText().LetterSpacing*e.scale*float64(len(paintText)) +
+				sty.inlineText().WordSpacing*e.scale*float64(spaceCount) +
+				e.textKerningAdjustment(paintText, sty, primary, size, false)
+		}
+	}
 
 	var width float64
 
@@ -1920,7 +1973,7 @@ func (e *engine) primaryRunWidth(primary *pdf.Font, paintText string, sty *Resol
 		if runic == '\t' {
 			width += e.tabStopAdvance(sty, primary, size)
 		} else {
-			width += scaledAdvance(primary, size, runic)
+			width += primaryScaled.Advance(runic)
 		}
 
 		width += auto.gap(prev, runic, size)
@@ -1985,8 +2038,19 @@ func faceRunAllPrimary(cssSheet string, primary *pdf.Font) bool {
 
 // faceRunAllPrimaryUncached is the direct per-rune GlyphID scan.
 func faceRunAllPrimaryUncached(cssSheet string, primary *pdf.Font) bool {
-	for _, runic := range cssSheet {
-		if !isRuneWhitespace(runic) && primary.GlyphID(runic) == 0 {
+	for i := range len(cssSheet) {
+		b := cssSheet[i]
+		if b >= 0x80 {
+			for _, runic := range cssSheet[i:] {
+				if !isRuneWhitespace(runic) && primary.GlyphID(runic) == 0 {
+					return false
+				}
+			}
+
+			return true
+		}
+
+		if b != ' ' && b != '\t' && b != '\n' && b != '\r' && primary.GlyphID(rune(b)) == 0 {
 			return false
 		}
 	}
@@ -2023,21 +2087,34 @@ func (e *engine) inlineFontMetrics(text string, style *ResolvedStyle) (float64, 
 		return 0, 0
 	}
 
-	size := style.FontSize * e.scale
 	primary := e.faceFor(style)
-
 	if primary == nil {
 		primary = e.font
 	}
 
-	if text == "" || (primary != nil && faceRunAllPrimary(text, primary)) {
-		return e.fontAscentFace(primary, size), e.fontDescentFace(primary, size)
+	ascent, descent, _ := e.inlineFontMetricsWithPrimary(text, style, primary)
+
+	return ascent, descent
+}
+
+func (e *engine) inlineFontMetricsWithPrimary(text string, style *ResolvedStyle, primary *pdf.Font) (float64, float64, bool) {
+	if style == nil {
+		return 0, 0, false
+	}
+
+	size := style.FontSize * e.scale
+	if text == "" {
+		return e.fontAscentFace(primary, size), e.fontDescentFace(primary, size), true
+	}
+
+	if primary != nil && faceRunAllPrimary(text, primary) {
+		return e.fontAscentFace(primary, size), e.fontDescentFace(primary, size), true
 	}
 
 	runs := e.splitTextByFace(text, style)
 
 	if len(runs) == 0 {
-		runs = []faceRun{{face: e.faceFor(style)}}
+		runs = []faceRun{{face: primary}}
 	}
 
 	maxAscent, maxDescent := 0.0, 0.0
@@ -2055,7 +2132,7 @@ func (e *engine) inlineFontMetrics(text string, style *ResolvedStyle) (float64, 
 		}
 	}
 
-	return maxAscent, maxDescent
+	return maxAscent, maxDescent, false
 }
 
 // isExternalHref reports whether a link target is an absolute URI

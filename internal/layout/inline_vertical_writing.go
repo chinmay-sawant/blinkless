@@ -1,6 +1,10 @@
 package layout
 
-import "strings"
+import (
+	"strings"
+
+	pdf "github.com/chinmay-sawant/blinkless/internal/fonts"
+)
 
 // emitVerticalUprightRun paints a rotation-0 text run inside a vertical
 // writing column and reports whether it handled the run. Two shapes exist:
@@ -53,16 +57,17 @@ func (e *engine) emitUprightColumn(
 	return item.w
 }
 
-// emitTextRuns chooses the vertical upright/combined emitter or the shared
-// face-run path and returns the updated x cursor and the painted span.
-func (e *engine) emitTextRuns(
-	item *inlineItem, leftX, textBaseline, uprightBaseline, size, ascent, descent float64,
+// emitTextRunsKnown chooses the vertical upright/combined emitter or the shared
+// face-run path with pre-resolved primary face/coverage and returns the updated
+// x cursor and the painted span.
+func (e *engine) emitTextRunsKnown(
+	item *inlineItem, primary *pdf.Font, allPrimary bool, leftX, textBaseline, uprightBaseline, size, ascent, descent float64,
 ) (float64, float64) {
 	if span, ok := e.emitVerticalUprightRun(item, leftX, uprightBaseline, size, ascent, descent); ok {
 		return leftX + item.w, span
 	}
 
-	return e.emitInlineFaceRuns(item, leftX, textBaseline, size, ascent, descent)
+	return e.emitInlineFaceRunsKnown(item, primary, allPrimary, leftX, textBaseline, size, ascent, descent)
 }
 
 // noteRotatedRun records the widest rotated run advance seen in the current

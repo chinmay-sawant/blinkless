@@ -33,10 +33,12 @@ type RuleSel struct {
 // the same per pseudo-element name so a ::before lookup skips when only
 // ::after rules declare content (and vice versa).
 type RuleIndex struct {
-	host          ruleBucket
-	pseudo        map[string]*ruleBucket
-	content       bool
-	contentPseudo map[string]bool
+	host              ruleBucket
+	pseudo            map[string]*ruleBucket
+	content           bool
+	contentPseudo     map[string]bool
+	usedIDs           map[string]struct{}
+	hasIDAttrSelector bool
 }
 
 // ruleBucket groups selectors by the rightmost compound's strongest key: an
@@ -95,6 +97,55 @@ func NewRuleIndex(sheets []*css.Stylesheet) *RuleIndex {
 	populateRuleBuckets(index, sheets)
 
 	return index
+}
+
+func (idx *RuleIndex) recordSelectorIDUsage(parts []css.SelectorPart) {
+	for i := range parts {
+		part := &parts[i]
+		if part.ID != "" {
+			if idx.usedIDs == nil {
+				idx.usedIDs = make(map[string]struct{})
+			}
+			idx.usedIDs[part.ID] = struct{}{}
+		}
+
+		for j := range part.Attrs {
+			if strings.EqualFold(part.Attrs[j].Name, "id") {
+				idx.hasIDAttrSelector = true
+			}
+		}
+
+		for j := range part.Pseudos {
+			pseudo := &part.Pseudos[j]
+			for k := range pseudo.Has {
+				idx.recordSelectorIDUsage(pseudo.Has[k].Parts)
+			}
+			for k := range pseudo.Not {
+				idx.recordSelectorIDUsage(pseudo.Not[k].Parts)
+			}
+			for k := range pseudo.Is {
+				idx.recordSelectorIDUsage(pseudo.Is[k].Parts)
+			}
+		}
+	}
+}
+
+// UsesID reports whether any selector in the indexed sheets references #id
+// anywhere in its compound or functional pseudo-class parts.
+func (idx *RuleIndex) UsesID(id string) bool {
+	if idx == nil || id == "" || len(idx.usedIDs) == 0 {
+		return false
+	}
+
+	_, ok := idx.usedIDs[id]
+
+	return ok
+}
+
+// HasIDAttrSelector reports whether any selector in the indexed sheets tests
+// the "id" attribute via an attribute selector (e.g. [id], [id^="row-"]).
+func (idx *RuleIndex) HasIDAttrSelector() bool {
+	return idx != nil && idx.hasIDAttrSelector
 }
 
 // countRuleSelectors counts selectors per bucket and key, and records which
@@ -248,6 +299,7 @@ func populateRuleBuckets(index *RuleIndex, sheets []*css.Stylesheet) {
 				last := sel.Parts[len(sel.Parts)-1]
 				bucket := index.bucket(last.PseudoElement)
 				bucket.add(RuleSel{Sheet: sheetIndex, Rule: rule, Sel: selectorIndex}, last)
+				index.recordSelectorIDUsage(sel.Parts)
 			}
 		}
 	}

@@ -1,7 +1,7 @@
 package layout
 
 import (
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/chinmay-sawant/blinkless/internal/html"
@@ -124,7 +124,7 @@ func autoRowHeightHazard(child *ResolvedStyle) bool {
 // gridJustifyEligible reports whether the item's inline justify leaves the
 // item at the cell width.
 func gridJustifyEligible(child *ResolvedStyle, containerJustify string) bool {
-	justify := gridItemJustify(*child, containerJustify)
+	justify := gridItemJustifyPtr(child, containerJustify)
 
 	return justify == "" || justify == fxStretch || justify == "auto"
 }
@@ -174,19 +174,21 @@ func autoRowPlacementSequential(placed []gridCell) bool {
 // definite item height. The chrome-only stretch cannot resolve those without
 // laying the subtree out again.
 func itemHasStretchHazard(eng *engine, node *html.Node) bool {
-	hazard := false
+	return subtreeHasStretchHazard(eng, node)
+}
 
-	node.Walk(func(child *html.Node) {
-		if hazard || child.Type != html.ElementNode || child == node {
-			return
+func subtreeHasStretchHazard(eng *engine, parent *html.Node) bool {
+	for _, child := range parent.Children {
+		if child.Type == html.ElementNode && styleHasStretchHazard(eng.stylePtr(child)) {
+			return true
 		}
 
-		if styleHasStretchHazard(eng.stylePtr(child)) {
-			hazard = true
+		if len(child.Children) > 0 && subtreeHasStretchHazard(eng, child) {
+			return true
 		}
-	})
+	}
 
-	return hazard
+	return false
 }
 
 // styleHasStretchHazard reports whether one style needs a real layout at the
@@ -213,9 +215,10 @@ func (e *engine) layoutAutoRowGrid(
 	var noAreas gridTemplateAreasMap
 
 	numRows := gridRowCount(placed, noAreas)
-	rowItems := autoRowItemsByRow(placed, numRows)
 	items := make([]autoRowBuiltItem, len(placed))
-	rows := make([]float64, numRows)
+
+	rows := rentFloats(numRows)
+	defer returnFloats(rows)
 
 	containerJustify := sty.flex().JustifyItems
 	if containerJustify == "" {
@@ -227,12 +230,21 @@ func (e *engine) layoutAutoRowGrid(
 		containerAlign = fxStretch
 	}
 
+	var stretches []autoRowStretch
+
 	rowTop := curY
+	placedIdx := 0
 
 	for row := range numRows {
+		rowStart := placedIdx
+		for placedIdx < len(placed) && placed[placedIdx].row == row {
+			placedIdx++
+		}
+
+		rowEnd := placedIdx
 		maxH := 0.0
 
-		for _, idx := range rowItems[row] {
+		for idx := rowStart; idx < rowEnd; idx++ {
 			item := e.buildAutoRowItem(&placed[idx], cols, columnGap, contentX, posY, rowTop, containerJustify)
 			if item.b == nil {
 				continue
@@ -246,13 +258,15 @@ func (e *engine) layoutAutoRowGrid(
 		}
 
 		rows[row] = maxH
-		e.applyAutoRowStretch(rowItems[row], items, containerAlign, maxH, posY, rowTop)
+		stretches = e.applyAutoRowStretch(rowStart, rowEnd, items, stretches[:0], containerAlign, maxH, posY, rowTop)
 		rowTop += maxH + rowGap
 	}
 
 	e.appendAutoRowBoxes(boxNode, items)
 
-	rowYs := gridRowTops(curY, rows, rowGap, contentH, sty.flex().AlignContent)
+	rowYs := rentFloats(numRows)
+	defer returnFloats(rowYs)
+	gridRowTopsInto(rowYs, curY, rows, rowGap, contentH, sty.flex().AlignContent)
 
 	e.shiftAutoRowBoxes(placed, items, rowYs, posY)
 	e.paintGridGapRules(sty, placed, contentX, contentW, cols, columnGap, rowYs, rows, posY)
@@ -265,20 +279,13 @@ func (e *engine) layoutAutoRowGrid(
 	return boxNode
 }
 
-// autoRowItemsByRow groups placed indexes by their row.
-func autoRowItemsByRow(placed []gridCell, numRows int) [][]int {
-	rowItems := make([][]int, numRows)
-
-	for index := range placed {
-		rowItems[placed[index].row] = append(rowItems[placed[index].row], index)
-	}
-
-	return rowItems
-}
-
 // appendAutoRowBoxes appends the built items to the grid box in placement
 // order, skipping items that produced no box.
 func (e *engine) appendAutoRowBoxes(boxNode *box, items []autoRowBuiltItem) {
+	if len(boxNode.children) == 0 && len(items) > 0 {
+		boxNode.children = make([]*box, 0, len(items))
+	}
+
 	for index := range items {
 		if items[index].b != nil {
 			boxNode.children = append(boxNode.children, items[index].b)
@@ -318,8 +325,8 @@ func (e *engine) buildAutoRowItem(
 ) autoRowBuiltItem {
 	cellW, cellX := gridCellExtent(cols, columnGap, contentX, *page)
 	child := e.stylePtr(page.n)
-	justify := gridItemJustify(*child, containerJustify)
-	buildW := gridItemBuildWidth(e, page.n, *child, justify, cellW)
+	justify := gridItemJustifyPtr(child, containerJustify)
+	buildW := gridItemBuildWidthPtr(e, page.n, child, justify, cellW)
 
 	oldMax := e.imgMaxW
 
@@ -359,18 +366,17 @@ func (e *engine) buildAutoRowItem(
 // when their align value does not stretch. Deferred chrome entries are removed
 // in reverse index order before the replacement chrome is prepended.
 func (e *engine) applyAutoRowStretch(
-	rowItems []int, items []autoRowBuiltItem, containerAlign string, maxH, posY, rowTop float64,
-) {
-	stretches := make([]autoRowStretch, 0, len(rowItems))
-
-	for _, idx := range rowItems {
+	rowStart, rowEnd int, items []autoRowBuiltItem, stretches []autoRowStretch,
+	containerAlign string, maxH, posY, rowTop float64,
+) []autoRowStretch {
+	for idx := rowStart; idx < rowEnd; idx++ {
 		item := &items[idx]
 		if item.b == nil {
 			continue
 		}
 
-		align := gridItemAlign(*item.style, containerAlign)
-		buildH := gridStretchBuildHeight(align, maxH, *item.style)
+		align := gridItemAlignPtr(item.style, containerAlign)
+		buildH := gridStretchBuildHeightPtr(align, maxH, item.style)
 
 		if buildH > 0 {
 			target := buildH
@@ -394,7 +400,13 @@ func (e *engine) applyAutoRowStretch(
 		item.b.y += deltaY
 	}
 
-	sort.Slice(stretches, func(i, j int) bool { return stretches[i].chromeIdx > stretches[j].chromeIdx })
+	if len(stretches) == 0 {
+		return stretches
+	}
+
+	if len(stretches) > 1 {
+		slices.SortFunc(stretches, func(a, b autoRowStretch) int { return b.chromeIdx - a.chromeIdx })
+	}
 
 	for _, stretch := range stretches {
 		if stretch.chromeIdx < 0 {
@@ -409,6 +421,8 @@ func (e *engine) applyAutoRowStretch(
 		item := &items[stretch.idx]
 		e.stretchGridItemToHeight(item.b, *item.style, stretch.target, stretch.chromeAt)
 	}
+
+	return stretches
 }
 
 // stretchGridItemToHeight extends an item's border box and regenerates its

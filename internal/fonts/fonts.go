@@ -125,6 +125,13 @@ type Font struct {
 	// size's float bits. It lives on the Font so it is collected with it.
 	scaledMu    sync.RWMutex
 	scaledFaces map[uint64]*ScaledFace
+
+	// asciiGlyph and asciiAdv cache cmap and hmtx lookups for ASCII code points
+	// (0..127), populated once at the end of parseAll. asciiReady guards
+	// against synthetic test Fonts constructed without parseAll.
+	asciiGlyph [128]uint16
+	asciiAdv   [128]int32
+	asciiReady bool
 }
 
 // ParseTTF parses a TrueType (or OpenType with TrueType outlines) font file.
@@ -223,7 +230,32 @@ func (f *Font) parseAll() error {
 
 	f.parseOS2()
 
-	return f.parseCmap()
+	if err := f.parseCmap(); err != nil {
+		return err
+	}
+
+	f.buildASCIITables()
+
+	return nil
+}
+
+// buildASCIITables precomputes glyph IDs and advance units for ASCII code
+// points (0..127) once after parseHmtx and parseCmap complete.
+func (f *Font) buildASCIITables() {
+	advLen := len(f.advance)
+	for r := range 128 {
+		g := f.cmap[uint32(r)]
+		f.asciiGlyph[r] = g
+		if advLen > 0 {
+			if int(g) < advLen {
+				f.asciiAdv[r] = f.advance[g]
+			} else {
+				f.asciiAdv[r] = f.advance[0]
+			}
+		}
+	}
+
+	f.asciiReady = true
 }
 
 func parseTableDirectory(data []byte) (map[string][]byte, error) {
@@ -759,6 +791,10 @@ func (f *Font) Italic() bool {
 // GlyphID maps a rune to its glyph id (0 = .notdef when missing).
 func (f *Font) GlyphID(r rune) uint16 {
 	f.ensureParsed()
+
+	if f.asciiReady && uint32(r) < 128 { //nolint:gosec // negative runes wrap above 127 and fall through to cmap
+		return f.asciiGlyph[r]
+	}
 
 	if g, ok := f.cmap[uint32(r)]; ok { //nolint:gosec // a negative rune wraps to a key no cmap holds, so the lookup misses
 		return g

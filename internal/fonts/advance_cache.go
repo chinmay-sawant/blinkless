@@ -78,6 +78,14 @@ func (f *Font) advanceUnitsUncached(runeValue rune) float64 {
 // advanceUnits returns the advance width in font units for r, serving
 // repeated runes from the per-Font cache.
 func (f *Font) advanceUnits(runeValue rune) float64 {
+	if f.asciiReady && uint32(runeValue) < 128 { //nolint:gosec // negative runes wrap above 127
+		if len(f.advance) == 0 {
+			return 0
+		}
+
+		return float64(f.asciiAdv[runeValue])
+	}
+
 	if units, ok := f.cachedAdvanceUnits(runeValue); ok {
 		return units
 	}
@@ -92,10 +100,34 @@ func (f *Font) advanceUnits(runeValue rune) float64 {
 // and Size are immutable after creation. Advance is safe for concurrent use,
 // and SharedScaledFace shares each instance across layouts.
 type ScaledFace struct {
-	face   *Font
-	size   float64
-	mu     sync.RWMutex
-	points map[rune]float64
+	face     *Font
+	size     float64
+	asciiPts [128]float64
+	hasASCII bool
+	mu       sync.RWMutex
+	points   map[rune]float64
+}
+
+// newScaledFace constructs a ScaledFace and precomputes the lock-free ASCII
+// advance table using the exact IEEE-754 formula as GlyphAdvancePoints.
+func newScaledFace(face *Font, size float64) *ScaledFace {
+	scaled := &ScaledFace{
+		face: face,
+		size: size,
+	}
+	if face != nil && isValidScaleSize(size) {
+		face.ensureParsed()
+		if face.asciiReady && face.unitsPerEm > 0 && len(face.advance) > 0 {
+			upem := float64(face.unitsPerEm)
+			for r := range 128 {
+				scaled.asciiPts[r] = float64(face.asciiAdv[r]) / upem * size
+			}
+
+			scaled.hasASCII = true
+		}
+	}
+
+	return scaled
 }
 
 // Face returns the underlying face.
@@ -121,6 +153,10 @@ func (s *ScaledFace) Size() float64 {
 func (s *ScaledFace) Advance(runeValue rune) float64 {
 	if s == nil || s.face == nil {
 		return 0
+	}
+
+	if s.hasASCII && uint32(runeValue) < 128 { //nolint:gosec // negative runes wrap above 127
+		return s.asciiPts[runeValue]
 	}
 
 	s.mu.RLock()
@@ -155,6 +191,37 @@ func (s *ScaledFace) Advance(runeValue rune) float64 {
 	s.points[runeValue] = value
 
 	return value
+}
+
+// MeasureSimpleASCII sums point advances for a printable ASCII string (0x20..0x7E)
+// covered entirely by this face. It returns ok=false if any byte is outside
+// printable ASCII or lacks a glyph in s.face, letting the caller fall back to
+// the general rune loop. The sum is left-to-right IEEE-754 float64 addition,
+// bit-exact with calling Advance per rune.
+func (s *ScaledFace) MeasureSimpleASCII(text string) (width float64, spaceCount int, ok bool) {
+	if s == nil || !s.hasASCII {
+		return 0, 0, false
+	}
+
+	glyphs := &s.face.asciiGlyph
+	pts := &s.asciiPts
+
+	for i := range len(text) {
+		b := text[i]
+		if b < 0x20 || b >= 0x7f {
+			return 0, 0, false
+		}
+
+		if b == ' ' {
+			spaceCount++
+		} else if glyphs[b] == 0 {
+			return 0, 0, false
+		}
+
+		width += pts[b]
+	}
+
+	return width, spaceCount, true
 }
 
 // SharedScaledFace returns the shared scaled face for one resolved face at one
@@ -192,10 +259,7 @@ func SharedScaledFace(face *Font, size float64) *ScaledFace {
 		return cached
 	}
 
-	scaled := &ScaledFace{
-		face: face,
-		size: size,
-	}
+	scaled := newScaledFace(face, size)
 
 	if len(face.scaledFaces) >= maxScaledFaces {
 		return scaled

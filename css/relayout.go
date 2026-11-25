@@ -3,6 +3,7 @@ package css
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	icss "github.com/chinmay-sawant/blinkless/internal/css"
 )
@@ -47,14 +48,21 @@ func Relayout(
 		return nil, err
 	}
 
-	// State-only change (focus, hover, active) at the same viewport over an
-	// untouched tree: sheet collection depends on width, height, media and the
-	// tree alone, so the collected sheets and font registry stay valid. This
-	// skips the loader, the DOM walk, and the media re-gating.
-	if doc.widthPx == width && doc.heightPx == height && doc.version == doc.root.MutationVersion {
+	// State-only change (focus, hover, active) at the same viewport, or a
+	// viewport-only resize when the tree has no <link media> or @import media
+	// gating, over an untouched tree: the collected sheets and font registry
+	// stay valid. This skips the loader, the DOM walk, and media re-gating.
+	sameViewport := doc.widthPx == width && doc.heightPx == height
+	if doc.version == doc.root.MutationVersion &&
+		(sameViewport || (doc.cache != nil && !doc.cache.HasViewportGating())) {
+		sheets := doc.sheets
+		if !sameViewport {
+			sheets = slices.Clone(doc.sheets)
+		}
+
 		return &Document{
 			root:     doc.root,
-			sheets:   doc.sheets,
+			sheets:   sheets,
 			registry: doc.registry,
 			media:    kind,
 			widthPx:  width,

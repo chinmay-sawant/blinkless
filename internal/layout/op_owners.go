@@ -69,8 +69,31 @@ func walkOperationOwnersParents(boxNode *box, parent int, placedIndex *int, owne
 		(*placedIndex)++
 
 		if owner >= 0 && boxNode.opStart >= 0 && boxNode.opEnd >= boxNode.opStart {
-			for index := boxNode.opStart; index <= boxNode.opEnd && index < len(owners); index++ {
-				owners[index] = closestOwnerParents(owners[index], owner, parents)
+			end := boxNode.opEnd
+			if end >= len(owners) {
+				end = len(owners) - 1
+			}
+
+			lastCur := -2
+			lastRes := -1
+
+			for index := boxNode.opStart; index <= end; index++ {
+				cur := owners[index]
+				if cur < 0 || cur == parent {
+					owners[index] = owner
+
+					continue
+				}
+
+				if cur == lastCur {
+					owners[index] = lastRes
+
+					continue
+				}
+
+				res := closestOwnerParents(cur, owner, parents)
+				lastCur, lastRes = cur, res
+				owners[index] = res
 			}
 		}
 	}

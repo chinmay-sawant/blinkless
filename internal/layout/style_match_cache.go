@@ -228,6 +228,37 @@ func (ctx *styleContext) canonicalClassAttrKey(value string) string {
 	return key
 }
 
+func (ctx *styleContext) idAffectsMatch(id string) bool {
+	if id == "" {
+		return false
+	}
+
+	if ctx != nil && (id == ctx.state.Focus || id == ctx.state.Hover || id == ctx.state.Active) {
+		return true
+	}
+
+	index := ctx.sharedRuleIndex()
+	if index == nil || index.HasIDAttrSelector() {
+		return true
+	}
+
+	return index.UsesID(id)
+}
+
+func (ctx *styleContext) canonicalSingleHTMLAttrKey(attr *html.Attr) string {
+	if attr.Namespace == "" {
+		if attr.Name == classAttrName {
+			return ctx.canonicalClassAttrKey(attr.Value)
+		}
+
+		if attr.Name == "id" && !ctx.idAffectsMatch(attr.Value) {
+			return ""
+		}
+	}
+
+	return canonicalSingleAttrKey(attr.Key(), attr.Value)
+}
+
 func (ctx *styleContext) canonicalNodeAttrKey(node *html.Node) string {
 	if node == nil {
 		return ""
@@ -241,15 +272,41 @@ func (ctx *styleContext) canonicalNodeAttrKey(node *html.Node) string {
 	case 0:
 		return ""
 	case 1:
-		attr := &node.AttrList[0]
-		if attr.Namespace == "" && attr.Name == classAttrName {
-			return ctx.canonicalClassAttrKey(attr.Value)
+		return ctx.canonicalSingleHTMLAttrKey(&node.AttrList[0])
+	case 2:
+		a0, a1 := &node.AttrList[0], &node.AttrList[1]
+		if a0.Namespace == "" && a0.Name == "id" && !ctx.idAffectsMatch(a0.Value) {
+			return ctx.canonicalSingleHTMLAttrKey(a1)
+		}
+		if a1.Namespace == "" && a1.Name == "id" && !ctx.idAffectsMatch(a1.Value) {
+			return ctx.canonicalSingleHTMLAttrKey(a0)
 		}
 
-		return canonicalSingleAttrKey(attr.Key(), attr.Value)
-	default:
 		return canonicalAttrListKey(node.AttrList)
+	default:
+		return ctx.canonicalAttrListKeyFiltered(node.AttrList)
 	}
+}
+
+func (ctx *styleContext) canonicalAttrListKeyFiltered(list []html.Attr) string {
+	for i := range list {
+		if list[i].Namespace == "" && list[i].Name == "id" && !ctx.idAffectsMatch(list[i].Value) {
+			var stack [8]html.Attr
+			filtered := stack[:0]
+			if len(list)-1 > len(stack) {
+				filtered = make([]html.Attr, 0, len(list)-1)
+			}
+			for j := range list {
+				if j != i {
+					filtered = append(filtered, list[j])
+				}
+			}
+
+			return canonicalAttrListKey(filtered)
+		}
+	}
+
+	return canonicalAttrListKey(list)
 }
 
 func canonicalSingleAttrKey(name, value string) string {

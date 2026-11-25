@@ -294,6 +294,19 @@ func (e *engine) flowChildrenPtr(
 	parentTrim := sty.geometry().MarginTrim
 	firstBlockIdx, lastBlockIdx := e.flowTrimBounds(children, parentTrim)
 
+	if parent != nil && parent.children == nil && len(children) > 0 {
+		elemCount := 0
+		for _, child := range children {
+			if child.Type == html.ElementNode {
+				elemCount++
+			}
+		}
+
+		if elemCount > 0 {
+			parent.children = e.allocChildSlice(elemCount)
+		}
+	}
+
 	idx := 0
 	for idx < len(children) {
 		if e.checkContext() {

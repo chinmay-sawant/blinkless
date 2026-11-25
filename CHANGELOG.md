@@ -9,6 +9,18 @@ and are not listed here.
 
 ## Unreleased
 
+## 0.1.9 (2026-11-25)
+
+Work after tag `v0.1.8` (`787ca05`), merged in PR #56. Full release note in `plans/v0.1.9/release/v0.1.9.md`.
+
+### Performance
+- **Two-pass ancestor-only animation restamping & pooled restamp scratch (`internal/layout/reproject.go`, `layout/reproject.go`).** Replaced full-tree `advanceStamp` traversal in `stampStateAt` with a lightweight ancestor-chain DFS (`findBoxAncestors`) followed by `advanceStamp` only on the target's ancestors (capturing `perspAncestor` in the same pass). Added `sync.Pool`-backed `restampScratch`, zero-alloc pristine geometry reuse after frame 1, and zero-copy 3-index sub-slices in `restampElementPatch` and `restampedBoxes`. Cuts full 534-op CSS animation gallery ticks by **4.77×** (`465.8 µs → 97.7 µs`) and memory by **13.6×** (`226 KB → 16.6 KB`, `180 → 38 allocs`).
+- **Lock-free bit-exact ASCII font tables & hoisted face lookups (`internal/fonts`, `internal/layout/inline_paint.go`).** Precomputed immutable `[128]` ASCII glyph ID, advance-unit, and scaled-point tables plus `ScaledFace.MeasureSimpleASCII`, hoisted `SharedScaledFace` out of per-rune loops, and deduplicated `faceFor` / `faceRunAllPrimary` in `emitInlineText`.
+- **Single-pass `O(N)` `TextContent` indexing & `O(1)` op-owner fast path (`internal/layout/placed.go`, `op_owners.go`).** Replaced repeated subtree `TextContent()` walks during `WalkPlacedWithOptions(..., IncludeText: true)` with a single-pass `placedTextIndex`, and short-circuited nested parent-chain walks in `walkOperationOwnersParents`.
+- **Selector match-cache `id` elision, pooled `childSlabs`, and multi-word single-line fast path (`internal/style/ruleindex.go`, `internal/layout/style_match_cache.go`, `layout_chunks.go`, `flex.go`, `inline_single.go`).** Unreferenced `id` attributes no longer bust selector match caching across large lists; `box.children` slices draw from pooled 256-entry slabs; nowrap flex rows use stack `[1][]flexMeas`; and single-line multi-word ASCII runs bypass word splitting and coalescing builders. Cuts 1,000-row `DisplayList` allocations by **4.22×** (`18,312 → 4,338`) and wall-clock time to **12.57 ms**.
+- **`O(1)` viewport-only `css.Relayout` fast path (`css/relayout.go`, `internal/convert/prepare/sheet_cache*.go`).** Tracked `viewportGating` on `SheetCache` so viewport-only relayouts reuse `registry`, `states`, and cloned `sheets` without recreating loaders or walking the DOM when no media-gated `<link>`/`@import` sheets exist (**333× faster**: `19.7 µs → 59.2 ns`, `7 → 1 alloc`).
+- **CSS Grid allocation parity (`internal/layout/grid*.go`).** Added pooled dense `[]uint64` row bitsets for grids with `<= 64` columns, removed per-item closure and `[][]int` row-staging allocations, rewrote `tokenizeGridTracks` to slice directly without `strings.Builder`, and skipped `measureTrackIntrinsics` when no intrinsic tracks exist. Cuts 200-row Grid allocations by **2.99×** (`7,204 → 2,410`) and speeds up layout by **25%** (`2.98 ms → 2.37 ms`).
+
 ## 0.1.8 (2026-11-25)
 
 Work after tag `v0.1.7` (`6bd675b`). Full release note in `plans/v0.1.8/release/v0.1.8.md`.

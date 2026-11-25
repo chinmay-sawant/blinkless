@@ -116,16 +116,14 @@ func findVariationAxis(face *pdf.Font, tag string) (pdf.VariationAxis, bool) {
 }
 
 func variationCacheBits(sty *ResolvedStyle) (string, string, uint64) {
-	if sty == nil {
+	if sty == nil || sty.fontGroup == nil {
 		return "", "", 0
 	}
 
-	optical := sty.font().FontOpticalSizing
-	variations := sty.font().FontVariationSettings
-
-	if optical == fontOpticalAuto {
-		return optical, variations, math.Float64bits(sty.FontSize)
+	fg := sty.fontGroup
+	if fg.FontOpticalSizing == fontOpticalAuto {
+		return fg.FontOpticalSizing, fg.FontVariationSettings, math.Float64bits(sty.FontSize)
 	}
 
-	return optical, variations, 0
+	return fg.FontOpticalSizing, fg.FontVariationSettings, 0
 }
