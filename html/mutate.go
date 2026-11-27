@@ -36,7 +36,7 @@ func (d *Document) RemoveAttribute(elementID, name string) bool {
 		return false
 	}
 
-	d.root.MutationVersion++
+	bumpMutationLocked(d.root, node, false)
 
 	removedID := (!foreign && strings.EqualFold(name, "id")) || (foreign && name == "id")
 	if removedID {
@@ -82,7 +82,7 @@ func (d *Document) AddClass(elementID, className string) bool {
 	tokens = append(tokens, token)
 	setNodeAttrLocked(node, "class", strings.Join(tokens, " "))
 
-	d.root.MutationVersion++
+	bumpMutationLocked(d.root, node, false)
 	dirty.Mark(elementID)
 
 	return true
@@ -134,7 +134,7 @@ func (d *Document) RemoveClass(elementID, className string) bool {
 
 	setNodeAttrLocked(node, "class", strings.Join(kept, " "))
 
-	d.root.MutationVersion++
+	bumpMutationLocked(d.root, node, false)
 	dirty.Mark(elementID)
 
 	return true
@@ -188,7 +188,7 @@ func (d *Document) ToggleClass(elementID, className string) (added, ok bool) {
 		added = true
 	}
 
-	d.root.MutationVersion++
+	bumpMutationLocked(d.root, node, false)
 	dirty.Mark(elementID)
 
 	return added, true

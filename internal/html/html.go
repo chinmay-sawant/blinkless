@@ -55,6 +55,24 @@ type Node struct {
 	// MutationVersion changes when the public HTML document edits this tree.
 	// It is stored on the document root.
 	MutationVersion uint64
+	// NonSheetMutations counts public HTML edits on non-<style>/<link> nodes
+	// that cannot add, remove, or alter collected stylesheets. SheetVersion
+	// subtracts it from MutationVersion so css.Relayout can reuse collected
+	// sheets across ordinary text/class/attribute patches while direct
+	// MutationVersion bumps still force recollection.
+	NonSheetMutations uint64
+}
+
+// SheetVersion returns the effective stylesheet-collection version for a
+// document root. Direct MutationVersion bumps and mutations that can affect
+// <style> or <link> elements advance it; non-sheet leaf mutations leave it
+// unchanged.
+func (n *Node) SheetVersion() uint64 {
+	if n == nil {
+		return 0
+	}
+
+	return n.MutationVersion - n.NonSheetMutations
 }
 
 // AttrKey returns the canonical lookup key for a stored Attr (Name for ordinary

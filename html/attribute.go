@@ -37,7 +37,7 @@ func (d *Document) SetAttribute(elementID, name, value string) bool {
 
 	setNodeAttrLocked(node, name, value)
 
-	d.root.MutationVersion++
+	bumpMutationLocked(d.root, node, false)
 
 	// The element's identity changed. Drop the cached resolutions that may
 	// now point at the wrong node; the next lookup re-resolves by walk.
@@ -56,6 +56,29 @@ func (d *Document) SetAttribute(elementID, name, value string) bool {
 	}
 
 	return true
+}
+
+// bumpMutationLocked advances MutationVersion and, when the edit cannot affect
+// collected stylesheets, also advances NonSheetMutations so css.Relayout can
+// reuse its collected sheets without walking the DOM.
+func bumpMutationLocked(root, target *html.Node, structural bool) {
+	root.MutationVersion++
+	if !structural && !isSheetElement(target) {
+		root.NonSheetMutations++
+	}
+}
+
+// isSheetElement reports whether node is a <style> or <link> element (or sits
+// inside a <style> element) whose edits can change collected stylesheets.
+func isSheetElement(node *html.Node) bool {
+	for cur := node; cur != nil; cur = cur.Parent {
+		if cur.Type == html.ElementNode &&
+			(strings.EqualFold(cur.Name, "style") || strings.EqualFold(cur.Name, "link")) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // invalidateIDLocked drops the cached resolutions that may now point at the
@@ -100,7 +123,7 @@ func (d *Document) SetText(elementID, text string) bool {
 	}
 
 	structural := setTextLocked(idx, node, text)
-	d.root.MutationVersion++
+	bumpMutationLocked(d.root, node, structural)
 
 	// The write landed: the target and the chain up to the nearest block are
 	// dirty, because new text can resize the line and shift siblings. Only a
