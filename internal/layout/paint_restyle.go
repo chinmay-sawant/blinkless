@@ -2,6 +2,7 @@ package layout
 
 import (
 	"context"
+	"maps"
 	"math"
 	"sync/atomic"
 
@@ -65,7 +66,7 @@ type restyleChange struct {
 // the new subtree styles whenever it resolved them, so a declined attempt does
 // not make the slow path resolve them twice, and whether it committed.
 func tryPaintRestyle(
-	ctx context.Context, prev *Result, target *relayoutTarget, node *html.Node,
+	ctx context.Context, prev *Result, thread *boxThread, target *relayoutTarget, node *html.Node,
 	opts Options, out *SubtreeBatchResult,
 ) (map[*html.Node]*ResolvedStyle, bool) {
 	if testConfigFrom(ctx).paintRestyleDisabled() {
@@ -93,7 +94,7 @@ func tryPaintRestyle(
 		return styles, false
 	}
 
-	commitPaintRestyle(prev, target, changes, start, count, out)
+	commitPaintRestyle(prev, thread, target, changes, start, count, out)
 	paintRestyleHits.Add(1)
 
 	return styles, true
@@ -490,9 +491,28 @@ func imageTag(name string) bool {
 // retained style map at the new style, and records the unchanged window the
 // way a paint-only splice does.
 func commitPaintRestyle(
-	prev *Result, target *relayoutTarget, changes []restyleChange, start, count int, out *SubtreeBatchResult,
+	prev *Result, thread *boxThread, target *relayoutTarget, changes []restyleChange, start, count int, out *SubtreeBatchResult,
 ) {
 	oldDamage, hasOld := spliceDamage(prev.Ops, start, count)
+
+	if prev.stylesShared && len(changes) > 0 {
+		prev.styles = maps.Clone(prev.styles)
+		prev.stylesShared = false
+	}
+
+	committedBox := target.box
+	if prev.boxesShared && len(changes) > 0 {
+		clonedMap := make(map[*box]*box, len(changes)+4)
+		committedBox = cloneSubtreeBoxes(target.box, clonedMap)
+		for index := range changes {
+			if mapped := clonedMap[changes[index].box]; mapped != nil {
+				changes[index].box = mapped
+			}
+		}
+		pathCopySwapBox(prev, target, committedBox, thread)
+		target.box = committedBox
+		prev.invalidateBoxIndex()
+	}
 
 	for index := range changes {
 		change := &changes[index]
@@ -511,12 +531,12 @@ func commitPaintRestyle(
 	}
 
 	if out.SameBoxes {
-		elements := countElementBoxes(target.box)
+		elements := countElementBoxes(committedBox)
 		out.boxPatches = append(out.boxPatches, subtreeBoxPatch{
 			baseIdx:   -1,
 			oldElem:   elements,
 			newElem:   elements,
-			box:       target.box,
+			box:       committedBox,
 			ancestors: target.ancestors,
 		})
 	}
@@ -532,6 +552,25 @@ func commitPaintRestyle(
 		HasNewDamage: hasNew,
 		PaintOnly:    true,
 	})
+}
+
+func cloneSubtreeBoxes(b *box, mapped map[*box]*box) *box {
+	if b == nil {
+		return nil
+	}
+	if cp, ok := mapped[b]; ok {
+		return cp
+	}
+	cp := *b
+	mapped[b] = &cp
+	if len(b.children) > 0 {
+		cp.children = make([]*box, len(b.children))
+		for i, c := range b.children {
+			cp.children[i] = cloneSubtreeBoxes(c, mapped)
+		}
+	}
+
+	return &cp
 }
 
 // restyledBoxStyle returns the style a patched box keeps. A box that holds

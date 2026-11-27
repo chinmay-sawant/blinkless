@@ -53,7 +53,7 @@ func Relayout(
 	// gating, over an untouched tree: the collected sheets and font registry
 	// stay valid. This skips the loader, the DOM walk, and media re-gating.
 	sameViewport := doc.widthPx == width && doc.heightPx == height
-	if doc.version == doc.root.MutationVersion &&
+	if doc.version == doc.root.SheetVersion() &&
 		(sameViewport || (doc.cache != nil && !doc.cache.HasViewportGating())) {
 		sheets := doc.sheets
 		if !sameViewport {
@@ -100,7 +100,7 @@ func Relayout(
 		state:    icss.MatchState{Focus: focus, Hover: hover, Active: active},
 		extra:    doc.extra,
 		cache:    doc.cache,
-		version:  doc.root.MutationVersion,
+		version:  doc.root.SheetVersion(),
 		states:   statesFor(sheets, doc),
 	}, nil
 }

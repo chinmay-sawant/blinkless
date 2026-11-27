@@ -35,15 +35,9 @@ func (d *Document) SetAttribute(elementID, name, value string) bool {
 		return false
 	}
 
-	if node.EnsureAttrs() == nil {
-		node.Attrs = make(map[string]string, 1)
-	}
+	setNodeAttrLocked(node, name, value)
 
-	key := attributeKey(node.Attrs, name, node.Namespace != html.NamespaceHTML)
-	node.Attrs[key] = value
-	setAttrListValue(node, key, value)
-
-	d.root.MutationVersion++
+	bumpMutationLocked(d.root, node, false)
 
 	// The element's identity changed. Drop the cached resolutions that may
 	// now point at the wrong node; the next lookup re-resolves by walk.
@@ -62,6 +56,29 @@ func (d *Document) SetAttribute(elementID, name, value string) bool {
 	}
 
 	return true
+}
+
+// bumpMutationLocked advances MutationVersion and, when the edit cannot affect
+// collected stylesheets, also advances NonSheetMutations so css.Relayout can
+// reuse its collected sheets without walking the DOM.
+func bumpMutationLocked(root, target *html.Node, structural bool) {
+	root.MutationVersion++
+	if !structural && !isSheetElement(target) {
+		root.NonSheetMutations++
+	}
+}
+
+// isSheetElement reports whether node is a <style> or <link> element (or sits
+// inside a <style> element) whose edits can change collected stylesheets.
+func isSheetElement(node *html.Node) bool {
+	for cur := node; cur != nil; cur = cur.Parent {
+		if cur.Type == html.ElementNode &&
+			(strings.EqualFold(cur.Name, "style") || strings.EqualFold(cur.Name, "link")) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // invalidateIDLocked drops the cached resolutions that may now point at the
@@ -106,7 +123,7 @@ func (d *Document) SetText(elementID, text string) bool {
 	}
 
 	structural := setTextLocked(idx, node, text)
-	d.root.MutationVersion++
+	bumpMutationLocked(d.root, node, structural)
 
 	// The write landed: the target and the chain up to the nearest block are
 	// dirty, because new text can resize the line and shift siblings. Only a
@@ -183,14 +200,21 @@ func dropChildrenLocked(idx *elementIndex, node *html.Node) {
 	old := node.Children
 	node.Children = nil
 	node.ChildVersion++
+
+	forgetSubtreesLocked(idx, old...)
+}
+
+// forgetSubtreesLocked detaches roots and forgets any cached ids that pointed
+// inside the dropped subtrees. The caller holds idx.mu.
+func forgetSubtreesLocked(idx *elementIndex, roots ...*html.Node) {
 	idx.complete = false
 
 	dropped := make(map[*html.Node]bool)
 
 	var droppedIDs []string
 
-	for _, child := range old {
-		child.Walk(func(inner *html.Node) {
+	for _, root := range roots {
+		root.Walk(func(inner *html.Node) {
 			if inner.Type != html.ElementNode {
 				return
 			}
@@ -202,7 +226,7 @@ func dropChildrenLocked(idx *elementIndex, node *html.Node) {
 			}
 		})
 
-		child.Parent = nil
+		root.Parent = nil
 	}
 
 	// Forget only the ids that pointed inside the dropped subtree. An id
@@ -213,6 +237,18 @@ func dropChildrenLocked(idx *elementIndex, node *html.Node) {
 			delete(idx.byID, id)
 		}
 	}
+}
+
+// setNodeAttrLocked writes name=value to both node.Attrs and node.AttrList,
+// preserving existing attribute spelling and foreign case sensitivity.
+func setNodeAttrLocked(node *html.Node, name, value string) {
+	if node.EnsureAttrs() == nil {
+		node.Attrs = make(map[string]string, 1)
+	}
+
+	key := attributeKey(node.Attrs, name, node.Namespace != html.NamespaceHTML)
+	node.Attrs[key] = value
+	setAttrListValue(node, key, value)
 }
 
 // elementByID returns the element node with the given id, or nil.

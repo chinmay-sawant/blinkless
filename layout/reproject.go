@@ -400,21 +400,6 @@ func (d *Display) boxIndexByID(elementID string) int {
 	return -1
 }
 
-// boxIndexByID returns the index of the first box with the given id, or -1.
-func boxIndexByID(boxes []Box, elementID string) int {
-	if elementID == "" {
-		return -1
-	}
-
-	for idx := range boxes {
-		if boxes[idx].ID == elementID {
-			return idx
-		}
-	}
-
-	return -1
-}
-
 // boxSubtreeEnd returns the last index of the box's subtree in document order.
 // Display.Boxes is in document order and ParentIndex points at the enclosing
 // element, so a subtree is a contiguous run.

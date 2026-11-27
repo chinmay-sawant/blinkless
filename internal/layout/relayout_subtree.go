@@ -2032,7 +2032,7 @@ func commitSubtreeSplice(
 // previous one. The census and the identity high-water mark still advance,
 // because a paint-only change can alter a fill extent or a fragment link.
 func commitPaintOnlySplice(
-	prev *Result, newBox *box, target *relayoutTarget,
+	prev *Result, thread *boxThread, newBox *box, target *relayoutTarget,
 	styles map[*html.Node]*ResolvedStyle, start, count int, newOps []Op,
 ) {
 	oldMax, oldFrag := censusOpsWindow(prev.Ops, start, count)
@@ -2041,11 +2041,170 @@ func commitPaintOnlySplice(
 	copy(prev.Ops[start:start+count], newOps)
 
 	relayoutRebaseTree(newBox, start)
-	relayoutSwapBox(target, newBox)
+	if prev.boxesShared {
+		pathCopySwapBox(prev, target, newBox, thread)
+	} else {
+		relayoutSwapBox(target, newBox)
+		thread.replace(target.box, newBox, target.parent)
+	}
 	prev.invalidateBoxIndex()
 	relayoutKeepStyles(prev, styles)
 	refreshCensusSpliced(prev, oldMax, oldFrag, start, len(newOps))
 	storeOpIDHighWater(prev, newOps)
+}
+
+// pathCopySwapBox replaces target.box with newBox in a copy-on-write box tree
+// by shallow-copying only the ancestor chain from prev.root down to
+// target.parent, leaving the source Result's boxes and children slices
+// untouched. It updates prev.root/rootBox, target.ancestors/parent, and thread.
+func pathCopySwapBox(prev *Result, target *relayoutTarget, newBox *box, thread *boxThread) {
+	ancCount := len(target.ancestors)
+	if ancCount == 0 {
+		prev.root = newBox
+		prev.rootBox = newBox
+		if thread != nil {
+			thread.root = newBox
+		}
+
+		return
+	}
+
+	copies := make([]box, ancCount)
+	newAncestors := make([]*box, ancCount)
+
+	for i := ancCount - 1; i >= 0; i-- {
+		oldAnc := target.ancestors[i]
+		copies[i] = *oldAnc
+		newAnc := &copies[i]
+		newAncestors[i] = newAnc
+
+		var oldChild, replacement *box
+		if i == ancCount-1 {
+			oldChild = target.box
+			replacement = newBox
+		} else {
+			oldChild = target.ancestors[i+1]
+			replacement = newAncestors[i+1]
+		}
+
+		if len(oldAnc.children) > 0 {
+			children := make([]*box, len(oldAnc.children))
+			copy(children, oldAnc.children)
+			for idx, child := range children {
+				if child == oldChild {
+					children[idx] = replacement
+
+					break
+				}
+			}
+			newAnc.children = children
+		}
+	}
+
+	prev.root = newAncestors[0]
+	prev.rootBox = newAncestors[0]
+
+	if thread != nil {
+		thread.root = prev.root
+		if !thread.lazy {
+			for i := range ancCount {
+				oldAnc := target.ancestors[i]
+				newAnc := newAncestors[i]
+				if oldAnc.node != nil && oldAnc.node.Type == html.ElementNode {
+					if id := oldAnc.node.AttrExact("id"); id != "" && thread.byID[id] == oldAnc {
+						thread.byID[id] = newAnc
+					}
+				}
+				delete(thread.parent, oldAnc)
+				if i > 0 {
+					thread.parent[newAnc] = newAncestors[i-1]
+				}
+				for _, ch := range newAnc.children {
+					if ch != nil {
+						thread.parent[ch] = newAnc
+					}
+				}
+			}
+			thread.unindex(target.box)
+			thread.index(newBox, newAncestors[ancCount-1])
+		}
+	}
+
+	target.ancestors = newAncestors
+	target.parent = newAncestors[ancCount-1]
+}
+
+// materializeForBatch materializes a shared copy-on-write box graph into
+// private pooled box chunks before a full (non-paint-only) splice that mutates
+// operation ranges across the tree, remapping target, thread, and recorded
+// boxPatches onto the newly cloned boxes.
+func materializeForBatch(prev *Result, target *relayoutTarget, thread *boxThread, out *SubtreeBatchResult) {
+	if !prev.boxesShared {
+		return
+	}
+
+	seen := getCloneBoxMap(len(prev.boxes))
+	defer putCloneBoxMap(seen)
+
+	arena := boxArena{chunks: nil, childSlab: make([]*box, 0, len(prev.boxes))}
+	prev.root = cloneBoxGraph(prev.root, seen, &arena)
+	prev.rootBox = prev.root
+	prev.boxChunks = append(prev.boxChunks, arena.chunks...)
+
+	flat := rentBoxPtrs(len(prev.boxes))[:0]
+	flattenBoxes(prev.root, &flat)
+	prev.boxes = flat
+	prev.boxesShared = false
+
+	if target != nil {
+		if mapped := seen[target.box]; mapped != nil {
+			target.box = mapped
+		}
+		if mapped := seen[target.parent]; mapped != nil {
+			target.parent = mapped
+		}
+		for i, anc := range target.ancestors {
+			if mapped := seen[anc]; mapped != nil {
+				target.ancestors[i] = mapped
+			}
+		}
+	}
+
+	if out != nil && out.SameBoxes {
+		for i := range out.boxPatches {
+			p := &out.boxPatches[i]
+			mappedBox := seen[p.box]
+			if mappedBox == nil {
+				out.SameBoxes = false
+				out.boxPatches = nil
+
+				break
+			}
+			p.box = mappedBox
+			for j, anc := range p.ancestors {
+				mappedAnc := seen[anc]
+				if mappedAnc == nil {
+					out.SameBoxes = false
+					out.boxPatches = nil
+
+					break
+				}
+				p.ancestors[j] = mappedAnc
+			}
+			if !out.SameBoxes {
+				break
+			}
+		}
+	}
+
+	if thread != nil {
+		thread.root = prev.root
+		if !thread.lazy {
+			clear(thread.byID)
+			clear(thread.parent)
+			thread.index(prev.root, nil)
+		}
+	}
 }
 
 // relayoutKeepWindowIDs copies the operation identities of a same-count window
@@ -2520,48 +2679,47 @@ func (thread *boxThread) lookup(elementID string) (*relayoutTarget, bool) {
 }
 
 func findLazyBoxTarget(root *box, elementID string) (*relayoutTarget, bool) {
-	var stack []*box
-	var found *box
-
-	var walk func(node *box) bool
-	walk = func(node *box) bool {
-		if node == nil {
-			return false
-		}
-		if node.node != nil && node.node.Type == html.ElementNode && node.node.AttrExact("id") == elementID {
-			found = node
-
-			return true
-		}
-
-		stack = append(stack, node)
-		for _, child := range node.children {
-			if walk(child) {
-				return true
-			}
-		}
-		for _, row := range node.rows {
-			for _, cell := range row {
-				if walk(cell) {
-					return true
-				}
-			}
-		}
-		stack = stack[:len(stack)-1]
-
-		return false
-	}
-
-	if !walk(root) {
+	var buf [16]*box
+	found, stack, ok := walkLazyBoxTarget(root, elementID, buf[:0])
+	if !ok {
 		return nil, false
 	}
 
+	ancestors := make([]*box, len(stack))
+	copy(ancestors, stack)
+
 	var holder *box
-	if len(stack) > 0 {
-		holder = stack[len(stack)-1]
+	if len(ancestors) > 0 {
+		holder = ancestors[len(ancestors)-1]
 	}
 
-	return &relayoutTarget{box: found, parent: holder, ancestors: stack}, true
+	return &relayoutTarget{box: found, parent: holder, ancestors: ancestors}, true
+}
+
+func walkLazyBoxTarget(node *box, elementID string, stack []*box) (*box, []*box, bool) {
+	if node == nil {
+		return nil, stack, false
+	}
+
+	if node.node != nil && node.node.Type == html.ElementNode && node.node.AttrExact("id") == elementID {
+		return node, stack, true
+	}
+
+	stack = append(stack, node)
+	for _, child := range node.children {
+		if found, nextStack, ok := walkLazyBoxTarget(child, elementID, stack); ok {
+			return found, nextStack, true
+		}
+	}
+	for _, row := range node.rows {
+		for _, cell := range row {
+			if found, nextStack, ok := walkLazyBoxTarget(cell, elementID, stack); ok {
+				return found, nextStack, true
+			}
+		}
+	}
+
+	return nil, stack[:len(stack)-1], false
 }
 
 // batchNodeForID resolves one batch id to its element node: the threaded box
@@ -2697,6 +2855,21 @@ var ErrBatchUnknownID = errors.New("layout: batch element id is unknown")
 // its last committed splice left: the caller works on a private clone and
 // drops it, so the input display is untouched. The ids run sequentially:
 // each splice mutates the placement the next splice reads.
+type batchPaintTarget struct {
+	id        string
+	node      *html.Node
+	ancestors []*box
+}
+
+type batchSpliceState struct {
+	orderingCounted bool
+	relevant        int
+	grouped         int
+	ownersShared    bool
+	orderShared     bool
+	paintTargets    []batchPaintTarget
+}
+
 func RelayoutSubtrees(
 	ctx context.Context, prev *Result, elementIDs []string,
 	baseOpts Options, owners, order []int,
@@ -2712,8 +2885,6 @@ func RelayoutSubtrees(
 	thread := getBoxThread(prev.boxTreeRoot(), len(elementIDs))
 	defer putBoxThread(thread)
 
-	relevant, grouped := countOrderingRelevant(prev.Ops)
-
 	out := &SubtreeBatchResult{
 		Owners:     owners,
 		Order:      order,
@@ -2726,16 +2897,22 @@ func RelayoutSubtrees(
 		boxPatches: make([]subtreeBoxPatch, 0, len(elementIDs)),
 	}
 
+	state := &batchSpliceState{
+		ownersShared: true,
+		orderShared:  true,
+		paintTargets: make([]batchPaintTarget, 0, len(elementIDs)),
+	}
+
 	spliced := make(map[*html.Node]struct{}, len(elementIDs))
 
 	for _, elementID := range elementIDs {
-		if err := relayoutSpliceOne(ctx, prev, thread, elementID, elementIDs, baseOpts, out, &relevant, &grouped, spliced); err != nil {
+		if err := relayoutSpliceOne(ctx, prev, thread, elementID, elementIDs, baseOpts, out, state, spliced); err != nil {
 			return nil, err
 		}
 	}
 
 	if out.PaintOnly {
-		out.Texts = paintOnlyTexts(thread, prev, elementIDs)
+		out.Texts = paintOnlyTexts(thread, prev, elementIDs, state.paintTargets)
 	} else if out.SameBoxes {
 		out.SameBoxes = finalizeSubtreeBoxPatches(prev.boxTreeRoot(), out.boxPatches)
 		if !out.SameBoxes {
@@ -2753,6 +2930,8 @@ func commitPaintOnlyWindow(
 	styles map[*html.Node]*ResolvedStyle, start, oldCount int, newOps []Op,
 	oldDamage [4]float64, hasOld bool, out *SubtreeBatchResult,
 ) {
+	commitPaintOnlySplice(prev, thread, newBox, target, styles, start, oldCount, newOps)
+
 	if out.SameBoxes {
 		if target.box != nil && target.box.node != nil && target.box.node.Type == html.ElementNode &&
 			newBox != nil && newBox.node == target.box.node {
@@ -2769,9 +2948,6 @@ func commitPaintOnlyWindow(
 			out.boxPatches = nil
 		}
 	}
-
-	commitPaintOnlySplice(prev, newBox, target, styles, start, oldCount, newOps)
-	thread.replace(target.box, newBox, target.parent)
 
 	newDamage, hasNew := spliceDamage(prev.Ops, start, oldCount)
 	out.Windows = append(out.Windows, SpliceWindow{
@@ -2807,14 +2983,20 @@ func relayoutAlreadySpliced(node *html.Node, spliced map[*html.Node]struct{}) bo
 
 func relayoutSpliceOne(
 	ctx context.Context, prev *Result, thread *boxThread, elementID string, elementIDs []string,
-	baseOpts Options, out *SubtreeBatchResult, relevant, grouped *int,
+	baseOpts Options, out *SubtreeBatchResult, state *batchSpliceState,
 	spliced map[*html.Node]struct{},
 ) error {
 	if elementID == "" {
 		return ErrBatchUnknownID
 	}
 
-	node := batchNodeForID(thread, prev, elementID)
+	lookedUp, foundBox := thread.lookup(elementID)
+	var node *html.Node
+	if foundBox && lookedUp.box != nil && lookedUp.box.node != nil {
+		node = lookedUp.box.node
+	} else {
+		node = findNodeByID(prev.documentRootNode(), elementID)
+	}
 	if node == nil {
 		return ErrBatchUnknownID
 	}
@@ -2832,7 +3014,7 @@ func relayoutSpliceOne(
 		return relayoutSpliceError(err)
 	}
 
-	target, err := spliceBatchTarget(prev, thread, elementID, node)
+	target, err := resolveSpliceBatchTarget(prev, lookedUp, foundBox, node)
 	if err != nil {
 		return err
 	}
@@ -2851,9 +3033,14 @@ func relayoutSpliceOne(
 	// one resized element still commits instead of aborting.
 	// A restyle that only moves background colors skips the build: the fill
 	// is rewritten in place and the retained styles follow.
-	resolved, done := tryPaintRestyle(ctx, prev, target, node, opts, out)
+	resolved, done := tryPaintRestyle(ctx, prev, thread, target, node, opts, out)
 	if done {
 		out.Restyled++
+		if out.PaintOnly && foundBox && target.box != nil && target.box.node == node {
+			state.paintTargets = append(state.paintTargets, batchPaintTarget{
+				id: elementID, node: node, ancestors: target.ancestors,
+			})
+		}
 
 		return nil
 	}
@@ -2879,6 +3066,11 @@ func relayoutSpliceOne(
 	// stay put, so the host can build the display by reusing the previous one.
 	if relayoutPaintOnlyWindow(prev, target, newBox, start, oldCount, eng.ops) {
 		commitPaintOnlyWindow(prev, thread, target, newBox, styles, start, oldCount, eng.ops, oldDamage, hasOld, out)
+		if out.PaintOnly && foundBox && newBox != nil && newBox.node == node {
+			state.paintTargets = append(state.paintTargets, batchPaintTarget{
+				id: elementID, node: node, ancestors: target.ancestors,
+			})
+		}
 		if target.box != nil && target.box.node != nil && len(target.box.children) > 8 {
 			spliced[target.box.node] = struct{}{}
 		}
@@ -2887,7 +3079,7 @@ func relayoutSpliceOne(
 		return nil
 	}
 
-	commitBatchSubtree(prev, thread, target, built, start, oldCount, oldDamage, hasOld, out, relevant, grouped)
+	commitBatchSubtree(prev, thread, target, built, start, oldCount, oldDamage, hasOld, out, state)
 	if target.box != nil && target.box.node != nil && len(target.box.children) > 8 {
 		spliced[target.box.node] = struct{}{}
 	}
@@ -2901,9 +3093,28 @@ func relayoutSpliceOne(
 func commitBatchSubtree(
 	prev *Result, thread *boxThread, target *relayoutTarget, built *relayoutBuiltTarget,
 	start, oldCount int, oldDamage [4]float64, hasOld bool,
-	out *SubtreeBatchResult, relevant, grouped *int,
+	out *SubtreeBatchResult, state *batchSpliceState,
 ) {
 	out.PaintOnly = false
+
+	if prev.boxesShared {
+		materializeForBatch(prev, target, thread, out)
+	}
+
+	if !state.orderingCounted {
+		state.relevant, state.grouped = countOrderingRelevant(prev.Ops)
+		state.orderingCounted = true
+	}
+
+	if state.ownersShared {
+		out.Owners = append([]int(nil), out.Owners...)
+		state.ownersShared = false
+	}
+
+	if state.orderShared {
+		out.Order = append([]int(nil), out.Order...)
+		state.orderShared = false
+	}
 
 	oldRel, oldGrp := countOrderingRelevant(prev.Ops[start : start+oldCount])
 	oldElem := countElementBoxes(target.box)
@@ -2919,8 +3130,8 @@ func commitBatchSubtree(
 	recordBatchBoxPatch(out, shapeOK, pos, oldElem, newElem, built.box, target.ancestors)
 
 	newRel, newGrp := countOrderingRelevant(built.eng.ops)
-	*relevant += newRel - oldRel
-	*grouped += newGrp - oldGrp
+	state.relevant += newRel - oldRel
+	state.grouped += newGrp - oldGrp
 
 	if pos.foundBase {
 		out.Owners = spliceOwnerWindow(
@@ -2930,7 +3141,7 @@ func commitBatchSubtree(
 		out.Owners = fullOwnersFor(prev)
 	}
 
-	neutral := spliceOrderNeutral(oldRel, newRel, *grouped)
+	neutral := spliceOrderNeutral(oldRel, newRel, state.grouped)
 	out.Order = splicePaintOrder(prev.Ops, out.Order, start, oldCount, len(built.eng.ops), neutral)
 
 	newDamage, hasNew := spliceDamage(prev.Ops, start, len(built.eng.ops))
@@ -3030,13 +3241,12 @@ func inlineAncestorBlockTarget(prev *Result, node *html.Node) (*relayoutTarget, 
 	return nil, false
 }
 
-// spliceBatchTarget resolves one batch id to its patch target, falling back to
-// the owning table for a box-less element or a table cell.
-func spliceBatchTarget(
-	prev *Result, thread *boxThread, elementID string, node *html.Node,
+// resolveSpliceBatchTarget resolves an already looked-up batch target, falling
+// back to the owning table or inline block ancestor for a box-less element or
+// table cell.
+func resolveSpliceBatchTarget(
+	prev *Result, target *relayoutTarget, ok bool, node *html.Node,
 ) (*relayoutTarget, error) {
-	target, ok := thread.lookup(elementID)
-
 	switch {
 	case !ok:
 		if table, found := tableAncestorTarget(prev.boxTreeRoot(), node); found {
@@ -3088,29 +3298,68 @@ func fullOwnersFor(prev *Result) []int {
 // it reuses by walking ParentIndex, so a text edit refreshes the element and
 // its ancestors without a full placed walk. Ancestor texts are cached by node,
 // because a batch of rows shares the same table, body, and document nodes.
-func paintOnlyTexts(thread *boxThread, prev *Result, elementIDs []string) []PaintOnlyText {
+func paintOnlyTexts(
+	thread *boxThread, prev *Result, elementIDs []string, recorded []batchPaintTarget,
+) []PaintOnlyText {
+	if len(elementIDs) == 1 && len(prev.boxes) > 64 && len(recorded) == 1 && recorded[0].id == elementIDs[0] {
+		rec := recorded[0]
+		ancNodes := make([]*html.Node, 0, len(rec.ancestors))
+		for index := len(rec.ancestors) - 1; index >= 0; index-- {
+			ancestor := rec.ancestors[index]
+			if ancestor == nil || ancestor.node == nil || ancestor.node.Type != html.ElementNode {
+				continue
+			}
+			ancNodes = append(ancNodes, ancestor.node)
+		}
+
+		return []PaintOnlyText{{
+			ID:            rec.id,
+			Texts:         []string{rec.node.TextContent()},
+			AncestorNodes: ancNodes,
+		}}
+	}
+
 	cache := make(map[*html.Node]string)
 	texts := make([]PaintOnlyText, 0, len(elementIDs))
 
+	var byID map[string]batchPaintTarget
+	if len(recorded) == len(elementIDs) {
+		byID = make(map[string]batchPaintTarget, len(recorded))
+		for _, rec := range recorded {
+			byID[rec.id] = rec
+		}
+	}
+
 	for _, elementID := range elementIDs {
-		target, ok := thread.lookup(elementID)
-		if !ok {
-			ancestor, ok := paintOnlyAncestorTarget(thread, prev, elementID)
+		var boxNode *html.Node
+		var ancestors []*box
+
+		if rec, ok := byID[elementID]; ok {
+			boxNode = rec.node
+			ancestors = rec.ancestors
+		} else {
+			target, ok := thread.lookup(elementID)
 			if !ok {
+				ancestor, ok := paintOnlyAncestorTarget(thread, prev, elementID)
+				if !ok {
+					continue
+				}
+
+				target = ancestor
+			}
+
+			if target.box == nil || target.box.node == nil {
 				continue
 			}
 
-			target = ancestor
-		}
-
-		if target.box == nil || target.box.node == nil {
-			continue
+			boxNode = target.box.node
+			ancestors = target.ancestors
 		}
 
 		if len(elementIDs) == 1 && len(prev.boxes) > 64 {
-			ancNodes := make([]*html.Node, 0, len(target.ancestors))
-			for index := len(target.ancestors) - 1; index >= 0; index-- {
-				ancestor := target.ancestors[index]
+			ancNodes := make([]*html.Node, 0, len(ancestors))
+			for index := len(ancestors) - 1; index >= 0; index-- {
+				ancestor := ancestors[index]
 				if ancestor == nil || ancestor.node == nil || ancestor.node.Type != html.ElementNode {
 					continue
 				}
@@ -3118,18 +3367,18 @@ func paintOnlyTexts(thread *boxThread, prev *Result, elementIDs []string) []Pain
 			}
 			texts = append(texts, PaintOnlyText{
 				ID:            elementID,
-				Texts:         []string{target.box.node.TextContent()},
+				Texts:         []string{boxNode.TextContent()},
 				AncestorNodes: ancNodes,
 			})
 
 			continue
 		}
 
-		chain := make([]string, 0, len(target.ancestors)+1)
-		chain = append(chain, cachedNodeText(cache, target.box.node))
+		chain := make([]string, 0, len(ancestors)+1)
+		chain = append(chain, cachedNodeText(cache, boxNode))
 
-		for index := len(target.ancestors) - 1; index >= 0; index-- {
-			ancestor := target.ancestors[index]
+		for index := len(ancestors) - 1; index >= 0; index-- {
+			ancestor := ancestors[index]
 			if ancestor == nil || ancestor.node == nil || ancestor.node.Type != html.ElementNode {
 				continue
 			}

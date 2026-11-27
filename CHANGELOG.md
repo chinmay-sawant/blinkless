@@ -9,6 +9,17 @@ and are not listed here.
 
 ## Unreleased
 
+## 0.1.11 (2026-11-28)
+
+Work after tag `v0.1.10`. Full release note in `plans/v0.1.11/release/v0.1.11.md`.
+
+### Added
+- **Retained DOM mutation APIs (`html/mutate.go`, `html/attribute.go`).** Added `RemoveAttribute`, `AddClass`, `RemoveClass`, `ToggleClass`, `RemoveElement`, `SetInnerHTML`, and `AppendHTML` on `*html.Document` with `elementIndex` synchronization, context-aware fragment parsing, and `DirtyStructural()` tracking.
+
+### Performance
+- **Copy-on-write batch relayout and lazy `OpOwners`/`Order` (`layout/relayout_elements.go`, `internal/layout/`).** Replaced eager full-tree box cloning in `CloneResultForBatch` with copy-on-write path copying (`boxesShared`), deferred `OpOwners`/`Order` copies and ordering scans to non-paint-only splices, short-circuited `cloneOps` when no op owns extras, deduplicated ancestor text splices, and reduced `thread.lookup` to 1x per ID. Cuts 1,000-row `RelayoutElements` (`Text1Row`) by **3.88x** (`471.5 µs` -> `121.5 µs`, `-65.5%` bytes).
+- **`SheetVersion` stylesheet reuse (`internal/html/html.go`, `html/`, `css/relayout.go`).** Tracked `NonSheetMutations` so `css.Relayout` reuses collected sheets across non-`<style>`/`<link>` leaf edits without walking the DOM.
+
 ## 0.1.10 (2026-11-27)
 
 Work after tag `v0.1.9`, merged in PR #57 and PR #58. Full release note in `plans/v0.1.10/release/v0.1.10.md`.

@@ -152,7 +152,7 @@ func Apply(ctx context.Context, doc *html.Document, opts Options) (*Document, er
 		state:    icss.MatchState{Focus: opts.Focus, Hover: opts.Hover, Active: opts.Active},
 		extra:    opts.Extra,
 		cache:    cache,
-		version:  root.MutationVersion,
+		version:  root.SheetVersion(),
 		states:   new(statePseudoMemo),
 	}, nil
 }

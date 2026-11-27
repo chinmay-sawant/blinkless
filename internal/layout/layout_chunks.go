@@ -16,11 +16,10 @@ func (r *Result) Retain() {
 	atomic.AddInt32(&r.refs, 1)
 }
 
-// TransferChunksTo moves ownership of r's style and store chunk backings onto
-// dst without returning them to pools. Used when a batch commits a clone to
-// replace r so releasing r later does not recycle style backings dst still
-// references. Box chunks stay owned by r because CloneResult allocates fresh
-// box chunks for every cloned box.
+// TransferChunksTo moves ownership of r's style and store chunk backings (and
+// box chunks/slabs when dst still shares r's box graph) onto dst without
+// returning them to pools. Used when a batch commits a clone to replace r so
+// releasing r later does not recycle backings dst still references.
 func (r *Result) TransferChunksTo(dst *Result) {
 	if r == nil || dst == nil || r == dst {
 		return
@@ -34,6 +33,24 @@ func (r *Result) TransferChunksTo(dst *Result) {
 	if len(r.storeChunks) > 0 {
 		dst.storeChunks = append(dst.storeChunks, r.storeChunks...)
 		r.storeChunks = nil
+	}
+
+	if dst.boxesShared {
+		if len(r.boxChunks) > 0 {
+			dst.boxChunks = append(dst.boxChunks, r.boxChunks...)
+			r.boxChunks = nil
+		}
+
+		if len(r.childSlabs) > 0 {
+			dst.childSlabs = append(dst.childSlabs, r.childSlabs...)
+			r.childSlabs = nil
+		}
+
+		if len(r.boxes) > 0 && len(dst.boxes) > 0 && &r.boxes[0] == &dst.boxes[0] {
+			r.boxes = nil
+		}
+
+		dst.boxesShared = false
 	}
 }
 
@@ -136,11 +153,13 @@ func (r *Result) Release() {
 	}
 
 	// The flattened box list was rented at exact capacity in finalizeResult
-	// and assembleNodeResult. The public display copied box values out of it
-	// before Release, and Release only runs on the non-retained path, so no
-	// live display aliases this backing: hand it back.
-	returnBoxPtrs(r.boxes)
+	// and assembleNodeResult. When boxesShared is set, r does not own the
+	// r.boxes slice (it still belongs to the source Result of a failed batch).
+	if !r.boxesShared {
+		returnBoxPtrs(r.boxes)
+	}
 	r.boxes = nil
+	r.boxesShared = false
 
 	if r.ownsOps && r.Ops != nil {
 		returnOpSlice(r.Ops)
