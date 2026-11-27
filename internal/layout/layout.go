@@ -130,6 +130,11 @@ type Options struct {
 	// after cascade, force text-decoration:underline on a[href]. Default off
 	// so author CSS (including inherit → none) is honored.
 	PrintLinkUnderline bool
+	// ViewportCull enables opt-in culling of definite-height in-flow block/flex
+	// children that fall completely outside [CullTopPt, CullBottomPt].
+	ViewportCull bool
+	CullTopPt    float64
+	CullBottomPt float64
 	// gridMemoBypass disables the grid preferred-height memo (see
 	// grid_memo.go). Tests only: unexported so external callers keep the
 	// default, while in-package tests can prove cached and uncached layouts

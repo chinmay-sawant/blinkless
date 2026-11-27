@@ -189,6 +189,20 @@ type Options struct {
 	// patches, and RelayoutElement refuses a display that was laid out
 	// without it.
 	RetainState bool
+
+	// CullWindow is an opt-in vertical cull band in CSS pixels. When non-nil
+	// with BottomPx > TopPx, in-flow block/flex containers with an explicit
+	// height that fall completely outside [TopPx, BottomPx] advance flow Y
+	// without laying out their children or emitting display operations. Nil
+	// keeps the full document display list (required for pan-only scrolling).
+	CullWindow *CullWindow
+}
+
+// CullWindow bounds the vertical band in CSS pixels that DisplayListOptions
+// must emit when opt-in viewport culling is enabled.
+type CullWindow struct {
+	TopPx    float64
+	BottomPx float64
 }
 
 // Override replaces one layout property of one element for a single

@@ -327,6 +327,11 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 	}
 
 	layoutOpts := displayLayoutOptions(styled, font, options.Images, widthPt, heightPt)
+	if options.CullWindow != nil && options.CullWindow.BottomPx > options.CullWindow.TopPx {
+		layoutOpts.ViewportCull = true
+		layoutOpts.CullTopPt = options.CullWindow.TopPx * cssPxToPt
+		layoutOpts.CullBottomPt = options.CullWindow.BottomPx * cssPxToPt
+	}
 
 	res, err := ilayout.LayoutContext(ctx, styled.Root, layoutOpts)
 	if err != nil {
