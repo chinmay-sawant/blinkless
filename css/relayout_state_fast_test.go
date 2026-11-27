@@ -72,6 +72,49 @@ func TestRelayoutAfterMutationRecollects(t *testing.T) {
 	}
 }
 
+// TestRelayoutLeafMutationReusesSheets verifies that non-sheet leaf mutations
+// (SetText, AddClass, RemoveAttribute) reuse collected sheets, while editing a
+// <style> element forces fresh sheet collection.
+func TestRelayoutLeafMutationReusesSheets(t *testing.T) {
+	t.Parallel()
+
+	tree, err := pubhtml.Parse([]byte(`<style id="s">a.on{color:red}</style><a id="x" data-k="1">hi</a>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	doc, err := Apply(context.Background(), tree, Options{WidthPx: 300, HeightPx: 200, Media: "screen"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !tree.SetText("x", "hello") || !tree.AddClass("x", "on") || !tree.RemoveAttribute("x", "data-k") {
+		t.Fatal("leaf mutations failed")
+	}
+
+	next, err := Relayout(context.Background(), doc, 300, 200, "", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(next.sheets) == 0 || &next.sheets[0] != &doc.sheets[0] {
+		t.Fatal("non-sheet leaf mutations rebuilt the sheet slice")
+	}
+
+	if !tree.SetText("s", "a.on{color:blue}") {
+		t.Fatal("style element SetText failed")
+	}
+
+	recollected, err := Relayout(context.Background(), next, 300, 200, "", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if &recollected.sheets[0] == &next.sheets[0] {
+		t.Fatal("<style> edit reused stale sheets")
+	}
+}
+
 func TestUsesStatePseudoMemoized(t *testing.T) {
 	t.Parallel()
 
