@@ -237,6 +237,10 @@ type Display struct {
 	// display box slice pool. Cleared when a patch shares or reuses the
 	// slice on a successor display.
 	ownsBoxes bool
+
+	// boxByID lazily maps element IDs to their first index in Boxes so
+	// repeated restamp frames avoid linear scans over Display.Boxes.
+	boxByID map[string]int
 }
 
 // Release returns retained resources (boxes, style chunks, store chunks)
@@ -266,6 +270,8 @@ func (d *Display) Release() {
 		d.Boxes = nil
 		d.ownsBoxes = false
 	}
+
+	d.boxByID = nil
 }
 
 // DisplayList lays doc out and returns its display list. It does not paint
