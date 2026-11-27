@@ -8,11 +8,20 @@ import (
 
 type flexMeas struct {
 	n             *html.Node
+	style         *ResolvedStyle
 	baseW         float64
 	hypotheticalW float64
 	grow          float64
 	shrink        float64
 	order         int
+}
+
+func (e *engine) flexMeasStyle(item flexMeas) *ResolvedStyle {
+	if item.style != nil {
+		return item.style
+	}
+
+	return e.stylePtr(item.n)
 }
 
 type flexColMeas struct {
@@ -48,7 +57,7 @@ func (e *engine) flexRowItems(kids []*html.Node, contentW float64, crossSize ...
 		}
 
 		item := flexMeas{
-			n: kid, baseW: baseW,
+			n: kid, style: cstate, baseW: baseW,
 			hypotheticalW: 0, grow: grow, shrink: shrink, order: cstate.flex().FlexOrder,
 		}
 		item.hypotheticalW = e.flexHypotheticalMainSize(item, contentW)

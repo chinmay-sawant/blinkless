@@ -427,7 +427,8 @@ func scanTransformParens(text string) (string, string, bool) {
 }
 
 func parseOneTransformFunc(name, args string, fontSize float64) (Matrix2D, float64, float64, matrix3D, bool, bool) {
-	parts := splitTransformArgs(args)
+	var argBuf [16]string
+	parts := splitTransformArgsInto(args, &argBuf)
 
 	switch name {
 	case "matrix":
@@ -687,15 +688,11 @@ func parseTwoArgSkew(parts []string) (Matrix2D, bool) {
 	return SkewXDeg(xDeg).Mul(SkewYDeg(yDeg)), true
 }
 
-func splitTransformArgs(args string) []string {
+func splitTransformArgsInto(args string, buf *[16]string) []string {
 	if strings.TrimSpace(args) == "" {
 		return nil
 	}
 
-	// Most transform functions take at most 4 args (translate/scale/rotate/
-	// skew/matrix6). The stack array avoids a heap slice per function; a 5th
-	// append grows onto the heap exactly like the old nil-slice append did.
-	var buf [4]string
 	parts := buf[:0]
 
 	start := 0
@@ -1316,12 +1313,45 @@ func stampBoxTransforms(boxNode *box, parentAccum Matrix2D, ops []Op, media stri
 	stampTree(boxNode, initialStampState(parentAccum), ops, media, false)
 }
 
-// restampBoxTransforms runs the stamp walk on one subtree with a state the
-// full walk produced. restamp keeps opacity out of the pass and leaves a
-// back-face visible: the operations already carry the opacity their first
-// stamp applied, and a culled face cannot be brought back from a rewritten op.
-func restampBoxTransforms(boxNode *box, state stampState, ops []Op, media string) {
-	stampTree(boxNode, state, ops, media, true)
+// restampBoxTransformsWithCovered runs the stamp walk on one subtree with a
+// state the full walk produced, reusing a caller-owned coverage mask buffer so
+// steady-state 3D animation ticks allocate no []bool. restamp keeps opacity
+// out of the pass and leaves a back-face visible: the operations already carry
+// the opacity their first stamp applied, and a culled face cannot be brought
+// back from a rewritten op.
+func restampBoxTransformsWithCovered(boxNode *box, state stampState, ops []Op, media string, coveredBuf *[]bool) {
+	if boxNode == nil || len(ops) == 0 {
+		return
+	}
+
+	if subtreeNeedsCoveredMask(boxNode) {
+		var covered []bool
+		if coveredBuf != nil {
+			if cap(*coveredBuf) < len(ops) {
+				*coveredBuf = make([]bool, len(ops))
+			} else {
+				*coveredBuf = (*coveredBuf)[:len(ops)]
+			}
+
+			covered = *coveredBuf
+		} else {
+			covered = make([]bool, len(ops))
+		}
+
+		stampBoxTransformsRec(boxNode, state, ops, covered, media, true)
+
+		if coveredBuf != nil {
+			start := max(boxNode.opStart, 0)
+			end := min(boxNode.opEnd, len(covered)-1)
+			if start <= end {
+				clear(covered[start : end+1])
+			}
+		}
+
+		return
+	}
+
+	stampFlatBoxTransformsRec(boxNode, state, ops, true)
 }
 
 // stampTree allocates the coverage mask and starts one stamp run. A tree

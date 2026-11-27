@@ -213,7 +213,7 @@ func restampElementPatch(
 	return &ElementPatch{
 		Ops:      ops,
 		OpOwners: owners,
-		Boxes:    restampedBoxes(prev.Boxes, overrides),
+		Boxes:    restampedBoxes(display, overrides),
 		Old:      pointBoundsToRect(restamped.OldX, restamped.OldY, restamped.OldW, restamped.OldH),
 		New:      pointBoundsToRect(restamped.NewX, restamped.NewY, restamped.NewW, restamped.NewH),
 		Display:  display,
@@ -293,13 +293,15 @@ func engineOptions(media string) ilayout.Options {
 
 // restampedBoxes returns the element boxes of the patched subtrees in document
 // order, the way ElementPatch.Boxes reports them for RelayoutElement.
-func restampedBoxes(boxes []Box, overrides []TransformOverride) []Box {
-	if len(overrides) == 0 {
+func restampedBoxes(display *Display, overrides []TransformOverride) []Box {
+	if display == nil || len(overrides) == 0 {
 		return nil
 	}
 
+	boxes := display.Boxes
+
 	if len(overrides) == 1 {
-		boxIndex := boxIndexByID(boxes, overrides[0].ElementID)
+		boxIndex := display.boxIndexByID(overrides[0].ElementID)
 		if boxIndex < 0 {
 			return nil
 		}
@@ -318,7 +320,7 @@ func restampedBoxes(boxes []Box, overrides []TransformOverride) []Box {
 	}
 
 	for idx := range overrides {
-		boxIndex := boxIndexByID(boxes, overrides[idx].ElementID)
+		boxIndex := display.boxIndexByID(overrides[idx].ElementID)
 		if boxIndex < 0 {
 			continue
 		}
@@ -370,6 +372,32 @@ func restampedBoxes(boxes []Box, overrides []TransformOverride) []Box {
 type indexRange struct {
 	start int
 	end   int
+}
+
+// boxIndexByID returns the index of the first box with the given id, or -1.
+func (d *Display) boxIndexByID(elementID string) int {
+	if d == nil || elementID == "" {
+		return -1
+	}
+
+	if d.boxByID == nil {
+		index := make(map[string]int, 32)
+		for idx := range d.Boxes {
+			if id := d.Boxes[idx].ID; id != "" {
+				if _, exists := index[id]; !exists {
+					index[id] = idx
+				}
+			}
+		}
+
+		d.boxByID = index
+	}
+
+	if idx, ok := d.boxByID[elementID]; ok {
+		return idx
+	}
+
+	return -1
 }
 
 // boxIndexByID returns the index of the first box with the given id, or -1.

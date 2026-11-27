@@ -547,7 +547,7 @@ func flexRowPhysicalReverse(style *ResolvedStyle) bool {
 // main-axis space. Auto margins absorb only the positive space left after
 // flex sizing.
 func flexRowNormalMargins(e *engine, item flexMeas) float64 {
-	style := e.stylePtr(item.n)
+	style := e.flexMeasStyle(item)
 	margins := 0.0
 	if !style.geometry().MarginLeftAuto {
 		margins += e.scalePt(style.MarginLeft)

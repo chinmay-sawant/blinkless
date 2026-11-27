@@ -36,9 +36,18 @@ type flexLinePlace struct {
 }
 
 type flexPlacedItem struct {
-	box *box
-	h   float64
-	n   *html.Node
+	box   *box
+	h     float64
+	n     *html.Node
+	style *ResolvedStyle
+}
+
+func (e *engine) flexPlacedStyle(item flexPlacedItem) *ResolvedStyle {
+	if item.style != nil {
+		return item.style
+	}
+
+	return e.stylePtr(item.n)
 }
 
 // Row-path memo domains. The column path stores base heights in e.flexBaseH
@@ -277,7 +286,7 @@ func (e *engine) buildFlex(node *html.Node, sty *ResolvedStyle, availW, x, posY 
 
 	rowGap, colGap := e.styleGaps(sty)
 	previousCB, parentCB := e.setFlowCB(sty)
-	defer func() { e.flowCBHeight = previousCB }()
+	defer func() { e.flowCB = previousCB }()
 
 	dir := sty.flex().FlexDirection
 	if dir == "" {
@@ -1289,7 +1298,7 @@ func (e *engine) flexRowNeedsPreMeasureCross(style *ResolvedStyle, items []flexM
 	}
 
 	for _, item := range items {
-		cstate := e.stylePtr(item.n)
+		cstate := e.flexMeasStyle(item)
 		if cstate == nil {
 			continue
 		}
@@ -1607,7 +1616,7 @@ func (e *engine) buildRowItems(
 			return nil, rowH
 		}
 
-		cstate := e.stylePtr(item.n)
+		cstate := e.flexMeasStyle(item)
 		if cstate.geometry().MarginLeftAuto {
 			leftX += autoMainUnit
 		} else {
@@ -1637,7 +1646,7 @@ func (e *engine) buildRowItems(
 		cblock := e.buildFlexRowItem(item.n, cstate, forceStretch, stretchCross, widths[idx], leftX, itemY)
 
 		if cblock == nil {
-			built = append(built, flexPlacedItem{n: item.n})
+			built = append(built, flexPlacedItem{n: item.n, style: cstate})
 
 			leftX += widths[idx]
 			if cstate.geometry().MarginRightAuto {
@@ -1663,7 +1672,7 @@ func (e *engine) buildRowItems(
 			rowH = itemH
 		}
 
-		built = append(built, flexPlacedItem{box: cblock, h: cblock.height, n: item.n})
+		built = append(built, flexPlacedItem{box: cblock, h: cblock.height, n: item.n, style: cstate})
 
 		if parent != nil {
 			parent.children = append(parent.children, cblock)
@@ -1698,7 +1707,7 @@ func (e *engine) alignRowItems(
 			continue
 		}
 
-		pageStyle := e.stylePtr(page.n)
+		pageStyle := e.flexPlacedStyle(page)
 		if pageStyle.geometry().MarginTopAuto || pageStyle.geometry().MarginBottomAuto {
 			continue
 		}
@@ -1790,7 +1799,7 @@ func (e *engine) rowBaselineOffset(style *ResolvedStyle, built []flexPlacedItem)
 // alignment, from the container or from its own align-self.
 func (e *engine) itemAlignsBaseline(style *ResolvedStyle, page flexPlacedItem) bool {
 	align := style.flex().AlignItems
-	if pageStyle := e.stylePtr(page.n); pageStyle.flex().AlignSelf != "" && pageStyle.flex().AlignSelf != fxAuto {
+	if pageStyle := e.flexPlacedStyle(page); pageStyle.flex().AlignSelf != "" && pageStyle.flex().AlignSelf != fxAuto {
 		align = pageStyle.flex().AlignSelf
 	}
 
@@ -1800,7 +1809,7 @@ func (e *engine) itemAlignsBaseline(style *ResolvedStyle, page flexPlacedItem) b
 func flexRowAutoMarginCount(items []flexMeas, e *engine) int {
 	count := 0
 	for _, item := range items {
-		style := e.stylePtr(item.n)
+		style := e.flexMeasStyle(item)
 		if style.geometry().MarginLeftAuto {
 			count++
 		}

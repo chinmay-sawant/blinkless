@@ -1,5 +1,12 @@
 package layout
 
+// flowCBState holds the active in-flow containing-block height without heap
+// boxing a float64 pointer on every definite-height element.
+type flowCBState struct {
+	height float64
+	set    bool
+}
+
 // seedInitialContainingBlock installs a positive Options.Height as the
 // in-flow containing-block height. The root element resolves percentage
 // heights against that viewport. A non-positive height leaves the block
@@ -10,17 +17,17 @@ func (e *engine) seedInitialContainingBlock() {
 	}
 
 	e.initialCBHeight = e.opts.Height
-	e.flowCBHeight = &e.initialCBHeight
+	e.flowCB = flowCBState{height: e.initialCBHeight, set: true}
 }
 
 // containingBlockHeight returns the current in-flow containing-block height.
-// Percent heights are intentionally unresolved when the pointer is nil.
+// Percent heights are intentionally unresolved when flowCB.set is false.
 func (e *engine) containingBlockHeight() float64 {
-	if e.flowCBHeight == nil {
+	if !e.flowCB.set {
 		return -1
 	}
 
-	return *e.flowCBHeight
+	return e.flowCB.height
 }
 
 // definiteContentHeight returns the content-box height established by a
@@ -44,13 +51,13 @@ func (e *engine) definiteContentHeight(style *ResolvedStyle) (float64, bool) {
 	return content, true
 }
 
-func (e *engine) setFlowCB(style *ResolvedStyle) (*float64, float64) {
-	previous := e.flowCBHeight
+func (e *engine) setFlowCB(style *ResolvedStyle) (flowCBState, float64) {
+	previous := e.flowCB
 	parentCB := e.containingBlockHeight()
 	if contentH, ok := e.definiteContentHeight(style); ok {
-		e.flowCBHeight = &contentH
+		e.flowCB = flowCBState{height: contentH, set: true}
 	} else {
-		e.flowCBHeight = nil
+		e.flowCB = flowCBState{}
 	}
 
 	return previous, parentCB

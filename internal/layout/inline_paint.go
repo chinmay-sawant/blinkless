@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"math"
 	"strconv"
 	"strings"
 
@@ -536,18 +537,26 @@ func resolveTextDecorationSkipPolicy(sty *ResolvedStyle) textDecorationSkipPolic
 		return policy
 	}
 
-	switch strings.ToLower(strings.TrimSpace(sty.inlineText().TextDecorationSkipSelf)) {
+	it := sty.inlineText()
+	if it.TextDecorationSkipSelf == "" && it.TextDecorationSkipBox == "" && it.TextDecorationSkipSpaces == "" {
+		return textDecorationSkipPolicy{
+			skipSpacesStart: true,
+			skipSpacesEnd:   true,
+		}
+	}
+
+	switch strings.ToLower(strings.TrimSpace(it.TextDecorationSkipSelf)) {
 	case "skip-all":
 		policy.skipSelfAll = true
 	case textDecorationSkipNoSkip:
 		policy.noSkipSelf = true
 	}
 
-	if strings.EqualFold(strings.TrimSpace(sty.inlineText().TextDecorationSkipBox), columnSpanAll) {
+	if strings.EqualFold(strings.TrimSpace(it.TextDecorationSkipBox), columnSpanAll) {
 		policy.skipBoxAll = true
 	}
 
-	spaces := strings.ToLower(strings.TrimSpace(sty.inlineText().TextDecorationSkipSpaces))
+	spaces := strings.ToLower(strings.TrimSpace(it.TextDecorationSkipSpaces))
 	if spaces == "" || spaces == "objects" {
 		spaces = textDecorationSkipStartEnd
 	}
@@ -1630,19 +1639,44 @@ func (e *engine) measureTextFace(cssSheet string, sty *ResolvedStyle) float64 {
 		return 0
 	}
 
-	primary := e.faceFor(sty)
+	var primary *pdf.Font
+	var size float64
+	var styleID uint64
 
-	if primary == nil {
-		primary = e.font
+	if e.hasLastTextFace && e.lastTextFaceSty == sty {
+		primary = e.lastTextFace
+		size = e.lastTextFaceSize
+		styleID = e.lastTextFaceID
+	} else {
+		primary = e.faceFor(sty)
+		if primary == nil {
+			primary = e.font
+		}
+
+		size = usedFontSize(sty, primary) * e.scale
+		styleID = e.measureStyleID(sty, primary, math.Float64bits(size))
+		e.lastTextFaceSty = sty
+		e.lastTextFace = primary
+		e.lastTextFaceSize = size
+		e.lastTextFaceID = styleID
+		e.hasLastTextFace = true
 	}
-
-	size := usedFontSize(sty, primary) * e.scale
 
 	if len(cssSheet) > maxCachedTextLen {
 		return e.measureTextFaceUncached(cssSheet, sty, primary, size)
 	}
 
-	key := e.textWidthCacheKey(sty, primary, size, cssSheet)
+	var key textWidthLocalKey
+	if styleID != 0 {
+		key = textWidthLocalKey{key: textWidthKey{styleID: styleID, text: cssSheet}}
+	} else {
+		key = textWidthLocalKey{
+			key:      textWidthKey{text: cssSheet},
+			style:    sty,
+			sizeBits: math.Float64bits(size),
+		}
+	}
+
 	if w, ok := e.fetchTextWidth(key, e.scale); ok {
 		return w
 	}

@@ -8,6 +8,10 @@ import (
 )
 
 func maskImageEnabled(value string) bool {
+	if value == "" || value == "none" {
+		return false
+	}
+
 	// Fast path for the initial value: every element carries mask-image:none
 	// unless the author declares otherwise, and splitting that one keyword
 	// through splitParenArgs only to rediscover "none" costs a slice per

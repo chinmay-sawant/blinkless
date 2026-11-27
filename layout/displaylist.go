@@ -237,6 +237,10 @@ type Display struct {
 	// display box slice pool. Cleared when a patch shares or reuses the
 	// slice on a successor display.
 	ownsBoxes bool
+
+	// boxByID lazily maps element IDs to their first index in Boxes so
+	// repeated restamp frames avoid linear scans over Display.Boxes.
+	boxByID map[string]int
 }
 
 // Release returns retained resources (boxes, style chunks, store chunks)
@@ -266,6 +270,8 @@ func (d *Display) Release() {
 		d.Boxes = nil
 		d.ownsBoxes = false
 	}
+
+	d.boxByID = nil
 }
 
 // DisplayList lays doc out and returns its display list. It does not paint
@@ -321,6 +327,11 @@ func DisplayListOptions(ctx context.Context, doc *css.Document, options Options)
 	}
 
 	layoutOpts := displayLayoutOptions(styled, font, options.Images, widthPt, heightPt)
+	if options.CullWindow != nil && options.CullWindow.BottomPx > options.CullWindow.TopPx {
+		layoutOpts.ViewportCull = true
+		layoutOpts.CullTopPt = options.CullWindow.TopPx * cssPxToPt
+		layoutOpts.CullBottomPt = options.CullWindow.BottomPx * cssPxToPt
+	}
 
 	res, err := ilayout.LayoutContext(ctx, styled.Root, layoutOpts)
 	if err != nil {
@@ -405,7 +416,7 @@ func releaseIntSlice(scratch []int) {
 	intSlicePool.Put(header)
 }
 
-const maxPooledBoxSliceCap = 4096
+const maxPooledBoxSliceCap = 8192
 
 // boxSlicePool stores cleared Box backing slices released from Display.Release.
 // boxSliceHdrPool recycles the *[]Box headers so Put never boxes a slice header.

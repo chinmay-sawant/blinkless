@@ -90,6 +90,10 @@ func normalizeWebkitMaskBoxImageAlias(prop string) (string, bool) {
 // maskBorderEnabled reports whether a used mask-border source asks for a
 // frame. none and the empty string do not.
 func maskBorderEnabled(source string) bool {
+	if source == "" || source == cssDisplayNone {
+		return false
+	}
+
 	trimmed := strings.TrimSpace(source)
 
 	return trimmed != "" && !strings.EqualFold(trimmed, cssDisplayNone)

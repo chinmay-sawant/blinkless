@@ -905,6 +905,16 @@ func (e *engine) layoutBlockChild(
 	// (Chrome 130+; fixture-61 #102 justify-self:center in a table cell).
 	boxX, boxW = e.applyJustifySelfFitContent(node, cstate, boxX, boxW)
 
+	// Opt-in viewport culling: skip definite-height in-flow containers whose
+	// border box falls completely outside [CullTopPt, CullBottomPt], while
+	// advancing curY and bottom margin identically so canvas height and visible
+	// element coordinates stay exact.
+	if e.opts.ViewportCull && e.savedBFCFloats == nil {
+		if culledH, ok := e.cullOffscreenBlock(cstate, posY+curY); ok {
+			return curY + culledH, e.scalePt(cstate.MarginBottom), nil
+		}
+	}
+
 	// wrap-through: none (css-exclusions-1 lite) builds the child against a
 	// scratch floatState so outside exclusions do not shorten its lines.
 	bypass := e.beginWrapThroughBypass(floats, cstate)
@@ -934,6 +944,48 @@ func (e *engine) finishBlockChild(
 	}
 
 	return curY + cblock.height, e.scalePt(cstate.MarginBottom), cblock
+}
+
+// cullOffscreenBlock reports whether a block child can be skipped under opt-in
+// viewport culling and returns its exact border-box height in points.
+func (e *engine) cullOffscreenBlock(cstate *ResolvedStyle, boxY float64) (float64, bool) {
+	if cstate == nil || e.opts.CullBottomPt <= e.opts.CullTopPt {
+		return 0, false
+	}
+
+	if cstate.Position != "" && cstate.Position != positionStatic {
+		return 0, false
+	}
+
+	if (cstate.Float != "" && cstate.Float != cssDisplayNone) || exclusionApplies(cstate) {
+		return 0, false
+	}
+
+	if cstate.effects().HasTransform || cstate.effects().HasTransform3D {
+		return 0, false
+	}
+
+	switch cstate.Display {
+	case displayBlock, displayFlex, displayFlowRoot, displayGrid:
+	default:
+		return 0, false
+	}
+
+	geom := cstate.geometry()
+	if cstate.Height <= 0 || geom.MinHeightSet || geom.MaxHeight > 0 {
+		return 0, false
+	}
+
+	heightPt := e.scalePt(cstate.Height)
+	if geom.BoxSizing != borderBox {
+		heightPt += cstate.verticalChrome(e)
+	}
+
+	if boxY+heightPt < e.opts.CullTopPt || boxY > e.opts.CullBottomPt {
+		return heightPt, true
+	}
+
+	return 0, false
 }
 
 // marginTrimOverride returns the margin-trimmed style override for a block

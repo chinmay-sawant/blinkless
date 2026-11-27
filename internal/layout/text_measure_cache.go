@@ -298,12 +298,72 @@ func (e *engine) textWidthCacheKey(
 }
 
 var (
-	textWidthCachePool = sync.Pool{}
-	runeWidthCachePool = sync.Pool{}
+	textWidthCachePool  = sync.Pool{}
+	textWidthStrMapPool = sync.Pool{}
+	runeWidthCachePool  = sync.Pool{}
 )
+
+func (e *engine) textWidthMapFor(styleID uint64) map[string]float64 {
+	if e.lastWidthStyleID == styleID && e.lastWidthMap != nil {
+		return e.lastWidthMap
+	}
+
+	if e.textWidthByStyle == nil {
+		return nil
+	}
+
+	sub := e.textWidthByStyle[styleID]
+	if sub != nil {
+		e.lastWidthStyleID = styleID
+		e.lastWidthMap = sub
+	}
+
+	return sub
+}
+
+func (e *engine) ensureTextWidthMap(styleID uint64) map[string]float64 {
+	if e.lastWidthStyleID == styleID && e.lastWidthMap != nil {
+		return e.lastWidthMap
+	}
+
+	if e.textWidthByStyle == nil {
+		e.textWidthByStyle = make(map[uint64]map[string]float64, 8)
+	}
+
+	sub := e.textWidthByStyle[styleID]
+	if sub == nil {
+		if pooled, ok := textWidthStrMapPool.Get().(map[string]float64); ok {
+			sub = pooled
+		} else {
+			sub = make(map[string]float64, initialWidthCacheEntries)
+		}
+
+		e.textWidthByStyle[styleID] = sub
+	}
+
+	e.lastWidthStyleID = styleID
+	e.lastWidthMap = sub
+
+	return sub
+}
 
 // storeTextWidth records width under key unless the cache is full.
 func (e *engine) storeTextWidth(key textWidthLocalKey, width float64) {
+	if key.key.styleID != 0 {
+		if e.textWidthCount >= maxTextWidthCacheEntries {
+			return
+		}
+
+		sub := e.ensureTextWidthMap(key.key.styleID)
+		if _, exists := sub[key.key.text]; !exists {
+			e.textWidthCount++
+		}
+
+		sub[key.key.text] = width
+
+		return
+	}
+
 	if e.textWidthCache == nil {
 		if pooled, ok := textWidthCachePool.Get().(map[textWidthLocalKey]float64); ok {
 			e.textWidthCache = pooled
@@ -571,20 +631,26 @@ func resetCoverageCounters() {
 // on a shared hit so a repeat word pays one map read. A cold per-layout map
 // skips straight to the shared cache.
 func (e *engine) fetchTextWidth(key textWidthLocalKey, scale float64) (float64, bool) {
+	if key.key.styleID != 0 {
+		if sub := e.textWidthMapFor(key.key.styleID); len(sub) > 0 {
+			if width, ok := sub[key.key.text]; ok {
+				return width, true
+			}
+		}
+
+		if width, ok := lookupSharedTextWidth(key.key, scale); ok {
+			e.storeTextWidth(key, width)
+
+			return width, true
+		}
+
+		return 0, false
+	}
+
 	if len(e.textWidthCache) > 0 {
 		if width, ok := e.textWidthCache[key]; ok {
 			return width, true
 		}
-	}
-
-	if key.key.styleID == 0 {
-		return 0, false
-	}
-
-	if width, ok := lookupSharedTextWidth(key.key, scale); ok {
-		e.storeTextWidth(key, width)
-
-		return width, true
 	}
 
 	return 0, false

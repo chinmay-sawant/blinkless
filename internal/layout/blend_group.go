@@ -162,6 +162,10 @@ func (op *Op) setGroupMark(group *BlendGroup, mark uint8) {
 // Empty and "none" paint directly; any other filter list needs a group so the
 // host can blur or saturate the backdrop at one boundary.
 func hasBackdropFilter(value string) bool {
+	if value == "" || value == "none" {
+		return false
+	}
+
 	value = strings.TrimSpace(value)
 
 	return value != "" && !strings.EqualFold(value, "none")
@@ -171,6 +175,10 @@ func hasBackdropFilter(value string) bool {
 // "none" paint directly; any other filter list needs a group so the host can
 // filter the element's painted output at one boundary.
 func hasFilter(value string) bool {
+	if value == "" || value == "none" {
+		return false
+	}
+
 	value = strings.TrimSpace(value)
 
 	return value != "" && !strings.EqualFold(value, "none")

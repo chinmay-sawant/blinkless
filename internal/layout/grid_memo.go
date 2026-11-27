@@ -71,12 +71,12 @@ func gridPrefHKey(eng *engine, node *html.Node, width float64) (gridMeasureKey, 
 
 	var cbBits uint64
 
-	cbSet := eng.flowCBHeight != nil
+	cbSet := eng.flowCB.set
 
 	if cbSet {
 		var cbValid bool
 
-		if cbBits, cbValid = gridMeasureBits(*eng.flowCBHeight); !cbValid {
+		if cbBits, cbValid = gridMeasureBits(eng.flowCB.height); !cbValid {
 			return gridMeasureKey{}, false
 		}
 	}

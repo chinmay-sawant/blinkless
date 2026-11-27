@@ -133,7 +133,7 @@ func RestampTransforms(
 		return &RestampPatch{}, nil
 	}
 
-	roots := plan.outermost(prev.boxTreeRoot(), scratch)
+	roots := plan.outermost(prev, scratch)
 	if len(roots) == 0 {
 		return &RestampPatch{}, nil
 	}
@@ -175,6 +175,7 @@ type restampScratch struct {
 	backupGridSegs []GridSeg
 	backupGrids    []gridBackup
 	backupRanges   []opBackupRange
+	covered        []bool
 }
 
 type gridBackup struct {
@@ -231,6 +232,8 @@ func putRestampScratch(s *restampScratch) {
 	s.backupGridSegs = s.backupGridSegs[:0]
 	s.backupGrids = s.backupGrids[:0]
 	s.backupRanges = s.backupRanges[:0]
+	clear(s.covered)
+	s.covered = s.covered[:0]
 	restampScratchPool.Put(s)
 }
 
@@ -261,11 +264,10 @@ func restampReady(ctx context.Context, prev *Result, overrides []RestampOverride
 func restampStates(prev *Result, roots []*restampTarget, scratch *restampScratch) ([]subtreeStamp, error) {
 	states := scratch.states[:0]
 	scratch.actions = scratch.actions[:0]
-	root := prev.boxTreeRoot()
 
 	for _, target := range roots {
 		actionStart := len(scratch.actions)
-		state, perspAncestor, hasState := stampStateAtInto(root, target.box, &scratch.ancestors, &scratch.actions)
+		state, perspAncestor, hasState := stampStateAtResultInto(prev, target.box, &scratch.ancestors, &scratch.actions)
 		if !hasState {
 			return nil, fmt.Errorf("%w: %s", ErrNotStampable, target.id)
 		}
@@ -326,7 +328,7 @@ func applyRestamp(prev *Result, states []subtreeStamp, media string, scratch *re
 	}
 
 	for idx := range states {
-		if err := restampSubtree(prev, &states[idx], scratch.actions, media); err != nil {
+		if err := restampSubtree(prev, &states[idx], scratch.actions, media, &scratch.covered); err != nil {
 			return nil, err
 		}
 	}
@@ -350,12 +352,12 @@ func applyRestamp(prev *Result, states []subtreeStamp, media string, scratch *re
 }
 
 // restampSubtree resets and re-stamps one subtree window.
-func restampSubtree(prev *Result, item *subtreeStamp, allActions []ancestorStamp, media string) error {
+func restampSubtree(prev *Result, item *subtreeStamp, allActions []ancestorStamp, media string, coveredBuf *[]bool) error {
 	resetStampFields(item.box)
 	propagatePerspectiveFrom(item.box, item.perspAncestor)
 	resetWindowTransforms(prev.Ops, item.window)
 
-	restampBoxTransforms(item.box, item.state, prev.Ops, media)
+	restampBoxTransformsWithCovered(item.box, item.state, prev.Ops, media, coveredBuf)
 
 	for actionIdx := item.actionStart; actionIdx < item.actionEnd; actionIdx++ {
 		applyAncestorStamp(allActions[actionIdx], prev.Ops, item.window)
@@ -512,7 +514,11 @@ func (p *restampPlan) restore() {
 
 // outermost returns the targets that no other target contains, in document
 // order. A nested target is stamped inside its outer target's subtree walk.
-func (p *restampPlan) outermost(root *box, scratch *restampScratch) []*restampTarget {
+func (p *restampPlan) outermost(prev *Result, scratch *restampScratch) []*restampTarget {
+	if len(p.targets) == 0 {
+		return nil
+	}
+
 	if len(p.targets) == 1 {
 		scratch.roots = append(scratch.roots[:0], &p.targets[0])
 
@@ -530,45 +536,49 @@ func (p *restampPlan) outermost(root *box, scratch *restampScratch) []*restampTa
 		targets[p.targets[idx].box] = idx
 	}
 
-	if cap(scratch.seen) < len(p.targets) {
-		scratch.seen = make([]bool, len(p.targets))
-	} else {
-		scratch.seen = scratch.seen[:len(p.targets)]
-		clear(scratch.seen)
-	}
+	prev.ensureBoxIndex()
+	root := prev.boxTreeRoot()
 
-	seen := scratch.seen
 	out := scratch.roots[:0]
-
-	var walk func(boxNode *box, inside bool)
-	walk = func(boxNode *box, inside bool) {
-		index, isTarget := targets[boxNode]
-
-		if isTarget {
-			seen[index] = true
-
-			if !inside {
-				out = append(out, &p.targets[index])
-			}
-		}
-
-		next := inside || isTarget
-
-		for _, child := range boxNode.children {
-			walk(child, next)
-		}
-	}
-
-	walk(root, false)
-
-	// A box that hangs off the children chain (a table cell lives in its row
-	// list) is handed back too, so the caller reports it as not stampable
-	// instead of silently ignoring the override.
 	for idx := range p.targets {
-		if !seen[idx] {
+		boxNode := p.targets[idx].box
+		if _, inChain := prev.boxOrder[boxNode]; !inChain {
+			out = append(out, &p.targets[idx])
+			continue
+		}
+
+		nested := false
+		for cur := boxNode; cur != root; {
+			parent, ok := prev.boxParents[cur]
+			if !ok {
+				break
+			}
+			if _, isTarget := targets[parent]; isTarget {
+				nested = true
+				break
+			}
+			cur = parent
+		}
+
+		if !nested {
 			out = append(out, &p.targets[idx])
 		}
 	}
+
+	slices.SortFunc(out, func(left, right *restampTarget) int {
+		lo, lok := prev.boxOrder[left.box]
+		ro, rok := prev.boxOrder[right.box]
+		switch {
+		case lok && rok:
+			return lo - ro
+		case lok:
+			return -1
+		case rok:
+			return 1
+		default:
+			return targets[left.box] - targets[right.box]
+		}
+	})
 
 	scratch.roots = out
 
@@ -796,6 +806,22 @@ func stampStateAtWithScratch(root, target *box, scratch *[]*box) (stampState, []
 	return current, actions, perspAncestor, true
 }
 
+// stampStateAtResultInto is the fast path of stampStateAtInto that resolves
+// the ancestor chain via prev's cached parent map in O(depth).
+func stampStateAtResultInto(
+	prev *Result, target *box, scratch *[]*box, actions *[]ancestorStamp,
+) (stampState, *box, bool) {
+	if prev == nil || target == nil {
+		return stampState{}, nil, false
+	}
+
+	if !prev.boxAncestorsInto(target, scratch) {
+		return stampState{}, nil, false
+	}
+
+	return advanceAncestorChain(*scratch, actions)
+}
+
 // stampStateAtInto appends reversed ancestor stamps into *actions instead of
 // allocating a fresh slice per target.
 func stampStateAtInto(
@@ -810,7 +836,10 @@ func stampStateAtInto(
 		return stampState{}, nil, false
 	}
 
-	ancestors := *scratch
+	return advanceAncestorChain(*scratch, actions)
+}
+
+func advanceAncestorChain(ancestors []*box, actions *[]ancestorStamp) (stampState, *box, bool) {
 	current := initialStampState(IdentityMatrix())
 
 	start := len(*actions)
