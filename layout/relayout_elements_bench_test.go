@@ -1,6 +1,7 @@
 package layout_test
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -39,9 +40,8 @@ html,body{margin:0;font-family:sans-serif;color:#1c1915;background:#f4f1ea}
 	return []byte(b.String())
 }
 
-func setupList1000(b *testing.B) (*html.Document, *css.Document, *layout.Display) {
+func setupList1000(ctx context.Context, b *testing.B) (*html.Document, *css.Document, *layout.Display) {
 	b.Helper()
-	ctx := b.Context()
 	tree, err := html.Parse(buildList1000HTML(1000))
 	if err != nil {
 		b.Fatalf("html.Parse: %v", err)
@@ -62,7 +62,7 @@ func BenchmarkRelayoutElements1000Rows(b *testing.B) {
 	opts := layout.Options{RetainState: true}
 
 	b.Run("Text1Row", func(b *testing.B) {
-		tree, styled, disp := setupList1000(b)
+		tree, styled, disp := setupList1000(ctx, b)
 		defer func() { disp.Release() }()
 		ids := []string{"body-4"}
 		b.ReportAllocs()
@@ -83,7 +83,7 @@ func BenchmarkRelayoutElements1000Rows(b *testing.B) {
 	})
 
 	b.Run("TextLastRow", func(b *testing.B) {
-		tree, styled, disp := setupList1000(b)
+		tree, styled, disp := setupList1000(ctx, b)
 		defer func() { disp.Release() }()
 		ids := []string{"body-1000"}
 		b.ReportAllocs()
@@ -104,7 +104,7 @@ func BenchmarkRelayoutElements1000Rows(b *testing.B) {
 	})
 
 	b.Run("Text10Rows", func(b *testing.B) {
-		tree, styled, disp := setupList1000(b)
+		tree, styled, disp := setupList1000(ctx, b)
 		defer func() { disp.Release() }()
 		ids := make([]string, 10)
 		for j := range ids {
@@ -130,7 +130,7 @@ func BenchmarkRelayoutElements1000Rows(b *testing.B) {
 	})
 
 	b.Run("BgRestyle1Row", func(b *testing.B) {
-		tree, styled, disp := setupList1000(b)
+		tree, styled, disp := setupList1000(ctx, b)
 		defer func() { disp.Release() }()
 		ids := []string{"row-4"}
 		b.ReportAllocs()
