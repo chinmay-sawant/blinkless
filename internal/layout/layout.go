@@ -213,7 +213,10 @@ type Result struct {
 	// rootBox is the root of the element box tree. It is the same box as
 	// root and the entry point for the subtree lookups in layout_state.go
 	// (boxForID, nodeForID).
-	rootBox *box
+	rootBox    *box
+	idBoxes    map[string]*box
+	boxParents map[*box]*box
+	boxOrder   map[*box]int
 
 	// flowPages indexes non-fixed operations by their current canvas page while
 	// pagination is settling. It is rebuilt when the display list is rewritten
@@ -321,6 +324,7 @@ func cloneResult(res *Result, shareStyles bool) *Result {
 	}
 	clone.styleChunks, clone.storeChunks, clone.childSlabs = nil, nil, nil
 	clone.svgRasters, clone.overrideBase = nil, nil
+	clone.idBoxes, clone.boxParents, clone.boxOrder = nil, nil, nil
 
 	boxes := getCloneBoxMap(len(res.boxes))
 	defer putCloneBoxMap(boxes)
@@ -515,6 +519,9 @@ func (w *Workspace) Release(res *Result) {
 	res.Ops = nil
 	res.root = nil
 	res.rootBox = nil
+	res.idBoxes = nil
+	res.boxParents = nil
+	res.boxOrder = nil
 	res.boxes = nil
 	// The cascade and the restyle raster cache die with the Result: a
 	// released Result keeps no box tree to patch, so keeping them would pin
@@ -903,9 +910,9 @@ type engine struct {
 	// children after their in-flow parent has finished determining its size.
 	absCBHeights map[*html.Node]float64
 	// initialCBHeight is Options.Height while that viewport is the percentage
-	// basis for the root element. flowCBHeight points at it for that element.
+	// basis for the root element. flowCB carries it without heap allocation.
 	initialCBHeight float64
-	flowCBHeight    *float64 // nil means the in-flow containing-block height is indefinite
+	flowCB          flowCBState
 	// flowWritingMode is the containing block's writing mode while its
 	// in-flow children build. An auto inline size resolves as fit-content
 	// when a child's writing mode is orthogonal to it (CSS Writing Modes).
@@ -942,9 +949,23 @@ type engine struct {
 	lastMeasureSize  uint64
 	lastMeasureID    uint64
 	hasLastMeasureID bool
-	// textWidthCache memoizes measureTextFace string widths for this Layout
-	// run, keyed by interned style ID and text.
+	lastTextFaceSty  *ResolvedStyle
+	lastTextFace     *pdf.Font
+	lastTextFaceSize float64
+	lastTextFaceID   uint64
+	hasLastTextFace  bool
+	// textWidthByStyle partitions per-layout string widths by interned style ID
+	// so lookups use Go's fast string map path instead of hashing a 40-byte key.
+	textWidthByStyle map[uint64]map[string]float64
+	lastWidthStyleID uint64
+	lastWidthMap     map[string]float64
+	textWidthCount   int
+	// textWidthCache is the fallback per-layout map when styleID == 0.
 	textWidthCache map[textWidthLocalKey]float64
+	// lastStyleNode / lastStylePtr cache the most recent stylePtr lookup when
+	// no temporary styleOverrides are active.
+	lastStyleNode *html.Node
+	lastStylePtr  *ResolvedStyle
 	// runeWidthCache memoizes measureRuneFace single-rune widths for this
 	// Layout run (decoration and min-content paths walk rune by rune).
 	runeWidthCache map[runeWidthLocalKey]float64
@@ -1042,6 +1063,22 @@ func (e *engine) releaseTransientState() {
 }
 
 func (e *engine) releaseMeasureCaches() {
+	if e.textWidthByStyle != nil {
+		for _, sub := range e.textWidthByStyle {
+			if len(sub) <= maxTextWidthCacheEntries {
+				clear(sub)
+				textWidthStrMapPool.Put(sub)
+			}
+		}
+
+		clear(e.textWidthByStyle)
+		e.textWidthByStyle = nil
+	}
+
+	e.lastWidthStyleID = 0
+	e.lastWidthMap = nil
+	e.textWidthCount = 0
+
 	if e.textWidthCache != nil {
 		if len(e.textWidthCache) <= maxTextWidthCacheEntries {
 			clear(e.textWidthCache)
@@ -1071,6 +1108,13 @@ func (e *engine) releaseMeasureCaches() {
 
 	e.lastMeasureSty = nil
 	e.lastMeasureSize = 0
+	e.lastTextFaceSty = nil
+	e.lastTextFace = nil
+	e.lastTextFaceSize = 0
+	e.lastTextFaceID = 0
+	e.hasLastTextFace = false
+	e.lastStyleNode = nil
+	e.lastStylePtr = nil
 	e.lastMeasureID = 0
 	e.hasLastMeasureID = false
 }
@@ -1478,24 +1522,38 @@ func sameSizeContainers(a, b map[*html.Node]sizeContainer) bool {
 }
 
 func (e *engine) stylePtr(node *html.Node) *ResolvedStyle {
-	for i := len(e.styleOverrides) - 1; i >= 0; i-- {
-		if e.styleOverrides[i].node == node {
-			return e.styleOverrides[i].style
+	if len(e.styleOverrides) == 0 {
+		if node != nil && node == e.lastStyleNode {
+			return e.lastStylePtr
+		}
+	} else {
+		for i := len(e.styleOverrides) - 1; i >= 0; i-- {
+			if e.styleOverrides[i].node == node {
+				return e.styleOverrides[i].style
+			}
 		}
 	}
 
-	if e.syntheticStyles != nil {
-		if p := e.syntheticStyles[node]; p != nil {
-			return p
-		}
+	var p *ResolvedStyle
+	if len(e.syntheticStyles) > 0 {
+		p = e.syntheticStyles[node]
 	}
 
-	if p := e.styles[node]; p != nil {
-		return p
+	if p == nil {
+		p = e.styles[node]
 	}
 
-	// Missing node (should not happen for walked trees): stable empty style.
-	return &zeroResolvedStyle
+	if p == nil {
+		// Missing node (should not happen for walked trees): stable empty style.
+		p = &zeroResolvedStyle
+	}
+
+	if len(e.styleOverrides) == 0 && node != nil {
+		e.lastStyleNode = node
+		e.lastStylePtr = p
+	}
+
+	return p
 }
 
 // hasStyle reports whether node has a resolved, overridden, or synthetic
@@ -1513,6 +1571,9 @@ func (e *engine) setSyntheticStyle(node *html.Node, style *ResolvedStyle) {
 	}
 
 	e.syntheticStyles[node] = style
+	if e.lastStyleNode == node {
+		e.lastStylePtr = style
+	}
 }
 
 // styleVal returns a by-value ResolvedStyle for APIs that still take values.
@@ -1626,8 +1687,8 @@ func (e *engine) blockContentFP(node *html.Node) uint64 {
 
 	if e != nil {
 		hash = blockFPMixUint(hash, math.Float64bits(e.imgMaxW))
-		if e.flowCBHeight != nil {
-			hash = blockFPMixUint(hash, math.Float64bits(*e.flowCBHeight))
+		if e.flowCB.set {
+			hash = blockFPMixUint(hash, math.Float64bits(e.flowCB.height))
 		} else {
 			hash = blockFPMixUint(hash, blockFPNoContainingBlock)
 		}
@@ -2091,7 +2152,7 @@ func (e *engine) buildBlock(node *html.Node, style *ResolvedStyle, availW, posX,
 	previousCB, _ := e.setFlowCB(style)
 	// The synthetic document box has an auto height, so setFlowCB drops the
 	// viewport. The html element's containing block is that viewport.
-	if node.Name == "#document" && e.flowCBHeight == nil {
+	if node.Name == "#document" && !e.flowCB.set {
 		e.seedInitialContainingBlock()
 	}
 
@@ -2102,7 +2163,7 @@ func (e *engine) buildBlock(node *html.Node, style *ResolvedStyle, availW, posX,
 
 	curY = e.flowChildrenPtr(boxNode, children, style, contentW, contentX, posY, curY)
 	e.popStyleOverrides(marginOverrides)
-	e.flowCBHeight = previousCB
+	e.flowCB = previousCB
 	curY = e.autoSizedControlContentBottom(node, boxStyle, widget, curY)
 
 	if enclose && e.bfcFloats != nil {

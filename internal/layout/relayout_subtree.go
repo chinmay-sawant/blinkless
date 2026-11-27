@@ -2017,6 +2017,7 @@ func commitSubtreeSplice(
 
 	relayoutRebaseTree(newBox, start)
 	relayoutSwapBox(target, newBox)
+	prev.invalidateBoxIndex()
 	relayoutFuseSplice(prev, newBox, start, start+oldCount-1, delta, boxCapacity, privateOps, pos)
 	relayoutKeepStyles(prev, styles)
 	refreshCensusSpliced(prev, oldMax, oldFrag, start, len(newOps))
@@ -2041,6 +2042,7 @@ func commitPaintOnlySplice(
 
 	relayoutRebaseTree(newBox, start)
 	relayoutSwapBox(target, newBox)
+	prev.invalidateBoxIndex()
 	relayoutKeepStyles(prev, styles)
 	refreshCensusSpliced(prev, oldMax, oldFrag, start, len(newOps))
 	storeOpIDHighWater(prev, newOps)

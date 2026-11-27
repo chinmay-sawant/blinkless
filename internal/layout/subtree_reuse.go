@@ -127,6 +127,7 @@ func subtreeReuseCommit(
 	relayoutSpliceOps(prev, start, oldCount, newOps)
 	relayoutRebaseTree(newBox, start)
 	relayoutSwapBox(target, newBox)
+	prev.invalidateBoxIndex()
 	relayoutShiftRanges(prev.boxTreeRoot(), newBox, start, start+oldCount-1, delta)
 	unionChildOpRanges(prev.boxTreeRoot())
 

@@ -277,7 +277,7 @@ func (e *engine) buildFlex(node *html.Node, sty *ResolvedStyle, availW, x, posY 
 
 	rowGap, colGap := e.styleGaps(sty)
 	previousCB, parentCB := e.setFlowCB(sty)
-	defer func() { e.flowCBHeight = previousCB }()
+	defer func() { e.flowCB = previousCB }()
 
 	dir := sty.flex().FlexDirection
 	if dir == "" {

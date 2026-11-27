@@ -217,7 +217,8 @@ func (mat matrix3D) flatten3D(vanishX, vanishY, dist float64) (Matrix2D, float64
 // are handled by parseOneTransformFunc; unknown names return false. Lengths
 // accept the translate unit set (percentages rejected: meaningless in depth).
 func parse3DFunc(name, args string) (matrix3D, bool) {
-	parts := splitTransformArgs(args)
+	var argBuf [16]string
+	parts := splitTransformArgsInto(args, &argBuf)
 
 	switch strings.ToLower(name) {
 	case "translate3d", "scale3d":

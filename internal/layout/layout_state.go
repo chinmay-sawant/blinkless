@@ -16,7 +16,131 @@ func (r *Result) boxForID(elementID string) *box {
 		return nil
 	}
 
-	return findBoxByID(r.boxTreeRoot(), elementID)
+	r.ensureBoxIndex()
+
+	return r.idBoxes[elementID]
+}
+
+// invalidateBoxIndex clears the lazily built id and parent maps after an
+// in-place box-tree mutation so the next lookup reflects the updated tree.
+func (r *Result) invalidateBoxIndex() {
+	if r == nil {
+		return
+	}
+
+	r.idBoxes = nil
+	r.boxParents = nil
+	r.boxOrder = nil
+}
+
+// ensureBoxIndex walks the box tree once to populate idBoxes (document-order
+// first match per id, including table cells), boxParents (children-chain
+// parent links matching findBoxAncestors), and boxOrder (children-chain
+// document order index).
+func (r *Result) ensureBoxIndex() {
+	if r == nil || r.idBoxes != nil {
+		return
+	}
+
+	root := r.boxTreeRoot()
+	if root == nil {
+		return
+	}
+
+	capHint := max(len(r.boxes), 32)
+	idBoxes := make(map[string]*box, 32)
+	boxParents := make(map[*box]*box, capHint)
+	boxOrder := make(map[*box]int, capHint)
+	order := 0
+
+	var walk func(cur *box, inChildrenChain bool)
+	walk = func(cur *box, inChildrenChain bool) {
+		if cur == nil {
+			return
+		}
+
+		if inChildrenChain {
+			if _, exists := boxOrder[cur]; !exists {
+				boxOrder[cur] = order
+				order++
+			}
+		}
+
+		if cur.node != nil && cur.node.Type == html.ElementNode {
+			if id := cur.node.Attribute("id"); id != "" {
+				if _, exists := idBoxes[id]; !exists {
+					idBoxes[id] = cur
+				}
+			}
+		}
+
+		for _, child := range cur.children {
+			if child == nil {
+				continue
+			}
+
+			if inChildrenChain {
+				if _, exists := boxParents[child]; !exists {
+					boxParents[child] = cur
+				}
+			}
+
+			walk(child, inChildrenChain)
+		}
+
+		for _, row := range cur.rows {
+			for _, cell := range row {
+				walk(cell, false)
+			}
+		}
+	}
+
+	walk(root, true)
+
+	r.idBoxes = idBoxes
+	r.boxParents = boxParents
+	r.boxOrder = boxOrder
+}
+
+// boxAncestorsInto appends the ancestor chain from r.boxTreeRoot() down to
+// (but not including) target into path using the cached parent map.
+func (r *Result) boxAncestorsInto(target *box, path *[]*box) bool {
+	if r == nil || target == nil {
+		return false
+	}
+
+	root := r.boxTreeRoot()
+	if root == nil {
+		return false
+	}
+
+	*path = (*path)[:0]
+	if target == root {
+		return true
+	}
+
+	r.ensureBoxIndex()
+
+	cur := target
+	for cur != root {
+		parent, ok := r.boxParents[cur]
+		if !ok {
+			*path = (*path)[:0]
+
+			return false
+		}
+
+		*path = append(*path, parent)
+		cur = parent
+	}
+
+	// Reverse in place so the slice runs root -> ... -> parent(target).
+	p := *path
+	for left, right := 0, len(p)-1; left < right; left, right = left+1, right-1 {
+		p[left], p[right] = p[right], p[left]
+	}
+
+	return true
 }
 
 // nodeForID returns the html node of the element with the given id, or nil
@@ -57,33 +181,6 @@ func (r *Result) documentRootNode() *html.Node {
 	}
 
 	return root.node
-}
-
-// findBoxByID walks the box tree in document order.
-func findBoxByID(root *box, elementID string) *box {
-	if root == nil {
-		return nil
-	}
-
-	if root.node != nil && root.node.Type == html.ElementNode && root.node.Attribute("id") == elementID {
-		return root
-	}
-
-	for _, child := range root.children {
-		if found := findBoxByID(child, elementID); found != nil {
-			return found
-		}
-	}
-
-	for _, row := range root.rows {
-		for _, cell := range row {
-			if found := findBoxByID(cell, elementID); found != nil {
-				return found
-			}
-		}
-	}
-
-	return nil
 }
 
 // findNodeByID walks the document tree in document order.
