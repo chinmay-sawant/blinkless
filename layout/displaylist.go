@@ -405,7 +405,7 @@ func releaseIntSlice(scratch []int) {
 	intSlicePool.Put(header)
 }
 
-const maxPooledBoxSliceCap = 4096
+const maxPooledBoxSliceCap = 8192
 
 // boxSlicePool stores cleared Box backing slices released from Display.Release.
 // boxSliceHdrPool recycles the *[]Box headers so Put never boxes a slice header.

@@ -35,6 +35,10 @@ func (e *engine) faceFor(sty *ResolvedStyle) *pdf.Font {
 		return e.font
 	}
 
+	if e.hasLastFace && e.lastFaceForSty == sty && e.lastFace != nil {
+		return e.lastFace
+	}
+
 	optical, variations, sizeBits := variationCacheBits(sty)
 	key := faceStyleKey{
 		famHash:     sty.famHash,
@@ -46,12 +50,14 @@ func (e *engine) faceFor(sty *ResolvedStyle) *pdf.Font {
 	}
 
 	if e.hasLastFace && e.lastFaceKey == key && e.lastFace != nil {
+		e.lastFaceForSty = sty
+
 		return e.lastFace
 	}
 
 	if e.faceByStyle != nil {
 		if f, ok := e.faceByStyle[key]; ok {
-			e.lastFaceKey, e.lastFace, e.hasLastFace = key, f, true
+			e.lastFaceForSty, e.lastFaceKey, e.lastFace, e.hasLastFace = sty, key, f, true
 
 			return f
 		}
@@ -64,7 +70,7 @@ func (e *engine) faceFor(sty *ResolvedStyle) *pdf.Font {
 	}
 
 	e.faceByStyle[key] = face
-	e.lastFaceKey, e.lastFace, e.hasLastFace = key, face, true
+	e.lastFaceForSty, e.lastFaceKey, e.lastFace, e.hasLastFace = sty, key, face, true
 
 	return face
 }

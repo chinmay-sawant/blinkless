@@ -962,10 +962,11 @@ type engine struct {
 	textWidthCount   int
 	// textWidthCache is the fallback per-layout map when styleID == 0.
 	textWidthCache map[textWidthLocalKey]float64
-	// lastStyleNode / lastStylePtr cache the most recent stylePtr lookup when
-	// no temporary styleOverrides are active.
-	lastStyleNode *html.Node
-	lastStylePtr  *ResolvedStyle
+	// styleCache caches the 4 most recent stylePtr lookups when no temporary
+	// styleOverrides are active, keeping a flex row's items resident across passes.
+	styleCache     [4]styleCacheEntry
+	styleCacheNext uint8
+	lastFaceForSty *ResolvedStyle
 	// runeWidthCache memoizes measureRuneFace single-rune widths for this
 	// Layout run (decoration and min-content paths walk rune by rune).
 	runeWidthCache map[runeWidthLocalKey]float64
@@ -1113,8 +1114,9 @@ func (e *engine) releaseMeasureCaches() {
 	e.lastTextFaceSize = 0
 	e.lastTextFaceID = 0
 	e.hasLastTextFace = false
-	e.lastStyleNode = nil
-	e.lastStylePtr = nil
+	e.lastFaceForSty = nil
+	e.styleCache = [4]styleCacheEntry{}
+	e.styleCacheNext = 0
 	e.lastMeasureID = 0
 	e.hasLastMeasureID = false
 }
@@ -1521,10 +1523,26 @@ func sameSizeContainers(a, b map[*html.Node]sizeContainer) bool {
 	return true
 }
 
+type styleCacheEntry struct {
+	node  *html.Node
+	style *ResolvedStyle
+}
+
 func (e *engine) stylePtr(node *html.Node) *ResolvedStyle {
 	if len(e.styleOverrides) == 0 {
-		if node != nil && node == e.lastStyleNode {
-			return e.lastStylePtr
+		if node != nil {
+			if e.styleCache[0].node == node {
+				return e.styleCache[0].style
+			}
+			if e.styleCache[1].node == node {
+				return e.styleCache[1].style
+			}
+			if e.styleCache[2].node == node {
+				return e.styleCache[2].style
+			}
+			if e.styleCache[3].node == node {
+				return e.styleCache[3].style
+			}
 		}
 	} else {
 		for i := len(e.styleOverrides) - 1; i >= 0; i-- {
@@ -1549,8 +1567,9 @@ func (e *engine) stylePtr(node *html.Node) *ResolvedStyle {
 	}
 
 	if len(e.styleOverrides) == 0 && node != nil {
-		e.lastStyleNode = node
-		e.lastStylePtr = p
+		slot := e.styleCacheNext & 3
+		e.styleCache[slot] = styleCacheEntry{node: node, style: p}
+		e.styleCacheNext++
 	}
 
 	return p
@@ -1571,8 +1590,10 @@ func (e *engine) setSyntheticStyle(node *html.Node, style *ResolvedStyle) {
 	}
 
 	e.syntheticStyles[node] = style
-	if e.lastStyleNode == node {
-		e.lastStylePtr = style
+	for i := range e.styleCache {
+		if e.styleCache[i].node == node {
+			e.styleCache[i].style = style
+		}
 	}
 }
 

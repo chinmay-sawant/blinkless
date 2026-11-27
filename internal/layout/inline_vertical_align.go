@@ -53,7 +53,18 @@ func (e *engine) effectiveVerticalAlignShift(style *ResolvedStyle) float64 {
 		return 0
 	}
 
-	switch strings.ToLower(strings.TrimSpace(style.inlineText().VerticalAlign)) {
+	it := style.inlineText()
+	va := it.VerticalAlign
+	if va == "" || va == baselineName {
+		if it.AlignmentBaseline == "" && it.DominantBaseline == "" {
+			return it.VerticalAlignShift
+		}
+
+		return it.VerticalAlignShift + e.alignmentBaselineShift(style)
+	}
+
+	trimmed := strings.TrimSpace(va)
+	switch strings.ToLower(trimmed) {
 	case verticalAlignSub:
 		return style.FontSize * -verticalAlignSubRatio
 	case verticalAlignSuper:
@@ -61,15 +72,15 @@ func (e *engine) effectiveVerticalAlignShift(style *ResolvedStyle) float64 {
 	}
 	// If VerticalAlign looks like a percent (e.g. "50%"), compute against
 	// line-height per CSS spec.
-	if pct := strings.TrimSpace(style.inlineText().VerticalAlign); strings.HasSuffix(pct, "%") {
-		if percent, ok := parsePercent(pct); ok {
+	if strings.HasSuffix(trimmed, "%") {
+		if percent, ok := parsePercent(trimmed); ok {
 			lineH := e.lineHeightOf(style)
 
 			return lineH * percent / oneHundred
 		}
 	}
 
-	return style.inlineText().VerticalAlignShift + e.alignmentBaselineShift(style)
+	return it.VerticalAlignShift + e.alignmentBaselineShift(style)
 }
 
 // Baseline selector spellings and fallbacks shared by the metric shift
@@ -173,16 +184,30 @@ func (e *engine) alignmentBaselineShift(style *ResolvedStyle) float64 {
 		return 0
 	}
 
-	switch strings.ToLower(strings.TrimSpace(style.inlineText().VerticalAlign)) {
-	case baselineName, "":
-		// Baseline default: the alignment baseline applies.
-	default:
-		return 0
+	it := style.inlineText()
+	va := it.VerticalAlign
+	if va != "" && va != baselineName {
+		switch strings.ToLower(strings.TrimSpace(va)) {
+		case baselineName, "":
+			// Baseline default: the alignment baseline applies.
+		default:
+			return 0
+		}
 	}
 
-	switch selector := strings.ToLower(strings.TrimSpace(style.inlineText().AlignmentBaseline)); selector {
+	ab := it.AlignmentBaseline
+	if ab == "" || ab == baselineAuto || ab == baselineName {
+		db := it.DominantBaseline
+		if db == "" || db == baselineAuto {
+			return 0
+		}
+
+		return e.baselineShiftFromMetrics(style, strings.ToLower(strings.TrimSpace(db)))
+	}
+
+	switch selector := strings.ToLower(strings.TrimSpace(ab)); selector {
 	case "", "auto", baselineName:
-		return e.baselineShiftFromMetrics(style, strings.ToLower(strings.TrimSpace(style.inlineText().DominantBaseline)))
+		return e.baselineShiftFromMetrics(style, strings.ToLower(strings.TrimSpace(it.DominantBaseline)))
 	default:
 		return e.baselineShiftFromMetrics(style, selector)
 	}
