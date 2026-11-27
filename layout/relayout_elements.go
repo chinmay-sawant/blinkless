@@ -67,10 +67,8 @@ func RelayoutElements(
 	}
 
 	baseOpts := batchBaseOptions(styled, prev, options)
-	owners := append([]int(nil), prev.OpOwners...)
-	order := append([]int(nil), prev.Order...)
 
-	batch, err := ilayout.RelayoutSubtrees(ctx, clone, elementIDs, baseOpts, owners, order)
+	batch, err := ilayout.RelayoutSubtrees(ctx, clone, elementIDs, baseOpts, prev.OpOwners, prev.Order)
 	if err != nil {
 		clone.Release()
 
@@ -98,7 +96,7 @@ func RelayoutElements(
 	display.Order = batch.Order
 
 	if batch.PaintOnly {
-		applyPaintOnlyBoxTexts(display.Boxes, batch.Texts)
+		applyPaintOnlyBoxTexts(display, batch.Texts)
 	}
 
 	return display, nil
@@ -143,9 +141,11 @@ func relayoutElementsReady(ctx context.Context, doc *css.Document, prev *Display
 // boxes are the previous display's slice, which the API declares stale once
 // the patched display is adopted, so they are updated in place: a fresh []Box
 // would rebuild the whole list the paint-only path avoids.
-func applyPaintOnlyBoxTexts(boxes []Box, texts []ilayout.PaintOnlyText) {
+func applyPaintOnlyBoxTexts(display *Display, texts []ilayout.PaintOnlyText) {
+	boxes := display.Boxes
+
 	for index := range texts {
-		boxIndex := boxIndexByID(boxes, texts[index].ID)
+		boxIndex := display.boxIndexByID(texts[index].ID)
 		if boxIndex < 0 || len(texts[index].Texts) == 0 {
 			continue
 		}
@@ -160,13 +160,22 @@ func applyPaintOnlyBoxTexts(boxes []Box, texts []ilayout.PaintOnlyText) {
 				continue
 			}
 
+			prevOld, prevNew := oldSub, newSub
 			parent := boxes[boxIndex].ParentIndex
 			for _, ancNode := range texts[index].AncestorNodes {
 				if parent < 0 || parent >= len(boxes) {
 					break
 				}
 
-				boxes[parent].Text = ilayout.SpliceOrNodeText(boxes[parent].Text, oldSub, newSub, ancNode)
+				curOld := boxes[parent].Text
+				if curOld == prevOld {
+					boxes[parent].Text = prevNew
+				} else {
+					curNew := ilayout.SpliceOrNodeText(curOld, oldSub, newSub, ancNode)
+					boxes[parent].Text = curNew
+					prevOld, prevNew = curOld, curNew
+				}
+
 				parent = boxes[parent].ParentIndex
 			}
 

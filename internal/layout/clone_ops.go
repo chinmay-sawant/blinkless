@@ -65,7 +65,12 @@ func cloneOps(src []Op) []Op {
 	// Every payload the clone must own comes out of one slab. A page of
 	// thousands of operations then pays one allocation for the payloads
 	// instead of one per operation, and the collector scans one object.
-	slab := make([]opExtra, countOwnedExtras(src))
+	extraCount := countOwnedExtras(src)
+	if extraCount == 0 {
+		return dst
+	}
+
+	slab := make([]opExtra, extraCount)
 	next := 0
 
 	for index := range src {

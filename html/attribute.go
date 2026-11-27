@@ -35,13 +35,7 @@ func (d *Document) SetAttribute(elementID, name, value string) bool {
 		return false
 	}
 
-	if node.EnsureAttrs() == nil {
-		node.Attrs = make(map[string]string, 1)
-	}
-
-	key := attributeKey(node.Attrs, name, node.Namespace != html.NamespaceHTML)
-	node.Attrs[key] = value
-	setAttrListValue(node, key, value)
+	setNodeAttrLocked(node, name, value)
 
 	d.root.MutationVersion++
 
@@ -183,14 +177,21 @@ func dropChildrenLocked(idx *elementIndex, node *html.Node) {
 	old := node.Children
 	node.Children = nil
 	node.ChildVersion++
+
+	forgetSubtreesLocked(idx, old...)
+}
+
+// forgetSubtreesLocked detaches roots and forgets any cached ids that pointed
+// inside the dropped subtrees. The caller holds idx.mu.
+func forgetSubtreesLocked(idx *elementIndex, roots ...*html.Node) {
 	idx.complete = false
 
 	dropped := make(map[*html.Node]bool)
 
 	var droppedIDs []string
 
-	for _, child := range old {
-		child.Walk(func(inner *html.Node) {
+	for _, root := range roots {
+		root.Walk(func(inner *html.Node) {
 			if inner.Type != html.ElementNode {
 				return
 			}
@@ -202,7 +203,7 @@ func dropChildrenLocked(idx *elementIndex, node *html.Node) {
 			}
 		})
 
-		child.Parent = nil
+		root.Parent = nil
 	}
 
 	// Forget only the ids that pointed inside the dropped subtree. An id
@@ -213,6 +214,18 @@ func dropChildrenLocked(idx *elementIndex, node *html.Node) {
 			delete(idx.byID, id)
 		}
 	}
+}
+
+// setNodeAttrLocked writes name=value to both node.Attrs and node.AttrList,
+// preserving existing attribute spelling and foreign case sensitivity.
+func setNodeAttrLocked(node *html.Node, name, value string) {
+	if node.EnsureAttrs() == nil {
+		node.Attrs = make(map[string]string, 1)
+	}
+
+	key := attributeKey(node.Attrs, name, node.Namespace != html.NamespaceHTML)
+	node.Attrs[key] = value
+	setAttrListValue(node, key, value)
 }
 
 // elementByID returns the element node with the given id, or nil.

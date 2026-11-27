@@ -356,17 +356,21 @@ func commitAbsTranslate(
 		}
 	}
 
-	if target.parent != nil {
-		for i, c := range target.parent.children {
-			if c == target.box {
-				target.parent.children[i] = newBox
+	if prev.boxesShared {
+		pathCopySwapBox(prev, target, newBox, thread)
+	} else {
+		if target.parent != nil {
+			for i, c := range target.parent.children {
+				if c == target.box {
+					target.parent.children[i] = newBox
 
-				break
+					break
+				}
 			}
 		}
+		thread.replace(target.box, newBox, target.parent)
 	}
-
-	thread.replace(target.box, newBox, target.parent)
+	prev.invalidateBoxIndex()
 
 	if out.SameBoxes {
 		cnt := countElementBoxes(newBox)

@@ -246,6 +246,7 @@ type Result struct {
 	refs           int32
 	ownsOps        bool
 	stylesShared   bool
+	boxesShared    bool
 	anchorsKnown   bool
 	hasAnchors     bool
 
@@ -311,6 +312,11 @@ func CloneResultForBatch(res *Result) *Result {
 	return cloneResult(res, true)
 }
 
+// batchBoxChunkCompactSlack bounds how many extra box chunks or child slabs
+// may accumulate across sequential copy-on-write batch patches before
+// CloneResultForBatch compacts the box graph into fresh pooled chunks.
+const batchBoxChunkCompactSlack = 32
+
 func cloneResult(res *Result, shareStyles bool) *Result {
 	if res == nil {
 		return nil
@@ -331,20 +337,57 @@ func cloneResult(res *Result, shareStyles bool) *Result {
 	clone.svgRasters, clone.overrideBase = nil, nil
 	clone.idBoxes, clone.boxParents, clone.boxOrder = nil, nil, nil
 
-	boxes := getCloneBoxMap(len(res.boxes))
-	defer putCloneBoxMap(boxes)
+	if shareStyles && res.root != nil &&
+		len(res.boxChunks) <= len(res.boxes)/defaultBoxChunkSize+batchBoxChunkCompactSlack &&
+		len(res.childSlabs) <= len(res.boxes)/defaultChildSlabSize+batchBoxChunkCompactSlack {
+		clone.boxChunks = nil
+		clone.boxesShared = true
 
-	arena := boxArena{chunks: nil, childSlab: make([]*box, 0, len(res.boxes))}
-	clone.root = cloneBoxGraph(res.root, boxes, &arena)
-	clone.rootBox = clone.root
-	clone.boxChunks = arena.chunks
-	clone.boxes = rentBoxPtrs(len(res.boxes))
-
-	for i, source := range res.boxes {
-		clone.boxes[i] = cloneBoxGraph(source, boxes, &arena)
+		return &clone
 	}
 
+	clone.boxesShared = false
+	clone.materializeBoxGraphFrom(res.root, res.boxes)
+
 	return &clone
+}
+
+// materializeBoxGraphFrom clones the box tree rooted at srcRoot into pooled
+// box chunks owned by r and rebuilds r.boxes.
+func (r *Result) materializeBoxGraphFrom(srcRoot *box, srcBoxes []*box) {
+	boxes := getCloneBoxMap(len(srcBoxes))
+	defer putCloneBoxMap(boxes)
+
+	arena := boxArena{chunks: nil, childSlab: make([]*box, 0, len(srcBoxes))}
+	r.root = cloneBoxGraph(srcRoot, boxes, &arena)
+	r.rootBox = r.root
+	r.boxChunks = arena.chunks
+	r.boxes = rentBoxPtrs(len(srcBoxes))
+
+	if len(srcBoxes) > 0 && r.root != nil {
+		// If every box in srcBoxes is reachable from srcRoot, reuse the map;
+		// if path-copying replaced an ancestor or leaf since srcBoxes was
+		// built, flatten from the cloned root so r.boxes matches r.root.
+		allMapped := true
+		for i, source := range srcBoxes {
+			mapped, ok := boxes[source]
+			if !ok {
+				allMapped = false
+
+				break
+			}
+			r.boxes[i] = mapped
+		}
+		if !allMapped {
+			flat := r.boxes[:0]
+			flattenBoxes(r.root, &flat)
+			r.boxes = flat
+		}
+	} else {
+		for i, source := range srcBoxes {
+			r.boxes[i] = cloneBoxGraph(source, boxes, &arena)
+		}
+	}
 }
 
 const (
