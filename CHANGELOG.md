@@ -9,6 +9,19 @@ and are not listed here.
 
 ## Unreleased
 
+## 0.1.10 (2026-11-27)
+
+Work after tag `v0.1.9`, merged in PR #57 and PR #58. Full release note in `plans/v0.1.10/release/v0.1.10.md`.
+
+### Added
+- **Opt-in vertical viewport culling (`layout/layout.go`, `layout/displaylist.go`, `internal/layout/layout_flow.go`).** Added `Options.CullWindow` (`TopPx`, `BottomPx`) so fixed-height in-flow block and flex containers outside the cull band advance flow Y without laying out children or emitting display ops, preserving exact canvas height and cutting 1,000-row `DisplayList` latency by **7.83×** (`9.73 ms` → `1.24 ms`).
+
+### Performance
+- **Zero-boxing `flowCBState` and pooled `Box` cap (`internal/layout/layout_height_context.go`, `layout/displaylist.go`).** Replaced `flowCBHeight *float64` with value struct `flowCBState` and raised `maxPooledBoxSliceCap` to `8192`, cutting 1,000-row `DisplayList` allocations by **92.6%** (`4,316` → `318`).
+- **Lazy box indices and restamp pooling (`internal/layout/layout_state.go`, `reproject.go`, `transform.go`, `layout/reproject.go`).** Lazily cached `idBoxes`, `boxParents`, and `boxOrder` on `Result` and `boxByID` on `Display`, pooled `covered []bool` in `restampBoxTransformsWithCovered`, and passed stack `[16]string` buffers to `splitTransformArgsInto`, cutting `BenchmarkAnimationTick` by **1.89×** (`98.87 µs` → `52.36 µs`, `38` → `20` allocs).
+- **Partitioned text-width maps and style/default fast paths (`internal/layout/text_measure_cache.go`, `layout.go`, `layout_faces.go`, `flex*.go`, `inline_*.go`, `mask_*.go`, `blend_group.go`).** Partitioned per-layout text-width caches by interned `styleID`, added a 4-slot `stylePtr` cache, threaded `*ResolvedStyle` through `flexMeas`/`flexPlacedItem`, added a `faceFor` pointer fast path, and short-circuited empty/`none`/`baseline` defaults before `strings.TrimSpace`.
+- **In-place `position: absolute` splicing and `CustomProps` intern hash caching (PR #57).** Spliced moved `position: absolute` boxes in place with a `tryAbsTranslate` fast path, filtered unused attributes from `matchCache`, and memoized base styles for inline `px` boxes.
+
 ## 0.1.9 (2026-11-25)
 
 Work after tag `v0.1.8` (`787ca05`), merged in PR #56. Full release note in `plans/v0.1.9/release/v0.1.9.md`.
