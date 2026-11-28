@@ -677,6 +677,9 @@ func hasClasses(part SelectorPart, node *html.Node) bool {
 	// map lookup and the upper-case scan for every class. "class" is lower-
 	// case, so the direct read equals Attribute (missing key reads as "").
 	classVal := node.AttrExact("class")
+	if classVal == "" {
+		return false
+	}
 
 	for _, c := range part.Classes {
 		if !hasClassToken(classVal, c) {
@@ -1177,8 +1180,11 @@ func parseAnPlusB(arg string) (int, int, bool) {
 // token slice or map. Non-ASCII whitespace falls back to the same Unicode
 // whitespace behavior previously provided by strings.Fields.
 func hasClassToken(value, want string) bool {
-	if want == "" {
+	if want == "" || len(value) < len(want) {
 		return false
+	}
+	if len(value) == len(want) {
+		return value == want
 	}
 
 	for start := 0; start < len(value); {
